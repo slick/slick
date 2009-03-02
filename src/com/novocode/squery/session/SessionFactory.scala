@@ -16,6 +16,10 @@ abstract class SessionFactory {
 
   def withSession[T](f: => T): T =
     withSession { s: Session => SessionFactory.dyn.withValue(s)(f) }
+
+  def withTransaction[T](f: Session => T): T = withSession { s => s.withTransaction(f(s)) }
+
+  def withTransaction[T](f: => T): T = withSession { SessionFactory.getThreadSession.withTransaction(f) }
 }
 
 object SessionFactory {

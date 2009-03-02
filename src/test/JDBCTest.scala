@@ -26,9 +26,11 @@ object JDBCTest {
     //val sp = new DriverManagerSessionFactory("org.h2.Driver", "jdbc:h2:h2server/test")
 
     sp withSession {
-      println("Creating user table: "+createTable())
-      println("Inserting users:")
-      for(i <- populateUsers) println("  "+i)
+      getThreadSession.withTransaction {
+        println("Creating user table: "+createTable())
+        println("Inserting users:")
+        for(i <- populateUsers) println("  "+i)
+      }
 
       println("All IDs:")
       for(s <- allIDs.list) println("  "+s)
