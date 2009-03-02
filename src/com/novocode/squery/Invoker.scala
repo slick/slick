@@ -50,7 +50,7 @@ object Invoker {
     }
   }
 
-  implicit def optioNoArgsnInvokerOperations[R](inv: NoArgsInvoker[Option[R]]) = new {
+  implicit def optionNoArgsInvokerOperations[R](inv: NoArgsInvoker[Option[R]]) = new {
     def firstFlatten(implicit session: Session): Option[R] = inv.firstOption(session) match {
       case None => None
       case Some(None) => None
