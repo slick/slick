@@ -1,12 +1,12 @@
 package com.novocode.squery.combinator
 
 object Implicit {
-  implicit def columnOfBooleanToBooleanColumn(c: Column[Boolean]): BooleanColumn = c match {
+  implicit def columnOfBooleanToBooleanColumn(c: Column[java.lang.Boolean]): BooleanColumn = c match {
     case c: BooleanColumn => c
     case _ => new WrappedColumn(c) with BooleanColumn
   }
 
-  implicit def columnOfIntToIntColumn(c: Column[Int]): IntColumn = c match {
+  implicit def columnOfIntToIntColumn(c: Column[java.lang.Integer]): IntColumn = c match {
     case c: IntColumn => c
     case _ => new WrappedColumn(c) with IntColumn
   }
