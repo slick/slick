@@ -8,7 +8,9 @@ import javax.sql.DataSource
  */
 class DataSourceSessionFactory(driver: String, ds: DataSource) extends SessionFactory {
 
-  Class.forName(driver)
+  def this(ds: DataSource) = this(null, ds)
+
+  if(!(driver eq null)) Class.forName(driver)
 
   protected[squery] def createConnection(): Connection = ds.getConnection
 }
