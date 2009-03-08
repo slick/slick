@@ -35,4 +35,10 @@ object ColumnOp {
       dumper(out, prefix+"  ", "base: ", base)
     }
   }
+
+  case class UnionOp(union: Union[_]) extends ColumnOp {
+    def dumpThis(out: PrintWriter, prefix: String, name: String, dumper: Dump.Dumper) {
+      out.println(prefix+name+"ColumnOp.UnionOp "+System.identityHashCode(this))
+    }
+  }
 }

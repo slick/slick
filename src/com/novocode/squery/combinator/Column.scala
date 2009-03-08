@@ -8,7 +8,7 @@ import java.io.PrintWriter
 //  Columns
 /////////////////////////////////////////////////////////////////////////////
 
-sealed trait Column[+T] extends WithOp with Dump {
+sealed trait Column[T] extends WithOp with Dump {
   def count = Operator.Count(this)
   def max = Operator.Max(this)
   def is[E](e: Column[E]) = Operator.Is(this, e)
@@ -120,6 +120,14 @@ class Join[+T1 <: TableBase.T_, +T2 <: TableBase.T_](_left: T1, _right: T2) exte
 
 object Join {
   def unapply[T1 <: TableBase.T_, T2 <: TableBase.T_](j: Join[T1, T2]) = Some((j.left, j.right))
+}
+
+case class Union[T <: Column.T_](all: Boolean, query1: Query[T], query2: Query[T]) extends TableBase[Nothing] {
+  def dumpThis(out: PrintWriter, prefix: String, name: String, dumper: Dump.Dumper) {
+    out.println(prefix+name+(if(all) "Union all" else "Union"))
+    dumper(out, prefix+"  ", "query1: ", query1)
+    dumper(out, prefix+"  ", "query2: ", query2)
+  }
 }
 
 

@@ -32,3 +32,9 @@ object Query {
 
   def flatten[E <: AnyRef](q: Query[Query[E]]): Query[E] = q.flatMap(x => x)
 }
+
+class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
+  
+  def union(other: Query[E]): Query[E] =
+    Query(q.value.withOp(ColumnOp.UnionOp(new Union(false, q, other))))
+}

@@ -7,9 +7,9 @@ import com.novocode.squery.RefId
 
 class QueryBuilder private[QueryBuilder] (val query: Query[Column[_]], parent: Option[QueryBuilder]) {
 
-  //TODO Pull tables out of subqueries where needed
-
   def this(query: Query[Column[_]]) = this(query, None)
+
+  //TODO Pull tables out of subqueries where needed
 
   private val tnames = new HashMap[RefId[TableBase[_]], String]
   private[this] var nextTid = 1
@@ -39,6 +39,10 @@ class QueryBuilder private[QueryBuilder] (val query: Query[Column[_]], parent: O
       op match {
         case ColumnOp.SortOp(base, by, desc) => { find(base); find(by) }
         case ColumnOp.SubQueryOp(query) => subQueries.put(RefId[Query[_]](query), new QueryBuilder(query, Some(this)))
+        case ColumnOp.UnionOp(union @ Union(_, query1, query2)) =>
+          //subQueries.put(RefId[Query[_]](query1), new QueryBuilder(query1, Some(this)))
+          //subQueries.put(RefId[Query[_]](query2), new QueryBuilder(query2, Some(this)))
+          nameFor(union)
       }
     case p: Projection[_] => p.elements.foreach(find _)
     case c: ConstColumn[_] => ()
@@ -62,6 +66,7 @@ class QueryBuilder private[QueryBuilder] (val query: Query[Column[_]], parent: O
       op match {
         case ColumnOp.SortOp(base, _, _) => expr(base) //TODO Handle nested SortOps
         case ColumnOp.SubQueryOp(query) => "(" + subQueries(RefId[Query[_]](query)).buildSelect + ")"
+        case ColumnOp.UnionOp(_) => "*"
       }
     case p: Projection[_] => p.elements.map(expr(_)).reduceLeft(_ + "," + _)
     case ConstColumn(i: Int) => i.toString
@@ -109,6 +114,8 @@ class QueryBuilder private[QueryBuilder] (val query: Query[Column[_]], parent: O
     case w @ WithOp(ColumnOp.JoinOp(base: Table[_], join)) => None
     case join @ Join(t1: Table[_], t2: Table[_]) =>
       Some(t1.tableName + " " + nameFor(t1) + " natural join " + t2.tableName + " " + nameFor(t2))
+    case union @ Union(all, q1, q2) =>
+      Some(" xxx UNION xxx " + nameFor(union)) //TODO fix this
   }
 
   def buildSelect: String = buildSelect(query.value)
