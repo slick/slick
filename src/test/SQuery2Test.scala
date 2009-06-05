@@ -1,6 +1,6 @@
 package test
 
-import com.novocode.squery.combinator.{Table, Join, Query, ColumnOp, StatementCombinatorQueryInvoker, Projection}
+import com.novocode.squery.combinator.{Table, Join, Query, StatementCombinatorQueryInvoker, Projection}
 import com.novocode.squery.combinator.sql.{QueryBuilder, InsertUpdateBuilder, DDLBuilder}
 import com.novocode.squery.combinator.Implicit._
 
@@ -57,22 +57,34 @@ object SQuery2Test {
     println()
     q5.dump("q5: ")
 
-    val usersBase = Users.withOp(new ColumnOp.BaseTableQueryOp(Users))
+    val usersBase = Users.withOp(new Table.Alias(Users))
 
     {
       println()
-      println("m1a: " + new QueryBuilder(for {
+      val m1a = for {
         u <- Query(usersBase)
         r <- Query(u)
-      } yield r).buildSelect)
-      println("m1b: " + new QueryBuilder(Query(usersBase)).buildSelect)
+      } yield r
+      val m1b = Query(usersBase)
+      m1a.dump("m1a: ")
+      println()
+      m1b.dump("m1b: ")
+      println()
+      println("m1a: " + new QueryBuilder(m1a).buildSelect)
+      println("m1b: " + new QueryBuilder(m1b).buildSelect)
     }
 
     {
-      val f = { t:Table[_] => t.withOp(new ColumnOp.BaseTableQueryOp(t)) }
       println()
-      println("m2a: "+ new QueryBuilder(for { u <- Query(Users) } yield f(u)).buildSelect)
-      println("m2b: " + new QueryBuilder(Query(f(Users))).buildSelect)
+      val f = { t:Table[_] => t.withOp(new Table.Alias(t)) }
+      val m2a = for { u <- Query(Users) } yield f(u)
+      val m2b = Query(f(Users))
+      m2a.dump("m2a: ")
+      println()
+      m2b.dump("m2b: ")
+      println()
+      println("m2a: "+ new QueryBuilder(m2a).buildSelect)
+      println("m2b: " + new QueryBuilder(m2b).buildSelect)
     }
 
     /*

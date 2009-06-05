@@ -3,13 +3,14 @@ package com.novocode.squery.combinator
 // Not generic to work around bug #1434
 
 trait WithOp extends Cloneable {
-  def withOp(op: ColumnOp): this.type = {
+  def withOp(op: Node): this.type = {
     val t = clone
     t._op = op
     t
   }
-  private[WithOp] var _op: ColumnOp = _
-  final def op: ColumnOp = _op
+  private[WithOp] var _op: Node = _
+  final def op: Node = _op
+  //protected[WithOp] def op_=(c:Node):Unit = _op = c
   override def clone(): this.type = super.clone.asInstanceOf[this.type]
 }
 

@@ -3,7 +3,7 @@ package com.novocode.squery.combinator
 import java.io.PrintWriter
 
 
-class Query[+E <: AnyRef](val value: E, val cond: List[BooleanColumn]) extends Dump {
+class Query[+E <: AnyRef](val value: E, val cond: List[BooleanColumn]) extends Node {
 
   def select[F <: AnyRef](f: E => Query[F]): Query[F] = {
     val q = f(value)
@@ -17,11 +17,13 @@ class Query[+E <: AnyRef](val value: E, val cond: List[BooleanColumn]) extends D
   def map[F <: AnyRef](f: E => F): Query[F] = flatMap(v => Query(f(v)))
   //def filter(f: E => BooleanColumn): Query[E] = where(f)
 
-  def dumpThis(out: PrintWriter, prefix: String, name: String, dumper: Dump.Dumper) {
-    out.println(prefix+name+"Query")
-    dumper(out, prefix+"  ", "select: ", value)
-    for(w <- cond) dumper(out, prefix+"  ", "where: ", w)
+  def nodeChildren = Node(value) :: cond.map(Node.apply)
+  override def nodeChildrenNames = {
+    lazy val s:Stream[String] = Stream.cons("where", s)
+    Stream.cons("select", s)
   }
+
+  override def toString = "Query"
 }
 
 object Query {
@@ -36,5 +38,5 @@ object Query {
 class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
   
   def union(other: Query[E]): Query[E] =
-    Query(q.value.withOp(ColumnOp.UnionOp(new Union(false, q, other))))
+    Query(q.value.withOp(Union.UnionPart(new Union(false, q, other))))
 }
