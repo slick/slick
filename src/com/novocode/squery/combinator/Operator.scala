@@ -3,7 +3,7 @@ package com.novocode.squery.combinator
 import java.io.PrintWriter
 
 
-trait Operator { self: Column[_] =>
+trait Operator { self: Column.T_ =>
   def children: List[Column[_]]
 
   def dumpThis(out: PrintWriter, prefix: String, name: String, dumper: Dump.Dumper) {
