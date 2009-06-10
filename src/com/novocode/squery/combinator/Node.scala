@@ -28,9 +28,11 @@ trait Node {
       ch.dump(dc, prefix + "  ", n+": ")
   }
 
-  final def dump(name: String) {
+  final def dump(name: String) { dump(name, NamingContext()) }
+
+  final def dump(name: String, nc: NamingContext) {
     val out = new PrintWriter(new OutputStreamWriter(System.out))
-    dump(new Node.DumpContext(out, new NamingContext), "", name)
+    dump(new Node.DumpContext(out, nc), "", name)
     out.flush()
   }
 }

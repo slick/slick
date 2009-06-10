@@ -63,8 +63,8 @@ abstract class WrappedColumn[T](val parent: SimpleColumn[T]) extends Convertible
   def nodeChildren = parent :: Nil
 }
 
-abstract class NamedColumn[T](val table: Table[_], val name: String, val options: ColumnOption*) extends SimpleColumn[T] {
-  def nodeChildren = Node(table) :: Nil
+abstract class NamedColumn[T](val table: Node, val name: String, val options: ColumnOption*) extends SimpleColumn[T] {
+  def nodeChildren = table :: Nil
   override def toString = "NamedColumn " + name
 }
 
@@ -82,16 +82,16 @@ object TableBase {
   type T_ = TableBase[_]
 }
 
-abstract class Table[T](val tableName: String) extends TableBase[T] with ConvertibleColumn[T] { self =>
+abstract class Table[T](val tableName: String) extends TableBase[T] with ConvertibleColumn[T] {
 
   def nodeChildren = Nil
   override def toString = "Table " + tableName
 
   def O = ColumnOption
 
-  def stringColumn(n: String, options: ColumnOption*) = new NamedColumn[String](this, n, options:_*) with StringColumn
-  def intColumn(n: String, options: ColumnOption*) = new NamedColumn[java.lang.Integer](this, n, options:_*) with IntColumn
-  def booleanColumn(n: String, options: ColumnOption*) = new NamedColumn[java.lang.Boolean](this, n, options:_*) with BooleanColumn
+  def stringColumn(n: String, options: ColumnOption*) = new NamedColumn[String](Node(this), n, options:_*) with StringColumn
+  def intColumn(n: String, options: ColumnOption*) = new NamedColumn[java.lang.Integer](Node(this), n, options:_*) with IntColumn
+  def booleanColumn(n: String, options: ColumnOption*) = new NamedColumn[java.lang.Boolean](Node(this), n, options:_*) with BooleanColumn
 
   def * : ConvertibleColumn[T]
 

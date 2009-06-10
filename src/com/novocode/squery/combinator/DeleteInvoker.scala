@@ -5,7 +5,7 @@ import com.novocode.squery.session.{Session, CloseableIterator, ReadAheadIterato
 
 class DeleteInvoker[T] (query: Query[Table[T]]) {
 
-  lazy val deleteStatement = new QueryBuilder(query).buildDelete
+  lazy val deleteStatement = QueryBuilder.buildDelete(query, NamingContext())
 
   def delete(implicit session: Session): Int = {
     val st = session.allocPS(deleteStatement)

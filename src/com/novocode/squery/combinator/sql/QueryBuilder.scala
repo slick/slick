@@ -1,174 +1,149 @@
 package com.novocode.squery.combinator.sql
 
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{HashMap, HashSet}
 import java.io.PrintWriter
 import com.novocode.squery.combinator._
 import com.novocode.squery.RefId
 
-class QueryBuilder private[QueryBuilder] (val query: Query[Column[_]], parent: Option[QueryBuilder]) {
-
-  def this(query: Query[Column[_]]) = this(query, None)
+private class QueryBuilder (val query: Query[_], private[this] var nc: NamingContext, parent: Option[QueryBuilder]) {
 
   //TODO Pull tables out of subqueries where needed
+  //TODO Support unions
+  //TODO Rename columns where needed
 
-  private val tnames = new HashMap[RefId[TableBase[_]], String]
-  private[this] var nextTid = 1
+  private[this] val localTables = new HashMap[String, Node]
+  private[this] val declaredTables = new HashSet[String]
+  private[this] val subQueryBuilders = new HashMap[RefId[Query[_]], QueryBuilder]
+  private[this] var fromSlot: SQLBuilder = _
 
-  private[this] def nameFor(t: TableBase[_]) = parent.flatMap(_.tnames.get(RefId(t))) orElse tnames.get(RefId(t)) match {
-    case Some(n) => n
-    case None =>
-      val n = "t"+getNextTid
-      tnames.put(RefId(t), n)
-      n
-  }
-
-  private def getNextTid: Int = parent match {
-    case Some(s) => s.getNextTid
-    case _ => {
-      val id = nextTid
-      nextTid += 1
-      id
-    }
-  }
-
-  private[this] val subQueries = new HashMap[RefId[Query[_]], QueryBuilder]
-  
-  private[this] def find(c: Node): Unit = c match {
-    case null => ()
-    case w @ WithOp(op) if(!op.isInstanceOf[Table.Alias]) =>
-      op match {
-        case Operator.Ordering(base, by, desc) => { find(base); find(by) }
-        case query:Query[Column[_]] => subQueries.put(RefId[Query[_]](query), new QueryBuilder(query, Some(this)))
-        case Union.UnionPart(union:Union[_]) =>
-          //subQueries.put(RefId[Query[_]](query1), new QueryBuilder(query1, Some(this)))
-          //subQueries.put(RefId[Query[_]](query2), new QueryBuilder(query2, Some(this)))
-          nameFor(union)
-      }
-    case p: Projection[_] => p.nodeChildren.foreach(find _)
-    case c: ConstColumn[_] => ()
-    case w: WrappedColumn[_] => find(w.parent)
-    case n: NamedColumn[_] =>
-      nameFor(n.table)
-      n.table match {
-        case WithOp(Join.JoinPart(_, join)) => nameFor(join.asInstanceOf[TableBase[_]])
-        case _ => ()
-      }
-    case t: TableBase[_] => nameFor(t)
-    case _ => c.nodeChildren.foreach(find _)
-  }
-
-  find(query.value)
-  for(w <- query.cond) find(w)
-
-  private[this] def expr(c: Node): String = c match {
-    case null => "null"
-    case w @ WithOp(op) if(!op.isInstanceOf[Table.Alias]) =>
-      op match {
-        case Operator.Ordering(base, _, _) => expr(base) //TODO Handle nested SortOps
-        case query:Query[_] => "(" + subQueries(RefId[Query[_]](query)).buildSelect + ")"
-        case Union.UnionPart(_) => "*"
-      }
-    case p: Projection[_] => p.nodeChildren.map(expr(_)).reduceLeft(_ + "," + _)
-    case ConstColumn(i: Int) => i.toString
-    case ConstColumn(b: Boolean) => b.toString
-    case ConstColumn(s: String) => '\'' + sqlEncode(s) + '\''
-    case w: WrappedColumn[_] => expr(w.parent)
-    case n: NamedColumn[_] => { nameFor(n.table) + '.' + (n.name) }
-    case t: Table[_] => expr(t.*)
-    case t: TableBase[_] => { nameFor(t) + ".*" }
-    case Operator.Not(Operator.Is(l, null)) => '(' + expr(l) + " is not null)"
-    case Operator.Is(l, null) => '(' + expr(l) + " is null)"
-    case Operator.Is(l, r) => '(' + expr(l) + '=' + expr(r) + ')'
-    case Operator.In(l, r) => '(' + expr(l) + " in " + expr(r) + ')'
-    case Operator.And(l, r) => '(' + expr(l) + " and " + expr(r) + ')'
-    case Operator.Or(l, r) => '(' + expr(l) + " or " + expr(r) + ')'
-    case Operator.Count(e) => "count(" + expr(e) + ')'
-    case Operator.Max(e) => "max(" + expr(e) + ')'
-    case Operator.Not(e) => "not " + expr(e)
-  }
-
-  private[this] def sortClause(c: Node): String = c match {
-    case null => "null"
-    case WithOp(op) =>
-      op match {
-        case Operator.Ordering(_, by, desc) =>
-          val s = " ORDER BY " + expr(by)
-          if(desc) s + " descending" else s
-        case _ => null
-      }
-    case _ => null
-  }
-
-  private[this] def sqlEncode(s: String) = {
-    val sb = new StringBuilder(s.length + 4)
-    for(c <- s) c match {
-      case '\'' => sb append "''"
-      case _ => sb append c
-    }
-    sb.toString
-  }
-
-  private[this] def table(t: TableBase[_]): Option[String] = t match {
-    case w @ WithOp(Table.Alias(base: Table[_])) =>
-      Some(base.tableName + " " + nameFor(w.asInstanceOf[TableBase[_]]))
-    case w @ WithOp(Join.JoinPart(base: Table[_], join)) => None
-    case join @ Join(t1: Table[_], t2: Table[_]) =>
-      Some(t1.tableName + " " + nameFor(t1) + " natural join " + t2.tableName + " " + nameFor(t2))
-    case union:Union[_] =>
-      Some(" xxx UNION xxx " + nameFor(union)) //TODO fix this
-  }
-
-  def buildSelect: String = buildSelect(query.value)
-
-  def buildSelect(value: Node): String = value match {
-    case Operator.Count(e) => "SELECT count(*) from (" + buildSelect(e) + ")"
+  private[this] def localTableName(n: Node) = n match {
+    case Join.JoinPart(table, from) =>
+      // Special case for Joins: A join combines multiple tables but does not alias them
+      localTables(nc.nameFor(from)) = from
+      nc.nameFor(table)
     case _ =>
-      val b = new StringBuilder("SELECT ") append expr(value)
-      var first = true
-      forLocalTables { t =>
-        table(t) match {
-          case Some(s) =>
-            b append (if(first) " FROM " else ", ") append s
-            if(first) first = false
-          case _ => ()
-        }
-      }
-      appendConditions(b)
-      val s = sortClause(value)
-      if(!(s eq null)) b append s
-      b.toString
+      val name = nc.nameFor(n)
+      localTables(name) = n
+      name
   }
 
-  def buildDelete: String = {
-    val b = new StringBuilder("DELETE FROM ")
-    var delTable:Table[_] = null
-    forLocalTables { t => t match {
-      case w @ WithOp(Table.Alias(base: Table[_])) =>
-        if(delTable eq null) {
-          delTable = w.asInstanceOf[Table[_]]
-          b append base.tableName
-        } else throw new SQueryException("Cannot build DELETE statement for more than one table")
-      case WithOp(Join.JoinPart(base: Table[_], join)) => ()
-      case _ => throw new SQueryException("Cannot build DELETE statement for table "+t)
-    }}
-    var first = true
-    tnames.put(RefId(delTable), delTable.tableName) // Alias table to itself because DELETE does not support aliases
-    appendConditions(b)
+  private def isDeclaredTable(name: String): Boolean =
+    if(declaredTables contains name) true
+    else parent.map(_.isDeclaredTable(name)).getOrElse(false)
+  
+  private[this] def subQueryBuilderFor(q: Query[_]) =
+    subQueryBuilders.getOrElseUpdate(RefId(q), new QueryBuilder(q, nc, Some(this)))
+
+  private def buildSelect: String = {
+    val b = new SQLBuilder
+    buildSelect(Node(query.value), b)
+    insertFromClauses()
     b.toString
   }
 
-  private[this] def appendConditions(b: StringBuilder) {
-    var first = true
-    query.cond match {
-      case Nil => ()
-      case a :: l =>
-        b append " WHERE " append expr(a)
-        for(e <- l) b append " AND " append expr(e)
-    }
+  private def buildSelect(value: Node, b: SQLBuilder): Unit = value match {
+    case Operator.Count(e) => { b += "SELECT count(*) from ("; buildSelect(e, b); b += ")" }
+    case Operator.Ordering(base, by, desc) =>
+      buildSelect(base, b)
+      b += " ORDER BY "
+      expr(by, b)
+      if(desc) b += " descending"
+    case _ =>
+      b += "SELECT "
+      expr(value, b)
+      fromSlot = b.createSlot
+      appendConditions(b)
   }
 
-  private[this] def forLocalTables(f: TableBase[_] => Unit) =
-    for((r @ RefId(t), n) <- tnames)
-      if(!parent.flatMap(_.tnames.get(r)).isDefined) f(t)
-    
+  private def buildDelete: String = {
+    val b = new SQLBuilder += "DELETE FROM "
+    val (delTable, delTableName) = Node(query.value) match {
+      case t @ Table.Alias(base:Table[_]) => (t, base.tableName)
+      case t:Table[_] => (t, t.tableName)
+      case n => throw new SQueryException("Cannot create a DELETE statement from an \""+n+
+        "\" expression; An aliased or base table is required")
+    }
+    b += delTableName
+    nc = nc.overrideName(delTable, delTableName) // Alias table to itself because DELETE does not support aliases
+    appendConditions(b)
+    if(localTables.size > 1)
+      throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
+    for(qb <- subQueryBuilders.values)
+      qb.insertFromClauses()
+    b.toString
+  }
+
+  private[this] def expr(c: Node, b: SQLBuilder): Unit = c match {
+    case NullNode => b += "null"
+    case Operator.Not(Operator.Is(l, NullNode)) => { b += '('; expr(l, b); b += " is not null)" }
+    case Operator.Is(l, NullNode) => { b += '('; expr(l, b); b += " is null)" }
+    case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
+    case Operator.In(l, r) => { b += '('; expr(l, b); b += " in "; expr(r, b); b += ')' }
+    case Operator.And(l, r) => { b += '('; expr(l, b); b += " and "; expr(r, b); b += ')' }
+    case Operator.Or(l, r) => { b += '('; expr(l, b); b += " or "; expr(r, b); b += ')' }
+    case Operator.Count(e) => { b += "count("; expr(e, b); b += ')' }
+    case Operator.Max(e) => { b += "max("; expr(e, b); b += ')' }
+    case Operator.Not(e) => { b += "not "; expr(e, b) }
+    case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b); b += ")" }
+    //case Union.UnionPart(_) => "*"
+    case p: Projection[_] => {
+      var first = true
+      p.nodeChildren.foreach { c =>
+        if(first) first = false else b += ','
+        expr(c, b)
+      }
+    }
+    case ConstColumn(i: Int) => b += i.toString
+    case ConstColumn(v: Boolean) => b += v.toString
+    case ConstColumn(s: String) => b +?= s
+    case w: WrappedColumn[_] => expr(w.parent, b)
+    case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
+    case a @ Table.Alias(t: WithOp) => expr(t.withOp(a), b)
+    case t: Table[_] => expr(t.*, b)
+    case t: TableBase[_] => b += localTableName(t) += ".*"
+    case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
+  }
+
+  private[this] def appendConditions(b: SQLBuilder): Unit = query.cond match {
+    case a :: l =>
+      b += " WHERE "
+      expr(Node(a), b)
+      for(e <- l) { b += " AND "; expr(Node(e), b) }
+    case Nil => ()
+  }
+
+  private def insertFromClauses() {
+    var first = true
+    for((name, t) <- localTables) {
+      if(!parent.map(_.isDeclaredTable(name)).getOrElse(false)) {
+        if(first) { fromSlot += " FROM "; first = false }
+        else fromSlot += ','
+        table(t, name, fromSlot)
+        declaredTables += name
+      }
+    }
+    for(qb <- subQueryBuilders.values)
+      qb.insertFromClauses()
+  }
+
+  private[this] def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
+    case Table.Alias(base: Table[_]) =>
+      b += base.tableName += ' ' += name
+    case base: Table[_] =>
+      b += base.tableName += ' ' += name
+    case Table.Alias(j: Join[_,_]) => {
+      var first = true
+      for(n <- j.nodeChildren) {
+        if(first) first = false
+        else b += " natural join "
+        table(n, nc.nameFor(n), b)
+      }
+    }
+  }
+}
+
+object QueryBuilder {
+  def buildSelect(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildSelect
+
+  def buildDelete(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildDelete
 }

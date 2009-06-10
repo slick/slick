@@ -22,8 +22,8 @@ class InsertUpdateBuilder(val column: ConvertibleColumn[_]) {
         }
         cols append n.name
         vals append '?'
-        if(table eq null) table = n.table.tableName
-        else if(table != n.table.tableName) throw new SQueryException("Inserts must all be to the same table")
+        if(table eq null) table = n.table.asInstanceOf[Table[_]].tableName
+        else if(table != n.table.asInstanceOf[Table[_]].tableName) throw new SQueryException("Inserts must all be to the same table")
       case _ => throw new SQueryException("Cannot use column "+c+" in INSERT statement")
     }
     f(column)
