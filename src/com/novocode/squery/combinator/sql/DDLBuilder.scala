@@ -33,8 +33,17 @@ class DDLBuilder(table: Table[_]) {
     }
     c match {
       case n: NamedColumn[_] =>
-        if(n.options.contains(ColumnOption.NotNull)) s += " NOT NULL"
-        if(n.options.contains(ColumnOption.AutoInc)) s += " AUTO_INCREMENT"
+        var notNull = false
+        var autoIncrement = false
+        var defaultLiteral:String = null
+        for(o <- n.options) o match {
+          case ColumnOption.NotNull => notNull = true
+          case ColumnOption.AutoInc => autoIncrement = true
+          case ColumnOption.Default(v) => defaultLiteral = n.valueToSQLLiteral(v)
+        }
+        if(defaultLiteral ne null) s += " DEFAULT " + defaultLiteral
+        if(notNull) s += " NOT NULL"
+        if(autoIncrement) s += " AUTO_INCREMENT"
       case _ => ()
     }
     s

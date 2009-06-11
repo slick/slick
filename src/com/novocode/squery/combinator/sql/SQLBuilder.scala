@@ -12,15 +12,7 @@ final class SQLBuilder {
 
   def +=(s: SQLBuilder) = { sb append s.sb; this }
 
-  def +?=(s: String) = {
-    sb append '\''
-    for(c <- s) c match {
-      case '\'' => sb append "''"
-      case _ => sb append c
-    }
-    sb append '\''
-    this
-  }
+  def +?=(s: String) = { StringColumn.createStringLiteral(s, sb); this }
 
   def createSlot = {
     val d = new SQLBuilder

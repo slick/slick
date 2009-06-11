@@ -13,7 +13,7 @@ object SQuery2Test2 {
 
     object Users extends Table[(Integer, String, String)]("users") {
       def id = intColumn("id", O.AutoInc, O.NotNull)
-      def first = stringColumn("first")
+      def first = stringColumn("first", O.Default("NFN"))
       def last = stringColumn("last")
       def * = id ~ first ~ last
 
