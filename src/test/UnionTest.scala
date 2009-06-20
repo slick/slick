@@ -1,6 +1,5 @@
 package test
 
-import java.lang.Integer
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session._
@@ -9,14 +8,14 @@ import com.novocode.squery.session.SessionFactory._
 object UnionTest {
   def main(args: Array[String]) {
 
-    object Managers extends Table[(Integer, String, String)]("managers") {
+    object Managers extends Table[(Int, String, String)]("managers") {
       def id = intColumn("id")
       def name = stringColumn("name")
       def department = stringColumn("department")
       def * = id ~ name ~ department
     }
 
-    object Employees extends Table[(Integer, String, Integer)]("employees") {
+    object Employees extends Table[(Int, String, Int)]("employees") {
       def id = intColumn("id")
       def name = stringColumn("name")
       def manager = intColumn("manager", O.NotNull)

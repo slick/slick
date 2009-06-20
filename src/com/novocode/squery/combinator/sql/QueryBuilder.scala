@@ -96,6 +96,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case ConstColumn(i: Int) => b += i.toString
     case ConstColumn(v: Boolean) => b += v.toString
     case ConstColumn(s: String) => b +?= s
+    case o: OptionColumn[_] => expr(o.nodeChildren.first, b)
     case w: WrappedColumn[_] => expr(w.parent, b)
     case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
     case a @ Table.Alias(t: WithOp) => expr(t.withOp(a), b)

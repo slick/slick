@@ -7,14 +7,14 @@ import com.novocode.squery.combinator.Implicit._
 object SQuery2Test {
   def main(args: Array[String]) {
 
-    object Users extends Table[(Integer, String, String)]("users") {
+    object Users extends Table[(Int, String, String)]("users") {
       def id = intColumn("id")
       def first = stringColumn("first")
       def last = stringColumn("last")
       def * = id ~ first ~ last
     }
 
-    object Orders extends Table[(Integer, Integer)]("orders") {
+    object Orders extends Table[(Int, Int)]("orders") {
       def userID = intColumn("userID")
       def orderID = intColumn("orderID")
       def * = userID ~ orderID
@@ -51,6 +51,10 @@ object SQuery2Test {
       uo <- Users join Orders
       val Join(u,o) = uo
     } yield u.first ~ o.orderID sortBy u.last
+
+    /*val q4b = for {
+      Join(u,o) <- Users join Orders
+    } yield u.first ~ o.orderID sortBy u.last*/
 
     val q5 = for (
       o <- Orders

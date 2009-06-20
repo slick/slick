@@ -1,23 +1,26 @@
 package com.novocode.squery.combinator
 
 object Implicit {
-  implicit def columnOfBooleanToBooleanColumn(c: Column[java.lang.Boolean]): BooleanColumn = c match {
+  implicit def columnOfBooleanToBooleanColumn(c: Column[Boolean]): BooleanColumn = c match {
     case c: BooleanColumn => c
+    case s: SimpleColumn[Boolean] => new WrappedColumn(c) with BooleanColumn { override def nullValue = s.nullValue }
     case _ => new WrappedColumn(c) with BooleanColumn
   }
 
-  implicit def columnOfIntToIntColumn(c: Column[java.lang.Integer]): IntColumn = c match {
+  implicit def columnOfIntToIntColumn(c: Column[Int]): IntColumn = c match {
     case c: IntColumn => c
+    case s: SimpleColumn[Int] => new WrappedColumn(c) with IntColumn { override def nullValue = s.nullValue }
     case _ => new WrappedColumn(c) with IntColumn
   }
 
   implicit def columnOfStringToStringColumn(c: Column[String]): StringColumn = c match {
     case c: StringColumn => c
+    case s: SimpleColumn[String] => new WrappedColumn(c) with StringColumn { override def nullValue = s.nullValue }
     case _ => new WrappedColumn(c) with StringColumn
   }
 
-  implicit def intToConstColumn(v: Int) = new ConstColumn(java.lang.Integer.valueOf(v)) with IntColumn
-  implicit def integerToConstColumn(v: java.lang.Integer) = new ConstColumn(v) with IntColumn
+  implicit def intToConstColumn(v: Int) = new ConstColumn(v) with IntColumn
+  implicit def booleanToConstColumn(v: Boolean) = new ConstColumn(v) with BooleanColumn
   implicit def stringToConstColumn(v: String) = new ConstColumn(v) with StringColumn
 
   implicit def tableToQuery[T <: TableBase.T_](t: T) = Query(t.withOp(new Table.Alias(Node(t))))

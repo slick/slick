@@ -16,9 +16,6 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setTime(value: Time) = { pos += 1; ps.setTime(pos, value) }
   def setTimestamp(value: Timestamp) = { pos += 1; ps.setTimestamp(pos, value) }
 
-  def setInt(value: java.lang.Integer) = { pos += 1; if(value eq null) ps.setNull(pos, Types.INTEGER) else ps.setInt(pos, value.intValue) }
-  def setBoolean(value: java.lang.Boolean) = { pos += 1; if(value eq null) ps.setNull(pos, Types.BOOLEAN) else ps.setBoolean(pos, value.booleanValue) }
-
   def setBooleanOption(value: Option[Boolean]) = {
     pos += 1
     if(value eq None) ps.setNull(pos, Types.BOOLEAN) else ps.setBoolean(pos, value.get)

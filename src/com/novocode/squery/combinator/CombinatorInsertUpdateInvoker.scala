@@ -10,7 +10,7 @@ class CombinatorInsertUpdateInvoker[T] (column: ConvertibleColumn[T]) {
   def insert(value: T)(implicit session: Session): Int = {
     val st = session.allocPS(insertStatement)
     st.clearParameters
-    column.setParameter(new PositionedParameters(st), value)
+    column.setParameter(new PositionedParameters(st), Some(value))
     try { st.executeUpdate } finally session.freePS(insertStatement, st)
   }
 

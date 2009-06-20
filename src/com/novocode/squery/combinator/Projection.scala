@@ -6,12 +6,13 @@ import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 sealed trait Projection[T <: Product] extends ConvertibleColumn[T] with Product {
   def nodeChildren = 0 until productArity map { i => Node(productElement(i)) } toList
 
-  def setParameter(ps: PositionedParameters, value: T): Unit = {
+  def setParameter(ps: PositionedParameters, value: Option[T]): Unit = {
     for(i <- 0 until productArity) {
-      val v = value.productElement(i)
-      productElement(i).asInstanceOf[ConvertibleColumn[Any]].setParameter(ps, v)
+      productElement(i).asInstanceOf[ConvertibleColumn[Any]].setParameter(ps, value.map(_.productElement(i)))
     }
   }
+
+  def getResultOption(rs: PositionedResult) = Some(getResult(rs))
 
   override def toString = "Projection" + productArity
 }

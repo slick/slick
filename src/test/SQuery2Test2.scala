@@ -1,6 +1,5 @@
 package test
 
-import java.lang.Integer
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session._
@@ -9,9 +8,9 @@ import com.novocode.squery.session.SessionFactory._
 object SQuery2Test2 {
   def main(args: Array[String]) {
 
-    case class User(id: Integer, first: String, last: String)
+    case class User(id: Int, first: String, last: String)
 
-    object Users extends Table[(Integer, String, String)]("users") {
+    object Users extends Table[(Int, String, String)]("users") {
       def id = intColumn("id", O.AutoInc, O.NotNull)
       def first = stringColumn("first", O.Default("NFN"))
       def last = stringColumn("last")
@@ -20,7 +19,7 @@ object SQuery2Test2 {
       //def orders = Orders where { _.userID is id }
     }
 
-    object Orders extends Table[(Integer, Integer, String)]("orders") {
+    object Orders extends Table[(Int, Int, String)]("orders") {
       def userID = intColumn("userID", O.NotNull)
       def orderID = intColumn("orderID", O.AutoInc, O.NotNull)
       def product = stringColumn("product")
@@ -40,11 +39,14 @@ object SQuery2Test2 {
       val ins3 = Users.first.insertAll("Santa's Little Helper", "Snowball")
       println("Inserted "+(ins1+ins2+ins3)+" users")
 
-      val q1 = for(u <- Users) yield u
+      val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last.orElse(null)
       println("q1: " + q1.selectStatement)
       for(t <- q1) println("User tuple: "+t)
       val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l) }.list
       for(u <- allUsers) println("User object: "+u)
+
+      val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last.?
+      for(t <- q1b) println("With Options: "+t)
 
       val q2 = for(u <- Users where {_.first is "Apu" }) yield u.last ~ u.id
       println("q2: " + q2.selectStatement)
@@ -52,7 +54,7 @@ object SQuery2Test2 {
 
       for(u <- allUsers
           if u.first != "Apu" && u.first != "Snowball"; i <- 1 to 2)
-        Orders.insert(u.id, null, "Gizmo "+((Math.random*10)+1).toInt)
+        (Orders.userID ~ Orders.product).insert(u.id, "Gizmo "+((Math.random*10)+1).toInt)
 
       val q3 = for {
         u <- Users
@@ -73,7 +75,7 @@ object SQuery2Test2 {
       q4.foreach(o => println("  "+o))
 
       def maxOfPer[T <: TableBase.T_]
-        (c: T, m: (T => Column[Integer]), p: (T => Column[_])) =
+        (c: T, m: (T => Column[Int]), p: (T => Column[_])) =
         c where { o => m(o) is queryToSubQuery(for { o2 <- c where( n => p(o) is p(n)) } yield m(o2).max) }
 
       val q4b = for (

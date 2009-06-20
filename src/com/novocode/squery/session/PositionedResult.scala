@@ -20,8 +20,9 @@ class PositionedResult(val rs: ResultSet) {
   def nextTime() = { pos += 1; rs getTime pos }
   def nextTimestamp() = { pos += 1; rs getTimestamp pos }
 
-  def nextBooleanOrNull() = { pos += 1; val r = rs getBoolean pos; if(rs wasNull) null else java.lang.Boolean.valueOf(r) }
-  def nextIntegerOrNull() = { pos += 1; val r = rs getInt pos; if(rs wasNull) null else java.lang.Integer.valueOf(r) }
+  def nextBooleanOrElse(d: =>Boolean): Boolean = { pos += 1; val r = rs getBoolean pos; if(rs wasNull) d else r }
+  def nextIntOrElse(d: =>Int): Int = { pos += 1; val r = rs getInt pos; if(rs wasNull) d else r }
+  def nextStringOrElse(d: =>String): String = { pos += 1; val r = rs getString pos; if(rs wasNull) d else r }
 
   def nextBooleanOption() = { pos += 1; val r = rs getBoolean pos; if(rs wasNull) None else Some(r) }
   def nextByteOption() = { pos += 1; val r = rs getByte pos; if(rs wasNull) None else Some(r) }

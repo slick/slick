@@ -20,13 +20,14 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with Convert
   val O = ColumnOption
 
   def stringColumn(n: String, options: ColumnOption[String]*) = new NamedColumn[String](Node(this), n, options:_*) with StringColumn
-  def intColumn(n: String, options: ColumnOption[java.lang.Integer]*) = new NamedColumn[java.lang.Integer](Node(this), n, options:_*) with IntColumn
-  def booleanColumn(n: String, options: ColumnOption[java.lang.Boolean]*) = new NamedColumn[java.lang.Boolean](Node(this), n, options:_*) with BooleanColumn
+  def intColumn(n: String, options: ColumnOption[Int]*) = new NamedColumn[Int](Node(this), n, options:_*) with IntColumn
+  def booleanColumn(n: String, options: ColumnOption[Boolean]*) = new NamedColumn[Boolean](Node(this), n, options:_*) with BooleanColumn
 
   def * : ConvertibleColumn[T]
 
   def getResult(rs: PositionedResult) = *.getResult(rs)
-  def setParameter(ps: PositionedParameters, value: T) = *.setParameter(ps, value)
+  def getResultOption(rs: PositionedResult) = *.getResultOption(rs)
+  def setParameter(ps: PositionedParameters, value: Option[T]) = *.setParameter(ps, value)
 }
 
 object Table {

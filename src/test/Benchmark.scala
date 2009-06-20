@@ -18,14 +18,14 @@ object Benchmark {
     println(COUNT+" runs tooks "+total+" ms ("+(total*1000.0/COUNT)+" µs per run)")
   }
 
-  object Users extends Table[(Integer, String, String)]("users") {
+  object Users extends Table[(Int, String, String)]("users") {
     def id = intColumn("id")
     def first = stringColumn("first")
     def last = stringColumn("last")
     def * = id ~ first ~ last
   }
 
-  object Orders extends Table[(Integer, Integer)]("orders") {
+  object Orders extends Table[(Int, Int)]("orders") {
     def userID = intColumn("userID")
     def orderID = intColumn("orderID")
     def * = userID ~ orderID

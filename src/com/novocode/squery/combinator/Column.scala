@@ -20,11 +20,28 @@ object Column {
 
 trait ConvertibleColumn[T] extends Column[T] {
   def getResult(rs: PositionedResult): T
-  def setParameter(ps: PositionedParameters, value: T): Unit
+  def getResultOption(rs: PositionedResult): Option[T]
+  def setParameter(ps: PositionedParameters, value: Option[T]): Unit
 }
 
 trait SimpleColumn[T] extends ConvertibleColumn[T] {
   def ~[U](b: SimpleColumn[U]) = new Projection2[T, U](this, b)
+  def nullValue: T
+  def orElse(nullValue: =>T): SimpleColumn[T]
+  def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
+  def ? = new OptionColumn(this, None)
+}
+
+class OptionColumn[T](parent: SimpleColumn[T], nullVal: Option[T]) extends SimpleColumn[Option[T]] {
+  def nodeChildren = Node(parent) :: Nil
+  def nullValue = nullVal
+  def orElse(nullValue: =>Option[T]) = new OptionColumn(parent, nullValue)
+  def getResult(rs: PositionedResult): Option[T] = parent.getResultOption(rs) match {
+    case None => nullValue
+    case s => s
+  }
+  def getResultOption(rs: PositionedResult): Option[Option[T]] = Some(getResult(rs))
+  def setParameter(ps: PositionedParameters, value: Option[Option[T]]): Unit = parent.setParameter(ps, value getOrElse None)
 }
 
 abstract case class ConstColumn[T](val value: T) extends ConvertibleColumn[T] { self: SimpleColumn[T] =>
@@ -36,24 +53,36 @@ abstract case class ConstColumn[T](val value: T) extends ConvertibleColumn[T] { 
   }
 }
 
-trait BooleanColumn extends SimpleColumn[java.lang.Boolean] {
+trait BooleanColumn extends SimpleColumn[Boolean] {
+  def sqlType = java.sql.Types.BOOLEAN
+  def nullValue = false
+  def orElse(n: =>Boolean) = new WrappedColumn(this) with BooleanColumn { override def nullValue = n }
   def &&(b: BooleanColumn) = Operator.And(Node(this), Node(b))
   def ||(b: BooleanColumn) = Operator.Or(Node(this), Node(b))
   def not = Operator.Not(Node(this))
-  def getResult(rs: PositionedResult): java.lang.Boolean = rs.nextBooleanOrNull
-  def setParameter(ps: PositionedParameters, value: java.lang.Boolean): Unit = ps.setBoolean(value)
-  def valueToSQLLiteral(value: java.lang.Boolean): String = value.toString
+  def getResult(rs: PositionedResult): Boolean = rs.nextBooleanOrElse(nullValue)
+  def getResultOption(rs: PositionedResult): Option[Boolean] = rs.nextBooleanOption
+  def setParameter(ps: PositionedParameters, value: Option[Boolean]): Unit = ps.setBooleanOption(value)
+  def valueToSQLLiteral(value: Boolean): String = value.toString
 }
 
-trait IntColumn extends SimpleColumn[java.lang.Integer] {
-  def getResult(rs: PositionedResult): java.lang.Integer = rs.nextIntegerOrNull
-  def setParameter(ps: PositionedParameters, value: java.lang.Integer): Unit = ps.setInt(value)
-  def valueToSQLLiteral(value: java.lang.Integer): String = value.toString
+trait IntColumn extends SimpleColumn[Int] {
+  def sqlType = java.sql.Types.INTEGER
+  def nullValue = 0
+  def orElse(n: =>Int) = new WrappedColumn(this) with IntColumn { override def nullValue = n }
+  def getResult(rs: PositionedResult): Int = rs.nextIntOrElse(nullValue)
+  def getResultOption(rs: PositionedResult): Option[Int] = rs.nextIntOption
+  def setParameter(ps: PositionedParameters, value: Option[Int]): Unit = ps.setIntOption(value)
+  def valueToSQLLiteral(value: Int): String = value.toString
 }
 
 trait StringColumn extends SimpleColumn[String] {
-  def getResult(rs: PositionedResult): String = rs.nextString
-  def setParameter(ps: PositionedParameters, value: String): Unit = ps.setString(value)
+  def sqlType = java.sql.Types.VARCHAR
+  def nullValue = ""
+  def orElse(n: =>String) = new WrappedColumn(this) with StringColumn { override def nullValue = n }
+  def getResult(rs: PositionedResult): String = rs.nextStringOrElse(nullValue)
+  def getResultOption(rs: PositionedResult): Option[String] = rs.nextStringOption
+  def setParameter(ps: PositionedParameters, value: Option[String]): Unit = ps.setStringOption(value)
 
   def valueToSQLLiteral(value: String): String = {
     val sb = new StringBuilder
