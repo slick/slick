@@ -16,7 +16,7 @@ final class SQLBuilder {
 
   def createSlot = {
     val d = new SQLBuilder
-    slots += (sb.length, d)
+    slots += ((sb.length, d))
     d
   }
 

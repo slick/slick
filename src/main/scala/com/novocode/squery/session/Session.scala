@@ -2,6 +2,7 @@ package com.novocode.squery.session
 
 import scala.collection.mutable.{Map, Stack}
 import java.sql.PreparedStatement
+import com.novocode.squery.SQueryException
 
 /**
  * A database session which opens a connection and transaction on demand.
@@ -11,10 +12,10 @@ class Session private[squery] (fact: SessionFactory) {
   private class StatementMap {
     private val m = Map.empty[String, Stack[PreparedStatement]]
     def add(sql: String, ps: PreparedStatement) =  m get sql match {
-      case Some(s) => s += ps
+      case Some(s) => s push ps
       case _ => {
         val s = new Stack[PreparedStatement]
-        s += ps
+        s push ps
         m += ((sql, s))
       }
     }
