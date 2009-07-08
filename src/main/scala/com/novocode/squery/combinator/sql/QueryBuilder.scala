@@ -73,6 +73,27 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     b.toString
   }
 
+  private def buildUpdate: String = Node(query.value) match {
+    case p:Projection[_] => ""
+      val b = new SQLBuilder += "UPDATE "
+      /*val (updateTable, updateTableName) = Node(query.value) match {
+        case t @ Table.Alias(base:Table[_]) => (t, base.tableName)
+        case t:Table[_] => (t, t.tableName)
+        case n => throw new SQueryException("Cannot create a UPDATE statement from an \""+n+
+          "\" expression; An aliased or base table is required")
+      }
+      b += updateTableName += " SET "
+      nc = nc.overrideName(updateTable, updateTableName) // Alias table to itself because UPDATE does not support aliases
+      appendConditions(b)
+      if(localTables.size > 1)
+        throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
+      for(qb <- subQueryBuilders.values)
+        qb.insertFromClauses()*/
+      b.toString
+    case n => throw new SQueryException("Cannot create a UPDATE statement from an \""+n+
+      "\" expression; Not a Projection; A projection of named columns from the same aliased or base table is required")
+  }
+
   private[this] def expr(c: Node, b: SQLBuilder): Unit = c match {
     case NullNode => b += "null"
     case Operator.Not(Operator.Is(l, NullNode)) => { b += '('; expr(l, b); b += " is not null)" }
@@ -147,4 +168,6 @@ object QueryBuilder {
   def buildSelect(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildSelect
 
   def buildDelete(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildDelete
+
+  def buildUpdate(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildUpdate
 }

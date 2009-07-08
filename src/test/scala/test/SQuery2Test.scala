@@ -1,7 +1,7 @@
 package test
 
 import com.novocode.squery.combinator.{Table, Join, Query, StatementCombinatorQueryInvoker, Projection, NamingContext}
-import com.novocode.squery.combinator.sql.{QueryBuilder, InsertUpdateBuilder, DDLBuilder}
+import com.novocode.squery.combinator.sql.{QueryBuilder, InsertBuilder, DDLBuilder}
 import com.novocode.squery.combinator.Implicit._
 
 object SQuery2Test {
@@ -118,8 +118,8 @@ object SQuery2Test {
 
     println()
 
-    println("Insert1: " + new InsertUpdateBuilder(Users).buildInsert)
-    println("Insert2: " + new InsertUpdateBuilder(Users.first ~ Users.last).buildInsert)
+    println("Insert1: " + new InsertBuilder(Users).buildInsert)
+    println("Insert2: " + new InsertBuilder(Users.first ~ Users.last).buildInsert)
 
     val d1 = Users.where(_.id is 42)
     val d2 = for(u <- Users where( _.id notIn Orders.map(_.userID) )) yield u

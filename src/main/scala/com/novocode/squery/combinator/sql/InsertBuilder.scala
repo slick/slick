@@ -4,7 +4,7 @@ import scala.collection.mutable.HashMap
 import java.io.PrintWriter
 import com.novocode.squery.combinator._
 
-class InsertUpdateBuilder(val column: ConvertibleColumn[_]) {
+class InsertBuilder(val column: ConvertibleColumn[_]) {
 
   def buildInsert: String = {
     val cols = new StringBuilder
