@@ -95,8 +95,8 @@ object SQuery2Test2 {
       println("b2: " + Orders.where( o => o.shipped && o.rebate ).selectStatement)
       println("b3: " + Orders.where( o => o.rebate && o.shipped ).selectStatement)
       println("b4: " + Orders.where( o => o.rebate && o.rebate ).selectStatement)
-      println("b5: " + Orders.where( o => o.shipped.not ).selectStatement)
-      println("b6: " + Orders.where( o => o.rebate.not ).selectStatement)
+      println("b5: " + Orders.where( o => !o.shipped ).selectStatement)
+      println("b6: " + Orders.where( o => !o.rebate ).selectStatement)
 
       val q5 = Users where { _.id notIn Orders.map(_.userID) }
       println("q5: " + q5.selectStatement)

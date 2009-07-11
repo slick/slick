@@ -10,9 +10,9 @@ trait BooleanLikeColumnOps extends ColumnOps {
 }
 
 trait BooleanColumnOps extends ColumnOps {
-  def not = Operator.Not(leftOperand)
+  def unary_! = Operator.Not(leftOperand)
 }
 
 trait BooleanOptionColumnOps extends ColumnOps {
-  def not = Operator.Not(leftOperand).?
+  def unary_! = Operator.Not(leftOperand).?
 }
