@@ -3,10 +3,33 @@ package com.novocode.squery.combinator
 import com.novocode.squery.session.TypeMapper
 
 object Implicit {
+  implicit def columnOfBooleanToBooleanLikeColumnOps(c: Column[Boolean]): BooleanLikeColumnOps = c match {
+    case o: BooleanLikeColumnOps => o
+    case _ => new BooleanLikeColumnOps { protected[this] val leftOperand = Node(c) }
+  }
+
+  implicit def columnOfBooleanOptionToBooleanLikeColumnOps(c: Column[Option[Boolean]]): BooleanLikeColumnOps = c match {
+    case o: BooleanLikeColumnOps => o
+    case _ => new BooleanLikeColumnOps { protected[this] val leftOperand = Node(c) }
+  }
+
   implicit def columnOfBooleanToBooleanColumnOps(c: Column[Boolean]): BooleanColumnOps = c match {
     case o: BooleanColumnOps => o
     case _ => new BooleanColumnOps { protected[this] val leftOperand = Node(c) }
   }
+
+  implicit def columnOfBooleanOptionToBooleanOptionColumnOps(c: Column[Option[Boolean]]): BooleanOptionColumnOps = c match {
+    case o: BooleanOptionColumnOps => o
+    case _ => new BooleanOptionColumnOps { protected[this] val leftOperand = Node(c) }
+  }
+
+  implicit def columnToTypeMappedColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): TypeMappedColumn[T] = c match {
+    case t: TypeMappedColumn[T] => t
+    case _ => new WrappedColumn(c) { val typeMapper = tm }
+  }
+
+  implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): TypeMappedColumn[Option[T]] =
+    columnToTypeMappedColumn(c)(tm).?
 
   implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
 

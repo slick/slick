@@ -120,11 +120,12 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextTimestamp
   }
 
-  implicit def typeMapperToOptionTypeMapper[T](t: TypeMapper[T]): TypeMapper[Option[T]] = new TypeMapper[Option[T]] {
+  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): TypeMapper[Option[T]] = new TypeMapper[Option[T]] {
     def zero = None
     def sqlType = t.sqlType
     def setValue(v: Option[T], p: PositionedParameters) = t.setOption(v, p)
     def setOption(v: Option[Option[T]], p: PositionedParameters) = t.setOption(v.getOrElse(None), p)
     def nextValue(r: PositionedResult) = t.nextOption(r)
+    override def valueToSQLLiteral(value: Option[T]): String = value.map(t.valueToSQLLiteral).getOrElse("null")
   }
 }

@@ -65,7 +65,7 @@ trait TypeMappedColumn[T] extends SimpleColumn[T] { self =>
   final def getResultOption(rs: PositionedResult): Option[T] = typeMapper.nextOption(rs)
   final def setParameter(ps: PositionedParameters, value: Option[T]): Unit = typeMapper.setOption(value, ps)
   final def valueToSQLLiteral(value: T): String = typeMapper.valueToSQLLiteral(value)
-  def orElse(n: =>T) = new WrappedColumn(this) with TypeMappedColumn[T] {
+  def orElse(n: =>T): TypeMappedColumn[T] = new WrappedColumn(this) {
     override def nullValue = n
     val typeMapper = self.typeMapper
   }
@@ -75,7 +75,7 @@ abstract class OperatorColumn[T](implicit val typeMapper: TypeMapper[T]) extends
   protected[this] val leftOperand: Node = Node(this)
 }
 
-abstract class WrappedColumn[T](val parent: SimpleColumn[T]) extends ConvertibleColumn[T] { self: SimpleColumn[T] =>
+abstract class WrappedColumn[T](val parent: Column[T]) extends TypeMappedColumn[T] {
   def nodeChildren = parent :: Nil
 }
 

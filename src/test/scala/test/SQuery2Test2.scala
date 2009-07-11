@@ -11,21 +11,21 @@ object SQuery2Test2 {
 
     case class User(id: Int, first: String, last: String)
 
-    object Users extends Table[(Int, String, String)]("users") {
+    object Users extends Table[(Int, String, Option[String])]("users") {
       def id = column[Int]("id", O.AutoInc, O.NotNull)
       def first = column[String]("first", O.Default("NFN"))
-      def last = column[String]("last")
+      def last = column[Option[String]]("last")
       def * = id ~ first ~ last
 
       //def orders = Orders where { _.userID is id }
     }
 
-    object Orders extends Table[(Int, Int, String, Boolean, Boolean)]("orders") {
+    object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
       def userID = column[Int]("userID", O.NotNull)
       def orderID = column[Int]("orderID", O.AutoInc, O.NotNull)
       def product = column[String]("product")
       def shipped = column[Boolean]("shipped", O.Default(false), O.NotNull)
-      def rebate = column[Boolean]("rebate", O.Default(false), O.NotNull)
+      def rebate = column[Option[Boolean]]("rebate", O.Default(Some(false)))
       def * = userID ~ orderID ~ product ~ shipped ~ rebate
     }
 
@@ -36,19 +36,19 @@ object SQuery2Test2 {
       println(Orders.createTableStatement)
       Users.createTable
       Orders.createTable
-      val ins1 = (Users.first ~ Users.last).insert("Homer", "Simpson")
+      val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
       val ins2 = (Users.first ~ Users.last).insertAll(
-        ("Marge", "Simpson"), ("Apu", "Nahasapeemapetilon"), ("Carl", "Carlson"), ("Lenny", "Leonard") )
+        ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )
       val ins3 = Users.first.insertAll("Santa's Little Helper", "Snowball")
       println("Inserted "+(ins1+ins2+ins3)+" users")
 
       val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last.orElse(null)
       println("q1: " + q1.selectStatement)
       for(t <- q1) println("User tuple: "+t)
-      val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l) }.list
+      val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.getOrElse(null)) }.list
       for(u <- allUsers) println("User object: "+u)
 
-      val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last.?
+      val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last
       for(t <- q1b) println("With Options: "+t)
 
       val q2 = for(u <- Users where {_.first is "Apu" }) yield u.last ~ u.id
@@ -58,7 +58,7 @@ object SQuery2Test2 {
       for(u <- allUsers
           if u.first != "Apu" && u.first != "Snowball"; i <- 1 to 2)
         (Orders.userID ~ Orders.product ~ Orders.shipped ~ Orders.rebate).insert(
-          u.id, "Gizmo "+((Math.random*10)+1).toInt, i == 2, u.first == "Marge")
+          u.id, "Gizmo "+((Math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
 
       val q3 = for {
         u <- Users
@@ -90,6 +90,13 @@ object SQuery2Test2 {
       println("q4b: " + q4b.selectStatement)
       println("Latest Order per User, using maxOfPer:")
       q4b.foreach(o => println("  "+o))
+
+      println("b1: " + Orders.where( o => o.shipped && o.shipped ).selectStatement)
+      println("b2: " + Orders.where( o => o.shipped && o.rebate ).selectStatement)
+      println("b3: " + Orders.where( o => o.rebate && o.shipped ).selectStatement)
+      println("b4: " + Orders.where( o => o.rebate && o.rebate ).selectStatement)
+      println("b5: " + Orders.where( o => o.shipped.not ).selectStatement)
+      println("b6: " + Orders.where( o => o.rebate.not ).selectStatement)
 
       val q5 = Users where { _.id notIn Orders.map(_.userID) }
       println("q5: " + q5.selectStatement)
