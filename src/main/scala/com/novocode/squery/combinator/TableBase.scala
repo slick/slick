@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.{PositionedResult, PositionedParameters}
+import com.novocode.squery.session.{PositionedResult, PositionedParameters, TypeMapper}
+import com.novocode.squery.session.TypeMapper._
 
 
 sealed trait TableBase[T] extends Column[T] {
@@ -19,9 +20,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with Convert
 
   val O = ColumnOption
 
-  def stringColumn(n: String, options: ColumnOption[String]*) = new NamedColumn[String](Node(this), n, options:_*) with StringColumn
-  def intColumn(n: String, options: ColumnOption[Int]*) = new NamedColumn[Int](Node(this), n, options:_*) with IntColumn
-  def booleanColumn(n: String, options: ColumnOption[Boolean]*) = new NamedColumn[Boolean](Node(this), n, options:_*) with BooleanColumn
+  def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]) = new NamedColumn[C](Node(this), n, options:_*)
 
   def * : ConvertibleColumn[T]
 

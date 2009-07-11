@@ -1,27 +1,14 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.session.TypeMapper
+
 object Implicit {
-  implicit def columnOfBooleanToBooleanColumn(c: Column[Boolean]): BooleanColumn = c match {
-    case c: BooleanColumn => c
-    case s: SimpleColumn[Boolean] => new WrappedColumn(c) with BooleanColumn { override def nullValue = s.nullValue }
-    case _ => new WrappedColumn(c) with BooleanColumn
+  implicit def columnOfBooleanToBooleanColumnOps(c: Column[Boolean]): BooleanColumnOps = c match {
+    case o: BooleanColumnOps => o
+    case _ => new BooleanColumnOps { protected[this] val leftOperand = Node(c) }
   }
 
-  implicit def columnOfIntToIntColumn(c: Column[Int]): IntColumn = c match {
-    case c: IntColumn => c
-    case s: SimpleColumn[Int] => new WrappedColumn(c) with IntColumn { override def nullValue = s.nullValue }
-    case _ => new WrappedColumn(c) with IntColumn
-  }
-
-  implicit def columnOfStringToStringColumn(c: Column[String]): StringColumn = c match {
-    case c: StringColumn => c
-    case s: SimpleColumn[String] => new WrappedColumn(c) with StringColumn { override def nullValue = s.nullValue }
-    case _ => new WrappedColumn(c) with StringColumn
-  }
-
-  implicit def intToConstColumn(v: Int) = new ConstColumn(v) with IntColumn
-  implicit def booleanToConstColumn(v: Boolean) = new ConstColumn(v) with BooleanColumn
-  implicit def stringToConstColumn(v: String) = new ConstColumn(v) with StringColumn
+  implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
 
   implicit def tableToQuery[T <: TableBase.T_](t: T) = Query(t.withOp(new Table.Alias(Node(t))))
 

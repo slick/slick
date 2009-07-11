@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator.sql
 
 import scala.collection.mutable.ListBuffer
+import com.novocode.squery.session.TypeMapper.StringTypeMapper
 
 final class SQLBuilder {
   private val sb = new StringBuilder(32)
@@ -12,7 +13,7 @@ final class SQLBuilder {
 
   def +=(s: SQLBuilder) = { sb append s.sb; this }
 
-  def +?=(s: String) = { StringColumn.createStringLiteral(s, sb); this }
+  def +?=(s: String) = { StringTypeMapper.createStringLiteral(s, sb); this }
 
   def createSlot = {
     val d = new SQLBuilder

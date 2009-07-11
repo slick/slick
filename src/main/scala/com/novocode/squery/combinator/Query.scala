@@ -3,14 +3,14 @@ package com.novocode.squery.combinator
 import java.io.PrintWriter
 
 
-class Query[+E <: AnyRef](val value: E, val cond: List[BooleanColumn]) extends Node {
+class Query[+E <: AnyRef](val value: E, val cond: List[Column[Boolean]]) extends Node {
 
   def select[F <: AnyRef](f: E => Query[F]): Query[F] = {
     val q = f(value)
     new Query(q.value, cond ::: q.cond)
   }
 
-  def where(f: E => BooleanColumn): Query[E] = new Query(value, f(value) :: cond)
+  def where(f: E => Column[Boolean]): Query[E] = new Query(value, f(value) :: cond)
 
   // Methods for use in for-comprehensions
   def flatMap[F <: AnyRef](f: E => Query[F]): Query[F] = select(f)
@@ -28,7 +28,7 @@ class Query[+E <: AnyRef](val value: E, val cond: List[BooleanColumn]) extends N
 
 object Query {
   def apply[E <: AnyRef](value: E) = new Query(value, Nil)
-  def apply[E <: AnyRef](value: E, cond: List[BooleanColumn]) = new Query(value, cond)
+  def apply[E <: AnyRef](value: E, cond: List[Column[Boolean]]) = new Query(value, cond)
 
   def unapply[E <: AnyRef](q: Query[E]) = Some((q.value, q.cond))
 

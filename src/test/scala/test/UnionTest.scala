@@ -4,21 +4,22 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session._
 import com.novocode.squery.session.SessionFactory._
+import com.novocode.squery.session.TypeMapper._
 
 object UnionTest {
   def main(args: Array[String]) {
 
     object Managers extends Table[(Int, String, String)]("managers") {
-      def id = intColumn("id")
-      def name = stringColumn("name")
-      def department = stringColumn("department")
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def department = column[String]("department")
       def * = id ~ name ~ department
     }
 
     object Employees extends Table[(Int, String, Int)]("employees") {
-      def id = intColumn("id")
-      def name = stringColumn("name")
-      def manager = intColumn("manager", O.NotNull)
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def manager = column[Int]("manager", O.NotNull)
       def * = id ~ name ~ manager
 
       // A convenience method for selecting employees by department

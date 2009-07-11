@@ -17,35 +17,33 @@ class DDLBuilder(table: Table[_]) {
       case n:NamedColumn[_] =>
         if(first) first = false
         else b append ","
-        b append n.name append ' ' append sqlTypeFor(n)
+        b append n.name append ' '
+        addSqlType(n, b)
       case _ => throw new SQueryException("Cannot use column "+c+" in CREATE TABLE statement")
     }
     f(table)
     b append ")" toString
   }
 
-  private[this] def sqlTypeFor(c: Column[_]) = {
-    var s = c match {
-      case _:BooleanColumn => "BOOLEAN"
-      case _:IntColumn => "INT"
-      case _:StringColumn => "VARCHAR"
-      case _ => throw new SQueryException("No SQL type mapping for column type "+c.getClass.getName)
+  private[this] def addSqlType(c: NamedColumn[_], sb: StringBuilder) {
+    sb append new StringBuilder append DDLBuilder.typeNames.getOrElse(c.typeMapper.sqlType,
+      throw new SQueryException("No SQL type name found for type mapper "+c.typeMapper))
+    var notNull = false
+    var autoIncrement = false
+    var defaultLiteral:String = null
+    for(o <- c.options) o match {
+      case ColumnOption.NotNull => notNull = true
+      case ColumnOption.AutoInc => autoIncrement = true
+      case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].valueToSQLLiteral(v)
     }
-    c match {
-      case n: NamedColumn[_] =>
-        var notNull = false
-        var autoIncrement = false
-        var defaultLiteral:String = null
-        for(o <- n.options) o match {
-          case ColumnOption.NotNull => notNull = true
-          case ColumnOption.AutoInc => autoIncrement = true
-          case ColumnOption.Default(v) => defaultLiteral = n.valueToSQLLiteral(v)
-        }
-        if(defaultLiteral ne null) s += " DEFAULT " + defaultLiteral
-        if(notNull) s += " NOT NULL"
-        if(autoIncrement) s += " AUTO_INCREMENT"
-      case _ => ()
-    }
-    s
+    if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+    if(notNull) sb append " NOT NULL"
+    if(autoIncrement) sb append " AUTO_INCREMENT"
   }
+}
+
+object DDLBuilder {
+  private[DDLBuilder] lazy val typeNames = Map() ++
+    (for(f <- classOf[java.sql.Types].getFields)
+      yield f.get(null).asInstanceOf[Int] -> f.getName)
 }

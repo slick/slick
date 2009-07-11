@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.{PositionedResult, PositionedParameters}
+import com.novocode.squery.session.{PositionedResult, PositionedParameters, TypeMapper}
 
 
 trait Column[T] extends Node with WithOp {
@@ -32,6 +32,10 @@ trait SimpleColumn[T] extends ConvertibleColumn[T] {
   def ? = new OptionColumn(this, None)
 }
 
+object SimpleColumn {
+  type T_ = SimpleColumn[_]
+}
+
 class OptionColumn[T](parent: SimpleColumn[T], nullVal: Option[T]) extends SimpleColumn[Option[T]] {
   def nodeChildren = Node(parent) :: Nil
   def nullValue = nullVal
@@ -44,7 +48,7 @@ class OptionColumn[T](parent: SimpleColumn[T], nullVal: Option[T]) extends Simpl
   def setParameter(ps: PositionedParameters, value: Option[Option[T]]): Unit = parent.setParameter(ps, value getOrElse None)
 }
 
-abstract case class ConstColumn[T](val value: T) extends ConvertibleColumn[T] { self: SimpleColumn[T] =>
+case class ConstColumn[T](val value: T)(implicit val typeMapper: TypeMapper[T]) extends TypeMappedColumn[T] {
   def nodeChildren = Nil
   override def toString = value match {
     case null => "null"
@@ -53,61 +57,30 @@ abstract case class ConstColumn[T](val value: T) extends ConvertibleColumn[T] { 
   }
 }
 
-trait BooleanColumn extends SimpleColumn[Boolean] {
-  def sqlType = java.sql.Types.BOOLEAN
-  def nullValue = false
-  def orElse(n: =>Boolean) = new WrappedColumn(this) with BooleanColumn { override def nullValue = n }
-  def &&(b: BooleanColumn) = Operator.And(Node(this), Node(b))
-  def ||(b: BooleanColumn) = Operator.Or(Node(this), Node(b))
-  def not = Operator.Not(Node(this))
-  def getResult(rs: PositionedResult): Boolean = rs.nextBooleanOrElse(nullValue)
-  def getResultOption(rs: PositionedResult): Option[Boolean] = rs.nextBooleanOption
-  def setParameter(ps: PositionedParameters, value: Option[Boolean]): Unit = ps.setBooleanOption(value)
-  def valueToSQLLiteral(value: Boolean): String = value.toString
-}
-
-trait IntColumn extends SimpleColumn[Int] {
-  def sqlType = java.sql.Types.INTEGER
-  def nullValue = 0
-  def orElse(n: =>Int) = new WrappedColumn(this) with IntColumn { override def nullValue = n }
-  def getResult(rs: PositionedResult): Int = rs.nextIntOrElse(nullValue)
-  def getResultOption(rs: PositionedResult): Option[Int] = rs.nextIntOption
-  def setParameter(ps: PositionedParameters, value: Option[Int]): Unit = ps.setIntOption(value)
-  def valueToSQLLiteral(value: Int): String = value.toString
-}
-
-trait StringColumn extends SimpleColumn[String] {
-  def sqlType = java.sql.Types.VARCHAR
-  def nullValue = ""
-  def orElse(n: =>String) = new WrappedColumn(this) with StringColumn { override def nullValue = n }
-  def getResult(rs: PositionedResult): String = rs.nextStringOrElse(nullValue)
-  def getResultOption(rs: PositionedResult): Option[String] = rs.nextStringOption
-  def setParameter(ps: PositionedParameters, value: Option[String]): Unit = ps.setStringOption(value)
-
-  def valueToSQLLiteral(value: String): String = {
-    val sb = new StringBuilder
-    StringColumn.createStringLiteral(value, sb)
-    sb.toString
+trait TypeMappedColumn[T] extends SimpleColumn[T] { self =>
+  val typeMapper: TypeMapper[T]
+  def nullValue: T = typeMapper.zero
+  def sqlType = typeMapper.sqlType
+  final def getResult(rs: PositionedResult): T = typeMapper.nextValue(rs)
+  final def getResultOption(rs: PositionedResult): Option[T] = typeMapper.nextOption(rs)
+  final def setParameter(ps: PositionedParameters, value: Option[T]): Unit = typeMapper.setOption(value, ps)
+  final def valueToSQLLiteral(value: T): String = typeMapper.valueToSQLLiteral(value)
+  def orElse(n: =>T) = new WrappedColumn(this) with TypeMappedColumn[T] {
+    override def nullValue = n
+    val typeMapper = self.typeMapper
   }
 }
 
-object StringColumn {
-  def createStringLiteral(s: String, sb: StringBuilder) {
-    sb append '\''
-    for(c <- s) c match {
-      case '\'' => sb append "''"
-      case _ => sb append c
-    }
-    sb append '\''
-  }
+abstract class OperatorColumn[T](implicit val typeMapper: TypeMapper[T]) extends TypeMappedColumn[T] {
+  protected[this] val leftOperand: Node = Node(this)
 }
 
 abstract class WrappedColumn[T](val parent: SimpleColumn[T]) extends ConvertibleColumn[T] { self: SimpleColumn[T] =>
   def nodeChildren = parent :: Nil
 }
 
-abstract class NamedColumn[T](val table: Node, val name: String, val options: ColumnOption[T]*) extends SimpleColumn[T] {
+class NamedColumn[T](val table: Node, val name: String, val options: ColumnOption[T]*)(implicit val typeMapper: TypeMapper[T]) extends
+    TypeMappedColumn[T] { self =>
   def nodeChildren = table :: Nil
   override def toString = "NamedColumn " + name
-  def valueToSQLLiteral(value: T): String
 }

@@ -1,12 +1,15 @@
 package com.novocode.squery.session
 
-import java.sql.{PreparedStatement, Date, Time, Timestamp, Types}
+import java.sql.{PreparedStatement, Date, Time, Timestamp, Types, Blob, Clob}
 
 class PositionedParameters(val ps: PreparedStatement) {
 
   var pos = 0
 
   def setBoolean(value: Boolean) = { pos += 1; ps.setBoolean(pos, value) }
+  def setBlob(value: Blob) = { pos += 1; ps.setBlob(pos, value) }
+  def setByte(value: Byte) = { pos += 1; ps.setByte(pos, value) }
+  def setClob(value: Clob) = { pos += 1; ps.setClob(pos, value) }
   def setDate(value: Date) = { pos += 1; ps.setDate(pos, value) }
   def setDouble(value: Double) = { pos += 1; ps.setDouble(pos, value) }
   def setFloat(value: Float) = { pos += 1; ps.setFloat(pos, value) }
@@ -20,9 +23,17 @@ class PositionedParameters(val ps: PreparedStatement) {
     pos += 1
     if(value eq None) ps.setNull(pos, Types.BOOLEAN) else ps.setBoolean(pos, value.get)
   }
+  def setBlobOption(value: Option[Blob]) = {
+    pos += 1
+    if(value eq None) ps.setNull(pos, Types.BLOB) else ps.setBlob(pos, value.get)
+  }
   def setByteOption(value: Option[Byte]) = {
     pos += 1
     if(value eq None) ps.setNull(pos, Types.TINYINT) else ps.setByte(pos, value.get)
+  }
+  def setClobOption(value: Option[Clob]) = {
+    pos += 1
+    if(value eq None) ps.setNull(pos, Types.CLOB) else ps.setClob(pos, value.get)
   }
   def setDateOption(value: Option[Date]) = {
     pos += 1

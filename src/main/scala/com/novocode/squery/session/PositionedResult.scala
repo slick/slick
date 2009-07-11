@@ -1,6 +1,6 @@
 package com.novocode.squery.session
 
-import java.sql.ResultSet
+import java.sql.{ResultSet, Blob, Clob}
 
 class PositionedResult(val rs: ResultSet) {
 
@@ -9,7 +9,9 @@ class PositionedResult(val rs: ResultSet) {
   def next() = { pos = 0; rs.next }
 
   def nextBoolean() = { pos += 1; rs getBoolean pos }
+  def nextBlob() = { pos += 1; rs getBlob pos }
   def nextByte() = { pos += 1; rs getByte pos }
+  def nextClob() = { pos += 1; rs getClob pos }
   def nextDate() = { pos += 1; rs getDate pos }
   def nextDouble() = { pos += 1; rs getDouble pos }
   def nextFloat() = { pos += 1; rs getFloat pos }
@@ -20,12 +22,10 @@ class PositionedResult(val rs: ResultSet) {
   def nextTime() = { pos += 1; rs getTime pos }
   def nextTimestamp() = { pos += 1; rs getTimestamp pos }
 
-  def nextBooleanOrElse(d: =>Boolean): Boolean = { pos += 1; val r = rs getBoolean pos; if(rs wasNull) d else r }
-  def nextIntOrElse(d: =>Int): Int = { pos += 1; val r = rs getInt pos; if(rs wasNull) d else r }
-  def nextStringOrElse(d: =>String): String = { pos += 1; val r = rs getString pos; if(rs wasNull) d else r }
-
   def nextBooleanOption() = { pos += 1; val r = rs getBoolean pos; if(rs wasNull) None else Some(r) }
+  def nextBlobOption() = { pos += 1; val r = rs getBlob pos; if(rs wasNull) None else Some(r) }
   def nextByteOption() = { pos += 1; val r = rs getByte pos; if(rs wasNull) None else Some(r) }
+  def nextClobOption() = { pos += 1; val r = rs getClob pos; if(rs wasNull) None else Some(r) }
   def nextDateOption() = { pos += 1; val r = rs getDate pos; if(rs wasNull) None else Some(r) }
   def nextDoubleOption() = { pos += 1; val r = rs getDouble pos; if(rs wasNull) None else Some(r) }
   def nextFloatOption() = { pos += 1; val r = rs getFloat pos; if(rs wasNull) None else Some(r) }

@@ -4,6 +4,7 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session._
 import com.novocode.squery.session.SessionFactory._
+import com.novocode.squery.session.TypeMapper._
 
 object SQuery2Test2 {
   def main(args: Array[String]) {
@@ -11,19 +12,21 @@ object SQuery2Test2 {
     case class User(id: Int, first: String, last: String)
 
     object Users extends Table[(Int, String, String)]("users") {
-      def id = intColumn("id", O.AutoInc, O.NotNull)
-      def first = stringColumn("first", O.Default("NFN"))
-      def last = stringColumn("last")
+      def id = column[Int]("id", O.AutoInc, O.NotNull)
+      def first = column[String]("first", O.Default("NFN"))
+      def last = column[String]("last")
       def * = id ~ first ~ last
 
       //def orders = Orders where { _.userID is id }
     }
 
-    object Orders extends Table[(Int, Int, String)]("orders") {
-      def userID = intColumn("userID", O.NotNull)
-      def orderID = intColumn("orderID", O.AutoInc, O.NotNull)
-      def product = stringColumn("product")
-      def * = userID ~ orderID ~ product
+    object Orders extends Table[(Int, Int, String, Boolean, Boolean)]("orders") {
+      def userID = column[Int]("userID", O.NotNull)
+      def orderID = column[Int]("orderID", O.AutoInc, O.NotNull)
+      def product = column[String]("product")
+      def shipped = column[Boolean]("shipped", O.Default(false), O.NotNull)
+      def rebate = column[Boolean]("rebate", O.Default(false), O.NotNull)
+      def * = userID ~ orderID ~ product ~ shipped ~ rebate
     }
 
     val sf = new DriverManagerSessionFactory("org.h2.Driver", "jdbc:h2:mem:test1")
@@ -54,12 +57,13 @@ object SQuery2Test2 {
 
       for(u <- allUsers
           if u.first != "Apu" && u.first != "Snowball"; i <- 1 to 2)
-        (Orders.userID ~ Orders.product).insert(u.id, "Gizmo "+((Math.random*10)+1).toInt)
+        (Orders.userID ~ Orders.product ~ Orders.shipped ~ Orders.rebate).insert(
+          u.id, "Gizmo "+((Math.random*10)+1).toInt, i == 2, u.first == "Marge")
 
       val q3 = for {
         u <- Users
         o <- Orders where { o => (u.id is o.userID) && (u.last isNot null) }
-      } yield (u.first ~ u.last ~ o.orderID ~ o.product).sortBy(u.first)
+      } yield (u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate).sortBy(u.first)
       println("q3: " + q3.selectStatement)
       println("All Orders by Users with a last name by first name:")
       q3.foreach(o => println("  "+o))

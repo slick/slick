@@ -3,6 +3,7 @@ package test
 import com.novocode.squery.combinator.{Table, Join, NamingContext}
 import com.novocode.squery.combinator.sql.QueryBuilder
 import com.novocode.squery.combinator.Implicit._
+import com.novocode.squery.session.TypeMapper._
 
 object Benchmark {
 
@@ -19,15 +20,15 @@ object Benchmark {
   }
 
   object Users extends Table[(Int, String, String)]("users") {
-    def id = intColumn("id")
-    def first = stringColumn("first")
-    def last = stringColumn("last")
+    def id = column[Int]("id")
+    def first = column[String]("first")
+    def last = column[String]("last")
     def * = id ~ first ~ last
   }
 
   object Orders extends Table[(Int, Int)]("orders") {
-    def userID = intColumn("userID")
-    def orderID = intColumn("orderID")
+    def userID = column[Int]("userID")
+    def orderID = column[Int]("orderID")
     def * = userID ~ orderID
   }
 
