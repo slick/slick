@@ -42,9 +42,9 @@ object Node {
     case null => NullNode
     case WithOp(op) => op
     // Workaround for https://lampsvn.epfl.ch/trac/scala/ticket/1434
-    //case n:WrappedColumn[_] => Node(n.parent)
+    //case n:WrappedColumn[_] => Node(n.nodeDelegate)
     case _ => {
-      if(o.isInstanceOf[WrappedColumn[_]]) Node(o.asInstanceOf[WrappedColumn[_]].parent)
+      if(o.isInstanceOf[WrappedColumn[_]]) o.asInstanceOf[WrappedColumn[_]].nodeDelegate
       else o match {
         case n:Node => n
         case p:Product => new ProductNode(p)

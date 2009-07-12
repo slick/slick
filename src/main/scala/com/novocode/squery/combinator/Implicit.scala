@@ -25,7 +25,7 @@ object Implicit {
 
   implicit def columnToTypeMappedColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): TypeMappedColumn[T] = c match {
     case t: TypeMappedColumn[T] => t
-    case _ => new WrappedColumn(c) { val typeMapper = tm }
+    case _ => new WrappedColumn(c, tm)
   }
 
   implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): TypeMappedColumn[Option[T]] =

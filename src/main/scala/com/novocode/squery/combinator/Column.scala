@@ -29,23 +29,6 @@ trait SimpleColumn[T] extends ConvertibleColumn[T] {
   def nullValue: T
   def orElse(nullValue: =>T): SimpleColumn[T]
   def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
-  def ? = new OptionColumn(this, None)
-}
-
-object SimpleColumn {
-  type T_ = SimpleColumn[_]
-}
-
-class OptionColumn[T](parent: SimpleColumn[T], nullVal: Option[T]) extends SimpleColumn[Option[T]] {
-  def nodeChildren = Node(parent) :: Nil
-  def nullValue = nullVal
-  def orElse(nullValue: =>Option[T]) = new OptionColumn(parent, nullValue)
-  def getResult(rs: PositionedResult): Option[T] = parent.getResultOption(rs) match {
-    case None => nullValue
-    case s => s
-  }
-  def getResultOption(rs: PositionedResult): Option[Option[T]] = Some(getResult(rs))
-  def setParameter(ps: PositionedParameters, value: Option[Option[T]]): Unit = parent.setParameter(ps, value getOrElse None)
 }
 
 case class ConstColumn[T](val value: T)(implicit val typeMapper: TypeMapper[T]) extends TypeMappedColumn[T] {
@@ -65,9 +48,11 @@ trait TypeMappedColumn[T] extends SimpleColumn[T] { self =>
   final def getResultOption(rs: PositionedResult): Option[T] = typeMapper.nextOption(rs)
   final def setParameter(ps: PositionedParameters, value: Option[T]): Unit = typeMapper.setOption(value, ps)
   final def valueToSQLLiteral(value: T): String = typeMapper.valueToSQLLiteral(value)
-  def orElse(n: =>T): TypeMappedColumn[T] = new WrappedColumn(this) {
+  def orElse(n: =>T): TypeMappedColumn[T] = new WrappedColumn(this, self.typeMapper) {
     override def nullValue = n
-    val typeMapper = self.typeMapper
+  }
+  def ? : TypeMappedColumn[Option[T]] = new WrappedColumn(this, TypeMapper.typeMapperToOptionTypeMapper(self.typeMapper)) {
+    override def nullValue = None
   }
 }
 
@@ -75,11 +60,12 @@ abstract class OperatorColumn[T](implicit val typeMapper: TypeMapper[T]) extends
   protected[this] val leftOperand: Node = Node(this)
 }
 
-abstract class WrappedColumn[T](val parent: Column[T]) extends TypeMappedColumn[T] {
-  def nodeChildren = parent :: Nil
+class WrappedColumn[T](parent: Column[_], val typeMapper: TypeMapper[T]) extends TypeMappedColumn[T] {
+  def nodeDelegate = Node(parent)
+  def nodeChildren = nodeDelegate :: Nil
 }
 
-class NamedColumn[T](val table: Node, val name: String, val options: ColumnOption[T]*)(implicit val typeMapper: TypeMapper[T]) extends
+class NamedColumn[T](val table: Node, val name: String, val typeMapper: TypeMapper[T], val options: ColumnOption[T]*) extends
     TypeMappedColumn[T] { self =>
   def nodeChildren = table :: Nil
   override def toString = "NamedColumn " + name

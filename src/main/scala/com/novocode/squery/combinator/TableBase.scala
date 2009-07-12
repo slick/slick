@@ -20,7 +20,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with Convert
 
   val O = ColumnOption
 
-  def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]) = new NamedColumn[C](Node(this), n, options:_*)
+  def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]) = new NamedColumn[C](Node(this), n, tm, options:_*)
 
   def * : ConvertibleColumn[T]
 
