@@ -92,15 +92,15 @@ object TypeMapper {
     def setValue(v: String, p: PositionedParameters) = p.setString(v)
     def setOption(v: Option[String], p: PositionedParameters) = p.setStringOption(v)
     def nextValue(r: PositionedResult) = r.nextString
-    override def valueToSQLLiteral(value: String) = createStringLiteral(value, new StringBuilder).toString
-    def createStringLiteral(s: String, sb: StringBuilder) = {
+    override def valueToSQLLiteral(value: String) = {
+      val sb = new StringBuilder
       sb append '\''
-      for(c <- s) c match {
+      for(c <- value) c match {
         case '\'' => sb append "''"
         case _ => sb append c
       }
       sb append '\''
-      sb
+      sb.toString
     }
   }
 

@@ -13,8 +13,6 @@ final class SQLBuilder {
 
   def +=(s: SQLBuilder) = { sb append s.sb; this }
 
-  def +?=(s: String) = { StringTypeMapper.createStringLiteral(s, sb); this }
-
   def createSlot = {
     val d = new SQLBuilder
     slots += ((sb.length, d))
