@@ -4,6 +4,7 @@ import com.novocode.squery.session.{PositionedResult, PositionedParameters, Type
 
 
 trait Column[T] extends Node with WithOp {
+  override def nodeDelegate: Node = if(op eq null) this else op.nodeDelegate
   def count = Operator.Count(Node(this))
   def max = Operator.Max(Node(this))
   def is[E](e: Column[E]) = Operator.Is(Node(this), Node(e))
@@ -54,7 +55,7 @@ abstract class OperatorColumn[T](implicit val typeMapper: TypeMapper[T]) extends
 }
 
 class WrappedColumn[T](parent: Column[_], val typeMapper: TypeMapper[T]) extends SimpleColumn[T] {
-  def nodeDelegate = Node(parent)
+  override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   def nodeChildren = nodeDelegate :: Nil
 }
 

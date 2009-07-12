@@ -8,6 +8,7 @@ import scala.collection.mutable.HashSet
  */
 trait Node {
   def nodeChildren: List[Node]
+  def nodeDelegate: Node = this
   def isNamedTable = false
 
   def nodeChildrenNames: Stream[String] = Stream.from(0).map(_.toString)
@@ -40,18 +41,10 @@ trait Node {
 object Node {
   def apply(o:Any): Node = o match {
     case null => NullNode
-    case WithOp(op) => op
-    // Workaround for https://lampsvn.epfl.ch/trac/scala/ticket/1434
-    //case n:WrappedColumn[_] => Node(n.nodeDelegate)
-    case _ => {
-      if(o.isInstanceOf[WrappedColumn[_]]) o.asInstanceOf[WrappedColumn[_]].nodeDelegate
-      else o match {
-        case n:Node => n
-        case p:Product => new ProductNode(p)
-        case r:AnyRef => throw new SQueryException("Cannot narrow "+o+" of type "+r.getClass.getName+" to a Node")
-        case _ => throw new SQueryException("Cannot narrow "+o+" to a Node")
-      }
-    }
+    case n:Node => n.nodeDelegate
+    case p:Product => new ProductNode(p)
+    case r:AnyRef => throw new SQueryException("Cannot narrow "+o+" of type "+r.getClass.getName+" to a Node")
+    case _ => throw new SQueryException("Cannot narrow "+o+" to a Node")
   }
 
   final class DumpContext(val out: PrintWriter, val nc: NamingContext) {

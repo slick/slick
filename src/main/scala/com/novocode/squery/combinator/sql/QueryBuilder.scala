@@ -115,7 +115,6 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       }
     }
     case c @ ConstColumn(v) => b += c.typeMapper.valueToSQLLiteral(v)
-    case w: WrappedColumn[_] => expr(w.nodeDelegate, b)
     case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
     case a @ Table.Alias(t: WithOp) => expr(t.withOp(a), b)
     case t: Table[_] => expr(t.*, b)
