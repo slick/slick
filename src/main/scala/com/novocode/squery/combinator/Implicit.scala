@@ -23,13 +23,13 @@ object Implicit {
     case _ => new BooleanOptionColumnOps { protected[this] val leftOperand = Node(c) }
   }
 
-  implicit def columnToTypeMappedColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): TypeMappedColumn[T] = c match {
-    case t: TypeMappedColumn[T] => t
+  implicit def columnToSimpleColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): SimpleColumn[T] = c match {
+    case t: SimpleColumn[T] => t
     case _ => new WrappedColumn(c, tm)
   }
 
-  implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): TypeMappedColumn[Option[T]] =
-    columnToTypeMappedColumn(c)(tm).?
+  implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): SimpleColumn[Option[T]] =
+    columnToSimpleColumn(c)(tm).?
 
   implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
 

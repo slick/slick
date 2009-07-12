@@ -34,7 +34,7 @@ class DDLBuilder(table: Table[_]) {
     for(o <- c.options) o match {
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.AutoInc => autoIncrement = true
-      case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].valueToSQLLiteral(v)
+      case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper.valueToSQLLiteral(v)
     }
     if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
     if(notNull) sb append " NOT NULL"
