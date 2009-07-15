@@ -37,8 +37,8 @@ object Table {
 }
 
 final class Join[+T1 <: TableBase.T_, +T2 <: TableBase.T_](_left: T1, _right: T2) extends TableBase[Nothing] {
-  def left = _left.withOp(Join.JoinPart(Node(_left), Node(this)))
-  def right = _right.withOp(Join.JoinPart(Node(_right), Node(this)))
+  def left = _left.mapOp(n => Join.JoinPart(Node(n), Node(this)))
+  def right = _right.mapOp(n => Join.JoinPart(Node(n), Node(this)))
   def nodeChildren = Node(_left) :: Node(_right) :: Nil
   override def toString = "Join(" + Node(_left) + "," + Node(_right) + ")"
 
@@ -54,7 +54,7 @@ object Join {
   }
 }
 
-class Union[T <: Column.T_](val all: Boolean, query1: Query[T], query2: Query[T]) extends TableBase[Nothing] {
+case class Union[T <: Column.T_](val all: Boolean, query1: Query[T], query2: Query[T]) extends TableBase[Nothing] {
   val left = Node(query1)
   val right = Node(query2)
   def nodeChildren = left :: right :: Nil
@@ -63,7 +63,7 @@ class Union[T <: Column.T_](val all: Boolean, query1: Query[T], query2: Query[T]
 object Union {
   //def unapply(u: Union[_]) = Some((u.all, u.left, u.right))
 
-  final case class UnionPart(child: Node) extends UnaryNode {
+  final case class UnionPart(child: Node, union: Union[_]) extends UnaryNode {
     override def toString = "UnionPart"
   }
 }

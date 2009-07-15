@@ -33,10 +33,10 @@ object Implicit {
 
   implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
 
-  implicit def tableToQuery[T <: TableBase.T_](t: T) = Query(t.withOp(new Table.Alias(Node(t))))
+  implicit def tableToQuery[T <: TableBase.T_](t: T) = Query(t.mapOp(n => new Table.Alias(Node(n))))
 
   // Not implicit to work around bug #1579
-  def queryToSubQuery[C <: Column.T_](q: Query[C]): C = q.value.withOp(q)
+  def queryToSubQuery[C <: Column.T_](q: Query[C]): C = q.value.mapOp(_ => q)
 
   implicit def queryToQueryInvoker[T](q: Query[ConvertibleColumn[T]]): StatementCombinatorQueryInvoker[T] = new StatementCombinatorQueryInvoker(q)
   implicit def queryToDeleteInvoker[T](q: Query[Table[T]]): DeleteInvoker[T] = new DeleteInvoker(q)

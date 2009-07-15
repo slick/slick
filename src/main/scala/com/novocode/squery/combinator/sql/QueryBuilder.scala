@@ -116,7 +116,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     }
     case c @ ConstColumn(v) => b += c.typeMapper.valueToSQLLiteral(v)
     case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
-    case a @ Table.Alias(t: WithOp) => expr(t.withOp(a), b)
+    case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
     case t: Table[_] => expr(t.*, b)
     case t: TableBase[_] => b += localTableName(t) += ".*"
     case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")

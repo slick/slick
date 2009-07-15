@@ -37,6 +37,8 @@ object Query {
 
 class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
   
-  def union(other: Query[E]): Query[E] =
-    Query(q.value.withOp(Union.UnionPart(new Union(false, q, other))))
+  def union(other: Query[E]): Query[E] = {
+    val u = Union(false, q, other)
+    Query(q.value.mapOp(n => Union.UnionPart(n, u)))
+  }
 }

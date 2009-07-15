@@ -77,7 +77,7 @@ object SQuery2Test {
     q5.dump("q5: ", q5nc)
     println(QueryBuilder.buildSelect(q5, q5nc))
 
-    val usersBase = Users.withOp(new Table.Alias(Users))
+    val usersBase = Users.mapOp(n => new Table.Alias(n))
 
     {
       println()
@@ -96,7 +96,7 @@ object SQuery2Test {
 
     {
       println()
-      val f = { t:Table[_] => t.withOp(new Table.Alias(t)) }
+      val f = { t:Table[_] => t.mapOp(n => new Table.Alias(n)) }
       val m2a = for { u <- Query(Users) } yield f(u)
       val m2b = Query(f(Users))
       m2a.dump("m2a: ", m2anc)

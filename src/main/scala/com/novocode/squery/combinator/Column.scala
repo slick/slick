@@ -11,8 +11,8 @@ trait Column[T] extends Node with WithOp {
   def in[E](e: Query[Column[E]]) = Operator.In(Node(this), Node(e))
   def notIn[E](e: Query[Column[E]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
   def isNot[E](e: Column[E]) = Operator.Not(Node(Operator.Is(Node(this), Node(e))))
-  def sortBy[CT](c: Column[CT]): this.type = withOp(Operator.Ordering(Node(this), Node(c), false))
-  def sortByDesc[CT](c: Column[CT]): this.type = withOp(Operator.Ordering(Node(this), Node(c), true))
+  def sortBy[CT](c: Column[CT]): this.type = mapOp(n => Operator.Ordering(Node(n), Node(c), false))
+  def sortByDesc[CT](c: Column[CT]): this.type = mapOp(n => Operator.Ordering(Node(n), Node(c), true))
 }
 
 object Column {
@@ -25,17 +25,17 @@ trait ConvertibleColumn[T] extends Column[T] {
   def setParameter(ps: PositionedParameters, value: Option[T]): Unit
 }
 
-trait SimpleColumn[T] extends ConvertibleColumn[T] { self =>
+trait SimpleColumn[T] extends ConvertibleColumn[T] {
   val typeMapper: TypeMapper[T]
   def nullValue: T = typeMapper.zero
   final def getResult(rs: PositionedResult): T = typeMapper.nextValue(rs)
   final def getResultOption(rs: PositionedResult): Option[T] = typeMapper.nextOption(rs)
   final def setParameter(ps: PositionedParameters, value: Option[T]): Unit = typeMapper.setOption(value, ps)
-  def orElse(n: =>T): SimpleColumn[T] = new WrappedColumn(this, self.typeMapper) {
+  def orElse(n: =>T): SimpleColumn[T] = new WrappedColumn(this, typeMapper) {
     override def nullValue = n
   }
   final def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
-  def ? : SimpleColumn[Option[T]] = new WrappedColumn(this, TypeMapper.typeMapperToOptionTypeMapper(self.typeMapper)) {
+  def ? : SimpleColumn[Option[T]] = new WrappedColumn(this, TypeMapper.typeMapperToOptionTypeMapper(typeMapper)) {
     override def nullValue = None
   }
   final def ~[U](b: SimpleColumn[U]) = new Projection2[T, U](this, b)
@@ -60,7 +60,7 @@ class WrappedColumn[T](parent: Column[_], val typeMapper: TypeMapper[T]) extends
 }
 
 class NamedColumn[T](val table: Node, val name: String, val typeMapper: TypeMapper[T], val options: ColumnOption[T]*) extends
-    SimpleColumn[T] { self =>
+    SimpleColumn[T] {
   def nodeChildren = table :: Nil
   override def toString = "NamedColumn " + name
 }
