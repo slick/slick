@@ -3,36 +3,37 @@ package com.novocode.squery.combinator
 import java.io.PrintWriter
 
 
-class Query[+E <: AnyRef](val value: E, val cond: List[Column[Option[Boolean]]]) extends Node {
+class Query[+E <: AnyRef](val value: E, val cond: List[Column[Option[Boolean]]], val ordering: List[Order.Ordering]) extends Node {
 
   def select[F <: AnyRef](f: E => Query[F]): Query[F] = {
     val q = f(value)
-    new Query(q.value, cond ::: q.cond)
+    new Query(q.value, cond ::: q.cond, ordering ::: q.ordering)
   }
 
-  def where(f: E => Column[Option[Boolean]]): Query[E] = new Query(value, f(value) :: cond)
+  def where(f: E => Column[Option[Boolean]]): Query[E] = new Query(value, f(value) :: cond, ordering)
 
   // Methods for use in for-comprehensions
   def flatMap[F <: AnyRef](f: E => Query[F]): Query[F] = select(f)
   def map[F <: AnyRef](f: E => F): Query[F] = flatMap(v => Query(f(v)))
   //def filter(f: E => BooleanColumn): Query[E] = where(f)
 
-  def nodeChildren = Node(value) :: cond.map(Node.apply)
-  override def nodeChildrenNames = {
-    lazy val s:Stream[String] = Stream.cons("where", s)
-    Stream.cons("select", s)
-  }
+  def >>[F <: AnyRef](q: Query[F]): Query[F] = flatMap(_ => q)
+
+  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: ordering
+  override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) ::: ordering.map(o => (o, "order"))
 
   override def toString = "Query"
 }
 
 object Query {
-  def apply[E <: AnyRef](value: E) = new Query(value, Nil)
-  def apply[E <: AnyRef](value: E, cond: List[Column[Option[Boolean]]]) = new Query(value, cond)
+  def apply[E <: AnyRef](value: E) = new Query(value, Nil, Nil)
+  def apply[E <: AnyRef](value: E, cond: List[Column[Option[Boolean]]], ordering: List[Order.Ordering]) = new Query(value, cond, ordering)
 
   def unapply[E <: AnyRef](q: Query[E]) = Some((q.value, q.cond))
 
   def flatten[E <: AnyRef](q: Query[Query[E]]): Query[E] = q.flatMap(x => x)
+
+  object QNothing
 }
 
 class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {

@@ -43,16 +43,29 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
 
   private def buildSelect(value: Node, b: SQLBuilder): Unit = value match {
     case Operator.Count(e) => { b += "SELECT count(*) from ("; buildSelect(e, b); b += ")" }
-    case Operator.Ordering(base, by, desc) =>
-      buildSelect(base, b)
-      b += " ORDER BY "
-      expr(by, b)
-      if(desc) b += " descending"
     case _ =>
       b += "SELECT "
       expr(value, b)
       fromSlot = b.createSlot
       appendConditions(b)
+      appendOrderClause(b)
+  }
+
+  private def appendOrderClause(b: SQLBuilder): Unit = query.ordering match {
+    case x :: xs => {
+      b += " ORDER BY "
+      appendOrdering(x, b)
+      for(x <- xs) {
+        b += ","
+        appendOrdering(x, b)
+      }
+    }
+    case _ =>
+  }
+
+  private def appendOrdering(o: Order.Ordering, b: SQLBuilder) {
+    expr(o.by, b)
+    if(o.isInstanceOf[Order.Desc]) b += " descending"
   }
 
   private def buildDelete: String = {

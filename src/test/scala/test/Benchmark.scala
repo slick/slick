@@ -1,6 +1,6 @@
 package test
 
-import com.novocode.squery.combinator.{Table, Join, NamingContext}
+import com.novocode.squery.combinator.{Table, Join, NamingContext, Order}
 import com.novocode.squery.combinator.sql.QueryBuilder
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session.TypeMapper._
@@ -42,7 +42,8 @@ object Benchmark {
     val q4 = for {
       uo <- Users join Orders
       val Join(u,o) = uo
-    } yield u.first ~ o.orderID sortBy u.last
+      _ <- Order +u.last
+    } yield u.first ~ o.orderID
     val q5 = for (
       o <- Orders
         where { o => o.orderID is queryToSubQuery(for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }

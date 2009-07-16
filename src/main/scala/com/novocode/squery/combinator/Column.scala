@@ -11,8 +11,6 @@ trait Column[T] extends Node with WithOp {
   def in[E](e: Query[Column[E]]) = Operator.In(Node(this), Node(e))
   def notIn[E](e: Query[Column[E]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
   def isNot[E](e: Column[E]) = Operator.Not(Node(Operator.Is(Node(this), Node(e))))
-  def sortBy[CT](c: Column[CT]): this.type = mapOp(n => Operator.Ordering(Node(n), Node(c), false))
-  def sortByDesc[CT](c: Column[CT]): this.type = mapOp(n => Operator.Ordering(Node(n), Node(c), true))
 }
 
 object Column {

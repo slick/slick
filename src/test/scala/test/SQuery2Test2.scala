@@ -63,7 +63,8 @@ object SQuery2Test2 {
       val q3 = for {
         u <- Users
         o <- Orders where { o => (u.id is o.userID) && (u.last isNot null) }
-      } yield (u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate).sortBy(u.first)
+        _ <- Order +u.first
+      } yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
       println("q3: " + q3.selectStatement)
       println("All Orders by Users with a last name by first name:")
       q3.foreach(o => println("  "+o))

@@ -11,7 +11,7 @@ trait Node {
   def nodeDelegate: Node = this
   def isNamedTable = false
 
-  def nodeChildrenNames: Stream[String] = Stream.from(0).map(_.toString)
+  def nodeNamedChildren: Seq[(Node, String)] = nodeChildren.projection.zip(Stream.from(0).map(_.toString))
 
   def dump(dc: Node.DumpContext, prefix: String, name: String) {
     var tname = ""
@@ -25,7 +25,7 @@ trait Node {
       }
     }
     dc.out.println(prefix + name + tname + this)
-    for((ch, n) <- nodeChildren.projection.zip(nodeChildrenNames))
+    for((ch, n) <- nodeNamedChildren)
       ch.dump(dc, prefix + "  ", n+": ")
   }
 

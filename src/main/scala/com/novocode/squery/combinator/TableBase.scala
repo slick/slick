@@ -50,7 +50,7 @@ object Join {
 
   final case class JoinPart(left: Node, right: Node) extends BinaryNode {
     override def toString = "JoinPart"
-    override def nodeChildrenNames = Stream("table", "from")
+    override def nodeNamedChildren = (left, "table") :: (right, "from") :: Nil
   }
 }
 

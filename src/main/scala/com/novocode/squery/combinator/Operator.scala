@@ -11,9 +11,4 @@ object Operator {
   final case class Count(child: Node) extends OperatorColumn[Int] with UnaryNode
   final case class Max(child: Node) extends OperatorColumn[Int] with UnaryNode
   final case class Not(child: Node) extends OperatorColumn[Boolean] with UnaryNode with BooleanColumnOps
-
-  final case class Ordering(left: Node, right: Node, desc: Boolean) extends BinaryNode {
-    override def toString = "Ordering " + (if(desc) "desc" else "asc")
-    override def nodeChildrenNames = Stream("expr", "by")
-  }
 }
