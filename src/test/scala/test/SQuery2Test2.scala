@@ -92,12 +92,19 @@ object SQuery2Test2 {
       println("Latest Order per User, using maxOfPer:")
       q4b.foreach(o => println("  "+o))
 
-      println("b1: " + Orders.where( o => o.shipped && o.shipped ).selectStatement)
-      println("b2: " + Orders.where( o => o.shipped && o.rebate ).selectStatement)
-      println("b3: " + Orders.where( o => o.rebate && o.shipped ).selectStatement)
-      println("b4: " + Orders.where( o => o.rebate && o.rebate ).selectStatement)
-      println("b5: " + Orders.where( o => !o.shipped ).selectStatement)
-      println("b6: " + Orders.where( o => !o.rebate ).selectStatement)
+      val b1 = Orders.where( o => o.shipped && o.shipped ).map( o => o.shipped && o.shipped )
+      val b2 = Orders.where( o => o.shipped && o.rebate ).map( o => o.shipped && o.rebate )
+      val b3 = Orders.where( o => o.rebate && o.shipped ).map( o => o.rebate && o.shipped )
+      val b4 = Orders.where( o => o.rebate && o.rebate ).map( o => o.rebate && o.rebate )
+      val b5 = Orders.where( o => !o.shipped ).map( o => !o.shipped )
+      val b6 = Orders.where( o => !o.rebate ).map( o => !o.rebate )
+
+      println("b1: " + b1.selectStatement)
+      println("b2: " + b2.selectStatement)
+      println("b3: " + b3.selectStatement)
+      println("b4: " + b4.selectStatement)
+      println("b5: " + b5.selectStatement)
+      println("b6: " + b6.selectStatement)
 
       val q5 = Users where { _.id notIn Orders.map(_.userID) }
       println("q5: " + q5.selectStatement)

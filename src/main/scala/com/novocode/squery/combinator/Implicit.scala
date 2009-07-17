@@ -3,24 +3,18 @@ package com.novocode.squery.combinator
 import com.novocode.squery.session.TypeMapper
 
 object Implicit {
-  implicit def columnOfBooleanToBooleanLikeColumnOps(c: Column[Boolean]): BooleanLikeColumnOps = c match {
-    case o: BooleanLikeColumnOps => o
-    case _ => new BooleanLikeColumnOps { protected[this] val leftOperand = Node(c) }
-  }
 
-  implicit def columnOfBooleanOptionToBooleanLikeColumnOps(c: Column[Option[Boolean]]): BooleanLikeColumnOps = c match {
-    case o: BooleanLikeColumnOps => o
-    case _ => new BooleanLikeColumnOps { protected[this] val leftOperand = Node(c) }
-  }
+  implicit object WhereBoolean extends Query.WhereType[Boolean]
+  implicit object WhereBooleanOption extends Query.WhereType[Option[Boolean]]
 
-  implicit def columnOfBooleanToBooleanColumnOps(c: Column[Boolean]): BooleanColumnOps = c match {
-    case o: BooleanColumnOps => o
-    case _ => new BooleanColumnOps { protected[this] val leftOperand = Node(c) }
-  }
+  implicit def getOptionMapperTT[T] = OptionMapper.plain.asInstanceOf[OptionMapper[T, T, T, T]]
+  implicit def getOptionMapperTO[T] = OptionMapper.option.asInstanceOf[OptionMapper[T, T, Option[T], Option[T]]]
+  implicit def getOptionMapperOT[T] = OptionMapper.option.asInstanceOf[OptionMapper[T, Option[T], T, Option[T]]]
+  implicit def getOptionMapperOO[T] = OptionMapper.option.asInstanceOf[OptionMapper[T, Option[T], Option[T], Option[T]]]
 
-  implicit def columnOfBooleanOptionToBooleanOptionColumnOps(c: Column[Option[Boolean]]): BooleanOptionColumnOps = c match {
-    case o: BooleanOptionColumnOps => o
-    case _ => new BooleanOptionColumnOps { protected[this] val leftOperand = Node(c) }
+  implicit def columnOfBooleanToBooleanColumnOps[P1](c: Column[P1]): BooleanColumnOps[P1] = c match {
+    case o: BooleanColumnOps[P1] => o
+    case _ => new BooleanColumnOps[P1] { protected[this] val leftOperand = Node(c) }
   }
 
   implicit def columnToSimpleColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): SimpleColumn[T] = c match {

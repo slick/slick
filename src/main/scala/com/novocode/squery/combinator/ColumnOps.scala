@@ -4,15 +4,17 @@ trait ColumnOps {
   protected val leftOperand: Node
 }
 
-trait BooleanLikeColumnOps extends ColumnOps {
-  def &&(b: Column[Option[Boolean]]) = Operator.And(leftOperand, Node(b))
-  def ||(b: Column[Option[Boolean]]) = Operator.Or(leftOperand, Node(b))
+sealed trait OptionMapper[B, P1, P2, R] {
+  def apply(n: SimpleColumn[B]): SimpleColumn[R]
 }
 
-trait BooleanColumnOps extends ColumnOps {
-  def unary_! = Operator.Not(leftOperand)
+object OptionMapper {
+  val plain = new OptionMapper[Any,Any,Any,Any] { def apply(n: SimpleColumn[Any]): SimpleColumn[Any] = n }
+  val option = new OptionMapper[Any,Any,Any,Option[Any]] { def apply(n: SimpleColumn[Any]): SimpleColumn[Option[Any]] = n.? }
 }
 
-trait BooleanOptionColumnOps extends ColumnOps {
-  def unary_! = Operator.Not(leftOperand).?
+trait BooleanColumnOps[P1] extends ColumnOps {
+  def &&[P2, R](b: Column[P2])(implicit om: OptionMapper[Boolean, P1, P2, R]): SimpleColumn[R] = om(Operator.And(leftOperand, Node(b)))
+  def ||[P2, R](b: Column[P2])(implicit om: OptionMapper[Boolean, P1, P2, R]): SimpleColumn[R] = om(Operator.Or(leftOperand, Node(b)))
+  def unary_![R](implicit om: OptionMapper[Boolean, P1, P1, R]): SimpleColumn[R] = om(Operator.Not(leftOperand))
 }

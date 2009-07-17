@@ -3,14 +3,14 @@ package com.novocode.squery.combinator
 import java.io.PrintWriter
 
 
-class Query[+E <: AnyRef](val value: E, val cond: List[Column[Option[Boolean]]], val ordering: List[Order.Ordering]) extends Node {
+class Query[+E <: AnyRef](val value: E, val cond: List[Column[_]], val ordering: List[Order.Ordering]) extends Node {
 
   def select[F <: AnyRef](f: E => Query[F]): Query[F] = {
     val q = f(value)
     new Query(q.value, cond ::: q.cond, ordering ::: q.ordering)
   }
 
-  def where(f: E => Column[Option[Boolean]]): Query[E] = new Query(value, f(value) :: cond, ordering)
+  def where[T](f: E => Column[T])(implicit wt: Query.WhereType[T]): Query[E] = new Query(value, f(value) :: cond, ordering)
 
   // Methods for use in for-comprehensions
   def flatMap[F <: AnyRef](f: E => Query[F]): Query[F] = select(f)
@@ -34,6 +34,8 @@ object Query {
   def flatten[E <: AnyRef](q: Query[Query[E]]): Query[E] = q.flatMap(x => x)
 
   object QNothing
+  
+  trait WhereType[T]
 }
 
 class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
