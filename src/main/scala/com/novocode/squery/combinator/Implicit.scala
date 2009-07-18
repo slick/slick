@@ -13,7 +13,7 @@ object Implicit {
   implicit def getOptionMapperOO[T] = OptionMapper.option.asInstanceOf[OptionMapper[T, Option[T], Option[T], Option[T]]]
 
   implicit def columnOfBooleanToBooleanColumnOps[P1](c: ColumnBase[P1]): BooleanColumnOps[P1] = c match {
-    case o: BooleanColumnOps[P1] => o
+    case o: BooleanColumnOps[_] => o.asInstanceOf[BooleanColumnOps[P1]]
     case _ => new BooleanColumnOps[P1] { protected[this] val leftOperand = Node(c) }
   }
 
