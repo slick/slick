@@ -3,7 +3,7 @@ package com.novocode.squery.combinator
 import com.novocode.squery.combinator.sql.InsertBuilder
 import com.novocode.squery.session.{Session, CloseableIterator, ReadAheadIterator, PositionedParameters}
 
-class CombinatorInsertInvoker[T] (column: ConvertibleColumn[T]) {
+class CombinatorInsertInvoker[T] (column: ColumnBase[T]) {
 
   lazy val insertStatement = new InsertBuilder(column).buildInsert
 

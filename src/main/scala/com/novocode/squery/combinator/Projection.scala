@@ -3,12 +3,12 @@ package com.novocode.squery.combinator
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 
-sealed trait Projection[T <: Product] extends ConvertibleColumn[T] with Product {
+sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
   def nodeChildren = 0 until productArity map { i => Node(productElement(i)) } toList
 
   def setParameter(ps: PositionedParameters, value: Option[T]): Unit = {
     for(i <- 0 until productArity) {
-      productElement(i).asInstanceOf[ConvertibleColumn[Any]].setParameter(ps, value.map(_.productElement(i)))
+      productElement(i).asInstanceOf[Column[Any]].setParameter(ps, value.map(_.productElement(i)))
     }
   }
 
@@ -18,10 +18,10 @@ sealed trait Projection[T <: Product] extends ConvertibleColumn[T] with Product 
 }
 
 final class Projection2[T1,T2](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2])
+  override val _1: Column[T1],
+  override val _2: Column[T2])
 extends Tuple2(_1,_2) with Projection[(T1,T2)] {
-  def ~[U](c: SimpleColumn[U]) = new Projection3(_1,_2,c)
+  def ~[U](c: Column[U]) = new Projection3(_1,_2,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs))
@@ -31,11 +31,11 @@ extends Tuple2(_1,_2) with Projection[(T1,T2)] {
 }
 
 final class Projection3[T1,T2,T3](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2],
-  override val _3: SimpleColumn[T3])
+  override val _1: Column[T1],
+  override val _2: Column[T2],
+  override val _3: Column[T3])
 extends Tuple3(_1,_2,_3) with Projection[(T1,T2,T3)] {
-  def ~[U](c: SimpleColumn[U]) = new Projection4(_1,_2,_3,c)
+  def ~[U](c: Column[U]) = new Projection4(_1,_2,_3,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs),
@@ -47,12 +47,12 @@ extends Tuple3(_1,_2,_3) with Projection[(T1,T2,T3)] {
 }
 
 final class Projection4[T1,T2,T3,T4](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2],
-  override val _3: SimpleColumn[T3],
-  override val _4: SimpleColumn[T4])
+  override val _1: Column[T1],
+  override val _2: Column[T2],
+  override val _3: Column[T3],
+  override val _4: Column[T4])
 extends Tuple4(_1,_2,_3,_4) with Projection[(T1,T2,T3,T4)] {
-  def ~[U](c: SimpleColumn[U]) = new Projection5(_1,_2,_3,_4,c)
+  def ~[U](c: Column[U]) = new Projection5(_1,_2,_3,_4,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs),
@@ -66,13 +66,13 @@ extends Tuple4(_1,_2,_3,_4) with Projection[(T1,T2,T3,T4)] {
 }
 
 final class Projection5[T1,T2,T3,T4,T5](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2],
-  override val _3: SimpleColumn[T3],
-  override val _4: SimpleColumn[T4],
-  override val _5: SimpleColumn[T5])
+  override val _1: Column[T1],
+  override val _2: Column[T2],
+  override val _3: Column[T3],
+  override val _4: Column[T4],
+  override val _5: Column[T5])
 extends Tuple5(_1,_2,_3,_4,_5) with Projection[(T1,T2,T3,T4,T5)] {
-  def ~[U](c: SimpleColumn[U]) = new Projection6(_1,_2,_3,_4,_5,c)
+  def ~[U](c: Column[U]) = new Projection6(_1,_2,_3,_4,_5,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs),
@@ -88,14 +88,14 @@ extends Tuple5(_1,_2,_3,_4,_5) with Projection[(T1,T2,T3,T4,T5)] {
 }
 
 final class Projection6[T1,T2,T3,T4,T5,T6](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2],
-  override val _3: SimpleColumn[T3],
-  override val _4: SimpleColumn[T4],
-  override val _5: SimpleColumn[T5],
-  override val _6: SimpleColumn[T6])
+  override val _1: Column[T1],
+  override val _2: Column[T2],
+  override val _3: Column[T3],
+  override val _4: Column[T4],
+  override val _5: Column[T5],
+  override val _6: Column[T6])
 extends Tuple6(_1,_2,_3,_4,_5,_6) with Projection[(T1,T2,T3,T4,T5,T6)] {
-  def ~[U](c: SimpleColumn[U]) = new Projection7(_1,_2,_3,_4,_5,_6,c)
+  def ~[U](c: Column[U]) = new Projection7(_1,_2,_3,_4,_5,_6,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs),
@@ -113,15 +113,15 @@ extends Tuple6(_1,_2,_3,_4,_5,_6) with Projection[(T1,T2,T3,T4,T5,T6)] {
 }
 
 final class Projection7[T1,T2,T3,T4,T5,T6,T7](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2],
-  override val _3: SimpleColumn[T3],
-  override val _4: SimpleColumn[T4],
-  override val _5: SimpleColumn[T5],
-  override val _6: SimpleColumn[T6],
-  override val _7: SimpleColumn[T7])
+  override val _1: Column[T1],
+  override val _2: Column[T2],
+  override val _3: Column[T3],
+  override val _4: Column[T4],
+  override val _5: Column[T5],
+  override val _6: Column[T6],
+  override val _7: Column[T7])
 extends Tuple7(_1,_2,_3,_4,_5,_6,_7) with Projection[(T1,T2,T3,T4,T5,T6,T7)] {
-  def ~[U](c: SimpleColumn[U]) = new Projection8(_1,_2,_3,_4,_5,_6,_7,c)
+  def ~[U](c: Column[U]) = new Projection8(_1,_2,_3,_4,_5,_6,_7,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs),
@@ -141,16 +141,16 @@ extends Tuple7(_1,_2,_3,_4,_5,_6,_7) with Projection[(T1,T2,T3,T4,T5,T6,T7)] {
 }
 
 final class Projection8[T1,T2,T3,T4,T5,T6,T7,T8](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2],
-  override val _3: SimpleColumn[T3],
-  override val _4: SimpleColumn[T4],
-  override val _5: SimpleColumn[T5],
-  override val _6: SimpleColumn[T6],
-  override val _7: SimpleColumn[T7],
-  override val _8: SimpleColumn[T8])
+  override val _1: Column[T1],
+  override val _2: Column[T2],
+  override val _3: Column[T3],
+  override val _4: Column[T4],
+  override val _5: Column[T5],
+  override val _6: Column[T6],
+  override val _7: Column[T7],
+  override val _8: Column[T8])
 extends Tuple8(_1,_2,_3,_4,_5,_6,_7,_8) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8)] {
-  def ~[U](c: SimpleColumn[U]) = new Projection9(_1,_2,_3,_4,_5,_6,_7,_8,c)
+  def ~[U](c: Column[U]) = new Projection9(_1,_2,_3,_4,_5,_6,_7,_8,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs),
@@ -172,17 +172,17 @@ extends Tuple8(_1,_2,_3,_4,_5,_6,_7,_8) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8
 }
 
 final class Projection9[T1,T2,T3,T4,T5,T6,T7,T8,T9](
-  override val _1: SimpleColumn[T1],
-  override val _2: SimpleColumn[T2],
-  override val _3: SimpleColumn[T3],
-  override val _4: SimpleColumn[T4],
-  override val _5: SimpleColumn[T5],
-  override val _6: SimpleColumn[T6],
-  override val _7: SimpleColumn[T7],
-  override val _8: SimpleColumn[T8],
-  override val _9: SimpleColumn[T9])
+  override val _1: Column[T1],
+  override val _2: Column[T2],
+  override val _3: Column[T3],
+  override val _4: Column[T4],
+  override val _5: Column[T5],
+  override val _6: Column[T6],
+  override val _7: Column[T7],
+  override val _8: Column[T8],
+  override val _9: Column[T9])
 extends Tuple9(_1,_2,_3,_4,_5,_6,_7,_8,_9) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9)] {
-  //def ~[U](c: SimpleColumn[U]) = new Projection10(_1,_2,_3,_4,_5,_6,_7,_8,_9,c)
+  //def ~[U](c: Column[U]) = new Projection10(_1,_2,_3,_4,_5,_6,_7,_8,_9,c)
   def getResult(rs: PositionedResult) =
     (_1.getResult(rs),
      _2.getResult(rs),

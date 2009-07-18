@@ -3,14 +3,14 @@ package com.novocode.squery.combinator
 import java.io.PrintWriter
 
 
-class Query[+E <: AnyRef](val value: E, val cond: List[Column[_]], val ordering: List[Order.Ordering]) extends Node {
+class Query[+E <: AnyRef](val value: E, val cond: List[ColumnBase[_]], val ordering: List[Order.Ordering]) extends Node {
 
   def select[F <: AnyRef](f: E => Query[F]): Query[F] = {
     val q = f(value)
     new Query(q.value, cond ::: q.cond, ordering ::: q.ordering)
   }
 
-  def where[T](f: E => Column[T])(implicit wt: Query.WhereType[T]): Query[E] = new Query(value, f(value) :: cond, ordering)
+  def where[T](f: E => ColumnBase[T])(implicit wt: Query.WhereType[T]): Query[E] = new Query(value, f(value) :: cond, ordering)
 
   // Methods for use in for-comprehensions
   def flatMap[F <: AnyRef](f: E => Query[F]): Query[F] = select(f)
@@ -27,7 +27,7 @@ class Query[+E <: AnyRef](val value: E, val cond: List[Column[_]], val ordering:
 
 object Query {
   def apply[E <: AnyRef](value: E) = new Query(value, Nil, Nil)
-  def apply[E <: AnyRef](value: E, cond: List[Column[Option[Boolean]]], ordering: List[Order.Ordering]) = new Query(value, cond, ordering)
+  //def apply[E <: AnyRef](value: E, cond: List[Column[Option[Boolean]]], ordering: List[Order.Ordering]) = new Query(value, cond, ordering)
 
   def unapply[E <: AnyRef](q: Query[E]) = Some((q.value, q.cond))
 
@@ -38,7 +38,7 @@ object Query {
   trait WhereType[T]
 }
 
-class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
+class QueryOfColumnOps[E <: ColumnBase[_]](q: Query[E]) {
   
   def union(other: Query[E]): Query[E] = {
     val u = Union(false, q, other)

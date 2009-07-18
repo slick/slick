@@ -10,7 +10,7 @@ trait CombinatorQueryInvoker[+R] extends NoArgsInvoker[R] {
     new MappedInvoker(this, f) with CombinatorQueryInvoker[U]
 }
 
-class StatementCombinatorQueryInvoker[+R](q: Query[ConvertibleColumn[R]])
+class StatementCombinatorQueryInvoker[+R](q: Query[ColumnBase[R]])
   extends StatementInvoker[Unit, R] with CombinatorQueryInvoker[R] {
 
   lazy val selectStatement = QueryBuilder.buildSelect(q, NamingContext())

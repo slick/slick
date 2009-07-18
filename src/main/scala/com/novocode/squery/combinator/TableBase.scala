@@ -4,7 +4,7 @@ import com.novocode.squery.session.{PositionedResult, PositionedParameters, Type
 import com.novocode.squery.session.TypeMapper._
 
 
-sealed trait TableBase[T] extends Column[T] {
+sealed trait TableBase[T] extends Node with WithOp {
   def join[U <: TableBase.T_](other: U) = new Join[this.type, U](this, other)
   override def isNamedTable = true
 }
@@ -13,7 +13,7 @@ object TableBase {
   type T_ = TableBase[_]
 }
 
-abstract class Table[T](val tableName: String) extends TableBase[T] with ConvertibleColumn[T] {
+abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnBase[T] {
 
   def nodeChildren = Nil
   override def toString = "Table " + tableName
@@ -22,7 +22,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with Convert
 
   def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]) = new NamedColumn[C](Node(this), n, tm, options:_*)
 
-  def * : ConvertibleColumn[T]
+  def * : ColumnBase[T]
 
   def getResult(rs: PositionedResult) = *.getResult(rs)
   def getResultOption(rs: PositionedResult) = *.getResultOption(rs)
@@ -54,7 +54,7 @@ object Join {
   }
 }
 
-case class Union[T <: Column.T_](val all: Boolean, query1: Query[T], query2: Query[T]) extends TableBase[Nothing] {
+case class Union[T <: ColumnBase.T_](val all: Boolean, query1: Query[T], query2: Query[T]) extends TableBase[Nothing] {
   val left = Node(query1)
   val right = Node(query2)
   def nodeChildren = left :: right :: Nil
