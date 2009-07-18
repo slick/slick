@@ -40,10 +40,10 @@ trait Column[T] extends ColumnBase[T] {
 
   // Operators
   def max = Operator.Max(Node(this))
-  def is[E](e: ColumnBase[E]) = Operator.Is(Node(this), Node(e))
-  def in[E](e: Query[ColumnBase[E]]) = Operator.In(Node(this), Node(e))
-  def notIn[E](e: Query[ColumnBase[E]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
-  def isNot[E](e: ColumnBase[E]) = Operator.Not(Node(Operator.Is(Node(this), Node(e))))
+  def is(e: Column[_]) = Operator.Is(Node(this), Node(e))
+  def in(e: Query[Column[_]]) = Operator.In(Node(this), Node(e))
+  def notIn(e: Query[Column[_]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
+  def isNot(e: Column[_]) = Operator.Not(Node(Operator.Is(Node(this), Node(e))))
 }
 
 /**
