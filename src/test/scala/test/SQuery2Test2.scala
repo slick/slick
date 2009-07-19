@@ -29,7 +29,7 @@ object SQuery2Test2 {
       def * = userID ~ orderID ~ product ~ shipped ~ rebate
     }
 
-    val sf = new DriverManagerSessionFactory("org.h2.Driver", "jdbc:h2:mem:test1")
+    val sf = new DriverManagerSessionFactory("jdbc:h2:mem:test1", "org.h2.Driver")
     sf withSession {
 
       println(Users.createTableStatement)

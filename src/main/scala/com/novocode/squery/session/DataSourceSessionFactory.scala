@@ -6,11 +6,11 @@ import javax.sql.DataSource
 /**
  * A session factory based on a DataSource.
  */
-class DataSourceSessionFactory(driver: String, ds: DataSource) extends SessionFactory {
+class DataSourceSessionFactory(ds: DataSource, driver: String) extends SessionFactory {
 
-  def this(ds: DataSource) = this(null, ds)
+  def this(ds: DataSource) = this(ds, null)
 
-  if(!(driver eq null)) Class.forName(driver)
+  if(driver ne null) Class.forName(driver)
 
   protected[squery] def createConnection(): Connection = ds.getConnection
 }

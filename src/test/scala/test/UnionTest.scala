@@ -26,7 +26,7 @@ object UnionTest {
       def departmentIs(dept: String) = manager in Managers.where(_.department is dept).map(_.id)
     }
 
-    val sf = new DriverManagerSessionFactory("org.h2.Driver", "jdbc:h2:mem:test1")
+    val sf = new DriverManagerSessionFactory("jdbc:h2:mem:test1", "org.h2.Driver")
     sf withSession {
 
       Managers.createTable

@@ -21,9 +21,9 @@ object JDBCTest {
     val allIDs = queryNA[Int]("select id from users")
     val userForID = query[Int,User]("select id, name from users where id = ?")
 
-    val sp = new DriverManagerSessionFactory("org.h2.Driver", "jdbc:h2:mem:test1")
-    //val sp = new DriverManagerSessionFactory("org.h2.Driver", "jdbc:h2:tcp://localhost/test")
-    //val sp = new DriverManagerSessionFactory("org.h2.Driver", "jdbc:h2:h2server/test")
+    val sp = new DriverManagerSessionFactory("jdbc:h2:mem:test1", "org.h2.Driver")
+    //val sp = new DriverManagerSessionFactory("jdbc:h2:tcp://localhost/test", "org.h2.Driver")
+    //val sp = new DriverManagerSessionFactory("jdbc:h2:h2server/test", "org.h2.Driver")
 
     sp withSession {
       getThreadSession.withTransaction {
