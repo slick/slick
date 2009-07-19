@@ -34,11 +34,11 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
   private[this] def subQueryBuilderFor(q: Query[_]) =
     subQueryBuilders.getOrElseUpdate(RefId(q), new QueryBuilder(q, nc, Some(this)))
 
-  private def buildSelect: String = {
+  private def buildSelect: (String, SQLBuilder.Setter) = {
     val b = new SQLBuilder
     buildSelect(Node(query.value), b)
     insertFromClauses()
-    b.toString
+    b.build
   }
 
   private def buildSelect(value: Node, b: SQLBuilder): Unit = value match {
@@ -68,7 +68,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     if(o.isInstanceOf[Order.Desc]) b += " descending"
   }
 
-  private def buildDelete: String = {
+  private def buildDelete = {
     val b = new SQLBuilder += "DELETE FROM "
     val (delTable, delTableName) = Node(query.value) match {
       case t @ Table.Alias(base:Table[_]) => (t, base.tableName)
@@ -83,7 +83,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
     for(qb <- subQueryBuilders.values)
       qb.insertFromClauses()
-    b.toString
+    b.build
   }
 
   private def buildUpdate: String = Node(query.value) match {
@@ -128,6 +128,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       }
     }
     case c @ ConstColumn(v) => b += c.typeMapper.valueToSQLLiteral(v)
+    case c @ BindColumn(v) => b +?= { p => c.typeMapper.setValue(v, p); p }
     case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
     case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
     case t: Table[_] => expr(t.*, b)

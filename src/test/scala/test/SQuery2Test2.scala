@@ -51,7 +51,7 @@ object SQuery2Test2 {
       val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last
       for(t <- q1b) println("With Options: "+t)
 
-      val q2 = for(u <- Users where {_.first is "Apu" }) yield u.last ~ u.id
+      val q2 = for(u <- Users where {_.first is "Apu".bind }) yield u.last ~ u.id
       println("q2: " + q2.selectStatement)
       println("Apu's last name and ID are: " + q2.first)
 

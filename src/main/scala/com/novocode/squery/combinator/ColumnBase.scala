@@ -52,9 +52,22 @@ trait Column[T] extends ColumnBase[T] {
 case class ConstColumn[T](val value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
   def nodeChildren = Nil
   override def toString = value match {
-    case null => "null"
+    case null => "ConstColumn null"
     case a: AnyRef => "ConstColumn["+a.getClass.getName+"] "+a
     case _ => "ConstColumn "+value
+  }
+  def bind = new BindColumn(value)
+}
+
+/**
+ * A column with a constant value which gets turned into a bind variable.
+ */
+case class BindColumn[T](val value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
+  def nodeChildren = Nil
+  override def toString = value match {
+    case null => "BindColumn null"
+    case a: AnyRef => "BindColumn["+a.getClass.getName+"] "+a
+    case _ => "BindColumn "+value
   }
 }
 

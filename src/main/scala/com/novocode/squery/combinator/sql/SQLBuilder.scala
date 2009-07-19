@@ -1,41 +1,73 @@
 package com.novocode.squery.combinator.sql
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.ArrayBuffer
+import com.novocode.squery.session.PositionedParameters
 import com.novocode.squery.session.TypeMapper.StringTypeMapper
 
-final class SQLBuilder {
-  private val sb = new StringBuilder(32)
-  private var slots = new ListBuffer[(Int,SQLBuilder)]
+final class SQLBuilder extends SQLBuilder.Segment {
+  import SQLBuilder._
 
-  def +=(s: String) = { sb append s; this }
+  private val segments = new ArrayBuffer[Segment]
+  private var currentStringSegment: StringSegment = null
 
-  def +=(c: Char) = { sb append c; this }
+  private def ss = {
+    if(currentStringSegment eq null) {
+      if(segments.isEmpty || segments.last.isInstanceOf[SQLBuilder]) {
+        currentStringSegment = new StringSegment
+        segments += currentStringSegment
+      }
+      else currentStringSegment = segments.last.asInstanceOf[StringSegment]
+    }
+    currentStringSegment
+  }
 
-  def +=(s: SQLBuilder) = { sb append s.sb; this }
+  def +=(s: String) = { ss.sb append s; this }
+
+  def +=(c: Char) = { ss.sb append c; this }
+
+  def +=(s: SQLBuilder) = { ss.sb append s; this }
+
+  def +?=(f: Setter) = { ss.setters append f; ss.sb append '?'; this }
 
   def createSlot = {
-    val d = new SQLBuilder
-    slots += ((sb.length, d))
-    d
+    val s = new SQLBuilder
+    segments += s
+    currentStringSegment = null
+    s
   }
 
-  private def buildString(res: StringBuilder) {
-    var start = 0
-    for((i,d) <- slots) {
-      if(start < i) res.append(sb.substring(start, i))
-      start = i
-      res.append(d.toString)
+  def appendTo(res: StringBuilder, setters: ArrayBuffer[Setter]): Unit =
+    for(s <- segments) s.appendTo(res, setters)
+
+  def build = {
+    val sb = new StringBuilder(64)
+    val setters = new ArrayBuffer[Setter]
+    appendTo(sb, setters)
+    (sb.toString, new CombinedSetter(setters))
+  }
+}
+
+object SQLBuilder {
+  type Setter = (PositionedParameters => PositionedParameters)
+
+  private class CombinedSetter(b: Seq[Setter]) extends Setter {
+    def apply(p: PositionedParameters): PositionedParameters = {
+      for(s <- b) s(p)
+      p
     }
-    val len = sb.length
-    if(start < len) res.append(sb.substring(start, len))
   }
 
-  override def toString = {
-    if(slots.isEmpty) sb.toString
-    else {
-      val res = new StringBuilder
-      buildString(res)
-      res.toString
+  trait Segment {
+    def appendTo(res: StringBuilder, setters: ArrayBuffer[Setter]): Unit
+  }
+
+  class StringSegment extends Segment {
+    val sb = new StringBuilder(32)
+    val setters = new ArrayBuffer[Setter]
+
+    def appendTo(res: StringBuilder, setters: ArrayBuffer[Setter]) {
+      res append sb
+      setters ++ this.setters
     }
   }
 }
