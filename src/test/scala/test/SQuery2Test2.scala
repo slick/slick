@@ -72,7 +72,8 @@ object SQuery2Test2 {
       val q4 = for (
         u <- Users;
         o <- Orders
-          where { o => o.orderID is queryToSubQuery(for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
+          //where { o => o.orderID is queryToSubQuery(for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
+          where { o => o.orderID in (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
           where { _.userID is u.id }
       ) yield u.first ~ o.orderID
       println("q4: " + q4.selectStatement)

@@ -110,14 +110,20 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
   private[this] def expr(c: Node, b: SQLBuilder): Unit = c match {
     case NullNode => b += "null"
     case Operator.Not(Operator.Is(l, NullNode)) => { b += '('; expr(l, b); b += " is not null)" }
+    case Operator.Not(e) => { b += "not "; expr(e, b) }
     case Operator.Is(l, NullNode) => { b += '('; expr(l, b); b += " is null)" }
     case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
-    case Operator.In(l, r) => { b += '('; expr(l, b); b += " in "; expr(r, b); b += ')' }
-    case Operator.And(l, r) => { b += '('; expr(l, b); b += " and "; expr(r, b); b += ')' }
-    case Operator.Or(l, r) => { b += '('; expr(l, b); b += " or "; expr(r, b); b += ')' }
-    case Operator.Count(e) => { b += "count("; expr(e, b); b += ')' }
-    case Operator.Max(e) => { b += "max("; expr(e, b); b += ')' }
-    case Operator.Not(e) => { b += "not "; expr(e, b) }
+    case s: SimpleFunction[_] => {
+      b += s.name += '('
+      var first = true
+      for(ch <- s.nodeChildren) {
+        if(first) first = false
+        else b += ','
+        expr(ch, b)
+      }
+      b += ')'
+    }
+    case s: SimpleBinaryOperator[_] => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
     case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b); b += ")" }
     //case Union.UnionPart(_) => "*"
     case p: Projection[_] => {
