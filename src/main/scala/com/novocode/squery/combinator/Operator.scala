@@ -9,6 +9,7 @@ object Operator {
   final case class Or(left: Node, right: Node) extends SimpleBinaryOperator[Boolean] with BooleanColumnOps[Boolean] { val name = "or" }
   final case class Count(child: Node) extends SimpleFunction[Int] with UnaryNode { val name = "count" }
   final case class Max(child: Node) extends SimpleFunction[Int] with UnaryNode { val name = "max" }
+  final case class Relational(name: String, left: Node, right: Node) extends SimpleBinaryOperator[Boolean] with BooleanColumnOps[Boolean]
 
   final case class Is(left: Node, right: Node) extends OperatorColumn[Boolean] with BinaryNode with BooleanColumnOps[Boolean]
   final case class Not(child: Node) extends OperatorColumn[Boolean] with UnaryNode with BooleanColumnOps[Boolean]

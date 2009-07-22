@@ -44,6 +44,10 @@ trait Column[T] extends ColumnBase[T] {
   def in(e: Query[Column[_]]) = Operator.In(Node(this), Node(e))
   def notIn(e: Query[Column[_]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
   def isNot(e: Column[_]) = Operator.Not(Node(Operator.Is(Node(this), Node(e))))
+  def < (e: Column[_]) = Operator.Relational("<", Node(this), Node(e))
+  def <= (e: Column[_]) = Operator.Relational("<=", Node(this), Node(e))
+  def > (e: Column[_]) = Operator.Relational(">", Node(this), Node(e))
+  def >= (e: Column[_]) = Operator.Relational(">=", Node(this), Node(e))
 }
 
 /**
