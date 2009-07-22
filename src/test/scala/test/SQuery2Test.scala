@@ -37,8 +37,8 @@ object SQuery2Test {
 
     val q2 = for {
       u <- Users
-      _ <- Order +u.first >> Order -u.last
-      o <- Orders where { o => (u.id is o.userID) && (u.first isNot null) }
+      __ <- Order +u.first >> Order -u.last
+      o <- Orders where { o => (u.id is o.userID).&&[Boolean,Boolean](u.first isNot null) }
     } yield u.first ~ u.last ~ o.orderID
 
     /*
@@ -52,7 +52,7 @@ object SQuery2Test {
     val q4 = for {
       uo <- Users join Orders
       val Join(u,o) = uo
-      _ <- Order +u.last
+      __ <- Order +u.last
     } yield u.first ~ o.orderID
 
     /*val q4b = for {

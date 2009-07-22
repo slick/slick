@@ -36,13 +36,13 @@ object Benchmark {
     val q1 = for(u <- Users) yield u
     val q2 = for {
       u <- Users
-      o <- Orders where { o => (u.id is o.userID) && (u.first isNot null) }
+      o <- Orders where { o => (u.id is o.userID).&&[Boolean,Boolean](u.first isNot null) }
     } yield u.first ~ u.last ~ o.orderID
     val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
     val q4 = for {
       uo <- Users join Orders
       val Join(u,o) = uo
-      _ <- Order +u.last
+      __ <- Order +u.last
     } yield u.first ~ o.orderID
     val q5 = for (
       o <- Orders

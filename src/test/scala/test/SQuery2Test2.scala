@@ -62,8 +62,8 @@ object SQuery2Test2 {
 
       val q3 = for {
         u <- Users
-        o <- Orders where { o => (u.id is o.userID) && (u.last isNot null) }
-        _ <- Order +u.first
+        o <- Orders where { o => (u.id is o.userID).&&[Boolean,Boolean](u.last isNot null) }
+        __ <- Order +u.first // No _ patterns allowed in Scala 2.7; Works with _ instead of __ in 2.8
       } yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
       println("q3: " + q3.selectStatement)
       println("All Orders by Users with a last name by first name:")
@@ -93,12 +93,12 @@ object SQuery2Test2 {
       println("Latest Order per User, using maxOfPer:")
       q4b.foreach(o => println("  "+o))
 
-      val b1 = Orders.where( o => o.shipped && o.shipped ).map( o => o.shipped && o.shipped )
-      val b2 = Orders.where( o => o.shipped && o.rebate ).map( o => o.shipped && o.rebate )
-      val b3 = Orders.where( o => o.rebate && o.shipped ).map( o => o.rebate && o.shipped )
-      val b4 = Orders.where( o => o.rebate && o.rebate ).map( o => o.rebate && o.rebate )
-      val b5 = Orders.where( o => !o.shipped ).map( o => !o.shipped )
-      val b6 = Orders.where( o => !o.rebate ).map( o => !o.rebate )
+      val b1 = Orders.where( o => o.shipped.&&[Boolean,Boolean](o.shipped) ).map( o => o.shipped.&&[Boolean,Boolean](o.shipped) )
+      val b2 = Orders.where( o => o.shipped.&&[Option[Boolean],Option[Boolean]](o.rebate) ).map( o => o.shipped.&&[Option[Boolean],Option[Boolean]](o.rebate) )
+      val b3 = Orders.where( o => o.rebate.&&[Boolean,Option[Boolean]](o.shipped) ).map( o => o.rebate.&&[Boolean,Option[Boolean]](o.shipped) )
+      val b4 = Orders.where( o => o.rebate.&&[Option[Boolean],Option[Boolean]](o.rebate) ).map( o => o.rebate.&&[Option[Boolean],Option[Boolean]](o.rebate) )
+      val b5 = Orders.where( o => o.shipped.unary_![Boolean] ).map( o => o.shipped.unary_![Boolean] )
+      val b6 = Orders.where( o => o.rebate.unary_![Option[Boolean]] ).map( o => o.rebate.unary_![Option[Boolean]] )
 
       println("b1: " + b1.selectStatement)
       println("b2: " + b2.selectStatement)
