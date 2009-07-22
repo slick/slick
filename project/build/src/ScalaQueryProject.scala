@@ -1,5 +1,6 @@
 import sbt._
 import scala.collection.Set
+import java.io.File
 
 class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
 {
@@ -12,4 +13,12 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
   // val scalaCheck = "org.scalacheck" % "scalacheck" % "1.5"
   // val junit = "junit" % "junit" % "4.5"
   // val jmock = "org.jmock" % "jmock" % "2.4.0"
+
+  val forkedCompilerJar = property[File]
+  val forkedLibraryJar = property[File]
+  val doFork = propertyOptional[Boolean](false)
+  override def fork = if(doFork.get.get) Some(new ForkScalaCompiler with ForkScalaRun {
+    override def workingDirectory = Some(info.projectPath.asFile)
+    override def scalaJars: Iterable[File] = List(forkedCompilerJar.get.get, forkedLibraryJar.get.get)
+  }) else super.fork
 }
