@@ -1,18 +1,30 @@
 package com.novocode.squery.combinator
 
-trait SimpleFunction[T] extends OperatorColumn[T] {
+import com.novocode.squery.session.TypeMapper
+
+abstract class SimpleFunction[T](implicit tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) {
   val name: String
 }
 
-trait SimpleBinaryOperator[T] extends OperatorColumn[T] with BinaryNode {
+object SimpleFunction {
+  def apply[T](fname: String)(implicit tm: TypeMapper[T]): (Seq[Column[_]] => SimpleFunction[T]) =
+    (paramsC: Seq[Column[_]]) =>
+      new SimpleFunction[T]()(tm) {
+        val name = fname
+        def nodeChildren = paramsC.map(n => Node(n)).toList
+      }
+}
+
+abstract class SimpleBinaryOperator[T](implicit tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with BinaryNode {
   val name: String
 }
 
-case class CustomFunction[T](name: String)(paramsC: Column[_]*) extends SimpleFunction[T] {
-  def nodeChildren = paramsC.map(n => Node(n)).toList
-}
-
-case class CustomBinaryOperator[T](name: String)(leftC: Column[_], rightC: Column[_]) extends SimpleBinaryOperator[T] {
-  val left = Node(leftC)
-  val right = Node(rightC)
+object SimpleBinaryOperator {
+  def apply[T](fname: String)(implicit tm: TypeMapper[T]): ((Column[_], Column[_]) => SimpleBinaryOperator[T]) =
+    (leftC: Column[_], rightC: Column[_]) =>
+      new SimpleBinaryOperator[T]()(tm) {
+        val name = fname
+        val left = Node(leftC)
+        val right = Node(rightC)
+      }
 }
