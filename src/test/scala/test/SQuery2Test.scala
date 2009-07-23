@@ -1,6 +1,6 @@
 package test
 
-import com.novocode.squery.combinator.{Table, Join, Query, StatementCombinatorQueryInvoker, Projection, NamingContext, Order}
+import com.novocode.squery.combinator.{Table, Join, Query, StatementCombinatorQueryInvoker, Projection, NamingContext, OrderBy}
 import com.novocode.squery.combinator.sql.{QueryBuilder, InsertBuilder, DDLBuilder}
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session.TypeMapper._
@@ -37,7 +37,7 @@ object SQuery2Test {
 
     val q2 = for {
       u <- Users
-      _ <- Order +u.first >> Order -u.last
+      _ <- OrderBy +u.first >> OrderBy -u.last
       o <- Orders where { o => (u.id is o.userID) && (u.first isNot null) }
     } yield u.first ~ u.last ~ o.orderID
 
@@ -52,7 +52,7 @@ object SQuery2Test {
     val q4 = for {
       uo <- Users join Orders
       val Join(u,o) = uo
-      _ <- Order +u.last
+      _ <- OrderBy +u.last
     } yield u.first ~ o.orderID
 
     /*val q4b = for {
