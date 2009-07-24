@@ -6,5 +6,5 @@ object GroupBy {
     override def toString = "GroupBy.Grouping"
   }
 
-  def apply(by: Column[_]) = new Query[Unit]((), Nil, Grouping(Node(by)) :: Nil, Nil)
+  def apply(by: Column[_]) = new Query[Unit]((), Nil, Nil, Grouping(Node(by)) :: Nil, Nil)
 }

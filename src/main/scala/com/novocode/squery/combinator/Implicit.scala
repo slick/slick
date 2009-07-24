@@ -1,20 +1,35 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.TypeMapper
+import com.novocode.squery.session.{TypeMapper, BaseTypeMapper}
 
 object Implicit {
 
   implicit object WhereBoolean extends Query.WhereType[Boolean]
   implicit object WhereBooleanOption extends Query.WhereType[Option[Boolean]]
 
-  implicit def getOptionMapperTT[T] = OptionMapper.plain.asInstanceOf[OptionMapper[T, T, T, T]]
-  implicit def getOptionMapperTO[T] = OptionMapper.option.asInstanceOf[OptionMapper[T, T, Option[T], Option[T]]]
-  implicit def getOptionMapperOT[T] = OptionMapper.option.asInstanceOf[OptionMapper[T, Option[T], T, Option[T]]]
-  implicit def getOptionMapperOO[T] = OptionMapper.option.asInstanceOf[OptionMapper[T, Option[T], Option[T], Option[T]]]
+  implicit def getOptionMapperTT[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.plain.asInstanceOf[OptionMapper[B1, B2, BR, B1, B2, BR]]
+  implicit def getOptionMapperTO[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.option.asInstanceOf[OptionMapper[B1, B2, BR, B1, Option[B2], Option[BR]]]
+  implicit def getOptionMapperOT[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.option.asInstanceOf[OptionMapper[B1, B2, BR, Option[B1], B2, Option[BR]]]
+  implicit def getOptionMapperOO[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.option.asInstanceOf[OptionMapper[B1, B2, BR, Option[B1], Option[B2], Option[BR]]]
 
-  implicit def columnOfBooleanToBooleanColumnOps[P1](c: ColumnBase[P1]): BooleanColumnOps[P1] = c match {
-    case o: BooleanColumnOps[_] => o.asInstanceOf[BooleanColumnOps[P1]]
-    case _ => new BooleanColumnOps[P1] { protected[this] val leftOperand = Node(c) }
+  implicit def columnToAllColumnOps[B1](c: Column[B1])(implicit tm: BaseTypeMapper[B1]): AllColumnOps[B1, B1] = c match {
+    case o: AllColumnOps[_,_] => o.asInstanceOf[AllColumnOps[B1, B1]]
+    case _ => new AllColumnOps[B1, B1] { protected[this] val leftOperand = Node(c) }
+  }
+
+  implicit def columnToAllColumnOps[B1](c: Column[Option[B1]]): AllColumnOps[B1, Option[B1]] = c match {
+    case o: AllColumnOps[_,_] => o.asInstanceOf[AllColumnOps[B1, Option[B1]]]
+    case _ => new AllColumnOps[B1, Option[B1]] { protected[this] val leftOperand = Node(c) }
+  }
+
+  implicit def columnOfBooleanToBooleanColumnOps(c: ColumnBase[Boolean]): BooleanColumnOps[Boolean] = c match {
+    case o: BooleanColumnOps[_] => o.asInstanceOf[BooleanColumnOps[Boolean]]
+    case _ => new BooleanColumnOps[Boolean] { protected[this] val leftOperand = Node(c) }
+  }
+
+  implicit def columnOfBooleanOptionToBooleanColumnOps(c: ColumnBase[Option[Boolean]]): BooleanColumnOps[Option[Boolean]] = c match {
+    case o: BooleanColumnOps[_] => o.asInstanceOf[BooleanColumnOps[Option[Boolean]]]
+    case _ => new BooleanColumnOps[Option[Boolean]] { protected[this] val leftOperand = Node(c) }
   }
 
   /* These functions should not be needed anymore. AFAICT there is no situation left in which a

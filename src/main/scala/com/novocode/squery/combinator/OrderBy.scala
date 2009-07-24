@@ -13,7 +13,7 @@ object OrderBy {
     override def toString = "OrderBy.Desc"
   }
 
-  def +(by: Column[_]) = new Query[Unit]((), Nil, Nil, Asc(Node(by)) :: Nil)
+  def +(by: Column[_]) = new Query[Unit]((), Nil, Nil, Nil, Asc(Node(by)) :: Nil)
 
-  def -(by: Column[_]) = new Query[Unit]((), Nil, Nil, Desc(Node(by)) :: Nil)
+  def -(by: Column[_]) = new Query[Unit]((), Nil, Nil, Nil, Desc(Node(by)) :: Nil)
 }

@@ -62,7 +62,7 @@ object SQuery2Test2 {
 
       val q3 = for {
         u <- Users
-        o <- Orders where { o => (u.id is o.userID) && (u.last isNot null) }
+        o <- Orders where { o => (u.id is o.userID) && (u.last isNotNull) }
         _ <- OrderBy +u.first
       } yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
       println("q3: " + q3.selectStatement)
@@ -81,8 +81,8 @@ object SQuery2Test2 {
       q4.foreach(o => println("  "+o))
 
       def maxOfPer[T <: TableBase.T_]
-        (c: T, m: (T => Column[Int]), p: (T => Column[_])) =
-        c where { o => m(o) is queryToSubQuery(for { o2 <- c where( n => p(o) is p(n)) } yield m(o2).max) }
+        (c: T, m: (T => Column[Int]), p: (T => Column[Int])) =
+        c where { o => m(o) in (for { o2 <- c where( n => p(o) is p(n)) } yield m(o2).max) }
 
       val q4b = for (
         u <- Users;
@@ -109,6 +109,10 @@ object SQuery2Test2 {
       val b4 = Orders.where( o => o.rebate && o.rebate ).map( o => o.rebate && o.rebate )
       val b5 = Orders.where( o => !o.shipped ).map( o => !o.shipped )
       val b6 = Orders.where( o => !o.rebate ).map( o => !o.rebate )
+      val b7 = Orders.map( o => o.shipped is o.shipped )
+      val b8 = Orders.map( o => o.rebate is o.shipped )
+      val b9 = Orders.map( o => o.shipped is o.rebate )
+      val b10 = Orders.map( o => o.rebate is o.rebate )
 
       println("b1: " + b1.selectStatement)
       println("b2: " + b2.selectStatement)
@@ -116,6 +120,8 @@ object SQuery2Test2 {
       println("b4: " + b4.selectStatement)
       println("b5: " + b5.selectStatement)
       println("b6: " + b6.selectStatement)
+      println("b7: " + b7.selectStatement)
+      println("b8: " + b8.selectStatement)
 
       val q5 = Users where { _.id notIn Orders.map(_.userID) }
       println("q5: " + q5.selectStatement)

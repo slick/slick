@@ -13,8 +13,12 @@ sealed trait TypeMapper[T] {
   def valueToSQLLiteral(value: T): String = value.toString
 }
 
+trait BaseTypeMapper[T] extends TypeMapper[T]
+
+trait OptionTypeMapper[T] extends TypeMapper[Option[T]]
+
 object TypeMapper {
-  implicit object BooleanTypeMapper extends TypeMapper[Boolean] {
+  implicit object BooleanTypeMapper extends BaseTypeMapper[Boolean] {
     def zero = false
     def sqlType = java.sql.Types.BOOLEAN
     def setValue(v: Boolean, p: PositionedParameters) = p.setBoolean(v)
@@ -22,7 +26,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextBoolean
   }
 
-  implicit object BlobTypeMapper extends TypeMapper[Blob] {
+  implicit object BlobTypeMapper extends BaseTypeMapper[Blob] {
     def zero = null
     def sqlType = java.sql.Types.BLOB
     def setValue(v: Blob, p: PositionedParameters) = p.setBlob(v)
@@ -30,7 +34,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextBlob
   }
 
-  implicit object ByteTypeMapper extends TypeMapper[Byte] {
+  implicit object ByteTypeMapper extends BaseTypeMapper[Byte] {
     def zero = 0
     def sqlType = java.sql.Types.TINYINT
     def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
@@ -38,7 +42,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextByte
   }
 
-  implicit object ClobTypeMapper extends TypeMapper[Clob] {
+  implicit object ClobTypeMapper extends BaseTypeMapper[Clob] {
     def zero = null
     def sqlType = java.sql.Types.CLOB
     def setValue(v: Clob, p: PositionedParameters) = p.setClob(v)
@@ -46,7 +50,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextClob
   }
 
-  implicit object DateTypeMapper extends TypeMapper[Date] {
+  implicit object DateTypeMapper extends BaseTypeMapper[Date] {
     def zero = new Date(70, 0, 1)
     def sqlType = java.sql.Types.DATE
     def setValue(v: Date, p: PositionedParameters) = p.setDate(v)
@@ -54,7 +58,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextDate
   }
 
-  implicit object DoubleTypeMapper extends TypeMapper[Double] {
+  implicit object DoubleTypeMapper extends BaseTypeMapper[Double] {
     def zero = 0
     def sqlType = java.sql.Types.DOUBLE
     def setValue(v: Double, p: PositionedParameters) = p.setDouble(v)
@@ -62,7 +66,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextDouble
   }
 
-  implicit object FloatTypeMapper extends TypeMapper[Float] {
+  implicit object FloatTypeMapper extends BaseTypeMapper[Float] {
     def zero = 0
     def sqlType = java.sql.Types.FLOAT
     def setValue(v: Float, p: PositionedParameters) = p.setFloat(v)
@@ -70,7 +74,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextFloat
   }
 
-  implicit object IntTypeMapper extends TypeMapper[Int] {
+  implicit object IntTypeMapper extends BaseTypeMapper[Int] {
     def zero = 0
     def sqlType = java.sql.Types.INTEGER
     def setValue(v: Int, p: PositionedParameters) = p.setInt(v)
@@ -78,7 +82,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextInt
   }
 
-  implicit object LongTypeMapper extends TypeMapper[Long] {
+  implicit object LongTypeMapper extends BaseTypeMapper[Long] {
     def zero = 0
     def sqlType = java.sql.Types.INTEGER
     def setValue(v: Long, p: PositionedParameters) = p.setLong(v)
@@ -86,13 +90,13 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextLong
   }
 
-  implicit object StringTypeMapper extends TypeMapper[String] {
+  implicit object StringTypeMapper extends BaseTypeMapper[String] {
     def zero = ""
     def sqlType = java.sql.Types.VARCHAR
     def setValue(v: String, p: PositionedParameters) = p.setString(v)
     def setOption(v: Option[String], p: PositionedParameters) = p.setStringOption(v)
     def nextValue(r: PositionedResult) = r.nextString
-    override def valueToSQLLiteral(value: String) = {
+    override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
       val sb = new StringBuilder
       sb append '\''
       for(c <- value) c match {
@@ -104,7 +108,7 @@ object TypeMapper {
     }
   }
 
-  implicit object TimeTypeMapper extends TypeMapper[Time] {
+  implicit object TimeTypeMapper extends BaseTypeMapper[Time] {
     def zero = new Time(0, 0, 0)
     def sqlType = java.sql.Types.TIME
     def setValue(v: Time, p: PositionedParameters) = p.setTime(v)
@@ -112,7 +116,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextTime
   }
 
-  implicit object TimestampTypeMapper extends TypeMapper[Timestamp] {
+  implicit object TimestampTypeMapper extends BaseTypeMapper[Timestamp] {
     def zero = new Timestamp(70, 0, 1, 0, 0, 0, 0)
     def sqlType = java.sql.Types.TIMESTAMP
     def setValue(v: Timestamp, p: PositionedParameters) = p.setTimestamp(v)
@@ -120,12 +124,21 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextTimestamp
   }
 
-  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): TypeMapper[Option[T]] = new TypeMapper[Option[T]] {
+  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = new OptionTypeMapper[T] {
     def zero = None
     def sqlType = t.sqlType
     def setValue(v: Option[T], p: PositionedParameters) = t.setOption(v, p)
     def setOption(v: Option[Option[T]], p: PositionedParameters) = t.setOption(v.getOrElse(None), p)
     def nextValue(r: PositionedResult) = t.nextOption(r)
     override def valueToSQLLiteral(value: Option[T]): String = value.map(t.valueToSQLLiteral).getOrElse("null")
+  }
+
+  object NullTypeMapper extends BaseTypeMapper[Null] {
+    def zero = null
+    def sqlType = java.sql.Types.NULL
+    def setValue(v: Null, p: PositionedParameters) = p.setString(null)
+    def setOption(v: Option[Null], p: PositionedParameters) = p.setString(null)
+    def nextValue(r: PositionedResult) = { r.nextString; null }
+    override def valueToSQLLiteral(value: Null) = "NULL"
   }
 }

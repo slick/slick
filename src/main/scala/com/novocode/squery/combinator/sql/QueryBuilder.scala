@@ -49,6 +49,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       fromSlot = b.createSlot
       appendConditions(b)
       appendGroupClause(b)
+      appendHavingConditions(b)
       appendOrderClause(b)
   }
 
@@ -94,6 +95,8 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     appendConditions(b)
     if(localTables.size > 1)
       throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
+    if(query.condHaving ne Nil)
+      throw new SQueryException("DELETE statement must contain a HAVING clause")
     for(qb <- subQueryBuilders.values)
       qb.insertFromClauses()
     b.build
@@ -126,7 +129,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case Operator.Not(e) => { b += "not "; expr(e, b) }
     case Operator.Is(l, NullNode) => { b += '('; expr(l, b); b += " is null)" }
     case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
-    case s: SimpleFunction[_] => {
+    case s: SimpleFunction => {
       b += s.name += '('
       var first = true
       for(ch <- s.nodeChildren) {
@@ -136,7 +139,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       }
       b += ')'
     }
-    case s: SimpleBinaryOperator[_] => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
+    case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
     case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b); b += ")" }
     //case Union.UnionPart(_) => "*"
     case p: Projection[_] => {
@@ -158,6 +161,14 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
   private[this] def appendConditions(b: SQLBuilder): Unit = query.cond match {
     case a :: l =>
       b += " WHERE "
+      expr(Node(a), b)
+      for(e <- l) { b += " AND "; expr(Node(e), b) }
+    case Nil => ()
+  }
+
+  private[this] def appendHavingConditions(b: SQLBuilder): Unit = query.condHaving match {
+    case a :: l =>
+      b += " HAVING "
       expr(Node(a), b)
       for(e <- l) { b += " AND "; expr(Node(e), b) }
     case Nil => ()

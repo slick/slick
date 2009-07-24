@@ -38,16 +38,12 @@ trait Column[T] extends ColumnBase[T] {
   }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
-  // Operators
-  def max = Operator.Max(Node(this))
-  def is(e: Column[_]) = Operator.Is(Node(this), Node(e))
+  // Functions which don't need an OptionMapper
   def in(e: Query[Column[_]]) = Operator.In(Node(this), Node(e))
   def notIn(e: Query[Column[_]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
-  def isNot(e: Column[_]) = Operator.Not(Node(Operator.Is(Node(this), Node(e))))
-  def < (e: Column[_]) = Operator.Relational("<", Node(this), Node(e))
-  def <= (e: Column[_]) = Operator.Relational("<=", Node(this), Node(e))
-  def > (e: Column[_]) = Operator.Relational(">", Node(this), Node(e))
-  def >= (e: Column[_]) = Operator.Relational(">=", Node(this), Node(e))
+  def max = mapOp(Operator.Max(_))
+  def isNull = Operator.Is(Node(this), ConstColumn.NULL)
+  def isNotNull = Operator.Not(Node(Operator.Is(Node(this), ConstColumn.NULL)))
 }
 
 /**
@@ -61,6 +57,10 @@ case class ConstColumn[T](val value: T)(implicit val typeMapper: TypeMapper[T]) 
     case _ => "ConstColumn "+value
   }
   def bind = new BindColumn(value)
+}
+
+object ConstColumn {
+  def NULL = new ConstColumn[Null](null)(TypeMapper.NullTypeMapper)
 }
 
 /**

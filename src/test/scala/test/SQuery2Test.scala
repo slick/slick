@@ -38,7 +38,7 @@ object SQuery2Test {
     val q2 = for {
       u <- Users
       _ <- OrderBy +u.first >> OrderBy -u.last
-      o <- Orders where { o => (u.id is o.userID) && (u.first isNot null) }
+      o <- Orders where { o => (u.id is o.userID) && (u.first isNotNull) }
     } yield u.first ~ u.last ~ o.orderID
 
     /*
