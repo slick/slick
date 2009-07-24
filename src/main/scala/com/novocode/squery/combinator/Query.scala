@@ -3,15 +3,19 @@ package com.novocode.squery.combinator
 import java.io.PrintWriter
 
 
-class Query[+E](val value: E, val cond: List[ColumnBase[_]],
+class Query[+E](val value: E, val cond: List[ColumnBase[_]],  val condHaving: List[ColumnBase[_]],
                 val groupBy: List[GroupBy.Grouping], val orderBy: List[OrderBy.Ordering]) extends Node {
 
   def select[F](f: E => Query[F]): Query[F] = {
     val q = f(value)
-    new Query(q.value, cond ::: q.cond, groupBy ::: q.groupBy, orderBy ::: q.orderBy)
+    new Query(q.value, cond ::: q.cond, condHaving ::: q.condHaving, groupBy ::: q.groupBy, orderBy ::: q.orderBy)
   }
 
-  def where[T](f: E => ColumnBase[T])(implicit wt: Query.WhereType[T]): Query[E] = new Query(value, f(value) :: cond, groupBy, orderBy)
+  def where[T](f: E => ColumnBase[T])(implicit wt: Query.WhereType[T]): Query[E] =
+    new Query(value, f(value) :: cond, condHaving, groupBy, orderBy)
+
+  def having[T](f: E => ColumnBase[T])(implicit wt: Query.WhereType[T]): Query[E] =
+    new Query(value, cond, f(value) :: condHaving, groupBy, orderBy)
 
   // Methods for use in for-comprehensions
   def flatMap[F](f: E => Query[F]): Query[F] = select(f)
@@ -34,7 +38,7 @@ class Query[+E](val value: E, val cond: List[ColumnBase[_]],
 }
 
 object Query {
-  def apply[E](value: E) = new Query(value, Nil, Nil, Nil)
+  def apply[E](value: E) = new Query(value, Nil, Nil, Nil, Nil)
 
   trait WhereType[T]
 }

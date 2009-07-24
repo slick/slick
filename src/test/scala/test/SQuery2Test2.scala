@@ -97,10 +97,10 @@ object SQuery2Test2 {
         u <- Users
         o <- Orders where { _.userID is u.id }
         _ <- GroupBy(u.id)
-        _ <- OrderBy +o.orderID.max
+        _ <- OrderBy +o.orderID.max >> o.having { _ => o.orderID.max > 5 }
       } yield u.first ~ o.orderID.max
       println("q4c: " + q4c.selectStatement)
-      println("Latest Order per User, using GroupBy:")
+      println("Latest Order per User, using GroupBy, with orderID > 5:")
       q4c.foreach(o => println("  "+o))
 
       val b1 = Orders.where( o => o.shipped && o.shipped ).map( o => o.shipped && o.shipped )
