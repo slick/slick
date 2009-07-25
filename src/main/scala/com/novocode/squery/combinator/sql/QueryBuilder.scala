@@ -193,7 +193,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       b += base.tableName += ' ' += name
     case base: Table[_] =>
       b += base.tableName += ' ' += name
-    case Table.Alias(j: Join[_,_]) => {
+    case j: Join[_,_] => {
       var first = true
       for(n <- j.nodeChildren) {
         if(first) first = false
