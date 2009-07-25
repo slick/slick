@@ -26,16 +26,20 @@ class DDLBuilder(table: Table[_]) {
   }
 
   private[this] def addSqlType(c: NamedColumn[_], sb: StringBuilder) {
-    sb append new StringBuilder append DDLBuilder.typeNames.getOrElse(c.typeMapper.sqlType,
-      throw new SQueryException("No SQL type name found for type mapper "+c.typeMapper))
+    var sqlType: String = null
     var notNull = false
     var autoIncrement = false
-    var defaultLiteral:String = null
+    var defaultLiteral: String = null
     for(o <- c.options) o match {
+      case ColumnOption.DBType(s) => sqlType = s
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper.valueToSQLLiteral(v)
     }
+    if(sqlType eq null)
+      sqlType = DDLBuilder.typeNames.getOrElse(c.typeMapper.sqlType,
+        throw new SQueryException("No SQL type name found for type mapper "+c.typeMapper))
+    sb append sqlType
     if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
     if(notNull) sb append " NOT NULL"
     if(autoIncrement) sb append " AUTO_INCREMENT"
