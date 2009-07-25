@@ -4,8 +4,15 @@ import com.novocode.squery.session.{TypeMapper, BaseTypeMapper}
 
 object Implicit {
 
-  implicit object WhereBoolean extends Query.WhereType[Boolean]
-  implicit object WhereBooleanOption extends Query.WhereType[Option[Boolean]]
+  implicit object WhereBooleanColumn extends Query.WhereType[Column[Boolean]] {
+    def apply(value: Column[Boolean]) = value
+  }
+  implicit object WhereBooleanOptionColumn extends Query.WhereType[Column[Option[Boolean]]] {
+    def apply(value: Column[Option[Boolean]]) = value
+  }
+  implicit object WhereBoolean extends Query.WhereType[Boolean] {
+    def apply(value: Boolean) = valueToConstColumn(value)(TypeMapper.BooleanTypeMapper)
+  }
 
   implicit def getOptionMapperTT[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.plain.asInstanceOf[OptionMapper[B1, B2, BR, B1, B2, BR]]
   implicit def getOptionMapperTO[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.option.asInstanceOf[OptionMapper[B1, B2, BR, B1, Option[B2], Option[BR]]]

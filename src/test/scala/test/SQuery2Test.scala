@@ -50,8 +50,7 @@ object SQuery2Test {
     val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
 
     val q4 = for {
-      uo <- Users join Orders
-      val Join(u,o) = uo
+      Join(u, o) <- Users join Orders
       _ <- OrderBy +u.last
     } yield u.first ~ o.orderID
 

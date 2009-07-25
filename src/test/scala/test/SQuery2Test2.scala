@@ -51,7 +51,7 @@ object SQuery2Test2 {
       val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last
       for(t <- q1b) println("With Options: "+t)
 
-      val q2 = for(u <- Users where {_.first is "Apu".bind }) yield u.last ~ u.id
+      val q2 = for(u <- Users if u.first is "Apu".bind) yield u.last ~ u.id
       println("q2: " + q2.selectStatement)
       println("Apu's last name and ID are: " + q2.first)
 
@@ -62,7 +62,7 @@ object SQuery2Test2 {
 
       val q3 = for {
         u <- Users
-        o <- Orders where { o => (u.id is o.userID) && (u.last isNotNull) }
+        o <- Orders if (u.id is o.userID) && (u.last isNotNull)
         _ <- OrderBy +u.first
       } yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
       println("q3: " + q3.selectStatement)
@@ -73,8 +73,8 @@ object SQuery2Test2 {
         u <- Users;
         o <- Orders
           //where { o => o.orderID is queryToSubQuery(for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
-          where { o => o.orderID in (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
-          where { _.userID is u.id }
+          if (o.orderID in (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max))
+             && (o.userID is u.id)
       ) yield u.first ~ o.orderID
       println("q4: " + q4.selectStatement)
       println("Latest Order per User:")
@@ -82,12 +82,12 @@ object SQuery2Test2 {
 
       def maxOfPer[T <: TableBase.T_]
         (c: T, m: (T => Column[Int]), p: (T => Column[Int])) =
-        c where { o => m(o) in (for { o2 <- c where( n => p(o) is p(n)) } yield m(o2).max) }
+        c where { o => m(o) in (for { o2 <- c if p(o) is p(o2) } yield m(o2).max) }
 
       val q4b = for (
         u <- Users;
         o <- maxOfPer[Orders.type](Orders, _.orderID, _.userID)
-          where { _.userID is u.id }
+          if o.userID is u.id
       ) yield u.first ~ o.orderID
       println("q4b: " + q4b.selectStatement)
       println("Latest Order per User, using maxOfPer:")
@@ -95,7 +95,7 @@ object SQuery2Test2 {
 
       val q4c = for {
         u <- Users
-        o <- Orders where { _.userID is u.id }
+        o <- Orders if o.userID is u.id
         _ <- GroupBy(u.id)
         _ <- OrderBy +o.orderID.max >> o.having { _ => o.orderID.max > 5 }
       } yield u.first ~ o.orderID.max
