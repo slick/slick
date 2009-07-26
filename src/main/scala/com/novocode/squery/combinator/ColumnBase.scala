@@ -12,7 +12,7 @@ trait ColumnBase[T] extends Node with WithOp {
   def getResultOption(rs: PositionedResult): Option[T]
   def setParameter(ps: PositionedParameters, value: Option[T]): Unit
 
-  // Operators
+  // Functions which don't need an OptionMapper
   def count = Operator.Count(Node(this))
 }
 
@@ -41,9 +41,12 @@ trait Column[T] extends ColumnBase[T] {
   // Functions which don't need an OptionMapper
   def in(e: Query[Column[_]]) = Operator.In(Node(this), Node(e))
   def notIn(e: Query[Column[_]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
+  def avg = mapOp(Operator.Avg(_))
+  def min = mapOp(Operator.Min(_))
   def max = mapOp(Operator.Max(_))
   def isNull = Operator.Is(Node(this), ConstColumn.NULL)
   def isNotNull = Operator.Not(Node(Operator.Is(Node(this), ConstColumn.NULL)))
+  def countDistinct = Operator.CountDistinct(Node(this))
 }
 
 /**
@@ -83,7 +86,7 @@ abstract class OperatorColumn[T](implicit val typeMapper: TypeMapper[T]) extends
 }
 
 /**
- * A WrappedColumn can be used to change a column's nullValue.,
+ * A WrappedColumn can be used to change a column's nullValue.
  */
 class WrappedColumn[T](parent: ColumnBase[_], val typeMapper: TypeMapper[T]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
@@ -97,4 +100,5 @@ class NamedColumn[T](val table: Node, val name: String, val typeMapper: TypeMapp
     Column[T] {
   def nodeChildren = table :: Nil
   override def toString = "NamedColumn " + name
+  override def nodeNamedChildren = (table, "table") :: Nil
 }

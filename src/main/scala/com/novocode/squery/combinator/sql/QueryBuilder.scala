@@ -139,6 +139,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       }
       b += ')'
     }
+    case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
     case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b); b += ")" }
     //case Union.UnionPart(_) => "*"

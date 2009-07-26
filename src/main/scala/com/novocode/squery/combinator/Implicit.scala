@@ -40,6 +40,16 @@ object Implicit {
     case _ => new BooleanColumnOps[Option[Boolean]] { protected[this] val leftOperand = Node(c) }
   }
 
+  implicit def columnOfStringToStringColumnOps(c: ColumnBase[String]): StringColumnOps[String] = c match {
+    case o: StringColumnOps[_] => o.asInstanceOf[StringColumnOps[String]]
+    case _ => new StringColumnOps[String] { protected[this] val leftOperand = Node(c) }
+  }
+
+  implicit def columnOfStringOptionToStringColumnOps(c: ColumnBase[Option[String]]): StringColumnOps[Option[String]] = c match {
+    case o: StringColumnOps[_] => o.asInstanceOf[StringColumnOps[Option[String]]]
+    case _ => new StringColumnOps[Option[String]] { protected[this] val leftOperand = Node(c) }
+  }
+
   /* These functions should not be needed anymore. AFAICT there is no situation left in which a
      Column[T] gets "downgraded" to a ColumnBase[T].
 

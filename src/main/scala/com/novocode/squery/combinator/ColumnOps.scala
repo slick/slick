@@ -36,3 +36,8 @@ trait BooleanColumnOps[P1] extends ColumnOps {
   def unary_![R](implicit om: OptionMapper[Boolean, Boolean, Boolean, P1, P1, R]): Column[R] =
     om(Operator.Not(leftOperand))
 }
+
+trait StringColumnOps[P1] extends ColumnOps {
+  def length[R](implicit om: OptionMapper[String, String, Int, P1, P1, R]): Column[R] =
+    om(Operator.Length(leftOperand))
+}
