@@ -3,7 +3,7 @@ package test
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session._
-import com.novocode.squery.session.SessionFactory._
+import com.novocode.squery.session.Database._
 import com.novocode.squery.session.TypeMapper._
 
 object SQuery2Test2 {
@@ -29,8 +29,8 @@ object SQuery2Test2 {
       def * = userID ~ orderID ~ product ~ shipped ~ rebate
     }
 
-    val sf = new DriverManagerSessionFactory("jdbc:h2:mem:test1", "org.h2.Driver")
-    sf withSession {
+    Class.forName("org.h2.Driver")
+    Database.forURL("jdbc:h2:mem:test1") withSession {
 
       println(Users.createTableStatement)
       println(Orders.createTableStatement)

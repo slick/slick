@@ -3,7 +3,7 @@ package test
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.Implicit._
 import com.novocode.squery.session._
-import com.novocode.squery.session.SessionFactory._
+import com.novocode.squery.session.Database._
 import com.novocode.squery.session.TypeMapper._
 
 object UnionTest {
@@ -26,8 +26,9 @@ object UnionTest {
       def departmentIs(dept: String) = manager in Managers.where(_.department is dept).map(_.id)
     }
 
-    val sf = new DriverManagerSessionFactory("jdbc:h2:mem:test1", "org.h2.Driver")
-    sf withSession {
+    Class.forName("org.h2.Driver")
+    val db = Database.forURL("jdbc:h2:mem:test1")
+    db withSession {
 
       Managers.createTable
       Employees.createTable

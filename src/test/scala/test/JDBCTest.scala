@@ -6,7 +6,7 @@ import com.novocode.squery.simple._
 import com.novocode.squery.simple.StaticQueryBase._
 import com.novocode.squery.simple.Implicit._
 import com.novocode.squery.session._
-import com.novocode.squery.session.SessionFactory._
+import com.novocode.squery.session.Database._
 
 
 object JDBCTest {
@@ -21,11 +21,10 @@ object JDBCTest {
     val allIDs = queryNA[Int]("select id from users")
     val userForID = query[Int,User]("select id, name from users where id = ?")
 
-    val sp = new DriverManagerSessionFactory("jdbc:h2:mem:test1", "org.h2.Driver")
-    //val sp = new DriverManagerSessionFactory("jdbc:h2:tcp://localhost/test", "org.h2.Driver")
-    //val sp = new DriverManagerSessionFactory("jdbc:h2:h2server/test", "org.h2.Driver")
+    Class.forName("org.h2.Driver")
+    val db = Database.forURL("jdbc:h2:mem:test1")
 
-    sp withSession {
+    db withSession {
       getThreadSession.withTransaction {
         println("Creating user table: "+createTable())
         println("Inserting users:")

@@ -5,11 +5,11 @@ import java.sql.PreparedStatement
 /**
  * A database session which opens a connection and transaction on demand.
  */
-class Session private[squery] (fact: SessionFactory) {
+class Session private[squery] (db: Database) {
 
   var open = false
   var doRollback = false
-  lazy val conn = { open = true; fact.createConnection() }
+  lazy val conn = { open = true; db.createConnection() }
 
   private[squery] def allocPS(sql: String) = conn.prepareStatement(sql)
 
