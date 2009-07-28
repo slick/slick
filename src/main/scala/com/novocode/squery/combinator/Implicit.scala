@@ -67,6 +67,8 @@ object Implicit {
 
   implicit def tableToQuery[T <: TableBase.T_](t: T) = Query(t.mapOp(n => new Table.Alias(Node(n))))
 
+  implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
+
   // Not implicit to work around bug #1579
   def queryToSubQuery[C <: ColumnBase.T_](q: Query[C]): C = q.value.mapOp(_ => q)
 

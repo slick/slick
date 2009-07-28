@@ -47,6 +47,9 @@ trait Column[T] extends ColumnBase[T] {
   def isNull = Operator.Is(Node(this), ConstColumn.NULL)
   def isNotNull = Operator.Not(Node(Operator.Is(Node(this), ConstColumn.NULL)))
   def countDistinct = Operator.CountDistinct(Node(this))
+
+  def asc = new Ordering.Asc(Node(this))
+  def desc = new Ordering.Desc(Node(this))
 }
 
 /**

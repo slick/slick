@@ -63,7 +63,7 @@ object SQuery2Test2 {
       val q3 = for {
         u <- Users
         o <- Orders if (u.id is o.userID) && (u.last isNotNull)
-        _ <- OrderBy +u.first
+        _ <- Query orderBy u.first
       } yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
       println("q3: " + q3.selectStatement)
       println("All Orders by Users with a last name by first name:")
@@ -93,12 +93,13 @@ object SQuery2Test2 {
       println("Latest Order per User, using maxOfPer:")
       q4b.foreach(o => println("  "+o))
 
-      val q4c = for {
-        u <- Users
-        o <- Orders if o.userID is u.id
-        _ <- GroupBy(u.id)
-        _ <- OrderBy +o.orderID.max >> o.having { _ => o.orderID.max > 5 }
-      } yield u.first ~ o.orderID.max
+      val q4c = for (
+        u <- Users;
+        o <- Orders if o.userID is u.id;
+        _ <- Query groupBy u.id
+                   having { _ => o.orderID.max > 5 }
+                   orderBy o.orderID.max
+      ) yield u.first ~ o.orderID.max
       println("q4c: " + q4c.selectStatement)
       println("Latest Order per User, using GroupBy, with orderID > 5:")
       q4c.foreach(o => println("  "+o))

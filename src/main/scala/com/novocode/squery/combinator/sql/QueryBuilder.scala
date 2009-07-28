@@ -53,7 +53,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       appendOrderClause(b)
   }
 
-  private def appendGroupClause(b: SQLBuilder): Unit = query.groupBy match {
+  private def appendGroupClause(b: SQLBuilder): Unit = query.groupings match {
     case x :: xs => {
       b += " GROUP BY "
       expr(x.by, b)
@@ -65,7 +65,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case _ =>
   }
 
-  private def appendOrderClause(b: SQLBuilder): Unit = query.orderBy match {
+  private def appendOrderClause(b: SQLBuilder): Unit = query.orderings match {
     case x :: xs => {
       b += " ORDER BY "
       appendOrdering(x, b)
@@ -77,9 +77,9 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case _ =>
   }
 
-  private def appendOrdering(o: OrderBy.Ordering, b: SQLBuilder) {
+  private def appendOrdering(o: Ordering, b: SQLBuilder) {
     expr(o.by, b)
-    if(o.isInstanceOf[OrderBy.Desc]) b += " descending"
+    if(o.isInstanceOf[Ordering.Desc]) b += " descending"
   }
 
   private def buildDelete = {

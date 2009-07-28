@@ -7,11 +7,11 @@ import java.io.PrintWriter
  * restrictions and other modifiers.
  */
 class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[Column[_]],
-                val groupBy: List[GroupBy.Grouping], val orderBy: List[OrderBy.Ordering]) extends Node {
+                val groupings: List[Grouping], val orderings: List[Ordering]) extends Node {
 
   def flatMap[F](f: E => Query[F]): Query[F] = {
     val q = f(value)
-    new Query(q.value, cond ::: q.cond, condHaving ::: q.condHaving, groupBy ::: q.groupBy, orderBy ::: q.orderBy)
+    new Query(q.value, cond ::: q.cond, condHaving ::: q.condHaving, groupings ::: q.groupings, orderings ::: q.orderings)
   }
 
   def map[F](f: E => F): Query[F] = flatMap(v => Query(f(v)))
@@ -19,28 +19,26 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
   def >>[F](q: Query[F]): Query[F] = flatMap(_ => q)
 
   def where[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
-    new Query(value, wt(f(value), cond), condHaving, groupBy, orderBy)
+    new Query(value, wt(f(value), cond), condHaving, groupings, orderings)
 
   def filter[T](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
-    new Query(value, wt(f(value), cond), condHaving, groupBy, orderBy)
+    new Query(value, wt(f(value), cond), condHaving, groupings, orderings)
 
   def having[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
-    new Query(value, cond, wt(f(value), condHaving), groupBy, orderBy)
+    new Query(value, cond, wt(f(value), condHaving), groupings, orderings)
 
-  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: groupBy ::: orderBy
+  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: groupings ::: orderings
   override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) :::
-    groupBy.map(o => (o, "groupBy")) ::: orderBy.map(o => (o, "orderBy"))
+    groupings.map(o => (o, "groupings")) ::: orderings.map(o => (o, "orderings"))
 
   override def toString = "Query"
 
-  // Convenience methods
-  def orderBy(f: E => Column[_]): Query[E] = for {
-    x <- this
-    _ <- OrderBy +f(value)
-  } yield x
+  def groupBy(by: Column[_]*) =
+    new Query[E](value, cond, condHaving, groupings ::: by.projection.map(c => new Grouping(Node(c))).toList, orderings)
+  def orderBy(by: Ordering*) = new Query[E](value, cond, condHaving, groupings, orderings ::: by.toList)
 }
 
-object Query {
+object Query extends Query[Unit]((), Nil, Nil, Nil, Nil) {
   def apply[E](value: E) = new Query(value, Nil, Nil, Nil, Nil)
 
   trait WhereType[-T] {
