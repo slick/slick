@@ -17,7 +17,7 @@ object SQuery2Test2 {
       def last = column[Option[String]]("last")
       def * = id ~ first ~ last
 
-      //def orders = Orders where { _.userID is id }
+      def orders = Orders where { _.userID is id }
     }
 
     object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
@@ -60,11 +60,11 @@ object SQuery2Test2 {
         (Orders.userID ~ Orders.product ~ Orders.shipped ~ Orders.rebate).insert(
           u.id, "Gizmo "+((Math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
 
-      val q3 = for {
-        u <- Users
-        o <- Orders if (u.id is o.userID) && (u.last isNotNull)
-        _ <- Query orderBy u.first
-      } yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
+      val q3 = for (
+        u <- Users if u.last isNotNull;
+        o <- u.orders
+             orderBy u.first
+      ) yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
       println("q3: " + q3.selectStatement)
       println("All Orders by Users with a last name by first name:")
       q3.foreach(o => println("  "+o))
@@ -72,7 +72,6 @@ object SQuery2Test2 {
       val q4 = for (
         u <- Users;
         o <- Orders
-          //where { o => o.orderID is queryToSubQuery(for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
           if (o.orderID in (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max))
              && (o.userID is u.id)
       ) yield u.first ~ o.orderID

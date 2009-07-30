@@ -4,9 +4,7 @@ trait ColumnOps {
   protected val leftOperand: Node
 }
 
-sealed trait OptionMapper[B1, B2, BR, P1, P2, R] {
-  def apply(n: Column[BR]): Column[R]
-}
+sealed trait OptionMapper[B1, B2, BR, P1, P2, R] extends (Column[BR] => Column[R])
 
 object OptionMapper {
   val plain = new OptionMapper[Any,Any,Any,Any,Any,Any] { def apply(n: Column[Any]): Column[Any] = n }

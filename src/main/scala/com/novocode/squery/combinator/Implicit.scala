@@ -50,18 +50,7 @@ object Implicit {
     case _ => new StringColumnOps[Option[String]] { protected[this] val leftOperand = Node(c) }
   }
 
-  /* These functions should not be needed anymore. AFAICT there is no situation left in which a
-     Column[T] gets "downgraded" to a ColumnBase[T].
-
-  implicit def columnBaseToColumn[T](c: ColumnBase[T])(implicit tm: TypeMapper[T]): Column[T] = c match {
-    case t: Column[T] => t
-    case _ => new WrappedColumn(c, tm)
-  }
-
-  implicit def columnToOptionColumn[T](c: ColumnBase[T])(implicit tm: TypeMapper[T]): Column[Option[T]] =
-    columnBaseToColumn(c)(tm).?*/
-
-  implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: TypeMapper[T]): Column[Option[T]] = c.?
+  implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: BaseTypeMapper[T]): Column[Option[T]] = c.?
 
   implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
 
