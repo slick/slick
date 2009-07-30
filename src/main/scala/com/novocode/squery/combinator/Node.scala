@@ -40,7 +40,7 @@ trait Node {
 
 object Node {
   def apply(o:Any): Node = o match {
-    case null => NullNode
+    case null => ConstColumn.NULL
     case n:Node => n.nodeDelegate
     case p:Product => new ProductNode(p)
     case r:AnyRef => throw new SQueryException("Cannot narrow "+o+" of type "+r.getClass.getName+" to a Node")
@@ -56,10 +56,6 @@ object Node {
       b
     }
   }
-}
-
-case object NullNode extends Node {
-  val nodeChildren = Nil
 }
 
 case class ProductNode(val product:Product) extends Node {

@@ -124,10 +124,10 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
   }
 
   private[this] def expr(c: Node, b: SQLBuilder): Unit = c match {
-    case NullNode => b += "null"
-    case Operator.Not(Operator.Is(l, NullNode)) => { b += '('; expr(l, b); b += " is not null)" }
-    case Operator.Not(e) => { b += "not "; expr(e, b) }
-    case Operator.Is(l, NullNode) => { b += '('; expr(l, b); b += " is null)" }
+    case ConstColumn(null) => b += "null"
+    case Operator.Not(Operator.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
+    case Operator.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
+    case Operator.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
     case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
     case s: SimpleFunction => {
       b += s.name += '('
