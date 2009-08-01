@@ -1,5 +1,7 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.session.BaseTypeMapper
+
 trait ColumnOps {
   protected val leftOperand: Node
 }
@@ -24,6 +26,10 @@ trait AllColumnOps[B1, P1] extends ColumnOps {
     om(Operator.Relational(">", leftOperand, Node(e)))
   def >= [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Operator.Relational(">=", leftOperand, Node(e)))
+  def inSet[R](seq: Seq[B1])(implicit om: OptionMapper[B1, B1, Boolean, P1, P1, R], tm: BaseTypeMapper[B1]): Column[R] =
+    om(Operator.InSet(leftOperand, seq, tm, false))
+  def inSetBind[R](seq: Seq[B1])(implicit om: OptionMapper[B1, B1, Boolean, P1, P1, R], tm: BaseTypeMapper[B1]): Column[R] =
+    om(Operator.InSet(leftOperand, seq, tm, true))
 }
 
 trait BooleanColumnOps[P1] extends ColumnOps {

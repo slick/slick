@@ -103,6 +103,14 @@ object SQuery2Test2 {
       println("Latest Order per User, using GroupBy, with orderID > 5:")
       q4c.foreach(o => println("  "+o))
 
+      val q4d = for (
+        u <- Users if u.first inSetBind List("Homer", "Marge");
+        o <- Orders if o.userID is u.id
+      ) yield u.first ~ o.orderID ~ o.product
+      println("q4d: " + q4d.selectStatement)
+      println("Orders for Homer and Marge:")
+      q4d.foreach(o => println("  "+o))
+
       val b1 = Orders.where( o => o.shipped && o.shipped ).map( o => o.shipped && o.shipped )
       val b2 = Orders.where( o => o.shipped && o.rebate ).map( o => o.shipped && o.rebate )
       val b3 = Orders.where( o => o.rebate && o.shipped ).map( o => o.rebate && o.shipped )

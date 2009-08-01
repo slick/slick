@@ -132,6 +132,18 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       case ConstColumn(null) => b += "null"
       case Operator.Not(Operator.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
       case Operator.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
+      case Operator.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
+        b += '('; expr(e, b); b += " in ("
+        if(bind) {
+          var first = true
+          for(x <- seq) {
+            if(first) first = false else b += ','
+            b +?= { p => tm.setValue(x, p); p }
+          }
+        }
+        else b += seq.map(tm.valueToSQLLiteral).mkString(",")
+        b += "))"
+      }
       case Operator.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
       case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
       case s: SimpleFunction => {
