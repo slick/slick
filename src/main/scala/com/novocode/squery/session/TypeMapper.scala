@@ -17,6 +17,8 @@ trait BaseTypeMapper[T] extends TypeMapper[T]
 
 trait OptionTypeMapper[T] extends TypeMapper[Option[T]]
 
+trait NumericType
+
 object TypeMapper {
   implicit object BooleanTypeMapper extends BaseTypeMapper[Boolean] {
     def zero = false
@@ -34,7 +36,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextBlob
   }
 
-  implicit object ByteTypeMapper extends BaseTypeMapper[Byte] {
+  implicit object ByteTypeMapper extends BaseTypeMapper[Byte] with NumericType {
     def zero = 0
     def sqlType = java.sql.Types.TINYINT
     def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
@@ -58,7 +60,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextDate
   }
 
-  implicit object DoubleTypeMapper extends BaseTypeMapper[Double] {
+  implicit object DoubleTypeMapper extends BaseTypeMapper[Double] with NumericType {
     def zero = 0
     def sqlType = java.sql.Types.DOUBLE
     def setValue(v: Double, p: PositionedParameters) = p.setDouble(v)
@@ -66,7 +68,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextDouble
   }
 
-  implicit object FloatTypeMapper extends BaseTypeMapper[Float] {
+  implicit object FloatTypeMapper extends BaseTypeMapper[Float] with NumericType {
     def zero = 0
     def sqlType = java.sql.Types.FLOAT
     def setValue(v: Float, p: PositionedParameters) = p.setFloat(v)
@@ -74,7 +76,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextFloat
   }
 
-  implicit object IntTypeMapper extends BaseTypeMapper[Int] {
+  implicit object IntTypeMapper extends BaseTypeMapper[Int] with NumericType {
     def zero = 0
     def sqlType = java.sql.Types.INTEGER
     def setValue(v: Int, p: PositionedParameters) = p.setInt(v)
@@ -82,7 +84,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextInt
   }
 
-  implicit object LongTypeMapper extends BaseTypeMapper[Long] {
+  implicit object LongTypeMapper extends BaseTypeMapper[Long] with NumericType {
     def zero = 0
     def sqlType = java.sql.Types.BIGINT
     def setValue(v: Long, p: PositionedParameters) = p.setLong(v)

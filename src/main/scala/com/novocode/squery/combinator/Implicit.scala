@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.{TypeMapper, BaseTypeMapper}
+import com.novocode.squery.session.{TypeMapper, BaseTypeMapper, NumericType}
 
 object Implicit {
 
@@ -20,12 +20,12 @@ object Implicit {
   implicit def getOptionMapperOT[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.option.asInstanceOf[OptionMapper[B1, B2, BR, Option[B1], B2, Option[BR]]]
   implicit def getOptionMapperOO[B1, B2, BR](implicit tm: BaseTypeMapper[B2]) = OptionMapper.option.asInstanceOf[OptionMapper[B1, B2, BR, Option[B1], Option[B2], Option[BR]]]
 
-  implicit def columnToAllColumnOps[B1](c: Column[B1])(implicit tm: BaseTypeMapper[B1]): AllColumnOps[B1, B1] = c match {
+  implicit def baseColumnToAllColumnOps[B1](c: Column[B1])(implicit tm: BaseTypeMapper[B1]): AllColumnOps[B1, B1] = c match {
     case o: AllColumnOps[_,_] => o.asInstanceOf[AllColumnOps[B1, B1]]
     case _ => new AllColumnOps[B1, B1] { protected[this] val leftOperand = Node(c) }
   }
 
-  implicit def columnToAllColumnOps[B1](c: Column[Option[B1]]): AllColumnOps[B1, Option[B1]] = c match {
+  implicit def optionColumnToAllColumnOps[B1](c: Column[Option[B1]]): AllColumnOps[B1, Option[B1]] = c match {
     case o: AllColumnOps[_,_] => o.asInstanceOf[AllColumnOps[B1, Option[B1]]]
     case _ => new AllColumnOps[B1, Option[B1]] { protected[this] val leftOperand = Node(c) }
   }

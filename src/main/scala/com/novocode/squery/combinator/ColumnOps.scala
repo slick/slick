@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.BaseTypeMapper
+import com.novocode.squery.session.{BaseTypeMapper, NumericType}
 
 trait ColumnOps {
   protected val leftOperand: Node
@@ -30,6 +30,16 @@ trait AllColumnOps[B1, P1] extends ColumnOps {
     om(Operator.InSet(leftOperand, seq, tm, false))
   def inSetBind[R](seq: Seq[B1])(implicit om: OptionMapper[B1, B1, Boolean, P1, P1, R], tm: BaseTypeMapper[B1]): Column[R] =
     om(Operator.InSet(leftOperand, seq, tm, true))
+
+  // NumericType only
+  def + [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericType): Column[R] =
+    om(Operator.Arith[B1]("+", leftOperand, Node(e), tm))
+  def - [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericType): Column[R] =
+    om(Operator.Arith[B1]("-", leftOperand, Node(e), tm))
+  def * [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericType): Column[R] =
+    om(Operator.Arith[B1]("*", leftOperand, Node(e), tm))
+  def / [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericType): Column[R] =
+    om(Operator.Arith[B1]("/", leftOperand, Node(e), tm))
 }
 
 trait BooleanColumnOps[P1] extends ColumnOps {
@@ -44,4 +54,6 @@ trait BooleanColumnOps[P1] extends ColumnOps {
 trait StringColumnOps[P1] extends ColumnOps {
   def length[R](implicit om: OptionMapper[String, String, Int, P1, P1, R]): Column[R] =
     om(Operator.Length(leftOperand))
+  def like[P2, R](e: Column[P2])(implicit om: OptionMapper[String, String, Boolean, P1, P2, R]): Column[R] =
+    om(Operator.Like(leftOperand, Node(e)))
 }

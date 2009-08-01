@@ -106,7 +106,7 @@ object SQuery2Test2 {
       val q4d = for (
         u <- Users if u.first inSetBind List("Homer", "Marge");
         o <- Orders if o.userID is u.id
-      ) yield u.first ~ o.orderID ~ o.product
+      ) yield u.first ~ (ConstColumn(1) + o.orderID - 1) ~ o.product
       println("q4d: " + q4d.selectStatement)
       println("Orders for Homer and Marge:")
       q4d.foreach(o => println("  "+o))
