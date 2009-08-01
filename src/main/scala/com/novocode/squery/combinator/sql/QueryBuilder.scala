@@ -9,7 +9,6 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
 
   //TODO Pull tables out of subqueries where needed
   //TODO Support unions
-  //TODO Rename columns where needed
 
   private[this] val localTables = new HashMap[String, Node]
   private[this] val declaredTables = new HashSet[String]
@@ -36,16 +35,18 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
 
   private def buildSelect: (String, SQLBuilder.Setter) = {
     val b = new SQLBuilder
-    buildSelect(Node(query.value), b)
+    buildSelect(Node(query.value), b, false)
     insertFromClauses()
     b.build
   }
 
-  private def buildSelect(value: Node, b: SQLBuilder): Unit = value match {
-    case Operator.Count(e) => { b += "SELECT count(*) from ("; buildSelect(e, b); b += ")" }
+  private def buildSelect(value: Node, b: SQLBuilder, rename: Boolean): Unit = value match {
+    case Operator.Count(e) =>
+      b += "SELECT count(*) from ("; buildSelect(e, b, false); b += ")"
+      if(rename) b += " as c1"
     case _ =>
       b += "SELECT "
-      expr(value, b)
+      expr(value, b, rename)
       fromSlot = b.createSlot
       appendConditions(b)
       appendGroupClause(b)
@@ -123,40 +124,48 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       "\" expression; Not a Projection; A projection of named columns from the same aliased or base table is required")
   }
 
-  private[this] def expr(c: Node, b: SQLBuilder): Unit = c match {
-    case ConstColumn(null) => b += "null"
-    case Operator.Not(Operator.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
-    case Operator.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
-    case Operator.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
-    case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
-    case s: SimpleFunction => {
-      b += s.name += '('
-      var first = true
-      for(ch <- s.nodeChildren) {
-        if(first) first = false
-        else b += ','
-        expr(ch, b)
+  private[this] def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false)
+
+  private[this] def expr(c: Node, b: SQLBuilder, rename: Boolean): Unit = {
+    var pos = 0
+    c match {
+      case ConstColumn(null) => b += "null"
+      case Operator.Not(Operator.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
+      case Operator.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
+      case Operator.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
+      case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
+      case s: SimpleFunction => {
+        b += s.name += '('
+        var first = true
+        for(ch <- s.nodeChildren) {
+          if(first) first = false
+          else b += ','
+          expr(ch, b)
+        }
+        b += ')'
       }
-      b += ')'
-    }
-    case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
-    case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
-    case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b); b += ")" }
-    //case Union.UnionPart(_) => "*"
-    case p: Projection[_] => {
-      var first = true
-      p.nodeChildren.foreach { c =>
-        if(first) first = false else b += ','
-        expr(c, b)
+      case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
+      case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
+      case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b, false); b += ")" }
+      //case Union.UnionPart(_) => "*"
+      case p: Projection[_] => {
+        p.nodeChildren.foreach { c =>
+          if(pos != 0) b += ','
+          pos += 1
+          expr(c, b)
+          if(rename) b += " as c" += pos.toString
+        }
       }
+      case c @ ConstColumn(v) => b += c.typeMapper.valueToSQLLiteral(v)
+      case c @ BindColumn(v) => b +?= { p => c.typeMapper.setValue(v, p); p }
+      case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
+      case SubqueryColumn(pos, sq) => { b += localTableName(sq) += ".c" += pos.toString }
+      case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
+      case t: Table[_] => expr(t.*, b)
+      case t: TableBase[_] => b += localTableName(t) += ".*"
+      case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
     }
-    case c @ ConstColumn(v) => b += c.typeMapper.valueToSQLLiteral(v)
-    case c @ BindColumn(v) => b +?= { p => c.typeMapper.setValue(v, p); p }
-    case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
-    case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
-    case t: Table[_] => expr(t.*, b)
-    case t: TableBase[_] => b += localTableName(t) += ".*"
-    case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
+    if(rename && pos == 0) b += " as c1"
   }
 
   private[this] def appendConditions(b: SQLBuilder): Unit = query.cond match {
@@ -194,6 +203,8 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       b += base.tableName += ' ' += name
     case base: Table[_] =>
       b += base.tableName += ' ' += name
+    case Subquery(sq, rename) =>
+      b += "("; subQueryBuilderFor(sq).buildSelect(Node(sq.value), b, rename); b += ") " += name
     case j: Join[_,_] => {
       var first = true
       for(n <- j.nodeChildren) {

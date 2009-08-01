@@ -46,7 +46,7 @@ object Benchmark {
     } yield u.first ~ o.orderID
     val q5 = for (
       o <- Orders
-        where { o => o.orderID is queryToSubQuery(for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
+        where { o => o.orderID is (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max).asColumn }
     ) yield o.orderID
 
     val s1 = QueryBuilder.buildSelect(q1, NamingContext())

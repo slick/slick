@@ -1,13 +1,17 @@
 package com.novocode.squery.combinator
 
-import java.io.PrintWriter
-
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
 class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[Column[_]],
                 val groupings: List[Grouping], val orderings: List[Ordering]) extends Node {
+
+  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: groupings ::: orderings
+  override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) :::
+    groupings.map(o => (o, "groupings")) ::: orderings.map(o => (o, "orderings"))
+
+  override def toString = "Query"
 
   def flatMap[F](f: E => Query[F]): Query[F] = {
     val q = f(value)
@@ -27,14 +31,9 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
   def having[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
     new Query(value, cond, wt(f(value), condHaving), groupings, orderings)
 
-  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: groupings ::: orderings
-  override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) :::
-    groupings.map(o => (o, "groupings")) ::: orderings.map(o => (o, "orderings"))
-
-  override def toString = "Query"
-
   def groupBy(by: Column[_]*) =
     new Query[E](value, cond, condHaving, groupings ::: by.projection.map(c => new Grouping(Node(c))).toList, orderings)
+
   def orderBy(by: Ordering*) = new Query[E](value, cond, condHaving, groupings, orderings ::: by.toList)
 }
 
@@ -46,10 +45,38 @@ object Query extends Query[Unit]((), Nil, Nil, Nil, Nil) {
   }
 }
 
-class QueryOfColumnOps[E <: ColumnBase[_]](q: Query[E]) {
+class QueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) {
   
   def union(other: Query[E]): Query[E] = {
     val u = Union(false, q, other)
     Query(q.value.mapOp(n => Union.UnionPart(n, u)))
   }
+
+  def sub: Query[E] = Query(q.value match {
+    case t:Table[_] =>
+      q.value.mapOp(_ => Subquery(q, false))
+    case _ =>
+      var pos = 0
+      val p = Subquery(q, true)
+      q.value.mapOp { v =>
+        pos += 1
+        SubqueryColumn(pos, p)
+      }
+  })
+}
+
+class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
+  def asColumn: E = q.value.mapOp(_ => q)
+}
+
+case class Subquery(query: Query[_], rename: Boolean) extends Node {
+  def nodeChildren = query :: Nil
+  override def nodeNamedChildren = (query, "query") :: Nil
+  override def isNamedTable = true
+}
+
+case class SubqueryColumn(pos: Int, subquery: Subquery) extends Node {
+  def nodeChildren = subquery :: Nil
+  override def nodeNamedChildren = (subquery, "subquery") :: Nil
+  override def toString = "SubqueryColumn c"+pos
 }

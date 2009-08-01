@@ -54,12 +54,9 @@ object Implicit {
 
   implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
 
-  implicit def tableToQuery[T <: TableBase.T_](t: T) = Query(t.mapOp(n => new Table.Alias(Node(n))))
+  implicit def tableToQuery[T <: TableBase[_]](t: T) = Query(t.mapOp(n => new Table.Alias(Node(n))))
 
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
-
-  // Not implicit to work around bug #1579
-  def queryToSubQuery[C <: ColumnBase.T_](q: Query[C]): C = q.value.mapOp(_ => q)
 
   implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): StatementCombinatorQueryInvoker[T] = new StatementCombinatorQueryInvoker(q)
   implicit def queryToDeleteInvoker[T](q: Query[Table[T]]): DeleteInvoker[T] = new DeleteInvoker(q)
@@ -67,5 +64,6 @@ object Implicit {
   implicit def tableToDDLInvoker[T](t: Table[T]): DDLInvoker[T] = new DDLInvoker(t)
   implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new CombinatorInsertInvoker(c)
 
-  implicit def queryToQueryOfColumnOps[E <: ColumnBase.T_](q: Query[E]) = new QueryOfColumnOps(q)
+  implicit def queryToQueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) = new QueryOfColumnBaseOps(q)
+  implicit def queryToQueryOfColumnOps[E <: Column[_]](q: Query[E]) = new QueryOfColumnOps(q)
 }
