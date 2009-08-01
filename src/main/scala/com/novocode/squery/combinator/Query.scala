@@ -35,6 +35,8 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
     new Query[E](value, cond, condHaving, groupings ::: by.projection.map(c => new Grouping(Node(c))).toList, orderings)
 
   def orderBy(by: Ordering*) = new Query[E](value, cond, condHaving, groupings, orderings ::: by.toList)
+
+  def exists = Operator.Exists(map(_ => ConstColumn(1)))
 }
 
 object Query extends Query[Unit]((), Nil, Nil, Nil, Nil) {
