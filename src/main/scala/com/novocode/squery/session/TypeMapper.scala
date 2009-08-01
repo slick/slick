@@ -84,7 +84,7 @@ object TypeMapper {
 
   implicit object LongTypeMapper extends BaseTypeMapper[Long] {
     def zero = 0
-    def sqlType = java.sql.Types.INTEGER
+    def sqlType = java.sql.Types.BIGINT
     def setValue(v: Long, p: PositionedParameters) = p.setLong(v)
     def setOption(v: Option[Long], p: PositionedParameters) = p.setLongOption(v)
     def nextValue(r: PositionedResult) = r.nextLong
