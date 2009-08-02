@@ -215,8 +215,17 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       b += base.tableName += ' ' += name
     case base: Table[_] =>
       b += base.tableName += ' ' += name
-    case Subquery(sq, rename) =>
+    case Subquery(sq: Query[_], rename) =>
       b += "("; subQueryBuilderFor(sq).buildSelect(Node(sq.value), b, rename); b += ") " += name
+    case Subquery(Union(all, sqs), rename) =>
+      b += "("
+      var first = true
+      for(sq <- sqs) {
+        if(!first) b += (if(all) " UNION ALL " else " UNION ")
+        subQueryBuilderFor(sq).buildSelect(Node(sq.value), b, first && rename)
+        first = false
+      }
+      b += ") " += name
     case j: Join[_,_] => {
       var first = true
       for(n <- j.nodeChildren) {

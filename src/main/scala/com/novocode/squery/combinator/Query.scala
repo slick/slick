@@ -49,17 +49,18 @@ object Query extends Query[Unit]((), Nil, Nil, Nil, Nil) {
 
 class QueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) {
   
-  def union(other: Query[E]): Query[E] = {
-    val u = Union(false, q, other)
-    Query(q.value.mapOp(n => Union.UnionPart(n, u)))
-  }
+  def union(other: Query[E]*) = wrap(Union(false, q :: other.toList))
 
-  def sub: Query[E] = Query(q.value match {
+  def unionAll(other: Query[E]*) = wrap(Union(true, q :: other.toList))
+
+  def sub = wrap(q)
+
+  private[this] def wrap(base: Node): Query[E] = Query(q.value match {
     case t:Table[_] =>
-      q.value.mapOp(_ => Subquery(q, false))
+      q.value.mapOp(_ => Subquery(base, false))
     case _ =>
       var pos = 0
-      val p = Subquery(q, true)
+      val p = Subquery(base, true)
       q.value.mapOp { v =>
         pos += 1
         SubqueryColumn(pos, p)
@@ -71,7 +72,7 @@ class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
   def asColumn: E = q.value.mapOp(_ => q)
 }
 
-case class Subquery(query: Query[_], rename: Boolean) extends Node {
+case class Subquery(query: Node, rename: Boolean) extends Node {
   def nodeChildren = query :: Nil
   override def nodeNamedChildren = (query, "query") :: Nil
   override def isNamedTable = true
@@ -81,4 +82,9 @@ case class SubqueryColumn(pos: Int, subquery: Subquery) extends Node {
   def nodeChildren = subquery :: Nil
   override def nodeNamedChildren = (subquery, "subquery") :: Nil
   override def toString = "SubqueryColumn c"+pos
+}
+
+case class Union(all: Boolean, queries: List[Query[_]]) extends Node {
+  override def toString = if(all) "Union all" else "Union"
+  def nodeChildren = queries
 }

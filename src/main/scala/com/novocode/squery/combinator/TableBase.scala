@@ -53,17 +53,3 @@ object Join {
     override def nodeNamedChildren = (left, "table") :: (right, "from") :: Nil
   }
 }
-
-case class Union[T <: ColumnBase.T_](val all: Boolean, query1: Query[T], query2: Query[T]) extends TableBase[Nothing] {
-  val left = Node(query1)
-  val right = Node(query2)
-  def nodeChildren = left :: right :: Nil
-}
-
-object Union {
-  //def unapply(u: Union[_]) = Some((u.all, u.left, u.right))
-
-  final case class UnionPart(child: Node, union: Union[_]) extends UnaryNode {
-    override def toString = "UnionPart"
-  }
-}
