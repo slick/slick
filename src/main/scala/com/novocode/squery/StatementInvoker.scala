@@ -17,9 +17,8 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] {
   def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: Session): Unit = {
     //TODO Support multiple results
     val statement = getStatement
-    val st = session.allocPS(statement)
-    setParam(param, st)
-    try {
+    session.withPS(statement) { st =>
+      setParam(param, st)
       st.setMaxRows(maxRows)
       if(st.execute) {
         var count = 0
@@ -29,7 +28,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] {
           count += 1
         }
       } else f(st.getUpdateCount.asInstanceOf[R])
-    } finally session.freePS(statement, st)
+    }
   }
 
   def elements(param: P)(implicit session: Session): CloseableIterator[R] = {
@@ -44,7 +43,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] {
         val rs = new PositionedResult(st.getResultSet)
         doClose = false
         new ReadAheadIterator[R] with CloseableIterator[R] {
-          def close() = session.freePS(statement, st)
+          def close() = session.freePS(st)
           protected def fetchNext() = {
             if(rs.next) Some(extractValue(rs))
             else { close(); None }
@@ -61,6 +60,6 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] {
           def close {}
         }
       }
-    } finally if(doClose) session.freePS(statement, st)
+    } finally if(doClose) session.freePS(st)
   }
 }

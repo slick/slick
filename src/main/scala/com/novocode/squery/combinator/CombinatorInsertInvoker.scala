@@ -7,13 +7,10 @@ class CombinatorInsertInvoker[T] (column: ColumnBase[T]) {
 
   lazy val insertStatement = new InsertBuilder(column).buildInsert
 
-  def insert(value: T)(implicit session: Session): Int = {
-    val st = session.allocPS(insertStatement)
-    try {
-      st.clearParameters
-      column.setParameter(new PositionedParameters(st), Some(value))
-      st.executeUpdate
-    } finally session.freePS(insertStatement, st)
+  def insert(value: T)(implicit session: Session): Int = session.withPS(insertStatement) { st =>
+    st.clearParameters
+    column.setParameter(new PositionedParameters(st), Some(value))
+    st.executeUpdate
   }
 
   def insertAll(values: T*)(implicit session: Session): Int = (0 /: values) { _ + insert(_) }

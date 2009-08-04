@@ -13,7 +13,12 @@ class Session private[squery] (db: Database) {
 
   private[squery] def allocPS(sql: String) = conn.prepareStatement(sql)
 
-  private[squery] def freePS(sql: String, ps: PreparedStatement) = ps.close()
+  private[squery] def freePS(ps: PreparedStatement) = ps.close()
+
+  private[squery] def withPS[T](sql: String)(f: (PreparedStatement => T)): T = {
+    val st = allocPS(sql)
+    try f(st) finally freePS(st)
+  }
 
   def close() {
     if(open) conn.close()

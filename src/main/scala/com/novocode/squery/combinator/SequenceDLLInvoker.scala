@@ -7,8 +7,6 @@ class SequenceDDLInvoker(seq: Sequence[_]) {
 
   lazy val createSequenceStatement = new SequenceDDLBuilder(seq).buildCreateSequence
 
-  def createSequence(implicit session: Session) {
-    val st = session.allocPS(createSequenceStatement)
-    try { st.execute } finally session.freePS(createSequenceStatement, st)
-  }
+  def createSequence(implicit session: Session): Unit =
+    session.withPS(createSequenceStatement)(_.execute)
 }

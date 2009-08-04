@@ -7,12 +7,9 @@ class CombinatorUpdateInvoker[T] (query: Query[Projection[T]]) {
 
   lazy val updateStatement = QueryBuilder.buildUpdate(query, NamingContext())
 
-  def update(value: T)(implicit session: Session): Int = {
-    val st = session.allocPS(updateStatement)
-    try {
-      st.clearParameters
-      query.value.setParameter(new PositionedParameters(st), Some(value))
-      st.executeUpdate
-    } finally session.freePS(updateStatement, st)
+  def update(value: T)(implicit session: Session): Int = session.withPS(updateStatement) { st =>
+    st.clearParameters
+    query.value.setParameter(new PositionedParameters(st), Some(value))
+    st.executeUpdate
   }
 }

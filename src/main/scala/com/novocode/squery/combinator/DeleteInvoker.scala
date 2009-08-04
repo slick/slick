@@ -9,11 +9,8 @@ class DeleteInvoker[T] (query: Query[Table[T]]) {
 
   def deleteStatement = built._1
 
-  def delete(implicit session: Session): Int = {
-    val st = session.allocPS(deleteStatement)
-    try {
-      built._2(new PositionedParameters(st))
-      st.executeUpdate
-    } finally session.freePS(deleteStatement, st)
+  def delete(implicit session: Session): Int = session.withPS(deleteStatement) { st =>
+    built._2(new PositionedParameters(st))
+    st.executeUpdate
   }
 }
