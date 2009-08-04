@@ -29,13 +29,17 @@ object SQuery2Test2 {
       def * = userID ~ orderID ~ product ~ shipped ~ rebate
     }
 
+    val mySequence = Sequence[Int]("mysequence") start 200 inc 10
+
     Class.forName("org.h2.Driver")
     Database.forURL("jdbc:h2:mem:test1") withSession {
 
       println(Users.createTableStatement)
       println(Orders.createTableStatement)
+      println(mySequence.createSequenceStatement)
       Users.createTable
       Orders.createTable
+      mySequence.createSequence
       val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
       val ins2 = (Users.first ~ Users.last).insertAll(
         ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )
@@ -48,8 +52,9 @@ object SQuery2Test2 {
       val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.getOrElse(null)) }.list
       for(u <- allUsers) println("User object: "+u)
 
-      val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last
-      for(t <- q1b) println("With Options: "+t)
+      val q1b = for(u <- Users) yield mySequence.next ~ u.id ~ u.first.? ~ u.last
+      println("q1b: " + q1b.selectStatement)
+      for(t <- q1b) println("With options and sequence: "+t)
 
       val q2 = for(u <- Users if u.first is "Apu".bind) yield u.last ~ u.id
       println("q2: " + q2.selectStatement)

@@ -63,6 +63,7 @@ object Implicit {
   implicit def queryToUpdateInvoker[T](q: Query[Projection[T]]): CombinatorUpdateInvoker[T] = new CombinatorUpdateInvoker(q)
   implicit def tableToDDLInvoker[T](t: Table[T]): DDLInvoker[T] = new DDLInvoker(t)
   implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new CombinatorInsertInvoker(c)
+  implicit def sequenceToSequenceDDLInvoker(seq: Sequence[_]): SequenceDDLInvoker = new SequenceDDLInvoker(seq)
 
   implicit def queryToQueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) = new QueryOfColumnBaseOps(q)
   implicit def queryToQueryOfColumnOps[E <: Column[_]](q: Query[E]) = new QueryOfColumnOps(q)
