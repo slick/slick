@@ -17,6 +17,36 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
   override def toString = "Projection" + productArity
 }
 
+object Projection {
+  def unapply[T1,T2](p: Projection2[T1,T2]) = Some(p)
+  def unapply[T1,T2,T3](p: Projection3[T1,T2,T3]) = Some(p)
+  def unapply[T1,T2,T3,T4](p: Projection4[T1,T2,T3,T4]) = Some(p)
+  def unapply[T1,T2,T3,T4,T5](p: Projection5[T1,T2,T3,T4,T5]) = Some(p)
+  def unapply[T1,T2,T3,T4,T5,T6](p: Projection6[T1,T2,T3,T4,T5,T6]) = Some(p)
+  def unapply[T1,T2,T3,T4,T5,T6,T7](p: Projection7[T1,T2,T3,T4,T5,T6,T7]) = Some(p)
+  def unapply[T1,T2,T3,T4,T5,T6,T7,T8](p: Projection8[T1,T2,T3,T4,T5,T6,T7,T8]) = Some(p)
+  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9](p: Projection9[T1,T2,T3,T4,T5,T6,T7,T8,T9]) = Some(p)
+}
+
+object ~ {
+  def unapply[T1,T2](p: Projection2[T1,T2]) =
+    Some(p)
+  def unapply[T1,T2,T3](p: Projection3[T1,T2,T3]) =
+    Some((new Projection2(p._1, p._2), p._3))
+  def unapply[T1,T2,T3,T4](p: Projection4[T1,T2,T3,T4]) =
+    Some((new Projection3(p._1, p._2, p._3), p._4))
+  def unapply[T1,T2,T3,T4,T5](p: Projection5[T1,T2,T3,T4,T5]) =
+    Some((new Projection4(p._1, p._2, p._3, p._4), p._5))
+  def unapply[T1,T2,T3,T4,T5,T6](p: Projection6[T1,T2,T3,T4,T5,T6]) =
+    Some((new Projection5(p._1, p._2, p._3, p._4, p._5), p._6))
+  def unapply[T1,T2,T3,T4,T5,T6,T7](p: Projection7[T1,T2,T3,T4,T5,T6,T7]) =
+    Some((new Projection6(p._1, p._2, p._3, p._4, p._5, p._6), p._7))
+  def unapply[T1,T2,T3,T4,T5,T6,T7,T8](p: Projection8[T1,T2,T3,T4,T5,T6,T7,T8]) =
+    Some((new Projection7(p._1, p._2, p._3, p._4, p._5, p._6, p._7), p._8))
+  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9](p: Projection9[T1,T2,T3,T4,T5,T6,T7,T8,T9]) =
+    Some((new Projection8(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8), p._9))
+}
+
 final class Projection2[T1,T2](
   override val _1: Column[T1],
   override val _2: Column[T2])

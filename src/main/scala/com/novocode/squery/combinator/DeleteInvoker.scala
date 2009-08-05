@@ -7,10 +7,10 @@ class DeleteInvoker[T] (query: Query[Table[T]]) {
 
   private lazy val built = QueryBuilder.buildDelete(query, NamingContext())
 
-  def deleteStatement = built._1
+  def deleteStatement = built.sql
 
   def delete(implicit session: Session): Int = session.withPS(deleteStatement) { st =>
-    built._2(new PositionedParameters(st))
+    built.setter(new PositionedParameters(st), null)
     st.executeUpdate
   }
 }

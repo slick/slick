@@ -17,9 +17,21 @@ class StatementCombinatorQueryInvoker[+R](q: Query[ColumnBase[R]])
 
   def selectStatement = getStatement
 
-  protected def getStatement = built._1
+  protected def getStatement = built.sql
 
-  protected def setParam(param: Unit, st: PreparedStatement): Unit = built._2(new PositionedParameters(st))
+  protected def setParam(param: Unit, st: PreparedStatement): Unit = built.setter(new PositionedParameters(st), null)
+
+  protected def extractValue(rs: PositionedResult): R = q.value.getResult(rs)
+}
+
+class AppliedQueryTemplateInvoker[+R](q: AppliedQueryTemplate[_,ColumnBase[R]])
+  extends StatementInvoker[Unit, R] with CombinatorQueryInvoker[R] {
+
+  def selectStatement = getStatement
+
+  protected def getStatement = q.built.sql
+
+  protected def setParam(param: Unit, st: PreparedStatement): Unit = q.built.setter(new PositionedParameters(st), q.param)
 
   protected def extractValue(rs: PositionedResult): R = q.value.getResult(rs)
 }

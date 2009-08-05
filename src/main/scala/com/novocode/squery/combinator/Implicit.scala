@@ -59,6 +59,8 @@ object Implicit {
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
 
   implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): StatementCombinatorQueryInvoker[T] = new StatementCombinatorQueryInvoker(q)
+  implicit def appliedQueryTemplateToQueryInvoker[T](q: AppliedQueryTemplate[_, ColumnBase[T]]): AppliedQueryTemplateInvoker[T] =
+    new AppliedQueryTemplateInvoker(q)
   implicit def queryToDeleteInvoker[T](q: Query[Table[T]]): DeleteInvoker[T] = new DeleteInvoker(q)
   implicit def queryToUpdateInvoker[T](q: Query[Projection[T]]): CombinatorUpdateInvoker[T] = new CombinatorUpdateInvoker(q)
   implicit def tableToDDLInvoker[T](t: Table[T]): DDLInvoker[T] = new DDLInvoker(t)

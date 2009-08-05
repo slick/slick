@@ -43,16 +43,18 @@ final class SQLBuilder extends SQLBuilder.Segment {
     val sb = new StringBuilder(64)
     val setters = new ArrayBuffer[Setter]
     appendTo(sb, setters)
-    (sb.toString, new CombinedSetter(setters))
+    Result(sb.toString, new CombinedSetter(setters))
   }
 }
 
 object SQLBuilder {
-  type Setter = (PositionedParameters => PositionedParameters)
+  final type Setter = ((PositionedParameters, Any) => PositionedParameters)
+
+  final case class Result(sql: String, setter: Setter)
 
   private class CombinedSetter(b: Seq[Setter]) extends Setter {
-    def apply(p: PositionedParameters): PositionedParameters = {
-      for(s <- b) s(p)
+    def apply(p: PositionedParameters, param: Any): PositionedParameters = {
+      for(s <- b) s(p, param)
       p
     }
   }

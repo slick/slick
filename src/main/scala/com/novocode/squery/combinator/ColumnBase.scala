@@ -55,7 +55,7 @@ trait Column[T] extends ColumnBase[T] {
 /**
  * A column with a constant value which is inserted into an SQL statement as a literal.
  */
-case class ConstColumn[T](val value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
+case class ConstColumn[T](value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
   def nodeChildren = Nil
   override def toString = value match {
     case null => "ConstColumn null"
@@ -72,13 +72,21 @@ object ConstColumn {
 /**
  * A column with a constant value which gets turned into a bind variable.
  */
-case class BindColumn[T](val value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
+case class BindColumn[T](value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
   def nodeChildren = Nil
   override def toString = value match {
     case null => "BindColumn null"
     case a: AnyRef => "BindColumn["+a.getClass.getName+"] "+a
     case _ => "BindColumn "+value
   }
+}
+
+/**
+ * A parameter from a QueryTemplate which gets turned into a bind variable.
+ */
+case class ParameterColumn[T](idx: Int, typeMapper: TypeMapper[T]) extends Column[T] {
+  def nodeChildren = Nil
+  override def toString = "ParameterColumn "+idx
 }
 
 /**
