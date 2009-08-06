@@ -3,18 +3,18 @@ package com.novocode.squery.combinator
 import com.novocode.squery.session.TypeMapper
 import com.novocode.squery.combinator.sql.{QueryBuilder, SQLBuilder}
 
-final class QueryTemplate[P, E](query: Query[ColumnBase[E]]) {
+final class QueryTemplate[P, R](query: Query[ColumnBase[R]]) {
   def apply(param: P) = new AppliedQueryTemplate(built, param, query.value)
   lazy val built = QueryBuilder.buildSelect(query, NamingContext())
 }
 
-final class AppliedQueryTemplate[P, +E <: ColumnBase[_]] private[squery] (val built: SQLBuilder.Result, val param: P, val value: E)
+final class AppliedQueryTemplate[R] private[squery] (val built: SQLBuilder.Result, val param: Any, val value: ColumnBase[R])
 
-final class Parameters[P, C <: ColumnBase[P]](p: C) {
-  def flatMap[F](f: C => Query[ColumnBase[F]]): QueryTemplate[P, F] = new QueryTemplate[P, F](f(p))
-  def map[F](f: C => ColumnBase[F]): QueryTemplate[P, F] = new QueryTemplate[P, F](Query(f(p)))
+final class Parameters[P, C](c: C) {
+  def flatMap[F](f: C => Query[ColumnBase[F]]): QueryTemplate[P, F] = new QueryTemplate[P, F](f(c))
+  def map[F](f: C => ColumnBase[F]): QueryTemplate[P, F] = new QueryTemplate[P, F](Query(f(c)))
   def filter(f: C => Boolean): Parameters[P, C] =
-    if(!f(p)) throw new SQueryException("Match failed when unpacking Parameters")
+    if(!f(c)) throw new SQueryException("Match failed when unpacking Parameters")
     else this
 }
 

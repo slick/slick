@@ -31,7 +31,7 @@ object TemplateTest {
       for(uid <- Users.map(_.id))
         (Orders.userID ~ Orders.product).insert(uid, if(uid < 4) "Product A" else "Product B")
 
-      def userNameByID1(id: Int) = for(u <- Users if u.id is id) yield u.first
+      def userNameByID1(id: Int) = for(u <- Users if u.id is id.bind) yield u.first
       def q1 = userNameByID1(3)
       println("q1: " + q1.selectStatement)
       for(t <- q1) println("User: "+t)

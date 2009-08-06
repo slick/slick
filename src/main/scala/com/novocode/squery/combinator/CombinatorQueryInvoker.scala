@@ -24,7 +24,7 @@ class StatementCombinatorQueryInvoker[+R](q: Query[ColumnBase[R]])
   protected def extractValue(rs: PositionedResult): R = q.value.getResult(rs)
 }
 
-class AppliedQueryTemplateInvoker[+R](q: AppliedQueryTemplate[_,ColumnBase[R]])
+class AppliedQueryTemplateInvoker[+R](q: AppliedQueryTemplate[R])
   extends StatementInvoker[Unit, R] with CombinatorQueryInvoker[R] {
 
   def selectStatement = getStatement
