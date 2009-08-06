@@ -36,29 +36,39 @@ object TemplateTest {
       println("q1: " + q1.selectStatement)
       for(t <- q1) println("User: "+t)
 
-      def userNameByID2 = for {
-        uid <- Parameters[Int]
-        u <- Users if u.id is uid
+      val userNameByID2 = for {
+        id <- Parameters[Int]
+        u <- Users if u.id is id
       } yield u.first
-      def q2 = userNameByID2(3)
+      val q2 = userNameByID2(3)
       println("q2: " + q2.selectStatement)
       for(t <- q2) println("User: "+t)
 
-      def userNameByIDRange = for {
+      val userNameByIDRange = for {
         Projection(min, max) <- Parameters[Int, Int]
         u <- Users if u.id >= min && u.id <= max
       } yield u.first
-      def q3 = userNameByIDRange(2,5)
+      val q3 = userNameByIDRange(2,5)
       println("q3: " + q3.selectStatement)
       for(t <- q3) println("User: "+t)
 
-      def userNameByIDRangeAndProduct = for {
+      val userNameByIDRangeAndProduct = for {
         min ~ max ~ product <- Parameters[Int, Int, String]
         u <- Users if u.id >= min && u.id <= max && Orders.where(o => (u.id is o.userID) && (o.product is product)).exists
       } yield u.first
-      def q4 = userNameByIDRangeAndProduct(2,5,"Product A")
+      val q4 = userNameByIDRangeAndProduct(2,5,"Product A")
       println("q4: " + q4.selectStatement)
       for(t <- q4) println("User: "+t)
+
+      def userNameByIDOrAll(id: Option[Int]) = for(
+        u <- Users if id.map(u.id is _.bind).getOrElse(ConstColumn(true))
+      ) yield u.first
+      val q5a = userNameByIDOrAll(Some(3))
+      println("q5a: " + q5a.selectStatement)
+      for(t <- q5a) println("User: "+t)
+      val q5b = userNameByIDOrAll(None)
+      println("q5b: " + q5b.selectStatement)
+      for(t <- q5b) println("User: "+t)
     }
   }
 }
