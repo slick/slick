@@ -175,6 +175,22 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
         tm.setValue(v, p)
         p
       }
+      case c: Case.CaseColumn[_] => {
+        b += "(case"
+        c.clauses.foldRight(()) { (w,_) =>
+          b += " when "
+          expr(w.left, b)
+          b += " then "
+          expr(w.right, b)
+        }
+        c.elseClause match {
+          case ConstColumn(null) =>
+          case n =>
+            b += " else "
+            expr(n, b)
+        }
+        b += " end)"
+      }
       case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
       case SubqueryColumn(pos, sq) => { b += localTableName(sq) += ".c" += pos.toString }
       case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)

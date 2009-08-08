@@ -15,7 +15,7 @@ sealed trait TypeMapper[T] {
 
 trait BaseTypeMapper[T] extends TypeMapper[T]
 
-trait OptionTypeMapper[T] extends TypeMapper[Option[T]]
+abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[Option[T]]
 
 trait NumericType
 
@@ -126,7 +126,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextTimestamp
   }
 
-  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = new OptionTypeMapper[T] {
+  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = new OptionTypeMapper[T](t) {
     def zero = None
     def sqlType = t.sqlType
     def setValue(v: Option[T], p: PositionedParameters) = t.setOption(v, p)

@@ -52,7 +52,8 @@ object SQuery2Test2 {
       val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.getOrElse(null)) }.list
       for(u <- allUsers) println("User object: "+u)
 
-      val q1b = for(u <- Users) yield mySequence.next ~ u.id ~ u.first.? ~ u.last
+      val q1b = for(u <- Users) yield mySequence.next ~ u.id ~ u.first.? ~ u.last ~
+        (Case when u.id < 3 then "low" when u.id < 6 then "medium" otherwise "high")
       println("q1b: " + q1b.selectStatement)
       for(t <- q1b) println("With options and sequence: "+t)
 
