@@ -138,7 +138,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
           var first = true
           for(x <- seq) {
             if(first) first = false else b += ','
-            b +?= { (p, param) => tm.setValue(x, p); p }
+            b +?= { (p, param) => tm.setValue(x, p) }
           }
         }
         else b += seq.map(tm.valueToSQLLiteral).mkString(",")
@@ -169,11 +169,10 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
         }
       }
       case c @ ConstColumn(v) => b += c.typeMapper.valueToSQLLiteral(v)
-      case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper.setValue(v, p); p }
+      case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper.setValue(v, p) }
       case ParameterColumn(idx, tm) => b +?= { (p, param) =>
         val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
         tm.setValue(v, p)
-        p
       }
       case c: Case.CaseColumn[_] => {
         b += "(case"

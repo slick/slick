@@ -10,4 +10,10 @@ import java.io.Closeable
 trait CloseableIterator[+T] extends Iterator[T] with Closeable {
 
   override def close(): Unit
+
+  final def use[R](f: (Iterator[T] => R)): R =
+    try f(this) finally close()
+
+  final def use[R](f: =>R): R =
+    try f finally close()
 }

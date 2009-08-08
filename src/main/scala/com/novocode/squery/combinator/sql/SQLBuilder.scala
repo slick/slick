@@ -48,15 +48,12 @@ final class SQLBuilder extends SQLBuilder.Segment {
 }
 
 object SQLBuilder {
-  final type Setter = ((PositionedParameters, Any) => PositionedParameters)
+  final type Setter = ((PositionedParameters, Any) => Unit)
 
   final case class Result(sql: String, setter: Setter)
 
   private class CombinedSetter(b: Seq[Setter]) extends Setter {
-    def apply(p: PositionedParameters, param: Any): PositionedParameters = {
-      for(s <- b) s(p, param)
-      p
-    }
+    def apply(p: PositionedParameters, param: Any): Unit = for(s <- b) s(p, param)
   }
 
   trait Segment {
