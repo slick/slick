@@ -20,4 +20,10 @@ trait NoArgsInvoker[+R] extends Invoker[Unit, R] {
   final def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit = foreach((), f, maxRows)
 
   final def elements()(implicit session: Session): CloseableIterator[R] = elements(())
+
+  final def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: Session): B = {
+    var _z = z
+    foreach((), { e => _z = op(_z, e) })(session)
+    _z
+  }
 }

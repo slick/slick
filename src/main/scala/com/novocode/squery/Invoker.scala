@@ -32,6 +32,12 @@ trait Invoker[-P, +R] { self =>
 
   final def foreach(param: P, f: R => Unit)(implicit session: Session): Unit = foreach(param, f, 0)
 
+  final def foldLeft[B](param: P, z: B)(op: (B, R) => B)(implicit session: Session): B = {
+    var _z = z
+    foreach(param, { e => _z = op(_z, e) })(session)
+    _z
+  }
+
   final def withParameter(fixedParam: P): NoArgsInvoker[R] = new NoArgsInvoker[R] {
     def foreach(param: Unit, f: R => Unit, maxRows: Int)(implicit session: Session): Unit =
       self.foreach(fixedParam, f, maxRows)
