@@ -19,13 +19,13 @@ object StaticQueryBase {
     new StaticQuery[P,R](query, rconv, pconv)
 
   def queryNA[R](query: String)(implicit conv: PositionedResult => R) =
-    new StaticQuery[Unit,R](query, conv, Implicit.prepareFromUnit) with NoArgsInvoker[R]
+    new StaticQuery[Unit,R](query, conv, Implicit.prepareFromUnit) with UnitInvokerMixin[R]
 
   def update[P](query: String)(implicit pconv: (P, PreparedStatement) => Unit) =
     new StaticUpdate[P](query, pconv)
 
   def updateNA(query: String) =
-    new StaticUpdate[Unit](query, Implicit.prepareFromUnit) with NoArgsInvoker[Int]
+    new StaticUpdate[Unit](query, Implicit.prepareFromUnit) with UnitInvokerMixin[Int]
 }
 
 class StaticQuery[-P,+R](query: String, rconv: PositionedResult => R, pconv: (P, PreparedStatement) => Unit)

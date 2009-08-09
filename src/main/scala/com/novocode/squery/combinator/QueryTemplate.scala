@@ -1,14 +1,20 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.TypeMapper
+import java.sql.PreparedStatement
+import com.novocode.squery.session.{TypeMapper, PositionedParameters, PositionedResult}
 import com.novocode.squery.combinator.sql.{QueryBuilder, SQLBuilder}
 
-final class QueryTemplate[P, R](query: Query[ColumnBase[R]]) {
-  def apply(param: P) = new AppliedQueryTemplate(built, param, query.value)
-  lazy val built = QueryBuilder.buildSelect(query, NamingContext())
-}
+final class QueryTemplate[P, R](query: Query[ColumnBase[R]]) extends StatementInvoker[P, R] {
+  private[this] lazy val built = QueryBuilder.buildSelect(query, NamingContext())
 
-final class AppliedQueryTemplate[R] private[squery] (val built: SQLBuilder.Result, val param: Any, val value: ColumnBase[R])
+  def selectStatement = getStatement
+
+  protected def getStatement = built.sql
+
+  protected def setParam(param: P, st: PreparedStatement): Unit = built.setter(new PositionedParameters(st), param)
+
+  protected def extractValue(rs: PositionedResult): R = query.value.getResult(rs)
+}
 
 final class Parameters[P, C](c: C) {
   def flatMap[F](f: C => Query[ColumnBase[F]]): QueryTemplate[P, F] = new QueryTemplate[P, F](f(c))

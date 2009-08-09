@@ -38,7 +38,7 @@ object JDBCTest {
       val res = userForID(2)
       println("User for ID 2: "+res)
       println("User 2 with foreach:")
-      userForID.withParameter(2) foreach (s => println("  "+s) )
+      userForID(2) foreach (s => println("  "+s) )
       println("User 2 with foreach:")
       GetUsers(Some(2)) foreach (s => println("  "+s))
       println("All users with foreach:")

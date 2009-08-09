@@ -7,7 +7,7 @@ import com.novocode.squery.session.PositionedResult
  * Base class for dynamic queries. These are required when the query text can
  * change between different invocations of the query
  */
-abstract class DynamicQueryBase[+T, +This <: DynamicQueryBase[T, This]] extends StatementInvoker[Unit, T] with NoArgsInvoker[T] {
+abstract class DynamicQueryBase[+T, +This <: DynamicQueryBase[T, This]] extends StatementInvoker[Unit, T] with UnitInvokerMixin[T] {
   self: This =>
 
   type VarSetter = (PreparedStatement, Int) => Unit

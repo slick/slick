@@ -41,7 +41,7 @@ object TemplateTest {
         u <- Users if u.id is id
       } yield u.first
       val q2 = userNameByID2(3)
-      println("q2: " + q2.selectStatement)
+      println("q2: " + userNameByID2.selectStatement)
       for(t <- q2) println("User: "+t)
 
       val userNameByIDRange = for {
@@ -49,7 +49,7 @@ object TemplateTest {
         u <- Users if u.id >= min && u.id <= max
       } yield u.first
       val q3 = userNameByIDRange(2,5)
-      println("q3: " + q3.selectStatement)
+      println("q3: " + userNameByIDRange.selectStatement)
       for(t <- q3) println("User: "+t)
 
       val userNameByIDRangeAndProduct = for {
@@ -57,7 +57,7 @@ object TemplateTest {
         u <- Users if u.id >= min && u.id <= max && Orders.where(o => (u.id is o.userID) && (o.product is product)).exists
       } yield u.first
       val q4 = userNameByIDRangeAndProduct(2,5,"Product A")
-      println("q4: " + q4.selectStatement)
+      println("q4: " + userNameByIDRangeAndProduct.selectStatement)
       for(t <- q4) println("User: "+t)
 
       def userNameByIDOrAll(id: Option[Int]) = for(
