@@ -1,5 +1,6 @@
 package com.novocode.squery
 
+import scala.collection.mutable.ListBuffer
 import com.novocode.squery.session.{Session, CloseableIterator}
 
 /**
@@ -25,9 +26,9 @@ trait Invoker[-P, +R] { self =>
   }
 
   final def list(param: P)(implicit session: Session): List[R] = {
-    var xs:List[R] = Nil
-    foreach(param, { x => xs = x :: xs }, 0)
-    xs
+    val b = new ListBuffer[R]
+    foreach(param, { x => b += x }, 0)
+    b.toList
   }
 
   final def foreach(param: P, f: R => Unit)(implicit session: Session): Unit = foreach(param, f, 0)
