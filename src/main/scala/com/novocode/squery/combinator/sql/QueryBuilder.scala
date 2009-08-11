@@ -2,6 +2,7 @@ package com.novocode.squery.combinator.sql
 
 import scala.collection.mutable.{HashMap, HashSet}
 import java.io.PrintWriter
+import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 import com.novocode.squery.RefId
 

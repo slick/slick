@@ -2,6 +2,7 @@ package com.novocode.squery.combinator
 
 import java.io.{PrintWriter, OutputStreamWriter}
 import scala.collection.mutable.HashSet
+import com.novocode.squery.SQueryException
 
 /**
  * A node in the query AST

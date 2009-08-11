@@ -1,5 +1,6 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.SQueryException
 import com.novocode.squery.session.{PositionedResult, PositionedParameters, TypeMapper}
 
 /**

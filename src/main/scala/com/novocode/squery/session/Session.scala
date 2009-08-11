@@ -1,6 +1,7 @@
 package com.novocode.squery.session
 
 import java.sql.PreparedStatement
+import com.novocode.squery.SQueryException
 
 /**
  * A database session which opens a connection and transaction on demand.

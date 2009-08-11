@@ -1,6 +1,7 @@
 package com.novocode.squery.simple
 
 import java.sql.{PreparedStatement, ResultSet, Date, Time, Timestamp}
+import com.novocode.squery.{StatementInvoker, UnitInvokerMixin, SQueryException}
 import com.novocode.squery.session.PositionedResult
 
 /**

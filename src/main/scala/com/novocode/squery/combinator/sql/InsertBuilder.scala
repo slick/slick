@@ -2,6 +2,7 @@ package com.novocode.squery.combinator.sql
 
 import scala.collection.mutable.HashMap
 import java.io.PrintWriter
+import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 
 class InsertBuilder(val column: ColumnBase[_]) {

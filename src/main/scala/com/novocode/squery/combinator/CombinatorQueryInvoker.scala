@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
 import java.sql.PreparedStatement
+import com.novocode.squery.StatementInvoker
 import com.novocode.squery.{Invoker, MappedInvoker, UnitInvokerMixin}
 import com.novocode.squery.combinator.sql.QueryBuilder
 import com.novocode.squery.session.{Session, PositionedParameters, PositionedResult, ReadAheadIterator, CloseableIterator}
