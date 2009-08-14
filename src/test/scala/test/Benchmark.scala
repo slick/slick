@@ -1,8 +1,8 @@
 package test
 
-import com.novocode.squery.combinator.{Table, Join, NamingContext, Query}
-import com.novocode.squery.combinator.sql.QueryBuilder
-import com.novocode.squery.combinator.Implicit._
+import com.novocode.squery.combinator.{Table, Join, Query, NamingContext}
+import com.novocode.squery.combinator.basic.BasicDriver
+import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.session.TypeMapper._
 
 object Benchmark {
@@ -49,11 +49,11 @@ object Benchmark {
         where { o => o.orderID is (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max).asColumn }
     ) yield o.orderID
 
-    val s1 = QueryBuilder.buildSelect(q1, NamingContext())
-    val s2 = QueryBuilder.buildSelect(q2, NamingContext())
-    val s3 = QueryBuilder.buildSelect(q3, NamingContext())
-    val s4 = QueryBuilder.buildSelect(q4, NamingContext())
-    val s5 = QueryBuilder.buildSelect(q5, NamingContext())
+    val s1 = BasicDriver.buildSelectStatement(q1, NamingContext())
+    val s2 = BasicDriver.buildSelectStatement(q2, NamingContext())
+    val s3 = BasicDriver.buildSelectStatement(q3, NamingContext())
+    val s4 = BasicDriver.buildSelectStatement(q4, NamingContext())
+    val s5 = BasicDriver.buildSelectStatement(q5, NamingContext())
 
     if(print) {
       println("q1: " + s1)

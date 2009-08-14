@@ -1,11 +1,11 @@
-package com.novocode.squery.combinator.sql
+package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.HashMap
 import java.io.PrintWriter
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 
-class InsertBuilder(val column: ColumnBase[_]) {
+class BasicInsertBuilder(val column: ColumnBase[_]) {
 
   def buildInsert: String = {
     val cols = new StringBuilder

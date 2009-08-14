@@ -1,11 +1,11 @@
-package com.novocode.squery.combinator
+package com.novocode.squery.combinator.basic
 
-import com.novocode.squery.combinator.sql.QueryBuilder
+import com.novocode.squery.combinator.{Query, Table, NamingContext}
 import com.novocode.squery.session.{PositionedParameters, Session, CloseableIterator, ReadAheadIterator}
 
-class DeleteInvoker[T] (query: Query[Table[T]]) {
+class BasicDeleteInvoker[T] (query: Query[Table[T]], profile: BasicProfile) {
 
-  private lazy val built = QueryBuilder.buildDelete(query, NamingContext())
+  protected lazy val built = profile.buildDeleteStatement(query, NamingContext())
 
   def deleteStatement = built.sql
 

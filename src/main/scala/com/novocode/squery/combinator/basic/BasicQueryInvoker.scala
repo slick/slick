@@ -1,15 +1,15 @@
-package com.novocode.squery.combinator
+package com.novocode.squery.combinator.basic
 
 import java.sql.PreparedStatement
 import com.novocode.squery.StatementInvoker
 import com.novocode.squery.{Invoker, MappedInvoker, UnitInvokerMixin}
-import com.novocode.squery.combinator.sql.QueryBuilder
+import com.novocode.squery.combinator.{Query, ColumnBase, NamingContext}
 import com.novocode.squery.session.{Session, PositionedParameters, PositionedResult, ReadAheadIterator, CloseableIterator}
 
-class StatementCombinatorQueryInvoker[+R](q: Query[ColumnBase[R]])
+class BasicQueryInvoker[+R](q: Query[ColumnBase[R]], profile: BasicProfile)
   extends StatementInvoker[Unit, R] with UnitInvokerMixin[R] {
 
-  private lazy val built = QueryBuilder.buildSelect(q, NamingContext())
+  protected lazy val built = profile.buildSelectStatement(q, NamingContext())
 
   def selectStatement = getStatement
 

@@ -1,25 +1,15 @@
 package com.novocode.squery.combinator
 
 import java.sql.PreparedStatement
-import com.novocode.squery.{SQueryException, StatementInvoker}
-import com.novocode.squery.session.{TypeMapper, PositionedParameters, PositionedResult}
-import com.novocode.squery.combinator.sql.{QueryBuilder, SQLBuilder}
-
-final class QueryTemplate[P, R](query: Query[ColumnBase[R]]) extends StatementInvoker[P, R] {
-  private[this] lazy val built = QueryBuilder.buildSelect(query, NamingContext())
-
-  def selectStatement = getStatement
-
-  protected def getStatement = built.sql
-
-  protected def setParam(param: P, st: PreparedStatement): Unit = built.setter(new PositionedParameters(st), param)
-
-  protected def extractValue(rs: PositionedResult): R = query.value.getResult(rs)
-}
+import com.novocode.squery.SQueryException
+import com.novocode.squery.session.TypeMapper
+import com.novocode.squery.combinator.basic.{BasicProfile, BasicQueryTemplate}
 
 final class Parameters[P, C](c: C) {
-  def flatMap[F](f: C => Query[ColumnBase[F]]): QueryTemplate[P, F] = new QueryTemplate[P, F](f(c))
-  def map[F](f: C => ColumnBase[F]): QueryTemplate[P, F] = new QueryTemplate[P, F](Query(f(c)))
+  def flatMap[F](f: C => Query[ColumnBase[F]])(implicit profile: BasicProfile): BasicQueryTemplate[P, F] =
+    profile.createQueryTemplate[P, F](f(c))
+  def map[F](f: C => ColumnBase[F])(implicit profile: BasicProfile): BasicQueryTemplate[P, F] =
+    profile.createQueryTemplate[P, F](Query(f(c)))
   def filter(f: C => Boolean): Parameters[P, C] =
     if(!f(c)) throw new SQueryException("Match failed when unpacking Parameters")
     else this

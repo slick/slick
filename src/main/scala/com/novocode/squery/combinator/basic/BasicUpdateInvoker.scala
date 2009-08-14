@@ -1,11 +1,11 @@
-package com.novocode.squery.combinator
+package com.novocode.squery.combinator.basic
 
-import com.novocode.squery.combinator.sql.QueryBuilder
+import com.novocode.squery.combinator.{Query, Projection, NamingContext}
 import com.novocode.squery.session.{Session, CloseableIterator, ReadAheadIterator, PositionedParameters}
 
-class CombinatorUpdateInvoker[T] (query: Query[Projection[T]]) {
+class BasicUpdateInvoker[T] (query: Query[Projection[T]], profile: BasicProfile) {
 
-  lazy val updateStatement = QueryBuilder.buildUpdate(query, NamingContext())
+  lazy val updateStatement = profile.buildUpdateStatement(query, NamingContext())
 
   def update(value: T)(implicit session: Session): Int = session.withPS(updateStatement) { st =>
     st.clearParameters

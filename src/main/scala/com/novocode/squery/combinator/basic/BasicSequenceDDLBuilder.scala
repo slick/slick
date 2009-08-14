@@ -1,10 +1,10 @@
-package com.novocode.squery.combinator.sql
+package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.HashMap
 import java.io.PrintWriter
 import com.novocode.squery.combinator._
 
-class SequenceDDLBuilder(seq: Sequence[_]) {
+class BasicSequenceDDLBuilder(seq: Sequence[_]) {
 
   def buildCreateSequence = {
     val b = new StringBuilder append "CREATE SEQUENCE " append seq.name

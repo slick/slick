@@ -1,7 +1,7 @@
 package test
 
 import com.novocode.squery.combinator._
-import com.novocode.squery.combinator.Implicit._
+import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database._
 import com.novocode.squery.session.TypeMapper._

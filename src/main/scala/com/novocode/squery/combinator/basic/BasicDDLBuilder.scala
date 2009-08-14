@@ -1,11 +1,11 @@
-package com.novocode.squery.combinator.sql
+package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.HashMap
 import java.io.PrintWriter
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 
-class DDLBuilder(table: Table[_]) {
+class BasicDDLBuilder(table: Table[_]) {
 
   def buildCreateTable = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
@@ -26,7 +26,7 @@ class DDLBuilder(table: Table[_]) {
     b append ")" toString
   }
 
-  private[this] def addSqlType(c: NamedColumn[_], sb: StringBuilder) {
+  protected def addSqlType(c: NamedColumn[_], sb: StringBuilder) {
     var sqlType: String = null
     var notNull = false
     var autoIncrement = false
@@ -48,7 +48,7 @@ class DDLBuilder(table: Table[_]) {
 }
 
 object DDLBuilder {
-  private[DDLBuilder] lazy val typeNames = Map() ++
+  lazy val typeNames = Map() ++
     (for(f <- classOf[java.sql.Types].getFields)
       yield f.get(null).asInstanceOf[Int] -> f.getName)
 }

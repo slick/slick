@@ -1,8 +1,9 @@
-package com.novocode.squery.combinator
+package com.novocode.squery.combinator.basic
 
+import com.novocode.squery.combinator.{Query, Column, ColumnBase, OptionMapper, AllColumnOps, BooleanColumnOps, StringColumnOps}
 import com.novocode.squery.session.{TypeMapper, BaseTypeMapper, NumericType}
 
-object Implicit {
+trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit object WhereBooleanColumn extends Query.WhereType[Column[Boolean]] {
     def apply(value: Column[Boolean], l: List[Column[_]]): List[Column[_]] = value :: l
@@ -58,13 +59,15 @@ object Implicit {
 
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
 
-  implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): StatementCombinatorQueryInvoker[T] = new StatementCombinatorQueryInvoker(q)
-  implicit def queryToDeleteInvoker[T](q: Query[Table[T]]): DeleteInvoker[T] = new DeleteInvoker(q)
-  implicit def queryToUpdateInvoker[T](q: Query[Projection[T]]): CombinatorUpdateInvoker[T] = new CombinatorUpdateInvoker(q)
-  implicit def tableToDDLInvoker[T](t: Table[T]): DDLInvoker[T] = new DDLInvoker(t)
-  implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new CombinatorInsertInvoker(c)
-  implicit def sequenceToSequenceDDLInvoker(seq: Sequence[_]): SequenceDDLInvoker = new SequenceDDLInvoker(seq)
+  implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[T] = new BasicQueryInvoker(q, squeryDriver)
+  implicit def queryToDeleteInvoker[T](q: Query[Table[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, squeryDriver)
+  implicit def queryToUpdateInvoker[T](q: Query[Projection[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, squeryDriver)
+  implicit def tableToDDLInvoker[T](t: Table[T]): BasicDDLInvoker[T] = new BasicDDLInvoker(t, squeryDriver)
+  implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(c, squeryDriver)
+  implicit def sequenceToSequenceDDLInvoker(seq: Sequence[_]): BasicSequenceDDLInvoker = new BasicSequenceDDLInvoker(seq, squeryDriver)
 
   implicit def queryToQueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) = new QueryOfColumnBaseOps(q)
   implicit def queryToQueryOfColumnOps[E <: Column[_]](q: Query[E]) = new QueryOfColumnOps(q)
+
+  implicit val squeryDriver: DriverType
 }

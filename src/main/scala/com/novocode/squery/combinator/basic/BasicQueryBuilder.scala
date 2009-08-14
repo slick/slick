@@ -1,22 +1,21 @@
-package com.novocode.squery.combinator.sql
+package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.{HashMap, HashSet}
-import java.io.PrintWriter
-import com.novocode.squery.SQueryException
-import com.novocode.squery.combinator._
-import com.novocode.squery.RefId
+import com.novocode.squery.combinator.SQLBuilder;
 
-private class QueryBuilder (val query: Query[_], private[this] var nc: NamingContext, parent: Option[QueryBuilder]) {
+class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder]) {
 
   //TODO Pull tables out of subqueries where needed
   //TODO Support unions
 
-  private[this] val localTables = new HashMap[String, Node]
-  private[this] val declaredTables = new HashSet[String]
-  private[this] val subQueryBuilders = new HashMap[RefId[Query[_]], QueryBuilder]
-  private[this] var fromSlot: SQLBuilder = _
+  protected val query: Query[_] = _query
+  protected var nc: NamingContext = _nc
+  protected val localTables = new HashMap[String, Node]
+  protected val declaredTables = new HashSet[String]
+  protected val subQueryBuilders = new HashMap[RefId[Query[_]], BasicQueryBuilder]
+  protected var fromSlot: SQLBuilder = _
 
-  private[this] def localTableName(n: Node) = n match {
+  protected def localTableName(n: Node) = n match {
     case Join.JoinPart(table, from) =>
       // Special case for Joins: A join combines multiple tables but does not alias them
       localTables(nc.nameFor(from)) = from
@@ -27,21 +26,21 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       name
   }
 
-  private def isDeclaredTable(name: String): Boolean =
+  protected def isDeclaredTable(name: String): Boolean =
     if(declaredTables contains name) true
     else parent.map(_.isDeclaredTable(name)).getOrElse(false)
   
-  private[this] def subQueryBuilderFor(q: Query[_]) =
-    subQueryBuilders.getOrElseUpdate(RefId(q), new QueryBuilder(q, nc, Some(this)))
+  protected def subQueryBuilderFor(q: Query[_]) =
+    subQueryBuilders.getOrElseUpdate(RefId(q), new BasicQueryBuilder(q, nc, Some(this)))
 
-  private def buildSelect: SQLBuilder.Result = {
+  def buildSelect: SQLBuilder.Result = {
     val b = new SQLBuilder
     buildSelect(Node(query.value), b, false)
     insertFromClauses()
     b.build
   }
 
-  private def buildSelect(value: Node, b: SQLBuilder, rename: Boolean): Unit = value match {
+  protected def buildSelect(value: Node, b: SQLBuilder, rename: Boolean): Unit = value match {
     case Operator.Count(e) =>
       b += "SELECT count(*) from ("; buildSelect(e, b, false); b += ")"
       if(rename) b += " as c1"
@@ -55,7 +54,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       appendOrderClause(b)
   }
 
-  private def appendGroupClause(b: SQLBuilder): Unit = query.groupings match {
+  protected def appendGroupClause(b: SQLBuilder): Unit = query.groupings match {
     case x :: xs => {
       b += " GROUP BY "
       expr(x.by, b)
@@ -67,7 +66,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case _ =>
   }
 
-  private def appendOrderClause(b: SQLBuilder): Unit = query.orderings match {
+  protected def appendOrderClause(b: SQLBuilder): Unit = query.orderings match {
     case x :: xs => {
       b += " ORDER BY "
       appendOrdering(x, b)
@@ -79,12 +78,12 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case _ =>
   }
 
-  private def appendOrdering(o: Ordering, b: SQLBuilder) {
+  protected def appendOrdering(o: Ordering, b: SQLBuilder) {
     expr(o.by, b)
     if(o.isInstanceOf[Ordering.Desc]) b += " descending"
   }
 
-  private def buildDelete = {
+  def buildDelete = {
     val b = new SQLBuilder += "DELETE FROM "
     val (delTable, delTableName) = Node(query.value) match {
       case t @ Table.Alias(base:Table[_]) => (t, base.tableName)
@@ -104,7 +103,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     b.build
   }
 
-  private def buildUpdate: String = Node(query.value) match {
+  def buildUpdate: String = Node(query.value) match {
     case p:Projection[_] => ""
       val b = new SQLBuilder += "UPDATE "
       /*val (updateTable, updateTableName) = Node(query.value) match {
@@ -125,9 +124,9 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       "\" expression; Not a Projection; A projection of named columns from the same aliased or base table is required")
   }
 
-  private[this] def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false)
+  protected def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false)
 
-  private[this] def expr(c: Node, b: SQLBuilder, rename: Boolean): Unit = {
+  protected def expr(c: Node, b: SQLBuilder, rename: Boolean): Unit = {
     var pos = 0
     c match {
       case ConstColumn(null) => b += "null"
@@ -201,7 +200,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     if(rename && pos == 0) b += " as c1"
   }
 
-  private[this] def appendConditions(b: SQLBuilder): Unit = query.cond match {
+  protected def appendConditions(b: SQLBuilder): Unit = query.cond match {
     case a :: l =>
       b += " WHERE "
       expr(Node(a), b)
@@ -209,7 +208,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case Nil => ()
   }
 
-  private[this] def appendHavingConditions(b: SQLBuilder): Unit = query.condHaving match {
+  protected def appendHavingConditions(b: SQLBuilder): Unit = query.condHaving match {
     case a :: l =>
       b += " HAVING "
       expr(Node(a), b)
@@ -217,7 +216,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
     case Nil => ()
   }
 
-  private def insertFromClauses() {
+  protected def insertFromClauses() {
     var first = true
     for((name, t) <- localTables) {
       if(!parent.map(_.isDeclaredTable(name)).getOrElse(false)) {
@@ -231,7 +230,7 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       qb.insertFromClauses()
   }
 
-  private[this] def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
+  protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
     case Table.Alias(base: Table[_]) =>
       b += base.tableName += ' ' += name
     case base: Table[_] =>
@@ -256,12 +255,4 @@ private class QueryBuilder (val query: Query[_], private[this] var nc: NamingCon
       }
     }
   }
-}
-
-object QueryBuilder {
-  def buildSelect(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildSelect
-
-  def buildDelete(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildDelete
-
-  def buildUpdate(query: Query[_], nc: NamingContext) = new QueryBuilder(query, nc, None).buildUpdate
 }

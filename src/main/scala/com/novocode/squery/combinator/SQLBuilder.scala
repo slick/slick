@@ -1,8 +1,7 @@
-package com.novocode.squery.combinator.sql
+package com.novocode.squery.combinator
 
 import scala.collection.mutable.ArrayBuffer
 import com.novocode.squery.session.PositionedParameters
-import com.novocode.squery.session.TypeMapper.StringTypeMapper
 
 final class SQLBuilder extends SQLBuilder.Segment {
   import SQLBuilder._
@@ -28,6 +27,8 @@ final class SQLBuilder extends SQLBuilder.Segment {
   def +=(s: SQLBuilder) = { ss.sb append s; this }
 
   def +?=(f: Setter) = { ss.setters append f; ss.sb append '?'; this }
+
+  def isEmpty = ss.sb.isEmpty
 
   def createSlot = {
     val s = new SQLBuilder

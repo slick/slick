@@ -1,8 +1,8 @@
 package test
 
-import com.novocode.squery.combinator.{Table, Join, Query, StatementCombinatorQueryInvoker, Projection, NamingContext}
-import com.novocode.squery.combinator.sql.{QueryBuilder, InsertBuilder, DDLBuilder}
-import com.novocode.squery.combinator.Implicit._
+import com.novocode.squery.combinator.{Table, Join, Query, Projection, NamingContext, ColumnBase}
+import com.novocode.squery.combinator.basic.BasicDriver
+import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.session.TypeMapper._
 
 object SQuery2Test {
@@ -21,16 +21,16 @@ object SQuery2Test {
       def * = userID ~ orderID
     }
 
-    def dump(n: String, q: Query[_]) {
+    def dump(n: String, q: Query[ColumnBase[_]]) {
       val nc = NamingContext()
       q.dump(n+": ", nc)
-      println(QueryBuilder.buildSelect(q, nc))
+      println(BasicDriver.buildSelectStatement(q, nc))
       println()
     }
 
     val q1 = for(u <- Users) yield u
 
-    val q1b = new StatementCombinatorQueryInvoker(q1).mapResult { case (id,f,l) => id + ". " + f + " " + l }
+    val q1b = q1.mapResult { case (id,f,l) => id + ". " + f + " " + l }
 
     val q2 = for {
       u <- Users
@@ -106,16 +106,16 @@ object SQuery2Test {
 
     println()
 
-    println("Insert1: " + new InsertBuilder(Users).buildInsert)
-    println("Insert2: " + new InsertBuilder(Users.first ~ Users.last).buildInsert)
+    println("Insert1: " + BasicDriver.buildInsertStatement(Users))
+    println("Insert2: " + BasicDriver.buildInsertStatement(Users.first ~ Users.last))
 
     val d1 = Users.where(_.id is 42)
     val d2 = for(u <- Users where( _.id notIn Orders.map(_.userID) )) yield u
-    println("d0: " + QueryBuilder.buildDelete(Users, NamingContext()))
-    println("d1: " + QueryBuilder.buildDelete(d1, NamingContext()))
-    println("d2: " + QueryBuilder.buildDelete(d2, NamingContext()))
+    println("d0: " + BasicDriver.buildDeleteStatement(Users, NamingContext()))
+    println("d1: " + BasicDriver.buildDeleteStatement(d1, NamingContext()))
+    println("d2: " + BasicDriver.buildDeleteStatement(d2, NamingContext()))
 
-    println(new DDLBuilder(Users).buildCreateTable)
-    println(new DDLBuilder(Orders).buildCreateTable)
+    println(BasicDriver.buildCreateTableStatement(Users))
+    println(BasicDriver.buildCreateTableStatement(Orders))
   }
 }
