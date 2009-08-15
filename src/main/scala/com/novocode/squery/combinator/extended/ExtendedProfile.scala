@@ -6,10 +6,10 @@ import com.novocode.squery.session.TypeMapper
 import com.novocode.squery.session.TypeMapper._
 
 trait ExtendedProfile extends BasicProfile {
-  type ImplicitT <: ExtendedImplicitConversions[_]
+  type ImplicitT <: ExtendedImplicitConversions[_ <: ExtendedProfile]
 }
 
-trait ExtendedImplicitConversions[DriverType <: BasicProfile] extends BasicImplicitConversions[DriverType] {
+trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicImplicitConversions[DriverType] {
   override implicit def columnOfStringToStringColumnOps(c: ColumnBase[String]): ExtendedStringColumnOps[String] = c match {
     case o: ExtendedStringColumnOps[_] => o.asInstanceOf[ExtendedStringColumnOps[String]]
     case _ => new ExtendedStringColumnOps[String] { protected[this] val leftOperand = Node(c) }
