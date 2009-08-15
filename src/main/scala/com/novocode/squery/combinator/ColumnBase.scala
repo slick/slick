@@ -34,7 +34,7 @@ trait Column[T] extends ColumnBase[T] {
     override def nullValue = n
   }
   final def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
-  def ? : Column[Option[T]] = new WrappedColumn(this, TypeMapper.typeMapperToOptionTypeMapper(typeMapper)) {
+  def ? : Column[Option[T]] = new WrappedColumn(this, typeMapper.createOptionTypeMapper) {
     override def nullValue = None
   }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)

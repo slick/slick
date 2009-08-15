@@ -23,7 +23,7 @@ object Case {
 
   class TypedCase[B,T](clauses: List[WhenNode], val tmb: TypeMapper[B],
                        val tmt: TypeMapper[T]) extends CaseColumn[Option[B]](clauses, ConstColumn.NULL) {
-    lazy val typeMapper = TypeMapper.typeMapperToOptionTypeMapper(tmb)
+    lazy val typeMapper = tmb.createOptionTypeMapper
     def when[C <: Column[_]](cond: C)(implicit wt: Query.WhereType[C]) = new TypedWhen[B,T](cond, this)
     def otherwise(res: Column[T]): Column[T] = new TypedCaseWithElse[T](clauses, tmt, Node(res))
   }

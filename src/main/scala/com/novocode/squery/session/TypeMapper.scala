@@ -2,7 +2,7 @@ package com.novocode.squery.session
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 
-sealed trait TypeMapper[T] {
+sealed trait TypeMapper[T] { self =>
   def zero: T
   def sqlType: Int
   def setValue(v: T, p: PositionedParameters): Unit
@@ -11,6 +11,15 @@ sealed trait TypeMapper[T] {
   final def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs wasNull) d else v }
   final def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs wasNull) None else Some(v) }
   def valueToSQLLiteral(value: T): String = value.toString
+
+  def createOptionTypeMapper: OptionTypeMapper[T] = new OptionTypeMapper[T](self) {
+    def zero = None
+    def sqlType = self.sqlType
+    def setValue(v: Option[T], p: PositionedParameters) = self.setOption(v, p)
+    def setOption(v: Option[Option[T]], p: PositionedParameters) = self.setOption(v.getOrElse(None), p)
+    def nextValue(r: PositionedResult) = self.nextOption(r)
+    override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
+  }
 }
 
 trait BaseTypeMapper[T] extends TypeMapper[T]
@@ -126,14 +135,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextTimestamp
   }
 
-  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = new OptionTypeMapper[T](t) {
-    def zero = None
-    def sqlType = t.sqlType
-    def setValue(v: Option[T], p: PositionedParameters) = t.setOption(v, p)
-    def setOption(v: Option[Option[T]], p: PositionedParameters) = t.setOption(v.getOrElse(None), p)
-    def nextValue(r: PositionedResult) = t.nextOption(r)
-    override def valueToSQLLiteral(value: Option[T]): String = value.map(t.valueToSQLLiteral).getOrElse("null")
-  }
+  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = t.createOptionTypeMapper
 
   object NullTypeMapper extends BaseTypeMapper[Null] {
     def zero = null
