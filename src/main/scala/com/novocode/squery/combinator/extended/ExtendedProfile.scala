@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Column, StringColumnOps, OptionMapper, Operator, Node, ConstColumn}
+import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.basic.{BasicProfile, BasicImplicitConversions}
 import com.novocode.squery.session.TypeMapper
 import com.novocode.squery.session.TypeMapper._

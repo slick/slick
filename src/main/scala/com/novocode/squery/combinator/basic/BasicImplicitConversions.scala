@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.basic
 
-import com.novocode.squery.combinator.{Query, Column, ColumnBase, OptionMapper, AllColumnOps, BooleanColumnOps, StringColumnOps}
+import com.novocode.squery.combinator._
 import com.novocode.squery.session.{TypeMapper, BaseTypeMapper, NumericType}
 
 trait BasicImplicitConversions[DriverType <: BasicProfile] {

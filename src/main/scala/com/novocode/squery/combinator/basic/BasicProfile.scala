@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.basic
 
-import com.novocode.squery.combinator.{ColumnBase, Table, SQLBuilder, NamingContext}
+import com.novocode.squery.combinator.{ColumnBase, Table, SQLBuilder, NamingContext, Sequence, Query, Projection}
 
 trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_]

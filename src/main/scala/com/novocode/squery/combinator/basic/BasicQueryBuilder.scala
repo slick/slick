@@ -1,7 +1,8 @@
 package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.{HashMap, HashSet}
-import com.novocode.squery.combinator.SQLBuilder;
+import com.novocode.squery.{RefId, SQueryException}
+import com.novocode.squery.combinator._
 
 class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder]) {
 
