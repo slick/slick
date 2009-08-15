@@ -6,7 +6,7 @@ trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_]
 
   def createQueryTemplate[P,R](query: Query[ColumnBase[R]]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](query, this)
-  def createQueryBuilder(query: Query[_], nc: NamingContext): BasicQueryBuilder = new BasicQueryBuilder(query, nc, None)
+  def createQueryBuilder(query: Query[_], nc: NamingContext): BasicQueryBuilder = new ConcreteBasicQueryBuilder(query, nc, None)
 
   val Implicit: ImplicitT
 

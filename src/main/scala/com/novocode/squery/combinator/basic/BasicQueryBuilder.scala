@@ -4,16 +4,28 @@ import scala.collection.mutable.{HashMap, HashSet}
 import com.novocode.squery.{RefId, SQueryException}
 import com.novocode.squery.combinator._
 
-class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder]) {
+class ConcreteBasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder])
+extends BasicQueryBuilder(_query, _nc, parent) {
+  type Self = BasicQueryBuilder
+
+  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+    new ConcreteBasicQueryBuilder(query, nc, Some(this))
+}
+
+abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder]) {
 
   //TODO Pull tables out of subqueries where needed
   //TODO Support unions
+
+  type Self <: BasicQueryBuilder
+
+  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext): Self
 
   protected val query: Query[_] = _query
   protected var nc: NamingContext = _nc
   protected val localTables = new HashMap[String, Node]
   protected val declaredTables = new HashSet[String]
-  protected val subQueryBuilders = new HashMap[RefId[Query[_]], BasicQueryBuilder]
+  protected val subQueryBuilders = new HashMap[RefId[Query[_]], Self]
   protected var fromSlot: SQLBuilder = _
 
   protected def localTableName(n: Node) = n match {
@@ -32,7 +44,7 @@ class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[Bas
     else parent.map(_.isDeclaredTable(name)).getOrElse(false)
   
   protected def subQueryBuilderFor(q: Query[_]) =
-    subQueryBuilders.getOrElseUpdate(RefId(q), new BasicQueryBuilder(q, nc, Some(this)))
+    subQueryBuilders.getOrElseUpdate(RefId(q), createSubQueryBuilder(q, nc))
 
   def buildSelect: SQLBuilder.Result = {
     val b = new SQLBuilder
@@ -81,7 +93,7 @@ class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[Bas
 
   protected def appendOrdering(o: Ordering, b: SQLBuilder) {
     expr(o.by, b)
-    if(o.isInstanceOf[Ordering.Desc]) b += " descending"
+    if(o.isInstanceOf[Ordering.Desc]) b += " desc"
   }
 
   def buildDelete = {
