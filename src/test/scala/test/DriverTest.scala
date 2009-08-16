@@ -1,10 +1,10 @@
 package test
 
 import com.novocode.squery.combinator._
+import com.novocode.squery.combinator.TypeMapper._
+import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, OracleDriver}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database._
-import com.novocode.squery.session.TypeMapper._
-import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, OracleDriver}
 
 object DriverTest {
   object Users extends Table[String]("users") {

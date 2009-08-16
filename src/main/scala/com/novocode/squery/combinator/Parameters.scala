@@ -2,7 +2,6 @@ package com.novocode.squery.combinator
 
 import java.sql.PreparedStatement
 import com.novocode.squery.SQueryException
-import com.novocode.squery.session.TypeMapper
 import com.novocode.squery.combinator.basic.{BasicProfile, BasicQueryTemplate}
 
 final class Parameters[P, C](c: C) {

@@ -3,7 +3,7 @@ package com.novocode.squery.combinator.basic
 import java.sql.PreparedStatement
 import com.novocode.squery.{SQueryException, StatementInvoker}
 import com.novocode.squery.combinator.{Query, ColumnBase, NamingContext}
-import com.novocode.squery.session.{TypeMapper, PositionedParameters, PositionedResult}
+import com.novocode.squery.session.{PositionedParameters, PositionedResult}
 
 class BasicQueryTemplate[P, R](query: Query[ColumnBase[R]], profile: BasicProfile) extends StatementInvoker[P, R] {
 

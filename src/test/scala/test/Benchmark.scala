@@ -3,7 +3,7 @@ package test
 import com.novocode.squery.combinator.{Table, Join, Query, NamingContext}
 import com.novocode.squery.combinator.basic.BasicDriver
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
-import com.novocode.squery.session.TypeMapper._
+import com.novocode.squery.combinator.TypeMapper._
 
 object Benchmark {
 

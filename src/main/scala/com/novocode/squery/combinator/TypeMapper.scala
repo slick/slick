@@ -1,6 +1,7 @@
-package com.novocode.squery.session
+package com.novocode.squery.combinator
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
+import com.novocode.squery.session.{PositionedParameters, PositionedResult}
 
 sealed trait TypeMapper[T] { self =>
   def zero: T
@@ -26,7 +27,7 @@ trait BaseTypeMapper[T] extends TypeMapper[T]
 
 abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[Option[T]]
 
-trait NumericType
+trait NumericTypeMapper
 
 object TypeMapper {
   implicit object BooleanTypeMapper extends BaseTypeMapper[Boolean] {
@@ -45,7 +46,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextBlob
   }
 
-  implicit object ByteTypeMapper extends BaseTypeMapper[Byte] with NumericType {
+  implicit object ByteTypeMapper extends BaseTypeMapper[Byte] with NumericTypeMapper {
     def zero = 0
     def sqlType = java.sql.Types.TINYINT
     def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
@@ -69,7 +70,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextDate
   }
 
-  implicit object DoubleTypeMapper extends BaseTypeMapper[Double] with NumericType {
+  implicit object DoubleTypeMapper extends BaseTypeMapper[Double] with NumericTypeMapper {
     def zero = 0
     def sqlType = java.sql.Types.DOUBLE
     def setValue(v: Double, p: PositionedParameters) = p.setDouble(v)
@@ -77,7 +78,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextDouble
   }
 
-  implicit object FloatTypeMapper extends BaseTypeMapper[Float] with NumericType {
+  implicit object FloatTypeMapper extends BaseTypeMapper[Float] with NumericTypeMapper {
     def zero = 0
     def sqlType = java.sql.Types.FLOAT
     def setValue(v: Float, p: PositionedParameters) = p.setFloat(v)
@@ -85,7 +86,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextFloat
   }
 
-  implicit object IntTypeMapper extends BaseTypeMapper[Int] with NumericType {
+  implicit object IntTypeMapper extends BaseTypeMapper[Int] with NumericTypeMapper {
     def zero = 0
     def sqlType = java.sql.Types.INTEGER
     def setValue(v: Int, p: PositionedParameters) = p.setInt(v)
@@ -93,7 +94,7 @@ object TypeMapper {
     def nextValue(r: PositionedResult) = r.nextInt
   }
 
-  implicit object LongTypeMapper extends BaseTypeMapper[Long] with NumericType {
+  implicit object LongTypeMapper extends BaseTypeMapper[Long] with NumericTypeMapper {
     def zero = 0
     def sqlType = java.sql.Types.BIGINT
     def setValue(v: Long, p: PositionedParameters) = p.setLong(v)

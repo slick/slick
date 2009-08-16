@@ -1,7 +1,6 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.TypeMapper
-import com.novocode.squery.session.TypeMapper._
+import TypeMapper._
 
 object Operator {
   case class In(left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean] { val name = "in" }

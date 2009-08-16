@@ -1,8 +1,6 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.{PositionedResult, PositionedParameters, TypeMapper}
-import com.novocode.squery.session.TypeMapper._
-
+import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 sealed trait TableBase[T] extends Node with WithOp {
   def join[U <: TableBase.T_](other: U) = new Join[this.type, U](this, other)

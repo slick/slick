@@ -1,7 +1,5 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.{TypeMapper, BaseTypeMapper, OptionTypeMapper}
-
 object Case {
 
   class WhenNode(val left: Node, val right: Node) extends BinaryNode

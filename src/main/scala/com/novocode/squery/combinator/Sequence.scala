@@ -1,7 +1,5 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.TypeMapper
-
 class Sequence[T] private[Sequence] (tm: TypeMapper[T],
     val name: String,
     val _minValue: Option[T],

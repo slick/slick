@@ -1,7 +1,7 @@
 package com.novocode.squery.combinator
 
 import com.novocode.squery.SQueryException
-import com.novocode.squery.session.{PositionedResult, PositionedParameters, TypeMapper}
+import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 /**
  * Common base trait for columns, tables and projections (but not unions and joins).

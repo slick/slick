@@ -1,7 +1,5 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.session.TypeMapper
-
 trait SimpleFunction extends Node {
   val name: String
 }
