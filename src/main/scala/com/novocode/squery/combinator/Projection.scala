@@ -1,17 +1,16 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
   def nodeChildren = 0 until productArity map { i => Node(productElement(i)) } toList
 
-  def setParameter(ps: PositionedParameters, value: Option[T]): Unit = {
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = {
     for(i <- 0 until productArity) {
-      productElement(i).asInstanceOf[Column[Any]].setParameter(ps, value.map(_.productElement(i)))
+      productElement(i).asInstanceOf[Column[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
     }
   }
-
-  def getResultOption(rs: PositionedResult) = Some(getResult(rs))
 
   override def toString = "Projection" + productArity
 }
@@ -90,9 +89,9 @@ final class Projection2[T1,T2](
   override val _2: Column[T2])
 extends Tuple2(_1,_2) with Projection[(T1,T2)] {
   def ~[U](c: Column[U]) = new Projection3(_1,_2,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection2(
     _1.mapOp(f),
     _2.mapOp(f)).asInstanceOf[this.type]
@@ -104,10 +103,10 @@ final class Projection3[T1,T2,T3](
   override val _3: Column[T3])
 extends Tuple3(_1,_2,_3) with Projection[(T1,T2,T3)] {
   def ~[U](c: Column[U]) = new Projection4(_1,_2,_3,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection3(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -121,11 +120,11 @@ final class Projection4[T1,T2,T3,T4](
   override val _4: Column[T4])
 extends Tuple4(_1,_2,_3,_4) with Projection[(T1,T2,T3,T4)] {
   def ~[U](c: Column[U]) = new Projection5(_1,_2,_3,_4,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection4(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -141,12 +140,12 @@ final class Projection5[T1,T2,T3,T4,T5](
   override val _5: Column[T5])
 extends Tuple5(_1,_2,_3,_4,_5) with Projection[(T1,T2,T3,T4,T5)] {
   def ~[U](c: Column[U]) = new Projection6(_1,_2,_3,_4,_5,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection5(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -164,13 +163,13 @@ final class Projection6[T1,T2,T3,T4,T5,T6](
   override val _6: Column[T6])
 extends Tuple6(_1,_2,_3,_4,_5,_6) with Projection[(T1,T2,T3,T4,T5,T6)] {
   def ~[U](c: Column[U]) = new Projection7(_1,_2,_3,_4,_5,_6,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection6(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -190,14 +189,14 @@ final class Projection7[T1,T2,T3,T4,T5,T6,T7](
   override val _7: Column[T7])
 extends Tuple7(_1,_2,_3,_4,_5,_6,_7) with Projection[(T1,T2,T3,T4,T5,T6,T7)] {
   def ~[U](c: Column[U]) = new Projection8(_1,_2,_3,_4,_5,_6,_7,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection7(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -219,15 +218,15 @@ final class Projection8[T1,T2,T3,T4,T5,T6,T7,T8](
   override val _8: Column[T8])
 extends Tuple8(_1,_2,_3,_4,_5,_6,_7,_8) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8)] {
   def ~[U](c: Column[U]) = new Projection9(_1,_2,_3,_4,_5,_6,_7,_8,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection8(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -251,16 +250,16 @@ final class Projection9[T1,T2,T3,T4,T5,T6,T7,T8,T9](
   override val _9: Column[T9])
 extends Tuple9(_1,_2,_3,_4,_5,_6,_7,_8,_9) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9)] {
   def ~[U](c: Column[U]) = new Projection10(_1,_2,_3,_4,_5,_6,_7,_8,_9,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection9(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -287,17 +286,17 @@ final class Projection10[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10](
 extends Tuple10(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10)] {
   def ~[U](c: Column[U]) = new Projection11(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection10(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -327,18 +326,18 @@ final class Projection11[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11](
 extends Tuple11(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11)] {
   def ~[U](c: Column[U]) = new Projection12(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection11(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -370,19 +369,19 @@ final class Projection12[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12](
 extends Tuple12(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12)] {
   def ~[U](c: Column[U]) = new Projection13(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection12(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -416,20 +415,20 @@ final class Projection13[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13](
 extends Tuple13(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13)] {
   def ~[U](c: Column[U]) = new Projection14(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection13(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -465,21 +464,21 @@ final class Projection14[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14](
 extends Tuple14(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14)] {
   def ~[U](c: Column[U]) = new Projection15(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection14(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -517,22 +516,22 @@ final class Projection15[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15](
 extends Tuple15(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15)] {
   def ~[U](c: Column[U]) = new Projection16(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs),
-     _15.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs),
+     _15.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection15(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -572,23 +571,23 @@ final class Projection16[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16]
 extends Tuple16(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16)] {
   def ~[U](c: Column[U]) = new Projection17(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs),
-     _15.getResult(rs),
-     _16.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs),
+     _15.getResult(profile, rs),
+     _16.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection16(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -630,24 +629,24 @@ final class Projection17[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,
 extends Tuple17(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17)] {
   def ~[U](c: Column[U]) = new Projection18(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs),
-     _15.getResult(rs),
-     _16.getResult(rs),
-     _17.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs),
+     _15.getResult(profile, rs),
+     _16.getResult(profile, rs),
+     _17.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection17(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -693,25 +692,25 @@ final class Projection18[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,
 extends Tuple18(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18)] {
   def ~[U](c: Column[U]) = new Projection19(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-    _2.getResult(rs),
-    _3.getResult(rs),
-    _4.getResult(rs),
-    _5.getResult(rs),
-    _6.getResult(rs),
-    _7.getResult(rs),
-    _8.getResult(rs),
-    _9.getResult(rs),
-    _10.getResult(rs),
-    _11.getResult(rs),
-    _12.getResult(rs),
-    _13.getResult(rs),
-    _14.getResult(rs),
-    _15.getResult(rs),
-    _16.getResult(rs),
-    _17.getResult(rs),
-    _18.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+    _2.getResult(profile, rs),
+    _3.getResult(profile, rs),
+    _4.getResult(profile, rs),
+    _5.getResult(profile, rs),
+    _6.getResult(profile, rs),
+    _7.getResult(profile, rs),
+    _8.getResult(profile, rs),
+    _9.getResult(profile, rs),
+    _10.getResult(profile, rs),
+    _11.getResult(profile, rs),
+    _12.getResult(profile, rs),
+    _13.getResult(profile, rs),
+    _14.getResult(profile, rs),
+    _15.getResult(profile, rs),
+    _16.getResult(profile, rs),
+    _17.getResult(profile, rs),
+    _18.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection18(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -758,26 +757,26 @@ final class Projection19[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,
 extends Tuple19(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19)] {
   def ~[U](c: Column[U]) = new Projection20(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs),
-     _15.getResult(rs),
-     _16.getResult(rs),
-     _17.getResult(rs),
-     _18.getResult(rs),
-     _19.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs),
+     _15.getResult(profile, rs),
+     _16.getResult(profile, rs),
+     _17.getResult(profile, rs),
+     _18.getResult(profile, rs),
+     _19.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection19(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -825,27 +824,27 @@ final class Projection20[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,
 extends Tuple20(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20)] {
   def ~[U](c: Column[U]) = new Projection21(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs),
-     _15.getResult(rs),
-     _16.getResult(rs),
-     _17.getResult(rs),
-     _18.getResult(rs),
-     _19.getResult(rs),
-     _20.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs),
+     _15.getResult(profile, rs),
+     _16.getResult(profile, rs),
+     _17.getResult(profile, rs),
+     _18.getResult(profile, rs),
+     _19.getResult(profile, rs),
+     _20.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection20(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -895,28 +894,28 @@ final class Projection21[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,
 extends Tuple21(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21)] {
   def ~[U](c: Column[U]) = new Projection22(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs),
-     _15.getResult(rs),
-     _16.getResult(rs),
-     _17.getResult(rs),
-     _18.getResult(rs),
-     _19.getResult(rs),
-     _20.getResult(rs),
-     _21.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs),
+     _15.getResult(profile, rs),
+     _16.getResult(profile, rs),
+     _17.getResult(profile, rs),
+     _18.getResult(profile, rs),
+     _19.getResult(profile, rs),
+     _20.getResult(profile, rs),
+     _21.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection21(
     _1.mapOp(f),
     _2.mapOp(f),
@@ -968,29 +967,29 @@ final class Projection22[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,
 extends Tuple22(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22) 
 with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22)] {
   //def ~[U](c: Column[U]) = new Projection23(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22,c)
-  def getResult(rs: PositionedResult) =
-    (_1.getResult(rs),
-     _2.getResult(rs),
-     _3.getResult(rs),
-     _4.getResult(rs),
-     _5.getResult(rs),
-     _6.getResult(rs),
-     _7.getResult(rs),
-     _8.getResult(rs),
-     _9.getResult(rs),
-     _10.getResult(rs),
-     _11.getResult(rs),
-     _12.getResult(rs),
-     _13.getResult(rs),
-     _14.getResult(rs),
-     _15.getResult(rs),
-     _16.getResult(rs),
-     _17.getResult(rs),
-     _18.getResult(rs),
-     _19.getResult(rs),
-     _20.getResult(rs),
-     _21.getResult(rs),
-     _22.getResult(rs))
+  def getResult(profile: BasicProfile, rs: PositionedResult) =
+    (_1.getResult(profile, rs),
+     _2.getResult(profile, rs),
+     _3.getResult(profile, rs),
+     _4.getResult(profile, rs),
+     _5.getResult(profile, rs),
+     _6.getResult(profile, rs),
+     _7.getResult(profile, rs),
+     _8.getResult(profile, rs),
+     _9.getResult(profile, rs),
+     _10.getResult(profile, rs),
+     _11.getResult(profile, rs),
+     _12.getResult(profile, rs),
+     _13.getResult(profile, rs),
+     _14.getResult(profile, rs),
+     _15.getResult(profile, rs),
+     _16.getResult(profile, rs),
+     _17.getResult(profile, rs),
+     _18.getResult(profile, rs),
+     _19.getResult(profile, rs),
+     _20.getResult(profile, rs),
+     _21.getResult(profile, rs),
+     _22.getResult(profile, rs))
   override def mapOp(f: Node => Node): this.type = new Projection22(
     _1.mapOp(f),
     _2.mapOp(f),

@@ -4,15 +4,15 @@ import scala.collection.mutable.{HashMap, HashSet}
 import com.novocode.squery.{RefId, SQueryException}
 import com.novocode.squery.combinator._
 
-class ConcreteBasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder])
-extends BasicQueryBuilder(_query, _nc, parent) {
+class ConcreteBasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile)
+extends BasicQueryBuilder(_query, _nc, parent, _profile) {
   type Self = BasicQueryBuilder
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
-    new ConcreteBasicQueryBuilder(query, nc, Some(this))
+    new ConcreteBasicQueryBuilder(query, nc, Some(this), profile)
 }
 
-abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder]) {
+abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile) {
 
   //TODO Pull tables out of subqueries where needed
   //TODO Support unions
@@ -21,6 +21,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext): Self
 
+  protected val profile = _profile
   protected val query: Query[_] = _query
   protected var nc: NamingContext = _nc
   protected val localTables = new HashMap[String, Node]
@@ -142,37 +143,6 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected def expr(c: Node, b: SQLBuilder, rename: Boolean): Unit = {
     var pos = 0
     c match {
-      case ConstColumn(null) => b += "null"
-      case Operator.Not(Operator.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
-      case Operator.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
-      case Operator.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
-        b += '('; expr(e, b); b += " in ("
-        if(bind) {
-          var first = true
-          for(x <- seq) {
-            if(first) first = false else b += ','
-            b +?= { (p, param) => tm.setValue(x, p) }
-          }
-        }
-        else b += seq.map(tm.valueToSQLLiteral).mkString(",")
-        b += "))"
-      }
-      case Operator.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
-      case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
-      case s: SimpleFunction => {
-        b += s.name += '('
-        var first = true
-        for(ch <- s.nodeChildren) {
-          if(first) first = false
-          else b += ','
-          expr(ch, b)
-        }
-        b += ')'
-      }
-      case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
-      case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
-      case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b, false); b += ")" }
-      //case Union.UnionPart(_) => "*"
       case p: Projection[_] => {
         p.nodeChildren.foreach { c =>
           if(pos != 0) b += ','
@@ -181,36 +151,71 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
           if(rename) b += " as c" += pos.toString
         }
       }
-      case c @ ConstColumn(v) => b += c.typeMapper.valueToSQLLiteral(v)
-      case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper.setValue(v, p) }
-      case ParameterColumn(idx, tm) => b +?= { (p, param) =>
-        val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
-        tm.setValue(v, p)
-      }
-      case c: Case.CaseColumn[_] => {
-        b += "(case"
-        c.clauses.foldRight(()) { (w,_) =>
-          b += " when "
-          expr(w.left, b)
-          b += " then "
-          expr(w.right, b)
-        }
-        c.elseClause match {
-          case ConstColumn(null) =>
-          case n =>
-            b += " else "
-            expr(n, b)
-        }
-        b += " end)"
-      }
-      case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
-      case SubqueryColumn(pos, sq) => { b += localTableName(sq) += ".c" += pos.toString }
-      case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
-      case t: Table[_] => expr(t.*, b)
-      case t: TableBase[_] => b += localTableName(t) += ".*"
-      case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
+      case _ => innerExpr(c, b)
     }
     if(rename && pos == 0) b += " as c1"
+  }
+
+  protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+    case ConstColumn(null) => b += "null"
+    case Operator.Not(Operator.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
+    case Operator.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
+    case Operator.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
+      b += '('; expr(e, b); b += " in ("
+      if(bind) {
+        var first = true
+        for(x <- seq) {
+          if(first) first = false else b += ','
+          b +?= { (p, param) => tm(profile).setValue(x, p) }
+        }
+      }
+      else b += seq.map(tm(profile).valueToSQLLiteral).mkString(",")
+      b += "))"
+    }
+    case Operator.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
+    case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
+    case s: SimpleFunction => {
+      b += s.name += '('
+      var first = true
+      for(ch <- s.nodeChildren) {
+        if(first) first = false
+        else b += ','
+        expr(ch, b)
+      }
+      b += ')'
+    }
+    case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
+    case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
+    case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b, false); b += ")" }
+    //case Union.UnionPart(_) => "*"
+    case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
+    case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
+    case ParameterColumn(idx, tm) => b +?= { (p, param) =>
+      val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
+      tm(profile).setValue(v, p)
+    }
+    case c: Case.CaseColumn[_] => {
+      b += "(case"
+      c.clauses.foldRight(()) { (w,_) =>
+        b += " when "
+        expr(w.left, b)
+        b += " then "
+        expr(w.right, b)
+      }
+      c.elseClause match {
+        case ConstColumn(null) =>
+        case n =>
+          b += " else "
+          expr(n, b)
+      }
+      b += " end)"
+    }
+    case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
+    case SubqueryColumn(pos, sq) => { b += localTableName(sq) += ".c" += pos.toString }
+    case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
+    case t: Table[_] => expr(t.*, b)
+    case t: TableBase[_] => b += localTableName(t) += ".*"
+    case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
   }
 
   protected def appendConditions(b: SQLBuilder): Unit = query.cond match {

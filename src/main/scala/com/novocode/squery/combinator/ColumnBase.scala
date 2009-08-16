@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
 import com.novocode.squery.SQueryException
+import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 /**
@@ -9,9 +10,8 @@ import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 trait ColumnBase[T] extends Node with WithOp {
   override def nodeDelegate: Node = if(op eq null) this else op.nodeDelegate
 
-  def getResult(rs: PositionedResult): T
-  def getResultOption(rs: PositionedResult): Option[T]
-  def setParameter(ps: PositionedParameters, value: Option[T]): Unit
+  def getResult(profile: BasicProfile, rs: PositionedResult): T
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
 
   // Functions which don't need an OptionMapper
   def count = Operator.Count(Node(this))
@@ -26,17 +26,13 @@ object ColumnBase {
  */
 trait Column[T] extends ColumnBase[T] {
   val typeMapper: TypeMapper[T]
-  def nullValue: T = typeMapper.zero
-  final def getResult(rs: PositionedResult): T = typeMapper.nextValue(rs)
-  final def getResultOption(rs: PositionedResult): Option[T] = typeMapper.nextOption(rs)
-  final def setParameter(ps: PositionedParameters, value: Option[T]): Unit = typeMapper.setOption(value, ps)
+  def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValue(rs)
+  final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(profile).setOption(value, ps)
   def orElse(n: =>T): Column[T] = new WrappedColumn(this, typeMapper) {
-    override def nullValue = n
+    override def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValueOrElse(n, rs)
   }
   final def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
-  def ? : Column[Option[T]] = new WrappedColumn(this, typeMapper.createOptionTypeMapper) {
-    override def nullValue = None
-  }
+  def ? : Column[Option[T]] = new WrappedColumn(this, typeMapper.createOptionTypeMapper)
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   // Functions which don't need an OptionMapper

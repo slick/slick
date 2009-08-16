@@ -9,7 +9,7 @@ class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
 
   def insert(value: T)(implicit session: Session): Int = session.withPS(insertStatement) { st =>
     st.clearParameters
-    column.setParameter(new PositionedParameters(st), Some(value))
+    column.setParameter(profile, new PositionedParameters(st), Some(value))
     st.executeUpdate
   }
 

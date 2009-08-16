@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator.extended
 
 import com.novocode.squery.combinator._
+import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.{BasicProfile, BasicImplicitConversions}
 
 trait ExtendedProfile extends BasicProfile {

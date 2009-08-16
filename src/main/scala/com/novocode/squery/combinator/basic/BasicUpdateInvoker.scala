@@ -9,7 +9,7 @@ class BasicUpdateInvoker[T <: Product] (query: Query[Projection[T]], profile: Ba
 
   def update(value: T)(implicit session: Session): Int = session.withPS(updateStatement) { st =>
     st.clearParameters
-    query.value.setParameter(new PositionedParameters(st), Some(value))
+    query.value.setParameter(profile, new PositionedParameters(st), Some(value))
     st.executeUpdate
   }
 }

@@ -1,5 +1,6 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 sealed trait TableBase[T] extends Node with WithOp {
@@ -22,9 +23,8 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
 
   def * : ColumnBase[T]
 
-  def getResult(rs: PositionedResult) = *.getResult(rs)
-  def getResultOption(rs: PositionedResult) = *.getResultOption(rs)
-  def setParameter(ps: PositionedParameters, value: Option[T]) = *.setParameter(ps, value)
+  def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)
 }
 
 object Table {

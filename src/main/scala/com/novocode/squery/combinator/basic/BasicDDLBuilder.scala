@@ -5,7 +5,7 @@ import java.io.PrintWriter
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 
-class BasicDDLBuilder(table: Table[_]) {
+class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
 
   def buildCreateTable = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
@@ -35,10 +35,10 @@ class BasicDDLBuilder(table: Table[_]) {
       case ColumnOption.DBType(s) => sqlType = s
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.AutoInc => autoIncrement = true
-      case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper.valueToSQLLiteral(v)
+      case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
     }
     if(sqlType eq null)
-      sqlType = DDLBuilder.typeNames.getOrElse(c.typeMapper.sqlType,
+      sqlType = DDLBuilder.typeNames.getOrElse(c.typeMapper(profile).sqlType,
         throw new SQueryException("No SQL type name found for type mapper "+c.typeMapper))
     sb append sqlType
     if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral

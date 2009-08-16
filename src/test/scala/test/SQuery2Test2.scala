@@ -46,7 +46,7 @@ object SQuery2Test2 {
       val ins3 = Users.first.insertAll("Santa's Little Helper", "Snowball")
       println("Inserted "+(ins1+ins2+ins3)+" users")
 
-      val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last.orElse(null)
+      val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last
       println("q1: " + q1.selectStatement)
       for(t <- q1) println("User tuple: "+t)
       val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.getOrElse(null)) }.list

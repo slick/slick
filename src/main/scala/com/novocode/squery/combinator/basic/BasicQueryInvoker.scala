@@ -17,5 +17,5 @@ class BasicQueryInvoker[+R](q: Query[ColumnBase[R]], profile: BasicProfile)
 
   protected def setParam(param: Unit, st: PreparedStatement): Unit = built.setter(new PositionedParameters(st), null)
 
-  protected def extractValue(rs: PositionedResult): R = q.value.getResult(rs)
+  protected def extractValue(rs: PositionedResult): R = q.value.getResult(profile, rs)
 }

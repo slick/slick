@@ -15,5 +15,5 @@ class BasicQueryTemplate[P, R](query: Query[ColumnBase[R]], profile: BasicProfil
 
   protected def setParam(param: P, st: PreparedStatement): Unit = built.setter(new PositionedParameters(st), param)
 
-  protected def extractValue(rs: PositionedResult): R = query.value.getResult(rs)
+  protected def extractValue(rs: PositionedResult): R = query.value.getResult(profile, rs)
 }
