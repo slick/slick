@@ -49,14 +49,14 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   def buildSelect: SQLBuilder.Result = {
     val b = new SQLBuilder
-    buildSelect(Node(query.value), b, false)
+    innerBuildSelect(b, false)
     insertFromClauses()
     b.build
   }
 
-  protected def buildSelect(value: Node, b: SQLBuilder, rename: Boolean) {
+  protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
     b += "SELECT "
-    expr(value, b, rename)
+    expr(Node(query.value), b, rename)
     fromSlot = b.createSlot
     appendClauses(b)
   }
@@ -184,10 +184,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += ')'
     }
+    case SimpleWord(w) => b += w
     case Operator.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
     case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
-    case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b, false); b += ")" }
+    case query:Query[_] => { b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")" }
     //case Union.UnionPart(_) => "*"
     case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
     case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
@@ -255,13 +256,13 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     case base: Table[_] =>
       b += base.tableName += ' ' += name
     case Subquery(sq: Query[_], rename) =>
-      b += "("; subQueryBuilderFor(sq).buildSelect(Node(sq.value), b, rename); b += ") " += name
+      b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += name
     case Subquery(Union(all, sqs), rename) =>
       b += "("
       var first = true
       for(sq <- sqs) {
         if(!first) b += (if(all) " UNION ALL " else " UNION ")
-        subQueryBuilderFor(sq).buildSelect(Node(sq.value), b, first && rename)
+        subQueryBuilderFor(sq).innerBuildSelect(b, first && rename)
         first = false
       }
       b += ") " += name

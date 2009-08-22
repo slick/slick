@@ -20,18 +20,50 @@ object OracleDriver extends ExtendedProfile { self =>
 class OracleQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: OracleDriver.type)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
+  import ExtendedOperator._
+
   override type Self = OracleQueryBuilder
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new OracleQueryBuilder(query, nc, Some(this), profile)
 
-  //TODO Support ExtendedOperator.TakeDrop
-  /*override protected def buildSelect(value: Node, b: SQLBuilder, rename: Boolean) {
-    b += "SELECT "
-    expr(value, b, rename)
-    fromSlot = b.createSlot
-    appendClauses(b)
-  }*/
+  override protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
+    query.typedModifiers[TakeDrop] match {
+      case TakeDrop(Some(t), None) :: _ =>
+        b += "SELECT * FROM (SELECT "
+        expr(Node(query.value), b, rename)
+        fromSlot = b.createSlot
+        appendClauses(b)
+        b += ") WHERE ROWNUM <= "
+        expr(t, b)
+      case TakeDrop(to, Some(d)) :: _ =>
+        b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM ("
+        expr(Node(query.value), b, rename)
+        b += ",ROWNUM ROWNUM_I"
+        fromSlot = b.createSlot
+        appendClauses(b)
+        b += ") t0) WHERE ROWNUM_O"
+        to match {
+          case Some(t) =>
+            b += " BETWEEN (1+"
+            expr(d, b)
+            b += ") AND ("
+            expr(d, b)
+            b += "+"
+            expr(t, b)
+            b += ")"
+          case None =>
+            b += ">"
+            expr(d, b)
+        }
+        b += " ORDER BY ROWNUM_I"
+      case _ =>
+        b += "SELECT "
+        expr(Node(query.value), b, rename)
+        fromSlot = b.createSlot
+        appendClauses(b)
+    }
+  }
 
   override protected def insertFromClauses() {
     super.insertFromClauses()

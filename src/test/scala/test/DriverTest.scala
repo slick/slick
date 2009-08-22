@@ -20,7 +20,7 @@ object DriverTest {
 
   def test(profile: ExtendedProfile) {
     import profile.Implicit._
-    val q1 = Users.where(_.name startsWith "quote ' and backslash \\")
+    val q1 = Users.where(_.name startsWith "quote ' and backslash \\").take(5)
     println(q1.selectStatement)
     val q2 = Users.where(_.name startsWith "St".bind).drop(10).take(5)
     println(q2.selectStatement)
