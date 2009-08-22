@@ -8,6 +8,7 @@ object Operator {
   case class And(left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean] { val name = "and" }
   case class Or(left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean] { val name = "or" }
   case class Count(child: Node) extends OperatorColumn[Int] with SimpleFunction with UnaryNode { val name = "count" }
+  case class CountAll(child: Node) extends OperatorColumn[Int] with UnaryNode
   case class Avg(child: Node) extends SimpleFunction with UnaryNode { val name = "avg" }
   case class Min(child: Node) extends SimpleFunction with UnaryNode { val name = "min" }
   case class Max(child: Node) extends SimpleFunction with UnaryNode { val name = "max" }

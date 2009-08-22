@@ -12,9 +12,6 @@ trait ColumnBase[T] extends Node with WithOp {
 
   def getResult(profile: BasicProfile, rs: PositionedResult): T
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
-
-  // Functions which don't need an OptionMapper
-  def count = Operator.Count(Node(this)) //TODO Create a subquery here and remove special cases from QueryBuilders
 }
 
 object ColumnBase {
@@ -38,6 +35,7 @@ trait Column[T] extends ColumnBase[T] {
   // Functions which don't need an OptionMapper
   def in(e: Query[Column[_]]) = Operator.In(Node(this), Node(e))
   def notIn(e: Query[Column[_]]) = Operator.Not(Node(Operator.In(Node(this), Node(e))))
+  def count = Operator.Count(Node(this))
   def avg = mapOp(Operator.Avg(_))
   def min = mapOp(Operator.Min(_))
   def max = mapOp(Operator.Max(_))

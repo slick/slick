@@ -54,15 +54,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     b.build
   }
 
-  protected def buildSelect(value: Node, b: SQLBuilder, rename: Boolean): Unit = value match {
-    case Operator.Count(e) =>
-      b += "SELECT count(*) from ("; buildSelect(e, b, false); b += ")"
-      if(rename) b += " as c1"
-    case _ =>
-      b += "SELECT "
-      expr(value, b, rename)
-      fromSlot = b.createSlot
-      appendClauses(b)
+  protected def buildSelect(value: Node, b: SQLBuilder, rename: Boolean) {
+    b += "SELECT "
+    expr(value, b, rename)
+    fromSlot = b.createSlot
+    appendClauses(b)
   }
 
   protected def appendClauses(b: SQLBuilder): Unit = {
@@ -188,6 +184,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += ')'
     }
+    case Operator.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
     case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
     case query:Query[_] => { b += "("; subQueryBuilderFor(query).buildSelect(Node(query.value), b, false); b += ")" }

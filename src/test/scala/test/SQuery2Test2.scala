@@ -147,7 +147,7 @@ object SQuery2Test2 {
       val deleted = q5.delete
       println("Deleted "+deleted+" rows")
 
-      val q6 = q5.map(_.count)
+      val q6 = Query(q5.count)
       println("q6: " + q6.selectStatement)
       println("Users without Orders left: " + q6.first)
     }

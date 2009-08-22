@@ -26,15 +26,11 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     new OracleQueryBuilder(query, nc, Some(this), profile)
 
   //TODO Support ExtendedOperator.TakeDrop
-  /*override protected def buildSelect(value: Node, b: SQLBuilder, rename: Boolean): Unit = value match {
-    case Operator.Count(e) =>
-      b += "SELECT count(*) from ("; buildSelect(e, b, false); b += ")"
-      if(rename) b += " as c1"
-    case _ =>
-      b += "SELECT "
-      expr(value, b, rename)
-      fromSlot = b.createSlot
-      appendClauses(b)
+  /*override protected def buildSelect(value: Node, b: SQLBuilder, rename: Boolean) {
+    b += "SELECT "
+    expr(value, b, rename)
+    fromSlot = b.createSlot
+    appendClauses(b)
   }*/
 
   override protected def insertFromClauses() {

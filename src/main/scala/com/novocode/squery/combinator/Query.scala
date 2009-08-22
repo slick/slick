@@ -66,6 +66,8 @@ class QueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) {
 
   def unionAll(other: Query[E]*) = wrap(Union(true, q :: other.toList))
 
+  def count = Operator.CountAll(Subquery(q, false))
+
   def sub = wrap(q)
 
   private[this] def wrap(base: Node): Query[E] = Query(q.value match {
