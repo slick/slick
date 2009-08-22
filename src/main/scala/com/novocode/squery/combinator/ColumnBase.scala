@@ -14,7 +14,7 @@ trait ColumnBase[T] extends Node with WithOp {
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
 
   // Functions which don't need an OptionMapper
-  def count = Operator.Count(Node(this))
+  def count = Operator.Count(Node(this)) //TODO Create a subquery here and remove special cases from QueryBuilders
 }
 
 object ColumnBase {

@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.basic.BasicTypeMapperDelegates
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder}
+import com.novocode.squery.combinator.basic.{BasicQueryBuilder, ConcreteBasicQueryBuilder, BasicTypeMapperDelegates}
 
 object H2Driver extends ExtendedProfile { self =>
 
@@ -12,4 +13,29 @@ object H2Driver extends ExtendedProfile { self =>
   }
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
+
+  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
+}
+
+class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver.type)
+extends BasicQueryBuilder(_query, _nc, parent, profile) {
+
+  import ExtendedOperator._
+
+  override type Self = H2QueryBuilder
+
+  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+    new H2QueryBuilder(query, nc, Some(this), profile)
+
+  override protected def appendClauses(b: SQLBuilder): Unit = {
+    super.appendClauses(b)
+    appendLimitClause(b)
+  }
+
+  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
+    case TakeDrop(Some(t), Some(d)) => b += " LIMIT "; expr(t, b); b += " OFFSET "; expr(d, b)
+    case TakeDrop(Some(t), None) => b += " LIMIT "; expr(t, b)
+    case TakeDrop(None, Some(d)) => b += " LIMIT 0 OFFSET "; expr(d, b)
+    case _ =>
+  }
 }

@@ -22,6 +22,10 @@ final class SQLBuilder extends SQLBuilder.Segment {
 
   def +=(s: String) = { ss.sb append s; this }
 
+  def +=(i: Int) = { ss.sb append i; this }
+
+  def +=(l: Long) = { ss.sb append l; this }
+
   def +=(c: Char) = { ss.sb append c; this }
 
   def +=(s: SQLBuilder) = { ss.sb append s; this }

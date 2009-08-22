@@ -62,13 +62,17 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += "SELECT "
       expr(value, b, rename)
       fromSlot = b.createSlot
-      appendConditions(b)
-      appendGroupClause(b)
-      appendHavingConditions(b)
-      appendOrderClause(b)
+      appendClauses(b)
   }
 
-  protected def appendGroupClause(b: SQLBuilder): Unit = query.groupings match {
+  protected def appendClauses(b: SQLBuilder): Unit = {
+    appendConditions(b)
+    appendGroupClause(b)
+    appendHavingConditions(b)
+    appendOrderClause(b)
+  }
+
+  protected def appendGroupClause(b: SQLBuilder): Unit = query.typedModifiers[Grouping] match {
     case x :: xs => {
       b += " GROUP BY "
       expr(x.by, b)
@@ -80,7 +84,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     case _ =>
   }
 
-  protected def appendOrderClause(b: SQLBuilder): Unit = query.orderings match {
+  protected def appendOrderClause(b: SQLBuilder): Unit = query.typedModifiers[Ordering] match {
     case x :: xs => {
       b += " ORDER BY "
       appendOrdering(x, b)

@@ -1,21 +1,22 @@
 package com.novocode.squery.combinator
 
+import scala.reflect.Manifest
+
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
 class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[Column[_]],
-                val groupings: List[Grouping], val orderings: List[Ordering]) extends Node {
+                val modifiers: List[QueryModifier]) extends Node {
 
-  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: groupings ::: orderings
-  override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) :::
-    groupings.map(o => (o, "groupings")) ::: orderings.map(o => (o, "orderings"))
+  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: modifiers
+  override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) ::: modifiers.map(o => (o, "modifier"))
 
   override def toString = "Query"
 
   def flatMap[F](f: E => Query[F]): Query[F] = {
     val q = f(value)
-    new Query(q.value, cond ::: q.cond, condHaving ::: q.condHaving, groupings ::: q.groupings, orderings ::: q.orderings)
+    new Query(q.value, cond ::: q.cond, condHaving ::: q.condHaving, modifiers ::: q.modifiers)
   }
 
   def map[F](f: E => F): Query[F] = flatMap(v => Query(f(v)))
@@ -23,24 +24,36 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
   def >>[F](q: Query[F]): Query[F] = flatMap(_ => q)
 
   def where[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
-    new Query(value, wt(f(value), cond), condHaving, groupings, orderings)
+    new Query(value, wt(f(value), cond), condHaving, modifiers)
 
   def filter[T](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
-    new Query(value, wt(f(value), cond), condHaving, groupings, orderings)
+    new Query(value, wt(f(value), cond), condHaving, modifiers)
 
   def having[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
-    new Query(value, cond, wt(f(value), condHaving), groupings, orderings)
+    new Query(value, cond, wt(f(value), condHaving), modifiers)
 
   def groupBy(by: Column[_]*) =
-    new Query[E](value, cond, condHaving, groupings ::: by.projection.map(c => new Grouping(Node(c))).toList, orderings)
+    new Query[E](value, cond, condHaving, modifiers ::: by.projection.map(c => new Grouping(Node(c))).toList)
 
-  def orderBy(by: Ordering*) = new Query[E](value, cond, condHaving, groupings, orderings ::: by.toList)
+  def orderBy(by: Ordering*) = new Query[E](value, cond, condHaving, modifiers ::: by.toList)
 
   def exists = Operator.Exists(map(_ => ConstColumn(1)))
+
+  def typedModifiers[T <: QueryModifier](implicit m: Manifest[T]) =
+    modifiers.filter(m.erasure.isInstance(_)).asInstanceOf[List[T]]
+
+  def createOrReplaceSingularModifier[T <: QueryModifier](f: Option[T] => T)(implicit m: Manifest[T]): Query[E] = {
+    val (xs, other) = modifiers.partition(m.erasure.isInstance(_))
+    val mod = xs match {
+      case x :: _ => f(Some(x.asInstanceOf[T]))
+      case _ => f(None)
+    }
+    new Query[E](value, cond, condHaving, mod :: other)
+  }
 }
 
-object Query extends Query[Unit]((), Nil, Nil, Nil, Nil) {
-  def apply[E](value: E) = new Query(value, Nil, Nil, Nil, Nil)
+object Query extends Query[Unit]((), Nil, Nil, Nil) {
+  def apply[E](value: E) = new Query(value, Nil, Nil, Nil)
 
   trait WhereType[-T] {
     def apply(value: T, l: List[Column[_]]): List[Column[_]]

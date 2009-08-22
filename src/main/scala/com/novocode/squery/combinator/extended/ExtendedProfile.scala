@@ -18,6 +18,8 @@ trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicIm
     case o: ExtendedStringColumnOps[_] => o.asInstanceOf[ExtendedStringColumnOps[Option[String]]]
     case _ => new ExtendedStringColumnOps[Option[String]] { protected[this] val leftOperand = Node(c) }
   }
+
+  implicit def queryToExtendedQueryOps[E](q: Query[E]) = new ExtendedQueryOps(q)
 }
 
 trait ExtendedStringColumnOps[P1] extends StringColumnOps[P1] {
@@ -27,6 +29,19 @@ trait ExtendedStringColumnOps[P1] extends StringColumnOps[P1] {
     om(ExtendedOperator.StartsEndsWith(leftOperand, Node(e), false))
   def endsWith[P2, R](e: Column[P2])(implicit om: OptionMapper[String, String, Boolean, P1, P2, R]): Column[R] =
     om(ExtendedOperator.StartsEndsWith(leftOperand, Node(e), true))
+}
+
+class ExtendedQueryOps[E](q: Query[E]) {
+  import ExtendedOperator._
+
+  def take(num: Column[Int]) = q.createOrReplaceSingularModifier[TakeDrop] {
+    case Some(TakeDrop(t, d)) => TakeDrop(Some(Node(num)), d)
+    case None => TakeDrop(Some(Node(num)), None)
+  }
+  def drop(num: Column[Int]) = q.createOrReplaceSingularModifier[TakeDrop] {
+    case Some(TakeDrop(t, d)) => TakeDrop(t, Some(Node(num)))
+    case None => TakeDrop(None, Some(Node(num)))
+  }
 }
 
 object ExtendedOperator {
@@ -40,5 +55,9 @@ object ExtendedOperator {
       case _ =>
         if(ends) Concat(ConstColumn("%"), part) else Concat(part, ConstColumn("%"))
     }
+  }
+  final case class TakeDrop(take: Option[Node], drop: Option[Node]) extends QueryModifier {
+    def nodeChildren = take.toList ::: drop.toList
+    override def nodeNamedChildren = take.map((_,"take")).toList ::: drop.map((_,"drop")).toList
   }
 }
