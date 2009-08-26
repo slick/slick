@@ -102,9 +102,13 @@ class WrappedColumn[T](parent: ColumnBase[_], val typeMapper: TypeMapper[T]) ext
 /**
  * A column which is part of a Table.
  */
-class NamedColumn[T](val table: Node, val name: String, val typeMapper: TypeMapper[T], val options: ColumnOption[T]*) extends
-    Column[T] {
+class NamedColumn[T](val table: Node, val name: String, val typeMapper: TypeMapper[T], val options: ColumnOption[T]*)
+extends Column[T] {
   def nodeChildren = table :: Nil
   override def toString = "NamedColumn " + name
   override def nodeNamedChildren = (table, "table") :: Nil
+}
+
+object NamedColumn {
+  def unapply[T](n: NamedColumn[T]) = Some((n.table, n.name, n.typeMapper, n.options))
 }

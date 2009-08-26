@@ -15,7 +15,6 @@ extends BasicQueryBuilder(_query, _nc, parent, _profile) {
 abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile) {
 
   //TODO Pull tables out of subqueries where needed
-  //TODO Support unions
 
   type Self <: BasicQueryBuilder
 
@@ -117,25 +116,49 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     b.build
   }
 
-  def buildUpdate: String = Node(query.value) match {
-    case p:Projection[_] => ""
-      val b = new SQLBuilder += "UPDATE "
-      /*val (updateTable, updateTableName) = Node(query.value) match {
-        case t @ Table.Alias(base:Table[_]) => (t, base.tableName)
-        case t:Table[_] => (t, t.tableName)
-        case n => throw new SQueryException("Cannot create a UPDATE statement from an \""+n+
-          "\" expression; An aliased or base table is required")
+  def buildUpdate = {
+    if(!query.condHaving.isEmpty || !query.modifiers.isEmpty)
+      throw new SQueryException("A query for an UPDATE statement must not have any modifiers other than WHERE restrictions")
+    val b = new SQLBuilder += "UPDATE "
+    val tableNameSlot = b.createSlot
+    b += " SET "
+    var tableName: String = null
+    var table: Node = null
+
+    def handleColumn(node: Node, idx: Int) {
+      (node match {
+        case NamedColumn(t @ Table(tn), n, tm, _) => (tn, n, tm, t)
+        case NamedColumn(t @ Table.Alias(Table(tn)), n, tm, _) => (tn, n, tm, t)
+        case n => throw new SQueryException("Cannot create an UPDATE statement from a \""+n+
+          "\" expression; A single named column or a projection of named columns from the same aliased or base table is required")
+      }) match { case (tn, n, tm, t) =>
+        if(tableName eq null) { tableName = tn; table = t; }
+        else if(tableName != tn)
+          throw new SQueryException("All columns for an UPDATE statement must be from the same table")
+        b += n += '=' +?= { (p, param) =>
+          val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
+          tm(profile).setValue(v, p)
+        }
       }
-      b += updateTableName += " SET "
-      nc = nc.overrideName(updateTable, updateTableName) // Alias table to itself because UPDATE does not support aliases
-      appendConditions(b)
-      if(localTables.size > 1)
-        throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
-      for(qb <- subQueryBuilders.values)
-        qb.insertFromClauses()*/
-      b.toString
-    case n => throw new SQueryException("Cannot create a UPDATE statement from an \""+n+
-      "\" expression; Not a Projection; A projection of named columns from the same aliased or base table is required")
+    }
+
+    Node(query.value) match {
+      case p: Projection[_] => {
+        var i = 0
+        for(ch <- p.nodeChildren) {
+          if(i > 0) b += ','
+          handleColumn(ch, i)
+          i += 1
+        }
+      }
+      case n => handleColumn(n, -1)
+    }
+    nc = nc.overrideName(table, tableName) // Alias table to itself because DELETE does not support aliases
+    tableNameSlot += tableName
+    appendConditions(b)
+    if(localTables.size > 1)
+      throw new SQueryException("An UPDATE statement must not use more than one table at the top level")
+    b.build
   }
 
   protected def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false)
@@ -184,7 +207,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += ')'
     }
-    case SimpleWord(w) => b += w
+    case SimpleLiteral(w) => b += w
     case Operator.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
     case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }

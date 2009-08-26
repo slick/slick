@@ -14,7 +14,7 @@ trait BasicProfile {
 
   def buildSelectStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildSelect
-  def buildUpdateStatement(query: Query[Projection[_ <: Product]], nc: NamingContext): String =
+  def buildUpdateStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildUpdate
   def buildDeleteStatement(query: Query[Table[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildDelete

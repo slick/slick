@@ -28,6 +28,8 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
 }
 
 object Table {
+  def unapply[T](t: Table[T]) = Some(t.tableName)
+
   final case class Alias(child: Node) extends UnaryNode {
     override def toString = "Table.Alias"
     override def isNamedTable = true

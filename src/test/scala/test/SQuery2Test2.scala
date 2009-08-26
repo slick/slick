@@ -150,6 +150,18 @@ object SQuery2Test2 {
       val q6 = Query(q5.count)
       println("q6: " + q6.selectStatement)
       println("Users without Orders left: " + q6.first)
+
+      val q7 = Users.where(_.first is "Homer".bind).map(_.first)
+      println("q7: " + q7.updateStatement)
+      val updated1 = q7.update("Homer Jay")
+      println("Updated "+updated1+" row(s)")
+
+      val q8 = for(u <- Users if u.last.isNull) yield u.first ~ u.last
+      println("q8: " + q8.updateStatement)
+      val updated2 = q8.update("n/a", Some("n/a"))
+      println("Updated "+updated2+" row(s)")
+
+      for(t <- q1) println("User tuple: "+t)
     }
   }
 }

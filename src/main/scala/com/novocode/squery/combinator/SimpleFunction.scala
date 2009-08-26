@@ -26,3 +26,7 @@ object SimpleBinaryOperator {
         val right = Node(rightC)
       }
 }
+
+case class SimpleLiteral(name: String) extends Node {
+  val nodeChildren = Nil
+}
