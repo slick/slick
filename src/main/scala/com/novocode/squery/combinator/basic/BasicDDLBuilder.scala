@@ -10,19 +10,12 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
   def buildCreateTable = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
     var first = true
-    def f(c: Any): Unit = c match {
-      case p:Projection[_] =>
-        for(i <- 0 until p.productArity)
-          f(p.productElement(i))
-      case t:Table[_] => f(t.*)
-      case n:NamedColumn[_] =>
-        if(first) first = false
-        else b append ","
-        b append n.name append ' '
-        addSqlType(n, b)
-      case _ => throw new SQueryException("Cannot use column "+c+" in CREATE TABLE statement")
+    for(n <- table.create_*) {
+      if(first) first = false
+      else b append ","
+      b append n.name append ' '
+      addSqlType(n, b)
     }
-    f(table)
     b append ")" toString
   }
 

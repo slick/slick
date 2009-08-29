@@ -14,8 +14,8 @@ class BasicInsertBuilder(val column: ColumnBase[_]) {
     def f(c: Any): Unit = c match {
       case p:Projection[_] =>
         for(i <- 0 until p.productArity)
-          f(p.productElement(i))
-      case t:Table[_] => f(t.*)
+          f(Node(p.productElement(i)))
+      case t:Table[_] => f(Node(t.*))
       case n:NamedColumn[_] =>
         if(!cols.isEmpty) {
           cols append ","
@@ -27,7 +27,7 @@ class BasicInsertBuilder(val column: ColumnBase[_]) {
         else if(table != n.table.asInstanceOf[Table[_]].tableName) throw new SQueryException("Inserts must all be to the same table")
       case _ => throw new SQueryException("Cannot use column "+c+" in INSERT statement")
     }
-    f(column)
+    f(Node(column))
     if(table eq null) throw new SQueryException("No table to insert into")
     "INSERT INTO " + table + " (" + cols + ") VALUES (" + vals + ")"
   }

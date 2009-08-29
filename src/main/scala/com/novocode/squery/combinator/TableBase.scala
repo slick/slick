@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
-import com.novocode.squery.combinator.basic.BasicProfile
+import com.novocode.squery.SQueryException
+import com.novocode.squery.combinator.basic.{BasicProfile, BasicQueryTemplate}
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 sealed trait TableBase[T] extends Node with WithOp {
@@ -22,6 +23,24 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
   def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]) = new NamedColumn[C](Node(this), n, tm, options:_*)
 
   def * : ColumnBase[T]
+
+  def create_* : Iterable[NamedColumn[_]] = {
+    def f(n:Node): Iterable[NamedColumn[_]] = n match {
+      case p:Projection[_] =>
+        0 until p.productArity map (n => Node(p.productElement(n)) match {
+          case c: NamedColumn[_] => c
+          case c => throw new SQueryException("Cannot use column "+c+" in "+tableName+".* for CREATE TABLE statement")
+        })
+      case n:NamedColumn[_] => Iterable(n)
+      case _ => throw new SQueryException("Cannot use "+tableName+".* for CREATE TABLE statement")
+    }
+    f(Node(*))
+  }
+
+  def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit profile: BasicProfile, tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
+    import profile.Implicit._
+    Parameters[P](tm).flatMap(p => Query(this).where(t => Operator.Is(f(t.asInstanceOf[Table.this.type]), p)))(profile)
+  }
 
   def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)

@@ -238,7 +238,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
     case SubqueryColumn(pos, sq) => { b += localTableName(sq) += ".c" += pos.toString }
     case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
-    case t: Table[_] => expr(t.*, b)
+    case t: Table[_] => expr(Node(t.*), b)
     case t: TableBase[_] => b += localTableName(t) += ".*"
     case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
   }
