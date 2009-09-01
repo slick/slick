@@ -2,8 +2,10 @@ package com.novocode.squery.session
 
 import java.sql.{ResultSet, Blob, Clob}
 
-class PositionedResult(val rs: ResultSet) {
-
+/**
+ * A database result positioned at a row and column.
+ */
+class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   var pos = 0
 
   def next() = { pos = 0; rs.next }
@@ -35,4 +37,6 @@ class PositionedResult(val rs: ResultSet) {
   def nextStringOption() = { pos += 1; val r = rs getString pos; if(rs wasNull) None else Some(r) }
   def nextTimeOption() = { pos += 1; val r = rs getTime pos; if(rs wasNull) None else Some(r) }
   def nextTimestampOption() = { pos += 1; val r = rs getTimestamp pos; if(rs wasNull) None else Some(r) }
+
+  def close() = rs.close()
 }

@@ -4,7 +4,7 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.session._
-import com.novocode.squery.session.Database._
+import com.novocode.squery.session.Database.threadLocalSession
 
 object UnionTest {
   def main(args: Array[String]) {
@@ -26,9 +26,7 @@ object UnionTest {
       def departmentIs(dept: String) = manager in Managers.where(_.department is dept).map(_.id)
     }
 
-    Class.forName("org.h2.Driver")
-    val db = Database.forURL("jdbc:h2:mem:test1")
-    db withSession {
+    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
       Managers.createTable
       Employees.createTable

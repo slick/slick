@@ -8,5 +8,5 @@ class BasicSequenceDDLInvoker(seq: Sequence[_], profile: BasicProfile) {
   lazy val createSequenceStatement = profile.buildCreateSequenceStatement(seq)
 
   def createSequence(implicit session: Session): Unit =
-    session.withPS(createSequenceStatement)(_.execute)
+    session.withPreparedStatement(createSequenceStatement)(_.execute)
 }

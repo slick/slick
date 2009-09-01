@@ -4,7 +4,7 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.session._
-import com.novocode.squery.session.Database._
+import com.novocode.squery.session.Database.threadLocalSession
 
 object TemplateTest {
   def main(args: Array[String]) {
@@ -22,8 +22,7 @@ object TemplateTest {
       def * = userID ~ orderID ~ product
     }
 
-    Class.forName("org.h2.Driver")
-    Database.forURL("jdbc:h2:mem:test1") withSession {
+    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
       Users.createTable
       Orders.createTable

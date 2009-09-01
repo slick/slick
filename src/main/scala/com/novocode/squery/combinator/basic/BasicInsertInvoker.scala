@@ -7,7 +7,7 @@ class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
 
   lazy val insertStatement = profile.buildInsertStatement(column)
 
-  def insert(value: T)(implicit session: Session): Int = session.withPS(insertStatement) { st =>
+  def insert(value: T)(implicit session: Session): Int = session.withPreparedStatement(insertStatement) { st =>
     st.clearParameters
     column.setParameter(profile, new PositionedParameters(st), Some(value))
     st.executeUpdate

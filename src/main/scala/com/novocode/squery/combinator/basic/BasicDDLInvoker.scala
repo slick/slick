@@ -8,5 +8,5 @@ class BasicDDLInvoker[T](table: Table[T], profile: BasicProfile) {
   lazy val createTableStatement = profile.buildCreateTableStatement(table)
 
   def createTable(implicit session: Session): Unit =
-    session.withPS(createTableStatement)(_.execute)
+    session.withPreparedStatement(createTableStatement)(_.execute)
 }

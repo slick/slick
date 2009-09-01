@@ -9,7 +9,7 @@ class BasicDeleteInvoker[T] (query: Query[Table[T]], profile: BasicProfile) {
 
   def deleteStatement = built.sql
 
-  def delete(implicit session: Session): Int = session.withPS(deleteStatement) { st =>
+  def delete(implicit session: Session): Int = session.withPreparedStatement(deleteStatement) { st =>
     built.setter(new PositionedParameters(st), null)
     st.executeUpdate
   }

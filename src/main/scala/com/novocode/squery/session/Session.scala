@@ -6,19 +6,15 @@ import com.novocode.squery.SQueryException
 /**
  * A database session which opens a connection and transaction on demand.
  */
-class Session private[squery] (db: Database) {
+class Session private[session] (db: Database) extends java.io.Closeable {
 
   var open = false
   var doRollback = false
   lazy val conn = { open = true; db.createConnection() }
 
-  private[squery] def allocPS(sql: String) = conn.prepareStatement(sql)
-
-  private[squery] def freePS(ps: PreparedStatement) = ps.close()
-
-  private[squery] def withPS[T](sql: String)(f: (PreparedStatement => T)): T = {
-    val st = allocPS(sql)
-    try f(st) finally freePS(st)
+  def withPreparedStatement[T](sql: String)(f: (PreparedStatement => T)): T = {
+    val st = conn.prepareStatement(sql)
+    try f(st) finally st.close()
   }
 
   def close() {
@@ -42,17 +38,15 @@ class Session private[squery] (db: Database) {
   def withTransaction[T](f: => T): T = {
     conn.setAutoCommit(false)
     try {
+      var done = false
       try {
         doRollback = false
         val res = f
         if(doRollback) conn.rollback()
         else conn.commit()
+        done = true
         res
-      } catch {
-        case ex:Exception =>
-          conn.rollback()
-          throw ex
-      }
+      } finally if(!done) conn.rollback()
     } finally conn.setAutoCommit(true)
   }
 }

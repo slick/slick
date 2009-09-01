@@ -4,7 +4,7 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.session._
-import com.novocode.squery.session.Database._
+import com.novocode.squery.session.Database.threadLocalSession
 
 object MapperTest {
   def main(args: Array[String]) {
@@ -19,8 +19,7 @@ object MapperTest {
       val findByID = createFinderBy(_.id)
     }
 
-    Class.forName("org.h2.Driver")
-    Database.forURL("jdbc:h2:mem:test1") withSession {
+    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
       Users.createTable
       (Users.first ~ Users.last).insert("Homer", "Simpson")

@@ -4,7 +4,7 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.session._
-import com.novocode.squery.session.Database._
+import com.novocode.squery.session.Database.threadLocalSession
 
 object SQuery2Test2 {
   def main(args: Array[String]) {
@@ -31,8 +31,7 @@ object SQuery2Test2 {
 
     val mySequence = Sequence[Int]("mysequence") start 200 inc 10
 
-    Class.forName("org.h2.Driver")
-    Database.forURL("jdbc:h2:mem:test1") withSession {
+    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
       println(Users.createTableStatement)
       println(Orders.createTableStatement)
