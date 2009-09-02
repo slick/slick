@@ -137,7 +137,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
           throw new SQueryException("All columns for an UPDATE statement must be from the same table")
         b += n += '=' +?= { (p, param) =>
           val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
-          tm(profile).setValue(v, p)
+          tm(profile).asInstanceOf[TypeMapperDelegate[Any]].setValue(v, p)
         }
       }
     }
