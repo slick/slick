@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="org.eclipse.ui.externaltools.ProgramLaunchConfigurationType">
+<stringAttribute key="org.eclipse.ui.externaltools.ATTR_LOCATION" value="C:\StandaloneApps\fmpp_0.9.14\bin\fmpp.bat"/>
+<stringAttribute key="org.eclipse.ui.externaltools.ATTR_TOOL_ARGUMENTS" value="--expert -S . -O . --replace-extensions=&quot;fm, scala&quot; -M &quot;execute(**/*.fm), ignore(**/*)&quot;"/>
+<stringAttribute key="org.eclipse.ui.externaltools.ATTR_WORKING_DIRECTORY" value="${workspace_loc:/scala-query/src/main/scala}"/>
+</launchConfiguration>
