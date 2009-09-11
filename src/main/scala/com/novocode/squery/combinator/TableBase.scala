@@ -22,7 +22,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
 
   def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]) = new NamedColumn[C](Node(this), n, tm, options:_*)
 
-  def * : ColumnBase[T]
+  def * : ColumnU { type Value = T }
 
   def create_* : Iterable[NamedColumn[_]] = {
     def f(n:Node): Iterable[NamedColumn[_]] = n match {

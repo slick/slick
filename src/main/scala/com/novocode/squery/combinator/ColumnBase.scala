@@ -7,30 +7,30 @@ import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 /**
  * Common base trait for columns, tables and projections (but not unions and joins).
  */
-trait ColumnBase[T] extends Node with WithOp {
+trait ColumnBaseU extends Node with WithOp {
+  type Value
+
   override def nodeDelegate: Node = if(op eq null) this else op.nodeDelegate
 
-  def getResult(profile: BasicProfile, rs: PositionedResult): T
-  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
+  def getResult(profile: BasicProfile, rs: PositionedResult): Value
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[Value]): Unit
 }
 
-object ColumnBase {
-  type T_ = ColumnBase[_]
-}
+trait ColumnBase[T] extends ColumnBaseU { final type Value = T }
 
 /**
  * Base trait for columns.
  */
-trait Column[T] extends ColumnBase[T] {
-  val typeMapper: TypeMapper[T]
-  def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValue(rs)
-  final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(profile).setOption(value, ps)
-  def orElse(n: =>T): Column[T] = new WrappedColumn(this, typeMapper) {
-    override def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValueOrElse(n, rs)
+trait ColumnU extends ColumnBaseU {
+  val typeMapper: TypeMapper[Value]
+  def getResult(profile: BasicProfile, rs: PositionedResult): Value = typeMapper(profile).nextValue(rs)
+  final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[Value]): Unit = typeMapper(profile).setOption(value, ps)
+  def orElse(n: =>Value): Column[Value] = new WrappedColumn(this, typeMapper) {
+    override def getResult(profile: BasicProfile, rs: PositionedResult): Value = typeMapper(profile).nextValueOrElse(n, rs)
   }
   final def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
-  def ? : Column[Option[T]] = new WrappedColumn(this, typeMapper.createOptionTypeMapper)
-  final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
+  def ? : Column[Option[Value]] = new WrappedColumn(this, typeMapper.createOptionTypeMapper)
+  final def ~[U <: Column[_]](b: U) = new Projection2[this.type, U](this, b)
 
   // Functions which don't need an OptionMapper
   def in(e: Query[Column[_]]) = Operator.In(Node(this), Node(e))
@@ -46,6 +46,8 @@ trait Column[T] extends ColumnBase[T] {
   def asc = new Ordering.Asc(Node(this))
   def desc = new Ordering.Desc(Node(this))
 }
+
+trait Column[T] extends ColumnBase[T] with ColumnU
 
 /**
  * A column with a constant value which is inserted into an SQL statement as a literal.
@@ -94,7 +96,7 @@ abstract class OperatorColumn[T](implicit val typeMapper: TypeMapper[T]) extends
 /**
  * A WrappedColumn can be used to change a column's nullValue.
  */
-class WrappedColumn[T](parent: ColumnBase[_], val typeMapper: TypeMapper[T]) extends Column[T] {
+class WrappedColumn[T](parent: ColumnU, val typeMapper: TypeMapper[T]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   def nodeChildren = nodeDelegate :: Nil
 }

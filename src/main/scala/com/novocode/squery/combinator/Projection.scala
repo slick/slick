@@ -20,27 +20,27 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
 }
 
 object Projection {
-  def unapply[T1,T2](p: Projection2[T1,T2]) = Some(p)
-  def unapply[T1,T2,T3](p: Projection3[T1,T2,T3]) = Some(p)
-  def unapply[T1,T2,T3,T4](p: Projection4[T1,T2,T3,T4]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5](p: Projection5[T1,T2,T3,T4,T5]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6](p: Projection6[T1,T2,T3,T4,T5,T6]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7](p: Projection7[T1,T2,T3,T4,T5,T6,T7]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8](p: Projection8[T1,T2,T3,T4,T5,T6,T7,T8]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9](p: Projection9[T1,T2,T3,T4,T5,T6,T7,T8,T9]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10](p: Projection10[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11](p: Projection11[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12](p: Projection12[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13](p: Projection13[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14](p: Projection14[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15](p: Projection15[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16](p: Projection16[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17](p: Projection17[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18](p: Projection18[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19](p: Projection19[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20](p: Projection20[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21](p: Projection21[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21]) = Some(p)
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22](p: Projection22[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU](p: Projection2[T1, T2]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU](p: Projection3[T1, T2, T3]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU](p: Projection4[T1, T2, T3, T4]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU](p: Projection5[T1, T2, T3, T4, T5]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU](p: Projection6[T1, T2, T3, T4, T5, T6]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU](p: Projection7[T1, T2, T3, T4, T5, T6, T7]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU](p: Projection8[T1, T2, T3, T4, T5, T6, T7, T8]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU](p: Projection9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU](p: Projection10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU](p: Projection11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU](p: Projection12[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU](p: Projection13[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU](p: Projection14[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU](p: Projection15[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU](p: Projection16[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU](p: Projection17[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU](p: Projection18[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU](p: Projection19[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU, T20 <: ColumnU](p: Projection20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU, T20 <: ColumnU, T21 <: ColumnU](p: Projection21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]) = Some(p)
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU, T20 <: ColumnU, T21 <: ColumnU, T22 <: ColumnU](p: Projection22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22]) = Some(p)
 }
 
 class MappedProjection[T, P <: Product](val child: Projection[P], f: (P => T), g: (T => Some[P])) extends ColumnBase[T] with UnaryNode {
@@ -54,1055 +54,1055 @@ class MappedProjection[T, P <: Product](val child: Projection[P], f: (P => T), g
 }
 
 object ~ {
-  def unapply[T1,T2](p: Projection2[T1,T2]) =
+  def unapply[T1 <: ColumnU, T2 <: ColumnU](p: Projection2[T1, T2]) =
     Some(p)
-  def unapply[T1,T2,T3](p: Projection3[T1,T2,T3]) =
-    Some((new Projection2(p._1,p._2), p._3))
-  def unapply[T1,T2,T3,T4](p: Projection4[T1,T2,T3,T4]) =
-    Some((new Projection3(p._1,p._2,p._3), p._4))
-  def unapply[T1,T2,T3,T4,T5](p: Projection5[T1,T2,T3,T4,T5]) =
-    Some((new Projection4(p._1,p._2,p._3,p._4), p._5))
-  def unapply[T1,T2,T3,T4,T5,T6](p: Projection6[T1,T2,T3,T4,T5,T6]) =
-    Some((new Projection5(p._1,p._2,p._3,p._4,p._5), p._6))
-  def unapply[T1,T2,T3,T4,T5,T6,T7](p: Projection7[T1,T2,T3,T4,T5,T6,T7]) =
-    Some((new Projection6(p._1,p._2,p._3,p._4,p._5,p._6), p._7))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8](p: Projection8[T1,T2,T3,T4,T5,T6,T7,T8]) =
-    Some((new Projection7(p._1,p._2,p._3,p._4,p._5,p._6,p._7), p._8))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9](p: Projection9[T1,T2,T3,T4,T5,T6,T7,T8,T9]) =
-    Some((new Projection8(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8), p._9))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10](p: Projection10[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10]) =
-    Some((new Projection9(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9), p._10))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11](p: Projection11[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11]) =
-    Some((new Projection10(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10), p._11))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12](p: Projection12[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12]) =
-    Some((new Projection11(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11), p._12))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13](p: Projection13[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13]) =
-    Some((new Projection12(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12), p._13))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14](p: Projection14[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14]) =
-    Some((new Projection13(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13), p._14))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15](p: Projection15[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15]) =
-    Some((new Projection14(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14), p._15))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16](p: Projection16[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16]) =
-    Some((new Projection15(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15), p._16))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17](p: Projection17[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17]) =
-    Some((new Projection16(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16), p._17))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18](p: Projection18[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18]) =
-    Some((new Projection17(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17), p._18))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19](p: Projection19[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19]) =
-    Some((new Projection18(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18), p._19))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20](p: Projection20[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20]) =
-    Some((new Projection19(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18,p._19), p._20))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21](p: Projection21[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21]) =
-    Some((new Projection20(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18,p._19,p._20), p._21))
-  def unapply[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22](p: Projection22[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22]) =
-    Some((new Projection21(p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18,p._19,p._20,p._21), p._22))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU](p: Projection3[T1, T2, T3]) =
+    Some((new Projection2(p._1, p._2), p._3))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU](p: Projection4[T1, T2, T3, T4]) =
+    Some((new Projection3(p._1, p._2, p._3), p._4))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU](p: Projection5[T1, T2, T3, T4, T5]) =
+    Some((new Projection4(p._1, p._2, p._3, p._4), p._5))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU](p: Projection6[T1, T2, T3, T4, T5, T6]) =
+    Some((new Projection5(p._1, p._2, p._3, p._4, p._5), p._6))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU](p: Projection7[T1, T2, T3, T4, T5, T6, T7]) =
+    Some((new Projection6(p._1, p._2, p._3, p._4, p._5, p._6), p._7))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU](p: Projection8[T1, T2, T3, T4, T5, T6, T7, T8]) =
+    Some((new Projection7(p._1, p._2, p._3, p._4, p._5, p._6, p._7), p._8))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU](p: Projection9[T1, T2, T3, T4, T5, T6, T7, T8, T9]) =
+    Some((new Projection8(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8), p._9))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU](p: Projection10[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10]) =
+    Some((new Projection9(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9), p._10))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU](p: Projection11[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11]) =
+    Some((new Projection10(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10), p._11))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU](p: Projection12[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12]) =
+    Some((new Projection11(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11), p._12))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU](p: Projection13[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13]) =
+    Some((new Projection12(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12), p._13))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU](p: Projection14[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14]) =
+    Some((new Projection13(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13), p._14))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU](p: Projection15[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15]) =
+    Some((new Projection14(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14), p._15))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU](p: Projection16[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16]) =
+    Some((new Projection15(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14, p._15), p._16))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU](p: Projection17[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17]) =
+    Some((new Projection16(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14, p._15, p._16), p._17))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU](p: Projection18[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18]) =
+    Some((new Projection17(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14, p._15, p._16, p._17), p._18))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU](p: Projection19[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19]) =
+    Some((new Projection18(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14, p._15, p._16, p._17, p._18), p._19))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU, T20 <: ColumnU](p: Projection20[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20]) =
+    Some((new Projection19(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14, p._15, p._16, p._17, p._18, p._19), p._20))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU, T20 <: ColumnU, T21 <: ColumnU](p: Projection21[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21]) =
+    Some((new Projection20(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14, p._15, p._16, p._17, p._18, p._19, p._20), p._21))
+  def unapply[T1 <: ColumnU, T2 <: ColumnU, T3 <: ColumnU, T4 <: ColumnU, T5 <: ColumnU, T6 <: ColumnU, T7 <: ColumnU, T8 <: ColumnU, T9 <: ColumnU, T10 <: ColumnU, T11 <: ColumnU, T12 <: ColumnU, T13 <: ColumnU, T14 <: ColumnU, T15 <: ColumnU, T16 <: ColumnU, T17 <: ColumnU, T18 <: ColumnU, T19 <: ColumnU, T20 <: ColumnU, T21 <: ColumnU, T22 <: ColumnU](p: Projection22[T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22]) =
+    Some((new Projection21(p._1, p._2, p._3, p._4, p._5, p._6, p._7, p._8, p._9, p._10, p._11, p._12, p._13, p._14, p._15, p._16, p._17, p._18, p._19, p._20, p._21), p._22))
 }
 
-final class Projection2[T1,T2](
-  override val _1: Column[T1],
-  override val _2: Column[T2]
+final class Projection2[+T1 <: ColumnU, +T2 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2
 )
-extends Tuple2(_1,_2) with Projection[(T1,T2)] {
-  def ~[U](c: Column[U]) = new Projection3(_1,_2,c)
+extends Tuple2(_1, _2) with Projection[(T1#Value, T2#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection3(_1, _2, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
+    _1.getResult(profile, rs), 
     _2.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection2(
-    _1.mapOp(f),
+    _1.mapOp(f), 
     _2.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2), g)
+  def <>[R](f: ((T1#Value, T2#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2), g)
 }
 
-final class Projection3[T1,T2,T3](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3]
+final class Projection3[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3
 )
-extends Tuple3(_1,_2,_3) with Projection[(T1,T2,T3)] {
-  def ~[U](c: Column[U]) = new Projection4(_1,_2,_3,c)
+extends Tuple3(_1, _2, _3) with Projection[(T1#Value, T2#Value, T3#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection4(_1, _2, _3, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
     _3.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection3(
-    _1.mapOp(f),
-    _2.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
     _3.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3), g)
 }
 
-final class Projection4[T1,T2,T3,T4](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4]
+final class Projection4[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4
 )
-extends Tuple4(_1,_2,_3,_4) with Projection[(T1,T2,T3,T4)] {
-  def ~[U](c: Column[U]) = new Projection5(_1,_2,_3,_4,c)
+extends Tuple4(_1, _2, _3, _4) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection5(_1, _2, _3, _4, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
     _4.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection4(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
     _4.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4), g)
 }
 
-final class Projection5[T1,T2,T3,T4,T5](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5]
+final class Projection5[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5
 )
-extends Tuple5(_1,_2,_3,_4,_5) with Projection[(T1,T2,T3,T4,T5)] {
-  def ~[U](c: Column[U]) = new Projection6(_1,_2,_3,_4,_5,c)
+extends Tuple5(_1, _2, _3, _4, _5) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection6(_1, _2, _3, _4, _5, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
     _5.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection5(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
     _5.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5), g)
 }
 
-final class Projection6[T1,T2,T3,T4,T5,T6](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6]
+final class Projection6[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6
 )
-extends Tuple6(_1,_2,_3,_4,_5,_6) with Projection[(T1,T2,T3,T4,T5,T6)] {
-  def ~[U](c: Column[U]) = new Projection7(_1,_2,_3,_4,_5,_6,c)
+extends Tuple6(_1, _2, _3, _4, _5, _6) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection7(_1, _2, _3, _4, _5, _6, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
     _6.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection6(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
     _6.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6), g)
 }
 
-final class Projection7[T1,T2,T3,T4,T5,T6,T7](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7]
+final class Projection7[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7
 )
-extends Tuple7(_1,_2,_3,_4,_5,_6,_7) with Projection[(T1,T2,T3,T4,T5,T6,T7)] {
-  def ~[U](c: Column[U]) = new Projection8(_1,_2,_3,_4,_5,_6,_7,c)
+extends Tuple7(_1, _2, _3, _4, _5, _6, _7) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection8(_1, _2, _3, _4, _5, _6, _7, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
     _7.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection7(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
     _7.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7), g)
 }
 
-final class Projection8[T1,T2,T3,T4,T5,T6,T7,T8](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8]
+final class Projection8[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8
 )
-extends Tuple8(_1,_2,_3,_4,_5,_6,_7,_8) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8)] {
-  def ~[U](c: Column[U]) = new Projection9(_1,_2,_3,_4,_5,_6,_7,_8,c)
+extends Tuple8(_1, _2, _3, _4, _5, _6, _7, _8) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection9(_1, _2, _3, _4, _5, _6, _7, _8, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
     _8.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection8(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
     _8.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8), g)
 }
 
-final class Projection9[T1,T2,T3,T4,T5,T6,T7,T8,T9](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9]
+final class Projection9[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9
 )
-extends Tuple9(_1,_2,_3,_4,_5,_6,_7,_8,_9) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9)] {
-  def ~[U](c: Column[U]) = new Projection10(_1,_2,_3,_4,_5,_6,_7,_8,_9,c)
+extends Tuple9(_1, _2, _3, _4, _5, _6, _7, _8, _9) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection10(_1, _2, _3, _4, _5, _6, _7, _8, _9, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
     _9.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection9(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
     _9.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9), g)
 }
 
-final class Projection10[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10]
+final class Projection10[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10
 )
-extends Tuple10(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10)] {
-  def ~[U](c: Column[U]) = new Projection11(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,c)
+extends Tuple10(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection11(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
     _10.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection10(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
     _10.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10), g)
 }
 
-final class Projection11[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11]
+final class Projection11[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11
 )
-extends Tuple11(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11)] {
-  def ~[U](c: Column[U]) = new Projection12(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,c)
+extends Tuple11(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection12(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
     _11.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection11(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
     _11.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11), g)
 }
 
-final class Projection12[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12]
+final class Projection12[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12
 )
-extends Tuple12(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12)] {
-  def ~[U](c: Column[U]) = new Projection13(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,c)
+extends Tuple12(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection13(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
     _12.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection12(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
     _12.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12), g)
 }
 
-final class Projection13[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13]
+final class Projection13[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13
 )
-extends Tuple13(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13)] {
-  def ~[U](c: Column[U]) = new Projection14(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,c)
+extends Tuple13(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection14(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
     _13.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection13(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
     _13.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13), g)
 }
 
-final class Projection14[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14]
+final class Projection14[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14
 )
-extends Tuple14(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14)] {
-  def ~[U](c: Column[U]) = new Projection15(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,c)
+extends Tuple14(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection15(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
     _14.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection14(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
     _14.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14), g)
 }
 
-final class Projection15[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15]
+final class Projection15[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15
 )
-extends Tuple15(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15)] {
-  def ~[U](c: Column[U]) = new Projection16(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,c)
+extends Tuple15(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection16(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
     _15.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection15(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
     _15.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15), g)
 }
 
-final class Projection16[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15],
-  override val _16: Column[T16]
+final class Projection16[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU, +T16 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15, 
+  override val _16: T16
 )
-extends Tuple16(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16)] {
-  def ~[U](c: Column[U]) = new Projection17(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,c)
+extends Tuple16(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection17(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
-    _15.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
+    _15.getResult(profile, rs), 
     _16.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection16(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
-    _15.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
+    _15.mapOp(f), 
     _16.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15,t._16), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16), g)
 }
 
-final class Projection17[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15],
-  override val _16: Column[T16],
-  override val _17: Column[T17]
+final class Projection17[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU, +T16 <: ColumnU, +T17 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15, 
+  override val _16: T16, 
+  override val _17: T17
 )
-extends Tuple17(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17)] {
-  def ~[U](c: Column[U]) = new Projection18(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,c)
+extends Tuple17(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection18(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
-    _15.getResult(profile, rs),
-    _16.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
+    _15.getResult(profile, rs), 
+    _16.getResult(profile, rs), 
     _17.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection17(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
-    _15.mapOp(f),
-    _16.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
+    _15.mapOp(f), 
+    _16.mapOp(f), 
     _17.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15,t._16,t._17), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17), g)
 }
 
-final class Projection18[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15],
-  override val _16: Column[T16],
-  override val _17: Column[T17],
-  override val _18: Column[T18]
+final class Projection18[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU, +T16 <: ColumnU, +T17 <: ColumnU, +T18 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15, 
+  override val _16: T16, 
+  override val _17: T17, 
+  override val _18: T18
 )
-extends Tuple18(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18)] {
-  def ~[U](c: Column[U]) = new Projection19(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,c)
+extends Tuple18(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection19(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
-    _15.getResult(profile, rs),
-    _16.getResult(profile, rs),
-    _17.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
+    _15.getResult(profile, rs), 
+    _16.getResult(profile, rs), 
+    _17.getResult(profile, rs), 
     _18.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection18(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
-    _15.mapOp(f),
-    _16.mapOp(f),
-    _17.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
+    _15.mapOp(f), 
+    _16.mapOp(f), 
+    _17.mapOp(f), 
     _18.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15,t._16,t._17,t._18), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18), g)
 }
 
-final class Projection19[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15],
-  override val _16: Column[T16],
-  override val _17: Column[T17],
-  override val _18: Column[T18],
-  override val _19: Column[T19]
+final class Projection19[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU, +T16 <: ColumnU, +T17 <: ColumnU, +T18 <: ColumnU, +T19 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15, 
+  override val _16: T16, 
+  override val _17: T17, 
+  override val _18: T18, 
+  override val _19: T19
 )
-extends Tuple19(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19)] {
-  def ~[U](c: Column[U]) = new Projection20(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,c)
+extends Tuple19(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection20(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
-    _15.getResult(profile, rs),
-    _16.getResult(profile, rs),
-    _17.getResult(profile, rs),
-    _18.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
+    _15.getResult(profile, rs), 
+    _16.getResult(profile, rs), 
+    _17.getResult(profile, rs), 
+    _18.getResult(profile, rs), 
     _19.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection19(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
-    _15.mapOp(f),
-    _16.mapOp(f),
-    _17.mapOp(f),
-    _18.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
+    _15.mapOp(f), 
+    _16.mapOp(f), 
+    _17.mapOp(f), 
+    _18.mapOp(f), 
     _19.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15,t._16,t._17,t._18,t._19), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19), g)
 }
 
-final class Projection20[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15],
-  override val _16: Column[T16],
-  override val _17: Column[T17],
-  override val _18: Column[T18],
-  override val _19: Column[T19],
-  override val _20: Column[T20]
+final class Projection20[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU, +T16 <: ColumnU, +T17 <: ColumnU, +T18 <: ColumnU, +T19 <: ColumnU, +T20 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15, 
+  override val _16: T16, 
+  override val _17: T17, 
+  override val _18: T18, 
+  override val _19: T19, 
+  override val _20: T20
 )
-extends Tuple20(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20)] {
-  def ~[U](c: Column[U]) = new Projection21(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,c)
+extends Tuple20(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value, T20#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection21(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
-    _15.getResult(profile, rs),
-    _16.getResult(profile, rs),
-    _17.getResult(profile, rs),
-    _18.getResult(profile, rs),
-    _19.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
+    _15.getResult(profile, rs), 
+    _16.getResult(profile, rs), 
+    _17.getResult(profile, rs), 
+    _18.getResult(profile, rs), 
+    _19.getResult(profile, rs), 
     _20.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection20(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
-    _15.mapOp(f),
-    _16.mapOp(f),
-    _17.mapOp(f),
-    _18.mapOp(f),
-    _19.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
+    _15.mapOp(f), 
+    _16.mapOp(f), 
+    _17.mapOp(f), 
+    _18.mapOp(f), 
+    _19.mapOp(f), 
     _20.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15,t._16,t._17,t._18,t._19,t._20), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value, T20#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19, t._20), g)
 }
 
-final class Projection21[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15],
-  override val _16: Column[T16],
-  override val _17: Column[T17],
-  override val _18: Column[T18],
-  override val _19: Column[T19],
-  override val _20: Column[T20],
-  override val _21: Column[T21]
+final class Projection21[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU, +T16 <: ColumnU, +T17 <: ColumnU, +T18 <: ColumnU, +T19 <: ColumnU, +T20 <: ColumnU, +T21 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15, 
+  override val _16: T16, 
+  override val _17: T17, 
+  override val _18: T18, 
+  override val _19: T19, 
+  override val _20: T20, 
+  override val _21: T21
 )
-extends Tuple21(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21)] {
-  def ~[U](c: Column[U]) = new Projection22(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,c)
+extends Tuple21(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value, T20#Value, T21#Value)] {
+  def ~[U <: ColumnU](c: U) = new Projection22(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, c)
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
-    _15.getResult(profile, rs),
-    _16.getResult(profile, rs),
-    _17.getResult(profile, rs),
-    _18.getResult(profile, rs),
-    _19.getResult(profile, rs),
-    _20.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
+    _15.getResult(profile, rs), 
+    _16.getResult(profile, rs), 
+    _17.getResult(profile, rs), 
+    _18.getResult(profile, rs), 
+    _19.getResult(profile, rs), 
+    _20.getResult(profile, rs), 
     _21.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection21(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
-    _15.mapOp(f),
-    _16.mapOp(f),
-    _17.mapOp(f),
-    _18.mapOp(f),
-    _19.mapOp(f),
-    _20.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
+    _15.mapOp(f), 
+    _16.mapOp(f), 
+    _17.mapOp(f), 
+    _18.mapOp(f), 
+    _19.mapOp(f), 
+    _20.mapOp(f), 
     _21.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15,t._16,t._17,t._18,t._19,t._20,t._21), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value, T20#Value, T21#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19, t._20, t._21), g)
 }
 
-final class Projection22[T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22](
-  override val _1: Column[T1],
-  override val _2: Column[T2],
-  override val _3: Column[T3],
-  override val _4: Column[T4],
-  override val _5: Column[T5],
-  override val _6: Column[T6],
-  override val _7: Column[T7],
-  override val _8: Column[T8],
-  override val _9: Column[T9],
-  override val _10: Column[T10],
-  override val _11: Column[T11],
-  override val _12: Column[T12],
-  override val _13: Column[T13],
-  override val _14: Column[T14],
-  override val _15: Column[T15],
-  override val _16: Column[T16],
-  override val _17: Column[T17],
-  override val _18: Column[T18],
-  override val _19: Column[T19],
-  override val _20: Column[T20],
-  override val _21: Column[T21],
-  override val _22: Column[T22]
+final class Projection22[+T1 <: ColumnU, +T2 <: ColumnU, +T3 <: ColumnU, +T4 <: ColumnU, +T5 <: ColumnU, +T6 <: ColumnU, +T7 <: ColumnU, +T8 <: ColumnU, +T9 <: ColumnU, +T10 <: ColumnU, +T11 <: ColumnU, +T12 <: ColumnU, +T13 <: ColumnU, +T14 <: ColumnU, +T15 <: ColumnU, +T16 <: ColumnU, +T17 <: ColumnU, +T18 <: ColumnU, +T19 <: ColumnU, +T20 <: ColumnU, +T21 <: ColumnU, +T22 <: ColumnU](
+  override val _1: T1, 
+  override val _2: T2, 
+  override val _3: T3, 
+  override val _4: T4, 
+  override val _5: T5, 
+  override val _6: T6, 
+  override val _7: T7, 
+  override val _8: T8, 
+  override val _9: T9, 
+  override val _10: T10, 
+  override val _11: T11, 
+  override val _12: T12, 
+  override val _13: T13, 
+  override val _14: T14, 
+  override val _15: T15, 
+  override val _16: T16, 
+  override val _17: T17, 
+  override val _18: T18, 
+  override val _19: T19, 
+  override val _20: T20, 
+  override val _21: T21, 
+  override val _22: T22
 )
-extends Tuple22(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,_17,_18,_19,_20,_21,_22) with Projection[(T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22)] {
+extends Tuple22(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16, _17, _18, _19, _20, _21, _22) with Projection[(T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value, T20#Value, T21#Value, T22#Value)] {
   
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
-    _1.getResult(profile, rs),
-    _2.getResult(profile, rs),
-    _3.getResult(profile, rs),
-    _4.getResult(profile, rs),
-    _5.getResult(profile, rs),
-    _6.getResult(profile, rs),
-    _7.getResult(profile, rs),
-    _8.getResult(profile, rs),
-    _9.getResult(profile, rs),
-    _10.getResult(profile, rs),
-    _11.getResult(profile, rs),
-    _12.getResult(profile, rs),
-    _13.getResult(profile, rs),
-    _14.getResult(profile, rs),
-    _15.getResult(profile, rs),
-    _16.getResult(profile, rs),
-    _17.getResult(profile, rs),
-    _18.getResult(profile, rs),
-    _19.getResult(profile, rs),
-    _20.getResult(profile, rs),
-    _21.getResult(profile, rs),
+    _1.getResult(profile, rs), 
+    _2.getResult(profile, rs), 
+    _3.getResult(profile, rs), 
+    _4.getResult(profile, rs), 
+    _5.getResult(profile, rs), 
+    _6.getResult(profile, rs), 
+    _7.getResult(profile, rs), 
+    _8.getResult(profile, rs), 
+    _9.getResult(profile, rs), 
+    _10.getResult(profile, rs), 
+    _11.getResult(profile, rs), 
+    _12.getResult(profile, rs), 
+    _13.getResult(profile, rs), 
+    _14.getResult(profile, rs), 
+    _15.getResult(profile, rs), 
+    _16.getResult(profile, rs), 
+    _17.getResult(profile, rs), 
+    _18.getResult(profile, rs), 
+    _19.getResult(profile, rs), 
+    _20.getResult(profile, rs), 
+    _21.getResult(profile, rs), 
     _22.getResult(profile, rs)
   )
   override def mapOp(f: Node => Node): this.type = new Projection22(
-    _1.mapOp(f),
-    _2.mapOp(f),
-    _3.mapOp(f),
-    _4.mapOp(f),
-    _5.mapOp(f),
-    _6.mapOp(f),
-    _7.mapOp(f),
-    _8.mapOp(f),
-    _9.mapOp(f),
-    _10.mapOp(f),
-    _11.mapOp(f),
-    _12.mapOp(f),
-    _13.mapOp(f),
-    _14.mapOp(f),
-    _15.mapOp(f),
-    _16.mapOp(f),
-    _17.mapOp(f),
-    _18.mapOp(f),
-    _19.mapOp(f),
-    _20.mapOp(f),
-    _21.mapOp(f),
+    _1.mapOp(f), 
+    _2.mapOp(f), 
+    _3.mapOp(f), 
+    _4.mapOp(f), 
+    _5.mapOp(f), 
+    _6.mapOp(f), 
+    _7.mapOp(f), 
+    _8.mapOp(f), 
+    _9.mapOp(f), 
+    _10.mapOp(f), 
+    _11.mapOp(f), 
+    _12.mapOp(f), 
+    _13.mapOp(f), 
+    _14.mapOp(f), 
+    _15.mapOp(f), 
+    _16.mapOp(f), 
+    _17.mapOp(f), 
+    _18.mapOp(f), 
+    _19.mapOp(f), 
+    _20.mapOp(f), 
+    _21.mapOp(f), 
     _22.mapOp(f)
   ).asInstanceOf[this.type]
-  def <>[R](f: ((T1,T2,T3,T4,T5,T6,T7,T8,T9,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22) => R), g: (R => Some[V])): MappedProjection[R,V] =
-    <>(t => f(t._1,t._2,t._3,t._4,t._5,t._6,t._7,t._8,t._9,t._10,t._11,t._12,t._13,t._14,t._15,t._16,t._17,t._18,t._19,t._20,t._21,t._22), g)
+  def <>[R](f: ((T1#Value, T2#Value, T3#Value, T4#Value, T5#Value, T6#Value, T7#Value, T8#Value, T9#Value, T10#Value, T11#Value, T12#Value, T13#Value, T14#Value, T15#Value, T16#Value, T17#Value, T18#Value, T19#Value, T20#Value, T21#Value, T22#Value) => R), g: (R => Some[V])): MappedProjection[R,V] =
+    <>(t => f(t._1, t._2, t._3, t._4, t._5, t._6, t._7, t._8, t._9, t._10, t._11, t._12, t._13, t._14, t._15, t._16, t._17, t._18, t._19, t._20, t._21, t._22), g)
 }
 

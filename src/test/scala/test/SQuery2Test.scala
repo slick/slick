@@ -1,6 +1,6 @@
 package test
 
-import com.novocode.squery.combinator.{Table, Join, Query, Projection, NamingContext, ColumnBase}
+import com.novocode.squery.combinator.{Table, Join, Query, Projection, NamingContext, ColumnBase, Column, Projection2}
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
@@ -18,6 +18,8 @@ object SQuery2Test {
     object Orders extends Table[(Int, Int)]("orders") {
       def userID = column[Int]("userID")
       def orderID = column[Int]("orderID")
+      //def foo1:Projection2[Column[Int], Column[Int]] = userID ~ orderID
+      //def foo2:Projection[(Int,Int)] = foo1
       def * = userID ~ orderID
     }
 
