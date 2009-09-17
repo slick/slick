@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.basic
 
-import com.novocode.squery.combinator.{ColumnBase, Table, SQLBuilder, NamingContext, Sequence, Query, Projection}
+import com.novocode.squery.combinator.{ColumnBase, ColumnBaseU, Table, SQLBuilder, NamingContext, Sequence, Query, Projection}
 
 trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_ <: BasicProfile]
@@ -12,14 +12,14 @@ trait BasicProfile {
   val Implicit: ImplicitT
   val typeMapperDelegates: TypeMapperDelegatesT
 
-  def buildSelectStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
+  def buildSelectStatement(query: Query[ColumnBaseU], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildSelect
-  def buildUpdateStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
+  def buildUpdateStatement(query: Query[ColumnBaseU], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildUpdate
   def buildDeleteStatement(query: Query[Table[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildDelete
 
   def buildCreateTableStatement(table: Table[_]): String = new BasicDDLBuilder(table, this).buildCreateTable
-  def buildInsertStatement(cb: ColumnBase[_]): String = new BasicInsertBuilder(cb).buildInsert
+  def buildInsertStatement(cb: ColumnBaseU): String = new BasicInsertBuilder(cb).buildInsert
   def buildCreateSequenceStatement(seq: Sequence[_]): String = new BasicSequenceDDLBuilder(seq).buildCreateSequence
 }

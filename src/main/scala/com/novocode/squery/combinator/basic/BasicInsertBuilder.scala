@@ -5,7 +5,7 @@ import java.io.PrintWriter
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 
-class BasicInsertBuilder(val column: ColumnBase[_]) {
+class BasicInsertBuilder(val column: ColumnBaseU) {
 
   def buildInsert: String = {
     val cols = new StringBuilder

@@ -4,8 +4,6 @@ import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
-  type V = T
-
   def nodeChildren = 0 until productArity map { i => Node(productElement(i)) } toList
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = {
@@ -45,7 +43,7 @@ object ~ {
 }
 
 <#list 2..22 as i>
-final class Projection${i}[<#list 1..i as j>+T${j} <: ColumnU<#if i != j>, </#if></#list>](
+final class Projection${i}[<#list 1..i as j>T${j} <: ColumnU<#if i != j>, </#if></#list>](
 <#list 1..i as j>
   override val _${j}: T${j}<#if i != j>, </#if>
 </#list>)
@@ -59,7 +57,7 @@ extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>, </#if></#list>) with Proje
 <#list 1..i as j>
     _${j}.mapOp(f)<#if i != j>, </#if>
 </#list>  ).asInstanceOf[this.type]
-  def <>[R](f: ((<#list 1..i as j>T${j}#Value<#if i != j>, </#if></#list>) => R), g: (R => Some[V])): MappedProjection[R,V] =
+  def <>[R](f: ((<#list 1..i as j>T${j}#Value<#if i != j>, </#if></#list>) => R), g: (R => Some[Value])): MappedProjection[R,Value] =
     <>(t => f(<#list 1..i as j>t._${j}<#if i != j>, </#if></#list>), g)
 }
 

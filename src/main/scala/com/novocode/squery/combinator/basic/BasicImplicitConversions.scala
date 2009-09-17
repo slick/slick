@@ -58,7 +58,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
 
-  implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[T] = new BasicQueryInvoker(q, squeryDriver)
+  implicit def queryToQueryInvoker[T <: ColumnBaseU](q: Query[T]): BasicQueryInvoker[T] = new BasicQueryInvoker(q, squeryDriver)
   implicit def queryToDeleteInvoker[T](q: Query[Table[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, squeryDriver)
   implicit def productQueryToUpdateInvoker[T <: Product](q: Query[Projection[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, squeryDriver)
   implicit def namedColumnQueryToUpdateInvoker[T](q: Query[NamedColumn[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, squeryDriver)

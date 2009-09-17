@@ -14,7 +14,7 @@ object SQuery2Test2 {
     object Users extends Table[(Int, String, Option[String])]("users") {
       def id = column[Int]("id", O AutoInc, O NotNull)
       def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
-      def last = column[Option[String]]("last")
+      def last = columnOption[String]("last")
       def * = id ~ first ~ last
 
       def orders = Orders where { _.userID is id }
@@ -25,7 +25,7 @@ object SQuery2Test2 {
       def orderID = column[Int]("orderID", O AutoInc, O NotNull)
       def product = column[String]("product")
       def shipped = column[Boolean]("shipped", O Default false, O NotNull)
-      def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
+      def rebate = columnOption[Boolean]("rebate", O Default Some(false))
       def * = userID ~ orderID ~ product ~ shipped ~ rebate
     }
 
