@@ -15,12 +15,12 @@ final class Parameters[P, C](c: C) {
 }
 
 object Parameters {
-  def apply[P1](implicit tm1: TypeMapper[P1]) = new Parameters[P1, Column[P1]](new ParameterColumn(-1, tm1))
+  def apply[P1](implicit tm1: TypeMapper[_,P1]) = new Parameters[P1, Column[P1]](new ParameterColumn(-1, tm1))
 <#list 2..22 as i>
 
   def apply[<#list 1..i as j>P${j}<#if i != j>,</#if></#list>](implicit
 <#list 1..i as j>
-      tm${j}: TypeMapper[P${j}]<#if i != j>,</#if>
+      tm${j}: TypeMapper[_,P${j}]<#if i != j>,</#if>
 </#list>  ) = new Parameters[(<#list 1..i as j>P${j}<#if i != j>,</#if></#list>), Projection${i}[<#list 1..i as j>P${j}<#if i != j>,</#if></#list>]](new Projection${i}(
 <#list 1..i as j>
     new ParameterColumn(${j-1}, tm${j})<#if i != j>,</#if>

@@ -20,7 +20,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
 
   val O = ColumnOption
 
-  def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]) = new NamedColumn[C](Node(this), n, tm, options:_*)
+  def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[_,C]) = new NamedColumn[C](Node(this), n, tm, options:_*)
 
   def * : ColumnBase[T]
 
@@ -37,7 +37,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
     f(Node(*))
   }
 
-  def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit profile: BasicProfile, tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
+  def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit profile: BasicProfile, tm: TypeMapper[_,P]): BasicQueryTemplate[P,T] = {
     import profile.Implicit._
     Parameters[P](tm).flatMap(p => Query(this).where(t => Operator.Is(f(t.asInstanceOf[Table.this.type]), p)))(profile)
   }

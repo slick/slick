@@ -52,7 +52,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: BaseTypeMapper[T]): Column[Option[T]] = c.?
 
-  implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
+  implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[_,T]) = new ConstColumn[T](v)(tm)
 
   implicit def tableToQuery[T <: TableBase[_]](t: T) = Query(t.mapOp(n => new Table.Alias(Node(n))))
 

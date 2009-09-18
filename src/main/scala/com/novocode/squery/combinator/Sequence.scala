@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator
 
-class Sequence[T] private[Sequence] (tm: TypeMapper[T],
+class Sequence[T] private[Sequence] (tm: TypeMapper[_,T],
     val name: String,
     val _minValue: Option[T],
     val _maxValue: Option[T],
@@ -26,6 +26,6 @@ class Sequence[T] private[Sequence] (tm: TypeMapper[T],
 }
 
 object Sequence {
-  def apply[T](name: String)(implicit tm: TypeMapper[T]) =
+  def apply[T](name: String)(implicit tm: TypeMapper[_,T]) =
     new Sequence[T](tm, name, None, None, None, None, false)
 }

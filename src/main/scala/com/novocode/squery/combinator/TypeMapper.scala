@@ -4,14 +4,16 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedParameters, PositionedResult}
 
-sealed trait TypeMapper[T] extends (BasicProfile => TypeMapperDelegate[T]) { self =>
-  def createOptionTypeMapper: OptionTypeMapper[T] = new OptionTypeMapper[T](self) {
-    def apply(profile: BasicProfile) = self(profile).createOptionTypeMapperDelegate
-  }
+sealed trait TypeMapper[B,V] extends (BasicProfile => TypeMapperDelegate[V]) {
+  final type Base = B
+  final type Value = V
+  type OM <: NewOptionMapper
+  val om: OM
+  def createOptionTypeMapper: OptionTypeMapper[V] = new OptionTypeMapper[V](this)
 }
 
 object TypeMapper {
-  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = t.createOptionTypeMapper
+  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T,T]): OptionTypeMapper[T] = t.createOptionTypeMapper
 
   implicit object BooleanTypeMapper extends BaseTypeMapper[Boolean] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.booleanTypeMapperDelegate
@@ -66,9 +68,16 @@ object TypeMapper {
   }
 }
 
-trait BaseTypeMapper[T] extends TypeMapper[T]
+trait BaseTypeMapper[T] extends TypeMapper[T,T] {
+  final type OM = NewOptionMapper.False.type
+  final val om = NewOptionMapper.False
+}
 
-abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[Option[T]]
+final class OptionTypeMapper[T](val base: TypeMapper[_,T]) extends TypeMapper[T,Option[T]] {
+  type OM = NewOptionMapper.True.type
+  val om = NewOptionMapper.True
+  def apply(profile: BasicProfile) = base(profile).createOptionTypeMapperDelegate
+}
 
 trait NumericTypeMapper
 
@@ -89,5 +98,28 @@ trait TypeMapperDelegate[T] { self =>
     def setOption(v: Option[Option[T]], p: PositionedParameters) = self.setOption(v.getOrElse(None), p)
     def nextValue(r: PositionedResult) = self.nextOption(r)
     override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
+  }
+}
+
+trait NewOptionMapper {
+  type Plus[Other <: NewOptionMapper]
+  type Apply[T]
+  def apply[B](c: Column[B]): Column[Apply[B]]
+  def +[O <: NewOptionMapper](o: O): Plus[O]
+}
+
+object NewOptionMapper {
+  object True extends NewOptionMapper {
+    type Plus[Other <: NewOptionMapper] = True.type
+    type Apply[T] = Option[T]
+    def apply[B](c: Column[B]) = c.?
+    def +[O <: NewOptionMapper](o: O): Plus[O] = this
+  }
+
+  object False extends NewOptionMapper {
+    type Plus[Other <: NewOptionMapper] = Other
+    type Apply[T] = T
+    def apply[B](c: Column[B]) = c
+    def +[O <: NewOptionMapper](o: O): Plus[O] = o
   }
 }

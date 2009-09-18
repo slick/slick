@@ -15,10 +15,10 @@ object Operator {
   case class Relational(name: String, left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean]
   case class Length(child: Node) extends OperatorColumn[Int] with SimpleFunction with UnaryNode { val name = "length" }
   case class Exists(child: Node) extends OperatorColumn[Boolean] with SimpleFunction with UnaryNode with BooleanColumnOps[Boolean] { val name = "exists" }
-  case class Arith[T](name: String, left: Node, right: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleBinaryOperator
+  case class Arith[T](name: String, left: Node, right: Node, tm: TypeMapper[_,T]) extends OperatorColumn[T]()(tm) with SimpleBinaryOperator
 
   case class Is(left: Node, right: Node) extends OperatorColumn[Boolean] with BinaryNode with BooleanColumnOps[Boolean]
   case class Not(child: Node) extends OperatorColumn[Boolean] with UnaryNode with BooleanColumnOps[Boolean]
   case class CountDistinct(child: Node) extends OperatorColumn[Int] with UnaryNode
-  case class InSet[T](child: Node, seq: Seq[T], tm: TypeMapper[T], bind: Boolean) extends OperatorColumn[Boolean] with UnaryNode
+  case class InSet[T](child: Node, seq: Seq[T], tm: TypeMapper[_,T], bind: Boolean) extends OperatorColumn[Boolean] with UnaryNode
 }
