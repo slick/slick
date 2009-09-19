@@ -21,4 +21,8 @@ object Operator {
   case class Not(child: Node) extends OperatorColumn[Boolean] with UnaryNode with BooleanColumnOps[Boolean]
   case class CountDistinct(child: Node) extends OperatorColumn[Int] with UnaryNode
   case class InSet[T](child: Node, seq: Seq[T], tm: TypeMapper[T], bind: Boolean) extends OperatorColumn[Boolean] with UnaryNode
+
+  case class Between(left: Node, start: Node, end: Node) extends OperatorColumn[Boolean] with BooleanColumnOps[Boolean] {
+    def nodeChildren = left :: start :: end :: Nil
+  }
 }

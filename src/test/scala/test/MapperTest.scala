@@ -29,7 +29,7 @@ object MapperTest {
         User(None, "Lenny", "Leonard")
       )
 
-      Users.where(_.id <= 2).foreach(println)
+      Users.where(_.id between(1, 2)).foreach(println)
       println("ID 3 -> " + Users.findByID.first(3))
     }
   }

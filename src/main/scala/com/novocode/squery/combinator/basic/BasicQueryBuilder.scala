@@ -208,6 +208,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += ')'
     }
     case SimpleLiteral(w) => b += w
+    case Operator.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
     case Operator.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
     case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }

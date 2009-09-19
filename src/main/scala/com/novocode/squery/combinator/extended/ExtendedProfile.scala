@@ -23,11 +23,11 @@ trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicIm
 }
 
 trait ExtendedStringColumnOps[P1] extends StringColumnOps[P1] {
-  def ++[P2, R](e: Column[P2])(implicit om: OptionMapper[String, String, String, P1, P2, R]): Column[R] =
+  def ++[P2, R](e: Column[P2])(implicit om: OptionMapper2[String, String, String, P1, P2, R]): Column[R] =
     om(ExtendedOperator.Concat(leftOperand, Node(e)))
-  def startsWith[P2, R](e: Column[P2])(implicit om: OptionMapper[String, String, Boolean, P1, P2, R]): Column[R] =
+  def startsWith[P2, R](e: Column[P2])(implicit om: OptionMapper2[String, String, Boolean, P1, P2, R]): Column[R] =
     om(ExtendedOperator.StartsEndsWith(leftOperand, Node(e), false))
-  def endsWith[P2, R](e: Column[P2])(implicit om: OptionMapper[String, String, Boolean, P1, P2, R]): Column[R] =
+  def endsWith[P2, R](e: Column[P2])(implicit om: OptionMapper2[String, String, Boolean, P1, P2, R]): Column[R] =
     om(ExtendedOperator.StartsEndsWith(leftOperand, Node(e), true))
 }
 
