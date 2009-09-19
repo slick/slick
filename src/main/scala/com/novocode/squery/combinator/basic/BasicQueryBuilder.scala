@@ -181,9 +181,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ConstColumn(null) => b += "null"
-    case Operator.Not(Operator.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
-    case Operator.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
-    case Operator.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
+    case BooleanColumnOps.Not(AllColumnOps.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
+    case BooleanColumnOps.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
+    case AllColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
       b += '('; expr(e, b); b += " in ("
       if(bind) {
         var first = true
@@ -195,8 +195,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       else b += seq.map(tm(profile).valueToSQLLiteral).mkString(",")
       b += "))"
     }
-    case Operator.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
-    case Operator.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
+    case AllColumnOps.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
+    case AllColumnOps.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
     case s: SimpleFunction => {
       b += s.name += '('
       var first = true
@@ -208,9 +208,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += ')'
     }
     case SimpleLiteral(w) => b += w
-    case Operator.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
-    case Operator.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
-    case Operator.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
+    case AllColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
+    case AllColumnOps.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
+    case AllColumnOps.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
     case query:Query[_] => { b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")" }
     //case Union.UnionPart(_) => "*"

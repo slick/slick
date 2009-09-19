@@ -39,7 +39,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
 
   def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit profile: BasicProfile, tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
     import profile.Implicit._
-    Parameters[P](tm).flatMap(p => Query(this).where(t => Operator.Is(f(t.asInstanceOf[Table.this.type]), p)))(profile)
+    Parameters[P](tm).flatMap(p => Query(this).where(t => AllColumnOps.Is(f(t.asInstanceOf[Table.this.type]), p)))(profile)
   }
 
   def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)

@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, Operator}
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder}
 import com.novocode.squery.combinator.basic.{BasicQueryBuilder, ConcreteBasicQueryBuilder, BasicTypeMapperDelegates}
 
 object OracleDriver extends ExtendedProfile { self =>
