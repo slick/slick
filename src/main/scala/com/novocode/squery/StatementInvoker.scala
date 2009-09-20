@@ -34,7 +34,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] {
   def elements(param: P)(implicit session: Session): CloseableIterator[R] = {
     //TODO Support multiple results
     val statement = getStatement
-    val st = session.conn.prepareStatement(statement)
+    val st = session.prepareStatement(statement)
     setParam(param, st)
     var doClose = true
     try {

@@ -16,7 +16,7 @@ abstract class Database {
   /**
    * Create a new session. The session needs to be closed explicitly by calling its close() method.
    */
-  def createSession(): Session = new Session(this)
+  def createSession(): Session = new BaseSession(this)
 
   /**
    * Run the supplied function with a new session and automatically close the session at the end.
@@ -51,7 +51,7 @@ abstract class Database {
  */
 object Database {
 
-  private val dyn = new DynamicVariable[Session](null)
+  private[session] val dyn = new DynamicVariable[Session](null)
 
   /**
    * An implicit function that returns the thread-local session in a withSession block
