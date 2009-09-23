@@ -2,12 +2,14 @@ package com.novocode.squery.combinator.basic
 
 import java.sql.PreparedStatement
 import com.novocode.squery.StatementInvoker
-import com.novocode.squery.{Invoker, MappedInvoker, UnitInvokerMixin}
+import com.novocode.squery.{Invoker, MappedInvoker, UnitInvokerMixin, MutatingStatementInvoker, DelegatingMutatingUnitInvoker}
 import com.novocode.squery.combinator.{Query, ColumnBase, NamingContext}
 import com.novocode.squery.session.{Session, PositionedParameters, PositionedResult, ReadAheadIterator, CloseableIterator}
 
-class BasicQueryInvoker[+R](q: Query[ColumnBase[R]], profile: BasicProfile)
-  extends StatementInvoker[Unit, R] with UnitInvokerMixin[R] {
+class BasicQueryInvoker[R](q: Query[ColumnBase[R]], profile: BasicProfile)
+  extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with DelegatingMutatingUnitInvoker[Unit, R] {
+
+  override protected val delegate = this
 
   protected lazy val built = profile.buildSelectStatement(q, NamingContext())
 
@@ -18,4 +20,6 @@ class BasicQueryInvoker[+R](q: Query[ColumnBase[R]], profile: BasicProfile)
   protected def setParam(param: Unit, st: PreparedStatement): Unit = built.setter(new PositionedParameters(st), null)
 
   protected def extractValue(rs: PositionedResult): R = q.value.getResult(profile, rs)
+
+  protected def updateRowValues(rs: PositionedResult, value: R) = q.value.updateResult(profile, rs, value)
 }

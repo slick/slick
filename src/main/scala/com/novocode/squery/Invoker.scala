@@ -35,7 +35,7 @@ trait Invoker[-P, +R] { self =>
     _z
   }
 
-  final def apply(parameter: P): UnitInvoker[R] = new AppliedInvoker[P,R] {
+  def apply(parameter: P): UnitInvoker[R] = new AppliedInvoker[P,R] {
     protected val appliedParameter = parameter
     protected val delegate = self
   }
@@ -83,7 +83,7 @@ trait DelegatingUnitInvoker[P, +R] extends UnitInvoker[R] {
 
 trait UnitInvokerMixin[+R] extends DelegatingUnitInvoker[Unit, R] {
   final protected val appliedParameter = ()
-  final protected val delegate = this
+  protected val delegate = this
 }
 
 trait AppliedInvoker[P, +R] extends DelegatingUnitInvoker[P, R] {

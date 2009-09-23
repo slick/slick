@@ -43,6 +43,7 @@ abstract class Table[T](val tableName: String) extends TableBase[T] with ColumnB
   }
 
   def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
+  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = *.updateResult(profile, rs, value)
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)
 }
 

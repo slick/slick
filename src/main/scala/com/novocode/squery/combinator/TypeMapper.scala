@@ -78,8 +78,13 @@ trait TypeMapperDelegate[T] { self =>
   def setValue(v: T, p: PositionedParameters): Unit
   def setOption(v: Option[T], p: PositionedParameters): Unit
   def nextValue(r: PositionedResult): T
+  def updateValue(v: T, r: PositionedResult): Unit
   final def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs wasNull) d else v }
   final def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs wasNull) None else Some(v) }
+  final def updateOption(v: Option[T], r: PositionedResult): Unit = v match {
+    case Some(s) => updateValue(s, r)
+    case None => r.updateNull()
+  }
   def valueToSQLLiteral(value: T): String = value.toString
 
   def createOptionTypeMapperDelegate: TypeMapperDelegate[Option[T]] = new TypeMapperDelegate[Option[T]] {
@@ -88,6 +93,7 @@ trait TypeMapperDelegate[T] { self =>
     def setValue(v: Option[T], p: PositionedParameters) = self.setOption(v, p)
     def setOption(v: Option[Option[T]], p: PositionedParameters) = self.setOption(v.getOrElse(None), p)
     def nextValue(r: PositionedResult) = self.nextOption(r)
+    def updateValue(v: Option[T], r: PositionedResult) = self.updateOption(v, r)
     override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
   }
 }

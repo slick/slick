@@ -10,17 +10,30 @@ trait Session extends java.io.Closeable { self =>
 
   def conn: Connection
 
-  def resultSetType: ResultSetType = ResultSetType.ForwardOnly
-  def resultSetConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly
-  def resultSetHoldability: ResultSetHoldability = ResultSetHoldability.Default
+  def resultSetType: ResultSetType = ResultSetType.Auto
+  def resultSetConcurrency: ResultSetConcurrency = ResultSetConcurrency.Auto
+  def resultSetHoldability: ResultSetHoldability = ResultSetHoldability.Auto
 
-  final def prepareStatement(sql: String): PreparedStatement = resultSetHoldability match {
-    case ResultSetHoldability.Default => conn.prepareStatement(sql, resultSetType.intValue, resultSetConcurrency.intValue)
-    case _ => conn.prepareStatement(sql, resultSetType.intValue, resultSetConcurrency.intValue, resultSetHoldability.intValue)
+  final def prepareStatement(sql: String,
+             defaultType: ResultSetType = ResultSetType.ForwardOnly,
+             defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
+             defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): PreparedStatement = {
+    resultSetHoldability.withDefault(defaultHoldability) match {
+      case ResultSetHoldability.Default =>
+        conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
+          resultSetConcurrency.withDefault(defaultConcurrency).intValue)
+      case h =>
+        conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
+          resultSetConcurrency.withDefault(defaultConcurrency).intValue,
+          h.intValue)
+    }
   }
 
-  final def withPreparedStatement[T](sql: String)(f: (PreparedStatement => T)): T = {
-    val st = prepareStatement(sql)
+  final def withPreparedStatement[T](sql: String,
+              defaultType: ResultSetType = ResultSetType.ForwardOnly,
+              defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
+              defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)(f: (PreparedStatement => T)): T = {
+    val st = prepareStatement(sql, defaultType, defaultConcurrency, defaultHoldability)
     try f(st) finally st.close()
   }
 

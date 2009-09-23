@@ -28,6 +28,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Boolean, p: PositionedParameters) = p.setBoolean(v)
     def setOption(v: Option[Boolean], p: PositionedParameters) = p.setBooleanOption(v)
     def nextValue(r: PositionedResult) = r.nextBoolean
+    def updateValue(v: Boolean, r: PositionedResult) = r.updateBoolean(v)
   }
 
   class BlobTypeMapperDelegate extends TypeMapperDelegate[Blob] {
@@ -36,6 +37,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Blob, p: PositionedParameters) = p.setBlob(v)
     def setOption(v: Option[Blob], p: PositionedParameters) = p.setBlobOption(v)
     def nextValue(r: PositionedResult) = r.nextBlob
+    def updateValue(v: Blob, r: PositionedResult) = r.updateBlob(v)
   }
 
   class ByteTypeMapperDelegate extends TypeMapperDelegate[Byte] {
@@ -44,6 +46,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
     def setOption(v: Option[Byte], p: PositionedParameters) = p.setByteOption(v)
     def nextValue(r: PositionedResult) = r.nextByte
+    def updateValue(v: Byte, r: PositionedResult) = r.updateByte(v)
   }
 
   class ClobTypeMapperDelegate extends TypeMapperDelegate[Clob] {
@@ -52,6 +55,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Clob, p: PositionedParameters) = p.setClob(v)
     def setOption(v: Option[Clob], p: PositionedParameters) = p.setClobOption(v)
     def nextValue(r: PositionedResult) = r.nextClob
+    def updateValue(v: Clob, r: PositionedResult) = r.updateClob(v)
   }
 
   class DateTypeMapperDelegate extends TypeMapperDelegate[Date] {
@@ -60,6 +64,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Date, p: PositionedParameters) = p.setDate(v)
     def setOption(v: Option[Date], p: PositionedParameters) = p.setDateOption(v)
     def nextValue(r: PositionedResult) = r.nextDate
+    def updateValue(v: Date, r: PositionedResult) = r.updateDate(v)
   }
 
   class DoubleTypeMapperDelegate extends TypeMapperDelegate[Double] {
@@ -68,6 +73,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Double, p: PositionedParameters) = p.setDouble(v)
     def setOption(v: Option[Double], p: PositionedParameters) = p.setDoubleOption(v)
     def nextValue(r: PositionedResult) = r.nextDouble
+    def updateValue(v: Double, r: PositionedResult) = r.updateDouble(v)
   }
 
   class FloatTypeMapperDelegate extends TypeMapperDelegate[Float] {
@@ -76,6 +82,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Float, p: PositionedParameters) = p.setFloat(v)
     def setOption(v: Option[Float], p: PositionedParameters) = p.setFloatOption(v)
     def nextValue(r: PositionedResult) = r.nextFloat
+    def updateValue(v: Float, r: PositionedResult) = r.updateFloat(v)
   }
 
   class IntTypeMapperDelegate extends TypeMapperDelegate[Int] {
@@ -84,6 +91,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Int, p: PositionedParameters) = p.setInt(v)
     def setOption(v: Option[Int], p: PositionedParameters) = p.setIntOption(v)
     def nextValue(r: PositionedResult) = r.nextInt
+    def updateValue(v: Int, r: PositionedResult) = r.updateInt(v)
   }
 
   class LongTypeMapperDelegate extends TypeMapperDelegate[Long] {
@@ -92,6 +100,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Long, p: PositionedParameters) = p.setLong(v)
     def setOption(v: Option[Long], p: PositionedParameters) = p.setLongOption(v)
     def nextValue(r: PositionedResult) = r.nextLong
+    def updateValue(v: Long, r: PositionedResult) = r.updateLong(v)
   }
 
   class StringTypeMapperDelegate extends TypeMapperDelegate[String] {
@@ -100,6 +109,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: String, p: PositionedParameters) = p.setString(v)
     def setOption(v: Option[String], p: PositionedParameters) = p.setStringOption(v)
     def nextValue(r: PositionedResult) = r.nextString
+    def updateValue(v: String, r: PositionedResult) = r.updateString(v)
     override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
       val sb = new StringBuilder
       sb append '\''
@@ -118,6 +128,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Time, p: PositionedParameters) = p.setTime(v)
     def setOption(v: Option[Time], p: PositionedParameters) = p.setTimeOption(v)
     def nextValue(r: PositionedResult) = r.nextTime
+    def updateValue(v: Time, r: PositionedResult) = r.updateTime(v)
   }
 
   class TimestampTypeMapperDelegate extends TypeMapperDelegate[Timestamp] {
@@ -126,6 +137,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Timestamp, p: PositionedParameters) = p.setTimestamp(v)
     def setOption(v: Option[Timestamp], p: PositionedParameters) = p.setTimestampOption(v)
     def nextValue(r: PositionedResult) = r.nextTimestamp
+    def updateValue(v: Timestamp, r: PositionedResult) = r.updateTimestamp(v)
   }
 
   class NullTypeMapperDelegate extends TypeMapperDelegate[Null] {
@@ -134,6 +146,7 @@ object BasicTypeMapperDelegates {
     def setValue(v: Null, p: PositionedParameters) = p.setString(null)
     def setOption(v: Option[Null], p: PositionedParameters) = p.setString(null)
     def nextValue(r: PositionedResult) = { r.nextString; null }
+    def updateValue(v: Null, r: PositionedResult) = r.updateNull()
     override def valueToSQLLiteral(value: Null) = "NULL"
   }
 }
