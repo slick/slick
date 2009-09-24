@@ -53,7 +53,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
       (implicit session: Session): Either[Int, PositionedResult] = {
     //TODO Support multiple results
     val statement = getStatement
-    val st = session.prepareStatement(statement)
+    val st = session.prepareStatement(statement, defaultType, defaultConcurrency, defaultHoldability)
     setParam(param, st)
     var doClose = true
     try {
