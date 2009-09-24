@@ -10,7 +10,7 @@ object MutateTest {
   def main(args: Array[String]) {
 
     object Users extends Table[(Option[Int],String,String)]("users") {
-      def id = column[Int]("id", O AutoInc, O NotNull)
+      def id = column[Int]("id", O AutoInc, O NotNull, O PrimaryKey)
       def first = column[String]("first", O NotNull)
       def last = column[String]("last", O NotNull)
       def * = id.? ~ first ~ last

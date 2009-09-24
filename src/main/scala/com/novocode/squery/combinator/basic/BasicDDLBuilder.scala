@@ -23,11 +23,13 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
     var sqlType: String = null
     var notNull = false
     var autoIncrement = false
+    var primaryKey = false
     var defaultLiteral: String = null
     for(o <- c.options) o match {
       case ColumnOption.DBType(s) => sqlType = s
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.AutoInc => autoIncrement = true
+      case ColumnOption.PrimaryKey => primaryKey = true
       case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
     }
     if(sqlType eq null)
@@ -37,6 +39,7 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
     if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
     if(notNull) sb append " NOT NULL"
     if(autoIncrement) sb append " AUTO_INCREMENT"
+    if(primaryKey) sb append " PRIMARY KEY"
   }
 }
 
