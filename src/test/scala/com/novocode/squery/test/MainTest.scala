@@ -1,36 +1,39 @@
-package test
+package com.novocode.squery.test
 
+import org.junit.Test
+import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
-object SQuery2Test2 {
-  def main(args: Array[String]) {
+object MainTest { def main(args: Array[String]) = new MainTest().test() }
 
-    case class User(id: Int, first: String, last: String)
+class MainTest {
+  case class User(id: Int, first: String, last: String)
 
-    object Users extends Table[(Int, String, Option[String])]("users") {
-      def id = column[Int]("id", O AutoInc, O NotNull)
-      def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
-      def last = column[Option[String]]("last")
-      def * = id ~ first ~ last
+  object Users extends Table[(Int, String, Option[String])]("users") {
+    def id = column[Int]("id", O AutoInc, O NotNull)
+    def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
+    def last = column[Option[String]]("last")
+    def * = id ~ first ~ last
 
-      def orders = Orders where { _.userID is id }
-    }
+    def orders = Orders where { _.userID is id }
+  }
 
-    object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
-      def userID = column[Int]("userID", O NotNull)
-      def orderID = column[Int]("orderID", O AutoInc, O NotNull)
-      def product = column[String]("product")
-      def shipped = column[Boolean]("shipped", O Default false, O NotNull)
-      def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
-      def * = userID ~ orderID ~ product ~ shipped ~ rebate
-    }
+  object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
+    def userID = column[Int]("userID", O NotNull)
+    def orderID = column[Int]("orderID", O AutoInc, O NotNull)
+    def product = column[String]("product")
+    def shipped = column[Boolean]("shipped", O Default false, O NotNull)
+    def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
+    def * = userID ~ orderID ~ product ~ shipped ~ rebate
+  }
 
-    val mySequence = Sequence[Int]("mysequence") start 200 inc 10
+  val mySequence = Sequence[Int]("mysequence") start 200 inc 10
 
+  @Test def test() {
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
       println(Users.createTableStatement)
@@ -44,6 +47,7 @@ object SQuery2Test2 {
         ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )
       val ins3 = Users.first.insertAll("Santa's Little Helper", "Snowball")
       println("Inserted "+(ins1+ins2+ins3)+" users")
+      assertEquals(ins1+ins2+ins3, 7)
 
       val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last
       println("q1: " + q1.selectStatement)
@@ -51,15 +55,32 @@ object SQuery2Test2 {
       val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.getOrElse(null)) }.list
       for(u <- allUsers) println("User object: "+u)
 
+      val expectedUserTuples = List(
+        (1,"Homer",Some("Simpson")),
+        (2,"Marge",Some("Simpson")),
+        (3,"Apu",Some("Nahasapeemapetilon")),
+        (4,"Carl",Some("Carlson")),
+        (5,"Lenny",Some("Leonard")),
+        (6,"Santa's Little Helper",None),
+        (7,"Snowball",None) )
+      assertEquals(expectedUserTuples, q1.list)
+      assertEquals(expectedUserTuples.map{ case (id,f,l) => User(id,f,l.getOrElse(null)) }, allUsers)
+
       val q1b = for(u <- Users) yield mySequence.next ~ u.id ~ u.first.? ~ u.last ~
         (Case when u.id < 3 then "low" when u.id < 6 then "medium" otherwise "high")
       println("q1b: " + q1b.selectStatement)
       for(t <- q1b) println("With options and sequence: "+t)
 
+      assertEquals(expectedUserTuples.map {
+        case (id,f,l) => (id*10+260, id, Some(f), l, if(id < 3) "low" else if(id < 6) "medium" else "high")
+      }, q1b.list)
+
       val q2 = for(u <- Users if u.first is "Apu".bind) yield u.last ~ u.id
       println("q2: " + q2.selectStatement)
       println("Apu's last name and ID are: " + q2.first)
+      assertEquals((Some("Nahasapeemapetilon"),3), q2.first)
 
+      //TODO verifyable non-random test
       for(u <- allUsers
           if u.first != "Apu" && u.first != "Snowball"; i <- 1 to 2)
         (Orders.userID ~ Orders.product ~ Orders.shipped ~ Orders.rebate).insert(
@@ -83,6 +104,7 @@ object SQuery2Test2 {
       println("q4: " + q4.selectStatement)
       println("Latest Order per User:")
       q4.foreach(o => println("  "+o))
+      assertEquals(List(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)), q4.list)
 
       def maxOfPer[T <: TableBase.T_]
         (c: T, m: (T => Column[Int]), p: (T => Column[Int])) =
@@ -96,6 +118,7 @@ object SQuery2Test2 {
       println("q4b: " + q4b.selectStatement)
       println("Latest Order per User, using maxOfPer:")
       q4b.foreach(o => println("  "+o))
+      assertEquals(List(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)), q4b.list)
 
       val q4c = for (
         u <- Users;
@@ -107,6 +130,7 @@ object SQuery2Test2 {
       println("q4c: " + q4c.selectStatement)
       println("Latest Order per User, using GroupBy, with orderID > 5:")
       q4c.foreach(o => println("  "+o))
+      assertEquals(List(("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)), q4c.list)
 
       val q4d = for (
         u <- Users if u.first inSetBind List("Homer", "Marge");
@@ -140,25 +164,30 @@ object SQuery2Test2 {
       println("q5: " + q5.selectStatement)
       println("Users without Orders:")
       q5.foreach(o => println("  "+o))
+      assertEquals(List((3,"Apu",Some("Nahasapeemapetilon")), (7,"Snowball",None)), q5.list)
 
       println("q5: " + q5.deleteStatement)
       println("Deleting them...")
       val deleted = q5.delete
       println("Deleted "+deleted+" rows")
+      assertEquals(deleted, 2)
 
       val q6 = Query(q5.count)
       println("q6: " + q6.selectStatement)
       println("Users without Orders left: " + q6.first)
+      assertEquals(q6.first, 0)
 
       val q7 = Users.where(_.first is "Homer".bind).map(_.first)
       println("q7: " + q7.updateStatement)
       val updated1 = q7.update("Homer Jay")
       println("Updated "+updated1+" row(s)")
+      assertEquals(updated1, 1)
 
       val q8 = for(u <- Users if u.last.isNull) yield u.first ~ u.last
       println("q8: " + q8.updateStatement)
       val updated2 = q8.update("n/a", Some("n/a"))
       println("Updated "+updated2+" row(s)")
+      assertEquals(updated2, 1)
 
       for(t <- q1) println("User tuple: "+t)
     }

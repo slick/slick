@@ -1,13 +1,17 @@
-package test
+package com.novocode.squery.test
 
+import org.junit.Test
+import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
-object MutateTest {
-  def main(args: Array[String]) {
+object MutateTest { def main(args: Array[String]) = new MutateTest().test() }
+
+class MutateTest {
+  @Test def test() {
 
     object Users extends Table[(Option[Int],String,String)]("users") {
       def id = column[Int]("id", O AutoInc, O NotNull, O PrimaryKey)
@@ -38,6 +42,11 @@ object MutateTest {
 
       println("After mutating:")
       Query(Users).foreach(u => println("  "+u))
+
+      assertEquals(
+        Set("Marge Simpson", "Bart Simpson", "Lisa Simpson", "Carl Carlson"),
+        (for(u <- Users) yield u.first ++ " " ++ u.last).list.toSet
+      )
     }
   }
 }

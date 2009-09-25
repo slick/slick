@@ -1,13 +1,17 @@
-package test
+package com.novocode.squery.test
 
+import org.junit.Test
+import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
-object MapperTest {
-  def main(args: Array[String]) {
+object MapperTest { def main(args: Array[String]) = new MapperTest().test() }
+
+class MapperTest {
+  @Test def test() {
 
     case class User(id: Option[Int], first: String, last: String)
 
@@ -31,6 +35,15 @@ object MapperTest {
 
       Users.where(_.id between(1, 2)).foreach(println)
       println("ID 3 -> " + Users.findByID.first(3))
+
+      assertEquals(
+        Users.where(_.id between(1, 2)).list.toSet,
+        Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson"))
+      )
+      assertEquals(
+        Users.findByID.first(3),
+        User(Some(3), "Carl", "Carlson")
+      )
     }
   }
 }

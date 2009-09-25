@@ -12,7 +12,7 @@ trait Node {
   def nodeDelegate: Node = this
   def isNamedTable = false
 
-  def nodeNamedChildren: Seq[(Node, String)] = nodeChildren.projection.zip(Stream.from(0).map(_.toString))
+  def nodeNamedChildren: Seq[(Node, String)] = nodeChildren.toStream.zip(Stream.from(0).map(_.toString))
 
   def dump(dc: Node.DumpContext, prefix: String, name: String) {
     var tname = ""

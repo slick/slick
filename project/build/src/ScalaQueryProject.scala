@@ -5,14 +5,12 @@ import java.io.File
 class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
 {
   override def compileOptions = Deprecation :: super.compileOptions.toList
-  // val specs = "org.scala-tools.testing" % "specs" % "1.4.4"
-  // val cglib = "cglib" % "cglib" % "2.1_3"
-  // val objensis = "org.objenesis" % "objenesis" % "1.1"
-  // val hamcrest = "org.hamcrest" % "hamcrest-all" % "1.1"
-  // val asm = "asm" % "asm" % "1.5.3"
-  // val scalaCheck = "org.scalacheck" % "scalacheck" % "1.5"
-  // val junit = "junit" % "junit" % "4.5"
-  // val jmock = "org.jmock" % "jmock" % "2.4.0"
+  //val scalaToolsSnapshots = "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
+  //val specs = "org.scala-tools.testing" % "specs" % "1.4.4"
+  //val scalaCheck = "org.scalacheck" % "scalacheck" % "1.5"
+  val h2 = "com.h2database" % "h2" % "1.1.118" % "test->default"
+  val junit = "junit" % "junit" % "4.7" % "test->default"
+  //val scalatest = "org.scalatest" % "scalatest" % "1.0-for-scala-2.8.0-SNAPSHOT" % "test->default"
 
   val forkedCompilerJar = property[File]
   val forkedLibraryJar = property[File]
