@@ -79,10 +79,30 @@ trait StringColumnOps[P1] extends ColumnOps {
   def length[R](implicit om: OptionMapper2[String, String, Int, P1, P1, R]): Column[R] =
     om(Length(leftOperand))
   def like[P2, R](e: Column[P2])(implicit om: OptionMapper2[String, String, Boolean, P1, P2, R]): Column[R] =
-    om(Like(leftOperand, Node(e)))
+    om(Like(leftOperand, Node(e), None))
+  def like[P2, R](e: Column[P2], esc: Char)(implicit om: OptionMapper2[String, String, Boolean, P1, P2, R]): Column[R] =
+    om(Like(leftOperand, Node(e), Some(esc)))
+  def ++[P2, R](e: Column[P2])(implicit om: OptionMapper2[String, String, String, P1, P2, R]): Column[R] =
+    om(Concat(leftOperand, Node(e)))
+  def startsWith[R](s: String)(implicit om: OptionMapper2[String, String, Boolean, P1, P1, R]): Column[R] =
+    om(new StartsWith(leftOperand, s))
+  def endsWith[R](s: String)(implicit om: OptionMapper2[String, String, Boolean, P1, P1, R]): Column[R] =
+    om(new EndsWith(leftOperand, s))
 }
 
 object StringColumnOps {
-  case class Length(child: Node) extends OperatorColumn[Int] with SimpleFunction with UnaryNode { val name = "length" }
-  case class Like(left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean] { val name = "like" }
+  case class Length(child: Node) extends OperatorColumn[Int] with SimpleScalarFunction with UnaryNode { val name = "length" }
+  case class Like(left: Node, right: Node, esc: Option[Char]) extends OperatorColumn[Boolean] with BinaryNode with BooleanColumnOps[Boolean]
+  case class Concat(left: Node, right: Node) extends OperatorColumn[String] with SimpleScalarFunction with BinaryNode { val name = "concat" }
+  class StartsWith(n: Node, s: String) extends Like(n, ConstColumn(likeEncode(s)+'%'), Some('^'))
+  class EndsWith(n: Node, s: String) extends Like(n, ConstColumn('%'+likeEncode(s)), Some('^'))
+
+  def likeEncode(s: String) = {
+    val b = new StringBuilder
+    for(c <- s) c match {
+      case '%' | '_' | '^' => b append '^' append c
+      case _ => b append c
+    }
+    b toString
+  }
 }

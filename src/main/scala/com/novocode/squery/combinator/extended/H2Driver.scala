@@ -1,7 +1,7 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder}
-import com.novocode.squery.combinator.basic.{BasicQueryBuilder, ConcreteBasicQueryBuilder, BasicTypeMapperDelegates}
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, Table, StringColumnOps}
+import com.novocode.squery.combinator.basic._
 
 object H2Driver extends ExtendedProfile { self =>
 
@@ -15,17 +15,23 @@ object H2Driver extends ExtendedProfile { self =>
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
+  override def createDDLBuilder(table: Table[_]) = new H2DDLBuilder(table)
 }
 
 class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver.type)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
-  import ExtendedOperator._
+  import ExtendedQueryOps._
 
   override type Self = H2QueryBuilder
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new H2QueryBuilder(query, nc, Some(this), profile)
+
+  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+    case StringColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
+    case _ => super.innerExpr(c, b)
+  }
 
   override protected def appendClauses(b: SQLBuilder): Unit = {
     super.appendClauses(b)

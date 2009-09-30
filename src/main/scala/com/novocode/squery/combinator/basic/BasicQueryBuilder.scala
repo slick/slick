@@ -207,10 +207,28 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += ')'
     }
+    case s: SimpleScalarFunction => {
+      b += "{fn " += s.name += '('
+      var first = true
+      for(ch <- s.nodeChildren) {
+        if(first) first = false
+        else b += ','
+        expr(ch, b)
+      }
+      b += ")}"
+    }
     case SimpleLiteral(w) => b += w
     case AllColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
     case AllColumnOps.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
     case AllColumnOps.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
+    case StringColumnOps.Like(l, r, esc) => {
+      b += '('; expr(l, b); b += " like "; expr(r, b);
+      esc.foreach { ch =>
+        if(ch == '\'' || ch == '%' || ch == '_') throw new SQueryException("Illegal escape character '"+ch+"' for LIKE expression")
+        b += " {escape '" += ch += "'}"
+      }
+      b += ')'
+    }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
     case query:Query[_] => { b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")" }
     //case Union.UnionPart(_) => "*"

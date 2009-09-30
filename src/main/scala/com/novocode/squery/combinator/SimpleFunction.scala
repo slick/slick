@@ -13,6 +13,19 @@ object SimpleFunction {
       }
 }
 
+trait SimpleScalarFunction extends Node {
+  val name: String
+}
+
+object SimpleScalarFunction {
+  def apply[T](fname: String)(implicit tm: TypeMapper[T]): (Seq[Column[_]] => OperatorColumn[T] with SimpleScalarFunction) =
+    (paramsC: Seq[Column[_]]) =>
+      new OperatorColumn[T]()(tm) with SimpleScalarFunction {
+        val name = fname
+        def nodeChildren = paramsC.map(n => Node(n)).toList
+      }
+}
+
 trait SimpleBinaryOperator extends BinaryNode {
   val name: String
 }

@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder}
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, StringColumnOps}
 import com.novocode.squery.combinator.basic.{BasicQueryBuilder, ConcreteBasicQueryBuilder, BasicTypeMapperDelegates}
 
 object MySQLDriver extends ExtendedProfile { self =>
@@ -43,7 +43,7 @@ trait MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
 class MySQLQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: MySQLDriver.type)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
-  import ExtendedOperator._
+  import ExtendedQueryOps._
 
   override type Self = MySQLQueryBuilder
 
@@ -51,7 +51,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     new MySQLQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case Concat(l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
+    case StringColumnOps.Concat(l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
     case _ => super.innerExpr(c, b)
   }
 

@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder}
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, StringColumnOps}
 import com.novocode.squery.combinator.basic.{BasicQueryBuilder, ConcreteBasicQueryBuilder, BasicTypeMapperDelegates}
 
 object OracleDriver extends ExtendedProfile { self =>
@@ -20,12 +20,17 @@ object OracleDriver extends ExtendedProfile { self =>
 class OracleQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: OracleDriver.type)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
-  import ExtendedOperator._
+  import ExtendedQueryOps._
 
   override type Self = OracleQueryBuilder
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new OracleQueryBuilder(query, nc, Some(this), profile)
+
+  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+    case StringColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
+    case _ => super.innerExpr(c, b)
+  }
 
   override protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
