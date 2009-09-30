@@ -45,3 +45,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ =>
   }
 }
+
+class H2DDLBuilder(table: Table[_]) extends BasicDDLBuilder(table, H2Driver) {
+  override protected def mapTypeName(sqlType: Int): String = sqlType match {
+    case java.sql.Types.VARCHAR => "VARCHAR"
+    case _ => super.mapTypeName(sqlType)
+  }
+}

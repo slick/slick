@@ -2,6 +2,7 @@ package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.HashMap
 import java.io.PrintWriter
+import java.sql.Types._
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 
@@ -14,12 +15,12 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
       if(first) first = false
       else b append ","
       b append n.name append ' '
-      addSqlType(n, b)
+      addTypeAndOptions(n, b)
     }
     b append ")" toString
   }
 
-  protected def addSqlType(c: NamedColumn[_], sb: StringBuilder) {
+  protected def addTypeAndOptions(c: NamedColumn[_], sb: StringBuilder) {
     var sqlType: String = null
     var notNull = false
     var autoIncrement = false
@@ -32,18 +33,22 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
       case ColumnOption.PrimaryKey => primaryKey = true
       case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
     }
-    if(sqlType eq null)
-      sqlType = DDLBuilder.typeNames.getOrElse(c.typeMapper(profile).sqlType,
-        throw new SQueryException("No SQL type name found for type mapper "+c.typeMapper))
+    if(sqlType eq null) sqlType = mapTypeName(c.typeMapper(profile).sqlType)
     sb append sqlType
     if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
     if(notNull) sb append " NOT NULL"
     if(autoIncrement) sb append " AUTO_INCREMENT"
     if(primaryKey) sb append " PRIMARY KEY"
   }
+
+  protected def mapTypeName(sqlType: Int): String = sqlType match {
+    case VARCHAR => "VARCHAR(254)"
+    case i => BasicDDLBuilder.typeNames.getOrElse(sqlType,
+      throw new SQueryException("No SQL type name found in java.sql.Types for code "+sqlType))
+  }
 }
 
-object DDLBuilder {
+object BasicDDLBuilder {
   lazy val typeNames = Map() ++
     (for(f <- classOf[java.sql.Types].getFields)
       yield f.get(null).asInstanceOf[Int] -> f.getName)
