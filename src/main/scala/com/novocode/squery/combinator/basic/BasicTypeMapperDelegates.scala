@@ -65,6 +65,7 @@ object BasicTypeMapperDelegates {
     def setOption(v: Option[Date], p: PositionedParameters) = p.setDateOption(v)
     def nextValue(r: PositionedResult) = r.nextDate
     def updateValue(v: Date, r: PositionedResult) = r.updateDate(v)
+    override def valueToSQLLiteral(value: Date) = "{d '"+value.toString+"'}"
   }
 
   class DoubleTypeMapperDelegate extends TypeMapperDelegate[Double] {
@@ -129,6 +130,7 @@ object BasicTypeMapperDelegates {
     def setOption(v: Option[Time], p: PositionedParameters) = p.setTimeOption(v)
     def nextValue(r: PositionedResult) = r.nextTime
     def updateValue(v: Time, r: PositionedResult) = r.updateTime(v)
+    override def valueToSQLLiteral(value: Time) = "{t '"+value.toString+"'}"
   }
 
   class TimestampTypeMapperDelegate extends TypeMapperDelegate[Timestamp] {
@@ -138,6 +140,7 @@ object BasicTypeMapperDelegates {
     def setOption(v: Option[Timestamp], p: PositionedParameters) = p.setTimestampOption(v)
     def nextValue(r: PositionedResult) = r.nextTimestamp
     def updateValue(v: Timestamp, r: PositionedResult) = r.updateTimestamp(v)
+    override def valueToSQLLiteral(value: Timestamp) = "{ts '"+value.toString+"'}"
   }
 
   class NullTypeMapperDelegate extends TypeMapperDelegate[Null] {
