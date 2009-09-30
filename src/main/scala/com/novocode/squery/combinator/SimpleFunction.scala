@@ -24,6 +24,8 @@ object SimpleScalarFunction {
         val name = fname
         def nodeChildren = paramsC.map(n => Node(n)).toList
       }
+  def nullary[T](fnName: String)(implicit tm: TypeMapper[T]) =
+    new OperatorColumn[T]()(tm) with SimpleScalarFunction with NullaryNode { val name = fnName }
 }
 
 trait SimpleBinaryOperator extends BinaryNode {

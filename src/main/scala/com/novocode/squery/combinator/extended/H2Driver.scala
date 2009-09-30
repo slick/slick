@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, Table, StringColumnOps}
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, Table, StringColumnOps, TypeMapperDelegate}
 import com.novocode.squery.combinator.basic._
 
 object H2Driver extends ExtendedProfile { self =>
@@ -47,8 +47,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 }
 
 class H2DDLBuilder(table: Table[_]) extends BasicDDLBuilder(table, H2Driver) {
-  override protected def mapTypeName(sqlType: Int): String = sqlType match {
+  override protected def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
-    case _ => super.mapTypeName(sqlType)
+    case _ => super.mapTypeName(tmd)
   }
 }

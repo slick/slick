@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
+import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedParameters, PositionedResult}
 
@@ -75,6 +76,8 @@ trait NumericTypeMapper
 trait TypeMapperDelegate[T] { self =>
   def zero: T
   def sqlType: Int
+  def sqlTypeName: String = TypeMapperDelegate.typeNames.getOrElse(sqlType,
+    throw new SQueryException("No SQL type name found in java.sql.Types for code "+sqlType))
   def setValue(v: T, p: PositionedParameters): Unit
   def setOption(v: Option[T], p: PositionedParameters): Unit
   def nextValue(r: PositionedResult): T
@@ -96,4 +99,10 @@ trait TypeMapperDelegate[T] { self =>
     def updateValue(v: Option[T], r: PositionedResult) = self.updateOption(v, r)
     override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
   }
+}
+
+object TypeMapperDelegate {
+  private[TypeMapperDelegate] lazy val typeNames = Map() ++
+  (for(f <- classOf[java.sql.Types].getFields)
+    yield f.get(null).asInstanceOf[Int] -> f.getName)
 }

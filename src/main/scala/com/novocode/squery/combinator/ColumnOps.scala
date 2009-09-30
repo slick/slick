@@ -26,6 +26,8 @@ trait AllColumnOps[B1, P1] extends ColumnOps {
     om(InSet(leftOperand, seq, tm, true))
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: OptionMapper3[B1, B1, B1, Boolean, P1, P2, P3, R]): Column[R] =
     om(Between(leftOperand, start, end))
+  def ifNull[B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[P2] =
+    e.mapOp(IfNull(leftOperand, _))
 
   // NumericTypeMapper only
   def + [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
@@ -36,18 +38,40 @@ trait AllColumnOps[B1, P1] extends ColumnOps {
     om(Arith[B1]("*", leftOperand, Node(e), tm))
   def / [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
     om(Arith[B1]("/", leftOperand, Node(e), tm))
+  def % [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
+    om(Mod[B1](leftOperand, Node(e), tm))
+  def abs(implicit om: OptionMapper2[B1, B1, B1, P1, P1, P1], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[P1] =
+    om(Abs[B1](leftOperand, tm))
+  def ceil(implicit om: OptionMapper2[B1, B1, B1, P1, P1, P1], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[P1] =
+    om(Ceil[B1](leftOperand, tm))
+  def floor(implicit om: OptionMapper2[B1, B1, B1, P1, P1, P1], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[P1] =
+    om(Floor[B1](leftOperand, tm))
+  def sign[R](implicit om: OptionMapper2[B1, B1, Int, P1, P1, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
+    om(Sign(leftOperand))
+  def toDegrees(implicit om: OptionMapper2[B1, B1, B1, P1, P1, P1], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[P1] =
+    om(Degrees[B1](leftOperand, tm))
+  def toRadians(implicit om: OptionMapper2[B1, B1, B1, P1, P1, P1], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[P1] =
+    om(Radians[B1](leftOperand, tm))
 }
 
 object AllColumnOps {
   case class In(left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean] { val name = "in" }
   case class Count(child: Node) extends OperatorColumn[Int] with SimpleFunction with UnaryNode { val name = "count" }
   case class CountAll(child: Node) extends OperatorColumn[Int] with UnaryNode
+  case class Mod[T](left: Node, right: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with BinaryNode { val name = "mod" }
+  case class Abs[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "abs" }
+  case class Ceil[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "ceiling" }
+  case class Floor[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "floor" }
+  case class Sign(child: Node) extends OperatorColumn[Int] with SimpleScalarFunction with UnaryNode { val name = "sign" }
+  case class Degrees[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "degrees" }
+  case class Radians[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "radians" }
   case class Avg(child: Node) extends SimpleFunction with UnaryNode { val name = "avg" }
   case class Min(child: Node) extends SimpleFunction with UnaryNode { val name = "min" }
   case class Max(child: Node) extends SimpleFunction with UnaryNode { val name = "max" }
   case class Relational(name: String, left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean]
   case class Exists(child: Node) extends OperatorColumn[Boolean] with SimpleFunction with UnaryNode with BooleanColumnOps[Boolean] { val name = "exists" }
   case class Arith[T](name: String, left: Node, right: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleBinaryOperator
+  case class IfNull(left: Node, right: Node) extends SimpleScalarFunction with BinaryNode { val name = "ifNull" }
 
   case class Is(left: Node, right: Node) extends OperatorColumn[Boolean] with BinaryNode with BooleanColumnOps[Boolean]
   case class CountDistinct(child: Node) extends OperatorColumn[Int] with UnaryNode
@@ -56,6 +80,8 @@ object AllColumnOps {
   case class Between(left: Node, start: Node, end: Node) extends OperatorColumn[Boolean] with BooleanColumnOps[Boolean] {
     def nodeChildren = left :: start :: end :: Nil
   }
+
+  case class AsColumnOf[T](child: Node, typeMapper: TypeMapper[T], typeName: Option[String]) extends Column[T] with UnaryNode
 }
 
 trait BooleanColumnOps[P1] extends ColumnOps {
@@ -88,10 +114,24 @@ trait StringColumnOps[P1] extends ColumnOps {
     om(new StartsWith(leftOperand, s))
   def endsWith[R](s: String)(implicit om: OptionMapper2[String, String, Boolean, P1, P1, R]): Column[R] =
     om(new EndsWith(leftOperand, s))
+  def toUpperCase[R](implicit om: OptionMapper2[String, String, String, P1, P1, R]): Column[R] =
+    om(ToUpperCase(leftOperand))
+  def toLowerCase[R](implicit om: OptionMapper2[String, String, String, P1, P1, R]): Column[R] =
+    om(ToLowerCase(leftOperand))
+  def ltrim[R](implicit om: OptionMapper2[String, String, String, P1, P1, R]): Column[R] =
+    om(LTrim(leftOperand))
+  def rtrim[R](implicit om: OptionMapper2[String, String, String, P1, P1, R]): Column[R] =
+    om(RTrim(leftOperand))
+  def trim[R](implicit om: OptionMapper2[String, String, String, P1, P1, R]): Column[R] =
+    om(LTrim(RTrim(leftOperand)))
 }
 
 object StringColumnOps {
   case class Length(child: Node) extends OperatorColumn[Int] with SimpleScalarFunction with UnaryNode { val name = "length" }
+  case class ToUpperCase(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "ucase" }
+  case class ToLowerCase(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "lcase" }
+  case class LTrim(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "ltrim" }
+  case class RTrim(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "rtrim" }
   case class Like(left: Node, right: Node, esc: Option[Char]) extends OperatorColumn[Boolean] with BinaryNode with BooleanColumnOps[Boolean]
   case class Concat(left: Node, right: Node) extends OperatorColumn[String] with SimpleScalarFunction with BinaryNode { val name = "concat" }
   class StartsWith(n: Node, s: String) extends Like(n, ConstColumn(likeEncode(s)+'%'), Some('^'))

@@ -77,3 +77,7 @@ trait UnaryNode extends Node {
   val child: Node
   def nodeChildren = child :: Nil
 }
+
+trait NullaryNode extends Node {
+  def nodeChildren = Nil
+}

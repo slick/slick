@@ -13,7 +13,8 @@ import org.junit.runners.Suite.SuiteClasses
   classOf[DriverTest],
   classOf[MapperTest],
   classOf[StatementParametersTest],
-  classOf[MutateTest]
+  classOf[MutateTest],
+  classOf[ScalarFunctionTest]
 ))
 class TestSuite
 

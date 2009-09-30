@@ -229,6 +229,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += ')'
     }
+    case AllColumnOps.AsColumnOf(ch, tm, name) => {
+      b += "{fn convert("; expr(ch, b); b += ','
+      b += name.getOrElse(tm(profile).sqlTypeName)
+      b += ")}"
+    }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
     case query:Query[_] => { b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")" }
     //case Union.UnionPart(_) => "*"

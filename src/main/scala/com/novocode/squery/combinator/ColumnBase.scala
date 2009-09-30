@@ -44,6 +44,8 @@ trait Column[T] extends ColumnBase[T] {
   def isNull = AllColumnOps.Is(Node(this), ConstColumn.NULL)
   def isNotNull = BooleanColumnOps.Not(Node(AllColumnOps.Is(Node(this), ConstColumn.NULL)))
   def countDistinct = AllColumnOps.CountDistinct(Node(this))
+  def asColumnOf[U](implicit tm: TypeMapper[U]): Column[U] = AllColumnOps.AsColumnOf[U](Node(this), tm, None)
+  def asColumnOfType[U](typeName: String)(implicit tm: TypeMapper[U]): Column[U] = AllColumnOps.AsColumnOf[U](Node(this), tm, Some(typeName))
 
   def asc = new Ordering.Asc(Node(this))
   def desc = new Ordering.Desc(Node(this))

@@ -33,7 +33,7 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
       case ColumnOption.PrimaryKey => primaryKey = true
       case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
     }
-    if(sqlType eq null) sqlType = mapTypeName(c.typeMapper(profile).sqlType)
+    if(sqlType eq null) sqlType = mapTypeName(c.typeMapper(profile))
     sb append sqlType
     if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
     if(notNull) sb append " NOT NULL"
@@ -41,15 +41,8 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
     if(primaryKey) sb append " PRIMARY KEY"
   }
 
-  protected def mapTypeName(sqlType: Int): String = sqlType match {
+  protected def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case VARCHAR => "VARCHAR(254)"
-    case i => BasicDDLBuilder.typeNames.getOrElse(sqlType,
-      throw new SQueryException("No SQL type name found in java.sql.Types for code "+sqlType))
+    case _ => tmd.sqlTypeName
   }
-}
-
-object BasicDDLBuilder {
-  lazy val typeNames = Map() ++
-    (for(f <- classOf[java.sql.Types].getFields)
-      yield f.get(null).asInstanceOf[Int] -> f.getName)
 }
