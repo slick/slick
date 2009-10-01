@@ -5,12 +5,12 @@ trait ResultSetMutator[T] {
   /**
    * Get the current row's value.
    */
-  def apply(): T
+  def row: T
 
   /**
    * Update the current row.
    */
-  def update(value: T)
+  def row_=(value: T)
 
   /**
    * Insert a new row.

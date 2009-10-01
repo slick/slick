@@ -35,9 +35,9 @@ class MutateTest {
 
       val q1 = for(u <- Users if u.last.is("Simpson") || u.last.is("Bouvier")) yield u
       q1.mutate { m =>
-        if(m()._3 == "Bouvier") m() = m().copy(_3 = "Simpson")
-        else if(m()._2 == "Homer") m.delete()
-        else if(m()._2 == "Bart") m.insert((None, "Lisa", "Simpson"))
+        if(m.row._3 == "Bouvier") m.row = m.row.copy(_3 = "Simpson")
+        else if(m.row._2 == "Homer") m.delete()
+        else if(m.row._2 == "Bart") m.insert((None, "Lisa", "Simpson"))
       }
 
       println("After mutating:")

@@ -42,8 +42,8 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
         val rs = pr.rs
         var current: R = null.asInstanceOf[R]
         val mu = new ResultSetMutator[R] {
-          def apply = current
-          def update(value: R) {
+          def row = current
+          def row_=(value: R) {
             pr.pos = 0
             updateRowValues(pr, value)
             rs.updateRow()
@@ -63,8 +63,8 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
         }
         if(end ne null) {
           end(new ResultSetMutator[R] {
-            def apply = throw new SQueryException("After end of result set")
-            def update(value: R) = throw new SQueryException("After end of result set")
+            def row = throw new SQueryException("After end of result set")
+            def row_=(value: R) = throw new SQueryException("After end of result set")
             def delete() = throw new SQueryException("After end of result set")
             def insert(value: R) {
               rs.moveToInsertRow()
