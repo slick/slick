@@ -15,21 +15,21 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
       if(value) l else valueToConstColumn(false)(TypeMapper.BooleanTypeMapper) :: Nil
   }
 
-  implicit def getOptionMapper2TT[B1, B2, BR](implicit tm2: BaseTypeMapper[B2]) = OptionMapper2.plain .asInstanceOf[OptionMapper2[B1, B2, BR, B1,         B2,         BR]]
-  implicit def getOptionMapper2TO[B1, B2, BR](implicit tm2: BaseTypeMapper[B2]) = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, B1,         Option[B2], Option[BR]]]
-  implicit def getOptionMapper2OT[B1, B2, BR](implicit tm2: BaseTypeMapper[B2]) = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], B2,         Option[BR]]]
-  implicit def getOptionMapper2OO[B1, B2, BR](implicit tm2: BaseTypeMapper[B2]) = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], Option[B2], Option[BR]]]
+  implicit def getOptionMapper2TT[B1, B2 : BaseTypeMapper, BR] = OptionMapper2.plain .asInstanceOf[OptionMapper2[B1, B2, BR, B1,         B2,         BR]]
+  implicit def getOptionMapper2TO[B1, B2 : BaseTypeMapper, BR] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, B1,         Option[B2], Option[BR]]]
+  implicit def getOptionMapper2OT[B1, B2 : BaseTypeMapper, BR] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], B2,         Option[BR]]]
+  implicit def getOptionMapper2OO[B1, B2 : BaseTypeMapper, BR] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], Option[B2], Option[BR]]]
 
-  implicit def getOptionMapper3TTT[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         B2,         B3,         BR]]
-  implicit def getOptionMapper3TTO[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         B2,         Option[B3], Option[BR]]]
-  implicit def getOptionMapper3TOT[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[B2], B3,         Option[BR]]]
-  implicit def getOptionMapper3TOO[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[B2], Option[B3], Option[BR]]]
-  implicit def getOptionMapper3OTT[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], B2,         B3,         Option[BR]]]
-  implicit def getOptionMapper3OTO[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], B2,         Option[B3], Option[BR]]]
-  implicit def getOptionMapper3OOT[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[B2], B3,         Option[BR]]]
-  implicit def getOptionMapper3OOO[B1, B2, B3, BR](implicit tm2: BaseTypeMapper[B2], tm3: BaseTypeMapper[B3]) = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[B2], Option[B3], Option[BR]]]
+  implicit def getOptionMapper3TTT[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         B2,         B3,         BR]]
+  implicit def getOptionMapper3TTO[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         B2,         Option[B3], Option[BR]]]
+  implicit def getOptionMapper3TOT[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[B2], B3,         Option[BR]]]
+  implicit def getOptionMapper3TOO[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         Option[B2], Option[B3], Option[BR]]]
+  implicit def getOptionMapper3OTT[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], B2,         B3,         Option[BR]]]
+  implicit def getOptionMapper3OTO[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], B2,         Option[B3], Option[BR]]]
+  implicit def getOptionMapper3OOT[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[B2], B3,         Option[BR]]]
+  implicit def getOptionMapper3OOO[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[B2], Option[B3], Option[BR]]]
 
-  implicit def baseColumnToAllColumnOps[B1](c: Column[B1])(implicit tm: BaseTypeMapper[B1]): AllColumnOps[B1, B1] = c match {
+  implicit def baseColumnToAllColumnOps[B1 : BaseTypeMapper](c: Column[B1]): AllColumnOps[B1, B1] = c match {
     case o: AllColumnOps[_,_] => o.asInstanceOf[AllColumnOps[B1, B1]]
     case _ => new AllColumnOps[B1, B1] { protected[this] val leftOperand = Node(c) }
   }
@@ -59,9 +59,9 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
     case _ => new StringColumnOps[Option[String]] { protected[this] val leftOperand = Node(c) }
   }
 
-  implicit def columnToOptionColumn[T](c: Column[T])(implicit tm: BaseTypeMapper[T]): Column[Option[T]] = c.?
+  implicit def columnToOptionColumn[T : BaseTypeMapper](c: Column[T]): Column[Option[T]] = c.?
 
-  implicit def valueToConstColumn[T](v: T)(implicit tm: TypeMapper[T]) = new ConstColumn[T](v)(tm)
+  implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
 
   implicit def tableToQuery[T <: TableBase[_]](t: T) = Query(t.mapOp(n => new Table.Alias(Node(n))))
 

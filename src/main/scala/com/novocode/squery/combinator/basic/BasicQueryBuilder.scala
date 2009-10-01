@@ -127,8 +127,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
     def handleColumn(node: Node, idx: Int) {
       (node match {
-        case NamedColumn(t @ Table(tn), n, tm, _) => (tn, n, tm, t)
-        case NamedColumn(t @ Table.Alias(Table(tn)), n, tm, _) => (tn, n, tm, t)
+        case nc @ NamedColumn(t @ Table(tn), n, _) => (tn, n, nc.typeMapper, t)
+        case nc @ NamedColumn(t @ Table.Alias(Table(tn)), n, _) => (tn, n, nc.typeMapper, t)
         case n => throw new SQueryException("Cannot create an UPDATE statement from a \""+n+
           "\" expression; A single named column or a projection of named columns from the same aliased or base table is required")
       }) match { case (tn, n, tm, t) =>
@@ -229,9 +229,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += ')'
     }
-    case AllColumnOps.AsColumnOf(ch, tm, name) => {
+    case a @ AllColumnOps.AsColumnOf(ch, name) => {
       b += "{fn convert("; expr(ch, b); b += ','
-      b += name.getOrElse(tm(profile).sqlTypeName)
+      b += name.getOrElse(a.typeMapper(profile).sqlTypeName)
       b += ")}"
     }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
@@ -239,9 +239,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     //case Union.UnionPart(_) => "*"
     case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
     case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
-    case ParameterColumn(idx, tm) => b +?= { (p, param) =>
+    case pc @ ParameterColumn(idx) => b +?= { (p, param) =>
       val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
-      tm(profile).setValue(v, p)
+      pc.typeMapper(profile).setValue(v, p)
     }
     case c: Case.CaseColumn[_] => {
       b += "(case"

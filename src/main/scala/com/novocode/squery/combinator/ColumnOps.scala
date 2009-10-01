@@ -31,13 +31,13 @@ trait AllColumnOps[B1, P1] extends ColumnOps {
 
   // NumericTypeMapper only
   def + [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
-    om(Arith[B1]("+", leftOperand, Node(e), tm))
+    om(Arith[B1]("+", leftOperand, Node(e)))
   def - [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
-    om(Arith[B1]("-", leftOperand, Node(e), tm))
+    om(Arith[B1]("-", leftOperand, Node(e)))
   def * [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
-    om(Arith[B1]("*", leftOperand, Node(e), tm))
+    om(Arith[B1]("*", leftOperand, Node(e)))
   def / [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
-    om(Arith[B1]("/", leftOperand, Node(e), tm))
+    om(Arith[B1]("/", leftOperand, Node(e)))
   def % [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
     om(Mod[B1](leftOperand, Node(e), tm))
   def abs(implicit om: OptionMapper2[B1, B1, B1, P1, P1, P1], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[P1] =
@@ -70,7 +70,7 @@ object AllColumnOps {
   case class Max(child: Node) extends SimpleFunction with UnaryNode { val name = "max" }
   case class Relational(name: String, left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with BooleanColumnOps[Boolean]
   case class Exists(child: Node) extends OperatorColumn[Boolean] with SimpleFunction with UnaryNode with BooleanColumnOps[Boolean] { val name = "exists" }
-  case class Arith[T](name: String, left: Node, right: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleBinaryOperator
+  case class Arith[T : TypeMapper](name: String, left: Node, right: Node) extends OperatorColumn[T] with SimpleBinaryOperator
   case class IfNull(left: Node, right: Node) extends SimpleScalarFunction with BinaryNode { val name = "ifNull" }
 
   case class Is(left: Node, right: Node) extends OperatorColumn[Boolean] with BinaryNode with BooleanColumnOps[Boolean]
@@ -81,7 +81,7 @@ object AllColumnOps {
     def nodeChildren = left :: start :: end :: Nil
   }
 
-  case class AsColumnOf[T](child: Node, typeMapper: TypeMapper[T], typeName: Option[String]) extends Column[T] with UnaryNode
+  case class AsColumnOf[T : TypeMapper](child: Node, typeName: Option[String]) extends Column[T] with UnaryNode
 }
 
 trait BooleanColumnOps[P1] extends ColumnOps {

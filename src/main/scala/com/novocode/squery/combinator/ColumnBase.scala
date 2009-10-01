@@ -22,16 +22,16 @@ object ColumnBase {
 /**
  * Base trait for columns.
  */
-trait Column[T] extends ColumnBase[T] {
-  val typeMapper: TypeMapper[T]
+abstract class Column[T : TypeMapper] extends ColumnBase[T] {
+  final val typeMapper = implicitly[TypeMapper[T]]
   def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValue(rs)
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = typeMapper(profile).updateValue(value, rs)
   final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(profile).setOption(value, ps)
-  def orElse(n: =>T): Column[T] = new WrappedColumn(this, typeMapper) {
+  def orElse(n: =>T): Column[T] = new WrappedColumn[T](this) {
     override def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValueOrElse(n, rs)
   }
   final def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
-  def ? : Column[Option[T]] = new WrappedColumn(this, typeMapper.createOptionTypeMapper)
+  def ? : Column[Option[T]] = new WrappedColumn(this)(typeMapper.createOptionTypeMapper)
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   // Functions which don't need an OptionMapper
@@ -44,8 +44,8 @@ trait Column[T] extends ColumnBase[T] {
   def isNull = AllColumnOps.Is(Node(this), ConstColumn.NULL)
   def isNotNull = BooleanColumnOps.Not(Node(AllColumnOps.Is(Node(this), ConstColumn.NULL)))
   def countDistinct = AllColumnOps.CountDistinct(Node(this))
-  def asColumnOf[U](implicit tm: TypeMapper[U]): Column[U] = AllColumnOps.AsColumnOf[U](Node(this), tm, None)
-  def asColumnOfType[U](typeName: String)(implicit tm: TypeMapper[U]): Column[U] = AllColumnOps.AsColumnOf[U](Node(this), tm, Some(typeName))
+  def asColumnOf[U : TypeMapper]: Column[U] = AllColumnOps.AsColumnOf[U](Node(this), None)
+  def asColumnOfType[U : TypeMapper](typeName: String): Column[U] = AllColumnOps.AsColumnOf[U](Node(this), Some(typeName))
 
   def asc = new Ordering.Asc(Node(this))
   def desc = new Ordering.Desc(Node(this))
@@ -54,7 +54,7 @@ trait Column[T] extends ColumnBase[T] {
 /**
  * A column with a constant value which is inserted into an SQL statement as a literal.
  */
-case class ConstColumn[T](value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
+case class ConstColumn[T : TypeMapper](value: T) extends Column[T] {
   def nodeChildren = Nil
   override def toString = value match {
     case null => "ConstColumn null"
@@ -71,7 +71,7 @@ object ConstColumn {
 /**
  * A column with a constant value which gets turned into a bind variable.
  */
-case class BindColumn[T](value: T)(implicit val typeMapper: TypeMapper[T]) extends Column[T] {
+case class BindColumn[T : TypeMapper](value: T) extends Column[T] {
   def nodeChildren = Nil
   override def toString = value match {
     case null => "BindColumn null"
@@ -83,7 +83,7 @@ case class BindColumn[T](value: T)(implicit val typeMapper: TypeMapper[T]) exten
 /**
  * A parameter from a QueryTemplate which gets turned into a bind variable.
  */
-case class ParameterColumn[T](idx: Int, typeMapper: TypeMapper[T]) extends Column[T] {
+case class ParameterColumn[T : TypeMapper](idx: Int) extends Column[T] {
   def nodeChildren = Nil
   override def toString = "ParameterColumn "+idx
 }
@@ -91,14 +91,14 @@ case class ParameterColumn[T](idx: Int, typeMapper: TypeMapper[T]) extends Colum
 /**
  * A column which gets created as the result of applying an operator.
  */
-abstract class OperatorColumn[T](implicit val typeMapper: TypeMapper[T]) extends Column[T] {
+abstract class OperatorColumn[T : TypeMapper] extends Column[T] {
   protected[this] val leftOperand: Node = Node(this)
 }
 
 /**
  * A WrappedColumn can be used to change a column's nullValue.
  */
-class WrappedColumn[T](parent: ColumnBase[_], val typeMapper: TypeMapper[T]) extends Column[T] {
+class WrappedColumn[T : TypeMapper](parent: ColumnBase[_]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   def nodeChildren = nodeDelegate :: Nil
 }
@@ -106,7 +106,7 @@ class WrappedColumn[T](parent: ColumnBase[_], val typeMapper: TypeMapper[T]) ext
 /**
  * A column which is part of a Table.
  */
-class NamedColumn[T](val table: Node, val name: String, val typeMapper: TypeMapper[T], val options: ColumnOption[T]*)
+class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: ColumnOption[T]*)
 extends Column[T] {
   def nodeChildren = table :: Nil
   override def toString = "NamedColumn " + name
@@ -114,5 +114,5 @@ extends Column[T] {
 }
 
 object NamedColumn {
-  def unapply[T](n: NamedColumn[T]) = Some((n.table, n.name, n.typeMapper, n.options))
+  def unapply[T](n: NamedColumn[T]) = Some((n.table, n.name, n.options))
 }

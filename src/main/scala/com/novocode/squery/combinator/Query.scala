@@ -39,7 +39,7 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
 
   def exists = AllColumnOps.Exists(map(_ => ConstColumn(1)))
 
-  def typedModifiers[T <: QueryModifier](implicit m: Manifest[T]) =
+  def typedModifiers[T <: QueryModifier](implicit m: ClassManifest[T]) =
     modifiers.filter(m.erasure.isInstance(_)).asInstanceOf[List[T]]
 
   def createOrReplaceSingularModifier[T <: QueryModifier](f: Option[T] => T)(implicit m: Manifest[T]): Query[E] = {

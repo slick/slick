@@ -5,9 +5,9 @@ trait SimpleFunction extends Node {
 }
 
 object SimpleFunction {
-  def apply[T](fname: String)(implicit tm: TypeMapper[T]): (Seq[Column[_]] => OperatorColumn[T] with SimpleFunction) =
+  def apply[T : TypeMapper](fname: String): (Seq[Column[_]] => OperatorColumn[T] with SimpleFunction) =
     (paramsC: Seq[Column[_]]) =>
-      new OperatorColumn[T]()(tm) with SimpleFunction {
+      new OperatorColumn[T] with SimpleFunction {
         val name = fname
         def nodeChildren = paramsC.map(n => Node(n)).toList
       }
@@ -18,14 +18,14 @@ trait SimpleScalarFunction extends Node {
 }
 
 object SimpleScalarFunction {
-  def apply[T](fname: String)(implicit tm: TypeMapper[T]): (Seq[Column[_]] => OperatorColumn[T] with SimpleScalarFunction) =
+  def apply[T : TypeMapper](fname: String): (Seq[Column[_]] => OperatorColumn[T] with SimpleScalarFunction) =
     (paramsC: Seq[Column[_]]) =>
-      new OperatorColumn[T]()(tm) with SimpleScalarFunction {
+      new OperatorColumn[T] with SimpleScalarFunction {
         val name = fname
         def nodeChildren = paramsC.map(n => Node(n)).toList
       }
-  def nullary[T](fnName: String)(implicit tm: TypeMapper[T]) =
-    new OperatorColumn[T]()(tm) with SimpleScalarFunction with NullaryNode { val name = fnName }
+  def nullary[T : TypeMapper](fnName: String) =
+    new OperatorColumn[T] with SimpleScalarFunction with NullaryNode { val name = fnName }
 }
 
 trait SimpleBinaryOperator extends BinaryNode {
@@ -33,9 +33,9 @@ trait SimpleBinaryOperator extends BinaryNode {
 }
 
 object SimpleBinaryOperator {
-  def apply[T](fname: String)(implicit tm: TypeMapper[T]): ((Column[_], Column[_]) => OperatorColumn[T] with SimpleBinaryOperator) =
+  def apply[T : TypeMapper](fname: String): ((Column[_], Column[_]) => OperatorColumn[T] with SimpleBinaryOperator) =
     (leftC: Column[_], rightC: Column[_]) =>
-      new OperatorColumn[T]()(tm) with SimpleBinaryOperator {
+      new OperatorColumn[T] with SimpleBinaryOperator {
         val name = fname
         val left = Node(leftC)
         val right = Node(rightC)
