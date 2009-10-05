@@ -2,7 +2,7 @@ package com.novocode.squery.session
 
 import java.sql.ResultSet
 
-sealed abstract case class ResultSetConcurrency(intValue: Int) { self =>
+sealed abstract class ResultSetConcurrency(val intValue: Int) { self =>
   def apply[T](base: Session)(f: Session => T): T = f(base.forParameters(rsConcurrency = self))
   def apply[T](f: => T)(implicit base: Session): T = apply(base)(Database.dyn.withValue(_)(f))
   def withDefault(r: ResultSetConcurrency) = this

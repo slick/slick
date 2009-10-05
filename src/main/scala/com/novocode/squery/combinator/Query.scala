@@ -33,7 +33,7 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
     new Query(value, cond, wt(f(value), condHaving), modifiers)
 
   def groupBy(by: Column[_]*) =
-    new Query[E](value, cond, condHaving, modifiers ::: by.projection.map(c => new Grouping(Node(c))).toList)
+    new Query[E](value, cond, condHaving, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
 
   def orderBy(by: Ordering*) = new Query[E](value, cond, condHaving, modifiers ::: by.toList)
 

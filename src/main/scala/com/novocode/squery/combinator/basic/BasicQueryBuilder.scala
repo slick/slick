@@ -111,7 +111,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
     if(query.condHaving ne Nil)
       throw new SQueryException("DELETE statement must contain a HAVING clause")
-    for(qb <- subQueryBuilders.values)
+    for(qb <- subQueryBuilders.valuesIterator)
       qb.insertFromClauses()
     b.build
   }
@@ -293,7 +293,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
         declaredTables += name
       }
     }
-    for(qb <- subQueryBuilders.values)
+    for(qb <- subQueryBuilders.valuesIterator)
       qb.insertFromClauses()
   }
 

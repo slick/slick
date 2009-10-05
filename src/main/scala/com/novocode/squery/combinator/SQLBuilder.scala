@@ -71,7 +71,7 @@ object SQLBuilder {
 
     def appendTo(res: StringBuilder, setters: ArrayBuffer[Setter]) {
       res append sb
-      setters ++ this.setters
+      setters ++= this.setters
     }
   }
 }
