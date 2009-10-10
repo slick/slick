@@ -24,7 +24,10 @@ object ColumnBase {
  */
 abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   final val typeMapper = implicitly[TypeMapper[T]]
-  def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValue(rs)
+  def getResult(profile: BasicProfile, rs: PositionedResult): T = {
+    val tmd = typeMapper(profile)
+    tmd.nextValueOrElse(tmd.zero, rs)
+  }
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = typeMapper(profile).updateValue(value, rs)
   final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(profile).setOption(value, ps)
   def orElse(n: =>T): Column[T] = new WrappedColumn[T](this) {
