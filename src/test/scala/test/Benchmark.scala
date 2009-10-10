@@ -40,7 +40,7 @@ object Benchmark {
     } yield u.first ~ u.last ~ o.orderID
     val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
     val q4 = for {
-      uo <- Users join Orders
+      uo <- Users innerJoin Orders on (_.id is _.userID)
       val Join(u,o) = uo
       _ <- Query.orderBy(u.last asc)
     } yield u.first ~ o.orderID

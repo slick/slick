@@ -41,7 +41,7 @@ object SQuery2Test {
     val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
 
     val q4 = for {
-      Join(u, o) <- Users join Orders
+      Join(u, o) <- Users innerJoin Orders on (_.id is _.userID)
       _ <- Query orderBy u.last
     } yield u.first ~ o.orderID
 

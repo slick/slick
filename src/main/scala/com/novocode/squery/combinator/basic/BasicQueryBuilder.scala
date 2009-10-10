@@ -313,13 +313,24 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
         first = false
       }
       b += ") " += name
-    case j: Join[_,_] => {
-      var first = true
-      for(n <- j.nodeChildren) {
-        if(first) first = false
-        else b += " natural join "
-        table(n, nc.nameFor(n), b)
-      }
+    case j: Join[_,_] =>
+      /* There is no way to write all nested joins (if they are supported at all) properly in a
+       * database-independent way because the {oj...} escape syntax does not support inner joins.
+       * We let the first join determine the syntax and hope for the best. */
+      if(j.joinType == Join.Inner) createJoin(j, b)
+      else { b += "{oj "; createJoin(j, b); b += "}" }
+  }
+
+  protected def createJoin(j: Join[_,_], b: SQLBuilder): Unit = {
+    val l = j.leftNode
+    val r = j.rightNode
+    table(l, nc.nameFor(l), b)
+    b += " " += j.joinType.sqlName += " join "
+    r match {
+      case rj: Join[_,_] => createJoin(rj, b)
+      case _ => table(r, nc.nameFor(r), b)
     }
+    b += " on "
+    expr(j.on, b)
   }
 }
