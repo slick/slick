@@ -46,11 +46,15 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected def subQueryBuilderFor(q: Query[_]) =
     subQueryBuilders.getOrElseUpdate(RefId(q), createSubQueryBuilder(q, nc))
 
-  def buildSelect: SQLBuilder.Result = {
+  final def buildSelect: SQLBuilder.Result = {
     val b = new SQLBuilder
+    buildSelect(b)
+    b.build
+  }
+
+  def buildSelect(b: SQLBuilder): Unit = {
     innerBuildSelect(b, false)
     insertFromClauses()
-    b.build
   }
 
   protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {

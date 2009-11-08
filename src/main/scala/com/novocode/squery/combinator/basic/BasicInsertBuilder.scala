@@ -5,9 +5,23 @@ import java.io.PrintWriter
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 
-class BasicInsertBuilder(val column: ColumnBase[_]) {
+class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile) {
 
   def buildInsert: String = {
+    val (table, cols, vals) = buildParts
+    "INSERT INTO " + table + " (" + cols + ") VALUES (" + vals + ")"
+  }
+
+  def buildInsert(query: Query[ColumnBase[T]]): SQLBuilder.Result = {
+    val (table, cols, _) = buildParts
+    val b = new SQLBuilder
+    b += "INSERT INTO " += table += " (" += cols.toString += ") "
+    val qb = profile.createQueryBuilder(query, NamingContext())
+    qb.buildSelect(b)
+    b.build
+  }
+
+  protected def buildParts: (String, StringBuilder, StringBuilder) = {
     val cols = new StringBuilder
     val vals = new StringBuilder
     var table:String = null
@@ -29,6 +43,6 @@ class BasicInsertBuilder(val column: ColumnBase[_]) {
     }
     f(Node(column))
     if(table eq null) throw new SQueryException("No table to insert into")
-    "INSERT INTO " + table + " (" + cols + ") VALUES (" + vals + ")"
+    (table, cols, vals)
   }
 }

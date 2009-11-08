@@ -21,6 +21,8 @@ trait BasicProfile {
     createQueryBuilder(query, nc).buildDelete
 
   def buildCreateTableStatement(table: Table[_]): String = createDDLBuilder(table).buildCreateTable
-  def buildInsertStatement(cb: ColumnBase[_]): String = new BasicInsertBuilder(cb).buildInsert
+  def buildInsertStatement(cb: ColumnBase[_]): String = new BasicInsertBuilder(cb, this).buildInsert
+  def buildInsertStatement[T](cb: ColumnBase[T], q: Query[ColumnBase[T]]): SQLBuilder.Result =
+    new BasicInsertBuilder(cb, this).buildInsert(q)
   def buildCreateSequenceStatement(seq: Sequence[_]): String = new BasicSequenceDDLBuilder(seq).buildCreateSequence
 }
