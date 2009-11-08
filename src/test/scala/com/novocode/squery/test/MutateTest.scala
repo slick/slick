@@ -33,7 +33,7 @@ class MutateTest {
       println("Before mutating:")
       Query(Users).foreach(u => println("  "+u))
 
-      val q1 = for(u <- Users if u.last.is("Simpson") || u.last.is("Bouvier")) yield u
+      val q1 = for(u <- Users if u.last === "Simpson" || u.last === "Bouvier") yield u
       q1.mutate { m =>
         if(m.row._3 == "Bouvier") m.row = m.row.copy(_3 = "Simpson")
         else if(m.row._2 == "Homer") m.delete()

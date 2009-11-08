@@ -10,7 +10,11 @@ trait AllColumnOps[B1, P1] extends ColumnOps {
   import AllColumnOps._
   def is[B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
     om(Is(leftOperand, Node(e)))
+  def === [B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
+    om(Is(leftOperand, Node(e)))
   def isNot[B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
+    om(BooleanColumnOps.Not(Is(leftOperand, Node(e))))
+  def != [B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
     om(BooleanColumnOps.Not(Is(leftOperand, Node(e))))
   def < [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Relational("<", leftOperand, Node(e)))
