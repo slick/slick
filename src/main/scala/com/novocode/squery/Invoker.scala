@@ -19,7 +19,7 @@ trait Invoker[-P, +R] { self =>
   }
 
   final def first(param: P)(implicit session: Session): R =
-    firstOption(param).getOrElse(throw new Predef.NoSuchElementException("Invoker.first"))
+    firstOption(param).getOrElse(throw new NoSuchElementException("Invoker.first"))
 
   final def list(param: P)(implicit session: Session): List[R] = {
     val b = new ListBuffer[R]
@@ -45,13 +45,15 @@ trait Invoker[-P, +R] { self =>
 
 object Invoker {
 
-  implicit def optionInvokerOperations[P,R](inv: Invoker[P,Option[R]]) = new {
+  final class OptionInvokerOps[P,R](inv: Invoker[P, Option[R]]) {
     def firstFlatten(param: P)(implicit session: Session): Option[R] = inv.firstOption(param).getOrElse(None)
   }
+  implicit def optionInvokerOperations[P,R](inv: Invoker[P,Option[R]]) = new OptionInvokerOps(inv)
 
-  implicit def optionUnitInvokerOperations[R](inv: UnitInvoker[Option[R]]) = new {
+  final class OptionUnitInvokerOps[R](inv: UnitInvoker[Option[R]]) {
     def firstFlatten(implicit session: Session): Option[R] = inv.firstOption(session).getOrElse(None)
   }
+  implicit def optionUnitInvokerOperations[R](inv: UnitInvoker[Option[R]]) = new OptionUnitInvokerOps[R](inv)
 }
 
 /**
