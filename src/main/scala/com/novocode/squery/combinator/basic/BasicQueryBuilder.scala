@@ -289,7 +289,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   protected def insertFromClauses() {
     var first = true
-    for((name, t) <- localTables) {
+    for((name, t) <- new HashMap ++= localTables) {
       if(!parent.map(_.isDeclaredTable(name)).getOrElse(false)) {
         if(first) { fromSlot += " FROM "; first = false }
         else fromSlot += ','
