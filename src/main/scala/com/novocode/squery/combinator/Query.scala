@@ -23,11 +23,12 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
 
   def >>[F](q: Query[F]): Query[F] = flatMap(_ => q)
 
-  def where[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
-    new Query(value, wt(f(value), cond), condHaving, modifiers)
-
   def filter[T](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
     new Query(value, wt(f(value), cond), condHaving, modifiers)
+
+  def withFilter[T](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] = filter(f)(wt)
+
+  def where[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] = filter(f)(wt)
 
   def having[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
     new Query(value, cond, wt(f(value), condHaving), modifiers)

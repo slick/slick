@@ -14,7 +14,7 @@ object StatementParametersTest {
 class StatementParametersTest {
   @Test def testExplicit() {
     println("*** Explicit ***")
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession { s1 =>
+    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession { s1:Session =>
       pr("start")(s1)
       ResultSetType.ScrollInsensitive(s1) { s2 =>
         pr("in ScrollInsensitive block")(s2)
