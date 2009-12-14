@@ -15,19 +15,13 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
   val h2 = "com.h2database" % "h2" % "1.1.+" % "test->default"
   val junit = "junit" % "junit" % "4.7" % "test->default"
   //val scalatest = "org.scalatest" % "scalatest" % "1.0-for-scala-2.8.0-SNAPSHOT" % "test->default"
+  val junitInterface = "com.novocode" % "junit-interface" % "0.2"
 
-  /*********** Forked Compilation ***********/
-  val forkedCompilerJar = property[File]
-  val forkedLibraryJar = property[File]
-  val doFork = propertyOptional[Boolean](false)
-  override def fork = if(doFork.get.get) Some(new ForkScalaCompiler with ForkScalaRun {
-    override def workingDirectory = Some(info.projectPath.asFile)
-    override def scalaJars: Iterable[File] = List(forkedCompilerJar.get.get, forkedLibraryJar.get.get)
-  }) else super.fork
+  override def testFrameworks = super.testFrameworks ++ List(new TestFramework("com.novocode.junit.JUnitFramework"))
 
   /*********** Publishing ***********/
-  //val publishTo = Resolver.file("ScalaQuery Test Repo", new File("e:/temp/repo/"))
-  val publishTo = "Scala Tools Snapshots" at "http://nexus.scala-tools.org/content/repositories/snapshots/"
+  val publishTo = Resolver.file("ScalaQuery Test Repo", new File("e:/temp/repo/"))
+  //val publishTo = "Scala Tools Snapshots" at "http://nexus.scala-tools.org/content/repositories/snapshots/"
   //val publishTo = "Scala Tools Releases" at "http://nexus.scala-tools.org/content/repositories/releases/"
   Credentials(Path.userHome / ".ivy2" / ".credentials", log)
   def specificSnapshotRepo =
@@ -41,7 +35,7 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
   override def packageSrcJar = defaultJarPath("-sources.jar")
   val sourceArtifact = Artifact(artifactID, "src", "jar", Some("sources"), Nil, None)
   val docsArtifact = Artifact(artifactID, "docs", "jar", Some("javadocs"), Nil, None)
-  override def packageToPublishActions = super.packageToPublishActions ++ Seq(packageDocs, packageSrc)
+  override def packageToPublishActions = super.packageToPublishActions ++ Seq(/* packageDocs, */ packageSrc)
 
   /*********** Extra meta-data for the POM ***********/
   override def makePomAction = enrichPom dependsOn superMakePom

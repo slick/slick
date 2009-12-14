@@ -18,7 +18,7 @@ import org.junit.runners.Suite.SuiteClasses
   classOf[JoinTest],
   classOf[InsertTest]
 ))
-class TestSuite
+class TestSuite extends com.novocode.junit.TestMarker
 
 object TestSuite {
   def main(args: Array[String]) = JUnitCore.main(Array(classOf[TestSuite].getName):_*);
