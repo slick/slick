@@ -6,18 +6,23 @@ import java.nio.channels.Channels
 
 class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
 {
+  /*********** Options ***********/
   override def compileOptions = Deprecation :: super.compileOptions.toList
+  override def documentOptions: Seq[ScaladocOption] =
+    /* LinkSource ::
+    documentTitle(name + " " + version + " API") :: 
+    windowTitle(name + " " + version + " API") :: */ // Not supported in scaladoc2
+    Nil
+  override def testFrameworks = super.testFrameworks ++ List(new TestFramework("com.novocode.junit.JUnitFrameworkNoMarker"))
 
   /*********** Dependencies ***********/
   //val scalaToolsSnapshots = "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
   //val specs = "org.scala-tools.testing" % "specs" % "1.4.4"
   //val scalaCheck = "org.scalacheck" % "scalacheck" % "1.5"
   val h2 = "com.h2database" % "h2" % "1.1.+" % "test->default"
-  val junit = "junit" % "junit" % "4.7" % "test->default"
+  //val junit = "junit" % "junit" % "4.7" % "test->default"
   //val scalatest = "org.scalatest" % "scalatest" % "1.0-for-scala-2.8.0-SNAPSHOT" % "test->default"
-  val junitInterface = "com.novocode" % "junit-interface" % "0.2"
-
-  override def testFrameworks = super.testFrameworks ++ List(new TestFramework("com.novocode.junit.JUnitFramework"))
+  val junitInterface = "com.novocode" % "junit-interface" % "0.3"
 
   /*********** Publishing ***********/
   val publishTo = Resolver.file("ScalaQuery Test Repo", new File("e:/temp/repo/"))
@@ -35,7 +40,7 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
   override def packageSrcJar = defaultJarPath("-sources.jar")
   val sourceArtifact = Artifact(artifactID, "src", "jar", Some("sources"), Nil, None)
   val docsArtifact = Artifact(artifactID, "docs", "jar", Some("javadocs"), Nil, None)
-  override def packageToPublishActions = super.packageToPublishActions ++ Seq(/* packageDocs, */ packageSrc)
+  override def packageToPublishActions = super.packageToPublishActions ++ Seq(packageDocs, packageSrc)
 
   /*********** Extra meta-data for the POM ***********/
   override def makePomAction = enrichPom dependsOn superMakePom
