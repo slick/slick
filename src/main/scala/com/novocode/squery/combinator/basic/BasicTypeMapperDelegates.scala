@@ -59,7 +59,7 @@ object BasicTypeMapperDelegates {
   }
 
   class DateTypeMapperDelegate extends TypeMapperDelegate[Date] {
-    def zero = new Date(70, 0, 1)
+    def zero = new Date(0L)
     def sqlType = java.sql.Types.DATE
     def setValue(v: Date, p: PositionedParameters) = p.setDate(v)
     def setOption(v: Option[Date], p: PositionedParameters) = p.setDateOption(v)
@@ -124,7 +124,7 @@ object BasicTypeMapperDelegates {
   }
 
   class TimeTypeMapperDelegate extends TypeMapperDelegate[Time] {
-    def zero = new Time(0, 0, 0)
+    def zero = new Time(0L)
     def sqlType = java.sql.Types.TIME
     def setValue(v: Time, p: PositionedParameters) = p.setTime(v)
     def setOption(v: Option[Time], p: PositionedParameters) = p.setTimeOption(v)
@@ -134,7 +134,7 @@ object BasicTypeMapperDelegates {
   }
 
   class TimestampTypeMapperDelegate extends TypeMapperDelegate[Timestamp] {
-    def zero = new Timestamp(70, 0, 1, 0, 0, 0, 0)
+    def zero = new Timestamp(0L)
     def sqlType = java.sql.Types.TIMESTAMP
     def setValue(v: Timestamp, p: PositionedParameters) = p.setTimestamp(v)
     def setOption(v: Option[Timestamp], p: PositionedParameters) = p.setTimestampOption(v)
