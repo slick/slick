@@ -77,12 +77,12 @@ object Database {
     if(driver ne null) Class.forName(driver)
     val cprop = if(prop.ne(null) && user.eq(null) && password.eq(null)) prop else {
       val p = new Properties(prop)
-      if(user ne null) prop.setProperty("user", user)
-      if(password ne null) prop.setProperty("password", password)
+      if(user ne null) p.setProperty("user", user)
+      if(password ne null) p.setProperty("password", password)
       p
     }
 
-    protected[session] def createConnection(): Connection = DriverManager.getConnection(url, prop)
+    protected[session] def createConnection(): Connection = DriverManager.getConnection(url, cprop)
   }
 
   /**
