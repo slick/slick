@@ -20,7 +20,7 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
     }
   }
 
-  def <>[R](f: (T => R), g: (R => Some[T])): MappedProjection[R,T] = new MappedProjection(this, f, g)
+  def <>[R](f: (T => R), g: (R => Option[T])): MappedProjection[R,T] = new MappedProjection(this, f, g)
 
   override def toString = "Projection" + productArity
 }
@@ -31,7 +31,7 @@ object Projection {
 </#list>
 }
 
-class MappedProjection[T, P <: Product](val child: Projection[P], f: (P => T), g: (T => Some[P])) extends ColumnBase[T] with UnaryNode {
+class MappedProjection[T, P <: Product](val child: Projection[P], f: (P => T), g: (T => Option[P])) extends ColumnBase[T] with UnaryNode {
   override def toString = "MappedProjection"
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
 
@@ -66,7 +66,7 @@ extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projec
 <#list 1..i as j>
     _${j}.mapOp(f)<#if i != j>,</#if>
 </#list>  ).asInstanceOf[this.type]
-  def <>[R](f: ((<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) => R), g: (R => Some[V])): MappedProjection[R,V] =
+  def <>[R](f: ((<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) => R), g: (R => Option[V])): MappedProjection[R,V] =
     <>(t => f(<#list 1..i as j>t._${j}<#if i != j>,</#if></#list>), g)
 }
 
