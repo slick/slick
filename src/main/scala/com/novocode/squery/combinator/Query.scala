@@ -72,7 +72,7 @@ class QueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) {
   def sub = wrap(q)
 
   private[this] def wrap(base: Node): Query[E] = Query(q.value match {
-    case t:Table[_] =>
+    case t:AbstractTable[_] =>
       q.value.mapOp(_ => Subquery(base, false))
     case _ =>
       var pos = 0

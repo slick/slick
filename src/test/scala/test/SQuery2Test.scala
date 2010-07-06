@@ -1,9 +1,10 @@
 package test
 
-import com.novocode.squery.combinator.{Table, Join, Query, Projection, NamingContext, ColumnBase}
+import com.novocode.squery.combinator.{Join, Query, Projection, NamingContext, ColumnBase}
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 
 object SQuery2Test {
   def main(args: Array[String]) {

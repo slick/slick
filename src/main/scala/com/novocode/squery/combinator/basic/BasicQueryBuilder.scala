@@ -103,8 +103,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   def buildDelete = {
     val b = new SQLBuilder += "DELETE FROM "
     val (delTable, delTableName) = Node(query.value) match {
-      case t @ Table.Alias(base:Table[_]) => (t, base.tableName)
-      case t:Table[_] => (t, t.tableName)
+      case t @ BasicTable.Alias(base:BasicTable[_]) => (t, base.tableName)
+      case t:BasicTable[_] => (t, t.tableName)
       case n => throw new SQueryException("Cannot create a DELETE statement from an \""+n+
         "\" expression; An aliased or base table is required")
     }
@@ -131,8 +131,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
     def handleColumn(node: Node, idx: Int) {
       (node match {
-        case nc @ NamedColumn(t @ Table(tn), n, _) => (tn, n, nc.typeMapper, t)
-        case nc @ NamedColumn(t @ Table.Alias(Table(tn)), n, _) => (tn, n, nc.typeMapper, t)
+        case nc @ NamedColumn(t @ BasicTable(tn), n, _) => (tn, n, nc.typeMapper, t)
+        case nc @ NamedColumn(t @ BasicTable.Alias(BasicTable(tn)), n, _) => (tn, n, nc.typeMapper, t)
         case n => throw new SQueryException("Cannot create an UPDATE statement from a \""+n+
           "\" expression; A single named column or a projection of named columns from the same aliased or base table is required")
       }) match { case (tn, n, tm, t) =>
@@ -265,8 +265,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     }
     case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
     case SubqueryColumn(pos, sq) => { b += localTableName(sq) += ".c" += pos.toString }
-    case a @ Table.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
-    case t: Table[_] => expr(Node(t.*), b)
+    case a @ BasicTable.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
+    case t: BasicTable[_] => expr(Node(t.*), b)
     case t: TableBase[_] => b += localTableName(t) += ".*"
     case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
   }
@@ -302,9 +302,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   }
 
   protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
-    case Table.Alias(base: Table[_]) =>
+    case BasicTable.Alias(base: BasicTable[_]) =>
       b += base.tableName += ' ' += name
-    case base: Table[_] =>
+    case base: BasicTable[_] =>
       b += base.tableName += ' ' += name
     case Subquery(sq: Query[_], rename) =>
       b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += name

@@ -4,7 +4,7 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, OracleDriver, MySQLDriver}
+import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, OracleDriver, MySQLDriver, ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database._
 

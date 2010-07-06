@@ -5,8 +5,9 @@ import java.io.PrintWriter
 import java.sql.Types._
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
+import com.novocode.squery.combinator.extended.ExtendedColumnOption //TODO: Move AutoInc handling to extended profile
 
-class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
+class BasicDDLBuilder(table: BasicTable[_], profile: BasicProfile) {
 
   def buildCreateTable = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
@@ -27,11 +28,11 @@ class BasicDDLBuilder(table: Table[_], profile: BasicProfile) {
     var primaryKey = false
     var defaultLiteral: String = null
     for(o <- c.options) o match {
-      case ColumnOption.DBType(s) => sqlType = s
-      case ColumnOption.NotNull => notNull = true
-      case ColumnOption.AutoInc => autoIncrement = true
-      case ColumnOption.PrimaryKey => primaryKey = true
-      case ColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
+      case BasicColumnOption.DBType(s) => sqlType = s
+      case BasicColumnOption.NotNull => notNull = true
+      case ExtendedColumnOption.AutoInc => autoIncrement = true
+      case BasicColumnOption.PrimaryKey => primaryKey = true
+      case BasicColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
     }
     if(sqlType eq null) sqlType = mapTypeName(c.typeMapper(profile))
     sb append sqlType

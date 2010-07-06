@@ -5,6 +5,7 @@ import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
+import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
@@ -84,7 +85,7 @@ class MainTest {
       for(u <- allUsers
           if u.first != "Apu" && u.first != "Snowball"; i <- 1 to 2)
         (Orders.userID ~ Orders.product ~ Orders.shipped ~ Orders.rebate).insert(
-          u.id, "Gizmo "+((Math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
+          u.id, "Gizmo "+((scala.math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
 
       val q3 = for (
         u <- Users if u.last isNotNull;
