@@ -2,14 +2,20 @@ package com.novocode.squery.combinator.extended
 
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.basic.{BasicProfile, BasicImplicitConversions}
+import com.novocode.squery.combinator.basic._
+import com.novocode.squery.session.Session
 
 trait ExtendedProfile extends BasicProfile {
   type ImplicitT <: ExtendedImplicitConversions[_ <: ExtendedProfile]
+
+  def buildCreateTableStatement(table: ExtendedTable[_]): String = createDDLBuilder(table).buildCreateTable
+  def createDDLBuilder(table: ExtendedTable[_]): ExtendedDDLBuilder = new ExtendedDDLBuilder(table, this)
 }
 
 trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicImplicitConversions[DriverType] {
   implicit def queryToExtendedQueryOps[E](q: Query[E]) = new ExtendedQueryOps(q)
+  implicit def extendedQueryToDeleteInvoker[T](q: Query[ExtendedTable[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, squeryDriver)
+  implicit def extendedTableToDDLInvoker[T](t: ExtendedTable[T]): ExtendedDDLInvoker[T] = new ExtendedDDLInvoker(t, squeryDriver)
 }
 
 class ExtendedQueryOps[E](q: Query[E]) {
@@ -31,3 +37,31 @@ object ExtendedQueryOps {
     override def nodeNamedChildren = take.map((_,"take")).toList ::: drop.map((_,"drop")).toList
   }
 }
+
+class ExtendedDDLBuilder(table: AbstractExtendedTable[_], profile: ExtendedProfile) extends BasicDDLBuilder(table, profile)
+
+class ExtendedDDLInvoker[T](table: ExtendedTable[T], profile: ExtendedProfile) {
+
+  lazy val createTableStatement = profile.buildCreateTableStatement(table)
+
+  def createTable(implicit session: Session): Unit =
+    session.withPreparedStatement(createTableStatement)(_.execute)
+}
+
+class ExtendedColumnOptions extends BasicColumnOptions {
+  val AutoInc = ExtendedColumnOption.AutoInc
+}
+
+object ExtendedColumnOptions extends ExtendedColumnOptions
+
+object ExtendedColumnOption {
+  case object AutoInc extends ColumnOption[Nothing, ExtendedProfile]
+}
+
+abstract class AbstractExtendedTable[T](_tableName: String) extends AbstractBasicTable[T](_tableName) {
+
+  type ProfileType <: ExtendedProfile
+  override val O: ExtendedColumnOptions = ExtendedColumnOptions
+}
+
+abstract class ExtendedTable[T](_tableName: String) extends AbstractExtendedTable[T](_tableName)

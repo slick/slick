@@ -12,8 +12,8 @@ class BasicColumnOptions {
 object BasicColumnOptions extends BasicColumnOptions
 
 object BasicColumnOption {
-  case object NotNull extends ColumnOption
-  case object PrimaryKey extends ColumnOption
-  case class Default[T](val defaultValue: T) extends ColumnOption[T]
-  case class DBType(val dbType: String) extends ColumnOption
+  case object NotNull extends ColumnOption[Nothing, BasicProfile]
+  case object PrimaryKey extends ColumnOption[Nothing, BasicProfile]
+  case class Default[T](val defaultValue: T) extends ColumnOption[T, BasicProfile]
+  case class DBType(val dbType: String) extends ColumnOption[Nothing, BasicProfile]
 }

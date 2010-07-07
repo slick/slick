@@ -17,7 +17,7 @@ trait BasicProfile {
     createQueryBuilder(query, nc).buildSelect
   def buildUpdateStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildUpdate
-  def buildDeleteStatement(query: Query[BasicTable[_]], nc: NamingContext): SQLBuilder.Result =
+  def buildDeleteStatement(query: Query[AbstractBasicTable[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildDelete
 
   def buildCreateTableStatement(table: BasicTable[_]): String = createDDLBuilder(table).buildCreateTable

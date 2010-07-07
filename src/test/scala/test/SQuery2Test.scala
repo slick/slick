@@ -1,6 +1,6 @@
 package test
 
-import com.novocode.squery.combinator.{Join, Query, Projection, NamingContext, ColumnBase}
+import com.novocode.squery.combinator.{Join, Query, Projection, NamingContext, ColumnBase, AbstractTable}
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.BasicDriver
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
@@ -75,7 +75,7 @@ object SQuery2Test {
     dump("q6b", q6b)
     dump("q6c", q6c)
 
-    val usersBase = Users.mapOp(n => new Table.Alias(n))
+    val usersBase = Users.mapOp(n => new AbstractTable.Alias(n))
 
     {
       val m1a = for {
@@ -88,7 +88,7 @@ object SQuery2Test {
     }
 
     {
-      val f = { t:Table[_] => t.mapOp(n => new Table.Alias(n)) }
+      val f = { t:Table[_] => t.mapOp(n => new AbstractTable.Alias(n)) }
       val m2a = for { u <- Query(Users) } yield f(u)
       val m2b = Query(f(Users))
       dump("m2a", m2a)

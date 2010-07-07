@@ -7,7 +7,7 @@ import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.extended.ExtendedColumnOption //TODO: Move AutoInc handling to extended profile
 
-class BasicDDLBuilder(table: BasicTable[_], profile: BasicProfile) {
+class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
 
   def buildCreateTable = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("

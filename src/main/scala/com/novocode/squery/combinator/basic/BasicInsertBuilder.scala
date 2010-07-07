@@ -29,7 +29,7 @@ class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile
       case p:Projection[_] =>
         for(i <- 0 until p.productArity)
           f(Node(p.productElement(i)))
-      case t:BasicTable[_] => f(Node(t.*))
+      case t:AbstractTable[_] => f(Node(t.*))
       case n:NamedColumn[_] =>
         if(!cols.isEmpty) {
           cols append ","
@@ -37,8 +37,8 @@ class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile
         }
         cols append n.name
         vals append '?'
-        if(table eq null) table = n.table.asInstanceOf[BasicTable[_]].tableName
-        else if(table != n.table.asInstanceOf[BasicTable[_]].tableName) throw new SQueryException("Inserts must all be to the same table")
+        if(table eq null) table = n.table.asInstanceOf[AbstractTable[_]].tableName
+        else if(table != n.table.asInstanceOf[AbstractTable[_]].tableName) throw new SQueryException("Inserts must all be to the same table")
       case _ => throw new SQueryException("Cannot use column "+c+" in INSERT statement")
     }
     f(Node(column))
