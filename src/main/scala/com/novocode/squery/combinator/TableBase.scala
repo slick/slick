@@ -51,7 +51,7 @@ object AbstractTable {
 final class JoinBase[+T1 <: AbstractTable.T_, +T2 <: TableBase.T_](_left: T1, _right: T2, joinType: Join.JoinType) {
   def nodeChildren = Node(_left) :: Node(_right) :: Nil
   override def toString = "JoinBase(" + Node(_left) + "," + Node(_right) + ")"
-  def on[T <: Column[_] : Query.WhereType](pred: (T1, T2) => T) = new Join(_left, _right, joinType, Node(pred(_left, _right)))
+  def on[T <: Column[_] : CanBeQueryCondition](pred: (T1, T2) => T) = new Join(_left, _right, joinType, Node(pred(_left, _right)))
 }
 
 final class Join[+T1 <: AbstractTable.T_, +T2 <: TableBase.T_](_left: T1, _right: T2,

@@ -23,14 +23,14 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
 
   def >>[F](q: Query[F]): Query[F] = flatMap(_ => q)
 
-  def filter[T](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
+  def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E] =
     new Query(value, wt(f(value), cond), condHaving, modifiers)
 
-  def withFilter[T](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] = filter(f)(wt)
+  def withFilter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E] = filter(f)(wt)
 
-  def where[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] = filter(f)(wt)
+  def where[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E] = filter(f)(wt)
 
-  def having[T <: Column[_]](f: E => T)(implicit wt: Query.WhereType[T]): Query[E] =
+  def having[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E] =
     new Query(value, cond, wt(f(value), condHaving), modifiers)
 
   def groupBy(by: Column[_]*) =
@@ -55,10 +55,10 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
 
 object Query extends Query[Unit]((), Nil, Nil, Nil) {
   def apply[E](value: E) = new Query(value, Nil, Nil, Nil)
+}
 
-  trait WhereType[-T] {
-    def apply(value: T, l: List[Column[_]]): List[Column[_]]
-  }
+trait CanBeQueryCondition[-T] {
+  def apply(value: T, l: List[Column[_]]): List[Column[_]]
 }
 
 class QueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) {

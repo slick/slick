@@ -4,13 +4,13 @@ import com.novocode.squery.combinator._
 
 trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
-  implicit object WhereBooleanColumn extends Query.WhereType[Column[Boolean]] {
+  implicit object WhereBooleanColumn extends CanBeQueryCondition[Column[Boolean]] {
     def apply(value: Column[Boolean], l: List[Column[_]]): List[Column[_]] = value :: l
   }
-  implicit object WhereBooleanOptionColumn extends Query.WhereType[Column[Option[Boolean]]] {
+  implicit object WhereBooleanOptionColumn extends CanBeQueryCondition[Column[Option[Boolean]]] {
     def apply(value: Column[Option[Boolean]], l: List[Column[_]]): List[Column[_]] = value :: l
   }
-  implicit object WhereBoolean extends Query.WhereType[Boolean] {
+  implicit object WhereBoolean extends CanBeQueryCondition[Boolean] {
     def apply(value: Boolean, l: List[Column[_]]): List[Column[_]] =
       if(value) l else valueToConstColumn(false)(TypeMapper.BooleanTypeMapper) :: Nil
   }

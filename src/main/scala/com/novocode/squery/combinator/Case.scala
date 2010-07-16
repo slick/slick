@@ -8,7 +8,7 @@ object Case {
     def nodeChildren = elseClause :: clauses
   }
 
-  def when[C <: Column[_] : Query.WhereType](cond: C) = new UntypedWhen(Node(cond))
+  def when[C <: Column[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(Node(cond))
 
   class UntypedWhen(cond: Node) {
     def then[B : BaseTypeMapper](res: Column[B]) = new TypedCase[B,B](new WhenNode(cond, Node(res)) :: Nil)
@@ -20,7 +20,7 @@ object Case {
 
   class TypedCase[B : TypeMapper, T : TypeMapper](clauses: List[WhenNode])
   extends CaseColumn[Option[B]](clauses, ConstColumn.NULL) {
-    def when[C <: Column[_] : Query.WhereType](cond: C) = new TypedWhen[B,T](cond, this)
+    def when[C <: Column[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond, this)
     def otherwise(res: Column[T]): Column[T] = new TypedCaseWithElse[T](clauses, Node(res))
   }
 
