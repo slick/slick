@@ -14,7 +14,7 @@ abstract class AbstractBasicTable[T](_tableName: String) extends AbstractTable[T
 
   def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit profile: BasicProfile, tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
     import profile.Implicit._
-    Parameters[P](tm).flatMap(p => Query(this).where(t => AllColumnOps.Is(f(t.asInstanceOf[AbstractBasicTable.this.type]), p)))(profile)
+    Parameters[P](tm).flatMap(p => Query(this).where(t => ColumnOps.Is(f(t.asInstanceOf[AbstractBasicTable.this.type]), p)))(profile)
   }
 
   def innerJoin[U <: TableBase.T_](other: U) = new JoinBase[this.type, U](this, other, Join.Inner)

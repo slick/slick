@@ -38,7 +38,7 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
 
   def orderBy(by: Ordering*) = new Query[E](value, cond, condHaving, modifiers ::: by.toList)
 
-  def exists = AllColumnOps.Exists(map(_ => ConstColumn(1)))
+  def exists = ColumnOps.Exists(map(_ => ConstColumn(1)))
 
   def typedModifiers[T <: QueryModifier](implicit m: ClassManifest[T]) =
     modifiers.filter(m.erasure.isInstance(_)).asInstanceOf[List[T]]
@@ -67,7 +67,7 @@ class QueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) {
 
   def unionAll(other: Query[E]*) = wrap(Union(true, q :: other.toList))
 
-  def count = AllColumnOps.CountAll(Subquery(q, false))
+  def count = ColumnOps.CountAll(Subquery(q, false))
 
   def sub = wrap(q)
 

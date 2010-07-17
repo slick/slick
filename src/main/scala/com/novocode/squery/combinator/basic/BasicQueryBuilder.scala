@@ -185,9 +185,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ConstColumn(null) => b += "null"
-    case BooleanColumnOps.Not(AllColumnOps.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
-    case BooleanColumnOps.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
-    case AllColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
+    case ColumnOps.Not(ColumnOps.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
+    case ColumnOps.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
+    case ColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
       b += '('; expr(e, b); b += " in ("
       if(bind) {
         var first = true
@@ -199,8 +199,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       else b += seq.map(tm(profile).valueToSQLLiteral).mkString(",")
       b += "))"
     }
-    case AllColumnOps.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
-    case AllColumnOps.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
+    case ColumnOps.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
+    case ColumnOps.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
     case s: SimpleFunction => {
       b += s.name += '('
       var first = true
@@ -222,10 +222,10 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += ")}"
     }
     case SimpleLiteral(w) => b += w
-    case AllColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
-    case AllColumnOps.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
-    case AllColumnOps.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
-    case StringColumnOps.Like(l, r, esc) => {
+    case ColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
+    case ColumnOps.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
+    case ColumnOps.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
+    case ColumnOps.Like(l, r, esc) => {
       b += '('; expr(l, b); b += " like "; expr(r, b);
       esc.foreach { ch =>
         if(ch == '\'' || ch == '%' || ch == '_') throw new SQueryException("Illegal escape character '"+ch+"' for LIKE expression")
@@ -233,7 +233,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += ')'
     }
-    case a @ AllColumnOps.AsColumnOf(ch, name) => {
+    case a @ ColumnOps.AsColumnOf(ch, name) => {
       b += "{fn convert("; expr(ch, b); b += ','
       b += name.getOrElse(a.typeMapper(profile).sqlTypeName)
       b += ")}"

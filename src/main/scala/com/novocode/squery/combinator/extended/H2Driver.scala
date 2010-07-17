@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, StringColumnOps, TypeMapperDelegate}
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, ColumnOps, TypeMapperDelegate}
 import com.novocode.squery.combinator.basic._
 
 object H2Driver extends ExtendedProfile { self =>
@@ -29,7 +29,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     new H2QueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case StringColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
+    case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
     case _ => super.innerExpr(c, b)
   }
 
