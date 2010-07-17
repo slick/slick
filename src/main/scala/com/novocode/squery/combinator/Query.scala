@@ -51,6 +51,30 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
     }
     new Query[E](value, cond, condHaving, mod :: other)
   }
+
+  // Query[ColumnBase[_]] only
+  def union[O >: E <: ColumnBase[_]](other: Query[O]*) = wrap(Union(false, this :: other.toList))
+
+  def unionAll[O >: E <: ColumnBase[_]](other: Query[O]*) = wrap(Union(true, this :: other.toList))
+
+  def count(implicit ev: E <:< ColumnBase[_]) = ColumnOps.CountAll(Subquery(this, false))
+
+  def sub(implicit ev: E <:< ColumnBase[_]) = wrap(this)
+
+  private[this] def wrap(base: Node): Query[E] = Query(value.asInstanceOf[WithOp] match {
+    case t:AbstractTable[_] =>
+      t.mapOp(_ => Subquery(base, false)).asInstanceOf[E]
+    case o =>
+      var pos = 0
+      val p = Subquery(base, true)
+      o.mapOp { v =>
+        pos += 1
+        SubqueryColumn(pos, p)
+      }.asInstanceOf[E]
+  })
+
+  // Query[Column[_]] only
+  def asColumn(implicit ev: E <:< Column[_]): E = value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
 }
 
 object Query extends Query[Unit]((), Nil, Nil, Nil) {
@@ -59,33 +83,6 @@ object Query extends Query[Unit]((), Nil, Nil, Nil) {
 
 trait CanBeQueryCondition[-T] {
   def apply(value: T, l: List[Column[_]]): List[Column[_]]
-}
-
-class QueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) {
-  
-  def union(other: Query[E]*) = wrap(Union(false, q :: other.toList))
-
-  def unionAll(other: Query[E]*) = wrap(Union(true, q :: other.toList))
-
-  def count = ColumnOps.CountAll(Subquery(q, false))
-
-  def sub = wrap(q)
-
-  private[this] def wrap(base: Node): Query[E] = Query(q.value match {
-    case t:AbstractTable[_] =>
-      q.value.mapOp(_ => Subquery(base, false))
-    case _ =>
-      var pos = 0
-      val p = Subquery(base, true)
-      q.value.mapOp { v =>
-        pos += 1
-        SubqueryColumn(pos, p)
-      }
-  })
-}
-
-class QueryOfColumnOps[E <: Column[_]](q: Query[E]) {
-  def asColumn: E = q.value.mapOp(_ => q)
 }
 
 case class Subquery(query: Node, rename: Boolean) extends Node {

@@ -55,8 +55,5 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
   implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(c, squeryDriver)
   implicit def sequenceToSequenceDDLInvoker(seq: Sequence[_]): BasicSequenceDDLInvoker = new BasicSequenceDDLInvoker(seq, squeryDriver)
 
-  implicit def queryToQueryOfColumnBaseOps[E <: ColumnBase[_]](q: Query[E]) = new QueryOfColumnBaseOps(q)
-  implicit def queryToQueryOfColumnOps[E <: Column[_]](q: Query[E]) = new QueryOfColumnOps(q)
-
   implicit val squeryDriver: DriverType
 }
