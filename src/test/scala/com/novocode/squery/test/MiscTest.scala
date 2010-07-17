@@ -6,7 +6,7 @@ import org.junit.runner.JUnitCore
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.extended.H2Driver.Implicit._
-//import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 

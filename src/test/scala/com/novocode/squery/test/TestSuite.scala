@@ -17,7 +17,8 @@ import org.junit.runners.Suite.SuiteClasses
   classOf[ScalarFunctionTest],
   classOf[JoinTest],
   classOf[InsertTest],
-  classOf[MiscTest]
+  classOf[MiscTest],
+  classOf[ForeignKeyTest]
 ))
 class TestSuite
 

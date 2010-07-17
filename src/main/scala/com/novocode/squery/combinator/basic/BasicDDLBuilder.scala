@@ -18,6 +18,10 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
       b append n.name append ' '
       addTypeAndOptions(n, b)
     }
+    for(fk <- table.foreignKeys) {
+      b append ","
+      addForeignKey(fk, b)
+    }
     b append ")" toString
   }
 
@@ -45,5 +49,33 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
   protected def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case VARCHAR => "VARCHAR(254)"
     case _ => tmd.sqlTypeName
+  }
+
+  protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable.T_], sb: StringBuilder) {
+    sb append "CONSTRAINT " append fk.name append " FOREIGN KEY("
+    addForeignKeyColumnList(fk.sourceColumns, sb, table.tableName)
+    sb append ") REFERENCES " append fk.targetTable.tableName append "("
+    addForeignKeyColumnList(fk.targetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
+    sb append ") ON UPDATE " append fk.onUpdate.action
+    sb append " ON DELETE " append fk.onDelete.action
+  }
+
+  protected def addForeignKeyColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) = {
+    var first = true
+    def f(c: Any): Unit = c match {
+      case p:Projection[_] =>
+        for(i <- 0 until p.productArity)
+          f(Node(p.productElement(i)))
+      case t:AbstractTable[_] => f(Node(t.*))
+      case n:NamedColumn[_] =>
+        if(first) first = false
+        else sb append ","
+        sb append n.name
+        if(requiredTableName != n.table.asInstanceOf[AbstractTable[_]].tableName)
+          throw new SQueryException("All columns in foreign key constraint must belong to table "+requiredTableName)
+      case _ => throw new SQueryException("Cannot use column "+c+
+        " in foreign key constraint (only named columns and projections are allowed)")
+    }
+    f(Node(columns))
   }
 }

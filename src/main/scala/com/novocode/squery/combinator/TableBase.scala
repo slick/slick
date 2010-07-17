@@ -1,7 +1,7 @@
 package com.novocode.squery.combinator
 
 import com.novocode.squery.SQueryException
-import com.novocode.squery.combinator.basic.{BasicProfile, BasicQueryTemplate}
+import com.novocode.squery.combinator.basic.{BasicProfile, BasicQueryTemplate, BasicDriver}
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
 
 sealed trait TableBase[T] extends Node with WithOp {
@@ -31,6 +31,19 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
     }
     f(Node(*))
   }
+
+  def foreignKey[P, TT <: AbstractTable.T_]
+      (name: String, sourceColumns: ColumnBase[P], targetTable: TT)
+      (targetColumns: TT => ColumnBase[P], onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
+        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction): ForeignKeyQuery[TT] =
+    ForeignKeyQuery(ForeignKey(name, this, targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), targetTable,
+      sourceColumns, targetColumns, onUpdate, onDelete))
+
+  def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable.T_]] = (for {
+      m <- getClass().getMethods.view
+      if m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable.T_]] && m.getParameterTypes.length == 0
+      q = m.invoke(this).asInstanceOf[ForeignKeyQuery[_ <: AbstractTable.T_]]
+    } yield q.fk)
 
   def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = *.updateResult(profile, rs, value)

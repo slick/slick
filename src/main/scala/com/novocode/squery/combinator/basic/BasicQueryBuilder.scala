@@ -268,6 +268,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     case a @ AbstractTable.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
     case t: AbstractTable[_] => expr(Node(t.*), b)
     case t: TableBase[_] => b += localTableName(t) += ".*"
+    case fk: ForeignKey[_] => b += "(("; expr(fk.left, b); b += ")=("; expr(fk.right, b); b += "))"
     case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
   }
 
