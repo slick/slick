@@ -107,7 +107,7 @@ class MainTest {
       q4.foreach(o => println("  "+o))
       assertEquals(List(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)), q4.list)
 
-      def maxOfPer[T <: TableBase.T_]
+      def maxOfPer[T <: TableBase[_]]
         (c: T, m: (T => Column[Int]), p: (T => Column[Int])) =
         c where { o => m(o) in (for { o2 <- c if p(o) is p(o2) } yield m(o2).max) }
 

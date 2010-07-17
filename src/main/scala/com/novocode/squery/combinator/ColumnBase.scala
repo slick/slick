@@ -15,10 +15,6 @@ trait ColumnBase[T] extends Node with WithOp {
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
 }
 
-object ColumnBase {
-  type T_ = ColumnBase[_]
-}
-
 /**
  * Base trait for columns.
  */

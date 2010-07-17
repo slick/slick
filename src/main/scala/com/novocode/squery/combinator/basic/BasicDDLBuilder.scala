@@ -51,7 +51,7 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
     case _ => tmd.sqlTypeName
   }
 
-  protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable.T_], sb: StringBuilder) {
+  protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_]], sb: StringBuilder) {
     sb append "CONSTRAINT " append fk.name append " FOREIGN KEY("
     addForeignKeyColumnList(fk.sourceColumns, sb, table.tableName)
     sb append ") REFERENCES " append fk.targetTable.tableName append "("

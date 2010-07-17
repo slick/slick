@@ -17,10 +17,10 @@ abstract class AbstractBasicTable[T](_tableName: String) extends AbstractTable[T
     Parameters[P](tm).flatMap(p => Query(this).where(t => ColumnOps.Is(f(t.asInstanceOf[AbstractBasicTable.this.type]), p)))(profile)
   }
 
-  def innerJoin[U <: TableBase.T_](other: U) = new JoinBase[this.type, U](this, other, Join.Inner)
-  def leftJoin[U <: TableBase.T_](other: U) = new JoinBase[this.type, U](this, other, Join.Left)
-  def rightJoin[U <: TableBase.T_](other: U) = new JoinBase[this.type, U](this, other, Join.Right)
-  def outerJoin[U <: TableBase.T_](other: U) = new JoinBase[this.type, U](this, other, Join.Outer)
+  def innerJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Inner)
+  def leftJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Left)
+  def rightJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Right)
+  def outerJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Outer)
 }
 
 abstract class BasicTable[T](_tableName: String) extends AbstractBasicTable[T](_tableName)
