@@ -1,6 +1,6 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, ColumnOps, TypeMapperDelegate}
+import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, ColumnOps, TypeMapperDelegate, DDL}
 import com.novocode.squery.combinator.basic._
 
 object H2Driver extends ExtendedProfile { self =>
@@ -15,7 +15,7 @@ object H2Driver extends ExtendedProfile { self =>
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
-  override def createDDLBuilder(table: AbstractBasicTable[_]) = new H2DDLBuilder(table)
+  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new H2DDLBuilder(table).buildDDL
 }
 
 class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver.type)

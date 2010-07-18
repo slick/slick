@@ -8,7 +8,6 @@ trait BasicProfile {
 
   def createQueryTemplate[P,R](query: Query[ColumnBase[R]]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](query, this)
   def createQueryBuilder(query: Query[_], nc: NamingContext): BasicQueryBuilder = new ConcreteBasicQueryBuilder(query, nc, None, this)
-  def createDDLBuilder(table: AbstractBasicTable[_]): BasicDDLBuilder = new BasicDDLBuilder(table, this)
 
   val Implicit: ImplicitT
   val typeMapperDelegates: TypeMapperDelegatesT
@@ -24,12 +23,6 @@ trait BasicProfile {
   def buildInsertStatement[T](cb: ColumnBase[T], q: Query[ColumnBase[T]]): SQLBuilder.Result =
     new BasicInsertBuilder(cb, this).buildInsert(q)
 
-  def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDL {
-    lazy val createPhase1 = Iterable(createDDLBuilder(table).buildCreateTable)
-    lazy val createPhase2 = Iterable()
-  }
-  def buildSequenceDDL(seq: Sequence[_]): DDL = new DDL {
-    lazy val createPhase1 = Iterable(new BasicSequenceDDLBuilder(seq).buildCreateSequence)
-    lazy val createPhase2 = Iterable()
-  }
+  def buildTableDDL(table: AbstractBasicTable[_]): DDL = new BasicDDLBuilder(table, this).buildDDL
+  def buildSequenceDDL(seq: Sequence[_]): DDL = new BasicSequenceDDLBuilder(seq).buildDDL
 }

@@ -9,7 +9,7 @@ import com.novocode.squery.combinator.extended.ExtendedColumnOption //TODO: Move
 
 class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
 
-  def buildCreateTable = {
+  def buildDDL: DDL = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
     var first = true
     for(n <- table.create_*) {
@@ -22,7 +22,11 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
       b append ","
       addForeignKey(fk, b)
     }
-    b append ")" toString
+    b append ")"
+    new DDL {
+      val createPhase1 = Iterable(b.toString)
+      val createPhase2 = Iterable()
+    }
   }
 
   protected def addTypeAndOptions(c: NamedColumn[_], sb: StringBuilder) {
