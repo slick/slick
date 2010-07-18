@@ -51,9 +51,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
   implicit def queryToDeleteInvoker[T](q: Query[BasicTable[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, squeryDriver)
   implicit def productQueryToUpdateInvoker[T <: Product](q: Query[Projection[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, squeryDriver)
   implicit def namedColumnQueryToUpdateInvoker[T](q: Query[NamedColumn[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, squeryDriver)
-  implicit def tableToDDLInvoker[T](t: BasicTable[T]): BasicDDLInvoker[T] = new BasicDDLInvoker(t, squeryDriver)
   implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(c, squeryDriver)
-  implicit def sequenceToSequenceDDLInvoker(seq: Sequence[_]): BasicSequenceDDLInvoker = new BasicSequenceDDLInvoker(seq, squeryDriver)
 
   implicit val squeryDriver: DriverType
 }

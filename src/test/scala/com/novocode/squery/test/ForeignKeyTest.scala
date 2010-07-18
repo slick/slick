@@ -35,8 +35,7 @@ class ForeignKeyTest {
       def categoryJoin = Categories.where(_.id === category)
     }
 
-    Categories.createTable
-    Posts.createTable
+    (Categories.ddl ++ Posts.ddl) create
 
     Categories insertAll (
       (1, "Scala"),
@@ -93,8 +92,7 @@ class ForeignKeyTest {
     A.foreignKeys.foreach(println)
     assertEquals(Set("b_fk"), A.foreignKeys.map(_.name).toSet)
 
-    B.createTable
-    A.createTable
+    (B.ddl ++ A.ddl) create
 
     B insertAll (
       (1, 2, "b12"),

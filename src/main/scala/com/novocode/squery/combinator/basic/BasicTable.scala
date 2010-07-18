@@ -21,6 +21,10 @@ abstract class AbstractBasicTable[T](_tableName: String) extends AbstractTable[T
   def leftJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Left)
   def rightJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Right)
   def outerJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Outer)
+
+  def ddl(implicit profile: ProfileType): DDL = profile.buildTableDDL(this)
 }
 
-abstract class BasicTable[T](_tableName: String) extends AbstractBasicTable[T](_tableName)
+abstract class BasicTable[T](_tableName: String) extends AbstractBasicTable[T](_tableName) {
+  type ProfileType = BasicProfile
+}

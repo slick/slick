@@ -28,8 +28,7 @@ class JoinTest {
 
   @Test def test(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
-    Categories.createTable
-    Posts.createTable
+    (Categories.ddl ++ Posts.ddl) create
 
     Categories insertAll (
       (1, "Scala"),

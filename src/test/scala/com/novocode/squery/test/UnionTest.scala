@@ -33,8 +33,7 @@ class UnionTest {
   @Test def test() {
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
-      Managers.createTable
-      Employees.createTable
+      (Managers.ddl ++ Employees.ddl) create
 
       Managers.insertAll(
         (1, "Peter", "HR"),

@@ -37,12 +37,9 @@ class MainTest {
   @Test def test() {
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
-      println(Users.createTableStatement)
-      println(Orders.createTableStatement)
-      println(mySequence.createSequenceStatement)
-      Users.createTable
-      Orders.createTable
-      mySequence.createSequence
+      val ddl = Users.ddl ++ Orders.ddl ++ mySequence.ddl
+      ddl.createStatements.foreach(println)
+      ddl.create
       val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
       val ins2 = (Users.first ~ Users.last).insertAll(
         ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )

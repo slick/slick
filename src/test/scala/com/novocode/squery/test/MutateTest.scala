@@ -23,7 +23,7 @@ class MutateTest {
 
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
-      Users.createTable
+      Users.ddl.create
       Users.first ~ Users.last insertAll(
         ("Marge", "Bouvier"),
         ("Homer", "Simpson"),

@@ -15,7 +15,7 @@ object H2Driver extends ExtendedProfile { self =>
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
-  override def createDDLBuilder(table: BasicTable[_]) = new H2DDLBuilder(table)
+  override def createDDLBuilder(table: AbstractBasicTable[_]) = new H2DDLBuilder(table)
 }
 
 class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver.type)
@@ -46,7 +46,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 }
 
-class H2DDLBuilder(table: BasicTable[_]) extends BasicDDLBuilder(table, H2Driver) {
+class H2DDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, H2Driver) {
   override protected def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
     case _ => super.mapTypeName(tmd)

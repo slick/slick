@@ -29,8 +29,8 @@ class TemplateTest {
   @Test def test() {
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
-      Users.createTable
-      Orders.createTable
+      (Users.ddl ++ Orders.ddl) create
+
       Users.first.insertAll("Homer", "Marge", "Apu", "Carl", "Lenny")
       for(uid <- Users.map(_.id))
         (Orders.userID ~ Orders.product).insert(uid, if(uid < 4) "Product A" else "Product B")

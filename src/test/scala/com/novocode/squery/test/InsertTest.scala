@@ -25,9 +25,7 @@ class InsertTest {
 
   @Test def testSimple(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
 
-    Src1.createTable
-    Dst1.createTable
-    Dst2.createTable
+    (Src1.ddl ++ Dst1.ddl ++ Dst2.ddl) create
 
     Src1.insert(1, "A")
     Src1.insertAll((2, "B"), (3, "C"))

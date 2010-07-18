@@ -116,7 +116,6 @@ object SQuery2Test {
     println("d1: " + BasicDriver.buildDeleteStatement(d1, NamingContext()))
     println("d2: " + BasicDriver.buildDeleteStatement(d2, NamingContext()))
 
-    println(BasicDriver.buildCreateTableStatement(Users))
-    println(BasicDriver.buildCreateTableStatement(Orders))
+    (Users.ddl ++ Orders.ddl).createStatements.foreach(println)
   }
 }

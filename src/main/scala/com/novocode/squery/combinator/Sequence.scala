@@ -1,5 +1,7 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.combinator.basic.BasicProfile
+
 class Sequence[T : TypeMapper] private[Sequence] (val name: String,
     val _minValue: Option[T],
     val _maxValue: Option[T],
@@ -22,6 +24,8 @@ class Sequence[T : TypeMapper] private[Sequence] (val name: String,
     val name = "currval"
     val child = ConstColumn(seq.name)(TypeMapper.StringTypeMapper)
   }
+
+  def ddl(implicit profile: BasicProfile): DDL = profile.buildSequenceDDL(this)
 }
 
 object Sequence {

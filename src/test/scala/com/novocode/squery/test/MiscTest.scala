@@ -23,7 +23,7 @@ class MiscTest {
     }
 
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
-      T.createTable
+      T.ddl.create
       T.insertAll(("1", "a"), ("2", "a"), ("3", "b"))
 
       val q1 = for(t <- T if t.a === "1" || t.a === "2") yield t
