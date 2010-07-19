@@ -23,6 +23,15 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
   //val junit = "junit" % "junit" % "4.7" % "test->default"
   //val scalatest = "org.scalatest" % "scalatest" % "1.0-for-scala-2.8.0-SNAPSHOT" % "test->default"
   val junitInterface = "com.novocode" % "junit-interface" % "0.3"
+  val fmppDep = "net.sourceforge.fmpp" % "fmpp" % "0.9.13" % "fmpp"
+  val fmppConf = config("fmpp") hide
+
+  /*********** Run FMPP before compiling ***********/
+  lazy val fmpp =
+    runTask(Some("fmpp.tools.CommandLine"), configurationClasspath(fmppConf),
+      "--expert" :: "-q" :: "-S" :: "src/main/scala" :: "-O" :: "src/main/scala" ::
+        "--replace-extensions=fm, scala" :: "-M" :: "execute(**/*.fm), ignore(**/*)" :: Nil)
+  override def compileAction = super.compileAction dependsOn(fmpp)
 
   /*********** Publishing ***********/
   val publishTo = Resolver.file("ScalaQuery Test Repo", new File("e:/temp/repo/"))
