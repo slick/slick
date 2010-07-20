@@ -35,7 +35,9 @@ class ForeignKeyTest {
       def categoryJoin = Categories.where(_.id === category)
     }
 
-    (Categories.ddl ++ Posts.ddl) create
+    val ddl = (Posts.ddl ++ Categories.ddl)
+    ddl.createStatements foreach println
+    ddl create
 
     Categories insertAll (
       (1, "Scala"),

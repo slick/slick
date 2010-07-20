@@ -10,22 +10,26 @@ import com.novocode.squery.combinator.extended.ExtendedColumnOption //TODO: Move
 class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
 
   def buildDDL: DDL = {
-    val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
-    var first = true
-    for(n <- table.create_*) {
-      if(first) first = false
-      else b append ","
-      b append n.name append ' '
-      addTypeAndOptions(n, b)
+    val phase1 = {
+      val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
+      var first = true
+      for(n <- table.create_*) {
+        if(first) first = false
+        else b append ","
+        b append n.name append ' '
+        addTypeAndOptions(n, b)
+      }
+      b append ")"
+      b.toString
     }
-    for(fk <- table.foreignKeys) {
-      b append ","
+    val phase2 = table.foreignKeys.map { fk => 
+      val b = new StringBuilder append "ALTER TABLE " append table.tableName append " ADD "
       addForeignKey(fk, b)
+      b.toString
     }
-    b append ")"
     new DDL {
-      val createPhase1 = Iterable(b.toString)
-      val createPhase2 = Iterable()
+      val createPhase1 = Iterable(phase1)
+      val createPhase2 = phase2
     }
   }
 
