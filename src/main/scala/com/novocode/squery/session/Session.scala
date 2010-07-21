@@ -68,6 +68,8 @@ class BaseSession private[session] (db: Database) extends Session {
 
   var open = false
   var doRollback = false
+  var inTransaction = false
+
   lazy val conn = { open = true; db.createConnection() }
 
   def close() {
@@ -79,7 +81,8 @@ class BaseSession private[session] (db: Database) extends Session {
     doRollback = true
   }
 
-  def withTransaction[T](f: => T): T = {
+  def withTransaction[T](f: => T): T = if(inTransaction) f else {
+    inTransaction = true
     conn.setAutoCommit(false)
     try {
       var done = false
@@ -91,6 +94,9 @@ class BaseSession private[session] (db: Database) extends Session {
         done = true
         res
       } finally if(!done) conn.rollback()
-    } finally conn.setAutoCommit(true)
+    } finally {
+      inTransaction = false
+      conn.setAutoCommit(true)
+    }
   }
 }
