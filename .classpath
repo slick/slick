@@ -4,7 +4,7 @@
 	<classpathentry kind="src" path="src/test/scala"/>
 	<classpathentry kind="con" path="ch.epfl.lamp.sdt.launching.SCALA_CONTAINER"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
-	<classpathentry kind="lib" path="lib_managed/scala_2.8.0/compile/junit-4.7.jar"/>
 	<classpathentry kind="lib" path="lib_managed/scala_2.8.0/test/h2-1.1.119.jar"/>
+	<classpathentry kind="lib" path="lib_managed/scala_2.8.0/compile/junit-4.8.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

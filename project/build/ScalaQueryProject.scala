@@ -13,16 +13,11 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
     documentTitle(name + " " + version + " API") :: 
     windowTitle(name + " " + version + " API") :: */ // Not supported in scaladoc2
     Nil
-  override def testFrameworks = super.testFrameworks ++ List(new TestFramework("com.novocode.junit.JUnitFrameworkNoMarker"))
 
   /*********** Dependencies ***********/
   //val scalaToolsSnapshots = "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
-  //val specs = "org.scala-tools.testing" % "specs" % "1.4.4"
-  //val scalaCheck = "org.scalacheck" % "scalacheck" % "1.5"
   val h2 = "com.h2database" % "h2" % "1.1.+" % "test->default"
-  //val junit = "junit" % "junit" % "4.7" % "test->default"
-  //val scalatest = "org.scalatest" % "scalatest" % "1.0-for-scala-2.8.0-SNAPSHOT" % "test->default"
-  val junitInterface = "com.novocode" % "junit-interface" % "0.3"
+  val junitInterface = "com.novocode" % "junit-interface" % "0.4"
   val fmppDep = "net.sourceforge.fmpp" % "fmpp" % "0.9.13" % "fmpp"
   val fmppConf = config("fmpp") hide
 
