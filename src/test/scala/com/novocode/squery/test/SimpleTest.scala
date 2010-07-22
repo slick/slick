@@ -4,6 +4,7 @@ import org.junit.Test
 import org.junit.Assert._
 import java.sql._
 import scala.Array
+import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.simple._
 import com.novocode.squery.simple.StaticQueryBase._
 import com.novocode.squery.simple.Implicit._
@@ -89,6 +90,11 @@ class SimpleTest {
         s5 += s
       }
       assertEquals(Set(User(1,"szeiger"), User(2,"guest"), User(0,"admin"), User(3,"foo")), s5)
+
+      println("All tables:")
+      val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
+      for(t <- tables) println("  "+t)
+      assertEquals(List("USERS"), tables.list.map(_._3))
     } 
   }
 }
