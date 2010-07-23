@@ -66,6 +66,7 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   def updateTimeOption(v: Option[Time]) { pos += 1; v match { case Some(s) => rs.updateTime(pos, s); case None => rs.updateNull(pos) } }
   def updateTimestampOption(v: Option[Timestamp]) { pos += 1; v match { case Some(s) => rs.updateTimestamp(pos, s); case None => rs.updateNull(pos) } }
 
+  def skip = { pos += 1; this }
   def updateNull() { pos += 1; rs.updateNull(pos) }
 
   /**
