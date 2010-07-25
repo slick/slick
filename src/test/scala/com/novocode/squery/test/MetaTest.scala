@@ -1,6 +1,7 @@
 package com.novocode.squery.test
 
 import java.sql._
+import java.io.PrintWriter
 import scala.Array
 import org.junit.Test
 import org.junit.Assert._
@@ -44,6 +45,9 @@ class MetaTest {
       for(s <- ddl.createStatements) println("  "+s)
       ddl.create
 
+      println("Type info from DatabaseMetaData:")
+      for(t <- MTypeInfo.getTypeInfo) println("  "+t)
+
       println("Tables from DatabaseMetaData:")
       for(t <- MTable.getTables) { 
         println("  "+t)
@@ -52,6 +56,11 @@ class MetaTest {
         for(k <- t.getImportedKeys) println("    Imported "+k)
         for(k <- t.getExportedKeys) println("    Exported "+k)
       }
+
+      println("Generated code:")
+      val out = new PrintWriter(System.out)
+      for(t <- MTable.getTables) CodeGen.output(t, out)
+      out.flush
     } 
   }
 }

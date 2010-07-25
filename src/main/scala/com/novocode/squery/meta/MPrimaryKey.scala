@@ -9,13 +9,13 @@ import com.novocode.squery.simple.Implicit._
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getPrimaryKeys().
  */
 case class MPrimaryKey(
-  cat: Option[String], schema: Option[String], table: String, column: String, keySeq: Short, pkName: Option[String])
+  table: MQName, column: String, keySeq: Short, pkName: Option[String])
 
 object MPrimaryKey {
-  def getPrimaryKeys(cat: Option[String], schema: Option[String], table: String): UnitInvoker[MPrimaryKey] =
+  def getPrimaryKeys(table: MQName): UnitInvoker[MPrimaryKey] =
     ResultSetInvoker[MPrimaryKey](
-      _.conn.getMetaData().getPrimaryKeys(cat.getOrElse(null), schema.getOrElse(null), table) ) { r =>
-      MPrimaryKey(r.nextStringOption, r.nextStringOption, r.nextString, r.nextString, r.nextShort, r.nextStringOption)
+      _.conn.getMetaData().getPrimaryKeys(table.catalog.getOrElse(null), table.schema.getOrElse(null), table.name) ) { r =>
+      MPrimaryKey(MQName.from(r), r.nextString, r.nextShort, r.nextStringOption)
   }
-  def getPrimaryKeys(table: String): UnitInvoker[MPrimaryKey] = getPrimaryKeys(Some(""), Some(""), table)
+  def getPrimaryKeys(table: String): UnitInvoker[MPrimaryKey] = getPrimaryKeys(MQName.local(table))
 }

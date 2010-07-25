@@ -2,6 +2,7 @@ package com.novocode.squery.meta
 
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
+import com.novocode.squery.combinator.TypeMapperDelegate
 import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
@@ -9,20 +10,21 @@ import com.novocode.squery.simple.Implicit._
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getColumns().
  */
 case class MColumn(
-  cat: Option[String], schema: Option[String], table: String, column: String, sqlType: Int, typeName: String,
-  columnSize: Int, decimalDigits: Option[Int], numPrecRadix: Int, nullable: Option[Boolean], remarks: Option[String],
-  columnDef: Option[String], charOctetLength: Int, ordinalPos: Int, isNullable: Option[Boolean],
-  scopeCat: Option[String], scopeSchema: Option[String], scopeTable: Option[String],
-  sourceDataType: Option[Int], isAutoInc: Option[Boolean])
+  table: MQName, column: String, sqlType: Int, typeName: String,
+  columnSize: Option[Int], decimalDigits: Option[Int], numPrecRadix: Int, nullable: Option[Boolean], remarks: Option[String],
+  columnDef: Option[String], charOctetLength: Int, ordinalPos: Int, isNullable: Option[Boolean], scope: Option[MQName],
+  sourceDataType: Option[Int], isAutoInc: Option[Boolean]) {
+
+  def sqlTypeName = TypeMapperDelegate.typeNames.get(sqlType)
+}
 
 object MColumn {
-  def getColumns(cat: Option[String], schemaPattern: Option[String], tablePattern: String,
-    columnPattern: String): UnitInvoker[MColumn] =
+  def getColumns(tablePattern: MQName, columnPattern: String): UnitInvoker[MColumn] =
     ResultSetInvoker[MColumn](
-      _.conn.getMetaData().getColumns(cat.getOrElse(null), schemaPattern.getOrElse(null),
-                                      tablePattern, columnPattern)) { r =>
-      MColumn(r.nextStringOption, r.nextStringOption, r.nextString, r.nextString, r.nextInt, r.nextString,
-        r.nextInt, r.skip.nextIntOption, r.nextInt, r.nextInt match {
+      _.conn.getMetaData().getColumns(tablePattern.catalog.getOrElse(null), tablePattern.schema.getOrElse(null),
+                                      tablePattern.name, columnPattern)) { r =>
+      MColumn(MQName.from(r), r.nextString, r.nextInt, r.nextString,
+        r.nextIntOption, r.skip.nextIntOption, r.nextInt, r.nextInt match {
           case DatabaseMetaData.columnNoNulls => Some(false)
           case DatabaseMetaData.columnNullable => Some(true)
           case _ => None
@@ -32,7 +34,7 @@ object MColumn {
           case "NO" => Some(false)
           case _ => None
         },
-        r.nextStringOption, r.nextStringOption, r.nextStringOption,
+        MQName.optionalFrom(r),
         r.nextIntOption, r.nextString match {
           case "YES" => Some(true)
           case "NO" => Some(false)
@@ -40,5 +42,5 @@ object MColumn {
         })
   }
   def getColumns(tablePattern: String, columnPattern: String): UnitInvoker[MColumn] =
-    getColumns(Some(""), Some(""), tablePattern, columnPattern)
+    getColumns(MQName.local(tablePattern), columnPattern)
 }
