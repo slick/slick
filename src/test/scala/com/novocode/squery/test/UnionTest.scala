@@ -57,7 +57,7 @@ class UnionTest {
       println("Employees in IT: " + q2.selectStatement)
       q2.foreach(o => println("  "+o))
 
-      val q3 = for(x <- q1 union q2; _ <- Query.orderBy(x._2 asc)) yield x
+      val q3 = for(x @ (id ~ name) <- q1 union q2; _ <- Query.orderBy(name asc)) yield x
       q3.dump("q3: ")
       println()
       println("Combined and sorted: " + q3.selectStatement)

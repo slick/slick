@@ -41,19 +41,9 @@ trait Invoker[-P, +R] { self =>
   }
 
   def mapResult[U](f: (R => U)): Invoker[P, U] = new MappedInvoker(this, f) with Invoker[P, U]
-}
 
-object Invoker {
-
-  final class OptionInvokerOps[P,R](inv: Invoker[P, Option[R]]) {
-    def firstFlatten(param: P)(implicit session: Session): Option[R] = inv.firstOption(param).getOrElse(None)
-  }
-  implicit def optionInvokerOperations[P,R](inv: Invoker[P,Option[R]]) = new OptionInvokerOps(inv)
-
-  final class OptionUnitInvokerOps[R](inv: UnitInvoker[Option[R]]) {
-    def firstFlatten(implicit session: Session): Option[R] = inv.firstOption(session).getOrElse(None)
-  }
-  implicit def optionUnitInvokerOperations[R](inv: UnitInvoker[Option[R]]) = new OptionUnitInvokerOps[R](inv)
+  def firstFlatten[B](param: P)(implicit session: Session, ev: R <:< Option[B]): Option[B] =
+    firstOption(param)/*.map(ev.apply _)*/.getOrElse(None).asInstanceOf[Option[B]]
 }
 
 /**
@@ -67,6 +57,8 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit
   def elements()(implicit session: Session): CloseableIterator[R]
   def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: Session): B
+  def firstFlatten[B](implicit session: Session, ev: R <:< Option[B]): Option[B] =
+    firstOption/*.map(ev.apply _)*/.getOrElse(None).asInstanceOf[Option[B]]
   override def mapResult[U](f: (R => U)): UnitInvoker[U] = new MappedInvoker(this, f) with UnitInvokerMixin[U]
 }
 
@@ -88,6 +80,9 @@ trait UnitInvokerMixin[+R] extends DelegatingUnitInvoker[Unit, R] {
   protected val delegate = this
 }
 
+/**
+ * Base trait for applied invokers
+ */
 trait AppliedInvoker[P, +R] extends DelegatingUnitInvoker[P, R] {
   def foreach(param: Unit, f: R => Unit, maxRows: Int)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
   def elements(param: Unit)(implicit session: Session): CloseableIterator[R] = delegate.elements(appliedParameter)
