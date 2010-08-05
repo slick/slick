@@ -18,8 +18,25 @@ trait DDL { self =>
       session.withPreparedStatement(s)(_.execute)
   }
 
+  /** Statements to execute first for drop(), e.g. removing connections from other entities. */
+  protected def dropPhase1: Iterable[String]
+
+  /** Statements to execute after dropPhase1, e.g. actually dropping a table. */
+  protected def dropPhase2: Iterable[String]
+
+  /** All statements to execute for drop() */
+  def dropStatements: Iterator[String] = dropPhase1.iterator ++ dropPhase2.iterator
+
+  /** Drop the entities described by this DDL object */
+  def drop(implicit session: Session): Unit = session.withTransaction {
+    for(s <- dropStatements)
+      session.withPreparedStatement(s)(_.execute)
+  }
+
   def ++(other: DDL): DDL = new DDL {
     protected lazy val createPhase1 = self.createPhase1 ++ other.createPhase1
     protected lazy val createPhase2 = self.createPhase2 ++ other.createPhase2
+    protected lazy val dropPhase1 = self.dropPhase1 ++ other.dropPhase1
+    protected lazy val dropPhase2 = self.dropPhase2 ++ other.dropPhase2
   }
 }

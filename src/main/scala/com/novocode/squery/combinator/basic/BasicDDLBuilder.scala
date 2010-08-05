@@ -30,6 +30,8 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
     new DDL {
       val createPhase1 = Iterable(phase1)
       val createPhase2 = phase2
+      val dropPhase1 = Nil
+      val dropPhase2 = Iterable("DROP TABLE " + table.tableName)
     }
   }
 

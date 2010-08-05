@@ -6,6 +6,7 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.meta.MTable
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
@@ -35,9 +36,11 @@ class ForeignKeyTest {
       def categoryJoin = Categories.where(_.id === category)
     }
 
-    val ddl = (Posts.ddl ++ Categories.ddl)
+    assertEquals(Set(), MTable.getTables.list.map(_.name.name).toSet)
+    val ddl = Posts.ddl ++ Categories.ddl
     ddl.createStatements foreach println
-    ddl create
+    ddl create;
+    assertEquals(Set("CATEGORIES", "POSTS"), MTable.getTables.list.map(_.name.name).toSet)
 
     Categories insertAll (
       (1, "Scala"),
@@ -72,6 +75,11 @@ class ForeignKeyTest {
     println("Foreign-key join: "+q2.selectStatement)
     q2.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q2.map(p => p._1 ~ p._2).list)
+
+    val ddl2 = Categories.ddl ++ Posts.ddl
+    ddl2.dropStatements foreach println
+    ddl2 drop;
+    assertEquals(Set(), MTable.getTables.list.map(_.name.name).toSet)
   }
 
   @Test def test2(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {

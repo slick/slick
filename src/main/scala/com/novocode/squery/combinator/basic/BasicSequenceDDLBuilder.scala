@@ -15,7 +15,9 @@ class BasicSequenceDDLBuilder(seq: Sequence[_]) {
     if(seq._cycle) b append " CYCLE"
     new DDL {
       val createPhase1 = Iterable(b.toString)
-      val createPhase2 = Iterable()
+      val createPhase2 = Nil
+      val dropPhase1 = Nil
+      val dropPhase2 = Iterable("DROP SEQUENCE " + seq.name)
     }
   }
 }
