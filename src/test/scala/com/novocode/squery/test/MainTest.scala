@@ -4,8 +4,8 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.basic.SQLiteDriver.Implicit._
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
@@ -15,7 +15,7 @@ class MainTest {
   case class User(id: Int, first: String, last: String)
 
   object Users extends Table[(Int, String, Option[String])]("users") {
-    def id = column[Int]("id", O AutoInc, O NotNull)
+    def id = column[Int]("id", O PrimaryKey, O NotNull)
     def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = id ~ first ~ last
@@ -25,7 +25,7 @@ class MainTest {
 
   object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
     def userID = column[Int]("userID", O NotNull)
-    def orderID = column[Int]("orderID", O AutoInc, O NotNull)
+    def orderID = column[Int]("orderID", O PrimaryKey, O NotNull)
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped", O Default false, O NotNull)
     def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
@@ -35,7 +35,7 @@ class MainTest {
   val mySequence = Sequence[Int]("mysequence") start 200 inc 10
 
   @Test def test() {
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
       val ddl = Users.ddl ++ Orders.ddl ++ mySequence.ddl
       ddl.createStatements.foreach(println)

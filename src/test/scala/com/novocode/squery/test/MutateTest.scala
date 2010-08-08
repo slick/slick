@@ -4,8 +4,8 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.basic.SQLiteDriver.Implicit._
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
@@ -15,13 +15,13 @@ class MutateTest {
   @Test def test() {
 
     object Users extends Table[(Option[Int],String,String)]("users") {
-      def id = column[Int]("id", O AutoInc, O NotNull, O PrimaryKey)
+      def id = column[Int]("id", O PrimaryKey, O NotNull, O PrimaryKey)
       def first = column[String]("first", O NotNull)
       def last = column[String]("last", O NotNull)
       def * = id.? ~ first ~ last
     }
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
       Users.ddl.create
       Users.first ~ Users.last insertAll(

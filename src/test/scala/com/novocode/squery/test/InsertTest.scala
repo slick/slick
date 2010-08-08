@@ -23,7 +23,7 @@ class InsertTest {
   object Dst1 extends TestTable("dst1")
   object Dst2 extends TestTable("dst2")
 
-  @Test def testSimple(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def testSimple(): Unit = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
     (Src1.ddl ++ Dst1.ddl ++ Dst2.ddl) create
 

@@ -4,8 +4,8 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.basic.SQLiteDriver.Implicit._
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
@@ -20,13 +20,13 @@ class JoinTest {
   }
 
   object Posts extends Table[(Int, String, Int)]("posts") {
-    def id = column[Int]("id", O AutoInc)
+    def id = column[Int]("id", O PrimaryKey)
     def title = column[String]("title")
     def category = column[Int]("category")
     def * = id ~ title ~ category
   }
 
-  @Test def test(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def test(): Unit = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
     (Categories.ddl ++ Posts.ddl) create
 
