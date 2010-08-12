@@ -48,14 +48,45 @@ class MetaTest {
       println("Type info from DatabaseMetaData:")
       for(t <- MTypeInfo.getTypeInfo) println("  "+t)
 
+      // Not supported by H2
+      //println("Functions from DatabaseMetaData:")
+      //for(f <- MFunction.getFunctions(None, None)) {
+      //  println("  "+f)
+      //  for(c <- f.getFunctionColumns()) println("    "+c)
+      //}
+
+      println("UDTs from DatabaseMetaData:")
+      for(u <- MUDT.getUDTs(None, None)) println("  "+u)
+
+      println("Procedures from DatabaseMetaData:")
+      for(p <- MProcedure.getProcedures(None, None)) {
+        println("  "+p)
+        for(c <- p.getProcedureColumns()) println("    "+c)
+      }
+
       println("Tables from DatabaseMetaData:")
       for(t <- MTable.getTables) { 
         println("  "+t)
-        for(c <- t.getColumns) println("    "+c)
+        for(c <- t.getColumns) {
+          println("    "+c)
+          for(p <- c.getColumnPrivileges) println("      "+p)
+        }
+        for(v <- t.getVersionColumns) println("    "+v)
         for(k <- t.getPrimaryKeys) println("    "+k)
         for(k <- t.getImportedKeys) println("    Imported "+k)
         for(k <- t.getExportedKeys) println("    Exported "+k)
+        for(i <- t.getIndexInfo()) println("    "+i)
+        for(p <- t.getTablePrivileges) println("    "+p)
+        for(c <- t.getBestRowIdentifier(MBestRowIdentifierColumn.Scope.Session))
+          println("    Row identifier for session: "+c)
       }
+
+      println("Schemas from DatabaseMetaData:")
+      for(t <- MSchema.getSchemas) println("  "+t)
+
+      // Not supported by H2
+      //println("Client Info Properties from DatabaseMetaData:")
+      //for(t <- MClientInfoProperty.getClientInfoProperties) println("  "+t)
 
       println("Generated code:")
       val out = new PrintWriter(System.out)

@@ -16,6 +16,7 @@ case class MColumn(
   sourceDataType: Option[Int], isAutoInc: Option[Boolean]) {
 
   def sqlTypeName = TypeMapperDelegate.typeNames.get(sqlType)
+  def getColumnPrivileges = MColumnPrivilege.getColumnPrivileges(table, column)
 }
 
 object MColumn {
@@ -29,17 +30,8 @@ object MColumn {
           case DatabaseMetaData.columnNullable => Some(true)
           case _ => None
         }, r.nextStringOption,
-        r.nextStringOption, r.skip.skip.nextInt, r.nextInt, r.nextString match {
-          case "YES" => Some(true)
-          case "NO" => Some(false)
-          case _ => None
-        },
-        MQName.optionalFrom(r),
-        r.nextIntOption, r.nextString match {
-          case "YES" => Some(true)
-          case "NO" => Some(false)
-          case _ => None
-        })
+        r.nextStringOption, r.skip.skip.nextInt, r.nextInt, DatabaseMeta.yesNoOpt(r),
+        MQName.optionalFrom(r), r.nextIntOption, DatabaseMeta.yesNoOpt(r))
   }
   def getColumns(tablePattern: String, columnPattern: String): UnitInvoker[MColumn] =
     getColumns(MQName.local(tablePattern), columnPattern)

@@ -10,10 +10,10 @@ case class MQName(catalog: Option[String], schema: Option[String], name: String)
 }
 
 object MQName {
-  def from(r: PositionedResult) =
+  private[meta] def from(r: PositionedResult) =
     MQName(r.nextStringOption, r.nextStringOption, r.nextString)
 
-  def optionalFrom(r: PositionedResult) = {
+  private[meta] def optionalFrom(r: PositionedResult) = {
     val cat = r.nextStringOption
     val schema = r.nextStringOption
     r.nextStringOption map (MQName(cat, schema, _))

@@ -15,6 +15,12 @@ case class MTable(
   def getPrimaryKeys = MPrimaryKey.getPrimaryKeys(name)
   def getImportedKeys = MForeignKey.getImportedKeys(name)
   def getExportedKeys = MForeignKey.getExportedKeys(name)
+  def getVersionColumns = MVersionColumn.getVersionColumns(name)
+  def getTablePrivileges = MTablePrivilege.getTablePrivileges(name)
+  def getBestRowIdentifier(scope: MBestRowIdentifierColumn.Scope, nullable: Boolean = false) =
+    MBestRowIdentifierColumn.getBestRowIdentifier(name, scope, nullable)
+  def getIndexInfo(unique: Boolean = false, approximate: Boolean = false) =
+    MIndexInfo.getIndexInfo(name, unique, approximate)
 }
 
 object MTable {
