@@ -2,8 +2,6 @@ package com.novocode.squery.meta
 
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
-import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -15,15 +13,12 @@ case class MFunction(name: MQName, remarks: String, returnsTable: Option[Boolean
 }
 
 object MFunction {
-  def getFunctions(catalog: Option[String], schemaPattern: Option[String],
-      functionNamePattern: String = "%"): UnitInvoker[MFunction] =
-    ResultSetInvoker[MFunction](
-      _.conn.getMetaData().getFunctions(catalog.getOrElse(null), schemaPattern.getOrElse(null),
-                                        functionNamePattern)) { r =>
-      MFunction(MQName.from(r), r.nextString, r.nextShort match {
+  def getFunctions(namePattern: MQName) = ResultSetInvoker[MFunction](
+      _.metaData.getFunctions(namePattern.catalog_?, namePattern.schema_?, namePattern.name)) { r =>
+      MFunction(MQName.from(r), r<<, r.nextShort match {
           case DatabaseMetaData.functionNoTable => Some(false)
           case DatabaseMetaData.functionReturnsTable => Some(true)
           case _ => None
-        }, r.nextString)
+        }, r<<)
   }
 }

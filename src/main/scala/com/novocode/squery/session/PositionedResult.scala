@@ -10,6 +10,8 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
 
   def next() = { pos = 0; rs.next }
 
+  def << [T](implicit f: PositionedResult => T) = f(this)
+
   def nextBoolean() = { pos += 1; rs getBoolean pos }
   def nextBlob() = { pos += 1; rs getBlob pos }
   def nextByte() = { pos += 1; rs getByte pos }

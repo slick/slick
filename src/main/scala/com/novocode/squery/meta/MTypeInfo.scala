@@ -3,7 +3,6 @@ package com.novocode.squery.meta
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
 import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -19,15 +18,11 @@ case class MTypeInfo(
 }
 
 object MTypeInfo {
-  def getTypeInfo: UnitInvoker[MTypeInfo] =
-    ResultSetInvoker[MTypeInfo](_.conn.getMetaData().getTypeInfo()) { r =>
-      MTypeInfo(r.nextString, r.nextInt, r.nextIntOption, r.nextStringOption, r.nextStringOption,
-        r.nextStringOption, r.nextInt match {
+  def getTypeInfo = ResultSetInvoker[MTypeInfo](_.metaData.getTypeInfo()) { r =>
+      MTypeInfo(r<<, r<<, r<<, r<<, r<<, r<<, r.nextInt match {
           case DatabaseMetaData.columnNoNulls => Some(false)
           case DatabaseMetaData.columnNullable => Some(true)
           case _ => None
-        }, r.nextBoolean, r.nextShort,
-        r.nextBoolean, r.nextBoolean, r.nextBoolean, r.nextStringOption,
-        r.nextShort, r.nextShort, r.nextInt)
+        }, r<<, r<<, r<<, r<<, r<<, r<<, r<<, r<<, r<<)
   }
 }

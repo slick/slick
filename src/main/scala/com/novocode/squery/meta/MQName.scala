@@ -1,17 +1,20 @@
 package com.novocode.squery.meta
 
 import com.novocode.squery.session.PositionedResult
+import com.novocode.squery.simple.Implicit._
 
 /**
  * A qualified name with an optional catalog and schema.
  */
 case class MQName(catalog: Option[String], schema: Option[String], name: String) {
   override def toString = "MQName(" + catalog.map(_ + ".").getOrElse("") + schema.map(_ + ".").getOrElse("") + name + ")"
+
+  def catalog_? = catalog.orNull
+  def schema_? = schema.orNull
 }
 
 object MQName {
-  private[meta] def from(r: PositionedResult) =
-    MQName(r.nextStringOption, r.nextStringOption, r.nextString)
+  private[meta] def from(r: PositionedResult) = MQName(r<<, r<<, r<<)
 
   private[meta] def optionalFrom(r: PositionedResult) = {
     val cat = r.nextStringOption

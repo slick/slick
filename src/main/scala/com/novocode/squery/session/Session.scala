@@ -1,6 +1,6 @@
 package com.novocode.squery.session
 
-import java.sql.{PreparedStatement, Connection, ResultSet}
+import java.sql.{PreparedStatement, Connection, ResultSet, DatabaseMetaData}
 import com.novocode.squery.SQueryException
 
 /**
@@ -9,6 +9,7 @@ import com.novocode.squery.SQueryException
 trait Session extends java.io.Closeable { self =>
 
   def conn: Connection
+  def metaData: DatabaseMetaData
 
   def resultSetType: ResultSetType = ResultSetType.Auto
   def resultSetConcurrency: ResultSetConcurrency = ResultSetConcurrency.Auto
@@ -58,6 +59,7 @@ trait Session extends java.io.Closeable { self =>
     override def resultSetConcurrency = rsConcurrency
     override def resultSetHoldability = rsHoldability
     def conn = self.conn
+    def metaData = self.metaData
     def close() = self.close()
     def rollback() = self.rollback()
     def withTransaction[T](f: => T) = self.withTransaction(f)
@@ -71,6 +73,7 @@ class BaseSession private[session] (db: Database) extends Session {
   var inTransaction = false
 
   lazy val conn = { open = true; db.createConnection() }
+  lazy val metaData = conn.getMetaData()
 
   def close() {
     if(open) conn.close()

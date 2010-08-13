@@ -3,7 +3,6 @@ package com.novocode.squery.meta
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
 import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -17,12 +16,9 @@ case class MVersionColumn(
 }
 
 object MVersionColumn {
-  def getVersionColumns(table: MQName): UnitInvoker[MVersionColumn] =
-    ResultSetInvoker[MVersionColumn](
-      _.conn.getMetaData().getVersionColumns(table.catalog.getOrElse(null), table.schema.getOrElse(null),
-                                      table.name)) { r =>
-      MVersionColumn(r.skip.nextString, r.nextInt, r.nextString,
-        r.nextIntOption, r.nextInt, r.nextIntOption, r.nextInt match {
+  def getVersionColumns(table: MQName) = ResultSetInvoker[MVersionColumn](
+      _.metaData.getVersionColumns(table.catalog_?, table.schema_?, table.name) ) { r =>
+      MVersionColumn(r.skip<<, r<<, r<<, r<<, r<<, r<<, r.nextInt match {
           case DatabaseMetaData.versionColumnPseudo => Some(true)
           case DatabaseMetaData.versionColumnNotPseudo => Some(false)
           case _ => None

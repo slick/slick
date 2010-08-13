@@ -2,8 +2,6 @@ package com.novocode.squery.meta
 
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
-import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -15,17 +13,12 @@ case class MIndexInfo(table: MQName, nonUnique: Boolean, indexQualifier: Option[
   cardinality: Int, pages: Int, filterCondition: Option[String])
 
 object MIndexInfo {
-  def getIndexInfo(table: MQName, unique: Boolean = false, approximate: Boolean = false): UnitInvoker[MIndexInfo] =
-    ResultSetInvoker[MIndexInfo](
-      _.conn.getMetaData().getIndexInfo(table.catalog.getOrElse(null), table.schema.getOrElse(null),
-                                        table.name, unique, approximate)) { r =>
-      MIndexInfo(MQName.from(r), r.nextBoolean, r.nextStringOption,
-        r.nextStringOption, r.nextShort, r.nextShort,
-        r.nextStringOption, r.nextStringOption match {
+  def getIndexInfo(table: MQName, unique: Boolean = false, approximate: Boolean = false) = ResultSetInvoker[MIndexInfo](
+      _.metaData.getIndexInfo(table.catalog_?, table.schema_?, table.name, unique, approximate)) { r =>
+      MIndexInfo(MQName.from(r), r<<, r<<, r<<, r<<, r<<, r<<, r.nextStringOption match {
           case Some("A") => Some(true)
           case Some("D") => Some(false)
           case _ => None
-        },
-        r.nextInt, r.nextInt, r.nextStringOption)
+        }, r<<, r<<, r<<)
   }
 }

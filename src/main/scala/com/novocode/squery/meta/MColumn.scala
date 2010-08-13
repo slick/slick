@@ -3,7 +3,6 @@ package com.novocode.squery.meta
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
 import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -20,19 +19,12 @@ case class MColumn(
 }
 
 object MColumn {
-  def getColumns(tablePattern: MQName, columnPattern: String): UnitInvoker[MColumn] =
-    ResultSetInvoker[MColumn](
-      _.conn.getMetaData().getColumns(tablePattern.catalog.getOrElse(null), tablePattern.schema.getOrElse(null),
-                                      tablePattern.name, columnPattern)) { r =>
-      MColumn(MQName.from(r), r.nextString, r.nextInt, r.nextString,
-        r.nextIntOption, r.skip.nextIntOption, r.nextInt, r.nextInt match {
+  def getColumns(tablePattern: MQName, columnPattern: String) = ResultSetInvoker[MColumn](
+      _.metaData.getColumns(tablePattern.catalog_?, tablePattern.schema_?, tablePattern.name, columnPattern)) { r =>
+      MColumn(MQName.from(r), r<<, r<<, r<<, r<<, r.skip<<, r<<, r.nextInt match {
           case DatabaseMetaData.columnNoNulls => Some(false)
           case DatabaseMetaData.columnNullable => Some(true)
           case _ => None
-        }, r.nextStringOption,
-        r.nextStringOption, r.skip.skip.nextInt, r.nextInt, DatabaseMeta.yesNoOpt(r),
-        MQName.optionalFrom(r), r.nextIntOption, DatabaseMeta.yesNoOpt(r))
+        }, r<<, r<<, r.skip.skip<<, r<<, DatabaseMeta.yesNoOpt(r), MQName.optionalFrom(r), r<<, DatabaseMeta.yesNoOpt(r))
   }
-  def getColumns(tablePattern: String, columnPattern: String): UnitInvoker[MColumn] =
-    getColumns(MQName.local(tablePattern), columnPattern)
 }

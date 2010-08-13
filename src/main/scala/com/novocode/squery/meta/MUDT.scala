@@ -3,7 +3,6 @@ package com.novocode.squery.meta
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
 import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -18,11 +17,9 @@ case class MUDT(
 }
 
 object MUDT {
-  def getUDTs(catalog: Option[String], schemaPattern: Option[String],
-      typeNamePattern: String = "%", types: Option[Seq[Int]] = None): UnitInvoker[MUDT] =
-    ResultSetInvoker[MUDT](
-      _.conn.getMetaData().getUDTs(catalog.getOrElse(null), schemaPattern.getOrElse(null),
-                                   typeNamePattern, types.map(_.toArray)getOrElse(null))) { r =>
-      MUDT(MQName.from(r), r.nextString, r.nextInt, r.nextString, r.nextShortOption)
+  def getUDTs(typeNamePattern: MQName, types: Option[Seq[Int]] = None) = ResultSetInvoker[MUDT](
+      _.metaData.getUDTs(typeNamePattern.catalog_?, typeNamePattern.schema_?,
+                         typeNamePattern.name, types.map(_.toArray)getOrElse(null))) { r =>
+      MUDT(MQName.from(r), r<<, r<<, r<<, r<<)
   }
 }

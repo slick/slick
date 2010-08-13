@@ -10,11 +10,9 @@ import com.novocode.squery.simple.Implicit._
  */
 object DatabaseMeta {
 
-  def getCatalogs: UnitInvoker[String] =
-    ResultSetInvoker[String]( _.conn.getMetaData().getCatalogs() ) { r => r.nextString }
+  def getCatalogs = ResultSetInvoker[String](_.metaData.getCatalogs())
 
-  def getTableTypes: UnitInvoker[String] =
-    ResultSetInvoker[String]( _.conn.getMetaData().getTableTypes() ) { r => r.nextString }
+  def getTableTypes = ResultSetInvoker[String](_.metaData.getTableTypes())
 
   private[meta] def yesNoOpt(r: PositionedResult) = r.nextString match {
     case "YES" => Some(true)

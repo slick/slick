@@ -3,7 +3,6 @@ package com.novocode.squery.meta
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
 import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -17,13 +16,10 @@ case class MBestRowIdentifierColumn(
 }
 
 object MBestRowIdentifierColumn {
-  def getBestRowIdentifier(table: MQName, scope: Scope, nullable: Boolean = false): UnitInvoker[MBestRowIdentifierColumn] =
+  def getBestRowIdentifier(table: MQName, scope: Scope, nullable: Boolean = false) =
     ResultSetInvoker[MBestRowIdentifierColumn](
-      _.conn.getMetaData().getBestRowIdentifier(table.catalog.getOrElse(null), table.schema.getOrElse(null),
-                                                table.name, scope.value, nullable)) { r =>
-      MBestRowIdentifierColumn(Scope(r.nextShort), r.nextString, r.nextInt, r.nextString,
-        r.nextIntOption, r.skip.nextShortOption,
-        r.nextShort match {
+      _.metaData.getBestRowIdentifier(table.catalog_?, table.schema_?, table.name, scope.value, nullable)) { r =>
+      MBestRowIdentifierColumn(Scope(r<<), r<<, r<<, r<<, r<<, r.skip<<, r.nextShort match {
           case DatabaseMetaData.bestRowNotPseudo => Some(false)
           case DatabaseMetaData.bestRowPseudo => Some(true)
           case _ => None

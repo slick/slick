@@ -50,7 +50,7 @@ class MainTest {
       val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last
       println("q1: " + q1.selectStatement)
       for(t <- q1) println("User tuple: "+t)
-      val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.getOrElse(null)) }.list
+      val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.orNull) }.list
       for(u <- allUsers) println("User object: "+u)
 
       val expectedUserTuples = List(
@@ -62,7 +62,7 @@ class MainTest {
         (6,"Santa's Little Helper",None),
         (7,"Snowball",None) )
       assertEquals(expectedUserTuples, q1.list)
-      assertEquals(expectedUserTuples.map{ case (id,f,l) => User(id,f,l.getOrElse(null)) }, allUsers)
+      assertEquals(expectedUserTuples.map{ case (id,f,l) => User(id,f,l.orNull) }, allUsers)
 
       val q1b = for(u <- Users) yield mySequence.next ~ u.id ~ u.first.? ~ u.last ~
         (Case when u.id < 3 then "low" when u.id < 6 then "medium" otherwise "high")

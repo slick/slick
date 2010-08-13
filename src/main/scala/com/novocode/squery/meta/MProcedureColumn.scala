@@ -3,7 +3,6 @@ package com.novocode.squery.meta
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
 import com.novocode.squery.combinator.TypeMapperDelegate
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -19,17 +18,13 @@ case class MProcedureColumn(
 }
 
 object MProcedureColumn {
-  def getProcedureColumns(procedurePattern: MQName, columnNamePattern: String = "%"): UnitInvoker[MProcedureColumn] =
-    ResultSetInvoker[MProcedureColumn](
-      _.conn.getMetaData().getProcedureColumns(procedurePattern.catalog.getOrElse(null), procedurePattern.schema.getOrElse(null),
-                                               procedurePattern.name, columnNamePattern)) { r =>
-      MProcedureColumn(MQName.from(r), r.nextString, r.nextShort, r.nextInt, r.nextString,
-        r.nextIntOption, r.nextInt, r.nextShortOption, r.nextShort,
-        r.nextShort match {
+  def getProcedureColumns(procedurePattern: MQName, columnNamePattern: String = "%") = ResultSetInvoker[MProcedureColumn](
+      _.metaData.getProcedureColumns(procedurePattern.catalog_?, procedurePattern.schema_?,
+                                     procedurePattern.name, columnNamePattern) ) { r =>
+      MProcedureColumn(MQName.from(r), r<<, r<<, r<<, r<<, r<<, r<<, r<<, r<<, r.nextShort match {
           case DatabaseMetaData.procedureNoNulls => Some(false)
           case DatabaseMetaData.procedureNullable => Some(true)
           case _ => None
-        }, r.nextString, r.nextStringOption, r.skip.skip.nextIntOption,
-        r.nextInt, DatabaseMeta.yesNoOpt(r), r.nextString)
+        }, r<<, r<<, r.skip.skip<<, r<<, DatabaseMeta.yesNoOpt(r), r<<)
   }
 }

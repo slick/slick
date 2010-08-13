@@ -2,7 +2,6 @@ package com.novocode.squery.meta
 
 import java.sql._
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
-import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
 
 /**
@@ -11,6 +10,7 @@ import com.novocode.squery.simple.Implicit._
 case class MTable(
   name: MQName, tableType: String, remarks: String, typeName: Option[MQName],
   selfRefColName: Option[String], refGen: Option[String]) {
+
   def getColumns = MColumn.getColumns(name, "%")
   def getPrimaryKeys = MPrimaryKey.getPrimaryKeys(name)
   def getImportedKeys = MForeignKey.getImportedKeys(name)
@@ -25,11 +25,9 @@ case class MTable(
 
 object MTable {
   def getTables(cat: Option[String], schemaPattern: Option[String], namePattern: Option[String],
-    types: Option[Seq[String]]): UnitInvoker[MTable] =
-    ResultSetInvoker[MTable](
-      _.conn.getMetaData().getTables(cat.getOrElse(null), schemaPattern.getOrElse(null),
-                                     namePattern.getOrElse(null), types.map(_.toArray).getOrElse(null)) ) { r =>
-      MTable(MQName.from(r), r.nextString, r.nextString, MQName.optionalFrom(r), r.nextStringOption, r.nextStringOption)
+    types: Option[Seq[String]]) = ResultSetInvoker[MTable](
+      _.metaData.getTables(cat.orNull, schemaPattern.orNull, namePattern.orNull, types.map(_.toArray).orNull) ) { r =>
+      MTable(MQName.from(r), r<<, r<<, MQName.optionalFrom(r), r<<, r<<)
   }
   def getTables(namePattern: String): UnitInvoker[MTable] = getTables(Some(""), Some(""), Some(namePattern), None)
   def getTables: UnitInvoker[MTable] = getTables(Some(""), Some(""), None, None)

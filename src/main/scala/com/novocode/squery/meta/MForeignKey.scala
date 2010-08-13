@@ -13,33 +13,23 @@ import com.novocode.squery.simple.Implicit._
 case class MForeignKey(
   pkTable: MQName, pkColumn: String, fkTable: MQName, fkColumn: String,
   keySeq: Short, updateRule: ForeignKeyAction, deleteRule: ForeignKeyAction,
-  fkName: String, pkName: String, deferrability: Short)
+  fkName: Option[String], pkName: Option[String], deferrability: Short)
 
 object MForeignKey {
 
   def getImportedKeys(table: MQName): UnitInvoker[MForeignKey] =
-    createInvoker(_.conn.getMetaData().getImportedKeys(table.catalog.getOrElse(null), table.schema.getOrElse(null), table.name))
-
-  def getImportedKeys(table: String): UnitInvoker[MForeignKey] = getImportedKeys(MQName.local(table))
+    createInvoker(_.metaData.getImportedKeys(table.catalog_?, table.schema_?, table.name))
 
   def getExportedKeys(table: MQName): UnitInvoker[MForeignKey] =
-    createInvoker(_.conn.getMetaData().getExportedKeys(table.catalog.getOrElse(null), table.schema.getOrElse(null), table.name))
-
-  def getExportedKeys(table: String): UnitInvoker[MForeignKey] = getExportedKeys(MQName.local(table))
+    createInvoker(_.metaData.getExportedKeys(table.catalog_?, table.schema_?, table.name))
 
   def getCrossReference(parentTable: MQName, foreignTable: MQName): UnitInvoker[MForeignKey] =
-    createInvoker(_.conn.getMetaData().getCrossReference(
-      parentTable.catalog.getOrElse(null), parentTable.schema.getOrElse(null), parentTable.name,
-      foreignTable.catalog.getOrElse(null), foreignTable.schema.getOrElse(null), foreignTable.name))
+    createInvoker(_.metaData.getCrossReference(
+      parentTable.catalog_?, parentTable.schema_?, parentTable.name,
+      foreignTable.catalog_?, foreignTable.schema_?, foreignTable.name))
 
-  def getCrossReference(parentTable: String, foreignTable: String): UnitInvoker[MForeignKey] =
-    getCrossReference(MQName.local(parentTable), MQName.local(foreignTable))
-
-  private[this] def createInvoker(f: Session => ResultSet) =
-    ResultSetInvoker[MForeignKey](f) { r =>
-      MForeignKey(MQName.from(r), r.nextString, MQName.from(r), r.nextString,
-        r.nextShort, fkActionFor(r.nextShort), fkActionFor(r.nextShort),
-        r.nextString, r.nextString, r.nextShort)
+  private[this] def createInvoker(f: Session => ResultSet) = ResultSetInvoker[MForeignKey](f) { r =>
+    MForeignKey(MQName.from(r), r<<, MQName.from(r), r<<, r<<, fkActionFor(r<<), fkActionFor(r<<), r<<, r<<, r<<)
   }
 
   private[this] def fkActionFor(v: Short) = v match {

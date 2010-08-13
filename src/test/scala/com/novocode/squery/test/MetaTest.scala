@@ -50,16 +50,16 @@ class MetaTest {
 
       // Not supported by H2
       //println("Functions from DatabaseMetaData:")
-      //for(f <- MFunction.getFunctions(None, None)) {
+      //for(f <- MFunction.getFunctions(MQName.local("%"))) {
       //  println("  "+f)
       //  for(c <- f.getFunctionColumns()) println("    "+c)
       //}
 
       println("UDTs from DatabaseMetaData:")
-      for(u <- MUDT.getUDTs(None, None)) println("  "+u)
+      for(u <- MUDT.getUDTs(MQName.local("%"))) println("  "+u)
 
       println("Procedures from DatabaseMetaData:")
-      for(p <- MProcedure.getProcedures(None, None)) {
+      for(p <- MProcedure.getProcedures(MQName.local("%"))) {
         println("  "+p)
         for(c <- p.getProcedureColumns()) println("    "+c)
       }
