@@ -36,10 +36,8 @@ abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
     }
   }
 
-  private[this] def createPR(session: Session) = {
-    val rs = createResultSet(session)
-    new PositionedResult(rs) { def close() = rs.close() }
-  }
+  private[this] def createPR(session: Session) =
+    new PositionedResult(createResultSet(session)) { def close() = rs.close() }
 }
 
 object ResultSetInvoker {

@@ -43,6 +43,8 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
     }
   }
 
+  override def execute(param: P)(implicit session: Session): Unit = results(param, 1).right.foreach(_.close())
+
   /**
    * Invoke the statement and return the raw results.
    */

@@ -12,6 +12,8 @@ trait Invoker[-P, +R] { self =>
 
   def elements(param: P)(implicit session: Session): CloseableIterator[R]
 
+  def execute(param: P)(implicit session: Session): Unit = elements(param)(session).close()
+
   final def firstOption(param: P)(implicit session: Session): Option[R] = {
     var res: Option[R] = None
     foreach(param, { x => res = Some(x) }, 1)
@@ -56,6 +58,7 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   def foreach(f: R => Unit)(implicit session: Session): Unit
   def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit
   def elements()(implicit session: Session): CloseableIterator[R]
+  def execute()(implicit session: Session): Unit
   def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: Session): B
   def firstFlatten[B](implicit session: Session, ev: R <:< Option[B]): Option[B] =
     firstOption/*.map(ev.apply _)*/.getOrElse(None).asInstanceOf[Option[B]]
@@ -72,6 +75,7 @@ trait DelegatingUnitInvoker[P, +R] extends UnitInvoker[R] {
   final def foreach(f: R => Unit)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f)
   final def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
   final def elements()(implicit session: Session): CloseableIterator[R] = delegate.elements(appliedParameter)
+  final def execute()(implicit session: Session): Unit = delegate.execute(appliedParameter)
   final def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: Session): B = delegate.foldLeft(appliedParameter, z)(op)
 }
 

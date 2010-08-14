@@ -13,6 +13,7 @@ import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.meta._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.simple.StaticQueryBase.updateNA
 import com.novocode.squery.simple.Implicit._
 
 object MetaTest { def main(args: Array[String]) = new MetaTest().test() }
@@ -47,6 +48,8 @@ class MetaTest {
 
       println("Type info from DatabaseMetaData:")
       for(t <- MTypeInfo.getTypeInfo) println("  "+t)
+
+      assertEquals(List("ORDERS", "USERS"), MTable.getTables.list.map(_.name.name))
 
       // Not supported by H2
       //println("Functions from DatabaseMetaData:")
@@ -92,6 +95,9 @@ class MetaTest {
       val out = new PrintWriter(System.out)
       for(t <- MTable.getTables) CodeGen.output(t, out)
       out.flush
-    } 
+
+      for(t <- MTable.getTables) updateNA("drop table " + t.name.name).execute
+      assertEquals(Nil, MTable.getTables.list)
+    }
   }
 }
