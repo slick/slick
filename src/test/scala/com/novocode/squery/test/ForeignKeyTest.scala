@@ -1,14 +1,16 @@
 package com.novocode.squery.test
 
+import org.junit.After
 import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
+import com.novocode.squery.combinator.extended.SQLiteDriver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.meta.MTable
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.simple.StaticQueryBase
 
 object ForeignKeyTest {
   def main(args: Array[String]) = {
@@ -18,8 +20,11 @@ object ForeignKeyTest {
 }
 
 class ForeignKeyTest {
+  @After def cleanUp() = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
+    MTable.getTables.list.foreach(t => if (!"SQLITE_SEQUENCE".equals(t.name.name.toUpperCase)) StaticQueryBase.updateNA("drop table " + t.name.name).first)
+  }
 
-  @Test def test1(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def test1(): Unit = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
     object Categories extends Table[(Int, String)]("categories") {
       def id = column[Int]("id")
@@ -27,7 +32,7 @@ class ForeignKeyTest {
       def * = id ~ name
     }
 
-    object Posts extends Table[(Int, String, Int)]("posts") {
+    val Posts = new Table[(Int, String, Int)]("posts") {
       def id = column[Int]("id", O AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")
@@ -40,7 +45,7 @@ class ForeignKeyTest {
     val ddl = Posts.ddl ++ Categories.ddl
     ddl.createStatements foreach println
     ddl create;
-    assertEquals(Set("CATEGORIES", "POSTS"), MTable.getTables.list.map(_.name.name).toSet)
+    assertEquals(Set("CATEGORIES", "SQLITE_SEQUENCE", "POSTS"), MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
 
     Categories insertAll (
       (1, "Scala"),
@@ -79,10 +84,10 @@ class ForeignKeyTest {
     val ddl2 = Categories.ddl ++ Posts.ddl
     ddl2.dropStatements foreach println
     ddl2 drop;
-    assertEquals(Set(), MTable.getTables.list.map(_.name.name).toSet)
+    assertEquals(Set("SQLITE_SEQUENCE"), MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
   }
 
-  @Test def test2(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def test2(): Unit = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")

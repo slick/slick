@@ -1,17 +1,23 @@
 package com.novocode.squery.test
 
+import org.junit.After
 import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
+import com.novocode.squery.combinator.extended.SQLiteDriver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.meta.MTable
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.simple.StaticQueryBase
 
 object JoinTest { def main(args: Array[String]) = new JoinTest().test() }
 
 class JoinTest {
+  @After def cleanUp() = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
+    MTable.getTables.list.foreach(t => StaticQueryBase.updateNA("drop table " + t.name.name).first)
+  }
 
   object Categories extends Table[(Int, String)]("categories") {
     def id = column[Int]("id")
