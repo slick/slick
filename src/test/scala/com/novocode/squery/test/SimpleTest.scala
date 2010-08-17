@@ -4,16 +4,19 @@ import org.junit.Test
 import org.junit.Assert._
 import java.sql._
 import scala.Array
+import scala.collection.JavaConversions
 import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.simple._
 import com.novocode.squery.simple.StaticQueryBase._
 import com.novocode.squery.simple.Implicit._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object SimpleTest { def main(args: Array[String]) = new SimpleTest().test() }
+object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk)
 
-class SimpleTest {
+class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
   implicit def rsToUser(rs: PositionedResult) = new User(rs.nextInt(), rs.nextString())
 
@@ -29,18 +32,22 @@ class SimpleTest {
     wrap("where id =", "") { id foreach(v => this ~? v) }
   }
 
+  case class InsertUser(id: Int, name: String) extends DynamicQuery[Int] {
+    this ~ "insert into USERS values (" ~? id ~ "," ~? name ~ ")"
+  }
+
   @Test def test() {
     val createTable = updateNA("create table USERS(ID int not null primary key, NAME varchar(255))")
-    val populateUsers = updateNA("insert into USERS values(1, 'szeiger'), (0, 'admin'), (2, 'guest'); insert into USERS values(3, 'foo')")
+    val populateUsers = List(InsertUser(1, "szeiger"), InsertUser(0, "admin"), InsertUser(2, "guest"), InsertUser(3, "foo"))
 
     val allIDs = queryNA[Int]("select id from users")
     val userForID = query[Int,User]("select id, name from users where id = ?")
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
       threadLocalSession.withTransaction {
         println("Creating user table: "+createTable.first)
         println("Inserting users:")
-        for(i <- populateUsers) println("  "+i)
+        for(i <- populateUsers) println("  "+i.first)
       }
 
       println("All IDs:")
@@ -94,7 +101,8 @@ class SimpleTest {
       println("All tables:")
       val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
       for(t <- tables) println("  "+t)
-      assertEquals(List("USERS"), tables.list.map(_._3))
+      assertEquals(List("USERS"),
+        tables.list.map(_._3).filter(s => if(tdb.dbType == "sqlite") !s.toUpperCase.contains("SQLITE_") else true))
     } 
   }
 }

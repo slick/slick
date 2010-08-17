@@ -4,14 +4,16 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object JoinTest { def main(args: Array[String]) = new JoinTest().test() }
+object JoinTest extends DBTestObject(H2Mem)
 
-class JoinTest {
+class JoinTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
 
   object Categories extends Table[(Int, String)]("categories") {
     def id = column[Int]("id")
@@ -26,7 +28,7 @@ class JoinTest {
     def * = id ~ title ~ category
   }
 
-  @Test def test(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def test(): Unit = db withSession {
 
     (Categories.ddl ++ Posts.ddl) create
 

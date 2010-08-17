@@ -4,14 +4,17 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object MutateTest { def main(args: Array[String]) = new MutateTest().test() }
+object MutateTest extends DBTestObject(H2Mem)
 
-class MutateTest {
+class MutateTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
+
   @Test def test() {
 
     object Users extends Table[(Option[Int],String,String)]("users") {
@@ -21,7 +24,7 @@ class MutateTest {
       def * = id.? ~ first ~ last
     }
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
 
       Users.ddl.create
       Users.first ~ Users.last insertAll(

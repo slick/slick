@@ -4,22 +4,19 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.meta.MTable
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object ForeignKeyTest {
-  def main(args: Array[String]) = {
-    new ForeignKeyTest().test1()
-    new ForeignKeyTest().test2()
-  }
-}
+object ForeignKeyTest extends DBTestObject(H2Mem)
 
-class ForeignKeyTest {
+class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
 
-  @Test def test1(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def test1(): Unit = db withSession {
 
     object Categories extends Table[(Int, String)]("categories") {
       def id = column[Int]("id")
@@ -82,7 +79,7 @@ class ForeignKeyTest {
     assertEquals(Set(), MTable.getTables.list.map(_.name.name).toSet)
   }
 
-  @Test def test2(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def test2(): Unit = db withSession {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")

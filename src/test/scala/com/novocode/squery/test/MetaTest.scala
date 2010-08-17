@@ -8,17 +8,19 @@ import org.junit.Assert._
 import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.meta._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.simple.StaticQueryBase.updateNA
 import com.novocode.squery.simple.Implicit._
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object MetaTest { def main(args: Array[String]) = new MetaTest().test() }
+object MetaTest extends DBTestObject(H2Mem)
 
-class MetaTest {
+class MetaTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
 
   object Users extends Table[(Int, String, Option[String])]("users") {
     def id = column[Int]("id", O AutoInc, O NotNull, O PrimaryKey)
@@ -39,7 +41,7 @@ class MetaTest {
 
   @Test def test() {
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
 
       val ddl = (Users.ddl ++ Orders.ddl)
       println("DDL used to create tables:")

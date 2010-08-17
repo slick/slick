@@ -4,14 +4,16 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object UnionTest { def main(args: Array[String]) = new UnionTest().test() }
+object UnionTest extends DBTestObject(H2Mem)
 
-class UnionTest {
+class UnionTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
 
   object Managers extends Table[(Int, String, String)]("managers") {
     def id = column[Int]("id")
@@ -31,7 +33,7 @@ class UnionTest {
   }
 
   @Test def test() {
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
 
       (Managers.ddl ++ Employees.ddl) create
 

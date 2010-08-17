@@ -4,14 +4,16 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object InsertTest { def main(args: Array[String]) = new InsertTest().testSimple() }
+object InsertTest extends DBTestObject(H2Mem)
 
-class InsertTest {
+class InsertTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
 
   class TestTable(name: String) extends Table[(Int, String)](name) {
     def id = column[Int]("id")
@@ -23,7 +25,7 @@ class InsertTest {
   object Dst1 extends TestTable("dst1")
   object Dst2 extends TestTable("dst2")
 
-  @Test def testSimple(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def testSimple(): Unit = db withSession {
 
     (Src1.ddl ++ Dst1.ddl ++ Dst2.ddl) create
 

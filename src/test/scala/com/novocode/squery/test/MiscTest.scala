@@ -5,14 +5,16 @@ import org.junit.Assert._
 import org.junit.runner.JUnitCore
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object MiscTest { def main(args: Array[String]) = JUnitCore.main(Array(classOf[MiscTest].getName):_*); }
+object MiscTest extends DBTestObject(H2Mem)
 
-class MiscTest {
+class MiscTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
 
   @Test def isNotAndOrTest() {
 
@@ -22,7 +24,7 @@ class MiscTest {
       def * = a ~ b
     }
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
       T.ddl.create
       T.insertAll(("1", "a"), ("2", "a"), ("3", "b"))
 

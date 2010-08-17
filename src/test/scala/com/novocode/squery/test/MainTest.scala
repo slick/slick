@@ -4,14 +4,17 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object MainTest { def main(args: Array[String]) = new MainTest().test() }
+object MainTest extends DBTestObject(H2Mem)
 
-class MainTest {
+class MainTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
+
   case class User(id: Int, first: String, last: String)
 
   object Users extends Table[(Int, String, Option[String])]("users") {
@@ -35,7 +38,7 @@ class MainTest {
   val mySequence = Sequence[Int]("mysequence") start 200 inc 10
 
   @Test def test() {
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
 
       val ddl = Users.ddl ++ Orders.ddl ++ mySequence.ddl
       ddl.createStatements.foreach(println)

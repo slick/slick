@@ -3,18 +3,17 @@ package com.novocode.squery.test
 import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.session._
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object StatementParametersTest {
-  def main(args: Array[String]) {
-    new StatementParametersTest().testExplicit()
-    new StatementParametersTest().testImplicit()
-  }
-}
+object StatementParametersTest extends DBTestObject(H2Mem)
 
-class StatementParametersTest {
+class StatementParametersTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
+
   @Test def testExplicit() {
     println("*** Explicit ***")
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession { s1:Session =>
+    db withSession { s1:Session =>
       pr("start")(s1)
       ResultSetType.ScrollInsensitive(s1) { s2 =>
         pr("in ScrollInsensitive block")(s2)
@@ -33,7 +32,7 @@ class StatementParametersTest {
   @Test def testImplicit() {
     println("*** Implicit ***")
     import Database.threadLocalSession
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
       pr("start")
       check(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)
       ResultSetType.ScrollInsensitive {

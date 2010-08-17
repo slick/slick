@@ -6,3 +6,4 @@ project/boot
 project/build/target
 target
 .scala_dependencies
+test-dbs/*-*

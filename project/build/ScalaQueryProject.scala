@@ -16,7 +16,8 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
 
   /*********** Dependencies ***********/
   //val scalaToolsSnapshots = "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
-  val h2 = "com.h2database" % "h2" % "1.1.+" % "test->default"
+  val h2 = "com.h2database" % "h2" % "1.2.140" % "test->default"
+  val sqlite = "org.xerial" % "sqlite-jdbc" % "3.6.20" % "test->default"
   val junitInterface = "com.novocode" % "junit-interface" % "0.4" % "test->default"
   val fmppDep = "net.sourceforge.fmpp" % "fmpp" % "0.9.13" % "fmpp"
   val fmppConf = config("fmpp") hide

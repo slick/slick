@@ -4,14 +4,17 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object MapperTest { def main(args: Array[String]) = new MapperTest().test() }
+object MapperTest extends DBTestObject(H2Mem)
 
-class MapperTest {
+class MapperTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
+
   @Test def test() {
 
     case class User(id: Option[Int], first: String, last: String)
@@ -24,7 +27,7 @@ class MapperTest {
       val findByID = createFinderBy(_.id)
     }
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    db withSession {
 
       Users.ddl.create
       (Users.first ~ Users.last).insert("Homer", "Simpson")
