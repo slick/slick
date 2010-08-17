@@ -26,13 +26,13 @@ class JoinTest {
   }
 
   object Posts extends Table[(Int, String, Int)]("posts") {
-    def id = column[Int]("id", O AutoInc)
+    def id = column[Int]("id", O PrimaryKey)
     def title = column[String]("title")
     def category = column[Int]("category")
     def * = id ~ title ~ category
   }
 
-  @Test def test(): Unit = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  @Test def test(): Unit = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
     (Categories.ddl ++ Posts.ddl) create
 

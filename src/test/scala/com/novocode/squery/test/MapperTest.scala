@@ -4,8 +4,8 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.basic.SQLiteDriver.Implicit._
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
@@ -17,14 +17,14 @@ class MapperTest {
     case class User(id: Option[Int], first: String, last: String)
 
     object Users extends Table[User]("users") {
-      def id = column[Int]("id", O AutoInc, O NotNull)
+      def id = column[Int]("id", O PrimaryKey, O NotNull)
       def first = column[String]("first", O NotNull)
       def last = column[String]("last", O NotNull)
       def * = id.? ~ first ~ last <> (User, User.unapply _)
       val findByID = createFinderBy(_.id)
     }
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
       Users.ddl.create
       (Users.first ~ Users.last).insert("Homer", "Simpson")

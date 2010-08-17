@@ -36,7 +36,7 @@ class SimpleTest {
     val allIDs = queryNA[Int]("select id from users")
     val userForID = query[Int,User]("select id, name from users where id = ?")
 
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
       threadLocalSession.withTransaction {
         println("Creating user table: "+createTable.first)
         println("Inserting users:")

@@ -5,7 +5,7 @@ import org.junit.Assert._
 import org.junit.runner.JUnitCore
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
+import com.novocode.squery.combinator.basic.SQLiteDriver.Implicit._
 import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
@@ -35,6 +35,6 @@ class ScalarFunctionTest {
   @Test def testToDegrees = check(Query(Functions.pi.toDegrees), 180.0)
   @Test def testToRadians = check(Query(Functions.pi.toDegrees.toRadians is Functions.pi), true)
 
-  def run(f: => Unit) = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver").withSession(f)
+  def run(f: => Unit) = Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC").withSession(f)
   def check[T](q: Query[ColumnBase[T]], exp: T*) = run(assertEquals(exp.toSet, q.list.toSet))
 }

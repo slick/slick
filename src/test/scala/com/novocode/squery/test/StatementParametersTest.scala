@@ -14,7 +14,7 @@ object StatementParametersTest {
 class StatementParametersTest {
   @Test def testExplicit() {
     println("*** Explicit ***")
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession { s1:Session =>
+    Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession { s1:Session =>
       pr("start")(s1)
       ResultSetType.ScrollInsensitive(s1) { s2 =>
         pr("in ScrollInsensitive block")(s2)
@@ -33,7 +33,7 @@ class StatementParametersTest {
   @Test def testImplicit() {
     println("*** Implicit ***")
     import Database.threadLocalSession
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
       pr("start")
       check(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)
       ResultSetType.ScrollInsensitive {

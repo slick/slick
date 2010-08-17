@@ -4,8 +4,8 @@ import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.H2Driver.Implicit._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.basic.SQLiteDriver.Implicit._
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 
@@ -14,20 +14,20 @@ object TemplateTest { def main(args: Array[String]) = new TemplateTest().test() 
 class TemplateTest {
 
   object Users extends Table[(Int, String)]("users") {
-    def id = column[Int]("id", O AutoInc, O NotNull)
+    def id = column[Int]("id", O PrimaryKey, O NotNull)
     def first = column[String]("first", O NotNull)
     def * = id ~ first
   }
 
   object Orders extends Table[(Int, Int, String)]("orders") {
     def userID = column[Int]("userID", O NotNull)
-    def orderID = column[Int]("orderID", O AutoInc, O NotNull)
+    def orderID = column[Int]("orderID", O PrimaryKey, O NotNull)
     def product = column[String]("product")
     def * = userID ~ orderID ~ product
   }
 
   @Test def test() {
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    Database.forURL("jdbc:sqlite:sample.db", driver = "org.sqlite.JDBC") withSession {
 
       (Users.ddl ++ Orders.ddl) create
 
