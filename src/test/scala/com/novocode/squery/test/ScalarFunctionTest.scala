@@ -16,7 +16,7 @@ object ScalarFunctionTest extends DBTestObject(H2Mem)
 class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
-  @Test def testConvert = db withSession {
+  @Test def test = db withSession {
     def check[T](q: Query[ColumnBase[T]], exp: T*) = assertEquals(exp.toSet, q.list.toSet)
 
     check(Query("42".asColumnOf[Int]), 42)

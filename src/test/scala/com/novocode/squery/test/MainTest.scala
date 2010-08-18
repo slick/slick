@@ -18,7 +18,7 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
   case class User(id: Int, first: String, last: String)
 
   object Users extends Table[(Int, String, Option[String])]("users") {
-    def id = column[Int]("id", O AutoInc, O NotNull)
+    def id = column[Int]("id", O PrimaryKey, O NotNull, O AutoInc)
     def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = id ~ first ~ last
@@ -28,19 +28,17 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
 
   object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
     def userID = column[Int]("userID", O NotNull)
-    def orderID = column[Int]("orderID", O AutoInc, O NotNull)
+    def orderID = column[Int]("orderID", O PrimaryKey, O NotNull, O AutoInc)
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped", O Default false, O NotNull)
     def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
     def * = userID ~ orderID ~ product ~ shipped ~ rebate
   }
 
-  val mySequence = Sequence[Int]("mysequence") start 200 inc 10
-
   @Test def test() {
     db withSession {
 
-      val ddl = Users.ddl ++ Orders.ddl ++ mySequence.ddl
+      val ddl = Users.ddl ++ Orders.ddl
       ddl.createStatements.foreach(println)
       ddl.create
       val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
@@ -67,13 +65,13 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       assertEquals(expectedUserTuples, q1.list)
       assertEquals(expectedUserTuples.map{ case (id,f,l) => User(id,f,l.orNull) }, allUsers)
 
-      val q1b = for(u <- Users) yield mySequence.next ~ u.id ~ u.first.? ~ u.last ~
+      val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last ~
         (Case when u.id < 3 then "low" when u.id < 6 then "medium" otherwise "high")
       println("q1b: " + q1b.selectStatement)
       for(t <- q1b) println("With options and sequence: "+t)
 
       assertEquals(expectedUserTuples.map {
-        case (id,f,l) => (id*10+260, id, Some(f), l, if(id < 3) "low" else if(id < 6) "medium" else "high")
+        case (id,f,l) => (id, Some(f), l, if(id < 3) "low" else if(id < 6) "medium" else "high")
       }, q1b.list)
 
       val q2 = for(u <- Users if u.first is "Apu".bind) yield u.last ~ u.id

@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MapperTest extends DBTestObject(H2Mem)
+object MapperTest extends DBTestObject(H2Mem, SQLiteMem)
 
 class MapperTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -20,7 +20,7 @@ class MapperTest(tdb: TestDB) extends DBTest(tdb) {
     case class User(id: Option[Int], first: String, last: String)
 
     object Users extends Table[User]("users") {
-      def id = column[Int]("id", O AutoInc, O NotNull)
+      def id = column[Int]("id", O PrimaryKey, O NotNull, O AutoInc)
       def first = column[String]("first", O NotNull)
       def last = column[String]("last", O NotNull)
       def * = id.? ~ first ~ last <> (User, User.unapply _)

@@ -1,10 +1,12 @@
 package com.novocode.squery.test
 
+import org.junit.After
 import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.meta.MTable
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
@@ -22,7 +24,7 @@ class JoinTest(tdb: TestDB) extends DBTest(tdb) {
   }
 
   object Posts extends Table[(Int, String, Int)]("posts") {
-    def id = column[Int]("id", O AutoInc)
+    def id = column[Int]("id", O PrimaryKey, O AutoInc)
     def title = column[String]("title")
     def category = column[Int]("category")
     def * = id ~ title ~ category

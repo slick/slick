@@ -1,16 +1,18 @@
 package com.novocode.squery.test
 
+import org.junit.After
 import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.basic.{BasicTable => Table}
+import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.meta.MTable
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object InsertTest extends DBTestObject(H2Mem)
+object InsertTest extends DBTestObject(H2Mem, SQLiteMem)
 
 class InsertTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

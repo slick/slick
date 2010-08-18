@@ -5,13 +5,13 @@ import org.junit.Assert._
 import org.junit.runner.JUnitCore
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MiscTest extends DBTestObject(H2Mem)
+object MiscTest extends DBTestObject(H2Mem, SQLiteMem)
 
 class MiscTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

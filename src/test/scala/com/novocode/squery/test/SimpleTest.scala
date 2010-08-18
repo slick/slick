@@ -103,6 +103,6 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
       for(t <- tables) println("  "+t)
       assertEquals(List("USERS"),
         tables.list.map(_._3).filter(s => if(tdb.dbType == "sqlite") !s.toUpperCase.contains("SQLITE_") else true))
-    } 
+    }
   }
 }

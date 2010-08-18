@@ -1,10 +1,11 @@
 package com.novocode.squery.test
 
+import org.junit.After
 import org.junit.Test
 import org.junit.Assert._
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.extended.{ExtendedTable => Table, SQLiteDriver}
 import com.novocode.squery.meta.MTable
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
@@ -24,7 +25,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
       def * = id ~ name
     }
 
-    object Posts extends Table[(Int, String, Int)]("posts") {
+    val Posts = new Table[(Int, String, Int)]("posts") {
       def id = column[Int]("id", O AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")
@@ -37,7 +38,10 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     val ddl = Posts.ddl ++ Categories.ddl
     ddl.createStatements foreach println
     ddl create;
-    assertEquals(Set("CATEGORIES", "POSTS"), MTable.getTables.list.map(_.name.name).toSet)
+    assertEquals(
+      if(tdb.driver == SQLiteDriver) Set("CATEGORIES", "SQLITE_SEQUENCE", "POSTS")
+      else Set("CATEGORIES", "POSTS"),
+      MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
 
     Categories insertAll (
       (1, "Scala"),
@@ -76,7 +80,9 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     val ddl2 = Categories.ddl ++ Posts.ddl
     ddl2.dropStatements foreach println
     ddl2 drop;
-    assertEquals(Set(), MTable.getTables.list.map(_.name.name).toSet)
+    assertEquals(
+      if(tdb.driver == SQLiteDriver) Set("SQLITE_SEQUENCE") else Set(),
+      MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
   }
 
   @Test def test2(): Unit = db withSession {

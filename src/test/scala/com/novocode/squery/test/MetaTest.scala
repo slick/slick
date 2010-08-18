@@ -8,7 +8,7 @@ import org.junit.Assert._
 import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
-import com.novocode.squery.combinator.extended.{ExtendedTable => Table}
+import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.meta._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
@@ -23,7 +23,7 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
   object Users extends Table[(Int, String, Option[String])]("users") {
-    def id = column[Int]("id", O AutoInc, O NotNull, O PrimaryKey)
+    def id = column[Int]("id", O NotNull, O PrimaryKey)
     def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = id ~ first ~ last
@@ -31,7 +31,7 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
 
   object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
     def userID = column[Int]("userID", O NotNull)
-    def orderID = column[Int]("orderID", O AutoInc, O NotNull, O PrimaryKey)
+    def orderID = column[Int]("orderID", O NotNull, O PrimaryKey)
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped", O Default false, O NotNull)
     def rebate = column[Option[Boolean]]("rebate", O Default Some(false))

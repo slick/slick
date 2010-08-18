@@ -20,7 +20,8 @@ import org.junit.runners.Suite.SuiteClasses
   classOf[MiscTest],
   classOf[ForeignKeyTest],
   classOf[MetaTest],
-  classOf[TablesInObjectTest]
+  classOf[TablesInObjectTest],
+  classOf[SequenceTest]
 ))
 class TestSuite
 

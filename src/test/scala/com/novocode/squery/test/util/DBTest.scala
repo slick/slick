@@ -8,7 +8,7 @@ import org.junit.runner.{JUnitCore, RunWith}
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 import com.novocode.squery.session._
-import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver}
+import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, SQLiteDriver}
 
 @RunWith(classOf[Parameterized])
 class DBTest(testDB: TestDB) {
@@ -62,10 +62,10 @@ object TestDB {
       override def cleanUp() = deleteDBFiles(prefix)
     }
   }
-  def SQLiteMem(to: DBTestObject) = new TestDB("jdbc:sqlite::memory:", "org.sqlite.JDBC", "sqlite", null)
+  def SQLiteMem(to: DBTestObject) = new TestDB("jdbc:sqlite::memory:", "org.sqlite.JDBC", "sqlite", SQLiteDriver)
   def SQLiteDisk(to: DBTestObject) = {
     val prefix = "sqlite-"+to.testClassName
-    new TestDB("jdbc:sqlite:./"+TestDB.testDBDir+"/"+prefix+".db", "org.sqlite.JDBC", "sqlite", null) {
+    new TestDB("jdbc:sqlite:./"+TestDB.testDBDir+"/"+prefix+".db", "org.sqlite.JDBC", "sqlite", SQLiteDriver) {
       override def cleanUp() = deleteDBFiles(prefix)
     }
   }

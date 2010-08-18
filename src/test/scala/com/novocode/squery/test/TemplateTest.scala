@@ -16,14 +16,14 @@ class TemplateTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
   object Users extends Table[(Int, String)]("users") {
-    def id = column[Int]("id", O AutoInc, O NotNull)
+    def id = column[Int]("id", O PrimaryKey, O NotNull, O AutoInc)
     def first = column[String]("first", O NotNull)
     def * = id ~ first
   }
 
   object Orders extends Table[(Int, Int, String)]("orders") {
     def userID = column[Int]("userID", O NotNull)
-    def orderID = column[Int]("orderID", O AutoInc, O NotNull)
+    def orderID = column[Int]("orderID", O PrimaryKey, O NotNull, O AutoInc)
     def product = column[String]("product")
     def * = userID ~ orderID ~ product
   }
