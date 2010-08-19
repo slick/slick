@@ -67,11 +67,19 @@ class JoinTest(tdb: TestDB) extends DBTest(tdb) {
 
     val q3 = for {
       Join(c,p) <- Categories leftJoin Posts on (_.id is _.category)
-      _ <- Query orderBy p.id
+      _ <- Query orderBy p.id.nullsFirst
     } yield p.id ~ c.id ~ c.name ~ p.title
-    println("Left outer join: "+q3.selectStatement)
+    println("Left outer join (nulls first): "+q3.selectStatement)
     q3.foreach(x => println("  "+x))
     assertEquals(List((0,4), (2,1), (3,2), (4,3), (5,2)), q3.map(p => p._1 ~ p._2).list)
+
+    val q3b = for {
+      Join(c,p) <- Categories leftJoin Posts on (_.id is _.category)
+      _ <- Query orderBy p.id.nullsLast
+    } yield p.id ~ c.id ~ c.name ~ p.title
+    println("Left outer join (nulls last): "+q3b.selectStatement)
+    q3b.foreach(x => println("  "+x))
+    assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => p._1 ~ p._2).list)
 
     val q4 = for {
       Join(c,p) <- Categories rightJoin Posts on (_.id is _.category)

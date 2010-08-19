@@ -98,6 +98,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected def appendOrdering(o: Ordering, b: SQLBuilder) {
     expr(o.by, b)
     if(o.isInstanceOf[Ordering.Desc]) b += " desc"
+    o.nullOrdering match {
+      case Ordering.NullsFirst => b += " nulls first"
+      case Ordering.NullsLast => b += " nulls last"
+      case Ordering.NullsDefault =>
+    }
   }
 
   def buildDelete = {
