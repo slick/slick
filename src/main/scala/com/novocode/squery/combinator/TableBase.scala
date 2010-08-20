@@ -41,6 +41,13 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
       q = m.invoke(this).asInstanceOf[ForeignKeyQuery[_ <: AbstractTable[_]]]
     } yield q.fk)
 
+  def index(name: String, on: ColumnBase[_], unique: Boolean = false) = new Index(name, this, on, unique)
+
+  def indexes: Iterable[Index] = (for {
+      m <- getClass().getMethods.view
+      if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
+    } yield m.invoke(this).asInstanceOf[Index])
+
   def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = *.updateResult(profile, rs, value)
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)

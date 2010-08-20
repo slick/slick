@@ -10,7 +10,7 @@ import com.novocode.squery.combinator.extended.ExtendedColumnOption //TODO: Move
 class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
 
   def buildDDL: DDL = {
-    val phase1 = {
+    val createTable = {
       val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
       var first = true
       for(n <- table.create_*) {
@@ -22,14 +22,15 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
       b append ")"
       b.toString
     }
-    val phase2 = table.foreignKeys.map { fk => 
+    val createIndexes = table.indexes.map(createIndex)
+    val alterTables = table.foreignKeys.map { fk => 
       val b = new StringBuilder append "ALTER TABLE " append table.tableName append " ADD "
       addForeignKey(fk, b)
       b.toString
     }
     new DDL {
-      val createPhase1 = Iterable(phase1)
-      val createPhase2 = phase2
+      val createPhase1 = Iterable(createTable) ++ createIndexes
+      val createPhase2 = alterTables
       val dropPhase1 = Nil
       val dropPhase2 = Iterable("DROP TABLE " + table.tableName)
     }
@@ -61,6 +62,15 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
     case _ => tmd.sqlTypeName
   }
 
+  protected def createIndex(idx: Index) = {
+    val b = new StringBuilder append "CREATE "
+    if(idx.unique) b append "UNIQUE " 
+    b append "INDEX "+idx.name+" ON " append table.tableName append "("
+    addIndexColumnList(idx.on, b, idx.table.tableName)
+    b append ")"
+    b.toString
+  }
+
   protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_]], sb: StringBuilder) {
     sb append "CONSTRAINT " append fk.name append " FOREIGN KEY("
     addForeignKeyColumnList(fk.sourceColumns, sb, table.tableName)
@@ -70,7 +80,13 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
     sb append " ON DELETE " append fk.onDelete.action
   }
 
-  protected def addForeignKeyColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) = {
+  protected def addIndexColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
+    addColumnList(columns, sb, requiredTableName, "foreign key constraint")
+
+  protected def addForeignKeyColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
+    addColumnList(columns, sb, requiredTableName, "index")
+
+  protected def addColumnList(columns: Node, sb: StringBuilder, requiredTableName: String, typeInfo: String) = {
     var first = true
     def f(c: Any): Unit = c match {
       case p:Projection[_] =>
@@ -82,9 +98,9 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
         else sb append ","
         sb append n.name
         if(requiredTableName != n.table.asInstanceOf[AbstractTable[_]].tableName)
-          throw new SQueryException("All columns in foreign key constraint must belong to table "+requiredTableName)
+          throw new SQueryException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
       case _ => throw new SQueryException("Cannot use column "+c+
-        " in foreign key constraint (only named columns and projections are allowed)")
+        " in "+typeInfo+" (only named columns and projections are allowed)")
     }
     f(Node(columns))
   }

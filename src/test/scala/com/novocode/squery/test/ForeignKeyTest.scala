@@ -20,13 +20,13 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
   @Test def test1(): Unit = db withSession {
 
     object Categories extends Table[(Int, String)]("categories") {
-      def id = column[Int]("id")
+      def id = column[Int]("id", O PrimaryKey)
       def name = column[String]("name")
       def * = id ~ name
     }
 
     val Posts = new Table[(Int, String, Int)]("posts") {
-      def id = column[Int]("id", O AutoInc)
+      def id = column[Int]("id", O PrimaryKey, O AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")
       def * = id ~ title ~ category
@@ -100,6 +100,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
       def f2 = column[Int]("f2")
       def s = column[String]("s")
       def * = f1 ~ f2 ~ s
+      def bIdx1 = index("b_idx1", f1 ~ f2, unique = true)
     }
 
     A.foreignKeys.foreach(println)
