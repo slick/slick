@@ -39,8 +39,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         expr(Node(query.value), b, rename)
         fromSlot = b.createSlot
         appendClauses(b)
-        b += ") WHERE ROWNUM <= "
-        expr(t, b)
+        b += ") WHERE ROWNUM <= " += t
       case TakeDrop(to, Some(d)) :: _ =>
         b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM ("
         expr(Node(query.value), b, rename)
@@ -50,16 +49,9 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         b += ") t0) WHERE ROWNUM_O"
         to match {
           case Some(t) =>
-            b += " BETWEEN (1+"
-            expr(d, b)
-            b += ") AND ("
-            expr(d, b)
-            b += "+"
-            expr(t, b)
-            b += ")"
+            b += " BETWEEN (1+" += d += ") AND (" += d += "+" += t += ")"
           case None =>
-            b += ">"
-            expr(d, b)
+            b += ">" += d
         }
         b += " ORDER BY ROWNUM_I"
       case _ =>
