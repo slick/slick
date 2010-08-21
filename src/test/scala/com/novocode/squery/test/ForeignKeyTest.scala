@@ -12,7 +12,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object ForeignKeyTest extends DBTestObject(H2Mem)
+object ForeignKeyTest extends DBTestObject(H2Mem, Postgres)
 
 class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -34,14 +34,11 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
       def categoryJoin = Categories.where(_.id === category)
     }
 
-    assertEquals(Set(), MTable.getTables.list.map(_.name.name).toSet)
+    assertEquals(List(), tdb.getLocalTables)
     val ddl = Posts.ddl ++ Categories.ddl
     ddl.createStatements foreach println
     ddl create;
-    assertEquals(
-      if(tdb.driver == SQLiteDriver) Set("CATEGORIES", "SQLITE_SEQUENCE", "POSTS")
-      else Set("CATEGORIES", "POSTS"),
-      MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
+    assertEquals(List("categories", "posts"), tdb.getLocalTables)
 
     Categories insertAll (
       (1, "Scala"),
@@ -80,9 +77,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     val ddl2 = Categories.ddl ++ Posts.ddl
     ddl2.dropStatements foreach println
     ddl2 drop;
-    assertEquals(
-      if(tdb.driver == SQLiteDriver) Set("SQLITE_SEQUENCE") else Set(),
-      MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
+    assertEquals(List(), tdb.getLocalTables)
   }
 
   @Test def test2(): Unit = db withSession {

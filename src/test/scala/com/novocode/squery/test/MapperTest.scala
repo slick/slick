@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MapperTest extends DBTestObject(H2Mem, SQLiteMem)
+object MapperTest extends DBTestObject(H2Mem, SQLiteMem, Postgres)
 
 class MapperTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -24,6 +24,8 @@ class MapperTest(tdb: TestDB) extends DBTest(tdb) {
       def first = column[String]("first", O NotNull)
       def last = column[String]("last", O NotNull)
       def * = id.? ~ first ~ last <> (User, User.unapply _)
+      def forInsert = first ~ last <>
+        ({ (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
       val findByID = createFinderBy(_.id)
     }
 
@@ -31,7 +33,9 @@ class MapperTest(tdb: TestDB) extends DBTest(tdb) {
 
       Users.ddl.create
       (Users.first ~ Users.last).insert("Homer", "Simpson")
-      Users.insertAll(
+      /* Using Users.forInsert so that we don't put a NULL value into the ID
+       * column. H2 and SQLite allow this but PostgreSQL doesn't. */
+      Users.forInsert.insertAll(
         User(None, "Marge", "Simpson"),
         User(None, "Carl", "Carlson"),
         User(None, "Lenny", "Leonard")

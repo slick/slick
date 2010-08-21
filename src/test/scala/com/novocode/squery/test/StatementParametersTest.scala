@@ -6,7 +6,7 @@ import com.novocode.squery.session._
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object StatementParametersTest extends DBTestObject(H2Mem, SQLiteMem)
+object StatementParametersTest extends DBTestObject(H2Mem)
 
 class StatementParametersTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

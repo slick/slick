@@ -7,7 +7,7 @@ import com.novocode.squery.simple.Implicit._
 /**
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getProcedures().
  */
-case class MProcedure(name: MQName, remarks: String, returnsResult: Option[Boolean], specificName: String) {
+case class MProcedure(name: MQName, remarks: String, returnsResult: Option[Boolean], specificName: Option[String]) {
   def getProcedureColumns(columnNamePattern: String = "%") =
     MProcedureColumn.getProcedureColumns(name, columnNamePattern)
 }
@@ -19,6 +19,6 @@ object MProcedure {
           case DatabaseMetaData.procedureNoResult => Some(false)
           case DatabaseMetaData.procedureReturnsResult => Some(true)
           case _ => None
-        }, r<<)
+        }, r<<?)
   }
 }

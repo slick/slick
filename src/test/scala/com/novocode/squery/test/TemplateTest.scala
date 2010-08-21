@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object TemplateTest extends DBTestObject(H2Mem)
+object TemplateTest extends DBTestObject(H2Mem, Postgres)
 
 class TemplateTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

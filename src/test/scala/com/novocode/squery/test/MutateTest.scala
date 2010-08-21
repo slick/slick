@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MutateTest extends DBTestObject(H2Mem)
+object MutateTest extends DBTestObject(H2Mem, Postgres)
 
 class MutateTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -41,7 +41,12 @@ class MutateTest(tdb: TestDB) extends DBTest(tdb) {
       q1.mutate { m =>
         if(m.row._3 == "Bouvier") m.row = m.row.copy(_3 = "Simpson")
         else if(m.row._2 == "Homer") m.delete()
-        else if(m.row._2 == "Bart") m.insert((None, "Lisa", "Simpson"))
+        else if(m.row._2 == "Bart")
+          /* We have to provide an explicit ID here to make it work with
+           * Postgres. H2 accepts a NULL and auto-generates the ID but
+           * Postgres only does that when you use DEFAULT and there's no way
+           * to do that through an updatable ResultSet */
+          m.insert((Some(42), "Lisa", "Simpson"))
       }
 
       println("After mutating:")

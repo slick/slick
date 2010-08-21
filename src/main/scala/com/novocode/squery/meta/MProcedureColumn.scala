@@ -12,7 +12,7 @@ case class MProcedureColumn(
   procedure: MQName, column: String, columnType: Short, sqlType: Int, typeName: String,
   precision: Option[Int], length: Int, scale: Option[Short], radix: Short,
   nullable: Option[Boolean], remarks: String, columnDef: Option[String], charOctetLength: Option[Int],
-  ordinalPosition: Int, isNullable: Option[Boolean], specificName: String) {
+  ordinalPosition: Option[Int], isNullable: Option[Boolean], specificName: Option[String]) {
 
   def sqlTypeName = TypeMapperDelegate.typeNames.get(sqlType)
 }
@@ -25,6 +25,6 @@ object MProcedureColumn {
           case DatabaseMetaData.procedureNoNulls => Some(false)
           case DatabaseMetaData.procedureNullable => Some(true)
           case _ => None
-        }, r<<, r<<, r.skip.skip<<, r<<, DatabaseMeta.yesNoOpt(r), r<<)
+        }, r<<, r<<?, r.skip.skip<<?, r<<?, DatabaseMeta.yesNoOpt(r), r<<?)
   }
 }

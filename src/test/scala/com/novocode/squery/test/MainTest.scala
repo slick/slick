@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MainTest extends DBTestObject(H2Mem)
+object MainTest extends DBTestObject(H2Mem, Postgres)
 
 class MainTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -125,7 +125,7 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
         _ <- Query groupBy u.id
                    having { _ => o.orderID.max > 5 }
                    orderBy o.orderID.max
-      ) yield u.first ~ o.orderID.max
+      ) yield u.first.min ~ o.orderID.max
       println("q4c: " + q4c.selectStatement)
       println("Latest Order per User, using GroupBy, with orderID > 5:")
       q4c.foreach(o => println("  "+o))

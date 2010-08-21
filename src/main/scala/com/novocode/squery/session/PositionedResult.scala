@@ -6,11 +6,16 @@ import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
  * A database result positioned at a row and column.
  */
 abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
-  var pos = 0
+  private[this] lazy val meta = rs.getMetaData()
 
+  var pos = 0
+  lazy val numColumns = meta.getColumnCount()
+
+  def hasMoreColumns = pos+1 < numColumns
   def next() = { pos = 0; rs.next }
 
-  def << [T](implicit f: PositionedResult => T) = f(this)
+  def << [T](implicit f: PositionedResult => T): T = f(this)
+  def <<? [T](implicit f: PositionedResult => Option[T]): Option[T] = if(hasMoreColumns) this.<< else None
 
   def nextBoolean() = { pos += 1; rs getBoolean pos }
   def nextBlob() = { pos += 1; rs getBlob pos }

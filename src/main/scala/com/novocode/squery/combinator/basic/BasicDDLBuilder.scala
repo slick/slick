@@ -23,15 +23,18 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
       b.toString
     }
     val createIndexes = table.indexes.map(createIndex)
-    val alterTables = table.foreignKeys.map { fk => 
+    val alterTables1 = table.foreignKeys.map { fk => 
       val b = new StringBuilder append "ALTER TABLE " append table.tableName append " ADD "
       addForeignKey(fk, b)
       b.toString
     }
+    val alterTables2 = table.foreignKeys.map { fk => 
+      "ALTER TABLE " + table.tableName + " DROP CONSTRAINT " + fk.name
+    }
     new DDL {
       val createPhase1 = Iterable(createTable) ++ createIndexes
-      val createPhase2 = alterTables
-      val dropPhase1 = Nil
+      val createPhase2 = alterTables1
+      val dropPhase1 = alterTables2
       val dropPhase2 = Iterable("DROP TABLE " + table.tableName)
     }
   }

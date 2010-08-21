@@ -31,18 +31,22 @@ class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile
           f(Node(p.productElement(i)))
       case t:AbstractTable[_] => f(Node(t.*))
       case n:NamedColumn[_] =>
-        if(!cols.isEmpty) {
-          cols append ","
-          vals append ","
-        }
-        cols append n.name
-        vals append '?'
         if(table eq null) table = n.table.asInstanceOf[AbstractTable[_]].tableName
         else if(table != n.table.asInstanceOf[AbstractTable[_]].tableName) throw new SQueryException("Inserts must all be to the same table")
+        appendNamedColumn(n, cols, vals)
       case _ => throw new SQueryException("Cannot use column "+c+" in INSERT statement")
     }
     f(Node(column))
     if(table eq null) throw new SQueryException("No table to insert into")
     (table, cols, vals)
+  }
+
+  protected def appendNamedColumn(n: NamedColumn[_], cols: StringBuilder, vals: StringBuilder) {
+    if(!cols.isEmpty) {
+      cols append ","
+      vals append ","
+    }
+    cols append n.name
+    vals append '?'
   }
 }

@@ -13,7 +13,7 @@ case class MSchema(schema: String, catalog: Option[String]) {
 
 object MSchema {
   def getSchemas(catalog: Option[String], schemaPattern: Option[String]) =
-    ResultSetInvoker[MSchema](_.metaData.getSchemas(catalog.orNull, schemaPattern.orNull)) { r => MSchema(r<<, r<<) }
+    ResultSetInvoker[MSchema](_.metaData.getSchemas(catalog.orNull, schemaPattern.orNull)) { r => MSchema(r<<, r<<?) }
 
-  def getSchemas = ResultSetInvoker[MSchema](_.metaData.getSchemas()) { r => MSchema(r<<, r<<) }
+  def getSchemas = ResultSetInvoker[MSchema](_.metaData.getSchemas()) { r => MSchema(r<<, r<<?) }
 }

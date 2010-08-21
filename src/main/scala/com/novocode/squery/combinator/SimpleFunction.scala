@@ -26,6 +26,7 @@ object SimpleScalarFunction {
       }
   def nullary[T : TypeMapper](fnName: String) =
     new OperatorColumn[T] with SimpleScalarFunction with NullaryNode { val name = fnName }
+  def unapply(s: SimpleScalarFunction) = Some(s.name)
 }
 
 trait SimpleBinaryOperator extends BinaryNode {

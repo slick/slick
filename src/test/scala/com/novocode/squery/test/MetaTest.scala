@@ -9,6 +9,7 @@ import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.{BasicTable => Table}
+import com.novocode.squery.combinator.extended.{H2Driver, PostgresDriver}
 import com.novocode.squery.meta._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
@@ -17,7 +18,7 @@ import com.novocode.squery.simple.Implicit._
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MetaTest extends DBTestObject(H2Mem)
+object MetaTest extends DBTestObject(H2Mem, Postgres)
 
 class MetaTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -51,26 +52,27 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
       println("Type info from DatabaseMetaData:")
       for(t <- MTypeInfo.getTypeInfo) println("  "+t)
 
-      assertEquals(List("ORDERS", "USERS"), MTable.getTables.list.map(_.name.name))
+      assertTrue(Set("ORDERS", "USERS") subsetOf MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
 
-      // Not supported by H2
-      //println("Functions from DatabaseMetaData:")
-      //for(f <- MFunction.getFunctions(MQName.local("%"))) {
-      //  println("  "+f)
-      //  for(c <- f.getFunctionColumns()) println("    "+c)
-      //}
+      if(tdb.driver != H2Driver && tdb.driver != PostgresDriver) { // Not supported by H2 and PostgreSQL
+        println("Functions from DatabaseMetaData:")
+        for(f <- MFunction.getFunctions(MQName.local("%"))) {
+          println("  "+f)
+          for(c <- f.getFunctionColumns()) println("    "+c)
+        }
+      }
 
       println("UDTs from DatabaseMetaData:")
       for(u <- MUDT.getUDTs(MQName.local("%"))) println("  "+u)
 
       println("Procedures from DatabaseMetaData:")
-      for(p <- MProcedure.getProcedures(MQName.local("%"))) {
+      MProcedure.getProcedures(MQName.local("%")).foreach({ p =>
         println("  "+p)
         for(c <- p.getProcedureColumns()) println("    "+c)
-      }
+      }, 3)
 
       println("Tables from DatabaseMetaData:")
-      for(t <- MTable.getTables) { 
+      for(t <- MTable.getTables.list if Set("USERS", "ORDERS") contains t.name.name.toUpperCase) {
         println("  "+t)
         for(c <- t.getColumns) {
           println("    "+c)
@@ -89,17 +91,19 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
       println("Schemas from DatabaseMetaData:")
       for(t <- MSchema.getSchemas) println("  "+t)
 
-      // Not supported by H2
-      //println("Client Info Properties from DatabaseMetaData:")
-      //for(t <- MClientInfoProperty.getClientInfoProperties) println("  "+t)
+      if(tdb.driver != H2Driver) { // Not supported by H2
+        println("Client Info Properties from DatabaseMetaData:")
+        for(t <- MClientInfoProperty.getClientInfoProperties) println("  "+t)
+      }
 
       println("Generated code:")
       val out = new PrintWriter(System.out)
-      for(t <- MTable.getTables) CodeGen.output(t, out)
+      for(t <- MTable.getTables.list if Set("USERS", "ORDERS") contains t.name.name.toUpperCase)
+        CodeGen.output(t, out)
       out.flush
 
-      for(t <- MTable.getTables) updateNA("drop table " + t.name.name).execute
-      assertEquals(Nil, MTable.getTables.list)
+      for(t <- tdb.getLocalTables) updateNA("drop table " + t).execute
+      assertTrue(Set("ORDERS", "USERS") intersect MTable.getTables.list.map(_.name.name.toUpperCase).toSet isEmpty)
     }
   }
 }

@@ -9,5 +9,6 @@
 	<classpathentry kind="lib" path="lib_managed/scala_2.8.0/test/sqlite-jdbc-3.6.16.jar"/>
 	<classpathentry kind="lib" path="lib_managed/scala_2.8.0/test/junit-4.8.1.jar"/>
 	<classpathentry kind="lib" path="lib_managed/scala_2.8.0/test/sqlite-jdbc-3.6.20.jar"/>
+	<classpathentry kind="lib" path="lib_managed/scala_2.8.0/test/postgresql-8.4-701.jdbc4.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
