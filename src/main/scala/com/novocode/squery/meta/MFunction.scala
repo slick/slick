@@ -13,12 +13,27 @@ case class MFunction(name: MQName, remarks: String, returnsTable: Option[Boolean
 }
 
 object MFunction {
-  def getFunctions(namePattern: MQName) = ResultSetInvoker[MFunction](
+  private[this] val m = try { classOf[DatabaseMetaData].getMethod("getFunctions", classOf[String], classOf[String], classOf[String]) }
+    catch { case _:NoSuchMethodException => null }
+
+  def getFunctions(namePattern: MQName) = {
+    /* Regular version, requires Java 1.6: 
+    ResultSetInvoker[MFunction](
       _.metaData.getFunctions(namePattern.catalog_?, namePattern.schema_?, namePattern.name)) { r =>
       MFunction(MQName.from(r), r<<, r.nextShort match {
           case DatabaseMetaData.functionNoTable => Some(false)
           case DatabaseMetaData.functionReturnsTable => Some(true)
           case _ => None
         }, r<<)
+    }*/
+    if(m == null) UnitInvoker.empty
+    else ResultSetInvoker[MFunction]( s =>
+      m.invoke(s.metaData, namePattern.catalog_?, namePattern.schema_?, namePattern.name).asInstanceOf[ResultSet]) { r =>
+      MFunction(MQName.from(r), r<<, r.nextShort match {
+          case 1 /*DatabaseMetaData.functionNoTable*/ => Some(false)
+          case 2 /*DatabaseMetaData.functionReturnsTable*/ => Some(true)
+          case _ => None
+        }, r<<)
+    }
   }
 }

@@ -65,6 +65,13 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   override def mapResult[U](f: (R => U)): UnitInvoker[U] = new MappedInvoker(this, f) with UnitInvokerMixin[U]
 }
 
+object UnitInvoker {
+  val empty: UnitInvoker[Nothing] = new UnitInvokerMixin[Nothing] {
+    def foreach(param: Unit, f: Nothing => Unit, maxRows: Int)(implicit session: Session) {}
+    def elements(param: Unit)(implicit session: Session) = CloseableIterator.empty
+  }
+}
+
 trait DelegatingUnitInvoker[P, +R] extends UnitInvoker[R] {
   protected val appliedParameter: P
   protected val delegate: Invoker[P, R]
