@@ -1,7 +1,7 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, ColumnOps}
-import com.novocode.squery.combinator.basic.{BasicQueryBuilder, ConcreteBasicQueryBuilder, BasicTypeMapperDelegates}
+import com.novocode.squery.combinator._
+import com.novocode.squery.combinator.basic._
 
 object MySQLDriver extends ExtendedProfile { self =>
 
@@ -15,6 +15,7 @@ object MySQLDriver extends ExtendedProfile { self =>
   val typeMapperDelegates = new MySQLTypeMapperDelegates {}
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new MySQLQueryBuilder(query, nc, None, this)
+  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table).buildDDL
 }
 
 trait MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
@@ -70,5 +71,26 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   override protected def insertFromClauses() {
     super.insertFromClauses()
     if(fromSlot.isEmpty) fromSlot += " FROM DUAL"
+  }
+
+  override protected def appendOrdering(o: Ordering, b: SQLBuilder) {
+    val desc = o.isInstanceOf[Ordering.Desc]
+    if(o.nullOrdering == Ordering.NullsLast && !desc) {
+      b += "isnull("
+      expr(o.by, b)
+      b += "),"
+    } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
+      b += "isnull("
+      expr(o.by, b)
+      b += ") desc,"
+    }
+    expr(o.by, b)
+    if(desc) b += " desc"
+  }
+}
+
+class MySQLDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, MySQLDriver) {
+  override protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
+    "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
   }
 }

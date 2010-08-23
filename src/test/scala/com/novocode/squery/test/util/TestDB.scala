@@ -3,7 +3,7 @@ package com.novocode.squery.test.util
 import scala.collection.JavaConversions._
 import java.io.{File, IOException, FileInputStream}
 import java.util.Properties
-import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver}
+import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver}
 import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
@@ -23,8 +23,13 @@ object TestDBOptions {
   def get(db: String, o: String) = Option(dbProps.getProperty(db+"."+o))
 }
 
-class TestDB(val url: String, val jdbcDriver: String, val driver: ExtendedProfile) {
+abstract class TestDB {
   override def toString = url
+  val url: String
+  val jdbcDriver: String
+  val driver: ExtendedProfile
+  def dbName = ""
+  def userName = ""
   def createDB() = Database.forURL(url, driver = jdbcDriver)
   def cleanUpBefore() = cleanUp()
   def cleanUpAfter() = cleanUp()
@@ -43,74 +48,91 @@ class TestDB(val url: String, val jdbcDriver: String, val driver: ExtendedProfil
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list(())(session).map(_._3.toLowerCase)
   }
-  def dbName = ""
-  def userName = ""
 }
 
-class SQLiteTestDB(url: String) extends TestDB(url, "org.sqlite.JDBC", SQLiteDriver) {
+class SQLiteTestDB(dburl: String) extends TestDB {
+  val url = dburl
+  val jdbcDriver = "org.sqlite.JDBC"
+  val driver = SQLiteDriver
   override def getLocalTables(implicit session: Session) =
     super.getLocalTables(session).filter(s => !s.contains("sqlite_")).sortBy(identity)
+}
+
+class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends TestDB {
+  val jdbcDriver = TestDBOptions.get(confName, "driver").orNull
+  val urlTemplate = TestDBOptions.get(confName, "url").getOrElse("")
+  override def dbName = TestDBOptions.get(confName, "testDB").getOrElse("")
+  val url = urlTemplate.replace("[DB]", dbName)
+  val configuredUserName = TestDBOptions.get(confName, "user").orNull
+  val password = TestDBOptions.get(confName, "password").orNull
+  override def userName = TestDBOptions.get(confName, "user").orNull
+
+  val adminDBURL = urlTemplate.replace("[DB]", TestDBOptions.get(confName, "adminDB").getOrElse(""))
+  val create = TestDBOptions.get(confName, "create").getOrElse("").replace("[DB]", dbName)
+  val drop = TestDBOptions.get(confName, "drop").getOrElse("").replace("[DB]", dbName)
+
+  override def isEnabled = TestDBOptions.isEnabled(confName)
+
+  override def createDB() = Database.forURL(url, driver = jdbcDriver, user = configuredUserName, password = password)
+
+  override def cleanUpBefore() {
+    if(drop.length > 0 || create.length > 0) {
+      println("[Creating test database "+this+"]")
+      Database.forURL(adminDBURL, driver = jdbcDriver, user = configuredUserName, password = password) withSession {
+        updateNA(drop).execute
+        updateNA(create).execute
+      }
+    }
+  }
+
+  override def cleanUpAfter() {
+    if(drop.length > 0) {
+      println("[Dropping test database "+this+"]")
+      Database.forURL(adminDBURL, driver = jdbcDriver, user = configuredUserName, password = password) withSession {
+        updateNA(drop).execute
+      }
+    }
+  }
 }
 
 object TestDB {
   type TestDBSpec = (DBTestObject => TestDB)
 
-  def H2Mem(to: DBTestObject) = new TestDB("jdbc:h2:mem:test1", "org.h2.Driver", H2Driver) {
-    override def dbName = "test1"
+  def H2Mem(to: DBTestObject) = new TestDB {
+    val url = "jdbc:h2:mem:test1"
+    val jdbcDriver = "org.h2.Driver"
+    val driver = H2Driver
+    override val dbName = "test1"
   }
 
-  def H2Disk(to: DBTestObject) = {
-    val prefix = "h2-"+to.testClassName
-    new TestDB("jdbc:h2:./"+TestDBOptions.testDBDir+"/"+prefix, "org.h2.Driver", H2Driver) {
-      override def cleanUp() = deleteDBFiles(prefix)
-      override def dbName = prefix
-    }
+  def H2Disk(to: DBTestObject) = new TestDB {
+    override val dbName = "h2-"+to.testClassName
+    val url = "jdbc:h2:./"+TestDBOptions.testDBDir+"/"+dbName
+    val jdbcDriver = "org.h2.Driver"
+    val driver = H2Driver
+    override def cleanUp() = deleteDBFiles(dbName)
   }
 
   def SQLiteMem(to: DBTestObject) = new SQLiteTestDB("jdbc:sqlite::memory:") {
-    override def dbName = ":memory:"
+    override val dbName = ":memory:"
   }
 
   def SQLiteDisk(to: DBTestObject) = {
     val prefix = "sqlite-"+to.testClassName
     new SQLiteTestDB("jdbc:sqlite:./"+TestDBOptions.testDBDir+"/"+prefix+".db") {
+      override val dbName = prefix
       override def cleanUp() = deleteDBFiles(prefix)
-      override def dbName = prefix
     }
   }
 
-  def Postgres(to: DBTestObject) = {
-    val confName = "postgres"
-    lazy val user = TestDBOptions.get(confName, "user").getOrElse("postgres")
-    lazy val urlTemplate = TestDBOptions.get(confName, "url").getOrElse("jdbc:postgresql:[DB]?user=[USER]").replace("[USER]", user)
-    lazy val adminDBURL = urlTemplate.replace("[DB]", TestDBOptions.get(confName, "adminDB").getOrElse("postgres"))
-    lazy val testDB = TestDBOptions.get(confName, "testDB").getOrElse("scala-query-test")
-    lazy val testDBURL = urlTemplate.replace("[DB]", testDB)
-    lazy val create = TestDBOptions.get(confName, "create").getOrElse("CREATE DATABASE \"[DB]\"").replace("[DB]", testDB)
-    lazy val drop = TestDBOptions.get(confName, "drop").getOrElse("DROP DATABASE IF EXISTS \"[DB]\"").replace("[DB]", testDB)
-    new TestDB(testDBURL, "org.postgresql.Driver", PostgresDriver) {
-      override def dbName = testDB
-      override def userName = user
-      override def isEnabled = TestDBOptions.isEnabled(confName)
-      override def toString = {
-        val i = url.indexOf('?')
-        if(i == -1) url else url.substring(0, i)
-      }
-      override def cleanUpBefore() {
-        println("[Creating test database "+this+"]")
-        Database.forURL(adminDBURL, driver = jdbcDriver) withSession {
-          updateNA(drop).execute
-          updateNA(create).execute
-        }
-      }
-      override def cleanUpAfter() {
-        println("[Dropping test database "+this+"]")
-        Database.forURL(adminDBURL, driver = jdbcDriver) withSession { updateNA(drop).execute }
-      }
-      override def getLocalTables(implicit session: Session) = {
-        val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "public", null, null))
-        tables.list(())(session).map(_._3.toLowerCase).filter(s => !s.endsWith("_pkey") && !s.endsWith("_id_seq"))
-      }
+  def Postgres(to: DBTestObject) = new ExternalTestDB("postgres", PostgresDriver) {
+    override def getLocalTables(implicit session: Session) = {
+      val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "public", null, null))
+      tables.list(())(session).map(_._3.toLowerCase).filter(s => !s.endsWith("_pkey") && !s.endsWith("_id_seq"))
     }
+  }
+
+  def MySQL(to: DBTestObject) = new ExternalTestDB("mysql", MySQLDriver) {
+    override def userName = super.userName + "@localhost"
   }
 }

@@ -228,7 +228,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     }
     case SimpleLiteral(w) => b += w
     case ColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
-    case ColumnOps.CountAll(q) => b += "count(" += localTableName(q) += ".*)"
+    case ColumnOps.CountAll(q) => b += "count(*)"; localTableName(q)
     case ColumnOps.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
     case ColumnOps.Like(l, r, esc) => {
       b += '('; expr(l, b); b += " like "; expr(r, b);

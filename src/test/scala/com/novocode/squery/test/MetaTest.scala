@@ -18,7 +18,7 @@ import com.novocode.squery.simple.Implicit._
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MetaTest extends DBTestObject(H2Mem, Postgres)
+object MetaTest extends DBTestObject(H2Mem, Postgres, MySQL)
 
 class MetaTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

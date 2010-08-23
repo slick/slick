@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object PagingTest extends DBTestObject(H2Mem, Postgres)
+object PagingTest extends DBTestObject(H2Mem, Postgres, MySQL)
 
 class PagingTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

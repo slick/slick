@@ -22,6 +22,7 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
   val h2 = "com.h2database" % "h2" % "1.2.140" % "test->default"
   val sqlite = "org.xerial" % "sqlite-jdbc" % "3.6.20" % "test->default"
   val postgresql = "postgresql" % "postgresql" % (if(useJDBC4) "8.4-701.jdbc4" else "8.4-701.jdbc3") % "test->default"
+  val mysql = "mysql" % "mysql-connector-java" % "5.1.13" % "test->default"
   val junitInterface = "com.novocode" % "junit-interface" % "0.4" % "test->default"
   val fmppDep = "net.sourceforge.fmpp" % "fmpp" % "0.9.13" % "fmpp"
   val fmppConf = config("fmpp") hide

@@ -12,7 +12,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object JoinTest extends DBTestObject(H2Mem, Postgres)
+object JoinTest extends DBTestObject(H2Mem, Postgres, MySQL)
 
 class JoinTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

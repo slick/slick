@@ -23,14 +23,8 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
       b.toString
     }
     val createIndexes = table.indexes.map(createIndex)
-    val alterTables1 = table.foreignKeys.map { fk => 
-      val b = new StringBuilder append "ALTER TABLE " append table.tableName append " ADD "
-      addForeignKey(fk, b)
-      b.toString
-    }
-    val alterTables2 = table.foreignKeys.map { fk => 
-      "ALTER TABLE " + table.tableName + " DROP CONSTRAINT " + fk.name
-    }
+    val alterTables1 = table.foreignKeys.map(createForeignKey)
+    val alterTables2 = table.foreignKeys.map(dropForeignKey)
     new DDL {
       val createPhase1 = Iterable(createTable) ++ createIndexes
       val createPhase2 = alterTables1
@@ -74,6 +68,12 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
     b.toString
   }
 
+  protected def createForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
+    val sb = new StringBuilder append "ALTER TABLE " append table.tableName append " ADD "
+    addForeignKey(fk, sb)
+    sb.toString
+  }
+
   protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_]], sb: StringBuilder) {
     sb append "CONSTRAINT " append fk.name append " FOREIGN KEY("
     addForeignKeyColumnList(fk.sourceColumns, sb, table.tableName)
@@ -81,6 +81,10 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
     addForeignKeyColumnList(fk.targetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
     sb append ") ON UPDATE " append fk.onUpdate.action
     sb append " ON DELETE " append fk.onDelete.action
+  }
+
+  protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
+    "ALTER TABLE " + table.tableName + " DROP CONSTRAINT " + fk.name
   }
 
   protected def addIndexColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
