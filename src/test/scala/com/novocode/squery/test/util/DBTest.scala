@@ -4,6 +4,7 @@ import scala.collection.JavaConversions
 import scala.collection.JavaConversions._
 import java.io.{File, IOException, FileInputStream}
 import java.util.Properties
+import org.junit.Assert._
 import org.junit.{Before, After}
 import org.junit.runner.{JUnitCore, RunWith}
 import org.junit.runners.Parameterized
@@ -20,6 +21,12 @@ class DBTest(testDB: TestDB) {
   @After def afterDBTest = {
     try { if(sessionCreated) session.close() }
     finally { testDB.cleanUpAfter() }
+  }
+
+  def assertFail(f: =>Unit) = {
+    var succeeded = false
+    try { f; succeeded = true } catch { case _ => }
+    if(succeeded) fail("Exception expected")
   }
 }
 

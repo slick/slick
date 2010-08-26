@@ -1,7 +1,5 @@
 package com.novocode.squery.combinator.basic
 
-import scala.collection.mutable.HashMap
-import java.io.PrintWriter
 import com.novocode.squery.combinator._
 
 class BasicSequenceDDLBuilder(seq: Sequence[_]) {

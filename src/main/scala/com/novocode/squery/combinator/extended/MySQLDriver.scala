@@ -1,5 +1,6 @@
 package com.novocode.squery.combinator.extended
 
+import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.basic._
 
@@ -16,6 +17,7 @@ object MySQLDriver extends ExtendedProfile { self =>
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new MySQLQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table).buildDDL
+  override def buildSequenceDDL(seq: Sequence[_]): DDL = new MySQLSequenceDDLBuilder(seq).buildDDL
 }
 
 trait MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
@@ -53,6 +55,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ColumnOps.Concat(l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
+    case Sequence.Nextval(seq) => b += seq.name += "_nextval()"
+    case Sequence.Currval(seq) => b += seq.name += "_currval()"
     case _ => super.innerExpr(c, b)
   }
 
@@ -92,5 +96,40 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 class MySQLDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, MySQLDriver) {
   override protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
     "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
+  }
+}
+
+class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends BasicSequenceDDLBuilder(seq) {
+
+  override def buildDDL: DDL = {
+    import seq.integral._
+    val sqlType = seq.typeMapper(MySQLDriver).sqlTypeName
+    val t = sqlType + " not null"
+    val increment = seq._increment.getOrElse(one)
+    val desc = increment < zero
+    val minValue = seq._minValue getOrElse (if(desc) fromInt(java.lang.Integer.MIN_VALUE) else one)
+    val maxValue = seq._maxValue getOrElse (if(desc) fromInt(-1) else fromInt(java.lang.Integer.MAX_VALUE))
+    val start = seq._start.getOrElse(if(desc) maxValue else minValue)
+    val beforeStart = start - increment
+    if(!seq._cycle && (seq._minValue.isDefined && desc || seq._maxValue.isDefined && !desc))
+      throw new SQueryException("Sequences with limited size and without CYCLE are not supported by MySQLDriver's sequence emulation")
+    val incExpr = if(seq._cycle) {
+      if(desc) "if(id-"+(-increment)+"<"+minValue+","+maxValue+",id-"+(-increment)+")"
+      else "if(id+"+increment+">"+maxValue+","+minValue+",id+"+increment+")"
+    } else {
+      "id+("+increment+")"
+    }
+    new DDL {
+      val createPhase1 = Iterable(
+        "create table " + seq.name + "_seq (id " + t + ")",
+        "insert into " + seq.name + "_seq values (" + beforeStart + ")",
+        "create function " + seq.name + "_nextval() returns " + sqlType + " begin update " + seq.name +
+          "_seq set id=last_insert_id(" + incExpr + "); return last_insert_id(); end")
+      val createPhase2 = Nil
+      val dropPhase1 = Nil
+      val dropPhase2 = Iterable(
+        "drop function " + seq.name + "_nextval",
+        "drop table " + seq.name + "_seq")
+    }
   }
 }
