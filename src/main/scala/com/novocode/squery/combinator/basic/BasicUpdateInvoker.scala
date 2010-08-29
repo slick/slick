@@ -1,7 +1,8 @@
 package com.novocode.squery.combinator.basic
 
-import com.novocode.squery.combinator.{Query, Projection, NamingContext, ColumnBase}
+import com.novocode.squery.combinator.{Query, Projection, ColumnBase}
 import com.novocode.squery.session.{Session, CloseableIterator, ReadAheadIterator, PositionedParameters}
+import com.novocode.squery.util.NamingContext
 
 class BasicUpdateInvoker[T] (query: Query[ColumnBase[T]], profile: BasicProfile) {
 

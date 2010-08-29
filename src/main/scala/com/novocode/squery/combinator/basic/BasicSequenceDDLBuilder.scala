@@ -2,10 +2,11 @@ package com.novocode.squery.combinator.basic
 
 import com.novocode.squery.combinator._
 
-class BasicSequenceDDLBuilder(seq: Sequence[_]) {
+class BasicSequenceDDLBuilder(seq: Sequence[_], val profile: BasicProfile) {
+  import profile.sqlUtils._
 
   def buildDDL: DDL = {
-    val b = new StringBuilder append "CREATE SEQUENCE " append seq.name
+    val b = new StringBuilder append "CREATE SEQUENCE " append quoteIdentifier(seq.name)
     seq._increment.foreach { b append " INCREMENT " append _ }
     seq._minValue.foreach { b append " MINVALUE " append _ }
     seq._maxValue.foreach { b append " MAXVALUE " append _ }
@@ -15,7 +16,7 @@ class BasicSequenceDDLBuilder(seq: Sequence[_]) {
       val createPhase1 = Iterable(b.toString)
       val createPhase2 = Nil
       val dropPhase1 = Nil
-      val dropPhase2 = Iterable("DROP SEQUENCE " + seq.name)
+      val dropPhase2 = Iterable("DROP SEQUENCE " + quoteIdentifier(seq.name))
     }
   }
 }

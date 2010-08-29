@@ -1,4 +1,4 @@
-package com.novocode.squery
+package com.novocode.squery.util
 
 final case class RefId[E <: AnyRef](val e: E) extends Function0[E] {
   override def hashCode = System.identityHashCode(e)

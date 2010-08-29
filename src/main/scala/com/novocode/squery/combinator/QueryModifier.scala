@@ -1,5 +1,7 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.util.Node
+
 trait QueryModifier extends Node
 
 sealed abstract class Ordering extends QueryModifier {

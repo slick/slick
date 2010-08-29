@@ -1,10 +1,11 @@
 package test
 
-import com.novocode.squery.combinator.{Join, Query, NamingContext}
+import com.novocode.squery.combinator.{Join, Query}
 import com.novocode.squery.combinator.basic.BasicDriver
 import com.novocode.squery.combinator.basic.BasicDriver.Implicit._
 import com.novocode.squery.combinator.basic.{BasicTable => Table}
 import com.novocode.squery.combinator.TypeMapper._
+import com.novocode.squery.util.NamingContext
 
 object Benchmark {
 

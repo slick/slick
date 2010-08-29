@@ -2,6 +2,7 @@ package com.novocode.squery.combinator
 
 import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
+import com.novocode.squery.util.{Node, UnaryNode}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
   type V = T

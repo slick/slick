@@ -1,8 +1,9 @@
-package com.novocode.squery.combinator
+package com.novocode.squery.util
 
 import java.io.{PrintWriter, OutputStreamWriter}
 import scala.collection.mutable.HashSet
 import com.novocode.squery.SQueryException
+import com.novocode.squery.combinator.ConstColumn
 
 /**
  * A node in the query AST

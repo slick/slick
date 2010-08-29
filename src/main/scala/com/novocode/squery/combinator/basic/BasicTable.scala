@@ -3,6 +3,7 @@ package com.novocode.squery.combinator.basic
 import com.novocode.squery.combinator._
 import com.novocode.squery.SQueryException
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
+import com.novocode.squery.util.Node
 
 abstract class AbstractBasicTable[T](_tableName: String) extends AbstractTable[T](_tableName) {
 

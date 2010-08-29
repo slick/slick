@@ -15,7 +15,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Postgres, MySQL)
+object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Postgres, MySQL, DerbyMem, DerbyDisk)
 
 class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
@@ -101,7 +101,7 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
       println("All tables:")
       for(t <- tdb.getLocalTables) println("  "+t)
-      assertEquals(List("users"), tdb.getLocalTables)
+      assertEquals(List("users"), tdb.getLocalTables.map(_.toLowerCase))
     }
   }
 }

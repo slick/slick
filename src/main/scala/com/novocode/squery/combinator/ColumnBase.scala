@@ -3,6 +3,7 @@ package com.novocode.squery.combinator
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator.basic.BasicProfile
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
+import com.novocode.squery.util.{Node, WithOp}
 
 /**
  * Common base trait for columns, tables and projections (but not unions and joins).

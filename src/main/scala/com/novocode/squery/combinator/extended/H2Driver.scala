@@ -1,7 +1,8 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, ColumnOps, TypeMapperDelegate, DDL}
+import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.basic._
+import com.novocode.squery.util._
 
 object H2Driver extends ExtendedProfile { self =>
 
@@ -13,9 +14,9 @@ object H2Driver extends ExtendedProfile { self =>
   }
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
+  override val sqlUtils = new H2SQLUtils
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new H2DDLBuilder(table).buildDDL
 }
 
 class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver.type)
@@ -33,21 +34,18 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       case TakeDrop(Some(0), _) :: _ =>
         /* H2 ignores LIMIT 0 and treats negative limits as positive, so
          * we use this workaround to force the query to return no results */
-        b += "SELECT * FROM (SELECT "
-        expr(Node(query.value), b, rename)
-        fromSlot = b.createSlot
-        appendClauses(b)
+        b += "SELECT * FROM ("
+        super.innerBuildSelect(b, rename)
         b += ") WHERE FALSE"
       case _ =>
-        b += "SELECT "
-        expr(Node(query.value), b, rename)
-        fromSlot = b.createSlot
-        appendClauses(b)
+        super.innerBuildSelect(b, rename)
     }
   }
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
+    case Sequence.Nextval(seq) => b += "nextval(schema(), '" += seq.name += "')"
+    case Sequence.Currval(seq) => b += "currval(schema(), '" += seq.name += "')"
     case _ => super.innerExpr(c, b)
   }
 
@@ -65,8 +63,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 }
 
-class H2DDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, H2Driver) {
-  override protected def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+class H2SQLUtils extends BasicSQLUtils {
+  override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
     case _ => super.mapTypeName(tmd)
   }

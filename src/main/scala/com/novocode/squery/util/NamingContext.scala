@@ -1,7 +1,6 @@
-package com.novocode.squery.combinator
+package com.novocode.squery.util
 
 import scala.collection.mutable.HashMap
-import com.novocode.squery.RefId
 
 trait NamingContext { self =>
   def nameFor(t: Node): String

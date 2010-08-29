@@ -5,6 +5,7 @@ import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic._
 import com.novocode.squery.session.Session
+import com.novocode.squery.util.NullaryNode
 
 trait ExtendedProfile extends BasicProfile {
   type ImplicitT <: ExtendedImplicitConversions[_ <: ExtendedProfile]

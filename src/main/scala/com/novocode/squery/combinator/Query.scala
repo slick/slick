@@ -1,6 +1,8 @@
 package com.novocode.squery.combinator
 
 import scala.reflect.Manifest
+import com.novocode.squery.SQueryException
+import com.novocode.squery.util.{Node, WithOp}
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
@@ -69,7 +71,11 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
       val p = Subquery(base, true)
       o.mapOp { v =>
         pos += 1
-        SubqueryColumn(pos, p)
+        SubqueryColumn(pos, p, v match {
+          case c: Column[_] => c.typeMapper
+          case SubqueryColumn(_, _, tm) => tm
+          case _ => throw new SQueryException("Expected Column or SubqueryColumn")
+        })
       }.asInstanceOf[E]
   })
 
@@ -91,7 +97,7 @@ case class Subquery(query: Node, rename: Boolean) extends Node {
   override def isNamedTable = true
 }
 
-case class SubqueryColumn(pos: Int, subquery: Subquery) extends Node {
+case class SubqueryColumn(pos: Int, subquery: Subquery, typeMapper: TypeMapper[_]) extends Node {
   def nodeChildren = subquery :: Nil
   override def nodeNamedChildren = (subquery, "subquery") :: Nil
   override def toString = "SubqueryColumn c"+pos

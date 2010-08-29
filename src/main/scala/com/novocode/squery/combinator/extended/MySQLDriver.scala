@@ -3,6 +3,7 @@ package com.novocode.squery.combinator.extended
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.basic._
+import com.novocode.squery.util._
 
 object MySQLDriver extends ExtendedProfile { self =>
 
@@ -14,6 +15,7 @@ object MySQLDriver extends ExtendedProfile { self =>
   }
 
   val typeMapperDelegates = new MySQLTypeMapperDelegates {}
+  override val sqlUtils = new MySQLSQLUtils
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new MySQLQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table).buildDDL
@@ -47,6 +49,7 @@ class MySQLQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[Bas
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
+  import profile.sqlUtils._
 
   override type Self = MySQLQueryBuilder
 
@@ -55,8 +58,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ColumnOps.Concat(l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
-    case Sequence.Nextval(seq) => b += seq.name += "_nextval()"
-    case Sequence.Currval(seq) => b += seq.name += "_currval()"
+    case Sequence.Nextval(seq) => b += quoteIdentifier(seq.name + "_nextval") += "()"
+    case Sequence.Currval(seq) => b += quoteIdentifier(seq.name + "_currval") += "()"
     case _ => super.innerExpr(c, b)
   }
 
@@ -99,7 +102,8 @@ class MySQLDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(tabl
   }
 }
 
-class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends BasicSequenceDDLBuilder(seq) {
+class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends BasicSequenceDDLBuilder(seq, MySQLDriver) {
+  import profile.sqlUtils._
 
   override def buildDDL: DDL = {
     import seq.integral._
@@ -119,17 +123,22 @@ class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends BasicSequenceDDLBuild
     } else {
       "id+("+increment+")"
     }
+    //TODO Implement currval function
     new DDL {
       val createPhase1 = Iterable(
-        "create table " + seq.name + "_seq (id " + t + ")",
-        "insert into " + seq.name + "_seq values (" + beforeStart + ")",
-        "create function " + seq.name + "_nextval() returns " + sqlType + " begin update " + seq.name +
-          "_seq set id=last_insert_id(" + incExpr + "); return last_insert_id(); end")
+        "create table " + quoteIdentifier(seq.name + "_seq") + " (id " + t + ")",
+        "insert into " + quoteIdentifier(seq.name + "_seq") + " values (" + beforeStart + ")",
+        "create function " + quoteIdentifier(seq.name + "_nextval") + "() returns " + sqlType + " begin update " +
+          quoteIdentifier(seq.name + "_seq") + " set id=last_insert_id(" + incExpr + "); return last_insert_id(); end")
       val createPhase2 = Nil
       val dropPhase1 = Nil
       val dropPhase2 = Iterable(
-        "drop function " + seq.name + "_nextval",
-        "drop table " + seq.name + "_seq")
+        "drop function " + quoteIdentifier(seq.name + "_nextval"),
+        "drop table " + quoteIdentifier(seq.name + "_seq"))
     }
   }
+}
+
+class MySQLSQLUtils extends BasicSQLUtils {
+  override def quoteIdentifier(id: String) = '`' + id + '`'
 }

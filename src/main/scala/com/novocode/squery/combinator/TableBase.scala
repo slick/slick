@@ -3,6 +3,7 @@ package com.novocode.squery.combinator
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator.basic.{BasicProfile, BasicQueryTemplate, BasicDriver}
 import com.novocode.squery.session.{PositionedResult, PositionedParameters}
+import com.novocode.squery.util.{Node, UnaryNode, BinaryNode, WithOp}
 
 sealed trait TableBase[T] extends Node with WithOp {
   override def isNamedTable = true

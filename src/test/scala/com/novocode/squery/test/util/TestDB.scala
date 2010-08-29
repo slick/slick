@@ -3,7 +3,8 @@ package com.novocode.squery.test.util
 import scala.collection.JavaConversions._
 import java.io.{File, IOException, FileInputStream}
 import java.util.Properties
-import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver}
+import java.sql.SQLException
+import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver}
 import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
@@ -35,18 +36,22 @@ abstract class TestDB {
   def cleanUpAfter() = cleanUp()
   def cleanUp() {}
   def deleteDBFiles(prefix: String) {
+    def deleteRec(f: File): Boolean = {
+      if(f.isDirectory()) f.listFiles.forall(deleteRec _) && f.delete()
+      else f.delete()
+    }
     val dir = new File(TestDBOptions.testDBDir)
     if(!dir.isDirectory) throw new IOException("Directory "+TestDBOptions.testDBDir+" not found")
     for(f <- dir.listFiles if f.getName startsWith prefix) {
       val p = TestDBOptions.testDBDir+"/"+f.getName
-      if(f.delete) println("[Deleted database file "+p+"]")
+      if(deleteRec(f)) println("[Deleted database file "+p+"]")
       else throw new IOException("Couldn't delete database file "+p)
     }
   }
   def isEnabled = true
   def getLocalTables(implicit session: Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
-    tables.list(())(session).map(_._3.toLowerCase)
+    tables.list(())(session).map(_._3)
   }
 }
 
@@ -55,7 +60,7 @@ class SQLiteTestDB(dburl: String) extends TestDB {
   val jdbcDriver = "org.sqlite.JDBC"
   val driver = SQLiteDriver
   override def getLocalTables(implicit session: Session) =
-    super.getLocalTables(session).filter(s => !s.contains("sqlite_")).sortBy(identity)
+    super.getLocalTables(session).filter(s => !s.toLowerCase.contains("sqlite_")).sortBy(identity)
 }
 
 class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends TestDB {
@@ -95,6 +100,21 @@ class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends Test
   }
 }
 
+abstract class DerbyDB extends TestDB {
+  System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
+  val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
+  val driver = DerbyDriver
+  override def userName = "APP"
+  override def getLocalTables(implicit session: Session): List[String] = {
+    val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
+    tables.list(())(session).map(_._3)
+  }
+}
+
+object DerbyDB {
+  val DEV_NULL = new java.io.OutputStream { def write(b: Int) {} };
+}
+
 object TestDB {
   type TestDBSpec = (DBTestObject => TestDB)
 
@@ -125,10 +145,31 @@ object TestDB {
     }
   }
 
+  def DerbyMem(to: DBTestObject) = new DerbyDB {
+    override val dbName = "test1"
+    val url = "jdbc:derby:memory:"+dbName+";create=true"
+    override def cleanUp() = {
+      val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
+      try { Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:Session => s.conn } }
+      catch { case e: SQLException => }
+    }
+  }
+
+  def DerbyDisk(to: DBTestObject) = new DerbyDB {
+    override val dbName = "derby-"+to.testClassName
+    val url = "jdbc:derby:./"+TestDBOptions.testDBDir+"/"+dbName+";create=true"
+    override def cleanUp() = {
+      val dropUrl = "jdbc:derby:./"+TestDBOptions.testDBDir+"/"+dbName+";shutdown=true"
+      try { Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:Session => s.conn } }
+      catch { case e: SQLException => }
+      deleteDBFiles(dbName)
+    }
+  }
+
   def Postgres(to: DBTestObject) = new ExternalTestDB("postgres", PostgresDriver) {
     override def getLocalTables(implicit session: Session) = {
       val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.list(())(session).map(_._3.toLowerCase).filter(s => !s.endsWith("_pkey") && !s.endsWith("_id_seq"))
+      tables.list(())(session).map(_._3).filter(s => !s.toLowerCase.endsWith("_pkey") && !s.toLowerCase.endsWith("_id_seq"))
     }
   }
 

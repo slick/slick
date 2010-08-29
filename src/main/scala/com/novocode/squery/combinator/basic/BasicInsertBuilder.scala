@@ -4,18 +4,20 @@ import scala.collection.mutable.HashMap
 import java.io.PrintWriter
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
+import com.novocode.squery.util._
 
 class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile) {
+  import profile.sqlUtils._
 
   def buildInsert: String = {
     val (table, cols, vals) = buildParts
-    "INSERT INTO " + table + " (" + cols + ") VALUES (" + vals + ")"
+    "INSERT INTO " + quoteIdentifier(table) + " (" + cols + ") VALUES (" + vals + ")"
   }
 
   def buildInsert(query: Query[ColumnBase[T]]): SQLBuilder.Result = {
     val (table, cols, _) = buildParts
     val b = new SQLBuilder
-    b += "INSERT INTO " += table += " (" += cols.toString += ") "
+    b += "INSERT INTO " += quoteIdentifier(table) += " (" += cols.toString += ") "
     val qb = profile.createQueryBuilder(query, NamingContext())
     qb.buildSelect(b)
     b.build
@@ -46,7 +48,7 @@ class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile
       cols append ","
       vals append ","
     }
-    cols append n.name
+    cols append quoteIdentifier(n.name)
     vals append '?'
   }
 }

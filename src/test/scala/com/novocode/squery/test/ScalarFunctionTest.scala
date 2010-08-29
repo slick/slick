@@ -6,12 +6,13 @@ import org.junit.runner.JUnitCore
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.{BasicTable => Table}
+import com.novocode.squery.combinator.extended.DerbyDriver
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object ScalarFunctionTest extends DBTestObject(H2Mem, Postgres, MySQL)
+object ScalarFunctionTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem)
 
 class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -32,7 +33,10 @@ class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
     check(Query(ConstColumn("  foo  ").ltrim), "foo  ")
     check(Query(ConstColumn("  foo  ").rtrim), "  foo")
     check(Query(ConstColumn("  foo  ").trim), "foo")
-    check(Query(Functions.database.toLowerCase), tdb.dbName.toLowerCase)
+    if(tdb.driver != DerbyDriver) {
+      // Derby does not support {fn database()}
+      check(Query(Functions.database.toLowerCase), tdb.dbName.toLowerCase)
+    }
     check(Query(Functions.user.toLowerCase), tdb.userName.toLowerCase)
     check(Query(ConstColumn(8) % 3 ), 2)
     check(Query(ConstColumn(-12.5).abs), 12.5)

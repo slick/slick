@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator.basic
 
-import com.novocode.squery.combinator.{ColumnBase, SQLBuilder, NamingContext, Sequence, Query, Projection, DDL}
+import com.novocode.squery.combinator.{ColumnBase, Sequence, Query, Projection, DDL}
+import com.novocode.squery.util.{NamingContext, SQLBuilder}
 
 trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_ <: BasicProfile]
@@ -11,6 +12,7 @@ trait BasicProfile {
 
   val Implicit: ImplicitT
   val typeMapperDelegates: TypeMapperDelegatesT
+  val sqlUtils = new BasicSQLUtils
 
   def buildSelectStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildSelect
@@ -24,5 +26,5 @@ trait BasicProfile {
     new BasicInsertBuilder(cb, this).buildInsert(q)
 
   def buildTableDDL(table: AbstractBasicTable[_]): DDL = new BasicDDLBuilder(table, this).buildDDL
-  def buildSequenceDDL(seq: Sequence[_]): DDL = new BasicSequenceDDLBuilder(seq).buildDDL
+  def buildSequenceDDL(seq: Sequence[_]): DDL = new BasicSequenceDDLBuilder(seq, this).buildDDL
 }

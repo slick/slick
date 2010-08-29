@@ -2,8 +2,9 @@ package com.novocode.squery.combinator.basic
 
 import java.sql.PreparedStatement
 import com.novocode.squery.{SQueryException, MutatingStatementInvoker}
-import com.novocode.squery.combinator.{Query, ColumnBase, NamingContext}
+import com.novocode.squery.combinator.{Query, ColumnBase}
 import com.novocode.squery.session.{PositionedParameters, PositionedResult}
+import com.novocode.squery.util.NamingContext
 
 class BasicQueryTemplate[P, R](query: Query[ColumnBase[R]], profile: BasicProfile) extends MutatingStatementInvoker[P, R] {
 

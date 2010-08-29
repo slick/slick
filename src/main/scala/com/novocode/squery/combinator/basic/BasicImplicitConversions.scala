@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator.basic
 
 import com.novocode.squery.combinator._
+import com.novocode.squery.util.Node
 
 trait BasicImplicitConversions[DriverType <: BasicProfile] {
 

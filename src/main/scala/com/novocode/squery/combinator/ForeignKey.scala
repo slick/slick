@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
 import TypeMapper._
+import com.novocode.squery.util.{Node, BinaryNode}
 
 case class ForeignKey[TT <: AbstractTable[_]](name: String, sourceTable: Node, targetTable: TT, originalTargetTable: TT,
     sourceColumns: Node, targetColumns: TT => ColumnBase[_], onUpdate: ForeignKeyAction, onDelete: ForeignKeyAction)

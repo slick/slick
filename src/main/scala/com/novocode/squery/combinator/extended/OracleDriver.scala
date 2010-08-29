@@ -1,7 +1,8 @@
 package com.novocode.squery.combinator.extended
 
-import com.novocode.squery.combinator.{Query, NamingContext, Node, SQLBuilder, ColumnOps}
-import com.novocode.squery.combinator.basic.{BasicQueryBuilder, ConcreteBasicQueryBuilder, BasicTypeMapperDelegates}
+import com.novocode.squery.combinator._
+import com.novocode.squery.combinator.basic._
+import com.novocode.squery.util._
 
 object OracleDriver extends ExtendedProfile { self =>
 
@@ -36,13 +37,13 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), None) :: _ =>
         b += "SELECT * FROM (SELECT "
-        expr(Node(query.value), b, rename)
+        expr(Node(query.value), b, rename, true)
         fromSlot = b.createSlot
         appendClauses(b)
         b += ") WHERE ROWNUM <= " += t
       case TakeDrop(to, Some(d)) :: _ =>
         b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM ("
-        expr(Node(query.value), b, rename)
+        expr(Node(query.value), b, rename, true)
         b += ",ROWNUM ROWNUM_I"
         fromSlot = b.createSlot
         appendClauses(b)
@@ -56,7 +57,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         b += " ORDER BY ROWNUM_I"
       case _ =>
         b += "SELECT "
-        expr(Node(query.value), b, rename)
+        expr(Node(query.value), b, rename, true)
         fromSlot = b.createSlot
         appendClauses(b)
     }

@@ -11,7 +11,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MiscTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL)
+object MiscTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem)
 
 class MiscTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

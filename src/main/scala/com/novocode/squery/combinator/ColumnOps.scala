@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
 import TypeMapper._
+import com.novocode.squery.util.{Node, UnaryNode, BinaryNode}
 
 trait ColumnOps[B1, P1] {
   protected val leftOperand: Node

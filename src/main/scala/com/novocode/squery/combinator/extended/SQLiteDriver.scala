@@ -1,7 +1,8 @@
 package com.novocode.squery.combinator.extended
 
 import com.novocode.squery.combinator._
-import com.novocode.squery.combinator.basic.{AbstractBasicTable, BasicColumnOption, BasicTypeMapperDelegates, BasicDDLBuilder}
+import com.novocode.squery.combinator.basic._
+import com.novocode.squery.util._
 
 object SQLiteDriver extends ExtendedProfile { self =>
 
@@ -18,6 +19,8 @@ object SQLiteDriver extends ExtendedProfile { self =>
 }
 
 class SQLiteDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, SQLiteDriver) {
+  import profile.sqlUtils._
+
   override def buildDDL: DDL = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
     var first = true

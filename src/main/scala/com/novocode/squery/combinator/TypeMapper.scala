@@ -93,6 +93,7 @@ trait TypeMapperDelegate[T] { self =>
   def createOptionTypeMapperDelegate: TypeMapperDelegate[Option[T]] = new TypeMapperDelegate[Option[T]] {
     def zero = None
     def sqlType = self.sqlType
+    override def sqlTypeName = self.sqlTypeName
     def setValue(v: Option[T], p: PositionedParameters) = self.setOption(v, p)
     def setOption(v: Option[Option[T]], p: PositionedParameters) = self.setOption(v.getOrElse(None), p)
     def nextValue(r: PositionedResult) = self.nextOption(r)

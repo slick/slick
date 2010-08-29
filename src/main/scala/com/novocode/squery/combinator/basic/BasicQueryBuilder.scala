@@ -1,8 +1,9 @@
 package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.{HashMap, HashSet}
-import com.novocode.squery.{RefId, SQueryException}
+import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
+import com.novocode.squery.util._
 
 class ConcreteBasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile)
 extends BasicQueryBuilder(_query, _nc, parent, _profile) {
@@ -13,6 +14,7 @@ extends BasicQueryBuilder(_query, _nc, parent, _profile) {
 }
 
 abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile) {
+  import _profile.sqlUtils._
 
   //TODO Pull tables out of subqueries where needed
 
@@ -27,6 +29,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected val declaredTables = new HashSet[String]
   protected val subQueryBuilders = new HashMap[RefId[Query[_]], Self]
   protected var fromSlot: SQLBuilder = _
+  protected var selectSlot: SQLBuilder = _
 
   protected def localTableName(n: Node) = n match {
     case Join.JoinPart(table, from) =>
@@ -58,8 +61,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   }
 
   protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
-    b += "SELECT "
-    expr(Node(query.value), b, rename)
+    selectSlot = b.createSlot
+    selectSlot += "SELECT "
+    expr(Node(query.value), selectSlot, rename, true)
     fromSlot = b.createSlot
     appendClauses(b)
   }
@@ -74,10 +78,10 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected def appendGroupClause(b: SQLBuilder): Unit = query.typedModifiers[Grouping] match {
     case x :: xs => {
       b += " GROUP BY "
-      expr(x.by, b)
+      expr(x.by, b, false, true)
       for(x <- xs) {
         b += ","
-        expr(x.by, b)
+        expr(x.by, b, false, true)
       }
     }
     case _ =>
@@ -96,7 +100,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   }
 
   protected def appendOrdering(o: Ordering, b: SQLBuilder) {
-    expr(o.by, b)
+    expr(o.by, b, false, true)
     if(o.isInstanceOf[Ordering.Desc]) b += " desc"
     o.nullOrdering match {
       case Ordering.NullsFirst => b += " nulls first"
@@ -113,7 +117,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       case n => throw new SQueryException("Cannot create a DELETE statement from an \""+n+
         "\" expression; An aliased or base table is required")
     }
-    b += delTableName
+    b += quoteIdentifier(delTableName)
     nc = nc.overrideName(delTable, delTableName) // Alias table to itself because DELETE does not support aliases
     appendConditions(b)
     if(localTables.size > 1)
@@ -144,7 +148,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
         if(tableName eq null) { tableName = tn; table = t; }
         else if(tableName != tn)
           throw new SQueryException("All columns for an UPDATE statement must be from the same table")
-        b += n += '=' +?= { (p, param) =>
+        b += quoteIdentifier(n) += '=' +?= { (p, param) =>
           val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
           tm(profile).asInstanceOf[TypeMapperDelegate[Any]].setValue(v, p)
         }
@@ -163,69 +167,53 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       case n => handleColumn(n, -1)
     }
     nc = nc.overrideName(table, tableName) // Alias table to itself because DELETE does not support aliases
-    tableNameSlot += tableName
+    tableNameSlot += quoteIdentifier(tableName)
     appendConditions(b)
     if(localTables.size > 1)
       throw new SQueryException("An UPDATE statement must not use more than one table at the top level")
     b.build
   }
 
-  protected def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false)
+  protected def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false, false)
 
-  protected def expr(c: Node, b: SQLBuilder, rename: Boolean): Unit = {
+  protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
     var pos = 0
     c match {
       case p: Projection[_] => {
         p.nodeChildren.foreach { c =>
           if(pos != 0) b += ','
           pos += 1
-          expr(c, b)
-          if(rename) b += " as c" += pos.toString
+          expr(c, b, false, true)
+          if(rename) b += " as " += quoteIdentifier("c" + pos.toString)
         }
       }
       case _ => innerExpr(c, b)
     }
-    if(rename && pos == 0) b += " as c1"
+    if(rename && pos == 0) b += " as " += quoteIdentifier("c1")
   }
 
   protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ConstColumn(null) => b += "null"
     case ColumnOps.Not(ColumnOps.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
     case ColumnOps.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
-    case ColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else {
+    case ColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else { //TODO Use value provided by profile instead of "false"
       b += '('; expr(e, b); b += " in ("
-      if(bind) {
-        var first = true
-        for(x <- seq) {
-          if(first) first = false else b += ','
+      if(bind)
+        for(x <- b.sep(seq, ","))
           b +?= { (p, param) => tm(profile).setValue(x, p) }
-        }
-      }
       else b += seq.map(tm(profile).valueToSQLLiteral).mkString(",")
       b += "))"
     }
     case ColumnOps.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
     case ColumnOps.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
-    case s: SimpleFunction => {
+    case s: SimpleFunction =>
       b += s.name += '('
-      var first = true
-      for(ch <- s.nodeChildren) {
-        if(first) first = false
-        else b += ','
-        expr(ch, b)
-      }
+      for(ch <- b.sep(s.nodeChildren, ",")) expr(ch, b)
       b += ')'
-    }
-    case s: SimpleScalarFunction => {
+    case s: SimpleScalarFunction =>
       b += "{fn " += s.name += '('
-      var first = true
-      for(ch <- s.nodeChildren) {
-        if(first) first = false
-        else b += ','
-        expr(ch, b)
-      }
+      for(ch <- b.sep(s.nodeChildren, ",")) expr(ch, b)
       b += ")}"
-    }
     case SimpleLiteral(w) => b += w
     case ColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
     case ColumnOps.CountAll(q) => b += "count(*)"; localTableName(q)
@@ -240,7 +228,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     }
     case a @ ColumnOps.AsColumnOf(ch, name) => {
       b += "{fn convert("; expr(ch, b); b += ','
-      b += name.getOrElse(a.typeMapper(profile).sqlTypeName)
+      b += name.getOrElse(mapTypeName(a.typeMapper(profile)))
       b += ")}"
     }
     case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
@@ -268,11 +256,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       b += " end)"
     }
-    case n: NamedColumn[_] => { b += localTableName(n.table) += '.' += n.name }
-    case SubqueryColumn(pos, sq) => { b += localTableName(sq) += ".c" += pos.toString }
+    case n: NamedColumn[_] => { b += quoteIdentifier(localTableName(n.table)) += '.' += quoteIdentifier(n.name) }
+    case SubqueryColumn(pos, sq, _) => { b += quoteIdentifier(localTableName(sq)) += "." += quoteIdentifier("c" + pos.toString) }
     case a @ AbstractTable.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
     case t: AbstractTable[_] => expr(Node(t.*), b)
-    case t: TableBase[_] => b += localTableName(t) += ".*"
+    case t: TableBase[_] => b += quoteIdentifier(localTableName(t)) += ".*"
     case fk: ForeignKey[_] => b += "(("; expr(fk.left, b); b += ")=("; expr(fk.right, b); b += "))"
     case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
   }
@@ -309,12 +297,12 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
     case AbstractTable.Alias(base: AbstractTable[_]) =>
-      b += base.tableName += ' ' += name
+      b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
     case base: AbstractTable[_] =>
-      b += base.tableName += ' ' += name
+      b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
     case Subquery(sq: Query[_], rename) =>
-      b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += name
-    case Subquery(Union(all, sqs), rename) =>
+      b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += quoteIdentifier(name)
+    case Subquery(Union(all, sqs), rename) => {
       b += "("
       var first = true
       for(sq <- sqs) {
@@ -322,7 +310,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
         subQueryBuilderFor(sq).innerBuildSelect(b, first && rename)
         first = false
       }
-      b += ") " += name
+      b += ") " += quoteIdentifier(name)
+    }
     case j: Join[_,_] =>
       /* There is no way to write all nested joins (if they are supported at all) properly in a
        * database-independent way because the {oj...} escape syntax does not support inner joins.
@@ -342,5 +331,19 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     }
     b += " on "
     expr(j.on, b)
+  }
+
+  protected def untupleColumn(columns: Node) = {
+    val l = new scala.collection.mutable.ListBuffer[Node]
+    def f(c: Any): Unit = c match {
+      case p:Projection[_] =>
+        for(i <- 0 until p.productArity)
+          f(Node(p.productElement(i)))
+      case t:AbstractTable[_] => f(Node(t.*))
+      case n: Node => l += n
+      case v => throw new SQueryException("Cannot untuple non-Node value "+v)
+    }
+    f(Node(columns))
+    l.toList
   }
 }

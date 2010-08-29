@@ -1,5 +1,7 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.util.{Node, BinaryNode}
+
 object Case {
 
   class WhenNode(val left: Node, val right: Node) extends BinaryNode

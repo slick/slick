@@ -9,7 +9,7 @@ import com.novocode.squery.ResultSetInvoker
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.basic.{BasicTable => Table}
-import com.novocode.squery.combinator.extended.{H2Driver, PostgresDriver}
+import com.novocode.squery.combinator.extended.{H2Driver, PostgresDriver, MySQLDriver}
 import com.novocode.squery.meta._
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database.threadLocalSession
@@ -18,7 +18,7 @@ import com.novocode.squery.simple.Implicit._
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MetaTest extends DBTestObject(H2Mem, Postgres, MySQL)
+object MetaTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem)
 
 class MetaTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -52,8 +52,6 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
       println("Type info from DatabaseMetaData:")
       for(t <- MTypeInfo.getTypeInfo) println("  "+t)
 
-      assertTrue(Set("ORDERS", "USERS") subsetOf MTable.getTables.list.map(_.name.name.toUpperCase).toSet)
-
       if(tdb.driver != H2Driver && tdb.driver != PostgresDriver) { // Not supported by H2 and PostgreSQL
         println("Functions from DatabaseMetaData:")
         for(f <- MFunction.getFunctions(MQName.local("%"))) {
@@ -72,7 +70,7 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
       }, 3)
 
       println("Tables from DatabaseMetaData:")
-      for(t <- MTable.getTables.list if Set("USERS", "ORDERS") contains t.name.name.toUpperCase) {
+      for(t <- MTable.getTables(None, None, None, None).list if Set("users", "orders") contains t.name.name) {
         println("  "+t)
         for(c <- t.getColumns) {
           println("    "+c)
@@ -98,12 +96,14 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
 
       println("Generated code:")
       val out = new PrintWriter(System.out)
-      for(t <- MTable.getTables.list if Set("USERS", "ORDERS") contains t.name.name.toUpperCase)
+      for(t <- MTable.getTables(None, None, None, None).list if Set("users", "orders") contains t.name.name)
         CodeGen.output(t, out)
       out.flush
 
-      for(t <- tdb.getLocalTables) updateNA("drop table " + t).execute
-      assertTrue(Set("ORDERS", "USERS") intersect MTable.getTables.list.map(_.name.name.toUpperCase).toSet isEmpty)
+      assertTrue(Set("orders", "users") subsetOf MTable.getTables(None, None, None, None).list.map(_.name.name).toSet)
+      for(t <- tdb.getLocalTables)
+        updateNA("drop table " + tdb.driver.sqlUtils.quoteIdentifier(t)).execute
+      assertTrue(Set("orders", "users") intersect MTable.getTables(None, None, None, None).list.map(_.name.name).toSet isEmpty)
     }
   }
 }

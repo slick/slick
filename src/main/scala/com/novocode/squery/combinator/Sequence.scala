@@ -1,6 +1,7 @@
 package com.novocode.squery.combinator
 
 import com.novocode.squery.combinator.basic.BasicProfile
+import com.novocode.squery.util.UnaryNode
 
 class Sequence[T] private[Sequence] (val name: String,
     val _minValue: Option[T],

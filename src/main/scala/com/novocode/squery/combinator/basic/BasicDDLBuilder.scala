@@ -2,21 +2,22 @@ package com.novocode.squery.combinator.basic
 
 import scala.collection.mutable.HashMap
 import java.io.PrintWriter
-import java.sql.Types._
 import com.novocode.squery.SQueryException
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.extended.ExtendedColumnOption //TODO: Move AutoInc handling to extended profile
+import com.novocode.squery.util.Node
 
-class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
+class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfile) {
+  import profile.sqlUtils._
 
   def buildDDL: DDL = {
     val createTable = {
-      val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
+      val b = new StringBuilder append "CREATE TABLE " append quoteIdentifier(table.tableName) append " ("
       var first = true
       for(n <- table.create_*) {
         if(first) first = false
         else b append ","
-        b append n.name append ' '
+        b append quoteIdentifier(n.name) append ' '
         addTypeAndOptions(n, b)
       }
       b append ")"
@@ -29,7 +30,7 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
       val createPhase1 = Iterable(createTable) ++ createIndexes
       val createPhase2 = alterTables1
       val dropPhase1 = alterTables2
-      val dropPhase2 = Iterable("DROP TABLE " + table.tableName)
+      val dropPhase2 = Iterable("DROP TABLE " + quoteIdentifier(table.tableName))
     }
   }
 
@@ -54,37 +55,32 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
     if(primaryKey) sb append " PRIMARY KEY"
   }
 
-  protected def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
-    case VARCHAR => "VARCHAR(254)"
-    case _ => tmd.sqlTypeName
-  }
-
   protected def createIndex(idx: Index) = {
     val b = new StringBuilder append "CREATE "
     if(idx.unique) b append "UNIQUE " 
-    b append "INDEX "+idx.name+" ON " append table.tableName append "("
+    b append "INDEX " append quoteIdentifier(idx.name) append " ON " append quoteIdentifier(table.tableName) append "("
     addIndexColumnList(idx.on, b, idx.table.tableName)
     b append ")"
     b.toString
   }
 
   protected def createForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
-    val sb = new StringBuilder append "ALTER TABLE " append table.tableName append " ADD "
+    val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
     addForeignKey(fk, sb)
     sb.toString
   }
 
   protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_]], sb: StringBuilder) {
-    sb append "CONSTRAINT " append fk.name append " FOREIGN KEY("
+    sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
     addForeignKeyColumnList(fk.sourceColumns, sb, table.tableName)
-    sb append ") REFERENCES " append fk.targetTable.tableName append "("
+    sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
     addForeignKeyColumnList(fk.targetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
     sb append ") ON UPDATE " append fk.onUpdate.action
     sb append " ON DELETE " append fk.onDelete.action
   }
 
   protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
-    "ALTER TABLE " + table.tableName + " DROP CONSTRAINT " + fk.name
+    "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(fk.name)
   }
 
   protected def addIndexColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
@@ -103,7 +99,7 @@ class BasicDDLBuilder(table: AbstractBasicTable[_], profile: BasicProfile) {
       case n:NamedColumn[_] =>
         if(first) first = false
         else sb append ","
-        sb append n.name
+        sb append quoteIdentifier(n.name)
         if(requiredTableName != n.table.asInstanceOf[AbstractTable[_]].tableName)
           throw new SQueryException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
       case _ => throw new SQueryException("Cannot use column "+c+

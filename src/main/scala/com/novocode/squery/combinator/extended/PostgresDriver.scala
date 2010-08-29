@@ -2,6 +2,7 @@ package com.novocode.squery.combinator.extended
 
 import com.novocode.squery.combinator._
 import com.novocode.squery.combinator.basic._
+import com.novocode.squery.util._
 
 object PostgresDriver extends ExtendedProfile { self =>
 
@@ -52,6 +53,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 }
 
 class PostgresDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, PostgresDriver) {
+  import profile.sqlUtils._
+
   override def addTypeAndOptions(c: NamedColumn[_], sb: StringBuilder) {
     var sqlType: String = null
     var notNull = false

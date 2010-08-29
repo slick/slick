@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object UnionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL)
+object UnionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem)
 
 class UnionTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

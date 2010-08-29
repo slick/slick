@@ -1,4 +1,4 @@
-package com.novocode.squery.combinator
+package com.novocode.squery.util
 
 trait WithOp extends Cloneable { self: Node =>
   def mapOp(f: Node => Node): this.type = {

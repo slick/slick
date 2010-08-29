@@ -10,7 +10,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object MainTest extends DBTestObject(H2Mem, Postgres, MySQL)
+object MainTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem)
 
 class MainTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -41,6 +41,7 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       val ddl = Users.ddl ++ Orders.ddl
       ddl.createStatements.foreach(println)
       ddl.create
+      println((Users.first ~ Users.last).insertStatement)
       val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
       val ins2 = (Users.first ~ Users.last).insertAll(
         ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )

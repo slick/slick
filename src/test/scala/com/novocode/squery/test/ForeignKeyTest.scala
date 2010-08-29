@@ -12,7 +12,7 @@ import com.novocode.squery.session.Database.threadLocalSession
 import com.novocode.squery.test.util._
 import com.novocode.squery.test.util.TestDB._
 
-object ForeignKeyTest extends DBTestObject(H2Mem, Postgres, MySQL)
+object ForeignKeyTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem)
 
 class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -83,17 +83,17 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
   @Test def test2(): Unit = db withSession {
 
     object A extends Table[(Int, Int, String)]("a") {
-      def k1 = column[Int]("k1")
-      def k2 = column[Int]("k2")
-      def s = column[String]("s")
+      def k1 = column[Int]("k1", O.NotNull)
+      def k2 = column[Int]("k2", O.NotNull)
+      def s = column[String]("s", O.NotNull)
       def * = k1 ~ k2 ~ s
       def bFK = foreignKey("b_fk", k1 ~ k2, B)(b => b.f1 ~ b.f2, onDelete = ForeignKeyAction.Cascade)
     }
 
     object B extends Table[(Int, Int, String)]("b") {
-      def f1 = column[Int]("f1")
-      def f2 = column[Int]("f2")
-      def s = column[String]("s")
+      def f1 = column[Int]("f1", O.NotNull)
+      def f2 = column[Int]("f2", O.NotNull)
+      def s = column[String]("s", O.NotNull)
       def * = f1 ~ f2 ~ s
       def bIdx1 = index("b_idx1", f1 ~ f2, unique = true)
     }
@@ -101,7 +101,9 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     A.foreignKeys.foreach(println)
     assertEquals(Set("b_fk"), A.foreignKeys.map(_.name).toSet)
 
-    (B.ddl ++ A.ddl) create
+    val ddl = A.ddl ++ B.ddl
+    ddl.createStatements foreach println
+    ddl create;
 
     B insertAll (
       (1, 2, "b12"),

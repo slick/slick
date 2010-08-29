@@ -7,39 +7,36 @@ import com.novocode.squery.combinator.TypeMapper._
 import com.novocode.squery.combinator.extended.{ExtendedProfile, H2Driver, OracleDriver, MySQLDriver, ExtendedTable => Table}
 import com.novocode.squery.session._
 import com.novocode.squery.session.Database._
+import com.novocode.squery.test.util._
+import com.novocode.squery.test.util.TestDB._
 
-object DriverTest { def main(args: Array[String]) = new DriverTest().test() }
+object DriverTest extends DBTestObject(H2Mem, MySQL)
 
-class DriverTest {
+class DriverTest(tdb: TestDB) extends DBTest(tdb) {
+  import tdb.driver.Implicit._
+
   object Users extends Table[String]("users") {
     def name = column[String]("name", O NotNull)
     def * = name
   }
 
-  val h2Statements = List(
-    "SELECT t1.name FROM users t1 WHERE (t1.name like 'quote '' and backslash \\%' {escape '^'}) LIMIT 5",
-    "SELECT t1.name FROM users t1 WHERE (t1.name like (?||'%')) LIMIT 5 OFFSET 10",
-    "SELECT 42,'foo'")
-
-  val oracleStatements = List(
-    "SELECT * FROM (SELECT t1.name FROM users t1 WHERE (t1.name like 'quote '' and backslash \\%' {escape '^'})) WHERE ROWNUM <= 5",
-    "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (t1.name,ROWNUM ROWNUM_I FROM users t1 WHERE (t1.name like (?||'%'))) t0) WHERE ROWNUM_O BETWEEN (1+10) AND (10+5) ORDER BY ROWNUM_I",
-    "SELECT 42,'foo' FROM DUAL")
-
-  val mySQLStatements = List(
-    "SELECT t1.name FROM users t1 WHERE (t1.name like 'quote \\' and backslash \\\\%' {escape '^'}) LIMIT 5",
-    "SELECT t1.name FROM users t1 WHERE (t1.name like concat(?,'%')) LIMIT 10,5",
-    "SELECT 42,'foo' FROM DUAL")
-
-  @Test def test() {
-    runWith(H2Driver, h2Statements)
-    runWith(OracleDriver, oracleStatements)
-    runWith(MySQLDriver, mySQLStatements)
+  val expected: List[String] = tdb.driver match {
+    case H2Driver => List(
+      "SELECT \"t1\".\"name\" FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like 'quote '' and backslash \\%' {escape '^'}) LIMIT 5",
+      "SELECT \"t1\".\"name\" FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like (?||'%')) LIMIT 5 OFFSET 10",
+      "SELECT 42,'foo'")
+    case OracleDriver => List(
+      "SELECT * FROM (SELECT \"t1\".\"name\" FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like 'quote '' and backslash \\%' {escape '^'})) WHERE ROWNUM <= 5",
+      "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (\"t1\".\"name\",ROWNUM ROWNUM_I FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like (?||'%'))) t0) WHERE ROWNUM_O BETWEEN (1+10) AND (10+5) ORDER BY ROWNUM_I",
+      "SELECT 42,'foo' FROM DUAL")
+    case MySQLDriver => List(
+      "SELECT `t1`.`name` FROM `users` `t1` WHERE (`t1`.`name` like 'quote \\' and backslash \\\\%' {escape '^'}) LIMIT 5",
+      "SELECT `t1`.`name` FROM `users` `t1` WHERE (`t1`.`name` like concat(?,'%')) LIMIT 10,5",
+      "SELECT 42,'foo' FROM DUAL")
+    case d => throw new RuntimeException("Unknown driver "+d)
   }
 
-  def runWith(profile: ExtendedProfile, expected: List[String]) {
-    import profile.Implicit._
-    println("Using driver: "+profile.getClass.getName)
+  @Test def test() {
     val q1 = Users.where(_.name startsWith "quote ' and backslash \\").take(5)
     val s1 = q1.selectStatement
     println(s1)

@@ -1,5 +1,7 @@
 package com.novocode.squery.combinator
 
+import com.novocode.squery.util.{Node, UnaryNode, NullaryNode, BinaryNode}
+
 trait SimpleFunction extends Node {
   val name: String
 }
