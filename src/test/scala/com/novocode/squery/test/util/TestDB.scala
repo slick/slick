@@ -16,8 +16,11 @@ object TestDBOptions {
   val testDBDir = "test-dbs"
   lazy val dbProps = {
     val p = new Properties
-    val in = new FileInputStream(new File(testDBDir, "databases.properties"))
-    try { p.load(in) } finally { in.close() }
+    val f = new File(testDBDir, "databases.properties")
+    if(f.isFile) {
+      val in = new FileInputStream(f)
+      try { p.load(in) } finally { in.close() }
+    }
     p
   }
   def isEnabled(db: String) = "true" == dbProps.getProperty(db+".enabled")

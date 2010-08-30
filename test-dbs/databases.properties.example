@@ -1,4 +1,9 @@
+##############################################################################
 # Configurations for external test databases
+##############################################################################
+# Copy this file to databases.properties and follow the instructions below to
+# enable the external database systems for unit tests.
+##############################################################################
 
 # PostgreSQL quick setup:
 # - Install PostgreSQL server with default options

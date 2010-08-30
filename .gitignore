@@ -7,4 +7,5 @@ project/build/target
 target
 .scala_dependencies
 test-dbs/*-*
+test-dbs/databases.properties
 *.log
