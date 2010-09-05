@@ -1,6 +1,7 @@
 package com.novocode.squery.meta
 
 import java.sql._
+import java.lang.reflect.{Method, InvocationTargetException}
 import com.novocode.squery.{ResultSetInvoker, UnitInvoker}
 import com.novocode.squery.session._
 import com.novocode.squery.simple.Implicit._
@@ -19,4 +20,16 @@ object DatabaseMeta {
     case "NO" => Some(false)
     case _ => None
   } else None
+
+  private[meta] def invokeForRS(m: Method, target: AnyRef, args: AnyRef*): ResultSet = {
+    try { m.invoke(target, args:_*).asInstanceOf[ResultSet] } catch { case t => 
+      (t match {
+        case i: InvocationTargetException => i.getCause()
+        case other => other
+      }) match {
+        case a: AbstractMethodError => null
+        case other => throw other
+      }
+    }
+  }
 }

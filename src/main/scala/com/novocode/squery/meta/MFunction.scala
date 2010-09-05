@@ -28,7 +28,7 @@ object MFunction {
     }*/
     if(m == null) UnitInvoker.empty
     else ResultSetInvoker[MFunction]( s =>
-      m.invoke(s.metaData, namePattern.catalog_?, namePattern.schema_?, namePattern.name).asInstanceOf[ResultSet]) { r =>
+      DatabaseMeta.invokeForRS(m, s.metaData, namePattern.catalog_?, namePattern.schema_?, namePattern.name)) { r =>
       MFunction(MQName.from(r), r<<, r.nextShort match {
           case 1 /*DatabaseMetaData.functionNoTable*/ => Some(false)
           case 2 /*DatabaseMetaData.functionReturnsTable*/ => Some(true)

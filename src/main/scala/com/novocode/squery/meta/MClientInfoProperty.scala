@@ -19,7 +19,7 @@ object MClientInfoProperty {
       MClientInfoProperty(r<<, r<<, r<<, r<<)
     }*/
     if(m == null) UnitInvoker.empty
-    else ResultSetInvoker[MClientInfoProperty](s => m.invoke(s.metaData).asInstanceOf[ResultSet]) { r =>
+    else ResultSetInvoker[MClientInfoProperty](s => DatabaseMeta.invokeForRS(m, s.metaData)) { r =>
       MClientInfoProperty(r<<, r<<, r<<, r<<)
     }
   }

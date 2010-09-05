@@ -21,7 +21,7 @@ object MSchema {
     */
     if(m == null) UnitInvoker.empty
     else ResultSetInvoker[MSchema](s => 
-      m.invoke(s.metaData, catalog.orNull, schemaPattern.orNull).asInstanceOf[ResultSet]) { r => MSchema(r<<, r<<?) }
+      DatabaseMeta.invokeForRS(m, s.metaData, catalog.orNull, schemaPattern.orNull)) { r => MSchema(r<<, r<<?) }
   }
 
   def getSchemas = ResultSetInvoker[MSchema](_.metaData.getSchemas()) { r => MSchema(r<<, r<<?) }

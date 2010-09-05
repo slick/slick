@@ -7,6 +7,9 @@ import com.novocode.squery.session._
  * An invoker which calls a function to retrieve a ResultSet. This can be used
  * for reading information from a java.sql.DatabaseMetaData object which has
  * many methods that return ResultSets.
+ * 
+ * For convenience, if the function returns null, this is treated like an
+ * empty ResultSet.
  */
 abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
 
@@ -15,29 +18,31 @@ abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
   protected def extractValue(rs: PositionedResult): R
 
   def foreach(param: Unit, f: R => Unit, maxRows: Int)(implicit session: Session) {
-    val rs = createPR(session)
-    try {
-      var count = 0
-      while(rs.next && (maxRows == 0 || count < maxRows)) {
-        f(extractValue(rs))
-        count += 1
-      }
-    } finally { rs.close() }
-  }
-
-  def elements(param: Unit)(implicit session: Session): CloseableIterator[R] = {
-    val rs = createPR(session)
-    new ReadAheadIterator[R] with CloseableIterator[R] {
-      def close() = rs.close()
-      protected def fetchNext() = {
-        if(rs.next) Some(extractValue(rs))
-        else { close(); None }
-      }
+    createPR(session) map { rs =>
+      try {
+        var count = 0
+        while(rs.next && (maxRows == 0 || count < maxRows)) {
+          f(extractValue(rs))
+          count += 1
+        }
+      } finally { rs.close() }
     }
   }
 
+  def elements(param: Unit)(implicit session: Session): CloseableIterator[R] = {
+    createPR(session) map { rs =>
+      new ReadAheadIterator[R] with CloseableIterator[R] {
+        def close() = rs.close()
+        protected def fetchNext() = {
+          if(rs.next) Some(extractValue(rs))
+          else { close(); None }
+        }
+      }
+    } getOrElse CloseableIterator.empty
+  }
+
   private[this] def createPR(session: Session) =
-    new PositionedResult(createResultSet(session)) { def close() = rs.close() }
+    Option(createResultSet(session)) map { new PositionedResult(_) { def close() = rs.close() } }
 }
 
 object ResultSetInvoker {

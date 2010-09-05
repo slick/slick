@@ -35,8 +35,8 @@ object MFunctionColumn {
     }*/
     if(m == null) UnitInvoker.empty
     else ResultSetInvoker[MFunctionColumn]( s =>
-      m.invoke(s.metaData, functionPattern.catalog_?, functionPattern.schema_?,
-               functionPattern.name, columnNamePattern).asInstanceOf[ResultSet]) { r =>
+      DatabaseMeta.invokeForRS(m, s.metaData, functionPattern.catalog_?, functionPattern.schema_?,
+               functionPattern.name, columnNamePattern)) { r =>
       MFunctionColumn(MQName.from(r), r<<, r<<, r<<, r<<, r<<, r<<, r<<, r<<, r.nextShort match {
           case 0 /*DatabaseMetaData.functionNoNulls*/ => Some(false)
           case 1 /*DatabaseMetaData.functionNullable*/ => Some(true)
