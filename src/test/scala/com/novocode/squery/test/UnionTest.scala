@@ -25,7 +25,7 @@ class UnionTest(tdb: TestDB) extends DBTest(tdb) {
   object Employees extends Table[(Int, String, Int)]("employees") {
     def id = column[Int]("id")
     def name = column[String]("name")
-    def manager = column[Int]("manager", O.NotNull)
+    def manager = column[Int]("manager")
     def * = id ~ name ~ manager
 
     // A convenience method for selecting employees by department

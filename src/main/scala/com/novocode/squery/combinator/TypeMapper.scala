@@ -89,6 +89,7 @@ trait TypeMapperDelegate[T] { self =>
     case None => r.updateNull()
   }
   def valueToSQLLiteral(value: T): String = value.toString
+  def nullable = false
 
   def createOptionTypeMapperDelegate: TypeMapperDelegate[Option[T]] = new TypeMapperDelegate[Option[T]] {
     def zero = None
@@ -99,6 +100,7 @@ trait TypeMapperDelegate[T] { self =>
     def nextValue(r: PositionedResult) = self.nextOption(r)
     def updateValue(v: Option[T], r: PositionedResult) = self.updateOption(v, r)
     override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
+    override def nullable = true
   }
 }
 

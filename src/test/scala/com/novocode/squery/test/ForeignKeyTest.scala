@@ -28,7 +28,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     val Posts = new Table[(Int, String, Int)]("posts") {
       def id = column[Int]("id", O PrimaryKey, O AutoInc)
       def title = column[String]("title")
-      def category = column[Int]("category")
+      def category = column[Int]("category", O Nullable)
       def * = id ~ title ~ category
       def categoryFK = foreignKey("category_fk", category, Categories)(_.id)
       def categoryJoin = Categories.where(_.id === category)
@@ -83,17 +83,17 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
   @Test def test2(): Unit = db withSession {
 
     object A extends Table[(Int, Int, String)]("a") {
-      def k1 = column[Int]("k1", O.NotNull)
-      def k2 = column[Int]("k2", O.NotNull)
-      def s = column[String]("s", O.NotNull)
+      def k1 = column[Int]("k1")
+      def k2 = column[Int]("k2")
+      def s = column[String]("s")
       def * = k1 ~ k2 ~ s
       def bFK = foreignKey("b_fk", k1 ~ k2, B)(b => b.f1 ~ b.f2, onDelete = ForeignKeyAction.Cascade)
     }
 
     object B extends Table[(Int, Int, String)]("b") {
-      def f1 = column[Int]("f1", O.NotNull)
-      def f2 = column[Int]("f2", O.NotNull)
-      def s = column[String]("s", O.NotNull)
+      def f1 = column[Int]("f1")
+      def f2 = column[Int]("f2")
+      def s = column[String]("s")
       def * = f1 ~ f2 ~ s
       def bIdx1 = index("b_idx1", f1 ~ f2, unique = true)
     }

@@ -29,7 +29,6 @@ object CodeGen {
       for(i <- c.columnSize ) out.print("("+i+")")
       out.print("\"")
     }
-    if(!c.nullable.getOrElse(true)) out.print(", O NotNull")
     if(c.isAutoInc.getOrElse(false)) out.print(", O AutoInc")
     for(k <- pkey) out.print(", O PrimaryKey")
     out.println(")")

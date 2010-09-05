@@ -18,9 +18,9 @@ class MutateTest(tdb: TestDB) extends DBTest(tdb) {
   @Test def test() {
 
     object Users extends Table[(Option[Int],String,String)]("users") {
-      def id = column[Int]("id", O NotNull, O PrimaryKey, O AutoInc)
-      def first = column[String]("first", O NotNull)
-      def last = column[String]("last", O NotNull)
+      def id = column[Int]("id", O PrimaryKey, O AutoInc)
+      def first = column[String]("first")
+      def last = column[String]("last")
       def * = id.? ~ first ~ last
     }
 

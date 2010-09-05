@@ -19,8 +19,8 @@ class MiscTest(tdb: TestDB) extends DBTest(tdb) {
   @Test def isNotAndOrTest() {
 
     object T extends Table[(String, String)]("users") {
-      def a = column[String]("a", O NotNull)
-      def b = column[String]("b", O NotNull)
+      def a = column[String]("a")
+      def b = column[String]("b")
       def * = a ~ b
     }
 
@@ -47,6 +47,44 @@ class MiscTest(tdb: TestDB) extends DBTest(tdb) {
       println("q4: "+q4.selectStatement)
       q4.foreach(println _)
       assertEquals(q4.list.toSet, Set(("2", "a"), ("3", "b")))
+    }
+  }
+
+  @Test def testNullability() {
+
+    object T1 extends Table[String]("t1") {
+      def a = column[String]("a")
+      def * = a
+    }
+
+    object T2 extends Table[String]("t2") {
+      def a = column[String]("a", O Nullable)
+      def * = a
+    }
+
+    object T3 extends Table[Option[String]]("t3") {
+      def a = column[Option[String]]("a")
+      def * = a
+    }
+
+    object T4 extends Table[Option[String]]("t4") {
+      def a = column[Option[String]]("a", O NotNull)
+      def * = a
+    }
+
+    db withSession {
+      (T1.ddl ++ T2.ddl ++ T3.ddl ++ T4.ddl) create
+
+      T1.insert("a")
+      T2.insert("a")
+      T3.insert(Some("a"))
+      T4.insert(Some("a"))
+
+      T2.insert(null.asInstanceOf[String])
+      T3.insert(None)
+
+      assertFail { T1.insert(null.asInstanceOf[String]) }
+      assertFail { T4.insert(None) }
     }
   }
 }

@@ -16,7 +16,7 @@ class PagingTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
   object IDs extends Table[Int]("ids") {
-    def id = column[Int]("id", O PrimaryKey, O NotNull)
+    def id = column[Int]("id", O PrimaryKey)
     def * = id
   }
 

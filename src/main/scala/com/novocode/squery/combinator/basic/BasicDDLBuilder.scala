@@ -10,6 +10,45 @@ import com.novocode.squery.util.Node
 class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfile) {
   import profile.sqlUtils._
 
+  protected class BasicColumnDDLBuilder(protected val column: NamedColumn[_]) {
+    protected val tmDelegate = column.typeMapper(profile)
+    protected var sqlType: String = null
+    protected var notNull = !tmDelegate.nullable
+    protected var autoIncrement = false
+    protected var primaryKey = false
+    protected var defaultLiteral: String = null
+    init()
+
+    protected def init() {
+      for(o <- column.options) handleColumnOption(o)
+      if(sqlType eq null) sqlType = mapTypeName(tmDelegate)
+    }
+
+    protected def handleColumnOption(o: ColumnOption[_,_]): Unit = o match {
+      case BasicColumnOption.DBType(s) => sqlType = s
+      case BasicColumnOption.NotNull => notNull = true
+      case BasicColumnOption.Nullable => notNull = false
+      case ExtendedColumnOption.AutoInc => autoIncrement = true
+      case BasicColumnOption.PrimaryKey => primaryKey = true
+      case BasicColumnOption.Default(v) => defaultLiteral = column.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
+    }
+
+    def appendColumn(sb: StringBuilder) {
+      sb append quoteIdentifier(column.name) append ' '
+      sb append sqlType
+      appendOptions(sb)
+    }
+
+    protected def appendOptions(sb: StringBuilder) {
+      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if(notNull) sb append " NOT NULL"
+      if(autoIncrement) sb append " AUTO_INCREMENT"
+      if(primaryKey) sb append " PRIMARY KEY"
+    }
+  }
+
+  protected def createColumnDDLBuilder(c: NamedColumn[_]) = new BasicColumnDDLBuilder(c)
+
   def buildDDL: DDL = {
     val createTable = {
       val b = new StringBuilder append "CREATE TABLE " append quoteIdentifier(table.tableName) append " ("
@@ -17,8 +56,7 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
       for(n <- table.create_*) {
         if(first) first = false
         else b append ","
-        b append quoteIdentifier(n.name) append ' '
-        addTypeAndOptions(n, b)
+        createColumnDDLBuilder(n).appendColumn(b)
       }
       b append ")"
       b.toString
@@ -32,27 +70,6 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
       val dropPhase1 = alterTables2
       val dropPhase2 = Iterable("DROP TABLE " + quoteIdentifier(table.tableName))
     }
-  }
-
-  protected def addTypeAndOptions(c: NamedColumn[_], sb: StringBuilder) {
-    var sqlType: String = null
-    var notNull = false
-    var autoIncrement = false
-    var primaryKey = false
-    var defaultLiteral: String = null
-    for(o <- c.options) o match {
-      case BasicColumnOption.DBType(s) => sqlType = s
-      case BasicColumnOption.NotNull => notNull = true
-      case ExtendedColumnOption.AutoInc => autoIncrement = true
-      case BasicColumnOption.PrimaryKey => primaryKey = true
-      case BasicColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
-    }
-    if(sqlType eq null) sqlType = mapTypeName(c.typeMapper(profile))
-    sb append sqlType
-    if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-    if(notNull) sb append " NOT NULL"
-    if(autoIncrement) sb append " AUTO_INCREMENT"
-    if(primaryKey) sb append " PRIMARY KEY"
   }
 
   protected def createIndex(idx: Index) = {

@@ -19,7 +19,7 @@ class SequenceTest(tdb: TestDB) extends DBTest(tdb) {
     case class User(id: Int, first: String, last: String)
 
     object Users extends Table[Int]("users") {
-      def id = column[Int]("id", O PrimaryKey, O NotNull)
+      def id = column[Int]("id", O PrimaryKey)
       def * = id
     }
 

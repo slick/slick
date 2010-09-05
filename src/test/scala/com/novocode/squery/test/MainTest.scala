@@ -18,7 +18,7 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
   case class User(id: Int, first: String, last: String)
 
   object Users extends Table[(Int, String, Option[String])]("users") {
-    def id = column[Int]("id", O PrimaryKey, O NotNull, O AutoInc)
+    def id = column[Int]("id", O PrimaryKey, O AutoInc)
     def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = id ~ first ~ last
@@ -27,10 +27,10 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
   }
 
   object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
-    def userID = column[Int]("userID", O NotNull)
-    def orderID = column[Int]("orderID", O PrimaryKey, O NotNull, O AutoInc)
+    def userID = column[Int]("userID")
+    def orderID = column[Int]("orderID", O PrimaryKey, O AutoInc)
     def product = column[String]("product")
-    def shipped = column[Boolean]("shipped", O Default false, O NotNull)
+    def shipped = column[Boolean]("shipped", O Default false)
     def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
     def * = userID ~ orderID ~ product ~ shipped ~ rebate
   }

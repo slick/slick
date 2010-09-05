@@ -16,7 +16,7 @@ class DriverTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
   object Users extends Table[String]("users") {
-    def name = column[String]("name", O NotNull)
+    def name = column[String]("name")
     def * = name
   }
 

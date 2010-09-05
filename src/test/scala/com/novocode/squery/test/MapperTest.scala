@@ -20,9 +20,9 @@ class MapperTest(tdb: TestDB) extends DBTest(tdb) {
     case class User(id: Option[Int], first: String, last: String)
 
     object Users extends Table[User]("users") {
-      def id = column[Int]("id", O PrimaryKey, O NotNull, O AutoInc)
-      def first = column[String]("first", O NotNull)
-      def last = column[String]("last", O NotNull)
+      def id = column[Int]("id", O PrimaryKey, O AutoInc)
+      def first = column[String]("first")
+      def last = column[String]("last")
       def * = id.? ~ first ~ last <> (User, User.unapply _)
       def forInsert = first ~ last <>
         ({ (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })

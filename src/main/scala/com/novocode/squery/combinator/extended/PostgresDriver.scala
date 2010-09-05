@@ -55,24 +55,17 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 class PostgresDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, PostgresDriver) {
   import profile.sqlUtils._
 
-  override def addTypeAndOptions(c: NamedColumn[_], sb: StringBuilder) {
-    var sqlType: String = null
-    var notNull = false
-    var autoIncrement = false
-    var primaryKey = false
-    var defaultLiteral: String = null
-    for(o <- c.options) o match {
-      case BasicColumnOption.DBType(s) => sqlType = s
-      case BasicColumnOption.NotNull => notNull = true
-      case ExtendedColumnOption.AutoInc => autoIncrement = true
-      case BasicColumnOption.PrimaryKey => primaryKey = true
-      case BasicColumnOption.Default(v) => defaultLiteral = c.asInstanceOf[NamedColumn[Any]].typeMapper(PostgresDriver).valueToSQLLiteral(v)
+  protected class PostgresColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
+    override def appendColumn(sb: StringBuilder) {
+      sb append quoteIdentifier(column.name) append ' '
+      if(autoIncrement) {
+        sb append "SERIAL"
+        autoIncrement = false
+      }
+      else sb append sqlType
+      appendOptions(sb)
     }
-    if(sqlType eq null) sqlType = mapTypeName(c.typeMapper(PostgresDriver))
-    if(autoIncrement) sb append "SERIAL"
-    else sb append sqlType
-    if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-    if(notNull) sb append " NOT NULL"
-    if(primaryKey) sb append " PRIMARY KEY"
   }
+
+  override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new PostgresColumnDDLBuilder(c)
 }
