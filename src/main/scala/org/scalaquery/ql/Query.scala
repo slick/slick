@@ -91,6 +91,19 @@ trait CanBeQueryCondition[-T] {
   def apply(value: T, l: List[Column[_]]): List[Column[_]]
 }
 
+object CanBeQueryCondition {
+  implicit object BooleanColumnCanBeQueryCondition extends CanBeQueryCondition[Column[Boolean]] {
+    def apply(value: Column[Boolean], l: List[Column[_]]): List[Column[_]] = value :: l
+  }
+  implicit object BooleanOptionColumnCanBeQueryCondition extends CanBeQueryCondition[Column[Option[Boolean]]] {
+    def apply(value: Column[Option[Boolean]], l: List[Column[_]]): List[Column[_]] = value :: l
+  }
+  implicit object BooleanCanBeQueryCondition extends CanBeQueryCondition[Boolean] {
+    def apply(value: Boolean, l: List[Column[_]]): List[Column[_]] =
+      if(value) l else new ConstColumn(false)(TypeMapper.BooleanTypeMapper) :: Nil
+  }
+}
+
 case class Subquery(query: Node, rename: Boolean) extends Node {
   def nodeChildren = query :: Nil
   override def nodeNamedChildren = (query, "query") :: Nil

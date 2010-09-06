@@ -4,8 +4,8 @@ import java.sql.PreparedStatement
 import org.scalaquery.StatementInvoker
 import org.scalaquery.{Invoker, MappedInvoker, UnitInvokerMixin, MutatingStatementInvoker, DelegatingMutatingUnitInvoker}
 import org.scalaquery.ql.{Query, ColumnBase}
-import org.scalaquery.session.{Session, PositionedParameters, PositionedResult, ReadAheadIterator, CloseableIterator}
-import org.scalaquery.util.NamingContext
+import org.scalaquery.session.{Session, PositionedParameters, PositionedResult, ReadAheadIterator}
+import org.scalaquery.util.{CloseableIterator, NamingContext}
 
 class BasicQueryInvoker[R](q: Query[ColumnBase[R]], profile: BasicProfile)
   extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with DelegatingMutatingUnitInvoker[Unit, R] {

@@ -1,4 +1,4 @@
-package org.scalaquery.session
+package org.scalaquery.util
 
 import java.io.Closeable
 

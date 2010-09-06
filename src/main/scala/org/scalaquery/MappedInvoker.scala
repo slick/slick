@@ -1,6 +1,7 @@
 package org.scalaquery
 
-import org.scalaquery.session.{Session, CloseableIterator}
+import org.scalaquery.session.Session
+import org.scalaquery.util.CloseableIterator
 
 /**
  * An Invoker which applies a mapping function to all results of another Invoker.

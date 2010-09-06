@@ -1,7 +1,8 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{ColumnBase, Query}
-import org.scalaquery.session.{Session, CloseableIterator, ReadAheadIterator, PositionedParameters}
+import org.scalaquery.session.{Session, ReadAheadIterator, PositionedParameters}
+import org.scalaquery.util.CloseableIterator
 
 class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
 

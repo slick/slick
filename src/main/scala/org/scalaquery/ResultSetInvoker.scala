@@ -2,6 +2,7 @@ package org.scalaquery
 
 import java.sql.{PreparedStatement, ResultSet}
 import org.scalaquery.session._
+import org.scalaquery.util.CloseableIterator
 
 /**
  * An invoker which calls a function to retrieve a ResultSet. This can be used

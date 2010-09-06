@@ -1,8 +1,8 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{Query, Projection, ColumnBase}
-import org.scalaquery.session.{Session, CloseableIterator, ReadAheadIterator, PositionedParameters}
-import org.scalaquery.util.NamingContext
+import org.scalaquery.session.{Session, ReadAheadIterator, PositionedParameters}
+import org.scalaquery.util.{CloseableIterator, NamingContext}
 
 class BasicUpdateInvoker[T] (query: Query[ColumnBase[T]], profile: BasicProfile) {
 

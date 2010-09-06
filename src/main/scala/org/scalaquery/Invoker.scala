@@ -1,7 +1,8 @@
 package org.scalaquery
 
 import scala.collection.mutable.ListBuffer
-import org.scalaquery.session.{Session, CloseableIterator}
+import org.scalaquery.session.Session
+import org.scalaquery.util.CloseableIterator
 
 /**
  * Base trait for all statement invokers, using parameter type P and result type R.

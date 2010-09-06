@@ -1,8 +1,8 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.Query
-import org.scalaquery.session.{PositionedParameters, Session, CloseableIterator, ReadAheadIterator}
-import org.scalaquery.util.NamingContext
+import org.scalaquery.session.{PositionedParameters, Session, ReadAheadIterator}
+import org.scalaquery.util.{CloseableIterator, NamingContext}
 
 class BasicDeleteInvoker[T] (query: Query[AbstractBasicTable[T]], profile: BasicProfile) {
 

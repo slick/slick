@@ -2,6 +2,7 @@ package org.scalaquery
 
 import java.sql.PreparedStatement
 import org.scalaquery.session._
+import org.scalaquery.util.CloseableIterator
 
 /**
  * An invoker which executes an SQL statement.
