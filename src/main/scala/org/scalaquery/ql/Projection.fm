@@ -1,0 +1,74 @@
+package org.scalaquery.ql
+
+import org.scalaquery.ql.basic.BasicProfile
+import org.scalaquery.session.{PositionedResult, PositionedParameters}
+import org.scalaquery.util.{Node, UnaryNode}
+
+sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
+  type V = T
+
+  def nodeChildren = 0 until productArity map { i => Node(productElement(i)) } toList
+
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) {
+    for(i <- 0 until productArity) {
+      productElement(i).asInstanceOf[Column[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
+    }
+  }
+
+  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) {
+    for(i <- 0 until productArity) {
+      productElement(i).asInstanceOf[Column[Any]].updateResult(profile, rs, value.productElement(i))
+    }
+  }
+
+  def <>[R](f: (T => R), g: (R => Option[T])): MappedProjection[R,T] = new MappedProjection(this, f, g)
+
+  override def toString = "Projection" + productArity
+}
+
+object Projection {
+<#list 2..22 as i>
+  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = Some(p)
+</#list>
+}
+
+class MappedProjection[T, P <: Product](val child: Projection[P], f: (P => T), g: (T => Option[P])) extends ColumnBase[T] with UnaryNode {
+  override def toString = "MappedProjection"
+  override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
+
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit =
+    child.setParameter(profile, ps, value.flatMap(g))
+
+  def getResult(profile: BasicProfile, rs: PositionedResult) = f(child.getResult(profile, rs))
+  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = child.updateResult(profile, rs, g(value).get)
+}
+
+object ~ {
+  def unapply[T1,T2](p: Projection2[T1,T2]) =
+    Some(p)
+<#list 3..22 as i>
+  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
+    Some((new Projection${i-1}(<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i}))
+</#list>
+}
+
+<#list 2..22 as i>
+final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
+<#list 1..i as j>
+  override val _${j}: Column[T${j}]<#if i != j>,</#if>
+</#list>)
+extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
+  <#if i != 22>def ~[U](c: Column[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
+  def getResult(profile: BasicProfile, rs: PositionedResult) = (
+<#list 1..i as j>
+    _${j}.getResult(profile, rs)<#if i != j>,</#if>
+</#list>  )
+  override def mapOp(f: Node => Node): this.type = new Projection${i}(
+<#list 1..i as j>
+    _${j}.mapOp(f)<#if i != j>,</#if>
+</#list>  ).asInstanceOf[this.type]
+  def <>[R](f: ((<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) => R), g: (R => Option[V])): MappedProjection[R,V] =
+    <>(t => f(<#list 1..i as j>t._${j}<#if i != j>,</#if></#list>), g)
+}
+
+</#list>
