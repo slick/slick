@@ -8,7 +8,7 @@ import scala.collection.JavaConversions
 import org.scalaquery.ResultSetInvoker
 import org.scalaquery.ql.extended.{PostgresDriver, SQLiteDriver}
 import org.scalaquery.simple._
-import org.scalaquery.simple.StaticQueryBase._
+import org.scalaquery.simple.StaticQuery._
 import org.scalaquery.simple.Implicit._
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
