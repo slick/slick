@@ -4,7 +4,7 @@ import java.sql._
 import java.lang.reflect.{Method, InvocationTargetException}
 import org.scalaquery.{ResultSetInvoker, UnitInvoker}
 import org.scalaquery.session._
-import org.scalaquery.simple.Implicit._
+import org.scalaquery.simple.GetResult.GetString
 
 /**
  * Accessor methods for various database meta data.

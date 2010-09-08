@@ -57,7 +57,7 @@ abstract class DynamicQueryBase[T, +This <: DynamicQueryBase[T, This]] extends S
 }
 
 
-class DynamicQuery[T](implicit rconv: PositionedResult => T) extends DynamicQueryBase[T,DynamicQuery[T]] {
+class DynamicQuery[T](implicit rconv: GetResult[T]) extends DynamicQueryBase[T,DynamicQuery[T]] {
   def select = this ~ "select"
   def select(s: String) = this ~ "select" ~ s
   protected def extractValue(rs: PositionedResult): T = rconv(rs)

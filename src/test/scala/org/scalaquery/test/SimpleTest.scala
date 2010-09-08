@@ -9,7 +9,6 @@ import org.scalaquery.ResultSetInvoker
 import org.scalaquery.ql.extended.{PostgresDriver, SQLiteDriver}
 import org.scalaquery.simple._
 import org.scalaquery.simple.StaticQuery._
-import org.scalaquery.simple.Implicit._
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
@@ -19,7 +18,7 @@ object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Pos
 
 class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
-  implicit def rsToUser(rs: PositionedResult) = new User(rs.nextInt(), rs.nextString())
+  implicit val getUserResult = GetResult(r => new User(r<<, r<<))
 
   case class User(id:Int, name:String)
 

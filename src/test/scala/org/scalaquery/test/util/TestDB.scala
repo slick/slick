@@ -10,7 +10,7 @@ import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.simple._
 import org.scalaquery.simple.StaticQuery._
-import org.scalaquery.simple.Implicit._
+import org.scalaquery.simple.GetResult._
 
 object TestDBOptions {
   val testDBDir = "test-dbs"

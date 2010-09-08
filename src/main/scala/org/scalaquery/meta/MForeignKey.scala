@@ -4,7 +4,6 @@ import java.sql._
 import org.scalaquery.{ResultSetInvoker, UnitInvoker}
 import org.scalaquery.ql.ForeignKeyAction
 import org.scalaquery.session._
-import org.scalaquery.simple.Implicit._
 
 /**
  * A wrapper for a row in the ResultSet returned by

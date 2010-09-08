@@ -14,7 +14,6 @@ import org.scalaquery.meta._
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.simple.StaticQuery.updateNA
-import org.scalaquery.simple.Implicit._
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 

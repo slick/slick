@@ -1,7 +1,6 @@
 package org.scalaquery.meta
 
 import org.scalaquery.session.PositionedResult
-import org.scalaquery.simple.Implicit._
 
 /**
  * A qualified name with an optional catalog and schema.

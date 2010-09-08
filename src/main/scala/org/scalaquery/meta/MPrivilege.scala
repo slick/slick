@@ -3,7 +3,6 @@ package org.scalaquery.meta
 import java.sql._
 import org.scalaquery.{ResultSetInvoker, UnitInvoker}
 import org.scalaquery.session._
-import org.scalaquery.simple.Implicit._
 
 /**
  * A common privilege type which is used by MTablePrivilege and MColumnPrivilege.
