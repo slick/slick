@@ -3,7 +3,7 @@ package org.scalaquery.simple
 import java.sql.PreparedStatement
 import java.sql.{Date, Time, Timestamp}
 import org.scalaquery.{StatementInvoker, UnitInvokerMixin, SQueryException}
-import org.scalaquery.session.PositionedResult
+import org.scalaquery.session.{PositionedParameters, PositionedResult}
 
 /**
  * Invoker for static queries, i.e. queries with a fixed query string.
@@ -13,7 +13,7 @@ import org.scalaquery.session.PositionedResult
 class StaticQuery[-P,+R](query: String, rconv: GetResult[R], pconv: SetParameter[P])
 extends StatementInvoker[P,R] {
   protected def getStatement = query
-  protected def setParam(param: P, st: PreparedStatement) = pconv(param, st)
+  protected def setParam(param: P, st: PreparedStatement) = pconv(param, new PositionedParameters(st))
   protected def extractValue(rs: PositionedResult): R = rconv(rs)
 }
 

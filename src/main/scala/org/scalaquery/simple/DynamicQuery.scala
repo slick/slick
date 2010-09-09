@@ -1,8 +1,9 @@
 package org.scalaquery.simple
 
+import scala.collection.mutable.ArrayBuffer
 import java.sql.{PreparedStatement, ResultSet, Date, Time, Timestamp}
 import org.scalaquery.{StatementInvoker, UnitInvokerMixin, SQueryException}
-import org.scalaquery.session.PositionedResult
+import org.scalaquery.session.{PositionedParameters, PositionedResult}
 
 /**
  * Base class for dynamic queries. These are required when the query text can
@@ -11,27 +12,26 @@ import org.scalaquery.session.PositionedResult
 abstract class DynamicQueryBase[T, +This <: DynamicQueryBase[T, This]] extends StatementInvoker[Unit, T] with UnitInvokerMixin[T] {
   self: This =>
 
-  type VarSetter = (PreparedStatement, Int) => Unit
+  type VarSetter = PositionedParameters => Unit
 
-  private var varSetters = Nil:List[VarSetter]
-  private var varSettersLen = 0
+  private val varSetters = new ArrayBuffer[VarSetter]
   private val buf: StringBuilder = new StringBuilder
   private lazy val query: String = buf.toString
 
   def ~(s: String) = { buf append s append ' '; this }
 
-  def ~?(n: VarSetter): This = { buf append "? "; varSetters = n :: varSetters; varSettersLen += 1; this }
-  def ~?(x: Boolean): This = ~?((st: PreparedStatement, i: Int) => st.setBoolean(i, x))
-  def ~?(x: Byte): This = ~?((st: PreparedStatement, i: Int) => st.setByte(i, x))
-  def ~?(x: Date): This = ~?((st: PreparedStatement, i: Int) => st.setDate(i, x))
-  def ~?(x: Double): This = ~?((st: PreparedStatement, i: Int) => st.setDouble(i, x))
-  def ~?(x: Float): This = ~?((st: PreparedStatement, i: Int) => st.setFloat(i, x))
-  def ~?(x: Int): This = ~?((st: PreparedStatement, i: Int) => st.setInt(i, x))
-  def ~?(x: Long): This = ~?((st: PreparedStatement, i: Int) => st.setLong(i, x))
-  def ~?(x: Short): This = ~?((st: PreparedStatement, i: Int) => st.setShort(i, x))
-  def ~?(x: String): This = ~?((st: PreparedStatement, i: Int) => st.setString(i, x))
-  def ~?(x: Time): This = ~?((st: PreparedStatement, i: Int) => st.setTime(i, x))
-  def ~?(x: Timestamp): This = ~?((st: PreparedStatement, i: Int) => st.setTimestamp(i, x))
+  def ~?(n: VarSetter): This = { buf append "? "; varSetters append n; this }
+  def ~?(x: Boolean): This = ~?((pp: PositionedParameters) => pp.setBoolean(x))
+  def ~?(x: Byte): This = ~?((pp: PositionedParameters) => pp.setByte(x))
+  def ~?(x: Date): This = ~?((pp: PositionedParameters) => pp.setDate(x))
+  def ~?(x: Double): This = ~?((pp: PositionedParameters) => pp.setDouble(x))
+  def ~?(x: Float): This = ~?((pp: PositionedParameters) => pp.setFloat(x))
+  def ~?(x: Int): This = ~?((pp: PositionedParameters) => pp.setInt(x))
+  def ~?(x: Long): This = ~?((pp: PositionedParameters) => pp.setLong(x))
+  def ~?(x: Short): This = ~?((pp: PositionedParameters) => pp.setShort(x))
+  def ~?(x: String): This = ~?((pp: PositionedParameters) => pp.setString(x))
+  def ~?(x: Time): This = ~?((pp: PositionedParameters) => pp.setTime(x))
+  def ~?(x: Timestamp): This = ~?((pp: PositionedParameters) => pp.setTimestamp(x))
 
   def wrap(prefix: String, suffix: String)(body: => Unit) = {
     val pos = buf.size
@@ -46,11 +46,8 @@ abstract class DynamicQueryBase[T, +This <: DynamicQueryBase[T, This]] extends S
   override def toString = query
 
   protected def setParam(param: Unit, st: PreparedStatement) = {
-    var i = varSettersLen
-    varSetters foreach { x =>
-      x(st, i)
-      i -= 1
-    }
+    val pp = new PositionedParameters(st)
+    for(s <- varSetters) s(pp)
   }
 
   protected def getStatement = query
@@ -63,6 +60,10 @@ class DynamicQuery[T](implicit rconv: GetResult[T]) extends DynamicQueryBase[T,D
   protected def extractValue(rs: PositionedResult): T = rconv(rs)
 }
 
+object DynamicQuery {
+  def apply[T : GetResult] = new DynamicQuery[T]
+}
+
 class DynamicUpdate extends DynamicQueryBase[Int,DynamicUpdate] {
   def insert = this ~ "insert"
   def insert(s: String) = this ~ "insert" ~ s
@@ -70,4 +71,8 @@ class DynamicUpdate extends DynamicQueryBase[Int,DynamicUpdate] {
   def update(s: String) = this ~ "update" ~ s
   protected def extractValue(rs: PositionedResult): Int =
     throw new SQueryException("DynamicUpdate.extractValue called; Non-query statements should not return a ResultSet")
+}
+
+object DynamicUpdate {
+  def apply = new DynamicUpdate
 }

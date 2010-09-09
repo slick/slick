@@ -1,10 +1,13 @@
 package org.scalaquery.session
 
 import java.sql.{PreparedStatement, Date, Time, Timestamp, Types, Blob, Clob}
+import org.scalaquery.simple.SetParameter
 
 class PositionedParameters(val ps: PreparedStatement) {
 
   var pos = 0
+
+  def >> [T](value: T)(implicit f: SetParameter[T]): Unit = f(value, this)
 
   def setBoolean(value: Boolean) = { pos += 1; ps.setBoolean(pos, value) }
   def setBlob(value: Blob) = { pos += 1; ps.setBlob(pos, value) }
@@ -15,6 +18,7 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setFloat(value: Float) = { pos += 1; ps.setFloat(pos, value) }
   def setInt(value: Int) = { pos += 1; ps.setInt(pos, value) }
   def setLong(value: Long) = { pos += 1; ps.setLong(pos, value) }
+  def setShort(value: Short) = { pos += 1; ps.setShort(pos, value) }
   def setString(value: String) = { pos += 1; ps.setString(pos, value) }
   def setTime(value: Time) = { pos += 1; ps.setTime(pos, value) }
   def setTimestamp(value: Timestamp) = { pos += 1; ps.setTimestamp(pos, value) }
@@ -54,6 +58,10 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setLongOption(value: Option[Long]) = {
     pos += 1
     if(value eq None) ps.setNull(pos, Types.INTEGER) else ps.setLong(pos, value.get)
+  }
+  def setShortOption(value: Option[Short]) = {
+    pos += 1
+    if(value eq None) ps.setNull(pos, Types.SMALLINT) else ps.setShort(pos, value.get)
   }
   def setStringOption(value: Option[String]) = {
     pos += 1

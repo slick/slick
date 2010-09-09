@@ -32,9 +32,8 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
     wrap("where id =", "") { id foreach(v => this ~? v) }
   }
 
-  case class InsertUser(id: Int, name: String) extends DynamicQuery[Int] {
-    this ~ "insert into USERS values (" ~? id ~ "," ~? name ~ ")"
-  }
+  def InsertUser(id: Int, name: String) = DynamicQuery[Int] ~
+    "insert into USERS values (" ~? id ~ "," ~? name ~ ")"
 
   @Test def test() {
     val createTable = updateNA("create table USERS(ID int not null primary key, NAME varchar(255))")

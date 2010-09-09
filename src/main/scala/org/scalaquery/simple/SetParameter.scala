@@ -1,46 +1,59 @@
 package org.scalaquery.simple
 
-import java.sql.{PreparedStatement, SQLException, Date, Time, Timestamp}
+import java.sql.{SQLException, Date, Time, Timestamp}
+import org.scalaquery.session.PositionedParameters
 
 /**
- * Basic conversions for setting parameters in PreparedStatements.
+ * Basic conversions for setting parameters in PositionedParameters.
  */
-trait SetParameter[-T] extends ((T, PreparedStatement) => Unit)
+trait SetParameter[-T] extends ((T, PositionedParameters) => Unit)
 
 object SetParameter {
-  implicit object SetBoolean extends SetParameter[Boolean] { def apply(v: Boolean, st: PreparedStatement) { st.setBoolean(1, v) } }
-  implicit object SetByte extends SetParameter[Byte] { def apply(v: Byte, st: PreparedStatement) { st.setByte(1, v) } }
-  implicit object SetDate extends SetParameter[Date] { def apply(v: Date, st: PreparedStatement) { st.setDate(1, v) } }
-  implicit object SetDouble extends SetParameter[Double] { def apply(v: Double, st: PreparedStatement) { st.setDouble(1, v) } }
-  implicit object SetFloat extends SetParameter[Float] { def apply(v: Float, st: PreparedStatement) { st.setFloat(1, v) } }
-  implicit object SetInt extends SetParameter[Int] { def apply(v: Int, st: PreparedStatement) { st.setInt(1, v) } }
-  implicit object SetLong extends SetParameter[Long] { def apply(v: Long, st: PreparedStatement) { st.setLong(1, v) } }
-  implicit object SetShort extends SetParameter[Short] { def apply(v: Short, st: PreparedStatement) { st.setShort(1, v) } }
-  implicit object SetString extends SetParameter[String] { def apply(v: String, st: PreparedStatement) { st.setString(1, v) } }
-  implicit object SetTime extends SetParameter[Time] { def apply(v: Time, st: PreparedStatement) { st.setTime(1, v) } }
-  implicit object SetTimestamp extends SetParameter[Timestamp] { def apply(v: Timestamp, st: PreparedStatement) { st.setTimestamp(1, v) } }
+  implicit object SetBoolean extends SetParameter[Boolean] { def apply(v: Boolean, pp: PositionedParameters) { pp.setBoolean(v) } }
+  implicit object SetByte extends SetParameter[Byte] { def apply(v: Byte, pp: PositionedParameters) { pp.setByte(v) } }
+  implicit object SetDate extends SetParameter[Date] { def apply(v: Date, pp: PositionedParameters) { pp.setDate(v) } }
+  implicit object SetDouble extends SetParameter[Double] { def apply(v: Double, pp: PositionedParameters) { pp.setDouble(v) } }
+  implicit object SetFloat extends SetParameter[Float] { def apply(v: Float, pp: PositionedParameters) { pp.setFloat(v) } }
+  implicit object SetInt extends SetParameter[Int] { def apply(v: Int, pp: PositionedParameters) { pp.setInt(v) } }
+  implicit object SetLong extends SetParameter[Long] { def apply(v: Long, pp: PositionedParameters) { pp.setLong(v) } }
+  implicit object SetShort extends SetParameter[Short] { def apply(v: Short, pp: PositionedParameters) { pp.setShort(v) } }
+  implicit object SetString extends SetParameter[String] { def apply(v: String, pp: PositionedParameters) { pp.setString(v) } }
+  implicit object SetTime extends SetParameter[Time] { def apply(v: Time, pp: PositionedParameters) { pp.setTime(v) } }
+  implicit object SetTimestamp extends SetParameter[Timestamp] { def apply(v: Timestamp, pp: PositionedParameters) { pp.setTimestamp(v) } }
+
+  implicit object SetBooleanOption extends SetParameter[Option[Boolean]] { def apply(v: Option[Boolean], pp: PositionedParameters) { pp.setBooleanOption(v) } }
+  implicit object SetByteOption extends SetParameter[Option[Byte]] { def apply(v: Option[Byte], pp: PositionedParameters) { pp.setByteOption(v) } }
+  implicit object SetDateOption extends SetParameter[Option[Date]] { def apply(v: Option[Date], pp: PositionedParameters) { pp.setDateOption(v) } }
+  implicit object SetDoubleOption extends SetParameter[Option[Double]] { def apply(v: Option[Double], pp: PositionedParameters) { pp.setDoubleOption(v) } }
+  implicit object SetFloatOption extends SetParameter[Option[Float]] { def apply(v: Option[Float], pp: PositionedParameters) { pp.setFloatOption(v) } }
+  implicit object SetIntOption extends SetParameter[Option[Int]] { def apply(v: Option[Int], pp: PositionedParameters) { pp.setIntOption(v) } }
+  implicit object SetLongOption extends SetParameter[Option[Long]] { def apply(v: Option[Long], pp: PositionedParameters) { pp.setLongOption(v) } }
+  implicit object SetShortOption extends SetParameter[Option[Short]] { def apply(v: Option[Short], pp: PositionedParameters) { pp.setShortOption(v) } }
+  implicit object SetStringOption extends SetParameter[Option[String]] { def apply(v: Option[String], pp: PositionedParameters) { pp.setStringOption(v) } }
+  implicit object SetTimeOption extends SetParameter[Option[Time]] { def apply(v: Option[Time], pp: PositionedParameters) { pp.setTimeOption(v) } }
+  implicit object SetTimestampOption extends SetParameter[Option[Timestamp]] { def apply(v: Option[Timestamp], pp: PositionedParameters) { pp.setTimestampOption(v) } }
 
   implicit object SetProduct extends SetParameter[Product] {
-    def apply(prod: Product, st: PreparedStatement): Unit =
+    def apply(prod: Product, pp: PositionedParameters): Unit =
       for(i <- 0 until prod.productArity) prod.productElement(i) match {
-        case v: Boolean => st.setBoolean(i+1, v)
-        case v: Byte => st.setByte(i+1, v)
-        case v: Date => st.setDate(i+1, v)
-        case v: Double => st.setDouble(i+1, v)
-        case v: Float => st.setFloat(i+1, v)
-        case v: Int => st.setInt(i+1, v)
-        case v: Long => st.setLong(i+1, v)
-        case v: Short => st.setShort(i+1, v)
-        case v: String => st.setString(i+1, v)
-        case v: Time => st.setTime(i+1, v)
-        case v: Timestamp => st.setTimestamp(i+1, v)
+        case v: Boolean => pp.setBoolean(v)
+        case v: Byte => pp.setByte(v)
+        case v: Date => pp.setDate(v)
+        case v: Double => pp.setDouble(v)
+        case v: Float => pp.setFloat(v)
+        case v: Int => pp.setInt(v)
+        case v: Long => pp.setLong(v)
+        case v: Short => pp.setShort(v)
+        case v: String => pp.setString(v)
+        case v: Time => pp.setTime(v)
+        case v: Timestamp => pp.setTimestamp(v)
         case v => throw new SQLException("SetProduct doesn't know how to handle parameter "+i+"( "+v+")")
       }
   }
 
-  implicit object SetUnit extends SetParameter[Unit] { def apply(none: Unit, st: PreparedStatement) = () }
+  implicit object SetUnit extends SetParameter[Unit] { def apply(none: Unit, pp: PositionedParameters) = () }
 
-  implicit def functionToSetParameter[T](implicit f: (T, PreparedStatement) => Unit) = new SetParameter[T] {
-    def apply(v: T, st: PreparedStatement) = f(v, st)
+  def apply[T](implicit f: (T, PositionedParameters) => Unit) = new SetParameter[T] {
+    def apply(v: T, pp: PositionedParameters) = f(v, pp)
   }
 }
