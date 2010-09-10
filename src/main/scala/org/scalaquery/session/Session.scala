@@ -1,6 +1,6 @@
 package org.scalaquery.session
 
-import java.sql.{PreparedStatement, Connection, ResultSet, DatabaseMetaData}
+import java.sql.{PreparedStatement, Connection, ResultSet, DatabaseMetaData, Statement}
 import org.scalaquery.SQueryException
 
 /**
@@ -10,6 +10,7 @@ trait Session extends java.io.Closeable { self =>
 
   def conn: Connection
   def metaData: DatabaseMetaData
+  def capabilities: DatabaseCapabilities
 
   def resultSetType: ResultSetType = ResultSetType.Auto
   def resultSetConcurrency: ResultSetConcurrency = ResultSetConcurrency.Auto
@@ -30,11 +31,32 @@ trait Session extends java.io.Closeable { self =>
     }
   }
 
+  final def createStatement(defaultType: ResultSetType = ResultSetType.ForwardOnly,
+             defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
+             defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): Statement = {
+    resultSetHoldability.withDefault(defaultHoldability) match {
+      case ResultSetHoldability.Default =>
+        conn.createStatement(resultSetType.withDefault(defaultType).intValue,
+          resultSetConcurrency.withDefault(defaultConcurrency).intValue)
+      case h =>
+        conn.createStatement(resultSetType.withDefault(defaultType).intValue,
+          resultSetConcurrency.withDefault(defaultConcurrency).intValue,
+          h.intValue)
+    }
+  }
+
   final def withPreparedStatement[T](sql: String,
               defaultType: ResultSetType = ResultSetType.ForwardOnly,
               defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
               defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)(f: (PreparedStatement => T)): T = {
     val st = prepareStatement(sql, defaultType, defaultConcurrency, defaultHoldability)
+    try f(st) finally st.close()
+  }
+
+  final def withStatement[T](defaultType: ResultSetType = ResultSetType.ForwardOnly,
+              defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
+              defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)(f: (Statement => T)): T = {
+    val st = createStatement(defaultType, defaultConcurrency, defaultHoldability)
     try f(st) finally st.close()
   }
 
@@ -60,6 +82,7 @@ trait Session extends java.io.Closeable { self =>
     override def resultSetHoldability = rsHoldability
     def conn = self.conn
     def metaData = self.metaData
+    def capabilities = self.capabilities
     def close() = self.close()
     def rollback() = self.rollback()
     def withTransaction[T](f: => T) = self.withTransaction(f)
@@ -75,6 +98,16 @@ class BaseSession private[session] (db: Database) extends Session {
   lazy val conn = { open = true; db.createConnection() }
   lazy val metaData = conn.getMetaData()
 
+  def capabilities = {
+    val dc = db.capabilities
+    if(dc ne null) dc
+    else {
+      val newDC = new DatabaseCapabilities(this)
+      db.capabilities = newDC
+      newDC
+    }
+  }
+
   def close() {
     if(open) conn.close()
   }
@@ -85,8 +118,8 @@ class BaseSession private[session] (db: Database) extends Session {
   }
 
   def withTransaction[T](f: => T): T = if(inTransaction) f else {
-    inTransaction = true
     conn.setAutoCommit(false)
+    inTransaction = true
     try {
       var done = false
       try {
@@ -98,8 +131,8 @@ class BaseSession private[session] (db: Database) extends Session {
         res
       } finally if(!done) conn.rollback()
     } finally {
-      inTransaction = false
       conn.setAutoCommit(true)
+      inTransaction = false
     }
   }
 }

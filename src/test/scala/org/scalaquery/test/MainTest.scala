@@ -46,8 +46,11 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       val ins2 = (Users.first ~ Users.last).insertAll(
         ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )
       val ins3 = Users.first.insertAll("Santa's Little Helper", "Snowball")
-      println("Inserted "+(ins1+ins2+ins3)+" users")
-      assertEquals(ins1+ins2+ins3, 7)
+      val total = for(i2 <- ins2; i3 <- ins3) yield ins1 + i2 + i3
+      println("Inserted "+total.getOrElse("<unknown>")+" users")
+      /* All test DBs seem to report the actual number of rows.
+       * None would also be an acceptable result here. */
+      assertEquals(Some(7), total)
 
       val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last
       println("q1: " + q1.selectStatement)
@@ -170,24 +173,24 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       println("Deleting them...")
       val deleted = q5.delete
       println("Deleted "+deleted+" rows")
-      assertEquals(deleted, 2)
+      assertEquals(2, deleted)
 
       val q6 = Query(q5.count)
       println("q6: " + q6.selectStatement)
       println("Users without Orders left: " + q6.first)
-      assertEquals(q6.first, 0)
+      assertEquals(0, q6.first)
 
       val q7 = Users.where(_.first is "Homer".bind).map(_.first)
       println("q7: " + q7.updateStatement)
       val updated1 = q7.update("Homer Jay")
       println("Updated "+updated1+" row(s)")
-      assertEquals(updated1, 1)
+      assertEquals(1, updated1)
 
       val q8 = for(u <- Users if u.last.isNull) yield u.first ~ u.last
       println("q8: " + q8.updateStatement)
       val updated2 = q8.update("n/a", Some("n/a"))
       println("Updated "+updated2+" row(s)")
-      assertEquals(updated2, 1)
+      assertEquals(1, updated2)
 
       for(t <- q1) println("User tuple: "+t)
     }

@@ -14,6 +14,16 @@ abstract class Database {
   protected[session] def createConnection(): Connection
 
   /**
+   * The DatabaseCapabilities, accessed through a Session and created by the
+   * first Session that needs them. Access does not need to be synchronized
+   * because, in the worst case, capabilities will be determined multiple
+   * times by different concurrent sessions but the result should always be
+   * the same.
+   */
+  @volatile
+  protected[session] var capabilities: DatabaseCapabilities = null
+
+  /**
    * Create a new session. The session needs to be closed explicitly by calling its close() method.
    */
   def createSession(): Session = new BaseSession(this)
