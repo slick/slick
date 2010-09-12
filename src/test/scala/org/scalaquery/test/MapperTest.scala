@@ -10,7 +10,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object MapperTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem)
+object MapperTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class MapperTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

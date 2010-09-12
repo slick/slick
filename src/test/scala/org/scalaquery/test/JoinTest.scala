@@ -12,7 +12,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object JoinTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem)
+object JoinTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class JoinTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

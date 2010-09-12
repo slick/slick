@@ -4,7 +4,7 @@ import scala.collection.JavaConversions._
 import java.io.{File, IOException, FileInputStream}
 import java.util.Properties
 import java.sql.SQLException
-import org.scalaquery.ql.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver}
+import org.scalaquery.ql.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver}
 import org.scalaquery.ResultSetInvoker
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
@@ -54,7 +54,7 @@ abstract class TestDB {
   def isEnabled = true
   def getLocalTables(implicit session: Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
-    tables.list(())(session).map(_._3)
+    tables.list(())(session).map(_._3).sorted
   }
 }
 
@@ -63,7 +63,7 @@ class SQLiteTestDB(dburl: String) extends TestDB {
   val jdbcDriver = "org.sqlite.JDBC"
   val driver = SQLiteDriver
   override def getLocalTables(implicit session: Session) =
-    super.getLocalTables(session).filter(s => !s.toLowerCase.contains("sqlite_")).sortBy(identity)
+    super.getLocalTables(session).filter(s => !s.toLowerCase.contains("sqlite_"))
 }
 
 class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends TestDB {
@@ -110,7 +110,7 @@ abstract class DerbyDB extends TestDB {
   override def userName = "APP"
   override def getLocalTables(implicit session: Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
-    tables.list(())(session).map(_._3)
+    tables.list(())(session).map(_._3).sorted
   }
 }
 
@@ -134,6 +134,18 @@ object TestDB {
     val jdbcDriver = "org.h2.Driver"
     val driver = H2Driver
     override def cleanUp() = deleteDBFiles(dbName)
+  }
+
+  def HsqldbMem(to: DBTestObject) = new TestDB {
+    val url = "jdbc:hsqldb:mem:test1;user=SA;password=;shutdown=true"
+    val jdbcDriver = "org.hsqldb.jdbcDriver"
+    val driver = HsqldbDriver
+    override val dbName = "test1"
+    override def getLocalTables(implicit session: Session): List[String] = {
+      val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null))
+      tables.list(())(session).map(_._3).sorted
+    }
+    override def userName = "sa"
   }
 
   def SQLiteMem(to: DBTestObject) = new SQLiteTestDB("jdbc:sqlite::memory:") {
@@ -172,7 +184,7 @@ object TestDB {
   def Postgres(to: DBTestObject) = new ExternalTestDB("postgres", PostgresDriver) {
     override def getLocalTables(implicit session: Session) = {
       val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.list(())(session).map(_._3).filter(s => !s.toLowerCase.endsWith("_pkey") && !s.toLowerCase.endsWith("_id_seq"))
+      tables.list(())(session).map(_._3).filter(s => !s.toLowerCase.endsWith("_pkey") && !s.toLowerCase.endsWith("_id_seq")).sorted
     }
   }
 

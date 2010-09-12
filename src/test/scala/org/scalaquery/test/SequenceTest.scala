@@ -10,7 +10,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object SequenceTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem)
+object SequenceTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class SequenceTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

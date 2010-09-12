@@ -17,7 +17,7 @@ import org.scalaquery.simple.StaticQuery.updateNA
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object MetaTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem)
+object MetaTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class MetaTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -102,10 +102,15 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
         CodeGen.output(t, out)
       out.flush
 
-      assertTrue(Set("orders", "users") subsetOf MTable.getTables(None, None, None, None).list.map(_.name.name).toSet)
-      for(t <- tdb.getLocalTables)
-        updateNA("drop table " + tdb.driver.sqlUtils.quoteIdentifier(t)).execute
-      assertTrue(Set("orders", "users") intersect MTable.getTables(None, None, None, None).list.map(_.name.name).toSet isEmpty)
+      assertTrue("Tables before deleting",
+        Set("orders", "users") subsetOf MTable.getTables(None, None, None, None).list.map(_.name.name).toSet)
+      for(t <- tdb.getLocalTables.sorted) {
+        val st = "drop table " + tdb.driver.sqlUtils.quoteIdentifier(t)
+        println("Executing statement: "+st)
+        updateNA(st).execute
+      }
+      assertTrue("Tables after deleting",
+        Set("orders", "users") intersect MTable.getTables(None, None, None, None).list.map(_.name.name).toSet isEmpty)
     }
   }
 }
