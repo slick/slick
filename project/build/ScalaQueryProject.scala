@@ -16,7 +16,11 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
 
   val useJDBC4 = try { classOf[java.sql.DatabaseMetaData].getMethod("getClientInfoProperties"); true }
     catch { case _:NoSuchMethodException => false }
-  
+
+  override def testOptions = 
+    super.testOptions ++ 
+    Seq(TestArgument(TestFrameworks.JUnit, "-q", "-v"))
+
   /*********** Dependencies ***********/
   //val scalaToolsSnapshots = "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
   val h2 = "com.h2database" % "h2" % "1.2.140" % "test->default"
@@ -25,7 +29,7 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
   val hsqldb = "org.hsqldb" % "hsqldb" % "2.0.0" % "test->default"
   val postgresql = "postgresql" % "postgresql" % (if(useJDBC4) "8.4-701.jdbc4" else "8.4-701.jdbc3") % "test->default"
   val mysql = "mysql" % "mysql-connector-java" % "5.1.13" % "test->default"
-  val junitInterface = "com.novocode" % "junit-interface" % "0.4" % "test->default"
+  val junitInterface = "com.novocode" % "junit-interface" % "0.5" % "test->default"
   val fmppDep = "net.sourceforge.fmpp" % "fmpp" % "0.9.13" % "fmpp"
   val fmppConf = config("fmpp") hide
 
