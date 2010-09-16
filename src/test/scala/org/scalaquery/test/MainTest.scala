@@ -107,7 +107,9 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       println("q4: " + q4.selectStatement)
       println("Latest Order per User:")
       q4.foreach(o => println("  "+o))
-      assertEquals(List(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)), q4.list)
+      assertEquals(
+        Set(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)),
+        q4.list.toSet)
 
       def maxOfPer[T <: TableBase[_]]
         (c: T, m: (T => Column[Int]), p: (T => Column[Int])) =
@@ -121,7 +123,9 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       println("q4b: " + q4b.selectStatement)
       println("Latest Order per User, using maxOfPer:")
       q4b.foreach(o => println("  "+o))
-      assertEquals(List(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)), q4b.list)
+      assertEquals(
+        Set(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)),
+        q4b.list.toSet)
 
       val q4c = for (
         u <- Users;
@@ -129,11 +133,13 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
         _ <- Query groupBy u.id
                    having { _ => o.orderID.max > 5 }
                    orderBy o.orderID.max
-      ) yield u.first.min ~ o.orderID.max
+      ) yield u.first.min.get ~ o.orderID.max
       println("q4c: " + q4c.selectStatement)
       println("Latest Order per User, using GroupBy, with orderID > 5:")
       q4c.foreach(o => println("  "+o))
-      assertEquals(List(("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)), q4c.list)
+      assertEquals(
+        Set(("Carl",Some(6)), ("Lenny",Some(8)), ("Santa's Little Helper",Some(10))),
+        q4c.list.toSet)
 
       val q4d = for (
         u <- Users if u.first inSetBind List("Homer", "Marge");

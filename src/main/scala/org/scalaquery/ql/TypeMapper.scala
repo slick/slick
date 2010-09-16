@@ -8,7 +8,9 @@ import org.scalaquery.session.{PositionedParameters, PositionedResult}
 sealed trait TypeMapper[T] extends (BasicProfile => TypeMapperDelegate[T]) { self =>
   def createOptionTypeMapper: OptionTypeMapper[T] = new OptionTypeMapper[T](self) {
     def apply(profile: BasicProfile) = self(profile).createOptionTypeMapperDelegate
+    def getBaseTypeMapper[U](implicit ev: Option[U] =:= Option[T]): TypeMapper[U] = self.asInstanceOf[TypeMapper[U]]
   }
+  def getBaseTypeMapper[U](implicit ev: Option[U] =:= T): TypeMapper[U]
 }
 
 object TypeMapper {
@@ -67,7 +69,10 @@ object TypeMapper {
   }
 }
 
-trait BaseTypeMapper[T] extends TypeMapper[T]
+trait BaseTypeMapper[T] extends TypeMapper[T] {
+  def getBaseTypeMapper[U](implicit ev: Option[U] =:= T) =
+    throw new SQueryException("A BaseTypeMapper should not have an Option type")
+}
 
 abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[Option[T]]
 

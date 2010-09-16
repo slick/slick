@@ -32,15 +32,17 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   }
   final def orFail = orElse { throw new SQueryException("Read NULL value for column "+this) }
   def ? : Column[Option[T]] = new WrappedColumn(this)(typeMapper.createOptionTypeMapper)
+
+  def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(typeMapper.getBaseTypeMapper) {
+    override def getResult(profile: BasicProfile, rs: PositionedResult): U = typeMapper(profile).nextValueOrElse(n, rs)
+  }
+  def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SQueryException("Read NULL value for column "+this) }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   // Functions which don't need an OptionMapper
   def in(e: Query[Column[_]]) = ColumnOps.In(Node(this), Node(e))
   def notIn(e: Query[Column[_]]) = ColumnOps.Not(Node(ColumnOps.In(Node(this), Node(e))))
   def count = ColumnOps.Count(Node(this))
-  def avg = mapOp(ColumnOps.Avg(_))
-  def min = mapOp(ColumnOps.Min(_))
-  def max = mapOp(ColumnOps.Max(_))
   def isNull = ColumnOps.Is(Node(this), ConstColumn.NULL)
   def isNotNull = ColumnOps.Not(Node(ColumnOps.Is(Node(this), ConstColumn.NULL)))
   def countDistinct = ColumnOps.CountDistinct(Node(this))

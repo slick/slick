@@ -6,6 +6,7 @@ import org.scalaquery.util.{Node, UnaryNode, BinaryNode}
 trait ColumnOps[B1, P1] {
   protected val leftOperand: Node
   import ColumnOps._
+
   def is[B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
     om(Is(leftOperand, Node(e)))
   def === [B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
@@ -33,6 +34,10 @@ trait ColumnOps[B1, P1] {
     om(Between(leftOperand, start, end))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[P2] =
     e.mapOp(IfNull(leftOperand, _))
+  def min(implicit om: OptionMapper2[B1, B1, B1, Option[B1], Option[B1], Option[B1]], tm: BaseTypeMapper[B1]): Column[Option[B1]] =
+    om(Min(leftOperand, tm))
+  def max(implicit om: OptionMapper2[B1, B1, B1, Option[B1], Option[B1], Option[B1]], tm: BaseTypeMapper[B1]): Column[Option[B1]] =
+    om(Max(leftOperand, tm))
 
   // NumericTypeMapper only
   def + [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, B1, P1, P2, R], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[R] =
@@ -57,6 +62,10 @@ trait ColumnOps[B1, P1] {
     om(Degrees[B1](leftOperand, tm))
   def toRadians(implicit om: OptionMapper2[B1, B1, B1, P1, P1, P1], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[P1] =
     om(Radians[B1](leftOperand, tm))
+  def avg(implicit om: OptionMapper2[B1, B1, B1, Option[B1], Option[B1], Option[B1]], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[Option[B1]] =
+    om(Avg(leftOperand, tm))
+  def sum(implicit om: OptionMapper2[B1, B1, B1, Option[B1], Option[B1], Option[B1]], tm: BaseTypeMapper[B1] with NumericTypeMapper): Column[Option[B1]] =
+    om(Sum(leftOperand, tm))
 
   // Boolean only
   def &&[P2, R](b: ColumnBase[P2])(implicit om: OptionMapper2[Boolean, Boolean, Boolean, P1, P2, R]): Column[R] =
@@ -102,9 +111,10 @@ object ColumnOps {
   case class Sign(child: Node) extends OperatorColumn[Int] with SimpleScalarFunction with UnaryNode { val name = "sign" }
   case class Degrees[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "degrees" }
   case class Radians[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "radians" }
-  case class Avg(child: Node) extends SimpleFunction with UnaryNode { val name = "avg" }
-  case class Min(child: Node) extends SimpleFunction with UnaryNode { val name = "min" }
-  case class Max(child: Node) extends SimpleFunction with UnaryNode { val name = "max" }
+  case class Avg[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "avg" }
+  case class Min[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "min" }
+  case class Max[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "max" }
+  case class Sum[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "sum" }
   case class Relational(name: String, left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with ColumnOps[Boolean,Boolean]
   case class Exists(child: Node) extends OperatorColumn[Boolean] with SimpleFunction with UnaryNode with ColumnOps[Boolean,Boolean] { val name = "exists" }
   case class Arith[T : TypeMapper](name: String, left: Node, right: Node) extends OperatorColumn[T] with SimpleBinaryOperator
