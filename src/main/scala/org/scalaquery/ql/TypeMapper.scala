@@ -5,6 +5,26 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 
+/**
+ * A (usually implicit) TypeMapper object represents a Scala type that can be
+ * used as a column type in the database. The actual implementation of the
+ * type is deferred to a TypeMapperDelegate which can depend on the driver.
+ * 
+ * <p>Custom types with a single implementation can implement both traits in
+ * one object:</p>
+ * <code><pre>
+ * implicit object MyTypeMapper
+ *     extends TypeMapper[MyType] with TypeMapperDelegate[MyType] {
+ *   def apply(p: BasicProfile) = this
+ *   def zero = ...
+ *   def sqlType = ...
+ *   def setValue(v: Long, p: PositionedParameters) = ...
+ *   def setOption(v: Option[Long], p: PositionedParameters) = ...
+ *   def nextValue(r: PositionedResult) = ...
+ *   def updateValue(v: Long, r: PositionedResult) = ...
+ * }
+ * </pre></code>
+ */
 sealed trait TypeMapper[T] extends (BasicProfile => TypeMapperDelegate[T]) { self =>
   def createOptionTypeMapper: OptionTypeMapper[T] = new OptionTypeMapper[T](self) {
     def apply(profile: BasicProfile) = self(profile).createOptionTypeMapperDelegate
@@ -76,16 +96,43 @@ trait BaseTypeMapper[T] extends TypeMapper[T] {
 
 abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[Option[T]]
 
+/**
+ * Adding this marker trait to a TypeMapper makes the type eligible for
+ * numeric operators.
+ */
 trait NumericTypeMapper
 
 trait TypeMapperDelegate[T] { self =>
+  /**
+   * A zero value for the type. This is used as a default instead of NULL when
+   * used as a non-nullable column.
+   */
   def zero: T
+  /**
+   * The constant from java.sql.Types that is used for setting parameters of
+   * the type to NULL.
+   */
   def sqlType: Int
+  /**
+   * The default name for the SQL type that is used for column declarations.
+   */
   def sqlTypeName: String = TypeMapperDelegate.typeNames.getOrElse(sqlType,
     throw new SQueryException("No SQL type name found in java.sql.Types for code "+sqlType))
+  /**
+   * Set a parameter of the type.
+   */
   def setValue(v: T, p: PositionedParameters): Unit
+  /**
+   * Set an Option parameter of the type.
+   */
   def setOption(v: Option[T], p: PositionedParameters): Unit
+  /**
+   * Get a result column of the type.
+   */
   def nextValue(r: PositionedResult): T
+  /**
+   * Update a column of the type in a mutable result set.
+   */
   def updateValue(v: T, r: PositionedResult): Unit
   final def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs wasNull) d else v }
   final def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs wasNull) None else Some(v) }

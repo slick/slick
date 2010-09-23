@@ -2,6 +2,11 @@ package org.scalaquery.ql
 
 import org.scalaquery.session.Session
 
+/**
+ * A DDL object contains the SQL statements for creating and dropping
+ * database entities. DDLs can be combined for creating or dropping multiple
+ * entities together, even if they have circular dependencies.
+ */
 trait DDL { self =>
   /** Statements to execute first for create(), e.g. creating tables and indexes. */
   protected def createPhase1: Iterable[String]
@@ -33,6 +38,7 @@ trait DDL { self =>
       session.withPreparedStatement(s)(_.execute)
   }
 
+  /** Create a new DDL object which combines this and the other DDL object. */
   def ++(other: DDL): DDL = new DDL {
     protected lazy val createPhase1 = self.createPhase1 ++ other.createPhase1
     protected lazy val createPhase2 = self.createPhase2 ++ other.createPhase2

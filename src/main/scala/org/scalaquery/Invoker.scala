@@ -9,42 +9,83 @@ import org.scalaquery.util.CloseableIterator
  */
 trait Invoker[-P, +R] { self =>
 
+  /**
+   * Execute the statement and call f for each converted row of the result set.
+   * 
+   * @param maxRows Maximum number of rows to read from the result (0 for unlimited).
+   */
   def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: Session): Unit
 
+  /**
+   * Execute the statement and return a CloseableIterator of the converted results.
+   * The iterator must either be fully read or closed explicitly.
+   */
   def elements(param: P)(implicit session: Session): CloseableIterator[R]
 
+  /**
+   * Execute the statement and ignore the results.
+   */
   def execute(param: P)(implicit session: Session): Unit = elements(param)(session).close()
 
+  /**
+   * Execute the statement and return the first row of the result set wrapped in
+   * Some, or None if the result set is empty.
+   */
   final def firstOption(param: P)(implicit session: Session): Option[R] = {
     var res: Option[R] = None
     foreach(param, { x => res = Some(x) }, 1)
     res
   }
 
+  /**
+   * Execute the statement and return the first row of the result set.
+   * If the result set is empty, a NoSuchElementException is thrown.
+   */
   final def first(param: P)(implicit session: Session): R =
     firstOption(param).getOrElse(throw new NoSuchElementException("Invoker.first"))
 
+  /**
+   * Execute the statement and return an immutable and fully
+   * materialized list of the results.
+   */
   final def list(param: P)(implicit session: Session): List[R] = {
     val b = new ListBuffer[R]
     foreach(param, { x => b += x }, 0)
     b.toList
   }
 
+  /**
+   * Execute the statement and call f for each converted row of the result set.
+   */
   final def foreach(param: P, f: R => Unit)(implicit session: Session): Unit = foreach(param, f, 0)
 
+  /**
+   * Execute the statement and left-fold the converted rows of the result set.
+   */
   final def foldLeft[B](param: P, z: B)(op: (B, R) => B)(implicit session: Session): B = {
     var _z = z
     foreach(param, { e => _z = op(_z, e) })(session)
     _z
   }
 
+  /**
+   * Apply the parameter for this Invoker, creating a parameterless UnitInvoker.
+   */
   def apply(parameter: P): UnitInvoker[R] = new AppliedInvoker[P,R] {
     protected val appliedParameter = parameter
     protected val delegate = self
   }
 
+  /**
+   * Create a new Invoker which applies the mapping function f to each row
+   * of the result set.
+   */
   def mapResult[U](f: (R => U)): Invoker[P, U] = new MappedInvoker(this, f) with Invoker[P, U]
 
+  /**
+   * If the result type of this Invoker is of the form Option[T], execute the statement
+   * and return the first row of the result set, or None if the result set is empty.
+   */
   def firstFlatten[B](param: P)(implicit session: Session, ev: R <:< Option[B]): Option[B] =
     firstOption(param)/*.map(ev.apply _)*/.getOrElse(None).asInstanceOf[Option[B]]
 }

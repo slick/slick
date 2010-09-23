@@ -2,6 +2,9 @@ package org.scalaquery.ql
 
 import org.scalaquery.util.{Node, UnaryNode, NullaryNode, BinaryNode}
 
+/**
+ * A SimpleFunction gets translated to a plain function call in SQL.
+ */
 trait SimpleFunction extends Node {
   val name: String
 }
@@ -15,6 +18,9 @@ object SimpleFunction {
       }
 }
 
+/**
+ * A SimpleScalarFunction gets translated to a JDBC/ODBC {fn ...} call.
+ */
 trait SimpleScalarFunction extends Node {
   val name: String
 }
