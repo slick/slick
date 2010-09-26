@@ -29,16 +29,16 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new H2QueryBuilder(query, nc, Some(this), profile)
 
-  override protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
+  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(0), _) :: _ =>
         /* H2 ignores LIMIT 0 and treats negative limits as positive, so
          * we use this workaround to force the query to return no results */
         b += "SELECT * FROM ("
-        super.innerBuildSelect(b, rename)
+        super.innerBuildSelectNoRewrite(b, rename)
         b += ") WHERE FALSE"
       case _ =>
-        super.innerBuildSelect(b, rename)
+        super.innerBuildSelectNoRewrite(b, rename)
     }
   }
 
@@ -55,7 +55,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 
   protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
-    case TakeDrop(Some(0), _) => // handled above in innerBuildSelect
+    case TakeDrop(Some(0), _) => // handled above in innerBuildSelectNoRewrite
     case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case TakeDrop(Some(t), None) => b += " LIMIT " += t
     case TakeDrop(None, Some(d)) => b += " LIMIT 0 OFFSET " += d

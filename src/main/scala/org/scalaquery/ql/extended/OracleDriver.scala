@@ -33,7 +33,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
-  override protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
+  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), None) :: _ =>
         b += "SELECT * FROM (SELECT "

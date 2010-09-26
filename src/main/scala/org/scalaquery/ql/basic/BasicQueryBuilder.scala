@@ -57,10 +57,26 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   def buildSelect(b: SQLBuilder): Unit = {
     innerBuildSelect(b, false)
-    insertFromClauses()
+    insertAllFromClauses()
   }
 
+  protected def rewriteCountStarQuery(q: Query[_]) =
+    q.modifiers.isEmpty && (Node(q.value) match {
+      case AbstractTable.Alias(_: AbstractTable[_]) => true
+      case _: AbstractTable[_] => true
+      case _ => false
+    })
+
   protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
+    Node(query.value) match {
+      case ColumnOps.CountAll(Subquery(q: Query[_], false)) if rewriteCountStarQuery(q) =>
+        val newQ = q.map(p => ColumnOps.CountAll(Node(p)))
+        subQueryBuilderFor(newQ).innerBuildSelect(b, rename)
+      case _ => innerBuildSelectNoRewrite(b, rename)
+    }
+  }
+
+  protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
     selectSlot = b.createSlot
     selectSlot += "SELECT "
     expr(Node(query.value), selectSlot, rename, true)
@@ -125,7 +141,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     if(query.condHaving ne Nil)
       throw new SQueryException("DELETE statement must contain a HAVING clause")
     for(qb <- subQueryBuilders.valuesIterator)
-      qb.insertFromClauses()
+      qb.insertAllFromClauses()
     b.build
   }
 
@@ -281,6 +297,12 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     case Nil => ()
   }
 
+  protected def insertAllFromClauses() {
+    if(fromSlot ne null) insertFromClauses()
+    for(qb <- subQueryBuilders.valuesIterator)
+      qb.insertAllFromClauses()
+  }
+
   protected def insertFromClauses() {
     var first = true
     for((name, t) <- new HashMap ++= localTables) {
@@ -291,8 +313,6 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
         declaredTables += name
       }
     }
-    for(qb <- subQueryBuilders.valuesIterator)
-      qb.insertFromClauses()
   }
 
   protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
