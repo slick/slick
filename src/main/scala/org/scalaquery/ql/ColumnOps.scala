@@ -7,16 +7,16 @@ trait ColumnOps[B1, P1] {
   protected val leftOperand: Node
   import ColumnOps._
 
-  def is[B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
+  def is[P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Is(leftOperand, Node(e)))
-  def === [B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
+  def === [P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Is(leftOperand, Node(e)))
-  def isNot[B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
+  def isNot[P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Not(Is(leftOperand, Node(e))))
   @deprecated("Use =!= instead")
-  def != [B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
+  def != [P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Not(Is(leftOperand, Node(e))))
-  def =!= [B2, P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B2, Boolean, P1, P2, R]): Column[R] =
+  def =!= [P2, R](e: Column[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Not(Is(leftOperand, Node(e))))
   def < [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Relational("<", leftOperand, Node(e)))
