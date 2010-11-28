@@ -5,14 +5,14 @@ import org.junit.Test
 import org.junit.Assert._
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
-import org.scalaquery.ql.extended.{ExtendedTable => Table}
+import org.scalaquery.ql.extended.{ExtendedTable => Table, SQLiteDriver}
 import org.scalaquery.meta.MTable
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object JoinTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object JoinTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLiteMem)
 
 class JoinTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -81,12 +81,15 @@ class JoinTest(tdb: TestDB) extends DBTest(tdb) {
     q3b.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => p._1 ~ p._2).list)
 
-    val q4 = for {
-      Join(c,p) <- Categories rightJoin Posts on (_.id is _.category)
-      _ <- Query orderBy p.id
-    } yield p.id ~ c.id ~ c.name ~ p.title
-    println("Right outer join: "+q4.selectStatement)
-    q4.foreach(x => println("  "+x))
-    assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => p._1 ~ p._2).list)
+    if(tdb.driver != SQLiteDriver) {
+    // SQLite does not support right and full outer joins
+      val q4 = for {
+        Join(c,p) <- Categories rightJoin Posts on (_.id is _.category)
+        _ <- Query orderBy p.id
+      } yield p.id ~ c.id ~ c.name ~ p.title
+      println("Right outer join: "+q4.selectStatement)
+      q4.foreach(x => println("  "+x))
+      assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => p._1 ~ p._2).list)
+    }
   }
 }

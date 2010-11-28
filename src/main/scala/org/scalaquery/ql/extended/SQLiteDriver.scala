@@ -15,6 +15,7 @@ object SQLiteDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
+  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new SQLiteQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLiteDDLBuilder(table).buildDDL
 }
 
@@ -51,5 +52,36 @@ class SQLiteDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(tab
       val dropPhase1 = Nil
       val dropPhase2 = Iterable("DROP TABLE " + table.tableName)
     }
+  }
+}
+
+class SQLiteQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLiteDriver.type)
+extends BasicQueryBuilder(_query, _nc, parent, profile) {
+
+  import ExtendedQueryOps._
+
+  override type Self = SQLiteQueryBuilder
+
+  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+    new SQLiteQueryBuilder(query, nc, Some(this), profile)
+
+  override protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
+    case j: Join[_,_] => createJoin(j, b)
+    case _ => super.table(t, name, b)
+  }
+
+  override protected def appendOrdering(o: Ordering, b: SQLBuilder) {
+    val desc = o.isInstanceOf[Ordering.Desc]
+    if(o.nullOrdering == Ordering.NullsLast && !desc) {
+      b += "("
+      expr(o.by, b)
+      b += ") is null,"
+    } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
+      b += "("
+      expr(o.by, b)
+      b += ") is null desc,"
+    }
+    expr(o.by, b)
+    if(desc) b += " desc"
   }
 }
