@@ -9,3 +9,5 @@ target
 test-dbs/*-*
 test-dbs/databases.properties
 *.log
+.idea/
+*.iml
