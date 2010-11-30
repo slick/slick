@@ -21,6 +21,7 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   def nextBoolean() = { pos += 1; rs getBoolean pos }
   def nextBlob() = { pos += 1; rs getBlob pos }
   def nextByte() = { pos += 1; rs getByte pos }
+  def nextBytes() = { pos += 1; rs getBytes pos }
   def nextClob() = { pos += 1; rs getClob pos }
   def nextDate() = { pos += 1; rs getDate pos }
   def nextDouble() = { pos += 1; rs getDouble pos }
@@ -35,6 +36,7 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   def nextBooleanOption() = { pos += 1; val r = rs getBoolean pos; if(rs wasNull) None else Some(r) }
   def nextBlobOption() = { pos += 1; val r = rs getBlob pos; if(rs wasNull) None else Some(r) }
   def nextByteOption() = { pos += 1; val r = rs getByte pos; if(rs wasNull) None else Some(r) }
+  def nextBytesOption() = { pos += 1; val r = rs getBytes pos; if(rs wasNull) None else Some(r) }
   def nextClobOption() = { pos += 1; val r = rs getClob pos; if(rs wasNull) None else Some(r) }
   def nextDateOption() = { pos += 1; val r = rs getDate pos; if(rs wasNull) None else Some(r) }
   def nextDoubleOption() = { pos += 1; val r = rs getDouble pos; if(rs wasNull) None else Some(r) }
@@ -49,6 +51,7 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   def updateBoolean(v: Boolean) { pos += 1; rs.updateBoolean(pos, v) }
   def updateBlob(v: Blob) = { pos += 1; rs.updateBlob(pos, v) }
   def updateByte(v: Byte) = { pos += 1; rs.updateByte(pos, v) }
+  def updateBytes(v: Array[Byte]) = { pos += 1; rs.updateBytes(pos, v) }
   def updateClob(v: Clob) = { pos += 1; rs.updateClob(pos, v) }
   def updateDate(v: Date) = { pos += 1; rs.updateDate(pos, v) }
   def updateDouble(v: Double) = { pos += 1; rs.updateDouble(pos, v) }
@@ -63,6 +66,7 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   def updateBooleanOption(v: Option[Boolean]) { pos += 1; v match { case Some(s) => rs.updateBoolean(pos, s); case None => rs.updateNull(pos) } }
   def updateBlobOption(v: Option[Blob]) { pos += 1; v match { case Some(s) => rs.updateBlob(pos, s); case None => rs.updateNull(pos) } }
   def updateByteOption(v: Option[Byte]) { pos += 1; v match { case Some(s) => rs.updateByte(pos, s); case None => rs.updateNull(pos) } }
+  def updateBytesOption(v: Option[Array[Byte]]) { pos += 1; v match { case Some(s) => rs.updateBytes(pos, s); case None => rs.updateNull(pos) } }
   def updateClobOption(v: Option[Clob]) { pos += 1; v match { case Some(s) => rs.updateClob(pos, s); case None => rs.updateNull(pos) } }
   def updateDateOption(v: Option[Date]) { pos += 1; v match { case Some(s) => rs.updateDate(pos, s); case None => rs.updateNull(pos) } }
   def updateDoubleOption(v: Option[Double]) { pos += 1; v match { case Some(s) => rs.updateDouble(pos, s); case None => rs.updateNull(pos) } }

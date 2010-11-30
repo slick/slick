@@ -48,6 +48,10 @@ object TypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.byteTypeMapperDelegate
   }
 
+  implicit object ByteArrayTypeMapper extends BaseTypeMapper[Array[Byte]] {
+    def apply(profile: BasicProfile) = profile.typeMapperDelegates.byteArrayTypeMapperDelegate
+  }
+
   implicit object ClobTypeMapper extends BaseTypeMapper[Clob] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.clobTypeMapperDelegate
   }

@@ -1,6 +1,7 @@
 package org.scalaquery.ql.basic
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
+import org.scalaquery.SQueryException
 import org.scalaquery.ql.TypeMapperDelegate
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 
@@ -9,6 +10,7 @@ trait BasicTypeMapperDelegates {
   val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
   val blobTypeMapperDelegate = new BlobTypeMapperDelegate
   val byteTypeMapperDelegate = new ByteTypeMapperDelegate
+  val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate
   val clobTypeMapperDelegate = new ClobTypeMapperDelegate
   val dateTypeMapperDelegate = new DateTypeMapperDelegate
   val doubleTypeMapperDelegate = new DoubleTypeMapperDelegate
@@ -38,6 +40,8 @@ object BasicTypeMapperDelegates {
     def setOption(v: Option[Blob], p: PositionedParameters) = p.setBlobOption(v)
     def nextValue(r: PositionedResult) = r.nextBlob
     def updateValue(v: Blob, r: PositionedResult) = r.updateBlob(v)
+    override def valueToSQLLiteral(value: Blob) =
+      throw new SQueryException("Blob does not have a literal representation")
   }
 
   class ByteTypeMapperDelegate extends TypeMapperDelegate[Byte] {
@@ -47,6 +51,17 @@ object BasicTypeMapperDelegates {
     def setOption(v: Option[Byte], p: PositionedParameters) = p.setByteOption(v)
     def nextValue(r: PositionedResult) = r.nextByte
     def updateValue(v: Byte, r: PositionedResult) = r.updateByte(v)
+  }
+
+  class ByteArrayTypeMapperDelegate extends TypeMapperDelegate[Array[Byte]] {
+    val zero = new Array[Byte](0)
+    val sqlType = java.sql.Types.BLOB
+    def setValue(v: Array[Byte], p: PositionedParameters) = p.setBytes(v)
+    def setOption(v: Option[Array[Byte]], p: PositionedParameters) = p.setBytesOption(v)
+    def nextValue(r: PositionedResult) = r.nextBytes
+    def updateValue(v: Array[Byte], r: PositionedResult) = r.updateBytes(v)
+    override def valueToSQLLiteral(value: Array[Byte]) =
+      throw new SQueryException("Array[Byte] does not have a literal representation")
   }
 
   class ClobTypeMapperDelegate extends TypeMapperDelegate[Clob] {

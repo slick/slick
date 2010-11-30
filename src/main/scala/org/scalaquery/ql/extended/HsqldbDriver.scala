@@ -23,13 +23,13 @@ import org.scalaquery.util._
 class HsqldbDriver extends ExtendedProfile { self =>
 
   type ImplicitT = ExtendedImplicitConversions[HsqldbDriver]
-  type TypeMapperDelegatesT = BasicTypeMapperDelegates
+  type TypeMapperDelegatesT = HsqldbTypeMapperDelegates
 
   val Implicit = new ExtendedImplicitConversions[HsqldbDriver] {
     implicit val scalaQueryDriver = self
   }
 
-  val typeMapperDelegates = new BasicTypeMapperDelegates {}
+  val typeMapperDelegates = new HsqldbTypeMapperDelegates
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new HsqldbQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new HsqldbDDLBuilder(table, this).buildDDL
@@ -37,6 +37,12 @@ class HsqldbDriver extends ExtendedProfile { self =>
 }
 
 object HsqldbDriver extends HsqldbDriver
+
+class HsqldbTypeMapperDelegates extends BasicTypeMapperDelegates {
+  override val byteArrayTypeMapperDelegate = new BasicTypeMapperDelegates.ByteArrayTypeMapperDelegate {
+    override val sqlTypeName = "LONGVARBINARY"
+  }
+}
 
 class HsqldbDDLBuilder(table: AbstractBasicTable[_], profile: HsqldbDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._

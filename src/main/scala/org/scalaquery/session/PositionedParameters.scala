@@ -12,6 +12,7 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setBoolean(value: Boolean) = { pos += 1; ps.setBoolean(pos, value) }
   def setBlob(value: Blob) = { pos += 1; ps.setBlob(pos, value) }
   def setByte(value: Byte) = { pos += 1; ps.setByte(pos, value) }
+  def setBytes(value: Array[Byte]) = { pos += 1; ps.setBytes(pos, value) }
   def setClob(value: Clob) = { pos += 1; ps.setClob(pos, value) }
   def setDate(value: Date) = { pos += 1; ps.setDate(pos, value) }
   def setDouble(value: Double) = { pos += 1; ps.setDouble(pos, value) }
@@ -34,6 +35,10 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setByteOption(value: Option[Byte]) = {
     pos += 1
     if(value eq None) ps.setNull(pos, Types.TINYINT) else ps.setByte(pos, value.get)
+  }
+  def setBytesOption(value: Option[Array[Byte]]) = {
+    pos += 1
+    if(value eq None) ps.setNull(pos, Types.BLOB) else ps.setBytes(pos, value.get)
   }
   def setClobOption(value: Option[Clob]) = {
     pos += 1

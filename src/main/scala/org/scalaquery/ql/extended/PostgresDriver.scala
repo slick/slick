@@ -7,19 +7,25 @@ import org.scalaquery.util._
 class PostgresDriver extends ExtendedProfile { self =>
 
   type ImplicitT = ExtendedImplicitConversions[PostgresDriver]
-  type TypeMapperDelegatesT = BasicTypeMapperDelegates
+  type TypeMapperDelegatesT = PostgresTypeMapperDelegates
 
   val Implicit = new ExtendedImplicitConversions[PostgresDriver] {
     implicit val scalaQueryDriver = self
   }
 
-  val typeMapperDelegates = new BasicTypeMapperDelegates {}
+  val typeMapperDelegates = new PostgresTypeMapperDelegates
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new PostgresQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new PostgresDDLBuilder(table, this).buildDDL
 }
 
 object PostgresDriver extends PostgresDriver
+
+class PostgresTypeMapperDelegates extends BasicTypeMapperDelegates {
+  override val byteArrayTypeMapperDelegate = new BasicTypeMapperDelegates.ByteArrayTypeMapperDelegate {
+    override val sqlTypeName = "BYTEA"
+  }
+}
 
 class PostgresQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: PostgresDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
