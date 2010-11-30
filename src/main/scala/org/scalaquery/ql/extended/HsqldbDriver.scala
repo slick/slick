@@ -20,23 +20,25 @@ import org.scalaquery.util._
  * 
  * @author szeiger
  */
-object HsqldbDriver extends ExtendedProfile { self =>
+class HsqldbDriver extends ExtendedProfile { self =>
 
-  type ImplicitT = ExtendedImplicitConversions[HsqldbDriver.type]
+  type ImplicitT = ExtendedImplicitConversions[HsqldbDriver]
   type TypeMapperDelegatesT = BasicTypeMapperDelegates
 
-  val Implicit = new ExtendedImplicitConversions[HsqldbDriver.type] {
+  val Implicit = new ExtendedImplicitConversions[HsqldbDriver] {
     implicit val scalaQueryDriver = self
   }
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new HsqldbQueryBuilder(query, nc, None, this)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new HsqldbDDLBuilder(table).buildDDL
-  override def buildSequenceDDL(seq: Sequence[_]): DDL = new HsqldbSequenceDDLBuilder(seq).buildDDL
+  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new HsqldbDDLBuilder(table, this).buildDDL
+  override def buildSequenceDDL(seq: Sequence[_]): DDL = new HsqldbSequenceDDLBuilder(seq, this).buildDDL
 }
 
-class HsqldbDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, HsqldbDriver) {
+object HsqldbDriver extends HsqldbDriver
+
+class HsqldbDDLBuilder(table: AbstractBasicTable[_], profile: HsqldbDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
   protected class HsqldbColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
@@ -65,7 +67,7 @@ class HsqldbDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(tab
   }
 }
 
-class HsqldbQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: HsqldbDriver.type)
+class HsqldbQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: HsqldbDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -133,7 +135,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 }
 
-class HsqldbSequenceDDLBuilder[T](seq: Sequence[T]) extends BasicSequenceDDLBuilder(seq, HsqldbDriver) {
+class HsqldbSequenceDDLBuilder[T](seq: Sequence[T], profile: HsqldbDriver) extends BasicSequenceDDLBuilder(seq, profile) {
   import profile.sqlUtils._
 
   override def buildDDL: DDL = {

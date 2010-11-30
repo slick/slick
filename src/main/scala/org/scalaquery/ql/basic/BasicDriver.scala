@@ -1,13 +1,15 @@
 package org.scalaquery.ql.basic
 
-object BasicDriver extends BasicProfile { self =>
+class BasicDriver extends BasicProfile { self =>
 
-  type ImplicitT = BasicImplicitConversions[BasicDriver.type]
+  type ImplicitT = BasicImplicitConversions[BasicDriver]
   type TypeMapperDelegatesT = BasicTypeMapperDelegates
 
-  val Implicit = new BasicImplicitConversions[BasicDriver.type] {
+  val Implicit = new BasicImplicitConversions[BasicDriver] {
     implicit val scalaQueryDriver = self
   }
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 }
+
+object BasicDriver extends BasicDriver

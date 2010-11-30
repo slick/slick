@@ -4,12 +4,12 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 
-object OracleDriver extends ExtendedProfile { self =>
+class OracleDriver extends ExtendedProfile { self =>
 
-  type ImplicitT = ExtendedImplicitConversions[OracleDriver.type]
+  type ImplicitT = ExtendedImplicitConversions[OracleDriver]
   type TypeMapperDelegatesT = BasicTypeMapperDelegates
 
-  val Implicit = new ExtendedImplicitConversions[OracleDriver.type] {
+  val Implicit = new ExtendedImplicitConversions[OracleDriver] {
     implicit val scalaQueryDriver = self
   }
 
@@ -18,7 +18,9 @@ object OracleDriver extends ExtendedProfile { self =>
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new OracleQueryBuilder(query, nc, None, this)
 }
 
-class OracleQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: OracleDriver.type)
+object OracleDriver extends OracleDriver
+
+class OracleQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: OracleDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._

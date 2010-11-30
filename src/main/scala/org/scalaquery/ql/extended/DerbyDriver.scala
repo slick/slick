@@ -5,21 +5,23 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 
-object DerbyDriver extends ExtendedProfile { self =>
+class DerbyDriver extends ExtendedProfile { self =>
 
-  type ImplicitT = ExtendedImplicitConversions[DerbyDriver.type]
+  type ImplicitT = ExtendedImplicitConversions[DerbyDriver]
   type TypeMapperDelegatesT = BasicTypeMapperDelegates
 
-  val Implicit = new ExtendedImplicitConversions[DerbyDriver.type] {
+  val Implicit = new ExtendedImplicitConversions[DerbyDriver] {
     implicit val scalaQueryDriver = self
   }
 
   val typeMapperDelegates = new DerbyTypeMapperDelegates
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new DerbyQueryBuilder(query, nc, None, this)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DerbyDDLBuilder(table).buildDDL
-  override def buildSequenceDDL(seq: Sequence[_]): DDL = new DerbySequenceDDLBuilder(seq).buildDDL
+  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DerbyDDLBuilder(table, this).buildDDL
+  override def buildSequenceDDL(seq: Sequence[_]): DDL = new DerbySequenceDDLBuilder(seq, this).buildDDL
 }
+
+object DerbyDriver extends DerbyDriver
 
 class DerbyTypeMapperDelegates extends BasicTypeMapperDelegates {
   import DerbyTypeMapperDelegates._
@@ -35,7 +37,7 @@ object DerbyTypeMapperDelegates {
   }
 }
 
-class DerbyQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: DerbyDriver.type)
+class DerbyQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: DerbyDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -161,7 +163,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 }
 
-class DerbyDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, DerbyDriver) {
+class DerbyDDLBuilder(table: AbstractBasicTable[_], profile: DerbyDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
   protected class DerbyColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
@@ -190,7 +192,7 @@ class DerbyDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(tabl
   }
 }
 
-class DerbySequenceDDLBuilder[T](seq: Sequence[T]) extends BasicSequenceDDLBuilder(seq, DerbyDriver) {
+class DerbySequenceDDLBuilder[T](seq: Sequence[T], profile: DerbyDriver) extends BasicSequenceDDLBuilder(seq, profile) {
   import profile.sqlUtils._
 
   override def buildDDL: DDL = {

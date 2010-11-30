@@ -4,22 +4,24 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 
-object SQLiteDriver extends ExtendedProfile { self =>
+class SQLiteDriver extends ExtendedProfile { self =>
 
-  type ImplicitT = ExtendedImplicitConversions[SQLiteDriver.type]
+  type ImplicitT = ExtendedImplicitConversions[SQLiteDriver]
   type TypeMapperDelegatesT = BasicTypeMapperDelegates
 
-  val Implicit = new ExtendedImplicitConversions[SQLiteDriver.type] {
+  val Implicit = new ExtendedImplicitConversions[SQLiteDriver] {
     implicit val scalaQueryDriver = self
   }
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new SQLiteQueryBuilder(query, nc, None, this)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLiteDDLBuilder(table).buildDDL
+  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLiteDDLBuilder(table, this).buildDDL
 }
 
-class SQLiteDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, SQLiteDriver) {
+object SQLiteDriver extends SQLiteDriver
+
+class SQLiteDDLBuilder(table: AbstractBasicTable[_], profile: SQLiteDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
   protected class SQLiteColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
@@ -55,7 +57,7 @@ class SQLiteDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(tab
   }
 }
 
-class SQLiteQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLiteDriver.type)
+class SQLiteQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLiteDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._

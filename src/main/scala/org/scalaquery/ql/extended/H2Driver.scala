@@ -4,12 +4,12 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 
-object H2Driver extends ExtendedProfile { self =>
+class H2Driver extends ExtendedProfile { self =>
 
-  type ImplicitT = ExtendedImplicitConversions[H2Driver.type]
+  type ImplicitT = ExtendedImplicitConversions[H2Driver]
   type TypeMapperDelegatesT = BasicTypeMapperDelegates
 
-  val Implicit = new ExtendedImplicitConversions[H2Driver.type] {
+  val Implicit = new ExtendedImplicitConversions[H2Driver] {
     implicit val scalaQueryDriver = self
   }
 
@@ -19,7 +19,9 @@ object H2Driver extends ExtendedProfile { self =>
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
 }
 
-class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver.type)
+object H2Driver extends H2Driver
+
+class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._

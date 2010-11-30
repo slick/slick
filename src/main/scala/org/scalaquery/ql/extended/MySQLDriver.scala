@@ -5,24 +5,26 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 
-object MySQLDriver extends ExtendedProfile { self =>
+class MySQLDriver extends ExtendedProfile { self =>
 
-  type ImplicitT = ExtendedImplicitConversions[MySQLDriver.type]
+  type ImplicitT = ExtendedImplicitConversions[MySQLDriver]
   type TypeMapperDelegatesT = MySQLTypeMapperDelegates
 
-  val Implicit = new ExtendedImplicitConversions[MySQLDriver.type] {
+  val Implicit = new ExtendedImplicitConversions[MySQLDriver] {
     implicit val scalaQueryDriver = self
   }
 
-  val typeMapperDelegates = new MySQLTypeMapperDelegates {}
+  val typeMapperDelegates = new MySQLTypeMapperDelegates
   override val sqlUtils = new MySQLSQLUtils
 
   override def createQueryBuilder(query: Query[_], nc: NamingContext) = new MySQLQueryBuilder(query, nc, None, this)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table).buildDDL
-  override def buildSequenceDDL(seq: Sequence[_]): DDL = new MySQLSequenceDDLBuilder(seq).buildDDL
+  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table, this).buildDDL
+  override def buildSequenceDDL(seq: Sequence[_]): DDL = new MySQLSequenceDDLBuilder(seq, this).buildDDL
 }
 
-trait MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
+object MySQLDriver extends MySQLDriver
+
+class MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
   override val stringTypeMapperDelegate = new BasicTypeMapperDelegates.StringTypeMapperDelegate {
     override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
       val sb = new StringBuilder
@@ -45,7 +47,7 @@ trait MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
   }
 }
 
-class MySQLQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: MySQLDriver.type)
+class MySQLQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: MySQLDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -96,18 +98,18 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 }
 
-class MySQLDDLBuilder(table: AbstractBasicTable[_]) extends BasicDDLBuilder(table, MySQLDriver) {
+class MySQLDDLBuilder(table: AbstractBasicTable[_], profile: MySQLDriver) extends BasicDDLBuilder(table, profile) {
   override protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
     "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
   }
 }
 
-class MySQLSequenceDDLBuilder[T](seq: Sequence[T]) extends BasicSequenceDDLBuilder(seq, MySQLDriver) {
+class MySQLSequenceDDLBuilder[T](seq: Sequence[T], profile: MySQLDriver) extends BasicSequenceDDLBuilder(seq, profile) {
   import profile.sqlUtils._
 
   override def buildDDL: DDL = {
     import seq.integral._
-    val sqlType = seq.typeMapper(MySQLDriver).sqlTypeName
+    val sqlType = seq.typeMapper(profile).sqlTypeName
     val t = sqlType + " not null"
     val increment = seq._increment.getOrElse(one)
     val desc = increment < zero
