@@ -165,3 +165,34 @@ object TypeMapperDelegate {
   (for(f <- classOf[java.sql.Types].getFields)
     yield f.get(null).asInstanceOf[Int] -> f.getName)
 }
+
+abstract class MappedTypeMapper[T,U](implicit tm: TypeMapper[U]) extends TypeMapper[T] { self =>
+  def map(t: T): U
+  def comap(u: U): T
+
+  def sqlType: Option[Int] = None
+  def sqlTypeName: Option[String] = None
+  def valueToSQLLiteral(value: T): Option[String] = None
+  def nullable: Option[Boolean] = None
+
+  def apply(profile: BasicProfile): TypeMapperDelegate[T] = new TypeMapperDelegate[T] {
+    val tmd = tm(profile)
+    def zero = comap(tmd.zero)
+    def sqlType = self.sqlType.getOrElse(tmd.sqlType)
+    override def sqlTypeName = self.sqlTypeName.getOrElse(tmd.sqlTypeName)
+    def setValue(v: T, p: PositionedParameters) = tmd.setValue(map(v), p)
+    def setOption(v: Option[T], p: PositionedParameters) = tmd.setOption(v.map(map _), p)
+    def nextValue(r: PositionedResult) = comap(tmd.nextValue(r))
+    def updateValue(v: T, r: PositionedResult) = tmd.updateValue(map(v), r)
+    override def valueToSQLLiteral(value: T) = self.valueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
+    override def nullable = self.nullable.getOrElse(tmd.nullable)
+  }
+}
+
+object MappedTypeMapper {
+  def base[T, U](tmap: T => U, tcomap: U => T)(implicit tm: TypeMapper[U]): BaseTypeMapper[T] =
+    new MappedTypeMapper[T, U] with BaseTypeMapper[T] {
+      def map(t: T) = tmap(t)
+      def comap(u: U) = tcomap(u)
+    }
+}

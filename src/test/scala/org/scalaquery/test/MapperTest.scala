@@ -15,7 +15,7 @@ object MapperTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyM
 class MapperTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
-  @Test def test() {
+  @Test def testMappedEntity() {
 
     case class User(id: Option[Int], first: String, last: String)
 
@@ -52,6 +52,31 @@ class MapperTest(tdb: TestDB) extends DBTest(tdb) {
         Users.findByID.first(3),
         User(Some(3), "Carl", "Carlson")
       )
+    }
+  }
+
+  @Test def testMappedType() {
+
+    sealed trait Bool
+    case object True extends Bool
+    case object False extends Bool
+
+    implicit val boolTypeMapper = MappedTypeMapper.base[Bool, Int](
+      b => if(b == True) 1 else 0,
+      i => if(i == 1) True else False)
+
+    object T extends Table[(Int, Bool)]("t") {
+      def id = column[Int]("id", O PrimaryKey, O AutoInc)
+      def b = column[Bool]("b")
+      def * = id ~ b
+    }
+
+    db withSession {
+      T.ddl.create
+      T.b.insertAll(False, True)
+      assertEquals(Query(T).list.toSet, Set((1, False), (2, True)))
+      assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True)))
+      assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False)))
     }
   }
 }
