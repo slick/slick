@@ -1,5 +1,6 @@
 package org.scalaquery.ql.extended
 
+import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
@@ -42,6 +43,13 @@ class SQLiteDDLBuilder(table: AbstractBasicTable[_], profile: SQLiteDriver) exte
       if(first) first = false
       else b append ","
       createColumnDDLBuilder(n).appendColumn(b)
+    }
+    var prevPK: String = null
+    for(pk <- table.primaryKeys) {
+      if(prevPK eq null) prevPK = pk.name
+      else throw new SQueryException("Table "+table.tableName+" defines multiple primary keys "+prevPK+" and "+pk.name)
+      b append ","
+      addPrimaryKey(pk, b)
     }
     for(fk <- table.foreignKeys) {
       b append ","

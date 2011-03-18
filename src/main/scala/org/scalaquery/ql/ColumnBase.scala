@@ -17,7 +17,7 @@ trait ColumnBase[T] extends Node with WithOp {
 }
 
 /**
- * Base trait for columns.
+ * Base classs for columns.
  */
 abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   final val typeMapper = implicitly[TypeMapper[T]]

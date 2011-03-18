@@ -36,11 +36,21 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
     ForeignKeyQuery(ForeignKey(name, this, targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), targetTable,
       sourceColumns, targetColumns, onUpdate, onDelete))
 
-  def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_]]] = (for {
+  def primaryKey(name: String, sourceColumns: ColumnBase[_]): PrimaryKey = PrimaryKey(name, Node(sourceColumns))
+
+  def tableConstraints: Iterable[Constraint] = for {
       m <- getClass().getMethods.view
-      if m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable[_]]] && m.getParameterTypes.length == 0
-      q = m.invoke(this).asInstanceOf[ForeignKeyQuery[_ <: AbstractTable[_]]]
-    } yield q.fk)
+      if m.getParameterTypes.length == 0 &&
+        (m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable[_]]]
+         || m.getReturnType == classOf[PrimaryKey])
+      q = m.invoke(this).asInstanceOf[Constraint]
+    } yield q
+
+  final def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_]]] =
+    tableConstraints collect { case q: ForeignKeyQuery[_] => q.fk }
+
+  final def primaryKeys: Iterable[PrimaryKey] =
+    tableConstraints collect { case k: PrimaryKey => k }
 
   def index(name: String, on: ColumnBase[_], unique: Boolean = false) = new Index(name, this, on, unique)
 

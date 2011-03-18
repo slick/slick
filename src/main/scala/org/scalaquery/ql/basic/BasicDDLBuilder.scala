@@ -62,19 +62,21 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
       b.toString
     }
     val createIndexes = table.indexes.map(createIndex)
-    val alterTables1 = table.foreignKeys.map(createForeignKey)
-    val alterTables2 = table.foreignKeys.map(dropForeignKey)
+    val foreignKeys = table.foreignKeys
+    val primaryKeys = table.primaryKeys
+    if(primaryKeys.size > 1)
+      throw new SQueryException("Table "+table.tableName+" defines multiple primary keys")
     new DDL {
-      val createPhase1 = Iterable(createTable) ++ createIndexes
-      val createPhase2 = alterTables1
-      val dropPhase1 = alterTables2
-      val dropPhase2 = Iterable("DROP TABLE " + quoteIdentifier(table.tableName))
+      val createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ createIndexes
+      val createPhase2 = foreignKeys.map(createForeignKey)
+      val dropPhase1 = foreignKeys.map(dropForeignKey)
+      val dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable("DROP TABLE " + quoteIdentifier(table.tableName))
     }
   }
 
   protected def createIndex(idx: Index) = {
     val b = new StringBuilder append "CREATE "
-    if(idx.unique) b append "UNIQUE " 
+    if(idx.unique) b append "UNIQUE "
     b append "INDEX " append quoteIdentifier(idx.name) append " ON " append quoteIdentifier(table.tableName) append "("
     addIndexColumnList(idx.on, b, idx.table.tableName)
     b append ")"
@@ -96,15 +98,34 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
     sb append " ON DELETE " append fk.onDelete.action
   }
 
+  protected def createPrimaryKey(pk: PrimaryKey) = {
+    val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
+    addPrimaryKey(pk, sb)
+    sb.toString
+  }
+
+  protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder) {
+    sb append "CONSTRAINT " append quoteIdentifier(pk.name) append " PRIMARY KEY("
+    addPrimaryKeyColumnList(pk.columns, sb, table.tableName)
+    sb append ")"
+  }
+
   protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
     "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(fk.name)
   }
 
+  protected def dropPrimaryKey(pk: PrimaryKey) = {
+    "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(pk.name)
+  }
+
   protected def addIndexColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
-    addColumnList(columns, sb, requiredTableName, "foreign key constraint")
+    addColumnList(columns, sb, requiredTableName, "index")
 
   protected def addForeignKeyColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
-    addColumnList(columns, sb, requiredTableName, "index")
+    addColumnList(columns, sb, requiredTableName, "foreign key constraint")
+
+  protected def addPrimaryKeyColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
+    addColumnList(columns, sb, requiredTableName, "foreign key constraint")
 
   protected def addColumnList(columns: Node, sb: StringBuilder, requiredTableName: String, typeInfo: String) = {
     var first = true
