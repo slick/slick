@@ -8,7 +8,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object ByteArrayTest extends DBTestObject(H2Mem, SQLiteMem, HsqldbMem, MySQL, DerbyMem, Postgres)
+object ByteArrayTest extends DBTestObject(H2Mem, SQLiteMem, HsqldbMem, MySQL, DerbyMem, Postgres, MSAccess)
 
 class ByteArrayTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -21,6 +21,7 @@ class ByteArrayTest(tdb: TestDB) extends DBTest(tdb) {
     }
 
     db withSession {
+      T.ddl.createStatements foreach println
       T.ddl.create;
       T insert (1, Array[Byte](1,2,3))
       T insert (2, Array[Byte](4,5))

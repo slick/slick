@@ -6,13 +6,13 @@ import org.junit.runner.JUnitCore
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.basic.{BasicTable => Table}
-import org.scalaquery.ql.extended.DerbyDriver
+import org.scalaquery.ql.extended.{DerbyDriver, AccessDriver}
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object ScalarFunctionTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object ScalarFunctionTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess)
 
 class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -33,11 +33,14 @@ class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
     check(Query(ConstColumn("  foo  ").ltrim), "foo  ")
     check(Query(ConstColumn("  foo  ").rtrim), "  foo")
     check(Query(ConstColumn("  foo  ").trim), "foo")
-    if(tdb.driver != DerbyDriver) {
-      // Derby does not support {fn database()}
+    if(tdb.driver != DerbyDriver && tdb.driver != AccessDriver) {
+      // Derby and Access do not support {fn database()}
       check(Query(Functions.database.toLowerCase), tdb.dbName.toLowerCase)
     }
-    check(Query(Functions.user.toLowerCase), tdb.userName.toLowerCase)
+    if(tdb.driver != AccessDriver) {
+      // Access does not support {fn user()}
+      check(Query(Functions.user.toLowerCase), tdb.userName.toLowerCase)
+    }
     check(Query(ConstColumn(8) % 3 ), 2)
     check(Query(ConstColumn(-12.5).abs), 12.5)
     check(Query(ConstColumn(1.5).ceil), 2.0)

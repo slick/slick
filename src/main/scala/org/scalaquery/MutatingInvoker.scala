@@ -34,12 +34,15 @@ trait DelegatingMutatingUnitInvoker[P,R] extends DelegatingUnitInvoker[P, R] wit
 trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with MutatingInvoker[P,R] {
 
   protected def updateRowValues(rs: PositionedResult, value: R)
+  protected val mutateConcurrency: ResultSetConcurrency = ResultSetConcurrency.Updatable
+  protected val mutateType: ResultSetType = ResultSetType.Auto
+  protected val previousAfterDelete = false
 
   def mutate(param: P, f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: Session): Unit =
     session.withTransaction {
       /* Hsqldb forces ResultSets to be read-only in auto-commit mode, so we
        * use an explicit transaction. It shouldn't hurt other databases. */
-      results(param, 0, defaultConcurrency = ResultSetConcurrency.Updatable) match {
+      results(param, 0, defaultConcurrency = mutateConcurrency, defaultType = mutateType) match {
         case Left(_) => throw new SQueryException("Cannot transform an update result")
         case Right(pr) => try {
           val rs = pr.rs
@@ -58,7 +61,10 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
               rs.insertRow()
               rs.moveToCurrentRow()
             }
-            def delete() { rs.deleteRow() }
+            def delete() {
+              rs.deleteRow()
+              if(previousAfterDelete) rs.previous()
+            }
           }
           while(pr.next) {
             current = extractValue(pr)

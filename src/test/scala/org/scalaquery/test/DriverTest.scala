@@ -25,10 +25,6 @@ class DriverTest(tdb: TestDB) extends DBTest(tdb) {
       "SELECT \"t1\".\"name\" FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like 'quote '' and backslash \\%' {escape '^'}) LIMIT 5",
       "SELECT \"t1\".\"name\" FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like (?||'%')) LIMIT 5 OFFSET 10",
       "SELECT 42,'foo'")
-    case OracleDriver => List(
-      "SELECT * FROM (SELECT \"t1\".\"name\" FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like 'quote '' and backslash \\%' {escape '^'})) WHERE ROWNUM <= 5",
-      "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (\"t1\".\"name\",ROWNUM ROWNUM_I FROM \"users\" \"t1\" WHERE (\"t1\".\"name\" like (?||'%'))) t0) WHERE ROWNUM_O BETWEEN (1+10) AND (10+5) ORDER BY ROWNUM_I",
-      "SELECT 42,'foo' FROM DUAL")
     case MySQLDriver => List(
       "SELECT `t1`.`name` FROM `users` `t1` WHERE (`t1`.`name` like 'quote \\' and backslash \\\\%' {escape '^'}) LIMIT 5",
       "SELECT `t1`.`name` FROM `users` `t1` WHERE (`t1`.`name` like concat(?,'%')) LIMIT 10,5",

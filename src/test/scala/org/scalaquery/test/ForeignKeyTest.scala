@@ -12,7 +12,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object ForeignKeyTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object ForeignKeyTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess)
 
 class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -34,11 +34,11 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
       def categoryJoin = Categories.where(_.id === category)
     }
 
-    assertEquals(List(), tdb.getLocalTables)
+    tdb.assertNotTablesExist("categories", "posts")
     val ddl = Posts.ddl ++ Categories.ddl
     ddl.createStatements foreach println
     ddl create;
-    assertEquals(List("categories", "posts"), tdb.getLocalTables)
+    tdb.assertTablesExist("categories", "posts")
 
     Categories insertAll (
       (1, "Scala"),
@@ -77,7 +77,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     val ddl2 = Categories.ddl ++ Posts.ddl
     ddl2.dropStatements foreach println
     ddl2 drop;
-    assertEquals(List(), tdb.getLocalTables)
+    tdb.assertNotTablesExist("categories", "posts")
   }
 
   @Test def test2(): Unit = db withSession {

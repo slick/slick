@@ -1,16 +1,19 @@
 package org.scalaquery.test.util
 
 import scala.collection.JavaConversions._
-import java.io.{File, IOException, FileInputStream}
 import java.util.Properties
 import java.sql.SQLException
-import org.scalaquery.ql.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver}
+import org.scalaquery.ql.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver, AccessDriver}
 import org.scalaquery.ResultSetInvoker
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.simple._
 import org.scalaquery.simple.StaticQuery._
 import org.scalaquery.simple.GetResult._
+import java.util.zip.GZIPInputStream
+import java.io._
+import org.junit.Assert
+import org.scalaquery.meta.MTable
 
 object TestDBOptions {
   val testDBDir = "test-dbs"
@@ -56,6 +59,54 @@ abstract class TestDB {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list(())(session).map(_._3).sorted
   }
+  def assertTablesExist(tables: String*)(implicit session: Session) {
+    for(t <- tables) {
+      try queryNA[Int]("select 1 from "+driver.sqlUtils.quoteIdentifier(t)+" where 1 < 0").list()(session) catch { case _: Exception =>
+        Assert.fail("Table "+t+" should exist")
+      }
+    }
+  }
+  def assertNotTablesExist(tables: String*)(implicit session: Session) {
+    for(t <- tables) {
+      try {
+        queryNA[Int]("select 1 from "+driver.sqlUtils.quoteIdentifier(t)+" where 1 < 0").list()(session)
+        Assert.fail("Table "+t+" should not exist")
+      } catch { case _: Exception => }
+    }
+  }
+  def assertUnquotedTablesExist(tables: String*)(implicit session: Session) {
+    for(t <- tables) {
+      try queryNA[Int]("select 1 from "+t+" where 1 < 0").list()(session) catch { case _: Exception =>
+        Assert.fail("Table "+t+" should exist")
+      }
+    }
+  }
+  def assertNotUnquotedTablesExist(tables: String*)(implicit session: Session) {
+    for(t <- tables) {
+      try {
+        queryNA[Int]("select 1 from "+t+" where 1 < 0").list()(session)
+        Assert.fail("Table "+t+" should not exist")
+      } catch { case _: Exception => }
+    }
+  }
+  def copy(src: File, dest: File) {
+    dest.createNewFile()
+    val out = new FileOutputStream(dest)
+    try {
+      var in: InputStream = new FileInputStream(src)
+      try {
+        if(src.getName.endsWith(".gz")) in = new GZIPInputStream(in)
+        val buf = new Array[Byte](4096)
+        var cont = true
+        while(cont) {
+          val len = in.read(buf)
+          if(len < 0) cont = false
+          else out.write(buf, 0, len)
+        }
+      } finally in.close()
+    } finally out.close()
+  }
+  def canGetLocalTables = true
 }
 
 class SQLiteTestDB(dburl: String) extends TestDB {
@@ -101,6 +152,31 @@ class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends Test
       }
     }
   }
+}
+
+class AccessDB(confName: String, val driver: ExtendedProfile) extends TestDB {
+  val jdbcDriver = TestDBOptions.get(confName, "driver").orNull
+  override def dbName = TestDBOptions.get(confName, "testDB").getOrElse(super.dbName)
+  val dir = new File(TestDBOptions.testDBDir)
+  val dbPath = dir.getAbsolutePath.replace("\\", "/")
+  val emptyDBFile = TestDBOptions.get(confName, "emptyDBFile").get
+    .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
+  val testDBFile = TestDBOptions.get(confName, "testDBFile").get
+    .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
+  val url = TestDBOptions.get(confName, "url").getOrElse("")
+    .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
+
+  override def isEnabled = TestDBOptions.isEnabled(confName)
+  override def createDB() = Database.forURL(url, driver = jdbcDriver)
+  override def cleanUpBefore() {
+    cleanUpAfter()
+    copy(new File(emptyDBFile), new File(testDBFile))
+  }
+  override def cleanUpAfter() = deleteDBFiles(dbName)
+  /* Works in some situations but fails with "Optional feature not implemented" in others */
+  override def canGetLocalTables = false
+  override def getLocalTables(implicit session: Session) =
+    MTable.getTables.list()(session).map(_.name.name).sorted
 }
 
 abstract class DerbyDB extends TestDB {
@@ -191,4 +267,6 @@ object TestDB {
   def MySQL(to: DBTestObject) = new ExternalTestDB("mysql", MySQLDriver) {
     override def userName = super.userName + "@localhost"
   }
+
+  def MSAccess(to: DBTestObject) = new AccessDB("access", AccessDriver)
 }

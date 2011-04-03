@@ -10,7 +10,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object MainTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object MainTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess)
 
 class MainTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -19,7 +19,7 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
 
   object Users extends Table[(Int, String, Option[String])]("users") {
     def id = column[Int]("id", O PrimaryKey, O AutoInc)
-    def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
+    def first = column[String]("first", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = id ~ first ~ last
 
@@ -30,8 +30,8 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
     def userID = column[Int]("userID")
     def orderID = column[Int]("orderID", O PrimaryKey, O AutoInc)
     def product = column[String]("product")
-    def shipped = column[Boolean]("shipped", O Default false)
-    def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
+    def shipped = column[Boolean]("shipped")
+    def rebate = column[Option[Boolean]]("rebate")
     def * = userID ~ orderID ~ product ~ shipped ~ rebate
   }
 

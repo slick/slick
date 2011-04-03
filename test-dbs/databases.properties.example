@@ -32,3 +32,16 @@ mysql.testDB = scala_query_test
 mysql.create = CREATE DATABASE [DB]
 mysql.drop = DROP DATABASE IF EXISTS [DB]
 mysql.driver = com.mysql.jdbc.Driver
+
+# Access quick setup:
+# - Install Office 2010
+# - Make sure your account has permissions to the ODBC registry keys:
+#   http://support.microsoft.com/kb/295297
+# - Set access.enabled = true
+access.enabled = false
+access.testDB = scala-query-test
+access.emptyDBFile = [DBPATH]/empty_4.x.mdb.gz
+access.testDBFile = [DBPATH]/[DB].mdb
+access.driver = sun.jdbc.odbc.JdbcOdbcDriver
+access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=[DBPATH]/[DB].mdb
+#access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)};DBQ=[DBPATH]/[DB].mdb

@@ -14,7 +14,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Postgres, MySQL, DerbyMem, DerbyDisk, HsqldbMem)
+object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Postgres, MySQL, DerbyMem, DerbyDisk, HsqldbMem, MSAccess)
 
 class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
@@ -97,9 +97,12 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
       }
       assertEquals(Set(User(1,"szeiger"), User(2,"guest"), User(0,"admin"), User(3,"foo")), s5)
 
-      println("All tables:")
-      for(t <- tdb.getLocalTables) println("  "+t)
-      assertEquals(List("users"), tdb.getLocalTables.map(_.toLowerCase))
+      if(tdb.canGetLocalTables) {
+        println("All tables:")
+        for(t <- tdb.getLocalTables) println("  "+t)
+        assertEquals(List("users"), tdb.getLocalTables.map(_.toLowerCase))
+      }
+      tdb.assertUnquotedTablesExist("USERS")
     }
   }
 }
