@@ -1,14 +1,19 @@
 ScalaQuery is a type-safe database query API for Scala.
 
 It includes the following features:
-- Simple session management based on JDBC Connections
+- Session management based on JDBC Connections
 - Type-safe queries based on a query monad and combinators
 - Simple static and dynamic queries
 
-See <http://szeiger.de/blog/2008/12/21/a-type-safe-database-query-dsl-for-scala/>
-for an introduction. Some details have changed since then so don't expect the
-code from that article to run unmodified with the current version. See
-<http://szeiger.de/blog/category/scala/scala-query/> for all ScalaQuery-related
-posts on my blog.
+The following database systems are directly supported for type-safe queries:
+- PostgreSQL
+- MySQL
+- H2
+- HSQLDB/HyperSQL
+- Derby/JavaDB
+- SQLite
+- Microsoft Access
+Accessing other database systems is possible, with a reduced feature set.
 
-See LICENSE.txt for licensing conditions (BSD-style).
+See <http://scalaquery.org/> for more information.
+Licensing conditions (BSD-style) can be found in LICENSE.txt.

@@ -17,7 +17,7 @@ import org.scalaquery.simple.StaticQuery.updateNA
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object MetaTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class MetaTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

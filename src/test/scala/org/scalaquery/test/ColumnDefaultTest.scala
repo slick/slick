@@ -10,7 +10,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object ColumnDefaultTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object ColumnDefaultTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class ColumnDefaultTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
@@ -26,6 +26,7 @@ class ColumnDefaultTest(tdb: TestDB) extends DBTest(tdb) {
 
   @Test def test() {
     db withSession {
+      A.ddl.createStatements foreach println
       A.ddl.create
       A.id insert 42
       assertEquals(List((42, "foo", Some(true))), Query(A).list)
