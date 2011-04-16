@@ -14,4 +14,6 @@ class BasicDeleteInvoker[T] (query: Query[AbstractBasicTable[T]], profile: Basic
     built.setter(new PositionedParameters(st), null)
     st.executeUpdate
   }
+
+  def deleteInvoker: this.type = this
 }

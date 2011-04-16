@@ -62,4 +62,6 @@ class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
   }
 
   def insert(c: ColumnBase[T])(implicit session: Session): Int = insert(Query(c))(session)
+
+  def insertInvoker: this.type = this
 }

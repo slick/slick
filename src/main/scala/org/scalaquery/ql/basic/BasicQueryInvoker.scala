@@ -23,4 +23,6 @@ class BasicQueryInvoker[R](q: Query[ColumnBase[R]], profile: BasicProfile)
   protected def extractValue(rs: PositionedResult): R = q.value.getResult(profile, rs)
 
   protected def updateRowValues(rs: PositionedResult, value: R) = q.value.updateResult(profile, rs, value)
+
+  def invoker: this.type = this
 }

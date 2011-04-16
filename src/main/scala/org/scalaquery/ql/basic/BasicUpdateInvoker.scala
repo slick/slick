@@ -17,4 +17,6 @@ class BasicUpdateInvoker[T] (query: Query[ColumnBase[T]], profile: BasicProfile)
     built.setter(new PositionedParameters(st), value)
     st.executeUpdate
   }
+
+  def updateInvoker: this.type = this
 }
