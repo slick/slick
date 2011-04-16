@@ -38,14 +38,8 @@ class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
     check(Query(ConstColumn("  foo  ").ltrim), "foo  ")
     check(Query(ConstColumn("  foo  ").rtrim), "  foo")
     check(Query(ConstColumn("  foo  ").trim), "foo")
-    if(tdb.driver != DerbyDriver && tdb.driver != AccessDriver) {
-      // Derby and Access do not support {fn database()}
-      checkIn(Query(Functions.database.toLowerCase), tdb.dbName.toLowerCase, "")
-    }
-    if(tdb.driver != AccessDriver) {
-      // Access does not support {fn user()}
-      checkIn(Query(Functions.user.toLowerCase), tdb.userName.toLowerCase, "")
-    }
+    checkIn(Query(Functions.database.toLowerCase), tdb.dbName.toLowerCase, "")
+    checkIn(Query(Functions.user.toLowerCase), tdb.userName.toLowerCase, "")
     check(Query(ConstColumn(8) % 3 ), 2)
     check(Query(ConstColumn(-12.5).abs), 12.5)
     check(Query(ConstColumn(1.9).ceil), 2.0)

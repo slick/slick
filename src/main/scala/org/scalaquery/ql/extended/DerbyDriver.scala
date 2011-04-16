@@ -5,6 +5,24 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 
+/**
+ * ScalaQuery driver for Derby/JavaDB.
+ *
+ * <p>This driver implements the ExtendedProfile with the following
+ * limitations:</p>
+ * <ul>
+ *   <li><code>Functions.database</code> is not available in Derby. ScalaQuery
+ *     will return an empty string instead.</li>
+ *   <li><code>Sequence.curr</code> to get the current value of a sequence is
+ *     not supported by Derby. Trying to generate SQL code which uses this
+ *     feature throws a SQueryException.</li>
+ *   <li>Sequence cycling is supported but does not conform to SQL:2008
+ *     semantics. Derby cycles back to the START value instead of MINVALUE or
+ *     MAXVALUE.</li>
+ * </ul>
+ *
+ * @author szeiger
+ */
 class DerbyDriver extends ExtendedProfile { self =>
 
   type ImplicitT = ExtendedImplicitConversions[DerbyDriver]
@@ -124,6 +142,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
 
     case Sequence.Currval(seq) => throw new SQueryException("Derby does not support CURRVAL")
+
+    case s: SimpleScalarFunction if s.name == "database" => b += "''"
 
     case _ => super.innerExpr(c, b)
   }

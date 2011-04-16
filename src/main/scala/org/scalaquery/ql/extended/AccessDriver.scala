@@ -24,8 +24,8 @@ import org.scalaquery.session.ResultSetType
  *   <li><code>Drop(n)</code> modifiers are not supported. Trying to generate
  *     SQL code which uses this feature throws an SQueryException.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
- *     not implemented by Access. ScalaQuery will generate the usual ODBC
- *     scalar function calls but Access cannot run them.</li>
+ *     not available in Access. ScalaQuery will return empty strings for
+ *     both.</li>
  *   <li>Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
  *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is
  *     supported.</li>
@@ -136,6 +136,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
         throw new SQueryException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
     }
+    case s: SimpleScalarFunction if s.name == "user" || s.name == "database" => b += "''"
     case s: SimpleScalarFunction if s.name == "pi" => b += pi
     case _ => super.innerExpr(c, b)
   }

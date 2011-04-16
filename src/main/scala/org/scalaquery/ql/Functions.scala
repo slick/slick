@@ -4,10 +4,10 @@ import java.sql.{Date, Time}
 import TypeMapper._
 
 object Functions {
-  /** The name of the database user */
+  /** The name of the database user, or an empty string if not supported by the DBMS */
   val user = SimpleScalarFunction.nullary[String]("user")
 
-  /** The name of the database */
+  /** The name of the database, or an empty string if not supported by the DBMS */
   val database = SimpleScalarFunction.nullary[String]("database")
 
   /** The current date of the database server */
