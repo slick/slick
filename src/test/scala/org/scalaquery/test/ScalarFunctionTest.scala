@@ -12,7 +12,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object ScalarFunctionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess)
+object ScalarFunctionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
 class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

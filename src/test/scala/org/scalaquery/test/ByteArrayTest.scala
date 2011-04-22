@@ -8,7 +8,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object ByteArrayTest extends DBTestObject(H2Mem, SQLiteMem, HsqldbMem, MySQL, DerbyMem, Postgres, MSAccess)
+object ByteArrayTest extends DBTestObject(H2Mem, SQLiteMem, HsqldbMem, MySQL, DerbyMem, Postgres, MSAccess, SQLServer)
 
 class ByteArrayTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

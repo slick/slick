@@ -30,6 +30,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected val subQueryBuilders = new HashMap[RefId[Query[_]], Self]
   protected var fromSlot: SQLBuilder = _
   protected var selectSlot: SQLBuilder = _
+  protected var maxColumnPos = 0
 
   protected def localTableName(n: Node) = n match {
     case Join.JoinPart(table, from) =>
@@ -205,7 +206,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
       case _ => innerExpr(c, b)
     }
-    if(rename && pos == 0) b += " as " += quoteIdentifier("c1")
+    if(rename && pos == 0) {
+      b += " as " += quoteIdentifier("c1")
+      pos = 1
+    }
+    if(topLevel) this.maxColumnPos = pos
   }
 
   protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {

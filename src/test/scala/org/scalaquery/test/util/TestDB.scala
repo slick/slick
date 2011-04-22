@@ -3,7 +3,7 @@ package org.scalaquery.test.util
 import scala.collection.JavaConversions._
 import java.util.Properties
 import java.sql.SQLException
-import org.scalaquery.ql.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver, AccessDriver}
+import org.scalaquery.ql.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver, AccessDriver, SQLServerDriver}
 import org.scalaquery.ResultSetInvoker
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
@@ -117,7 +117,7 @@ class SQLiteTestDB(dburl: String) extends TestDB {
     super.getLocalTables(session).filter(s => !s.toLowerCase.contains("sqlite_"))
 }
 
-class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends TestDB {
+class ExternalTestDB(val confName: String, val driver: ExtendedProfile) extends TestDB {
   val jdbcDriver = TestDBOptions.get(confName, "driver").orNull
   val urlTemplate = TestDBOptions.get(confName, "url").getOrElse("")
   override def dbName = TestDBOptions.get(confName, "testDB").getOrElse("")
@@ -266,6 +266,14 @@ object TestDB {
 
   def MySQL(to: DBTestObject) = new ExternalTestDB("mysql", MySQLDriver) {
     override def userName = super.userName + "@localhost"
+  }
+
+  def SQLServer(to: DBTestObject) = new ExternalTestDB("sqlserver", SQLServerDriver) {
+    val defaultSchema = TestDBOptions.get(confName, "defaultSchema").getOrElse("")
+    override def getLocalTables(implicit session: Session): List[String] = {
+      val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(dbName, defaultSchema, null, null))
+      tables.list(())(session).map(_._3).sorted
+    }
   }
 
   def MSAccess(to: DBTestObject) = new AccessDB("access", AccessDriver)

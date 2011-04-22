@@ -10,7 +10,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
-object ColumnDefaultTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
+object ColumnDefaultTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServer)
 
 class ColumnDefaultTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._

@@ -45,3 +45,23 @@ access.testDBFile = [DBPATH]/[DB].mdb
 access.driver = sun.jdbc.odbc.JdbcOdbcDriver
 access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=[DBPATH]/[DB].mdb
 #access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)};DBQ=[DBPATH]/[DB].mdb
+
+# SQL Server quick setup:
+# - Install SQL Server Express 2008 R2:
+#   http://www.microsoft.com/express/Database/InstallOptions.aspx
+# - In the SQL Server Configuration Manager, under "SQL Server Network
+#   Configuration", enable Named Pipes and change the path from
+#   \\.\pipe\MSSQL$SQLEXPRESS\sql\query to \\.\pipe\sql\query
+# - If your machine is on a Windows domain, you may need to set the right
+#   domain in sqlserver.url
+# - Set sqlserver.enabled = true
+sqlserver.enabled = false
+sqlserver.url = jdbc:jtds:sqlserver://localhost/[DB];progName=ScalaQuery_Unit_Test;namedPipe=true;domain=local
+sqlserver.user = dbo
+sqlserver.password =
+sqlserver.adminDB = master
+sqlserver.testDB = scalaquery-test
+sqlserver.defaultSchema = dbo
+sqlserver.create = CREATE DATABASE "[DB]"
+sqlserver.drop = IF EXISTS(SELECT name FROM sys.databases WHERE name = '[DB]') DROP DATABASE "[DB]"
+sqlserver.driver = net.sourceforge.jtds.jdbc.Driver
