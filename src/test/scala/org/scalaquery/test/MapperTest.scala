@@ -36,21 +36,25 @@ class MapperTest(tdb: TestDB) extends DBTest(tdb) {
       /* Using Users.forInsert so that we don't put a NULL value into the ID
        * column. H2 and SQLite allow this but PostgreSQL doesn't. */
       Users.forInsert.insertAll(
-        User(None, "Marge", "Simpson"),
+        User(None, "Marge", "Bouvier"),
         User(None, "Carl", "Carlson"),
         User(None, "Lenny", "Leonard")
       )
+
+      val updateQ = Users.where(_.id === 2.bind).map(_.forInsert)
+      println("Update: "+updateQ.updateStatement)
+      updateQ.update(User(None, "Marge", "Simpson"))
 
       Users.where(_.id between(1, 2)).foreach(println)
       println("ID 3 -> " + Users.findByID.first(3))
 
       assertEquals(
-        Users.where(_.id between(1, 2)).list.toSet,
-        Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson"))
+        Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")),
+        Users.where(_.id between(1, 2)).list.toSet
       )
       assertEquals(
-        Users.findByID.first(3),
-        User(Some(3), "Carl", "Carlson")
+        User(Some(3), "Carl", "Carlson"),
+        Users.findByID.first(3)
       )
     }
   }

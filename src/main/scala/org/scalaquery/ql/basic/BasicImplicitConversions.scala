@@ -25,7 +25,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[T] = new BasicQueryInvoker(q, scalaQueryDriver)
   implicit def queryToDeleteInvoker[T](q: Query[BasicTable[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
-  implicit def productQueryToUpdateInvoker[T <: Product](q: Query[Projection[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
+  implicit def productQueryToUpdateInvoker[T](q: Query[ColumnBase[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
   implicit def namedColumnQueryToUpdateInvoker[T](q: Query[NamedColumn[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
   implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(c, scalaQueryDriver)
 

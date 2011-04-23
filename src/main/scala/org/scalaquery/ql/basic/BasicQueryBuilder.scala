@@ -165,10 +165,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
         if(tableName eq null) { tableName = tn; table = t; }
         else if(tableName != tn)
           throw new SQueryException("All columns for an UPDATE statement must be from the same table")
-        b += quoteIdentifier(n) += '=' +?= { (p, param) =>
-          val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
-          tm(profile).asInstanceOf[TypeMapperDelegate[Any]].setValue(v, p)
-        }
+        b += quoteIdentifier(n) += "=?"
       }
     }
 
