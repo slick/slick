@@ -3,6 +3,7 @@ package org.scalaquery
 import scala.collection.mutable.ListBuffer
 import org.scalaquery.session.Session
 import org.scalaquery.util.CloseableIterator
+import org.scalaquery.iter._
 
 /**
  * Base trait for all statement invokers, using parameter type P and result type R.
@@ -69,6 +70,21 @@ trait Invoker[-P, +R] { self =>
   }
 
   /**
+   * Execute the statement and feed the converted rows of the result set into an iteratee.
+   */
+  final def enumerate[B, RR >: R](param: P, iter: IterV[RR,B])(implicit session: Session): IterV[RR, B] = {
+    var _iter = iter
+    val it = elements(param)(session)
+    try {
+      while(it.hasNext && !_iter.isInstanceOf[Done[_,_]]) {
+        val cont = _iter.asInstanceOf[Cont[RR,B]]
+        _iter = cont.k(El(it.next))
+      }
+    } finally it.close()
+    _iter
+  }
+
+  /**
    * Apply the parameter for this Invoker, creating a parameterless UnitInvoker.
    */
   def apply(parameter: P): UnitInvoker[R] = new AppliedInvoker[P,R] {
@@ -102,6 +118,7 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   def elements()(implicit session: Session): CloseableIterator[R]
   def execute()(implicit session: Session): Unit
   def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: Session): B
+  def enumerate[B, RR >: R](iter: IterV[RR,B])(implicit session: Session): IterV[RR, B]
   def firstFlatten[B](implicit session: Session, ev: R <:< Option[B]): Option[B] =
     firstOption/*.map(ev.apply _)*/.getOrElse(None).asInstanceOf[Option[B]]
   override def mapResult[U](f: (R => U)): UnitInvoker[U] = new MappedInvoker(this, f) with UnitInvokerMixin[U]
@@ -126,6 +143,7 @@ trait DelegatingUnitInvoker[P, +R] extends UnitInvoker[R] {
   final def elements()(implicit session: Session): CloseableIterator[R] = delegate.elements(appliedParameter)
   final def execute()(implicit session: Session): Unit = delegate.execute(appliedParameter)
   final def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: Session): B = delegate.foldLeft(appliedParameter, z)(op)
+  final def enumerate[B, RR >: R](iter: IterV[RR,B])(implicit session: Session): IterV[RR, B] = delegate.enumerate(appliedParameter, iter)
 }
 
 trait UnitInvokerMixin[+R] extends DelegatingUnitInvoker[Unit, R] {
