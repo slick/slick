@@ -1,6 +1,7 @@
 package org.scalaquery.ql
 
-import org.scalaquery.util.{Node, UnaryNode, NullaryNode, BinaryNode}
+import org.scalaquery.ql.basic.BasicQueryBuilder
+import org.scalaquery.util.{SQLBuilder, Node, BinaryNode}
 
 /**
  * A SimpleFunction gets translated to a plain function call or JDBC/ODBC
@@ -52,4 +53,37 @@ object SimpleBinaryOperator {
 
 case class SimpleLiteral(name: String) extends Node {
   val nodeChildren = Nil
+}
+
+trait SimpleExpression extends Node {
+  def toSQL(b: SQLBuilder, qb: BasicQueryBuilder): Unit
+}
+
+object SimpleExpression {
+  def apply[T : TypeMapper](f: (Seq[Node], SQLBuilder, BasicQueryBuilder) => Unit): (Seq[Column[_]] => OperatorColumn[T] with SimpleExpression) =
+    (paramsC: Seq[Column[_]]) =>
+      new OperatorColumn[T] with SimpleExpression {
+        def nodeChildren = paramsC.map(n => Node(n)).toList
+        def toSQL(b: SQLBuilder, qb: BasicQueryBuilder) = f(nodeChildren, b, qb)
+      }
+
+  def nullary[R : TypeMapper](f: (SQLBuilder, BasicQueryBuilder) => Unit): OperatorColumn[R] with SimpleExpression = {
+    val g = apply({ (ch: Seq[Node], b: SQLBuilder, qb: BasicQueryBuilder) => f(b, qb) });
+    g.apply(Seq())
+  }
+  
+  def unary[T1, R : TypeMapper](f: (Node, SQLBuilder, BasicQueryBuilder) => Unit): (Column[T1] => OperatorColumn[R] with SimpleExpression) = {
+    val g = apply({ (ch: Seq[Node], b: SQLBuilder, qb: BasicQueryBuilder) => f(ch(0), b, qb) });
+    { t1: Column[T1] => g(Seq(t1)) }
+  }
+
+  def binary[T1, T2, R : TypeMapper](f: (Node, Node, SQLBuilder, BasicQueryBuilder) => Unit): ((Column[T1], Column[T2]) => OperatorColumn[R] with SimpleExpression) = {
+    val g = apply({ (ch: Seq[Node], b: SQLBuilder, qb: BasicQueryBuilder) => f(ch(0), ch(1), b, qb) });
+    { (t1: Column[T1], t2: Column[T2]) => g(Seq(t1, t2)) }
+  }
+
+  def ternary[T1, T2, T3, R : TypeMapper](f: (Node, Node, Node, SQLBuilder, BasicQueryBuilder) => Unit): ((Column[T1], Column[T2], Column[T3]) => OperatorColumn[R] with SimpleExpression) = {
+    val g = apply({ (ch: Seq[Node], b: SQLBuilder, qb: BasicQueryBuilder) => f(ch(0), ch(1), ch(2), b, qb) });
+    { (t1: Column[T1], t2: Column[T2], t3: Column[T3]) => g(Seq(t1, t2, t3)) }
+  }
 }

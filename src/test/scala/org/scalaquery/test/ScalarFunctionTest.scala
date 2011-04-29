@@ -4,13 +4,14 @@ import org.junit.Test
 import org.junit.Assert._
 import org.junit.runner.JUnitCore
 import org.scalaquery.ql._
+import org.scalaquery.ql.basic.{BasicQueryBuilder, BasicTable => Table}
 import org.scalaquery.ql.TypeMapper._
-import org.scalaquery.ql.basic.{BasicTable => Table}
 import org.scalaquery.ql.extended.{DerbyDriver, AccessDriver}
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
+import org.scalaquery.util.{SQLBuilder, BinaryNode, Node}
 
 object ScalarFunctionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
@@ -54,5 +55,15 @@ class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
     check(Query(ConstColumn(-10.0).sign), -1)
     check(Query(Functions.pi.toDegrees), 180.0)
     check(Query(Functions.pi.toDegrees.toRadians is Functions.pi), true)
+
+    val myExpr = SimpleExpression.binary[Int, Int, Int] { (l, r, b, qb) =>
+      b += '('
+      qb.expr(l, b)
+      b += '+'
+      qb.expr(r, b)
+      b += "+1)"
+    }
+
+    check(Query(myExpr(4, 5)), 10)
   }
 }

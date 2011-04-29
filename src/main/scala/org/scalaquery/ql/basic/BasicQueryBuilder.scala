@@ -188,7 +188,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     b.build
   }
 
-  protected def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false, false)
+  def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false, false)
 
   protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
     var pos = 0
@@ -231,6 +231,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += ')'
       if(s.scalar) b += '}'
     case SimpleLiteral(w) => b += w
+    case s: SimpleExpression => s.toSQL(b, this)
     case ColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
     case ColumnOps.CountAll(q) => b += "count(*)"; localTableName(q)
     case ColumnOps.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
