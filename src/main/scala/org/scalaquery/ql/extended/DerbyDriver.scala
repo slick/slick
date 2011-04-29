@@ -143,7 +143,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
     case Sequence.Currval(seq) => throw new SQueryException("Derby does not support CURRVAL")
 
-    case s: SimpleScalarFunction if s.name == "database" => b += "''"
+    case SimpleFunction("database", true) => b += "''"
 
     case _ => super.innerExpr(c, b)
   }

@@ -5,17 +5,17 @@ import TypeMapper._
 
 object Functions {
   /** The name of the database user, or an empty string if not supported by the DBMS */
-  val user = SimpleScalarFunction.nullary[String]("user")
+  val user = SimpleFunction.nullary[String]("user", fn = true)
 
   /** The name of the database, or an empty string if not supported by the DBMS */
-  val database = SimpleScalarFunction.nullary[String]("database")
+  val database = SimpleFunction.nullary[String]("database", fn = true)
 
   /** The current date of the database server */
-  val currentDate = SimpleScalarFunction.nullary[Date]("curDate")
+  val currentDate = SimpleFunction.nullary[Date]("curDate", fn = true)
 
   /** The current time of the database server */
-  val currentTime = SimpleScalarFunction.nullary[Time]("curTime")
+  val currentTime = SimpleFunction.nullary[Time]("curTime", fn = true)
 
   /** The numeric constant for pi */
-  val pi = SimpleScalarFunction.nullary[Double]("pi")
+  val pi = SimpleFunction.nullary[Double]("pi", fn = true)
 }

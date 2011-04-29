@@ -104,13 +104,13 @@ object ColumnOps {
   case class In(left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with ColumnOps[Boolean,Boolean] { val name = "in" }
   case class Count(child: Node) extends OperatorColumn[Int] with SimpleFunction with UnaryNode { val name = "count" }
   case class CountAll(child: Node) extends OperatorColumn[Int] with UnaryNode
-  case class Mod[T](left: Node, right: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with BinaryNode { val name = "mod" }
-  case class Abs[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "abs" }
-  case class Ceil[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "ceiling" }
-  case class Floor[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "floor" }
-  case class Sign(child: Node) extends OperatorColumn[Int] with SimpleScalarFunction with UnaryNode { val name = "sign" }
-  case class Degrees[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "degrees" }
-  case class Radians[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleScalarFunction with UnaryNode { val name = "radians" }
+  case class Mod[T](left: Node, right: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with BinaryNode { val name = "mod"; override val scalar = true }
+  case class Abs[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "abs"; override val scalar = true }
+  case class Ceil[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "ceiling"; override val scalar = true }
+  case class Floor[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "floor"; override val scalar = true }
+  case class Sign(child: Node) extends OperatorColumn[Int] with SimpleFunction with UnaryNode { val name = "sign"; override val scalar = true }
+  case class Degrees[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "degrees"; override val scalar = true }
+  case class Radians[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "radians"; override val scalar = true }
   case class Avg[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "avg" }
   case class Min[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "min" }
   case class Max[T](child: Node, tm: TypeMapper[T]) extends OperatorColumn[T]()(tm) with SimpleFunction with UnaryNode { val name = "max" }
@@ -118,7 +118,7 @@ object ColumnOps {
   case class Relational(name: String, left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator with ColumnOps[Boolean,Boolean]
   case class Exists(child: Node) extends OperatorColumn[Boolean] with SimpleFunction with UnaryNode with ColumnOps[Boolean,Boolean] { val name = "exists" }
   case class Arith[T : TypeMapper](name: String, left: Node, right: Node) extends OperatorColumn[T] with SimpleBinaryOperator
-  case class IfNull(left: Node, right: Node) extends SimpleScalarFunction with BinaryNode { val name = "ifNull" }
+  case class IfNull(left: Node, right: Node) extends SimpleFunction with BinaryNode { val name = "ifNull"; override val scalar = true }
 
   case class Is(left: Node, right: Node) extends OperatorColumn[Boolean] with BinaryNode with ColumnOps[Boolean,Boolean]
   case class CountDistinct(child: Node) extends OperatorColumn[Int] with UnaryNode
@@ -136,13 +136,13 @@ object ColumnOps {
   case class Not(child: Node) extends OperatorColumn[Boolean] with UnaryNode with ColumnOps[Boolean,Boolean]
 
   // String
-  case class Length(child: Node) extends OperatorColumn[Int] with SimpleScalarFunction with UnaryNode { val name = "length" }
-  case class ToUpperCase(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "ucase" }
-  case class ToLowerCase(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "lcase" }
-  case class LTrim(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "ltrim" }
-  case class RTrim(child: Node) extends OperatorColumn[String] with SimpleScalarFunction with UnaryNode { val name = "rtrim" }
+  case class Length(child: Node) extends OperatorColumn[Int] with SimpleFunction with UnaryNode { val name = "length"; override val scalar = true }
+  case class ToUpperCase(child: Node) extends OperatorColumn[String] with SimpleFunction with UnaryNode { val name = "ucase"; override val scalar = true }
+  case class ToLowerCase(child: Node) extends OperatorColumn[String] with SimpleFunction with UnaryNode { val name = "lcase"; override val scalar = true }
+  case class LTrim(child: Node) extends OperatorColumn[String] with SimpleFunction with UnaryNode { val name = "ltrim"; override val scalar = true }
+  case class RTrim(child: Node) extends OperatorColumn[String] with SimpleFunction with UnaryNode { val name = "rtrim"; override val scalar = true }
   case class Like(left: Node, right: Node, esc: Option[Char]) extends OperatorColumn[Boolean] with BinaryNode with ColumnOps[Boolean,Boolean]
-  case class Concat(left: Node, right: Node) extends OperatorColumn[String] with SimpleScalarFunction with BinaryNode { val name = "concat" }
+  case class Concat(left: Node, right: Node) extends OperatorColumn[String] with SimpleFunction with BinaryNode { val name = "concat"; override val scalar = true }
   class StartsWith(n: Node, s: String) extends Like(n, ConstColumn(likeEncode(s)+'%'), Some('^'))
   class EndsWith(n: Node, s: String) extends Like(n, ConstColumn('%'+likeEncode(s)), Some('^'))
 

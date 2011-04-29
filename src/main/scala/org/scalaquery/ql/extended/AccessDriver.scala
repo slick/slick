@@ -136,8 +136,9 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
         throw new SQueryException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
     }
-    case s: SimpleScalarFunction if s.name == "user" || s.name == "database" => b += "''"
-    case s: SimpleScalarFunction if s.name == "pi" => b += pi
+    case SimpleFunction("user", true) => b += "''"
+    case SimpleFunction("database", true) => b += "''"
+    case SimpleFunction("pi", true) => b += pi
     case _ => super.innerExpr(c, b)
   }
 

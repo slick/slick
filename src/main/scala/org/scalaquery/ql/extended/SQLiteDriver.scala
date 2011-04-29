@@ -154,11 +154,12 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       b += "round("; expr(ch, b); b += "+0.5)"
     case ColumnOps.Floor(ch, _) =>
       b += "round("; expr(ch, b); b += "-0.5)"
-    case s: SimpleScalarFunction if s.name == "user" || s.name == "database" => b += "''"
-    case s: SimpleScalarFunction =>
+    case SimpleFunction("user", true) => b += "''"
+    case SimpleFunction("database", true) => b += "''"
+    case s @ SimpleFunction(fname, true) =>
       /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
        * unescaped function calls by default */
-      b += s.name += '('
+      b += fname += '('
       for(ch <- b.sep(s.nodeChildren, ",")) expr(ch, b)
       b += ")"
     case fk: ForeignKey[_] =>

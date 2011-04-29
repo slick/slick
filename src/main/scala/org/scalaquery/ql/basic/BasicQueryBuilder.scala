@@ -225,13 +225,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     case ColumnOps.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
     case ColumnOps.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
     case s: SimpleFunction =>
+      if(s.scalar) b += "{fn "
       b += s.name += '('
       for(ch <- b.sep(s.nodeChildren, ",")) expr(ch, b)
       b += ')'
-    case s: SimpleScalarFunction =>
-      b += "{fn " += s.name += '('
-      for(ch <- b.sep(s.nodeChildren, ",")) expr(ch, b)
-      b += ")}"
+      if(s.scalar) b += '}'
     case SimpleLiteral(w) => b += w
     case ColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
     case ColumnOps.CountAll(q) => b += "count(*)"; localTableName(q)
