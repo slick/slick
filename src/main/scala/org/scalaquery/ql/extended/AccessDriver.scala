@@ -4,7 +4,8 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 import org.scalaquery.SQueryException
-import org.scalaquery.session.ResultSetType
+import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
+import org.scalaquery.session.{PositionedParameters, PositionedResult, ResultSetType}
 
 /**
  * ScalaQuery driver for Microsoft Access via JdbcOdbcDriver.
@@ -43,7 +44,7 @@ class AccessDriver extends ExtendedProfile { self =>
     override implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[T] = new AccessQueryInvoker(q, scalaQueryDriver)
   }
 
-  val typeMapperDelegates = new BasicTypeMapperDelegates {}
+  val typeMapperDelegates = new AccessTypeMapperDelegates()
   override val sqlUtils = new AccessSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new AccessDDLBuilder(table, this).buildDDL
@@ -208,4 +209,53 @@ class AccessQueryInvoker[R](q: Query[ColumnBase[R]], profile: BasicProfile) exte
   override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
   /* Access goes forward instead of backward after deleting the current row in a mutable result set */
   override protected val previousAfterDelete = true
+}
+
+class AccessTypeMapperDelegates() extends BasicTypeMapperDelegates {
+  import BasicTypeMapperDelegates._
+
+  /* Retry all parameter and result operations because ODBC can randomly throw
+   * S1090 (Invalid string or buffer length) exceptions. Retrying the call can
+   * sometimes work around the bug. */
+  trait Retry[T] extends TypeMapperDelegate[T] {
+    abstract override def nextValue(r: PositionedResult) = {
+      try super.nextValue(r) catch {
+        case e: SQLException if e.getSQLState == "S1090" =>
+          try super.nextValue(r) catch { case _: SQLException => throw e }
+      }
+    }
+    abstract override def setValue(v: T, p: PositionedParameters) = {
+      try super.setValue(v, p) catch {
+        case e: SQLException if e.getSQLState == "S1090" =>
+          try super.setValue(v, p) catch { case _: SQLException => throw e }
+      }
+    }
+    abstract override def setOption(v: Option[T], p: PositionedParameters) = {
+      try super.setOption(v, p) catch {
+        case e: SQLException if e.getSQLState == "S1090" =>
+          try super.setOption(v, p) catch { case _: SQLException => throw e }
+      }
+    }
+    abstract override def updateValue(v: T, r: PositionedResult) = {
+      try super.updateValue(v, r) catch {
+        case e: SQLException if e.getSQLState == "S1090" =>
+          try super.updateValue(v, r) catch { case _: SQLException => throw e }
+      }
+    }
+  }
+
+  override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate with Retry[Boolean]
+  override val blobTypeMapperDelegate = new BlobTypeMapperDelegate with Retry[Blob]
+  override val byteTypeMapperDelegate = new ByteTypeMapperDelegate with Retry[Byte]
+  override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate with Retry[Array[Byte]]
+  override val clobTypeMapperDelegate = new ClobTypeMapperDelegate with Retry[Clob]
+  override val dateTypeMapperDelegate = new DateTypeMapperDelegate with Retry[Date]
+  override val doubleTypeMapperDelegate = new DoubleTypeMapperDelegate with Retry[Double]
+  override val floatTypeMapperDelegate = new FloatTypeMapperDelegate with Retry[Float]
+  override val intTypeMapperDelegate = new IntTypeMapperDelegate with Retry[Int]
+  override val longTypeMapperDelegate = new LongTypeMapperDelegate with Retry[Long]
+  override val stringTypeMapperDelegate = new StringTypeMapperDelegate with Retry[String]
+  override val timeTypeMapperDelegate = new TimeTypeMapperDelegate with Retry[Time]
+  override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate with Retry[Timestamp]
+  override val nullTypeMapperDelegate = new NullTypeMapperDelegate with Retry[Null]
 }
