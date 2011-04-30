@@ -44,7 +44,8 @@ class AccessDriver extends ExtendedProfile { self =>
     override implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[T] = new AccessQueryInvoker(q, scalaQueryDriver)
   }
 
-  val typeMapperDelegates = new AccessTypeMapperDelegates()
+  val retryCount = 10
+  val typeMapperDelegates = new AccessTypeMapperDelegates(retryCount)
   override val sqlUtils = new AccessSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new AccessDDLBuilder(table, this).buildDDL
@@ -211,7 +212,7 @@ class AccessQueryInvoker[R](q: Query[ColumnBase[R]], profile: BasicProfile) exte
   override protected val previousAfterDelete = true
 }
 
-class AccessTypeMapperDelegates() extends BasicTypeMapperDelegates {
+class AccessTypeMapperDelegates(retryCount: Int) extends BasicTypeMapperDelegates {
   import BasicTypeMapperDelegates._
 
   /* Retry all parameter and result operations because ODBC can randomly throw
@@ -219,28 +220,32 @@ class AccessTypeMapperDelegates() extends BasicTypeMapperDelegates {
    * sometimes work around the bug. */
   trait Retry[T] extends TypeMapperDelegate[T] {
     abstract override def nextValue(r: PositionedResult) = {
-      try super.nextValue(r) catch {
-        case e: SQLException if e.getSQLState == "S1090" =>
-          try super.nextValue(r) catch { case _: SQLException => throw e }
-      }
+      def f(c: Int): T =
+        try super.nextValue(r) catch {
+          case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
+        }
+      f(retryCount)
     }
     abstract override def setValue(v: T, p: PositionedParameters) = {
-      try super.setValue(v, p) catch {
-        case e: SQLException if e.getSQLState == "S1090" =>
-          try super.setValue(v, p) catch { case _: SQLException => throw e }
-      }
+      def f(c: Int): Unit =
+        try super.setValue(v, p) catch {
+          case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
+        }
+      f(retryCount)
     }
     abstract override def setOption(v: Option[T], p: PositionedParameters) = {
-      try super.setOption(v, p) catch {
-        case e: SQLException if e.getSQLState == "S1090" =>
-          try super.setOption(v, p) catch { case _: SQLException => throw e }
-      }
+      def f(c: Int): Unit =
+        try super.setOption(v, p) catch {
+          case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
+        }
+      f(retryCount)
     }
     abstract override def updateValue(v: T, r: PositionedResult) = {
-      try super.updateValue(v, r) catch {
-        case e: SQLException if e.getSQLState == "S1090" =>
-          try super.updateValue(v, r) catch { case _: SQLException => throw e }
-      }
+      def f(c: Int): Unit =
+        try super.updateValue(v, r) catch {
+          case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
+        }
+      f(retryCount)
     }
   }
 
