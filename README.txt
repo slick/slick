@@ -8,11 +8,12 @@ It includes the following features:
 The following database systems are directly supported for type-safe queries:
 - PostgreSQL
 - MySQL
+- Microsoft SQL Server
+- Microsoft Access
 - H2
 - HSQLDB/HyperSQL
 - Derby/JavaDB
 - SQLite
-- Microsoft Access
 Accessing other database systems is possible, with a reduced feature set.
 
 See <http://scalaquery.org/> for more information.
