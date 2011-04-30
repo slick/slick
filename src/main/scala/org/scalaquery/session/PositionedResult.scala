@@ -18,68 +18,68 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   def << [T](implicit f: GetResult[T]): T = f(this)
   def <<? [T](implicit f: GetResult[Option[T]]): Option[T] = if(hasMoreColumns) this.<< else None
 
-  def nextBoolean() = { pos += 1; rs getBoolean pos }
-  def nextBlob() = { pos += 1; rs getBlob pos }
-  def nextByte() = { pos += 1; rs getByte pos }
-  def nextBytes() = { pos += 1; rs getBytes pos }
-  def nextClob() = { pos += 1; rs getClob pos }
-  def nextDate() = { pos += 1; rs getDate pos }
-  def nextDouble() = { pos += 1; rs getDouble pos }
-  def nextFloat() = { pos += 1; rs getFloat pos }
-  def nextInt() = { pos += 1; rs getInt pos }
-  def nextLong() = { pos += 1; rs getLong pos }
-  def nextShort() = { pos += 1; rs getShort pos }
-  def nextString() = { pos += 1; rs getString pos }
-  def nextTime() = { pos += 1; rs getTime pos }
-  def nextTimestamp() = { pos += 1; rs getTimestamp pos }
+  def nextBoolean()   = { val npos = pos + 1; val r = rs getBoolean   npos; pos = npos; r }
+  def nextBlob()      = { val npos = pos + 1; val r = rs getBlob      npos; pos = npos; r }
+  def nextByte()      = { val npos = pos + 1; val r = rs getByte      npos; pos = npos; r }
+  def nextBytes()     = { val npos = pos + 1; val r = rs getBytes     npos; pos = npos; r }
+  def nextClob()      = { val npos = pos + 1; val r = rs getClob      npos; pos = npos; r }
+  def nextDate()      = { val npos = pos + 1; val r = rs getDate      npos; pos = npos; r }
+  def nextDouble()    = { val npos = pos + 1; val r = rs getDouble    npos; pos = npos; r }
+  def nextFloat()     = { val npos = pos + 1; val r = rs getFloat     npos; pos = npos; r }
+  def nextInt()       = { val npos = pos + 1; val r = rs getInt       npos; pos = npos; r }
+  def nextLong()      = { val npos = pos + 1; val r = rs getLong      npos; pos = npos; r }
+  def nextShort()     = { val npos = pos + 1; val r = rs getShort     npos; pos = npos; r }
+  def nextString()    = { val npos = pos + 1; val r = rs getString    npos; pos = npos; r }
+  def nextTime()      = { val npos = pos + 1; val r = rs getTime      npos; pos = npos; r }
+  def nextTimestamp() = { val npos = pos + 1; val r = rs getTimestamp npos; pos = npos; r }
 
-  def nextBooleanOption() = { pos += 1; val r = rs getBoolean pos; if(rs wasNull) None else Some(r) }
-  def nextBlobOption() = { pos += 1; val r = rs getBlob pos; if(rs wasNull) None else Some(r) }
-  def nextByteOption() = { pos += 1; val r = rs getByte pos; if(rs wasNull) None else Some(r) }
-  def nextBytesOption() = { pos += 1; val r = rs getBytes pos; if(rs wasNull) None else Some(r) }
-  def nextClobOption() = { pos += 1; val r = rs getClob pos; if(rs wasNull) None else Some(r) }
-  def nextDateOption() = { pos += 1; val r = rs getDate pos; if(rs wasNull) None else Some(r) }
-  def nextDoubleOption() = { pos += 1; val r = rs getDouble pos; if(rs wasNull) None else Some(r) }
-  def nextFloatOption() = { pos += 1; val r = rs getFloat pos; if(rs wasNull) None else Some(r) }
-  def nextIntOption() = { pos += 1; val r = rs getInt pos; if(rs wasNull) None else Some(r) }
-  def nextLongOption() = { pos += 1; val r = rs getLong pos; if(rs wasNull) None else Some(r) }
-  def nextShortOption() = { pos += 1; val r = rs getShort pos; if(rs wasNull) None else Some(r) }
-  def nextStringOption() = { pos += 1; val r = rs getString pos; if(rs wasNull) None else Some(r) }
-  def nextTimeOption() = { pos += 1; val r = rs getTime pos; if(rs wasNull) None else Some(r) }
-  def nextTimestampOption() = { pos += 1; val r = rs getTimestamp pos; if(rs wasNull) None else Some(r) }
+  def nextBooleanOption()   = { val npos = pos + 1; val r = rs getBoolean   npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextBlobOption()      = { val npos = pos + 1; val r = rs getBlob      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextByteOption()      = { val npos = pos + 1; val r = rs getByte      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextBytesOption()     = { val npos = pos + 1; val r = rs getBytes     npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextClobOption()      = { val npos = pos + 1; val r = rs getClob      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextDateOption()      = { val npos = pos + 1; val r = rs getDate      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextDoubleOption()    = { val npos = pos + 1; val r = rs getDouble    npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextFloatOption()     = { val npos = pos + 1; val r = rs getFloat     npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextIntOption()       = { val npos = pos + 1; val r = rs getInt       npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextLongOption()      = { val npos = pos + 1; val r = rs getLong      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextShortOption()     = { val npos = pos + 1; val r = rs getShort     npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextStringOption()    = { val npos = pos + 1; val r = rs getString    npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextTimeOption()      = { val npos = pos + 1; val r = rs getTime      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  def nextTimestampOption() = { val npos = pos + 1; val r = rs getTimestamp npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
 
-  def updateBoolean(v: Boolean) { pos += 1; rs.updateBoolean(pos, v) }
-  def updateBlob(v: Blob) = { pos += 1; rs.updateBlob(pos, v) }
-  def updateByte(v: Byte) = { pos += 1; rs.updateByte(pos, v) }
-  def updateBytes(v: Array[Byte]) = { pos += 1; rs.updateBytes(pos, v) }
-  def updateClob(v: Clob) = { pos += 1; rs.updateClob(pos, v) }
-  def updateDate(v: Date) = { pos += 1; rs.updateDate(pos, v) }
-  def updateDouble(v: Double) = { pos += 1; rs.updateDouble(pos, v) }
-  def updateFloat(v: Float) = { pos += 1; rs.updateFloat(pos, v) }
-  def updateInt(v: Int) = { pos += 1; rs.updateInt(pos, v) }
-  def updateLong(v: Long) = { pos += 1; rs.updateLong(pos, v) }
-  def updateShort(v: Short) = { pos += 1; rs.updateShort(pos, v) }
-  def updateString(v: String) = { pos += 1; rs.updateString(pos, v) }
-  def updateTime(v: Time) = { pos += 1; rs.updateTime(pos, v) }
-  def updateTimestamp(v: Timestamp) = { pos += 1; rs.updateTimestamp(pos, v) }
+  def updateBoolean(v: Boolean)     { val npos = pos + 1; rs.updateBoolean  (npos, v); pos = npos }
+  def updateBlob(v: Blob)           { val npos = pos + 1; rs.updateBlob     (npos, v); pos = npos }
+  def updateByte(v: Byte)           { val npos = pos + 1; rs.updateByte     (npos, v); pos = npos }
+  def updateBytes(v: Array[Byte])   { val npos = pos + 1; rs.updateBytes    (npos, v); pos = npos }
+  def updateClob(v: Clob)           { val npos = pos + 1; rs.updateClob     (npos, v); pos = npos }
+  def updateDate(v: Date)           { val npos = pos + 1; rs.updateDate     (npos, v); pos = npos }
+  def updateDouble(v: Double)       { val npos = pos + 1; rs.updateDouble   (npos, v); pos = npos }
+  def updateFloat(v: Float)         { val npos = pos + 1; rs.updateFloat    (npos, v); pos = npos }
+  def updateInt(v: Int)             { val npos = pos + 1; rs.updateInt      (npos, v); pos = npos }
+  def updateLong(v: Long)           { val npos = pos + 1; rs.updateLong     (npos, v); pos = npos }
+  def updateShort(v: Short)         { val npos = pos + 1; rs.updateShort    (npos, v); pos = npos }
+  def updateString(v: String)       { val npos = pos + 1; rs.updateString   (npos, v); pos = npos }
+  def updateTime(v: Time)           { val npos = pos + 1; rs.updateTime     (npos, v); pos = npos }
+  def updateTimestamp(v: Timestamp) { val npos = pos + 1; rs.updateTimestamp(npos, v); pos = npos }
 
-  def updateBooleanOption(v: Option[Boolean]) { pos += 1; v match { case Some(s) => rs.updateBoolean(pos, s); case None => rs.updateNull(pos) } }
-  def updateBlobOption(v: Option[Blob]) { pos += 1; v match { case Some(s) => rs.updateBlob(pos, s); case None => rs.updateNull(pos) } }
-  def updateByteOption(v: Option[Byte]) { pos += 1; v match { case Some(s) => rs.updateByte(pos, s); case None => rs.updateNull(pos) } }
-  def updateBytesOption(v: Option[Array[Byte]]) { pos += 1; v match { case Some(s) => rs.updateBytes(pos, s); case None => rs.updateNull(pos) } }
-  def updateClobOption(v: Option[Clob]) { pos += 1; v match { case Some(s) => rs.updateClob(pos, s); case None => rs.updateNull(pos) } }
-  def updateDateOption(v: Option[Date]) { pos += 1; v match { case Some(s) => rs.updateDate(pos, s); case None => rs.updateNull(pos) } }
-  def updateDoubleOption(v: Option[Double]) { pos += 1; v match { case Some(s) => rs.updateDouble(pos, s); case None => rs.updateNull(pos) } }
-  def updateFloatOption(v: Option[Float]) { pos += 1; v match { case Some(s) => rs.updateFloat(pos, s); case None => rs.updateNull(pos) } }
-  def updateIntOption(v: Option[Int]) { pos += 1; v match { case Some(s) => rs.updateInt(pos, s); case None => rs.updateNull(pos) } }
-  def updateLongOption(v: Option[Long]) { pos += 1; v match { case Some(s) => rs.updateLong(pos, s); case None => rs.updateNull(pos) } }
-  def updateShortOption(v: Option[Short]) { pos += 1; v match { case Some(s) => rs.updateShort(pos, s); case None => rs.updateNull(pos) } }
-  def updateStringOption(v: Option[String]) { pos += 1; v match { case Some(s) => rs.updateString(pos, s); case None => rs.updateNull(pos) } }
-  def updateTimeOption(v: Option[Time]) { pos += 1; v match { case Some(s) => rs.updateTime(pos, s); case None => rs.updateNull(pos) } }
-  def updateTimestampOption(v: Option[Timestamp]) { pos += 1; v match { case Some(s) => rs.updateTimestamp(pos, s); case None => rs.updateNull(pos) } }
+  def updateBooleanOption(v: Option[Boolean])     { val npos = pos + 1; v match { case Some(s) => rs.updateBoolean  (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateBlobOption(v: Option[Blob])           { val npos = pos + 1; v match { case Some(s) => rs.updateBlob     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateByteOption(v: Option[Byte])           { val npos = pos + 1; v match { case Some(s) => rs.updateByte     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateBytesOption(v: Option[Array[Byte]])   { val npos = pos + 1; v match { case Some(s) => rs.updateBytes    (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateClobOption(v: Option[Clob])           { val npos = pos + 1; v match { case Some(s) => rs.updateClob     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateDateOption(v: Option[Date])           { val npos = pos + 1; v match { case Some(s) => rs.updateDate     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateDoubleOption(v: Option[Double])       { val npos = pos + 1; v match { case Some(s) => rs.updateDouble   (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateFloatOption(v: Option[Float])         { val npos = pos + 1; v match { case Some(s) => rs.updateFloat    (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateIntOption(v: Option[Int])             { val npos = pos + 1; v match { case Some(s) => rs.updateInt      (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateLongOption(v: Option[Long])           { val npos = pos + 1; v match { case Some(s) => rs.updateLong     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateShortOption(v: Option[Short])         { val npos = pos + 1; v match { case Some(s) => rs.updateShort    (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateStringOption(v: Option[String])       { val npos = pos + 1; v match { case Some(s) => rs.updateString   (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateTimeOption(v: Option[Time])           { val npos = pos + 1; v match { case Some(s) => rs.updateTime     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
+  def updateTimestampOption(v: Option[Timestamp]) { val npos = pos + 1; v match { case Some(s) => rs.updateTimestamp(npos, s); case None => rs.updateNull(npos) }; pos = npos }
 
   def skip = { pos += 1; this }
-  def updateNull() { pos += 1; rs.updateNull(pos) }
+  def updateNull() { val npos = pos + 1; rs.updateNull(npos); pos = npos }
 
   /**
    * Close the ResultSet and the statement which created it.
