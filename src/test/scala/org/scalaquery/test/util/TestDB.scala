@@ -26,11 +26,13 @@ object TestDBOptions {
     }
     p
   }
-  def isEnabled(db: String) = "true" == dbProps.getProperty(db+".enabled")
+  lazy val testDBs = Option(dbProps.getProperty("testDBs")).map(_.split(',').map(_.trim).toSet)
+  def isInternalEnabled(db: String) = testDBs.map(_.contains(db)).getOrElse(true)
+  def isExternalEnabled(db: String) = isInternalEnabled(db) && "true" == dbProps.getProperty(db+".enabled")
   def get(db: String, o: String) = Option(dbProps.getProperty(db+"."+o))
 }
 
-abstract class TestDB {
+abstract class TestDB(val confName: String) {
   override def toString = url
   val url: String
   val jdbcDriver: String
@@ -54,7 +56,7 @@ abstract class TestDB {
       else throw new IOException("Couldn't delete database file "+p)
     }
   }
-  def isEnabled = true
+  def isEnabled = TestDBOptions.isInternalEnabled(confName)
   def getLocalTables(implicit session: Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list(())(session).map(_._3).sorted
@@ -109,7 +111,7 @@ abstract class TestDB {
   def canGetLocalTables = true
 }
 
-class SQLiteTestDB(dburl: String) extends TestDB {
+class SQLiteTestDB(dburl: String, confName: String) extends TestDB(confName) {
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
   val driver = SQLiteDriver
@@ -117,7 +119,7 @@ class SQLiteTestDB(dburl: String) extends TestDB {
     super.getLocalTables(session).filter(s => !s.toLowerCase.contains("sqlite_"))
 }
 
-class ExternalTestDB(val confName: String, val driver: ExtendedProfile) extends TestDB {
+class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends TestDB(confName) {
   val jdbcDriver = TestDBOptions.get(confName, "driver").orNull
   val urlTemplate = TestDBOptions.get(confName, "url").getOrElse("")
   override def dbName = TestDBOptions.get(confName, "testDB").getOrElse("")
@@ -130,7 +132,7 @@ class ExternalTestDB(val confName: String, val driver: ExtendedProfile) extends 
   val create = TestDBOptions.get(confName, "create").getOrElse("").replace("[DB]", dbName)
   val drop = TestDBOptions.get(confName, "drop").getOrElse("").replace("[DB]", dbName)
 
-  override def isEnabled = TestDBOptions.isEnabled(confName)
+  override def isEnabled = TestDBOptions.isExternalEnabled(confName)
 
   override def createDB() = Database.forURL(url, driver = jdbcDriver, user = configuredUserName, password = password)
 
@@ -154,7 +156,7 @@ class ExternalTestDB(val confName: String, val driver: ExtendedProfile) extends 
   }
 }
 
-class AccessDB(confName: String, val driver: ExtendedProfile) extends TestDB {
+class AccessDB(confName: String, val driver: ExtendedProfile) extends TestDB(confName) {
   val jdbcDriver = TestDBOptions.get(confName, "driver").orNull
   override def dbName = TestDBOptions.get(confName, "testDB").getOrElse(super.dbName)
   val dir = new File(TestDBOptions.testDBDir)
@@ -166,7 +168,7 @@ class AccessDB(confName: String, val driver: ExtendedProfile) extends TestDB {
   val url = TestDBOptions.get(confName, "url").getOrElse("")
     .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
 
-  override def isEnabled = TestDBOptions.isEnabled(confName)
+  override def isEnabled = TestDBOptions.isExternalEnabled(confName)
   override def createDB() = Database.forURL(url, driver = jdbcDriver)
   override def cleanUpBefore() {
     cleanUpAfter()
@@ -179,7 +181,7 @@ class AccessDB(confName: String, val driver: ExtendedProfile) extends TestDB {
     MTable.getTables.list()(session).map(_.name.name).sorted
 }
 
-abstract class DerbyDB extends TestDB {
+abstract class DerbyDB(confName: String) extends TestDB(confName) {
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
   val driver = DerbyDriver
@@ -197,14 +199,14 @@ object DerbyDB {
 object TestDB {
   type TestDBSpec = (DBTestObject => TestDB)
 
-  def H2Mem(to: DBTestObject) = new TestDB {
+  def H2Mem(to: DBTestObject) = new TestDB("h2mem") {
     val url = "jdbc:h2:mem:test1"
     val jdbcDriver = "org.h2.Driver"
     val driver = H2Driver
     override val dbName = "test1"
   }
 
-  def H2Disk(to: DBTestObject) = new TestDB {
+  def H2Disk(to: DBTestObject) = new TestDB("h2disk") {
     override val dbName = "h2-"+to.testClassName
     val url = "jdbc:h2:./"+TestDBOptions.testDBDir+"/"+dbName
     val jdbcDriver = "org.h2.Driver"
@@ -212,7 +214,7 @@ object TestDB {
     override def cleanUp() = deleteDBFiles(dbName)
   }
 
-  def HsqldbMem(to: DBTestObject) = new TestDB {
+  def HsqldbMem(to: DBTestObject) = new TestDB("hsqldbmem") {
     val url = "jdbc:hsqldb:mem:test1;user=SA;password=;shutdown=true"
     val jdbcDriver = "org.hsqldb.jdbcDriver"
     val driver = HsqldbDriver
@@ -224,19 +226,19 @@ object TestDB {
     override def userName = "sa"
   }
 
-  def SQLiteMem(to: DBTestObject) = new SQLiteTestDB("jdbc:sqlite::memory:") {
+  def SQLiteMem(to: DBTestObject) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
     override val dbName = ":memory:"
   }
 
   def SQLiteDisk(to: DBTestObject) = {
     val prefix = "sqlite-"+to.testClassName
-    new SQLiteTestDB("jdbc:sqlite:./"+TestDBOptions.testDBDir+"/"+prefix+".db") {
+    new SQLiteTestDB("jdbc:sqlite:./"+TestDBOptions.testDBDir+"/"+prefix+".db", "sqlitedisk") {
       override val dbName = prefix
       override def cleanUp() = deleteDBFiles(prefix)
     }
   }
 
-  def DerbyMem(to: DBTestObject) = new DerbyDB {
+  def DerbyMem(to: DBTestObject) = new DerbyDB("derbymem") {
     override val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUp() = {
@@ -246,7 +248,7 @@ object TestDB {
     }
   }
 
-  def DerbyDisk(to: DBTestObject) = new DerbyDB {
+  def DerbyDisk(to: DBTestObject) = new DerbyDB("derbydisk") {
     override val dbName = "derby-"+to.testClassName
     val url = "jdbc:derby:./"+TestDBOptions.testDBDir+"/"+dbName+";create=true"
     override def cleanUp() = {

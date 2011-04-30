@@ -5,6 +5,9 @@
 # enable the external database systems for unit tests.
 ##############################################################################
 
+# Use only the following DBs (or use all if not set)
+#testDBs = h2mem, h2disk, hsqldbmem, sqlitemem, sqlitedisk, derbymem, derbydisk, postgres, mysql, sqlserver, access
+
 # PostgreSQL quick setup:
 # - Install PostgreSQL server with default options
 # - Change password in postgres.password
