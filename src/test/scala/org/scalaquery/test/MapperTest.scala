@@ -59,6 +59,32 @@ class MapperTest(tdb: TestDB) extends DBTest(tdb) {
     }
   }
 
+  @Test def testUpdate() {
+
+    case class Data(a: Int, b: Int)
+
+    object Ts extends Table[Data]("T") {
+      def a = column[Int]("A")
+      def b = column[Int]("B")
+      def * = a ~ b <> (Data, Data.unapply _)
+    }
+
+    db withSession {
+      Ts.ddl.create
+      Ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
+
+      val updateQ = Ts.where(_.a === 1)
+      updateQ.dump("updateQ: ")
+      println("Update: "+updateQ.updateStatement)
+      updateQ.update(Data(7, 8))
+
+      assertEquals(
+        Set(Data(7, 8), Data(3, 4), Data(5, 6)),
+        Query(Ts).list.toSet
+      )
+    }
+  }
+
   @Test def testMappedType() {
 
     sealed trait Bool

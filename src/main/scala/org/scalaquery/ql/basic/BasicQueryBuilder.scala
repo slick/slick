@@ -155,7 +155,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     var tableName: String = null
     var table: Node = null
 
-    def handleColumn(node: Node, idx: Int) {
+    def handleColumn(node: Node) {
       (node match {
         case nc @ NamedColumn(t @ AbstractTable(tn), n, _) => (tn, n, nc.typeMapper, t)
         case nc @ NamedColumn(t @ AbstractTable.Alias(AbstractTable(tn)), n, _) => (tn, n, nc.typeMapper, t)
@@ -169,18 +169,28 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       }
     }
 
-    Node(query.value) match {
-      case p: Projection[_] => {
-        var i = 0
-        for(ch <- p.nodeChildren) {
-          if(i > 0) b += ','
-          handleColumn(ch, i)
-          i += 1
+    def handleColumns(node: Node) {
+      node match {
+        case p: Projection[_] => {
+          var i = 0
+          for(ch <- p.nodeChildren) {
+            if(i > 0) b += ','
+            handleColumn(ch)
+            i += 1
+          }
         }
+        case t @ AbstractTable(tn) =>
+          nc = nc.overrideName(t, tn)
+          handleColumns(Node(t.*))
+        case a @ AbstractTable.Alias(t @ AbstractTable(tn)) =>
+          nc = nc.overrideName(a, tn)
+          handleColumns(Node(t.*))
+        case n => handleColumn(n)
       }
-      case n => handleColumn(n, -1)
     }
-    nc = nc.overrideName(table, tableName) // Alias table to itself because DELETE does not support aliases
+
+    handleColumns(Node(query.value))
+    nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
     tableNameSlot += quoteIdentifier(tableName)
     appendConditions(b)
     if(localTables.size > 1)
