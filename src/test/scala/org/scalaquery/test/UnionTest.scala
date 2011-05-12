@@ -68,4 +68,20 @@ class UnionTest(tdb: TestDB) extends DBTest(tdb) {
       assertEquals(q3.list, List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")))
     }
   }
+
+  @Test def testUnionWithoutProjection() = db withSession {
+
+    Managers.ddl create;
+    Managers.insertAll(
+      (1, "Peter", "HR"),
+      (2, "Amy", "IT"),
+      (3, "Steve", "IT")
+    )
+
+    def f (s: String) = Managers where { _.name === s}
+    val q = f("Peter") union f("Amy")
+    q.dump("q: ")
+    println(q.selectStatement)
+    assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.list.toSet)
+  }
 }

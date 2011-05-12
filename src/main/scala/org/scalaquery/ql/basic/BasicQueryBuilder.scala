@@ -285,6 +285,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     }
     case n: NamedColumn[_] => { b += quoteIdentifier(localTableName(n.table)) += '.' += quoteIdentifier(n.name) }
     case SubqueryColumn(pos, sq, _) => { b += quoteIdentifier(localTableName(sq)) += "." += quoteIdentifier("c" + pos.toString) }
+    case sq @ Subquery(_, _) => { b += quoteIdentifier(localTableName(sq)) += ".*" }
     case a @ AbstractTable.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
     case t: AbstractTable[_] => expr(Node(t.*), b)
     case t: TableBase[_] => b += quoteIdentifier(localTableName(t)) += ".*"
