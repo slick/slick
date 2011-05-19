@@ -11,3 +11,6 @@ test-dbs/databases.properties
 *.log
 .idea/
 *.iml
+.classpath
+.project
+.settings/
