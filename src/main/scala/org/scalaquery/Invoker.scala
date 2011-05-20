@@ -1,9 +1,10 @@
 package org.scalaquery
 
-import scala.collection.mutable.ListBuffer
+import scala.collection.immutable.Map
 import org.scalaquery.session.Session
 import org.scalaquery.util.CloseableIterator
 import org.scalaquery.iter._
+import collection.generic.CanBuildFrom
 
 /**
  * Base trait for all statement invokers, using parameter type P and result type R.
@@ -49,10 +50,31 @@ trait Invoker[-P, +R] { self =>
    * Execute the statement and return an immutable and fully
    * materialized list of the results.
    */
-  final def list(param: P)(implicit session: Session): List[R] = {
-    val b = new ListBuffer[R]
+  final def list(param: P)(implicit session: Session) = build[List[R]](param)
+
+  final def toMap[T, U](param: P)(implicit session: Session, ev: R <:< (T, U)): Map[T, U] =
+    build[Map[T, U]](param)(session, implicitly[CanBuildFrom[Map[T, U], (T, U), Map[T, U]]].asInstanceOf[CanBuildFrom[Map[T, U], R, Map[T, U]]])
+
+  /**
+   * Execute the statement and return a fully materialized collection of the specified type.
+   */
+  final def build[To](param: P)(implicit session: Session, canBuildFrom: CanBuildFrom[To, R, To]): To = {
+    val b = canBuildFrom()
     foreach(param, { x => b += x }, 0)
-    b.toList
+    b.result()
+  }
+
+  /**
+   * Return a converter for the specified collection type constructor.
+   */
+  final def to[C[_]] = new To[C]()
+
+  final class To[C[_]] private[Invoker] () {
+    /**
+     * Execute the statement and return a fully materialized collection.
+     */
+    def apply[RR >: R](param: P)(implicit session: Session, canBuildFrom: CanBuildFrom[C[RR], RR, C[RR]]) =
+      build[C[RR]](param)(session, canBuildFrom)
   }
 
   /**
@@ -113,6 +135,7 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   def firstOption(implicit session: Session): Option[R]
   def first()(implicit session: Session): R
   def list()(implicit session: Session): List[R]
+  def toMap[T, U](implicit session: Session, ev: R <:< (T, U)): Map[T, U]
   def foreach(f: R => Unit)(implicit session: Session): Unit
   def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit
   def elements()(implicit session: Session): CloseableIterator[R]
@@ -138,6 +161,7 @@ trait DelegatingUnitInvoker[P, +R] extends UnitInvoker[R] {
   final def firstOption(implicit session: Session): Option[R] = delegate.firstOption(appliedParameter)
   final def first()(implicit session: Session): R = delegate.first(appliedParameter)
   final def list()(implicit session: Session): List[R] = delegate.list(appliedParameter)
+  final def toMap[T, U](implicit session: Session, ev: R <:< (T, U)): Map[T, U] = delegate.toMap(appliedParameter)
   final def foreach(f: R => Unit)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f)
   final def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
   final def elements()(implicit session: Session): CloseableIterator[R] = delegate.elements(appliedParameter)

@@ -31,22 +31,22 @@ class MiscTest(tdb: TestDB) extends DBTest(tdb) {
       val q1 = for(t <- T if t.a === "1" || t.a === "2") yield t
       println("q1: "+q1.selectStatement)
       q1.foreach(println _)
-      assertEquals(q1.list.toSet, Set(("1", "a"), ("2", "a")))
+      assertEquals(q1.to[Set](), Set(("1", "a"), ("2", "a")))
 
       val q2 = for(t <- T if (t.a isNot "1") || (t.b isNot "a")) yield t
       println("q2: "+q2.selectStatement)
       q2.foreach(println _)
-      assertEquals(q2.list.toSet, Set(("2", "a"), ("3", "b")))
+      assertEquals(q2.to[Set](), Set(("2", "a"), ("3", "b")))
 
       val q3 = for(t <- T if (t.a != "1") || (t.b != "a")) yield t
       println("q3: "+q3.selectStatement) // Hah, not what you expect!
       q3.foreach(println _)
-      assertEquals(q3.list.toSet, Set(("1", "a"), ("2", "a"), ("3", "b")))
+      assertEquals(q3.to[Set](), Set(("1", "a"), ("2", "a"), ("3", "b")))
 
       val q4 = for(t <- T if t.a =!= "1" || t.b =!= "a") yield t
       println("q4: "+q4.selectStatement)
       q4.foreach(println _)
-      assertEquals(q4.list.toSet, Set(("2", "a"), ("3", "b")))
+      assertEquals(q4.to[Set](), Set(("2", "a"), ("3", "b")))
     }
   }
 
