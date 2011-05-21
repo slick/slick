@@ -2,13 +2,13 @@ package org.scalaquery.ql.basic
 
 import java.sql.PreparedStatement
 import org.scalaquery.StatementInvoker
-import org.scalaquery.{Invoker, MappedInvoker, UnitInvokerMixin, MutatingStatementInvoker, DelegatingMutatingUnitInvoker}
+import org.scalaquery.{Invoker, MappedInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}
 import org.scalaquery.ql.{Query, ColumnBase}
 import org.scalaquery.session.{Session, PositionedParameters, PositionedResult, ReadAheadIterator}
 import org.scalaquery.util.{CloseableIterator, NamingContext}
 
 class BasicQueryInvoker[R](q: Query[ColumnBase[R]], profile: BasicProfile)
-  extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with DelegatingMutatingUnitInvoker[Unit, R] {
+  extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
 
   override protected val delegate = this
 

@@ -114,9 +114,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
        * may not not kosher in the presence of NULLs). */
       val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
       b += "("
-      for((l,r) <- b.sep(cols, " and ")) {
-        expr(l, b); b += "="; expr(r, b);
-      }
+      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b); }
       b += ")"
     case ColumnOps.Degrees(ch, _) => b += "(180/"+pi+"*"; expr(ch, b); b += ')'
     case ColumnOps.Radians(ch, _) => b += "("+pi+"/180*"; expr(ch, b); b += ')'
@@ -158,6 +156,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     expr(o.by, b)
     if(desc) b += " desc"
   }
+
+  override protected def appendLimitClause(b: SQLBuilder) = ()
 }
 
 class AccessDDLBuilder(table: AbstractBasicTable[_], profile: AccessDriver) extends BasicDDLBuilder(table, profile) {

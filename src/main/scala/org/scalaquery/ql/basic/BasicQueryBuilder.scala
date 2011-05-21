@@ -3,6 +3,7 @@ package org.scalaquery.ql.basic
 import scala.collection.mutable.{HashMap, HashSet}
 import org.scalaquery.SQueryException
 import org.scalaquery.ql._
+import extended.ExtendedQueryOps.TakeDrop
 import org.scalaquery.util._
 
 class ConcreteBasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile)
@@ -32,6 +33,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected var selectSlot: SQLBuilder = _
   protected var maxColumnPos = 0
 
+  protected val mayLimit0 = true
+  protected val scalarFrom: Option[String] = None
+
   protected def localTableName(n: Node) = n match {
     case Join.JoinPart(table, from) =>
       // Special case for Joins: A join combines multiple tables but does not alias them
@@ -44,8 +48,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   }
 
   protected def isDeclaredTable(name: String): Boolean =
-    if(declaredTables contains name) true
-    else parent.map(_.isDeclaredTable(name)).getOrElse(false)
+    (declaredTables contains name) || parent.map(_.isDeclaredTable(name)).getOrElse(false)
   
   protected def subQueryBuilderFor(q: Query[_]) =
     subQueryBuilders.getOrElseUpdate(RefId(q), createSubQueryBuilder(q, nc))
@@ -56,7 +59,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     b.build
   }
 
-  def buildSelect(b: SQLBuilder): Unit = {
+  def buildSelect(b: SQLBuilder) {
     innerBuildSelect(b, false)
     insertAllFromClauses()
   }
@@ -78,42 +81,37 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   }
 
   protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
-    selectSlot = b.createSlot
-    selectSlot += "SELECT "
-    expr(Node(query.value), selectSlot, rename, true)
-    fromSlot = b.createSlot
-    appendClauses(b)
+    def inner {
+      selectSlot = b.createSlot
+      selectSlot += "SELECT "
+      expr(Node(query.value), selectSlot, rename, true)
+      fromSlot = b.createSlot
+      appendClauses(b)
+    }
+    if(!mayLimit0) {
+      query.typedModifiers[TakeDrop] match {
+        case TakeDrop(Some(0), _) :: _ => b += "SELECT * FROM ("; inner; b += ") t0 WHERE 1=0"
+        case _ => inner
+      }
+    } else inner
   }
 
-  protected def appendClauses(b: SQLBuilder): Unit = {
+  protected def appendClauses(b: SQLBuilder) {
     appendConditions(b)
     appendGroupClause(b)
     appendHavingConditions(b)
     appendOrderClause(b)
+    appendLimitClause(b)
   }
 
   protected def appendGroupClause(b: SQLBuilder): Unit = query.typedModifiers[Grouping] match {
-    case x :: xs => {
-      b += " GROUP BY "
-      expr(x.by, b, false, true)
-      for(x <- xs) {
-        b += ","
-        expr(x.by, b, false, true)
-      }
-    }
-    case _ =>
+    case Nil =>
+    case xs => b += " GROUP BY "; b.sep(xs, ",")(x => expr(x.by, b, false, true))
   }
 
   protected def appendOrderClause(b: SQLBuilder): Unit = query.typedModifiers[Ordering] match {
-    case x :: xs => {
-      b += " ORDER BY "
-      appendOrdering(x, b)
-      for(x <- xs) {
-        b += ","
-        appendOrdering(x, b)
-      }
-    }
-    case _ =>
+    case Nil =>
+    case xs => b += " ORDER BY "; b.sep(xs, ",")(appendOrdering(_,b))
   }
 
   protected def appendOrdering(o: Ordering, b: SQLBuilder) {
@@ -124,6 +122,15 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       case Ordering.NullsLast => b += " nulls last"
       case Ordering.NullsDefault =>
     }
+  }
+
+  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
+    /* SQL:2008 syntax */
+    case TakeDrop(Some(0), _) if(!mayLimit0) => // handled above in innerBuildSelectNoRewrite
+    case TakeDrop(Some(t), Some(d)) => b += " OFFSET " += d += " ROW FETCH NEXT " += t += " ROW ONLY"
+    case TakeDrop(Some(t), None) => b += " FETCH NEXT " += t += " ROW ONLY"
+    case TakeDrop(None, Some(d)) => b += " OFFSET " += d += " ROW"
+    case _ =>
   }
 
   def buildDelete = {
@@ -171,14 +178,13 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
     def handleColumns(node: Node) {
       node match {
-        case p: Projection[_] => {
+        case p: Projection[_] =>
           var i = 0
           for(ch <- p.nodeChildren) {
             if(i > 0) b += ','
             handleColumn(ch)
             i += 1
           }
-        }
         case t @ AbstractTable(tn) =>
           nc = nc.overrideName(t, tn)
           handleColumns(Node(t.*))
@@ -200,7 +206,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false, false)
 
-  protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
+  protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean) {
     var pos = 0
     c match {
       case p: Projection[_] => {
@@ -222,44 +228,40 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ConstColumn(null) => b += "null"
-    case ColumnOps.Not(ColumnOps.Is(l, ConstColumn(null))) => { b += '('; expr(l, b); b += " is not null)" }
-    case ColumnOps.Not(e) => { b += "(not "; expr(e, b); b+= ')' }
-    case ColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) b += "false" else { //TODO Use value provided by profile instead of "false"
+    case ColumnOps.Not(ColumnOps.Is(l, ConstColumn(null))) => b += '('; expr(l, b); b += " is not null)"
+    case ColumnOps.Not(e) => b += "(not "; expr(e, b); b+= ')'
+    case ColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) expr(ConstColumn(false), b) else {
       b += '('; expr(e, b); b += " in ("
-      if(bind)
-        for(x <- b.sep(seq, ","))
-          b +?= { (p, param) => tm(profile).setValue(x, p) }
+      if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => tm(profile).setValue(x, p) })
       else b += seq.map(tm(profile).valueToSQLLiteral).mkString(",")
       b += "))"
     }
-    case ColumnOps.Is(l, ConstColumn(null)) => { b += '('; expr(l, b); b += " is null)" }
-    case ColumnOps.Is(l, r) => { b += '('; expr(l, b); b += '='; expr(r, b); b += ')' }
+    case ColumnOps.Is(l, ConstColumn(null)) => b += '('; expr(l, b); b += " is null)"
+    case ColumnOps.Is(l, r) => b += '('; expr(l, b); b += '='; expr(r, b); b += ')'
     case s: SimpleFunction =>
       if(s.scalar) b += "{fn "
       b += s.name += '('
-      for(ch <- b.sep(s.nodeChildren, ",")) expr(ch, b)
+      b.sep(s.nodeChildren, ",")(expr(_, b))
       b += ')'
       if(s.scalar) b += '}'
     case SimpleLiteral(w) => b += w
     case s: SimpleExpression => s.toSQL(b, this)
-    case ColumnOps.Between(left, start, end) => { expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b) }
+    case ColumnOps.Between(left, start, end) => expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b)
     case ColumnOps.CountAll(q) => b += "count(*)"; localTableName(q)
-    case ColumnOps.CountDistinct(e) => { b += "count(distinct "; expr(e, b); b += ')' }
-    case ColumnOps.Like(l, r, esc) => {
+    case ColumnOps.CountDistinct(e) => b += "count(distinct "; expr(e, b); b += ')'
+    case ColumnOps.Like(l, r, esc) =>
       b += '('; expr(l, b); b += " like "; expr(r, b);
       esc.foreach { ch =>
         if(ch == '\'' || ch == '%' || ch == '_') throw new SQueryException("Illegal escape character '"+ch+"' for LIKE expression")
         b += " {escape '" += ch += "'}"
       }
       b += ')'
-    }
-    case a @ ColumnOps.AsColumnOf(ch, name) => {
+    case a @ ColumnOps.AsColumnOf(ch, name) =>
       b += "{fn convert("; expr(ch, b); b += ','
       b += name.getOrElse(mapTypeName(a.typeMapper(profile)))
       b += ")}"
-    }
-    case s: SimpleBinaryOperator => { b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')' }
-    case query:Query[_] => { b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")" }
+    case s: SimpleBinaryOperator => b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')'
+    case query:Query[_] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
     //case Union.UnionPart(_) => "*"
     case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
     case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
@@ -267,7 +269,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
       pc.typeMapper(profile).setValue(v, p)
     }
-    case c: Case.CaseColumn[_] => {
+    case c: Case.CaseColumn[_] =>
       b += "(case"
       c.clauses.foldRight(()) { (w,_) =>
         b += " when "
@@ -282,10 +284,9 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
           expr(n, b)
       }
       b += " end)"
-    }
-    case n: NamedColumn[_] => { b += quoteIdentifier(localTableName(n.table)) += '.' += quoteIdentifier(n.name) }
-    case SubqueryColumn(pos, sq, _) => { b += quoteIdentifier(localTableName(sq)) += "." += quoteIdentifier("c" + pos.toString) }
-    case sq @ Subquery(_, _) => { b += quoteIdentifier(localTableName(sq)) += ".*" }
+    case n: NamedColumn[_] => b += quoteIdentifier(localTableName(n.table)) += '.' += quoteIdentifier(n.name)
+    case SubqueryColumn(pos, sq, _) => b += quoteIdentifier(localTableName(sq)) += "." += quoteIdentifier("c" + pos.toString)
+    case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
     case a @ AbstractTable.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
     case t: AbstractTable[_] => expr(Node(t.*), b)
     case t: TableBase[_] => b += quoteIdentifier(localTableName(t)) += ".*"
@@ -294,19 +295,13 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   }
 
   protected def appendConditions(b: SQLBuilder): Unit = query.cond match {
-    case a :: l =>
-      b += " WHERE "
-      expr(Node(a), b)
-      for(e <- l) { b += " AND "; expr(Node(e), b) }
-    case Nil => ()
+    case Nil =>
+    case xs => b += " WHERE "; b.sep(xs, " AND ")(x => expr(Node(x), b))
   }
 
   protected def appendHavingConditions(b: SQLBuilder): Unit = query.condHaving match {
-    case a :: l =>
-      b += " HAVING "
-      expr(Node(a), b)
-      for(e <- l) { b += " AND "; expr(Node(e), b) }
-    case Nil => ()
+    case Nil =>
+    case xs => b += " HAVING "; b.sep(xs, " AND ")(x => expr(Node(x), b))
   }
 
   protected def insertAllFromClauses() {
@@ -325,6 +320,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
         declaredTables += name
       }
     }
+    if(fromSlot.isEmpty) scalarFrom.foreach(s => fromSlot += " FROM " += s)
   }
 
   protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
@@ -352,7 +348,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       else { b += "{oj "; createJoin(j, b); b += "}" }
   }
 
-  protected def createJoin(j: Join[_,_], b: SQLBuilder): Unit = {
+  protected def createJoin(j: Join[_,_], b: SQLBuilder) {
     val l = j.leftNode
     val r = j.rightNode
     table(l, nc.nameFor(l), b)

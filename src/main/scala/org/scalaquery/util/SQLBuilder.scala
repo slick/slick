@@ -32,14 +32,11 @@ final class SQLBuilder extends SQLBuilder.Segment { self =>
 
   def +?=(f: Setter) = { ss.setters append f; ss.sb append '?'; this }
 
-  def sep[T](sequence: Iterable[T], separator: String): Iterator[T] = new Iterator[T] {
+  def sep[T](sequence: Iterable[T], separator: String)(f: T => Unit) {
     var first = true
-    val it = sequence.iterator
-    def hasNext = it.hasNext
-    def next() = {
-      val n = it.next()
+    for(x <- sequence) {
       if(first) first = false else self += separator
-      n
+      f(x)
     }
   }
 

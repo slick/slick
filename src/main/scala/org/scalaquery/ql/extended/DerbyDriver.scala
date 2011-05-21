@@ -62,22 +62,11 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import profile.sqlUtils._
 
   override type Self = DerbyQueryBuilder
+  override protected val mayLimit0 = false
+  override protected val scalarFrom = Some("sysibm.sysdummy1")
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new DerbyQueryBuilder(query, nc, Some(this), profile)
-
-  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
-    query.typedModifiers[TakeDrop] match {
-      case TakeDrop(Some(0), _) :: _ =>
-        /* Derby does not allow fetching 0 rows, so we use this workaround to
-         * force the query to return no results */
-        b += "SELECT * FROM ("
-        super.innerBuildSelectNoRewrite(b, rename)
-        b += ") t0 WHERE 1=0"
-      case _ =>
-        super.innerBuildSelectNoRewrite(b, rename)
-    }
-  }
 
   override protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
     c match {
@@ -123,9 +112,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
        * should be safe because they may not contain NULLs). */
       val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
       b += "("
-      for((l,r) <- b.sep(cols, " and ")) {
-        expr(l, b); b += "="; expr(r, b);
-      }
+      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b); }
       b += ")"
 
     case c @ BindColumn(v) if b == selectSlot =>
@@ -148,26 +135,6 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
-  override protected def insertFromClauses() {
-    super.insertFromClauses()
-    /* At least it makes more sense than calling it "DUAL"... */
-    if(fromSlot.isEmpty) fromSlot += " FROM sysibm.sysdummy1"
-  }
-
-  override protected def appendClauses(b: SQLBuilder): Unit = {
-    super.appendClauses(b)
-    appendLimitClause(b)
-  }
-
-  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
-    /* Derby uses the SQL:2008 syntax for skip/limit */
-    case TakeDrop(Some(0), _) => // handled above in innerBuildSelectNoRewrite
-    case TakeDrop(Some(t), Some(d)) => b += " OFFSET " += d += " ROW FETCH NEXT " += t += " ROW ONLY"
-    case TakeDrop(Some(t), None) => b += " FETCH NEXT " += t += " ROW ONLY"
-    case TakeDrop(None, Some(d)) => b += " OFFSET " += d += " ROW"
-    case _ =>
-  }
-
   override protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
     /* Derby requires columns of UNION parts to have the same names. If my
      * understanding of SQL:2008 is correct, this is a bug. This behavior
@@ -176,8 +143,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
      * column names. */
     case Subquery(Union(all, sqs), rename) =>
       b += "("
-      for(sq <- b.sep(sqs, (if(all) " UNION ALL " else " UNION ")))
-        subQueryBuilderFor(sq).innerBuildSelect(b, rename)
+      b.sep(sqs, (if(all) " UNION ALL " else " UNION "))(sq => subQueryBuilderFor(sq).innerBuildSelect(b, rename))
       b += ") " += quoteIdentifier(name)
     case _ => super.table(t, name, b)
   }

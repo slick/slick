@@ -26,6 +26,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import ExtendedQueryOps._
 
   override type Self = OracleQueryBuilder
+  override protected val scalarFrom = Some("DUAL")
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new OracleQueryBuilder(query, nc, Some(this), profile)
@@ -65,8 +66,5 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     }
   }
 
-  override protected def insertFromClauses() {
-    super.insertFromClauses()
-    if(fromSlot.isEmpty) fromSlot += " FROM DUAL"
-  }
+  override protected def appendLimitClause(b: SQLBuilder) = ()
 }

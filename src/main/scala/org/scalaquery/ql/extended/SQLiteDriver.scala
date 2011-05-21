@@ -127,12 +127,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     if(desc) b += " desc"
   }
 
-  override protected def appendClauses(b: SQLBuilder): Unit = {
-    super.appendClauses(b)
-    appendLimitClause(b)
-  }
-
-  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
+  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
     case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += d += "," += t
     case TakeDrop(Some(t), None) => b += " LIMIT " += t
     case TakeDrop(None, Some(d)) => b += " LIMIT " += d += ",-1"
@@ -160,17 +155,15 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
        * unescaped function calls by default */
       b += fname += '('
-      for(ch <- b.sep(s.nodeChildren, ",")) expr(ch, b)
+      b.sep(s.nodeChildren, ",")(expr(_, b))
       b += ")"
     case fk: ForeignKey[_] =>
       /* SQLite does not support row value constructor syntax (tuple syntax),
        * so we need to untuple and compare the individual columns (which
-       * may not not kosher in the presence of NULLs). */
+       * may not be kosher in the presence of NULLs). */
       val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
       b += "("
-      for((l,r) <- b.sep(cols, " and ")) {
-        expr(l, b); b += "="; expr(r, b);
-      }
+      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b) }
       b += ")"
     case _ => super.innerExpr(c, b)
   }

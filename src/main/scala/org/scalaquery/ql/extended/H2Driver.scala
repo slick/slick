@@ -27,22 +27,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import ExtendedQueryOps._
 
   override type Self = H2QueryBuilder
+  override protected val mayLimit0 = false
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new H2QueryBuilder(query, nc, Some(this), profile)
-
-  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
-    query.typedModifiers[TakeDrop] match {
-      case TakeDrop(Some(0), _) :: _ =>
-        /* H2 ignores LIMIT 0 and treats negative limits as positive, so
-         * we use this workaround to force the query to return no results */
-        b += "SELECT * FROM ("
-        super.innerBuildSelectNoRewrite(b, rename)
-        b += ") WHERE FALSE"
-      case _ =>
-        super.innerBuildSelectNoRewrite(b, rename)
-    }
-  }
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
@@ -51,13 +39,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
-  override protected def appendClauses(b: SQLBuilder): Unit = {
-    super.appendClauses(b)
-    appendLimitClause(b)
-  }
-
-  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
-    case TakeDrop(Some(0), _) => // handled above in innerBuildSelectNoRewrite
+  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
+    case TakeDrop(Some(0), _) => // handled in innerBuildSelectNoRewrite
     case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case TakeDrop(Some(t), None) => b += " LIMIT " += t
     case TakeDrop(None, Some(d)) => b += " LIMIT 0 OFFSET " += d

@@ -13,22 +13,19 @@ trait MutatingInvoker[-P,R] extends Invoker[P,R] { self =>
    */
   final def mutate(param: P)(f: ResultSetMutator[R] => Unit)(implicit session: Session): Unit = mutate(param, f, null)(session)
 
-  override def apply(parameter: P): MutatingUnitInvoker[R] = new AppliedInvoker[P,R] with DelegatingMutatingUnitInvoker[P,R] {
+  override def apply(parameter: P): MutatingUnitInvoker[R] = new AppliedInvoker[P,R] with MutatingUnitInvoker[R] {
     protected val appliedParameter = parameter
     protected val delegate = self
   }
 }
 
 trait MutatingUnitInvoker[R] extends UnitInvoker[R] {
-  def mutate(f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: Session): Unit
-  final def mutate(f: ResultSetMutator[R] => Unit)(implicit session: Session): Unit = mutate(f, null)(session)
-}
-
-trait DelegatingMutatingUnitInvoker[P,R] extends DelegatingUnitInvoker[P, R] with MutatingUnitInvoker[R] {
-  override protected val delegate: MutatingInvoker[P, R]
+  override protected val delegate: MutatingInvoker[Param, R]
 
   def mutate(f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: Session): Unit =
     delegate.mutate(appliedParameter, f, end)(session)
+
+  final def mutate(f: ResultSetMutator[R] => Unit)(implicit session: Session): Unit = mutate(f, null)(session)
 }
 
 trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with MutatingInvoker[P,R] {

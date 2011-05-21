@@ -118,14 +118,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   def addCopyColumns(b: SQLBuilder) {
     if(isCountAll) b += "count(*)"
     else if(maxColumnPos == 0) b += "*"
-    else {
-      var first = true
-      for(i <- 1 to maxColumnPos) {
-        if(first) first = false
-        else b += ','
-        b += "\"c" += i += "\""
-      }
-    }
+    else b.sep(1 to maxColumnPos, ",")(i => b += "\"c" += i += "\"")
   }
 
   override protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
@@ -163,9 +156,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
        * individual columns. */
       val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
       b += "("
-      for((l,r) <- b.sep(cols, " and ")) {
-        expr(l, b); b += "="; expr(r, b);
-      }
+      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b) }
       b += ")"
     case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "+"; expr(r, b); b += ')'
     case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)

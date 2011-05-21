@@ -54,6 +54,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import profile.sqlUtils._
 
   override type Self = MySQLQueryBuilder
+  override protected val scalarFrom = Some("DUAL")
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new MySQLQueryBuilder(query, nc, Some(this), profile)
@@ -65,21 +66,11 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
-  override protected def appendClauses(b: SQLBuilder): Unit = {
-    super.appendClauses(b)
-    appendLimitClause(b)
-  }
-
-  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
+  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
     case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += d += ',' += t
     case TakeDrop(Some(t), None) => b += " LIMIT " += t
     case TakeDrop(None, Some(d)) => b += " LIMIT " += d += ",18446744073709551615"
     case _ =>
-  }
-
-  override protected def insertFromClauses() {
-    super.insertFromClauses()
-    if(fromSlot.isEmpty) fromSlot += " FROM DUAL"
   }
 
   override protected def appendOrdering(o: Ordering, b: SQLBuilder) {

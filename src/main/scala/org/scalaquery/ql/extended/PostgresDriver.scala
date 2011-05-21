@@ -47,12 +47,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
-  override protected def appendClauses(b: SQLBuilder): Unit = {
-    super.appendClauses(b)
-    appendLimitClause(b)
-  }
-
-  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
+  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
     case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case TakeDrop(Some(t), None) => b += " LIMIT " += t
     case TakeDrop(None, Some(d)) => b += " OFFSET " += d

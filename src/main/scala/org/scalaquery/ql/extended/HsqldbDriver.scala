@@ -80,22 +80,11 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import profile.sqlUtils._
 
   override type Self = HsqldbQueryBuilder
+  override protected val mayLimit0 = false
+  override protected val scalarFrom = Some("(VALUES (0))")
 
   protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
     new HsqldbQueryBuilder(query, nc, Some(this), profile)
-
-  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
-    query.typedModifiers[TakeDrop] match {
-      case TakeDrop(Some(0), _) :: _ =>
-        /* Hsqldb does not accept LIMIT 0, so we use this workaround
-         * to force the query to return no results */
-        b += "SELECT * FROM ("
-        super.innerBuildSelectNoRewrite(b, rename)
-        b += ") WHERE FALSE"
-      case _ =>
-        super.innerBuildSelectNoRewrite(b, rename)
-    }
-  }
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
 
@@ -122,18 +111,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
-  override protected def appendClauses(b: SQLBuilder): Unit = {
-    super.appendClauses(b)
-    appendLimitClause(b)
-  }
-
-  override protected def insertFromClauses() {
-    super.insertFromClauses()
-    if(fromSlot.isEmpty) fromSlot += " FROM (VALUES (0))"
-  }
-
-  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
-    case TakeDrop(Some(0), _) => () // handled above in innerBuildSelectNoRewrite
+  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
+    case TakeDrop(Some(0), _) => () // handled in innerBuildSelectNoRewrite
     case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case TakeDrop(Some(t), None) => b += " LIMIT " += t
     case TakeDrop(None, Some(d)) => b += " OFFSET " += d

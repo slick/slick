@@ -3,7 +3,6 @@ package org.scalaquery.test
 import scala.collection.mutable.ArrayBuffer
 import org.junit.Test
 import org.junit.Assert._
-import org.scalaquery.Invoker
 import org.scalaquery.ql._
 import org.scalaquery.ql.extended.{ExtendedTable => Table}
 import org.scalaquery.session.Database.threadLocalSession
