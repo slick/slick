@@ -196,6 +196,16 @@ object DerbyDB {
   val DEV_NULL = new java.io.OutputStream { def write(b: Int) {} };
 }
 
+abstract class HsqlDB(confName: String) extends TestDB(confName) {
+  val jdbcDriver = "org.hsqldb.jdbcDriver"
+  val driver = HsqldbDriver
+  override def getLocalTables(implicit session: Session): List[String] = {
+    val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null))
+    tables.list(())(session).map(_._3).sorted
+  }
+  override def userName = "sa"
+}
+
 object TestDB {
   type TestDBSpec = (DBTestObject => TestDB)
 
@@ -214,16 +224,15 @@ object TestDB {
     override def cleanUp() = deleteDBFiles(dbName)
   }
 
-  def HsqldbMem(to: DBTestObject) = new TestDB("hsqldbmem") {
-    val url = "jdbc:hsqldb:mem:test1;user=SA;password=;shutdown=true"
-    val jdbcDriver = "org.hsqldb.jdbcDriver"
-    val driver = HsqldbDriver
+  def HsqldbMem(to: DBTestObject) = new HsqlDB("hsqldbmem") {
     override val dbName = "test1"
-    override def getLocalTables(implicit session: Session): List[String] = {
-      val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null))
-      tables.list(())(session).map(_._3).sorted
-    }
-    override def userName = "sa"
+    val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
+  }
+
+  def HsqldbDisk(to: DBTestObject) = new HsqlDB("hsqldbmem") {
+    override val dbName = "hsqldb-"+to.testClassName
+    val url = "jdbc:hsqldb:file:./"+TestDBOptions.testDBDir+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
+    override def cleanUp() = deleteDBFiles(dbName)
   }
 
   def SQLiteMem(to: DBTestObject) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
