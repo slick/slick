@@ -12,8 +12,8 @@ abstract class PositionedResult(val rs: ResultSet) extends java.io.Closeable {
   var pos = 0
   lazy val numColumns = meta.getColumnCount()
 
-  def next() = { pos = 0; rs.next }
   def hasMoreColumns = pos < numColumns
+  def next() = { val ret = rs.next; pos = 0; ret }
 
   def << [T](implicit f: GetResult[T]): T = f(this)
   def <<? [T](implicit f: GetResult[Option[T]]): Option[T] = if(hasMoreColumns) this.<< else None
