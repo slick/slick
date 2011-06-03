@@ -3,7 +3,9 @@ package org.scalaquery.session
 import java.util.Properties
 import java.sql._
 import javax.sql.DataSource
+import javax.naming.InitialContext
 import scala.util.DynamicVariable
+import org.scalaquery.SQueryException
 
 /**
  * A database instance to which connections can be created.
@@ -78,6 +80,14 @@ object Database {
    */
   def forDataSource(ds: DataSource): Database = new Database {
     protected[session] def createConnection(): Connection = ds.getConnection
+  }
+
+  /**
+   * Create a Database based on the JNDI name of a DataSource.
+   */
+  def forName(name: String) = new InitialContext().lookup(name) match {
+    case ds: DataSource => forDataSource(ds)
+    case x => throw new SQueryException("Expected a DataSource for JNDI name "+name+", but got "+x)
   }
 
   /**
