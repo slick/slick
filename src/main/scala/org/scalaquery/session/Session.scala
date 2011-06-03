@@ -1,6 +1,6 @@
 package org.scalaquery.session
 
-import java.sql.{PreparedStatement, Connection, ResultSet, DatabaseMetaData, Statement}
+import java.sql.{PreparedStatement, Connection, DatabaseMetaData, Statement}
 import org.scalaquery.SQueryException
 
 /**

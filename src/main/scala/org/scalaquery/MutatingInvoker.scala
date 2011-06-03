@@ -39,9 +39,9 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
     session.withTransaction {
       /* Hsqldb forces ResultSets to be read-only in auto-commit mode, so we
        * use an explicit transaction. It shouldn't hurt other databases. */
-      results(param, 0, defaultConcurrency = mutateConcurrency, defaultType = mutateType) match {
-        case Left(_) => throw new SQueryException("Cannot transform an update result")
-        case Right(pr) => try {
+      results(param, 0, defaultConcurrency = mutateConcurrency, defaultType = mutateType).fold(
+        _ => throw new SQueryException("Cannot transform an update result"),
+        pr => try {
           val rs = pr.rs
           var current: R = null.asInstanceOf[R]
           val mu = new ResultSetMutator[R] {
@@ -81,6 +81,6 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
             })
           }
         } finally { pr.close() }
-      }
+      )
     }
 }

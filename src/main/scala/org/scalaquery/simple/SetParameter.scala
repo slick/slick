@@ -47,7 +47,7 @@ object SetParameter {
         case v: String => pp.setString(v)
         case v: Time => pp.setTime(v)
         case v: Timestamp => pp.setTimestamp(v)
-        case v => throw new SQLException("SetProduct doesn't know how to handle parameter "+i+"( "+v+")")
+        case v => throw new SQLException("SetProduct doesn't know how to handle parameter "+i+" ("+v+")")
       }
   }
 

@@ -1,8 +1,7 @@
 package org.scalaquery.simple
 
 import java.sql.PreparedStatement
-import java.sql.{Date, Time, Timestamp}
-import org.scalaquery.{StatementInvoker, UnitInvokerMixin, SQueryException}
+import org.scalaquery.{StatementInvoker, UnitInvokerMixin}
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 
 /**

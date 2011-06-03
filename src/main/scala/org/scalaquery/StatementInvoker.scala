@@ -7,42 +7,17 @@ import org.scalaquery.util.CloseableIterator
 /**
  * An invoker which executes an SQL statement.
  */
-abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
+abstract class StatementInvoker[-P, +R] extends Invoker[P, R] with ResultSetInvokerMixin[R] { self =>
 
   protected def getStatement: String
 
   protected def setParam(param: P, st: PreparedStatement): Unit
 
-  protected def extractValue(rs: PositionedResult): R
+  def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: Session) =
+    results(param, maxRows).fold(r => f(r.asInstanceOf[R]), prForeach(_, f, maxRows))
 
-  def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: Session): Unit = results(param, maxRows) match {
-    case Left(r) => f(r.asInstanceOf[R])
-    case Right(rs) => try {
-      var count = 0
-      while(rs.next && (maxRows == 0 || count < maxRows)) {
-        f(extractValue(rs))
-        count += 1
-      }
-    } finally { rs.close() }
-  }
-
-  def elements(param: P)(implicit session: Session): CloseableIterator[R] = results(param, 0) match {
-    case Left(r) => new CloseableIterator[R] {
-      private var hasnext = true
-      def hasNext: Boolean = hasnext
-      def next(): R =
-        if (hasnext) { hasnext = false; r.asInstanceOf[R] }
-        else throw new NoSuchElementException("next on empty iterator")
-      def close {}
-    }
-    case Right(rs) => new ReadAheadIterator[R] with CloseableIterator[R] {
-      def close() = rs.close()
-      protected def fetchNext() = {
-        if(rs.next) Some(extractValue(rs))
-        else { close(); None }
-      }
-    }
-  }
+  def elements(param: P)(implicit session: Session): CloseableIterator[R] =
+    results(param, 0).fold(r => new CloseableIterator.Single[R](r.asInstanceOf[R]), prElements)
 
   override def execute(param: P)(implicit session: Session): Unit = results(param, 1).right.foreach(_.close())
 

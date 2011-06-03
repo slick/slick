@@ -3,8 +3,7 @@ package org.scalaquery.ql.basic
 import java.sql.Statement
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.{ColumnBase, Query}
-import org.scalaquery.session.{Session, ReadAheadIterator, PositionedParameters}
-import org.scalaquery.util.CloseableIterator
+import org.scalaquery.session.{Session, PositionedParameters}
 
 class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
 
