@@ -12,22 +12,23 @@ import org.scalaquery.iter._
 trait Invoker[-P, +R] { self =>
 
   /**
-   * Execute the statement and call f for each converted row of the result set.
-   * 
-   * @param maxRows Maximum number of rows to read from the result (0 for unlimited).
+   * Execute the statement and return a CloseableIterator of the converted results.
+   * The iterator must either be fully read or closed explicitly.
    */
-  def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: Session): Unit
+  final def elements(param: P)(implicit session: Session) = elementsTo(param, 0)
 
   /**
    * Execute the statement and return a CloseableIterator of the converted results.
    * The iterator must either be fully read or closed explicitly.
+   *
+   * @param maxRows Maximum number of rows to read from the result (0 for unlimited).
    */
-  def elements(param: P)(implicit session: Session): CloseableIterator[R]
+  def elementsTo(param: P, maxRows: Int)(implicit session: Session): CloseableIterator[R]
 
   /**
    * Execute the statement and ignore the results.
    */
-  def execute(param: P)(implicit session: Session): Unit = elements(param)(session).close()
+  final def execute(param: P)(implicit session: Session): Unit = elements(param)(session).close()
 
   /**
    * Execute the statement and return the first row of the result set wrapped in
@@ -80,7 +81,20 @@ trait Invoker[-P, +R] { self =>
   /**
    * Execute the statement and call f for each converted row of the result set.
    */
-  final def foreach(param: P, f: R => Unit)(implicit session: Session): Unit = foreach(param, f, 0)
+  final def foreach(param: P, f: R => Unit)(implicit session: Session) {
+    val it = elements(param)
+    try { it.foreach(f) } finally { it.close() }
+  }
+
+  /**
+   * Execute the statement and call f for each converted row of the result set.
+   *
+   * @param maxRows Maximum number of rows to read from the result (0 for unlimited).
+   */
+  final def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: Session) {
+    val it = elementsTo(param, maxRows)
+    try { it.foreach(f) } finally { it.close() }
+  }
 
   /**
    * Execute the statement and left-fold the converted rows of the result set.
@@ -118,7 +132,7 @@ trait Invoker[-P, +R] { self =>
    * Create a new Invoker which applies the mapping function f to each row
    * of the result set.
    */
-  def mapResult[U](f: (R => U)): Invoker[P, U] = new MappedInvoker(this, f) with Invoker[P, U]
+  def mapResult[U](f: (R => U)): Invoker[P, U] = new MappedInvoker(this, f)
 
   /**
    * If the result type of this Invoker is of the form Option[T], execute the statement
@@ -143,6 +157,7 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   final def foreach(f: R => Unit)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f)
   final def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
   final def elements()(implicit session: Session): CloseableIterator[R] = delegate.elements(appliedParameter)
+  final def elementsTo(maxRows: Int)(implicit session: Session): CloseableIterator[R] = delegate.elementsTo(appliedParameter, maxRows)
   final def execute()(implicit session: Session): Unit = delegate.execute(appliedParameter)
   final def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: Session): B = delegate.foldLeft(appliedParameter, z)(op)
   final def enumerate[B, RR >: R](iter: IterV[RR,B])(implicit session: Session): IterV[RR, B] = delegate.enumerate(appliedParameter, iter)
@@ -154,8 +169,7 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
 
 object UnitInvoker {
   val empty: UnitInvoker[Nothing] = new UnitInvokerMixin[Nothing] {
-    def foreach(param: Unit, f: Nothing => Unit, maxRows: Int)(implicit session: Session) {}
-    def elements(param: Unit)(implicit session: Session) = CloseableIterator.empty
+    def elementsTo(param: Unit, maxRows: Int)(implicit session: Session) = CloseableIterator.empty
   }
 }
 
@@ -170,6 +184,13 @@ trait UnitInvokerMixin[+R] extends UnitInvoker[R] {
  */
 trait AppliedInvoker[P, +R] extends UnitInvoker[R] {
   protected type Param = P
-  def foreach(param: Unit, f: R => Unit, maxRows: Int)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
-  def elements(param: Unit)(implicit session: Session): CloseableIterator[R] = delegate.elements(appliedParameter)
+  def elementsTo(param: Unit, maxRows: Int)(implicit session: Session): CloseableIterator[R] = delegate.elementsTo(appliedParameter, maxRows)
+}
+
+/**
+ * An Invoker which applies a mapping function to all results of another Invoker.
+ */
+class MappedInvoker[-P, U, +R](parent: Invoker[P, U], mapper: (U => R)) extends Invoker[P, R] {
+  def elementsTo(param: P, maxRows: Int)(implicit session: Session) =
+    parent.elementsTo(param, maxRows).map(mapper)
 }

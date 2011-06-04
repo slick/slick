@@ -12,19 +12,20 @@ import org.scalaquery.util.CloseableIterator
  * For convenience, if the function returns null, this is treated like an
  * empty ResultSet.
  */
-abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] with ResultSetInvokerMixin[R] { self =>
+abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
 
   protected def createResultSet(session: Session): ResultSet
 
-  def foreach(param: Unit, f: R => Unit, maxRows: Int)(implicit session: Session) =
-    createPR(session).foreach(prForeach(_, f, maxRows))
-
-  def elements(param: Unit)(implicit session: Session): CloseableIterator[R] = {
-    createPR(session) map prElements getOrElse CloseableIterator.empty
+  def elementsTo(param: Unit, maxRows: Int)(implicit session: Session): CloseableIterator[R] = {
+    val rs = createResultSet(session)
+    if(rs eq null) CloseableIterator.empty
+    else new PositionedResultIterator[R](rs, maxRows) {
+      def close() = rs.close()
+      def extractValue() = self.extractValue(this)
+    }
   }
 
-  private[this] def createPR(session: Session) =
-    Option(createResultSet(session)) map { new PositionedResult(_) { def close() = rs.close() } }
+  protected def extractValue(pr: PositionedResult): R
 }
 
 object ResultSetInvoker {
@@ -32,25 +33,4 @@ object ResultSetInvoker {
     def createResultSet(session: Session) = f(session)
     def extractValue(pr: PositionedResult) = conv (pr)
   }
-}
-
-trait ResultSetInvokerMixin[+R] {
-
-  protected final def prForeach(pr: PositionedResult, f: R => Unit, maxRows: Int): Unit = try {
-    var count = 0
-    while(pr.next && (maxRows == 0 || count < maxRows)) {
-      f(extractValue(pr))
-      count += 1
-    }
-  } finally { pr.close() }
-
-  protected final def prElements(pr: PositionedResult): CloseableIterator[R] = new CloseableIterator.ReadAhead[R] {
-    def close() = pr.close()
-    protected def fetchNext() = {
-      if(pr.next) Some(extractValue(pr))
-      else { close(); None }
-    }
-  }
-
-  protected def extractValue(pr: PositionedResult): R
 }

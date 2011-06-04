@@ -7,19 +7,14 @@ import org.scalaquery.util.CloseableIterator
 /**
  * An invoker which executes an SQL statement.
  */
-abstract class StatementInvoker[-P, +R] extends Invoker[P, R] with ResultSetInvokerMixin[R] { self =>
+abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
 
   protected def getStatement: String
 
   protected def setParam(param: P, st: PreparedStatement): Unit
 
-  def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: Session) =
-    results(param, maxRows).fold(r => f(r.asInstanceOf[R]), prForeach(_, f, maxRows))
-
-  def elements(param: P)(implicit session: Session): CloseableIterator[R] =
-    results(param, 0).fold(r => new CloseableIterator.Single[R](r.asInstanceOf[R]), prElements)
-
-  override def execute(param: P)(implicit session: Session): Unit = results(param, 1).right.foreach(_.close())
+  def elementsTo(param: P, maxRows: Int)(implicit session: Session): CloseableIterator[R] =
+    results(param, maxRows).fold(r => new CloseableIterator.Single[R](r.asInstanceOf[R]), identity)
 
   /**
    * Invoke the statement and return the raw results.
@@ -28,7 +23,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] with ResultSetInvo
         defaultType: ResultSetType = ResultSetType.ForwardOnly,
         defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
         defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)
-      (implicit session: Session): Either[Int, PositionedResult] = {
+      (implicit session: Session): Either[Int, PositionedResultIterator[R]] = {
     //TODO Support multiple results
     val statement = getStatement
     val st = session.prepareStatement(statement, defaultType, defaultConcurrency, defaultHoldability)
@@ -37,10 +32,15 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] with ResultSetInvo
     try {
       st.setMaxRows(maxRows)
       if(st.execute) {
-        val rs = new PositionedResult(st.getResultSet) { def close() = st.close() }
+        val rs = new PositionedResultIterator[R](st.getResultSet, maxRows) {
+          def close() = st.close()
+          def extractValue() = self.extractValue(this)
+        }
         doClose = false
         Right(rs)
       } else Left(st.getUpdateCount)
     } finally if(doClose) st.close()
   }
+
+  protected def extractValue(pr: PositionedResult): R
 }

@@ -6,13 +6,19 @@ import java.io.Closeable
  * An Iterator with a `close` method to close the underlying data source.
  * Implementers must close the data source when `hasNext` returns `false`.
  */
-abstract class CloseableIterator[+T] extends Iterator[T] with Closeable {
+trait CloseableIterator[+T] extends Iterator[T] with Closeable { self =>
 
   /**
    * Close the underlying data source. The behaviour of any methods of this
    * object after closing it is undefined.
    */
   override def close(): Unit
+
+  override def map[B](f: T => B): CloseableIterator[B] = new CloseableIterator[B] {
+    def hasNext = self.hasNext
+    def next() = f(self.next())
+    def close() = self.close()
+  }
 
   final def use[R](f: (Iterator[T] => R)): R =
     try f(this) finally close()
@@ -42,28 +48,5 @@ object CloseableIterator {
     def hasNext = more
     def next() = if(more) { more = false; item } else noNext
     def close {}
-  }
-
-  /**
-   * A CloseableIterator on top of a data source which does not offer a
-   * hasNext() method without doing a next()
-   */
-  abstract class ReadAhead[+T] extends CloseableIterator[T] {
-
-    private[this] var cached: Option[T] = null
-
-    protected[this] def fetchNext(): Option[T]
-
-    private[this] def peek(): Option[T] = {
-      if(cached eq null) cached = fetchNext()
-      cached
-    }
-
-    final def hasNext = peek().isDefined
-
-    final def next() = peek() match {
-      case None => noNext
-      case Some(x) => { cached = null; x }
-    }
   }
 }
