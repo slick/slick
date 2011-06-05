@@ -26,9 +26,9 @@ trait ColumnOps[B1, P1] {
     om(Relational(">", leftOperand, Node(e)))
   def >= [P2, R](e: ColumnBase[P2])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P2, R]): Column[R] =
     om(Relational(">=", leftOperand, Node(e)))
-  def inSet[R](seq: Seq[B1])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P1, R], tm: BaseTypeMapper[B1]): Column[R] =
+  def inSet[R](seq: Traversable[B1])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P1, R], tm: BaseTypeMapper[B1]): Column[R] =
     om(InSet(leftOperand, seq, tm, false))
-  def inSetBind[R](seq: Seq[B1])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P1, R], tm: BaseTypeMapper[B1]): Column[R] =
+  def inSetBind[R](seq: Traversable[B1])(implicit om: OptionMapper2[B1, B1, Boolean, P1, P1, R], tm: BaseTypeMapper[B1]): Column[R] =
     om(InSet(leftOperand, seq, tm, true))
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: OptionMapper3[B1, B1, B1, Boolean, P1, P2, P3, R]): Column[R] =
     om(Between(leftOperand, start, end))
@@ -122,7 +122,7 @@ object ColumnOps {
 
   case class Is(left: Node, right: Node) extends OperatorColumn[Boolean] with BinaryNode with ColumnOps[Boolean,Boolean]
   case class CountDistinct(child: Node) extends OperatorColumn[Int] with UnaryNode
-  case class InSet[T](child: Node, seq: Seq[T], tm: TypeMapper[T], bind: Boolean) extends OperatorColumn[Boolean] with UnaryNode
+  case class InSet[T](child: Node, seq: Traversable[T], tm: TypeMapper[T], bind: Boolean) extends OperatorColumn[Boolean] with UnaryNode
 
   case class Between(left: Node, start: Node, end: Node) extends OperatorColumn[Boolean] with ColumnOps[Boolean,Boolean] {
     def nodeChildren = left :: start :: end :: Nil
