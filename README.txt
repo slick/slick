@@ -18,3 +18,23 @@ Accessing other database systems is possible, with a reduced feature set.
 
 See <http://scalaquery.org/> for more information.
 Licensing conditions (BSD-style) can be found in LICENSE.txt.
+
+---
+This fork adds support for TableOption-constraints and use them to give 
+additional properties to MySQL-tables. For example (may not compile, but 
+you get the idea):  
+
+object TransferIds extends Table[Long]("table") {
+  def id = column[Long]("id", O.NotNull, O.PrimaryKey)
+  def * = id
+  def engine = TableOption("ENGINE", "InnoDB")
+  def collate = TableOption("COLLATE", "utf8_swedish_ci")
+}
+
+should produce a table with definition something like:
+ 
+CREATE TABLE `table` (
+  `id` long NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB COLLATE=utf8_swedish_ci;
+

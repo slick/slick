@@ -93,6 +93,12 @@ class MySQLDDLBuilder(table: AbstractBasicTable[_], profile: MySQLDriver) extend
   override protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
     "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
   }
+  
+  override protected def createOption(o: TableOption) = {
+    import profile.sqlUtils._
+    val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " " append o.name append "=" append o.value append " "
+    sb.toString
+  }
 }
 
 class MySQLSequenceDDLBuilder[T](seq: Sequence[T], profile: MySQLDriver) extends BasicSequenceDDLBuilder(seq, profile) {

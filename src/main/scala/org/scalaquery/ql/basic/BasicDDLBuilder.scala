@@ -64,11 +64,12 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
     val createIndexes = table.indexes.map(createIndex)
     val foreignKeys = table.foreignKeys
     val primaryKeys = table.primaryKeys
+    val tableOptions = table.tableOptions
     if(primaryKeys.size > 1)
       throw new SQueryException("Table "+table.tableName+" defines multiple primary keys")
     new DDL {
       val createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ createIndexes
-      val createPhase2 = foreignKeys.map(createForeignKey)
+      val createPhase2 = foreignKeys.map(createForeignKey) ++ tableOptions.map(createOption)
       val dropPhase1 = foreignKeys.map(dropForeignKey)
       val dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable("DROP TABLE " + quoteIdentifier(table.tableName))
     }
@@ -82,6 +83,8 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
     b append ")"
     b.toString
   }
+
+  protected def createOption(o: TableOption) = ""
 
   protected def createForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
     val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "

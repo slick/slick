@@ -42,7 +42,7 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
       m <- getClass().getMethods.view
       if m.getParameterTypes.length == 0 &&
         (m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable[_]]]
-         || m.getReturnType == classOf[PrimaryKey])
+         || m.getReturnType == classOf[PrimaryKey] || m.getReturnType == classOf[TableOption])
       q = m.invoke(this).asInstanceOf[Constraint]
     } yield q
 
@@ -51,6 +51,9 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
 
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints collect { case k: PrimaryKey => k }
+
+  final def tableOptions: Iterable[TableOption] =
+    tableConstraints collect { case k: TableOption => k }
 
   def index(name: String, on: ColumnBase[_], unique: Boolean = false) = new Index(name, this, on, unique)
 

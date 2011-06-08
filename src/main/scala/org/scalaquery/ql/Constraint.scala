@@ -4,7 +4,7 @@ import TypeMapper._
 import org.scalaquery.util.{Node, BinaryNode}
 
 /**
- * Marker trait for foreign key and primary key constraints.
+ * Marker trait for foreign key, primary key and table option constraints.
  */
 trait Constraint
 
@@ -32,3 +32,4 @@ case class ForeignKeyQuery[TT <: AbstractTable[_]](fk: ForeignKey[TT]) extends Q
 }
 
 case class PrimaryKey(name: String, columns: Node) extends Constraint
+case class TableOption(name: String, value: String) extends Constraint
