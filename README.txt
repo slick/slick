@@ -21,8 +21,8 @@ Licensing conditions (BSD-style) can be found in LICENSE.txt.
 
 ---
 This fork adds support for TableOption-constraints and use them to give 
-additional properties to MySQL-tables. For example (may not compile, but 
-you get the idea):  
+additional properties to MySQL-tables. For example (changed real values
+to dummy ones, hopefully no typos):  
 
 object TransferIds extends Table[Long]("table") {
   def id = column[Long]("id", O.NotNull, O.PrimaryKey)
