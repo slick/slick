@@ -5,6 +5,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import extended.ExtendedQueryOps.TakeDrop
 import org.scalaquery.util._
+import org.scalaquery.session.{PositionedParameters, PositionedResult}
 
 class ConcreteBasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile)
 extends BasicQueryBuilder(_query, _nc, parent, _profile) {
@@ -53,15 +54,21 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected def subQueryBuilderFor(q: Query[_]) =
     subQueryBuilders.getOrElseUpdate(RefId(q), createSubQueryBuilder(q, nc))
 
-  final def buildSelect: SQLBuilder.Result = {
+  final def buildSelect: (SQLBuilder.Result, ValueLinearizer[_]) = {
     val b = new SQLBuilder
     buildSelect(b)
-    b.build
+    (b.build, buildLinearizer(query.value))
   }
 
   def buildSelect(b: SQLBuilder) {
     innerBuildSelect(b, false)
     insertAllFromClauses()
+  }
+
+  def buildLinearizer(x: Any): ValueLinearizer[_] = x match {
+    case v: ValueLinearizer[_] => v
+    case p: Product => new ProductLinearizer(p)
+    case v => throw new SQueryException("Don't know how to linearize "+v)
   }
 
   protected def rewriteCountStarQuery(q: Query[_]) =
@@ -209,7 +216,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean) {
     var pos = 0
     c match {
-      case p: Projection[_] => {
+      case p: ProductNode => {
         p.nodeChildren.foreach { c =>
           if(pos != 0) b += ','
           pos += 1
@@ -373,5 +380,47 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     }
     f(Node(columns))
     l.toList
+  }
+
+  class ProductLinearizer(p: Product) extends ValueLinearizer[Product] {
+    val sub = 0 until p.productArity map { i =>
+      buildLinearizer(p.productElement(i)).asInstanceOf[ValueLinearizer[Any]]
+    } toIndexedSeq
+
+    def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[Product]) =
+      for(i <- 0 until p.productArity)
+        sub(i).setParameter(profile, ps, value.map(_.productElement(i)))
+
+    def updateResult(profile: BasicProfile, rs: PositionedResult, value: Product) =
+      for(i <- 0 until p.productArity)
+        sub(i).updateResult(profile, rs, value.productElement(i))
+
+    def getResult(profile: BasicProfile, rs: PositionedResult): Product = {
+      var i = -1
+      def f = { i += 1; sub(i).getResult(profile, rs) }
+      p.productArity match {
+        case 2 => (f,f)
+        case 3 => (f,f,f)
+        case 4 => (f,f,f,f)
+        case 5 => (f,f,f,f,f)
+        case 6 => (f,f,f,f,f,f)
+        case 7 => (f,f,f,f,f,f,f)
+        case 8 => (f,f,f,f,f,f,f,f)
+        case 9 => (f,f,f,f,f,f,f,f,f)
+        case 10 => (f,f,f,f,f,f,f,f,f,f)
+        case 11 => (f,f,f,f,f,f,f,f,f,f,f)
+        case 12 => (f,f,f,f,f,f,f,f,f,f,f,f)
+        case 13 => (f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 14 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 15 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 16 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 17 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 18 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 19 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 20 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 21 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+        case 22 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
+      }
+    }
   }
 }

@@ -2,12 +2,11 @@ package org.scalaquery.ql
 
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
-import org.scalaquery.util.{Node, UnaryNode}
+import org.scalaquery.util.{Node, UnaryNode, ProductNode}
 
-sealed trait Projection[T <: Product] extends ColumnBase[T] with Product {
+sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
   type V = T
-
-  def nodeChildren = 0 until productArity map { i => Node(productElement(i)) } toList
+  val product = this
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) {
     for(i <- 0 until productArity) {

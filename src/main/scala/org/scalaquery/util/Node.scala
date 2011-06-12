@@ -44,7 +44,7 @@ object Node {
   def apply(o:Any): Node = o match {
     case null => ConstColumn.NULL
     case n:Node => n.nodeDelegate
-    case p:Product => new ProductNode(p)
+    case p:Product => new ProductNode { val product = p }
     case r:AnyRef => throw new SQueryException("Cannot narrow "+o+" of type "+r.getClass.getName+" to a Node")
     case _ => throw new SQueryException("Cannot narrow "+o+" to a Node")
   }
@@ -60,12 +60,13 @@ object Node {
   }
 }
 
-case class ProductNode(val product:Product) extends Node {
+trait ProductNode extends Node {
+  val product: Product
   lazy val nodeChildren =
     ( for(i <- 0 until product.productArity)
         yield Node(product.productElement(i)) ).toList
 
-  override def toString = "ProductNode("+product+")"
+  override def toString = "ProductNode "+product
 }
 
 trait BinaryNode extends Node {

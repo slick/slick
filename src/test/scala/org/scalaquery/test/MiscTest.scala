@@ -2,7 +2,6 @@ package org.scalaquery.test
 
 import org.junit.Test
 import org.junit.Assert._
-import org.junit.runner.JUnitCore
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.basic.{BasicTable => Table}

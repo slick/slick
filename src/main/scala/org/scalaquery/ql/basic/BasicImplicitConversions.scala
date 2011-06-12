@@ -23,7 +23,8 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
 
-  implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[T] = new BasicQueryInvoker(q, scalaQueryDriver)
+  implicit def unpackedQueryToQueryInvoker[T, U](q: UnpackedQuery[T, U]): BasicQueryInvoker[T, U] = new BasicQueryInvoker(q.q, scalaQueryDriver)
+  implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[ColumnBase[T], T] = new BasicQueryInvoker(q, scalaQueryDriver)
   implicit def queryToDeleteInvoker[T](q: Query[BasicTable[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
   implicit def productQueryToUpdateInvoker[T](q: Query[ColumnBase[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
   implicit def namedColumnQueryToUpdateInvoker[T](q: Query[NamedColumn[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)

@@ -3,17 +3,13 @@ package org.scalaquery.ql
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
-import org.scalaquery.util.{Node, WithOp}
+import org.scalaquery.util.{Node, WithOp, SimpleTypeName, ValueLinearizer}
 
 /**
  * Common base trait for columns, tables and projections (but not unions and joins).
  */
-trait ColumnBase[T] extends Node with WithOp {
+trait ColumnBase[T] extends Node with ValueLinearizer[T] with WithOp {
   override def nodeDelegate: Node = if(op eq null) this else op.nodeDelegate
-
-  def getResult(profile: BasicProfile, rs: PositionedResult): T
-  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T): Unit
-  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
 }
 
 /**
@@ -58,11 +54,7 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
  */
 case class ConstColumn[T : TypeMapper](value: T) extends Column[T] {
   def nodeChildren = Nil
-  override def toString = value match {
-    case null => "ConstColumn null"
-    case a: AnyRef => "ConstColumn["+a.getClass.getName+"] "+a
-    case _ => "ConstColumn "+value
-  }
+  override def toString = "ConstColumn["+SimpleTypeName.forVal(value)+"] "+value
   def bind = new BindColumn(value)
 }
 
@@ -75,11 +67,7 @@ object ConstColumn {
  */
 case class BindColumn[T : TypeMapper](value: T) extends Column[T] {
   def nodeChildren = Nil
-  override def toString = value match {
-    case null => "BindColumn null"
-    case a: AnyRef => "BindColumn["+a.getClass.getName+"] "+a
-    case _ => "BindColumn "+value
-  }
+  override def toString = "BindColumn["+SimpleTypeName.forVal(value)+"] "+value
 }
 
 /**

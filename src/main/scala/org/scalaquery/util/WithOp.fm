@@ -1,0 +1,26 @@
+package org.scalaquery.util
+
+import org.scalaquery.SQueryException
+
+trait WithOp extends Cloneable { self: Node =>
+  def mapOp(f: Node => Node): this.type = {
+    val t = clone
+    t._op = f(this)
+    t
+  }
+  private[WithOp] var _op: Node = _
+  final def op: Node = _op
+  override def clone(): this.type = super.clone.asInstanceOf[this.type]
+}
+
+object WithOp {
+  def unapply(w: WithOp) = if(w.op == null) None else Some(w.op)
+
+  def mapOp[T](x: T, f: Node => Node): T = x match {
+    case w: WithOp => w.mapOp(f).asInstanceOf[T]
+<#list 2..22 as i>
+    case (<#list 1..i as j>x${j}<#if i != j>, </#if></#list>) => (<#list 1..i as j>mapOp(x${j}, f)<#if i != j>, </#if></#list>).asInstanceOf[T]
+</#list>
+    case _ => throw new SQueryException("Cannot apply an operation to "+x)
+  }
+}

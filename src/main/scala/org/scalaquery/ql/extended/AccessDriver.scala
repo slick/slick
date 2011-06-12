@@ -41,7 +41,8 @@ class AccessDriver extends ExtendedProfile { self =>
 
   val Implicit = new ExtendedImplicitConversions[AccessDriver] {
     implicit val scalaQueryDriver = self
-    override implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[T] = new AccessQueryInvoker(q, scalaQueryDriver)
+    override implicit def unpackedQueryToQueryInvoker[T, U](q: UnpackedQuery[T, U]): BasicQueryInvoker[T, U] = new AccessQueryInvoker(q.q, scalaQueryDriver)
+    override implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[ColumnBase[T], T] = new AccessQueryInvoker(q, scalaQueryDriver)
   }
 
   val retryCount = 10
@@ -205,7 +206,7 @@ class AccessSQLUtils extends BasicSQLUtils {
   }
 }
 
-class AccessQueryInvoker[R](q: Query[ColumnBase[R]], profile: BasicProfile) extends BasicQueryInvoker[R](q, profile) {
+class AccessQueryInvoker[Q, R](q: Query[Q], profile: BasicProfile) extends BasicQueryInvoker[Q, R](q, profile) {
   /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
   override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
   /* Access goes forward instead of backward after deleting the current row in a mutable result set */

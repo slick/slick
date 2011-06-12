@@ -3,6 +3,7 @@ package org.scalaquery.ql
 import scala.reflect.Manifest
 import org.scalaquery.SQueryException
 import org.scalaquery.util.{Node, WithOp}
+import =>>.CanUnpack
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
@@ -54,33 +55,37 @@ class Query[+E](val value: E, val cond: List[Column[_]],  val condHaving: List[C
     new Query[E](value, cond, condHaving, mod :: other)
   }
 
-  // Query[ColumnBase[_]] only
-  def union[O >: E <: ColumnBase[_]](other: Query[O]*) = wrap(Union(false, this :: other.toList))
+  // Unpackable queries only
+  def union[O >: E : CanUnpack](other: Query[O]*) = wrap(Union(false, this :: other.toList))
 
-  def unionAll[O >: E <: ColumnBase[_]](other: Query[O]*) = wrap(Union(true, this :: other.toList))
+  def unionAll[O >: E : CanUnpack](other: Query[O]*) = wrap(Union(true, this :: other.toList))
 
-  def count(implicit ev: E <:< ColumnBase[_]) = ColumnOps.CountAll(Subquery(this, false))
+  def count(implicit ev: CanUnpack[E]) = ColumnOps.CountAll(Subquery(this, false))
 
-  def sub(implicit ev: E <:< ColumnBase[_]) = wrap(this)
+  def sub(implicit ev: CanUnpack[E]) = wrap(this)
 
-  private[this] def wrap(base: Node): Query[E] = Query(value.asInstanceOf[WithOp] match {
+  private[this] def wrap(base: Node): Query[E] = Query(value match {
     case t:AbstractTable[_] =>
       t.mapOp(_ => Subquery(base, false)).asInstanceOf[E]
     case o =>
       var pos = 0
       val p = Subquery(base, true)
-      o.mapOp { v =>
+      WithOp.mapOp(o, { v =>
         pos += 1
         SubqueryColumn(pos, p, v match {
           case c: Column[_] => c.typeMapper
           case SubqueryColumn(_, _, tm) => tm
           case _ => throw new SQueryException("Expected Column or SubqueryColumn")
         })
-      }.asInstanceOf[E]
+      })
   })
 
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E = value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
+
+  // Work-around for https://issues.scala-lang.org/browse/SI-3346. The unpacking should really
+  // be done by queryToQueryInvoker without the need to call .unpack first.
+  def unpack[T >: E, U](implicit u: T =>> U) = new UnpackedQuery[T, U](this)
 }
 
 object Query extends Query[Unit]((), Nil, Nil, Nil) {
@@ -120,3 +125,5 @@ case class Union(all: Boolean, queries: List[Query[_]]) extends Node {
   override def toString = if(all) "Union all" else "Union"
   def nodeChildren = queries
 }
+
+final class UnpackedQuery[T, U](val q: Query[T])

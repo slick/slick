@@ -1,7 +1,7 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{ColumnBase, Sequence, Query, Projection, DDL}
-import org.scalaquery.util.{NamingContext, SQLBuilder}
+import org.scalaquery.util.{ValueLinearizer, NamingContext, SQLBuilder}
 
 trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_ <: BasicProfile]
@@ -14,9 +14,9 @@ trait BasicProfile {
   val typeMapperDelegates: TypeMapperDelegatesT
   val sqlUtils = new BasicSQLUtils
 
-  def buildSelectStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
+  def buildSelectStatement(query: Query[_], nc: NamingContext): (SQLBuilder.Result, ValueLinearizer[_]) =
     createQueryBuilder(query, nc).buildSelect
-  def buildUpdateStatement(query: Query[ColumnBase[_]], nc: NamingContext): SQLBuilder.Result =
+  def buildUpdateStatement(query: Query[_], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildUpdate
   def buildDeleteStatement(query: Query[AbstractBasicTable[_]], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildDelete
