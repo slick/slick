@@ -15,7 +15,7 @@ object NestingTest extends DBTestObject(H2Mem /*, SQLiteMem, Postgres, MySQL, De
 class NestingTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
-  @Test def testUnpackTypes() {
+  @Test def testTypes() {
     val q1: Query[Column[Int]] = null
     val q2: Query[Projection2[Int, String]] = null
     val q3: Query[Projection3[Int, String, Int]] = null
@@ -84,9 +84,9 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
         c <- T.map(t => t.c)
         _ <- Query.orderBy(c, a)
       } yield (a, b, c, ConstColumn(5))
-      println("q1c: "+q1c.unpack.selectStatement)
-      println(q1c.unpack.list)
-      assertEquals(q1c.unpack.to[List](), res1)
+      println("q1c: "+q1c.selectStatement)
+      println(q1c.list)
+      assertEquals(q1c.to[List](), res1)
 
       val res2 = Set((1, "1"), (2, "2"))
 

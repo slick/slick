@@ -15,12 +15,12 @@ class OracleDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new OracleQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new OracleQueryBuilder(query, nc, None, this)
 }
 
 object OracleDriver extends OracleDriver
 
-class OracleQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: OracleDriver)
+class OracleQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: OracleDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -28,7 +28,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   override type Self = OracleQueryBuilder
   override protected val scalarFrom = Some("DUAL")
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new OracleQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {

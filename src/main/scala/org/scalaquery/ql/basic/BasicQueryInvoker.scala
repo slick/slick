@@ -6,7 +6,7 @@ import org.scalaquery.ql.{Query, ColumnBase}
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 import org.scalaquery.util.{ValueLinearizer, NamingContext}
 
-class BasicQueryInvoker[Q, R](q: Query[Q], profile: BasicProfile)
+class BasicQueryInvoker[Q, R](q: Query[Q, R], profile: BasicProfile)
   extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
 
   override protected val delegate = this

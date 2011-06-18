@@ -14,7 +14,7 @@ class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile
     "INSERT INTO " + quoteIdentifier(table) + " (" + cols + ") VALUES (" + vals + ")"
   }
 
-  def buildInsert(query: Query[ColumnBase[T]]): SQLBuilder.Result = {
+  def buildInsert(query: Query[ColumnBase[T], T]): SQLBuilder.Result = {
     val (table, cols, _) = buildParts
     val b = new SQLBuilder
     b += "INSERT INTO " += quoteIdentifier(table) += " (" += cols.toString += ") "

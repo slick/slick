@@ -41,8 +41,7 @@ class AccessDriver extends ExtendedProfile { self =>
 
   val Implicit = new ExtendedImplicitConversions[AccessDriver] {
     implicit val scalaQueryDriver = self
-    override implicit def unpackedQueryToQueryInvoker[T, U](q: UnpackedQuery[T, U]): BasicQueryInvoker[T, U] = new AccessQueryInvoker(q.q, scalaQueryDriver)
-    override implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[ColumnBase[T], T] = new AccessQueryInvoker(q, scalaQueryDriver)
+    override implicit def queryToQueryInvoker[T, U](q: Query[T, U]): BasicQueryInvoker[T, U] = new AccessQueryInvoker(q, scalaQueryDriver)
   }
 
   val retryCount = 10
@@ -50,12 +49,12 @@ class AccessDriver extends ExtendedProfile { self =>
   override val sqlUtils = new AccessSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new AccessDDLBuilder(table, this).buildDDL
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new AccessQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new AccessQueryBuilder(query, nc, None, this)
 }
 
 object AccessDriver extends AccessDriver
 
-class AccessQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: AccessDriver)
+class AccessQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: AccessDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import profile.sqlUtils._
@@ -65,7 +64,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   val pi = "3.1415926535897932384626433832795"
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new AccessQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
@@ -121,7 +120,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case ColumnOps.Radians(ch, _) => b += "("+pi+"/180*"; expr(ch, b); b += ')'
     case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "&"; expr(r, b); b += ')'
     case ColumnOps.IfNull(l, r) => b += "iif(isnull("; expr(l, b); b += "),"; expr(r, b); b += ','; expr(l, b); b += ')'
-    case ColumnOps.Exists(q: Query[_]) =>
+    case ColumnOps.Exists(q: Query[_, _]) =>
       // Access doesn't like double parens around the sub-expression
       b += "exists"; expr(q, b)
     case a @ ColumnOps.AsColumnOf(ch, name) => name match {
@@ -206,7 +205,7 @@ class AccessSQLUtils extends BasicSQLUtils {
   }
 }
 
-class AccessQueryInvoker[Q, R](q: Query[Q], profile: BasicProfile) extends BasicQueryInvoker[Q, R](q, profile) {
+class AccessQueryInvoker[Q, R](q: Query[Q, R], profile: BasicProfile) extends BasicQueryInvoker[Q, R](q, profile) {
   /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
   override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
   /* Access goes forward instead of backward after deleting the current row in a mutable result set */

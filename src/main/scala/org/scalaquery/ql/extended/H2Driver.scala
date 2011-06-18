@@ -16,12 +16,12 @@ class H2Driver extends ExtendedProfile { self =>
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
   override val sqlUtils = new H2SQLUtils
 
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
 }
 
 object H2Driver extends H2Driver
 
-class H2QueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver)
+class H2QueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -29,7 +29,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   override type Self = H2QueryBuilder
   override protected val mayLimit0 = false
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new H2QueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {

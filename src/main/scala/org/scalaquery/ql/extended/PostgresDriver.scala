@@ -15,7 +15,7 @@ class PostgresDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new PostgresTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new PostgresQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new PostgresQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new PostgresDDLBuilder(table, this).buildDDL
 }
 
@@ -27,14 +27,14 @@ class PostgresTypeMapperDelegates extends BasicTypeMapperDelegates {
   }
 }
 
-class PostgresQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: PostgresDriver)
+class PostgresQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: PostgresDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
 
   override type Self = PostgresQueryBuilder
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new PostgresQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {

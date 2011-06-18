@@ -7,29 +7,29 @@ import extended.ExtendedQueryOps.TakeDrop
 import org.scalaquery.util._
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 
-class ConcreteBasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile)
+class ConcreteBasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile)
 extends BasicQueryBuilder(_query, _nc, parent, _profile) {
   type Self = BasicQueryBuilder
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new ConcreteBasicQueryBuilder(query, nc, Some(this), profile)
 }
 
-abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile) {
+abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile) {
   import _profile.sqlUtils._
 
   //TODO Pull tables out of subqueries where needed
 
   type Self <: BasicQueryBuilder
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext): Self
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext): Self
 
   protected val profile = _profile
-  protected val query: Query[_] = _query
+  protected val query: Query[_, _] = _query
   protected var nc: NamingContext = _nc
   protected val localTables = new HashMap[String, Node]
   protected val declaredTables = new HashSet[String]
-  protected val subQueryBuilders = new HashMap[RefId[Query[_]], Self]
+  protected val subQueryBuilders = new HashMap[RefId[Query[_, _]], Self]
   protected var fromSlot: SQLBuilder = _
   protected var selectSlot: SQLBuilder = _
   protected var maxColumnPos = 0
@@ -51,7 +51,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   protected def isDeclaredTable(name: String): Boolean =
     (declaredTables contains name) || parent.map(_.isDeclaredTable(name)).getOrElse(false)
   
-  protected def subQueryBuilderFor(q: Query[_]) =
+  protected def subQueryBuilderFor(q: Query[_, _]) =
     subQueryBuilders.getOrElseUpdate(RefId(q), createSubQueryBuilder(q, nc))
 
   final def buildSelect: (SQLBuilder.Result, ValueLinearizer[_]) = {
@@ -71,7 +71,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
     case v => throw new SQueryException("Don't know how to linearize "+v)
   }
 
-  protected def rewriteCountStarQuery(q: Query[_]) =
+  protected def rewriteCountStarQuery(q: Query[_, _]) =
     q.modifiers.isEmpty && (Node(q.value) match {
       case AbstractTable.Alias(_: AbstractTable[_]) => true
       case _: AbstractTable[_] => true
@@ -80,7 +80,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
 
   protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
     Node(query.value) match {
-      case ColumnOps.CountAll(Subquery(q: Query[_], false)) if rewriteCountStarQuery(q) =>
+      case ColumnOps.CountAll(Subquery(q: Query[_, _], false)) if rewriteCountStarQuery(q) =>
         val newQ = q.map(p => ColumnOps.CountAll(Node(p)))
         subQueryBuilderFor(newQ).innerBuildSelect(b, rename)
       case _ => innerBuildSelectNoRewrite(b, rename)
@@ -268,7 +268,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += name.getOrElse(mapTypeName(a.typeMapper(profile)))
       b += ")}"
     case s: SimpleBinaryOperator => b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')'
-    case query:Query[_] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
+    case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
     //case Union.UnionPart(_) => "*"
     case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
     case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
@@ -335,7 +335,7 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
     case base: AbstractTable[_] =>
       b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
-    case Subquery(sq: Query[_], rename) =>
+    case Subquery(sq: Query[_, _], rename) =>
       b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += quoteIdentifier(name)
     case Subquery(Union(all, sqs), rename) => {
       b += "("

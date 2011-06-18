@@ -8,7 +8,7 @@ import org.scalaquery.session.{Session, PositionedParameters}
 class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
 
   lazy val insertStatement = profile.buildInsertStatement(column)
-  def insertStatementFor(query: Query[ColumnBase[T]]): String = profile.buildInsertStatement(column, query).sql
+  def insertStatementFor(query: Query[ColumnBase[T], T]): String = profile.buildInsertStatement(column, query).sql
   def insertStatementFor(c: ColumnBase[T]): String = insertStatementFor(Query(c))
 
   def useBatchUpdates(implicit session: Session) = session.capabilities.supportsBatchUpdates
@@ -51,7 +51,7 @@ class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
     }
   }
 
-  def insert(query: Query[ColumnBase[T]])(implicit session: Session): Int = {
+  def insert(query: Query[ColumnBase[T], T])(implicit session: Session): Int = {
     val sbr = profile.buildInsertStatement(column, query)
     session.withPreparedStatement(insertStatementFor(query)) { st =>
       st.clearParameters()

@@ -19,15 +19,14 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
 
-  implicit def tableToQuery[T <: TableBase[_]](t: T) = Query(t.mapOp(n => new AbstractTable.Alias(Node(n))))
+  implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query(t.mapOp(n => new AbstractTable.Alias(Node(n))))(null)
 
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
 
-  implicit def unpackedQueryToQueryInvoker[T, U](q: UnpackedQuery[T, U]): BasicQueryInvoker[T, U] = new BasicQueryInvoker(q.q, scalaQueryDriver)
-  implicit def queryToQueryInvoker[T](q: Query[ColumnBase[T]]): BasicQueryInvoker[ColumnBase[T], T] = new BasicQueryInvoker(q, scalaQueryDriver)
-  implicit def queryToDeleteInvoker[T](q: Query[BasicTable[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
-  implicit def productQueryToUpdateInvoker[T](q: Query[ColumnBase[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
-  implicit def namedColumnQueryToUpdateInvoker[T](q: Query[NamedColumn[T]]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
+  implicit def queryToQueryInvoker[T, U](q: Query[T, U]): BasicQueryInvoker[T, U] = new BasicQueryInvoker(q, scalaQueryDriver)
+  implicit def queryToDeleteInvoker[T](q: Query[BasicTable[T], T]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
+  implicit def productQueryToUpdateInvoker[T](q: Query[ColumnBase[T], T]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
+  implicit def namedColumnQueryToUpdateInvoker[T](q: Query[_ <: NamedColumn[T], T]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
   implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(c, scalaQueryDriver)
 
   implicit val scalaQueryDriver: DriverType

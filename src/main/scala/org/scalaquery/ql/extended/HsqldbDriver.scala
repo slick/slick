@@ -31,7 +31,7 @@ class HsqldbDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new HsqldbTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new HsqldbQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new HsqldbQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new HsqldbDDLBuilder(table, this).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new HsqldbSequenceDDLBuilder(seq, this).buildDDL
 }
@@ -73,7 +73,7 @@ class HsqldbDDLBuilder(table: AbstractBasicTable[_], profile: HsqldbDriver) exte
   }
 }
 
-class HsqldbQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: HsqldbDriver)
+class HsqldbQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: HsqldbDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -83,7 +83,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   override protected val mayLimit0 = false
   override protected val scalarFrom = Some("(VALUES (0))")
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new HsqldbQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {

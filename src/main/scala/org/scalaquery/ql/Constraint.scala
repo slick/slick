@@ -27,7 +27,7 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-case class ForeignKeyQuery[TT <: AbstractTable[_]](fk: ForeignKey[TT]) extends Query[TT](fk.targetTable, fk :: Nil, Nil, Nil) with Constraint {
+case class ForeignKeyQuery[TT <: AbstractTable[_]](fk: ForeignKey[TT]) extends Query[TT, TT#TableType](fk.targetTable, fk :: Nil, Nil, Nil, null) with Constraint {
   override def toString = "ForeignKeyQuery"
 }
 

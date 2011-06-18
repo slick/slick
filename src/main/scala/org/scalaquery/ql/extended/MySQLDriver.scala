@@ -17,7 +17,7 @@ class MySQLDriver extends ExtendedProfile { self =>
   val typeMapperDelegates = new MySQLTypeMapperDelegates
   override val sqlUtils = new MySQLSQLUtils
 
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new MySQLQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new MySQLQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table, this).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new MySQLSequenceDDLBuilder(seq, this).buildDDL
 }
@@ -47,7 +47,7 @@ class MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
   }
 }
 
-class MySQLQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: MySQLDriver)
+class MySQLQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: MySQLDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -56,7 +56,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   override type Self = MySQLQueryBuilder
   override protected val scalarFrom = Some("DUAL")
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new MySQLQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {

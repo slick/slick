@@ -12,11 +12,11 @@ trait ExtendedProfile extends BasicProfile {
 }
 
 trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicImplicitConversions[DriverType] {
-  implicit def queryToExtendedQueryOps[E](q: Query[E]) = new ExtendedQueryOps(q)
-  implicit def extendedQueryToDeleteInvoker[T](q: Query[ExtendedTable[T]]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
+  implicit def queryToExtendedQueryOps[E, U](q: Query[E, U]) = new ExtendedQueryOps(q)
+  implicit def extendedQueryToDeleteInvoker[T](q: Query[ExtendedTable[T], T]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
 }
 
-class ExtendedQueryOps[E](q: Query[E]) {
+class ExtendedQueryOps[E, U](q: Query[E, U]) {
   import ExtendedQueryOps._
 
   def take(num: Int) = q.createOrReplaceSingularModifier[TakeDrop] {

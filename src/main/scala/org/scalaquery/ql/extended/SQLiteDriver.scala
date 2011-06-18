@@ -33,7 +33,7 @@ class SQLiteDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new SQLiteTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new SQLiteQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new SQLiteQueryBuilder(query, nc, None, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLiteDDLBuilder(table, this).buildDDL
 }
 
@@ -96,7 +96,7 @@ class SQLiteDDLBuilder(table: AbstractBasicTable[_], profile: SQLiteDriver) exte
   }
 }
 
-class SQLiteQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLiteDriver)
+class SQLiteQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLiteDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import ExtendedQueryOps._
@@ -104,7 +104,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override type Self = SQLiteQueryBuilder
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new SQLiteQueryBuilder(query, nc, Some(this), profile)
 
   override protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
@@ -138,7 +138,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case a @ ColumnOps.AsColumnOf(ch, name) =>
       /* SQLite does not support {fn convert}, so we use the SQL CAST syntax */
       b += "cast("; expr(ch, b); b += " as " += name.getOrElse(mapTypeName(a.typeMapper(profile))) += ")"
-    case ColumnOps.Exists(q: Query[_]) =>
+    case ColumnOps.Exists(q: Query[_, _]) =>
       // SQLite doesn't like double parens around the sub-expression
       b += "exists"; expr(q, b)
     case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'

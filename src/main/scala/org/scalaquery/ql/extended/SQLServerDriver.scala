@@ -36,7 +36,7 @@ class SQLServerDriver extends ExtendedProfile { self =>
   override val sqlUtils = new SQLServerSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLServerDDLBuilder(table, this).buildDDL
-  override def createQueryBuilder(query: Query[_], nc: NamingContext) = new SQLServerQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new SQLServerQueryBuilder(query, nc, None, this)
 }
 
 object SQLServerDriver extends SQLServerDriver
@@ -54,7 +54,7 @@ object SQLServerTypeMapperDelegates {
   }
 }
 
-class SQLServerQueryBuilder(_query: Query[_], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLServerDriver)
+class SQLServerQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLServerDriver)
 extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   import profile.sqlUtils._
@@ -72,7 +72,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => false
   }
 
-  protected def createSubQueryBuilder(query: Query[_], nc: NamingContext) =
+  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new SQLServerQueryBuilder(query, nc, Some(this), profile)
 
   override def buildSelect(b: SQLBuilder): Unit = {
@@ -187,7 +187,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   /* Move COUNT(*) into subqueries even if they have TakeDrop modifiers.
    * It will be treated specially there to make it work. */
-  override protected def rewriteCountStarQuery(q: Query[_]) = true
+  override protected def rewriteCountStarQuery(q: Query[_, _]) = true
 }
 
 class SQLServerDDLBuilder(table: AbstractBasicTable[_], profile: SQLServerDriver) extends BasicDDLBuilder(table, profile) {

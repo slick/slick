@@ -6,7 +6,7 @@ import org.scalaquery.ql.{Query, ColumnBase}
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 import org.scalaquery.util.{ValueLinearizer, NamingContext}
 
-class BasicQueryTemplate[P, R](query: Query[ColumnBase[R]], profile: BasicProfile) extends MutatingStatementInvoker[P, R] {
+class BasicQueryTemplate[P, R](query: Query[_, R], profile: BasicProfile) extends MutatingStatementInvoker[P, R] {
 
   protected lazy val (built, lin) = profile.buildSelectStatement(query, NamingContext())
 
