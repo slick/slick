@@ -5,7 +5,7 @@ package org.scalaquery.ql
  * its result element type `To`. It is only needed at compile-time. All of its
  * values at run-time are `null`.
  */
-sealed trait =>> [-From, To]
+sealed trait =>> [-From, +To]
 
 object =>> extends LowPriority_=>> {
   //implicit final def unpackTable[T]: AbstractTable[T] =>> T = null
