@@ -45,7 +45,7 @@ object Node {
     case null => ConstColumn.NULL
     case n:Node => n.nodeDelegate
     case p:Product => new ProductNode { val product = p }
-    case r:AnyRef => throw new SQueryException("Cannot narrow "+o+" of type "+r.getClass.getName+" to a Node")
+    case r:AnyRef => throw new SQueryException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(r)+" to a Node")
     case _ => throw new SQueryException("Cannot narrow "+o+" to a Node")
   }
 

@@ -61,6 +61,7 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
         (1, "1", "b", 5), (2, "2", "b", 5), (3, "3", "b", 5),
         (1, "1", "c", 5), (2, "2", "c", 5), (3, "3", "c", 5)
       )
+      val res1b = res1.map { case (a, b, c, d) => ((a, b), (c, d)) }
 
       val q1a = for {
         a ~ b <- T.map(t => t.a ~ t.b)
@@ -87,6 +88,15 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
       println("q1c: "+q1c.selectStatement)
       println(q1c.list)
       assertEquals(q1c.to[List](), res1)
+
+      val q1d = for {
+        (a, b) <- T.map(t => (t.a, t.b))
+        c <- T.map(t => t.c)
+        _ <- Query.orderBy(c, a)
+      } yield ((a, b), (c, 5))
+      println("q1d: "+q1d.unpack.selectStatement)
+      println(q1d.unpack.list)
+      assertEquals(q1d.unpack.to[List](), res1b)
 
       val res2 = Set((1, "1"), (2, "2"))
 
