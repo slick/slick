@@ -161,11 +161,11 @@ class AccessDB(confName: String, val driver: ExtendedProfile) extends TestDB(con
   override def dbName = TestDBOptions.get(confName, "testDB").getOrElse(super.dbName)
   val dir = new File(TestDBOptions.testDBDir)
   val dbPath = dir.getAbsolutePath.replace("\\", "/")
-  val emptyDBFile = TestDBOptions.get(confName, "emptyDBFile").get
+  lazy val emptyDBFile = TestDBOptions.get(confName, "emptyDBFile").get
     .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
-  val testDBFile = TestDBOptions.get(confName, "testDBFile").get
+  lazy val testDBFile = TestDBOptions.get(confName, "testDBFile").get
     .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
-  val url = TestDBOptions.get(confName, "url").getOrElse("")
+  lazy val url = TestDBOptions.get(confName, "url").getOrElse("")
     .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
 
   override def isEnabled = TestDBOptions.isExternalEnabled(confName)
