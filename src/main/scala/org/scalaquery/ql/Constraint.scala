@@ -8,9 +8,10 @@ import org.scalaquery.util.{Node, BinaryNode}
  */
 trait Constraint
 
-case class ForeignKey[TT <: AbstractTable[_]](name: String, sourceTable: Node, targetTable: TT, originalTargetTable: TT,
+case class ForeignKey[TT <: AbstractTable[_], U](name: String, sourceTable: Node, targetTableUnpackable: Unpackable[TT, U], originalTargetTable: TT,
     sourceColumns: Node, targetColumns: TT => ColumnBase[_], onUpdate: ForeignKeyAction, onDelete: ForeignKeyAction)
     extends OperatorColumn[Boolean] with BinaryNode {
+  val targetTable = targetTableUnpackable.value
   val left = Node(sourceColumns)
   val right = Node(targetColumns(targetTable))
   override def toString = "ForeignKey " + name
@@ -27,7 +28,7 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-case class ForeignKeyQuery[TT <: AbstractTable[_]](fk: ForeignKey[TT]) extends Query[TT, TT#TableType](fk.targetTable, fk :: Nil, Nil, Nil, null) with Constraint {
+case class ForeignKeyQuery[TT <: AbstractTable[_], U](fk: ForeignKey[TT, U]) extends Query[TT, U](fk.targetTableUnpackable, fk :: Nil, Nil, Nil) with Constraint {
   override def toString = "ForeignKeyQuery"
 }
 

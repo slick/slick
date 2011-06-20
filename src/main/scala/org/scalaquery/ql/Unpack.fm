@@ -26,3 +26,5 @@ trait LowPriority_=>> {
   implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: T${j} =>> U${j}<#if i != j>, </#if></#list>): (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) =>> (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>) = null
 </#list>
 }
+
+case class Unpackable[T, +U](value: T, unpack: T =>> U)

@@ -9,9 +9,10 @@ import =>>.CanUnpack
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-class Query[E, +U](val value: E, val cond: List[Column[_]],  val condHaving: List[Column[_]],
-                val modifiers: List[QueryModifier], val unpack: E =>> U) extends Node {
+class Query[+E, +U](val unpackable: Unpackable[E, U], val cond: List[Column[_]],  val condHaving: List[Column[_]],
+                val modifiers: List[QueryModifier]) extends Node {
 
+  def value = unpackable.value
   def nodeChildren = Node(value) :: cond.map(Node.apply) ::: modifiers
   override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) ::: modifiers.map(o => (o, "modifier"))
 
@@ -19,7 +20,7 @@ class Query[E, +U](val value: E, val cond: List[Column[_]],  val condHaving: Lis
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
     val q = f(value)
-    new Query[F, T](q.value, cond ::: q.cond, condHaving ::: q.condHaving, modifiers ::: q.modifiers, q.unpack)
+    new Query[F, T](q.unpackable, cond ::: q.cond, condHaving ::: q.condHaving, modifiers ::: q.modifiers)
   }
 
   def map[F, T](f: E => F)(implicit unpack: F =>> T): Query[F, T] = flatMap(v => Query(f(v)))
@@ -27,19 +28,19 @@ class Query[E, +U](val value: E, val cond: List[Column[_]],  val condHaving: Lis
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
 
   def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] =
-    new Query[E, U](value, wt(f(value), cond), condHaving, modifiers, unpack)
+    new Query[E, U](unpackable, wt(f(value), cond), condHaving, modifiers)
 
   def withFilter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = filter(f)(wt)
 
   def where[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = filter(f)(wt)
 
   def having[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] =
-    new Query[E, U](value, cond, wt(f(value), condHaving), modifiers, unpack)
+    new Query[E, U](unpackable, cond, wt(f(value), condHaving), modifiers)
 
   def groupBy(by: Column[_]*) =
-    new Query[E, U](value, cond, condHaving, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList, unpack)
+    new Query[E, U](unpackable, cond, condHaving, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
 
-  def orderBy(by: Ordering*) = new Query[E, U](value, cond, condHaving, modifiers ::: by.toList, unpack)
+  def orderBy(by: Ordering*) = new Query[E, U](unpackable, cond, condHaving, modifiers ::: by.toList)
 
   def exists = ColumnOps.Exists(map(_ => ConstColumn(1)))
 
@@ -52,7 +53,7 @@ class Query[E, +U](val value: E, val cond: List[Column[_]],  val condHaving: Lis
       case x :: _ => f(Some(x.asInstanceOf[T]))
       case _ => f(None)
     }
-    new Query[E, U](value, cond, condHaving, mod :: other, unpack)
+    new Query[E, U](unpackable, cond, condHaving, mod :: other)
   }
 
   // Unpackable queries only
@@ -78,14 +79,14 @@ class Query[E, +U](val value: E, val cond: List[Column[_]],  val condHaving: Lis
           case _ => throw new SQueryException("Expected Column or SubqueryColumn")
         })
       })
-  })(unpack)
+  })(unpackable.unpack)
 
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E = value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
 }
 
-object Query extends Query[Unit, Unit]((), Nil, Nil, Nil, =>>.unpackUnit) {
-  def apply[E, U](value: E)(implicit unpack: E =>> U) = new Query[E, U](value, Nil, Nil, Nil, unpack)
+object Query extends Query[Unit, Unit](Unpackable((), =>>.unpackUnit), Nil, Nil, Nil) {
+  def apply[E, U](value: E)(implicit unpack: E =>> U) = new Query[E, U](Unpackable(value, unpack), Nil, Nil, Nil)
 }
 
 trait CanBeQueryCondition[-T] {
