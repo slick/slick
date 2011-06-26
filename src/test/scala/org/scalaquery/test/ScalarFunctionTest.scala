@@ -19,11 +19,11 @@ class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
   @Test def test = db withSession {
-    def check[T](q: Query[ColumnBase[T]], exp: T*) = {
+    def check[T](q: Query[ColumnBase[T], T], exp: T*) = {
       println("Executing: " + q.selectStatement)
       assertEquals(exp.toSet, q.list.toSet)
     }
-    def checkIn[T](q: Query[ColumnBase[T]], exp: T*) = {
+    def checkIn[T](q: Query[ColumnBase[T], T], exp: T*) = {
       println("Executing: " + q.selectStatement)
       val found = q.list.toSet
       assert(found.forall(exp contains _), "all of result "+found+" should be in expected "+exp)

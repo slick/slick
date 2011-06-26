@@ -1,7 +1,6 @@
 package org.scalaquery.example
 
-import org.scalaquery.ql.{Join, Query, Projection, ColumnBase, AbstractTable}
-import org.scalaquery.ql.TypeMapper._
+import org.scalaquery.ql.{Join, Query, ColumnBase, AbstractTable}
 import org.scalaquery.ql.basic.BasicDriver
 import org.scalaquery.ql.basic.BasicDriver.Implicit._
 import org.scalaquery.ql.basic.{BasicTable => Table}
@@ -23,7 +22,7 @@ object SQuery2Test {
       def * = userID ~ orderID
     }
 
-    def dump(n: String, q: Query[ColumnBase[_]]) {
+    def dump(n: String, q: Query[ColumnBase[_], _]) {
       val nc = NamingContext()
       q.dump(n+": ", nc)
       println(BasicDriver.buildSelectStatement(q, nc))
@@ -89,7 +88,7 @@ object SQuery2Test {
     }
 
     {
-      val f = { t:Table[_] => t.mapOp(n => new AbstractTable.Alias(n)) }
+      def f[A](t:Table[A]) = t.mapOp(n => new AbstractTable.Alias(n))
       val m2a = for { u <- Query(Users) } yield f(u)
       val m2b = Query(f(Users))
       dump("m2a", m2a)

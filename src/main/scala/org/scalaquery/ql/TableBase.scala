@@ -30,25 +30,27 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
     f(Node(*))
   }
 
-  def foreignKey[P, TT <: AbstractTable[_]]
+  def foreignKey[P, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: ColumnBase[P], targetTable: TT)
       (targetColumns: TT => ColumnBase[P], onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction): ForeignKeyQuery[TT] =
-    ForeignKeyQuery(ForeignKey(name, this, targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), targetTable,
-      sourceColumns, targetColumns, onUpdate, onDelete))
+        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: TT =>> U): ForeignKeyQuery[TT, U] = {
+    val mappedTTU = Unpackable(targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), unpack)
+    ForeignKeyQuery(ForeignKey(name, this, mappedTTU, targetTable,
+      sourceColumns, targetColumns, onUpdate, onDelete), mappedTTU)
+  }
 
   def primaryKey(name: String, sourceColumns: ColumnBase[_]): PrimaryKey = PrimaryKey(name, Node(sourceColumns))
 
   def tableConstraints: Iterable[Constraint] = for {
       m <- getClass().getMethods.view
       if m.getParameterTypes.length == 0 &&
-        (m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable[_]]]
+        (m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable[_], _]]
          || m.getReturnType == classOf[PrimaryKey])
       q = m.invoke(this).asInstanceOf[Constraint]
     } yield q
 
   final def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_]]] =
-    tableConstraints collect { case q: ForeignKeyQuery[_] => q.fk }
+    tableConstraints collect { case q: ForeignKeyQuery[_, _] => q.fk }
 
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints collect { case k: PrimaryKey => k }

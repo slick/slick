@@ -15,34 +15,6 @@ object NestingTest extends DBTestObject(H2Mem /*, SQLiteMem, Postgres, MySQL, De
 class NestingTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
-  @Test def testTypes() {
-    val q1: Query[Column[Int]] = null
-    val q2: Query[Projection2[Int, String]] = null
-    val q3: Query[Projection3[Int, String, Int]] = null
-    val q4: Query[(NamedColumn[Int], Column[String])] = null
-    val q5: Query[(Column[Int], (Column[String], Column[Int]))] = null
-    val q6: Query[((Column[Int], Column[String], Column[Int]), (Column[String], Column[Int]))] = null
-    val q7: Query[(Column[Int], (Column[String], (Column[String], Int)))] = null
-
-    def call[T, U](q: Query[T])(implicit u: T =>> U): U = null.asInstanceOf[U]
-
-    val c1 = call(q1)
-    val c2 = call(q2)
-    val c3 = call(q3)
-    val c4 = call(q4)
-    val c5 = call(q5)
-    val c6 = call(q6)
-    val c7 = call(q7)
-
-    val c1t: Int = c1
-    val c2t: (Int, String) = c2
-    val c3t: (Int, String, Int) = c3
-    val c4t: (Int, String) = c4
-    val c5t: (Int, (String, Int)) = c5
-    val c6t: ((Int, String, Int), (String, Int)) = c6
-    val c7t: (Int, (String, (String, Int))) = c7
-  }
-
   @Test def testNestedTuples() {
 
     object T extends Table[(Int, String, String)]("T") {
@@ -94,9 +66,9 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
         c <- T.map(t => t.c)
         _ <- Query.orderBy(c, a)
       } yield ((a, b), (c, 5))
-      println("q1d: "+q1d.unpack.selectStatement)
-      println(q1d.unpack.list)
-      assertEquals(q1d.unpack.to[List](), res1b)
+      println("q1d: "+q1d.selectStatement)
+      println(q1d.list)
+      assertEquals(q1d.to[List](), res1b)
 
       val res2 = Set((1, "1"), (2, "2"))
 

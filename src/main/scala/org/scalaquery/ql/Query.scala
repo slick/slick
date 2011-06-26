@@ -9,7 +9,7 @@ import =>>.CanUnpack
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-class Query[+E, +U](val unpackable: Unpackable[E, U], val cond: List[Column[_]],  val condHaving: List[Column[_]],
+class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column[_]],  val condHaving: List[Column[_]],
                 val modifiers: List[QueryModifier]) extends Node {
 
   def value = unpackable.value
@@ -65,21 +65,24 @@ class Query[+E, +U](val unpackable: Unpackable[E, U], val cond: List[Column[_]],
 
   def sub = wrap(this)
 
-  private[this] def wrap(base: Node): Query[E, U] = Query[E, U](value match {
-    case t:AbstractTable[_] =>
-      t.mapOp(_ => Subquery(base, false)).asInstanceOf[E]
-    case o =>
-      var pos = 0
-      val p = Subquery(base, true)
-      WithOp.mapOp(o, { v =>
-        pos += 1
-        SubqueryColumn(pos, p, v match {
-          case c: Column[_] => c.typeMapper
-          case SubqueryColumn(_, _, tm) => tm
-          case _ => throw new SQueryException("Expected Column or SubqueryColumn")
+  private[this] def wrap(base: Node): Query[E, U] = {
+    def f[EE](unpackable: Unpackable[EE, U]) = unpackable.endoMap(v => v match {
+      case t:AbstractTable[_] =>
+        t.mapOp(_ => Subquery(base, false)).asInstanceOf[EE]
+      case o =>
+        var pos = 0
+        val p = Subquery(base, true)
+        WithOp.mapOp(o, { v =>
+          pos += 1
+          SubqueryColumn(pos, p, v match {
+            case c: Column[_] => c.typeMapper
+            case SubqueryColumn(_, _, tm) => tm
+            case _ => throw new SQueryException("Expected Column or SubqueryColumn")
+          })
         })
-      })
-  })(unpackable.unpack)
+    })
+    Query[E, U](f(unpackable))
+  }
 
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E = value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
@@ -87,6 +90,7 @@ class Query[+E, +U](val unpackable: Unpackable[E, U], val cond: List[Column[_]],
 
 object Query extends Query[Unit, Unit](Unpackable((), =>>.unpackUnit), Nil, Nil, Nil) {
   def apply[E, U](value: E)(implicit unpack: E =>> U) = new Query[E, U](Unpackable(value, unpack), Nil, Nil, Nil)
+  def apply[E, U](unpackable: Unpackable[_ <: E, U]) = new Query[E, U](unpackable, Nil, Nil, Nil)
 }
 
 trait CanBeQueryCondition[-T] {

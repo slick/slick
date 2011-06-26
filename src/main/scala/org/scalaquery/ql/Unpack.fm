@@ -27,4 +27,6 @@ trait LowPriority_=>> {
 </#list>
 }
 
-case class Unpackable[T, +U](value: T, unpack: T =>> U)
+case class Unpackable[T, +U](value: T, unpack: T =>> U) {
+  def endoMap(f: T => T): Unpackable[T, U] = new Unpackable(f(value), unpack)
+}
