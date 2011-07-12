@@ -1,32 +1,61 @@
 package org.scalaquery.ql
 
+import scala.annotation.implicitNotFound
+import org.scalaquery.SQueryException
+
 /**
  * A type class that encodes the unpacking `From => To` of a `Query[From]` to
- * its result element type `To`. It is only needed at compile-time. All of its
- * values at run-time are `null`.
+ * its result element type `To`. At run-time, it contains the mapping to the
+ * TypeMappers of the linearized type of the query.
+ *
+ * =Example:=
+ * - Packed type: (Column[Int], Column[(Int, String)], Option[Double])
+ * - Unpacked type: (Int, (Int, String), Option[Double])
+ * - Linearized type: (Int, Int, String, Option[Double])
  */
-sealed trait =>> [-From, +To]
+@implicitNotFound(msg = "Don't know how to unpack ${r"${From}"} to ${r"${To}"}")
+sealed trait =>> [-From, +To] {
+  def getTypeMappers(from: From): Vector[TypeMapper[_]]
+}
 
 object =>> extends LowPriority_=>> {
-  //implicit final def unpackTable[T]: AbstractTable[T] =>> T = null
+  implicit final def unpackJoin[T1 <: AbstractTable[_], T2 <: AbstractTable[_]]: Join[T1, T2] =>> (T1, T2) = new =>> [Join[T1, T2], (T1, T2)] {
+    def getTypeMappers(from: Join[T1, T2]) = from.left.getAllColumnTypeMappers
+  }
 
 <#list 2..22 as i>
-  implicit final def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =>> (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) = null
+  implicit final def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =>> (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) = new =>> [Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>], (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
+    def getTypeMappers(from: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = from.getAllColumnTypeMappers
+  }
 </#list>
 
   final type CanUnpack[-T] = T =>> _
-  val unpackUnit: Unit =>> Unit = null
+  val unpackUnit: Unit =>> Unit = new =>> [Unit, Unit] {
+    def getTypeMappers(from: Unit) = Vector[TypeMapper[_]]()
+  }
+
+  val unpackNothing: Any =>> Nothing = new =>> [Any, Nothing] {
+    def getTypeMappers(from: Any) = throw new SQueryException("Cannot unpack implicitly lifted table")
+  }
 }
 
 trait LowPriority_=>> {
-  implicit final def unpackPrimitive[T : TypeMapper]: T =>> T = null
-  implicit final def unpackColumnBase[T]: ColumnBase[T] =>> T = null
+  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): T =>> T = new =>> [T, T] {
+    def getTypeMappers(from: T) = Vector(tm)
+  }
+  implicit final def unpackColumnBase[T]: ColumnBase[T] =>> T = new =>> [ColumnBase[T], T] {
+    def getTypeMappers(from: ColumnBase[T]) = from.getAllColumnTypeMappers
+  }
 
 <#list 2..22 as i>
-  implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: T${j} =>> U${j}<#if i != j>, </#if></#list>): (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) =>> (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>) = null
+  implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: T${j} =>> U${j}<#if i != j>, </#if></#list>): (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) =>> (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>) = new =>> [(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>)] {
+    def getTypeMappers(from: (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)) =
+      <#list 1..i as j>u${j}.getTypeMappers(from._${j})<#if i != j> ++ </#if></#list>
+  }
 </#list>
 }
 
 case class Unpackable[T, +U](value: T, unpack: T =>> U) {
   def endoMap(f: T => T): Unpackable[T, U] = new Unpackable(f(value), unpack)
+  def getTypeMappers = unpack.getTypeMappers(value)
 }

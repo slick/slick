@@ -14,6 +14,7 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
   final type TableType = T
   def nodeChildren = Nil
   override def toString = "Table " + tableName
+  def getAllColumnTypeMappers = *.getAllColumnTypeMappers
 
   def * : ColumnBase[T]
 

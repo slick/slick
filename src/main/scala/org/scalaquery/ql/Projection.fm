@@ -20,6 +20,9 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
     }
   }
 
+  def getAllColumnTypeMappers = 0.until(productArity).flatMap[TypeMapper[_], Vector[TypeMapper[_]]](
+    i => productElement(i).asInstanceOf[Column[_]].getAllColumnTypeMappers)(collection.breakOut)
+
   def <>[R](f: (T => R), g: (R => Option[T])): MappedProjection[R,T] = new MappedProjection(this, f, g)
 
   override def toString = "Projection" + productArity
@@ -34,6 +37,7 @@ object Projection {
 class MappedProjection[T, P <: Product](val child: Projection[P], f: (P => T), g: (T => Option[P])) extends ColumnBase[T] with UnaryNode {
   override def toString = "MappedProjection"
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
+  def getAllColumnTypeMappers = child.getAllColumnTypeMappers
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit =
     child.setParameter(profile, ps, value.flatMap(g))
