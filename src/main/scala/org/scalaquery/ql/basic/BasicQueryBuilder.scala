@@ -253,7 +253,8 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
       b += '('; expr(l, b); b += " like "; expr(r, b);
       esc.foreach { ch =>
         if(ch == '\'' || ch == '%' || ch == '_') throw new SQueryException("Illegal escape character '"+ch+"' for LIKE expression")
-        b += " {escape '" += ch += "'}"
+        // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
+        b += " escape '" += ch += "'"
       }
       b += ')'
     case a @ ColumnOps.AsColumnOf(ch, name) =>

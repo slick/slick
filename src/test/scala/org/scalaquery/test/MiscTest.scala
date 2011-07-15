@@ -4,6 +4,7 @@ import org.junit.Test
 import org.junit.Assert._
 import org.junit.runner.JUnitCore
 import org.scalaquery.ql._
+import extended.AccessDriver
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.basic.{BasicTable => Table}
 import org.scalaquery.session._
@@ -85,6 +86,33 @@ class MiscTest(tdb: TestDB) extends DBTest(tdb) {
 
       assertFail { T1.insert(null.asInstanceOf[String]) }
       assertFail { T4.insert(None) }
+    }
+  }
+
+  @Test def testLike() {
+
+    object T1 extends Table[String]("t1") {
+      def a = column[String]("a")
+      def * = a
+    }
+
+    db withSession {
+      T1.ddl.create
+      T1.insertAll("foo", "bar", "foobar", "foo%")
+
+      val q1 = for { t1 <- T1 if t1.a like "foo" } yield t1.a
+      println("q1: " + q1.selectStatement)
+      assertEquals(List("foo"), q1.list)
+
+      val q2 = for { t1 <- T1 if t1.a like "foo%" } yield t1.a
+      println("q2: " + q2.selectStatement)
+      assertEquals(Set("foo", "foobar", "foo%"), q2.to[Set]())
+
+      if(tdb.driver != AccessDriver) { // Access does not support ESCAPE
+        val q3 = for { t1 <- T1 if t1.a.like("foo^%", '^') } yield t1.a
+        println("q3: " + q3.selectStatement)
+        assertEquals(Set("foo%"), q3.to[Set]())
+      }
     }
   }
 }
