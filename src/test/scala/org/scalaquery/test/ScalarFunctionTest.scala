@@ -12,6 +12,7 @@ import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 import org.scalaquery.util.{SQLBuilder, BinaryNode, Node}
+import java.sql.{Time, Date, Timestamp}
 
 object ScalarFunctionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
@@ -28,6 +29,25 @@ class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
       val found = q.list.toSet
       assert(found.forall(exp contains _), "all of result "+found+" should be in expected "+exp)
     }
+
+    // Literals
+    def checkLit[T : TypeMapper](v: T) = check(Query(ConstColumn(v)), v)
+    checkLit(false)
+    checkLit(true)
+    checkLit(42: Byte)
+    checkLit(-42: Byte)
+    checkLit(Date.valueOf("2011-07-15"))
+    checkLit(Time.valueOf("15:53:21"))
+    checkLit(Timestamp.valueOf("2011-07-15 15:53:21"))
+    checkLit(42)
+    checkLit(-42)
+    checkLit(17.5)
+    checkLit(-17.5)
+    checkLit(17.5f)
+    checkLit(-17.5f)
+    checkLit(42l)
+    checkLit(-42l)
+    checkLit("foo")
 
     check(Query("42".asColumnOf[Int]), 42)
     check(Query(ConstColumn("foo").length), 3)

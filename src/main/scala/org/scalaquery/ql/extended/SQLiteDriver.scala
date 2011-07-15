@@ -5,6 +5,7 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 import org.scalaquery.util.SQLBuilder._
+import java.sql.{Timestamp, Time, Date}
 
 /**
  * ScalaQuery driver for SQLite.
@@ -42,6 +43,9 @@ object SQLiteDriver extends SQLiteDriver
 class SQLiteTypeMapperDelegates extends BasicTypeMapperDelegates {
   import SQLiteTypeMapperDelegates._
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
+  override val dateTypeMapperDelegate = new DateTypeMapperDelegate
+  override val timeTypeMapperDelegate = new TimeTypeMapperDelegate
+  override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
 }
 
 object SQLiteTypeMapperDelegates {
@@ -50,6 +54,18 @@ object SQLiteTypeMapperDelegates {
   class BooleanTypeMapperDelegate extends BasicTypeMapperDelegates.BooleanTypeMapperDelegate {
     override def sqlTypeName = "INTEGER"
     override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+  }
+  /* The SQLite JDBC driver does not support the JDBC escape syntax for
+   * date/time/timestamp literals. SQLite expects these values as milliseconds
+   * since epoch. */
+  class DateTypeMapperDelegate extends BasicTypeMapperDelegates.DateTypeMapperDelegate {
+    override def valueToSQLLiteral(value: Date) = value.getTime.toString
+  }
+  class TimeTypeMapperDelegate extends BasicTypeMapperDelegates.TimeTypeMapperDelegate {
+    override def valueToSQLLiteral(value: Time) = value.getTime.toString
+  }
+  class TimestampTypeMapperDelegate extends BasicTypeMapperDelegates.TimestampTypeMapperDelegate {
+    override def valueToSQLLiteral(value: Timestamp) = value.getTime.toString
   }
 }
 
