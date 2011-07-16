@@ -1,6 +1,5 @@
 package org.scalaquery.ql
 
-import TypeMapper._
 import org.scalaquery.util.{Node, BinaryNode}
 
 /**
@@ -28,8 +27,18 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-case class ForeignKeyQuery[TT <: AbstractTable[_], U](fk: ForeignKey[TT], override val unpackable: Unpackable[TT, U]) extends Query[TT, U](unpackable, fk :: Nil, Nil, Nil) with Constraint {
+class ForeignKeyQuery[TT <: AbstractTable[_], U](val fks: List[ForeignKey[TT]], override val unpackable: Unpackable[TT, U]) extends Query[TT, U](unpackable, fks, Nil, Nil) with Constraint {
   override def toString = "ForeignKeyQuery"
+
+  /**
+   * Combine the constraints of this ForeignKeyQuery with another one with the
+   * same target table, leading to a single instance of the target table which
+   * satisfies the constraints of both.
+   */
+  def & (other: ForeignKeyQuery[TT, U]) = {
+    val tt = fks.head.targetTableUnpackable
+    new ForeignKeyQuery(fks ++ other.fks.map { fk => fk.copy(targetTableUnpackable = tt) }, unpackable)
+  }
 }
 
 case class PrimaryKey(name: String, columns: Node) extends Constraint

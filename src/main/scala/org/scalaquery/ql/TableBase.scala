@@ -36,8 +36,8 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
       (targetColumns: TT => ColumnBase[P], onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
         onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: TT =>> U): ForeignKeyQuery[TT, U] = {
     val mappedTTU = Unpackable(targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), unpack)
-    ForeignKeyQuery(ForeignKey(name, this, mappedTTU, targetTable,
-      sourceColumns, targetColumns, onUpdate, onDelete), mappedTTU)
+    new ForeignKeyQuery(List(ForeignKey(name, this, mappedTTU, targetTable,
+      sourceColumns, targetColumns, onUpdate, onDelete)), mappedTTU)
   }
 
   def primaryKey(name: String, sourceColumns: ColumnBase[_]): PrimaryKey = PrimaryKey(name, Node(sourceColumns))
@@ -51,7 +51,7 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
     } yield q
 
   final def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_]]] =
-    tableConstraints collect { case q: ForeignKeyQuery[_, _] => q.fk }
+    tableConstraints collect { case q: ForeignKeyQuery[_, _] => q.fks } flatten
 
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints collect { case k: PrimaryKey => k }

@@ -4,7 +4,8 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 import org.scalaquery.SQueryException
-import org.scalaquery.session.ResultSetType
+import java.sql.{Timestamp, Time, Date}
+import org.scalaquery.session.{PositionedResult, ResultSetType}
 
 /**
  * ScalaQuery driver for Microsoft SQL Server.
@@ -44,6 +45,8 @@ object SQLServerDriver extends SQLServerDriver
 class SQLServerTypeMapperDelegates extends BasicTypeMapperDelegates {
   import SQLServerTypeMapperDelegates._
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
+  override val dateTypeMapperDelegate = new DateTypeMapperDelegate
+  override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
 }
 
 object SQLServerTypeMapperDelegates {
@@ -51,6 +54,19 @@ object SQLServerTypeMapperDelegates {
    * BIT with constants 1 and 0 for TRUE and FALSE. */
   class BooleanTypeMapperDelegate extends BasicTypeMapperDelegates.BooleanTypeMapperDelegate {
     override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+  }
+  /* Selecting a straight Date or Timestamp literal fails with a NPE (probably
+   * because the type information gets lost along the way), so we cast all Date
+   * and Timestamp values to the proper type. This work-around does not seem to
+   * be required for Time values. */
+  class DateTypeMapperDelegate extends BasicTypeMapperDelegates.DateTypeMapperDelegate {
+    override def valueToSQLLiteral(value: Date) = "{fn convert({d '" + value + "'}, DATE)}"
+  }
+  class TimestampTypeMapperDelegate extends BasicTypeMapperDelegates.TimestampTypeMapperDelegate {
+    /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
+     * want here is DATETIME. */
+    override def sqlTypeName = "DATETIME"
+    override def valueToSQLLiteral(value: Timestamp) = "{fn convert({ts '" + value + "'}, DATETIME)}"
   }
 }
 

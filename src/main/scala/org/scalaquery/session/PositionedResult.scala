@@ -98,6 +98,7 @@ abstract class PositionedResultIterator[+T](_rs: ResultSet, maxRows: Int) extend
 
   private[this] var done = false
   private[this] var count = 0
+  private[this] var closed = false
 
   final override def nextRow = {
     if(maxRows != 0 && count >= maxRows) false
@@ -108,7 +109,11 @@ abstract class PositionedResultIterator[+T](_rs: ResultSet, maxRows: Int) extend
     }
   }
 
-  final def hasNext = !done && ((pos == 0) || nextRow)
+  final def hasNext = {
+    val r = !done && ((pos == 0) || nextRow)
+    if(!r) close()
+    r
+  }
 
   final def next() = {
     if(done) noNext
@@ -123,7 +128,15 @@ abstract class PositionedResultIterator[+T](_rs: ResultSet, maxRows: Int) extend
     }
   }
 
+  final def close() {
+    if(!closed) {
+      closeUnderlying()
+      closed = true
+    }
+  }
+
   protected def extractValue(): T
+  protected def closeUnderlying(): Unit
 
   final override def foreach[U](f: T =>  U) { while(nextRow) f(extractValue()) }
 }

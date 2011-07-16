@@ -26,6 +26,16 @@ trait CloseableIterator[+T] extends Iterator[T] with Closeable { self =>
   final def use[R](f: =>R): R =
     try f finally close()
 
+  /**
+   * Return a new CloseableIterator which also closes the supplied Closeable
+   * object when itself gets closed.
+   */
+  final def thenClose(c: Closeable): CloseableIterator[T] = new CloseableIterator[T] {
+    def hasNext = self.hasNext
+    def next() = self.next()
+    def close() = try self.close() finally c.close()
+  }
+
   protected final def noNext = throw new NoSuchElementException("next on empty iterator")
 }
 
@@ -48,5 +58,23 @@ object CloseableIterator {
     def hasNext = more
     def next() = if(more) { more = false; item } else noNext
     def close {}
+  }
+
+  /**
+   * Using some Closeable resource and a function to create a CloseableIterator
+   * from it, return a wrapped CloseableIterator which closes the resource when
+   * itself gets closed. If the function terminates abnormally, the resource is
+   * closed immediately.
+   */
+  def close[C <: Closeable](makeC: => C) = new Close[C](makeC)
+
+  final class Close[C <: Closeable](makeC: => C) {
+    def after[T](f: C => CloseableIterator[T]) = {
+      val c = makeC
+      (try f(c) catch { case e =>
+        try c.close() catch { case _ => }
+        throw e
+      }) thenClose c
+    }
   }
 }
