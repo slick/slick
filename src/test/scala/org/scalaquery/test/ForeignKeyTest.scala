@@ -123,4 +123,56 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     q1.foreach(x => println("  "+x))
     assertEquals(Set(("a12","b12"), ("a34","b34")), q1.list.toSet)
   }
+
+  @Test def testCombinedJoin(): Unit = db withSession {
+
+    object A extends Table[(Int, String)]("a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = id ~ s
+    }
+
+    class Dep(n: String) extends Table[(Int, Int)](n) {
+      def id = column[Int]("id", O.PrimaryKey)
+      def aRef = column[Int]("aRef")
+      def * = id ~ aRef
+      def a = foreignKey(n+"_a_fk", aRef, A)(_.id)
+    }
+
+    val B = new Dep("b")
+    val C = new Dep("c")
+
+    (A.ddl ++ B.ddl ++ C.ddl).create
+    A.insertAll((1, "a"), (2, "b"), (3, "c"), (4, "d"))
+    B.insertAll((1, 1), (2, 1), (3, 2))
+    C.insertAll((1, 1), (2, 3))
+
+    val q1 = for {
+      b <- B
+      a <- b.a
+      _ <- Query orderBy a.s
+    } yield a.s
+    println("q1: " + q1.selectStatement)
+    println("    " + q1.list)
+    assertEquals(List("a", "a", "b"), q1.list)
+
+    val q2 = for {
+      c <- C
+      a <- c.a
+      _ <- Query orderBy a.s
+    } yield a.s
+    println("q2: " + q2.selectStatement)
+    println("    " + q2.list)
+    assertEquals(List("a", "c"), q2.list)
+
+    val q3 = for {
+      b <- B
+      c <- C
+      a <- b.a & c.a
+      _ <- Query orderBy a.s
+    } yield a.s
+    println("q3: " + q3.selectStatement)
+    println("    " + q3.list)
+    assertEquals(List("a", "a"), q3.list)
+  }
 }

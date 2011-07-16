@@ -1,6 +1,5 @@
 package org.scalaquery.ql
 
-import TypeMapper._
 import org.scalaquery.util.{Node, BinaryNode}
 
 /**
@@ -27,8 +26,18 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-case class ForeignKeyQuery[TT <: AbstractTable[_]](fk: ForeignKey[TT]) extends Query[TT](fk.targetTable, fk :: Nil, Nil, Nil) with Constraint {
+class ForeignKeyQuery[TT <: AbstractTable[_]](val fks: List[ForeignKey[TT]]) extends Query[TT](fks.head.targetTable, fks, Nil, Nil) with Constraint {
   override def toString = "ForeignKeyQuery"
+
+  /**
+   * Combine the constraints of this ForeignKeyQuery with another one with the
+   * same target table, leading to a single instance of the target table which
+   * satisfies the constraints of both.
+   */
+  def & (other: ForeignKeyQuery[TT]) = {
+    val tt = fks.head.targetTable
+    new ForeignKeyQuery(fks ++ other.fks.map { fk => fk.copy(targetTable = tt) })
+  }
 }
 
 case class PrimaryKey(name: String, columns: Node) extends Constraint
