@@ -33,7 +33,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
       st.setMaxRows(maxRows)
       if(st.execute) {
         val rs = new PositionedResultIterator[R](st.getResultSet, maxRows) {
-          def close() = st.close()
+          def closeUnderlying() = st.close()
           def extractValue() = self.extractValue(this)
         }
         doClose = false

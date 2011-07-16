@@ -20,7 +20,7 @@ abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
     val rs = createResultSet(session)
     if(rs eq null) CloseableIterator.empty
     else new PositionedResultIterator[R](rs, maxRows) {
-      def close() = rs.close()
+      def closeUnderlying() = rs.close()
       def extractValue() = self.extractValue(this)
     }
   }
