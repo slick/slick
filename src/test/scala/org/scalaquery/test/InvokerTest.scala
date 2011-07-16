@@ -5,9 +5,10 @@ import org.junit.Test
 import org.junit.Assert._
 import org.scalaquery.ql._
 import org.scalaquery.ql.extended.{ExtendedTable => Table}
-import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
+import org.scalaquery.util.CloseableIterator
+import org.scalaquery.session.Session
 
 object InvokerTest extends DBTestObject(H2Mem)
 
@@ -15,6 +16,7 @@ class InvokerTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 
   @Test def testCollections() {
+    import org.scalaquery.session.Database.threadLocalSession
 
     val T = new Table[Int]("t") {
       def a = column[Int]("a")
@@ -57,6 +59,7 @@ class InvokerTest(tdb: TestDB) extends DBTest(tdb) {
   }
 
   @Test def testMap() {
+    import org.scalaquery.session.Database.threadLocalSession
 
     val T = new Table[(Int, String)]("t") {
       def k = column[Int]("k")
@@ -74,5 +77,40 @@ class InvokerTest(tdb: TestDB) extends DBTest(tdb) {
       val r1t: Map[Int, String] = r1
       assertEquals(Map(1 -> "a", 2 -> "b", 3 -> "c"), r1)
     }
+  }
+
+  @Test def testLazy() {
+
+    val T = new Table[Int]("t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+
+    val q = for {
+      t <- T
+      _ <- Query orderBy t.a
+    } yield t
+
+    def setUp(implicit session: Session) {
+      T.ddl.create
+      for(g <- 1 to 1000 grouped 100)
+        T.insertAll(g:_*)
+    }
+
+    def f() = CloseableIterator close db.createSession after { implicit session =>
+      setUp
+      q.elements
+    }
+
+    def g() = CloseableIterator close db.createSession after { implicit session =>
+      setUp
+      throw new Exception("make sure it gets closed")
+    }
+
+    val it = f()
+    it.use { assertEquals((1 to 1000).toList, it.toStream.toList) }
+    assertFail(g())
+    val it2 = f()
+    it2.use { assertEquals((1 to 1000).toList, it2.toStream.toList) }
   }
 }
