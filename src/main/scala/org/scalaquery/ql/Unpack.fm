@@ -2,7 +2,7 @@ package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
 import org.scalaquery.SQueryException
-import org.scalaquery.util.Node
+import org.scalaquery.util.{Node, ValueLinearizer, ProductLinearizer, UnitLinearizer}
 
 /**
  * A type class that encodes the unpacking `From => To` of a `Query[From]` to
@@ -17,30 +17,48 @@ import org.scalaquery.util.Node
 @implicitNotFound(msg = "Don't know how to unpack ${r"${From}"} to ${r"${To}"}")
 sealed trait =>> [-From, +To] {
   type FromT = From
+  type ToT = To
   def getTypeMappers(from: From): Vector[TypeMapper[_]]
   def reify(from: From): Node = Node(from)
+  def linearizer(from: From): ValueLinearizer[_]
 }
 
 object =>> extends LowPriority_=>> {
   implicit def unpackJoin[T1 <: AbstractTable[_], T2 <: AbstractTable[_]]: Join[T1, T2] =>> (T1, T2) = new =>> [Join[T1, T2], (T1, T2)] {
     def getTypeMappers(from: FromT) = from.left.getAllColumnTypeMappers
+    def linearizer(from: FromT) = from.left
   }
 
 <#list 2..22 as i>
   implicit def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =>> (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) = new =>> [Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>], (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
     def getTypeMappers(from: FromT) = from.getAllColumnTypeMappers
+    def linearizer(from: FromT) = from
   }
 </#list>
 
-  final type CanUnpack[-T] = T =>> _
+  type CanUnpack[-T] = T =>> _
+
   val unpackUnit: Unit =>> Unit = new =>> [Unit, Unit] {
     def getTypeMappers(from: FromT) = Vector[TypeMapper[_]]()
     override def reify(from: FromT) = throw new SQueryException("Cannot reify a packed Unit column")
+    def linearizer(from: FromT) = UnitLinearizer
   }
 
   val unpackNothing: Any =>> Nothing = new =>> [Any, Nothing] {
     def getTypeMappers(from: FromT) = throw new SQueryException("Cannot unpack implicitly lifted table")
     override def reify(from: FromT) = throw new SQueryException("Cannot unpack implicitly lifted table")
+    def linearizer(from: FromT) =  throw new SQueryException("Cannot unpack implicitly lifted table")
+  }
+
+  val unpackTableBase: TableBase[_] =>> Nothing = new =>> [TableBase[_], Nothing] {
+    def getTypeMappers(from: FromT) = from match {
+      case a: AbstractTable[_] => a.*.getAllColumnTypeMappers
+      case j: Join[_, _] => j.left.*.getAllColumnTypeMappers
+    }
+    def linearizer(from: FromT): ValueLinearizer[_] = from match {
+      case a: AbstractTable[_] => a.*
+      case j: Join[_, _] => j.left.*
+    }
   }
 }
 
@@ -48,9 +66,11 @@ trait LowPriority_=>> {
   implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): T =>> T = new =>> [T, T] {
     def getTypeMappers(from: FromT) = Vector(tm)
     override def reify(from: FromT) = ConstColumn(from)
+    def linearizer(from: FromT) = ConstColumn(from)
   }
   implicit final def unpackColumnBase[T]: ColumnBase[T] =>> T = new =>> [ColumnBase[T], T] {
     def getTypeMappers(from: FromT) = from.getAllColumnTypeMappers
+    def linearizer(from: FromT) = from
   }
 
 <#list 2..22 as i>
@@ -59,6 +79,10 @@ trait LowPriority_=>> {
       <#list 1..i as j>u${j}.getTypeMappers(from._${j})<#if i != j> ++ </#if></#list>
     override def reify(from: FromT) =
       Node((<#list 1..i as j>u${j}.reify(from._${j})<#if i != j>, </#if></#list>))
+    def linearizer(from: FromT) = {
+      val sub = Vector(<#list 1..i as j>u${j}.linearizer(from._${j})<#if i != j>, </#if></#list>)
+      new ProductLinearizer(sub)
+    }
   }
 </#list>
 }
@@ -67,10 +91,8 @@ trait LowPriority_=>> {
  * A packed value together with its unpacking
  */
 case class Unpackable[T, +U](value: T, unpack: T =>> U) {
-
   def endoMap(f: T => T): Unpackable[T, U] = new Unpackable(f(value), unpack)
-
   def getTypeMappers = unpack.getTypeMappers(value)
-
   def reified = unpack.reify(value)
+  def linearizer = unpack.linearizer(value)
 }

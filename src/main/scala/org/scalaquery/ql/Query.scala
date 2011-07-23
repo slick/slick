@@ -13,6 +13,7 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
                 val modifiers: List[QueryModifier]) extends Node {
 
   lazy val reified = unpackable.reified
+  lazy val linearizer = unpackable.linearizer
 
   def nodeChildren = reified :: cond.map(Node.apply) ::: modifiers
   override def nodeNamedChildren = (reified, "select") :: cond.map(n => (Node(n), "where")) ::: modifiers.map(o => (o, "modifier"))
