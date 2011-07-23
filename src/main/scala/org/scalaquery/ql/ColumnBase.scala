@@ -10,7 +10,6 @@ import org.scalaquery.util.{Node, WithOp, SimpleTypeName, ValueLinearizer}
  */
 trait ColumnBase[T] extends Node with ValueLinearizer[T] with WithOp {
   override def nodeDelegate: Node = if(op eq null) this else op.nodeDelegate
-  def getAllColumnTypeMappers: Vector[TypeMapper[_]]
 }
 
 /**
