@@ -15,7 +15,7 @@ class BasicUpdateInvoker[T] (query: Query[_ <: ColumnBase[T], T], profile: Basic
   def update(value: T)(implicit session: Session): Int = session.withPreparedStatement(updateStatement) { st =>
     st.clearParameters
     val pp = new PositionedParameters(st)
-    query.value.setParameter(profile, pp, Some(value))
+    query.unpackable.value.setParameter(profile, pp, Some(value))
     built.setter(pp, null)
     st.executeUpdate
   }

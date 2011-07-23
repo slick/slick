@@ -2,6 +2,7 @@ package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
 import org.scalaquery.SQueryException
+import org.scalaquery.util.Node
 
 /**
  * A type class that encodes the unpacking `From => To` of a `Query[From]` to
@@ -15,47 +16,61 @@ import org.scalaquery.SQueryException
  */
 @implicitNotFound(msg = "Don't know how to unpack ${r"${From}"} to ${r"${To}"}")
 sealed trait =>> [-From, +To] {
+  type FromT = From
   def getTypeMappers(from: From): Vector[TypeMapper[_]]
+  def reify(from: From): Node = Node(from)
 }
 
 object =>> extends LowPriority_=>> {
-  implicit final def unpackJoin[T1 <: AbstractTable[_], T2 <: AbstractTable[_]]: Join[T1, T2] =>> (T1, T2) = new =>> [Join[T1, T2], (T1, T2)] {
-    def getTypeMappers(from: Join[T1, T2]) = from.left.getAllColumnTypeMappers
+  implicit def unpackJoin[T1 <: AbstractTable[_], T2 <: AbstractTable[_]]: Join[T1, T2] =>> (T1, T2) = new =>> [Join[T1, T2], (T1, T2)] {
+    def getTypeMappers(from: FromT) = from.left.getAllColumnTypeMappers
   }
 
 <#list 2..22 as i>
-  implicit final def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =>> (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) = new =>> [Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>], (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
-    def getTypeMappers(from: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = from.getAllColumnTypeMappers
+  implicit def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =>> (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) = new =>> [Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>], (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
+    def getTypeMappers(from: FromT) = from.getAllColumnTypeMappers
   }
 </#list>
 
   final type CanUnpack[-T] = T =>> _
   val unpackUnit: Unit =>> Unit = new =>> [Unit, Unit] {
-    def getTypeMappers(from: Unit) = Vector[TypeMapper[_]]()
+    def getTypeMappers(from: FromT) = Vector[TypeMapper[_]]()
+    override def reify(from: FromT) = throw new SQueryException("Cannot reify a packed Unit column")
   }
 
   val unpackNothing: Any =>> Nothing = new =>> [Any, Nothing] {
-    def getTypeMappers(from: Any) = throw new SQueryException("Cannot unpack implicitly lifted table")
+    def getTypeMappers(from: FromT) = throw new SQueryException("Cannot unpack implicitly lifted table")
+    override def reify(from: FromT) = throw new SQueryException("Cannot unpack implicitly lifted table")
   }
 }
 
 trait LowPriority_=>> {
   implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): T =>> T = new =>> [T, T] {
-    def getTypeMappers(from: T) = Vector(tm)
+    def getTypeMappers(from: FromT) = Vector(tm)
+    override def reify(from: FromT) = ConstColumn(from)
   }
   implicit final def unpackColumnBase[T]: ColumnBase[T] =>> T = new =>> [ColumnBase[T], T] {
-    def getTypeMappers(from: ColumnBase[T]) = from.getAllColumnTypeMappers
+    def getTypeMappers(from: FromT) = from.getAllColumnTypeMappers
   }
 
 <#list 2..22 as i>
   implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: T${j} =>> U${j}<#if i != j>, </#if></#list>): (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) =>> (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>) = new =>> [(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>)] {
-    def getTypeMappers(from: (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)) =
+    def getTypeMappers(from: FromT) =
       <#list 1..i as j>u${j}.getTypeMappers(from._${j})<#if i != j> ++ </#if></#list>
+    override def reify(from: FromT) =
+      Node((<#list 1..i as j>u${j}.reify(from._${j})<#if i != j>, </#if></#list>))
   }
 </#list>
 }
 
+/**
+ * A packed value together with its unpacking
+ */
 case class Unpackable[T, +U](value: T, unpack: T =>> U) {
+
   def endoMap(f: T => T): Unpackable[T, U] = new Unpackable(f(value), unpack)
+
   def getTypeMappers = unpack.getTypeMappers(value)
+
+  def reified = unpack.reify(value)
 }

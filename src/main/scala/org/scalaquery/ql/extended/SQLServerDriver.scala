@@ -83,7 +83,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case TakeDrop(None, Some(_)) :: _ => true
     case _ => false
   }
-  val isCountAll = Node(query.value) match {
+  val isCountAll = query.reified match {
     case ColumnOps.CountAll(_) => true
     case _ => false
   }
@@ -101,7 +101,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), Some(d)) :: _ =>
         b += "WITH T AS (SELECT TOP " += (t+d) += ' '
-        expr(Node(query.value), b, rename, true)
+        expr(query.reified, b, rename, true)
         fromSlot = b.createSlot
         appendClauses(b)
         b += ") SELECT "
@@ -110,7 +110,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
       case TakeDrop(Some(t), None) :: _ =>
         b += "WITH T AS (SELECT TOP " += t += ' '
-        expr(Node(query.value), b, rename, true)
+        expr(query.reified, b, rename, true)
         fromSlot = b.createSlot
         appendClauses(b)
         b += ") SELECT "
@@ -119,7 +119,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
       case TakeDrop(None, Some(d)) :: _ =>
         b += "WITH T AS (SELECT "
-        expr(Node(query.value), b, rename, true)
+        expr(query.reified, b, rename, true)
         fromSlot = b.createSlot
         appendClauses(b)
         b += ") SELECT "

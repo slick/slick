@@ -12,14 +12,15 @@ import =>>.CanUnpack
 class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column[_]],  val condHaving: List[Column[_]],
                 val modifiers: List[QueryModifier]) extends Node {
 
-  def value = unpackable.value
-  def nodeChildren = Node(value) :: cond.map(Node.apply) ::: modifiers
-  override def nodeNamedChildren = (Node(value), "select") :: cond.map(n => (Node(n), "where")) ::: modifiers.map(o => (o, "modifier"))
+  lazy val reified = unpackable.reified
+
+  def nodeChildren = reified :: cond.map(Node.apply) ::: modifiers
+  override def nodeNamedChildren = (reified, "select") :: cond.map(n => (Node(n), "where")) ::: modifiers.map(o => (o, "modifier"))
 
   override def toString = "Query"
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
-    val q = f(value)
+    val q = f(unpackable.value)
     new Query[F, T](q.unpackable, cond ::: q.cond, condHaving ::: q.condHaving, modifiers ::: q.modifiers)
   }
 
@@ -28,14 +29,14 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
 
   def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] =
-    new Query[E, U](unpackable, wt(f(value), cond), condHaving, modifiers)
+    new Query[E, U](unpackable, wt(f(unpackable.value), cond), condHaving, modifiers)
 
   def withFilter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = filter(f)(wt)
 
   def where[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = filter(f)(wt)
 
   def having[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] =
-    new Query[E, U](unpackable, cond, wt(f(value), condHaving), modifiers)
+    new Query[E, U](unpackable, cond, wt(f(unpackable.value), condHaving), modifiers)
 
   def groupBy(by: Column[_]*) =
     new Query[E, U](unpackable, cond, condHaving, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
@@ -85,7 +86,7 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
   }
 
   // Query[Column[_]] only
-  def asColumn(implicit ev: E <:< Column[_]): E = value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
+  def asColumn(implicit ev: E <:< Column[_]): E = unpackable.value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
 }
 
 object Query extends Query[Unit, Unit](Unpackable((), =>>.unpackUnit), Nil, Nil, Nil) {

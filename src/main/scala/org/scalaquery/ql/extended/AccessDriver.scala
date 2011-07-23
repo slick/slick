@@ -80,7 +80,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       case TakeDrop(Some(n), _) :: _ =>
         selectSlot = b.createSlot
         selectSlot += "SELECT TOP " += n += ' '
-        expr(Node(query.value), selectSlot, rename, true)
+        expr(query.reified, selectSlot, rename, true)
         fromSlot = b.createSlot
         appendClauses(b)
       case _ =>

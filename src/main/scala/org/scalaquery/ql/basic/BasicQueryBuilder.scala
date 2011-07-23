@@ -57,7 +57,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
   final def buildSelect: (SQLBuilder.Result, ValueLinearizer[_]) = {
     val b = new SQLBuilder
     buildSelect(b)
-    (b.build, buildLinearizer(query.value))
+    (b.build, buildLinearizer(query.reified))
   }
 
   def buildSelect(b: SQLBuilder) {
@@ -72,14 +72,14 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
   }
 
   protected def rewriteCountStarQuery(q: Query[_, _]) =
-    q.modifiers.isEmpty && (Node(q.value) match {
+    q.modifiers.isEmpty && (q.reified match {
       case AbstractTable.Alias(_: AbstractTable[_]) => true
       case _: AbstractTable[_] => true
       case _ => false
     })
 
   protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
-    Node(query.value) match {
+    query.reified match {
       case ColumnOps.CountAll(Subquery(q: Query[_, _], false)) if rewriteCountStarQuery(q) =>
         val newQ = q.map(p => ColumnOps.CountAll(Node(p)))
         subQueryBuilderFor(newQ).innerBuildSelect(b, rename)
@@ -91,7 +91,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     def inner {
       selectSlot = b.createSlot
       selectSlot += "SELECT "
-      expr(Node(query.value), selectSlot, rename, true)
+      expr(query.reified, selectSlot, rename, true)
       fromSlot = b.createSlot
       appendClauses(b)
     }
@@ -142,7 +142,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
 
   def buildDelete = {
     val b = new SQLBuilder += "DELETE FROM "
-    val (delTable, delTableName) = Node(query.value) match {
+    val (delTable, delTableName) = query.reified match {
       case t @ AbstractTable.Alias(base:AbstractTable[_]) => (t, base.tableName)
       case t:AbstractTable[_] => (t, t.tableName)
       case n => throw new SQueryException("Cannot create a DELETE statement from an \""+n+
@@ -202,7 +202,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
       }
     }
 
-    handleColumns(Node(query.value))
+    handleColumns(query.reified)
     nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
     tableNameSlot += quoteIdentifier(tableName)
     appendConditions(b)
