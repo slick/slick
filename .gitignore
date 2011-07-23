@@ -14,3 +14,8 @@ test-dbs/databases.properties
 .classpath
 .project
 .settings/
+src/main/scala/org/scalaquery/ql/Parameters.scala
+src/main/scala/org/scalaquery/ql/Projection.scala
+src/main/scala/org/scalaquery/ql/Unpack.scala
+src/main/scala/org/scalaquery/simple/GetResult.scala
+src/main/scala/org/scalaquery/util/WithOp.scala
