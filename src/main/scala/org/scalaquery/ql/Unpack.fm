@@ -2,7 +2,7 @@ package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
 import org.scalaquery.SQueryException
-import org.scalaquery.util.{Node, ValueLinearizer, ProductLinearizer, UnitLinearizer}
+import org.scalaquery.util.{Node, ValueLinearizer, ProductLinearizer, UnitLinearizer, WithOp}
 
 /**
  * A type class that encodes the unpacking `From => To` of a `Query[From]` to
@@ -20,15 +20,18 @@ sealed trait =>> [-From, +To] {
   type ToT = To
   def reify(from: From): Node = Node(from)
   def linearizer(from: From): ValueLinearizer[_]
+  def mapOp(x: From, f: Node => Node): Any // really returns x.type
 }
 
 object =>> extends LowPriority_=>> {
-  val unpackValueLinearizer = new =>> [ValueLinearizer[_], Nothing] {
+  val unpackValueLinearizer = new =>> [ValueLinearizer[_] with WithOp, Nothing] {
     def linearizer(from: FromT): ValueLinearizer[_] = from
+    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
   }
 
   implicit def unpackJoin[T1 <: AbstractTable[_], T2 <: AbstractTable[_]]: Join[T1, T2] =>> (T1, T2) = new =>> [Join[T1, T2], (T1, T2)] {
     def linearizer(from: FromT) = from.left
+    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
   }
 
 <#list 2..22 as i>
@@ -40,6 +43,7 @@ object =>> extends LowPriority_=>> {
   val unpackUnit: Unit =>> Unit = new =>> [Unit, Unit] {
     override def reify(from: FromT) = throw new SQueryException("Cannot reify a packed Unit column")
     def linearizer(from: FromT) = UnitLinearizer
+    def mapOp(from: FromT, f: Node => Node) = from
   }
 
   val unpackTableBase: TableBase[_] =>> Nothing = new =>> [TableBase[_], Nothing] {
@@ -47,6 +51,7 @@ object =>> extends LowPriority_=>> {
       case a: AbstractTable[_] => a.*
       case j: Join[_, _] => j.left.*
     }
+    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
   }
 }
 
@@ -54,9 +59,11 @@ trait LowPriority_=>> {
   implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): T =>> T = new =>> [T, T] {
     override def reify(from: FromT) = ConstColumn(from)
     def linearizer(from: FromT) = ConstColumn(from)
+    def mapOp(from: FromT, f: Node => Node) = from
   }
   implicit final def unpackColumnBase[T]: ColumnBase[T] =>> T = new =>> [ColumnBase[T], T] {
     def linearizer(from: FromT) = from
+    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
   }
 
 <#list 2..22 as i>
@@ -67,6 +74,8 @@ trait LowPriority_=>> {
       val sub = Vector(<#list 1..i as j>u${j}.linearizer(from._${j})<#if i != j>, </#if></#list>)
       new ProductLinearizer(sub)
     }
+    def mapOp(from: FromT, f: Node => Node) =
+      (<#list 1..i as j>u${j}.mapOp(from._${j}, f)<#if i != j>, </#if></#list>)
   }
 </#list>
 }
@@ -78,4 +87,5 @@ case class Unpackable[T, +U](value: T, unpack: T =>> U) {
   def endoMap(f: T => T): Unpackable[T, U] = new Unpackable(f(value), unpack)
   def reified = unpack.reify(value)
   def linearizer = unpack.linearizer(value)
+  def mapOp(f: Node => Node) = unpack.mapOp(value, f).asInstanceOf[T]
 }

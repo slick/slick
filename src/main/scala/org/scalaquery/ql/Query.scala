@@ -74,14 +74,14 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
       case o =>
         var pos = 0
         val p = Subquery(base, true)
-        WithOp.mapOp(o, { v =>
+        unpackable.mapOp { v =>
           pos += 1
           SubqueryColumn(pos, p, v match {
             case c: Column[_] => c.typeMapper
             case SubqueryColumn(_, _, tm) => tm
             case _ => throw new SQueryException("Expected Column or SubqueryColumn")
           })
-        })
+        }
     })
     Query[E, U](f(unpackable))
   }

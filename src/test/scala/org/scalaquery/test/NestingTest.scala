@@ -41,7 +41,7 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
         _ <- Query.orderBy(c, a)
       } yield a ~ b ~ c ~ 5
       println("q1a: "+q1a.selectStatement)
-      assertEquals(q1a.to[List](), res1)
+      assertEquals(res1, q1a.to[List]())
 
       val q1b = for {
         (a, b) <- T.map(t => (t.a, t.b))
@@ -50,7 +50,7 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
       } yield a ~ b ~ c ~ 5
       println("q1b: "+q1b.selectStatement)
       println(q1b.list)
-      assertEquals(q1b.to[List](), res1)
+      assertEquals(res1, q1b.to[List]())
 
       val q1c = for {
         (a, b) <- T.map(t => (t.a, t.b))
@@ -59,7 +59,7 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
       } yield (a, b, c, ConstColumn(5))
       println("q1c: "+q1c.selectStatement)
       println(q1c.list)
-      assertEquals(q1c.to[List](), res1)
+      assertEquals(res1, q1c.to[List]())
 
       val q1d = for {
         (a, b) <- T.map(t => (t.a, t.b))
@@ -68,24 +68,24 @@ class NestingTest(tdb: TestDB) extends DBTest(tdb) {
       } yield ((a, b), (c, 5))
       println("q1d: "+q1d.selectStatement)
       println(q1d.list)
-      assertEquals(q1d.to[List](), res1b)
+      assertEquals(res1b, q1d.to[List]())
 
-      val res2 = Set((1, "1"), (2, "2"))
+      val res2 = Set((1, "1", 8), (2, "2", 10))
 
       val q2a = for {
-        a ~ b <- T.where(_.a === 1).map(t => t.a ~ t.b) unionAll T.where(_.a === 2).map(t => t.a ~ t.b)
-      } yield a ~ b
+        a ~ b ~ c <- T.where(_.a === 1).map(t => t.a ~ t.b ~ 4) unionAll T.where(_.a === 2).map(t => t.a ~ t.b ~ 5)
+      } yield a ~ b ~ (c*2)
       //q2a.dump("q2a: ")
       println("q2a: "+q2a.selectStatement)
-      assertEquals(q2a.to[Set](), res2)
+      assertEquals(res2, q2a.to[Set]())
 
       val q2b = for {
-        (a, b) <- T.where(_.a === 1).map(t => (t.a, t.b)) unionAll T.where(_.a === 2).map(t => (t.a, t.b))
-      } yield a ~ b
+        (a, b, c) <- T.where(_.a === 1).map(t => (t.a, t.b, 4)) unionAll T.where(_.a === 2).map(t => (t.a, t.b, 5))
+      } yield a ~ b ~ (c*2)
       //q2b.dump("q2b: ")
       println("q2b: "+q2b.selectStatement)
       println(q2b.list)
-      assertEquals(q2b.to[Set](), res2)
+      assertEquals(res2, q2b.to[Set]())
     }
   }
 }
