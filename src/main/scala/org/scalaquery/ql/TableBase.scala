@@ -4,6 +4,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.{BasicProfile, BasicQueryTemplate, BasicDriver}
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.util.{Node, UnaryNode, BinaryNode, WithOp}
+import Unpack.=>>
 
 sealed trait TableBase[T] extends Node with WithOp {
   override def isNamedTable = true

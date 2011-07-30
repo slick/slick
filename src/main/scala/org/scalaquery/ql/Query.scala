@@ -3,7 +3,7 @@ package org.scalaquery.ql
 import scala.reflect.Manifest
 import org.scalaquery.SQueryException
 import org.scalaquery.util.{Node, WithOp}
-import =>>.CanUnpack
+import Unpack.{=>>, CanUnpack, unpackUnit}
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
@@ -90,7 +90,7 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
   def asColumn(implicit ev: E <:< Column[_]): E = unpackable.value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
 }
 
-object Query extends Query[Unit, Unit](Unpackable((), =>>.unpackUnit), Nil, Nil, Nil) {
+object Query extends Query[Unit, Unit](Unpackable((), unpackUnit), Nil, Nil, Nil) {
   def apply[E, U](value: E)(implicit unpack: E =>> U) = new Query[E, U](Unpackable(value, unpack), Nil, Nil, Nil)
   def apply[E, U](unpackable: Unpackable[_ <: E, U]) = new Query[E, U](unpackable, Nil, Nil, Nil)
 }

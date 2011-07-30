@@ -2,6 +2,7 @@ package org.scalaquery.ql.basic
 
 import org.scalaquery.ql._
 import org.scalaquery.util.Node
+import Unpack.unpackTableBase
 
 trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
@@ -19,7 +20,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
 
-  implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing](t.mapOp(n => new AbstractTable.Alias(Node(n))))(=>>.unpackTableBase)
+  implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing](t.mapOp(n => new AbstractTable.Alias(Node(n))))(unpackTableBase)
 
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
 

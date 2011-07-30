@@ -5,76 +5,87 @@ import org.scalaquery.SQueryException
 import org.scalaquery.util.{Node, ValueLinearizer, ProductLinearizer, UnitLinearizer, WithOp}
 
 /**
- * A type class that encodes the unpacking `From => To` of a `Query[From]` to
- * its result element type `To`. At run-time, it contains the mapping to the
- * TypeMappers of the linearized type of the query.
+ * A type class that encodes the unpacking `Packed => Unpacked` of a
+ * `Query[Packed]` to its result element type `Unpacked`, and the reification
+ * to a fully packed type `Reified` (i.a. a type where everything which is not
+ * a transparent container is wrapped in a `Column[_]`) .
+ *
+ * At run-time, it provides the reification, and the `ValueLinearizer` of the
+ * `Unpacked` type.
  *
  * =Example:=
- * - Packed type: (Column[Int], Column[(Int, String)], Option[Double])
- * - Unpacked type: (Int, (Int, String), Option[Double])
- * - Linearized type: (Int, Int, String, Option[Double])
+ * - Packed: (Column[Int], Column[(Int, String)], (Int, Option[Double]))
+ * - Unpacked: (Int, (Int, String), (Int, Option[Double]))
+ * - Reified: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
+ * - Linearized: (Int, Int, String, Int, Option[Double])
  */
-@implicitNotFound(msg = "Don't know how to unpack ${r"${From}"} to ${r"${To}"}")
-sealed trait =>> [-From, +To] {
-  type FromT = From
-  type ToT = To
-  def reify(from: From): Node = Node(from)
-  def linearizer(from: From): ValueLinearizer[_]
-  def mapOp(x: From, f: Node => Node): Any // really returns x.type
+@implicitNotFound(msg = "Don't know how to unpack ${r"${Packed_}"} (to ${r"${Unpacked_}"}, with reification ${r"${Reified_}"})")
+sealed trait Unpack[-Packed_, +Unpacked_, +Reified_] {
+  type Packed = Packed_
+  type Unpacked = Unpacked_
+  type Reified = Reified_
+  def reify(from: Packed): Reified
+  def linearizer(from: Packed): ValueLinearizer[_]
+  def mapOp(x: Packed, f: Node => Node): Any // really returns x.type
 }
 
-object =>> extends LowPriority_=>> {
-  val unpackValueLinearizer = new =>> [ValueLinearizer[_] with WithOp, Nothing] {
-    def linearizer(from: FromT): ValueLinearizer[_] = from
-    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
+object Unpack extends UnpackLowPriority {
+  def unpackValueLinearizer[T <: ValueLinearizer[_] with WithOp] = new Unpack[T, Nothing, T] {
+    def linearizer(from: Packed): ValueLinearizer[_] = from
+    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+    def reify(from: Packed): Reified = from
   }
 
-  implicit def unpackJoin[T1 <: AbstractTable[_], T2 <: AbstractTable[_]]: Join[T1, T2] =>> (T1, T2) = new =>> [Join[T1, T2], (T1, T2)] {
-    def linearizer(from: FromT) = from.left
-    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
+  implicit def unpackJoin[T1 <: AbstractTable[_], T2 <: AbstractTable[_]]: Unpack[Join[T1, T2], (T1, T2), Join[T1, T2]] = new Unpack[Join[T1, T2], (T1, T2), Join[T1, T2]] {
+    def linearizer(from: Packed) = from.left
+    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+    def reify(from: Packed): Reified = from
   }
 
 <#list 2..22 as i>
-  implicit def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =>> (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) = unpackValueLinearizer
+  implicit def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Unpack[Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>], (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]] = unpackValueLinearizer
 </#list>
 
+  type =>> [-From, +To] = Unpack[From, To, _]
   type CanUnpack[-T] = T =>> _
 
-  val unpackUnit: Unit =>> Unit = new =>> [Unit, Unit] {
-    override def reify(from: FromT) = throw new SQueryException("Cannot reify a packed Unit column")
-    def linearizer(from: FromT) = UnitLinearizer
-    def mapOp(from: FromT, f: Node => Node) = from
+  val unpackUnit: Unpack[Unit, Unit, Unit] = new Unpack[Unit, Unit, Unit] {
+    def linearizer(from: Packed) = UnitLinearizer
+    def mapOp(from: Packed, f: Node => Node) = from
+    def reify(from: Packed): Reified = from
   }
 
-  val unpackTableBase: TableBase[_] =>> Nothing = new =>> [TableBase[_], Nothing] {
-    def linearizer(from: FromT): ValueLinearizer[_] = from match {
+  def unpackTableBase[T <: TableBase[_]]: Unpack[T, Nothing, T] = new Unpack[T, Nothing, T] {
+    def linearizer(from: Packed): ValueLinearizer[_] = from match {
       case a: AbstractTable[_] => a.*
       case j: Join[_, _] => j.left.*
     }
-    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
+    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+    def reify(from: Packed): Reified = from
   }
 }
 
-trait LowPriority_=>> {
-  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): T =>> T = new =>> [T, T] {
-    override def reify(from: FromT) = ConstColumn(from)
-    def linearizer(from: FromT) = ConstColumn(from)
-    def mapOp(from: FromT, f: Node => Node) = from
+trait UnpackLowPriority {
+  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Unpack[T, T, ConstColumn[T]] = new Unpack[T, T, ConstColumn[T]] {
+    def linearizer(from: Packed) = ConstColumn(from)
+    def mapOp(from: Packed, f: Node => Node) = from
+    def reify(from: Packed): Reified = ConstColumn(from)
   }
-  implicit final def unpackColumnBase[T]: ColumnBase[T] =>> T = new =>> [ColumnBase[T], T] {
-    def linearizer(from: FromT) = from
-    def mapOp(from: FromT, f: Node => Node) = from.mapOp(f)
+  implicit final def unpackColumnBase[T]: Unpack[ColumnBase[T], T, ColumnBase[T]] = new Unpack[ColumnBase[T], T, ColumnBase[T]] {
+    def linearizer(from: Packed) = from
+    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+    def reify(from: Packed): Reified = from
   }
 
 <#list 2..22 as i>
-  implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: T${j} =>> U${j}<#if i != j>, </#if></#list>): (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) =>> (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>) = new =>> [(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>)] {
-    override def reify(from: FromT) =
-      Node((<#list 1..i as j>u${j}.reify(from._${j})<#if i != j>, </#if></#list>))
-    def linearizer(from: FromT) = {
+  implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>R${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Unpack[T${j}, U${j}, R${j}]<#if i != j>, </#if></#list>): Unpack[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>R${j}<#if i != j>,</#if></#list>)] = new Unpack[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>R${j}<#if i != j>,</#if></#list>)] {
+    def reify(from: Packed) =
+      (<#list 1..i as j>u${j}.reify(from._${j})<#if i != j>, </#if></#list>)
+    def linearizer(from: Packed) = {
       val sub = Vector(<#list 1..i as j>u${j}.linearizer(from._${j})<#if i != j>, </#if></#list>)
       new ProductLinearizer(sub)
     }
-    def mapOp(from: FromT, f: Node => Node) =
+    def mapOp(from: Packed, f: Node => Node) =
       (<#list 1..i as j>u${j}.mapOp(from._${j}, f)<#if i != j>, </#if></#list>)
   }
 </#list>
@@ -83,9 +94,9 @@ trait LowPriority_=>> {
 /**
  * A packed value together with its unpacking
  */
-case class Unpackable[T, +U](value: T, unpack: T =>> U) {
+case class Unpackable[T, +U](value: T, unpack: Unpack[T, U, _]) {
   def endoMap(f: T => T): Unpackable[T, U] = new Unpackable(f(value), unpack)
-  def reified = unpack.reify(value)
+  def reified = Node(unpack.reify(value))
   def linearizer = unpack.linearizer(value)
   def mapOp(f: Node => Node) = unpack.mapOp(value, f).asInstanceOf[T]
 }
