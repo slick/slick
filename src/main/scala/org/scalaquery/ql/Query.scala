@@ -9,7 +9,7 @@ import Unpack.{=>>, CanUnpack, unpackUnit}
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column[_]],  val condHaving: List[Column[_]],
+class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[Column[_]],  val condHaving: List[Column[_]],
                 val modifiers: List[QueryModifier]) extends Node {
 
   lazy val reified = unpackable.reified
@@ -59,16 +59,16 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
   }
 
   // Unpackable queries only
-  def union[O >: E, T >: U](other: Query[O, T]*) = wrap(Union(false, this :: other.toList))
+  def union[O >: E, T >: U, R](other: Query[O, T]*)(implicit unpack: Unpack[O, T, R]) = (this: Query[O, T]).wrap(Union(false, this :: other.toList))
 
-  def unionAll[O >: E, T >: U](other: Query[O, T]*) = wrap(Union(true, this :: other.toList))
+  def unionAll[O >: E, T >: U, R](other: Query[O, T]*)(implicit unpack: Unpack[O, T, R]) = (this: Query[O, T]).wrap(Union(true, this :: other.toList))
 
   def count = ColumnOps.CountAll(Subquery(this, false))
 
-  def sub = wrap(this)
+  def sub[UU >: U, R](implicit unpack: Unpack[E, UU, R]) = wrap[UU, R](this)
 
-  private[this] def wrap(base: Node): Query[E, U] = {
-    def f[EE](unpackable: Unpackable[EE, U]) = unpackable.endoMap(v => v match {
+  private def wrap[UU >: U, R](base: Node)(implicit unpack: Unpack[E, UU, R]): Query[R, UU] = {
+    def f[EE](unpackable: Unpackable[EE, _ <: UU]) = unpackable.endoMap(v => v match {
       case t:AbstractTable[_] =>
         t.mapOp(_ => Subquery(base, false)).asInstanceOf[EE]
       case o =>
@@ -83,7 +83,7 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
           })
         }
     })
-    Query[E, U](f(unpackable))
+    Query[R, UU](f(Unpackable(unpackable.value, unpack).reifiedUnpackable(unpack)))
   }
 
   // Query[Column[_]] only
@@ -92,7 +92,7 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, U], val cond: List[Column
 
 object Query extends Query[Unit, Unit](Unpackable((), unpackUnit), Nil, Nil, Nil) {
   def apply[E, U](value: E)(implicit unpack: E =>> U) = new Query[E, U](Unpackable(value, unpack), Nil, Nil, Nil)
-  def apply[E, U](unpackable: Unpackable[_ <: E, U]) = new Query[E, U](unpackable, Nil, Nil, Nil)
+  def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]) = new Query[E, U](unpackable, Nil, Nil, Nil)
 }
 
 trait CanBeQueryCondition[-T] {
