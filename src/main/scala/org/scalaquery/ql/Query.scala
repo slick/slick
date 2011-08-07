@@ -12,7 +12,7 @@ import Unpack.{=>>, CanUnpack, unpackUnit}
 class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[Column[_]],  val condHaving: List[Column[_]],
                 val modifiers: List[QueryModifier]) extends Node {
 
-  lazy val reified = unpackable.reified
+  lazy val reified = unpackable.reifiedNode
   lazy val linearizer = unpackable.linearizer
 
   def nodeChildren = reified :: cond.map(Node.apply) ::: modifiers
@@ -59,16 +59,16 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[C
   }
 
   // Unpackable queries only
-  def union[O >: E, T >: U, R](other: Query[O, T]*)(implicit unpack: Unpack[O, T, R]) = (this: Query[O, T]).wrap(Union(false, this :: other.toList))
+  def union[O >: E, T >: U, R](other: Query[O, T]*)(implicit reify: Reify[O, R]) = wrap(Union(false, this :: other.toList))
 
-  def unionAll[O >: E, T >: U, R](other: Query[O, T]*)(implicit unpack: Unpack[O, T, R]) = (this: Query[O, T]).wrap(Union(true, this :: other.toList))
+  def unionAll[O >: E, T >: U, R](other: Query[O, T]*)(implicit reify: Reify[O, R]) = wrap(Union(true, this :: other.toList))
 
   def count = ColumnOps.CountAll(Subquery(this, false))
 
-  def sub[UU >: U, R](implicit unpack: Unpack[E, UU, R]) = wrap[UU, R](this)
+  def sub[UU >: U, R](implicit reify: Reify[E, R]) = wrap(this)
 
-  private def wrap[UU >: U, R](base: Node)(implicit unpack: Unpack[E, UU, R]): Query[R, UU] = {
-    def f[EE](unpackable: Unpackable[EE, _ <: UU]) = unpackable.endoMap(v => v match {
+  private def wrap[R](base: Node)(implicit reify: Reify[E, R]): Query[R, U] = {
+    def f[EE](unpackable: Unpackable[EE, _ <: U]) = unpackable.endoMap(v => v match {
       case t:AbstractTable[_] =>
         t.mapOp(_ => Subquery(base, false)).asInstanceOf[EE]
       case o =>
@@ -83,8 +83,12 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[C
           })
         }
     })
-    Query[R, UU](f(Unpackable(unpackable.value, unpack).reifiedUnpackable(unpack)))
+    val r: Unpackable[R, _ <: U] = unpackable.reifiedUnpackable(reify)
+    Query[R, U](f(r))
   }
+
+  //def reify[R](implicit reify: Reify[E, R]) =
+  //  new Query[R, U](unpackable.reifiedUnpackable, cond, condHaving, modifiers)
 
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E = unpackable.value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
