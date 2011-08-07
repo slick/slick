@@ -14,12 +14,6 @@ trait ValueLinearizer[T] {
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
 }
 
-object UnitLinearizer extends ValueLinearizer[Unit] {
-  def getResult(profile: BasicProfile, rs: PositionedResult) = ()
-  def updateResult(profile: BasicProfile, rs: PositionedResult, value: Unit) = ()
-  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[Unit]) = ()
-}
-
 class ProductLinearizer(sub: IndexedSeq[ValueLinearizer[_]]) extends ValueLinearizer[Product] {
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[Product]) =

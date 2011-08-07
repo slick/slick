@@ -2,7 +2,7 @@ package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
 import org.scalaquery.SQueryException
-import org.scalaquery.util.{Node, ValueLinearizer, ProductLinearizer, UnitLinearizer, WithOp}
+import org.scalaquery.util.{Node, ValueLinearizer, ProductLinearizer, WithOp}
 
 /**
  * A type class that encodes the unpacking `Packed => Unpacked` of a
@@ -41,15 +41,6 @@ object Unpack extends UnpackLowPriority {
 <#list 2..22 as i>
   implicit def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Unpack[Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>], (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] = unpackValueLinearizer
 </#list>
-
-  type =>> [-From, To] = Unpack[From, To]
-  type CanUnpack[-T] = T =>> _
-
-  val unpackUnit: Unpack[Unit, Unit] = new Unpack[Unit, Unit] {
-    override def reify(from: Packed) = throw new SQueryException("Cannot reify a packed Unit column")
-    def linearizer(from: Packed) = UnitLinearizer
-    def mapOp(from: Packed, f: Node => Node) = from
-  }
 
   def unpackTableBase[T <: TableBase[_]]: Unpack[T, Nothing] = new Unpack[T, Nothing] {
     def linearizer(from: Packed): ValueLinearizer[_] = from match {
@@ -112,11 +103,8 @@ case class Unpackable[T, U](value: T, unpack: Unpack[T, U]) {
  * - Packed: (Column[Int], Column[(Int, String)], (Int, Option[Double]))
  * - Reified: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
  */
-@implicitNotFound(msg = "Don't know how to reify ${r"${Packed_}"} (to ${r"${Reified_}"})")
-sealed trait Reify[-Packed_, Reified_] {
-  type Packed = Packed_
-  type Reified = Reified_
-}
+@implicitNotFound(msg = "Don't know how to reify ${r"${Packed}"} (to ${r"${Reified}"})")
+sealed trait Reify[-Packed, Reified]
 
 object Reify extends ReifyLowPriority {
   implicit final def reifyColumnBase[T <: ColumnBase[_]]: Reify[T, T] = null

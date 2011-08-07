@@ -4,7 +4,6 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.{BasicProfile, BasicQueryTemplate, BasicDriver}
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.util.{Node, UnaryNode, BinaryNode, WithOp}
-import Unpack.=>>
 
 sealed trait TableBase[T] extends Node with WithOp {
   override def isNamedTable = true
@@ -34,7 +33,7 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
   def foreignKey[P, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: ColumnBase[P], targetTable: TT)
       (targetColumns: TT => ColumnBase[P], onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: TT =>> U): ForeignKeyQuery[TT, U] = {
+        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U]): ForeignKeyQuery[TT, U] = {
     val mappedTTU = Unpackable(targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), unpack)
     new ForeignKeyQuery(List(ForeignKey(name, this, mappedTTU, targetTable,
       sourceColumns, targetColumns, onUpdate, onDelete)), mappedTTU)

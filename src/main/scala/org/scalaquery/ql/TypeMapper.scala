@@ -88,6 +88,10 @@ object TypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.timestampTypeMapperDelegate
   }
 
+  implicit object UnitTypeMapper extends BaseTypeMapper[Unit] {
+    def apply(profile: BasicProfile) = profile.typeMapperDelegates.unitTypeMapperDelegate
+  }
+
   object NullTypeMapper extends BaseTypeMapper[Null] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.nullTypeMapperDelegate
   }

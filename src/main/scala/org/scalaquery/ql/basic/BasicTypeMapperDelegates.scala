@@ -20,6 +20,7 @@ trait BasicTypeMapperDelegates {
   val stringTypeMapperDelegate = new StringTypeMapperDelegate
   val timeTypeMapperDelegate = new TimeTypeMapperDelegate
   val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
+  val unitTypeMapperDelegate = new UnitTypeMapperDelegate
   val nullTypeMapperDelegate = new NullTypeMapperDelegate
 }
 
@@ -156,6 +157,16 @@ object BasicTypeMapperDelegates {
     def nextValue(r: PositionedResult) = r.nextTimestamp
     def updateValue(v: Timestamp, r: PositionedResult) = r.updateTimestamp(v)
     override def valueToSQLLiteral(value: Timestamp) = "{ts '"+value.toString+"'}"
+  }
+
+  class UnitTypeMapperDelegate extends TypeMapperDelegate[Unit] {
+    def zero = ()
+    def sqlType = java.sql.Types.INTEGER
+    def setValue(v: Unit, p: PositionedParameters) = p.setInt(1)
+    def setOption(v: Option[Unit], p: PositionedParameters) = p.setIntOption(v.map(_ => 1))
+    def nextValue(r: PositionedResult) = { r.nextInt; () }
+    def updateValue(v: Unit, r: PositionedResult) = r.updateInt(1)
+    override def valueToSQLLiteral(value: Unit) = "1"
   }
 
   class NullTypeMapperDelegate extends TypeMapperDelegate[Null] {
