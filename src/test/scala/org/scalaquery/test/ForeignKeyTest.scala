@@ -58,21 +58,21 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
       p <- Posts
       c <- p.categoryJoin
       _ <- Query orderBy p.id
-    } yield p.id ~ c.id ~ c.name ~ p.title
+    } yield (p.id, c.id, c.name, p.title)
     q1.dump("Manual join: ")
     println("Manual join: "+q1.selectStatement)
     q1.foreach(x => println("  "+x))
-    assertEquals(List((2,1), (3,2), (4,3), (5,2)), q1.map(p => p._1 ~ p._2).list)
+    assertEquals(List((2,1), (3,2), (4,3), (5,2)), q1.map(p => (p._1, p._2)).list)
 
     val q2 = for {
       p <- Posts
       c <- p.categoryFK
       _ <- Query orderBy p.id
-    } yield p.id ~ c.id ~ c.name ~ p.title
+    } yield (p.id, c.id, c.name, p.title)
     q2.dump("Foreign-key join: ")
     println("Foreign-key join: "+q2.selectStatement)
     q2.foreach(x => println("  "+x))
-    assertEquals(List((2,1), (3,2), (4,3), (5,2)), q2.map(p => p._1 ~ p._2).list)
+    assertEquals(List((2,1), (3,2), (4,3), (5,2)), q2.map(p => (p._1, p._2)).list)
 
     val ddl2 = Categories.ddl ++ Posts.ddl
     ddl2.dropStatements foreach println
@@ -87,7 +87,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
       def k2 = column[Int]("k2")
       def s = column[String]("s")
       def * = k1 ~ k2 ~ s
-      def bFK = foreignKey("b_fk", k1 ~ k2, B)(b => b.f1 ~ b.f2, onDelete = ForeignKeyAction.Cascade)
+      def bFK = foreignKey("b_fk", (k1, k2), B)(b => (b.f1, b.f2), onDelete = ForeignKeyAction.Cascade)
     }
 
     object B extends Table[(Int, Int, String)]("b") {
@@ -95,7 +95,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
       def f2 = column[Int]("f2")
       def s = column[String]("s")
       def * = f1 ~ f2 ~ s
-      def bIdx1 = index("b_idx1", f1 ~ f2, unique = true)
+      def bIdx1 = index("b_idx1", (f1, f2), unique = true)
     }
 
     A.foreignKeys.foreach(println)
@@ -118,7 +118,7 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     val q1 = for {
       a <- A
       b <- a.bFK
-    } yield a.s ~ b.s
+    } yield (a.s, b.s)
     println("Multiple rows: "+q1.selectStatement)
     q1.foreach(x => println("  "+x))
     assertEquals(Set(("a12","b12"), ("a34","b34")), q1.list.toSet)

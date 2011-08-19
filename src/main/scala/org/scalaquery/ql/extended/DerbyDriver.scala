@@ -64,6 +64,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   override type Self = DerbyQueryBuilder
   override protected val mayLimit0 = false
   override protected val scalarFrom = Some("sysibm.sysdummy1")
+  override protected val supportsTuples = false
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new DerbyQueryBuilder(query, nc, Some(this), profile)
@@ -105,15 +106,6 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         expr(r, b); b += ")"
       case _ => throw new SQueryException("Cannot determine type of right-hand side for ifNull")
     }
-
-    case fk: ForeignKey[_] =>
-      /* Derby does not support row value constructor syntax (tuple syntax),
-       * so we need to untuple and compare the individual columns (which
-       * should be safe because they may not contain NULLs). */
-      val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
-      b += "("
-      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b); }
-      b += ")"
 
     case c @ BindColumn(v) if b == selectSlot =>
       /* The Derby embedded driver has a bug (DERBY-4671) which results in a

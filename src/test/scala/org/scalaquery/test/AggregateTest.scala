@@ -27,7 +27,7 @@ class AggregateTest(tdb: TestDB) extends DBTest(tdb) {
     val q = for {
       i <- Parameters[Int]
       t <- T if t.a === i
-    } yield t.a.count ~ t.b.count ~ t.a.sum ~ t.b.sum ~ t.a.avg ~ t.b.avg
+    } yield (t.a.count, t.b.count, t.a.sum, t.b.sum, t.a.avg, t.b.avg)
     println("q: "+q.selectStatement)
     println(q.first(0))
     println(q.first(1))

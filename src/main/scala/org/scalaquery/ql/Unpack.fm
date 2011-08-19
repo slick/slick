@@ -1,7 +1,6 @@
 package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
-import org.scalaquery.SQueryException
 import org.scalaquery.util.{Node, ValueLinearizer, ProductLinearizer, WithOp}
 
 /**
@@ -38,10 +37,6 @@ object Unpack extends UnpackLowPriority {
     def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
   }
 
-<#list 2..22 as i>
-  implicit def unpackProjection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]: Unpack[Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>], (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] = unpackValueLinearizer
-</#list>
-
   def unpackTableBase[T <: TableBase[_]]: Unpack[T, Nothing] = new Unpack[T, Nothing] {
     def linearizer(from: Packed): ValueLinearizer[_] = from match {
       case a: AbstractTable[_] => a.*
@@ -51,19 +46,21 @@ object Unpack extends UnpackLowPriority {
   }
 }
 
-trait UnpackLowPriority {
+trait UnpackLowPriority extends UnpackLowPriority2 {
+  implicit final def unpackColumnBase[T]: Unpack[ColumnBase[T], T] = new Unpack[ColumnBase[T], T] {
+    def linearizer(from: Packed) = from
+    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+  }
+
   implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Unpack[T, T] = new Unpack[T, T] {
     override def reify(from: Packed) = ConstColumn(from)
     override def reifiedUnpack = unpackColumnBase[T]
     def linearizer(from: Packed) = ConstColumn(from)
     def mapOp(from: Packed, f: Node => Node) = from
   }
+}
 
-  implicit final def unpackColumnBase[T]: Unpack[ColumnBase[T], T] = new Unpack[ColumnBase[T], T] {
-    def linearizer(from: Packed) = from
-    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
-  }
-
+trait UnpackLowPriority2 {
 <#list 2..22 as i>
   implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>R${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Unpack[T${j}, U${j}]<#if i != j>, </#if></#list>): Unpack[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>)] = new Unpack[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>)] {
     override def reify(from: Packed) =
@@ -91,6 +88,12 @@ case class Unpackable[T, U](value: T, unpack: Unpack[T, U]) {
   def mapOp(f: Node => Node) = unpack.mapOp(value, f).asInstanceOf[T]
 }
 
+/* Would be great for using Unpackable as a view bound, but SI-3346 prevents this
+object Unpackable {
+  implicit def unpackableValueToUnpackable[T, U](value: T)(implicit unpack: Unpack[T, U]) = Unpackable(value, unpack)
+}
+*/
+
 /**
  * A type class that encodes the reification `Packed => Reified` of a
  * `Query[Packed]` to a fully packed type `Reified`, i.e. a type where
@@ -101,6 +104,7 @@ case class Unpackable[T, U](value: T, unpack: Unpack[T, U]) {
  *
  * =Example:=
  * - Packed: (Column[Int], Column[(Int, String)], (Int, Option[Double]))
+ * - Reified: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
  * - Reified: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
  */
 @implicitNotFound(msg = "Don't know how to reify ${r"${Packed}"} (to ${r"${Reified}"})")

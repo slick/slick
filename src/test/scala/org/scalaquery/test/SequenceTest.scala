@@ -30,7 +30,7 @@ class SequenceTest(tdb: TestDB) extends DBTest(tdb) {
     ddl.create
     Users.insertAll(1, 2, 3)
 
-    val q1 = for(u <- Users) yield mySequence.next ~ u.id
+    val q1 = for(u <- Users) yield (mySequence.next, u.id)
     println("q1: " + q1.selectStatement)
     assertEquals(Set((200, 1), (210, 2), (220, 3)), q1.list.toSet)
   }

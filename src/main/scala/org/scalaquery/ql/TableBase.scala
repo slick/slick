@@ -30,16 +30,16 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
     f(Node(*))
   }
 
-  def foreignKey[P, TT <: AbstractTable[_], U]
-      (name: String, sourceColumns: ColumnBase[P], targetTable: TT)
-      (targetColumns: TT => ColumnBase[P], onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U]): ForeignKeyQuery[TT, U] = {
+  def foreignKey[P, PU, TT <: AbstractTable[_], U]
+      (name: String, sourceColumns: P, targetTable: TT)
+      (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
+        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U], unpackp: Unpack[P, PU]): ForeignKeyQuery[TT, U] = {
     val mappedTTU = Unpackable(targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), unpack)
-    new ForeignKeyQuery(List(ForeignKey(name, this, mappedTTU, targetTable,
+    new ForeignKeyQuery(List(new ForeignKey(name, this, mappedTTU, targetTable, unpackp,
       sourceColumns, targetColumns, onUpdate, onDelete)), mappedTTU)
   }
 
-  def primaryKey(name: String, sourceColumns: ColumnBase[_]): PrimaryKey = PrimaryKey(name, Node(sourceColumns))
+  def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Unpack[T, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).getLinearizedNodes)
 
   def tableConstraints: Iterable[Constraint] = for {
       m <- getClass().getMethods.view
@@ -49,19 +49,20 @@ abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with
       q = m.invoke(this).asInstanceOf[Constraint]
     } yield q
 
-  final def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_]]] =
+  final def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_], _]] =
     tableConstraints collect { case q: ForeignKeyQuery[_, _] => q.fks } flatten
 
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints collect { case k: PrimaryKey => k }
 
-  def index(name: String, on: ColumnBase[_], unique: Boolean = false) = new Index(name, this, on, unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit unpack: Unpack[T, _]) = new Index(name, this, unpack.linearizer(on).getLinearizedNodes, unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index])
 
+  def getLinearizedNodes = *.getLinearizedNodes
   def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = *.updateResult(profile, rs, value)
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)

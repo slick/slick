@@ -36,6 +36,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
 
   protected val mayLimit0 = true
   protected val scalarFrom: Option[String] = None
+  protected val supportsTuples = true
 
   protected def localTableName(n: Node) = n match {
     case Join.JoinPart(table, from) =>
@@ -292,7 +293,15 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     case a @ AbstractTable.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
     case t: AbstractTable[_] => expr(Node(t.*), b)
     case t: TableBase[_] => b += quoteIdentifier(localTableName(t)) += ".*"
-    case fk: ForeignKey[_] => b += "(("; expr(fk.left, b); b += ")=("; expr(fk.right, b); b += "))"
+    case fk: ForeignKey[_, _] =>
+      if(supportsTuples) {
+        b += "(("; expr(fk.left, b); b += ")=("; expr(fk.right, b); b += "))"
+      } else {
+        val cols = fk.linearizedSourceColumns zip fk.linearizedTargetColumns
+        b += "("
+        b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b) }
+        b += ")"
+      }
     case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
   }
 
@@ -361,19 +370,5 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     }
     b += " on "
     expr(j.on, b)
-  }
-
-  protected def untupleColumn(columns: Node) = {
-    val l = new scala.collection.mutable.ListBuffer[Node]
-    def f(c: Any): Unit = c match {
-      case p:Projection[_] =>
-        for(i <- 0 until p.productArity)
-          f(Node(p.productElement(i)))
-      case t:AbstractTable[_] => f(Node(t.*))
-      case n: Node => l += n
-      case v => throw new SQueryException("Cannot untuple non-Node value "+v)
-    }
-    f(Node(columns))
-    l.toList
   }
 }

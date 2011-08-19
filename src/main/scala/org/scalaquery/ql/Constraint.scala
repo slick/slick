@@ -7,14 +7,23 @@ import org.scalaquery.util.{Node, BinaryNode}
  */
 trait Constraint
 
-case class ForeignKey[TT <: AbstractTable[_]](name: String, sourceTable: Node, targetTableUnpackable: Unpackable[TT, _], originalTargetTable: TT,
-    sourceColumns: Node, targetColumns: TT => ColumnBase[_], onUpdate: ForeignKeyAction, onDelete: ForeignKeyAction)
+class ForeignKey[TT <: AbstractTable[_], P](val name: String, val sourceTable: Node,
+    val targetTableUnpackable: Unpackable[TT, _], originalTargetTable: TT,
+    unpackp: Unpack[P, _],
+    originalSourceColumns: P, originalTargetColumns: TT => P,
+    val onUpdate: ForeignKeyAction, val onDelete: ForeignKeyAction)
     extends OperatorColumn[Boolean] with BinaryNode {
   val targetTable = targetTableUnpackable.value
-  val left = Node(sourceColumns)
-  val right = Node(targetColumns(targetTable))
+  val left = Node(unpackp.reify(originalSourceColumns))
+  val right = Node(unpackp.reify(originalTargetColumns(targetTable)))
   override def toString = "ForeignKey " + name
-  def targetColumnsForOriginalTargetTable = targetColumns(originalTargetTable)
+  def targetColumnsForOriginalTargetTable = Node(unpackp.reify(originalTargetColumns(originalTargetTable)))
+  def linearizedSourceColumns = unpackp.linearizer(originalSourceColumns).getLinearizedNodes
+  def linearizedTargetColumns = unpackp.linearizer(originalTargetColumns(targetTable)).getLinearizedNodes
+  def linearizedTargetColumnsForOriginalTargetTable = unpackp.linearizer(originalTargetColumns(originalTargetTable)).getLinearizedNodes
+  def withTargetTableUnpackable(targetTableUnpackable: Unpackable[TT, _]) =
+    new ForeignKey[TT, P](name, sourceTable, targetTableUnpackable, originalTargetTable,
+      unpackp, originalSourceColumns, originalTargetColumns, onUpdate, onDelete)
 }
 
 sealed abstract class ForeignKeyAction(val action: String)
@@ -27,7 +36,7 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-class ForeignKeyQuery[TT <: AbstractTable[_], U](val fks: List[ForeignKey[TT]], override val unpackable: Unpackable[TT, U]) extends Query[TT, U](unpackable, fks, Nil, Nil) with Constraint {
+class ForeignKeyQuery[TT <: AbstractTable[_], U](val fks: List[ForeignKey[TT, _]], override val unpackable: Unpackable[TT, U]) extends Query[TT, U](unpackable, fks, Nil, Nil) with Constraint {
   override def toString = "ForeignKeyQuery"
 
   /**
@@ -37,8 +46,8 @@ class ForeignKeyQuery[TT <: AbstractTable[_], U](val fks: List[ForeignKey[TT]], 
    */
   def & (other: ForeignKeyQuery[TT, U]) = {
     val tt = fks.head.targetTableUnpackable
-    new ForeignKeyQuery(fks ++ other.fks.map { fk => fk.copy(targetTableUnpackable = tt) }, unpackable)
+    new ForeignKeyQuery(fks ++ other.fks.map { fk => fk.withTargetTableUnpackable(tt) }, unpackable)
   }
 }
 
-case class PrimaryKey(name: String, columns: Node) extends Constraint
+case class PrimaryKey(name: String, columns: IndexedSeq[Node]) extends Constraint

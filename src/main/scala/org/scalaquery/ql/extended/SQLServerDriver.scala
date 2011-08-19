@@ -77,6 +77,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import ExtendedQueryOps._
 
   override type Self = SQLServerQueryBuilder
+  override protected val supportsTuples = false
 
   val hasTakeDrop = !query.typedModifiers[TakeDrop].isEmpty
   val hasDropOnly = query.typedModifiers[TakeDrop] match {
@@ -166,14 +167,6 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
       b += "("; super.innerExpr(c, b); b += " != 0)"
 
-    case fk: ForeignKey[_] =>
-      /* SQL Server does not support row value constructor syntax (tuple
-       * syntax) with '=' operators, so we need to untuple and compare the
-       * individual columns. */
-      val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
-      b += "("
-      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b) }
-      b += ")"
     case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "+"; expr(r, b); b += ')'
     case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
     case _ => super.innerExpr(c, b)

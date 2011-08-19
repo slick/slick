@@ -83,17 +83,17 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
     b.toString
   }
 
-  protected def createForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
+  protected def createForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _]) = {
     val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
     addForeignKey(fk, sb)
     sb.toString
   }
 
-  protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_]], sb: StringBuilder) {
+  protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
     sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
-    addForeignKeyColumnList(fk.sourceColumns, sb, table.tableName)
+    addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
     sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
-    addForeignKeyColumnList(fk.targetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
+    addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
     sb append ") ON UPDATE " append fk.onUpdate.action
     sb append " ON DELETE " append fk.onDelete.action
   }
@@ -110,7 +110,7 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
     sb append ")"
   }
 
-  protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_]]) = {
+  protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _]) = {
     "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(fk.name)
   }
 
@@ -118,22 +118,18 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
     "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(pk.name)
   }
 
-  protected def addIndexColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
+  protected def addIndexColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
     addColumnList(columns, sb, requiredTableName, "index")
 
-  protected def addForeignKeyColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
+  protected def addForeignKeyColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
     addColumnList(columns, sb, requiredTableName, "foreign key constraint")
 
-  protected def addPrimaryKeyColumnList(columns: Node, sb: StringBuilder, requiredTableName: String) =
+  protected def addPrimaryKeyColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
     addColumnList(columns, sb, requiredTableName, "foreign key constraint")
 
-  protected def addColumnList(columns: Node, sb: StringBuilder, requiredTableName: String, typeInfo: String) = {
+  protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) = {
     var first = true
-    def f(c: Any): Unit = c match {
-      case p:Projection[_] =>
-        for(i <- 0 until p.productArity)
-          f(Node(p.productElement(i)))
-      case t:AbstractTable[_] => f(Node(t.*))
+    for(c <- columns) c match {
       case n:NamedColumn[_] =>
         if(first) first = false
         else sb append ","
@@ -141,8 +137,7 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
         if(requiredTableName != n.table.asInstanceOf[AbstractTable[_]].tableName)
           throw new SQueryException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
       case _ => throw new SQueryException("Cannot use column "+c+
-        " in "+typeInfo+" (only named columns and projections are allowed)")
+        " in "+typeInfo+" (only named columns are allowed)")
     }
-    f(Node(columns))
   }
 }

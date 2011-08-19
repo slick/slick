@@ -24,7 +24,7 @@ class PrimaryKeyTest(tdb: TestDB) extends DBTest(tdb) {
       def k2 = column[Int]("k2")
       def s = column[String]("s")
       def * = k1 ~ k2 ~ s
-      def pk = primaryKey("pk_a", k1 ~ k2)
+      def pk = primaryKey("pk_a", (k1, k2))
     }
 
     A.primaryKeys.foreach(println)

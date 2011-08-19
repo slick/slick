@@ -61,6 +61,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import ExtendedQueryOps._
 
   override type Self = AccessQueryBuilder
+  override protected val supportsTuples = false
 
   val pi = "3.1415926535897932384626433832795"
 
@@ -108,14 +109,6 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       }
       b += ")"
     }
-    case fk: ForeignKey[_] =>
-      /* Access does not support row value constructor syntax (tuple syntax),
-       * so we need to untuple and compare the individual columns (which
-       * may not not kosher in the presence of NULLs). */
-      val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
-      b += "("
-      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b); }
-      b += ")"
     case ColumnOps.Degrees(ch, _) => b += "(180/"+pi+"*"; expr(ch, b); b += ')'
     case ColumnOps.Radians(ch, _) => b += "("+pi+"/180*"; expr(ch, b); b += ')'
     case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "&"; expr(r, b); b += ')'
@@ -184,11 +177,11 @@ class AccessDDLBuilder(table: AbstractBasicTable[_], profile: AccessDriver) exte
 
   override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new AccessColumnDDLBuilder(c)
 
-  override protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_]], sb: StringBuilder) {
+  override protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
     sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
-    addForeignKeyColumnList(fk.sourceColumns, sb, table.tableName)
+    addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
     sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
-    addForeignKeyColumnList(fk.targetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
+    addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
     sb append ")"
     /*if(fk.onUpdate == ForeignKeyAction.Cascade || fk.onUpdate == ForeignKeyAction.SetNull)
       sb append " ON UPDATE " append fk.onUpdate.action

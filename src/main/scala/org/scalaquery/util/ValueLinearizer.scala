@@ -12,9 +12,13 @@ trait ValueLinearizer[T] {
   def getResult(profile: BasicProfile, rs: PositionedResult): T
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T): Unit
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
+  def getLinearizedNodes: IndexedSeq[Node]
 }
 
 class ProductLinearizer(sub: IndexedSeq[ValueLinearizer[_]]) extends ValueLinearizer[Product] {
+
+  def getLinearizedNodes: IndexedSeq[Node] =
+    (0 until sub.length).flatMap(i => sub(i).asInstanceOf[ValueLinearizer[Any]].getLinearizedNodes)(collection.breakOut)
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[Product]) =
     for(i <- 0 until sub.length)

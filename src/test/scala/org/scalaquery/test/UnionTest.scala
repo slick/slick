@@ -51,15 +51,15 @@ class UnionTest(tdb: TestDB) extends DBTest(tdb) {
         (8, "Greg", 3)
       )
 
-      val q1 = for(m <- Managers where { _.department is "IT" }) yield m.id ~ m.name
+      val q1 = for(m <- Managers where { _.department is "IT" }) yield (m.id, m.name)
       println("Managers in IT: "+ q1.selectStatement)
       q1.foreach(o => println("  "+o))
 
-      val q2 = for(e <- Employees where { _.departmentIs("IT") }) yield e.id ~ e.name
+      val q2 = for(e <- Employees where { _.departmentIs("IT") }) yield (e.id, e.name)
       println("Employees in IT: " + q2.selectStatement)
       q2.foreach(o => println("  "+o))
 
-      val q3 = for(x @ (id ~ name) <- q1 union q2; _ <- Query.orderBy(name asc)) yield x
+      val q3 = for(x @ (id, name) <- q1 union q2; _ <- Query.orderBy(name asc)) yield x
       q3.dump("q3: ")
       println()
       println("Combined and sorted: " + q3.selectStatement)

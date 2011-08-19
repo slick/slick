@@ -17,6 +17,7 @@ trait ColumnBase[T] extends Node with ValueLinearizer[T] with WithOp {
  */
 abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   final val typeMapper = implicitly[TypeMapper[T]]
+  def getLinearizedNodes = Vector(Node(this))
   def getAllColumnTypeMappers = Vector(typeMapper)
   def getResult(profile: BasicProfile, rs: PositionedResult): T = {
     val tmd = typeMapper(profile)

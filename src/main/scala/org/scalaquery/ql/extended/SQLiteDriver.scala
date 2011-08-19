@@ -119,6 +119,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import profile.sqlUtils._
 
   override type Self = SQLiteQueryBuilder
+  override protected val supportsTuples = false
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new SQLiteQueryBuilder(query, nc, Some(this), profile)
@@ -172,14 +173,6 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
        * unescaped function calls by default */
       b += fname += '('
       b.sep(s.nodeChildren, ",")(expr(_, b))
-      b += ")"
-    case fk: ForeignKey[_] =>
-      /* SQLite does not support row value constructor syntax (tuple syntax),
-       * so we need to untuple and compare the individual columns (which
-       * may not be kosher in the presence of NULLs). */
-      val cols = untupleColumn(fk.left) zip untupleColumn(fk.right)
-      b += "("
-      b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b) }
       b += ")"
     case _ => super.innerExpr(c, b)
   }
