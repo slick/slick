@@ -88,11 +88,10 @@ case class Unpackable[T, U](value: T, unpack: Unpack[T, U]) {
   def mapOp(f: Node => Node) = unpack.mapOp(value, f).asInstanceOf[T]
 }
 
-/* Would be great for using Unpackable as a view bound, but SI-3346 prevents this
 object Unpackable {
-  implicit def unpackableValueToUnpackable[T, U](value: T)(implicit unpack: Unpack[T, U]) = Unpackable(value, unpack)
+  // Should be implicit for using Unpackable as a view bound, but SI-3346 prevents this use case
+  def unpackableValueToUnpackable[T, U](value: T)(implicit unpack: Unpack[T, U]) = Unpackable(value, unpack)
 }
-*/
 
 /**
  * A type class that encodes the reification `Packed => Reified` of a
@@ -120,4 +119,9 @@ trait ReifyLowPriority {
 <#list 2..22 as i>
   implicit final def reifyTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>R${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Reify[T${j}, R${j}]<#if i != j>, </#if></#list>): Reify[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>R${j}<#if i != j>,</#if></#list>)] = null
 </#list>
+}
+
+// Work-around for SI-3346
+final class ToUnpackable[T](value: T) {
+  def toUnpackable[U](implicit unpack: Unpack[T, U]) = new Unpackable[T, U](value, unpack)
 }
