@@ -5,7 +5,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.util.Node
 
-abstract class AbstractBasicTable[T](_tableName: String) extends AbstractTable[T](_tableName) {
+abstract class AbstractBasicTable[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) {
 
   type ProfileType <: BasicProfile
 
@@ -26,6 +26,7 @@ abstract class AbstractBasicTable[T](_tableName: String) extends AbstractTable[T
   def ddl(implicit profile: ProfileType): DDL = profile.buildTableDDL(this)
 }
 
-abstract class BasicTable[T](_tableName: String) extends AbstractBasicTable[T](_tableName) {
+abstract class BasicTable[T](_schemaName: Option[String], _tableName: String) extends AbstractBasicTable[T](_schemaName, _tableName) {
+  def this(_tableName: String) = this(None, _tableName)
   type ProfileType = BasicProfile
 }

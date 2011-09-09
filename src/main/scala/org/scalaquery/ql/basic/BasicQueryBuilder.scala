@@ -325,9 +325,11 @@ abstract class BasicQueryBuilder(_query: Query[_], _nc: NamingContext, parent: O
   }
 
   protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
-    case AbstractTable.Alias(base: AbstractTable[_]) =>
+    case AbstractTable.Alias(base: AbstractTable[_]) => 
+      base.schemaName.foreach(b += quoteIdentifier(_) += '.')
       b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
     case base: AbstractTable[_] =>
+      base.schemaName.foreach(b += quoteIdentifier(_) += '.')
       b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
     case Subquery(sq: Query[_], rename) =>
       b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += quoteIdentifier(name)
