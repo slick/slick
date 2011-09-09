@@ -45,8 +45,8 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         appendClauses(b)
         b += ") WHERE ROWNUM <= " += t
       case TakeDrop(to, Some(d)) :: _ =>
-        b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM ("
-        expr(query.reified, b, rename, true)
+        b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (SELECT "
+        expr(Node(query.reified), b, rename, true)
         b += ",ROWNUM ROWNUM_I"
         fromSlot = b.createSlot
         appendClauses(b)

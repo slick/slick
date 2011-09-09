@@ -9,7 +9,7 @@ sealed trait TableBase[T] extends Node with WithOp {
   override def isNamedTable = true
 }
 
-abstract class AbstractTable[T](val tableName: String) extends TableBase[T] with ColumnBase[T] {
+abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableBase[T] with ColumnBase[T] {
 
   final type TableType = T
   def nodeChildren = Nil
