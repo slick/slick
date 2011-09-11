@@ -2,7 +2,6 @@ package org.scalaquery.ql.basic
 
 import org.scalaquery.ql._
 import org.scalaquery.util.Node
-import Unpack.unpackTableBase
 
 trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
@@ -20,7 +19,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
 
-  implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing](t.mapOp(n => new AbstractTable.Alias(Node(n))))(unpackTableBase)
+  implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing](t.mapOp(n => new AbstractTable.Alias(Node(n))))(Unpack.unpackTableBase)
 
   implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
 
@@ -28,9 +27,8 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
   implicit def queryToDeleteInvoker[T](q: Query[BasicTable[T], T]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
   implicit def productQueryToUpdateInvoker[T](q: Query[ColumnBase[T], T]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
   implicit def namedColumnQueryToUpdateInvoker[T](q: Query[_ <: NamedColumn[T], T]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
-  implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(c, scalaQueryDriver)
-  //implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(Unpackable.unpackableValueToUnpackable(c), scalaQueryDriver)
-  //implicit def unpackableToInsertInvoker[T, U](u: Unpackable[T, U]) = new BasicInsertInvoker(u, scalaQueryDriver)
+  implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(Unpackable.unpackableValueToUnpackable(c), scalaQueryDriver)
+  implicit def unpackableToInsertInvoker[T, U](u: Unpackable[T, U]) = new BasicInsertInvoker(u, scalaQueryDriver)
 
   implicit val scalaQueryDriver: DriverType
 

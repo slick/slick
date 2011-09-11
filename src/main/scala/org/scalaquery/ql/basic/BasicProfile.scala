@@ -21,8 +21,8 @@ trait BasicProfile {
   def buildDeleteStatement(query: Query[_, _], nc: NamingContext): SQLBuilder.Result =
     createQueryBuilder(query, nc).buildDelete
 
-  def buildInsertStatement(cb: ColumnBase[_]): String = new BasicInsertBuilder(cb, this).buildInsert
-  def buildInsertStatement[T](cb: ColumnBase[T], q: Query[ColumnBase[T], T]): SQLBuilder.Result =
+  def buildInsertStatement(cb: Any): String = new BasicInsertBuilder(cb, this).buildInsert
+  def buildInsertStatement(cb: Any, q: Query[_, _]): SQLBuilder.Result =
     new BasicInsertBuilder(cb, this).buildInsert(q)
 
   def buildTableDDL(table: AbstractBasicTable[_]): DDL = new BasicDDLBuilder(table, this).buildDDL

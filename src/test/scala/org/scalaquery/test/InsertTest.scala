@@ -46,5 +46,10 @@ class InsertTest(tdb: TestDB) extends DBTest(tdb) {
     println("Insert 3: "+Dst2.insertStatementFor(q3))
     Dst2.insert(q3)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X")), Query(Dst2).list.toSet)
+
+    val q4 = 43 ~ "Y".bind
+    println("Insert 4: "+Dst2.toUnpackable.insertStatementFor(q4))
+    Dst2.toUnpackable.insert(q4)
+    assertEquals(Set((1,"A"), (2,"B"), (42,"X"), (43,"Y")), Query(Dst2).list.toSet)
   }
 }

@@ -6,7 +6,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.util._
 
-class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile) {
+class BasicInsertBuilder(val column: Any, val profile: BasicProfile) {
   import profile.sqlUtils._
 
   def buildInsert: String = {
@@ -14,7 +14,7 @@ class BasicInsertBuilder[T](val column: ColumnBase[T], val profile: BasicProfile
     "INSERT INTO " + quoteIdentifier(table) + " (" + cols + ") VALUES (" + vals + ")"
   }
 
-  def buildInsert(query: Query[ColumnBase[T], T]): SQLBuilder.Result = {
+  def buildInsert(query: Query[_, _]): SQLBuilder.Result = {
     val (table, cols, _) = buildParts
     val b = new SQLBuilder
     b += "INSERT INTO " += quoteIdentifier(table) += " (" += cols.toString += ") "

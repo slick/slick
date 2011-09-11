@@ -1,26 +1,33 @@
 package org.scalaquery.ql.basic
 
+import annotation.implicitNotFound
 import java.sql.Statement
 import org.scalaquery.SQueryException
-import org.scalaquery.ql.{ColumnBase, Query}
+import org.scalaquery.ql.{ColumnBase, Query, Unpackable, Unpack}
 import org.scalaquery.session.{Session, PositionedParameters}
 
-class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
+class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProfile) {
 
-  lazy val insertStatement = profile.buildInsertStatement(column)
-  def insertStatementFor(query: Query[ColumnBase[T], T]): String = profile.buildInsertStatement(column, query).sql
-  def insertStatementFor(c: ColumnBase[T]): String = insertStatementFor(Query(c))
+  lazy val insertStatement = profile.buildInsertStatement(unpackable.value)
+  def insertStatementFor[TT](query: Query[TT, U]): String = profile.buildInsertStatement(unpackable.value, query).sql
+  def insertStatementFor[TT](c: TT)(implicit unpack: Unpack[TT, U]): String = insertStatementFor(Query(c))
 
   def useBatchUpdates(implicit session: Session) = session.capabilities.supportsBatchUpdates
 
   /**
    * Insert a single row.
    */
-  def insert(value: T)(implicit session: Session): Int = session.withPreparedStatement(insertStatement) { st =>
+  def insert[V, TT](value: V)(implicit ev: PackedUnpackedUnion[TT, U, V], session: Session): Int =
+    ev.fold(u => insertValue(u), (t, unpack) => insertExpr(t)(unpack, session))(value)
+
+  def insertValue(value: U)(implicit session: Session): Int = session.withPreparedStatement(insertStatement) { st =>
     st.clearParameters()
-    column.setParameter(profile, new PositionedParameters(st), Some(value))
+    unpackable.linearizer.setParameter(profile, new PositionedParameters(st), Some(value))
     st.executeUpdate()
   }
+
+  def insertExpr[TT](c: TT)(implicit unpack: Unpack[TT, U], session: Session): Int =
+    insert(Query(c)(unpack))(session)
 
   /**
    * Insert multiple rows. Uses JDBC's batch update feature if supported by
@@ -28,14 +35,14 @@ class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
    * returned no row count for some part of the batch. If any part of the
    * batch fails, an exception thrown.
    */
-  def insertAll(values: T*)(implicit session: Session): Option[Int] = {
+  def insertAll(values: U*)(implicit session: Session): Option[Int] = {
     if(!useBatchUpdates || (values.isInstanceOf[IndexedSeq[_]] && values.length < 2))
-      Some( (0 /: values) { _ + insert(_) } )
+      Some( (0 /: values) { _ + insertValue(_) } )
     else session.withTransaction {
       session.withPreparedStatement(insertStatement) { st =>
         st.clearParameters()
         for(value <- values) {
-          column.setParameter(profile, new PositionedParameters(st), Some(value))
+          unpackable.linearizer.setParameter(profile, new PositionedParameters(st), Some(value))
           st.addBatch()
         }
         var unknown = false
@@ -51,8 +58,8 @@ class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
     }
   }
 
-  def insert(query: Query[ColumnBase[T], T])(implicit session: Session): Int = {
-    val sbr = profile.buildInsertStatement(column, query)
+  def insert[TT](query: Query[TT, U])(implicit session: Session): Int = {
+    val sbr = profile.buildInsertStatement(unpackable.value, query)
     session.withPreparedStatement(insertStatementFor(query)) { st =>
       st.clearParameters()
       sbr.setter(new PositionedParameters(st), null)
@@ -60,7 +67,22 @@ class BasicInsertInvoker[T] (column: ColumnBase[T], profile: BasicProfile) {
     }
   }
 
-  def insert(c: ColumnBase[T])(implicit session: Session): Int = insert(Query(c))(session)
-
   def insertInvoker: this.type = this
+}
+
+@implicitNotFound(msg = "union type mismatch;\n found   : ${T}\n required: ${U}\n or      : ${P} with evidence Unpack[${P}, ${U}]")
+trait PackedUnpackedUnion[P, U, T] {
+  def fold[R](f: U => R, g: (P, Unpack[P, U]) => R)(v: T): R
+}
+
+object PackedUnpackedUnion extends PackedUnpackedUnionLowPriority {
+  implicit def packedUnpackedUnionTypeU[P, U, T <: U] = new PackedUnpackedUnion[P, U, T] {
+    def fold[R](f: U => R, g: (P, Unpack[P, U]) => R)(v: T): R = f(v)
+  }
+}
+
+class PackedUnpackedUnionLowPriority {
+  implicit def packedUnpackedUnionTypeP[P, U, T <: P](implicit ev: Unpack[P, U]) = new PackedUnpackedUnion[P, U, T] {
+    def fold[R](f: U => R, g: (P, Unpack[P, U]) => R)(v: T): R = g(v, ev)
+  }
 }
