@@ -4,21 +4,30 @@ import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
 import java.io.Closeable
 import org.scalaquery.simple.GetResult
 import org.scalaquery.util.CloseableIterator
+import org.scalaquery.UnitInvokerMixin
+import collection.generic.CanBuildFrom
 
 /**
  * A database result positioned at a row and column.
  */
-abstract class PositionedResult(val rs: ResultSet) extends Closeable {
+sealed abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
   protected[this] var pos = Int.MaxValue
+  protected[this] val startPos = 0
 
   lazy val numColumns = rs.getMetaData().getColumnCount()
 
+  final def currentPos = pos
   final def hasMoreColumns = pos < numColumns
 
   final def skip = { pos += 1; this }
-  final def restart { pos = 0; this }
+  final def restart { pos = startPos; this }
+  final def rewind { pos = Int.MinValue; this }
 
-  def nextRow = { val ret = rs.next; pos = 0; ret }
+  def nextRow = {
+    val ret = (pos == Int.MinValue) || rs.next
+    pos = startPos
+    ret
+  }
 
   final def << [T](implicit f: GetResult[T]): T = f(this)
   final def <<? [T](implicit f: GetResult[Option[T]]): Option[T] = if(hasMoreColumns) this.<< else None
@@ -33,6 +42,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable {
   final def nextFloat()     = { val npos = pos + 1; val r = rs getFloat     npos; pos = npos; r }
   final def nextInt()       = { val npos = pos + 1; val r = rs getInt       npos; pos = npos; r }
   final def nextLong()      = { val npos = pos + 1; val r = rs getLong      npos; pos = npos; r }
+  final def nextObject()    = { val npos = pos + 1; val r = rs getObject    npos; pos = npos; r }
   final def nextShort()     = { val npos = pos + 1; val r = rs getShort     npos; pos = npos; r }
   final def nextString()    = { val npos = pos + 1; val r = rs getString    npos; pos = npos; r }
   final def nextTime()      = { val npos = pos + 1; val r = rs getTime      npos; pos = npos; r }
@@ -48,6 +58,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable {
   final def nextFloatOption()     = { val npos = pos + 1; val r = rs getFloat     npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextIntOption()       = { val npos = pos + 1; val r = rs getInt       npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextLongOption()      = { val npos = pos + 1; val r = rs getLong      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  final def nextObjectOption()    = { val npos = pos + 1; val r = rs getObject    npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextShortOption()     = { val npos = pos + 1; val r = rs getShort     npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextStringOption()    = { val npos = pos + 1; val r = rs getString    npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextTimeOption()      = { val npos = pos + 1; val r = rs getTime      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
@@ -89,6 +100,58 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable {
    * Close the ResultSet and the statement which created it.
    */
   def close(): Unit
+
+  /**
+   * Create an embedded PositionedResult which extends from the given dataPos
+   * column until the end of this PositionedResult, starts at the current row
+   * and ends when the discriminator predicate (which can read columns starting
+   * at discriminatorPos) returns false or when this PositionedResult ends.
+   */
+  def view(discriminatorPos: Int, dataPos: Int, discriminator: (PositionedResult => Boolean)): PositionedResult = new PositionedResult(rs) {
+    override protected[this] val startPos = dataPos
+    pos = Int.MinValue
+    def close() {}
+    override def nextRow = {
+      def disc = {
+        pos = discriminatorPos
+        val ret = discriminator(this)
+        pos = startPos
+        ret
+      }
+      if(pos == Int.MinValue) disc else {
+        val outerRet = outer.nextRow
+        val ret = outerRet && disc
+        pos = startPos
+        if(!ret && outerRet) outer.rewind
+        ret
+      }
+    }
+  }
+
+  /**
+   * Create an embedded PositionedResult with a single discriminator column
+   * followed by the embedded data, starting at the current position. The
+   * embedded view lasts while the discriminator stays the same. If the first
+   * discriminator value is NULL, the view is empty.
+   */
+  def view1: PositionedResult = {
+    val discPos = pos
+    val disc = nextObject
+    view(discPos, discPos+1, { r => disc != null && disc == r.nextObject })
+  }
+
+  final def build[C[_], R](gr: GetResult[R])(implicit canBuildFrom: CanBuildFrom[Nothing, R, C[R]]): C[R] = {
+    val b = canBuildFrom()
+    while(nextRow) b += gr(this)
+    b.result()
+  }
+
+  final def to[C[_]] = new To[C]()
+
+  final class To[C[_]] private[PositionedResult] () {
+    def apply[R](gr: GetResult[R])(implicit session: Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R]]) =
+      build[C, R](gr)
+  }
 }
 
 /**
@@ -101,16 +164,18 @@ abstract class PositionedResultIterator[+T](_rs: ResultSet, maxRows: Int) extend
   private[this] var closed = false
 
   final override def nextRow = {
-    if(maxRows != 0 && count >= maxRows) false
-    else {
-      val ret = super.nextRow
-      if(ret) count += 1 else done = true
-      ret
+    if(pos == Int.MinValue) super.nextRow else {
+      if(maxRows != 0 && count >= maxRows) false
+      else {
+        val ret = super.nextRow
+        if(ret) count += 1 else done = true
+        ret
+      }
     }
   }
 
   final def hasNext = {
-    val r = !done && ((pos == 0) || nextRow)
+    val r = !done && ((pos == startPos) || nextRow)
     if(!r) close()
     r
   }
@@ -118,7 +183,7 @@ abstract class PositionedResultIterator[+T](_rs: ResultSet, maxRows: Int) extend
   final def next() = {
     if(done) noNext
     else {
-      if(pos != 0) nextRow
+      if(pos != startPos) nextRow
       if(done) noNext
       else {
         val ret = extractValue()
