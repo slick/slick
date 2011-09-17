@@ -1,5 +1,8 @@
 package org.scalaquery.ql
 
+import annotation.implicitNotFound
+
+@implicitNotFound("Cannot perform option-mapped operation\n      with type: (${P1}, ${P2}) => ${R}\n  for base type: (${B1}, ${B2}) => ${BR}")
 sealed trait OptionMapper2[B1, B2, BR, P1, P2, R] extends (Column[BR] => Column[R])
 
 object OptionMapper2 {
@@ -12,6 +15,7 @@ object OptionMapper2 {
   implicit def getOptionMapper2OO[B1, B2 : BaseTypeMapper, BR] = OptionMapper2.option.asInstanceOf[OptionMapper2[B1, B2, BR, Option[B1], Option[B2], Option[BR]]]
 }
 
+@implicitNotFound("Cannot perform option-mapped operation\n      with type: (${P1}, ${P2}, ${P3}) => ${R}\n  for base type: (${B1}, ${B2}, ${B3}) => ${BR}")
 sealed trait OptionMapper3[B1, B2, B3, BR, P1, P2, P3, R] extends (Column[BR] => Column[R])
 
 object OptionMapper3 {
