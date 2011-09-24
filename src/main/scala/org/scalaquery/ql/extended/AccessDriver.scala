@@ -62,6 +62,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override type Self = AccessQueryBuilder
   override protected val supportsTuples = false
+  override protected val concatOperator = Some("&")
 
   val pi = "3.1415926535897932384626433832795"
 
@@ -109,11 +110,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       }
       b += ")"
     }
-    case ColumnOps.Degrees(ch, _) => b += "(180/"+pi+"*"; expr(ch, b); b += ')'
-    case ColumnOps.Radians(ch, _) => b += "("+pi+"/180*"; expr(ch, b); b += ')'
-    case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "&"; expr(r, b); b += ')'
-    case ColumnOps.IfNull(l, r) => b += "iif(isnull("; expr(l, b); b += "),"; expr(r, b); b += ','; expr(l, b); b += ')'
-    case ColumnOps.Exists(q: Query[_, _]) =>
+    case EscFunction("degrees", ch) => b += "(180/"+pi+"*"; expr(ch, b); b += ')'
+    case EscFunction("radians", ch) => b += "("+pi+"/180*"; expr(ch, b); b += ')'
+    case EscFunction("ifnull", l, r) => b += "iif(isnull("; expr(l, b); b += "),"; expr(r, b); b += ','; expr(l, b); b += ')'
+    case StdFunction("exists", q: Query[_, _]) =>
       // Access doesn't like double parens around the sub-expression
       b += "exists"; expr(q, b)
     case a @ ColumnOps.AsColumnOf(ch, name) => name match {
@@ -129,9 +129,9 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
         throw new SQueryException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
     }
-    case SimpleFunction("user", true) => b += "''"
-    case SimpleFunction("database", true) => b += "''"
-    case SimpleFunction("pi", true) => b += pi
+    case EscFunction("user") => b += "''"
+    case EscFunction("database") => b += "''"
+    case EscFunction("pi") => b += pi
     case _ => super.innerExpr(c, b)
   }
 

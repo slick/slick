@@ -120,6 +120,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override type Self = SQLiteQueryBuilder
   override protected val supportsTuples = false
+  override protected val concatOperator = Some("||")
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new SQLiteQueryBuilder(query, nc, Some(this), profile)
@@ -152,26 +153,20 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case a @ ColumnOps.AsColumnOf(ch, name) =>
-      /* SQLite does not support {fn convert}, so we use the SQL CAST syntax */
-      b += "cast("; expr(ch, b); b += " as " += name.getOrElse(mapTypeName(a.typeMapper(profile))) += ")"
-    case ColumnOps.Exists(q: Query[_, _]) =>
+    case StdFunction("exists", q: Query[_, _]) =>
       // SQLite doesn't like double parens around the sub-expression
       b += "exists"; expr(q, b)
-    case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
-    case ColumnOps.ToUpperCase(ch) => b += "upper("; expr(ch, b); b += ')'
-    case ColumnOps.ToLowerCase(ch) => b += "lower("; expr(ch, b); b += ')'
-    case ColumnOps.Mod(l, r, _) => b += '('; expr(l, b); b += '%'; expr(r, b); b += ')'
-    case ColumnOps.Ceil(ch, _) =>
-      b += "round("; expr(ch, b); b += "+0.5)"
-    case ColumnOps.Floor(ch, _) =>
-      b += "round("; expr(ch, b); b += "-0.5)"
-    case SimpleFunction("user", true) => b += "''"
-    case SimpleFunction("database", true) => b += "''"
-    case s @ SimpleFunction(fname, true) =>
+    case EscFunction("ucase", ch) => b += "upper("; expr(ch, b); b += ')'
+    case EscFunction("lcase", ch) => b += "lower("; expr(ch, b); b += ')'
+    case EscFunction("mod", l, r) => b += '('; expr(l, b); b += '%'; expr(r, b); b += ')'
+    case EscFunction("ceiling", ch) => b += "round("; expr(ch, b); b += "+0.5)"
+    case EscFunction("floor", ch) => b += "round("; expr(ch, b); b += "-0.5)"
+    case EscFunction("user") => b += "''"
+    case EscFunction("database") => b += "''"
+    case s: SimpleFunction if s.scalar && s.name != "concat" =>
       /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
        * unescaped function calls by default */
-      b += fname += '('
+      b += s.name += '('
       b.sep(s.nodeChildren, ",")(expr(_, b))
       b += ")"
     case _ => super.innerExpr(c, b)

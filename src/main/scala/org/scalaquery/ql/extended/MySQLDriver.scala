@@ -55,12 +55,13 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override type Self = MySQLQueryBuilder
   override protected val scalarFrom = Some("DUAL")
+  override protected val supportsCast = false
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new MySQLQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case ColumnOps.Concat(l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
+    case EscFunction("concat", l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
     case Sequence.Nextval(seq) => b += quoteIdentifier(seq.name + "_nextval") += "()"
     case Sequence.Currval(seq) => b += quoteIdentifier(seq.name + "_currval") += "()"
     case _ => super.innerExpr(c, b)

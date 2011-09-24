@@ -28,12 +28,12 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override type Self = H2QueryBuilder
   override protected val mayLimit0 = false
+  override protected val concatOperator = Some("||")
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new H2QueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
     case Sequence.Nextval(seq) => b += "nextval(schema(), '" += seq.name += "')"
     case Sequence.Currval(seq) => b += "currval(schema(), '" += seq.name += "')"
     case _ => super.innerExpr(c, b)

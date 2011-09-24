@@ -40,7 +40,7 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   // Functions which don't need an OptionMapper
   def in(e: Query[Column[_], _]) = ColumnOps.In(Node(this), Node(e))
   def notIn(e: Query[Column[_], _]) = ColumnOps.Not(Node(ColumnOps.In(Node(this), Node(e))))
-  def count = ColumnOps.Count(Node(this))
+  def count = StdFunction[Int]("count", Node(this))
   def isNull = ColumnOps.Is(Node(this), ConstColumn.NULL)
   def isNotNull = ColumnOps.Not(Node(ColumnOps.Is(Node(this), ConstColumn.NULL)))
   def countDistinct = ColumnOps.CountDistinct(Node(this))

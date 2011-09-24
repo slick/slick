@@ -10,6 +10,7 @@ import org.scalaquery.util.{SQLBuilder, Node, BinaryNode}
 trait SimpleFunction extends Node {
   val name: String
   val scalar = false
+  override def toString = "SimpleFunction(" + name + ", " + scalar + ")"
 }
 
 object SimpleFunction {
@@ -34,7 +35,15 @@ object SimpleFunction {
     val f = apply(fname, fn);
     { (t1: Column[T1], t2: Column[T2], t3: Column[T3]) => f(Seq(t1, t2, t3)) }
   }
-  def unapply(s: SimpleFunction) = Some((s.name, s.scalar))
+}
+
+case class StdFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
+  val nodeChildren = children.toList
+}
+
+case class EscFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
+  val nodeChildren = children.toList
+  override val scalar = true
 }
 
 trait SimpleBinaryOperator extends BinaryNode {

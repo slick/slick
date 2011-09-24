@@ -1,7 +1,6 @@
 package org.scalaquery.util
 
 import java.io.{PrintWriter, OutputStreamWriter}
-import scala.collection.mutable.HashSet
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.ConstColumn
 
@@ -16,24 +15,17 @@ trait Node {
   def nodeNamedChildren: Seq[(Node, String)] = nodeChildren.toStream.zip(Stream.from(0).map(_.toString))
 
   def dump(dc: Node.DumpContext, prefix: String, name: String) {
-    var tname = ""
-    if(isNamedTable) {
-      val s = dc.nc.nameFor(this)
-      tname = "<" + s + "> "
-      val printed = dc.mark(s)
-      if(printed) {
-        dc.out.println(prefix + name + tname + "...")
-        return
-      }
-    }
-    dc.out.println(prefix + name + tname + this)
-    for((ch, n) <- nodeNamedChildren)
-      ch.dump(dc, prefix + "  ", n+": ")
+    val (tname, details) = if(isNamedTable) {
+      val (s, newName) = dc.nc.checkNameFor(this)
+      ("<" + s + "> ", newName)
+    } else ("", true)
+    dc.out.println(prefix + name + tname + (if(details) this else "..."))
+    if(details)
+      for((ch, n) <- nodeNamedChildren)
+        ch.dump(dc, prefix + "  ", n+": ")
   }
 
-  final def dump(name: String) { dump(name, NamingContext()) }
-
-  final def dump(name: String, nc: NamingContext) {
+  final def dump(name: String, nc: NamingContext = NamingContext()) {
     val out = new PrintWriter(new OutputStreamWriter(System.out))
     dump(new Node.DumpContext(out, nc), "", name)
     out.flush()
@@ -49,15 +41,7 @@ object Node {
     case _ => throw new SQueryException("Cannot narrow "+o+" to a Node")
   }
 
-  final class DumpContext(val out: PrintWriter, val nc: NamingContext) {
-    private val printed = new HashSet[String]
-
-    def mark(s: String) = {
-      val b = printed contains s
-      if(!b) printed += s
-      b
-    }
-  }
+  final class DumpContext(val out: PrintWriter, val nc: NamingContext)
 }
 
 trait ProductNode extends Node {

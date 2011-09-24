@@ -27,14 +27,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override type Self = OracleQueryBuilder
   override protected val scalarFrom = Some("DUAL")
+  override protected val concatOperator = Some("||")
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new OracleQueryBuilder(query, nc, Some(this), profile)
-
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
-    case _ => super.innerExpr(c, b)
-  }
 
   override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
