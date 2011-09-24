@@ -36,7 +36,7 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-class ForeignKeyQuery[TT <: AbstractTable[_], U](val fks: List[ForeignKey[TT, _]], override val unpackable: Unpackable[TT, U]) extends Query[TT, U](unpackable, fks, Nil, Nil) with Constraint {
+class ForeignKeyQuery[TT <: AbstractTable[_], U](val fks: List[ForeignKey[TT, _]], override val unpackable: Unpackable[TT, U]) extends Query[TT, U](unpackable, fks, Nil) with Constraint {
   override def toString = "ForeignKeyQuery"
 
   /**

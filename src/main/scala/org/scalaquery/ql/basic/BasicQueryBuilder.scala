@@ -101,7 +101,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
   protected def appendClauses(b: SQLBuilder) {
     appendConditions(b)
     appendGroupClause(b)
-    appendHavingConditions(b)
+    //appendHavingConditions(b)
     appendOrderClause(b)
     appendLimitClause(b)
   }
@@ -148,15 +148,15 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     appendConditions(b)
     if(localTables.size > 1)
       throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
-    if(query.condHaving ne Nil)
-      throw new SQueryException("DELETE statement must contain a HAVING clause")
+    /*if(query.condHaving ne Nil)
+      throw new SQueryException("DELETE statement must contain a HAVING clause")*/
     for(qb <- subQueryBuilders.valuesIterator)
       qb.insertAllFromClauses()
     b.build
   }
 
   def buildUpdate = {
-    if(!query.condHaving.isEmpty || !query.modifiers.isEmpty)
+    if(/*!query.condHaving.isEmpty ||*/ !query.modifiers.isEmpty)
       throw new SQueryException("A query for an UPDATE statement must not have any modifiers other than WHERE restrictions")
     val b = new SQLBuilder += "UPDATE "
     val tableNameSlot = b.createSlot
@@ -310,10 +310,10 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     case xs => b += " WHERE "; b.sep(xs, " AND ")(x => expr(Node(x), b))
   }
 
-  protected def appendHavingConditions(b: SQLBuilder): Unit = query.condHaving match {
+  /*protected def appendHavingConditions(b: SQLBuilder): Unit = query.condHaving match {
     case Nil =>
     case xs => b += " HAVING "; b.sep(xs, " AND ")(x => expr(Node(x), b))
-  }
+  }*/
 
   protected def insertAllFromClauses() {
     if(fromSlot ne null) insertFromClauses()
