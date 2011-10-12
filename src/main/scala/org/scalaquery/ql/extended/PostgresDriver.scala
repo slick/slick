@@ -33,19 +33,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   import ExtendedQueryOps._
 
   override type Self = PostgresQueryBuilder
+  override protected val concatOperator = Some("||")
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
     new PostgresQueryBuilder(query, nc, Some(this), profile)
-
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case a @ ColumnOps.AsColumnOf(ch, name) => {
-      b += "cast("; expr(ch, b); b += " as "
-      b += name.getOrElse(a.typeMapper(profile).sqlTypeName)
-      b += ")"
-    }
-    case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "||"; expr(r, b); b += ')'
-    case _ => super.innerExpr(c, b)
-  }
 
   override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
     case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d

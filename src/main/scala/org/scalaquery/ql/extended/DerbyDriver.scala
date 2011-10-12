@@ -92,11 +92,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
       b += "("; super.innerExpr(c, b); b += " != 0)"
 
-    case a @ ColumnOps.AsColumnOf(ch, name) =>
-      /* Derby does not support {fn convert}, so we use the SQL CAST syntax */
-      b += "cast("; expr(ch, b); b += " as " += name.getOrElse(mapTypeName(a.typeMapper(profile))) += ")"
-
-    case ColumnOps.IfNull(l, r) => r match {
+    case EscFunction("ifnull", l, r) => r match {
       /* Derby does not support IFNULL so we use COALESCE instead,
        * and it requires NULLs to be casted to a suitable type */
       case c: Column[_] =>
@@ -122,7 +118,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
     case Sequence.Currval(seq) => throw new SQueryException("Derby does not support CURRVAL")
 
-    case SimpleFunction("database", true) => b += "''"
+    case EscFunction("database") => b += "''"
 
     case _ => super.innerExpr(c, b)
   }

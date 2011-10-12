@@ -37,6 +37,8 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
   protected val mayLimit0 = true
   protected val scalarFrom: Option[String] = None
   protected val supportsTuples = true
+  protected val supportsCast = true
+  protected val concatOperator: Option[String] = None
 
   protected def localTableName(n: Node) = n match {
     case Join.JoinPart(table, from) =>
@@ -240,6 +242,8 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     }
     case ColumnOps.Is(l, ConstColumn(null)) => b += '('; expr(l, b); b += " is null)"
     case ColumnOps.Is(l, r) => b += '('; expr(l, b); b += '='; expr(r, b); b += ')'
+    case EscFunction("concat", l, r) if concatOperator.isDefined =>
+      b += '('; expr(l, b); b += concatOperator.get; expr(r, b); b += ')'
     case s: SimpleFunction =>
       if(s.scalar) b += "{fn "
       b += s.name += '('
@@ -260,9 +264,16 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
       }
       b += ')'
     case a @ ColumnOps.AsColumnOf(ch, name) =>
-      b += "{fn convert("; expr(ch, b); b += ','
-      b += name.getOrElse(mapTypeName(a.typeMapper(profile)))
-      b += ")}"
+      val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
+      if(supportsCast) {
+        b += "cast("
+        expr(ch, b)
+        b += " as " += tn += ")"
+      } else {
+        b += "{fn convert("
+        expr(ch, b)
+        b += ',' += tn += ")}"
+      }
     case s: SimpleBinaryOperator => b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')'
     case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
     //case Union.UnionPart(_) => "*"

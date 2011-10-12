@@ -35,7 +35,7 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[C
 
   def orderBy(by: Ordering*) = new Query[E, U](unpackable, cond, modifiers ::: by.toList)
 
-  def exists = ColumnOps.Exists(map(_ => ConstColumn(1)))
+  def exists = StdFunction[Boolean]("exists", map(_ => ConstColumn(1)))
   */
 
   def typedModifiers[T <: QueryModifier](implicit m: ClassManifest[T]) =

@@ -78,6 +78,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 
   override type Self = SQLServerQueryBuilder
   override protected val supportsTuples = false
+  override protected val concatOperator = Some("+")
 
   val hasTakeDrop = !query.typedModifiers[TakeDrop].isEmpty
   val hasDropOnly = query.typedModifiers[TakeDrop] match {
@@ -167,7 +168,6 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
       b += "("; super.innerExpr(c, b); b += " != 0)"
 
-    case ColumnOps.Concat(l, r) => b += '('; expr(l, b); b += "+"; expr(r, b); b += ')'
     case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
     case _ => super.innerExpr(c, b)
   }
@@ -175,7 +175,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   override protected def appendClauses(b: SQLBuilder): Unit = {
     appendConditions(b)
     appendGroupClause(b)
-    appendHavingConditions(b)
+    //appendHavingConditions(b)
     if(!hasDropOnly) appendOrderClause(b)
   }
 
