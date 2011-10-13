@@ -16,10 +16,15 @@ import org.junit.Assert
 import org.scalaquery.meta.MTable
 
 object TestDBOptions {
-  val testDBDir = "test-dbs"
+  val testDBDir = dbProps.getProperty("testDir", "test-dbs")
+  def testDBPath = {
+    val f = new File(testDBDir)
+    val s = f.getPath().replace('\\', '/')
+    if(f.isAbsolute) s else "./" + s
+  }
   lazy val dbProps = {
     val p = new Properties
-    val f = new File(testDBDir, "databases.properties")
+    val f = new File("test-dbs", "databases.properties")
     if(f.isFile) {
       val in = new FileInputStream(f)
       try { p.load(in) } finally { in.close() }
@@ -129,8 +134,8 @@ class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends Test
   override def userName = TestDBOptions.get(confName, "user").orNull
 
   val adminDBURL = urlTemplate.replace("[DB]", TestDBOptions.get(confName, "adminDB").getOrElse(""))
-  val create = TestDBOptions.get(confName, "create").getOrElse("").replace("[DB]", dbName)
-  val drop = TestDBOptions.get(confName, "drop").getOrElse("").replace("[DB]", dbName)
+  val create = TestDBOptions.get(confName, "create").getOrElse("").replace("[DB]", dbName).replace("[DBPATH]", new File(TestDBOptions.testDBDir).getAbsolutePath)
+  val drop = TestDBOptions.get(confName, "drop").getOrElse("").replace("[DB]", dbName).replace("[DBPATH]", new File(TestDBOptions.testDBDir).getAbsolutePath)
 
   override def isEnabled = TestDBOptions.isExternalEnabled(confName)
 
@@ -218,7 +223,7 @@ object TestDB {
 
   def H2Disk(to: DBTestObject) = new TestDB("h2disk") {
     override val dbName = "h2-"+to.testClassName
-    val url = "jdbc:h2:./"+TestDBOptions.testDBDir+"/"+dbName
+    val url = "jdbc:h2:"+TestDBOptions.testDBPath+"/"+dbName
     val jdbcDriver = "org.h2.Driver"
     val driver = H2Driver
     override def cleanUp() = deleteDBFiles(dbName)
@@ -231,7 +236,7 @@ object TestDB {
 
   def HsqldbDisk(to: DBTestObject) = new HsqlDB("hsqldbmem") {
     override val dbName = "hsqldb-"+to.testClassName
-    val url = "jdbc:hsqldb:file:./"+TestDBOptions.testDBDir+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
+    val url = "jdbc:hsqldb:file:"+TestDBOptions.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUp() = deleteDBFiles(dbName)
   }
 
@@ -241,7 +246,7 @@ object TestDB {
 
   def SQLiteDisk(to: DBTestObject) = {
     val prefix = "sqlite-"+to.testClassName
-    new SQLiteTestDB("jdbc:sqlite:./"+TestDBOptions.testDBDir+"/"+prefix+".db", "sqlitedisk") {
+    new SQLiteTestDB("jdbc:sqlite:"+TestDBOptions.testDBPath+"/"+prefix+".db", "sqlitedisk") {
       override val dbName = prefix
       override def cleanUp() = deleteDBFiles(prefix)
     }
@@ -259,9 +264,9 @@ object TestDB {
 
   def DerbyDisk(to: DBTestObject) = new DerbyDB("derbydisk") {
     override val dbName = "derby-"+to.testClassName
-    val url = "jdbc:derby:./"+TestDBOptions.testDBDir+"/"+dbName+";create=true"
+    val url = "jdbc:derby:"+TestDBOptions.testDBPath+"/"+dbName+";create=true"
     override def cleanUp() = {
-      val dropUrl = "jdbc:derby:./"+TestDBOptions.testDBDir+"/"+dbName+";shutdown=true"
+      val dropUrl = "jdbc:derby:"+TestDBOptions.testDBPath+"/"+dbName+";shutdown=true"
       try { Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:Session => s.conn } }
       catch { case e: SQLException => }
       deleteDBFiles(dbName)
