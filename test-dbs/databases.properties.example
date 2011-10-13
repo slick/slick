@@ -8,6 +8,10 @@
 # Use only the following DBs (or use all if not set)
 #testDBs = h2mem, h2disk, hsqldbmem, sqlitemem, sqlitedisk, derbymem, derbydisk, postgres, mysql, sqlserver, access
 
+# Store database files in this path instead of the test-dbs dir
+# (ignored by MySQL and in-memory databases)
+#testDir = r:/test-dbs
+
 # PostgreSQL quick setup:
 # - Install PostgreSQL server with default options
 # - Change password in postgres.password
@@ -18,8 +22,10 @@ postgres.user = postgres
 postgres.password = secret
 postgres.adminDB = postgres
 postgres.testDB = scala-query-test
-postgres.create = CREATE DATABASE "[DB]"
-postgres.drop = DROP DATABASE IF EXISTS "[DB]"
+postgres.create = CREATE TABLESPACE scalaquery_test LOCATION '[DBPATH]'; CREATE DATABASE "[DB]" TEMPLATE = template0 TABLESPACE scalaquery_test
+#postgres.create = CREATE DATABASE "[DB]"
+postgres.drop = DROP DATABASE IF EXISTS "[DB]"; DROP TABLESPACE IF EXISTS scalaquery_test
+#postgres.drop = DROP DATABASE IF EXISTS "[DB]"
 postgres.driver = org.postgresql.Driver
 
 # MySQL quick setup:
@@ -43,7 +49,7 @@ mysql.driver = com.mysql.jdbc.Driver
 # - Set access.enabled = true
 access.enabled = false
 access.testDB = scala-query-test
-access.emptyDBFile = [DBPATH]/empty_4.x.mdb.gz
+access.emptyDBFile = test-dbs/empty_4.x.mdb.gz
 access.testDBFile = [DBPATH]/[DB].mdb
 access.driver = sun.jdbc.odbc.JdbcOdbcDriver
 access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=[DBPATH]/[DB].mdb
@@ -65,6 +71,7 @@ sqlserver.password =
 sqlserver.adminDB = master
 sqlserver.testDB = scalaquery-test
 sqlserver.defaultSchema = dbo
-sqlserver.create = CREATE DATABASE "[DB]"
+sqlserver.create = CREATE DATABASE "[DB]" ON (NAME = '[DB]_dat', FILENAME = '[DBPATH]\\[DB].mdf') LOG ON (NAME = '[DB]_log', FILENAME = "[DBPATH]\\[DB].ldf")
+#sqlserver.create = CREATE DATABASE "[DB]"
 sqlserver.drop = IF EXISTS(SELECT name FROM sys.databases WHERE name = '[DB]') DROP DATABASE "[DB]"
 sqlserver.driver = net.sourceforge.jtds.jdbc.Driver
