@@ -23,6 +23,7 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setString(value: String)       { val npos = pos + 1; ps.setString   (npos, value); pos = npos }
   def setTime(value: Time)           { val npos = pos + 1; ps.setTime     (npos, value); pos = npos }
   def setTimestamp(value: Timestamp) { val npos = pos + 1; ps.setTimestamp(npos, value); pos = npos }
+  def setBigDecimal(value: BigDecimal) { val npos = pos +1; ps.setBigDecimal(npos, value.bigDecimal); pos = npos }
 
   def setBooleanOption(value: Option[Boolean]) {
     val npos = pos + 1
@@ -92,6 +93,11 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setTimestampOption(value: Option[Timestamp]) {
     val npos = pos + 1
     if(value eq None) ps.setNull(npos, Types.TIMESTAMP) else ps.setTimestamp(npos, value.get)
+    pos = npos
+  }
+  def setBigDecimalOption(value: Option[BigDecimal]) {
+    val npos = pos + 1
+    if(value eq None) ps.setNull(npos, Types.DECIMAL) else ps.setBigDecimal(npos, value.get.bigDecimal)
     pos = npos
   }
 }
