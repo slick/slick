@@ -21,6 +21,7 @@ trait BasicTypeMapperDelegates {
   val timeTypeMapperDelegate = new TimeTypeMapperDelegate
   val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
   val unitTypeMapperDelegate = new UnitTypeMapperDelegate
+  val bigDecimalTypeMapperDelegate = new BigDecimalTypeMapperDelegate
   val nullTypeMapperDelegate = new NullTypeMapperDelegate
 }
 
@@ -167,6 +168,15 @@ object BasicTypeMapperDelegates {
     def nextValue(r: PositionedResult) = { r.nextInt; () }
     def updateValue(v: Unit, r: PositionedResult) = r.updateInt(1)
     override def valueToSQLLiteral(value: Unit) = "1"
+  }
+
+  class BigDecimalTypeMapperDelegate extends TypeMapperDelegate[BigDecimal] {
+    def zero = BigDecimal(0)
+    def sqlType = java.sql.Types.DECIMAL
+    def setValue(v: BigDecimal, p: PositionedParameters) = p.setBigDecimal(v)
+    def setOption(v: Option[BigDecimal], p: PositionedParameters) = p.setBigDecimalOption(v)
+    def nextValue(r: PositionedResult) = r.nextBigDecimal
+    def updateValue(v: BigDecimal, r: PositionedResult) = r.updateBigDecimal(v)
   }
 
   class NullTypeMapperDelegate extends TypeMapperDelegate[Null] {

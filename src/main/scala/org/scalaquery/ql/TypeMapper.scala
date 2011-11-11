@@ -92,6 +92,10 @@ object TypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.unitTypeMapperDelegate
   }
 
+  implicit object BigDecimalTypeMapper extends BaseTypeMapper[BigDecimal] {
+    def apply(profile: BasicProfile) = profile.typeMapperDelegates.bigDecimalTypeMapperDelegate
+  }
+
   object NullTypeMapper extends BaseTypeMapper[Null] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.nullTypeMapperDelegate
   }

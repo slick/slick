@@ -9,20 +9,22 @@ class PositionedParameters(val ps: PreparedStatement) {
 
   def >> [T](value: T)(implicit f: SetParameter[T]): Unit = f(value, this)
 
-  def setBoolean(value: Boolean)     { val npos = pos + 1; ps.setBoolean  (npos, value); pos = npos }
-  def setBlob(value: Blob)           { val npos = pos + 1; ps.setBlob     (npos, value); pos = npos }
-  def setByte(value: Byte)           { val npos = pos + 1; ps.setByte     (npos, value); pos = npos }
-  def setBytes(value: Array[Byte])   { val npos = pos + 1; ps.setBytes    (npos, value); pos = npos }
-  def setClob(value: Clob)           { val npos = pos + 1; ps.setClob     (npos, value); pos = npos }
-  def setDate(value: Date)           { val npos = pos + 1; ps.setDate     (npos, value); pos = npos }
-  def setDouble(value: Double)       { val npos = pos + 1; ps.setDouble   (npos, value); pos = npos }
-  def setFloat(value: Float)         { val npos = pos + 1; ps.setFloat    (npos, value); pos = npos }
-  def setInt(value: Int)             { val npos = pos + 1; ps.setInt      (npos, value); pos = npos }
-  def setLong(value: Long)           { val npos = pos + 1; ps.setLong     (npos, value); pos = npos }
-  def setShort(value: Short)         { val npos = pos + 1; ps.setShort    (npos, value); pos = npos }
-  def setString(value: String)       { val npos = pos + 1; ps.setString   (npos, value); pos = npos }
-  def setTime(value: Time)           { val npos = pos + 1; ps.setTime     (npos, value); pos = npos }
-  def setTimestamp(value: Timestamp) { val npos = pos + 1; ps.setTimestamp(npos, value); pos = npos }
+  def setBoolean(value: Boolean)       { val npos = pos + 1; ps.setBoolean   (npos, value); pos = npos }
+  def setBlob(value: Blob)             { val npos = pos + 1; ps.setBlob      (npos, value); pos = npos }
+  def setByte(value: Byte)             { val npos = pos + 1; ps.setByte      (npos, value); pos = npos }
+  def setBytes(value: Array[Byte])     { val npos = pos + 1; ps.setBytes     (npos, value); pos = npos }
+  def setClob(value: Clob)             { val npos = pos + 1; ps.setClob      (npos, value); pos = npos }
+  def setDate(value: Date)             { val npos = pos + 1; ps.setDate      (npos, value); pos = npos }
+  def setDouble(value: Double)         { val npos = pos + 1; ps.setDouble    (npos, value); pos = npos }
+  def setFloat(value: Float)           { val npos = pos + 1; ps.setFloat     (npos, value); pos = npos }
+  def setInt(value: Int)               { val npos = pos + 1; ps.setInt       (npos, value); pos = npos }
+  def setLong(value: Long)             { val npos = pos + 1; ps.setLong      (npos, value); pos = npos }
+  def setShort(value: Short)           { val npos = pos + 1; ps.setShort     (npos, value); pos = npos }
+  def setString(value: String)         { val npos = pos + 1; ps.setString    (npos, value); pos = npos }
+  def setTime(value: Time)             { val npos = pos + 1; ps.setTime      (npos, value); pos = npos }
+  def setTimestamp(value: Timestamp)   { val npos = pos + 1; ps.setTimestamp (npos, value); pos = npos }
+  def setBigDecimal(value: BigDecimal) { val npos = pos + 1; ps.setBigDecimal(npos, value.bigDecimal); pos = npos }
+  def setObject(value: AnyRef, sqlType: Int) { val npos = pos + 1; ps.setObject(npos, value, sqlType); pos = npos }
 
   def setBooleanOption(value: Option[Boolean]) {
     val npos = pos + 1
@@ -92,6 +94,16 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setTimestampOption(value: Option[Timestamp]) {
     val npos = pos + 1
     if(value eq None) ps.setNull(npos, Types.TIMESTAMP) else ps.setTimestamp(npos, value.get)
+    pos = npos
+  }
+  def setBigDecimalOption(value: Option[BigDecimal]) {
+    val npos = pos + 1
+    if(value eq None) ps.setNull(npos, Types.DECIMAL) else ps.setBigDecimal(npos, value.get.bigDecimal)
+    pos = npos
+  }
+  def setObjectOption(value: Option[AnyRef], sqlType: Int) {
+    val npos = pos + 1
+    if(value eq None) ps.setNull(npos, sqlType) else ps.setObject(npos, value.get, sqlType)
     pos = npos
   }
 }
