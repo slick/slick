@@ -16,7 +16,7 @@ class ScalaQueryProject(info: ProjectInfo) extends DefaultProject(info)
 
   /*********** Dependencies ***********/
   //val scalaToolsSnapshots = "Scala-Tools Maven2 Snapshots Repository" at "http://scala-tools.org/repo-snapshots"
-  val h2 = "com.h2database" % "h2" % "1.2.140" % "test->default"
+  val h2 = "com.h2database" % "h2" % "1.2.147" % "test->default"
   val sqlite = "org.xerial" % "sqlite-jdbc" % "3.6.20" % "test->default"
   val derby = "org.apache.derby" % "derby" % "10.6.1.0" % "test->default"
   val hsqldb = "org.hsqldb" % "hsqldb" % "2.0.0" % "test->default"

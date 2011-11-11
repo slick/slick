@@ -9,6 +9,8 @@ class PositionedParameters(val ps: PreparedStatement) {
 
   def >> [T](value: T)(implicit f: SetParameter[T]): Unit = f(value, this)
 
+  def setNull(sqlType: Int)            { val npos = pos + 1; ps.setNull(npos, sqlType);     pos = npos }
+
   def setBoolean(value: Boolean)       { val npos = pos + 1; ps.setBoolean   (npos, value); pos = npos }
   def setBlob(value: Blob)             { val npos = pos + 1; ps.setBlob      (npos, value); pos = npos }
   def setByte(value: Byte)             { val npos = pos + 1; ps.setByte      (npos, value); pos = npos }

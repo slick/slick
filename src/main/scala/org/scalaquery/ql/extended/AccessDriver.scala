@@ -4,8 +4,9 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 import org.scalaquery.SQueryException
-import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 import org.scalaquery.session.{PositionedParameters, PositionedResult, ResultSetType}
+import java.util.UUID
+import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 
 /**
  * ScalaQuery driver for Microsoft Access via JdbcOdbcDriver.
@@ -242,8 +243,19 @@ class AccessTypeMapperDelegates(retryCount: Int) extends BasicTypeMapperDelegate
     }
   }
 
+  // This is a nightmare... but it seems to work
+  class AccessUUIDTypeMapperDelegate extends BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def sqlType = java.sql.Types.BLOB
+    override def sqlTypeName = "LONGBINARY"
+    override def setOption(v: Option[UUID], p: PositionedParameters) =
+      if(v == None) p.setString(null) else p.setBytes(toBytes(v.get))
+    override def nextValueOrElse(d: =>UUID, r: PositionedResult) = { val v = nextValue(r); if(v.eq(null) || r.rs.wasNull) d else v }
+    override def nextOption(r: PositionedResult): Option[UUID] = { val v = nextValue(r); if(v.eq(null) || r.rs.wasNull) None else Some(v) }
+  }
+
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate with Retry[Boolean]
   override val blobTypeMapperDelegate = new BlobTypeMapperDelegate with Retry[Blob]
+  override val bigDecimalTypeMapperDelegate = new BigDecimalTypeMapperDelegate with Retry[BigDecimal]
   override val byteTypeMapperDelegate = new ByteTypeMapperDelegate with Retry[Byte]
   override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate with Retry[Array[Byte]]
   override val clobTypeMapperDelegate = new ClobTypeMapperDelegate with Retry[Clob]
@@ -256,4 +268,5 @@ class AccessTypeMapperDelegates(retryCount: Int) extends BasicTypeMapperDelegate
   override val timeTypeMapperDelegate = new TimeTypeMapperDelegate with Retry[Time]
   override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate with Retry[Timestamp]
   override val nullTypeMapperDelegate = new NullTypeMapperDelegate with Retry[Null]
+  override val uuidTypeMapperDelegate = new AccessUUIDTypeMapperDelegate with Retry[UUID]
 }

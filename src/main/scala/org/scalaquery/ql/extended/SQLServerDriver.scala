@@ -47,6 +47,9 @@ class SQLServerTypeMapperDelegates extends BasicTypeMapperDelegates {
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
   override val dateTypeMapperDelegate = new DateTypeMapperDelegate
   override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
+  override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def sqlTypeName = "UNIQUEIDENTIFIER"
+  }
 }
 
 object SQLServerTypeMapperDelegates {

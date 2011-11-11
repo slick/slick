@@ -4,6 +4,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.TypeMapperDelegate
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
+import java.util.UUID
 
 trait BasicTypeMapperDelegates {
   import BasicTypeMapperDelegates._
@@ -21,6 +22,7 @@ trait BasicTypeMapperDelegates {
   val timeTypeMapperDelegate = new TimeTypeMapperDelegate
   val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
   val unitTypeMapperDelegate = new UnitTypeMapperDelegate
+  val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
   val bigDecimalTypeMapperDelegate = new BigDecimalTypeMapperDelegate
   val nullTypeMapperDelegate = new NullTypeMapperDelegate
 }
@@ -168,6 +170,45 @@ object BasicTypeMapperDelegates {
     def nextValue(r: PositionedResult) = { r.nextInt; () }
     def updateValue(v: Unit, r: PositionedResult) = r.updateInt(1)
     override def valueToSQLLiteral(value: Unit) = "1"
+  }
+
+  class UUIDTypeMapperDelegate extends TypeMapperDelegate[UUID] {
+    def zero = new UUID(0, 0)
+    def sqlType = java.sql.Types.OTHER
+    override def sqlTypeName = "UUID"
+    def setValue(v: UUID, p: PositionedParameters) = p.setBytes(toBytes(v))
+    def setOption(v: Option[UUID], p: PositionedParameters) =
+      if(v == None) p.setNull(sqlType) else p.setBytes(toBytes(v.get))
+    def nextValue(r: PositionedResult) = fromBytes(r.nextBytes())
+    def updateValue(v: UUID, r: PositionedResult) = r.updateBytes(toBytes(v))
+    override def valueToSQLLiteral(value: UUID): String =
+      throw new SQueryException("UUID does not support a literal representation")
+    def toBytes(uuid: UUID) = if(uuid eq null) null else {
+      val msb = uuid.getMostSignificantBits
+      val lsb = uuid.getLeastSignificantBits
+      val buff = new Array[Byte](16)
+      var i = 0
+      while(i < 8) {
+        buff(i) = ((msb >> (8 * (7 - i))) & 255).toByte;
+        buff(8 + i) = ((lsb >> (8 * (7 - i))) & 255).toByte;
+        i += 1
+      }
+      buff
+    }
+    def fromBytes(data: Array[Byte]) = if(data eq null) null else {
+      var msb = 0L
+      var lsb = 0L
+      var i = 0
+      while(i < 8) {
+        msb = (msb << 8) | (data(i) & 0xff)
+        i += 1
+      }
+      while(i < 16) {
+        lsb = (lsb << 8) | (data(i) & 0xff)
+        i += 1
+      }
+      new UUID(msb, lsb)
+    }
   }
 
   class BigDecimalTypeMapperDelegate extends TypeMapperDelegate[BigDecimal] {

@@ -6,6 +6,7 @@ import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 import org.scalaquery.util.SQLBuilder._
 import java.sql.{Timestamp, Time, Date}
+import java.util.UUID
 
 /**
  * ScalaQuery driver for SQLite.
@@ -46,6 +47,7 @@ class SQLiteTypeMapperDelegates extends BasicTypeMapperDelegates {
   override val dateTypeMapperDelegate = new DateTypeMapperDelegate
   override val timeTypeMapperDelegate = new TimeTypeMapperDelegate
   override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
+  override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
 }
 
 object SQLiteTypeMapperDelegates {
@@ -66,6 +68,9 @@ object SQLiteTypeMapperDelegates {
   }
   class TimestampTypeMapperDelegate extends BasicTypeMapperDelegates.TimestampTypeMapperDelegate {
     override def valueToSQLLiteral(value: Timestamp) = value.getTime.toString
+  }
+  class UUIDTypeMapperDelegate extends BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def sqlType = java.sql.Types.BLOB
   }
 }
 

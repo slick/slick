@@ -44,6 +44,10 @@ object DerbyDriver extends DerbyDriver
 class DerbyTypeMapperDelegates extends BasicTypeMapperDelegates {
   import DerbyTypeMapperDelegates._
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
+  override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def sqlType = java.sql.Types.BINARY
+    override def sqlTypeName = "CHAR(16) FOR BIT DATA"
+  }
 }
 
 object DerbyTypeMapperDelegates {
