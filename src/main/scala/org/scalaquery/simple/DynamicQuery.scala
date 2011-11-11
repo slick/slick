@@ -9,6 +9,7 @@ import org.scalaquery.session.{PositionedParameters, PositionedResult}
  * Base class for dynamic queries. These are required when the query text can
  * change between different invocations of the query
  */
+@deprecated("Use StaticQuery instead", "0.10")
 abstract class DynamicQueryBase[T, +This <: DynamicQueryBase[T, This]] extends StatementInvoker[Unit, T] with UnitInvokerMixin[T] {
   self: This =>
 
@@ -54,16 +55,19 @@ abstract class DynamicQueryBase[T, +This <: DynamicQueryBase[T, This]] extends S
 }
 
 
+@deprecated("Use StaticQuery instead", "0.10")
 class DynamicQuery[T](implicit rconv: GetResult[T]) extends DynamicQueryBase[T,DynamicQuery[T]] {
   def select = this ~ "select"
   def select(s: String) = this ~ "select" ~ s
   protected def extractValue(rs: PositionedResult): T = rconv(rs)
 }
 
+@deprecated("Use StaticQuery instead", "0.10")
 object DynamicQuery {
   def apply[T : GetResult] = new DynamicQuery[T]
 }
 
+@deprecated("Use StaticQuery instead", "0.10")
 class DynamicUpdate extends DynamicQueryBase[Int,DynamicUpdate] {
   def insert = this ~ "insert"
   def insert(s: String) = this ~ "insert" ~ s
@@ -73,6 +77,7 @@ class DynamicUpdate extends DynamicQueryBase[Int,DynamicUpdate] {
     throw new SQueryException("DynamicUpdate.extractValue called; Non-query statements should not return a ResultSet")
 }
 
+@deprecated("Use StaticQuery instead", "0.10")
 object DynamicUpdate {
   def apply = new DynamicUpdate
 }

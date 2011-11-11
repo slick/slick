@@ -1,19 +1,14 @@
 package org.scalaquery.test
 
-import java.sql._
 import java.io.PrintWriter
-import scala.Array
 import org.junit.Test
 import org.junit.Assert._
-import org.scalaquery.ResultSetInvoker
-import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.basic.{BasicTable => Table}
-import org.scalaquery.ql.extended.{H2Driver, PostgresDriver, MySQLDriver}
+import org.scalaquery.ql.extended.{H2Driver, PostgresDriver}
 import org.scalaquery.meta._
-import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
-import org.scalaquery.simple.StaticQuery.updateNA
+import org.scalaquery.simple.{StaticQuery => Q}
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
@@ -107,7 +102,7 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
       for(t <- tdb.getLocalTables.sorted) {
         val st = "drop table " + tdb.driver.sqlUtils.quoteIdentifier(t)
         println("Executing statement: "+st)
-        updateNA(st).execute
+        Q.u + st execute
       }
       assertTrue("Tables after deleting",
         Set("orders", "users") intersect MTable.getTables(None, None, None, None).list.map(_.name.name).toSet isEmpty)
