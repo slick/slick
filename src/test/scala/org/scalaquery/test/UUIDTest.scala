@@ -21,10 +21,10 @@ class UUIDTest(tdb: TestDB) extends DBTest(tdb) {
     val zero = new UUID(0, 0)
     val sqlType = java.sql.Types.OTHER
     override def sqlTypeName = "uuid"
-    def setValue(v: UUID, p: PositionedParameters) = p.setOther(v)
-    def setOption(v: Option[UUID], p: PositionedParameters) = p.setOtherOption(v)
-    def nextValue(r: PositionedResult) = r.nextOther().asInstanceOf[UUID]
-    def updateValue(v: UUID, r: PositionedResult) = r.updateOther(v)
+    def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
+    def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
+    def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
+    def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
     override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
   }
 
