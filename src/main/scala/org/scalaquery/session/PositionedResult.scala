@@ -38,6 +38,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable {
   final def nextTime()      = { val npos = pos + 1; val r = rs getTime      npos; pos = npos; r }
   final def nextTimestamp() = { val npos = pos + 1; val r = rs getTimestamp npos; pos = npos; r }
   final def nextBigDecimal() = { val npos = pos + 1; val r = rs getBigDecimal npos; pos = npos; r }
+  final def nextOther()     = { val npos = pos + 1; val r = rs getObject    npos; pos = npos; r }
 
   final def nextBooleanOption()   = { val npos = pos + 1; val r = rs getBoolean   npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextBlobOption()      = { val npos = pos + 1; val r = rs getBlob      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
@@ -54,6 +55,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable {
   final def nextTimeOption()      = { val npos = pos + 1; val r = rs getTime      npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextTimestampOption() = { val npos = pos + 1; val r = rs getTimestamp npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
   final def nextBigDecimalOption() = { val npos = pos + 1; val r = rs getBigDecimal npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
+  final def nextOtherOption()     = { val npos = pos + 1; val r = rs getObject    npos; val rr = (if(rs wasNull) None else Some(r)); pos = npos; rr }
 
   final def updateBoolean(v: Boolean)     { val npos = pos + 1; rs.updateBoolean  (npos, v); pos = npos }
   final def updateBlob(v: Blob)           { val npos = pos + 1; rs.updateBlob     (npos, v); pos = npos }
@@ -70,6 +72,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable {
   final def updateTime(v: Time)           { val npos = pos + 1; rs.updateTime     (npos, v); pos = npos }
   final def updateTimestamp(v: Timestamp) { val npos = pos + 1; rs.updateTimestamp(npos, v); pos = npos }
   final def updateBigDecimal(v: BigDecimal) { val npos = pos + 1; rs.updateBigDecimal(npos, v.bigDecimal); pos = npos }
+  final def updateOther(v: Any)           { val npos = pos + 1; rs.updateObject   (npos, v); pos = npos }
 
   final def updateBooleanOption(v: Option[Boolean])     { val npos = pos + 1; v match { case Some(s) => rs.updateBoolean  (npos, s); case None => rs.updateNull(npos) }; pos = npos }
   final def updateBlobOption(v: Option[Blob])           { val npos = pos + 1; v match { case Some(s) => rs.updateBlob     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
@@ -86,6 +89,7 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable {
   final def updateTimeOption(v: Option[Time])           { val npos = pos + 1; v match { case Some(s) => rs.updateTime     (npos, s); case None => rs.updateNull(npos) }; pos = npos }
   final def updateTimestampOption(v: Option[Timestamp]) { val npos = pos + 1; v match { case Some(s) => rs.updateTimestamp(npos, s); case None => rs.updateNull(npos) }; pos = npos }
   final def updateBigDecimalOption(v: Option[BigDecimal]) { val npos = pos + 1; v match { case Some(s) => rs.updateBigDecimal(npos, s.bigDecimal); case None => rs.updateNull(npos) }; pos = npos }
+  final def updateOtherOption(v: Option[Any])           { val npos = pos + 1; v match { case Some(s) => rs.updateObject   (npos, s); case None => rs.updateNull(npos) }; pos = npos }
 
   final def updateNull() { val npos = pos + 1; rs.updateNull(npos); pos = npos }
 

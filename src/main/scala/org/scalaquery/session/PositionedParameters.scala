@@ -24,6 +24,7 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setTime(value: Time)           { val npos = pos + 1; ps.setTime     (npos, value); pos = npos }
   def setTimestamp(value: Timestamp) { val npos = pos + 1; ps.setTimestamp(npos, value); pos = npos }
   def setBigDecimal(value: BigDecimal) { val npos = pos +1; ps.setBigDecimal(npos, value.bigDecimal); pos = npos }
+  def setOther(value: Any)           { val npos = pos + 1; ps.setObject   (npos, value, Types.OTHER); pos = npos }
 
   def setBooleanOption(value: Option[Boolean]) {
     val npos = pos + 1
@@ -98,6 +99,11 @@ class PositionedParameters(val ps: PreparedStatement) {
   def setBigDecimalOption(value: Option[BigDecimal]) {
     val npos = pos + 1
     if(value eq None) ps.setNull(npos, Types.DECIMAL) else ps.setBigDecimal(npos, value.get.bigDecimal)
+    pos = npos
+  }
+  def setOtherOption(value: Option[Any]) {
+    val npos = pos + 1
+    if(value eq None) ps.setNull(npos, Types.OTHER) else ps.setObject(npos, value.get, Types.OTHER)
     pos = npos
   }
 }
