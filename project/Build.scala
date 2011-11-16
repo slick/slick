@@ -60,24 +60,12 @@ object ScalaQueryBuild extends Build {
       case n => n
     }
     tr(n) {
-      case <name>{ _* }</name> => <name>ScalaQuery</name>
-      case <description>{ _* }</description> => <description>A type-safe database API for Scala</description>
-      case <organization>{ _* }</organization> => NodeSeq.Empty
       case e @ <dependencies>{ _* }</dependencies> => tr(e) {
         case d @ <dependency>{ _* }</dependency> if d.child contains <scope>test</scope> => NodeSeq.Empty
       }
     }
   }
   def pomExtraData =
-    <url>http://scalaquery.org/</url>
-    <inceptionYear>2008</inceptionYear>
-    <licenses>
-      <license>
-        <name>Two-clause BSD-style license</name>
-        <url>http://github.com/szeiger/scala-query/blob/master/LICENSE.txt</url>
-        <distribution>repo</distribution>
-      </license>
-    </licenses>
     <developers>
       <developer>
         <id>szeiger</id>

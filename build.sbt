@@ -1,6 +1,8 @@
-organization := "org.scalaquery"
+name := "ScalaQuery"
 
-name := "scalaquery"
+organizationName := "ScalaQuery"
+
+organization := "org.scalaquery"
 
 version := "0.10.0-SNAPSHOT"
 
@@ -27,3 +29,11 @@ publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)
 //publishTo <<= (repoKind)(r => Some(r at "http://nexus.scala-tools.org/content/repositories/"+r+"/"))
 
 credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
+
+description := "A type-safe database API for Scala"
+
+homepage := Some(url("http://scalaquery.org/"))
+
+startYear := Some(2008)
+
+licenses += ("Two-clause BSD-style license", url("http://github.com/szeiger/scala-query/blob/master/LICENSE.txt")) 
