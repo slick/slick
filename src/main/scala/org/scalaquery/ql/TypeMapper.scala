@@ -77,6 +77,10 @@ object TypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.longTypeMapperDelegate
   }
 
+  implicit object ShortTypeMapper extends BaseTypeMapper[Short] {
+    def apply(profile: BasicProfile) = profile.typeMapperDelegates.shortTypeMapperDelegate
+  }
+
   implicit object StringTypeMapper extends BaseTypeMapper[String] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.stringTypeMapperDelegate
   }

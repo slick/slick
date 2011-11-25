@@ -18,6 +18,7 @@ trait BasicTypeMapperDelegates {
   val floatTypeMapperDelegate = new FloatTypeMapperDelegate
   val intTypeMapperDelegate = new IntTypeMapperDelegate
   val longTypeMapperDelegate = new LongTypeMapperDelegate
+  val shortTypeMapperDelegate = new ShortTypeMapperDelegate
   val stringTypeMapperDelegate = new StringTypeMapperDelegate
   val timeTypeMapperDelegate = new TimeTypeMapperDelegate
   val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
@@ -121,6 +122,15 @@ object BasicTypeMapperDelegates {
     def setOption(v: Option[Long], p: PositionedParameters) = p.setLongOption(v)
     def nextValue(r: PositionedResult) = r.nextLong
     def updateValue(v: Long, r: PositionedResult) = r.updateLong(v)
+  }
+
+  class ShortTypeMapperDelegate extends TypeMapperDelegate[Short] {
+    def zero = 0
+    def sqlType = java.sql.Types.SMALLINT
+    def setValue(v: Short, p: PositionedParameters) = p.setShort(v)
+    def setOption(v: Option[Short], p: PositionedParameters) = p.setShortOption(v)
+    def nextValue(r: PositionedResult) = r.nextShort
+    def updateValue(v: Short, r: PositionedResult) = r.updateShort(v)
   }
 
   class StringTypeMapperDelegate extends TypeMapperDelegate[String] {
