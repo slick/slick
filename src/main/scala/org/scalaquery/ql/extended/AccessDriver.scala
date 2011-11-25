@@ -244,13 +244,32 @@ class AccessTypeMapperDelegates(retryCount: Int) extends BasicTypeMapperDelegate
   }
 
   // This is a nightmare... but it seems to work
-  class AccessUUIDTypeMapperDelegate extends BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+  class UUIDTypeMapperDelegate extends BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
     override def sqlType = java.sql.Types.BLOB
     override def sqlTypeName = "LONGBINARY"
     override def setOption(v: Option[UUID], p: PositionedParameters) =
       if(v == None) p.setString(null) else p.setBytes(toBytes(v.get))
     override def nextValueOrElse(d: =>UUID, r: PositionedResult) = { val v = nextValue(r); if(v.eq(null) || r.rs.wasNull) d else v }
     override def nextOption(r: PositionedResult): Option[UUID] = { val v = nextValue(r); if(v.eq(null) || r.rs.wasNull) None else Some(v) }
+  }
+
+  /* Access does not have a TINYINT (8-bit signed type), so we use 16-bit signed. */
+  class ByteTypeMapperDelegate extends BasicTypeMapperDelegates.ByteTypeMapperDelegate {
+    override def sqlTypeName = "BYTE"
+    override def setValue(v: Byte, p: PositionedParameters) = p.setShort(v)
+    override def setOption(v: Option[Byte], p: PositionedParameters) = p.setIntOption(v.map(_.toInt))
+    override def nextValue(r: PositionedResult) = r.nextInt.toByte
+    override def updateValue(v: Byte, r: PositionedResult) = r.updateInt(v)
+  }
+
+  class ShortTypeMapperDelegate extends BasicTypeMapperDelegates.ShortTypeMapperDelegate {
+    override def sqlTypeName = "INTEGER"
+  }
+
+  class LongTypeMapperDelegate extends BasicTypeMapperDelegates.LongTypeMapperDelegate {
+    override def sqlTypeName = "LONG"
+    override def setValue(v: Long, p: PositionedParameters) = p.setString(v.toString)
+    override def setOption(v: Option[Long], p: PositionedParameters) = p.setStringOption(v.map(_.toString))
   }
 
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate with Retry[Boolean]
@@ -264,9 +283,10 @@ class AccessTypeMapperDelegates(retryCount: Int) extends BasicTypeMapperDelegate
   override val floatTypeMapperDelegate = new FloatTypeMapperDelegate with Retry[Float]
   override val intTypeMapperDelegate = new IntTypeMapperDelegate with Retry[Int]
   override val longTypeMapperDelegate = new LongTypeMapperDelegate with Retry[Long]
+  override val shortTypeMapperDelegate = new ShortTypeMapperDelegate with Retry[Short]
   override val stringTypeMapperDelegate = new StringTypeMapperDelegate with Retry[String]
   override val timeTypeMapperDelegate = new TimeTypeMapperDelegate with Retry[Time]
   override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate with Retry[Timestamp]
   override val nullTypeMapperDelegate = new NullTypeMapperDelegate with Retry[Null]
-  override val uuidTypeMapperDelegate = new AccessUUIDTypeMapperDelegate with Retry[UUID]
+  override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate with Retry[UUID]
 }

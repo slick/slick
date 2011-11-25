@@ -5,7 +5,7 @@ import org.scalaquery.ql.basic._
 import org.scalaquery.util._
 import org.scalaquery.SQueryException
 import java.sql.{Timestamp, Time, Date}
-import org.scalaquery.session.{PositionedResult, ResultSetType}
+import org.scalaquery.session.{PositionedParameters, PositionedResult, ResultSetType}
 
 /**
  * ScalaQuery driver for Microsoft SQL Server.
@@ -45,6 +45,7 @@ object SQLServerDriver extends SQLServerDriver
 class SQLServerTypeMapperDelegates extends BasicTypeMapperDelegates {
   import SQLServerTypeMapperDelegates._
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
+  override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
   override val dateTypeMapperDelegate = new DateTypeMapperDelegate
   override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
   override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
@@ -70,6 +71,16 @@ object SQLServerTypeMapperDelegates {
      * want here is DATETIME. */
     override def sqlTypeName = "DATETIME"
     override def valueToSQLLiteral(value: Timestamp) = "{fn convert({ts '" + value + "'}, DATETIME)}"
+  }
+  /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
+   * The JDBC driver also does not treat signed values correctly when reading bytes from result
+   * sets, so we read as Short and then convert to Byte. */
+  class ByteTypeMapperDelegate extends BasicTypeMapperDelegates.ByteTypeMapperDelegate {
+    override def sqlTypeName = "SMALLINT"
+    //def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
+    //def setOption(v: Option[Byte], p: PositionedParameters) = p.setByteOption(v)
+    override def nextValue(r: PositionedResult) = r.nextShort.toByte
+    //def updateValue(v: Byte, r: PositionedResult) = r.updateByte(v)
   }
 }
 

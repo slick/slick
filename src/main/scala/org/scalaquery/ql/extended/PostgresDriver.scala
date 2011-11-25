@@ -34,6 +34,13 @@ class PostgresTypeMapperDelegates extends BasicTypeMapperDelegates {
     override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
     override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
   }
+
+  override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
+
+  /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
+  class ByteTypeMapperDelegate extends BasicTypeMapperDelegates.ByteTypeMapperDelegate {
+    override def sqlTypeName = "SMALLINT"
+  }
 }
 
 class PostgresQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: PostgresDriver)
