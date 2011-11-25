@@ -17,8 +17,7 @@ object ScalaQueryBuild extends Build {
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "ScalaQuery", "-doc-version", v)),
       parallelExecution in Test := false,
       logBuffered := false,
-      pomPostProcess := rewritePom,
-      pomExtra := pomExtraData
+      makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime))) }
   ))
 
   /* FMPP Task */
@@ -51,30 +50,4 @@ object ScalaQueryBuild extends Build {
       }
       cachedFun(inFiles).toSeq
     }
-
-  /* Clean up the POM */
-  def rewritePom(n: scala.xml.Node): scala.xml.Node = {
-    import scala.xml.{Node, _}
-    def tr(n: Node)(f: PartialFunction[Node, Seq[Node]]): Node = n match {
-      case e: Elem => e.copy(child = e.child.flatMap(f.orElse { case n: Node => n }))
-      case n => n
-    }
-    tr(n) {
-      case e @ <dependencies>{ _* }</dependencies> => tr(e) {
-        case d @ <dependency>{ _* }</dependency> if d.child contains <scope>test</scope> => NodeSeq.Empty
-      }
-    }
-  }
-  def pomExtraData =
-    <developers>
-      <developer>
-        <id>szeiger</id>
-        <name>Stefan Zeiger</name>
-        <timezone>+1</timezone>
-        <email>szeiger [at] novocode.com</email>
-      </developer>
-    </developers>
-    <scm>
-      <url>http://github.com/szeiger/scala-query/</url>
-    </scm>
 }

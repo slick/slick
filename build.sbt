@@ -37,3 +37,16 @@ homepage := Some(url("http://scalaquery.org/"))
 startYear := Some(2008)
 
 licenses += ("Two-clause BSD-style license", url("http://github.com/szeiger/scala-query/blob/master/LICENSE.txt")) 
+
+pomExtra :=
+  <developers>
+    <developer>
+      <id>szeiger</id>
+      <name>Stefan Zeiger</name>
+      <timezone>+1</timezone>
+      <email>szeiger [at] novocode.com</email>
+    </developer>
+  </developers>
+  <scm>
+    <url>http://github.com/szeiger/scala-query/</url>
+  </scm>
