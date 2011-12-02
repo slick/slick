@@ -1,8 +1,10 @@
 package org.scalaquery.ql.extended
 
+import java.util.UUID
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.util._
+import org.scalaquery.session.{PositionedResult, PositionedParameters}
 
 class PostgresDriver extends ExtendedProfile { self =>
 
@@ -24,6 +26,20 @@ object PostgresDriver extends PostgresDriver
 class PostgresTypeMapperDelegates extends BasicTypeMapperDelegates {
   override val byteArrayTypeMapperDelegate = new BasicTypeMapperDelegates.ByteArrayTypeMapperDelegate {
     override val sqlTypeName = "BYTEA"
+  }
+  override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
+    override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
+    override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
+    override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
+    override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
+  }
+
+  override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
+
+  /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
+  class ByteTypeMapperDelegate extends BasicTypeMapperDelegates.ByteTypeMapperDelegate {
+    override def sqlTypeName = "SMALLINT"
   }
 }
 

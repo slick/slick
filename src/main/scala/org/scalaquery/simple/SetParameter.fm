@@ -33,7 +33,17 @@ object SetParameter {
   implicit object SetTimeOption extends SetParameter[Option[Time]] { def apply(v: Option[Time], pp: PositionedParameters) { pp.setTimeOption(v) } }
   implicit object SetTimestampOption extends SetParameter[Option[Timestamp]] { def apply(v: Option[Timestamp], pp: PositionedParameters) { pp.setTimestampOption(v) } }
 
-  implicit object SetProduct extends SetParameter[Product] {
+<#list 2..22 as i>
+  implicit def createSetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: SetParameter[T${j}]<#if i != j>, </#if></#list>): SetParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new SetParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] {
+    def apply(param: (<#list 1..i as j>T${j}<#if i != j>, </#if></#list>), pp: PositionedParameters) {
+<#list 1..i as j>
+      c${j}(param._${j}, pp)
+</#list>
+    }
+  }
+</#list>
+
+  object SetSimpleProduct extends SetParameter[Product] {
     def apply(prod: Product, pp: PositionedParameters): Unit =
       for(i <- 0 until prod.productArity) prod.productElement(i) match {
         case v: Boolean => pp.setBoolean(v)

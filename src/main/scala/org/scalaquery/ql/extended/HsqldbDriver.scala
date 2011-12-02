@@ -42,6 +42,10 @@ class HsqldbTypeMapperDelegates extends BasicTypeMapperDelegates {
   override val byteArrayTypeMapperDelegate = new BasicTypeMapperDelegates.ByteArrayTypeMapperDelegate {
     override val sqlTypeName = "LONGVARBINARY"
   }
+  override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def sqlType = java.sql.Types.BINARY
+    override def sqlTypeName = "BINARY(16)"
+  }
 }
 
 class HsqldbDDLBuilder(table: AbstractBasicTable[_], profile: HsqldbDriver) extends BasicDDLBuilder(table, profile) {

@@ -45,6 +45,11 @@ class MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
       sb.toString
     }
   }
+
+  override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def sqlType = java.sql.Types.BINARY
+    override def sqlTypeName = "BINARY(16)"
+  }
 }
 
 class MySQLQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: MySQLDriver)

@@ -44,6 +44,11 @@ object DerbyDriver extends DerbyDriver
 class DerbyTypeMapperDelegates extends BasicTypeMapperDelegates {
   import DerbyTypeMapperDelegates._
   override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
+  override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
+  override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
+    override def sqlType = java.sql.Types.BINARY
+    override def sqlTypeName = "CHAR(16) FOR BIT DATA"
+  }
 }
 
 object DerbyTypeMapperDelegates {
@@ -52,6 +57,10 @@ object DerbyTypeMapperDelegates {
   class BooleanTypeMapperDelegate extends BasicTypeMapperDelegates.BooleanTypeMapperDelegate {
     override def sqlTypeName = "SMALLINT"
     override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+  }
+  /* Derby does not have a TINYINT type, so we use SMALLINT instead. */
+  class ByteTypeMapperDelegate extends BasicTypeMapperDelegates.ByteTypeMapperDelegate {
+    override def sqlTypeName = "SMALLINT"
   }
 }
 

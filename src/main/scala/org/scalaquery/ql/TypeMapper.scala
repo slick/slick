@@ -1,5 +1,6 @@
 package org.scalaquery.ql
 
+import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.BasicProfile
@@ -76,6 +77,10 @@ object TypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.longTypeMapperDelegate
   }
 
+  implicit object ShortTypeMapper extends BaseTypeMapper[Short] {
+    def apply(profile: BasicProfile) = profile.typeMapperDelegates.shortTypeMapperDelegate
+  }
+
   implicit object StringTypeMapper extends BaseTypeMapper[String] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.stringTypeMapperDelegate
   }
@@ -90,6 +95,14 @@ object TypeMapper {
 
   implicit object UnitTypeMapper extends BaseTypeMapper[Unit] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.unitTypeMapperDelegate
+  }
+
+  implicit object UUIDTypeMapper extends BaseTypeMapper[UUID] {
+    def apply(profile: BasicProfile) = profile.typeMapperDelegates.uuidTypeMapperDelegate
+  }
+
+  implicit object BigDecimalTypeMapper extends BaseTypeMapper[BigDecimal] {
+    def apply(profile: BasicProfile) = profile.typeMapperDelegates.bigDecimalTypeMapperDelegate
   }
 
   object NullTypeMapper extends BaseTypeMapper[Null] {
@@ -142,9 +155,9 @@ trait TypeMapperDelegate[T] { self =>
    * Update a column of the type in a mutable result set.
    */
   def updateValue(v: T, r: PositionedResult): Unit
-  final def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs wasNull) d else v }
-  final def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs wasNull) None else Some(v) }
-  final def updateOption(v: Option[T], r: PositionedResult): Unit = v match {
+  def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs wasNull) d else v }
+  def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs wasNull) None else Some(v) }
+  def updateOption(v: Option[T], r: PositionedResult): Unit = v match {
     case Some(s) => updateValue(s, r)
     case None => r.updateNull()
   }
