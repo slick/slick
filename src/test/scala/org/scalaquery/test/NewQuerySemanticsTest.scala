@@ -70,9 +70,9 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     //println("l3: "+l3)
 
     val q2 = for {
-      c <- Coffees if c.price < 9.0
-      s <- Suppliers if s.id === c.supID
-    } yield c.name ~ s.name
+      c <- Coffees.filter(_.price < 9.0).map(_.*)
+      s <- Suppliers if s.id === c._2
+    } yield c._1 ~ s.name
     q2.dump("q2: ")
 
     val q3 = Coffees.flatMap { c =>

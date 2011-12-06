@@ -8,13 +8,14 @@ import org.scalaquery.util.{Node, WithOp}
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[Column[_]],
-                val modifiers: List[QueryModifier]) extends Node {
+abstract class Query[+E, +U]() extends Node {
 
+  def unpackable: Unpackable[_ <: E, _ <: U]
   lazy val reified = unpackable.reifiedNode
   lazy val linearizer = unpackable.linearizer
 
-  def nodeChildren = reified :: cond
+  def nodeChildren = Node(reified) :: Nil
+  override def isNamedTable = true
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = new Bind[F, T](f(unpackable.value), this)
 
@@ -38,17 +39,9 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[C
   def exists = StdFunction[Boolean]("exists", map(_ => ConstColumn(1)))
   */
 
-  def typedModifiers[T <: QueryModifier](implicit m: ClassManifest[T]) =
-    modifiers.filter(m.erasure.isInstance(_)).asInstanceOf[List[T]]
-
-  def createOrReplaceSingularModifier[T <: QueryModifier](f: Option[T] => T)(implicit m: Manifest[T]): Query[E, U] = {
-    val (xs, other) = modifiers.partition(m.erasure.isInstance(_))
-    val mod = xs match {
-      case x :: _ => f(Some(x.asInstanceOf[T]))
-      case _ => f(None)
-    }
-    new Query[E, U](unpackable, cond, mod :: other)
-  }
+  def cond: List[Column[_]] = Nil //--
+  def modifiers: List[QueryModifier] = Nil //--
+  def typedModifiers[T <: QueryModifier]: List[T] = Nil //--
 
   /*
   // Unpackable queries only
@@ -86,11 +79,14 @@ class Query[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U], val cond: List[C
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E = unpackable.value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
   */
+
 }
 
-object Query extends Pure[Unit, Unit](Unpackable((), Unpack.unpackPrimitive[Unit])) {
-  def apply[E, U](value: E)(implicit unpack: Unpack[E, U]) = new Pure[E, U](Unpackable(value, unpack))
-  def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]) = new Pure[E, U](unpackable)
+object Query extends PureNoAlias[Unit, Unit](Unpackable((), Unpack.unpackPrimitive[Unit])) {
+  def apply[E, U](value: E)(implicit unpack: Unpack[E, U]) = apply[E, U](Unpackable(value, unpack))
+  def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
+    if(unpackable.reifiedNode.isNamedTable) new PureNoAlias[E, U](unpackable)
+    else new Pure[E, U](unpackable)
 }
 
 trait CanBeQueryCondition[-T] {
@@ -110,14 +106,14 @@ object CanBeQueryCondition {
 }
 
 case class Subquery(query: Node, rename: Boolean) extends Node {
-  def nodeChildren = query :: Nil
-  override def nodeNamedChildren = (query, "query") :: Nil
+  def nodeChildren = Node(query) :: Nil
+  override def nodeNamedChildren = (Node(query), "query") :: Nil
   override def isNamedTable = true
 }
 
 case class SubqueryColumn(pos: Int, subquery: Subquery, typeMapper: TypeMapper[_]) extends Node {
-  def nodeChildren = subquery :: Nil
-  override def nodeNamedChildren = (subquery, "subquery") :: Nil
+  def nodeChildren = Node(subquery) :: Nil
+  override def nodeNamedChildren = (Node(subquery), "subquery") :: Nil
   override def toString = "SubqueryColumn c"+pos
 }
 
@@ -126,24 +122,41 @@ case class Union(all: Boolean, queries: List[Query[_, _]]) extends Node {
   def nodeChildren = queries
 }
 
-class Pure[+E, +U](_unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U](_unpackable, Nil, Nil) {
+class PureNoAlias[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
+  override def nodeDelegate = reified
+  override def isNamedTable = false
+}
+
+class Pure[+E, +U](val _unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
+  val unpackable = _unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   override def toString = "Pure"
-  override def nodeChildren = List(reified)
-  override def nodeNamedChildren = (reified, "value") :: Nil
+  override def nodeChildren = List(Node(_unpackable.reifiedNode))
+  override def nodeNamedChildren = (Node(_unpackable.reifiedNode), "value") :: Nil
 }
 
-class Filter[+E, +U](val from: Query[_,_], base: Unpackable[_ <: E, _ <: U], _cond: Column[_]) extends Query[E, U](null, List(_cond), Nil) {
-  override val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
-  override def toString = "Filter"
-  override def nodeChildren = from :: cond
-  override def nodeNamedChildren = (from, "from") :: cond.map(n => (Node(n), "where"))
-  override def isNamedTable = true
+class FilteredQuery[+E, +U](val from: Query[_,_], base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
+  val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
+  override def toString = "FilteredQuery:" + getClass.getName.replaceAll(".*\\.", "")
+  override def nodeChildren: List[Node] = Node(from) :: Nil
+  override def nodeNamedChildren: List[(Node, String)] = (Node(from), "from") :: Nil
 }
 
-class Bind[+E, +U](sub: Query[E, U], val from: Query[_,_]) extends Query[E, U](sub.unpackable, Nil, Nil) {
+class GroupBy[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], groupBy: Column[_]) extends FilteredQuery[E, U](_from, _base) {
+  override def nodeChildren = super.nodeChildren :+ Node(groupBy)
+  override def nodeNamedChildren = super.nodeNamedChildren :+ (Node(groupBy), "groupBy")
+}
+
+class Filter[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], _cond: Column[_]) extends FilteredQuery[E, U](_from, _base) {
+  override def cond: List[Column[_]] = List(_cond)
+  override def nodeChildren = super.nodeChildren ++ cond.map(Node.apply)
+  override def nodeNamedChildren = super.nodeNamedChildren ++ cond.map(n => (Node(n), "where"))
+}
+
+class Bind[+E, +U](select: Query[E, U], val from: Query[_,_]) extends Query[E, U] {
+  val unpackable = select.unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   override def toString = "Bind"
-  override def nodeChildren = sub :: from :: cond.map(Node.apply)
-  override def nodeNamedChildren = (from, "from") :: (sub, "select") :: cond.map(n => (Node(n), "where"))
+  override def nodeChildren = Node(from) :: Node(select) :: Nil
+  override def nodeNamedChildren = (Node(from), "from") :: (Node(select), "select") :: Nil
 }
 
 case class Wrapped(what: Node, in: Node) extends Node {
