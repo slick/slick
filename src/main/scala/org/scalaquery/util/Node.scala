@@ -30,6 +30,14 @@ trait Node {
     dump(new Node.DumpContext(out, nc), "", name)
     out.flush()
   }
+
+  override def toString = this match {
+    case p: Product =>
+      val n = getClass.getName.replaceFirst(".*\\.", "").replaceFirst(".*\\$", "")
+      val args = p.productIterator.filterNot(_.isInstanceOf[Node]).mkString(", ")
+      if(args isEmpty) n else (n + ' ' + args)
+    case _ => super.toString
+  }
 }
 
 object Node {
@@ -50,7 +58,7 @@ trait ProductNode extends Node {
     ( for(i <- 0 until product.productArity)
         yield Node(product.productElement(i)) ).toList
 
-  override def toString = "ProductNode "+product
+  override def toString = "ProductNode"
 }
 
 trait BinaryNode extends Node {
