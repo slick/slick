@@ -19,21 +19,20 @@ trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicIm
 class ExtendedQueryOps[E, U](q: Query[E, U]) {
   import ExtendedQueryOps._
 
-  def take(num: Int) = q.createOrReplaceSingularModifier[TakeDrop] {
-    case Some(TakeDrop(Some(t), d)) => TakeDrop(Some(min(t, num)), d)
-    case Some(TakeDrop(None, d)) => TakeDrop(Some(num), d)
-    case _ => TakeDrop(Some(num), None)
-  }
-  def drop(num: Int) = q.createOrReplaceSingularModifier[TakeDrop] {
-    case Some(TakeDrop(Some(t), None)) => TakeDrop(Some(max(0, t-num)), Some(num))
-    case Some(TakeDrop(None, Some(d))) => TakeDrop(None, Some(d+num))
-    case Some(TakeDrop(Some(t), Some(d))) => TakeDrop(Some(max(0, t-num)), Some(d+num))
-    case _ => TakeDrop(None, Some(num))
-  }
+  def take(num: Int) = new Take[E, U](q, q.unpackable, num)
+  def drop(num: Int) = new Drop[E, U](q, q.unpackable, num)
 }
 
 object ExtendedQueryOps {
   final case class TakeDrop(take: Option[Int], drop: Option[Int]) extends QueryModifier with NullaryNode
+
+  class Take[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], val num: Int) extends FilteredQuery[E, U](_from, _base) {
+    override def toString = "Take " + num
+  }
+
+  class Drop[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], val num: Int) extends FilteredQuery[E, U](_from, _base) {
+    override def toString = "Take " + num
+  }
 }
 
 class ExtendedColumnOptions extends BasicColumnOptions {

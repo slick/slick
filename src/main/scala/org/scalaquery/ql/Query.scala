@@ -14,7 +14,7 @@ abstract class Query[+E, +U]() extends Node {
   lazy val reified = unpackable.reifiedNode
   lazy val linearizer = unpackable.linearizer
 
-  def nodeChildren = Node(reified) :: Nil
+  protected[this] def nodeChildGenerators = Seq[Any](reified)
   override def isNamedTable = true
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = new Bind[F, T](f(unpackable.value), this)
@@ -106,20 +106,20 @@ object CanBeQueryCondition {
 }
 
 case class Subquery(query: Node, rename: Boolean) extends Node {
-  def nodeChildren = Node(query) :: Nil
-  override def nodeNamedChildren = (Node(query), "query") :: Nil
+  protected[this] override def nodeChildGenerators = Seq(query)
+  protected[this] override def nodeChildNames = Seq("query")
   override def isNamedTable = true
 }
 
 case class SubqueryColumn(pos: Int, subquery: Subquery, typeMapper: TypeMapper[_]) extends Node {
-  def nodeChildren = Node(subquery) :: Nil
-  override def nodeNamedChildren = (Node(subquery), "subquery") :: Nil
+  protected[this] override def nodeChildGenerators = Seq(subquery)
+  protected[this] override def nodeChildNames = Seq("subquery")
   override def toString = "SubqueryColumn c"+pos
 }
 
 case class Union(all: Boolean, queries: List[Query[_, _]]) extends Node {
   override def toString = if(all) "Union all" else "Union"
-  def nodeChildren = queries
+  protected[this] def nodeChildGenerators = queries
 }
 
 class PureNoAlias[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
@@ -130,36 +130,36 @@ class PureNoAlias[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U]) extends Qu
 class Pure[+E, +U](val _unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
   val unpackable = _unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   override def toString = "Pure"
-  override def nodeChildren = List(Node(_unpackable.reifiedNode))
-  override def nodeNamedChildren = (Node(_unpackable.reifiedNode), "value") :: Nil
+  protected[this] override def nodeChildGenerators = Seq(_unpackable.reifiedNode)
+  protected[this] override def nodeChildNames = Seq("value")
 }
 
 class FilteredQuery[+E, +U](val from: Query[_,_], base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
   val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   override def toString = "FilteredQuery:" + getClass.getName.replaceAll(".*\\.", "")
-  override def nodeChildren: List[Node] = Node(from) :: Nil
-  override def nodeNamedChildren: List[(Node, String)] = (Node(from), "from") :: Nil
+  protected[this] override def nodeChildGenerators = Seq[Any](from)
+  protected[this] override def nodeChildNames = Seq("from")
 }
 
 class GroupBy[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], groupBy: Column[_]) extends FilteredQuery[E, U](_from, _base) {
-  override def nodeChildren = super.nodeChildren :+ Node(groupBy)
-  override def nodeNamedChildren = super.nodeNamedChildren :+ (Node(groupBy), "groupBy")
+  protected[this] override def nodeChildGenerators = super.nodeChildGenerators :+ groupBy
+  protected[this] override def nodeChildNames = super.nodeChildNames :+ "groupBy"
 }
 
 class Filter[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], _cond: Column[_]) extends FilteredQuery[E, U](_from, _base) {
   override def cond: List[Column[_]] = List(_cond)
-  override def nodeChildren = super.nodeChildren ++ cond.map(Node.apply)
-  override def nodeNamedChildren = super.nodeNamedChildren ++ cond.map(n => (Node(n), "where"))
+  protected[this] override def nodeChildGenerators = super.nodeChildGenerators ++ cond
+  protected[this] override def nodeChildNames = super.nodeChildNames ++ cond.map(_ => "where")
 }
 
 class Bind[+E, +U](select: Query[E, U], val from: Query[_,_]) extends Query[E, U] {
   val unpackable = select.unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   override def toString = "Bind"
-  override def nodeChildren = Node(from) :: Node(select) :: Nil
-  override def nodeNamedChildren = (Node(from), "from") :: (Node(select), "select") :: Nil
+  protected[this] override def nodeChildGenerators = Seq(from, select)
+  protected[this] override def nodeChildNames = Seq("from", "select")
 }
 
 case class Wrapped(what: Node, in: Node) extends Node {
-  def nodeChildren = what :: in :: Nil
-  override def nodeNamedChildren = (what, "what") :: (in, "in") :: Nil
+  protected[this] def nodeChildGenerators = Seq(what, in)
+  protected[this] override def nodeChildNames = Seq("what", "in")
 }

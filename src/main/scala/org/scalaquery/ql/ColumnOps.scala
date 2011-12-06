@@ -121,7 +121,7 @@ object ColumnOps {
   case class InSet[T](child: Node, seq: Traversable[T], tm: TypeMapper[T], bind: Boolean) extends OperatorColumn[Boolean] with UnaryNode
 
   case class Between(left: Node, start: Node, end: Node) extends OperatorColumn[Boolean] {
-    def nodeChildren = left :: start :: end :: Nil
+    protected[this] def nodeChildGenerators = Seq(left, start, end)
   }
 
   case class AsColumnOf[T : TypeMapper](child: Node, typeName: Option[String]) extends Column[T] with UnaryNode

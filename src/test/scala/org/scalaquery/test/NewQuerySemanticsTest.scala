@@ -61,7 +61,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     assertEquals(15, l2.length)
 
     val q1 = for {
-      c <- Coffees
+      c <- Query(Coffees).take(3)
       s <- Suppliers
     } yield c.name ~ s.name
     q1.dump("q1: ")

@@ -12,7 +12,7 @@ sealed trait TableBase[T] extends Node with WithOp {
 abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableBase[T] with ColumnBase[T] {
 
   final type TableType = T
-  def nodeChildren = Nil
+  protected[this] def nodeChildGenerators = Seq.empty
   override def toString = "Table " + tableName
 
   def * : ColumnBase[T]
@@ -78,8 +78,7 @@ object AbstractTable {
 }
 
 final class JoinBase[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right: T2, joinType: Join.JoinType) {
-  def nodeChildren = Node(_left) :: Node(_right) :: Nil
-  override def toString = "JoinBase(" + Node(_left) + "," + Node(_right) + ")"
+  protected[this] def nodeChildGenerators = Seq(_left, _right)
   def on[T <: Column[_] : CanBeQueryCondition](pred: (T1, T2) => T) = new Join(_left, _right, joinType, Node(pred(_left, _right)))
 }
 
@@ -90,8 +89,7 @@ final class Join[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right
   def right = _right.mapOp(n => Join.JoinPart(Node(n), Node(this)))
   def leftNode = Node(_left)
   def rightNode = Node(_right)
-  def nodeChildren = leftNode :: rightNode :: Nil
-  override def toString = "Join(" + Node(_left) + "," + Node(_right) + ")"
+  protected[this] def nodeChildGenerators = Seq(leftNode, rightNode)
 }
 
 object Join {
@@ -99,7 +97,7 @@ object Join {
 
   final case class JoinPart(left: Node, right: Node) extends BinaryNode {
     override def toString = "JoinPart"
-    override def nodeNamedChildren = (left, "table") :: (right, "from") :: Nil
+    protected[this] override def nodeChildNames = Seq("table", "from")
   }
 
   abstract class JoinType(val sqlName: String)

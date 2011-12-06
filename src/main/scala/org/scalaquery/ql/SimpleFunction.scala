@@ -19,7 +19,7 @@ object SimpleFunction {
       new OperatorColumn[T] with SimpleFunction {
         val name = fname
         override val scalar = fn
-        def nodeChildren = paramsC.map(n => Node(n)).toList
+        protected[this] def nodeChildGenerators = paramsC
       }
   def nullary[R : TypeMapper](fname: String, fn: Boolean = false): OperatorColumn[R] with SimpleFunction =
     apply(fname, fn).apply(Seq())
@@ -38,11 +38,11 @@ object SimpleFunction {
 }
 
 case class StdFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
-  val nodeChildren = children.toList
+  protected[this] def nodeChildGenerators = children
 }
 
 case class EscFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
-  val nodeChildren = children.toList
+  protected[this] def nodeChildGenerators = children
   override val scalar = true
 }
 
@@ -61,7 +61,7 @@ object SimpleBinaryOperator {
 }
 
 case class SimpleLiteral(name: String) extends Node {
-  val nodeChildren = Nil
+  protected[this] def nodeChildGenerators = Seq.empty
 }
 
 trait SimpleExpression extends Node {
@@ -72,8 +72,8 @@ object SimpleExpression {
   def apply[T : TypeMapper](f: (Seq[Node], SQLBuilder, BasicQueryBuilder) => Unit): (Seq[Column[_]] => OperatorColumn[T] with SimpleExpression) =
     (paramsC: Seq[Column[_]]) =>
       new OperatorColumn[T] with SimpleExpression {
-        def nodeChildren = paramsC.map(n => Node(n)).toList
-        def toSQL(b: SQLBuilder, qb: BasicQueryBuilder) = f(nodeChildren, b, qb)
+        protected[this] def nodeChildGenerators = paramsC
+        def toSQL(b: SQLBuilder, qb: BasicQueryBuilder) = f(nodeChildren.toSeq, b, qb)
       }
 
   def nullary[R : TypeMapper](f: (SQLBuilder, BasicQueryBuilder) => Unit): OperatorColumn[R] with SimpleExpression = {

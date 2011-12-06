@@ -7,7 +7,7 @@ object Case {
   class WhenNode(val left: Node, val right: Node) extends BinaryNode
 
   abstract class CaseColumn[T : TypeMapper](val clauses: List[WhenNode], val elseClause: Node) extends Column[T] {
-    def nodeChildren = elseClause :: clauses
+    protected[this] def nodeChildGenerators = elseClause +: clauses
   }
 
   def when[C <: Column[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(Node(cond))

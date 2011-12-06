@@ -7,7 +7,7 @@ trait QueryModifier extends Node
 sealed abstract class Ordering extends QueryModifier {
   val by: Node
   val nullOrdering: Ordering.NullOrdering
-  def nodeChildren = by :: Nil
+  protected[this] def nodeChildGenerators = Seq(by)
   def nullsFirst: Ordering
   def nullsLast: Ordering
 }
@@ -32,6 +32,6 @@ object Ordering {
 }
 
 final case class Grouping(val by: Node) extends QueryModifier {
-  def nodeChildren = by :: Nil
+  protected[this] def nodeChildGenerators = Seq(by)
   override def toString = "Grouping"
 }

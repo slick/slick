@@ -4,15 +4,21 @@ import java.io.{PrintWriter, OutputStreamWriter}
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.ConstColumn
 
+trait NodeGenerator {
+  def nodeDelegate: Node
+}
+
 /**
  * A node in the query AST
  */
-trait Node {
-  def nodeChildren: List[Node]
+trait Node extends NodeGenerator {
+  protected[this] def nodeChildGenerators: Iterable[Any]
+  protected[this] def nodeChildNames: Iterable[String] = Stream.from(0).map(_.toString)
+
+  final def nodeChildren = nodeChildGenerators.map(Node.apply _)
+
   def nodeDelegate: Node = this
   def isNamedTable = false
-
-  def nodeNamedChildren: Seq[(Node, String)] = nodeChildren.toStream.zip(Stream.from(0).map(_.toString))
 
   def dump(dc: Node.DumpContext, prefix: String, name: String) {
     val (tname, details) = if(isNamedTable) {
@@ -21,8 +27,8 @@ trait Node {
     } else ("", true)
     dc.out.println(prefix + name + tname + (if(details) this else "..."))
     if(details)
-      for((ch, n) <- nodeNamedChildren)
-        ch.dump(dc, prefix + "  ", n+": ")
+      for((chg, n) <- nodeChildGenerators.zip(nodeChildNames))
+        Node(chg).dump(dc, prefix + "  ", n+": ")
   }
 
   final def dump(name: String, nc: NamingContext = NamingContext()) {
@@ -43,7 +49,7 @@ trait Node {
 object Node {
   def apply(o:Any): Node = o match {
     case null => ConstColumn.NULL
-    case n:Node => n.nodeDelegate
+    case n:NodeGenerator => n.nodeDelegate
     case p:Product => new ProductNode { val product = p }
     case r:AnyRef => throw new SQueryException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(r)+" to a Node")
     case _ => throw new SQueryException("Cannot narrow "+o+" to a Node")
@@ -54,24 +60,21 @@ object Node {
 
 trait ProductNode extends Node {
   val product: Product
-  lazy val nodeChildren =
-    ( for(i <- 0 until product.productArity)
-        yield Node(product.productElement(i)) ).toList
-
+  lazy val nodeChildGenerators = product.productIterator.toSeq
   override def toString = "ProductNode"
 }
 
 trait BinaryNode extends Node {
   val left: Node
   val right: Node
-  def nodeChildren = left :: right :: Nil
+  protected[this] def nodeChildGenerators = Seq(left, right)
 }
 
 trait UnaryNode extends Node {
   val child: Node
-  def nodeChildren = child :: Nil
+  protected[this] def nodeChildGenerators = Seq(child)
 }
 
 trait NullaryNode extends Node {
-  def nodeChildren = Nil
+  protected[this] def nodeChildGenerators = Nil
 }
