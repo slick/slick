@@ -1,26 +1,29 @@
 package org.scalaquery.ql
 
 import org.scalaquery.ql.basic.BasicQueryBuilder
-import org.scalaquery.util.{SQLBuilder, Node, BinaryNode}
+import org.scalaquery.util._
 
 /**
  * A SimpleFunction gets translated to a plain function call or JDBC/ODBC
  * scalar function {fn ...} call in SQL.
  */
-trait SimpleFunction extends Node {
+trait SimpleFunction extends SimpleNode {
   val name: String
   val scalar = false
   override def toString = "SimpleFunction(" + name + ", " + scalar + ")"
 }
 
 object SimpleFunction {
-  def apply[T : TypeMapper](fname: String, fn: Boolean = false): (Seq[Column[_]] => OperatorColumn[T] with SimpleFunction) =
-    (paramsC: Seq[Column[_]]) =>
+  def apply[T : TypeMapper](fname: String, fn: Boolean = false): (Seq[Column[_]] => OperatorColumn[T] with SimpleFunction) = {
+    lazy val builder: (Seq[NodeGenerator] => OperatorColumn[T] with SimpleFunction) = paramsC =>
       new OperatorColumn[T] with SimpleFunction {
         val name = fname
         override val scalar = fn
         protected[this] def nodeChildGenerators = paramsC
+        protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)
       }
+    builder
+  }
   def nullary[R : TypeMapper](fname: String, fn: Boolean = false): OperatorColumn[R] with SimpleFunction =
     apply(fname, fn).apply(Seq())
   def unary[T1, R : TypeMapper](fname: String, fn: Boolean = false): (Column[T1] => OperatorColumn[R] with SimpleFunction) = {
@@ -39,11 +42,13 @@ object SimpleFunction {
 
 case class StdFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
   protected[this] def nodeChildGenerators = children
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = StdFunction(name, ch: _*)
 }
 
 case class EscFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
   protected[this] def nodeChildGenerators = children
   override val scalar = true
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = EscFunction(name, ch: _*)
 }
 
 trait SimpleBinaryOperator extends BinaryNode {
@@ -51,30 +56,34 @@ trait SimpleBinaryOperator extends BinaryNode {
 }
 
 object SimpleBinaryOperator {
-  def apply[T : TypeMapper](fname: String): ((Column[_], Column[_]) => OperatorColumn[T] with SimpleBinaryOperator) =
-    (leftC: Column[_], rightC: Column[_]) =>
+  def apply[T : TypeMapper](fname: String): ((Column[_], Column[_]) => OperatorColumn[T] with SimpleBinaryOperator) = {
+    lazy val builder: ((NodeGenerator, NodeGenerator) => OperatorColumn[T] with SimpleBinaryOperator) = (leftC, rightC) =>
       new OperatorColumn[T] with SimpleBinaryOperator {
         val name = fname
         val left = Node(leftC)
         val right = Node(rightC)
+        protected[this] def nodeRebuild(left: Node, right: Node): Node = builder(left, right)
       }
+    builder
+  }
 }
 
-case class SimpleLiteral(name: String) extends Node {
-  protected[this] def nodeChildGenerators = Seq.empty
-}
+case class SimpleLiteral(name: String) extends NullaryNode
 
-trait SimpleExpression extends Node {
+trait SimpleExpression extends SimpleNode {
   def toSQL(b: SQLBuilder, qb: BasicQueryBuilder): Unit
 }
 
 object SimpleExpression {
-  def apply[T : TypeMapper](f: (Seq[Node], SQLBuilder, BasicQueryBuilder) => Unit): (Seq[Column[_]] => OperatorColumn[T] with SimpleExpression) =
-    (paramsC: Seq[Column[_]]) =>
+  def apply[T : TypeMapper](f: (Seq[Node], SQLBuilder, BasicQueryBuilder) => Unit): (Seq[Column[_]] => OperatorColumn[T] with SimpleExpression) = {
+    lazy val builder: (Seq[NodeGenerator] => OperatorColumn[T] with SimpleExpression) = paramsC =>
       new OperatorColumn[T] with SimpleExpression {
-        protected[this] def nodeChildGenerators = paramsC
         def toSQL(b: SQLBuilder, qb: BasicQueryBuilder) = f(nodeChildren.toSeq, b, qb)
+        protected[this] def nodeChildGenerators = paramsC
+        protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)
       }
+    builder
+  }
 
   def nullary[R : TypeMapper](f: (SQLBuilder, BasicQueryBuilder) => Unit): OperatorColumn[R] with SimpleExpression = {
     val g = apply({ (ch: Seq[Node], b: SQLBuilder, qb: BasicQueryBuilder) => f(b, qb) });

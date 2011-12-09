@@ -2,29 +2,29 @@ package org.scalaquery.ql
 
 import scala.reflect.Manifest
 import org.scalaquery.SQueryException
-import org.scalaquery.util.{Node, WithOp}
+import org.scalaquery.util._
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, +U]() extends Node {
+abstract class Query[+E, +U]() extends NodeGenerator {
 
   def unpackable: Unpackable[_ <: E, _ <: U]
   lazy val reified = unpackable.reifiedNode
   lazy val linearizer = unpackable.linearizer
 
-  protected[this] def nodeChildGenerators = Seq[Any](reified)
-  override def isNamedTable = true
-
-  def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = new Bind[F, T](f(unpackable.value), this)
+  def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
+    val fv = f(unpackable.value)
+    new Bind[F, T](Node(this), Node(fv))(fv)
+  }
 
   def map[F, T](f: E => F)(implicit unpack: Unpack[F, T]): Query[F, T] = flatMap(v => Query(f(v)))
 
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
 
   def filter[T, R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]): Query[R, U] =
-    new Filter[R, U](this, unpackable.reifiedUnpackable(reify), wt(f(unpackable.value)))
+    new Filter[R, U](Node(this), unpackable.reifiedUnpackable(reify), Node(wt(f(unpackable.value))))
 
   def withFilter[T, R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]) = filter(f)(wt, reify)
 
@@ -39,7 +39,7 @@ abstract class Query[+E, +U]() extends Node {
   def exists = StdFunction[Boolean]("exists", map(_ => ConstColumn(1)))
   */
 
-  def cond: List[Column[_]] = Nil //--
+  def cond: Seq[NodeGenerator] = Nil //--
   def modifiers: List[QueryModifier] = Nil //--
   def typedModifiers[T <: QueryModifier]: List[T] = Nil //--
 
@@ -86,7 +86,7 @@ object Query extends PureNoAlias[Unit, Unit](Unpackable((), Unpack.unpackPrimiti
   def apply[E, U](value: E)(implicit unpack: Unpack[E, U]) = apply[E, U](Unpackable(value, unpack))
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
     if(unpackable.reifiedNode.isNamedTable) new PureNoAlias[E, U](unpackable)
-    else new Pure[E, U](unpackable)
+    else new Pure[E, U](unpackable.reifiedNode)(unpackable)
 }
 
 trait CanBeQueryCondition[-T] {
@@ -105,61 +105,70 @@ object CanBeQueryCondition {
   }
 }
 
-case class Subquery(query: Node, rename: Boolean) extends Node {
-  protected[this] override def nodeChildGenerators = Seq(query)
+final case class Subquery(query: Node, rename: Boolean) extends UnaryNode {
+  val child = Node(query)
   protected[this] override def nodeChildNames = Seq("query")
+  protected[this] def nodeRebuild(child: Node): Node = copy(query = child)
   override def isNamedTable = true
 }
 
-case class SubqueryColumn(pos: Int, subquery: Subquery, typeMapper: TypeMapper[_]) extends Node {
-  protected[this] override def nodeChildGenerators = Seq(subquery)
+final case class SubqueryColumn(pos: Int, subquery: Node, typeMapper: TypeMapper[_]) extends UnaryNode {
+  val child = Node(subquery)
   protected[this] override def nodeChildNames = Seq("subquery")
+  protected[this] def nodeRebuild(child: Node): Node = copy(subquery = child)
   override def toString = "SubqueryColumn c"+pos
 }
 
-case class Union(all: Boolean, queries: List[Query[_, _]]) extends Node {
-  override def toString = if(all) "Union all" else "Union"
+final case class Union(all: Boolean, queries: IndexedSeq[Node]) extends SimpleNode {
   protected[this] def nodeChildGenerators = queries
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy(queries = ch)
+  override def toString = if(all) "Union all" else "Union"
 }
 
 class PureNoAlias[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
   override def nodeDelegate = reified
-  override def isNamedTable = false
 }
 
-class Pure[+E, +U](val _unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
+final case class Pure[+E, +U](value: Node)(_unpackable: Unpackable[_ <: E, _ <: U]) extends Query[E, U] with UnaryNode {
+  def child = value
   val unpackable = _unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
-  override def toString = "Pure"
-  protected[this] override def nodeChildGenerators = Seq(_unpackable.reifiedNode)
   protected[this] override def nodeChildNames = Seq("value")
+  protected[this] def nodeRebuild(child: Node): Node = copy[E, U](value = child)()
+  override def isNamedTable = true
 }
 
-class FilteredQuery[+E, +U](val from: Query[_,_], base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
-  val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
+abstract class FilteredQuery[+E, +U] extends Query[E, U] with Node {
+  def base: Unpackable[_ <: E, _ <: U]
+  lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   override def toString = "FilteredQuery:" + getClass.getName.replaceAll(".*\\.", "")
-  protected[this] override def nodeChildGenerators = Seq[Any](from)
-  protected[this] override def nodeChildNames = Seq("from")
+  override def isNamedTable = true
 }
 
-class GroupBy[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], groupBy: Column[_]) extends FilteredQuery[E, U](_from, _base) {
-  protected[this] override def nodeChildGenerators = super.nodeChildGenerators :+ groupBy
-  protected[this] override def nodeChildNames = super.nodeChildNames :+ "groupBy"
+final case class GroupBy[+E, +U](from: Node, base: Unpackable[_ <: E, _ <: U], groupBy: Node) extends FilteredQuery[E, U] with BinaryNode {
+  def left = from
+  def right = groupBy
+  protected[this] override def nodeChildNames = Seq("from", "groupBy")
+  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, groupBy = right)
 }
 
-class Filter[+E, +U](_from: Query[_,_], _base: Unpackable[_ <: E, _ <: U], _cond: Column[_]) extends FilteredQuery[E, U](_from, _base) {
-  override def cond: List[Column[_]] = List(_cond)
-  protected[this] override def nodeChildGenerators = super.nodeChildGenerators ++ cond
-  protected[this] override def nodeChildNames = super.nodeChildNames ++ cond.map(_ => "where")
+final case class Filter[+E, +U](from: Node, base: Unpackable[_ <: E, _ <: U], where: Node) extends FilteredQuery[E, U] with BinaryNode {
+  def left = from
+  def right = where
+  protected[this] override def nodeChildNames = Seq("from", "where")
+  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, where = right)
 }
 
-class Bind[+E, +U](select: Query[E, U], val from: Query[_,_]) extends Query[E, U] {
-  val unpackable = select.unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
-  override def toString = "Bind"
-  protected[this] override def nodeChildGenerators = Seq(from, select)
+final case class Bind[+E, +U](from: Node, select: Node)(selectQ: Query[E, U]) extends Query[E, U] with BinaryNode {
+  def left = from
+  def right = select
+  val unpackable = selectQ.unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   protected[this] override def nodeChildNames = Seq("from", "select")
+  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, select = right)()
+  override def isNamedTable = true
 }
 
-case class Wrapped(what: Node, in: Node) extends Node {
+final case class Wrapped(what: Node, in: Node) extends SimpleNode {
   protected[this] def nodeChildGenerators = Seq(what, in)
   protected[this] override def nodeChildNames = Seq("what", "in")
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy(what = ch(0), in = ch(1))
 }

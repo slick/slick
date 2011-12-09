@@ -140,7 +140,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
      * column names. */
     case Subquery(Union(all, sqs), rename) =>
       b += "("
-      b.sep(sqs, (if(all) " UNION ALL " else " UNION "))(sq => subQueryBuilderFor(sq).innerBuildSelect(b, rename))
+      b.sep(sqs, (if(all) " UNION ALL " else " UNION "))(sq => subQueryBuilderFor(sq.asInstanceOf[Query[_,_]]).innerBuildSelect(b, rename))
       b += ") " += quoteIdentifier(name)
     case _ => super.table(t, name, b)
   }

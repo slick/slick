@@ -1,7 +1,7 @@
 package org.scalaquery.ql
 
 import org.scalaquery.SQueryException
-import org.scalaquery.ql.basic.{BasicProfile, BasicQueryTemplate, BasicDriver}
+import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.util.{Node, UnaryNode, BinaryNode, WithOp}
 
@@ -35,8 +35,8 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
         onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U], unpackp: Unpack[P, PU]): ForeignKeyQuery[TT, U] = {
     val mappedTTU = Unpackable(targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), unpack)
-    new ForeignKeyQuery(List(new ForeignKey(name, this, mappedTTU, targetTable, unpackp,
-      sourceColumns, targetColumns, onUpdate, onDelete)), mappedTTU)
+    val fks = IndexedSeq(ForeignKey(name, this, mappedTTU, targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete))
+    ForeignKeyQuery(mappedTTU.reifiedNode, fks.map(Node.apply _))(fks, mappedTTU)
   }
 
   def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Unpack[T, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).getLinearizedNodes)
@@ -74,6 +74,7 @@ object AbstractTable {
   final case class Alias(child: Node) extends UnaryNode {
     override def toString = "AbstractTable.Alias"
     override def isNamedTable = true
+    protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
   }
 }
 
@@ -98,6 +99,7 @@ object Join {
   final case class JoinPart(left: Node, right: Node) extends BinaryNode {
     override def toString = "JoinPart"
     protected[this] override def nodeChildNames = Seq("table", "from")
+    protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(left = left, right = right)
   }
 
   abstract class JoinType(val sqlName: String)

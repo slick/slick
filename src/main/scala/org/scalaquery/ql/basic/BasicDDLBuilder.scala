@@ -90,12 +90,12 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
   }
 
   protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
-    sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
+    sb append "CONSTRAINT " append quoteIdentifier(fk.data.name) append " FOREIGN KEY("
     addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
     sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
-    addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
-    sb append ") ON UPDATE " append fk.onUpdate.action
-    sb append " ON DELETE " append fk.onDelete.action
+    addForeignKeyColumnList(fk.data.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
+    sb append ") ON UPDATE " append fk.data.onUpdate.action
+    sb append " ON DELETE " append fk.data.onDelete.action
   }
 
   protected def createPrimaryKey(pk: PrimaryKey) = {
@@ -111,7 +111,7 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
   }
 
   protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _]) = {
-    "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(fk.name)
+    "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(fk.data.name)
   }
 
   protected def dropPrimaryKey(pk: PrimaryKey) = {

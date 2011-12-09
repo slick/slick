@@ -6,7 +6,7 @@ import org.scalaquery.util.{Node, UnaryNode, ProductNode}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
   type V = T
-  val product = this
+  lazy val nodeChildGenerators = productIterator.toIndexedSeq
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) {
     for(i <- 0 until productArity) {
@@ -26,7 +26,7 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
   def getLinearizedNodes: IndexedSeq[Node] =
     (0 until productArity).map(i => Node(productElement(i).asInstanceOf[Column[Any]]))(collection.breakOut)
 
-  def <>[R](f: (T => R), g: (R => Option[T])): MappedProjection[R,T] = new MappedProjection(this, f, g)
+  def <>[R](f: (T => R), g: (R => Option[T])): MappedProjection[R,T] = new MappedProjection(this, this, f, g)
 
   override def toString = "Projection" + productArity
 }
@@ -37,16 +37,18 @@ object Projection {
 </#list>
 }
 
-class MappedProjection[T, P <: Product](val child: Projection[P], f: (P => T), g: (T => Option[P])) extends ColumnBase[T] with UnaryNode {
+final class MappedProjection[T, P <: Product](proj: Projection[P], val child: Node, f: (P => T), g: (T => Option[P])) extends ColumnBase[T] with UnaryNode {
   override def toString = "MappedProjection"
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
-  def getAllColumnTypeMappers = child.getAllColumnTypeMappers
+  def getAllColumnTypeMappers = proj.getAllColumnTypeMappers
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit =
-    child.setParameter(profile, ps, value.flatMap(g))
-  def getResult(profile: BasicProfile, rs: PositionedResult) = f(child.getResult(profile, rs))
-  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = child.updateResult(profile, rs, g(value).get)
-  def getLinearizedNodes = child.getLinearizedNodes
+    proj.setParameter(profile, ps, value.flatMap(g))
+  def getResult(profile: BasicProfile, rs: PositionedResult) = f(proj.getResult(profile, rs))
+  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = proj.updateResult(profile, rs, g(value).get)
+  def getLinearizedNodes = proj.getLinearizedNodes
+
+  protected[this] def nodeRebuild(child: Node): Node = new MappedProjection[T, P](proj, child, f, g)
 }
 
 object ~ {

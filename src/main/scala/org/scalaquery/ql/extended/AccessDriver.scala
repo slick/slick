@@ -92,15 +92,15 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case c: Case.CaseColumn[_] => {
+    case c: Case.CaseNode => {
       b += "switch("
       var first = true
       c.clauses.foldRight(()) { (w,_) =>
         if(first) first = false
         else b += ","
-        expr(w.left, b)
+        expr(w.asInstanceOf[Case.WhenNode].left, b)
         b += ","
-        expr(w.right, b)
+        expr(w.asInstanceOf[Case.WhenNode].right, b)
       }
       c.elseClause match {
         case ConstColumn(null) =>
@@ -179,10 +179,9 @@ class AccessDDLBuilder(table: AbstractBasicTable[_], profile: AccessDriver) exte
   override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new AccessColumnDDLBuilder(c)
 
   override protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
-    sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
+    sb append "CONSTRAINT " append quoteIdentifier(fk.data.name) append " FOREIGN KEY("
     addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
-    sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
-    addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
+    addForeignKeyColumnList(fk.data.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
     sb append ")"
     /*if(fk.onUpdate == ForeignKeyAction.Cascade || fk.onUpdate == ForeignKeyAction.SetNull)
       sb append " ON UPDATE " append fk.onUpdate.action

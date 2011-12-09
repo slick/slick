@@ -3,14 +3,12 @@ package org.scalaquery.ql
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
-import org.scalaquery.util.{Node, WithOp, SimpleTypeName, ValueLinearizer}
+import org.scalaquery.util._
 
 /**
  * Common base trait for columns, tables and projections (but not unions and joins).
  */
-trait ColumnBase[T] extends Node with ValueLinearizer[T] with WithOp {
-  override def nodeDelegate: Node = if(op eq null) this else op.nodeDelegate
-}
+trait ColumnBase[T] extends NodeGenerator with ValueLinearizer[T] with WithOp
 
 /**
  * Base classs for columns.
@@ -54,8 +52,7 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
 /**
  * A column with a constant value which is inserted into an SQL statement as a literal.
  */
-case class ConstColumn[T : TypeMapper](value: T) extends Column[T] {
-  protected[this] def nodeChildGenerators = Seq.empty
+final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with NullaryNode {
   override def toString = "ConstColumn["+SimpleTypeName.forVal(value)+"] "+value
   def bind = new BindColumn(value)
 }
@@ -67,16 +64,14 @@ object ConstColumn {
 /**
  * A column with a constant value which gets turned into a bind variable.
  */
-case class BindColumn[T : TypeMapper](value: T) extends Column[T] {
-  protected[this] def nodeChildGenerators = Seq.empty
+final case class BindColumn[T : TypeMapper](value: T) extends Column[T] with NullaryNode {
   override def toString = "BindColumn["+SimpleTypeName.forVal(value)+"] "+value
 }
 
 /**
  * A parameter from a QueryTemplate which gets turned into a bind variable.
  */
-case class ParameterColumn[T : TypeMapper](idx: Int) extends Column[T] {
-  protected[this] def nodeChildGenerators = Seq.empty
+final case class ParameterColumn[T : TypeMapper](idx: Int) extends Column[T] with NullaryNode {
   override def toString = "ParameterColumn "+idx
 }
 
@@ -90,7 +85,7 @@ abstract class OperatorColumn[T : TypeMapper] extends Column[T] {
 /**
  * A WrappedColumn can be used to change a column's nullValue.
  */
-class WrappedColumn[T : TypeMapper](parent: ColumnBase[_]) extends Column[T] {
+sealed class WrappedColumn[T : TypeMapper](parent: ColumnBase[_]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   protected[this] def nodeChildGenerators = Seq(nodeDelegate)
 }
@@ -98,11 +93,12 @@ class WrappedColumn[T : TypeMapper](parent: ColumnBase[_]) extends Column[T] {
 /**
  * A column which is part of a Table.
  */
-class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: ColumnOption[T, _]*)
-extends Column[T] {
-  protected[this] def nodeChildGenerators = Seq(table)
+final class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: ColumnOption[T, _]*)
+extends Column[T] with UnaryNode {
+  val child = table
   override def toString = "NamedColumn " + name
   protected[this] override def nodeChildNames = Seq("table")
+  protected[this] def nodeRebuild(child: Node): Node = new NamedColumn[T](child, name, options: _*)
 }
 
 object NamedColumn {

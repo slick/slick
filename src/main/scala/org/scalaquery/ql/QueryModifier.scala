@@ -1,28 +1,30 @@
 package org.scalaquery.ql
 
-import org.scalaquery.util.Node
+import org.scalaquery.util.{UnaryNode, Node}
 
 trait QueryModifier extends Node
 
-sealed abstract class Ordering extends QueryModifier {
-  val by: Node
+sealed abstract class Ordering extends QueryModifier with UnaryNode {
+  def by = child
   val nullOrdering: Ordering.NullOrdering
-  protected[this] def nodeChildGenerators = Seq(by)
+  protected[this] override def nodeChildNames = Seq("by")
   def nullsFirst: Ordering
   def nullsLast: Ordering
 }
 
 object Ordering {
-  final case class Asc(val by: Node, val nullOrdering: Ordering.NullOrdering = Ordering.NullsDefault) extends Ordering {
+  final case class Asc(child: Node, nullOrdering: Ordering.NullOrdering = Ordering.NullsDefault) extends Ordering {
     override def toString = "Ordering.Asc"
     def nullsFirst = copy(nullOrdering = Ordering.NullsFirst)
     def nullsLast = copy(nullOrdering = Ordering.NullsLast)
+    protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
   }
 
-  final case class Desc(val by: Node, val nullOrdering: Ordering.NullOrdering = Ordering.NullsDefault) extends Ordering {
+  final case class Desc(child: Node, nullOrdering: Ordering.NullOrdering = Ordering.NullsDefault) extends Ordering {
     override def toString = "Ordering.Desc"
     def nullsFirst = copy(nullOrdering = Ordering.NullsFirst)
     def nullsLast = copy(nullOrdering = Ordering.NullsLast)
+    protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
   }
 
   sealed trait NullOrdering
@@ -31,7 +33,9 @@ object Ordering {
   final case object NullsLast extends NullOrdering
 }
 
-final case class Grouping(val by: Node) extends QueryModifier {
-  protected[this] def nodeChildGenerators = Seq(by)
+final case class Grouping(child: Node) extends QueryModifier with UnaryNode {
+  def by = child
+  protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
+  protected[this] override def nodeChildNames = Seq("by")
   override def toString = "Grouping"
 }

@@ -1,7 +1,7 @@
 package org.scalaquery.ql
 
 import org.scalaquery.ql.basic.BasicProfile
-import org.scalaquery.util.UnaryNode
+import org.scalaquery.util.{NullaryNode, Node}
 
 class Sequence[T] private[Sequence] (val name: String,
     val _minValue: Option[T],
@@ -26,13 +26,7 @@ class Sequence[T] private[Sequence] (val name: String,
 object Sequence {
   def apply[T : TypeMapper : Integral](name: String) = new Sequence[T](name, None, None, None, None, false)
 
-  final case class Nextval[T : TypeMapper](seq: Sequence[T]) extends OperatorColumn[T] with SimpleFunction with UnaryNode {
-    val name = "nextval"
-    val child = ConstColumn(seq.name)(TypeMapper.StringTypeMapper)
-  }
+  final case class Nextval[T : TypeMapper](seq: Sequence[T]) extends OperatorColumn[T] with NullaryNode
 
-  final case class Currval[T : TypeMapper](seq: Sequence[T]) extends OperatorColumn[T] with SimpleFunction with UnaryNode {
-    val name = "currval"
-    val child = ConstColumn(seq.name)(TypeMapper.StringTypeMapper)
-  }
+  final case class Currval[T : TypeMapper](seq: Sequence[T]) extends OperatorColumn[T] with NullaryNode
 }

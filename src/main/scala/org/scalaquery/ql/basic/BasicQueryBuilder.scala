@@ -283,13 +283,13 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
       val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
       pc.typeMapper(profile).setValue(v, p)
     }
-    case c: Case.CaseColumn[_] =>
+    case c: Case.CaseNode =>
       b += "(case"
       c.clauses.foldRight(()) { (w,_) =>
         b += " when "
-        expr(w.left, b)
+        expr(w.asInstanceOf[Case.WhenNode].left, b)
         b += " then "
-        expr(w.right, b)
+        expr(w.asInstanceOf[Case.WhenNode].right, b)
       }
       c.elseClause match {
         case ConstColumn(null) =>
@@ -359,7 +359,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
       var first = true
       for(sq <- sqs) {
         if(!first) b += (if(all) " UNION ALL " else " UNION ")
-        subQueryBuilderFor(sq).innerBuildSelect(b, first && rename)
+        subQueryBuilderFor(sq.asInstanceOf[Query[_,_]]).innerBuildSelect(b, first && rename)
         first = false
       }
       b += ") " += quoteIdentifier(name)
