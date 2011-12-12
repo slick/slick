@@ -69,6 +69,12 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     //val l3 = q1.list
     //println("l3: "+l3)
 
+    val q1b = for {
+      (c, s) <- Query(Coffees).take(3) join Suppliers
+      s <- Suppliers
+    } yield c.name ~ s.name
+    q1b.dump("q1b: ")
+
     val q2 = for {
       c <- Coffees.filter(_.price < 9.0).map(_.*)
       s <- Suppliers if s.id === c._2

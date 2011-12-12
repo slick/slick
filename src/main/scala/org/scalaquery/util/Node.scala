@@ -24,7 +24,7 @@ trait Node extends NodeGenerator {
 
   final def nodeChildren = nodeChildGenerators.map(Node.apply _)
 
-  def nodeMapChildren(f: Node => Node): Node
+  //def nodeMapChildren(f: Node => Node): Node
 
   def nodeDelegate: Node = this
   def isNamedTable = false
@@ -72,7 +72,7 @@ object Node {
     if(o == null) ConstColumn.NULL
     else if(o.isInstanceOf[WithOp] && (o.asInstanceOf[WithOp].op ne null)) o.asInstanceOf[WithOp].op
     else if(o.isInstanceOf[NodeGenerator]) o.asInstanceOf[NodeGenerator].nodeDelegate
-    else if(o.isInstanceOf[Product]) new ProductNode { lazy val nodeChildGenerators = o.asInstanceOf[Product].productIterator.toSeq }
+    else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product])
     else throw new SQueryException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
 
   final class DumpContext(val out: PrintWriter, val nc: NamingContext)
@@ -85,22 +85,27 @@ trait ProductNode extends SimpleNode {
   }
 }
 
+object ProductNode {
+  def apply(p: Product): ProductNode =
+    new ProductNode { lazy val nodeChildGenerators = p.productIterator.toSeq }
+}
+
 trait BinaryNode extends SimpleNode {
   def left: Node
   def right: Node
-  protected[this] def nodeChildGenerators = Seq(left, right)
+  protected[this] final def nodeChildGenerators = Seq(left, right)
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = nodeRebuild(ch(0), ch(1))
   protected[this] def nodeRebuild(left: Node, right: Node): Node
 }
 
 trait UnaryNode extends SimpleNode {
   def child: Node
-  protected[this] def nodeChildGenerators = Seq(child)
+  protected[this] final def nodeChildGenerators = Seq(child)
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = nodeRebuild(ch(0))
   protected[this] def nodeRebuild(child: Node): Node
 }
 
 trait NullaryNode extends SimpleNode {
-  protected[this] def nodeChildGenerators = Nil
+  protected[this] final def nodeChildGenerators = Nil
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = this
 }

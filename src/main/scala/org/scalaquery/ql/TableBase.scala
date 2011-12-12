@@ -3,16 +3,15 @@ package org.scalaquery.ql
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
-import org.scalaquery.util.{Node, UnaryNode, BinaryNode, WithOp}
+import org.scalaquery.util._
 
 sealed trait TableBase[T] extends Node with WithOp {
   override def isNamedTable = true
 }
 
-abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableBase[T] with ColumnBase[T] {
+abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableBase[T] with ColumnBase[T] with NullaryNode {
 
   final type TableType = T
-  protected[this] def nodeChildGenerators = Seq.empty
   override def toString = "Table " + tableName
 
   def * : ColumnBase[T]

@@ -30,6 +30,9 @@ abstract class Query[+E, +U]() extends NodeGenerator {
 
   def where[T <: Column[_], R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]) = filter(f)(wt, reify)
 
+  def join[E2, U2, R1, R2](q2: Query[E2, U2])(implicit reify1: Reify[E, R1], reify2: Reify[E2, R2]): CrossJoin[R1, R2, U, U2] =
+    new CrossJoin[R1, R2, U, U2](ProductNode(Node(this), Node(q2)), unpackable.zip(q2.unpackable).reifiedUnpackable)
+
   /*
   def groupBy(by: Column[_]*) =
     new Query[E, U](unpackable, cond, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
@@ -156,6 +159,10 @@ final case class Filter[+E, +U](from: Node, base: Unpackable[_ <: E, _ <: U], wh
   def right = where
   protected[this] override def nodeChildNames = Seq("from", "where")
   protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, where = right)
+}
+
+final case class CrossJoin[+E1, +E2, +U1, +U2](child: Node, base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)]) extends FilteredQuery[(E1, E2), (U1,  U2)] with UnaryNode {
+  protected[this] def nodeRebuild(child: Node): Node = copy[E1, E2, U1, U2](child = child)
 }
 
 final case class Bind[+E, +U](from: Node, select: Node)(selectQ: Query[E, U]) extends Query[E, U] with BinaryNode {
