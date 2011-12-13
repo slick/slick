@@ -82,6 +82,7 @@ final class JoinBase[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _r
   def on[T <: Column[_] : CanBeQueryCondition](pred: (T1, T2) => T) = new Join(_left, _right, joinType, Node(pred(_left, _right)))
 }
 
+//TODO Remove the joins on tables, to be replaced by joins on queries
 final class Join[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right: T2,
   val joinType: Join.JoinType, val on: Node) extends TableBase[Nothing] {
 
@@ -90,6 +91,7 @@ final class Join[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right
   def leftNode = Node(_left)
   def rightNode = Node(_right)
   protected[this] def nodeChildGenerators = Seq(leftNode, rightNode)
+  def nodeMapChildren(f: Node => Node): Node = this //-- incorrect
 }
 
 object Join {

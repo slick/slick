@@ -70,8 +70,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     //println("l3: "+l3)
 
     val q1b = for {
-      (c, s) <- Query(Coffees).take(3) join Suppliers
-      s <- Suppliers
+      (c, s) <- Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     } yield c.name ~ s.name
     q1b.dump("q1b: ")
 

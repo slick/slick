@@ -24,7 +24,7 @@ trait Node extends NodeGenerator {
 
   final def nodeChildren = nodeChildGenerators.map(Node.apply _)
 
-  //def nodeMapChildren(f: Node => Node): Node
+  def nodeMapChildren(f: Node => Node): Node
 
   def nodeDelegate: Node = this
   def isNamedTable = false
