@@ -95,6 +95,17 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     } yield c
     q4.dump("q4: ")
 
+    val q5_0 = Query(Coffees).take(10)
+    val q5 = for {
+      c1 <- q5_0
+      c2 <- q5_0
+    } yield (c1, c2)
+    q5.dump("q5: ")
+
+    val q5b = for {
+      t <- q5_0 join q5_0 on (_.name === _.name)
+    } yield (t._1, t._2)
+    q5b.dump("q5b: ")
   }
 }
 

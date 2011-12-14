@@ -8,7 +8,7 @@ import org.scalaquery.ql.ConstColumn
 trait NodeGenerator {
   def nodeDelegate: Node
 
-  final def dump(name: String, nc: NamingContext = NamingContext()) {
+  final def dump(name: String, nc: IdContext = IdContext(nodeDelegate)) {
     val out = new PrintWriter(new OutputStreamWriter(System.out))
     nodeDelegate.nodeDump(new Node.DumpContext(out, nc), "", name)
     out.flush()
@@ -41,11 +41,17 @@ trait Node extends NodeGenerator {
   }
 
   def nodeDump(dc: Node.DumpContext, prefix: String, name: String) {
-    val (tname, details) = if(isNamedTable) {
-      val (s, newName) = dc.nc.checkNameFor(this)
-      ("<" + s + "> ", newName)
-    } else ("", true)
-    dc.out.println(prefix + name + tname + (if(details) this else "..."))
+    val details = dc.nc.checkIdFor(this) match {
+      case Some((id, true)) =>
+        dc.out.println(prefix + name + "[" + id + "] " + this)
+        true
+      case Some((id, false)) =>
+        dc.out.println(prefix + name + "<" + id + ">")
+        false
+      case None =>
+        dc.out.println(prefix + name + this)
+        true
+    }
     if(details)
       for((chg, n) <- nodeChildGenerators.zip(nodeChildNames))
         Node(chg).nodeDump(dc, prefix + "  ", n+": ")
@@ -75,7 +81,7 @@ object Node {
     else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product])
     else throw new SQueryException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
 
-  final class DumpContext(val out: PrintWriter, val nc: NamingContext)
+  final class DumpContext(val out: PrintWriter, val nc: IdContext)
 }
 
 trait ProductNode extends SimpleNode {

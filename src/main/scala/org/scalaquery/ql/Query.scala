@@ -16,8 +16,9 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   lazy val linearizer = unpackable.linearizer
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
-    val fv = f(unpackable.value)
-    new Bind[F, T](Node(this), Node(fv))(fv)
+    val aliased = Alias.forUnpackable(unpackable)
+    val fv = f(aliased.value)
+    new Bind[F, T](Node(aliased.value), Node(fv))(fv)
   }
 
   def map[F, T](f: E => F)(implicit unpack: Unpack[F, T]): Query[F, T] = flatMap(v => Query(f(v)))
@@ -31,8 +32,11 @@ abstract class Query[+E, +U]() extends NodeGenerator {
 
   def where[T <: Column[_], R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]) = filter(f)(wt, reify)
 
-  def join[E2, U2, R1, R2](q2: Query[E2, U2])(implicit reify1: Reify[E, R1], reify2: Reify[E2, R2]) =
-    new BaseJoin[R1, R2, U, U2](ProductNode(Node(this), Node(q2)), unpackable.zip(q2.unpackable).reifiedUnpackable, Join.Inner)
+  def join[E2, U2, R1, R2](q2: Query[E2, U2])(implicit reify1: Reify[E, R1], reify2: Reify[E2, R2]) = {
+    val aliased1 = Alias.forUnpackable(unpackable)
+    val aliased2 = Alias.forUnpackable(q2.unpackable)
+    new BaseJoin[R1, R2, U, U2](ProductNode(Node(this), Node(q2)), aliased1.zip(aliased2).reifiedUnpackable, Join.Inner)
+  }
 
   /*
   def groupBy(by: Column[_]*) =
@@ -160,6 +164,7 @@ final case class Filter[+E, +U](from: Node, base: Unpackable[_ <: E, _ <: U], wh
   def right = where
   protected[this] override def nodeChildNames = Seq("from", "where")
   protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, where = right)
+  override def nodeDelegate = if(where == ConstColumn(true)) left else super.nodeDelegate
 }
 
 final case class BaseJoin[+E1, +E2, +U1, +U2](from: Node, base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)], jt: JoinType) extends FilteredQuery[(E1, E2), (U1,  U2)] with UnaryNode {
@@ -191,4 +196,16 @@ final case class Wrapped(what: Node, in: Node) extends SimpleNode {
   protected[this] def nodeChildGenerators = Seq(what, in)
   protected[this] override def nodeChildNames = Seq("what", "in")
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy(what = ch(0), in = ch(1))
+}
+
+final case class Alias(child: Node) extends UnaryNode {
+  protected[this] override def nodeChildNames = Seq("of")
+  protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
+  override def hashCode = System.identityHashCode(this)
+  override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
+  override def isNamedTable = true
+}
+
+object Alias {
+  def forUnpackable[E, U](u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Alias(Node(x)) }))
 }
