@@ -2,6 +2,7 @@ package org.scalaquery.ql.extended
 
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
+import org.scalaquery.ast._
 import org.scalaquery.util._
 import org.scalaquery.SQueryException
 import java.sql.{Timestamp, Time, Date}

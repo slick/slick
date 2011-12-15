@@ -1,6 +1,6 @@
 package org.scalaquery.ql
 
-import org.scalaquery.util.{SimpleNode, Node}
+import org.scalaquery.ast.{SimpleNode, Node}
 
 /**
  * Marker trait for foreign key and primary key constraints.

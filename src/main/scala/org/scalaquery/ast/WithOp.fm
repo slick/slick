@@ -1,4 +1,4 @@
-package org.scalaquery.util
+package org.scalaquery.ast
 
 import org.scalaquery.SQueryException
 

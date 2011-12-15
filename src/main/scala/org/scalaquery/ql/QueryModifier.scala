@@ -1,6 +1,6 @@
 package org.scalaquery.ql
 
-import org.scalaquery.util.{UnaryNode, Node}
+import org.scalaquery.ast.{UnaryNode, Node}
 
 trait QueryModifier extends Node
 

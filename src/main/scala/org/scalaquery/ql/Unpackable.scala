@@ -1,6 +1,7 @@
 package org.scalaquery.ql
 
-import org.scalaquery.util.{Node, ValueLinearizer}
+import org.scalaquery.ast.Node
+import org.scalaquery.util.ValueLinearizer
 
 /**
  * A packed value together with its unpacking

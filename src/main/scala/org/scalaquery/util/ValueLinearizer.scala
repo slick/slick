@@ -2,6 +2,7 @@ package org.scalaquery.util
 
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
+import org.scalaquery.ast.Node
 
 /**
  * Converts between unpacked (e.g. in query results) and linearized (a

@@ -1,7 +1,7 @@
 package org.scalaquery.ql
 
 import TypeMapper._
-import org.scalaquery.util.{SimpleNode, Node, UnaryNode, BinaryNode}
+import org.scalaquery.ast.{SimpleNode, Node, UnaryNode, BinaryNode}
 
 trait ColumnOps[B1, P1] {
   protected val leftOperand: Node

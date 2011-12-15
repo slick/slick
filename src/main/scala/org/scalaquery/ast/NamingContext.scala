@@ -1,6 +1,7 @@
-package org.scalaquery.util
+package org.scalaquery.ast
 
 import scala.collection.mutable.HashMap
+import org.scalaquery.util.RefId
 
 trait NamingContext { self =>
   def nameFor(t: Node) = checkNameFor(t)._1

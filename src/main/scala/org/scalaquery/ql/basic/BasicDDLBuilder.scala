@@ -1,11 +1,9 @@
 package org.scalaquery.ql.basic
 
-import scala.collection.mutable.HashMap
-import java.io.PrintWriter
 import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.extended.ExtendedColumnOption //TODO: Move AutoInc handling to extended profile
-import org.scalaquery.util.Node
+import org.scalaquery.ast.Node
 
 class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfile) {
   import profile.sqlUtils._

@@ -1,7 +1,7 @@
 package org.scalaquery.ql
 
 import org.scalaquery.ql.basic.BasicProfile
-import org.scalaquery.util.{NullaryNode, Node}
+import org.scalaquery.ast.{NullaryNode, Node}
 
 class Sequence[T] private[Sequence] (val name: String,
     val _minValue: Option[T],

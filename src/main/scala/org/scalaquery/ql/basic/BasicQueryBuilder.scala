@@ -4,6 +4,7 @@ import scala.collection.mutable.{HashMap, HashSet}
 import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import extended.ExtendedQueryOps.TakeDrop
+import org.scalaquery.ast._
 import org.scalaquery.util._
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 

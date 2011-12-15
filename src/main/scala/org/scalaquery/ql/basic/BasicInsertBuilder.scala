@@ -1,9 +1,8 @@
 package org.scalaquery.ql.basic
 
-import scala.collection.mutable.HashMap
-import java.io.PrintWriter
 import org.scalaquery.SQueryException
 import org.scalaquery.ql._
+import org.scalaquery.ast._
 import org.scalaquery.util._
 
 class BasicInsertBuilder(val column: Any, val profile: BasicProfile) {

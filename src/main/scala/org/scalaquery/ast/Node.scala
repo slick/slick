@@ -1,9 +1,10 @@
-package org.scalaquery.util
+package org.scalaquery.ast
 
 import scala.collection.mutable.ArrayBuffer
 import java.io.{PrintWriter, OutputStreamWriter}
 import org.scalaquery.SQueryException
-import org.scalaquery.ql.ConstColumn
+import org.scalaquery.util.SimpleTypeName
+import org.scalaquery.ql.{Unpackable, ConstColumn}
 
 trait NodeGenerator {
   def nodeDelegate: Node
@@ -114,4 +115,22 @@ trait UnaryNode extends SimpleNode {
 trait NullaryNode extends SimpleNode {
   protected[this] final def nodeChildGenerators = Nil
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = this
+}
+
+final case class Wrapped(what: Node, in: Node) extends SimpleNode {
+  protected[this] def nodeChildGenerators = Seq(what, in)
+  protected[this] override def nodeChildNames = Seq("what", "in")
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy(what = ch(0), in = ch(1))
+}
+
+final case class Alias(child: Node) extends UnaryNode {
+  protected[this] override def nodeChildNames = Seq("of")
+  protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
+  override def hashCode = System.identityHashCode(this)
+  override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
+  override def isNamedTable = true
+}
+
+object Alias {
+  def forUnpackable[E, U](u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Alias(Node(x)) }))
 }

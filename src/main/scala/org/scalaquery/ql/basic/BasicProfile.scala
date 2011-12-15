@@ -1,7 +1,8 @@
 package org.scalaquery.ql.basic
 
-import org.scalaquery.ql.{ColumnBase, Sequence, Query, Projection, DDL}
-import org.scalaquery.util.{ValueLinearizer, NamingContext, SQLBuilder}
+import org.scalaquery.ql.{Sequence, Query, DDL}
+import org.scalaquery.ast.NamingContext
+import org.scalaquery.util.{ValueLinearizer, SQLBuilder}
 
 trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_ <: BasicProfile]

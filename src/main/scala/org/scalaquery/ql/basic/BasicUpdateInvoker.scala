@@ -2,7 +2,7 @@ package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{Query, ColumnBase}
 import org.scalaquery.session.{Session, PositionedParameters}
-import org.scalaquery.util.NamingContext
+import org.scalaquery.ast.NamingContext
 
 class BasicUpdateInvoker[T] (query: Query[_ <: ColumnBase[T], T], profile: BasicProfile) {
 

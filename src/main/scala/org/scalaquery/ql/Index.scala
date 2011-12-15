@@ -1,6 +1,6 @@
 package org.scalaquery.ql
 
-import org.scalaquery.util.Node
+import org.scalaquery.ast.Node
 
 /**
  * An index (or foreign key constraint with an implicit index).

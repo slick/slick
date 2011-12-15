@@ -1,10 +1,11 @@
 package org.scalaquery.ql.basic
 
 import java.sql.PreparedStatement
-import org.scalaquery.{SQueryException, MutatingStatementInvoker}
-import org.scalaquery.ql.{Query, ColumnBase}
+import org.scalaquery.MutatingStatementInvoker
+import org.scalaquery.ql.Query
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
-import org.scalaquery.util.{ValueLinearizer, NamingContext}
+import org.scalaquery.ast.NamingContext
+import org.scalaquery.util.ValueLinearizer
 
 class BasicQueryTemplate[P, R](query: Query[_, R], profile: BasicProfile) extends MutatingStatementInvoker[P, R] {
 

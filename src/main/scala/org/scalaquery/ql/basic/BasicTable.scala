@@ -3,7 +3,7 @@ package org.scalaquery.ql.basic
 import org.scalaquery.ql._
 import org.scalaquery.SQueryException
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
-import org.scalaquery.util.Node
+import org.scalaquery.ast.Node
 
 abstract class AbstractBasicTable[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) {
 

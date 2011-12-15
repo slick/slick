@@ -2,7 +2,7 @@ package org.scalaquery.ql
 
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
-import org.scalaquery.util.{Node, UnaryNode, ProductNode}
+import org.scalaquery.ast.{Node, UnaryNode, ProductNode}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
   type V = T

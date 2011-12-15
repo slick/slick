@@ -9,6 +9,7 @@ import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.simple._
 import org.scalaquery.simple.StaticQuery._
+import org.scalaquery.ast._
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
 
@@ -39,7 +40,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       def supplier = foreignKey("SUP_FK", supID, Suppliers)(_.id)
     }
 
-    (Suppliers.ddl ++ Coffees.ddl).create
+    /*(Suppliers.ddl ++ Coffees.ddl).create
 
     Suppliers.insert(101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
     Suppliers.insert( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
@@ -58,13 +59,22 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     assertEquals(5, l1.length)
     val l2 = queryNA[String]("select c.cof_name from coffees c, suppliers s").list
     println("l2: "+l2)
-    assertEquals(15, l2.length)
+    assertEquals(15, l2.length)*/
+
+    def show(name: String, g: NodeGenerator) {
+      val n = Node(g)
+      println("=========================================== "+name)
+      n.dump("source: ")
+      val n2 = Optimizer.eliminateIndirections(n)
+      n2.dump("after eliminateIndirections: ")
+      println
+    }
 
     val q1 = for {
       c <- Query(Coffees).take(3)
       s <- Suppliers
     } yield c.name ~ s.name
-    q1.dump("q1: ")
+    show("q1", q1)
     //println("q1: "+q1.selectStatement)
     //val l3 = q1.list
     //println("l3: "+l3)
@@ -72,13 +82,13 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q1b = for {
       (c, s) <- Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     } yield c.name ~ s.name
-    q1b.dump("q1b: ")
+    show("q1b", q1b)
 
     val q2 = for {
       c <- Coffees.filter(_.price < 9.0).map(_.*)
       s <- Suppliers if s.id === c._2
     } yield c._1 ~ s.name
-    q2.dump("q2: ")
+    show("q2", q2)
 
     val q3 = Coffees.flatMap { c =>
       val cf = c.where(_.price < 9.0)
@@ -88,24 +98,24 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         }
       }
     }
-    q3.dump("q3: ")
+    show("q3", q3)
 
     val q4 = for {
       c <- Coffees.map(c => (c.name, c.price)).filter(_._2 < 9.0)
     } yield c
-    q4.dump("q4: ")
+    show("q4", q4)
 
     val q5_0 = Query(Coffees).take(10)
     val q5 = for {
       c1 <- q5_0
       c2 <- q5_0
     } yield (c1, c2)
-    q5.dump("q5: ")
+    show("q5", q5)
 
     val q5b = for {
       t <- q5_0 join q5_0 on (_.name === _.name)
     } yield (t._1, t._2)
-    q5b.dump("q5b: ")
+    show("q5b", q5b)
   }
 }
 

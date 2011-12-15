@@ -2,9 +2,10 @@ package org.scalaquery.ql.basic
 
 import java.sql.PreparedStatement
 import org.scalaquery.{UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}
-import org.scalaquery.ql.{Query, ColumnBase}
+import org.scalaquery.ql.Query
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
-import org.scalaquery.util.{ValueLinearizer, NamingContext}
+import org.scalaquery.ast.NamingContext
+import org.scalaquery.util.ValueLinearizer
 
 class BasicQueryInvoker[Q, R](q: Query[Q, R], profile: BasicProfile)
   extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {

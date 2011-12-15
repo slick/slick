@@ -4,6 +4,7 @@ import java.sql.Types
 import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
+import org.scalaquery.ast._
 import org.scalaquery.util._
 
 /**

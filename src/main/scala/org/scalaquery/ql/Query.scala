@@ -2,6 +2,7 @@ package org.scalaquery.ql
 
 import scala.reflect.Manifest
 import org.scalaquery.SQueryException
+import org.scalaquery.ast._
 import org.scalaquery.util._
 import org.scalaquery.ql.Join.JoinType
 
@@ -146,10 +147,15 @@ final case class Pure[+E, +U](value: Node)(_unpackable: Unpackable[_ <: E, _ <: 
 }
 
 abstract class FilteredQuery[+E, +U] extends Query[E, U] with Node {
+  def from: Node
   def base: Unpackable[_ <: E, _ <: U]
   lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
   override def toString = "FilteredQuery:" + getClass.getName.replaceAll(".*\\.", "")
   override def isNamedTable = true
+}
+
+object FilteredQuery {
+  def unapply(f: FilteredQuery[_,_]) = Some(f.from)
 }
 
 final case class GroupBy[+E, +U](from: Node, base: Unpackable[_ <: E, _ <: U], groupBy: Node) extends FilteredQuery[E, U] with BinaryNode {
@@ -190,22 +196,4 @@ final case class Bind[+E, +U](from: Node, select: Node)(selectQ: Query[E, U]) ex
   protected[this] override def nodeChildNames = Seq("from", "select")
   protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, select = right)()
   override def isNamedTable = true
-}
-
-final case class Wrapped(what: Node, in: Node) extends SimpleNode {
-  protected[this] def nodeChildGenerators = Seq(what, in)
-  protected[this] override def nodeChildNames = Seq("what", "in")
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy(what = ch(0), in = ch(1))
-}
-
-final case class Alias(child: Node) extends UnaryNode {
-  protected[this] override def nodeChildNames = Seq("of")
-  protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
-  override def hashCode = System.identityHashCode(this)
-  override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
-  override def isNamedTable = true
-}
-
-object Alias {
-  def forUnpackable[E, U](u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Alias(Node(x)) }))
 }

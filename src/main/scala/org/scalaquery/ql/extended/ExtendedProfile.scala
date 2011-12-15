@@ -1,11 +1,10 @@
 package org.scalaquery.ql.extended
 
-import scala.math.{min, max}
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.basic._
 import org.scalaquery.session.Session
-import org.scalaquery.util.{UnaryNode, Node, NullaryNode}
+import org.scalaquery.ast.{UnaryNode, Node, NullaryNode}
 
 trait ExtendedProfile extends BasicProfile {
   type ImplicitT <: ExtendedImplicitConversions[_ <: ExtendedProfile]

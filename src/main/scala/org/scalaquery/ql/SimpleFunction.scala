@@ -1,6 +1,7 @@
 package org.scalaquery.ql
 
 import org.scalaquery.ql.basic.BasicQueryBuilder
+import org.scalaquery.ast._
 import org.scalaquery.util._
 
 /**

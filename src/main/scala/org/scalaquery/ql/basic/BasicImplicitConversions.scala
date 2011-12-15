@@ -1,7 +1,7 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql._
-import org.scalaquery.util.Node
+import org.scalaquery.ast.Node
 
 trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
