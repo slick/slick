@@ -1,8 +1,7 @@
 package org.scalaquery.ast
 
-import org.scalaquery.util.RefId
 import collection.mutable.ArrayBuffer
-import org.scalaquery.ql.FilteredQuery
+import org.scalaquery.ql.{Pure, Bind, FilteredQuery}
 
 /**
  * Basic optimizers for the ScalaQuery AST
@@ -24,37 +23,38 @@ object Optimizer {
     b
   }
 
-  def replace(tree: Node, f: PartialFunction[RefId[Node], RefId[Node]]): Node = {
-    val seen = new collection.mutable.HashSet[RefId[Node]]()
-    val g = f.orElse[RefId[Node], RefId[Node]] { case x => x }
-    val memo = new collection.mutable.HashMap[RefId[Node], RefId[Node]]
+  def replace(tree: Node, f: PartialFunction[Node, Node]): Node = {
+    val seen = new collection.mutable.HashSet[Node]()
+    val g = f.orElse(pfidentity[Node])
+    val memo = new collection.mutable.HashMap[Node, Node]
     def tr(n: Node): Node = {
-      val ref = RefId(n)
-      memo.getOrElseUpdate(ref, {
-        val newRef = g(ref)
-        if(seen(newRef)) newRef else {
-          seen += ref
-          seen += newRef
-          RefId(newRef.e.nodeMapChildren(tr))
+      memo.getOrElseUpdate(n, {
+        val nn = g(n)
+        if(seen(nn)) nn else {
+          seen += n
+          seen += nn
+          nn.nodeMapChildren(tr)
         }
-      }).e
+      })
     }
     tr(tree)
   }
 
   def eliminateIndirections(tree: Node): Node = {
     val ic = IdContext(tree)
-    val m = collect[(RefId[Node], RefId[Node])](tree, {
+    val m = collect[(Node, Node)](tree, {
       // Remove alias if aliased node is not referenced otherwise
-      case a @ Alias(ch) if ic.checkIdFor(ch).isEmpty => (RefId(a), RefId(ch))
+      case a @ Alias(ch) if ic.checkIdFor(ch).isEmpty => (a, ch)
       // Remove alias if alias is not referenced otherwise
-      case a @ Alias(ch) if ic.checkIdFor(a).isEmpty => (RefId(a), RefId(ch))
+      case a @ Alias(ch) if ic.checkIdFor(a).isEmpty => (a, ch)
       // Remove wrapping of the entire result of a FilteredQuery
-      case w @ Wrapped(what, q @ FilteredQuery(from)) if what eq from => (RefId(w), RefId(q))
+      case w @ Wrapped(what, q @ FilteredQuery(from)) if what eq from => (w, q)
       // Remove dual wrapping (remnant of a removed Filter(_, ConstColumn(true)))
-      case w @ Wrapped(w2 @ Wrapped(what, in1), in2) if in1 eq in2 => (RefId(w), RefId(w2))
+      case w @ Wrapped(w2 @ Wrapped(what, in1), in2) if in1 eq in2 => (w, w2)
+      // Remove identity binds
+      case b @ Bind(x, Pure(y)) if x == y => (b, x)
     }).toMap
-    val recur = m.andThen(v => m.orElse(pfidentity[RefId[Node]])(v))
+    val recur = m.andThen(v => m.orElse(pfidentity[Node])(v))
     //println("*** "+m)
     replace(tree, recur)
   }

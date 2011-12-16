@@ -20,10 +20,10 @@ trait NodeGenerator {
  * A node in the query AST
  */
 trait Node extends NodeGenerator {
-  protected[this] def nodeChildGenerators: Iterable[Any]
+  protected[this] def nodeChildGenerators: Seq[Any]
   protected[this] def nodeChildNames: Iterable[String] = Stream.from(0).map(_.toString)
 
-  final def nodeChildren = nodeChildGenerators.map(Node.apply _)
+  final lazy val nodeChildren = nodeChildGenerators.map(Node.apply _)
 
   def nodeMapChildren(f: Node => Node): Node
 
@@ -90,6 +90,13 @@ trait ProductNode extends SimpleNode {
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = new ProductNode {
     lazy val nodeChildGenerators = ch
   }
+  override def hashCode() = {
+    nodeChildren.hashCode()
+  }
+  override def equals(o: Any) = o match {
+    case p: ProductNode => nodeChildren == p.nodeChildren
+    case _ => false
+  }
 }
 
 object ProductNode {
@@ -126,9 +133,9 @@ final case class Wrapped(what: Node, in: Node) extends SimpleNode {
 final case class Alias(child: Node) extends UnaryNode {
   protected[this] override def nodeChildNames = Seq("of")
   protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
-  override def hashCode = System.identityHashCode(this)
-  override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
   override def isNamedTable = true
+  override def hashCode() = System.identityHashCode(this)
+  override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
 }
 
 object Alias {

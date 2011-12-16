@@ -235,10 +235,10 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     case ConstColumn(null) => b += "null"
     case ColumnOps.Not(ColumnOps.Is(l, ConstColumn(null))) => b += '('; expr(l, b); b += " is not null)"
     case ColumnOps.Not(e) => b += "(not "; expr(e, b); b+= ')'
-    case ColumnOps.InSet(e, seq, tm, bind) => if(seq.isEmpty) expr(ConstColumn(false), b) else {
+    case i @ ColumnOps.InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn(false), b) else {
       b += '('; expr(e, b); b += " in ("
-      if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => tm(profile).setValue(x, p) })
-      else b += seq.map(tm(profile).valueToSQLLiteral).mkString(",")
+      if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(profile).setValue(x, p) })
+      else b += seq.map(i.tm(profile).valueToSQLLiteral).mkString(",")
       b += "))"
     }
     case ColumnOps.Is(l, ConstColumn(null)) => b += '('; expr(l, b); b += " is null)"

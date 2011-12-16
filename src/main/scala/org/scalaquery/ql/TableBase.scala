@@ -69,12 +69,14 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
 }
 
 object AbstractTable {
-  def unapply[T](t: AbstractTable[T]) = Some(t.tableName)
+  def unapply(t: AbstractTable[_]) = Some(t.tableName)
 
   final case class Alias(child: Node) extends UnaryNode {
     override def toString = "AbstractTable.Alias"
     override def isNamedTable = true
     protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
+    override def hashCode() = System.identityHashCode(this)
+    override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
   }
 }
 
@@ -93,6 +95,12 @@ final class Join[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right
   def rightNode = Node(_right)
   protected[this] def nodeChildGenerators = Seq(leftNode, rightNode)
   def nodeMapChildren(f: Node => Node): Node = this //-- incorrect
+
+  override def hashCode() = toString.hashCode() + nodeChildren.hashCode()
+  override def equals(o: Any) = o match {
+    case j: Join[_,_] => nodeChildren == j.nodeChildren
+    case _ => false
+  }
 }
 
 object Join {

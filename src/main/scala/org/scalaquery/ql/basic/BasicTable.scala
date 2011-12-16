@@ -11,7 +11,7 @@ abstract class AbstractBasicTable[T](_schemaName: Option[String], _tableName: St
 
   val O: BasicColumnOptions = BasicColumnOptions
 
-  def column[C : TypeMapper](n: String, options: ColumnOption[C, ProfileType]*) = new NamedColumn[C](Node(this), n, options:_*)
+  def column[C : TypeMapper](n: String, options: ColumnOption[C, ProfileType]*) = NamedColumn[C](Node(this), n, options)
 
   /*def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit profile: BasicProfile, tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
     import profile.Implicit._

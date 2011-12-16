@@ -36,9 +36,9 @@ trait ColumnOps[B1, P1] {
   def >= [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
     om(Relational(">=", leftOperand, Node(e)))
   def inSet[R](seq: Traversable[B1])(implicit om: OM2Bin[Boolean, P1, R], tm: BaseTM) =
-    om(InSet(leftOperand, seq, tm, false))
+    om(InSet(leftOperand, seq, false)(tm))
   def inSetBind[R](seq: Traversable[B1])(implicit om: OM2Bin[Boolean, P1, R], tm: BaseTM) =
-    om(InSet(leftOperand, seq, tm, true))
+    om(InSet(leftOperand, seq, true)(tm))
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: OM3[B1, B1, Boolean, P2, P3, R]) =
     om(Between(leftOperand, Node(start), Node(end)))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: OM2[B2, Boolean, P2, R]): Column[P2] =
@@ -131,8 +131,8 @@ object ColumnOps {
   final case class CountDistinct(child: Node) extends OperatorColumn[Int] with UnaryNode {
     protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
   }
-  final case class InSet[T](child: Node, seq: Traversable[T], tm: TypeMapper[T], bind: Boolean) extends OperatorColumn[Boolean] with UnaryNode {
-    protected[this] def nodeRebuild(child: Node): Node = copy[T](child = child)
+  final case class InSet[T](child: Node, seq: Traversable[T], bind: Boolean)(val tm: TypeMapper[T]) extends OperatorColumn[Boolean] with UnaryNode {
+    protected[this] def nodeRebuild(child: Node): Node = copy[T](child = child)()
   }
 
   final case class Between(left: Node, start: Node, end: Node) extends OperatorColumn[Boolean] with SimpleNode {
@@ -160,11 +160,12 @@ object ColumnOps {
   // String
   sealed case class Like(left: Node, right: Node, esc: Option[Char]) extends OperatorColumn[Boolean] with BinaryNode {
     protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(left = left, right = right)
+    override def equals(o: Any) = getClass == o.asInstanceOf[AnyRef].getClass && super.equals(o)
   }
-  class StartsWith(n: Node, s: String) extends Like(n, ConstColumn(likeEncode(s)+'%'), Some('^')) {
+  final class StartsWith(n: Node, s: String) extends Like(n, ConstColumn(likeEncode(s)+'%'), Some('^')) {
     protected[this] override def nodeRebuild(left: Node, right: Node): Node = new StartsWith(left, s)
   }
-  class EndsWith(n: Node, s: String) extends Like(n, ConstColumn('%'+likeEncode(s)), Some('^')) {
+  final class EndsWith(n: Node, s: String) extends Like(n, ConstColumn('%'+likeEncode(s)), Some('^')) {
     protected[this] override def nodeRebuild(left: Node, right: Node): Node = new EndsWith(left, s)
   }
 
