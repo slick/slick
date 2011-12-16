@@ -140,7 +140,7 @@ sealed class PureNoAlias[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U]) ext
 
 final case class Pure[+E, +U](value: Node)(base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] with UnaryNode {
   def child = value
-  val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
+  lazy val unpackable = Wrapped.wrapUnpackable(this, base)
   protected[this] override def nodeChildNames = Seq("value")
   protected[this] def nodeRebuild(child: Node): Node = copy[E, U](value = child)()
   override def isNamedTable = true
@@ -149,7 +149,7 @@ final case class Pure[+E, +U](value: Node)(base: Unpackable[_ <: E, _ <: U]) ext
 abstract class FilteredQuery[+E, +U] extends Query[E, U] with Node {
   def from: Node
   def base: Unpackable[_ <: E, _ <: U]
-  lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
+  lazy val unpackable = Wrapped.wrapUnpackable(this, base)
   override def toString = "FilteredQuery:" + getClass.getName.replaceAll(".*\\.", "")
   override def isNamedTable = true
 }
@@ -192,7 +192,7 @@ final case class FilteredJoin[+E1, +E2, +U1, +U2](from: Node, on: Node, jt: Join
 final case class Bind[+E, +U](from: Node, select: Node)(selectQ: Query[E, U]) extends Query[E, U] with BinaryNode {
   def left = from
   def right = select
-  val unpackable = selectQ.unpackable.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(x), Node(this)) }))
+  val unpackable = Wrapped.wrapUnpackable(this, selectQ.unpackable)
   protected[this] override def nodeChildNames = Seq("from", "select")
   protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, select = right)()
   override def isNamedTable = true

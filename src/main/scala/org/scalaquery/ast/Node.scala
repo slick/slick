@@ -102,6 +102,9 @@ trait ProductNode extends SimpleNode {
 object ProductNode {
   def apply(p: Product): ProductNode =
     new ProductNode { lazy val nodeChildGenerators = p.productIterator.toSeq }
+  def apply(s: Seq[Any]): ProductNode =
+    new ProductNode { lazy val nodeChildGenerators = s }
+  def unapplySeq(p: ProductNode) = Some(p.nodeChildren)
 }
 
 trait BinaryNode extends SimpleNode {
@@ -124,10 +127,15 @@ trait NullaryNode extends SimpleNode {
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = this
 }
 
-final case class Wrapped(what: Node, in: Node) extends SimpleNode {
-  protected[this] def nodeChildGenerators = Seq(what, in)
-  protected[this] override def nodeChildNames = Seq("what", "in")
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy(what = ch(0), in = ch(1))
+final case class Wrapped(in: Node, what: Node) extends BinaryNode {
+  def left = in
+  def right = what
+  protected[this] override def nodeChildNames = Seq("in", "what")
+  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(in = left, what = right)
+}
+
+object Wrapped {
+  def wrapUnpackable[E, U](in: Node, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(in), Node(x)) }))
 }
 
 final case class Alias(child: Node) extends UnaryNode {
