@@ -23,6 +23,7 @@ object GetResult {
   implicit object GetString extends GetResult[String] { def apply(rs: PositionedResult) = rs.nextString() }
   implicit object GetTime extends GetResult[Time] { def apply(rs: PositionedResult) = rs.nextTime() }
   implicit object GetTimestamp extends GetResult[Timestamp] { def apply(rs: PositionedResult) = rs.nextTimestamp() }
+  implicit object GetBigDecimal extends GetResult[BigDecimal] { def apply(rs: PositionedResult) = rs.nextBigDecimal() }
 
   implicit object GetBooleanOption extends GetResult[Option[Boolean]] { def apply(rs: PositionedResult) = rs.nextBooleanOption() }
   implicit object GetByteOption extends GetResult[Option[Byte]] { def apply(rs: PositionedResult) = rs.nextByteOption() }
@@ -35,6 +36,7 @@ object GetResult {
   implicit object GetStringOption extends GetResult[Option[String]] { def apply(rs: PositionedResult) = rs.nextStringOption() }
   implicit object GetTimeOption extends GetResult[Option[Time]] { def apply(rs: PositionedResult) = rs.nextTimeOption() }
   implicit object GetTimestampOption extends GetResult[Option[Timestamp]] { def apply(rs: PositionedResult) = rs.nextTimestampOption() }
+  implicit object GetBigDecimalOption extends GetResult[Option[BigDecimal]] { def apply(rs: PositionedResult) = rs.nextBigDecimalOption() }
 
   implicit def createGetTuple2[T1, T2](implicit c1: GetResult[T1], c2: GetResult[T2]): GetResult[(T1, T2)] = new GetResult[(T1, T2)] {
     def apply(rs: PositionedResult) = (c1(rs), c2(rs))
