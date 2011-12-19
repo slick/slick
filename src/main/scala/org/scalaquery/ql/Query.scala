@@ -36,7 +36,7 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   def join[E2, U2, R1, R2](q2: Query[E2, U2])(implicit reify1: Reify[E, R1], reify2: Reify[E2, R2]) = {
     val aliased1 = Alias.forUnpackable(unpackable)
     val aliased2 = Alias.forUnpackable(q2.unpackable)
-    new BaseJoin[R1, R2, U, U2](ProductNode(Node(this), Node(q2)), Join.Inner)(aliased1.zip(aliased2).reifiedUnpackable)
+    new BaseJoin[R1, R2, U, U2](ProductNode(Node(aliased1.value), Node(aliased2.value)), Join.Inner)(aliased1.zip(aliased2).reifiedUnpackable)
   }
 
   /*

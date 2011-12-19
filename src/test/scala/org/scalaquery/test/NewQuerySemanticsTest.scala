@@ -65,13 +65,14 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       val n = Node(g)
       println("=========================================== "+name)
       n.dump("source: ")
-      val n2 = Optimizer.eliminateIndirections(n)
-      if(n2 != n) n2.dump("after eliminateIndirections: ")
-      val n3 = Optimizer.reverseProjectionWrapping(n2)
-      if(n3 != n2) n3.dump("after reverseProjectionWrapping: ")
-      val n4 = Optimizer.eliminateIndirections(n3)
-      if(n4 != n3) n4.dump("after eliminateIndirections 2: ")
+      val n2 = Optimizer.eliminateIndirections
+        .andThen(Optimizer.reverseProjectionWrapping)
+        .apply(n)
       println
+      if(n2 ne n) {
+        n2.dump("optimized: ")
+        println
+      }
     }
 
     val q1 = for {
