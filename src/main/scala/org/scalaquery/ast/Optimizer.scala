@@ -2,37 +2,12 @@ package org.scalaquery.ast
 
 import collection.mutable.{ArrayBuffer, HashMap}
 import org.scalaquery.ql.{Pure, Bind, FilteredQuery}
+import OptimizerUtil._
 
 /**
  * Basic optimizers for the ScalaQuery AST
  */
 object Optimizer {
-
-  type Optimizer = (Node => Node)
-
-  def pfidentity[T]: PartialFunction[T, T] = { case x => x}
-
-  def collect[T](tree: Node, pf: PartialFunction[Node, T]): Iterable[T] = {
-    val b = new ArrayBuffer[T]
-    val f = pf.andThen[Unit]{ case t => b += t }.orElse[Node, Unit]{ case _ => () }
-    def check(n: Node) {
-      f(n)
-      n.nodeChildren.foreach(check)
-    }
-    check(tree)
-    b
-  }
-
-  def replace(tree: Node, f: PartialFunction[Node, Node]): Node = {
-    val g = f.orElse(pfidentity[Node])
-    val memo = new HashMap[Node, Node]
-    def tr(n: Node): Node = {
-      memo.getOrElseUpdate(n, {
-        g(g(n).nodeMapChildren(tr))
-      })
-    }
-    tr(tree)
-  }
 
   /**
    * Eliminate unnecessary nodes from the AST.

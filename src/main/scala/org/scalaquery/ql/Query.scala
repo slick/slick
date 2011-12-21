@@ -94,7 +94,7 @@ abstract class Query[+E, +U]() extends NodeGenerator {
 object Query extends PureNoAlias[Unit, Unit](Unpackable((), Unpack.unpackPrimitive[Unit])) {
   def apply[E, U](value: E)(implicit unpack: Unpack[E, U]) = apply[E, U](Unpackable(value, unpack))
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
-    if(unpackable.reifiedNode.isNamedTable) new PureNoAlias[E, U](unpackable)
+    if(unpackable.reifiedNode.isInstanceOf[AbstractTable[_]]) new TableQuery[E, U](unpackable.reifiedNode)(unpackable)
     else new Pure[E, U](unpackable.reifiedNode)(unpackable)
 }
 
@@ -141,6 +141,15 @@ sealed class PureNoAlias[+E, +U](val unpackable: Unpackable[_ <: E, _ <: U]) ext
 final case class Pure[+E, +U](value: Node)(base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] with UnaryNode {
   def child = value
   lazy val unpackable = Wrapped.wrapUnpackable(this, base)
+  protected[this] override def nodeChildNames = Seq("value")
+  protected[this] def nodeRebuild(child: Node): Node = copy[E, U](value = child)()
+  override def isNamedTable = true
+}
+
+final case class TableQuery[+E, +U](value: Node)(base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] with UnaryNode {
+  def child = value
+  //lazy val unpackable = Wrapped.wrapUnpackable(this, base)
+  lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
   protected[this] override def nodeChildNames = Seq("value")
   protected[this] def nodeRebuild(child: Node): Node = copy[E, U](value = child)()
   override def isNamedTable = true

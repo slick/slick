@@ -73,6 +73,11 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n2.dump("optimized: ")
         println
       }
+      val n3 = Columnizer.bindToComprehensions(n2)
+      if(n3 ne n2) {
+        n3.dump("columnized: ")
+        println
+      }
     }
 
     val q1 = for {
@@ -121,6 +126,9 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       t <- q5_0 join q5_0 on (_.name === _.name)
     } yield (t._1, t._2)
     show("q5b", q5b)
+
+    val q6 = Coffees.flatMap(c => Query(Suppliers))
+    show("q6", q6)
   }
 }
 

@@ -1,7 +1,8 @@
 package org.scalaquery.ast
 
-import collection.mutable.{ArrayBuffer, HashMap}
+import collection.mutable.HashMap
 import org.scalaquery.util.RefId
+import OptimizerUtil._
 
 /**
  * A tree transformer which replaces nodes transitively while updating
@@ -28,14 +29,11 @@ abstract class Transformer extends (Node => Node) { self =>
 
   def apply(tree: Node): Node = {
     composed.foreach { _.counts = self.counts }
-    val memo = new HashMap[Node, Node]
-    val repl = replace.orElse(Optimizer.pfidentity[Node])
-    def tr(n: Node): Node = memo.getOrElseUpdate(n, repl(n).nodeMapChildren(tr))
+    val repl = replace.orElse(pfidentity[Node])
     def scanAndTr(n: Node): Node = {
       counts.clear()
-      memo.clear()
       scan(n)
-      val n2 = tr(n)
+      val n2 = memoized[Node, Node](r => { n => repl(n).nodeMapChildren(r) })(n)
       if(n2 eq n) n else scanAndTr(n2)
     }
     scanAndTr(tree)
