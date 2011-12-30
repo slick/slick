@@ -73,7 +73,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n2.dump("optimized: ")
         println
       }
-      val n3 = Columnizer.bindToComprehensions(n2)
+      val n3 = (new Columnizer).run(n2)
       if(n3 ne n2) {
         n3.dump("columnized: ")
         println

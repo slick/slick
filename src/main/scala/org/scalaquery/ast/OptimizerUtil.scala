@@ -51,22 +51,25 @@ object OptimizerUtil {
 /**
  * Extra methods for Nodes.
  */
-class NodeOps(tree: Node) {
+class NodeOps(tree: Node) extends Traversable[Node] {
   import OptimizerUtil._
 
   def collect[T](pf: PartialFunction[Node, T]): Iterable[T] = {
     val b = new ArrayBuffer[T]
-    val f = pf.andThen[Unit]{ case t => b += t }.orElse[Node, Unit]{ case _ => () }
-    def check(n: Node) {
-      f(n)
-      n.nodeChildren.foreach(check)
-    }
-    check(tree)
+    foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Node, Unit]{ case _ => () })
     b
   }
 
   def replace(f: PartialFunction[Node, Node]): Node = {
     val g = f.orElse(pfidentity[Node])
     memoized[Node, Node](r => { n => g(g(n).nodeMapChildren(r)) })(tree)
+  }
+
+  def foreach[U](f: (Node => U)) {
+    def g(n: Node) {
+      f(n)
+      n.nodeChildren.foreach(g)
+    }
+    g(tree)
   }
 }
