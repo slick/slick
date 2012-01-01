@@ -20,6 +20,8 @@ abstract class Transformer extends (Node => Node) { self =>
 
   def replace: PartialFunction[Node, Node]
 
+  def initTree(n: Node) = ()
+
   final def scan(n: Node) {
     val r = RefId(n)
     val c = counts.getOrElse(r, 0)
@@ -33,6 +35,7 @@ abstract class Transformer extends (Node => Node) { self =>
     def scanAndTr(n: Node): Node = {
       counts.clear()
       scan(n)
+      initTree(n)
       val n2 = memoized[Node, Node](r => { n => repl(n).nodeMapChildren(r) })(n)
       if(n2 eq n) n else scanAndTr(n2)
     }
@@ -41,6 +44,10 @@ abstract class Transformer extends (Node => Node) { self =>
 
   def compose(g: Transformer): Transformer = new Transformer {
     def replace = self.replace.orElse(g.replace)
+    override def initTree(n: Node) {
+      self.initTree(n)
+      g.initTree(n)
+    }
     composed = Vector(self, g)
   }
 

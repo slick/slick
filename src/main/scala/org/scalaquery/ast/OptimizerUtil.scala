@@ -10,7 +10,7 @@ import collection.mutable.ArrayBuffer
  */
 object OptimizerUtil {
 
-  def pfidentity[T]: PartialFunction[T, T] = { case x => x}
+  def pfidentity[T]: PartialFunction[T, T] = { case x => x }
 
   def memoized[A, B](f: (A => B) => A => B): (A => B) = {
     val memo = new collection.mutable.HashMap[A, B]

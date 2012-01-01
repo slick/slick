@@ -7,18 +7,19 @@ import org.scalaquery.util.RefId
 
 
 /**
- * Expand columns in queries
+ * Expand columns and merge comprehensions in queries
  */
 class Columnizer {
 
   var nextNum = 1
   var defs = new HashMap[RefId[Node], (Symbol, Node)]
 
-  def run(tree: Node): Node = {
+  def run(tree: Node): Node = tree /*{
     val withCs = bindToComprehensions(tree)
-    findDefs(withCs)
-    introduceRefs(withCs)
-  }
+    //findDefs(withCs)
+    //introduceRefs(withCs)
+    withCs
+  }*/
 
   def makeSym = {
     val n = nextNum
@@ -37,7 +38,7 @@ class Columnizer {
   def introduceRefs(n: Node) = memoized[(RefId[Node], Boolean), Node](r => { case (rn @ RefId(n), here) =>
     val n2 = if(here) {
       defs.get(rn).map { case (sym, in) =>
-        Ref(n, Seq(sym))
+        InRef(sym, n)
       } getOrElse n
     } else n
     n2 match {
@@ -47,11 +48,11 @@ class Columnizer {
   }).apply((RefId(n), true))
 
   val bindToComprehensions = refMemoized[Node, Node](r => {
-    case Bind(bfrom, bselect) => r(bselect) match {
+    case Bind(_, bfrom, bselect) => r(bselect) match {
       case Comprehension(from, where, select) => r(Comprehension((makeSym, r(bfrom)) +: from, where, select))
       case n => r(Comprehension(Seq((makeSym, r(bfrom))), Seq.empty, Seq(n)))
     }
-    case Filter(from, where) => r(Comprehension(Seq((makeSym, r(from))), Seq(r(where)), Seq.empty))
+    case Filter(_, from, where) => r(Comprehension(Seq((makeSym, r(from))), Seq(r(where)), Seq.empty))
     //case Bind(from, Pure(value)) => r(Comprehension(Seq(r(from)), Seq.empty, Seq(r(value))))
     /*case Bind(from1, Comprehension(from2, where, select)) =>
       r(Comprehension(r(from1) +: from2.map(r), where.map(r), select.map(r)))
@@ -92,13 +93,4 @@ case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Se
     else this
   }
   override def toString = "Comprehension"
-}
-
-case class Ref(child: Node, path: Seq[Symbol]) extends UnaryNode {
-  protected[this] def nodeRebuild(child: Node) = copy(child = child)
-  override def toString = "Ref "+path.mkString(".")
-}
-
-class Symbol(val name: String) {
-  override def toString = name
 }

@@ -63,9 +63,11 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
     def show(name: String, g: NodeGenerator) {
       val n = Node(g)
+      Symbol.assignNames(n)
       println("=========================================== "+name)
       n.dump("source: ")
       val n2 = Optimizer.eliminateIndirections
+        .andThen(Optimizer.unwrapGenerators)
         .andThen(Optimizer.reverseProjectionWrapping)
         .apply(n)
       println
@@ -89,7 +91,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     //val l3 = q1.list
     //println("l3: "+l3)
 
-    val q1b = for {
+    /*val q1b = for {
       (c, s) <- Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     } yield c.name ~ s.name
     show("q1b", q1b)
@@ -128,16 +130,6 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     show("q5b", q5b)
 
     val q6 = Coffees.flatMap(c => Query(Suppliers))
-    show("q6", q6)
+    show("q6", q6)*/
   }
 }
-
-/*
-
-Query
-  from: Coffees c
-  flatMap: Query
-    from: Suppliers s
-    map: c.name
-
-*/

@@ -11,7 +11,7 @@ trait NodeGenerator {
 
   final def dump(name: String, nc: IdContext = IdContext(nodeDelegate)) {
     val out = new PrintWriter(new OutputStreamWriter(System.out))
-    nodeDelegate.nodeDump(new Node.DumpContext(out, nc), "", name)
+    nodeDelegate.nodeDump(new DumpContext(out, nc), "", name)
     out.flush()
   }
 }
@@ -41,7 +41,7 @@ trait Node extends NodeGenerator {
     if(change) Some(b) else None
   }
 
-  def nodeDump(dc: Node.DumpContext, prefix: String, name: String) {
+  def nodeDump(dc: DumpContext, prefix: String, name: String) {
     val details = dc.nc.checkIdFor(this) match {
       case Some((id, true)) =>
         dc.out.println(prefix + name + "[" + id + "] " + this)
@@ -81,9 +81,9 @@ object Node {
     else if(o.isInstanceOf[NodeGenerator]) o.asInstanceOf[NodeGenerator].nodeDelegate
     else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product])
     else throw new SQueryException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
-
-  final class DumpContext(val out: PrintWriter, val nc: IdContext)
 }
+
+final class DumpContext(val out: PrintWriter, val nc: IdContext)
 
 trait ProductNode extends SimpleNode {
   override def toString = "ProductNode"

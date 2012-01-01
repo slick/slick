@@ -1,8 +1,9 @@
 package org.scalaquery.ast
 
 import collection.mutable.{ArrayBuffer, HashMap}
-import org.scalaquery.ql.{Pure, Bind, FilteredQuery}
 import OptimizerUtil._
+import org.scalaquery.util.RefId
+import org.scalaquery.ql.{Filter, Pure, Bind, FilteredQuery}
 
 /**
  * Basic optimizers for the ScalaQuery AST
@@ -21,11 +22,11 @@ object Optimizer {
       // Remove dual wrapping (remnant of a removed Filter(_, ConstColumn(true)))
       case Wrapped(in2, w2 @ Wrapped(in1, what)) if in1 == in2 => w2
       // Remove identity binds
-      case Bind(x, Pure(y)) if x == y => x
+      case Bind(_, x, Pure(y)) if x == y => x
       // Remove unnecessary wrapping of pure values
       case Wrapped(p @ Pure(n1), n2) if n1 == n2 => p
       // Remove unnecessary wrapping of binds
-      case Wrapped(b @ Bind(_, s1), s2) if s1 == s2 => b
+      case Wrapped(b @ Bind(_, _, s1), s2) if s1 == s2 => b
     }
   }
 
@@ -44,6 +45,30 @@ object Optimizer {
       case p @ ProductNode(Wrapped(in, _), xs @ _*) if allWrapped(in, xs) =>
         val unwrapped = p.nodeChildren.collect { case Wrapped(_, what) => what }
         Wrapped(in, ProductNode(unwrapped))
+    }
+  }
+
+  /**
+   * Remove unnecessary wrappings of generators
+   */
+  def unwrapGenerators = new Transformer {
+    val defs = new HashMap[Symbol, RefId[Node]]
+    override def initTree(tree: Node) {
+      defs.clear()
+      defs ++= tree.collect[(Symbol, RefId[Node])] {
+        case Bind(sym, from, _) => (sym, RefId(from))
+        case Filter(sym, from, _) => (sym, RefId(from))
+      }
+      println("**** collected: "+defs)
+    }
+    def replace = {
+      case InRef(sym, Wrapped(in, what)) if defs.get(sym) == Some(RefId(in)) => InRef(sym, what)
+      case r @ InRef(sym, what) if {
+        println("** checking " + r + " with "+defs)
+        val b = defs.get(sym) == Some(RefId(what))
+        println("-> "+b+", "+defs.get(sym)+", "+Some(RefId(r.child)))
+        b
+      } => Ref(sym)
     }
   }
 }
