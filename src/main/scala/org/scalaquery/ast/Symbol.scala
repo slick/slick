@@ -1,6 +1,7 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
+import org.scalaquery.ql.Unpackable
 
 /**
  * A symbol defined in the AST.
@@ -33,6 +34,10 @@ case class InRef(sym: Symbol, child: Node) extends UnaryNode {
   protected[this] def nodeRebuild(child: Node) = copy(child = child)
   override def toString = "InRef "+sym
   override def nodeChildNames = Seq("value")
+}
+
+object InRef {
+  def forUnpackable[E, U](sym: Symbol, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => InRef(sym, x) }))
 }
 
 /**

@@ -3,7 +3,7 @@ package org.scalaquery.ast
 import collection.mutable.{ArrayBuffer, HashMap}
 import OptimizerUtil._
 import org.scalaquery.util.RefId
-import org.scalaquery.ql.{Filter, Pure, Bind, FilteredQuery}
+import org.scalaquery.ql._
 
 /**
  * Basic optimizers for the ScalaQuery AST
@@ -15,8 +15,6 @@ object Optimizer {
    */
   def eliminateIndirections = new Transformer {
     def replace = {
-      // Remove alias if aliased node or alias is not referenced otherwise
-      case a @ Alias(ch) if unique(ch) || unique(a) => ch
       // Remove wrapping of the entire result of a FilteredQuery
       case Wrapped(q @ FilteredQuery(from), what) if what == from => q
       // Remove dual wrapping (remnant of a removed Filter(_, ConstColumn(true)))
@@ -55,10 +53,11 @@ object Optimizer {
     val defs = new HashMap[Symbol, RefId[Node]]
     override def initTree(tree: Node) {
       defs.clear()
-      defs ++= tree.collect[(Symbol, RefId[Node])] {
-        case Bind(sym, from, _) => (sym, RefId(from))
-        case Filter(sym, from, _) => (sym, RefId(from))
-      }
+      defs ++= tree.collect[Seq[(Symbol, RefId[Node])]] {
+        case Bind(sym, from, _) => Seq((sym, RefId(from)))
+        case Filter(sym, from, _) => Seq((sym, RefId(from)))
+        case BaseJoin(leftSym, rightSym, left, right, _) => Seq((leftSym, RefId(left)), (rightSym, RefId(right)))
+      }.flatten
     }
     def replace = {
       case InRef(sym, Wrapped(in, what)) if defs.get(sym) == Some(RefId(in)) => InRef(sym, what)

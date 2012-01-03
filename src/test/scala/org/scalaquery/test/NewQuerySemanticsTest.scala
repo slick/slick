@@ -110,7 +110,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         }
       }
     }
-    show("q3: Using filtered and unfiltered query", q3)
+    show("q3: Lifting scalar values", q3)
 
     val q4 = for {
       c <- Coffees.map(c => (c.name, c.price)).filter(_._2 < 9.0)

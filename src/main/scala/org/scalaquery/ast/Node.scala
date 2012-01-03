@@ -42,7 +42,8 @@ trait Node extends NodeGenerator {
   }
 
   def nodeDump(dc: DumpContext, prefix: String, name: String) {
-    val details = dc.nc.checkIdFor(this) match {
+    val check = if(this.isInstanceOf[Ref]) None else dc.nc.checkIdFor(this)
+    val details = check match {
       case Some((id, true)) =>
         dc.out.println(prefix + name + "[" + id + "] " + this)
         true
@@ -139,16 +140,4 @@ final case class Wrapped(in: Node, what: Node) extends BinaryNode {
 
 object Wrapped {
   def wrapUnpackable[E, U](in: Node, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(in), Node(x)) }))
-}
-
-final case class Alias(child: Node) extends UnaryNode {
-  protected[this] override def nodeChildNames = Seq("of")
-  protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
-  override def isNamedTable = true
-  override def hashCode() = System.identityHashCode(this)
-  override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
-}
-
-object Alias {
-  def forUnpackable[E, U](u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Alias(Node(x)) }))
 }

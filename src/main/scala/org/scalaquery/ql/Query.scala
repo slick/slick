@@ -29,8 +29,9 @@ abstract class Query[+E, +U]() extends NodeGenerator {
 
   def filter[T, R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]): Query[R, U] = {
     val generator = new Symbol
-    val aliased = WithOp.mapOp(unpackable.value, (n => InRef(generator, n)))
-    val fv = f(aliased)
+    //val aliased = WithOp.mapOp(unpackable.value, (n => InRef(generator, n)))
+    val aliased = InRef.forUnpackable(generator, unpackable)
+    val fv = f(aliased.value)
     new Filter[R, U](generator, Node(this), Node(wt(fv)))(unpackable.reifiedUnpackable(reify))
   }
 
@@ -39,9 +40,10 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   def where[T <: Column[_], R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]) = filter(f)(wt, reify)
 
   def join[E2, U2, R1, R2](q2: Query[E2, U2])(implicit reify1: Reify[E, R1], reify2: Reify[E2, R2]) = {
-    val aliased1 = Alias.forUnpackable(unpackable)
-    val aliased2 = Alias.forUnpackable(q2.unpackable)
-    new BaseJoin[R1, R2, U, U2](ProductNode(Node(aliased1.value), Node(aliased2.value)), Join.Inner)(aliased1.zip(aliased2).reifiedUnpackable)
+    val leftGen, rightGen = new Symbol
+    val aliased1 = InRef.forUnpackable(leftGen, unpackable)
+    val aliased2 = InRef.forUnpackable(rightGen, q2.unpackable)
+    new BaseJoin[R1, R2, U, U2](leftGen, rightGen, Node(unpackable.value), Node(q2.unpackable.value), Join.Inner)(aliased1.zip(aliased2).reifiedUnpackable)
   }
 
   /*
@@ -188,20 +190,14 @@ final case class Filter[+E, +U](generator: Symbol, from: Node, where: Node)(val 
   def nodeSymDefs = Seq(generator)
 }
 
-final case class BaseJoin[+E1, +E2, +U1, +U2](from: Node, jt: JoinType)(val base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)]) extends FilteredQuery[(E1, E2), (U1,  U2)] with UnaryNode {
-  def child = from
-  protected[this] def nodeRebuild(ch: Node): Node = copy[E1, E2, U1, U2](from = ch)()
-  protected[this] override def nodeChildNames = Seq("from")
-  def on[T <: Column[_] : CanBeQueryCondition](pred: (E1, E2) => T) = new FilteredJoin(from, Node(pred(base.value._1, base.value._2)), jt)(base)
+final case class BaseJoin[+E1, +E2, +U1, +U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType)(val base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)]) extends Query[(E1, E2), (U1,  U2)] with BinaryNode with DefNode {
+  lazy val unpackable = Wrapped.wrapUnpackable(this, base)
+  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E1, E2, U1, U2](left = left, right = right)()
+  protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
   override def toString = "BaseJoin " + jt.sqlName
-}
-
-final case class FilteredJoin[+E1, +E2, +U1, +U2](from: Node, on: Node, jt: JoinType)(val base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)]) extends FilteredQuery[(E1, E2), (U1,  U2)] with BinaryNode {
-  def left = from
-  def right = on
-  protected[this] override def nodeChildNames = Seq("from", "on")
-  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E1, E2, U1, U2](from = left, on = right)()
-  override def toString = "FilteredJoin " + jt.sqlName
+  def nodeSymDefs = Seq(leftGen, rightGen)
+  def on[T <: Column[_], R](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[(E1, E2), R]) =
+    filter { case (a,b) => pred(a,b) }
 }
 
 final case class Bind[+E, +U](generator: Symbol, from: Node, select: Node)(selectQ: Query[E, U]) extends Query[E, U] with BinaryNode with DefNode {
