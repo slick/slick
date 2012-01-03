@@ -86,21 +86,21 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       c <- Query(Coffees).take(3)
       s <- Suppliers
     } yield c.name ~ s.name
-    show("q1", q1)
+    show("q1: Plain implicit join", q1)
     //println("q1: "+q1.selectStatement)
     //val l3 = q1.list
     //println("l3: "+l3)
 
-    /*val q1b = for {
+    val q1b = for {
       (c, s) <- Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     } yield c.name ~ s.name
-    show("q1b", q1b)
+    show("q1b: Explicit join with condition", q1b)
 
     val q2 = for {
       c <- Coffees.filter(_.price < 9.0).map(_.*)
       s <- Suppliers if s.id === c._2
     } yield c._1 ~ s.name
-    show("q2", q2)
+    show("q2: More elaborate query", q2)
 
     val q3 = Coffees.flatMap { c =>
       val cf = c.where(_.price < 9.0)
@@ -110,26 +110,26 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         }
       }
     }
-    show("q3", q3)
+    show("q3: Using filtered and unfiltered query", q3)
 
     val q4 = for {
       c <- Coffees.map(c => (c.name, c.price)).filter(_._2 < 9.0)
     } yield c
-    show("q4", q4)
+    show("q4: Map to tuple, then filter", q4)
 
     val q5_0 = Query(Coffees).take(10)
     val q5 = for {
       c1 <- q5_0
       c2 <- q5_0
     } yield (c1, c2)
-    show("q5", q5)
+    show("q5: Implicit self-join", q5)
 
     val q5b = for {
       t <- q5_0 join q5_0 on (_.name === _.name)
     } yield (t._1, t._2)
-    show("q5b", q5b)
+    show("q5b: Explicit self-join with condition", q5b)
 
     val q6 = Coffees.flatMap(c => Query(Suppliers))
-    show("q6", q6)*/
+    show("q6: Unused outer query result, unbound TableQuery", q6)
   }
 }

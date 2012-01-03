@@ -5,7 +5,7 @@ import org.scalaquery.SQueryException
 trait WithOp extends Cloneable { self: NodeGenerator =>
   def mapOp(f: Node => Node): this.type = {
     val t = clone
-    t._op = f(this.nodeDelegate)
+    t._op = f(Node(this))
     t
   }
   private[WithOp] var _op: Node = _

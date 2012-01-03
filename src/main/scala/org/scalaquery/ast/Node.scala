@@ -77,8 +77,11 @@ trait SimpleNode extends Node {
 object Node {
   def apply(o:Any): Node =
     if(o == null) ConstColumn.NULL
-    else if(o.isInstanceOf[WithOp] && (o.asInstanceOf[WithOp].op ne null)) o.asInstanceOf[WithOp].op
-    else if(o.isInstanceOf[NodeGenerator]) o.asInstanceOf[NodeGenerator].nodeDelegate
+    else if(o.isInstanceOf[WithOp] && (o.asInstanceOf[WithOp].op ne null)) Node(o.asInstanceOf[WithOp].op)
+    else if(o.isInstanceOf[NodeGenerator]) {
+      val gen = o.asInstanceOf[NodeGenerator]
+      if(gen.nodeDelegate eq gen) gen.nodeDelegate else Node(gen.nodeDelegate)
+    }
     else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product])
     else throw new SQueryException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
 }

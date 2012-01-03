@@ -59,16 +59,10 @@ object Optimizer {
         case Bind(sym, from, _) => (sym, RefId(from))
         case Filter(sym, from, _) => (sym, RefId(from))
       }
-      println("**** collected: "+defs)
     }
     def replace = {
       case InRef(sym, Wrapped(in, what)) if defs.get(sym) == Some(RefId(in)) => InRef(sym, what)
-      case r @ InRef(sym, what) if {
-        println("** checking " + r + " with "+defs)
-        val b = defs.get(sym) == Some(RefId(what))
-        println("-> "+b+", "+defs.get(sym)+", "+Some(RefId(r.child)))
-        b
-      } => Ref(sym)
+      case r @ InRef(sym, what) if defs.get(sym) == Some(RefId(what)) => Ref(sym)
     }
   }
 }
