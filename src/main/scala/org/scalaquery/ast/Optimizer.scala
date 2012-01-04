@@ -57,6 +57,7 @@ object Optimizer {
         case Bind(sym, from, _) => Seq((sym, RefId(from)))
         case Filter(sym, from, _) => Seq((sym, RefId(from)))
         case BaseJoin(leftSym, rightSym, left, right, _) => Seq((leftSym, RefId(left)), (rightSym, RefId(right)))
+        case FilteredJoin(leftSym, rightSym, left, right, _, _) => Seq((leftSym, RefId(left)), (rightSym, RefId(right)))
       }.flatten
     }
     def replace = {

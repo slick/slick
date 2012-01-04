@@ -197,7 +197,16 @@ final case class BaseJoin[+E1, +E2, +U1, +U2](leftGen: Symbol, rightGen: Symbol,
   override def toString = "BaseJoin " + jt.sqlName
   def nodeSymDefs = Seq(leftGen, rightGen)
   def on[T <: Column[_], R](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[(E1, E2), R]) =
-    filter { case (a,b) => pred(a,b) }
+    new FilteredJoin[E1, E2, U1, U2](leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2))))(base)
+}
+
+final case class FilteredJoin[+E1, +E2, +U1, +U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node)(val base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)]) extends Query[(E1, E2), (U1,  U2)] with SimpleNode with DefNode {
+  lazy val unpackable = Wrapped.wrapUnpackable(this, base)
+  protected[this] def nodeChildGenerators = IndexedSeq(left, right, on)
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy[E1, E2, U1, U2](left = ch(0), right = ch(1), on = ch(2))()
+  protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
+  override def toString = "FilteredJoin " + jt.sqlName
+  def nodeSymDefs = Seq(leftGen, rightGen)
 }
 
 final case class Bind[+E, +U](generator: Symbol, from: Node, select: Node)(selectQ: Query[E, U]) extends Query[E, U] with BinaryNode with DefNode {
