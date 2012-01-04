@@ -187,7 +187,7 @@ final case class Filter[+E, +U](generator: Symbol, from: Node, where: Node)(val 
   protected[this] override def nodeChildNames = Seq("from "+generator, "where")
   protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, where = right)()
   override def nodeDelegate = if(where == ConstColumn(true)) left else super.nodeDelegate
-  def nodeSymDefs = Seq(generator)
+  def nodeGenerators = Seq((generator, from))
 }
 
 final case class BaseJoin[+E1, +E2, +U1, +U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType)(val base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)]) extends Query[(E1, E2), (U1,  U2)] with BinaryNode with DefNode {
@@ -195,7 +195,7 @@ final case class BaseJoin[+E1, +E2, +U1, +U2](leftGen: Symbol, rightGen: Symbol,
   protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E1, E2, U1, U2](left = left, right = right)()
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
   override def toString = "BaseJoin " + jt.sqlName
-  def nodeSymDefs = Seq(leftGen, rightGen)
+  def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   def on[T <: Column[_], R](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[(E1, E2), R]) =
     new FilteredJoin[E1, E2, U1, U2](leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2))))(base)
 }
@@ -206,7 +206,7 @@ final case class FilteredJoin[+E1, +E2, +U1, +U2](leftGen: Symbol, rightGen: Sym
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy[E1, E2, U1, U2](left = ch(0), right = ch(1), on = ch(2))()
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
   override def toString = "FilteredJoin " + jt.sqlName
-  def nodeSymDefs = Seq(leftGen, rightGen)
+  def nodeGenerators = Seq((leftGen, left), (rightGen, right))
 }
 
 final case class Bind[+E, +U](generator: Symbol, from: Node, select: Node)(selectQ: Query[E, U]) extends Query[E, U] with BinaryNode with DefNode {
@@ -216,6 +216,6 @@ final case class Bind[+E, +U](generator: Symbol, from: Node, select: Node)(selec
   protected[this] override def nodeChildNames = Seq("from "+generator, "select")
   protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[E, U](from = left, select = right)()
   override def isNamedTable = true
-  def nodeSymDefs = Seq(generator)
+  def nodeGenerators = Seq((generator, from))
   override def toString = "Bind"
 }

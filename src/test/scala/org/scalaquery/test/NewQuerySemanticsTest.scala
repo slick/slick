@@ -113,9 +113,16 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     show("q3: Lifting scalar values", q3)
 
     val q4 = for {
-      c <- Coffees.map(c => (c.name, c.price)).filter(_._2 < 9.0)
+      c <- Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 9.0)
     } yield c
     show("q4: Map to tuple, then filter", q4)
+
+    val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 9.0)
+    val q4b = for {
+      c <- q4b_0
+      d <- q4b_0
+    } yield (c,d)
+    show("q4b: Map to tuple, then filter, with self-join", q4b)
 
     val q5_0 = Query(Coffees).take(10)
     val q5 = for {

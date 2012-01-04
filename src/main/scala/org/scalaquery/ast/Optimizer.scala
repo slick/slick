@@ -25,6 +25,9 @@ object Optimizer {
       case Wrapped(p @ Pure(n1), n2) if n1 == n2 => p
       // Remove unnecessary wrapping of binds
       case Wrapped(b @ Bind(_, _, s1), s2) if s1 == s2 => b
+      // Remove unnecessary wrapping of filters in FROM clauses
+      case b @ Bind(gen, Wrapped(f: FilteredQuery[_,_], _), what) => b.copy(from = f)()
+      case b @ Bind(gen, Wrapped(f: FilteredJoin[_,_,_,_], _), what) => b.copy(from = f)()
     }
   }
 
@@ -51,18 +54,25 @@ object Optimizer {
    */
   def unwrapGenerators = new Transformer {
     val defs = new HashMap[Symbol, RefId[Node]]
+    val reverse = new HashMap[RefId[Node], Symbol]
     override def initTree(tree: Node) {
       defs.clear()
-      defs ++= tree.collect[Seq[(Symbol, RefId[Node])]] {
-        case Bind(sym, from, _) => Seq((sym, RefId(from)))
-        case Filter(sym, from, _) => Seq((sym, RefId(from)))
-        case BaseJoin(leftSym, rightSym, left, right, _) => Seq((leftSym, RefId(left)), (rightSym, RefId(right)))
-        case FilteredJoin(leftSym, rightSym, left, right, _, _) => Seq((leftSym, RefId(left)), (rightSym, RefId(right)))
-      }.flatten
+      defs ++= tree.collectAll[(Symbol, RefId[Node])] {
+        case d: DefNode => d.nodeGenerators.map { case (s,n) => (s, RefId(n)) }
+      }
+      reverse.clear()
+      reverse ++= defs.map { case (k,v) => (v,k) }
     }
     def replace = {
-      case InRef(sym, Wrapped(in, what)) if defs.get(sym) == Some(RefId(in)) => InRef(sym, what)
+      case InRef(sym, Wrapped(in, what)) if {
+        (defs.get(sym) == Some(RefId(in))) ||
+          defs.get(sym).map(_.e match {
+            case Bind(_, _, select) if select eq in => true
+            case _ => false
+          }).getOrElse(false)
+      } => InRef(sym, what)
       case r @ InRef(sym, what) if defs.get(sym) == Some(RefId(what)) => Ref(sym)
+      case Wrapped(in, what) if reverse.get(RefId(in)).isDefined => InRef(reverse.get(RefId(in)).get, what)
     }
   }
 }

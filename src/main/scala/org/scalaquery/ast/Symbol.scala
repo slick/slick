@@ -49,5 +49,6 @@ case class Ref(sym: Symbol) extends NullaryNode
  * A Node which introduces Symbols.
  */
 trait DefNode extends Node {
-  def nodeSymDefs: Seq[Symbol]
+  final def nodeSymDefs: Seq[Symbol] = nodeGenerators.map(_._1)
+  def nodeGenerators: Seq[(Symbol, Node)]
 }

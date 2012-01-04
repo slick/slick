@@ -60,6 +60,8 @@ class NodeOps(tree: Node) extends Traversable[Node] {
     b
   }
 
+  def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
+
   def replace(f: PartialFunction[Node, Node]): Node = {
     val g = f.orElse(pfidentity[Node])
     memoized[Node, Node](r => { n => g(g(n).nodeMapChildren(r)) })(tree)

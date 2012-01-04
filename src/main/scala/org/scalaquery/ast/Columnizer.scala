@@ -5,82 +5,34 @@ import org.scalaquery.ql.{TableQuery, Filter, Pure, Bind}
 import collection.mutable.HashMap
 import org.scalaquery.util.RefId
 
-
 /**
  * Expand columns and merge comprehensions in queries
  */
 class Columnizer {
 
-  var nextNum = 1
-  var defs = new HashMap[RefId[Node], (Symbol, Node)]
-
-  def run(tree: Node): Node = tree /*{
-    val withCs = bindToComprehensions(tree)
+  def run(tree: Node): Node = {
+    val withCs = toComprehensions(tree)
+    val cs = findColumns(withCs)
+    println("*** cs: "+cs)
     //findDefs(withCs)
     //introduceRefs(withCs)
     withCs
-  }*/
-
-  def makeSym = {
-    val n = nextNum
-    nextNum += 1
-    new Symbol("s"+n)
   }
 
-  def findDefs(n: Node) = n.foreach {
-    case in @ Comprehension(from, _, _) =>
-      from.foreach { case (sym, node) =>
-        defs += ((RefId(node), (sym, in)))
-      }
-    case _ =>
-  }
-
-  def introduceRefs(n: Node) = memoized[(RefId[Node], Boolean), Node](r => { case (rn @ RefId(n), here) =>
-    val n2 = if(here) {
-      defs.get(rn).map { case (sym, in) =>
-        InRef(sym, n)
-      } getOrElse n
-    } else n
-    n2 match {
-      case c @ Comprehension(_, _, _) => c.mapChildren(n => r((RefId(n), false)), n => r((RefId(n), true)))
-      case n => n.nodeMapChildren(n => r((RefId(n), true)))
+  val toComprehensions = new Transformer {
+    def replace = {
+      case Bind(gen, from, select) => Comprehension(Seq((gen, from)), Nil, Seq(select))
+      case Filter(gen, from, where) => Comprehension(Seq((gen, from)), Seq(where), Nil)
     }
-  }).apply((RefId(n), true))
-
-  val bindToComprehensions = refMemoized[Node, Node](r => {
-    case Bind(_, bfrom, bselect) => r(bselect) match {
-      case Comprehension(from, where, select) => r(Comprehension((makeSym, r(bfrom)) +: from, where, select))
-      case n => r(Comprehension(Seq((makeSym, r(bfrom))), Seq.empty, Seq(n)))
-    }
-    case Filter(_, from, where) => r(Comprehension(Seq((makeSym, r(from))), Seq(r(where)), Seq.empty))
-    //case Bind(from, Pure(value)) => r(Comprehension(Seq(r(from)), Seq.empty, Seq(r(value))))
-    /*case Bind(from1, Comprehension(from2, where, select)) =>
-      r(Comprehension(r(from1) +: from2.map(r), where.map(r), select.map(r)))
-    case TableQuery(table) => r(Comprehension(Seq(r(table)), Seq.empty, Seq.empty))
-    case Comprehension(from, where, select) if hasSimpleComprehension(from) =>
-      r(Comprehension(unwrapSimpleComprehensions(from), where, select))
-    case Comprehension(Seq(Pure(value)), where, Seq()) => r(Comprehension(Seq.empty, where, Seq(value)))*/
-    case n =>
-      val nn = n.nodeMapChildren(r)
-      if(nn eq n) n else r(nn)
-  })
-
-  def hasSimpleComprehension(s: Seq[Node]) = s.exists(n => n match {
-    case Comprehension(Seq(from), Seq(), Seq()) => true
-    case _ => false
-  })
-
-  def unwrapSimpleComprehensions(s: Seq[Node]) = s.map {
-    case Comprehension(Seq(from), Seq(), Seq()) => from
-    case n => n
   }
 
-  val mergeComprehensions = memoized[Node, Node](r => {
-    case n => n
-  })
+  def findColumns(n: Node) = n.collect[(Symbol, Option[Node])] {
+    case Ref(sym) => (sym, None)
+    case InRef(sym, value) => (sym, Some(value))
+  }.toSet
 }
 
-case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Seq[Node]) extends Node {
+case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Seq[Node]) extends Node with DefNode {
   protected[this] def nodeChildGenerators = from.map(_._2) ++ where ++ select
   override protected[this] def nodeChildNames = from.map("from " + _._1) ++ where.zipWithIndex.map("where" + _._2) ++ select.zipWithIndex.map("select" + _._2)
   def nodeMapChildren(f: Node => Node) = mapChildren(f, f)
@@ -92,5 +44,6 @@ case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Se
       copy(from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from), where = whereO.getOrElse(where), select = selectO.getOrElse(select))
     else this
   }
+  def nodeGenerators = from
   override def toString = "Comprehension"
 }
