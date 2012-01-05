@@ -21,6 +21,6 @@ object WithOp {
 <#list 2..22 as i>
     case (<#list 1..i as j>x${j}<#if i != j>, </#if></#list>) => (<#list 1..i as j>mapOp(x${j}, f)<#if i != j>, </#if></#list>).asInstanceOf[T]
 </#list>
-    case _ => throw new SQueryException("Cannot apply an operation to "+x)
+    case x => x
   }
 }
