@@ -26,14 +26,12 @@ object ExtendedQueryOps {
   final case class TakeDrop(take: Option[Int], drop: Option[Int]) extends QueryModifier with NullaryNode
 
   final case class Take[+E, +U](from: Node, num: Int)(val base: Unpackable[_ <: E, _ <: U]) extends FilteredQuery[E, U] with UnaryNode {
-    override def toString = "Take " + num
     def child = from
     protected[this] override def nodeChildNames = Seq("from")
     protected[this] def nodeRebuild(child: Node): Node = copy[E, U](from = child)()
   }
 
   final case class Drop[+E, +U](from: Node, num: Int)(val base: Unpackable[_ <: E, _ <: U]) extends FilteredQuery[E, U] with UnaryNode {
-    override def toString = "Take " + num
     def child = from
     protected[this] override def nodeChildNames = Seq("from")
     protected[this] def nodeRebuild(child: Node): Node = copy[E, U](from = child)()

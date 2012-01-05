@@ -85,7 +85,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q1 = for {
       c <- Query(Coffees).take(3)
       s <- Suppliers
-    } yield c.name ~ s.name
+    } yield c.name ~ (s.name ++ ":")
     show("q1: Plain implicit join", q1)
     //println("q1: "+q1.selectStatement)
     //val l3 = q1.list

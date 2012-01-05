@@ -166,7 +166,7 @@ abstract class FilteredQuery[+E, +U] extends Query[E, U] with Node {
   def from: Node
   def base: Unpackable[_ <: E, _ <: U]
   lazy val unpackable = Wrapped.wrapUnpackable(this, base)
-  override def toString = "FilteredQuery:" + getClass.getName.replaceAll(".*\\.", "")
+  override def toString = "FilteredQuery:" + super.toString
   override def isNamedTable = true
 }
 
