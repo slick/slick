@@ -2,7 +2,7 @@ package org.scalaquery.ql.extended
 
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
-import org.scalaquery.ast.{Node, NullaryNode, Symbol}
+import org.scalaquery.ast.{Drop, Take, Node, NullaryNode}
 
 trait ExtendedProfile extends BasicProfile {
   type ImplicitT <: ExtendedImplicitConversions[_ <: ExtendedProfile]
@@ -14,8 +14,8 @@ trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicIm
 }
 
 class ExtendedQueryOps[E, U](q: Query[E, U]) {
-  def take(num: Int): Query[E, U] = new Take[E, U](new Symbol, Node(q), num)(q.unpackable)
-  def drop(num: Int): Query[E, U] = new Drop[E, U](new Symbol, Node(q), num)(q.unpackable)
+  def take(num: Int): Query[E, U] = new WrappingQuery[E, U](Take(Node(q), num), q.unpackable)
+  def drop(num: Int): Query[E, U] = new WrappingQuery[E, U](Drop(Node(q), num), q.unpackable)
 }
 
 object ExtendedQueryOps {

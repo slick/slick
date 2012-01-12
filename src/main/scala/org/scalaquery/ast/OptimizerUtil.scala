@@ -70,9 +70,7 @@ class NodeOps(tree: Node) extends Traversable[Node] {
   def replaceSymbols(f: Symbol => Symbol): Node = {
     replace {
       case d: DefNode => d.nodeMapGenerators(f)
-      case Ref(s) => Ref(f(s))
-      case InRef(s, what) => InRef(f(s), what)
-      case FieldRef(table, column) => FieldRef(f(table), f(column))
+      case r: RefNode => r.nodeMapReferences(f)
     }
   }
 
@@ -105,4 +103,8 @@ class NodeOps(tree: Node) extends Traversable[Node] {
   def collectNodeGenerators = collectAll[(Symbol, Node)] {
     case d: DefNode => d.nodeGenerators
   } toMap
+
+  def collectInRefTargets(In: Symbol) = collect[Node] {
+    case InRef(In, value) => value
+  } toSet
 }

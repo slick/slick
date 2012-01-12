@@ -3,7 +3,6 @@ package org.scalaquery.ast
 import collection.mutable.HashMap
 import OptimizerUtil._
 import org.scalaquery.util.RefId
-import org.scalaquery.ql._
 
 /**
  * Basic optimizers for the ScalaQuery AST
@@ -16,7 +15,7 @@ object Optimizer {
   def eliminateIndirections = new Transformer {
     def replace = {
       // Remove wrapping of the entire result of a FilteredQuery
-      case Wrapped(q @ FilteredQuery(from), what) if what == from => q
+      case Wrapped(q @ FilteredQuery(_, from), what) if what == from => q
       // Remove dual wrapping (remnant of a removed Filter(_, ConstColumn(true)))
       case Wrapped(in2, w2 @ Wrapped(in1, what)) if in1 == in2 => w2
       // Remove identity binds
@@ -26,8 +25,8 @@ object Optimizer {
       // Remove unnecessary wrapping of binds
       case Wrapped(b @ Bind(_, _, s1), s2) if s1 == s2 => b
       // Remove unnecessary wrapping of filters in FROM clauses
-      case b @ Bind(gen, Wrapped(f: FilteredQuery[_,_], _), what) => b.copy(from = f)()
-      case b @ Bind(gen, Wrapped(f: FilteredJoin[_,_,_,_], _), what) => b.copy(from = f)()
+      case b @ Bind(gen, Wrapped(f: FilteredQuery, _), what) => b.copy(from = f)
+      case b @ Bind(gen, Wrapped(f: FilteredJoin, _), what) => b.copy(from = f)
     }
   }
 
@@ -74,6 +73,7 @@ object Optimizer {
       case r @ InRef(sym, what) if defs.get(sym) == Some(RefId(what)) => Ref(sym)
       case Wrapped(in, what) if reverse.get(RefId(in)).isDefined => InRef(reverse.get(RefId(in)).get, what)
       case Wrapped(Ref(sym), what) => InRef(sym, what)
+      case Wrapped(InRef(sym1, Ref(sym2)), what) => InRef(sym1, InRef(sym2, what))
     }
   }
 }

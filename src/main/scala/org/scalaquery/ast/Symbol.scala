@@ -4,23 +4,38 @@ import OptimizerUtil._
 import org.scalaquery.ql.Unpackable
 
 /**
- * A symbol defined in the AST.
+ * A symbol which can be used in the AST.
  */
-class Symbol(private[this] var _name: String = null) {
+abstract class Symbol {
+  def name: String
+  override def toString = name
+}
+
+/**
+ * A named symbol which refers to an unaliased field.
+ */
+case class FieldSymbol(name: String) extends Symbol
+
+/**
+ * An anonymous symbol defined in the AST.
+ */
+class AnonSymbol extends Symbol {
+  private[this] var _name: String = null
   def name = if(_name eq null) "@"+System.identityHashCode(this) else _name
   def name_= (s: String) = _name = s
   def hasName = _name ne null
   override def toString = name
 }
 
-object Symbol {
+object AnonSymbol {
   def assignNames(tree: Node, prefix: String = "s", force: Boolean = false) = {
     var num = 0
     val symName = memoized[Symbol, String](_ => { s => num += 1; prefix + num })
     def f(n: Node) {
       n match {
-        case d : DefNode => d.nodeSymDefs.foreach { s =>
-          if(force || !s.hasName) s.name = symName(s)
+        case d : DefNode => d.nodeGenerators.foreach {
+          case (s: AnonSymbol, _) => if(force || !s.hasName) s.name = symName(s)
+          case _ =>
         }
         case _ =>
       }
@@ -33,9 +48,11 @@ object Symbol {
 /**
  * An expression introduced by a Symbol, wrapped in a reference to the Symbol.
  */
-case class InRef(sym: Symbol, child: Node) extends UnaryNode {
+case class InRef(sym: Symbol, child: Node) extends UnaryNode with RefNode {
   protected[this] def nodeRebuild(child: Node) = copy(child = child)
   override def nodeChildNames = Seq("value")
+  def nodeReferences = Seq(sym)
+  def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
 }
 
 object InRef {
@@ -45,26 +62,32 @@ object InRef {
 /**
  * A reference to a Symbol
  */
-case class Ref(sym: Symbol) extends NullaryNode
+case class Ref(sym: Symbol) extends NullaryNode with RefNode {
+  def nodeReferences = Seq(sym)
+  def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
+}
 
 /**
- * A node which introduces a column alias
+ * A reference to a field in a struct
  */
-case class As(sym: Symbol, child: Node) extends UnaryNode with DefNode {
-  protected[this] def nodeRebuild(child: Node) = copy(child = child)
-  override def nodeChildNames = Seq("value")
-  def nodeGenerators = Seq((sym, child))
-  def nodeMapGenerators(f: Symbol => Symbol) = {
-    val fs = f(sym)
-    if(fs eq sym) this else copy(sym = fs)
-  }
+case class FieldRef(table: Symbol, column: Symbol) extends NullaryNode with RefNode {
+  override def toString = "FieldRef " + table + "." + column
+  def nodeReferences = Seq(table, column)
+  def nodeMapReferences(f: Symbol => Symbol) = copy(table = f(table), column = f(column))
 }
 
 /**
  * A Node which introduces Symbols.
  */
 trait DefNode extends Node {
-  final def nodeSymDefs: Seq[Symbol] = nodeGenerators.map(_._1)
   def nodeGenerators: Seq[(Symbol, Node)]
   def nodeMapGenerators(f: Symbol => Symbol): Node
+}
+
+/**
+ * A Node which references Symbols.
+ */
+trait RefNode extends Node {
+  def nodeReferences: Seq[Symbol]
+  def nodeMapReferences(f: Symbol => Symbol): Node
 }

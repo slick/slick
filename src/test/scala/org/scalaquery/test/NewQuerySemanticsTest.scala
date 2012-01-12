@@ -63,7 +63,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
     def show(name: String, g: NodeGenerator) {
       val n = Node(g)
-      Symbol.assignNames(n)
+      AnonSymbol.assignNames(n)
       println("=========================================== "+name)
       n.dump("source: ")
       val n2 = Optimizer.eliminateIndirections
@@ -77,7 +77,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       }
       val n3 = Columnizer.run(n2)
       if(n3 ne n2) {
-        Symbol.assignNames(n3, "c")
+        AnonSymbol.assignNames(n3, "c")
         n3.dump("columnized: ")
         println
       }

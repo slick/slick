@@ -1,5 +1,6 @@
 package org.scalaquery.ast
 
+import org.scalaquery.ql.Join.JoinType
 import scala.collection.mutable.ArrayBuffer
 import java.io.{PrintWriter, OutputStreamWriter}
 import org.scalaquery.SQueryException
@@ -153,5 +154,124 @@ final case class Wrapped(in: Node, what: Node) extends BinaryNode {
 }
 
 object Wrapped {
-  def wrapUnpackable[E, U](in: Node, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped(Node(in), Node(x)) }))
+  def ifNeeded(in: Node, what: Node): Node =
+    if(in eq what) what else Wrapped(in, what)
+  def wrapUnpackable[E, U](in: Node, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped.ifNeeded(Node(in), Node(x)) }))
+}
+
+/*final case class Union(all: Boolean, queries: IndexedSeq[Node]) extends SimpleNode {
+  protected[this] def nodeChildGenerators = queries
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(queries = ch)
+  override def toString = if(all) "Union all" else "Union"
+}*/
+
+final case class Pure(value: Node) extends UnaryNode {
+  def child = value
+  protected[this] override def nodeChildNames = Seq("value")
+  protected[this] def nodeRebuild(child: Node) = copy(value = child)
+}
+
+final case class TableQuery(value: Node) extends UnaryNode {
+  def child = value
+  protected[this] override def nodeChildNames = Seq("value")
+  protected[this] def nodeRebuild(child: Node) = copy(value = child)
+}
+
+abstract class FilteredQuery extends Node with DefNode {
+  def generator: Symbol
+  def from: Node
+  def nodeGenerators = Seq((generator, from))
+  def nodeMapFrom(f: Node => Node) = {
+    val fr = from
+    nodeMapChildren(n => if(n eq fr) f(n) else n)
+  }
+  def nodeMapOthers(f: Node => Node) = {
+    val fr = from
+    nodeMapChildren(n => if(n ne fr) f(n) else n)
+  }
+  def nodeMapGenerators(f: Symbol => Symbol): FilteredQuery = {
+    val fs = f(generator)
+    if(fs eq generator) this else withGenerator(fs)
+  }
+  def withGenerator(gen: Symbol): FilteredQuery
+  override def toString = this match {
+    case p: Product =>
+      val n = getClass.getName.replaceFirst(".*\\.", "").replaceFirst(".*\\$", "")
+      val args = p.productIterator.filterNot(n => n.isInstanceOf[Node] || n.isInstanceOf[Symbol]).mkString(", ")
+      if(args isEmpty) n else (n + ' ' + args)
+    case _ => super.toString
+  }
+}
+
+object FilteredQuery {
+  def unapply(f: FilteredQuery) = Some((f.generator, f.from))
+}
+
+final case class Filter(generator: Symbol, from: Node, where: Node) extends FilteredQuery with BinaryNode {
+  def left = from
+  def right = where
+  protected[this] override def nodeChildNames = Seq("from "+generator, "where")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, where = right)
+  override def nodeDelegate = if(where == ConstColumn(true)) left else super.nodeDelegate
+  def withGenerator(gen: Symbol) = copy(generator = gen)
+}
+
+final case class GroupBy(from: Node, groupBy: Node, generator: Symbol = new AnonSymbol) extends FilteredQuery with BinaryNode {
+  def left = from
+  def right = groupBy
+  protected[this] override def nodeChildNames = Seq("from "+generator, "groupBy")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, groupBy = right)
+  def withGenerator(gen: Symbol) = copy(generator = gen)
+}
+
+final case class Take(from: Node, num: Int, generator: Symbol = new AnonSymbol) extends FilteredQuery with UnaryNode {
+  def child = from
+  protected[this] override def nodeChildNames = Seq("from "+generator)
+  protected[this] def nodeRebuild(child: Node) = copy(from = child)
+  def withGenerator(gen: Symbol) = copy(generator = gen)
+}
+
+final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) extends FilteredQuery with UnaryNode {
+  def child = from
+  protected[this] override def nodeChildNames = Seq("from "+generator)
+  protected[this] def nodeRebuild(child: Node) = copy(from = child)
+  def withGenerator(gen: Symbol) = copy(generator = gen)
+}
+
+final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends BinaryNode with DefNode {
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
+  protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
+  override def toString = "BaseJoin " + jt.sqlName
+  def nodeGenerators = Seq((leftGen, left), (rightGen, right))
+  def nodeMapGenerators(f: Symbol => Symbol) = {
+    val fl = f(leftGen)
+    val fr = f(rightGen)
+    if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
+  }
+}
+
+final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends SimpleNode with DefNode {
+  protected[this] def nodeChildGenerators = IndexedSeq(left, right, on)
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
+  protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
+  override def toString = "FilteredJoin " + jt.sqlName
+  def nodeGenerators = Seq((leftGen, left), (rightGen, right))
+  def nodeMapGenerators(f: Symbol => Symbol) = {
+    val fl = f(leftGen)
+    val fr = f(rightGen)
+    if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
+  }
+}
+
+final case class Bind(generator: Symbol, from: Node, select: Node) extends BinaryNode with DefNode {
+  def left = from
+  def right = select
+  protected[this] override def nodeChildNames = Seq("from "+generator, "select")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, select = right)
+  def nodeGenerators = Seq((generator, from))
+  override def toString = "Bind"
+  def nodeMapGenerators(f: Symbol => Symbol) = {
+    val fs = f(generator)
+    if(fs eq generator) this else copy(generator = fs)
+  }
 }
