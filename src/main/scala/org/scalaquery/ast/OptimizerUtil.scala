@@ -67,6 +67,15 @@ class NodeOps(tree: Node) extends Traversable[Node] {
     memoized[Node, Node](r => { n => g(g(n).nodeMapChildren(r)) })(tree)
   }
 
+  def replaceSymbols(f: Symbol => Symbol): Node = {
+    replace {
+      case d: DefNode => d.nodeMapGenerators(f)
+      case Ref(s) => Ref(f(s))
+      case InRef(s, what) => InRef(f(s), what)
+      case FieldRef(table, column) => FieldRef(f(table), f(column))
+    }
+  }
+
   def foreach[U](f: (Node => U)) {
     def g(n: Node) {
       f(n)
@@ -74,4 +83,26 @@ class NodeOps(tree: Node) extends Traversable[Node] {
     }
     g(tree)
   }
+
+  def forProductElements(f: Node => Unit) {
+    def g(n: Node, f: Node => Unit): Unit = n match {
+      case p: ProductNode => p.nodeChildren.foreach(n => g(n, f))
+      case n => f(n)
+    }
+    g(tree, f)
+  }
+
+  def mapFromProductElements[T](f: Node => T): Seq[T] = {
+    val b = new ArrayBuffer[T]
+    def g(n: Node, f: Node => T): Unit = n match {
+      case p: ProductNode => p.nodeChildren.foreach(n => g(n, f))
+      case n => b += f(n)
+    }
+    g(tree, f)
+    b
+  }
+
+  def collectNodeGenerators = collectAll[(Symbol, Node)] {
+    case d: DefNode => d.nodeGenerators
+  } toMap
 }

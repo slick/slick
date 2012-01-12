@@ -1,6 +1,6 @@
 package org.scalaquery.ast
 
-import collection.mutable.{ArrayBuffer, HashMap}
+import collection.mutable.HashMap
 import OptimizerUtil._
 import org.scalaquery.util.RefId
 import org.scalaquery.ql._
@@ -73,6 +73,7 @@ object Optimizer {
       } => InRef(sym, what)
       case r @ InRef(sym, what) if defs.get(sym) == Some(RefId(what)) => Ref(sym)
       case Wrapped(in, what) if reverse.get(RefId(in)).isDefined => InRef(reverse.get(RefId(in)).get, what)
+      case Wrapped(Ref(sym), what) => InRef(sym, what)
     }
   }
 }

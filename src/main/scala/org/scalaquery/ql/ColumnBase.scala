@@ -95,9 +95,15 @@ sealed class WrappedColumn[T : TypeMapper](parent: ColumnBase[_]) extends Column
  * A column which is part of a Table.
  */
 final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[T, _]])
-extends Column[T] with UnaryNode {
+  extends Column[T] with UnaryNode { //TODO should not be a Node
+  override def nodeDelegate = new Wrapped(table, RawNamedColumn[T](name, options))
   val child = table
   override def toString = "NamedColumn " + name
   protected[this] override def nodeChildNames = Seq("table")
   protected[this] def nodeRebuild(child: Node): Node = copy[T](table = child)
+}
+
+final case class RawNamedColumn[T : TypeMapper](val name: String, val options: Seq[ColumnOption[T, _]])
+  extends Column[T] with NullaryNode {
+  override def toString = "RawNamedColumn " + name
 }

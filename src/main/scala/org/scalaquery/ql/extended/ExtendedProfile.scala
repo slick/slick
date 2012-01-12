@@ -1,10 +1,8 @@
 package org.scalaquery.ql.extended
 
 import org.scalaquery.ql._
-import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.basic._
-import org.scalaquery.session.Session
-import org.scalaquery.ast.{UnaryNode, Node, NullaryNode}
+import org.scalaquery.ast.{Node, NullaryNode, Symbol}
 
 trait ExtendedProfile extends BasicProfile {
   type ImplicitT <: ExtendedImplicitConversions[_ <: ExtendedProfile]
@@ -16,26 +14,12 @@ trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicIm
 }
 
 class ExtendedQueryOps[E, U](q: Query[E, U]) {
-  import ExtendedQueryOps._
-
-  def take(num: Int) = new Take[E, U](Node(q), num)(q.unpackable)
-  def drop(num: Int) = new Drop[E, U](Node(q), num)(q.unpackable)
+  def take(num: Int): Query[E, U] = new Take[E, U](new Symbol, Node(q), num)(q.unpackable)
+  def drop(num: Int): Query[E, U] = new Drop[E, U](new Symbol, Node(q), num)(q.unpackable)
 }
 
 object ExtendedQueryOps {
   final case class TakeDrop(take: Option[Int], drop: Option[Int]) extends QueryModifier with NullaryNode
-
-  final case class Take[+E, +U](from: Node, num: Int)(val base: Unpackable[_ <: E, _ <: U]) extends FilteredQuery[E, U] with UnaryNode {
-    def child = from
-    protected[this] override def nodeChildNames = Seq("from")
-    protected[this] def nodeRebuild(child: Node): Node = copy[E, U](from = child)()
-  }
-
-  final case class Drop[+E, +U](from: Node, num: Int)(val base: Unpackable[_ <: E, _ <: U]) extends FilteredQuery[E, U] with UnaryNode {
-    def child = from
-    protected[this] override def nodeChildNames = Seq("from")
-    protected[this] def nodeRebuild(child: Node): Node = copy[E, U](from = child)()
-  }
 }
 
 class ExtendedColumnOptions extends BasicColumnOptions {

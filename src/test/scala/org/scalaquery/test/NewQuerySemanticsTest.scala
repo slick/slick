@@ -75,8 +75,9 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n2.dump("optimized: ")
         println
       }
-      val n3 = (new Columnizer).run(n2)
+      val n3 = Columnizer.run(n2)
       if(n3 ne n2) {
+        Symbol.assignNames(n3, "c")
         n3.dump("columnized: ")
         println
       }
@@ -91,9 +92,11 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     //val l3 = q1.list
     //println("l3: "+l3)
 
+    val q1b_0 = Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     val q1b = for {
-      (c, s) <- Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
-    } yield c.name ~ s.name
+      (c, s) <- q1b_0
+      (c2, s2) <- q1b_0
+    } yield c.name ~ s.name ~ c2.name
     show("q1b: Explicit join with condition", q1b)
 
     val q2 = for {
@@ -113,8 +116,8 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     show("q3: Lifting scalar values", q3)
 
     val q4 = for {
-      c <- Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 9.0)
-    } yield c
+      c <- Coffees.map(c => (c.name, c.price, 42)).take(100).filter(_._2 < 9.0)
+    } yield c._1 ~ c._3
     show("q4: Map to tuple, then filter", q4)
 
     val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 9.0)

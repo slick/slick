@@ -94,9 +94,7 @@ trait ProductNode extends SimpleNode {
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = new ProductNode {
     lazy val nodeChildGenerators = ch
   }
-  override def hashCode() = {
-    nodeChildren.hashCode()
-  }
+  override def hashCode() = nodeChildren.hashCode()
   override def equals(o: Any) = o match {
     case p: ProductNode => nodeChildren == p.nodeChildren
     case _ => false
@@ -109,6 +107,22 @@ object ProductNode {
   def apply(s: Seq[Any]): ProductNode =
     new ProductNode { lazy val nodeChildGenerators = s }
   def unapplySeq(p: ProductNode) = Some(p.nodeChildren)
+}
+
+case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode with DefNode {
+  override def toString = "StructNode"
+  protected[this] override def nodeChildNames = elements.map(_._1.toString)
+  def nodeChildGenerators = elements.map(_._2)
+  override protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
+    new StructNode(elements.zip(ch).map{ case ((s,_),n) => (s,n) })
+  override def hashCode() = elements.hashCode()
+  override def equals(o: Any) = o match {
+    case s: StructNode => elements == s.elements
+    case _ => false
+  }
+  def nodeGenerators = elements
+  def nodeMapGenerators(f: Symbol => Symbol) =
+    copy(elements = elements.map { case (s, n) => (f(s), n) })
 }
 
 trait BinaryNode extends SimpleNode {
