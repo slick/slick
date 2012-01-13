@@ -27,6 +27,8 @@ object Optimizer {
       // Remove unnecessary wrapping of filters in FROM clauses
       case b @ Bind(gen, Wrapped(f: FilteredQuery, _), what) => b.copy(from = f)
       case b @ Bind(gen, Wrapped(f: FilteredJoin, _), what) => b.copy(from = f)
+      // Unwrap unions
+      case Wrapped(u @ Union(left, _, _), what) if left == what => u
     }
   }
 
@@ -74,6 +76,12 @@ object Optimizer {
       case Wrapped(in, what) if reverse.get(RefId(in)).isDefined => InRef(reverse.get(RefId(in)).get, what)
       case Wrapped(Ref(sym), what) => InRef(sym, what)
       case Wrapped(InRef(sym1, Ref(sym2)), what) => InRef(sym1, InRef(sym2, what))
+      //case Wrapped(u @ Union(sym1, _, _, _, _), Ref(sym2)) if sym1 == sym2 => u
+      //case Wrapped(f @ FilteredQuery(gen1, from), InRef(gen2, what)) if gen1 == gen2 && from == what => f
+      case InRef(sym, what) if (defs.get(sym) match {
+        case Some(RefId(FilteredQuery(sym2, from))) if what == from => true
+        case _ => false
+      }) => defs(sym).e
     }
   }
 }

@@ -355,7 +355,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
       b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
     case Subquery(sq: Query[_, _], rename) =>
       b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += quoteIdentifier(name)
-    case Subquery(Union(all, sqs), rename) => {
+    /*case Subquery(Union(all, sqs), rename) => {
       b += "("
       var first = true
       for(sq <- sqs) {
@@ -364,7 +364,7 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
         first = false
       }
       b += ") " += quoteIdentifier(name)
-    }
+    }*/
     case j: Join[_,_] =>
       /* There is no way to write all nested joins (if they are supported at all) properly in a
        * database-independent way because the {oj...} escape syntax does not support inner joins.

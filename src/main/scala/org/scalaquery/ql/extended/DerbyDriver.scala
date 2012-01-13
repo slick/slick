@@ -139,10 +139,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
      * would be correct if the CORRESPONDING keyword was used for a UNION.
      * The workaround is to rename all parts with the same auto-generated
      * column names. */
-    case Subquery(Union(all, sqs), rename) =>
+    /*case Subquery(Union(all, sqs), rename) =>
       b += "("
       b.sep(sqs, (if(all) " UNION ALL " else " UNION "))(sq => subQueryBuilderFor(sq.asInstanceOf[Query[_,_]]).innerBuildSelect(b, rename))
-      b += ") " += quoteIdentifier(name)
+      b += ") " += quoteIdentifier(name)*/
     case _ => super.table(t, name, b)
   }
 }

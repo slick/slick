@@ -159,12 +159,6 @@ object Wrapped {
   def wrapUnpackable[E, U](in: Node, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped.ifNeeded(Node(in), Node(x)) }))
 }
 
-/*final case class Union(all: Boolean, queries: IndexedSeq[Node]) extends SimpleNode {
-  protected[this] def nodeChildGenerators = queries
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(queries = ch)
-  override def toString = if(all) "Union all" else "Union"
-}*/
-
 final case class Pure(value: Node) extends UnaryNode {
   def child = value
   protected[this] override def nodeChildNames = Seq("value")
@@ -261,6 +255,12 @@ final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, rig
     val fr = f(rightGen)
     if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
   }
+}
+
+final case class Union(left: Node, right: Node, all: Boolean) extends BinaryNode {
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
+  protected[this] override def nodeChildNames = Seq("left", "right")
+  override def toString = if(all) "Union all" else "Union"
 }
 
 final case class Bind(generator: Symbol, from: Node, select: Node) extends BinaryNode with DefNode {

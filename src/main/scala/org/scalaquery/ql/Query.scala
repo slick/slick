@@ -56,12 +56,15 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   def modifiers: List[QueryModifier] = Nil //--
   def typedModifiers[T <: QueryModifier]: List[T] = Nil //--
 
+  def union[O >: E, T >: U, R](other: Query[O, T])(implicit reify: Reify[O, R]) = {
+    new WrappingQuery[R, T](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable.reifiedUnpackable)
+  }
+
+  def unionAll[O >: E, T >: U, R](other: Query[O, T])(implicit reify: Reify[O, R]) = {
+    new WrappingQuery[R, T](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable.reifiedUnpackable)
+  }
+
   /*
-  // Unpackable queries only
-  def union[O >: E, T >: U, R](other: Query[O, T]*)(implicit reify: Reify[O, R]) = wrap(Union(false, this :: other.toList))
-
-  def unionAll[O >: E, T >: U, R](other: Query[O, T]*)(implicit reify: Reify[O, R]) = wrap(Union(true, this :: other.toList))
-
   def count = ColumnOps.CountAll(Subquery(this, false))
 
   def sub[UU >: U, R](implicit reify: Reify[E, R]) = wrap(this)
@@ -116,13 +119,6 @@ final case class SubqueryColumn(pos: Int, subquery: Node, typeMapper: TypeMapper
   protected[this] override def nodeChildNames = Seq("subquery")
   protected[this] def nodeRebuild(child: Node): Node = copy(subquery = child)
   override def toString = "SubqueryColumn c"+pos
-}
-
-//TODO remove
-final case class Union(all: Boolean, queries: IndexedSeq[Node]) extends SimpleNode {
-  protected[this] def nodeChildGenerators = queries
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = copy(queries = ch)
-  override def toString = if(all) "Union all" else "Union"
 }
 
 class WrappingQuery[+E, +U](val nodeDelegate: Node, val base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
