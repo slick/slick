@@ -75,10 +75,10 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n2.dump("optimized: ")
         println
       }
-      val n3 = Columnizer.run(n2)
+      val n3 = RewriteGenerators(n2)
       if(n3 ne n2) {
         AnonSymbol.assignNames(n3, "c")
-        n3.dump("columnized: ")
+        n3.dump("generators rewritten: ")
         println
       }
     }

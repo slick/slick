@@ -68,15 +68,6 @@ case class Ref(sym: Symbol) extends NullaryNode with RefNode {
 }
 
 /**
- * A reference to a field in a struct
- */
-case class FieldRef(table: Symbol, column: Symbol) extends NullaryNode with RefNode {
-  override def toString = "FieldRef " + table + "." + column
-  def nodeReferences = Seq(table, column)
-  def nodeMapReferences(f: Symbol => Symbol) = copy(table = f(table), column = f(column))
-}
-
-/**
  * A Node which introduces Symbols.
  */
 trait DefNode extends Node {
