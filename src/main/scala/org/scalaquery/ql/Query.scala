@@ -75,6 +75,9 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E = unpackable.value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
   */
+
+  def take(num: Int): Query[E, U] = new WrappingQuery[E, U](Take(Node(this), num), unpackable)
+  def drop(num: Int): Query[E, U] = new WrappingQuery[E, U](Drop(Node(this), num), unpackable)
 }
 
 object Query extends Query[Unit, Unit] {

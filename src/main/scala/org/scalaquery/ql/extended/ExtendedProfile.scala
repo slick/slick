@@ -9,16 +9,10 @@ trait ExtendedProfile extends BasicProfile {
 }
 
 trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicImplicitConversions[DriverType] {
-  implicit def queryToExtendedQueryOps[E, U](q: Query[E, U]) = new ExtendedQueryOps(q)
   implicit def extendedQueryToDeleteInvoker[T](q: Query[ExtendedTable[T], T]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
 }
 
-class ExtendedQueryOps[E, U](q: Query[E, U]) {
-  def take(num: Int): Query[E, U] = new WrappingQuery[E, U](Take(Node(q), num), q.unpackable)
-  def drop(num: Int): Query[E, U] = new WrappingQuery[E, U](Drop(Node(q), num), q.unpackable)
-}
-
-object ExtendedQueryOps {
+object ExtendedQueryOps { //TODO remove
   final case class TakeDrop(take: Option[Int], drop: Option[Int]) extends QueryModifier with NullaryNode
 }
 
