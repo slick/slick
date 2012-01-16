@@ -66,10 +66,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       AnonSymbol.assignNames(n)
       println("=========================================== "+name)
       n.dump("source: ")
-      val n2 = Optimizer.eliminateIndirections
-        .andThen(Optimizer.unwrapGenerators)
-        .andThen(Optimizer.reverseProjectionWrapping)
-        .apply(n)
+      val n2 = Optimizer.all(n)
       println
       if(n2 ne n) {
         n2.dump("optimized: ")

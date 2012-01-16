@@ -9,10 +9,15 @@ import org.scalaquery.util.RefId
  */
 object Optimizer {
 
+  lazy val all =
+    eliminateIndirections andThen
+    unwrapGenerators andThen
+    reverseProjectionWrapping
+
   /**
    * Eliminate unnecessary nodes from the AST.
    */
-  def eliminateIndirections = new Transformer {
+  val eliminateIndirections = new Transformer {
     def replace = {
       // Remove wrapping of the entire result of a FilteredQuery
       case Wrapped(q @ FilteredQuery(_, from), what) if what == from => q
@@ -38,7 +43,7 @@ object Optimizer {
    * ProductNode(Wrapped(p, x), Wrapped(p, y)). This optimizer rewrites those
    * forms to Wrapped(p, ProductNode(x, y)).
    */
-  def reverseProjectionWrapping = new Transformer {
+  val reverseProjectionWrapping = new Transformer {
     def allWrapped(in: Node, xs: Seq[Node]) = xs.forall(_ match {
       case Wrapped(in2, _) if in == in2 => true
       case _ => false
@@ -53,7 +58,7 @@ object Optimizer {
   /**
    * Remove unnecessary wrappings of generators
    */
-  def unwrapGenerators = new Transformer {
+  val unwrapGenerators = new Transformer {
     val defs = new HashMap[Symbol, RefId[Node]]
     val reverse = new HashMap[RefId[Node], Symbol]
     override def initTree(tree: Node) {

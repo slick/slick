@@ -1,6 +1,8 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
+import collection.mutable.HashMap
+import org.scalaquery.ql.AbstractTable
 
 /**
  * Rewrite all generators to return exactly the required fields.
@@ -10,7 +12,7 @@ object RewriteGenerators {
   def apply(tree: Node): Node = memoized[Node, Node](r => {
     case b @ Bind(gen, from, select) if !(from.isInstanceOf[BaseJoin] || from.isInstanceOf[FilteredJoin]) =>
       val selRefs = select.collectInRefTargets(gen)
-      if(selRefs.isEmpty || !(findUnfilteredGenerator(from).isInstanceOf[Bind]) ) b.nodeMapChildren(r)
+      if(selRefs.isEmpty || !(findFilterSource(from).isInstanceOf[Bind]) ) b.nodeMapChildren(r)
       else { //TODO what if selRefs.isEmpty && !filterRefs.isEmpty?
         val (filterRefsSyms, filterRefs) = findFilterRefs(from)
         val selRefsToUnwrapped = selRefs.toSeq.map(r => (r, unwrap(filterRefsSyms, r))).toMap
@@ -52,8 +54,8 @@ object RewriteGenerators {
     memoized[Symbol, Symbol](_ => { case s => if(gens contains s) new AnonSymbol else s })
   }
 
-  def findUnfilteredGenerator(n: Node): Node = n match {
-    case FilteredQuery(_, from) => findUnfilteredGenerator(from)
+  def findFilterSource(n: Node): Node = n match {
+    case FilteredQuery(_, from) => findFilterSource(from)
     case n => n
   }
 
