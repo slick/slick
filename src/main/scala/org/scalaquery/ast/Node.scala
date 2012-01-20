@@ -165,12 +165,6 @@ final case class Pure(value: Node) extends UnaryNode {
   protected[this] def nodeRebuild(child: Node) = copy(value = child)
 }
 
-final case class TableQuery(value: Node) extends UnaryNode {
-  def child = value
-  protected[this] override def nodeChildNames = Seq("value")
-  protected[this] def nodeRebuild(child: Node) = copy(value = child)
-}
-
 abstract class FilteredQuery extends Node with DefNode {
   def generator: Symbol
   def from: Node

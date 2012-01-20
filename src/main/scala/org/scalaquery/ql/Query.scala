@@ -86,10 +86,16 @@ object Query extends Query[Unit, Unit] {
   def apply[E, U](value: E)(implicit unpack: Unpack[E, U]) = apply[E, U](Unpackable(value, unpack))
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
     if(unpackable.reifiedNode.isInstanceOf[AbstractTable[_]])
-      new WrappingQuery[E, U](new TableQuery(unpackable.reifiedNode), unpackable) {
+      new WrappingQuery[E, U](unpackable.reifiedNode, unpackable) {
         override lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
       }
     else new WrappingQuery[E, U](Pure(unpackable.reifiedNode), unpackable)
+  /*def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
+    if(unpackable.reifiedNode.isInstanceOf[AbstractTable[_]])
+      new WrappingQuery[E, U](new TableQuery(new AnonSymbol, unpackable.reifiedNode), unpackable) {
+        override lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
+      }
+    else new WrappingQuery[E, U](Pure(unpackable.reifiedNode), unpackable)*/
 }
 
 trait CanBeQueryCondition[-T] {

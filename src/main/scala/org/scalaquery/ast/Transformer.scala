@@ -1,6 +1,8 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
+import collection.mutable.HashMap
+import org.scalaquery.util.RefId
 
 /**
  * A tree transformer which replaces nodes transitively while updating
@@ -31,4 +33,79 @@ abstract class Transformer extends (Node => Node) { self =>
   }
 
   def andThen(g: Transformer): Transformer = g.compose(this)
+}
+
+object Transformer {
+  trait Defs extends Transformer {
+    val defs = new HashMap[Symbol, Node]
+    abstract override def initTree(tree: Node) {
+      super.initTree(tree)
+      defs.clear()
+      defs ++= tree.collectAll[(Symbol, Node)] { case d: DefNode => d.nodeGenerators }
+    }
+    object ResolvedRef {
+      def unapply(n: Node): Option[(Symbol, Node)] = n match {
+        case Ref(sym) => defs.get(sym).map(v => (sym, v))
+        case _ => None
+      }
+    }
+  }
+
+  trait DefRefsBidirectional extends Transformer {
+    val defs = new HashMap[Symbol, RefId[Node]]
+    val reverse = new HashMap[RefId[Node], Symbol]
+    override def initTree(tree: Node) {
+      super.initTree(tree)
+      defs.clear()
+      defs ++= tree.collectAll[(Symbol, RefId[Node])] {
+        case d: DefNode => d.nodeGenerators.map { case (s,n) => (s, RefId(n)) }
+      }
+      reverse.clear()
+      reverse ++= defs.map { case (k,v) => (v,k) }
+    }
+  }
+}
+
+abstract class RecursiveTransformer extends (Node => Node) {
+  private[this] var _chain: List[Node] = Nil
+  private[this] var _scope: Map[Symbol, (Node, Node)] = Map.empty
+  def chain: List[Node] = _chain
+  def scope: Map[Symbol, (Node, Node)]
+  def apply(tree: Node): Node = {
+    val repl = replace.orElse(pfidentity[Node])
+    def tr(n: Node): Node = {
+      val n2 = repl(n)
+      var defsHere: Seq[(Symbol, Node)] = n2 match {
+        case d: DefNode => d.nodeGenerators
+        case _ => Seq.empty
+      }
+      def updateDefs(from: Node, to: Node) {
+        defsHere = defsHere.map { case (s, n) => (s, if(n eq from) to else n) }
+      }
+      val defChildren = defsHere.map(t => RefId(t._2)).toSet
+      val n3 = n2.nodeMapChildren { ch: Node =>
+        if(defChildren.isEmpty || defChildren.contains(RefId(ch))) {
+          val prevChain = _chain
+          _chain = n2 :: _chain
+          val ch2 = tr(ch)
+          updateDefs(ch, ch2)
+          _chain = prevChain
+          ch2
+        } else {
+          val prevChain = _chain
+          _chain = n2 :: _chain
+          val prevScope = _scope
+          _scope = _scope ++ defsHere.map { case (s, what) => (s, (what, n2)) }
+          val ch2 = tr(ch)
+          updateDefs(ch, ch2)
+          _chain = prevChain
+          _scope = prevScope
+          ch2
+        }
+      }
+      if(n3 eq n) n else tr(n3)
+    }
+    tr(tree)
+  }
+  def replace: PartialFunction[Node, Node]
 }

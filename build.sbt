@@ -20,7 +20,7 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
   "postgresql" % "postgresql" % (if(u) "8.4-701.jdbc4" else "8.4-701.jdbc3") % "test",
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",
-  "com.novocode" % "junit-interface" % "0.7" % "test"
+  "com.novocode" % "junit-interface" % "0.8" % "test"
 )}
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")

@@ -20,14 +20,14 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
   @Test def test(): Unit = db withSession {
 
-    val Suppliers = new Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
+    val Suppliers = new Table[(Int, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
       def name = column[String]("SUP_NAME")
       def street = column[String]("STREET")
       def city = column[String]("CITY")
       def state = column[String]("STATE")
       def zip = column[String]("ZIP")
-      def * = id ~ name ~ street ~ city ~ state ~ zip
+      def * = id ~ name ~ street
     }
 
     val Coffees = new Table[(String, Int, Double, Int, Int)]("COFFEES") {
@@ -66,7 +66,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       AnonSymbol.assignNames(n)
       println("=========================================== "+name)
       n.dump("source: ")
-      val n2 = Optimizer.all(n)
+      val n2 = Optimizer.all/*.andThen(Columnizer.expandColumns)*/.apply(n)
       println
       if(n2 ne n) {
         n2.dump("optimized: ")
@@ -83,7 +83,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q1 = for {
       c <- Query(Coffees).take(3)
       s <- Suppliers
-    } yield c.name ~ (s.name ++ ":")
+    } yield (c.name ~ (s.city ++ ":"), c, s)
     show("q1: Plain implicit join", q1)
     //println("q1: "+q1.selectStatement)
     //val l3 = q1.list
@@ -93,7 +93,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q1b = for {
       (c, s) <- q1b_0
       (c2, s2) <- q1b_0
-    } yield c.name ~ s.name ~ c2.name
+    } yield c.name ~ s.city ~ c2.name
     show("q1b: Explicit join with condition", q1b)
 
     val q2 = for {

@@ -3,6 +3,7 @@ package org.scalaquery.ast
 import collection.mutable.HashMap
 import OptimizerUtil._
 import org.scalaquery.util.RefId
+import org.scalaquery.ql.RawNamedColumn
 
 /**
  * Basic optimizers for the ScalaQuery AST
@@ -58,17 +59,7 @@ object Optimizer {
   /**
    * Remove unnecessary wrappings of generators
    */
-  val unwrapGenerators = new Transformer {
-    val defs = new HashMap[Symbol, RefId[Node]]
-    val reverse = new HashMap[RefId[Node], Symbol]
-    override def initTree(tree: Node) {
-      defs.clear()
-      defs ++= tree.collectAll[(Symbol, RefId[Node])] {
-        case d: DefNode => d.nodeGenerators.map { case (s,n) => (s, RefId(n)) }
-      }
-      reverse.clear()
-      reverse ++= defs.map { case (k,v) => (v,k) }
-    }
+  val unwrapGenerators = new Transformer.DefRefsBidirectional {
     def replace = {
       case InRef(sym, Wrapped(in, what)) if {
         (defs.get(sym) == Some(RefId(in))) ||
@@ -84,9 +75,52 @@ object Optimizer {
       //case Wrapped(u @ Union(sym1, _, _, _, _), Ref(sym2)) if sym1 == sym2 => u
       //case Wrapped(f @ FilteredQuery(gen1, from), InRef(gen2, what)) if gen1 == gen2 && from == what => f
       case InRef(sym, what) if (defs.get(sym) match {
-        case Some(RefId(FilteredQuery(sym2, from))) if what == from => true
+        case Some(RefId(FilteredQuery(_, from))) if what == from => true
         case _ => false
       }) => defs(sym).e
+      case InRef(sym, RawNamedColumn(name, _)) => Path(sym, FieldSymbol(name))
+      /*case i @ InRef(sym1, Path(sym2, rest @ _*)) =>
+        defs.get(sym1) match {
+          case Some(RefId(FilteredJoin(g1, g2, _, _, _, _))) if sym2 == g1 || sym2 == g2 =>
+            Path((sym1 +: sym2 +: rest): _*)
+          case Some(RefId(RealFilterChain(defs, _))) =>
+            Path((sym1 +: (sym2 +: rest).filterNot(defs contains _) ): _*)
+          case _ => i
+        }*/
+    }
+  }
+
+  /**
+   * An extractor for the transitive source of a chain of FilteredQuery nodes
+   */
+  object FilterChain {
+    def unapply(n: Node): Some[(List[Symbol], Node)] = n match {
+      case FilteredQuery(sym, from) =>
+        val (ss, n) = unapply(from).get
+        Some((sym :: ss, n))
+      case n => Some(Nil, n)
+    }
+  }
+
+  /**
+   * An extractor for the transitive source of a chain of FilteredQuery nodes
+   * which must actually start with a FilteredQuery.
+   */
+  object RealFilterChain {
+    def unapply(n: Node): Option[(List[Symbol], Node)] = n match {
+      case _: FilteredQuery => FilterChain.unapply(n)
+      case _ => None
+    }
+  }
+
+  /**
+   * An extractor for a chain of InRef nodes
+   */
+  object InRefChain {
+    def unapply(n: Node): Option[(List[Symbol], Node)] = n match {
+      case InRef(sym, what) =>
+        unapply(what).map{ case (ss, n) => (sym :: ss, n) }.orElse(Some((List(sym), what)))
+      case n => None
     }
   }
 }

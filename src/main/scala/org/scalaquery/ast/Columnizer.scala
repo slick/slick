@@ -1,13 +1,32 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
-import collection.mutable.ArrayBuffer
+import Optimizer.{FilterChain, InRefChain}
 import org.scalaquery.util.RefId
+import org.scalaquery.ql.AbstractTable
+import scala.collection.mutable.{HashMap, ArrayBuffer}
 
 /**
  * Expand columns and merge comprehensions in queries
  */
 object Columnizer {
+
+  val expandColumns = new Transformer.Defs {
+    def replace = {
+      // Rewrite the original Wrapped representation
+      //case Wrapped(tq @ TableQuery(t: AbstractTable[_]), t2) if t == t2 => Wrapped(tq, Node(t.*))
+      // Rewrite a table reference that has already been rewritten to a Ref
+      case ResolvedRef(sym, f @ FilterChain(syms, t: AbstractTable[_])) => InRef(sym, Node(t.*))
+      // Remove unnecessary InRef introduced by the previous case after the optimizer has removed the wrapping
+      /*case i @ InRefChain(syms, what) if syms.tail.isDefined => defs.get(syms.head) match {
+        case Some(FilteredQuery(_))
+      }*/
+    }
+  }
+
+  def unwrap(wrappers: Set[Symbol], n: Node): Node = n.replace {
+    case InRef(sym, what) if wrappers contains sym => what
+  }
 
   def run(tree: Node): Node = {
     //val t3 = toComprehensions.andThen(mergeComprehensions).apply(t2)

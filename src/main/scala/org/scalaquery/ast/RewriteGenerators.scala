@@ -20,14 +20,14 @@ object RewriteGenerators {
         val allUnwrappedRefsToSyms = (selRefsToUnwrapped.values ++ filterRefsToUnwrapped.values).toSet.iterator.map((u: Node) => (u, new AnonSymbol)).toMap
         val struct = StructNode(allUnwrappedRefsToSyms.iterator.map{ case (u,s) => (s,u) }.toIndexedSeq)
         val fromRep = replaceSelect(from, Pure(struct), Nil)
-        val newGens = newGenerators(fromRep)
+        val newGens = fromRep.generatorsReplacer
         val newFilterRefsSyms = filterRefsSyms.map(newGens)
         val rFrom = r(fromRep.replaceSymbols(newGens))
         val rSel = r(select)
-        val fromReplMap = filterRefsToUnwrapped.map{ case (w,u) => (u.replaceSymbols(newGens), InRef(gen, Ref(allUnwrappedRefsToSyms(u))).replaceSymbols(newGens)) }
+        val fromReplMap = filterRefsToUnwrapped.map{ case (w,u) => (u.replaceSymbols(newGens), Path(gen, allUnwrappedRefsToSyms(u)).replaceSymbols(newGens)) }
         //println("*** fromReplMap: "+fromReplMap)
         //fromReplMap.foreach(t => t._1.dump(t._2+" <- "))
-        val selReplMap = selRefsToUnwrapped.mapValues(u => InRef(gen, Ref(allUnwrappedRefsToSyms(u))).replaceSymbols(newGens))
+        val selReplMap = selRefsToUnwrapped.mapValues(u => Path(gen, allUnwrappedRefsToSyms(u)).replaceSymbols(newGens))
         //println("*** selReplMap: "+selReplMap)
         //selReplMap.foreach(t => t._1.dump(t._2+" <- "))
         val b2 = b.copy(
@@ -47,11 +47,6 @@ object RewriteGenerators {
     case b @ Bind(_, _, Pure(_)) => b.copy(select = unwrap(wrappers.toSet, select))
     case b @ Bind(gen, _, nonPure) => b.copy(select = replaceSelect(nonPure, select, gen :: wrappers))
     //case FilteredJoin(_, _, )
-  }
-
-  def newGenerators(n: Node) = {
-    val gens = n.collectNodeGenerators.map(_._1).toSet
-    memoized[Symbol, Symbol](_ => { case s => if(gens contains s) new AnonSymbol else s })
   }
 
   def findFilterSource(n: Node): Node = n match {
@@ -85,7 +80,7 @@ object RewriteGenerators {
     n.replace {
       case t @ TransitiveRef(sym, value) =>
         //value.dump("*** matched in "+sym+": "+m.get(value)+": ")
-        m.get(value).map{ case InRef(gen, Ref(n)) => InRef(sym, Ref(n)) }.getOrElse(t)
+        m.get(value).map{ case Path(gen, n) => Path(sym, n) }.getOrElse(t)
       case i @ InRef(Sym, value) => m.get(value).getOrElse(i)
     }
   }

@@ -68,6 +68,16 @@ case class Ref(sym: Symbol) extends NullaryNode with RefNode {
 }
 
 /**
+ * A reference to a field in a struct
+ */
+case class Path(path: Symbol*) extends NullaryNode with RefNode {
+  override def toString = "Path " + path.mkString(".")
+  def nodeReferences = path
+  def nodeMapReferences(f: Symbol => Symbol) =
+    mapOrNone(path, f).map(newp => Path(newp:_*)).getOrElse(this)
+}
+
+/**
  * A Node which introduces Symbols.
  */
 trait DefNode extends Node {

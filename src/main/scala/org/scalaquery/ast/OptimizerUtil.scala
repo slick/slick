@@ -104,6 +104,11 @@ class NodeOps(tree: Node) extends Traversable[Node] {
     case d: DefNode => d.nodeGenerators
   } toMap
 
+  def generatorsReplacer = {
+    val gens = collectNodeGenerators.map(_._1).toSet
+    memoized[Symbol, Symbol](_ => { case s => if(gens contains s) new AnonSymbol else s })
+  }
+
   def collectInRefTargets(In: Symbol) = collect[Node] {
     case InRef(In, value) => value
   } toSet
