@@ -10,7 +10,7 @@ class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProf
 
   lazy val insertStatement = profile.buildInsertStatement(unpackable.value)
   def insertStatementFor[TT](query: Query[TT, U]): String = profile.buildInsertStatement(unpackable.value, query).sql
-  def insertStatementFor[TT](c: TT)(implicit unpack: Unpack[TT, U]): String = insertStatementFor(Query(c))
+  def insertStatementFor[TT](c: TT)(implicit unpack: Unpack[TT, U]): String = insertStatementFor(Query(c)(unpack, null))
 
   def useBatchUpdates(implicit session: Session) = session.capabilities.supportsBatchUpdates
 
@@ -27,7 +27,7 @@ class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProf
   }
 
   def insertExpr[TT](c: TT)(implicit unpack: Unpack[TT, U], session: Session): Int =
-    insert(Query(c)(unpack))(session)
+    insert(Query(c)(unpack, null))(session)
 
   /**
    * Insert multiple rows. Uses JDBC's batch update feature if supported by

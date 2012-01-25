@@ -7,7 +7,7 @@ import org.scalaquery.ql.Join.JoinType
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, +U]() extends NodeGenerator {
+abstract class Query[+E, +U] extends NodeGenerator {
 
   def unpackable: Unpackable[_ <: E, _ <: U]
   lazy val reified = unpackable.reifiedNode
@@ -21,27 +21,27 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   }
 
   def map[F, G, T](f: E => F)(implicit unpack: Unpack[F, T], reify: Reify[F, G]): Query[G, T] =
-    flatMap(v => Query[G, T]( unpack.reify(f(v)).asInstanceOf[G] )( unpack.reifiedUnpack.asInstanceOf[Unpack[G, T]] ))
+    flatMap(v => Query[F, T, G](f(v)))
 
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
 
-  def filter[T, R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]): Query[R, U] = {
+  def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = {
     val generator = new AnonSymbol
     //val aliased = WithOp.mapOp(unpackable.value, (n => InRef(generator, n)))
     val aliased = InRef.forUnpackable(generator, unpackable)
     val fv = f(aliased.value)
-    new WrappingQuery[R, U](Filter(generator, Node(this), Node(wt(fv))), unpackable.reifiedUnpackable(reify))
+    new WrappingQuery[E, U](Filter(generator, Node(this), Node(wt(fv))), unpackable)
   }
 
-  def withFilter[T, R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]) = filter(f)(wt, reify)
+  def withFilter[T : CanBeQueryCondition](f: E => T) = filter(f)
 
-  def where[T <: Column[_], R](f: E => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[E, R]) = filter(f)(wt, reify)
+  def where[T <: Column[_] : CanBeQueryCondition](f: E => T) = filter(f)
 
-  def join[E2, U2, R1, R2](q2: Query[E2, U2])(implicit reify1: Reify[E, R1], reify2: Reify[E2, R2]) = {
+  def join[E2, U2](q2: Query[E2, U2]) = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = InRef.forUnpackable(leftGen, unpackable)
     val aliased2 = InRef.forUnpackable(rightGen, q2.unpackable)
-    new BaseJoinQuery[R1, R2, U, U2](leftGen, rightGen, Node(unpackable.value), Node(q2.unpackable.value), Join.Inner, aliased1.zip(aliased2).reifiedUnpackable)
+    new BaseJoinQuery[E, E2, U, U2](leftGen, rightGen, Node(unpackable.value), Node(q2.unpackable.value), Join.Inner, aliased1.zip(aliased2))
   }
 
   /*
@@ -57,12 +57,12 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   def modifiers: List[QueryModifier] = Nil //--
   def typedModifiers[T <: QueryModifier]: List[T] = Nil //--
 
-  def union[O >: E, T >: U, R](other: Query[O, T])(implicit reify: Reify[O, R]) = {
-    new WrappingQuery[R, T](Union(unpackable.reifiedNode, other.unpackable.reifiedNode, false), unpackable.reifiedUnpackable)
+  def union[O >: E, T >: U, R](other: Query[O, T]) = {
+    new WrappingQuery[O, T](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable)
   }
 
-  def unionAll[O >: E, T >: U, R](other: Query[O, T])(implicit reify: Reify[O, R]) = {
-    new WrappingQuery[R, T](Union(unpackable.reifiedNode, other.unpackable.reifiedNode, true), unpackable.reifiedUnpackable)
+  def unionAll[O >: E, T >: U, R](other: Query[O, T]) = {
+    new WrappingQuery[O, T](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
   }
 
   /*
@@ -84,7 +84,8 @@ abstract class Query[+E, +U]() extends NodeGenerator {
 object Query extends Query[Unit, Unit] {
   def nodeDelegate = reified
   def unpackable = Unpackable((), Unpack.unpackPrimitive[Unit])
-  def apply[E, U](value: E)(implicit unpack: Unpack[E, U]) = apply[E, U](Unpackable(value, unpack))
+  def apply[E, U, R](value: E)(implicit unpack: Unpack[E, U], reify: Reify[E, R]) =
+    apply[R, U](Unpackable(value, unpack).reifiedUnpackable)
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
     if(unpackable.reifiedNode.isInstanceOf[AbstractTable[_]])
       new WrappingQuery[E, U](unpackable.reifiedNode, unpackable) {
@@ -137,6 +138,6 @@ class WrappingQuery[+E, +U](val nodeDelegate: Node, val base: Unpackable[_ <: E,
 
 final class BaseJoinQuery[+E1, +E2, +U1, +U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)])
     extends WrappingQuery[(E1, E2), (U1,  U2)](BaseJoin(leftGen, rightGen, left, right, jt), base) {
-  def on[T <: Column[_], R](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T], reify: Reify[(E1, E2), R]) =
+  def on[T <: Column[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]) =
     new WrappingQuery[(E1, E2), (U1, U2)](FilteredJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)
 }
