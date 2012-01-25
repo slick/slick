@@ -251,10 +251,16 @@ final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, rig
   }
 }
 
-final case class Union(left: Node, right: Node, all: Boolean) extends BinaryNode {
+final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with DefNode {
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
-  protected[this] override def nodeChildNames = Seq("left", "right")
   override def toString = if(all) "Union all" else "Union"
+  protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
+  def nodeGenerators = Seq((leftGen, left), (rightGen, right))
+  def nodeMapGenerators(f: Symbol => Symbol) = {
+    val fl = f(leftGen)
+    val fr = f(rightGen)
+    if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
+  }
 }
 
 final case class Bind(generator: Symbol, from: Node, select: Node) extends BinaryNode with DefNode {

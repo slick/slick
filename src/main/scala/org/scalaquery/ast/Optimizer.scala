@@ -34,7 +34,7 @@ object Optimizer {
       case b @ Bind(gen, Wrapped(f: FilteredQuery, _), what) => b.copy(from = f)
       case b @ Bind(gen, Wrapped(f: FilteredJoin, _), what) => b.copy(from = f)
       // Unwrap unions
-      case Wrapped(u @ Union(left, _, _), what) if left == what => u
+      case Wrapped(u @ Union(left, _, _, _, _), what) if left == what => u
     }
   }
 
@@ -71,7 +71,7 @@ object Optimizer {
       case r @ InRef(sym, what) if defs.get(sym) == Some(RefId(what)) => Ref(sym)
       case Wrapped(in, what) if reverse.get(RefId(in)).isDefined => InRef(reverse.get(RefId(in)).get, what)
       case Wrapped(Ref(sym), what) => InRef(sym, what)
-      case Wrapped(InRef(sym1, Ref(sym2)), what) => InRef(sym1, InRef(sym2, what))
+      case Wrapped(InRefChain(syms, Ref(sym2)), what) => InRefChain(syms :+ sym2, what)
       //case Wrapped(u @ Union(sym1, _, _, _, _), Ref(sym2)) if sym1 == sym2 => u
       //case Wrapped(f @ FilteredQuery(gen1, from), InRef(gen2, what)) if gen1 == gen2 && from == what => f
       case InRef(sym, what) if (defs.get(sym) match {
@@ -114,9 +114,11 @@ object Optimizer {
   }
 
   /**
-   * An extractor for a chain of InRef nodes
+   * A constructor and  extractor for a chain of InRef nodes
    */
   object InRefChain {
+    def apply(syms: Seq[Symbol], what: Node) =
+      syms.foldRight(what){ case (sym,z) => InRef(sym, z) }
     def unapply(n: Node): Option[(List[Symbol], Node)] = n match {
       case InRef(sym, what) =>
         unapply(what).map{ case (ss, n) => (sym :: ss, n) }.orElse(Some((List(sym), what)))
