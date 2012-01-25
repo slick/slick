@@ -20,7 +20,8 @@ abstract class Query[+E, +U]() extends NodeGenerator {
     new WrappingQuery[F, T](new Bind(generator, Node(unpackable.value), Node(fv)), fv.unpackable)
   }
 
-  def map[F, T](f: E => F)(implicit unpack: Unpack[F, T]): Query[F, T] = flatMap(v => Query(f(v)))
+  def map[F, G, T](f: E => F)(implicit unpack: Unpack[F, T], reify: Reify[F, G]): Query[G, T] =
+    flatMap(v => Query[G, T]( unpack.reify(f(v)).asInstanceOf[G] )( unpack.reifiedUnpack.asInstanceOf[Unpack[G, T]] ))
 
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
 
@@ -57,11 +58,11 @@ abstract class Query[+E, +U]() extends NodeGenerator {
   def typedModifiers[T <: QueryModifier]: List[T] = Nil //--
 
   def union[O >: E, T >: U, R](other: Query[O, T])(implicit reify: Reify[O, R]) = {
-    new WrappingQuery[R, T](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable.reifiedUnpackable)
+    new WrappingQuery[R, T](Union(unpackable.reifiedNode, other.unpackable.reifiedNode, false), unpackable.reifiedUnpackable)
   }
 
   def unionAll[O >: E, T >: U, R](other: Query[O, T])(implicit reify: Reify[O, R]) = {
-    new WrappingQuery[R, T](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable.reifiedUnpackable)
+    new WrappingQuery[R, T](Union(unpackable.reifiedNode, other.unpackable.reifiedNode, true), unpackable.reifiedUnpackable)
   }
 
   /*
