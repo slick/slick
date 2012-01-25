@@ -12,6 +12,11 @@ object OptimizerUtil {
 
   def pfidentity[T]: PartialFunction[T, T] = { case x => x }
 
+  def pftransitive[T](pf: PartialFunction[T, T]): PartialFunction[T, T] = new PartialFunction[T, T] {
+    def isDefinedAt(x: T): Boolean = pf.isDefinedAt(x)
+    def apply(x: T): T = pf.andThen(pftransitive(pf).orElse(pfidentity)).apply(x)
+  }
+
   def memoized[A, B](f: (A => B) => A => B): (A => B) = {
     val memo = new collection.mutable.HashMap[A, B]
     lazy val g = f(r)

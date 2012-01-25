@@ -1,9 +1,9 @@
 package org.scalaquery.ast
 
-import collection.mutable.HashMap
 import OptimizerUtil._
 import org.scalaquery.util.RefId
 import org.scalaquery.ql.RawNamedColumn
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 /**
  * Basic optimizers for the ScalaQuery AST
@@ -52,7 +52,7 @@ object Optimizer {
     def replace = {
       case p @ ProductNode(Wrapped(in, _), xs @ _*) if allWrapped(in, xs) =>
         val unwrapped = p.nodeChildren.collect { case Wrapped(_, what) => what }
-        Wrapped(in, ProductNode(unwrapped))
+        Wrapped(in, ProductNode(unwrapped: _*))
     }
   }
 
@@ -78,7 +78,7 @@ object Optimizer {
         case Some(RefId(FilteredQuery(_, from))) if what == from => true
         case _ => false
       }) => defs(sym).e
-      case InRef(sym, RawNamedColumn(name, _)) => Path(sym, FieldSymbol(name))
+      //-- case InRef(sym, RawNamedColumn(name, _)) => Path(sym, FieldSymbol(name))
       /*case i @ InRef(sym1, Path(sym2, rest @ _*)) =>
         defs.get(sym1) match {
           case Some(RefId(FilteredJoin(g1, g2, _, _, _, _))) if sym2 == g1 || sym2 == g2 =>
@@ -121,6 +121,25 @@ object Optimizer {
       case InRef(sym, what) =>
         unapply(what).map{ case (ss, n) => (sym :: ss, n) }.orElse(Some((List(sym), what)))
       case n => None
+    }
+  }
+
+  /**
+   * An extractor for nested ProductNodes (does not match non-nested ones)
+   */
+  object NestedProductNode {
+    def unapplySeq(p: ProductNode): Option[Seq[Node]] = {
+      var nested = false
+      val b = new ArrayBuffer[Node]
+      def scan(n: Node): Unit = n match {
+        case ProductNode(ch @ _*) =>
+          nested = true
+          ch.foreach(scan)
+        case n => b += n
+      }
+      p.nodeChildren.foreach(scan)
+      if(nested) Some(b)
+      else None
     }
   }
 }

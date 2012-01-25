@@ -105,7 +105,7 @@ trait ProductNode extends SimpleNode {
 object ProductNode {
   def apply(p: Product): ProductNode =
     new ProductNode { lazy val nodeChildGenerators = p.productIterator.toSeq }
-  def apply(s: Seq[Any]): ProductNode =
+  def apply(s: Any*): ProductNode =
     new ProductNode { lazy val nodeChildGenerators = s }
   def unapplySeq(p: ProductNode) = Some(p.nodeChildren)
 }

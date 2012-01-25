@@ -63,20 +63,24 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
     def show(name: String, g: NodeGenerator) {
       val n = Node(g)
-      AnonSymbol.assignNames(n)
+      AnonSymbol.assignNames(n, force = true)
       println("=========================================== "+name)
       n.dump("source: ")
-      val n2 = Optimizer.all/*.andThen(Columnizer.expandColumns)*/.apply(n)
+      val n2 = Optimizer.all.apply(n)
       println
       if(n2 ne n) {
         n2.dump("optimized: ")
         println
       }
-      val n3 = RewriteGenerators(n2)
+      val n3 = Columnizer.expandColumns.andThen(Optimizer.all).apply(n2)
       if(n3 ne n2) {
-        AnonSymbol.assignNames(n3, "c")
-        n3.dump("generators rewritten: ")
-        println
+        n3.dump("columnized: ")
+        val n4 = RewriteGenerators(n2)
+        if(n4 ne n4) {
+          AnonSymbol.assignNames(n4, "c")
+          n3.dump("generators rewritten: ")
+          println
+        }
       }
     }
 

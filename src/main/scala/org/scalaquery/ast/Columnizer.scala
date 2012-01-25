@@ -1,7 +1,7 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
-import Optimizer.{FilterChain, InRefChain}
+import Optimizer.{FilterChain, InRefChain, NestedProductNode}
 import org.scalaquery.util.RefId
 import org.scalaquery.ql.AbstractTable
 import scala.collection.mutable.{HashMap, ArrayBuffer}
@@ -12,15 +12,17 @@ import scala.collection.mutable.{HashMap, ArrayBuffer}
 object Columnizer {
 
   val expandColumns = new Transformer.Defs {
-    def replace = {
-      // Rewrite the original Wrapped representation
-      //case Wrapped(tq @ TableQuery(t: AbstractTable[_]), t2) if t == t2 => Wrapped(tq, Node(t.*))
+    def replace = pftransitive {
       // Rewrite a table reference that has already been rewritten to a Ref
       case ResolvedRef(sym, f @ FilterChain(syms, t: AbstractTable[_])) => InRef(sym, Node(t.*))
       // Remove unnecessary InRef introduced by the previous case after the optimizer has removed the wrapping
       /*case i @ InRefChain(syms, what) if syms.tail.isDefined => defs.get(syms.head) match {
         case Some(FilteredQuery(_))
       }*/
+      // Push InRef down into ProductNode
+      case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
+      // Merge products
+      case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
     }
   }
 

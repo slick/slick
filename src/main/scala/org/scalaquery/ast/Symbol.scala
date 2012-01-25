@@ -30,18 +30,14 @@ class AnonSymbol extends Symbol {
 object AnonSymbol {
   def assignNames(tree: Node, prefix: String = "s", force: Boolean = false) = {
     var num = 0
-    val symName = memoized[Symbol, String](_ => { s => num += 1; prefix + num })
-    def f(n: Node) {
-      n match {
-        case d : DefNode => d.nodeGenerators.foreach {
-          case (s: AnonSymbol, _) => if(force || !s.hasName) s.name = symName(s)
-          case _ =>
-        }
+    val symName = memoized[AnonSymbol, String](_ => { s => num += 1; prefix + num })
+    tree.foreach {
+      case d : DefNode => d.nodeGenerators.foreach {
+        case (s: AnonSymbol, _) if force || !s.hasName => s.name = symName(s)
         case _ =>
       }
-      n.nodeChildren.foreach(f)
+      case _ =>
     }
-    f(tree)
   }
 }
 
