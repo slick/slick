@@ -3,7 +3,7 @@ package org.scalaquery.ast
 import OptimizerUtil._
 import org.scalaquery.util.RefId
 import org.scalaquery.ql.RawNamedColumn
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.{HashSet, ArrayBuffer, HashMap}
 
 /**
  * Basic optimizers for the ScalaQuery AST
@@ -13,7 +13,8 @@ object Optimizer {
   lazy val all =
     eliminateIndirections andThen
     unwrapGenerators andThen
-    reverseProjectionWrapping
+    reverseProjectionWrapping andThen
+    removeFilterRefs
 
   /**
    * Eliminate unnecessary nodes from the AST.
@@ -79,14 +80,20 @@ object Optimizer {
         case _ => false
       }) => defs(sym).e
       //-- case InRef(sym, RawNamedColumn(name, _)) => Path(sym, FieldSymbol(name))
-      /*case i @ InRef(sym1, Path(sym2, rest @ _*)) =>
-        defs.get(sym1) match {
-          case Some(RefId(FilteredJoin(g1, g2, _, _, _, _))) if sym2 == g1 || sym2 == g2 =>
-            Path((sym1 +: sym2 +: rest): _*)
-          case Some(RefId(RealFilterChain(defs, _))) =>
-            Path((sym1 +: (sym2 +: rest).filterNot(defs contains _) ): _*)
-          case _ => i
-        }*/
+    }
+  }
+
+  /**
+   * Remove unnecessary InRef nestings for filtered queries
+   */
+  val removeFilterRefs = new Transformer {
+    val filterSyms = new HashSet[Symbol]
+    override def initTree(n: Node) {
+      filterSyms.clear()
+      filterSyms ++= n.collect[Symbol] { case FilteredQuery(gen, _) => gen }
+    }
+    def replace = {
+      case InRef(sym1, InRef(sym2, what)) if filterSyms contains sym2 => InRef(sym1, what)
     }
   }
 
