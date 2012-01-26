@@ -15,14 +15,12 @@ object Columnizer {
     def replace = pftransitive {
       // Rewrite a table reference that has already been rewritten to a Ref
       case ResolvedRef(sym, f @ FilterChain(syms, t: AbstractTable[_])) => InRef(sym, Node(t.*))
-      // Remove unnecessary InRef introduced by the previous case after the optimizer has removed the wrapping
-      /*case i @ InRefChain(syms, what) if syms.tail.isDefined => defs.get(syms.head) match {
-        case Some(FilteredQuery(_))
-      }*/
       // Push InRef down into ProductNode
       case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
       // Merge products
       case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
+      // Rewrite a table reference returned in a Bind
+      case b @ Bind(_, _, t: AbstractTable[_]) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.*))))
     }
   }
 
