@@ -64,6 +64,14 @@ case class Ref(sym: Symbol) extends NullaryNode with RefNode {
 }
 
 /**
+ * A reference to a Symbol pointing to a table which should not be expanded
+ */
+case class TableRef(sym: Symbol) extends NullaryNode with RefNode {
+  def nodeReferences = Seq(sym)
+  def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
+}
+
+/**
  * A reference to a field in a struct
  */
 case class Path(path: Symbol*) extends NullaryNode with RefNode {

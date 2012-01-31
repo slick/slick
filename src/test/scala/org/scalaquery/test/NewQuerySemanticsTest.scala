@@ -36,7 +36,8 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       def price = column[Double]("PRICE")
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
-      def * = name ~ supID ~ price ~ sales ~ total
+      def * = name ~ supID ~ price ~ sales ~ (total * 10)
+      def totalComputed = sales.asColumnOf[Double] * price
       def supplier = foreignKey("SUP_FK", supID, Suppliers)(_.id)
     }
 
@@ -72,22 +73,23 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n2.dump("optimized: ")
         println
       }
-      val n3 = Columnizer.expandColumns.andThen(Optimizer.all).apply(n2)
+      val n3 = Columnizer.expandColumns.andThen(Optimizer.all).andThen(Columnizer.mergePaths).apply(n2)
       if(n3 ne n2) {
         n3.dump("columnized: ")
-        val n4 = RewriteGenerators(n2)
-        if(n4 ne n4) {
-          AnonSymbol.assignNames(n4, "c")
-          n3.dump("generators rewritten: ")
-          println
-        }
+        println
+      }
+      val n4 = RewriteGenerators(n3)
+      if(n4 ne n3) {
+        AnonSymbol.assignNames(n4, "c")
+        n4.dump("generators rewritten: ")
+        println
       }
     }
 
     val q1 = for {
       c <- Query(Coffees).take(3)
       s <- Suppliers
-    } yield (c.name ~ (s.city ++ ":"), c, s)
+    } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
     show("q1: Plain implicit join", q1)
     //println("q1: "+q1.selectStatement)
     //val l3 = q1.list
@@ -110,11 +112,21 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       val cf = c.where(_.price < 9.0)
       cf.flatMap { cf =>
         Suppliers.where(_.id === c.supID).map { s =>
-          c.name ~ s.name ~ cf.name
+          c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed
         }
       }
     }
     show("q3: Lifting scalar values", q3)
+
+    val q3b = Coffees.flatMap { c =>
+      val cf = Query((c, 42)).where(_._1.price < 9.0)
+      cf.flatMap { case (cf, num) =>
+        Suppliers.where(_.id === c.supID).map { s =>
+          c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed ~ num
+        }
+      }
+    }
+    show("q3b: Lifting scalar values, with extra tuple", q3b)
 
     val q4 = for {
       c <- Coffees.map(c => (c.name, c.price, 42)).take(100).filter(_._2 < 9.0)

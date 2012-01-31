@@ -49,6 +49,12 @@ object Transformer {
         case _ => None
       }
     }
+    object ResolvedInRef {
+      def unapply(n: Node): Option[(Symbol, Node, Node)] = n match {
+        case InRef(sym, what) => defs.get(sym).map(v => (sym, v, what))
+        case _ => None
+      }
+    }
   }
 
   trait DefRefsBidirectional extends Transformer {

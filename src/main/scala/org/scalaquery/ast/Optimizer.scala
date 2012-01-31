@@ -61,6 +61,14 @@ object Optimizer {
    * Remove unnecessary wrappings of generators
    */
   val unwrapGenerators = new Transformer.DefRefsBidirectional {
+    val pureParents = new HashMap[RefId[Pure], Bind]
+    override def initTree(tree: Node) {
+      super.initTree(tree)
+      pureParents.clear()
+      pureParents ++= tree.collect[(RefId[Pure], Bind)] {
+        case b @ Bind(_, _, p @ Pure(_)) => (RefId(p), b)
+      }
+    }
     def replace = {
       case InRef(sym, Wrapped(in, what)) if {
         (defs.get(sym) == Some(RefId(in))) ||
@@ -80,6 +88,10 @@ object Optimizer {
         case _ => false
       }) => defs(sym).e
       //-- case InRef(sym, RawNamedColumn(name, _)) => Path(sym, FieldSymbol(name))
+      // Rewrap from Pure to the enclosing Bind (which can then get resolved to a symbol ref)
+      case Wrapped(p: Pure, what) if p.ne(what) && pureParents.contains(RefId(p)) =>
+        Wrapped(pureParents(RefId(p)), what)
+      case Wrapped(in @ Bind(gen, from, Pure(what)), what2) if what eq what2 => in
     }
   }
 

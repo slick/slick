@@ -1,10 +1,10 @@
 package org.scalaquery.ast
 
+import scala.collection.mutable.{HashMap, ArrayBuffer}
+import org.scalaquery.util.RefId
+import org.scalaquery.ql.{RawNamedColumn, AbstractTable}
 import OptimizerUtil._
 import Optimizer.{FilterChain, InRefChain, NestedProductNode}
-import org.scalaquery.util.RefId
-import org.scalaquery.ql.AbstractTable
-import scala.collection.mutable.{HashMap, ArrayBuffer}
 
 /**
  * Expand columns and merge comprehensions in queries
@@ -12,6 +12,24 @@ import scala.collection.mutable.{HashMap, ArrayBuffer}
 object Columnizer {
 
   val expandColumns = new Transformer.Defs {
+    /*override def initTree(tree: Node) {
+      super.initTree(tree)
+      tree.collectAll[(AbstractTable[_], RawNamedColumn)] {
+        case ResolvedInRef(_, in, r @ RawNamedColumn(name, _, _)) => expand(in).map((_, r)).toSeq
+      } foreach { case (t,c) =>
+        println("*** "+t.tableName+"."+c.name)
+      }
+      def expand(n: Node): Iterator[AbstractTable[_]] = n match {
+        case a: AbstractTable[_] => Iterator(a)
+        case ResolvedRef(_, target) => expand(target)
+        case InRef(_, what) => expand(what)
+        case FilteredQuery(_, from) => expand(from)
+        case Pure(value) => expand(value)
+        case Bind(_, _, select) => expand(select)
+        case Union(left, right, _, _, _) => expand(left) ++ expand(right)
+        case _ => Iterator.empty
+      }
+    }*/
     def replace = pftransitive {
       // Rewrite a table reference that has already been rewritten to a Ref
       case ResolvedRef(sym, f @ FilterChain(syms, t: AbstractTable[_])) => InRef(sym, Node(t.*))
@@ -21,11 +39,21 @@ object Columnizer {
       case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
       // Rewrite a table reference returned in a Bind
       case b @ Bind(_, _, t: AbstractTable[_]) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.*))))
+      case Pure(ResolvedRef(sym1, f @ FilterChain(syms, t: AbstractTable[_]))) => Pure(TableRef(sym1))
     }
   }
 
   def unwrap(wrappers: Set[Symbol], n: Node): Node = n.replace {
     case InRef(sym, what) if wrappers contains sym => what
+  }
+
+  val mergePaths = new Transformer.Defs {
+    def replace = {
+      /*case InRef(sym, RawNamedColumn(name, _, _)) => Path(sym, FieldSymbol(name))
+      case InRef(sym, Path(syms @ _*)) => Path((sym +: syms): _*)
+      case Ref(sym) => Path(sym)*/
+      case Ref(null) => null
+    }
   }
 
   def run(tree: Node): Node = {
