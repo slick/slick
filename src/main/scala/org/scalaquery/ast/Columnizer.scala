@@ -4,7 +4,6 @@ import scala.collection.mutable.{HashMap, ArrayBuffer}
 import org.scalaquery.util.RefId
 import org.scalaquery.ql.{RawNamedColumn, AbstractTable}
 import OptimizerUtil._
-import Optimizer.{FilterChain, InRefChain, NestedProductNode}
 
 /**
  * Expand columns and merge comprehensions in queries

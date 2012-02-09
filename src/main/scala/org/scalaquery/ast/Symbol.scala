@@ -1,7 +1,7 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
-import org.scalaquery.ql.Unpackable
+import org.scalaquery.ql.{RawNamedColumn, Unpackable}
 
 /**
  * A symbol which can be used in the AST.
@@ -12,9 +12,9 @@ abstract class Symbol {
 }
 
 /**
- * A named symbol which refers to an unaliased field.
+ * A named symbol which refers to an (aliased or unaliased) field.
  */
-case class FieldSymbol(name: String) extends Symbol
+case class FieldSymbol(name: String)(val column: Option[RawNamedColumn] = None) extends Symbol
 
 /**
  * An anonymous symbol defined in the AST.

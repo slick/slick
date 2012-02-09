@@ -97,7 +97,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
     val q1b_0 = Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     val q1b = for {
-      (c, s) <- q1b_0
+      (c, s) <- q1b_0.take(2).filter(_._1.name =!= "foo")
       (c2, s2) <- q1b_0
     } yield c.name ~ s.city ~ c2.name
     show("q1b: Explicit join with condition", q1b)
@@ -155,9 +155,9 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q6 = Coffees.flatMap(c => Query(Suppliers))
     show("q6: Unused outer query result, unbound TableQuery", q6)
 
-    val q7 = for {
+    val q7 = (for {
       c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(6).drop(4).take(5).map((_, 2))
-    } yield c._1.name ~ c._1.supID ~ c._2
+    } yield c._1.name ~ c._1.supID ~ c._2) where (_._1 =!= "Colombian")
     show("q7: Union", q7)
   }
 }

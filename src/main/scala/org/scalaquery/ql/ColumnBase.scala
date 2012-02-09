@@ -105,4 +105,5 @@ final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, 
 
 final case class RawNamedColumn(val name: String, val options: Seq[ColumnOption[_, _]], tm: TypeMapper[_]) extends NullaryNode {
   override def toString = "RawNamedColumn " + name
+  def symbol = FieldSymbol(name)(Some(this))
 }
