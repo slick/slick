@@ -30,6 +30,8 @@ object Columnizer {
       }
     }*/
     def replace = pftransitive {
+      // Remove unnecessary wrapping of generated TableRef reference
+      case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
       // Rewrite a table reference that has already been rewritten to a Ref
       case ResolvedRef(sym, f @ FilterChain(syms, t: AbstractTable[_])) => InRef(sym, Node(t.*))
       // Push InRef down into ProductNode

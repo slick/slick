@@ -109,7 +109,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     show("q2: More elaborate query", q2)
 
     val q3 = Coffees.flatMap { c =>
-      val cf = c.where(_.price < 9.0)
+      val cf = c.where(_.price < c.price)
       cf.flatMap { cf =>
         Suppliers.where(_.id === c.supID).map { s =>
           c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed
