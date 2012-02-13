@@ -64,13 +64,13 @@ object RewriteGenerators {
 
   def collectReferences(n: Node, skip: Set[Symbol], syms: Set[Symbol]): Set[Node] = n match {
     case InRef(sym, what) if syms contains sym => Set(what)
-    case InRef(sym, _) if !(skip contains sym) => Set.empty
+    //case InRef(sym, _) if !(skip contains sym) => Set.empty
     case n => n.nodeChildren.map(ch => collectReferences(ch, skip, syms)).flatten.toSet
   }
 
   def replaceReferences(n: Node, skip: Set[Symbol], syms: Set[Symbol], repl: Map[Node, Symbol]): Node = n match {
     case InRef(sym, what) if syms contains sym => Path(sym, repl(what))
-    case InRef(sym, _) if !(skip contains sym) => n
+    //case InRef(sym, _) if !(skip contains sym) => n
     case n => n.nodeMapChildren(ch => replaceReferences(ch, skip, syms, repl))
   }
 
@@ -96,7 +96,7 @@ object RewriteGenerators {
       StructNode(struct).dump("*** struct: ")
       rewrapped.dump("*** replacement for FilteredJoin: ")
       Bind(gen, f, Pure(rewrapped))
-      //sys.error("not implemented")
+    case Pure(what) => Pure(StructNode(struct))
   }
 
   def rewrap(n: Node, wrappers: Map[Symbol, Symbol], newWrapper: Symbol): Node = n match {
