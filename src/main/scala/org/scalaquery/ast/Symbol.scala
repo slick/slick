@@ -86,7 +86,18 @@ case class Path(path: Symbol*) extends NullaryNode with RefNode {
  */
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]
+  def nodePostGeneratorChildren: Seq[Node]
   def nodeMapGenerators(f: Symbol => Symbol): Node
+  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): Node
+}
+
+trait SimpleDefNode extends DefNode { _: SimpleNode =>
+  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
+    val ft = f.tupled
+    val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
+      nodePostGeneratorChildren.iterator.map{ n => (None, n) }).toIndexedSeq
+    nodeRebuild(all.map(ft))
+  }
 }
 
 /**

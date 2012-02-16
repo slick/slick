@@ -11,24 +11,6 @@ import OptimizerUtil._
 object Columnizer {
 
   val expandColumns = new Transformer.Defs {
-    /*override def initTree(tree: Node) {
-      super.initTree(tree)
-      tree.collectAll[(AbstractTable[_], RawNamedColumn)] {
-        case ResolvedInRef(_, in, r @ RawNamedColumn(name, _, _)) => expand(in).map((_, r)).toSeq
-      } foreach { case (t,c) =>
-        println("*** "+t.tableName+"."+c.name)
-      }
-      def expand(n: Node): Iterator[AbstractTable[_]] = n match {
-        case a: AbstractTable[_] => Iterator(a)
-        case ResolvedRef(_, target) => expand(target)
-        case InRef(_, what) => expand(what)
-        case FilteredQuery(_, from) => expand(from)
-        case Pure(value) => expand(value)
-        case Bind(_, _, select) => expand(select)
-        case Union(left, right, _, _, _) => expand(left) ++ expand(right)
-        case _ => Iterator.empty
-      }
-    }*/
     def replace = pftransitive {
       // Remove unnecessary wrapping of generated TableRef reference
       case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
@@ -44,25 +26,8 @@ object Columnizer {
     }
   }
 
-  def unwrap(wrappers: Set[Symbol], n: Node): Node = n.replace {
-    case InRef(sym, what) if wrappers contains sym => what
-  }
-
-  val mergePaths = new Transformer.Defs {
-    def replace = {
-      /*case InRef(sym, RawNamedColumn(name, _, _)) => Path(sym, FieldSymbol(name))
-      case InRef(sym, Path(syms @ _*)) => Path((sym +: syms): _*)
-      case Ref(sym) => Path(sym)*/
-      case Ref(null) => null
-    }
-  }
-
   def run(tree: Node): Node = {
     //val t3 = toComprehensions.andThen(mergeComprehensions).apply(t2)
-    //val cs = findColumns(withCs)
-    //println("*** cs: "+cs)
-    //findDefs(withCs)
-    //introduceRefs(withCs)
     tree
   }
 
@@ -79,10 +44,6 @@ object Columnizer {
         c2.copy(from = from1 ++ from2, where = where1 ++ where2)
     }
   }
-
-  def findDefs(n: Node) = n.collectAll[(Symbol, (Node, Node))] {
-    case n: DefNode => n.nodeGenerators.map { case (sym, what) => (sym, (what, n)) }
-  }.toMap
 }
 
 case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Option[Node]) extends Node with DefNode {
@@ -105,5 +66,16 @@ case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Op
       case Some(s) => copy(from = from.zip(s).map { case ((_, n), s) => (s, n) })
       case None => this
     }
+  }
+  def nodePostGeneratorChildren = select.toSeq
+  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
+    val fn = (n: Node) => f(None, n)
+    val from2 = from.map{ case (s, n) => f(Some(s), n) }
+    val fromO = if(from.zip(from2).forall{ case ((_, n1), n2) => n1 eq n2 }) None else Some(from2)
+    val whereO = nodeMapNodes(where, fn)
+    val selectO = select.map(fn)
+    if(fromO.isDefined || whereO.isDefined || selectO != select)
+      copy(from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from), where = whereO.getOrElse(where), select = selectO)
+    else this
   }
 }

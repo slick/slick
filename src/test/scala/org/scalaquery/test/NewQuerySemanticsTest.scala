@@ -73,15 +73,21 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n2.dump("optimized: ")
         println
       }
-      val n3 = Columnizer.expandColumns.andThen(Optimizer.all).andThen(Columnizer.mergePaths).apply(n2)
+      val n3 = Columnizer.expandColumns.andThen(Optimizer.all).apply(n2)
       if(n3 ne n2) {
         n3.dump("columnized: ")
         println
       }
-      val n4 = RewriteGenerators(n3)
+      val n4 = Optimizer.assignUniqueSymbols(n3)
       if(n4 ne n3) {
-        AnonSymbol.assignNames(n4, "c")
-        n4.dump("generators rewritten: ")
+        AnonSymbol.assignNames(n4, "u")
+        n4.dump("unique symbols: ")
+        println
+      }
+      val n5 = RewriteGenerators(n4)
+      if(n5 ne n4) {
+        AnonSymbol.assignNames(n5, "c")
+        n5.dump("generators rewritten: ")
         println
       }
     }

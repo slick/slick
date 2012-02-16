@@ -110,7 +110,7 @@ object ProductNode {
   def unapplySeq(p: ProductNode) = Some(p.nodeChildren)
 }
 
-case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode with DefNode {
+case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode with SimpleDefNode {
   override def toString = "StructNode"
   protected[this] override def nodeChildNames = elements.map(_._1.toString)
   def nodeChildGenerators = elements.map(_._2)
@@ -122,6 +122,7 @@ case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode 
     case _ => false
   }
   def nodeGenerators = elements
+  def nodePostGeneratorChildren = Seq.empty
   def nodeMapGenerators(f: Symbol => Symbol) =
     copy(elements = elements.map { case (s, n) => (f(s), n) })
 }
@@ -195,38 +196,42 @@ object FilteredQuery {
   def unapply(f: FilteredQuery) = Some((f.generator, f.from))
 }
 
-final case class Filter(generator: Symbol, from: Node, where: Node) extends FilteredQuery with BinaryNode {
+final case class Filter(generator: Symbol, from: Node, where: Node) extends FilteredQuery with BinaryNode with SimpleDefNode {
   def left = from
   def right = where
   protected[this] override def nodeChildNames = Seq("from "+generator, "where")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, where = right)
   override def nodeDelegate = if(where == ConstColumn(true)) left else super.nodeDelegate
   def withGenerator(gen: Symbol) = copy(generator = gen)
+  def nodePostGeneratorChildren = Seq(where)
 }
 
-final case class GroupBy(from: Node, groupBy: Node, generator: Symbol = new AnonSymbol) extends FilteredQuery with BinaryNode {
+final case class GroupBy(from: Node, groupBy: Node, generator: Symbol = new AnonSymbol) extends FilteredQuery with BinaryNode with SimpleDefNode {
   def left = from
   def right = groupBy
   protected[this] override def nodeChildNames = Seq("from "+generator, "groupBy")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, groupBy = right)
   def withGenerator(gen: Symbol) = copy(generator = gen)
+  def nodePostGeneratorChildren = Seq(groupBy)
 }
 
-final case class Take(from: Node, num: Int, generator: Symbol = new AnonSymbol) extends FilteredQuery with UnaryNode {
+final case class Take(from: Node, num: Int, generator: Symbol = new AnonSymbol) extends FilteredQuery with UnaryNode with SimpleDefNode {
   def child = from
   protected[this] override def nodeChildNames = Seq("from "+generator)
   protected[this] def nodeRebuild(child: Node) = copy(from = child)
   def withGenerator(gen: Symbol) = copy(generator = gen)
+  def nodePostGeneratorChildren = Seq.empty
 }
 
-final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) extends FilteredQuery with UnaryNode {
+final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) extends FilteredQuery with UnaryNode with SimpleDefNode {
   def child = from
   protected[this] override def nodeChildNames = Seq("from "+generator)
   protected[this] def nodeRebuild(child: Node) = copy(from = child)
   def withGenerator(gen: Symbol) = copy(generator = gen)
+  def nodePostGeneratorChildren = Seq.empty
 }
 
-final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends BinaryNode with DefNode {
+final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends BinaryNode with SimpleDefNode {
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
   override def toString = "BaseJoin " + jt.sqlName
@@ -236,9 +241,10 @@ final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: 
     val fr = f(rightGen)
     if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
   }
+  def nodePostGeneratorChildren = Seq.empty
 }
 
-final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends SimpleNode with DefNode {
+final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends SimpleNode with SimpleDefNode {
   protected[this] def nodeChildGenerators = IndexedSeq(left, right, on)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
@@ -249,9 +255,10 @@ final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, rig
     val fr = f(rightGen)
     if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
   }
+  def nodePostGeneratorChildren = Seq(on)
 }
 
-final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with DefNode {
+final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with SimpleDefNode {
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
   override def toString = if(all) "Union all" else "Union"
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
@@ -261,9 +268,10 @@ final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = 
     val fr = f(rightGen)
     if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
   }
+  def nodePostGeneratorChildren = Seq.empty
 }
 
-final case class Bind(generator: Symbol, from: Node, select: Node) extends BinaryNode with DefNode {
+final case class Bind(generator: Symbol, from: Node, select: Node) extends BinaryNode with SimpleDefNode {
   def left = from
   def right = select
   protected[this] override def nodeChildNames = Seq("from "+generator, "select")
@@ -274,4 +282,5 @@ final case class Bind(generator: Symbol, from: Node, select: Node) extends Binar
     val fs = f(generator)
     if(fs eq generator) this else copy(generator = fs)
   }
+  def nodePostGeneratorChildren = Seq(select)
 }

@@ -121,6 +121,10 @@ class NodeOps(tree: Node) extends Traversable[Node] {
   def collectInRefTargets(In: Symbol) = collect[Node] {
     case InRef(In, value) => value
   } toSet
+
+  def unwrap(wrappers: Set[Symbol]): Node = replace {
+    case InRef(sym, what) if wrappers contains sym => what
+  }
 }
 
 /**

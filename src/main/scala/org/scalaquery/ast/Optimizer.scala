@@ -13,8 +13,8 @@ object Optimizer {
   lazy val all =
     eliminateIndirections andThen
     unwrapGenerators andThen
-    reverseProjectionWrapping andThen
-    removeFilterRefs
+    reverseProjectionWrapping /*andThen
+    removeFilterRefs*/
 
   /**
    * Eliminate unnecessary nodes from the AST.
@@ -107,5 +107,60 @@ object Optimizer {
     def replace = {
       case InRef(sym1, InRef(sym2, what)) if filterSyms contains sym2 => InRef(sym1, what)
     }
+  }
+
+  /**
+   * Ensure that all symbol definitions in a tree are unique
+   */
+  def assignUniqueSymbols(tree: Node): Node = {
+    class Scope(val symbol: Symbol, parent: Option[Scope]) extends (Symbol => Symbol) {
+      val replacement = new AnonSymbol
+      private val local = new HashMap[Symbol, Scope]
+      def in(s: Symbol) = local.getOrElseUpdate(s, new Scope(s, Some(this)))
+      def find(s: Symbol): Option[Scope] =
+        local.get(s).orElse(parent.flatMap(_.find(s)))
+      def apply(s: Symbol) = find(s).map(_.replacement).getOrElse(s)
+      def dump(prefix: String, indent: String = "") {
+        println(indent + prefix + symbol + " -> " + replacement)
+        local.foreach { case (_, scope) => scope.dump("", indent + "  ") }
+      }
+    }
+    def buildSymbolTable(n: Node, scope: Scope) {
+      n match {
+        case d: DefNode =>
+          val defs = d.nodeGenerators.toMap
+          defs.foreach{ case (sym, ch) => buildSymbolTable(ch, scope.in(sym)) }
+          val other = d.nodePostGeneratorChildren.foreach(ch => buildSymbolTable(ch, scope))
+        case n => n.nodeChildren.foreach(ch => buildSymbolTable(ch, scope))
+      }
+    }
+    val rootSym = new AnonSymbol
+    rootSym.name = "-root-"
+    val rootScope = new Scope(rootSym, None)
+    buildSymbolTable(tree, rootScope)
+    rootScope.dump("rootScope: ")
+    def tr(n: Node, scope: Scope): Node = n match {
+      case d: DefNode =>
+        d.nodeMapScopedChildren{ case (symO, ch) =>
+          val chScope = symO match {
+            case None => scope
+            case Some(sym) => scope.find(sym).getOrElse(scope)
+          }
+          tr(ch, chScope)
+        }.asInstanceOf[DefNode].nodeMapGenerators(scope)
+      case r @ Ref(s) =>
+        val ns = scope(s)
+        if(s == ns) r else Ref(ns)
+      case r @ TableRef(s) =>
+        val ns = scope(s)
+        if(s == ns) r else TableRef(ns)
+      case i @ InRef(s, what) => scope.find(s) match {
+        case None => i
+        case Some(refScope) =>
+          InRef(refScope.replacement, tr(what, refScope))
+      }
+      case n => n.nodeMapChildren(ch => tr(ch, scope))
+    }
+    tr(tree, rootScope)
   }
 }
