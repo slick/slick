@@ -3,6 +3,7 @@ package org.scalaquery.ast
 import OptimizerUtil._
 import collection.mutable.HashMap
 import org.scalaquery.ql.{ConstColumn, RawNamedColumn, AbstractTable}
+import org.scalaquery.ast.RewriteGenerators.ReplaceSelectContext
 
 /**
  * Rewrite all generators to return exactly the required fields.
@@ -46,7 +47,7 @@ object RewriteGenerators {
       if(isTableBased && refsMap.keys.forall(_.isInstanceOf[RawNamedColumn])) {
         // only column refs -> rewrite directly
         (b, refsMap.map { case (r: RawNamedColumn, _) => (r: Node, r.symbol) })
-      } else (b.nodeMapChildren(n => if(n eq from) replaceSelect(from, struct, rewrite) else n), refsMap)
+      } else (b.nodeMapChildren(n => if(n eq from) replaceSelect(from, struct, rewrite, new ReplaceSelectContext) else n), refsMap)
     }
     withNewSelect.dump("*** withNewSelect: ")
     println("*** replacementMap: "+replacementMap)
@@ -93,16 +94,18 @@ object RewriteGenerators {
     case n => n
   }
 
-  def replaceSelect(in: Node, struct: IndexedSeq[(Symbol, Node)], genChain: Set[Symbol]): Node = in match {
-    case f: FilteredQuery => f.nodeMapFrom(n => replaceSelect(n, struct, genChain))
-    case b @ Bind(_, _, Pure(_)) => b.copy(select = StructNode(struct))
-    case b @ Bind(gen, _, nonPure) => b.copy(select = replaceSelect(nonPure, struct, genChain))
-    case t @ AbstractTable(_) =>
+  class ReplaceSelectContext(val keepExisting: Boolean = false, var indices: Option[Seq[Int]] = None)
+
+  def replaceSelect(in: Node, struct: IndexedSeq[(Symbol, Node)], genChain: Set[Symbol], ctx: ReplaceSelectContext): Node = in match {
+    case f: FilteredQuery => f.nodeMapFrom(n => replaceSelect(n, struct, genChain, ctx))
+    case b @ Bind(_, _, p @ Pure(_)) => b.copy(select = replaceSelect(p, struct, genChain, ctx))
+    case b @ Bind(gen, _, nonPure) => b.copy(select = replaceSelect(nonPure, struct, genChain, ctx))
+    case t @ AbstractTable(_) => //TODO support keepExisting and useIndices
       val gen = new AnonSymbol
       val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, genChain.iterator.map(s => (s, gen)).toMap, gen)) })
       rewrapped.dump("*** actual replacement: ")
       Bind(gen, t, Pure(rewrapped))
-    case f @ FilteredJoin(leftGen, rightGen, _, _, jt, on) =>
+    case f @ FilteredJoin(leftGen, rightGen, _, _, jt, on) => //TODO support keepExisting and useIndices
       val gen = new AnonSymbol
       StructNode(struct).dump("*** struct: ")
       val rewrapMap = genChain.iterator.map(s => (s, gen)).toMap + (leftGen -> leftGen) + (rightGen -> rightGen)
@@ -110,7 +113,25 @@ object RewriteGenerators {
       println("*** genChain: "+genChain)
       rewrapped.dump("*** replacement for FilteredJoin: ")
       Bind(gen, f, Pure(rewrapped))
-    case Pure(what) => Pure(StructNode(struct))
+    case Pure(what) =>
+      if(ctx.keepExisting) {
+        val cols: IndexedSeq[Node] = what match {
+          case ProductNode(cs) => cs.toIndexedSeq
+          case n => IndexedSeq(n)
+        }
+        ProductNode(cols: _*).dump("*** keeping existing in: ")
+        StructNode(struct).dump("*** columns to find: ")
+        //TODO support keepExisting and useIndices
+        sys.error("not implemented")
+        Pure(StructNode(struct))
+      } else Pure(StructNode(struct))
+    case u @ Union(left, right, _, leftGen, rightGen) =>
+      println("*** replacing Union of "+leftGen+", "+rightGen)
+      println("*** genChain: "+genChain)
+      val unionCtx = new ReplaceSelectContext(true)
+      val lr = replaceSelect(left, struct.map{ case (s,n) => (s, n.unwrap(Set(leftGen))) }, genChain, unionCtx)
+      val rr = replaceSelect(right, struct, genChain, unionCtx)
+      u.copy(left = lr, right = rr)
   }
 
   def rewrap(n: Node, wrappers: Map[Symbol, Symbol], newWrapper: Symbol): Node = n match {
