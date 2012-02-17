@@ -73,11 +73,13 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n2.dump("optimized: ")
         println
       }
-      val n3 = Columnizer.expandColumns.andThen(Optimizer.all).apply(n2)
+
+      val n3 = Columnizer(n2)
       if(n3 ne n2) {
         n3.dump("columnized: ")
         println
       }
+
       val n4 = Optimizer.assignUniqueSymbols(n3)
       if(n4 ne n3) {
         AnonSymbol.assignNames(n4, "u")
@@ -162,7 +164,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     show("q6: Unused outer query result, unbound TableQuery", q6)
 
     val q7 = (for {
-      c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(6).drop(4).take(5).map((_, 2))
+      c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(4).map((_, 2))
     } yield c._1.name ~ c._1.supID ~ c._2) where (_._1 =!= "Colombian")
     show("q7: Union", q7)
   }

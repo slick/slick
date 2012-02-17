@@ -8,7 +8,7 @@ import OptimizerUtil._
 /**
  * Expand columns and merge comprehensions in queries
  */
-object Columnizer {
+object Columnizer extends (Node => Node) {
 
   val expandColumns = new Transformer.Defs {
     def replace = pftransitive {
@@ -26,9 +26,21 @@ object Columnizer {
     }
   }
 
-  def run(tree: Node): Node = {
-    //val t3 = toComprehensions.andThen(mergeComprehensions).apply(t2)
-    tree
+  def apply(tree: Node): Node = {
+    val t2 = expandColumns(tree)
+    //TODO This hack unwraps the expanded references within their scope
+    // There may be other situations where unwrapping finds the wrong symbols,
+    // so this should be done in a completely different way (by introducing
+    // StructNodes much earlier and avoiding wrapping altogether)
+    def optimizeUnions(n: Node): Node = n match {
+      case u @ Union(left, right, _, _, _) =>
+        val l = Optimizer.all(optimizeUnions(left))
+        val r = Optimizer.all(optimizeUnions(right))
+        u.copy(left = l, right = r)
+      case n => n.nodeMapChildren(optimizeUnions)
+    }
+    val t3 = optimizeUnions(t2)
+    Optimizer.all(t3)
   }
 
   val toComprehensions = new Transformer {
