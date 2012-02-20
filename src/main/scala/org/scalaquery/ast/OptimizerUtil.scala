@@ -125,6 +125,14 @@ class NodeOps(tree: Node) extends Traversable[Node] {
   def unwrap(wrappers: Set[Symbol]): Node = replace {
     case InRef(sym, what) if wrappers contains sym => what
   }
+
+  def flattenProduct = {
+    def f(n: Node): IndexedSeq[Node] = n match {
+      case ProductNode(ns @ _*) => ns.flatMap(f).toIndexedSeq
+      case n => IndexedSeq(n)
+    }
+    f(tree)
+  }
 }
 
 /**
