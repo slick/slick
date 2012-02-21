@@ -27,6 +27,11 @@ object Columnizer extends (Node => Node) {
   }
 
   def apply(tree: Node): Node = {
+    val n = expandAndOptimize(tree)
+    if(n == tree) n else apply(n)
+  }
+
+  def expandAndOptimize(tree: Node): Node = {
     val t2 = expandColumns(tree)
     //TODO This hack unwraps the expanded references within their scope
     // There may be other situations where unwrapping finds the wrong symbols,
