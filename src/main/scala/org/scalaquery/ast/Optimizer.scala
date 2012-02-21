@@ -1,14 +1,14 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
-import org.scalaquery.util.RefId
+import org.scalaquery.util.{Logging, RefId}
 import org.scalaquery.ql.RawNamedColumn
 import scala.collection.mutable.{HashSet, ArrayBuffer, HashMap}
 
 /**
  * Basic optimizers for the ScalaQuery AST
  */
-object Optimizer {
+object Optimizer extends Logging {
 
   lazy val all =
     eliminateIndirections andThen
@@ -120,9 +120,10 @@ object Optimizer {
       def find(s: Symbol): Option[Scope] =
         local.get(s).orElse(parent.flatMap(_.find(s)))
       def apply(s: Symbol) = find(s).map(_.replacement).getOrElse(s)
-      def dump(prefix: String, indent: String = "") {
-        println(indent + prefix + symbol + " -> " + replacement)
-        local.foreach { case (_, scope) => scope.dump("", indent + "  ") }
+      def dumpString(prefix: String = "", indent: String = "", builder: StringBuilder = new StringBuilder): StringBuilder = {
+        builder.append(indent + prefix + symbol + " -> " + replacement + "\n")
+        local.foreach { case (_, scope) => scope.dumpString("", indent + "  ", builder) }
+        builder
       }
     }
     def buildSymbolTable(n: Node, scope: Scope) {
@@ -138,7 +139,7 @@ object Optimizer {
     rootSym.name = "-root-"
     val rootScope = new Scope(rootSym, None)
     buildSymbolTable(tree, rootScope)
-    rootScope.dump("rootScope: ")
+    logger.debug("rootScope:\n" + rootScope.dumpString(indent = "  "))
     def tr(n: Node, scope: Scope): Node = n match {
       case d: DefNode =>
         d.nodeMapScopedChildren{ case (symO, ch) =>

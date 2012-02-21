@@ -2,18 +2,26 @@ package org.scalaquery.ast
 
 import org.scalaquery.ql.Join.JoinType
 import scala.collection.mutable.ArrayBuffer
-import java.io.{PrintWriter, OutputStreamWriter}
 import org.scalaquery.SQueryException
 import org.scalaquery.util.SimpleTypeName
 import org.scalaquery.ql.{Unpackable, ConstColumn}
+import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
 
 trait NodeGenerator {
   def nodeDelegate: Node
 
-  final def dump(name: String, nc: IdContext = IdContext(nodeDelegate)) {
+  final def dump(name: String = "", prefix: String = "", nc: IdContext = IdContext(nodeDelegate)) {
     val out = new PrintWriter(new OutputStreamWriter(System.out))
-    nodeDelegate.nodeDump(new DumpContext(out, nc), "", name)
+    nodeDelegate.nodeDump(new DumpContext(out, nc), prefix, name)
     out.flush()
+  }
+
+  final def dumpString(name: String = "", prefix: String = "", nc: IdContext = IdContext(nodeDelegate)) = {
+    val buf = new StringWriter
+    val out = new PrintWriter(buf)
+    nodeDelegate.nodeDump(new DumpContext(out, nc), prefix, name)
+    out.flush()
+    buf.getBuffer.toString
   }
 }
 
