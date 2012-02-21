@@ -34,6 +34,10 @@ class BasicInsertBuilder(val column: Any, val profile: BasicProfile) {
       case n:NamedColumn[_] =>
         if(table eq null) table = n.table.asInstanceOf[AbstractTable[_]].tableName
         else if(table != n.table.asInstanceOf[AbstractTable[_]].tableName) throw new SQueryException("Inserts must all be to the same table")
+        appendNamedColumn(n.raw, cols, vals)
+      case Wrapped(t: AbstractTable[_], n: RawNamedColumn) =>
+        if(table eq null) table = t.tableName
+        else if(table != t.tableName) throw new SQueryException("Inserts must all be to the same table")
         appendNamedColumn(n, cols, vals)
       case _ => throw new SQueryException("Cannot use column "+c+" in INSERT statement")
     }
@@ -42,7 +46,7 @@ class BasicInsertBuilder(val column: Any, val profile: BasicProfile) {
     (table, cols, vals)
   }
 
-  protected def appendNamedColumn(n: NamedColumn[_], cols: StringBuilder, vals: StringBuilder) {
+  protected def appendNamedColumn(n: RawNamedColumn, cols: StringBuilder, vals: StringBuilder) {
     if(!cols.isEmpty) {
       cols append ","
       vals append ","

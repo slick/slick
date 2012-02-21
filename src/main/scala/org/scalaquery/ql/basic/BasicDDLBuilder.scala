@@ -2,13 +2,15 @@ package org.scalaquery.ql.basic
 
 import org.scalaquery.SQueryException
 import org.scalaquery.ql._
-import org.scalaquery.ql.extended.ExtendedColumnOption //TODO: Move AutoInc handling to extended profile
-import org.scalaquery.ast.Node
+import org.scalaquery.ql.extended.ExtendedColumnOption
+import org.scalaquery.ast.{Wrapped, Node}
+
+//TODO: Move AutoInc handling to extended profile
 
 class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfile) {
   import profile.sqlUtils._
 
-  protected class BasicColumnDDLBuilder(protected val column: NamedColumn[_]) {
+  protected class BasicColumnDDLBuilder(protected val column: RawNamedColumn) {
     protected val tmDelegate = column.typeMapper(profile)
     protected var sqlType: String = null
     protected var notNull = !tmDelegate.nullable
@@ -45,7 +47,7 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
     }
   }
 
-  protected def createColumnDDLBuilder(c: NamedColumn[_]) = new BasicColumnDDLBuilder(c)
+  protected def createColumnDDLBuilder(c: RawNamedColumn) = new BasicColumnDDLBuilder(c)
 
   def buildDDL: DDL = {
     val createTable = {
@@ -133,6 +135,12 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
         else sb append ","
         sb append quoteIdentifier(n.name)
         if(requiredTableName != n.table.asInstanceOf[AbstractTable[_]].tableName)
+          throw new SQueryException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
+      case Wrapped(t: AbstractTable[_], n: RawNamedColumn) =>
+        if(first) first = false
+        else sb append ","
+        sb append quoteIdentifier(n.name)
+        if(requiredTableName != t.tableName)
           throw new SQueryException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
       case _ => throw new SQueryException("Cannot use column "+c+
         " in "+typeInfo+" (only named columns are allowed)")

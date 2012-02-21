@@ -1,10 +1,10 @@
 package org.scalaquery.ql
 
+import scala.collection.mutable.{ArrayBuffer, HashSet}
 import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.ast._
-import org.scalaquery.util._
 
 sealed trait TableBase[T] extends Node with WithOp {
   override def isNamedTable = true
@@ -17,17 +17,21 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
 
   def * : ColumnBase[T]
 
-  def create_* : Iterable[NamedColumn[_]] = {
-    def f(n:Node): Iterable[NamedColumn[_]] = n match {
-      case p:Projection[_] =>
-        0 until p.productArity map (n => Node(p.productElement(n)) match {
-          case c: NamedColumn[_] => c
-          case c => throw new SQueryException("Cannot use column "+c+" in "+tableName+".* for CREATE TABLE statement")
-        })
-      case n:NamedColumn[_] => Iterable(n)
-      case _ => throw new SQueryException("Cannot use "+tableName+".* for CREATE TABLE statement")
+  def create_* : Iterable[RawNamedColumn] = {
+    val seq = new ArrayBuffer[RawNamedColumn]
+    val seen = new HashSet[RawNamedColumn]
+    def add(c: RawNamedColumn) {
+      if(!seen.contains(c)) {
+        seen += c
+        seq += c
+      }
     }
-    f(Node(*))
+    def scan(n:Node): Unit = n match {
+      case Wrapped(in, c: RawNamedColumn) if in == this => add(c)
+      case n => n.nodeChildren.foreach(scan)
+    }
+    scan(Node(*))
+    seq
   }
 
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
@@ -41,8 +45,8 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
 
   def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Unpack[T, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).getLinearizedNodes)
 
-  def tableConstraints: Iterable[Constraint] = for {
-      m <- getClass().getMethods.view
+  def tableConstraints: Iterator[Constraint] = for {
+      m <- getClass().getMethods.iterator
       if m.getParameterTypes.length == 0 &&
         (m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable[_], _]]
          || m.getReturnType == classOf[PrimaryKey])
@@ -50,10 +54,10 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
     } yield q
 
   final def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_], _]] =
-    tableConstraints collect { case q: ForeignKeyQuery[_, _] => q.fks } flatten
+    tableConstraints.collect{ case q: ForeignKeyQuery[_, _] => q.fks }.flatten.toIndexedSeq
 
   final def primaryKeys: Iterable[PrimaryKey] =
-    tableConstraints collect { case k: PrimaryKey => k }
+    tableConstraints collect { case k: PrimaryKey => k } toIndexedSeq
 
   def index[T](name: String, on: T, unique: Boolean = false)(implicit unpack: Unpack[T, _]) = new Index(name, this, unpack.linearizer(on).getLinearizedNodes, unique)
 

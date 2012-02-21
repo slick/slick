@@ -5,9 +5,7 @@ import org.junit.Assert._
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.extended.{ExtendedTable => Table}
-import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
-import org.scalaquery.simple._
 import org.scalaquery.simple.StaticQuery._
 import org.scalaquery.ast._
 import org.scalaquery.test.util._
@@ -20,6 +18,26 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
   @Test def test(): Unit = db withSession {
 
+    val SuppliersStd = new Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
+      def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
+      def name = column[String]("SUP_NAME")
+      def street = column[String]("STREET")
+      def city = column[String]("CITY")
+      def state = column[String]("STATE")
+      def zip = column[String]("ZIP")
+      def * = id ~ name ~ street ~ city ~ state ~ zip
+    }
+
+    val CoffeesStd = new Table[(String, Int, Double, Int, Int)]("COFFEES") {
+      def name = column[String]("COF_NAME", O.PrimaryKey)
+      def supID = column[Int]("SUP_ID")
+      def price = column[Double]("PRICE")
+      def sales = column[Int]("SALES")
+      def total = column[Int]("TOTAL")
+      def * = name ~ supID ~ price ~ sales ~ total
+      def supplier = foreignKey("SUP_FK", supID, SuppliersStd)(_.id)
+    }
+
     val Suppliers = new Table[(Int, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
       def name = column[String]("SUP_NAME")
@@ -28,6 +46,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       def state = column[String]("STATE")
       def zip = column[String]("ZIP")
       def * = id ~ name ~ street
+      def forInsert = id ~ name ~ street ~ city ~ state ~ zip
     }
 
     val Coffees = new Table[(String, Int, Double, Int, Int)]("COFFEES") {
@@ -37,17 +56,19 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
       def * = name ~ supID ~ price ~ sales ~ (total * 10)
+      def forInsert = name ~ supID ~ price ~ sales ~ total
       def totalComputed = sales.asColumnOf[Double] * price
       def supplier = foreignKey("SUP_FK", supID, Suppliers)(_.id)
     }
 
-    /*(Suppliers.ddl ++ Coffees.ddl).create
+    (SuppliersStd.ddl ++ CoffeesStd.ddl).create
+    (SuppliersStd.ddl ++ CoffeesStd.ddl).createStatements.foreach(s => println("create: "+s))
 
-    Suppliers.insert(101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
-    Suppliers.insert( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
-    Suppliers.insert(150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
+    SuppliersStd.insert(101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
+    SuppliersStd.insert( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
+    SuppliersStd.insert(150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
 
-    Coffees.insertAll(
+    CoffeesStd.insertAll(
       ("Colombian",         101, 7.99, 0, 0),
       ("French_Roast",       49, 8.99, 0, 0),
       ("Espresso",          150, 9.99, 0, 0),
@@ -60,7 +81,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     assertEquals(5, l1.length)
     val l2 = queryNA[String]("select c.cof_name from coffees c, suppliers s").list
     println("l2: "+l2)
-    assertEquals(15, l2.length)*/
+    assertEquals(15, l2.length)
 
     def show(name: String, g: NodeGenerator) {
       val n = Node(g)
@@ -94,7 +115,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       }
     }
 
-    val q1 = for {
+    /*val q1 = for {
       c <- Query(Coffees).take(3)
       s <- Suppliers
     } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
@@ -166,9 +187,12 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q7 = for {
       c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(4).map((_, 2))
     } yield c._1.name ~ c._1.supID ~ c._2
-    show("q7: Union", q7)
+    show("q7: Union", q7)*/
 
     /*val q7b = q7 where (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)*/
+
+    (SuppliersStd.ddl ++ CoffeesStd.ddl).drop
+    (SuppliersStd.ddl ++ CoffeesStd.ddl).dropStatements.foreach(s => println("drop: "+s))
   }
 }
