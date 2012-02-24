@@ -1,7 +1,6 @@
 package org.scalaquery.ql
 
 import scala.collection.mutable.{ArrayBuffer, HashSet}
-import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.ast._

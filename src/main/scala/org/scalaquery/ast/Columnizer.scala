@@ -1,12 +1,10 @@
 package org.scalaquery.ast
 
-import scala.collection.mutable.{HashMap, ArrayBuffer}
-import org.scalaquery.util.RefId
-import org.scalaquery.ql.{RawNamedColumn, AbstractTable}
+import org.scalaquery.ql.AbstractTable
 import OptimizerUtil._
 
 /**
- * Expand columns and merge comprehensions in queries
+ * Expand columns in queries
  */
 object Columnizer extends (Node => Node) {
 
@@ -39,60 +37,12 @@ object Columnizer extends (Node => Node) {
     // StructNodes much earlier and avoiding wrapping altogether)
     def optimizeUnions(n: Node): Node = n match {
       case u @ Union(left, right, _, _, _) =>
-        val l = Optimizer.all(optimizeUnions(left))
-        val r = Optimizer.all(optimizeUnions(right))
+        val l = Optimizer.standard(optimizeUnions(left))
+        val r = Optimizer.standard(optimizeUnions(right))
         u.copy(left = l, right = r)
       case n => n.nodeMapChildren(optimizeUnions)
     }
     val t3 = optimizeUnions(t2)
-    Optimizer.all(t3)
-  }
-
-  val toComprehensions = new Transformer {
-    def replace = {
-      case Bind(gen, from, select) => Comprehension(Seq((gen, from)), Nil, Some(select))
-      case Filter(gen, from, where) => Comprehension(Seq((gen, from)), Seq(where), None)
-    }
-  }
-
-  val mergeComprehensions = new Transformer {
-    def replace = {
-      case c1 @ Comprehension(from1, where1, Some(c2 @ Comprehension(from2, where2, select))) =>
-        c2.copy(from = from1 ++ from2, where = where1 ++ where2)
-    }
-  }
-}
-
-case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Option[Node]) extends Node with DefNode {
-  protected[this] def nodeChildGenerators = from.map(_._2) ++ where ++ select
-  override protected[this] def nodeChildNames = from.map("from " + _._1) ++ where.zipWithIndex.map("where" + _._2) ++ select.zipWithIndex.map("select" + _._2)
-  def nodeMapChildren(f: Node => Node) = mapChildren(f, f)
-  def mapChildren(fromMap: Node => Node, otherMap: Node => Node): Node = {
-    val fromO = nodeMapNodes(from.view.map(_._2), fromMap)
-    val whereO = nodeMapNodes(where, otherMap)
-    val selectO = select.map(otherMap)
-    if(fromO.isDefined || whereO.isDefined || selectO != select)
-      copy(from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from), where = whereO.getOrElse(where), select = selectO)
-    else this
-  }
-  def nodeGenerators = from
-  override def toString = "Comprehension"
-  def nodeMapGenerators(f: Symbol => Symbol) = {
-    val gens = from.map(_._1)
-    mapOrNone(gens, f) match {
-      case Some(s) => copy(from = from.zip(s).map { case ((_, n), s) => (s, n) })
-      case None => this
-    }
-  }
-  def nodePostGeneratorChildren = select.toSeq
-  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
-    val fn = (n: Node) => f(None, n)
-    val from2 = from.map{ case (s, n) => f(Some(s), n) }
-    val fromO = if(from.zip(from2).forall{ case ((_, n1), n2) => n1 eq n2 }) None else Some(from2)
-    val whereO = nodeMapNodes(where, fn)
-    val selectO = select.map(fn)
-    if(fromO.isDefined || whereO.isDefined || selectO != select)
-      copy(from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from), where = whereO.getOrElse(where), select = selectO)
-    else this
+    Optimizer.standard(t3)
   }
 }

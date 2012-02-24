@@ -7,6 +7,8 @@ import org.scalaquery.ast.NodeGenerator
 
 trait SlickLogger extends Logger {
   def debug(msg: => String, ng: => NodeGenerator): Unit = debug(msg+"\n"+ng.dumpString(prefix = "  "))
+
+  def isDebugEnabled = slf4jLogger.isDebugEnabled()
 }
 
 trait Logging {

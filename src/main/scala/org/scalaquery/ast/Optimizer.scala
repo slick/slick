@@ -2,19 +2,45 @@ package org.scalaquery.ast
 
 import OptimizerUtil._
 import org.scalaquery.util.{Logging, RefId}
-import org.scalaquery.ql.RawNamedColumn
-import scala.collection.mutable.{HashSet, ArrayBuffer, HashMap}
+import scala.collection.mutable.HashMap
+import org.scalaquery.ql.AbstractTable
 
 /**
  * Basic optimizers for the ScalaQuery AST
  */
 object Optimizer extends Logging {
 
-  lazy val all =
+  def apply(n: Node): Node = {
+    if(logger.isDebugEnabled) {
+      //AnonSymbol.assignNames(n, force = true)
+      logger.debug("source:", n)
+    }
+    val n2 = standard(n)
+    if(n2 ne n) logger.debug("optimized:", n2)
+    val n3 = Columnizer(n2)
+    if(n3 ne n2) logger.debug("columnized:", n3)
+    val n4 = assignUniqueSymbols(n3)
+    if(logger.isDebugEnabled && (n4 ne n3)) {
+      AnonSymbol.assignNames(n4, "u")
+      logger.debug("unique symbols:", n4)
+    }
+    val n5 = RewriteGenerators(n4)
+    if(logger.isDebugEnabled && (n5 ne n4)) {
+      AnonSymbol.assignNames(n5, "r")
+      logger.debug("generators rewritten:", n5)
+    }
+    val n6 = Optimizer.aliasTableColumns(n5)
+    if(n6 ne n5) {
+      AnonSymbol.assignNames(n6, "a")
+      logger.debug("aliased:", n6)
+    }
+    n6
+  }
+
+  lazy val standard =
     eliminateIndirections andThen
     unwrapGenerators andThen
-    reverseProjectionWrapping /*andThen
-    removeFilterRefs*/
+    reverseProjectionWrapping
 
   /**
    * Eliminate unnecessary nodes from the AST.
@@ -96,20 +122,6 @@ object Optimizer extends Logging {
   }
 
   /**
-   * Remove unnecessary InRef nestings for filtered queries
-   */
-  val removeFilterRefs = new Transformer {
-    val filterSyms = new HashSet[Symbol]
-    override def initTree(n: Node) {
-      filterSyms.clear()
-      filterSyms ++= n.collect[Symbol] { case FilteredQuery(gen, _) => gen }
-    }
-    def replace = {
-      case InRef(sym1, InRef(sym2, what)) if filterSyms contains sym2 => InRef(sym1, what)
-    }
-  }
-
-  /**
    * Ensure that all symbol definitions in a tree are unique
    */
   def assignUniqueSymbols(tree: Node): Node = {
@@ -163,5 +175,60 @@ object Optimizer extends Logging {
       case n => n.nodeMapChildren(ch => tr(ch, scope))
     }
     tr(tree, rootScope)
+  }
+
+  /**
+   * Alias all table columns. Requires a tree with unique symbols.
+   */
+  def aliasTableColumns(tree: Node): Node = {
+    val allDefs = tree.collectAll[(Symbol, Node)]{ case d: DefNode => d.nodeGenerators }.toMap
+    def narrow(s: Symbol): Option[AbstractTable[_]] = allDefs.get(s) match {
+      case Some(t: AbstractTable[_]) => Some(t)
+      case Some(f: FilteredQuery) => narrow(f.generator)
+      case _ => None
+    }
+    def chain(s: Symbol): Seq[Symbol] = allDefs.get(s) match {
+      case Some(t: AbstractTable[_]) => Seq(s)
+      case Some(f: FilteredQuery) => chain(f.generator) match {
+        case Seq() => Seq.empty
+        case seq => s +: seq
+      }
+      case _ => Seq.empty
+    }
+    val tableRefs = tree.collectAll[(Seq[Symbol], FieldSymbol)]{
+      case Path(t, f: FieldSymbol) =>
+        val ch = chain(t)
+        if(ch.isEmpty) Seq.empty
+        else Seq((ch, f))
+    }
+    logger.debug("tableRefs: "+tableRefs)
+    val needed = tableRefs.foldLeft(Map.empty[Symbol, (Map[FieldSymbol, AnonSymbol], Set[Symbol])]) { case (m, (seq, f)) =>
+      val t = seq.last
+      m.updated(t, m.get(t) match {
+        case Some((fields, in)) => (fields.updated(f, new AnonSymbol), in ++ seq)
+        case None => (Map((f, new AnonSymbol)), seq.toSet)
+      })
+    }
+    logger.debug("needed: "+needed)
+    val baseTables: Map[Symbol, Symbol] =
+      tableRefs.flatMap{ case (seq, _) => val l = seq.last; seq.map(i => (i, l)) }(collection.breakOut)
+    logger.debug("baseTables: "+baseTables)
+    def tr(sym: Option[Symbol], n: Node): Node = n match {
+      case p @ Path(t, f: FieldSymbol) => baseTables.get(t).flatMap(needed.get) match {
+        case Some((symMap, _)) => symMap.get(f) match {
+          case Some(a) => Path(t, a)
+          case _ => p
+        }
+        case _ => p
+      }
+      case t: AbstractTable[_] if(sym.isDefined && needed.contains(sym.get)) =>
+        val gen = new AnonSymbol
+        val (symMap, _) = needed(sym.get)
+        val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, Path(gen, oldS)) }
+        Bind(gen, t, Pure(StructNode(struct)))
+      case d: DefNode => d.nodeMapScopedChildren(tr)
+      case n => n.nodeMapChildren{ ch => tr(None, ch) }
+    }
+    tr(None, tree)
   }
 }

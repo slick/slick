@@ -85,10 +85,10 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
     def show(name: String, g: NodeGenerator) {
       val n = Node(g)
-      AnonSymbol.assignNames(n, force = true)
+      //AnonSymbol.assignNames(n, force = true)
       println("=========================================== "+name)
       n.dump("source: ")
-      val n2 = Optimizer.all.apply(n)
+      val n2 = Optimizer.standard.apply(n)
       println
       if(n2 ne n) {
         n2.dump("optimized: ")
@@ -113,9 +113,20 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
         n5.dump("generators rewritten: ")
         println
       }
+      val n6 = Optimizer.aliasTableColumns(n5)
+      if(n6 ne n5) {
+        AnonSymbol.assignNames(n6, "a")
+        n6.dump("aliased: ")
+        println
+      }
+      val n7 = Comprehension.toComprehensions(n6)
+      if(n7 ne n6) {
+        n7.dump("comprehensions: ")
+        println
+      }
     }
 
-    /*val q1 = for {
+    val q1 = for {
       c <- Query(Coffees).take(3)
       s <- Suppliers
     } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
@@ -147,7 +158,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     }
     show("q3: Lifting scalar values", q3)
 
-    val q3b = Coffees.flatMap { c =>
+    /*val q3b = Coffees.flatMap { c =>
       val cf = Query((c, 42)).where(_._1.price < 9.0)
       cf.flatMap { case (cf, num) =>
         Suppliers.where(_.id === c.supID).map { s =>
