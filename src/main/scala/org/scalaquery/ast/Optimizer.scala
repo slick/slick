@@ -45,12 +45,13 @@ object Optimizer extends Logging {
   /**
    * Eliminate unnecessary nodes from the AST.
    */
-  val eliminateIndirections = new Transformer {
+  val eliminateIndirections = new Transformer.Defs {
     def replace = {
       // Remove wrapping of the entire result of a FilteredQuery
       case Wrapped(q @ FilteredQuery(_, from), what) if what == from => q
       // Remove dual wrapping (remnant of a removed Filter(_, ConstColumn(true)))
-      case Wrapped(in2, w2 @ Wrapped(in1, what)) if in1 == in2 => w2
+      case Wrapped(in2, w2 @ Wrapped(in1, _)) if in1 == in2 => w2
+      case InRef(in2, i @ InRef(in1, _)) if in1 == in2 => i
       // Remove identity binds
       case Bind(_, x, Pure(y)) if x == y => x
       // Remove unnecessary wrapping of pure values
@@ -62,6 +63,16 @@ object Optimizer extends Logging {
       case b @ Bind(gen, Wrapped(f: FilteredJoin, _), what) => b.copy(from = f)
       // Unwrap unions
       case Wrapped(u @ Union(left, _, _, _, _), what) if left == what => u
+      // Remove incorrect wrapping caused by multiple uses of the referenced sub-tree
+      case InRef(sym1, InRef(sym2, what)) if defs.get(sym1) == defs.get(sym2) => InRef(sym1, what)
+      // Back to using ResolvedInRef with virtpatmat in 2.10 perhaps? It's broken in the old patmat
+      /*case r @ ResolvedInRef(sym1, _, ResolvedInRef(sym2, _, what)) =>
+        println("++++ resolved refs "+sym1+", "+sym2)
+        r
+      case r @ InRef(sym1, InRef(sym2, what)) =>
+        println("++++ unresolved refs "+sym1+", "+sym2)
+        println("++++ resolved: "+defs.get(sym1)+", "+defs.get(sym2))
+        r*/
     }
   }
 
