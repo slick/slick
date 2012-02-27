@@ -55,9 +55,6 @@ object Comprehension extends Logging {
       // Merge Comprehension which selects another Comprehension
       case Comprehension(from1, where1, Some(c2 @ Comprehension(from2, where2, select))) =>
         c2.copy(from = from1 ++ from2, where = where1 ++ where2)
-      // Turn explicit inner join into an implicit one
-      case f @ FilteredJoin(leftGen, rightGen, left, right, Join.Inner, on) =>
-        Comprehension(Seq((leftGen, left), (rightGen, right)), Seq(on), None)
     }
   }
 
@@ -70,7 +67,7 @@ object Comprehension extends Logging {
         case Comprehension(from, _, None) =>
           from.last._2 match {
             case c2: Comprehension => unapply(c2)
-            case p @ Pure(t: TableRef) => Some(TableRef(from.last._1))
+            case Pure(TableRef(_)) => Some(TableRef(from.last._1))
             case _ => None
           }
         case _ => None
@@ -91,6 +88,13 @@ object Comprehension extends Logging {
               rewrite = true
               eliminated += ((s, target))
               scanFrom(n)
+            case t @ (s, f @ FilteredJoin(leftGen, rightGen, left, right, Join.Inner, on)) =>
+              newGens += ((leftGen, left))
+              newGens += ((rightGen, right))
+              newWhere += on
+            case t @ (s, f @ BaseJoin(leftGen, rightGen, left, right, Join.Inner)) =>
+              newGens += ((leftGen, left))
+              newGens += ((rightGen, right))
             case t =>
               newGens += t
           }
