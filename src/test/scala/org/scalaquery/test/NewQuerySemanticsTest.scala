@@ -158,7 +158,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     }
     show("q3: Lifting scalar values", q3)
 
-    /*val q3b = Coffees.flatMap { c =>
+    val q3b = Coffees.flatMap { c =>
       val cf = Query((c, 42)).where(_._1.price < 9.0)
       cf.flatMap { case (cf, num) =>
         Suppliers.where(_.id === c.supID).map { s =>
@@ -198,7 +198,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q7 = for {
       c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(4).map((_, 2))
     } yield c._1.name ~ c._1.supID ~ c._2
-    show("q7: Union", q7)*/
+    show("q7: Union", q7)
 
     /*val q7b = q7 where (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)*/
