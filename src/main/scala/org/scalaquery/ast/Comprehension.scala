@@ -3,6 +3,7 @@ package org.scalaquery.ast
 import OptimizerUtil._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import org.scalaquery.ql.{AbstractTable, Join}
+import org.scalaquery.util.Logging
 
 case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Option[Node]) extends Node with DefNode {
   protected[this] def nodeChildGenerators = from.map(_._2) ++ where ++ select
@@ -38,10 +39,10 @@ case class Comprehension(from: Seq[(Symbol, Node)], where: Seq[Node], select: Op
   }
 }
 
-object Comprehension {
+object Comprehension extends Logging {
   def toComprehensions(tree: Node) = {
     val t2 = convert(tree)
-    t2.dump("*** converted: ")
+    logger.debug("converted: ", t2)
     inline(t2)
   }
 
@@ -69,13 +70,15 @@ object Comprehension {
         case Comprehension(from, _, None) =>
           from.last._2 match {
             case c2: Comprehension => unapply(c2)
-            case Pure(t: TableRef) => Some(t)
+            case p @ Pure(t: TableRef) => Some(TableRef(from.last._1))
             case _ => None
           }
         case _ => None
       }
     }
     def protectedRefs = tree.collect[Symbol]{ case TableRef(sym) => sym }.toSet
+    logger.debug("protected refs: "+protectedRefs)
+
     def f(n: Node): Node = n match {
       case c: Comprehension =>
         val newGens = new ArrayBuffer[(Symbol, Node)]
@@ -94,15 +97,15 @@ object Comprehension {
           newWhere ++= c.where
         }
         scanFrom(c)
-        println("*** eliminated: "+eliminated)
+        logger.debug("eliminated: "+eliminated)
         def replaceRefs(n: Node): Node = n match {
           case Path(t, c) if eliminated.contains(t) =>
             eliminated(t) match {
               case TableRef(tab) =>
-                println("*** replacing Path("+t+", "+c+") by Path("+tab+", "+c+")")
+                logger.debug("replacing Path("+t+", "+c+") by Path("+tab+", "+c+") [TableRef]")
                 replaceRefs(Path(tab, c))
               case StructNode(mapping) =>
-                println("*** replacing Path("+t+", "+c+") by "+mapping.toMap.apply(c))
+                logger.debug("replacing Path("+t+", "+c+") by "+mapping.toMap.apply(c))
                 replaceRefs(mapping.toMap.apply(c))
               case _ => n
             }
