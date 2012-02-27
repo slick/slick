@@ -204,6 +204,7 @@ object Optimizer extends Logging {
         case Seq() => Seq.empty
         case seq => s +: seq
       }
+      case Some(Pure(TableRef(sym))) => chain(sym)
       case _ => Seq.empty
     }
     val tableRefs = tree.collectAll[(Seq[Symbol], FieldSymbol)]{
