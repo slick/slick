@@ -1,8 +1,8 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{Sequence, Query, DDL}
-import org.scalaquery.ast.NamingContext
 import org.scalaquery.util.{ValueLinearizer, SQLBuilder}
+import org.scalaquery.ast.{Optimizer, NodeGenerator, Node, NamingContext, Relational}
 
 trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_ <: BasicProfile]
@@ -28,4 +28,6 @@ trait BasicProfile {
 
   def buildTableDDL(table: AbstractBasicTable[_]): DDL = new BasicDDLBuilder(table, this).buildDDL
   def buildSequenceDDL(seq: Sequence[_]): DDL = new BasicSequenceDDLBuilder(seq, this).buildDDL
+
+  def processAST(g: NodeGenerator): Node = Relational(Optimizer(Node(g)))
 }

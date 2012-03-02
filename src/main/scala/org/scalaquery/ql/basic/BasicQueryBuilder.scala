@@ -19,14 +19,13 @@ extends BasicQueryBuilder(_query, _nc, parent, _profile) {
 abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile) {
   import _profile.sqlUtils._
 
-  //TODO Pull tables out of subqueries where needed
-
   type Self <: BasicQueryBuilder
 
   protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext): Self
 
   protected val profile = _profile
   protected val query: Query[_, _] = _query
+  protected val ast = profile.processAST(query)
   protected var nc: NamingContext = _nc
   protected val localTables = new HashMap[String, Node]
   protected val declaredTables = new HashSet[String]

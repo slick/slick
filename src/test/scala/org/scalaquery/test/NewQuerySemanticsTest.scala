@@ -88,42 +88,13 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       //AnonSymbol.assignNames(n, force = true)
       println("=========================================== "+name)
       n.dump("source: ")
-      val n2 = Optimizer.standard.apply(n)
       println
-      if(n2 ne n) {
-        n2.dump("optimized: ")
-        println
-      }
-
-      val n3 = Columnizer(n2)
-      if(n3 ne n2) {
-        n3.dump("columnized: ")
-        println
-      }
-
-      val n4 = Optimizer.assignUniqueSymbols(n3)
-      if(n4 ne n3) {
-        AnonSymbol.assignNames(n4, "u")
-        n4.dump("unique symbols: ")
-        println
-      }
-      val n5 = RewriteGenerators(n4)
-      if(n5 ne n4) {
-        AnonSymbol.assignNames(n5, "c")
-        n5.dump("generators rewritten: ")
-        println
-      }
-      val n6 = Optimizer.aliasTableColumns(n5)
-      if(n6 ne n5) {
-        AnonSymbol.assignNames(n6, "a")
-        n6.dump("aliased: ")
-        println
-      }
-      val n7 = Comprehension.toComprehensions(n6)
-      if(n7 ne n6) {
-        n7.dump("comprehensions: ")
-        println
-      }
+      val n2 = Optimizer(n)
+      n2.dump("optimized: ")
+      println
+      val n3 = Relational(n2)
+      n3.dump("relational: ")
+      println
     }
 
     val q1 = for {
