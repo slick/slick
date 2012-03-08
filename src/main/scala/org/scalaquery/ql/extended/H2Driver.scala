@@ -3,7 +3,6 @@ package org.scalaquery.ql.extended
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
 
 class H2Driver extends ExtendedProfile { self =>
 
@@ -27,13 +26,13 @@ class H2QueryBuilder(_query: Query[_, _], profile: H2Driver) extends BasicQueryB
   override protected val mayLimit0 = false
   override protected val concatOperator = Some("||")
 
-  override protected def expr(n: Node, b: SQLBuilder): Unit = n match {
+  override protected def expr(n: Node) = n match {
     case Sequence.Nextval(seq) => b += "nextval(schema(), '" += seq.name += "')"
     case Sequence.Currval(seq) => b += "currval(schema(), '" += seq.name += "')"
-    case _ => super.expr(n, b)
+    case _ => super.expr(n)
   }
 
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
     case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case (Some(t), None) => b += " LIMIT " += t
     case (None, Some(d)) => b += " LIMIT 0 OFFSET " += d

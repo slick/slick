@@ -3,7 +3,6 @@ package org.scalaquery.ql.extended
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
 
 class OracleDriver extends ExtendedProfile { self =>
 
@@ -28,20 +27,20 @@ class OracleQueryBuilder(_query: Query[_, _], profile: OracleDriver) extends Bas
   override protected val scalarFrom = Some("DUAL")
   override protected val concatOperator = Some("||")
 
-  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
+  override protected def innerBuildSelectNoRewrite(rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), None) :: _ =>
         b += "SELECT * FROM (SELECT "
-        expr(query.reified, b, rename, true)
+        expr(query.reified, rename, true)
         //TODO fromSlot = b.createSlot
-        appendClauses(b)
+        appendClauses()
         b += ") WHERE ROWNUM <= " += t
       case TakeDrop(to, Some(d)) :: _ =>
         b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (SELECT "
-        expr(Node(query.reified), b, rename, true)
+        expr(Node(query.reified), rename, true)
         b += ",ROWNUM ROWNUM_I"
         //TODO fromSlot = b.createSlot
-        appendClauses(b)
+        appendClauses()
         b += ") t0) WHERE ROWNUM_O"
         to match {
           case Some(t) =>
@@ -52,11 +51,11 @@ class OracleQueryBuilder(_query: Query[_, _], profile: OracleDriver) extends Bas
         b += " ORDER BY ROWNUM_I"
       case _ =>
         b += "SELECT "
-        expr(query.reified, b, rename, true)
+        expr(query.reified, rename, true)
         //TODO fromSlot = b.createSlot
-        appendClauses(b)
+        appendClauses()
     }
   }
 
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = ()
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
 }

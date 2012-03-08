@@ -4,10 +4,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
-import org.scalaquery.util.SQLBuilder._
 import java.sql.{Timestamp, Time, Date}
-import java.util.UUID
 
 /**
  * ScalaQuery driver for SQLite.
@@ -127,51 +124,51 @@ class SQLiteQueryBuilder(_query: Query[_, _], profile: SQLiteDriver) extends Bas
   override protected val concatOperator = Some("||")
 
   /*
-  override protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
-    case j: Join[_,_] => createJoin(j, b)
-    case _ => super.table(t, name, b)
+  override protected def table(t: Node, name: String): Unit = t match {
+    case j: Join[_,_] => createJoin(j)
+    case _ => super.table(t, name)
   }
   */
 
-  override protected def appendOrdering(o: Ordering, b: SQLBuilder) {
+  override protected def appendOrdering(o: Ordering) {
     val desc = o.isInstanceOf[Ordering.Desc]
     if(o.nullOrdering == Ordering.NullsLast && !desc) {
       b += "("
-      expr(o.by, b)
+      expr(o.by)
       b += ") is null,"
     } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
       b += "("
-      expr(o.by, b)
+      expr(o.by)
       b += ") is null desc,"
     }
-    expr(o.by, b)
+    expr(o.by)
     if(desc) b += " desc"
   }
 
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
     case (Some(t), Some(d)) => b += " LIMIT " += d += "," += t
     case (Some(t), None) => b += " LIMIT " += t
     case (None, Some(d)) => b += " LIMIT " += d += ",-1"
     case _ =>
   }
 
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+  override protected def innerExpr(c: Node): Unit = c match {
     case StdFunction("exists", q: Query[_, _]) =>
       // SQLite doesn't like double parens around the sub-expression
-      b += "exists"; expr(q, b)
-    case EscFunction("ucase", ch) => b += "upper("; expr(ch, b); b += ')'
-    case EscFunction("lcase", ch) => b += "lower("; expr(ch, b); b += ')'
-    case EscFunction("mod", l, r) => b += '('; expr(l, b); b += '%'; expr(r, b); b += ')'
-    case EscFunction("ceiling", ch) => b += "round("; expr(ch, b); b += "+0.5)"
-    case EscFunction("floor", ch) => b += "round("; expr(ch, b); b += "-0.5)"
+      b += "exists"; expr(q)
+    case EscFunction("ucase", ch) => b += "upper("; expr(ch); b += ')'
+    case EscFunction("lcase", ch) => b += "lower("; expr(ch); b += ')'
+    case EscFunction("mod", l, r) => b += '('; expr(l); b += '%'; expr(r); b += ')'
+    case EscFunction("ceiling", ch) => b += "round("; expr(ch); b += "+0.5)"
+    case EscFunction("floor", ch) => b += "round("; expr(ch); b += "-0.5)"
     case EscFunction("user") => b += "''"
     case EscFunction("database") => b += "''"
     case s: SimpleFunction if s.scalar && s.name != "concat" =>
       /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
        * unescaped function calls by default */
       b += s.name += '('
-      b.sep(s.nodeChildren, ",")(expr(_, b))
+      b.sep(s.nodeChildren, ",")(expr)
       b += ")"
-    case _ => super.innerExpr(c, b)
+    case _ => super.innerExpr(c)
   }
 }

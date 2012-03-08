@@ -3,7 +3,6 @@ package org.scalaquery.ql.extended
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
 import org.scalaquery.SQueryException
 import org.scalaquery.session.{PositionedParameters, PositionedResult, ResultSetType}
 import java.util.UUID
@@ -66,7 +65,7 @@ class AccessQueryBuilder(_query: Query[_, _], profile: AccessDriver) extends Bas
 
   val pi = "3.1415926535897932384626433832795"
 
-  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
+  override protected def innerBuildSelectNoRewrite(rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(_ , Some(_)) :: _ =>
         throw new SQueryException("Access does not support drop(...) modifiers")
@@ -74,54 +73,54 @@ class AccessQueryBuilder(_query: Query[_, _], profile: AccessDriver) extends Bas
         /* Access does not allow TOP 0, so we use this workaround
          * to force the query to return no results */
         b += "SELECT * FROM ("
-        super.innerBuildSelectNoRewrite(b, rename)
+        super.innerBuildSelectNoRewrite(rename)
         b += ") WHERE FALSE"
       case TakeDrop(Some(n), _) :: _ =>
         /*TODO selectSlot = b.createSlot
         selectSlot += "SELECT TOP " += n += ' '
         expr(query.reified, selectSlot, rename, true)
         fromSlot = b.createSlot*/
-        appendClauses(b)
+        appendClauses()
       case _ =>
-        super.innerBuildSelectNoRewrite(b, rename)
+        super.innerBuildSelectNoRewrite(rename)
     }
   }
 
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+  override protected def innerExpr(c: Node): Unit = c match {
     case c: Case.CaseNode => {
       b += "switch("
       var first = true
       c.clauses.foldRight(()) { (w,_) =>
         if(first) first = false
         else b += ","
-        expr(w.asInstanceOf[Case.WhenNode].left, b)
+        expr(w.asInstanceOf[Case.WhenNode].left)
         b += ","
-        expr(w.asInstanceOf[Case.WhenNode].right, b)
+        expr(w.asInstanceOf[Case.WhenNode].right)
       }
       c.elseClause match {
         case ConstColumn(null) =>
         case n =>
           if(!first) b += ","
           b += "1=1,"
-          expr(n, b)
+          expr(n)
       }
       b += ")"
     }
-    case EscFunction("degrees", ch) => b += "(180/"+pi+"*"; expr(ch, b); b += ')'
-    case EscFunction("radians", ch) => b += "("+pi+"/180*"; expr(ch, b); b += ')'
-    case EscFunction("ifnull", l, r) => b += "iif(isnull("; expr(l, b); b += "),"; expr(r, b); b += ','; expr(l, b); b += ')'
+    case EscFunction("degrees", ch) => b += "(180/"+pi+"*"; expr(ch); b += ')'
+    case EscFunction("radians", ch) => b += "("+pi+"/180*"; expr(ch); b += ')'
+    case EscFunction("ifnull", l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
     case StdFunction("exists", q: Query[_, _]) =>
       // Access doesn't like double parens around the sub-expression
-      b += "exists"; expr(q, b)
+      b += "exists"; expr(q)
     case a @ ColumnOps.AsColumnOf(ch, name) => name match {
       case None if a.typeMapper eq TypeMapper.IntTypeMapper =>
-        b += "cint("; expr(ch, b); b += ')'
+        b += "cint("; expr(ch); b += ')'
       case None if a.typeMapper eq TypeMapper.LongTypeMapper =>
-        b += "clng("; expr(ch, b); b += ')'
+        b += "clng("; expr(ch); b += ')'
       case Some(n) if n.toLowerCase == "integer" =>
-        b += "cint("; expr(ch, b); b += ')'
+        b += "cint("; expr(ch); b += ')'
       case Some(n) if n.toLowerCase == "long" =>
-        b += "clng("; expr(ch, b); b += ')'
+        b += "clng("; expr(ch); b += ')'
       case _ =>
         val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
         throw new SQueryException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
@@ -129,25 +128,25 @@ class AccessQueryBuilder(_query: Query[_, _], profile: AccessDriver) extends Bas
     case EscFunction("user") => b += "''"
     case EscFunction("database") => b += "''"
     case EscFunction("pi") => b += pi
-    case _ => super.innerExpr(c, b)
+    case _ => super.innerExpr(c)
   }
 
-  override protected def appendOrdering(o: Ordering, b: SQLBuilder) {
+  override protected def appendOrdering(o: Ordering) {
     val desc = o.isInstanceOf[Ordering.Desc]
     if(o.nullOrdering == Ordering.NullsLast && !desc) {
       b += "(1-isnull("
-      expr(o.by, b)
+      expr(o.by)
       b += ")),"
     } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
       b += "(1-isnull("
-      expr(o.by, b)
+      expr(o.by)
       b += ")) desc,"
     }
-    expr(o.by, b)
+    expr(o.by)
     if(desc) b += " desc"
   }
 
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = ()
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
 }
 
 class AccessDDLBuilder(table: AbstractBasicTable[_], profile: AccessDriver) extends BasicDDLBuilder(table, profile) {

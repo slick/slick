@@ -3,7 +3,6 @@ package org.scalaquery.ql.extended
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
 import org.scalaquery.SQueryException
 import java.sql.{Timestamp, Time, Date}
 import org.scalaquery.session.{PositionedParameters, PositionedResult, ResultSetType}
@@ -111,41 +110,41 @@ class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) exten
   }
   */
 
-  override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
+  override protected def innerBuildSelectNoRewrite(rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), Some(d)) :: _ =>
         b += "WITH T AS (SELECT TOP " += (t+d) += ' '
-        expr(query.reified, b, rename, true)
+        expr(query.reified, rename, true)
         //TODO fromSlot = b.createSlot
-        appendClauses(b)
+        appendClauses()
         b += ") SELECT "
-        addCopyColumns(b)
+        addCopyColumns()
         b += " FROM T WHERE \"c0r\" BETWEEN " += (d+1) += " AND " += (t+d)
         if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
       case TakeDrop(Some(t), None) :: _ =>
         b += "WITH T AS (SELECT TOP " += t += ' '
-        expr(query.reified, b, rename, true)
+        expr(query.reified, rename, true)
         //TODO fromSlot = b.createSlot
-        appendClauses(b)
+        appendClauses()
         b += ") SELECT "
-        addCopyColumns(b)
+        addCopyColumns()
         b += " FROM T WHERE \"c0r\" BETWEEN 1 AND " += t
         if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
       case TakeDrop(None, Some(d)) :: _ =>
         b += "WITH T AS (SELECT "
-        expr(query.reified, b, rename, true)
+        expr(query.reified, rename, true)
         //TODO fromSlot = b.createSlot
-        appendClauses(b)
+        appendClauses()
         b += ") SELECT "
-        addCopyColumns(b)
+        addCopyColumns()
         b += " FROM T WHERE \"c0r\" > " += d
         if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
       case _ =>
-        super.innerBuildSelectNoRewrite(b, rename)
+        super.innerBuildSelectNoRewrite(rename)
     }
   }
 
-  def addCopyColumns(b: SQLBuilder) {
+  def addCopyColumns() {
     //TODO
     /*
     if(isCountAll) b += "count(*)"
@@ -154,60 +153,60 @@ class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) exten
     */
   }
 
-  override protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
+  override protected def expr(c: Node, rename: Boolean, topLevel: Boolean): Unit = {
     c match {
       /* Convert proper BOOLEANs which should be returned from a SELECT
        * statement into pseudo-boolean BIT values 1 and 0 */
       /*TODO
       case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
         b += "case when "
-        innerExpr(c, b)
+        innerExpr(c)
         b += " then 1 else 0 end"
         */
-      case _ => super.expr(c, b, rename, topLevel)
+      case _ => super.expr(c, rename, topLevel)
     }
     if(topLevel && hasTakeDrop) {
       b += ",ROW_NUMBER() OVER ("
-      appendOrderClause(b)
+      appendOrderClause()
       if(query.typedModifiers[Ordering].isEmpty) b += "ORDER BY (SELECT NULL)"
       b += ") AS \"c0r\""
     }
   }
 
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+  override protected def innerExpr(c: Node): Unit = c match {
     /* Create TRUE and FALSE values because SQL Server lacks boolean literals */
     case c @ ConstColumn(true) => b += "(1=1)"
     case c @ ConstColumn(false) => b += "(1=0)"
 
     /* Convert pseudo-booleans from tables and subqueries to real booleans */
     case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c, b); b += " != 0)"
+      b += "("; super.innerExpr(c); b += " != 0)"
     case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c, b); b += " != 0)"
+      b += "("; super.innerExpr(c); b += " != 0)"
 
     //TODO case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
-    case _ => super.innerExpr(c, b)
+    case _ => super.innerExpr(c)
   }
 
-  override protected def appendClauses(b: SQLBuilder): Unit = {
-    appendConditions(b)
-    appendGroupClause(b)
-    //appendHavingConditions(b)
-    if(!hasDropOnly) appendOrderClause(b)
+  override protected def appendClauses(): Unit = {
+    appendConditions()
+    appendGroupClause()
+    //appendHavingConditions()
+    if(!hasDropOnly) appendOrderClause()
   }
 
-  override protected def appendOrdering(o: Ordering, b: SQLBuilder) {
+  override protected def appendOrdering(o: Ordering) {
     val desc = o.isInstanceOf[Ordering.Desc]
     if(o.nullOrdering == Ordering.NullsLast && !desc) {
       b += "case when ("
-      expr(o.by, b)
+      expr(o.by)
       b += ") is null then 1 else 0 end,"
     } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
       b += "case when ("
-      expr(o.by, b)
+      expr(o.by)
       b += ") is null then 0 else 1 end,"
     }
-    expr(o.by, b)
+    expr(o.by)
     if(desc) b += " desc"
   }
 

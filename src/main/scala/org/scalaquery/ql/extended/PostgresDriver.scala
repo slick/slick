@@ -3,8 +3,6 @@ package org.scalaquery.ql.extended
 import java.util.UUID
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
-import org.scalaquery.ast._
-import org.scalaquery.util._
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 
 class PostgresDriver extends ExtendedProfile { self =>
@@ -48,7 +46,7 @@ class PostgresQueryBuilder(_query: Query[_, _], profile: PostgresDriver) extends
 
   override protected val concatOperator = Some("||")
 
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
     case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case (Some(t), None) => b += " LIMIT " += t
     case (None, Some(d)) => b += " OFFSET " += d

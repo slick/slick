@@ -4,7 +4,6 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
 
 class MySQLDriver extends ExtendedProfile { self =>
 
@@ -61,32 +60,32 @@ class MySQLQueryBuilder(_query: Query[_, _], profile: MySQLDriver) extends Basic
   override protected val scalarFrom = Some("DUAL")
   override protected val supportsCast = false
 
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case EscFunction("concat", l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
+  override protected def innerExpr(c: Node): Unit = c match {
+    case EscFunction("concat", l, r) => b += "concat("; expr(l); b += ','; expr(r); b += ')'
     case Sequence.Nextval(seq) => b += quoteIdentifier(seq.name + "_nextval") += "()"
     case Sequence.Currval(seq) => b += quoteIdentifier(seq.name + "_currval") += "()"
-    case _ => super.innerExpr(c, b)
+    case _ => super.innerExpr(c)
   }
 
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
     case (Some(t), Some(d)) => b += " LIMIT " += d += ',' += t
     case (Some(t), None) => b += " LIMIT " += t
     case (None, Some(d)) => b += " LIMIT " += d += ",18446744073709551615"
     case _ =>
   }
 
-  override protected def appendOrdering(o: Ordering, b: SQLBuilder) {
+  override protected def appendOrdering(o: Ordering) {
     val desc = o.isInstanceOf[Ordering.Desc]
     if(o.nullOrdering == Ordering.NullsLast && !desc) {
       b += "isnull("
-      expr(o.by, b)
+      expr(o.by)
       b += "),"
     } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
       b += "isnull("
-      expr(o.by, b)
+      expr(o.by)
       b += ") desc,"
     }
-    expr(o.by, b)
+    expr(o.by)
     if(desc) b += " desc"
   }
 }

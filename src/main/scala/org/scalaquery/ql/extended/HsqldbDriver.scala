@@ -5,7 +5,6 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
 
 /**
  * ScalaQuery driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -86,7 +85,7 @@ class HsqldbQueryBuilder(_query: Query[_, _], profile: HsqldbDriver) extends Bas
   override protected val scalarFrom = Some("(VALUES (0))")
   override protected val concatOperator = Some("||")
 
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+  override protected def innerExpr(c: Node): Unit = c match {
 
     case c @ ConstColumn(v: String) if v ne null =>
       /* Hsqldb treats string literals as type CHARACTER and pads them with
@@ -94,10 +93,10 @@ class HsqldbQueryBuilder(_query: Query[_, _], profile: HsqldbDriver) extends Bas
        * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave
        * enough room for concatenating strings (which extends the size even if
        * it is not needed). */
-      if(c.typeMapper(profile).sqlType == Types.CHAR) super.innerExpr(c, b)
+      if(c.typeMapper(profile).sqlType == Types.CHAR) super.innerExpr(c)
       else {
         b += "cast("
-        super.innerExpr(c, b)
+        super.innerExpr(c)
         b += " as varchar(16777216))"
       }
 
@@ -106,10 +105,10 @@ class HsqldbQueryBuilder(_query: Query[_, _], profile: HsqldbDriver) extends Bas
 
     case Sequence.Currval(seq) => throw new SQueryException("Hsqldb does not support CURRVAL")
 
-    case _ => super.innerExpr(c, b)
+    case _ => super.innerExpr(c)
   }
 
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
     case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case (Some(t), None) => b += " LIMIT " += t
     case (None, Some(d)) => b += " OFFSET " += d

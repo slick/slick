@@ -4,7 +4,6 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
-import org.scalaquery.util._
 
 /**
  * ScalaQuery driver for Derby/JavaDB.
@@ -74,39 +73,39 @@ class DerbyQueryBuilder(_query: Query[_, _], profile: DerbyDriver) extends Basic
   override protected val scalarFrom = Some("sysibm.sysdummy1")
   override protected val supportsTuples = false
 
-  override protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
+  override protected def expr(c: Node, rename: Boolean, topLevel: Boolean): Unit = {
     c match {
       /* Convert proper BOOLEANs which should be returned from a SELECT
        * statement into pseudo-boolean SMALLINT values 1 and 0 */
       /*TODO
        case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
         b += "case when "
-        innerExpr(c, b)
+        innerExpr(c)
         b += " then 1 else 0 end"
       */
-      case _ => super.expr(c, b, rename, topLevel)
+      case _ => super.expr(c, rename, topLevel)
     }
   }
 
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+  override protected def innerExpr(c: Node): Unit = c match {
     /* Create TRUE and FALSE values because Derby lacks boolean literals */
     case c @ ConstColumn(true) => b += "(1=1)"
     case c @ ConstColumn(false) => b += "(1=0)"
 
     /* Convert pseudo-booleans from tables and subqueries to real booleans */
     case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c, b); b += " != 0)"
+      b += "("; super.innerExpr(c); b += " != 0)"
     case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c, b); b += " != 0)"
+      b += "("; super.innerExpr(c); b += " != 0)"
 
     case EscFunction("ifnull", l, r) => r match {
       /* Derby does not support IFNULL so we use COALESCE instead,
        * and it requires NULLs to be casted to a suitable type */
       case c: Column[_] =>
         b += "coalesce(cast("
-        expr(l, b)
+        expr(l)
         b += " as " += mapTypeName(c.typeMapper(profile)) += "),"
-        expr(r, b); b += ")"
+        expr(r); b += ")"
       case _ => throw new SQueryException("Cannot determine type of right-hand side for ifNull")
     }
 
@@ -128,11 +127,11 @@ class DerbyQueryBuilder(_query: Query[_, _], profile: DerbyDriver) extends Basic
 
     case EscFunction("database") => b += "''"
 
-    case _ => super.innerExpr(c, b)
+    case _ => super.innerExpr(c)
   }
 
   /*
-  override protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
+  override protected def table(t: Node, name: String): Unit = t match {
     /* Derby requires columns of UNION parts to have the same names. If my
      * understanding of SQL:2008 is correct, this is a bug. This behavior
      * would be correct if the CORRESPONDING keyword was used for a UNION.
@@ -142,7 +141,7 @@ class DerbyQueryBuilder(_query: Query[_, _], profile: DerbyDriver) extends Basic
       b += "("
       b.sep(sqs, (if(all) " UNION ALL " else " UNION "))(sq => subQueryBuilderFor(sq.asInstanceOf[Query[_,_]]).innerBuildSelect(b, rename))
       b += ") " += quoteIdentifier(name)
-    case _ => super.table(t, name, b)
+    case _ => super.table(t, name)
   }
   */
 }
