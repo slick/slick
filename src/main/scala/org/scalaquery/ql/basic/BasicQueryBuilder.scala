@@ -1,38 +1,17 @@
 package org.scalaquery.ql.basic
 
-import scala.collection.mutable.{HashMap, HashSet}
 import org.scalaquery.SQueryException
 import org.scalaquery.ql._
-import extended.ExtendedQueryOps.TakeDrop
-import org.scalaquery.ast._
 import org.scalaquery.util._
-import org.scalaquery.session.{PositionedParameters, PositionedResult}
+import org.scalaquery.ql.ColumnOps._
+import org.scalaquery.ast._
 
-class ConcreteBasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile)
-extends BasicQueryBuilder(_query, _nc, parent, _profile) {
-  type Self = BasicQueryBuilder
-
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new ConcreteBasicQueryBuilder(query, nc, Some(this), profile)
-}
-
-abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], _profile: BasicProfile) {
+class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
   import _profile.sqlUtils._
-
-  type Self <: BasicQueryBuilder
-
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext): Self
 
   protected val profile = _profile
   protected val query: Query[_, _] = _query
   protected val ast = profile.processAST(query)
-  protected var nc: NamingContext = _nc
-  protected val localTables = new HashMap[String, Node]
-  protected val declaredTables = new HashSet[String]
-  protected val subQueryBuilders = new HashMap[RefId[Query[_, _]], Self]
-  protected var fromSlot: SQLBuilder = _
-  protected var selectSlot: SQLBuilder = _
-  protected var maxColumnPos = 0
 
   protected val mayLimit0 = true
   protected val scalarFrom: Option[String] = None
@@ -40,33 +19,164 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
   protected val supportsCast = true
   protected val concatOperator: Option[String] = None
 
-  protected def localTableName(n: Node) = n match {
-    case Join.JoinPart(table, from) =>
-      // Special case for Joins: A join combines multiple tables but does not alias them
-      localTables(nc.nameFor(from)) = from
-      nc.nameFor(table)
-    case _ =>
-      val name = nc.nameFor(n)
-      localTables(name) = n
-      name
-  }
-
-  protected def isDeclaredTable(name: String): Boolean =
-    (declaredTables contains name) || parent.map(_.isDeclaredTable(name)).getOrElse(false)
-  
-  protected def subQueryBuilderFor(q: Query[_, _]) =
-    subQueryBuilders.getOrElseUpdate(RefId(q), createSubQueryBuilder(q, nc))
-
   final def buildSelect: (SQLBuilder.Result, ValueLinearizer[_]) = {
     val b = new SQLBuilder
     buildSelect(b)
     (b.build, query.linearizer)
   }
 
-  def buildSelect(b: SQLBuilder) {
-    innerBuildSelect(b, false)
-    insertAllFromClauses()
+  final def buildSelect(b: SQLBuilder) = buildComprehension(ast, b)
+
+  protected def buildComprehension(n: Node, b: SQLBuilder): Unit = n match {
+    case Comprehension(from, where, select) =>
+      b += "SELECT "
+      select match {
+        case Some(n) => buildSelectClause(n, b)
+        case None =>
+          if(from.length <= 1) b += "*"
+          else b += symbolName(from.last._1) += ".*"
+      }
+      if(from.isEmpty) scalarFrom.foreach { s => b += " FROM " += s }
+      else {
+        b += " FROM "
+        b.sep(from, ", ") { case (sym, n) =>
+          buildSubquery(n, b)
+          b += ' ' += symbolName(sym)
+        }
+      }
+      if(!where.isEmpty) {
+        b += " WHERE "
+        expr(where.reduceLeft(And), b)
+      }
+    case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop, b)
   }
+
+  protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int], b: SQLBuilder) {
+    b += "SELECT * FROM "
+    buildSubquery(from, b)
+    if(take == Some(0)) b += " WHERE 1=0"
+    else appendTakeDropClause(take, drop, b)
+  }
+
+  protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+    /* SQL:2008 syntax */
+    case (Some(t), Some(d)) => b += " OFFSET " += d += " ROW FETCH NEXT " += t += " ROW ONLY"
+    case (Some(t), None) => b += " FETCH NEXT " += t += " ROW ONLY"
+    case (None, Some(d)) => b += " OFFSET " += d += " ROW"
+    case _ =>
+  }
+
+  protected def buildSelectClause(n: Node, b: SQLBuilder): Unit = n match {
+    case Pure(StructNode(ch)) =>
+      b.sep(ch, ", ") { case (sym, n) =>
+        expr(n, b)
+        b += " as " += symbolName(sym)
+      }
+    case Pure(ProductNode(ch @ _*)) =>
+      b.sep(ch, ", ")(expr(_, b))
+    case Pure(n) => expr(n, b)
+  }
+
+  protected def buildSubquery(n: Node, b: SQLBuilder): Unit = n match {
+    case AbstractTable(name) => b += quoteIdentifier(name)
+    case n =>
+      b += '('
+      buildComprehension(n, b)
+      b += ')'
+  }
+
+  protected def symbolName(s: Symbol): String = s match {
+    case AnonSymbol(name) => name
+    case s => quoteIdentifier(s.name)
+  }
+
+  protected def expr(n: Node, b: SQLBuilder): Unit = n match {
+    case ConstColumn(null) => b += "null"
+    case Not(Is(l, ConstColumn(null))) => b += '('; expr(l, b); b += " is not null)"
+    case Not(e) => b += "(not "; expr(e, b); b+= ')'
+    case i @ InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn.FALSE, b) else {
+      b += '('; expr(e, b); b += " in ("
+      if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(profile).setValue(x, p) })
+      else b += seq.map(i.tm(profile).valueToSQLLiteral).mkString(",")
+      b += "))"
+    }
+    case Is(l, ConstColumn(null)) => b += '('; expr(l, b); b += " is null)"
+    case Is(l, r) => b += '('; expr(l, b); b += '='; expr(r, b); b += ')'
+    case EscFunction("concat", l, r) if concatOperator.isDefined =>
+      b += '('; expr(l, b); b += concatOperator.get; expr(r, b); b += ')'
+    case s: SimpleFunction =>
+      if(s.scalar) b += "{fn "
+      b += s.name += '('
+      b.sep(s.nodeChildren, ",")(expr(_, b))
+      b += ')'
+      if(s.scalar) b += '}'
+    case SimpleLiteral(w) => b += w
+    case s: SimpleExpression => s.toSQL(b, this)
+    case Between(left, start, end) => expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b)
+    case CountDistinct(e) => b += "count(distinct "; expr(e, b); b += ')'
+    case Like(l, r, esc) =>
+      b += '('; expr(l, b); b += " like "; expr(r, b);
+      esc.foreach { ch =>
+        if(ch == '\'' || ch == '%' || ch == '_') throw new SQueryException("Illegal escape character '"+ch+"' for LIKE expression")
+        // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
+        b += " escape '" += ch += "'"
+      }
+      b += ')'
+    case a @ AsColumnOf(ch, name) =>
+      val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
+      if(supportsCast) {
+        b += "cast("
+        expr(ch, b)
+        b += " as " += tn += ")"
+      } else {
+        b += "{fn convert("
+        expr(ch, b)
+        b += ',' += tn += ")}"
+      }
+    case s: SimpleBinaryOperator => b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')'
+    case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
+    case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
+    case pc @ ParameterColumn(idx) => b +?= { (p, param) =>
+      val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
+      pc.typeMapper(profile).setValue(v, p)
+    }
+    case c: Case.CaseNode =>
+      b += "(case"
+      c.clauses.foldRight(()) { (w,_) =>
+        b += " when "
+        expr(w.asInstanceOf[Case.WhenNode].left, b)
+        b += " then "
+        expr(w.asInstanceOf[Case.WhenNode].right, b)
+      }
+      c.elseClause match {
+        case ConstColumn(null) =>
+        case n =>
+          b += " else "
+          expr(n, b)
+      }
+      b += " end)"
+    case FieldRef(struct, field) => b += symbolName(struct) += '.' += symbolName(field)
+    case fk: ForeignKey[_, _] =>
+      if(supportsTuples) {
+        b += "(("; expr(fk.left, b); b += ")=("; expr(fk.right, b); b += "))"
+      } else {
+        val cols = fk.linearizedSourceColumns zip fk.linearizedTargetColumns
+        b += "("
+        b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b) }
+        b += ")"
+      }
+    //TODO case CountAll(q) => b += "count(*)"; localTableName(q)
+    //TODO case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
+    //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
+    case _ => throw new SQueryException("Don't know what to do with node "+n+" in an expression")
+  }
+
+
+
+
+
+
+
 
   protected def rewriteCountStarQuery(q: Query[_, _]) =
     q.modifiers.isEmpty && (q.reified match {
@@ -75,45 +185,18 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
       case _ => false
     })
 
-  protected def innerBuildSelect(b: SQLBuilder, rename: Boolean) {
-    query.reified match {
-      case ColumnOps.CountAll(Subquery(q: Query[_, _], false)) if rewriteCountStarQuery(q) =>
-        val newQ = q.map(p => ColumnOps.CountAll(Node(p)))
-        subQueryBuilderFor(newQ).innerBuildSelect(b, rename)
-      case _ => innerBuildSelectNoRewrite(b, rename)
-    }
-  }
+  final protected def innerBuildSelect(b: SQLBuilder, rename: Boolean): Unit = sys.error("obsolete")
 
-  protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
-    def inner {
-      selectSlot = b.createSlot
-      selectSlot += "SELECT "
-      expr(query.reified, selectSlot, rename, true)
-      fromSlot = b.createSlot
-      appendClauses(b)
-    }
-    if(!mayLimit0) {
-      query.typedModifiers[TakeDrop] match {
-        case TakeDrop(Some(0), _) :: _ => b += "SELECT * FROM ("; inner; b += ") t0 WHERE 1=0"
-        case _ => inner
-      }
-    } else inner
-  }
+  protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean): Unit = sys.error("obsolete")
 
-  protected def appendClauses(b: SQLBuilder) {
-    appendConditions(b)
-    appendGroupClause(b)
-    //appendHavingConditions(b)
-    appendOrderClause(b)
-    appendLimitClause(b)
-  }
+  protected def appendClauses(b: SQLBuilder): Unit = sys.error("obsolete")
 
-  protected def appendGroupClause(b: SQLBuilder): Unit = query.typedModifiers[Grouping] match {
+  final protected def appendGroupClause(b: SQLBuilder): Unit = query.typedModifiers[Grouping] match {
     case Nil =>
     case xs => b += " GROUP BY "; b.sep(xs, ",")(x => expr(x.by, b, false, true))
   }
 
-  protected def appendOrderClause(b: SQLBuilder): Unit = query.typedModifiers[Ordering] match {
+  final protected def appendOrderClause(b: SQLBuilder): Unit = query.typedModifiers[Ordering] match {
     case Nil =>
     case xs => b += " ORDER BY "; b.sep(xs, ",")(appendOrdering(_,b))
   }
@@ -128,15 +211,6 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
     }
   }
 
-  protected def appendLimitClause(b: SQLBuilder): Unit = query.typedModifiers[TakeDrop].lastOption.foreach {
-    /* SQL:2008 syntax */
-    case TakeDrop(Some(0), _) if(!mayLimit0) => // handled above in innerBuildSelectNoRewrite
-    case TakeDrop(Some(t), Some(d)) => b += " OFFSET " += d += " ROW FETCH NEXT " += t += " ROW ONLY"
-    case TakeDrop(Some(t), None) => b += " FETCH NEXT " += t += " ROW ONLY"
-    case TakeDrop(None, Some(d)) => b += " OFFSET " += d += " ROW"
-    case _ =>
-  }
-
   def buildDelete = {
     val b = new SQLBuilder += "DELETE FROM "
     val (delTable, delTableName) = query.reified match {
@@ -146,14 +220,12 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
         "\" expression; An aliased or base table is required")
     }
     b += quoteIdentifier(delTableName)
-    nc = nc.overrideName(delTable, delTableName) // Alias table to itself because DELETE does not support aliases
+    //TODO nc = nc.overrideName(delTable, delTableName) // Alias table to itself because DELETE does not support aliases
     appendConditions(b)
-    if(localTables.size > 1)
-      throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
-    /*if(query.condHaving ne Nil)
-      throw new SQueryException("DELETE statement must contain a HAVING clause")*/
-    for(qb <- subQueryBuilders.valuesIterator)
-      qb.insertAllFromClauses()
+    //TODO if(localTables.size > 1)
+    //  throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
+    //for(qb <- subQueryBuilders.valuesIterator)
+    //  qb.insertAllFromClauses()
     b.build
   }
 
@@ -190,28 +262,27 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
             i += 1
           }
         case t @ AbstractTable(tn) =>
-          nc = nc.overrideName(t, tn)
+          //TODO nc = nc.overrideName(t, tn)
           handleColumns(Node(t.*))
         case a @ AbstractTable.Alias(t @ AbstractTable(tn)) =>
-          nc = nc.overrideName(a, tn)
+          //TODO nc = nc.overrideName(a, tn)
           handleColumns(Node(t.*))
         case n => handleColumn(n)
       }
     }
 
     handleColumns(query.reified)
-    nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
+    //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
     tableNameSlot += quoteIdentifier(tableName)
     appendConditions(b)
-    if(localTables.size > 1)
-      throw new SQueryException("An UPDATE statement must not use more than one table at the top level")
+    //TODO if(localTables.size > 1)
+    //  throw new SQueryException("An UPDATE statement must not use more than one table at the top level")
     b.build
   }
 
-  def expr(c: Node, b: SQLBuilder): Unit = expr(c, b, false, false)
-
   protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean) {
-    var pos = 0
+    sys.error("obsolete")
+    /*var pos = 0
     c match {
       case p: ProductNode => {
         p.nodeChildren.foreach { c =>
@@ -227,161 +298,18 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
       b += " as " += quoteIdentifier("c1")
       pos = 1
     }
-    if(topLevel) this.maxColumnPos = pos
+    if(topLevel) this.maxColumnPos = pos*/
   }
 
-  protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
-    case ConstColumn(null) => b += "null"
-    case ColumnOps.Not(ColumnOps.Is(l, ConstColumn(null))) => b += '('; expr(l, b); b += " is not null)"
-    case ColumnOps.Not(e) => b += "(not "; expr(e, b); b+= ')'
-    case i @ ColumnOps.InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn(false), b) else {
-      b += '('; expr(e, b); b += " in ("
-      if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(profile).setValue(x, p) })
-      else b += seq.map(i.tm(profile).valueToSQLLiteral).mkString(",")
-      b += "))"
-    }
-    case ColumnOps.Is(l, ConstColumn(null)) => b += '('; expr(l, b); b += " is null)"
-    case ColumnOps.Is(l, r) => b += '('; expr(l, b); b += '='; expr(r, b); b += ')'
-    case EscFunction("concat", l, r) if concatOperator.isDefined =>
-      b += '('; expr(l, b); b += concatOperator.get; expr(r, b); b += ')'
-    case s: SimpleFunction =>
-      if(s.scalar) b += "{fn "
-      b += s.name += '('
-      b.sep(s.nodeChildren, ",")(expr(_, b))
-      b += ')'
-      if(s.scalar) b += '}'
-    case SimpleLiteral(w) => b += w
-    case s: SimpleExpression => s.toSQL(b, this)
-    case ColumnOps.Between(left, start, end) => expr(left, b); b += " between "; expr(start, b); b += " and "; expr(end, b)
-    case ColumnOps.CountAll(q) => b += "count(*)"; localTableName(q)
-    case ColumnOps.CountDistinct(e) => b += "count(distinct "; expr(e, b); b += ')'
-    case ColumnOps.Like(l, r, esc) =>
-      b += '('; expr(l, b); b += " like "; expr(r, b);
-      esc.foreach { ch =>
-        if(ch == '\'' || ch == '%' || ch == '_') throw new SQueryException("Illegal escape character '"+ch+"' for LIKE expression")
-        // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
-        b += " escape '" += ch += "'"
-      }
-      b += ')'
-    case a @ ColumnOps.AsColumnOf(ch, name) =>
-      val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
-      if(supportsCast) {
-        b += "cast("
-        expr(ch, b)
-        b += " as " += tn += ")"
-      } else {
-        b += "{fn convert("
-        expr(ch, b)
-        b += ',' += tn += ")}"
-      }
-    case s: SimpleBinaryOperator => b += '('; expr(s.left, b); b += ' ' += s.name += ' '; expr(s.right, b); b += ')'
-    case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
-    //case Union.UnionPart(_) => "*"
-    case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
-    case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
-    case pc @ ParameterColumn(idx) => b +?= { (p, param) =>
-      val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
-      pc.typeMapper(profile).setValue(v, p)
-    }
-    case c: Case.CaseNode =>
-      b += "(case"
-      c.clauses.foldRight(()) { (w,_) =>
-        b += " when "
-        expr(w.asInstanceOf[Case.WhenNode].left, b)
-        b += " then "
-        expr(w.asInstanceOf[Case.WhenNode].right, b)
-      }
-      c.elseClause match {
-        case ConstColumn(null) =>
-        case n =>
-          b += " else "
-          expr(n, b)
-      }
-      b += " end)"
-    case n: NamedColumn[_] => b += quoteIdentifier(localTableName(n.table)) += '.' += quoteIdentifier(n.name)
-    case SubqueryColumn(pos, sq, _) => b += quoteIdentifier(localTableName(sq)) += "." += quoteIdentifier("c" + pos.toString)
-    case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
-    case a @ AbstractTable.Alias(t: WithOp) => expr(t.mapOp(_ => a), b)
-    case t: AbstractTable[_] => expr(Node(t.*), b)
-    case t: TableBase[_] => b += quoteIdentifier(localTableName(t)) += ".*"
-    case fk: ForeignKey[_, _] =>
-      if(supportsTuples) {
-        b += "(("; expr(fk.left, b); b += ")=("; expr(fk.right, b); b += "))"
-      } else {
-        val cols = fk.linearizedSourceColumns zip fk.linearizedTargetColumns
-        b += "("
-        b.sep(cols, " and "){ case (l,r) => expr(l, b); b += "="; expr(r, b) }
-        b += ")"
-      }
-    case _ => throw new SQueryException("Don't know what to do with node \""+c+"\" in an expression")
-  }
+  protected def innerExpr(c: Node, b: SQLBuilder): Unit = sys.error("obsolete")
 
-  protected def appendConditions(b: SQLBuilder): Unit = query.cond match {
-    case Nil =>
-    case xs => b += " WHERE "; b.sep(xs, " AND ")(x => expr(Node(x), b))
-  }
+  final protected def appendConditions(b: SQLBuilder): Unit = sys.error("obsolete")
 
-  /*protected def appendHavingConditions(b: SQLBuilder): Unit = query.condHaving match {
-    case Nil =>
-    case xs => b += " HAVING "; b.sep(xs, " AND ")(x => expr(Node(x), b))
-  }*/
+  final protected def insertAllFromClauses(): Unit = sys.error("obsolete")
 
-  protected def insertAllFromClauses() {
-    if(fromSlot ne null) insertFromClauses()
-    for(qb <- subQueryBuilders.valuesIterator)
-      qb.insertAllFromClauses()
-  }
+  final protected def insertFromClauses(): Unit = sys.error("obsolete")
 
-  protected def insertFromClauses() {
-    var first = true
-    for((name, t) <- new HashMap ++= localTables) {
-      if(!parent.map(_.isDeclaredTable(name)).getOrElse(false)) {
-        if(first) { fromSlot += " FROM "; first = false }
-        else fromSlot += ','
-        table(t, name, fromSlot)
-        declaredTables += name
-      }
-    }
-    if(fromSlot.isEmpty) scalarFrom.foreach(s => fromSlot += " FROM " += s)
-  }
+  final protected def table(t: Node, name: String, b: SQLBuilder) = sys.error("obsolete")
 
-  protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
-    case AbstractTable.Alias(base: AbstractTable[_]) =>
-      base.schemaName.foreach(b += quoteIdentifier(_) += '.')
-      b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
-    case base: AbstractTable[_] =>
-      base.schemaName.foreach(b += quoteIdentifier(_) += '.')
-      b += quoteIdentifier(base.tableName) += ' ' += quoteIdentifier(name)
-    case Subquery(sq: Query[_, _], rename) =>
-      b += "("; subQueryBuilderFor(sq).innerBuildSelect(b, rename); b += ") " += quoteIdentifier(name)
-    /*case Subquery(Union(all, sqs), rename) => {
-      b += "("
-      var first = true
-      for(sq <- sqs) {
-        if(!first) b += (if(all) " UNION ALL " else " UNION ")
-        subQueryBuilderFor(sq.asInstanceOf[Query[_,_]]).innerBuildSelect(b, first && rename)
-        first = false
-      }
-      b += ") " += quoteIdentifier(name)
-    }*/
-    case j: Join[_,_] =>
-      /* There is no way to write all nested joins (if they are supported at all) properly in a
-       * database-independent way because the {oj...} escape syntax does not support inner joins.
-       * We let the first join determine the syntax and hope for the best. */
-      if(j.joinType == Join.Inner) createJoin(j, b)
-      else { b += "{oj "; createJoin(j, b); b += "}" }
-  }
-
-  protected def createJoin(j: Join[_,_], b: SQLBuilder) {
-    val l = j.leftNode
-    val r = j.rightNode
-    table(l, nc.nameFor(l), b)
-    b += " " += j.joinType.sqlName += " join "
-    r match {
-      case rj: Join[_,_] => createJoin(rj, b)
-      case _ => table(r, nc.nameFor(r), b)
-    }
-    b += " on "
-    expr(j.on, b)
-  }
+  final protected def createJoin(j: Join[_,_], b: SQLBuilder) = sys.error("obsolete")
 }

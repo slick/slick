@@ -1,7 +1,8 @@
 package org.scalaquery.ast
 
-import org.scalaquery.ql.Join.JoinType
+import scala.math.{min, max}
 import scala.collection.mutable.ArrayBuffer
+import org.scalaquery.ql.Join.JoinType
 import org.scalaquery.SQueryException
 import org.scalaquery.util.SimpleTypeName
 import org.scalaquery.ql.{Unpackable, ConstColumn}
@@ -237,6 +238,24 @@ final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) 
   protected[this] def nodeRebuild(child: Node) = copy(from = child)
   def withGenerator(gen: Symbol) = copy(generator = gen)
   def nodePostGeneratorChildren = Seq.empty
+}
+
+/** An extractor for nested Take and Drop nodes */
+object TakeDrop {
+  def unapply(n: Node): Option[(Node, Option[Int], Option[Int])] = n match {
+    case Take(from, num, sym) => unapply(from) match {
+      case Some((f, Some(t), d)) => Some((f, Some(min(t, num)), d))
+      case Some((f, None, d)) => Some((f, Some(num), d))
+      case _ => Some((from, Some(num), None))
+    }
+    case Drop(from, num, sym) => unapply(from) match {
+      case Some((f, Some(t), None)) => Some((f, Some(max(0, t-num)), Some(num)))
+      case Some((f, None, Some(d))) => Some((f, None, Some(d+num)))
+      case Some((f, Some(t), Some(d))) => Some((f, Some(max(0, t-num)), Some(d+num)))
+      case _ => Some((from, None, Some(num)))
+    }
+    case _ => None
+  }
 }
 
 final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends BinaryNode with SimpleDefNode {

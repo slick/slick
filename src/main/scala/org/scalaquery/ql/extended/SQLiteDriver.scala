@@ -36,7 +36,7 @@ class SQLiteDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new SQLiteTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new SQLiteQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _]) = new SQLiteQueryBuilder(query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLiteDDLBuilder(table, this).buildDDL
 }
 
@@ -78,7 +78,7 @@ object SQLiteTypeMapperDelegates {
 class SQLiteDDLBuilder(table: AbstractBasicTable[_], profile: SQLiteDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
-  protected class SQLiteColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
+  protected class SQLiteColumnDDLBuilder(column: RawNamedColumn) extends BasicColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder) {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
@@ -87,7 +87,7 @@ class SQLiteDDLBuilder(table: AbstractBasicTable[_], profile: SQLiteDriver) exte
     }
   }
 
-  override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new SQLiteColumnDDLBuilder(c)
+  override protected def createColumnDDLBuilder(c: RawNamedColumn) = new SQLiteColumnDDLBuilder(c)
 
   override def buildDDL: DDL = {
     val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
@@ -118,23 +118,20 @@ class SQLiteDDLBuilder(table: AbstractBasicTable[_], profile: SQLiteDriver) exte
   }
 }
 
-class SQLiteQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLiteDriver)
-extends BasicQueryBuilder(_query, _nc, parent, profile) {
+class SQLiteQueryBuilder(_query: Query[_, _], profile: SQLiteDriver) extends BasicQueryBuilder(_query, profile) {
 
   import ExtendedQueryOps._
   import profile.sqlUtils._
 
-  override type Self = SQLiteQueryBuilder
   override protected val supportsTuples = false
   override protected val concatOperator = Some("||")
 
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new SQLiteQueryBuilder(query, nc, Some(this), profile)
-
+  /*
   override protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
     case j: Join[_,_] => createJoin(j, b)
     case _ => super.table(t, name, b)
   }
+  */
 
   override protected def appendOrdering(o: Ordering, b: SQLBuilder) {
     val desc = o.isInstanceOf[Ordering.Desc]
@@ -151,10 +148,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     if(desc) b += " desc"
   }
 
-  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
-    case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += d += "," += t
-    case TakeDrop(Some(t), None) => b += " LIMIT " += t
-    case TakeDrop(None, Some(d)) => b += " LIMIT " += d += ",-1"
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+    case (Some(t), Some(d)) => b += " LIMIT " += d += "," += t
+    case (Some(t), None) => b += " LIMIT " += t
+    case (None, Some(d)) => b += " LIMIT " += d += ",-1"
     case _ =>
   }
 

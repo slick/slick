@@ -18,7 +18,7 @@ class PostgresDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new PostgresTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new PostgresQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _]) = new PostgresQueryBuilder(query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new PostgresDDLBuilder(table, this).buildDDL
 }
 
@@ -44,21 +44,14 @@ class PostgresTypeMapperDelegates extends BasicTypeMapperDelegates {
   }
 }
 
-class PostgresQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: PostgresDriver)
-extends BasicQueryBuilder(_query, _nc, parent, profile) {
+class PostgresQueryBuilder(_query: Query[_, _], profile: PostgresDriver) extends BasicQueryBuilder(_query, profile) {
 
-  import ExtendedQueryOps._
-
-  override type Self = PostgresQueryBuilder
   override protected val concatOperator = Some("||")
 
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new PostgresQueryBuilder(query, nc, Some(this), profile)
-
-  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
-    case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
-    case TakeDrop(Some(t), None) => b += " LIMIT " += t
-    case TakeDrop(None, Some(d)) => b += " OFFSET " += d
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+    case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
+    case (Some(t), None) => b += " LIMIT " += t
+    case (None, Some(d)) => b += " OFFSET " += d
     case _ =>
   }
 }
@@ -66,7 +59,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 class PostgresDDLBuilder(table: AbstractBasicTable[_], profile: PostgresDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
-  protected class PostgresColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
+  protected class PostgresColumnDDLBuilder(column: RawNamedColumn) extends BasicColumnDDLBuilder(column) {
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
       if(autoIncrement) {
@@ -78,5 +71,5 @@ class PostgresDDLBuilder(table: AbstractBasicTable[_], profile: PostgresDriver) 
     }
   }
 
-  override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new PostgresColumnDDLBuilder(c)
+  override protected def createColumnDDLBuilder(c: RawNamedColumn) = new PostgresColumnDDLBuilder(c)
 }

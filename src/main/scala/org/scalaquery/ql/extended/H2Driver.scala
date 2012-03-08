@@ -17,34 +17,26 @@ class H2Driver extends ExtendedProfile { self =>
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
   override val sqlUtils = new H2SQLUtils
 
-  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new H2QueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _]) = new H2QueryBuilder(query, this)
 }
 
 object H2Driver extends H2Driver
 
-class H2QueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: H2Driver)
-extends BasicQueryBuilder(_query, _nc, parent, profile) {
+class H2QueryBuilder(_query: Query[_, _], profile: H2Driver) extends BasicQueryBuilder(_query, profile) {
 
-  import ExtendedQueryOps._
-
-  override type Self = H2QueryBuilder
   override protected val mayLimit0 = false
   override protected val concatOperator = Some("||")
 
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new H2QueryBuilder(query, nc, Some(this), profile)
-
-  override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
+  override protected def expr(n: Node, b: SQLBuilder): Unit = n match {
     case Sequence.Nextval(seq) => b += "nextval(schema(), '" += seq.name += "')"
     case Sequence.Currval(seq) => b += "currval(schema(), '" += seq.name += "')"
-    case _ => super.innerExpr(c, b)
+    case _ => super.expr(n, b)
   }
 
-  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
-    case TakeDrop(Some(0), _) => // handled in innerBuildSelectNoRewrite
-    case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
-    case TakeDrop(Some(t), None) => b += " LIMIT " += t
-    case TakeDrop(None, Some(d)) => b += " LIMIT 0 OFFSET " += d
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+    case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
+    case (Some(t), None) => b += " LIMIT " += t
+    case (None, Some(d)) => b += " LIMIT 0 OFFSET " += d
     case _ =>
   }
 }

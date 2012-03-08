@@ -80,13 +80,13 @@ object Relational extends Logging {
         scanFrom(c)
         logger.debug("eliminated: "+eliminated)
         def replaceRefs(n: Node): Node = n match {
-          case Path(t, c) if eliminated.contains(t) =>
+          case FieldRef(t, c) if eliminated.contains(t) =>
             eliminated(t) match {
               case TableRef(tab) =>
-                logger.debug("replacing Path("+t+", "+c+") by Path("+tab+", "+c+") [TableRef]")
-                replaceRefs(Path(tab, c))
+                logger.debug("replacing FieldRef("+t+", "+c+") by FieldRef("+tab+", "+c+") [TableRef]")
+                replaceRefs(FieldRef(tab, c))
               case StructNode(mapping) =>
-                logger.debug("replacing Path("+t+", "+c+") by "+mapping.toMap.apply(c))
+                logger.debug("replacing FieldRef("+t+", "+c+") by "+mapping.toMap.apply(c))
                 replaceRefs(mapping.toMap.apply(c))
               case _ => n
             }
@@ -124,7 +124,7 @@ object Relational extends Logging {
       case _ => Seq.empty
     }
     val tableRefs = tree.collectAll[(Seq[Symbol], FieldSymbol)]{
-      case Path(t, f: FieldSymbol) =>
+      case FieldRef(t, f: FieldSymbol) =>
         val ch = chain(t)
         if(ch.isEmpty) Seq.empty
         else Seq((ch, f))
@@ -142,9 +142,9 @@ object Relational extends Logging {
       tableRefs.flatMap{ case (seq, _) => val l = seq.last; seq.map(i => (i, l)) }(collection.breakOut)
     logger.debug("baseTables: "+baseTables)
     def tr(sym: Option[Symbol], n: Node): Node = n match {
-      case p @ Path(t, f: FieldSymbol) => baseTables.get(t).flatMap(needed.get) match {
+      case p @ FieldRef(t, f: FieldSymbol) => baseTables.get(t).flatMap(needed.get) match {
         case Some((symMap, _)) => symMap.get(f) match {
-          case Some(a) => Path(t, a)
+          case Some(a) => FieldRef(t, a)
           case _ => p
         }
         case _ => p
@@ -152,7 +152,7 @@ object Relational extends Logging {
       case t: AbstractTable[_] if(sym.isDefined && needed.contains(sym.get)) =>
         val gen = new AnonSymbol
         val (symMap, _) = needed(sym.get)
-        val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, Path(gen, oldS)) }
+        val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }
         Bind(gen, t, Pure(StructNode(struct)))
       case d: DefNode => d.nodeMapScopedChildren(tr)
       case n => n.nodeMapChildren{ ch => tr(None, ch) }

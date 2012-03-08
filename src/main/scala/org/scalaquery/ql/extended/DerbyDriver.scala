@@ -35,7 +35,7 @@ class DerbyDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new DerbyTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new DerbyQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _]) = new DerbyQueryBuilder(query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DerbyDDLBuilder(table, this).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new DerbySequenceDDLBuilder(seq, this).buildDDL
 }
@@ -65,28 +65,25 @@ object DerbyTypeMapperDelegates {
   }
 }
 
-class DerbyQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: DerbyDriver)
-extends BasicQueryBuilder(_query, _nc, parent, profile) {
+class DerbyQueryBuilder(_query: Query[_, _], profile: DerbyDriver) extends BasicQueryBuilder(_query, profile) {
 
   import ExtendedQueryOps._
   import profile.sqlUtils._
 
-  override type Self = DerbyQueryBuilder
   override protected val mayLimit0 = false
   override protected val scalarFrom = Some("sysibm.sysdummy1")
   override protected val supportsTuples = false
-
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new DerbyQueryBuilder(query, nc, Some(this), profile)
 
   override protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
     c match {
       /* Convert proper BOOLEANs which should be returned from a SELECT
        * statement into pseudo-boolean SMALLINT values 1 and 0 */
-      case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
+      /*TODO
+       case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
         b += "case when "
         innerExpr(c, b)
         b += " then 1 else 0 end"
+      */
       case _ => super.expr(c, b, rename, topLevel)
     }
   }
@@ -113,7 +110,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       case _ => throw new SQueryException("Cannot determine type of right-hand side for ifNull")
     }
 
-    case c @ BindColumn(v) if b == selectSlot =>
+    /*TODO case c @ BindColumn(v) if b == selectSlot =>
       /* The Derby embedded driver has a bug (DERBY-4671) which results in a
        * NullPointerException when using bind variables in a SELECT clause.
        * This should be fixed in Derby 10.6.1.1. The workaround is to add an
@@ -122,6 +119,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       b += "cast("
       b +?= { (p, param) => tmd.setValue(v, p) }
       b += " as " += mapTypeName(tmd) += ")"
+    */
 
     /* I guess NEXTVAL was too short */
     case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
@@ -133,24 +131,26 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
+  /*
   override protected def table(t: Node, name: String, b: SQLBuilder): Unit = t match {
     /* Derby requires columns of UNION parts to have the same names. If my
      * understanding of SQL:2008 is correct, this is a bug. This behavior
      * would be correct if the CORRESPONDING keyword was used for a UNION.
      * The workaround is to rename all parts with the same auto-generated
      * column names. */
-    /*case Subquery(Union(all, sqs), rename) =>
+    case Subquery(Union(all, sqs), rename) =>
       b += "("
       b.sep(sqs, (if(all) " UNION ALL " else " UNION "))(sq => subQueryBuilderFor(sq.asInstanceOf[Query[_,_]]).innerBuildSelect(b, rename))
-      b += ") " += quoteIdentifier(name)*/
+      b += ") " += quoteIdentifier(name)
     case _ => super.table(t, name, b)
   }
+  */
 }
 
 class DerbyDDLBuilder(table: AbstractBasicTable[_], profile: DerbyDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
-  protected class DerbyColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
+  protected class DerbyColumnDDLBuilder(column: RawNamedColumn) extends BasicColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder) {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
@@ -159,7 +159,7 @@ class DerbyDDLBuilder(table: AbstractBasicTable[_], profile: DerbyDriver) extend
     }
   }
 
-  override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new DerbyColumnDDLBuilder(c)
+  override protected def createColumnDDLBuilder(c: RawNamedColumn) = new DerbyColumnDDLBuilder(c)
 
   override protected def createIndex(idx: Index) = {
     if(idx.unique) {

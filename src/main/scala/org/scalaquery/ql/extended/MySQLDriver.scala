@@ -18,7 +18,7 @@ class MySQLDriver extends ExtendedProfile { self =>
   val typeMapperDelegates = new MySQLTypeMapperDelegates
   override val sqlUtils = new MySQLSQLUtils
 
-  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new MySQLQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _]) = new MySQLQueryBuilder(query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table, this).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new MySQLSequenceDDLBuilder(seq, this).buildDDL
 }
@@ -53,18 +53,13 @@ class MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
   }
 }
 
-class MySQLQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: MySQLDriver)
-extends BasicQueryBuilder(_query, _nc, parent, profile) {
+class MySQLQueryBuilder(_query: Query[_, _], profile: MySQLDriver) extends BasicQueryBuilder(_query, profile) {
 
   import ExtendedQueryOps._
   import profile.sqlUtils._
 
-  override type Self = MySQLQueryBuilder
   override protected val scalarFrom = Some("DUAL")
   override protected val supportsCast = false
-
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new MySQLQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerExpr(c: Node, b: SQLBuilder): Unit = c match {
     case EscFunction("concat", l, r) => b += "concat("; expr(l, b); b += ','; expr(r, b); b += ')'
@@ -73,10 +68,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => super.innerExpr(c, b)
   }
 
-  override protected def appendLimitClause(b: SQLBuilder) = query.typedModifiers[TakeDrop].lastOption.foreach {
-    case TakeDrop(Some(t), Some(d)) => b += " LIMIT " += d += ',' += t
-    case TakeDrop(Some(t), None) => b += " LIMIT " += t
-    case TakeDrop(None, Some(d)) => b += " LIMIT " += d += ",18446744073709551615"
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = (take, drop) match {
+    case (Some(t), Some(d)) => b += " LIMIT " += d += ',' += t
+    case (Some(t), None) => b += " LIMIT " += t
+    case (None, Some(d)) => b += " LIMIT " += d += ",18446744073709551615"
     case _ =>
   }
 

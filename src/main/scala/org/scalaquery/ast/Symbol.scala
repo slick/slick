@@ -39,6 +39,7 @@ object AnonSymbol {
       case _ =>
     }
   }
+  def unapply(a: AnonSymbol) = Some(a.name)
 }
 
 /**
@@ -74,11 +75,15 @@ case class TableRef(sym: Symbol) extends NullaryNode with RefNode {
 /**
  * A reference to a field in a struct
  */
-case class Path(path: Symbol*) extends NullaryNode with RefNode {
-  override def toString = "Path " + path.mkString(".")
-  def nodeReferences = path
-  def nodeMapReferences(f: Symbol => Symbol) =
-    mapOrNone(path, f).map(newp => Path(newp:_*)).getOrElse(this)
+case class FieldRef(struct: Symbol, field: Symbol) extends NullaryNode with RefNode {
+  override def toString = "FieldRef " + struct + "." + field
+  def nodeReferences = Seq(struct, field)
+  def nodeMapReferences(f: Symbol => Symbol) = {
+    val s2 = f(struct)
+    val f2 = f(field)
+    if((s2 eq struct) && (f2 eq field)) this
+    else FieldRef(s2, f2)
+  }
 }
 
 /**

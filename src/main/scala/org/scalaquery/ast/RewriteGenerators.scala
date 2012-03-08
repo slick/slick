@@ -71,11 +71,11 @@ object RewriteGenerators extends Logging {
         case Some(sym2) =>
           if(parents contains sym) {
             //TODO aliasing to another column in the same struct -> we should prevent this earlier
-            //logger.debug("NOT replacing with Path("+sym+", "+sym2+") at parents "+parents)
+            //logger.debug("NOT replacing with FieldRef("+sym+", "+sym2+") at parents "+parents)
             replaceReferences(what, syms, repl, parents)
           } else {
-            //logger.debug("replacing with Path("+sym+", "+sym2+") at parents "+parents)
-            Path(sym, sym2)
+            //logger.debug("replacing with FieldRef("+sym+", "+sym2+") at parents "+parents)
+            FieldRef(sym, sym2)
           }
         case None =>
           replaceReferences(what, syms, repl, parents)
@@ -153,7 +153,7 @@ object RewriteGenerators extends Logging {
   }
 
   def rewrap(n: Node, wrappers: Map[Symbol, Symbol], newWrapper: Symbol): Node = n match {
-    case c @ RawNamedColumn(_, _, _) => Path(newWrapper, c.symbol)
+    case c @ RawNamedColumn(_, _, _) => FieldRef(newWrapper, c.symbol)
     case InRef(sym, what) =>
       if(wrappers.keySet contains sym) rewrap(what, wrappers, wrappers(sym))
       else rewrap(what, wrappers, newWrapper)

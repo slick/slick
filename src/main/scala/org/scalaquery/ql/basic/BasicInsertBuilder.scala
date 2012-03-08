@@ -17,7 +17,7 @@ class BasicInsertBuilder(val column: Any, val profile: BasicProfile) {
     val (table, cols, _) = buildParts
     val b = new SQLBuilder
     b += "INSERT INTO " += quoteIdentifier(table) += " (" += cols.toString += ") "
-    val qb = profile.createQueryBuilder(query, NamingContext())
+    val qb = profile.createQueryBuilder(query)
     qb.buildSelect(b)
     b.build
   }

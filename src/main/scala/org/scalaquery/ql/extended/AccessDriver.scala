@@ -51,25 +51,20 @@ class AccessDriver extends ExtendedProfile { self =>
   override val sqlUtils = new AccessSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new AccessDDLBuilder(table, this).buildDDL
-  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new AccessQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _]) = new AccessQueryBuilder(query, this)
 }
 
 object AccessDriver extends AccessDriver
 
-class AccessQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: AccessDriver)
-extends BasicQueryBuilder(_query, _nc, parent, profile) {
+class AccessQueryBuilder(_query: Query[_, _], profile: AccessDriver) extends BasicQueryBuilder(_query, profile) {
 
   import profile.sqlUtils._
   import ExtendedQueryOps._
 
-  override type Self = AccessQueryBuilder
   override protected val supportsTuples = false
   override protected val concatOperator = Some("&")
 
   val pi = "3.1415926535897932384626433832795"
-
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new AccessQueryBuilder(query, nc, Some(this), profile)
 
   override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
@@ -82,10 +77,10 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
         super.innerBuildSelectNoRewrite(b, rename)
         b += ") WHERE FALSE"
       case TakeDrop(Some(n), _) :: _ =>
-        selectSlot = b.createSlot
+        /*TODO selectSlot = b.createSlot
         selectSlot += "SELECT TOP " += n += ' '
         expr(query.reified, selectSlot, rename, true)
-        fromSlot = b.createSlot
+        fromSlot = b.createSlot*/
         appendClauses(b)
       case _ =>
         super.innerBuildSelectNoRewrite(b, rename)
@@ -152,13 +147,13 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     if(desc) b += " desc"
   }
 
-  override protected def appendLimitClause(b: SQLBuilder) = ()
+  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int], b: SQLBuilder) = ()
 }
 
 class AccessDDLBuilder(table: AbstractBasicTable[_], profile: AccessDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
-  protected class AccessColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
+  protected class AccessColumnDDLBuilder(column: RawNamedColumn) extends BasicColumnDDLBuilder(column) {
 
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
@@ -177,7 +172,7 @@ class AccessDDLBuilder(table: AbstractBasicTable[_], profile: AccessDriver) exte
     }
   }
 
-  override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new AccessColumnDDLBuilder(c)
+  override protected def createColumnDDLBuilder(c: RawNamedColumn) = new AccessColumnDDLBuilder(c)
 
   override protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
     sb append "CONSTRAINT " append quoteIdentifier(fk.data.name) append " FOREIGN KEY("

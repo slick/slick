@@ -38,7 +38,7 @@ class SQLServerDriver extends ExtendedProfile { self =>
   override val sqlUtils = new SQLServerSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLServerDDLBuilder(table, this).buildDDL
-  override def createQueryBuilder(query: Query[_, _], nc: NamingContext) = new SQLServerQueryBuilder(query, nc, None, this)
+  override def createQueryBuilder(query: Query[_, _]) = new SQLServerQueryBuilder(query, this)
 }
 
 object SQLServerDriver extends SQLServerDriver
@@ -85,13 +85,11 @@ object SQLServerTypeMapperDelegates {
   }
 }
 
-class SQLServerQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent: Option[BasicQueryBuilder], profile: SQLServerDriver)
-extends BasicQueryBuilder(_query, _nc, parent, profile) {
+class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) extends BasicQueryBuilder(_query, profile) {
 
   import profile.sqlUtils._
   import ExtendedQueryOps._
 
-  override type Self = SQLServerQueryBuilder
   override protected val supportsTuples = false
   override protected val concatOperator = Some("+")
 
@@ -105,21 +103,20 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case _ => false
   }
 
-  protected def createSubQueryBuilder(query: Query[_, _], nc: NamingContext) =
-    new SQLServerQueryBuilder(query, nc, Some(this), profile)
-
+  /*TODO
   override def buildSelect(b: SQLBuilder): Unit = {
     /* Rename at top level if we need to wrap with TakeDrop code */
     innerBuildSelect(b, hasTakeDrop)
     insertAllFromClauses()
   }
+  */
 
   override protected def innerBuildSelectNoRewrite(b: SQLBuilder, rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), Some(d)) :: _ =>
         b += "WITH T AS (SELECT TOP " += (t+d) += ' '
         expr(query.reified, b, rename, true)
-        fromSlot = b.createSlot
+        //TODO fromSlot = b.createSlot
         appendClauses(b)
         b += ") SELECT "
         addCopyColumns(b)
@@ -128,7 +125,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       case TakeDrop(Some(t), None) :: _ =>
         b += "WITH T AS (SELECT TOP " += t += ' '
         expr(query.reified, b, rename, true)
-        fromSlot = b.createSlot
+        //TODO fromSlot = b.createSlot
         appendClauses(b)
         b += ") SELECT "
         addCopyColumns(b)
@@ -137,7 +134,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
       case TakeDrop(None, Some(d)) :: _ =>
         b += "WITH T AS (SELECT "
         expr(query.reified, b, rename, true)
-        fromSlot = b.createSlot
+        //TODO fromSlot = b.createSlot
         appendClauses(b)
         b += ") SELECT "
         addCopyColumns(b)
@@ -149,19 +146,24 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
   }
 
   def addCopyColumns(b: SQLBuilder) {
+    //TODO
+    /*
     if(isCountAll) b += "count(*)"
     else if(maxColumnPos == 0) b += "*"
     else b.sep(1 to maxColumnPos, ",")(i => b += "\"c" += i += "\"")
+    */
   }
 
   override protected def expr(c: Node, b: SQLBuilder, rename: Boolean, topLevel: Boolean): Unit = {
     c match {
       /* Convert proper BOOLEANs which should be returned from a SELECT
        * statement into pseudo-boolean BIT values 1 and 0 */
+      /*TODO
       case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
         b += "case when "
         innerExpr(c, b)
         b += " then 1 else 0 end"
+        */
       case _ => super.expr(c, b, rename, topLevel)
     }
     if(topLevel && hasTakeDrop) {
@@ -183,7 +185,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
     case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
       b += "("; super.innerExpr(c, b); b += " != 0)"
 
-    case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
+    //TODO case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
     case _ => super.innerExpr(c, b)
   }
 
@@ -217,7 +219,7 @@ extends BasicQueryBuilder(_query, _nc, parent, profile) {
 class SQLServerDDLBuilder(table: AbstractBasicTable[_], profile: SQLServerDriver) extends BasicDDLBuilder(table, profile) {
   import profile.sqlUtils._
 
-  protected class SQLServerColumnDDLBuilder(column: NamedColumn[_]) extends BasicColumnDDLBuilder(column) {
+  protected class SQLServerColumnDDLBuilder(column: RawNamedColumn) extends BasicColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder) {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
@@ -226,7 +228,7 @@ class SQLServerDDLBuilder(table: AbstractBasicTable[_], profile: SQLServerDriver
     }
   }
 
-  override protected def createColumnDDLBuilder(c: NamedColumn[_]) = new SQLServerColumnDDLBuilder(c)
+  override protected def createColumnDDLBuilder(c: RawNamedColumn) = new SQLServerColumnDDLBuilder(c)
 }
 
 class SQLServerSQLUtils extends BasicSQLUtils {

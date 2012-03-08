@@ -2,25 +2,25 @@ package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{Sequence, Query, DDL}
 import org.scalaquery.util.{ValueLinearizer, SQLBuilder}
-import org.scalaquery.ast.{Optimizer, NodeGenerator, Node, NamingContext, Relational}
+import org.scalaquery.ast.{Optimizer, NodeGenerator, Node, Relational}
 
 trait BasicProfile {
   type ImplicitT <: BasicImplicitConversions[_ <: BasicProfile]
   type TypeMapperDelegatesT <: BasicTypeMapperDelegates
 
   def createQueryTemplate[P,R](query: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](query, this)
-  def createQueryBuilder(query: Query[_, _], nc: NamingContext): BasicQueryBuilder = new ConcreteBasicQueryBuilder(query, nc, None, this)
+  def createQueryBuilder(query: Query[_, _]): BasicQueryBuilder = new BasicQueryBuilder(query, this)
 
   val Implicit: ImplicitT
   val typeMapperDelegates: TypeMapperDelegatesT
   val sqlUtils = new BasicSQLUtils
 
-  def buildSelectStatement(query: Query[_, _], nc: NamingContext): (SQLBuilder.Result, ValueLinearizer[_]) =
-    createQueryBuilder(query, nc).buildSelect
-  def buildUpdateStatement(query: Query[_, _], nc: NamingContext): SQLBuilder.Result =
-    createQueryBuilder(query, nc).buildUpdate
-  def buildDeleteStatement(query: Query[_, _], nc: NamingContext): SQLBuilder.Result =
-    createQueryBuilder(query, nc).buildDelete
+  def buildSelectStatement(query: Query[_, _]): (SQLBuilder.Result, ValueLinearizer[_]) =
+    createQueryBuilder(query).buildSelect
+  def buildUpdateStatement(query: Query[_, _]): SQLBuilder.Result =
+    createQueryBuilder(query).buildUpdate
+  def buildDeleteStatement(query: Query[_, _]): SQLBuilder.Result =
+    createQueryBuilder(query).buildDelete
 
   def buildInsertStatement(cb: Any): String = new BasicInsertBuilder(cb, this).buildInsert
   def buildInsertStatement(cb: Any, q: Query[_, _]): SQLBuilder.Result =

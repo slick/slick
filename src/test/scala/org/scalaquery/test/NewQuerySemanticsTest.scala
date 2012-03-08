@@ -83,7 +83,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     println("l2: "+l2)
     assertEquals(15, l2.length)
 
-    def show(name: String, g: NodeGenerator) {
+    def show(name: String, g: Query[_,_]) {
       val n = Node(g)
       //AnonSymbol.assignNames(n, force = true)
       println("=========================================== "+name)
@@ -95,6 +95,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       val n3 = Relational(n2)
       n3.dump("relational: ")
       println
+      println("SQL: "+g.selectStatement)
     }
 
     val q1 = for {
@@ -102,11 +103,10 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       s <- Suppliers
     } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
     show("q1: Plain implicit join", q1)
-    //println("q1: "+q1.selectStatement)
-    //val l3 = q1.list
-    //println("l3: "+l3)
+    val l3 = q1.list
+    println("l3: "+l3)
 
-    val q1b_0 = Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
+    /*val q1b_0 = Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     val q1b = for {
       (c, s) <- q1b_0.take(2).filter(_._1.name =!= "foo")
       (c2, s2) <- q1b_0
@@ -169,7 +169,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val q7 = for {
       c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(4).map((_, 2))
     } yield c._1.name ~ c._1.supID ~ c._2
-    show("q7: Union", q7)
+    show("q7: Union", q7)*/
 
     /*val q7b = q7 where (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)*/

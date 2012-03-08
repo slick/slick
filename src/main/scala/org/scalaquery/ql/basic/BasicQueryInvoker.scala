@@ -4,7 +4,6 @@ import java.sql.PreparedStatement
 import org.scalaquery.{UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}
 import org.scalaquery.ql.Query
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
-import org.scalaquery.ast.NamingContext
 import org.scalaquery.util.ValueLinearizer
 
 class BasicQueryInvoker[Q, R](q: Query[Q, R], profile: BasicProfile)
@@ -12,7 +11,7 @@ class BasicQueryInvoker[Q, R](q: Query[Q, R], profile: BasicProfile)
 
   override protected val delegate = this
 
-  protected lazy val (built, lin) = profile.buildSelectStatement(q, NamingContext())
+  protected lazy val (built, lin) = profile.buildSelectStatement(q)
 
   def selectStatement = getStatement
 

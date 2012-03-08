@@ -2,11 +2,10 @@ package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{Query, ColumnBase}
 import org.scalaquery.session.{Session, PositionedParameters}
-import org.scalaquery.ast.NamingContext
 
 class BasicUpdateInvoker[T] (query: Query[_ <: ColumnBase[T], T], profile: BasicProfile) {
 
-  protected lazy val built = profile.buildUpdateStatement(query, NamingContext())
+  protected lazy val built = profile.buildUpdateStatement(query)
 
   def updateStatement = getStatement
 
