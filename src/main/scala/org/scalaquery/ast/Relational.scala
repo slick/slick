@@ -60,16 +60,19 @@ object Relational extends Logging {
         val eliminated = new HashMap[Symbol, Node]
         var rewrite = false
         def scanFrom(c: Comprehension): Unit = {
+          logger.debug("Scanning from clauses of Comprehension "+c.from.map(_._1).mkString(", "))
           c.from.foreach {
-            case t @ (s,  n @ ComprehensionStruct(target)) if(!protectedRefs(s)) =>
+            case (s,  n @ ComprehensionStruct(target)) if(!protectedRefs(s)) =>
               rewrite = true
               eliminated += ((s, target))
               scanFrom(n)
-            case t @ (s, f @ FilteredJoin(leftGen, rightGen, left, right, Join.Inner, on)) =>
+            case (s, f @ FilteredJoin(leftGen, rightGen, left, right, Join.Inner, on)) =>
+              rewrite = true
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
               newWhere += on
-            case t @ (s, f @ BaseJoin(leftGen, rightGen, left, right, Join.Inner)) =>
+            case (s, f @ BaseJoin(leftGen, rightGen, left, right, Join.Inner)) =>
+              rewrite = true
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
             case t =>
