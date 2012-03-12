@@ -49,6 +49,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
         expr(where.reduceLeft(And))
       }
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
+    case n => throw new SQueryException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
   }
 
   protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) {
@@ -193,7 +194,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
 
   final protected def appendGroupClause(): Unit = query.typedModifiers[Grouping] match {
     case Nil =>
-    case xs => b += " GROUP BY "; b.sep(xs, ",")(x => expr(x.by, false, true))
+    case xs => b += " GROUP BY "; b.sep(xs, ",")(x => expr(x.by))
   }
 
   final protected def appendOrderClause(): Unit = query.typedModifiers[Ordering] match {
@@ -202,7 +203,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
   }
 
   protected def appendOrdering(o: Ordering) {
-    expr(o.by, false, true)
+    expr(o.by)
     if(o.isInstanceOf[Ordering.Desc]) b += " desc"
     o.nullOrdering match {
       case Ordering.NullsFirst => b += " nulls first"
@@ -211,7 +212,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     }
   }
 
-  def buildDelete = {
+  final def buildDelete = {
     val b = new SQLBuilder += "DELETE FROM "
     val (delTable, delTableName) = query.reified match {
       case t @ AbstractTable.Alias(base:AbstractTable[_]) => (t, base.tableName)
@@ -229,7 +230,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     b.build
   }
 
-  def buildUpdate = {
+  final def buildUpdate = {
     if(/*!query.condHaving.isEmpty ||*/ !query.modifiers.isEmpty)
       throw new SQueryException("A query for an UPDATE statement must not have any modifiers other than WHERE restrictions")
     val b = new SQLBuilder += "UPDATE "
@@ -278,27 +279,6 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     //TODO if(localTables.size > 1)
     //  throw new SQueryException("An UPDATE statement must not use more than one table at the top level")
     b.build
-  }
-
-  protected def expr(c: Node, rename: Boolean, topLevel: Boolean) {
-    sys.error("obsolete")
-    /*var pos = 0
-    c match {
-      case p: ProductNode => {
-        p.nodeChildren.foreach { c =>
-          if(pos != 0) b += ','
-          pos += 1
-          expr(c, b, false, true)
-          if(rename) b += " as " += quoteIdentifier("c" + pos.toString)
-        }
-      }
-      case _ => innerExpr(c, b)
-    }
-    if(rename && pos == 0) {
-      b += " as " += quoteIdentifier("c1")
-      pos = 1
-    }
-    if(topLevel) this.maxColumnPos = pos*/
   }
 
   protected def innerExpr(c: Node): Unit = sys.error("obsolete")

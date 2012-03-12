@@ -31,13 +31,13 @@ class OracleQueryBuilder(_query: Query[_, _], profile: OracleDriver) extends Bas
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), None) :: _ =>
         b += "SELECT * FROM (SELECT "
-        expr(query.reified, rename, true)
+        expr(query.reified)
         //TODO fromSlot = b.createSlot
         appendClauses()
         b += ") WHERE ROWNUM <= " += t
       case TakeDrop(to, Some(d)) :: _ =>
         b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (SELECT "
-        expr(Node(query.reified), rename, true)
+        expr(Node(query.reified))
         b += ",ROWNUM ROWNUM_I"
         //TODO fromSlot = b.createSlot
         appendClauses()
@@ -51,7 +51,7 @@ class OracleQueryBuilder(_query: Query[_, _], profile: OracleDriver) extends Bas
         b += " ORDER BY ROWNUM_I"
       case _ =>
         b += "SELECT "
-        expr(query.reified, rename, true)
+        expr(query.reified)
         //TODO fromSlot = b.createSlot
         appendClauses()
     }

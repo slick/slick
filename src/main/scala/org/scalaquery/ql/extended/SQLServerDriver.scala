@@ -114,7 +114,7 @@ class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) exten
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), Some(d)) :: _ =>
         b += "WITH T AS (SELECT TOP " += (t+d) += ' '
-        expr(query.reified, rename, true)
+        expr(query.reified)
         //TODO fromSlot = b.createSlot
         appendClauses()
         b += ") SELECT "
@@ -123,7 +123,7 @@ class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) exten
         if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
       case TakeDrop(Some(t), None) :: _ =>
         b += "WITH T AS (SELECT TOP " += t += ' '
-        expr(query.reified, rename, true)
+        expr(query.reified)
         //TODO fromSlot = b.createSlot
         appendClauses()
         b += ") SELECT "
@@ -132,7 +132,7 @@ class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) exten
         if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
       case TakeDrop(None, Some(d)) :: _ =>
         b += "WITH T AS (SELECT "
-        expr(query.reified, rename, true)
+        expr(query.reified)
         //TODO fromSlot = b.createSlot
         appendClauses()
         b += ") SELECT "
@@ -153,16 +153,15 @@ class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) exten
     */
   }
 
+  /*TODO
   override protected def expr(c: Node, rename: Boolean, topLevel: Boolean): Unit = {
     c match {
       /* Convert proper BOOLEANs which should be returned from a SELECT
        * statement into pseudo-boolean BIT values 1 and 0 */
-      /*TODO
       case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
         b += "case when "
         innerExpr(c)
         b += " then 1 else 0 end"
-        */
       case _ => super.expr(c, rename, topLevel)
     }
     if(topLevel && hasTakeDrop) {
@@ -172,6 +171,7 @@ class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) exten
       b += ") AS \"c0r\""
     }
   }
+  */
 
   override protected def innerExpr(c: Node): Unit = c match {
     /* Create TRUE and FALSE values because SQL Server lacks boolean literals */

@@ -73,19 +73,19 @@ class DerbyQueryBuilder(_query: Query[_, _], profile: DerbyDriver) extends Basic
   override protected val scalarFrom = Some("sysibm.sysdummy1")
   override protected val supportsTuples = false
 
+  /*TODO
   override protected def expr(c: Node, rename: Boolean, topLevel: Boolean): Unit = {
     c match {
       /* Convert proper BOOLEANs which should be returned from a SELECT
        * statement into pseudo-boolean SMALLINT values 1 and 0 */
-      /*TODO
        case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
         b += "case when "
         innerExpr(c)
         b += " then 1 else 0 end"
-      */
       case _ => super.expr(c, rename, topLevel)
     }
   }
+  */
 
   override protected def innerExpr(c: Node): Unit = c match {
     /* Create TRUE and FALSE values because Derby lacks boolean literals */

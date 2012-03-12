@@ -99,21 +99,23 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     }
 
     val q1 = for {
-      c <- Query(Coffees).take(3)
+      c <- Query(Coffees).take(2)
       s <- Suppliers
     } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
     show("q1: Plain implicit join", q1)
-    val l3 = q1.list
-    println("l3: "+l3)
+    val r1 = q1.to[Set]()
+    println("r1: "+r1)
 
-    /*val q1b_0 = Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
+    val q1b_0 = Query(Coffees).take(3) join Suppliers on (_.supID === _.id)
     val q1b = for {
       (c, s) <- q1b_0.take(2).filter(_._1.name =!= "foo")
       (c2, s2) <- q1b_0
     } yield c.name ~ s.city ~ c2.name
     show("q1b: Explicit join with condition", q1b)
+    val r1b = q1b.to[Set]()
+    println("r1b: "+r1b)
 
-    val q2 = for {
+    /*val q2 = for {
       c <- Coffees.filter(_.price < 9.0).map(_.*)
       s <- Suppliers if s.id === c._2
     } yield c._1 ~ s.name
