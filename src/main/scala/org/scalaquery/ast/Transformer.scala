@@ -14,15 +14,19 @@ abstract class Transformer extends (Node => Node) { self =>
 
   def initTree(n: Node) = ()
 
-  def apply(tree: Node): Node = {
+  private def applyInternal(tree: Node, once: Boolean): Node = {
     val repl = replace.orElse(pfidentity[Node])
     def scanAndTr(n: Node): Node = {
       initTree(n)
       val n2 = memoized[Node, Node](r => { n => repl(n).nodeMapChildren(r) })(n)
-      if(n2 eq n) n else scanAndTr(n2)
+      if(once || (n2 eq n)) n2 else scanAndTr(n2)
     }
     scanAndTr(tree)
   }
+
+  def apply(tree: Node): Node = applyInternal(tree, false)
+
+  def applyOnce(tree: Node): Node = applyInternal(tree, true)
 
   def compose(g: Transformer): Transformer = new Transformer {
     def replace = self.replace.orElse(g.replace)
@@ -43,17 +47,22 @@ object Transformer {
       defs.clear()
       defs ++= tree.collectAll[(Symbol, Node)] { case d: DefNode => d.nodeGenerators }
     }
+    //@deprecated("Use Def instead", "")
     object ResolvedRef {
       def unapply(n: Node): Option[(Symbol, Node)] = n match {
         case Ref(sym) => defs.get(sym).map(v => (sym, v))
         case _ => None
       }
     }
+    //@deprecated("Use Def instead", "")
     object ResolvedInRef {
       def unapply(n: Node): Option[(Symbol, Node, Node)] = n match {
         case InRef(sym, what) => defs.get(sym).map(v => (sym, v, what))
         case _ => None
       }
+    }
+    object Def {
+      def unapply(sym: Symbol): Option[Node] = defs.get(sym)
     }
   }
 

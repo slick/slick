@@ -1,7 +1,6 @@
 package org.scalaquery.test
 
 import org.junit.Test
-import org.junit.Assert._
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.extended.{ExtendedTable => Table}
@@ -10,6 +9,7 @@ import org.scalaquery.simple.StaticQuery._
 import org.scalaquery.ast._
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
+import org.junit.Assert._
 
 object NewQuerySemanticsTest extends DBTestObject(H2Mem)
 
@@ -69,11 +69,11 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     SuppliersStd.insert(150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
 
     CoffeesStd.insertAll(
-      ("Colombian",         101, 7.99, 0, 0),
-      ("French_Roast",       49, 7.99, 0, 0),
-      ("Espresso",          150, 9.99, 0, 0),
-      ("Colombian_Decaf",   101, 8.49, 0, 0),
-      ("French_Roast_Decaf", 49, 9.99, 0, 0)
+      ("Colombian",         101, 7.99, 1, 0),
+      ("French_Roast",       49, 7.99, 2, 0),
+      ("Espresso",          150, 9.99, 3, 0),
+      ("Colombian_Decaf",   101, 8.49, 4, 0),
+      ("French_Roast_Decaf", 49, 9.99, 5, 0)
     )
 
     val l1 = queryNA[String]("select c.cof_name from coffees c").list
@@ -106,12 +106,12 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val r1 = q1.to[Set]()
     println("r1: "+r1)
     val r1e = Set(
-      (("Colombian","Groundsville:"),("Colombian",101,7.99,0,0),(101,"Acme, Inc.","99 Market Street"),0.0),
-      (("Colombian","Mendocino:"),("Colombian",101,7.99,0,0),(49,"Superior Coffee","1 Party Place"),0.0),
-      (("Colombian","Meadows:"),("Colombian",101,7.99,0,0),(150,"The High Ground","100 Coffee Lane"),0.0),
-      (("Colombian_Decaf","Groundsville:"),("Colombian_Decaf",101,8.49,0,0),(101,"Acme, Inc.","99 Market Street"),0.0),
-      (("Colombian_Decaf","Mendocino:"),("Colombian_Decaf",101,8.49,0,0),(49,"Superior Coffee","1 Party Place"),0.0),
-      (("Colombian_Decaf","Meadows:"),("Colombian_Decaf",101,8.49,0,0),(150,"The High Ground","100 Coffee Lane"),0.0)
+      (("Colombian","Groundsville:"),("Colombian",101,7.99,1,0),(101,"Acme, Inc.","99 Market Street"),7.99),
+      (("Colombian","Mendocino:"),("Colombian",101,7.99,1,0),(49,"Superior Coffee","1 Party Place"),7.99),
+      (("Colombian","Meadows:"),("Colombian",101,7.99,1,0),(150,"The High Ground","100 Coffee Lane"),7.99),
+      (("Colombian_Decaf","Groundsville:"),("Colombian_Decaf",101,8.49,4,0),(101,"Acme, Inc.","99 Market Street"),33.96),
+      (("Colombian_Decaf","Mendocino:"),("Colombian_Decaf",101,8.49,4,0),(49,"Superior Coffee","1 Party Place"),33.96),
+      (("Colombian_Decaf","Meadows:"),("Colombian_Decaf",101,8.49,4,0),(150,"The High Ground","100 Coffee Lane"),33.96)
     )
     assertEquals(r1e, r1)
 
@@ -130,14 +130,22 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     )
     assertEquals(r1be, r1b)
 
-    /*val q2 = for {
+    val q2 = for {
       c <- Coffees.filter(_.price < 9.0).map(_.*)
       s <- Suppliers if s.id === c._2
     } yield c._1 ~ s.name
     show("q2: More elaborate query", q2)
+    val r2 = q2.to[Set]()
+    println("r2: "+r2)
+    val r2e = Set(
+      ("Colombian","Acme, Inc."),
+      ("French_Roast","Superior Coffee"),
+      ("Colombian_Decaf","Acme, Inc.")
+    )
+    assertEquals(r2e, r2)
 
     val q3 = Coffees.flatMap { c =>
-      val cf = c.where(_.price < c.price)
+      val cf = Query(c).where(_.price === 8.49)
       cf.flatMap { cf =>
         Suppliers.where(_.id === c.supID).map { s =>
           c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed
@@ -145,8 +153,12 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       }
     }
     show("q3: Lifting scalar values", q3)
+    val r3 = q3.to[Set]()
+    println("r3: "+r3)
+    val r3e = Set(("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,33.96))
+    assertEquals(r3e, r3)
 
-    val q3b = Coffees.flatMap { c =>
+    /*val q3b = Coffees.flatMap { c =>
       val cf = Query((c, 42)).where(_._1.price < 9.0)
       cf.flatMap { case (cf, num) =>
         Suppliers.where(_.id === c.supID).map { s =>

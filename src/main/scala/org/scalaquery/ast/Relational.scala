@@ -1,12 +1,13 @@
 package org.scalaquery.ast
 
 import scala.collection.mutable.{HashMap, ArrayBuffer}
+import org.scalaquery.SQueryException
 import org.scalaquery.ql.{AbstractTable, Join}
 import org.scalaquery.util.Logging
 import OptimizerUtil._
 
 /**
- * Conversion to of basic ASTs to a shape suitable for relational DBs.
+ * Conversion of basic ASTs to a shape suitable for relational DBs.
  */
 object Relational extends Logging {
 
@@ -20,7 +21,30 @@ object Relational extends Logging {
     if(n3 ne n2) logger.debug("converted: ", n3)
     val n4 = inline(n3)
     if(n4 ne n3) logger.debug("inlined: ", n4)
-    n4
+    val n5 = eliminatePureFrom(n4)
+    if(n5 ne n4) logger.debug("pure from eliminated: ", n5)
+    n5
+  }
+
+  def eliminatePureFrom(tree: Node): Node = {
+    val tr = new Transformer.Defs {
+      def replace = {
+        case FieldRef(Def(Pure(TableRef(table))), fieldSym) => FieldRef(table, fieldSym)
+        case c @ Comprehension(from, _, _, _) =>
+          val filtered = from.filter {
+            case (sym, Pure(TableRef(_))) => false
+            case _ => true
+          }
+          if(filtered.length == from.length) c else c.copy(from = filtered)
+      }
+    }
+    val res = tr.applyOnce(tree)
+    // Ensure that no TableRefs remain
+    res.foreach {
+      case t @ TableRef(_) => throw new SQueryException("Could not eliminate "+t)
+      case _ => ()
+    }
+    res
   }
 
   val convert = new Transformer {
@@ -131,7 +155,10 @@ object Relational extends Logging {
         case Seq() => Seq.empty
         case seq => s +: seq
       }
-      case Some(Pure(TableRef(sym))) => chain(sym)
+      case Some(Pure(TableRef(sym))) => chain(sym) match {
+        case Seq() => Seq.empty
+        case seq => s +: seq
+      }
       case _ => Seq.empty
     }
     val tableRefs = tree.collectAll[(Seq[Symbol], FieldSymbol)]{
