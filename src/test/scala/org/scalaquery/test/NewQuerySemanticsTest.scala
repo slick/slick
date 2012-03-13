@@ -72,7 +72,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       ("Colombian",         101, 7.99, 0, 0),
       ("French_Roast",       49, 7.99, 0, 0),
       ("Espresso",          150, 9.99, 0, 0),
-      ("Colombian_Decaf",   101, 8.99, 0, 0),
+      ("Colombian_Decaf",   101, 8.49, 0, 0),
       ("French_Roast_Decaf", 49, 9.99, 0, 0)
     )
 
@@ -109,28 +109,26 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       (("Colombian","Groundsville:"),("Colombian",101,7.99,0,0),(101,"Acme, Inc.","99 Market Street"),0.0),
       (("Colombian","Mendocino:"),("Colombian",101,7.99,0,0),(49,"Superior Coffee","1 Party Place"),0.0),
       (("Colombian","Meadows:"),("Colombian",101,7.99,0,0),(150,"The High Ground","100 Coffee Lane"),0.0),
-      (("Colombian_Decaf","Groundsville:"),("Colombian_Decaf",101,8.99,0,0),(101,"Acme, Inc.","99 Market Street"),0.0),
-      (("Colombian_Decaf","Mendocino:"),("Colombian_Decaf",101,8.99,0,0),(49,"Superior Coffee","1 Party Place"),0.0),
-      (("Colombian_Decaf","Meadows:"),("Colombian_Decaf",101,8.99,0,0),(150,"The High Ground","100 Coffee Lane"),0.0)
+      (("Colombian_Decaf","Groundsville:"),("Colombian_Decaf",101,8.49,0,0),(101,"Acme, Inc.","99 Market Street"),0.0),
+      (("Colombian_Decaf","Mendocino:"),("Colombian_Decaf",101,8.49,0,0),(49,"Superior Coffee","1 Party Place"),0.0),
+      (("Colombian_Decaf","Meadows:"),("Colombian_Decaf",101,8.49,0,0),(150,"The High Ground","100 Coffee Lane"),0.0)
     )
     assertEquals(r1e, r1)
 
     val q1b_0 = Coffees.sortBy(_.price).take(3) join Suppliers on (_.supID === _.id)
     val q1b = for {
-      (c, s) <- q1b_0.take(2).filter(_._1.name =!= "foo")
+      (c, s) <- q1b_0.take(2).filter(_._1.name =!= "Colombian")
       (c2, s2) <- q1b_0
     } yield c.name ~ s.city ~ c2.name
     show("q1b: Explicit join with condition", q1b)
     val r1b = q1b.to[Set]()
     println("r1b: "+r1b)
     val r1be = Set(
-      ("Colombian","Groundsville","French_Roast"),
-      ("Colombian","Groundsville","Espresso"),
-      ("Colombian","Groundsville","Colombian"),
-      ("French_Roast","Mendocino","Espresso"),
+      ("French_Roast","Mendocino","Colombian"),
       ("French_Roast","Mendocino","French_Roast"),
-      ("French_Roast","Mendocino","Colombian")
+      ("French_Roast","Mendocino","Colombian_Decaf")
     )
+    assertEquals(r1be, r1b)
 
     /*val q2 = for {
       c <- Coffees.filter(_.price < 9.0).map(_.*)
