@@ -158,7 +158,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val r3e = Set(("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,33.96))
     assertEquals(r3e, r3)
 
-    /*val q3b = Coffees.flatMap { c =>
+    val q3b = Coffees.flatMap { c =>
       val cf = Query((c, 42)).where(_._1.price < 9.0)
       cf.flatMap { case (cf, num) =>
         Suppliers.where(_.id === c.supID).map { s =>
@@ -167,8 +167,16 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       }
     }
     show("q3b: Lifting scalar values, with extra tuple", q3b)
+    val r3b = q3b.to[Set]()
+    println("r3b: "+r3b)
+    val r3be = Set(
+      ("Colombian","Acme, Inc.","Colombian",0,7.99,42),
+      ("French_Roast","Superior Coffee","French_Roast",0,15.98,42),
+      ("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,33.96,42)
+    )
+    assertEquals(r3be, r3b)
 
-    val q4 = for {
+    /*val q4 = for {
       c <- Coffees.map(c => (c.name, c.price, 42)).take(100).filter(_._2 < 9.0)
     } yield c._1 ~ c._3
     show("q4: Map to tuple, then filter", q4)

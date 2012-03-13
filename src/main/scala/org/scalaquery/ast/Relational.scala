@@ -30,9 +30,12 @@ object Relational extends Logging {
     val tr = new Transformer.Defs {
       def replace = {
         case FieldRef(Def(Pure(TableRef(table))), fieldSym) => FieldRef(table, fieldSym)
+        case FieldRef(Def(Pure(StructNode(defs))), fieldSym) =>
+          defs.find(_._1 == fieldSym).get._2
         case c @ Comprehension(from, _, _, _) =>
           val filtered = from.filter {
-            case (sym, Pure(TableRef(_))) => false
+            case (sym, Pure(t: TableRef)) => false
+            case (sym, Pure(s: StructNode)) => false
             case _ => true
           }
           if(filtered.length == from.length) c else c.copy(from = filtered)
@@ -41,8 +44,12 @@ object Relational extends Logging {
     val res = tr.applyOnce(tree)
     // Ensure that no TableRefs remain
     res.foreach {
-      case t @ TableRef(_) => throw new SQueryException("Could not eliminate "+t)
-      case _ => ()
+      case d: DefNode => d.nodeGenerators.foreach {
+        case (sym, Pure(t: TableRef)) => throw new SQueryException("Could not eliminate "+sym+" <- "+t)
+        case (sym, Pure(s: StructNode)) => throw new SQueryException("Could not eliminate "+sym+" <- "+s)
+        case _ =>
+      }
+      case _ =>
     }
     res
   }
@@ -70,7 +77,8 @@ object Relational extends Logging {
         case Comprehension(from, _, _, None) =>
           from.last._2 match {
             case c2: Comprehension => unapply(c2)
-            case Pure(TableRef(_)) => Some(TableRef(from.last._1))
+            case Pure(s: StructNode) => Some(TableRef(from.last._1))
+            case Pure(t: TableRef) => Some(TableRef(from.last._1))
             case _ => None
           }
         case _ => None
