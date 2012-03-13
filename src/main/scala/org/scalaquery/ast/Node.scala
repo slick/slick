@@ -215,6 +215,15 @@ final case class Filter(generator: Symbol, from: Node, where: Node) extends Filt
   def nodePostGeneratorChildren = Seq(where)
 }
 
+final case class SortBy(generator: Symbol, from: Node, by: Node) extends FilteredQuery with BinaryNode with SimpleDefNode {
+  def left = from
+  def right = by
+  protected[this] override def nodeChildNames = Seq("from "+generator, "by")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, by = right)
+  def withGenerator(gen: Symbol) = copy(generator = gen)
+  def nodePostGeneratorChildren = Seq(by)
+}
+
 final case class GroupBy(from: Node, groupBy: Node, generator: Symbol = new AnonSymbol) extends FilteredQuery with BinaryNode with SimpleDefNode {
   def left = from
   def right = groupBy

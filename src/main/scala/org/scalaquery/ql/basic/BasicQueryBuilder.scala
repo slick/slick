@@ -28,7 +28,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
   }
 
   protected def buildComprehension(n: Node): Unit = n match {
-    case Comprehension(from, where, select) =>
+    case Comprehension(from, where, orderBy, select) =>
       b += "SELECT "
       select match {
         case Some(n) => buildSelectClause(n)
@@ -47,6 +47,10 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
       if(!where.isEmpty) {
         b += " WHERE "
         expr(where.reduceLeft(And))
+      }
+      if(!orderBy.isEmpty) {
+        b += " ORDER BY "
+        b.sep(orderBy, ", ")(expr)
       }
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
     case n => throw new SQueryException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)

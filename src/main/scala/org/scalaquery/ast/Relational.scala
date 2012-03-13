@@ -26,22 +26,24 @@ object Relational extends Logging {
   val convert = new Transformer {
     def replace = {
       // Bind to Comprehension
-      case Bind(gen, from, select) => Comprehension(Seq((gen, from)), Nil, Some(select))
+      case Bind(gen, from, select) => Comprehension(from = Seq((gen, from)), select = Some(select))
       // Filter to Comprehension
-      case Filter(gen, from, where) => Comprehension(Seq((gen, from)), Seq(where), None)
+      case Filter(gen, from, where) => Comprehension(from = Seq((gen, from)), where = Seq(where))
+      // SortBy to Comprehension
+      case SortBy(gen, from, by) => Comprehension(from = Seq((gen, from)), orderBy = Seq(by))
       // Merge Comprehension which selects another Comprehension
-      case Comprehension(from1, where1, Some(c2 @ Comprehension(from2, where2, select))) =>
-        c2.copy(from = from1 ++ from2, where = where1 ++ where2)
+      case Comprehension(from1, where1, orderBy1, Some(c2 @ Comprehension(from2, where2, orderBy2, select))) =>
+        c2.copy(from = from1 ++ from2, where = where1 ++ where2, orderBy = orderBy2 ++ orderBy1)
     }
   }
 
   def inline(tree: Node) = {
     object ComprehensionStruct {
       def unapply(c: Comprehension): Option[Node] = c match {
-        case Comprehension(_, _, Some(Pure(s : StructNode))) => Some(s)
-        case Comprehension(_, _, Some(Pure(t: TableRef))) => Some(t)
-        case Comprehension(_, _, Some(c2: Comprehension)) => unapply(c2)
-        case Comprehension(from, _, None) =>
+        case Comprehension(_, _, _, Some(Pure(s : StructNode))) => Some(s)
+        case Comprehension(_, _, _, Some(Pure(t: TableRef))) => Some(t)
+        case Comprehension(_, _, _, Some(c2: Comprehension)) => unapply(c2)
+        case Comprehension(from, _, _, None) =>
           from.last._2 match {
             case c2: Comprehension => unapply(c2)
             case Pure(TableRef(_)) => Some(TableRef(from.last._1))
@@ -57,11 +59,12 @@ object Relational extends Logging {
       case c: Comprehension =>
         val newGens = new ArrayBuffer[(Symbol, Node)]
         val newWhere = new ArrayBuffer[Node]
+        val newOrderBy = new ArrayBuffer[Node]
         val eliminated = new HashMap[Symbol, Node]
         var rewrite = false
-        def scanFrom(c: Comprehension): Unit = {
+        def scanFrom(c: Comprehension): Option[Node] = {
           logger.debug("Scanning from clauses of Comprehension "+c.from.map(_._1).mkString(", "))
-          c.from.foreach {
+          val sel = c.from.map {
             case (s,  n @ ComprehensionStruct(target)) if(!protectedRefs(s)) =>
               rewrite = true
               eliminated += ((s, target))
@@ -71,16 +74,21 @@ object Relational extends Logging {
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
               newWhere += on
+              c.select
             case (s, f @ BaseJoin(leftGen, rightGen, left, right, Join.Inner)) =>
               rewrite = true
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
+              c.select
             case t =>
               newGens += t
-          }
+              c.select
+          }.lastOption
           newWhere ++= c.where
+          newOrderBy ++= c.orderBy
+          c.select.orElse(sel.getOrElse(None))
         }
-        scanFrom(c)
+        val newSelect = scanFrom(c)
         logger.debug("eliminated: "+eliminated)
         def replaceRefs(n: Node): Node = n match {
           case FieldRef(t, c) if eliminated.contains(t) =>
@@ -95,7 +103,7 @@ object Relational extends Logging {
             }
           case n => n.nodeMapChildren(replaceRefs)
         }
-        if(rewrite) replaceRefs(Comprehension(newGens, newWhere, c.select)).nodeMapChildren(f)
+        if(rewrite) replaceRefs(Comprehension(newGens, newWhere, newOrderBy, newSelect)).nodeMapChildren(f)
         else c.nodeMapChildren(f)
       case n => n.nodeMapChildren(f)
     }
@@ -103,7 +111,7 @@ object Relational extends Logging {
   }
 
   def filterSource(n: Node): Node = n match {
-    case Comprehension(from, _, None) => filterSource(from.last._2)
+    case Comprehension(from, _, _, None) => filterSource(from.last._2)
     case n => n
   }
 
