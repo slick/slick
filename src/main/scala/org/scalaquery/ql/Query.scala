@@ -44,10 +44,10 @@ abstract class Query[+E, +U] extends NodeGenerator {
     new BaseJoinQuery[E, E2, U, U2](leftGen, rightGen, Node(unpackable.value), Node(q2.unpackable.value), Join.Inner, aliased1.zip(aliased2))
   }
 
-  def sortBy(f: E => Column[_]): Query[E, U] = {
+  def sortBy[T <% Ordered](f: E => T): Query[E, U] = {
     val generator = new AnonSymbol
     val aliased = InRef.forUnpackable(generator, unpackable)
-    new WrappingQuery[E, U](SortBy(generator, Node(this), Node(f(aliased.value))), unpackable)
+    new WrappingQuery[E, U](SortBy(generator, Node(this), f(aliased.value).columns), unpackable)
   }
   /*
   def groupBy(by: Column[_]*) =

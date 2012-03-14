@@ -29,45 +29,42 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
 
   protected def buildComprehension(n: Node): Unit = n match {
     case Comprehension(from, where, orderBy, select) =>
-      b += "SELECT "
+      b += "select "
       select match {
         case Some(n) => buildSelectClause(n)
         case None =>
           if(from.length <= 1) b += "*"
           else b += symbolName(from.last._1) += ".*"
       }
-      if(from.isEmpty) scalarFrom.foreach { s => b += " FROM " += s }
+      if(from.isEmpty) scalarFrom.foreach { s => b += " from " += s }
       else {
-        b += " FROM "
+        b += " from "
         b.sep(from, ", ") { case (sym, n) =>
           buildSubquery(n)
           b += ' ' += symbolName(sym)
         }
       }
       if(!where.isEmpty) {
-        b += " WHERE "
+        b += " where "
         expr(where.reduceLeft(And))
       }
-      if(!orderBy.isEmpty) {
-        b += " ORDER BY "
-        b.sep(orderBy, ", ")(expr)
-      }
+      if(!orderBy.isEmpty) appendOrderClause(orderBy)
     case AbstractTable(name) =>
-      b += "SELECT * FROM " += quoteIdentifier(name)
+      b += "select * from " += quoteIdentifier(name)
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
     case Union(left, right, all, _, _) =>
-      b += "SELECT * FROM "
+      b += "select * from "
       buildSubquery(left)
-      b += (if(all) " UNION ALL " else " UNION ")
+      b += (if(all) " union all " else " union ")
       buildSubquery(right)
     case n => throw new SQueryException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
   }
 
   protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) {
     if(take == Some(0)) {
-      b += "SELECT * FROM "
+      b += "select * from "
       buildSubquery(from)
-      b += " WHERE 1=0"
+      b += " where 1=0"
     } else {
       buildComprehension(from)
       appendTakeDropClause(take, drop)
@@ -76,9 +73,9 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
 
   protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
     /* SQL:2008 syntax */
-    case (Some(t), Some(d)) => b += " OFFSET " += d += " ROW FETCH NEXT " += t += " ROW ONLY"
-    case (Some(t), None) => b += " FETCH NEXT " += t += " ROW ONLY"
-    case (None, Some(d)) => b += " OFFSET " += d += " ROW"
+    case (Some(t), Some(d)) => b += " offset " += d += " row fetch next " += t += " row only"
+    case (Some(t), None) => b += " fetch next " += t += " row only"
+    case (None, Some(d)) => b += " offset " += d += " row"
     case _ =>
   }
 
@@ -187,6 +184,17 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case _ => throw new SQueryException("Don't know what to do with node "+n+" in an expression")
   }
 
+  protected def appendOrderClause(order: Seq[(Node, Ordering)]) {
+    b += " order by "
+    b.sep(order, ", "){ case (n, o) => appendOrdering(n, o) }
+  }
+
+  protected def appendOrdering(n: Node, o: Ordering) {
+    expr(n)
+    if(o.direction.desc) b += " desc"
+    if(o.nulls.first) b += " nulls first"
+    else if(o.nulls.last) b += " nulls last"
+  }
 
 
 
@@ -209,26 +217,11 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
 
   final protected def appendGroupClause(): Unit = query.typedModifiers[Grouping] match {
     case Nil =>
-    case xs => b += " GROUP BY "; b.sep(xs, ",")(x => expr(x.by))
-  }
-
-  final protected def appendOrderClause(): Unit = query.typedModifiers[Ordering] match {
-    case Nil =>
-    case xs => b += " ORDER BY "; b.sep(xs, ",")(appendOrdering)
-  }
-
-  protected def appendOrdering(o: Ordering) {
-    expr(o.by)
-    if(o.isInstanceOf[Ordering.Desc]) b += " desc"
-    o.nullOrdering match {
-      case Ordering.NullsFirst => b += " nulls first"
-      case Ordering.NullsLast => b += " nulls last"
-      case Ordering.NullsDefault =>
-    }
+    case xs => b += " group by "; b.sep(xs, ",")(x => expr(x.by))
   }
 
   final def buildDelete = {
-    val b = new SQLBuilder += "DELETE FROM "
+    val b = new SQLBuilder += "delete from "
     val (delTable, delTableName) = query.reified match {
       case t @ AbstractTable.Alias(base:AbstractTable[_]) => (t, base.tableName)
       case t:AbstractTable[_] => (t, t.tableName)
@@ -248,7 +241,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
   final def buildUpdate = {
     if(/*!query.condHaving.isEmpty ||*/ !query.modifiers.isEmpty)
       throw new SQueryException("A query for an UPDATE statement must not have any modifiers other than WHERE restrictions")
-    val b = new SQLBuilder += "UPDATE "
+    val b = new SQLBuilder += "update "
     val tableNameSlot = b.createSlot
     b += " SET "
     var tableName: String = null

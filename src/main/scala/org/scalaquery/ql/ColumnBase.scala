@@ -46,8 +46,8 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   def asColumnOf[U : TypeMapper]: Column[U] = ColumnOps.AsColumnOf[U](Node(this), None)
   def asColumnOfType[U : TypeMapper](typeName: String): Column[U] = ColumnOps.AsColumnOf[U](Node(this), Some(typeName))
 
-  def asc = new Ordering.Asc(Node(this))
-  def desc = new Ordering.Desc(Node(this))
+  def asc = ColumnOrdered[T](this, Ordering())
+  def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 }
 
 /**

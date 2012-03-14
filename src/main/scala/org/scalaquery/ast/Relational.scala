@@ -61,7 +61,7 @@ object Relational extends Logging {
       // Filter to Comprehension
       case Filter(gen, from, where) => Comprehension(from = Seq((gen, from)), where = Seq(where))
       // SortBy to Comprehension
-      case SortBy(gen, from, by) => Comprehension(from = Seq((gen, from)), orderBy = Seq(by))
+      case SortBy(gen, from, by) => Comprehension(from = Seq((gen, from)), orderBy = by)
       // Merge Comprehension which selects another Comprehension
       case Comprehension(from1, where1, orderBy1, Some(c2 @ Comprehension(from2, where2, orderBy2, select))) =>
         c2.copy(from = from1 ++ from2, where = where1 ++ where2, orderBy = orderBy2 ++ orderBy1)
@@ -91,7 +91,7 @@ object Relational extends Logging {
       case c: Comprehension =>
         val newGens = new ArrayBuffer[(Symbol, Node)]
         val newWhere = new ArrayBuffer[Node]
-        val newOrderBy = new ArrayBuffer[Node]
+        val newOrderBy = new ArrayBuffer[(Node, Ordering)]
         val eliminated = new HashMap[Symbol, Node]
         var rewrite = false
         def scanFrom(c: Comprehension): Option[Node] = {

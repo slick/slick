@@ -215,13 +215,33 @@ final case class Filter(generator: Symbol, from: Node, where: Node) extends Filt
   def nodePostGeneratorChildren = Seq(where)
 }
 
-final case class SortBy(generator: Symbol, from: Node, by: Node) extends FilteredQuery with BinaryNode with SimpleDefNode {
-  def left = from
-  def right = by
-  protected[this] override def nodeChildNames = Seq("from "+generator, "by")
-  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, by = right)
+final case class SortBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]) extends FilteredQuery with SimpleNode with SimpleDefNode {
+  protected[this] def nodeChildGenerators = from +: by.map(_._1)
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
+    copy(from = ch(0), by = by.zip(ch.tail).map{ case ((_, o), n) => (n, o) })
+  protected[this] override def nodeChildNames = "from" +: by.zipWithIndex.map("by" + _._2)
   def withGenerator(gen: Symbol) = copy(generator = gen)
-  def nodePostGeneratorChildren = Seq(by)
+  def nodePostGeneratorChildren = by.map(_._1)
+}
+
+case class Ordering(direction: Ordering.Direction = Ordering.Asc, nulls: Ordering.NullOrdering = Ordering.NullsDefault) {
+  def asc = copy(direction = Ordering.Asc)
+  def desc = copy(direction = Ordering.Desc)
+  def reverse = copy(direction = direction.reverse)
+  def nullsDefault = copy(nulls = Ordering.NullsDefault)
+  def nullsFirst = copy(nulls = Ordering.NullsFirst)
+  def nullsLast = copy(nulls = Ordering.NullsLast)
+}
+
+object Ordering {
+  sealed abstract class NullOrdering(val first: Boolean, val last: Boolean)
+  final case object NullsDefault extends NullOrdering(false, false)
+  final case object NullsFirst extends NullOrdering(true, false)
+  final case object NullsLast extends NullOrdering(false, true)
+
+  sealed abstract class Direction(val desc: Boolean) { def reverse: Direction }
+  final case object Asc extends Direction(false) { def reverse = Desc }
+  final case object Desc extends Direction(true) { def reverse = Asc }
 }
 
 final case class GroupBy(from: Node, groupBy: Node, generator: Symbol = new AnonSymbol) extends FilteredQuery with BinaryNode with SimpleDefNode {

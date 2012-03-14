@@ -99,7 +99,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     }
 
     val q1 = for {
-      c <- Coffees.sortBy(_.name).take(2)
+      c <- Coffees.sortBy(c => (c.name, c.price.desc)).take(2)
       s <- Suppliers
     } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
     show("q1: Plain implicit join", q1)

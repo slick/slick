@@ -130,19 +130,18 @@ class SQLiteQueryBuilder(_query: Query[_, _], profile: SQLiteDriver) extends Bas
   }
   */
 
-  override protected def appendOrdering(o: Ordering) {
-    val desc = o.isInstanceOf[Ordering.Desc]
-    if(o.nullOrdering == Ordering.NullsLast && !desc) {
+  override protected def appendOrdering(n: Node, o: Ordering) {
+    if(o.nulls.last && !o.direction.desc) {
       b += "("
-      expr(o.by)
+      expr(n)
       b += ") is null,"
-    } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
+    } else if(o.nulls.first && o.direction.desc) {
       b += "("
-      expr(o.by)
+      expr(n)
       b += ") is null desc,"
     }
-    expr(o.by)
-    if(desc) b += " desc"
+    expr(n)
+    if(o.direction.desc) b += " desc"
   }
 
   override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {

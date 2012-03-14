@@ -5,7 +5,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import org.scalaquery.ql.{AbstractTable, Join}
 import org.scalaquery.util.Logging
 
-case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, orderBy: Seq[Node] = Seq.empty, select: Option[Node] = None) extends Node with DefNode {
+case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None) extends Node with DefNode {
   protected[this] def nodeChildGenerators = from.map(_._2) ++ where ++ orderBy ++ select
   override protected[this] def nodeChildNames =
     from.map("from " + _._1) ++
@@ -16,13 +16,13 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
   def mapChildren(fromMap: Node => Node, otherMap: Node => Node): Node = {
     val fromO = nodeMapNodes(from.view.map(_._2), fromMap)
     val whereO = nodeMapNodes(where, otherMap)
-    val orderByO = nodeMapNodes(orderBy, otherMap)
+    val orderByO = nodeMapNodes(orderBy.map(_._1), otherMap)
     val selectO = select.map(otherMap)
     if(fromO.isDefined || whereO.isDefined || orderByO.isDefined || selectO != select)
       copy(
         from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from),
         where = whereO.getOrElse(where),
-        orderBy = orderByO.getOrElse(orderBy),
+        orderBy = orderByO.map(_.zip(orderBy.map(_._2))).getOrElse(orderBy),
         select = selectO
       )
     else this
@@ -42,13 +42,13 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
     val from2 = from.map{ case (s, n) => f(Some(s), n) }
     val fromO = if(from.zip(from2).forall{ case ((_, n1), n2) => n1 eq n2 }) None else Some(from2)
     val whereO = nodeMapNodes(where, fn)
-    val orderByO = nodeMapNodes(orderBy, fn)
+    val orderByO = nodeMapNodes(orderBy.map(_._1), fn)
     val selectO = select.map(fn)
     if(fromO.isDefined || whereO.isDefined || orderByO.isDefined || selectO != select)
       copy(
         from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from),
         where = whereO.getOrElse(where),
-        orderBy = orderByO.getOrElse(orderBy),
+        orderBy = orderByO.map(_.zip(orderBy.map(_._2))).getOrElse(orderBy),
         select = selectO
       )
     else this

@@ -131,19 +131,18 @@ class AccessQueryBuilder(_query: Query[_, _], profile: AccessDriver) extends Bas
     case _ => super.innerExpr(c)
   }
 
-  override protected def appendOrdering(o: Ordering) {
-    val desc = o.isInstanceOf[Ordering.Desc]
-    if(o.nullOrdering == Ordering.NullsLast && !desc) {
+  override protected def appendOrdering(n: Node, o: Ordering) {
+    if(o.nulls.last && !o.direction.desc) {
       b += "(1-isnull("
-      expr(o.by)
+      expr(n)
       b += ")),"
-    } else if(o.nullOrdering == Ordering.NullsFirst && desc) {
+    } else if(o.nulls.first && o.direction.desc) {
       b += "(1-isnull("
-      expr(o.by)
+      expr(n)
       b += ")) desc,"
     }
-    expr(o.by)
-    if(desc) b += " desc"
+    expr(n)
+    if(o.direction.desc) b += " desc"
   }
 
   override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()

@@ -22,7 +22,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
   implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing, T](t)(Unpack.unpackTableBase, null)
   //implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing](t.mapOp(n => new AbstractTable.Alias(Node(n))))(Unpack.unpackTableBase)
 
-  implicit def columnToOrdering(c: Column[_]): Ordering = Ordering.Asc(Node(c))
+  implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
 
   implicit def queryToQueryInvoker[T, U](q: Query[T, U]): BasicQueryInvoker[T, U] = new BasicQueryInvoker(q, scalaQueryDriver)
   implicit def queryToDeleteInvoker[T](q: Query[BasicTable[T], T]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
