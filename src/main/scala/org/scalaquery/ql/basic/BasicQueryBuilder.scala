@@ -55,6 +55,11 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case AbstractTable(name) =>
       b += "SELECT * FROM " += quoteIdentifier(name)
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
+    case Union(left, right, all, _, _) =>
+      b += "SELECT * FROM "
+      buildSubquery(left)
+      b += (if(all) " UNION ALL " else " UNION ")
+      buildSubquery(right)
     case n => throw new SQueryException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
   }
 

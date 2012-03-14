@@ -240,10 +240,19 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     )
     assertEquals(r6e, r6)
 
-    /*val q7 = for {
-      c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(4).map((_, 2))
+    val q7 = for {
+      c <- Coffees.filter(_.price < 8.0).map((_, 1)) union Coffees.filter(_.price > 9.5).map((_, 2))
     } yield c._1.name ~ c._1.supID ~ c._2
-    show("q7: Union", q7)*/
+    show("q7: Union", q7)
+    val r7 = q7.to[Set]()
+    println("r7: "+r7)
+    val r7e = Set(
+      ("Colombian",101,1),
+      ("French_Roast",49,1),
+      ("Espresso",150,2),
+      ("French_Roast_Decaf",49,2)
+    )
+    assertEquals(r7e, r7)
 
     /*val q7b = q7 where (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)*/
