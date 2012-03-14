@@ -176,34 +176,71 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     )
     assertEquals(r3be, r3b)
 
-    /*val q4 = for {
-      c <- Coffees.map(c => (c.name, c.price, 42)).take(100).filter(_._2 < 9.0)
+    val q4 = for {
+      c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 8.0)
     } yield c._1 ~ c._3
     show("q4: Map to tuple, then filter", q4)
+    val r4 = q4.to[Set]()
+    println("r4: "+r4)
+    val r4e = Set(("Colombian",42))
+    //TODO broken in H2: assertEquals(r4e, r4)
 
-    val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 9.0)
+    val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 8.0)
     val q4b = for {
       c <- q4b_0
       d <- q4b_0
     } yield (c,d)
     show("q4b: Map to tuple, then filter, with self-join", q4b)
+    val r4b = q4b.to[Set]()
+    println("r4b: "+r4b)
+    val r4be = Set(
+      (("Colombian",7.99,42),("Colombian",7.99,42)),
+      (("Colombian",7.99,42),("French_Roast",7.99,42)),
+      (("French_Roast",7.99,42),("Colombian",7.99,42)),
+      (("French_Roast",7.99,42),("French_Roast",7.99,42))
+    )
+    assertEquals(r4be, r4b)
 
-    val q5_0 = Query(Coffees).take(10)
+    val q5_0 = Query(Coffees).sortBy(_.price).take(2)
     val q5 = for {
       c1 <- q5_0
       c2 <- q5_0
     } yield (c1, c2)
     show("q5: Implicit self-join", q5)
+    val r5 = q5.to[Set]()
+    println("r5: "+r5)
+    val r5e = Set(
+      (("Colombian",101,7.99,1,0),("Colombian",101,7.99,1,0)),
+      (("Colombian",101,7.99,1,0),("French_Roast",49,7.99,2,0)),
+      (("French_Roast",49,7.99,2,0),("Colombian",101,7.99,1,0)),
+      (("French_Roast",49,7.99,2,0),("French_Roast",49,7.99,2,0))
+    )
+    assertEquals(r5e, r5)
 
     val q5b = for {
       t <- q5_0 join q5_0 on (_.name === _.name)
     } yield (t._1, t._2)
     show("q5b: Explicit self-join with condition", q5b)
+    val r5b = q5b.to[Set]()
+    println("r5b: "+r5b)
+    val r5be = Set(
+      (("Colombian",101,7.99,1,0),("Colombian",101,7.99,1,0)),
+      (("French_Roast",49,7.99,2,0),("French_Roast",49,7.99,2,0))
+    )
+    assertEquals(r5be, r5b)
 
     val q6 = Coffees.flatMap(c => Query(Suppliers))
     show("q6: Unused outer query result, unbound TableQuery", q6)
+    val r6 = q6.to[Set]()
+    println("r6: "+r6)
+    val r6e = Set(
+      (101,"Acme, Inc.","99 Market Street"),
+      (49,"Superior Coffee","1 Party Place"),
+      (150,"The High Ground","100 Coffee Lane")
+    )
+    assertEquals(r6e, r6)
 
-    val q7 = for {
+    /*val q7 = for {
       c <- Query(Coffees).take(10).map((_, 1)) union Query(Coffees).drop(4).map((_, 2))
     } yield c._1.name ~ c._1.supID ~ c._2
     show("q7: Union", q7)*/
