@@ -52,15 +52,21 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
         b += " ORDER BY "
         b.sep(orderBy, ", ")(expr)
       }
+    case AbstractTable(name) =>
+      b += "SELECT * FROM " += quoteIdentifier(name)
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
     case n => throw new SQueryException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
   }
 
   protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) {
-    b += "SELECT * FROM "
-    buildSubquery(from)
-    if(take == Some(0)) b += " WHERE 1=0"
-    else appendTakeDropClause(take, drop)
+    if(take == Some(0)) {
+      b += "SELECT * FROM "
+      buildSubquery(from)
+      b += " WHERE 1=0"
+    } else {
+      buildComprehension(from)
+      appendTakeDropClause(take, drop)
+    }
   }
 
   protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
