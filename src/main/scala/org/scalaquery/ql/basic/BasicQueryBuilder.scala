@@ -48,6 +48,9 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
         expr(where.reduceLeft(And))
       }
       if(!orderBy.isEmpty) appendOrderClause(orderBy)
+    case Pure(CountAll(q)) =>
+      b += "select count(*) from "
+      buildFrom(q, None)
     case AbstractTable(name) =>
       b += "select * from " += quoteIdentifier(name)
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)

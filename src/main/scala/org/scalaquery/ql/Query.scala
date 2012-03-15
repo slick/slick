@@ -73,9 +73,9 @@ abstract class Query[+E, +U] extends NodeGenerator {
     new WrappingQuery[O, T](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
   }
 
-  /*
-  def count = ColumnOps.CountAll(Subquery(this, false))
+  def count = ColumnOps.CountAll(Node(unpackable.value))
 
+  /*
   def sub[UU >: U, R](implicit reify: Reify[E, R]) = wrap(this)
 
   //def reify[R](implicit reify: Reify[E, R]) =

@@ -1,9 +1,7 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
-import collection.mutable.HashMap
-import org.scalaquery.ql.{ConstColumn, RawNamedColumn, AbstractTable}
-import org.scalaquery.ast.RewriteGenerators.ReplaceSelectContext
+import org.scalaquery.ql.{RawNamedColumn, AbstractTable}
 import org.scalaquery.SQueryException
 import org.scalaquery.util.Logging
 
@@ -14,7 +12,17 @@ object RewriteGenerators extends Logging {
 
   class SyntheticBindSymbol extends AnonSymbol
 
-  def apply(tree: Node): Node = memoized[Node, Node](r => {
+  def apply(tree: Node): Node = {
+    val t2 = rewriteGenerators(tree)
+    // Replace InRef(RawNamedColumn) occurrences left over after rewriting them in all generators.
+    // This can happen in queries without projections.
+    memoized[Node, Node](r => {
+      case InRef(t, r: RawNamedColumn) => FieldRef(t, r.symbol)
+      case n => n.nodeMapChildren(r)
+    })(t2)
+  }
+
+  def rewriteGenerators(tree: Node): Node = memoized[Node, Node](r => {
     //case fs @ RealFilterChain(filterSyms, Bind(_, _, _)) =>
     //TODO push additional columns needed by the filters into the Bind (without rewriting the existing ones)
     case b @ Bind(gen, from, what) if(!(gen.isInstanceOf[SyntheticBindSymbol])) =>
