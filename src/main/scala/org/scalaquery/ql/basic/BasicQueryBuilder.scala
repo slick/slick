@@ -40,8 +40,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
       else {
         b += " from "
         b.sep(from, ", ") { case (sym, n) =>
-          buildSubquery(n)
-          b += ' ' += symbolName(sym)
+          buildFrom(n, Some(sym))
         }
       }
       if(!where.isEmpty) {
@@ -54,16 +53,16 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
     case Union(left, right, all, _, _) =>
       b += "select * from "
-      buildSubquery(left)
+      buildFrom(left, None)
       b += (if(all) " union all " else " union ")
-      buildSubquery(right)
+      buildFrom(right, None)
     case n => throw new SQueryException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
   }
 
   protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) {
     if(take == Some(0)) {
       b += "select * from "
-      buildSubquery(from)
+      buildFrom(from, None)
       b += " where 1=0"
     } else {
       buildComprehension(from)
@@ -90,12 +89,28 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case Pure(n) => expr(n)
   }
 
-  protected def buildSubquery(n: Node): Unit = n match {
-    case AbstractTable(name) => b += quoteIdentifier(name)
-    case n =>
-      b += '('
-      buildComprehension(n)
-      b += ')'
+  protected def buildFrom(n: Node, alias: Option[Symbol]){
+    def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
+    n match {
+      case AbstractTable(name) =>
+        b += quoteIdentifier(name)
+        addAlias
+      case BaseJoin(leftGen, rightGen, left, right, jt) =>
+        buildFrom(left, Some(leftGen))
+        b += ' ' += jt.sqlName += " join "
+        buildFrom(right, Some(rightGen))
+      case FilteredJoin(leftGen, rightGen, left, right, jt, on) =>
+        buildFrom(left, Some(leftGen))
+        b += ' ' += jt.sqlName += " join "
+        buildFrom(right, Some(rightGen))
+        b += " on "
+        expr(on)
+      case n =>
+        b += '('
+        buildComprehension(n)
+        b += ')'
+        addAlias
+    }
   }
 
   protected def symbolName(s: Symbol): String = s match {

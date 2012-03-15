@@ -257,6 +257,24 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     /*val q7b = q7 where (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)*/
 
+    val q8 = for {
+      (c1, c2) <- Coffees.where(_.price < 9.0) leftJoin Coffees.where(_.price < 8.0) on (_.name === _.name)
+    } yield (c1.name, c2.name.?)
+    show("q8: Outer join", q8)
+    val r8 = q8.to[Set]()
+    println("r8: "+r8)
+    val r8e = Set(
+      ("Colombian",Some("Colombian")),
+      ("French_Roast",Some("French_Roast")),
+      ("Colombian_Decaf",None)
+    )
+    assertEquals(r8e, r8)
+
+    /*val q8b = for {
+      t <- Coffees.take(1) leftJoin Coffees.take(2) on (_.name === _.name) leftJoin Coffees.take(3) on (_._1.supID === _.supID)
+    } yield (t._1, t._2)
+    show("q8b: Nested outer joins", q8b)*/
+
     (SuppliersStd.ddl ++ CoffeesStd.ddl).drop
     (SuppliersStd.ddl ++ CoffeesStd.ddl).dropStatements.foreach(s => println("drop: "+s))
   }
