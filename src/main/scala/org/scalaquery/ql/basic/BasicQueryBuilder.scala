@@ -214,6 +214,26 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     else if(o.nulls.last) b += " nulls last"
   }
 
+  def buildUpdate: SQLBuilder.Result = {
+    val (gen, from, where, select) = ast match {
+      case Comprehension(Seq((sym, from: AbstractTable[_])), where, _, Some(Pure(select))) => select match {
+        case f @ FieldRef(struct, _) if struct == sym => (sym, from, where, Seq(f.field))
+        case ProductNode(ch @ _*) if ch.forall{ case FieldRef(struct, _) if struct == sym => true; case _ => false} =>
+          (sym, from, where, ch.map{ case FieldRef(_, field) => field })
+        case _ => throw new SQueryException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
+      }
+      case _ => throw new SQueryException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
+    }
+
+    b += "update " += quoteIdentifier(from.tableName) += ' ' += symbolName(gen) += " set "
+    b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
+    if(!where.isEmpty) {
+      b += " where "
+      expr(where.reduceLeft(And))
+    }
+    //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
+    b.build
+  }
 
 
 
@@ -253,57 +273,6 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     //  throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
     //for(qb <- subQueryBuilders.valuesIterator)
     //  qb.insertAllFromClauses()
-    b.build
-  }
-
-  final def buildUpdate = {
-    if(/*!query.condHaving.isEmpty ||*/ !query.modifiers.isEmpty)
-      throw new SQueryException("A query for an UPDATE statement must not have any modifiers other than WHERE restrictions")
-    val b = new SQLBuilder += "update "
-    val tableNameSlot = b.createSlot
-    b += " SET "
-    var tableName: String = null
-    var table: Node = null
-
-    def handleColumn(node: Node) {
-      (node match {
-        case nc @ NamedColumn(t @ AbstractTable(tn), n, _) => (tn, n, nc.typeMapper, t)
-        case nc @ NamedColumn(t @ AbstractTable.Alias(AbstractTable(tn)), n, _) => (tn, n, nc.typeMapper, t)
-        case n => throw new SQueryException("Cannot create an UPDATE statement from a \""+n+
-          "\" expression; A single named column or a projection of named columns from the same aliased or base table is required")
-      }) match { case (tn, n, tm, t) =>
-        if(tableName eq null) { tableName = tn; table = t; }
-        else if(tableName != tn)
-          throw new SQueryException("All columns for an UPDATE statement must be from the same table")
-        b += quoteIdentifier(n) += "=?"
-      }
-    }
-
-    def handleColumns(node: Node) {
-      node match {
-        case p: Projection[_] =>
-          var i = 0
-          for(ch <- p.nodeChildren) {
-            if(i > 0) b += ','
-            handleColumn(ch)
-            i += 1
-          }
-        case t @ AbstractTable(tn) =>
-          //TODO nc = nc.overrideName(t, tn)
-          handleColumns(Node(t.*))
-        case a @ AbstractTable.Alias(t @ AbstractTable(tn)) =>
-          //TODO nc = nc.overrideName(a, tn)
-          handleColumns(Node(t.*))
-        case n => handleColumn(n)
-      }
-    }
-
-    handleColumns(query.reified)
-    //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
-    tableNameSlot += quoteIdentifier(tableName)
-    appendConditions()
-    //TODO if(localTables.size > 1)
-    //  throw new SQueryException("An UPDATE statement must not use more than one table at the top level")
     b.build
   }
 
