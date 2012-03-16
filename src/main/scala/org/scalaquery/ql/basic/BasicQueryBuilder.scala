@@ -141,6 +141,10 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case Is(l, r) => b += '('; expr(l); b += '='; expr(r); b += ')'
     case EscFunction("concat", l, r) if concatOperator.isDefined =>
       b += '('; expr(l); b += concatOperator.get; expr(r); b += ')'
+    case StdFunction("exists", ch @ (_: Comprehension | _: FilteredQuery)) =>
+      b += "exists("
+      buildComprehension(ch)
+      b += ')'
     case s: SimpleFunction =>
       if(s.scalar) b += "{fn "
       b += s.name += '('

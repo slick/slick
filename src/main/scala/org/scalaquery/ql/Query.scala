@@ -57,8 +57,6 @@ abstract class Query[+E, +U] extends NodeGenerator {
     new Query[E, U](unpackable, cond, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
 
   def orderBy(by: Ordering*) = new Query[E, U](unpackable, cond, modifiers ::: by.toList)
-
-  def exists = StdFunction[Boolean]("exists", map(_ => ConstColumn(1)))
   */
 
   def cond: Seq[NodeGenerator] = Nil //--
@@ -74,6 +72,7 @@ abstract class Query[+E, +U] extends NodeGenerator {
   }
 
   def count = ColumnOps.CountAll(Node(unpackable.value))
+  def exists = StdFunction[Boolean]("exists", Node(unpackable.value))
 
   /*
   def sub[UU >: U, R](implicit reify: Reify[E, R]) = wrap(this)
