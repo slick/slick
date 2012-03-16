@@ -36,7 +36,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
           if(from.length <= 1) b += "*"
           else b += symbolName(from.last._1) += ".*"
       }
-      if(from.isEmpty) scalarFrom.foreach { s => b += " from " += s }
+      if(from.isEmpty) buildScalarFrom
       else {
         b += " from "
         b.sep(from, ", ") { case (sym, n) =>
@@ -51,6 +51,10 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case Pure(CountAll(q)) =>
       b += "select count(*) from "
       buildFrom(q, None)
+    case p @ Pure(_) =>
+      b += "select "
+      buildSelectClause(p)
+      buildScalarFrom
     case AbstractTable(name) =>
       b += "select * from " += quoteIdentifier(name)
     case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
@@ -61,6 +65,8 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
       buildFrom(right, None)
     case n => throw new SQueryException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
   }
+
+  protected def buildScalarFrom: Unit = scalarFrom.foreach { s => b += " from " += s }
 
   protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) {
     if(take == Some(0)) {
@@ -121,7 +127,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case s => quoteIdentifier(s.name)
   }
 
-  protected def expr(n: Node): Unit = n match {
+  def expr(n: Node): Unit = n match {
     case ConstColumn(null) => b += "null"
     case Not(Is(l, ConstColumn(null))) => b += '('; expr(l); b += " is not null)"
     case Not(e) => b += "(not "; expr(e); b+= ')'
@@ -142,7 +148,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
       b += ')'
       if(s.scalar) b += '}'
     case SimpleLiteral(w) => b += w
-    case s: SimpleExpression => s.toSQL(b, this)
+    case s: SimpleExpression => s.toSQL(this)
     case Between(left, start, end) => expr(left); b += " between "; expr(start); b += " and "; expr(end)
     case CountDistinct(e) => b += "count(distinct "; expr(e); b += ')'
     case Like(l, r, esc) =>

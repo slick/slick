@@ -11,7 +11,6 @@ import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
-import org.scalaquery.util.{SQLBuilder, BinaryNode, Node}
 import java.sql.{Time, Date, Timestamp}
 
 object ScalarFunctionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
@@ -76,12 +75,12 @@ class ScalarFunctionTest(tdb: TestDB) extends DBTest(tdb) {
     check(Query(Functions.pi.toDegrees), 180.0)
     check(Query(Functions.pi.toDegrees.toRadians is Functions.pi), true)
 
-    val myExpr = SimpleExpression.binary[Int, Int, Int] { (l, r, b, qb) =>
-      b += '('
-      qb.expr(l, b)
-      b += '+'
-      qb.expr(r, b)
-      b += "+1)"
+    val myExpr = SimpleExpression.binary[Int, Int, Int] { (l, r, qb) =>
+      qb.sqlBuilder += '('
+      qb.expr(l)
+      qb.sqlBuilder += '+'
+      qb.expr(r)
+      qb.sqlBuilder += "+1)"
     }
 
     check(Query(myExpr(4, 5)), 10)

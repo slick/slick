@@ -26,7 +26,7 @@ class H2QueryBuilder(_query: Query[_, _], profile: H2Driver) extends BasicQueryB
   override protected val mayLimit0 = false
   override protected val concatOperator = Some("||")
 
-  override protected def expr(n: Node) = n match {
+  override def expr(n: Node) = n match {
     case Sequence.Nextval(seq) => b += "nextval(schema(), '" += seq.name += "')"
     case Sequence.Currval(seq) => b += "currval(schema(), '" += seq.name += "')"
     case _ => super.expr(n)
