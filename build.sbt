@@ -4,11 +4,11 @@ organizationName := "ScalaQuery"
 
 organization := "org.scalaquery"
 
-version := "0.10.0-SNAPSHOT"
+version := "0.10.0-M1"
 
-scalaVersion := "2.9.1"
+scalaVersion := "2.9.1-1"
 
-crossScalaVersions ++= "2.9.1" :: "2.9.0-1" :: "2.8.1" :: Nil
+crossScalaVersions ++= "2.9.1-1" :: "2.9.1" :: "2.9.0-1" :: "2.9.0" :: Nil
 
 scalacOptions += "-deprecation"
 
@@ -26,7 +26,16 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
 
 publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r))))
-//publishTo <<= (repoKind)(r => Some(r at "http://nexus.scala-tools.org/content/repositories/"+r+"/"))
+/*publishTo <<= (repoKind){
+  case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
+  case "releases" =>  Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
+}*/
+
+publishMavenStyle := true
+
+publishArtifact in Test := false
+
+pomIncludeRepository := { _ => false }
 
 credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
 
@@ -44,9 +53,13 @@ pomExtra :=
       <id>szeiger</id>
       <name>Stefan Zeiger</name>
       <timezone>+1</timezone>
-      <email>szeiger [at] novocode.com</email>
+      <url>http://szeiger.de</url>
     </developer>
   </developers>
   <scm>
-    <url>http://github.com/szeiger/scala-query/</url>
+    <url>git@github.com:szeiger/scala-query.git</url>
+    <connection>scm:git:git@github.com:szeiger/scala-query.git</connection>
   </scm>
+
+// Work around scaladoc problem
+unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
