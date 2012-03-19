@@ -48,6 +48,7 @@ object Optimizer extends Logging {
       case InRef(in2, i @ InRef(in1, _)) if in1 == in2 => i
       // Remove identity binds
       case Bind(_, x, Pure(y)) if x == y => x
+      case Bind(s1, x, Pure(TableRef(s2))) if s1 == s2 => x
       // Remove unnecessary wrapping of pure values
       case Wrapped(p @ Pure(n1), n2) if n1 == n2 => p
       // Remove unnecessary wrapping of binds
