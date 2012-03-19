@@ -20,7 +20,7 @@ class OracleDriver extends ExtendedProfile { self =>
 
 object OracleDriver extends OracleDriver
 
-class OracleQueryBuilder(_query: Query[_, _], profile: OracleDriver) extends BasicQueryBuilder(_query, profile) {
+class OracleQueryBuilder(query: Query[_, _], profile: OracleDriver) extends BasicQueryBuilder(query, profile) {
 
   import ExtendedQueryOps._
 

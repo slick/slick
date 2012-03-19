@@ -55,7 +55,7 @@ class AccessDriver extends ExtendedProfile { self =>
 
 object AccessDriver extends AccessDriver
 
-class AccessQueryBuilder(_query: Query[_, _], profile: AccessDriver) extends BasicQueryBuilder(_query, profile) {
+class AccessQueryBuilder(query: Query[_, _], profile: AccessDriver) extends BasicQueryBuilder(query, profile) {
 
   import profile.sqlUtils._
   import ExtendedQueryOps._

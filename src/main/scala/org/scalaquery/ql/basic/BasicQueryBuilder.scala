@@ -6,12 +6,10 @@ import org.scalaquery.util._
 import org.scalaquery.ql.ColumnOps._
 import org.scalaquery.ast._
 
-class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
-  import _profile.sqlUtils._
+class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
+  import driver.sqlUtils._
 
-  protected final val profile = _profile
-  protected final val query: Query[_, _] = _query
-  protected final val ast = profile.processAST(query)
+  protected final val ast = driver.processAST(query)
   protected final val b = new SQLBuilder
 
   protected val mayLimit0 = true
@@ -133,8 +131,8 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     case Not(e) => b += "(not "; expr(e); b+= ')'
     case i @ InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn.FALSE) else {
       b += '('; expr(e); b += " in ("
-      if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(profile).setValue(x, p) })
-      else b += seq.map(i.tm(profile).valueToSQLLiteral).mkString(",")
+      if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(driver).setValue(x, p) })
+      else b += seq.map(i.tm(driver).valueToSQLLiteral).mkString(",")
       b += "))"
     }
     case Is(l, ConstColumn(null)) => b += '('; expr(l); b += " is null)"
@@ -164,7 +162,7 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
       }
       b += ')'
     case a @ AsColumnOf(ch, name) =>
-      val tn = name.getOrElse(mapTypeName(a.typeMapper(profile)))
+      val tn = name.getOrElse(mapTypeName(a.typeMapper(driver)))
       if(supportsCast) {
         b += "cast("
         expr(ch)
@@ -175,11 +173,11 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
         b += ',' += tn += ")}"
       }
     case s: SimpleBinaryOperator => b += '('; expr(s.left); b += ' ' += s.name += ' '; expr(s.right); b += ')'
-    case c @ ConstColumn(v) => b += c.typeMapper(profile).valueToSQLLiteral(v)
-    case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(profile).setValue(v, p) }
+    case c @ ConstColumn(v) => b += c.typeMapper(driver).valueToSQLLiteral(v)
+    case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
     case pc @ ParameterColumn(idx) => b +?= { (p, param) =>
       val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
-      pc.typeMapper(profile).setValue(v, p)
+      pc.typeMapper(driver).setValue(v, p)
     }
     case c: Case.CaseNode =>
       b += "(case"
@@ -271,8 +269,6 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
       case _ => false
     })
 
-  final protected def innerBuildSelect(rename: Boolean): Unit = sys.error("obsolete")
-
   protected def innerBuildSelectNoRewrite(rename: Boolean): Unit = sys.error("obsolete")
 
   protected def appendClauses(): Unit = sys.error("obsolete")
@@ -285,12 +281,4 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
   protected def innerExpr(c: Node): Unit = sys.error("obsolete")
 
   final protected def appendConditions(): Unit = sys.error("obsolete")
-
-  final protected def insertAllFromClauses(): Unit = sys.error("obsolete")
-
-  final protected def insertFromClauses(): Unit = sys.error("obsolete")
-
-  final protected def table(t: Node, name: String) = sys.error("obsolete")
-
-  final protected def createJoin(j: Join[_,_]) = sys.error("obsolete")
 }

@@ -84,9 +84,8 @@ object SQLServerTypeMapperDelegates {
   }
 }
 
-class SQLServerQueryBuilder(_query: Query[_, _], profile: SQLServerDriver) extends BasicQueryBuilder(_query, profile) {
+class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extends BasicQueryBuilder(query, profile) {
 
-  import profile.sqlUtils._
   import ExtendedQueryOps._
 
   override protected val supportsTuples = false
