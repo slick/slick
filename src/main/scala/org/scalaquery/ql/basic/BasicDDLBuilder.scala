@@ -30,7 +30,8 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
       case BasicColumnOption.Nullable => notNull = false
       case ExtendedColumnOption.AutoInc => autoIncrement = true
       case BasicColumnOption.PrimaryKey => primaryKey = true
-      case BasicColumnOption.Default(v) => defaultLiteral = column.asInstanceOf[NamedColumn[Any]].typeMapper(profile).valueToSQLLiteral(v)
+      case BasicColumnOption.Default(v) => defaultLiteral =
+        column.asInstanceOf[RawNamedColumn].typeMapper(profile).asInstanceOf[TypeMapperDelegate[Any]].valueToSQLLiteral(v)
     }
 
     def appendColumn(sb: StringBuilder) {
