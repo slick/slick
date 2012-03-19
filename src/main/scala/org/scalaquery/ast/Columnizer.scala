@@ -1,7 +1,7 @@
 package org.scalaquery.ast
 
-import org.scalaquery.ql.AbstractTable
 import OptimizerUtil._
+import org.scalaquery.ql.{Query, AbstractTable}
 
 /**
  * Expand columns in queries
@@ -30,7 +30,11 @@ object Columnizer extends (Node => Node) {
   }
 
   def expandAndOptimize(tree: Node): Node = {
-    val t2 = expandColumns(tree)
+    val t2 = expandColumns(tree match {
+      case f @ FilterChain(_, t: AbstractTable[_]) => // Special case: (possibly filtered) table at top level
+        FilterChain.mapSource(f, source => Node(Query(source.asInstanceOf[AbstractTable[_]]).map(_.*)))
+      case n => n
+    })
     //TODO This hack unwraps the expanded references within their scope
     // There may be other situations where unwrapping finds the wrong symbols,
     // so this should be done in a completely different way (by introducing

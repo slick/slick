@@ -145,6 +145,12 @@ object FilterChain {
       Some((sym :: ss, n))
     case n => Some(Nil, n)
   }
+
+  def mapSource(n: Node, f: Node => Node): Node = n match {
+    case q @ FilteredQuery(_, _) =>
+      q.nodeMapFrom(mapSource(_, f))
+    case source => f(source)
+  }
 }
 
 /**

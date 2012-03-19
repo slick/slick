@@ -219,7 +219,7 @@ final case class SortBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]
   protected[this] def nodeChildGenerators = from +: by.map(_._1)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
     copy(from = ch(0), by = by.zip(ch.tail).map{ case ((_, o), n) => (n, o) })
-  protected[this] override def nodeChildNames = "from" +: by.zipWithIndex.map("by" + _._2)
+  protected[this] override def nodeChildNames = ("from "+generator) +: by.zipWithIndex.map("by" + _._2)
   def withGenerator(gen: Symbol) = copy(generator = gen)
   def nodePostGeneratorChildren = by.map(_._1)
 }
