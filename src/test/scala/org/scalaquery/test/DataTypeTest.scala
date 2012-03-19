@@ -45,7 +45,7 @@ class DataTypeTest(tdb: TestDB) extends DBTest(tdb) {
 
     def test(data: List[(Int, Int, Long, Short, Byte)]) {
       T.insertAll(data: _*)
-      val q = for { t <- T; _ <- Query orderBy t.id } yield t
+      val q = T.sortBy(_.id)
       assertEquals(data, q.list)
       Query(T).delete
     }

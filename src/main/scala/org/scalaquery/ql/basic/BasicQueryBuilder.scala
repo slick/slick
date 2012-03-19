@@ -245,6 +245,20 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
     b.build
   }
 
+  def buildDelete: SQLBuilder.Result = {
+    val (gen, from, where) = ast match {
+      case Comprehension(Seq((sym, from: AbstractTable[_])), where, _, Some(Pure(select))) => (sym, from, where)
+      case _ => throw new SQueryException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
+    }
+
+    b += "delete from " += quoteIdentifier(from.tableName) += ' ' += symbolName(gen)
+    if(!where.isEmpty) {
+      b += " where "
+      expr(where.reduceLeft(And))
+    }
+    //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
+    b.build
+  }
 
 
 
@@ -266,24 +280,6 @@ class BasicQueryBuilder(_query: Query[_, _], _profile: BasicProfile) {
   final protected def appendGroupClause(): Unit = query.typedModifiers[Grouping] match {
     case Nil =>
     case xs => b += " group by "; b.sep(xs, ",")(x => expr(x.by))
-  }
-
-  final def buildDelete = {
-    val b = new SQLBuilder += "delete from "
-    val (delTable, delTableName) = query.reified match {
-      case t @ AbstractTable.Alias(base:AbstractTable[_]) => (t, base.tableName)
-      case t:AbstractTable[_] => (t, t.tableName)
-      case n => throw new SQueryException("Cannot create a DELETE statement from an \""+n+
-        "\" expression; An aliased or base table is required")
-    }
-    b += quoteIdentifier(delTableName)
-    //TODO nc = nc.overrideName(delTable, delTableName) // Alias table to itself because DELETE does not support aliases
-    appendConditions()
-    //TODO if(localTables.size > 1)
-    //  throw new SQueryException("Conditions of a DELETE statement must not reference other tables")
-    //for(qb <- subQueryBuilders.valuesIterator)
-    //  qb.insertAllFromClauses()
-    b.build
   }
 
   protected def innerExpr(c: Node): Unit = sys.error("obsolete")
