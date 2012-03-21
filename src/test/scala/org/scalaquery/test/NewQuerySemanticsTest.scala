@@ -62,7 +62,6 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     }
 
     (SuppliersStd.ddl ++ CoffeesStd.ddl).create
-    (SuppliersStd.ddl ++ CoffeesStd.ddl).createStatements.foreach(s => println("create: "+s))
 
     SuppliersStd.insert(101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
     SuppliersStd.insert( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
@@ -85,9 +84,8 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
 
     def show(name: String, g: Query[_,_]) {
       val n = Node(g)
-      //AnonSymbol.assignNames(n, force = true)
       println("=========================================== "+name)
-      n.dump("source: ")
+      /*n.dump("source: ")
       println
       val n2 = Optimizer(n)
       n2.dump("optimized: ")
@@ -95,7 +93,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       val n3 = Relational(n2)
       n3.dump("relational: ")
       println
-      println("SQL: "+g.selectStatement)
+      println("SQL: "+g.selectStatement)*/
     }
 
     val q1 = for {

@@ -2,11 +2,12 @@ package org.scalaquery.session
 
 import java.sql.{PreparedStatement, Connection, DatabaseMetaData, Statement}
 import org.scalaquery.SQueryException
+import org.scalaquery.util.Logging
 
 /**
  * A database session which opens a connection and transaction on demand.
  */
-trait Session extends java.io.Closeable { self =>
+trait Session extends java.io.Closeable with Logging { self =>
 
   def conn: Connection
   def metaData: DatabaseMetaData
@@ -20,6 +21,7 @@ trait Session extends java.io.Closeable { self =>
              defaultType: ResultSetType = ResultSetType.ForwardOnly,
              defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
              defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): PreparedStatement = {
+    logger.debug("Preparing statement: "+sql)
     resultSetHoldability.withDefault(defaultHoldability) match {
       case ResultSetHoldability.Default =>
         conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
