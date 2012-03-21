@@ -1,9 +1,9 @@
 package org.scalaquery.ast
 
-import org.scalaquery.util.RefId
 import collection.TraversableLike
 import collection.generic.CanBuildFrom
 import collection.mutable.ArrayBuffer
+import org.scalaquery.util.RefId
 
 /**
  * Utility methods for the optimizers.
@@ -52,6 +52,11 @@ object OptimizerUtil {
   def mapOrNone[Coll <: TraversableLike[A, Coll], A <: AnyRef, To >: Coll <: AnyRef](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): Option[To] = {
     val n = mapOrSame[Coll, A, To](c, f)(bf)
     if(c eq n) None else Some(n)
+  }
+
+  def fixpoint[T](v: T)(f: T => T): T = {
+    val x = f(v)
+    if(x == v) x else fixpoint(x)(f)
   }
 
   implicit def nodeToNodeOps(n: Node): NodeOps = new NodeOps(n)

@@ -2,11 +2,12 @@ package org.scalaquery.ast
 
 import OptimizerUtil._
 import org.scalaquery.ql.{Query, AbstractTable}
+import org.scalaquery.util.Logging
 
 /**
  * Expand columns in queries
  */
-object Columnizer extends (Node => Node) {
+object Columnizer extends (Node => Node) with Logging {
 
   val expandColumns = new Transformer.Defs {
     def replace = pftransitive {
@@ -24,9 +25,28 @@ object Columnizer extends (Node => Node) {
     }
   }
 
-  def apply(tree: Node): Node = {
-    val n = expandAndOptimize(tree)
-    if(n == tree) n else apply(n)
+  def apply(tree: Node): Node = fixpoint(tree)((expandAndOptimize _).andThen(expandPureSelects))
+
+  def expandPureSelects(n: Node): Node = {
+    val n2 = memoized[Node, Node](r => {
+      case b @ Bind(gen, _, Pure(x)) if (x match {
+          case TableRef(_) => false
+          case ProductNode(_*) => false
+          case StructNode(_) => false
+          case _ => true
+        }) => b.copy(select = Pure(ProductNode(x)))
+      case n => n.nodeMapChildren(r)
+    })(n)
+    val defs = n2.collectAll[(Symbol, Node)]{ case d: DefNode => d.nodeGenerators }.toMap
+    logger.debug("Generated defs from single-column selects: "+defs)
+    def findField(n: Node): Node = n match {
+      case Bind(_, _, Pure(ProductNode(x))) => x
+      case FilteredQuery(_, from) => findField(from)
+    }
+    memoized[Node, Node](r => {
+      case Ref(sym) if defs.contains(sym) => InRef(sym, findField(defs(sym)))
+      case n => n.nodeMapChildren(r)
+    })(n2)
   }
 
   def expandAndOptimize(tree: Node): Node = {

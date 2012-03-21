@@ -6,11 +6,11 @@ import org.scalaquery.ql.{AbstractTable, Join}
 import org.scalaquery.util.Logging
 
 case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None) extends Node with DefNode {
-  protected[this] def nodeChildGenerators = from.map(_._2) ++ where ++ orderBy ++ select
+  protected[this] def nodeChildGenerators = from.map(_._2) ++ where ++ orderBy.map(_._1) ++ select
   override protected[this] def nodeChildNames =
     from.map("from " + _._1) ++
     where.zipWithIndex.map("where" + _._2) ++
-    orderBy.zipWithIndex.map("orderBy" + _._2) ++
+    orderBy.map("orderBy " + _._2) ++
     select.map(_ => "select")
   def nodeMapChildren(f: Node => Node) = mapChildren(f, f)
   def mapChildren(fromMap: Node => Node, otherMap: Node => Node): Node = {

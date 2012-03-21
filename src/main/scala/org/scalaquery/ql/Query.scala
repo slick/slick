@@ -55,8 +55,6 @@ abstract class Query[+E, +U] extends NodeGenerator {
   /*
   def groupBy(by: Column[_]*) =
     new Query[E, U](unpackable, cond, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
-
-  def orderBy(by: Ordering*) = new Query[E, U](unpackable, cond, modifiers ::: by.toList)
   */
 
   def cond: Seq[NodeGenerator] = Nil //--
@@ -88,9 +86,9 @@ abstract class Query[+E, +U] extends NodeGenerator {
   def drop(num: Int): Query[E, U] = new WrappingQuery[E, U](Drop(Node(this), num), unpackable)
 }
 
-object Query extends Query[Unit, Unit] {
-  def nodeDelegate = reified
-  def unpackable = Unpackable((), Unpack.unpackPrimitive[Unit])
+object Query extends Query[Column[Unit], Unit] {
+  def nodeDelegate = Pure(reified)
+  def unpackable = Unpackable(ConstColumn(()), Unpack.unpackColumnBase[Unit])
   def apply[E, U, R](value: E)(implicit unpack: Unpack[E, U], reify: Reify[E, R]) =
     apply[R, U](Unpackable(value, unpack).reifiedUnpackable)
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
@@ -99,12 +97,10 @@ object Query extends Query[Unit, Unit] {
         override lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
       }
     else new WrappingQuery[E, U](Pure(unpackable.reifiedNode), unpackable)
-  /*def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
-    if(unpackable.reifiedNode.isInstanceOf[AbstractTable[_]])
-      new WrappingQuery[E, U](new TableQuery(new AnonSymbol, unpackable.reifiedNode), unpackable) {
-        override lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
-      }
-    else new WrappingQuery[E, U](Pure(unpackable.reifiedNode), unpackable)*/
+
+  @deprecated("Use .sortBy on a query instead of mixing in Query.orderBy", "0.10.0-M2")
+  def orderBy[T <% Ordered](by: T) =
+    new WrappingQuery[Column[Unit], Unit](SortBy(new AnonSymbol, Node(this), by.columns), unpackable)
 }
 
 trait CanBeQueryCondition[-T] {

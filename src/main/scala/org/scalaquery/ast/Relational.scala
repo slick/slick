@@ -22,7 +22,7 @@ object Relational extends Logging {
     val n4 = inline(n3)
     if(n4 ne n3) logger.debug("inlined: ", n4)
     val n5 = eliminatePureFrom(n4)
-    if(n5 ne n4) logger.debug("pure from eliminated: ", n5)
+    if(n5 ne n4) logger.debug("Pure from eliminated: ", n5)
     n5
   }
 
@@ -42,7 +42,7 @@ object Relational extends Logging {
       }
     }
     val res = tr.applyOnce(tree)
-    // Ensure that no TableRefs remain
+    // Ensure that no TableRefs and StructNodes remain inside Pure generators
     res.foreach {
       case d: DefNode => d.nodeGenerators.foreach {
         case (sym, Pure(t: TableRef)) => throw new SQueryException("Could not eliminate "+sym+" <- "+t)

@@ -26,10 +26,7 @@ class IterateeTest(tdb: TestDB) extends DBTest(tdb) {
     A.ddl.create
     A.insertAll(("a", 1), ("b", 2), ("c", 3), ("d", 4))
 
-    val q1 = for {
-      a <- A
-      _ <- Query orderBy a.s
-    } yield a
+    val q1 = Query(A).sortBy(_.s)
 
     /* Sum i values until > 5 with foldLeft().
      * There is no way to stop early when the limit has been reached */
