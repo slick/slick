@@ -12,6 +12,7 @@ import org.scalaquery.test.util.TestDB._
 
 object NestingTest extends DBTestObject(H2Mem /*, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer*/)
 
+@deprecated("Using deprecated Query.orderBy feature", "0.10")
 class NestingTest(tdb: TestDB) extends DBTest(tdb) {
   import tdb.driver.Implicit._
 

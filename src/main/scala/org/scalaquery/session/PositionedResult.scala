@@ -20,8 +20,8 @@ sealed abstract class PositionedResult(val rs: ResultSet) extends Closeable { ou
   final def hasMoreColumns = pos < numColumns
 
   final def skip = { pos += 1; this }
-  final def restart { pos = startPos; this }
-  final def rewind { pos = Int.MinValue; this }
+  final def restart = { pos = startPos; this }
+  final def rewind = { pos = Int.MinValue; this }
 
   def nextRow = {
     val ret = (pos == Int.MinValue) || rs.next

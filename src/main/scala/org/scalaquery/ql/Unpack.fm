@@ -18,7 +18,7 @@ import org.scalaquery.util.{ValueLinearizer, ProductLinearizer}
  * - Linearized: (Int, Int, String, Int, Option[Double])
  */
 @implicitNotFound(msg = "Don't know how to unpack ${r"${Packed_}"} (to ${r"${Unpacked_}"})")
-sealed trait Unpack[-Packed_, Unpacked_] {
+trait Unpack[-Packed_, Unpacked_] {
   type Packed = Packed_
   type Unpacked = Unpacked_
   def reify(from: Packed): Any = from // must return the reified type

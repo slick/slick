@@ -10,7 +10,7 @@ trait WithOp extends Cloneable { self: NodeGenerator =>
     else {
       val t = clone
       t._op = fv
-      t
+      t.asInstanceOf[WithOp.this.type] // work around https://issues.scala-lang.org/browse/SI-5210
     }
   }
   private[WithOp] var _op: Node = _

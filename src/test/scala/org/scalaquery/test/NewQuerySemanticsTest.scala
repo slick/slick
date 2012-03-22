@@ -96,6 +96,20 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       println("SQL: "+g.selectStatement)*/
     }
 
+    val q0 = Query(Coffees)
+    show("q0: Plain table", q0)
+    val r0 = q0.to[Set]()
+    println("r0: "+r0)
+    val r0e = Set(
+      ("Colombian",         101, 7.99, 1, 0),
+      ("French_Roast",       49, 7.99, 2, 0),
+      ("Espresso",          150, 9.99, 3, 0),
+      ("Colombian_Decaf",   101, 8.49, 4, 0),
+      ("French_Roast_Decaf", 49, 9.99, 5, 0)
+    )
+    assertEquals(r0e, r0)
+
+    /*
     val q1 = for {
       c <- Coffees.sortBy(c => (c.name, c.price.desc)).take(2)
       s <- Suppliers
@@ -267,6 +281,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       ("Colombian_Decaf",None)
     )
     assertEquals(r8e, r8)
+    */
 
     /*val q8b = for {
       t <- Coffees.take(1) leftJoin Coffees.take(2) on (_.name === _.name) leftJoin Coffees.take(3) on (_._1.supID === _.supID)

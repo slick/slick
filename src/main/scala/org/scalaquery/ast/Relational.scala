@@ -198,7 +198,8 @@ object Relational extends Logging {
       case t: AbstractTable[_] if(sym.isDefined && needed.contains(sym.get)) =>
         val gen = new AnonSymbol
         val (symMap, _) = needed(sym.get)
-        val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }
+        //val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }
+        val struct = (symMap.toIndexedSeq: IndexedSeq[(FieldSymbol, AnonSymbol)]).map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }
         Bind(gen, t, Pure(StructNode(struct)))
       case d: DefNode => d.nodeMapScopedChildren(tr)
       case n => n.nodeMapChildren{ ch => tr(None, ch) }
