@@ -21,7 +21,7 @@ object Columnizer extends (Node => Node) with Logging {
       case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
       // Rewrite a table reference returned in a Bind
       case b @ Bind(_, _, t: AbstractTable[_]) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.*))))
-      case Pure(ResolvedRef(sym1, f @ FilterChain(syms, t: AbstractTable[_]))) => Pure(TableRef(sym1))
+      //case Pure(ResolvedRef(sym1, f @ FilterChain(syms, t: AbstractTable[_]))) => Pure(TableRef(sym1))
     }
   }
 
