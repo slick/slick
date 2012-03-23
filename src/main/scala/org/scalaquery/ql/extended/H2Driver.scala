@@ -35,7 +35,7 @@ class H2QueryBuilder(_query: Query[_, _], profile: H2Driver) extends BasicQueryB
   override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
     case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
     case (Some(t), None) => b += " LIMIT " += t
-    case (None, Some(d)) => b += " LIMIT 0 OFFSET " += d
+    case (None, Some(d)) => b += " LIMIT -1 OFFSET " += d
     case _ =>
   }
 }
