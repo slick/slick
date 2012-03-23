@@ -36,19 +36,22 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTable: TT)
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U], unpackp: Unpack[P, PU]): ForeignKeyQuery[TT, U] = {
-    val mappedTTU = Unpackable(targetTable.mapOp(tt => AbstractTable.Alias(Node(tt))), unpack)
-    val fks = IndexedSeq(ForeignKey(name, this, mappedTTU, targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete))
-    ForeignKeyQuery(mappedTTU.reifiedNode, fks.map(Node.apply _))(fks, mappedTTU)
+       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U], unpackp: Unpack[P, PU]): ForeignKeyQuery[TT, U] = {
+    //Query(targetTable).filter[Column[Boolean]](tt => ColumnOps.Is(Node(targetColumns(tt)), Node(sourceColumns)))
+    val q = Query[TT, U, TT](targetTable)
+    val generator = new AnonSymbol
+    val aliased = InRef.forUnpackable(generator, q.unpackable)
+    val fv = ColumnOps.Is(Node(targetColumns(aliased.value)), Node(sourceColumns))
+    val fk = ForeignKey(name, this, q.unpackable.asInstanceOf[Unpackable[TT, _]],
+      targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
+    new ForeignKeyQuery[TT, U](Filter(generator, Node(q), Node(fv)), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
   def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Unpack[T, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).getLinearizedNodes)
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
-      if m.getParameterTypes.length == 0 &&
-        (m.getReturnType == classOf[ForeignKeyQuery[_ <: AbstractTable[_], _]]
-         || m.getReturnType == classOf[PrimaryKey])
+      if m.getParameterTypes.length == 0 && classOf[Constraint].isAssignableFrom(m.getReturnType)
       q = m.invoke(this).asInstanceOf[Constraint]
     } yield q
 
@@ -73,14 +76,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
 
 object AbstractTable {
   def unapply(t: AbstractTable[_]) = Some(t.tableName)
-
-  final case class Alias(child: Node) extends UnaryNode {
-    override def toString = "AbstractTable.Alias"
-    override def isNamedTable = true
-    protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
-    override def hashCode() = System.identityHashCode(this)
-    override def equals(o: Any) = this eq o.asInstanceOf[AnyRef]
-  }
 }
 
 final class JoinBase[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right: T2, joinType: Join.JoinType) {

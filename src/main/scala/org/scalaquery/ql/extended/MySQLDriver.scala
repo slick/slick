@@ -91,7 +91,7 @@ class MySQLQueryBuilder(_query: Query[_, _], profile: MySQLDriver) extends Basic
 
 class MySQLDDLBuilder(table: AbstractBasicTable[_], profile: MySQLDriver) extends BasicDDLBuilder(table, profile) {
   override protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _]) = {
-    "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.data.name
+    "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
   }
 }
 

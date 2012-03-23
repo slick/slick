@@ -173,9 +173,9 @@ class AccessDDLBuilder(table: AbstractBasicTable[_], profile: AccessDriver) exte
   override protected def createColumnDDLBuilder(c: RawNamedColumn) = new AccessColumnDDLBuilder(c)
 
   override protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
-    sb append "CONSTRAINT " append quoteIdentifier(fk.data.name) append " FOREIGN KEY("
+    sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
     addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
-    addForeignKeyColumnList(fk.data.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
+    addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
     sb append ")"
     /*if(fk.onUpdate == ForeignKeyAction.Cascade || fk.onUpdate == ForeignKeyAction.SetNull)
       sb append " ON UPDATE " append fk.onUpdate.action

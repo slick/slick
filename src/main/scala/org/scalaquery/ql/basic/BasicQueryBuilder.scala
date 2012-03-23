@@ -136,6 +136,23 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       b += "))"
     }
     case Is(l, ConstColumn(null)) => b += '('; expr(l); b += " is null)"
+    case Is(left: ProductNode, right: ProductNode) =>
+      if(supportsTuples) {
+        b += "("
+        expr(left)
+        b += " = "
+        expr(right)
+        b += ")"
+      } else {
+        val cols = left.nodeChildren zip right.nodeChildren
+        b += "("
+        b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
+        b += ")"
+      }
+    case ProductNode(ch @ _*) =>
+      b += "("
+      b.sep(ch, ", ")(expr)
+      b += ")"
     case Is(l, r) => b += '('; expr(l); b += '='; expr(r); b += ')'
     case EscFunction("concat", l, r) if concatOperator.isDefined =>
       b += '('; expr(l); b += concatOperator.get; expr(r); b += ')'
@@ -195,15 +212,6 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       }
       b += " end)"
     case FieldRef(struct, field) => b += symbolName(struct) += '.' += symbolName(field)
-    case fk: ForeignKey[_, _] =>
-      if(supportsTuples) {
-        b += "(("; expr(fk.left); b += ")=("; expr(fk.right); b += "))"
-      } else {
-        val cols = fk.linearizedSourceColumns zip fk.linearizedTargetColumns
-        b += "("
-        b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
-        b += ")"
-      }
     //TODO case CountAll(q) => b += "count(*)"; localTableName(q)
     //TODO case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
     //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
@@ -264,7 +272,6 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
 
   protected def rewriteCountStarQuery(q: Query[_, _]) =
     q.modifiers.isEmpty && (q.reified match {
-      case AbstractTable.Alias(_: AbstractTable[_]) => true
       case _: AbstractTable[_] => true
       case _ => false
     })

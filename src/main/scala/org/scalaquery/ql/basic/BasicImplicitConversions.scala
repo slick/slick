@@ -19,7 +19,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
 
-  implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing, T](t)(Unpack.unpackTableBase, null)
+  implicit def tableToQuery[T <: TableBase[_]](t: T) = Query[T, Nothing, T](t)(Unpack.unpackTableBase, null)
   //implicit def tableToQuery[T <: TableBase[_], U](t: T) = Query[T, Nothing](t.mapOp(n => new AbstractTable.Alias(Node(n))))(Unpack.unpackTableBase)
 
   implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
