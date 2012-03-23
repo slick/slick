@@ -101,11 +101,18 @@ object Optimizer extends Logging {
         case b @ Bind(_, _, p @ Pure(_)) => (RefId(p), b)
       }
     }
+    def checkSelect(b: Bind, sel: Node): Boolean = {
+      if(b.select eq sel) true
+      else b.select match {
+        case b2: Bind => checkSelect(b2, sel)
+        case _ => false
+      }
+    }
     def replace = {
       case InRef(sym, Wrapped(in, what)) if {
         (defs.get(sym) == Some(RefId(in))) ||
           defs.get(sym).map(_.e match {
-            case Bind(_, _, select) if select eq in => true
+            case b: Bind if checkSelect(b, in) => true
             case _ => false
           }).getOrElse(false)
       } => InRef(sym, what)
