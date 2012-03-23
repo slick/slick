@@ -2,9 +2,9 @@ package org.scalaquery.ast
 
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import org.scalaquery.SQueryException
-import org.scalaquery.ql.{AbstractTable, Join}
 import org.scalaquery.util.Logging
 import OptimizerUtil._
+import org.scalaquery.ql.{RawNamedColumn, AbstractTable, Join}
 
 /**
  * Conversion of basic ASTs to a shape suitable for relational DBs.
@@ -71,7 +71,7 @@ object Relational extends Logging {
   def inline(tree: Node) = {
     object ComprehensionStruct {
       def unapply(c: Comprehension): Option[Node] = c match {
-        case Comprehension(_, _, _, Some(Pure(s : StructNode))) => Some(s)
+        case Comprehension(_, _, _, Some(Pure(s : ProductNode))) => Some(s)
         case Comprehension(_, _, _, Some(Pure(t: TableRef))) => Some(t)
         case Comprehension(_, _, _, Some(c2: Comprehension)) => unapply(c2)
         case Comprehension(from, _, _, None) =>
@@ -98,21 +98,25 @@ object Relational extends Logging {
           logger.debug("Scanning from clauses of Comprehension "+c.from.map(_._1).mkString(", "))
           val sel = c.from.map {
             case (s,  n @ ComprehensionStruct(target)) if(!protectedRefs(s)) =>
+              logger.debug("found ComprehensionStruct at "+s)
               rewrite = true
               eliminated += ((s, target))
               scanFrom(n)
             case (s, f @ FilteredJoin(leftGen, rightGen, left, right, Join.Inner, on)) =>
+              logger.debug("found FilteredJoin at "+s)
               rewrite = true
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
               newWhere += on
               c.select
             case (s, f @ BaseJoin(leftGen, rightGen, left, right, Join.Inner)) =>
+              logger.debug("found BaseJoin at "+s)
               rewrite = true
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
               c.select
             case t =>
+              logger.debug("found other (keeping) at "+t._1)
               newGens += t
               c.select
           }.lastOption
@@ -122,6 +126,20 @@ object Relational extends Logging {
         }
         val newSelect = scanFrom(c)
         logger.debug("eliminated: "+eliminated)
+        def findProductRef(p: ProductNode, sym: Symbol): Option[Node] = p.nodeChildren.collectFirst {
+          case f @ FieldRef(t, s) if sym == s && !eliminated.contains(t) => f
+        }
+        def findAliasingTarget(p: ProductNode): Option[Symbol] = {
+          val targets = p.collect[Symbol]{ case FieldRef(t, _) => t }.toSet
+          if(targets.size != 1) None
+          else {
+            val target = targets.head
+            eliminated.get(target) match {
+              case Some(p: ProductNode) => findAliasingTarget(p)
+              case None => Some(target)
+            }
+          }
+        }
         def replaceRefs(n: Node): Node = n match {
           case FieldRef(t, c) if eliminated.contains(t) =>
             eliminated(t) match {
@@ -129,8 +147,23 @@ object Relational extends Logging {
                 logger.debug("replacing FieldRef("+t+", "+c+") by FieldRef("+tab+", "+c+") [TableRef]")
                 replaceRefs(FieldRef(tab, c))
               case StructNode(mapping) =>
-                logger.debug("replacing FieldRef("+t+", "+c+") by "+mapping.toMap.apply(c))
+                logger.debug("replacing FieldRef("+t+", "+c+") by "+mapping.toMap.apply(c)+" [StructNode]")
                 replaceRefs(mapping.toMap.apply(c))
+              case p: ProductNode =>
+                logger.debug("Finding "+c+" in ProductNode "+t)
+                findProductRef(p, c) match {
+                  case Some(n) =>
+                    logger.debug("replacing FieldRef("+t+", "+c+") by "+n+" [ProductNode]")
+                    replaceRefs(n)
+                  case None =>
+                    findAliasingTarget(p) match {
+                      case Some(target) =>
+                        val f = FieldRef(target, c)
+                        logger.debug("replacing FieldRef("+t+", "+c+") by "+f+" [ProductNode aliasing]")
+                        replaceRefs(f)
+                      case None => n
+                    }
+                }
               case _ => n
             }
           case n => n.nodeMapChildren(replaceRefs)
