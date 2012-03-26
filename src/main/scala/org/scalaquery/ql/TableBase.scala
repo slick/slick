@@ -86,3 +86,20 @@ object JoinType {
   case object Right extends JoinType("right outer")
   case object Outer extends JoinType("full outer")
 }
+
+object Join {
+  @deprecated("Use a tuple extractor instead", "0.10.0-M2")
+  def unapply[T1, T2](t: (T1, T2)) = Some(t)
+
+  @deprecated("Use JoinType.Inner instead", "0.10.0-M2")
+  val Inner = JoinType.Inner
+
+  @deprecated("Use JoinType.Left instead", "0.10.0-M2")
+  val Left = JoinType.Left
+
+  @deprecated("Use JoinType.Right instead", "0.10.0-M2")
+  val Right = JoinType.Right
+
+  @deprecated("Use JoinType.Outer instead", "0.10.0-M2")
+  val Outer = JoinType.Outer
+}
