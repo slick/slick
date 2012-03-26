@@ -1,26 +1,25 @@
 package org.scalaquery.ast
 
 import scala.math.{min, max}
-import scala.collection.mutable.ArrayBuffer
-import org.scalaquery.ql.JoinType
-import org.scalaquery.SQueryException
-import org.scalaquery.util.SimpleTypeName
-import org.scalaquery.ql.{Unpackable, ConstColumn}
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
+import org.scalaquery.SQueryException
+import org.scalaquery.ql.{Unpackable, ConstColumn, JoinType}
+import org.scalaquery.util.{RefId, SimpleTypeName}
 
 trait NodeGenerator {
   def nodeDelegate: Node
 
-  final def dump(name: String = "", prefix: String = "", nc: IdContext = IdContext(nodeDelegate)) {
+  final def dump(name: String = "", prefix: String = "") {
     val out = new PrintWriter(new OutputStreamWriter(System.out))
-    nodeDelegate.nodeDump(new DumpContext(out, nc), prefix, name)
+    nodeDelegate.nodeDump(new DumpContext(out, nodeDelegate), prefix, name)
     out.flush()
   }
 
-  final def dumpString(name: String = "", prefix: String = "", nc: IdContext = IdContext(nodeDelegate)) = {
+  final def dumpString(name: String = "", prefix: String = "") = {
     val buf = new StringWriter
     val out = new PrintWriter(buf)
-    nodeDelegate.nodeDump(new DumpContext(out, nc), prefix, name)
+    nodeDelegate.nodeDump(new DumpContext(out, nodeDelegate), prefix, name)
     out.flush()
     buf.getBuffer.toString
   }
@@ -52,7 +51,7 @@ trait Node extends NodeGenerator {
   }
 
   def nodeDump(dc: DumpContext, prefix: String, name: String) {
-    val check = if(this.isInstanceOf[Ref]) None else dc.nc.checkIdFor(this)
+    val check = if(this.isInstanceOf[Ref]) None else dc.checkIdFor(this)
     val details = check match {
       case Some((id, true)) =>
         dc.out.println(prefix + name + "[" + id + "] " + this)
@@ -97,7 +96,32 @@ object Node {
     else throw new SQueryException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
 }
 
-final class DumpContext(val out: PrintWriter, val nc: IdContext)
+final class DumpContext(val out: PrintWriter, base: Node) {
+  private[this] val counts = new HashMap[RefId[Node], Int]
+  private[this] val ids = new HashMap[RefId[Node], Int]
+  private[this] var nextId = 1
+  private[this] def scan(n: Node) {
+    val r = RefId(n)
+    val c = counts.getOrElse(r, 0)
+    counts(r) = c + 1
+    if(c == 0) n.nodeChildren.foreach(scan _)
+  }
+  scan(base)
+
+  def checkIdFor(t: Node): Option[(Int, Boolean)] = {
+    val r = RefId(t)
+    val id = ids.getOrElse(r, 0)
+    if(id > 0) Some((id, false))
+    else if(counts.getOrElse(r, 0) > 1) {
+      val nid = nextId
+      nextId += 1
+      ids(r) = nid
+      Some((nid, true))
+    }
+    else None
+  }
+  def idFor(t: Node) = checkIdFor(t).map(_._1)
+}
 
 trait ProductNode extends SimpleNode {
   override def toString = "ProductNode"
