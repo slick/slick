@@ -50,11 +50,24 @@ object Columnizer extends (Node => Node) with Logging {
   }
 
   def expandAndOptimize(tree: Node): Node = {
-    val t2 = expandColumns(tree match {
-      case f @ FilterChain(_, t: AbstractTable[_]) => // Special case: (possibly filtered) table at top level
-        FilterChain.mapSource(f, source => Node(Query(source.asInstanceOf[AbstractTable[_]]).map(_.*)))
+    def isFilterOrUnionOfTable(n: Node): Boolean = n match {
+      case FilteredQuery(_, from) => isFilterOrUnionOfTable(from)
+      case _: AbstractTable[_] => true
+      case Union(left, right, _, _, _) => isFilterOrUnionOfTable(left) || isFilterOrUnionOfTable(right)
+      case _ => false
+    }
+    def mapSourceTable(n: Node, f: AbstractTable[_] => Node): Node = n match {
+      case q @ FilteredQuery(_, _) =>
+        q.nodeMapFrom(mapSourceTable(_, f))
+      case u @ Union(left, right, _, _, _) =>
+        u.copy(left = mapSourceTable(left, f), right = mapSourceTable(right, f))
+      case source: AbstractTable[_] => f(source)
       case n => n
-    })
+    }
+    val t2 = if(isFilterOrUnionOfTable(tree)) {
+      mapSourceTable(tree, source => Node(Query(source).map(_.*)))
+    } else tree
+    val t3 = expandColumns(t2)
     //TODO This hack unwraps the expanded references within their scope
     // There may be other situations where unwrapping finds the wrong symbols,
     // so this should be done in a completely different way (by introducing
@@ -66,7 +79,7 @@ object Columnizer extends (Node => Node) with Logging {
         u.copy(left = l, right = r)
       case n => n.nodeMapChildren(optimizeUnions)
     }
-    val t3 = optimizeUnions(t2)
-    Optimizer.standard(t3)
+    val t4 = optimizeUnions(t3)
+    Optimizer.standard(t4)
   }
 }
