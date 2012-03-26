@@ -129,6 +129,12 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
     case ConstColumn(null) => b += "null"
     case Not(Is(l, ConstColumn(null))) => b += '('; expr(l); b += " is not null)"
     case Not(e) => b += "(not "; expr(e); b+= ')'
+    case In(what, where) =>
+      b += '('
+      expr(what)
+      b += " in ("
+      buildComprehension(where)
+      b += "))"
     case i @ InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn.FALSE) else {
       b += '('; expr(e); b += " in ("
       if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(driver).setValue(x, p) })
