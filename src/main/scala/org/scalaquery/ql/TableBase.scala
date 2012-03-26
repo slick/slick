@@ -78,39 +78,9 @@ object AbstractTable {
   def unapply(t: AbstractTable[_]) = Some(t.tableName)
 }
 
-final class JoinBase[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right: T2, joinType: Join.JoinType) {
-  protected[this] def nodeChildGenerators = Seq(_left, _right)
-  def on[T <: Column[_] : CanBeQueryCondition](pred: (T1, T2) => T) = new Join(_left, _right, joinType, Node(pred(_left, _right)))
-}
+abstract class JoinType(val sqlName: String)
 
-//TODO Remove the joins on tables, to be replaced by joins on queries
-final class Join[+T1 <: AbstractTable[_], +T2 <: TableBase[_]](_left: T1, _right: T2,
-  val joinType: Join.JoinType, val on: Node) extends TableBase[Nothing] {
-
-  def left = _left.mapOp(n => Join.JoinPart(Node(n), Node(this)))
-  def right = _right.mapOp(n => Join.JoinPart(Node(n), Node(this)))
-  def leftNode = Node(_left)
-  def rightNode = Node(_right)
-  protected[this] def nodeChildGenerators = Seq(leftNode, rightNode)
-  def nodeMapChildren(f: Node => Node): Node = this //-- incorrect
-
-  override def hashCode() = toString.hashCode() + nodeChildren.hashCode()
-  override def equals(o: Any) = o match {
-    case j: Join[_,_] => nodeChildren == j.nodeChildren
-    case _ => false
-  }
-}
-
-object Join {
-  def unapply[T1 <: AbstractTable[_], T2 <: TableBase[_]](j: Join[T1, T2]) = Some((j.left, j.right))
-
-  final case class JoinPart(left: Node, right: Node) extends BinaryNode {
-    override def toString = "JoinPart"
-    protected[this] override def nodeChildNames = Seq("table", "from")
-    protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(left = left, right = right)
-  }
-
-  abstract class JoinType(val sqlName: String)
+object JoinType {
   case object Inner extends JoinType("inner")
   case object Left extends JoinType("left outer")
   case object Right extends JoinType("right outer")

@@ -2,7 +2,7 @@ package org.scalaquery.ast
 
 import scala.math.{min, max}
 import scala.collection.mutable.ArrayBuffer
-import org.scalaquery.ql.Join.JoinType
+import org.scalaquery.ql.JoinType
 import org.scalaquery.SQueryException
 import org.scalaquery.util.SimpleTypeName
 import org.scalaquery.ql.{Unpackable, ConstColumn}

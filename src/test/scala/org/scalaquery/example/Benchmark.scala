@@ -1,16 +1,14 @@
 package org.scalaquery.example
 
-import org.scalaquery.ql.{Join, Query}
+import org.scalaquery.ql.Query
 import org.scalaquery.ql.basic.BasicDriver
 import org.scalaquery.ql.basic.BasicDriver.Implicit._
 import org.scalaquery.ql.basic.{BasicTable => Table}
 import org.scalaquery.ql.TypeMapper._
-import org.scalaquery.util.NamingContext
 
 object Benchmark {
 
-  val COUNT = 20000
-  val PRE_COUNT = 2000
+  val COUNT = 2000
 
   def main(args: Array[String]) {
     for(i <- 0 to COUNT) test1(i == 0)
@@ -43,7 +41,7 @@ object Benchmark {
     val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
     val q4 = for {
       uo <- Users innerJoin Orders on (_.id is _.userID)
-      val Join(u,o) = uo
+      val (u,o) = uo
       _ <- Query.orderBy(u.last asc)
     } yield u.first ~ o.orderID
     val q5 = for (
@@ -51,11 +49,11 @@ object Benchmark {
         where { o => o.orderID is (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max).asColumn }
     ) yield o.orderID
 
-    val s1 = BasicDriver.buildSelectStatement(q1, NamingContext())
-    val s2 = BasicDriver.buildSelectStatement(q2, NamingContext())
-    val s3 = BasicDriver.buildSelectStatement(q3, NamingContext())
-    val s4 = BasicDriver.buildSelectStatement(q4, NamingContext())
-    val s5 = BasicDriver.buildSelectStatement(q5, NamingContext())
+    val s1 = BasicDriver.buildSelectStatement(q1)
+    val s2 = BasicDriver.buildSelectStatement(q2)
+    val s3 = BasicDriver.buildSelectStatement(q3)
+    val s4 = BasicDriver.buildSelectStatement(q4)
+    val s5 = BasicDriver.buildSelectStatement(q5)
 
     if(print) {
       println("q1: " + s1)

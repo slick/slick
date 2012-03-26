@@ -1,8 +1,6 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql._
-import org.scalaquery.SQueryException
-import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.ast.Node
 
 abstract class AbstractBasicTable[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) {
@@ -20,11 +18,6 @@ abstract class AbstractBasicTable[T](_schemaName: Option[String], _tableName: St
       table <- this if ColumnOps.Is(Node(f(this)), Node(param))
     } yield table
   }
-
-  def innerJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Inner)
-  def leftJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Left)
-  def rightJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Right)
-  def outerJoin[U <: TableBase[_]](other: U) = new JoinBase[this.type, U](this, other, Join.Outer)
 
   def ddl(implicit profile: ProfileType): DDL = profile.buildTableDDL(this)
 }

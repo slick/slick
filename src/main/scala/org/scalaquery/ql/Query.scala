@@ -1,7 +1,6 @@
 package org.scalaquery.ql
 
 import org.scalaquery.ast._
-import org.scalaquery.ql.Join.JoinType
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
@@ -37,15 +36,16 @@ abstract class Query[+E, +U] extends NodeGenerator {
 
   def where[T <: Column[_] : CanBeQueryCondition](f: E => T) = filter(f)
 
-  def join[E2, U2](q2: Query[E2, U2], jt: Join.JoinType = Join.Inner) = {
+  def join[E2, U2](q2: Query[E2, U2], jt: JoinType = JoinType.Inner) = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = InRef.forUnpackable(leftGen, unpackable)
     val aliased2 = InRef.forUnpackable(rightGen, q2.unpackable)
     new BaseJoinQuery[E, E2, U, U2](leftGen, rightGen, Node(unpackable.value), Node(q2.unpackable.value), jt, aliased1.zip(aliased2))
   }
-  def leftJoin[E2, U2](q2: Query[E2, U2]) = join(q2, Join.Left)
-  def rightJoin[E2, U2](q2: Query[E2, U2]) = join(q2, Join.Right)
-  def outerJoin[E2, U2](q2: Query[E2, U2]) = join(q2, Join.Outer)
+  def innerJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Inner)
+  def leftJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Left)
+  def rightJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Right)
+  def outerJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Outer)
 
   def sortBy[T <% Ordered](f: E => T): Query[E, U] = {
     val generator = new AnonSymbol
@@ -81,6 +81,9 @@ abstract class Query[+E, +U] extends NodeGenerator {
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E = unpackable.value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
   */
+
+  def asColumn(implicit ev: E <:< Column[_]): E =
+    ev(unpackable.value).mapOp(_ => Node(this)).asInstanceOf[E]
 
   def take(num: Int): Query[E, U] = new WrappingQuery[E, U](Take(Node(this), num), unpackable)
   def drop(num: Int): Query[E, U] = new WrappingQuery[E, U](Drop(Node(this), num), unpackable)

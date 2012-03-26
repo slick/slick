@@ -129,12 +129,6 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
     case ConstColumn(null) => b += "null"
     case Not(Is(l, ConstColumn(null))) => b += '('; expr(l); b += " is not null)"
     case Not(e) => b += "(not "; expr(e); b+= ')'
-    case In(what, where) =>
-      b += '('
-      expr(what)
-      b += " in ("
-      buildComprehension(where)
-      b += "))"
     case i @ InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn.FALSE) else {
       b += '('; expr(e); b += " in ("
       if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(driver).setValue(x, p) })
@@ -162,10 +156,6 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
     case Is(l, r) => b += '('; expr(l); b += '='; expr(r); b += ')'
     case EscFunction("concat", l, r) if concatOperator.isDefined =>
       b += '('; expr(l); b += concatOperator.get; expr(r); b += ')'
-    case StdFunction("exists", ch @ (_: Comprehension | _: FilteredQuery)) =>
-      b += "exists("
-      buildComprehension(ch)
-      b += ')'
     case s: SimpleFunction =>
       if(s.scalar) b += "{fn "
       b += s.name += '('
@@ -221,7 +211,11 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
     //TODO case CountAll(q) => b += "count(*)"; localTableName(q)
     //TODO case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
     //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
-    case _ => throw new SQueryException("Don't know what to do with node "+n+" in an expression")
+    case n => // try to build a sub-query
+      b += '('
+      buildComprehension(n)
+      b += ')'
+    //case _ => throw new SQueryException("Don't know what to do with node "+n+" in an expression")
   }
 
   protected def appendOrderClause(order: Seq[(Node, Ordering)]) {

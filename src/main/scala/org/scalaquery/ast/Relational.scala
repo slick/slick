@@ -4,7 +4,7 @@ import scala.collection.mutable.{HashMap, ArrayBuffer}
 import org.scalaquery.SQueryException
 import org.scalaquery.util.Logging
 import OptimizerUtil._
-import org.scalaquery.ql.{RawNamedColumn, AbstractTable, Join}
+import org.scalaquery.ql.{AbstractTable, JoinType}
 
 /**
  * Conversion of basic ASTs to a shape suitable for relational DBs.
@@ -102,14 +102,14 @@ object Relational extends Logging {
               rewrite = true
               eliminated += ((s, target))
               scanFrom(n)
-            case (s, f @ FilteredJoin(leftGen, rightGen, left, right, Join.Inner, on)) =>
+            case (s, f @ FilteredJoin(leftGen, rightGen, left, right, JoinType.Inner, on)) =>
               logger.debug("found FilteredJoin at "+s)
               rewrite = true
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
               newWhere += on
               c.select
-            case (s, f @ BaseJoin(leftGen, rightGen, left, right, Join.Inner)) =>
+            case (s, f @ BaseJoin(leftGen, rightGen, left, right, JoinType.Inner)) =>
               logger.debug("found BaseJoin at "+s)
               rewrite = true
               newGens += ((leftGen, left))
