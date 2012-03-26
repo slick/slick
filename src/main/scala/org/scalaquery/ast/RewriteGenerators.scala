@@ -35,6 +35,7 @@ object RewriteGenerators extends Logging {
   })(tree)
 
   def rewriteGenerator(b: Node, gen: Symbol, from: Node): Node = {
+    logger.debug("rewriteGenerator: ",b)
     val rewrite = collectRewriteSymbols(gen, from)
     logger.debug("rewrite: "+rewrite)
     val refsMap = collectReferences(b, rewrite).iterator.map(n => (n, new AnonSymbol)).toMap
@@ -49,11 +50,14 @@ object RewriteGenerators extends Logging {
           false
       }
       logger.debug("isTableBased: "+isTableBased+", keys: "+refsMap.keys)
-      logger.debug("struct:", StructNode(struct))
       if(isTableBased && refsMap.keys.forall(_.isInstanceOf[RawNamedColumn])) {
         // only column refs -> rewrite directly
+        logger.debug("Rewriting directly as table")
         (b, refsMap.map { case (r: RawNamedColumn, _) => (r: Node, r.symbol) })
-      } else (b.nodeMapChildren(n => if(n eq from) replaceSelect(from, struct, rewrite, new ReplaceSelectContext(b)) else n), refsMap)
+      } else {
+        logger.debug("struct:", StructNode(struct))
+        (b.nodeMapChildren(n => if(n eq from) replaceSelect(from, struct, rewrite, new ReplaceSelectContext(b)) else n), refsMap)
+      }
     }
     logger.debug("withNewSelect:", withNewSelect)
     logger.debug("replacementMap: "+replacementMap)
@@ -114,50 +118,53 @@ object RewriteGenerators extends Logging {
     }
   }
 
-  def replaceSelect(in: Node, struct: IndexedSeq[(Symbol, Node)], genChain: Set[Symbol], ctx: ReplaceSelectContext): Node = in match {
-    case f: FilteredQuery => f.nodeMapFrom(n => replaceSelect(n, struct, genChain, ctx))
-    case b @ Bind(_, _, p @ Pure(_)) => b.copy(select = replaceSelect(p, struct, genChain, ctx))
-    case b @ Bind(gen, _, nonPure) => b.copy(select = replaceSelect(nonPure, struct, genChain, ctx))
-    case t @ AbstractTable(_) => //TODO support keepExisting and useIndices
-      val gen = new SyntheticBindSymbol
-      val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, genChain.iterator.map(s => (s, gen)).toMap, gen)) })
-      logger.debug("actual replacement:", rewrapped)
-      Bind(gen, t, Pure(rewrapped))
-    case f @ FilteredJoin(leftGen, rightGen, _, _, jt, on) => //TODO support keepExisting and useIndices
-      val gen = new SyntheticBindSymbol
-      logger.debug("struct:", StructNode(struct))
-      val rewrapMap = genChain.iterator.map(s => (s, gen)).toMap + (leftGen -> leftGen) + (rightGen -> rightGen)
-      val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, rewrapMap, gen)) })
-      logger.debug("genChain: "+genChain)
-      logger.debug("replacement for FilteredJoin:", rewrapped)
-      Bind(gen, f, Pure(rewrapped))
-    case Pure(what) =>
-      if(ctx.keepExisting) {
-        val cols = what.flattenProduct
-        if(ctx.indices == None) {
-          val idxMap = cols.zipWithIndex.map{ case (n, idx) => (ctx.unwrap(n), idx) }.toMap
-          logger.debug("idxMap: "+idxMap)
-          logger.debug("keeping existing in:", ProductNode(cols.map(ctx.unwrap): _*))
-          logger.debug("columns to find:", StructNode(struct.map{ case (s, n) => (s, ctx.unwrap(n)) }))
-          val structIdxs = struct.map { case (_, n) => idxMap.get(ctx.unwrap(n)) match {
-            case Some(idx) => idx
-            case None => throw new SQueryException("Unknown expression "+n+" in UNION result - cannot rewrite")
-          }}
-          logger.debug("found indexes: "+structIdxs)
-          ctx.indices = Some(structIdxs)
-        }
-        val mappedStruct = struct.zipWithIndex.map { case ((sym, _), idx) => (sym, cols(ctx.indices.get(idx))) }
-        //TODO support keepExisting and useIndices
-        //sys.error("not implemented")
-        Pure(StructNode(mappedStruct))
-      } else Pure(StructNode(struct))
-    case u @ Union(left, right, _, leftGen, rightGen) =>
-      logger.debug("replacing Union of "+leftGen+", "+rightGen)
-      logger.debug("genChain: "+genChain)
-      val unionCtx = ctx.forUnion
-      val lr = replaceSelect(left, struct.map{ case (s,n) => (s, n.unwrap(Set(leftGen))) }, genChain, unionCtx)
-      val rr = replaceSelect(right, struct, genChain, unionCtx)
-      u.copy(left = lr, right = rr)
+  def replaceSelect(in: Node, struct: IndexedSeq[(Symbol, Node)], genChain: Set[Symbol], ctx: ReplaceSelectContext): Node = {
+    logger.debug("replaceSelect("+in+", "+struct+", "+genChain+", "+ctx+")")
+    in match {
+      case f: FilteredQuery => f.nodeMapFrom(n => replaceSelect(n, struct, genChain, ctx))
+      case b @ Bind(_, _, p @ Pure(_)) => b.copy(select = replaceSelect(p, struct, genChain, ctx))
+      case b @ Bind(gen, _, nonPure) => b.copy(select = replaceSelect(nonPure, struct, genChain, ctx))
+      case t @ AbstractTable(_) => //TODO support keepExisting and useIndices
+        val gen = new SyntheticBindSymbol
+        val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, genChain.iterator.map(s => (s, gen)).toMap, gen)) })
+        logger.debug("actual replacement:", rewrapped)
+        Bind(gen, t, Pure(rewrapped))
+      case f @ FilteredJoin(leftGen, rightGen, _, _, jt, on) => //TODO support keepExisting and useIndices
+        val gen = new SyntheticBindSymbol
+        logger.debug("struct:", StructNode(struct))
+        val rewrapMap = genChain.iterator.map(s => (s, gen)).toMap + (leftGen -> leftGen) + (rightGen -> rightGen)
+        val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, rewrapMap, gen)) })
+        logger.debug("genChain: "+genChain)
+        logger.debug("replacement for FilteredJoin:", rewrapped)
+        Bind(gen, f, Pure(rewrapped))
+      case Pure(what) =>
+        if(ctx.keepExisting) {
+          val cols = what.flattenProduct
+          if(ctx.indices == None) {
+            val idxMap = cols.zipWithIndex.map{ case (n, idx) => (ctx.unwrap(n), idx) }.toMap
+            logger.debug("idxMap: "+idxMap)
+            logger.debug("keeping existing in:", ProductNode(cols.map(ctx.unwrap): _*))
+            logger.debug("columns to find:", StructNode(struct.map{ case (s, n) => (s, ctx.unwrap(n)) }))
+            val structIdxs = struct.map { case (_, n) => idxMap.get(ctx.unwrap(n)) match {
+              case Some(idx) => idx
+              case None => throw new SQueryException("Unknown expression "+n+" in UNION result - cannot rewrite")
+            }}
+            logger.debug("found indexes: "+structIdxs)
+            ctx.indices = Some(structIdxs)
+          }
+          val mappedStruct = struct.zipWithIndex.map { case ((sym, _), idx) => (sym, cols(ctx.indices.get(idx))) }
+          //TODO support keepExisting and useIndices
+          //sys.error("not implemented")
+          Pure(StructNode(mappedStruct))
+        } else Pure(StructNode(struct))
+      case u @ Union(left, right, _, leftGen, rightGen) =>
+        logger.debug("replacing Union of "+leftGen+", "+rightGen)
+        logger.debug("genChain: "+genChain)
+        val unionCtx = ctx.forUnion
+        val lr = replaceSelect(left, struct.map{ case (s,n) => (s, n.unwrap(Set(leftGen))) }, genChain, unionCtx)
+        val rr = replaceSelect(right, struct, genChain, unionCtx)
+        u.copy(left = lr, right = rr)
+    }
   }
 
   def rewrap(n: Node, wrappers: Map[Symbol, Symbol], newWrapper: Symbol): Node = n match {

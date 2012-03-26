@@ -1,10 +1,9 @@
 package org.scalaquery.example
 
-import org.scalaquery.ql.{Join, Query, ColumnBase, AbstractTable}
+import org.scalaquery.ql.{Query, ColumnBase, AbstractTable}
 import org.scalaquery.ql.basic.BasicDriver
 import org.scalaquery.ql.basic.BasicDriver.Implicit._
 import org.scalaquery.ql.basic.{BasicTable => Table}
-import org.scalaquery.util.NamingContext
 
 object SQuery2Test {
   def main(args: Array[String]) {
@@ -23,9 +22,8 @@ object SQuery2Test {
     }
 
     def dump(n: String, q: Query[ColumnBase[_], _]) {
-      val nc = NamingContext()
-      q.dump(n+": ", nc)
-      println(BasicDriver.buildSelectStatement(q, nc))
+      q.dump(n+": ")
+      println(BasicDriver.buildSelectStatement(q))
       println()
     }
 
@@ -34,15 +32,14 @@ object SQuery2Test {
     val q1b = q1.mapResult { case (id,f,l) => id + ". " + f + " " + l }
 
     val q2 = for {
-      u <- Users
-      _ <- Query.orderBy(u.first asc) >> Query.orderBy(u.last desc)
+      u <- Users.sortBy(u => (u.first, u.last.desc))
       o <- Orders where { o => (u.id is o.userID) && (u.first isNotNull) }
     } yield u.first ~ u.last ~ o.orderID
 
     val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
 
     val q4 = for {
-      Join(u, o) <- Users innerJoin Orders on (_.id is _.userID)
+      (u, o) <- Users innerJoin Orders on (_.id is _.userID)
       _ <- Query orderBy u.last
     } yield u.first ~ o.orderID
 
@@ -75,7 +72,7 @@ object SQuery2Test {
     dump("q6b", q6b)
     dump("q6c", q6c)
 
-    val usersBase = Users.mapOp(n => new AbstractTable.Alias(n))
+    val usersBase = Users
 
     {
       val m1a = for {
@@ -88,7 +85,7 @@ object SQuery2Test {
     }
 
     {
-      def f[A](t:Table[A]) = t.mapOp(n => new AbstractTable.Alias(n))
+      def f[A](t:Table[A]) = t
       val m2a = for { u <- Query(Users) } yield f(u)
       val m2b = Query(f(Users))
       dump("m2a", m2a)
@@ -112,9 +109,9 @@ object SQuery2Test {
 
     val d1 = Users.where(_.id is 42)
     val d2 = for(u <- Users where( _.id notIn Orders.map(_.userID) )) yield u
-    println("d0: " + BasicDriver.buildDeleteStatement(Users, NamingContext()))
-    println("d1: " + BasicDriver.buildDeleteStatement(d1, NamingContext()))
-    println("d2: " + BasicDriver.buildDeleteStatement(d2, NamingContext()))
+    println("d0: " + BasicDriver.buildDeleteStatement(Users))
+    println("d1: " + BasicDriver.buildDeleteStatement(d1))
+    println("d2: " + BasicDriver.buildDeleteStatement(d2))
 
     (Users.ddl ++ Orders.ddl).createStatements.foreach(println)
   }

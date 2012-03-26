@@ -72,16 +72,13 @@ abstract class Query[+E, +U] extends NodeGenerator {
   def count = ColumnOps.CountAll(Node(unpackable.value))
   def exists = StdFunction[Boolean]("exists", Node(unpackable.value))
 
-  /*
-  def sub[UU >: U, R](implicit reify: Reify[E, R]) = wrap(this)
+  @deprecated("Query.sub is not needed anymore", "0.10.0-M2")
+  def sub = this
 
   //def reify[R](implicit reify: Reify[E, R]) =
   //  new Query[R, U](unpackable.reifiedUnpackable, cond, modifiers)
 
   // Query[Column[_]] only
-  def asColumn(implicit ev: E <:< Column[_]): E = unpackable.value.asInstanceOf[WithOp].mapOp(_ => this).asInstanceOf[E]
-  */
-
   def asColumn(implicit ev: E <:< Column[_]): E =
     ev(unpackable.value).mapOp(_ => Node(this)).asInstanceOf[E]
 
