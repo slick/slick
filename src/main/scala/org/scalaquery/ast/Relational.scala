@@ -32,13 +32,16 @@ object Relational extends Logging {
         case FieldRef(Def(Pure(TableRef(table))), fieldSym) => FieldRef(table, fieldSym)
         case FieldRef(Def(Pure(StructNode(defs))), fieldSym) =>
           defs.find(_._1 == fieldSym).get._2
-        case c @ Comprehension(from, _, _, _) =>
+        case c @ Comprehension(from, _, _, select) =>
           val filtered = from.filter {
             case (sym, Pure(t: TableRef)) => false
             case (sym, Pure(s: StructNode)) => false
             case _ => true
           }
-          if(filtered.length == from.length) c else c.copy(from = filtered)
+          if(filtered.length != from.length) c.copy(from = filtered)
+          else if(select == None && from.last._2.isInstanceOf[Pure])
+            c.copy(from = from.init, select = Some(from.last._2))
+          else c
       }
     }
     val res = tr.applyOnce(tree)

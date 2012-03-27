@@ -100,7 +100,7 @@ object Query extends Query[Column[Unit], Unit] {
 
   @deprecated("Use .sortBy on a query instead of mixing in Query.orderBy", "0.10.0-M2")
   def orderBy[T <% Ordered](by: T) =
-    new WrappingQuery[Column[Unit], Unit](SortBy(new AnonSymbol, Node(this), by.columns), unpackable)
+    new WrappingQuery[Column[Unit], Unit](OrderBy(new AnonSymbol, Node(this), by.columns), unpackable)
 }
 
 trait CanBeQueryCondition[-T] {

@@ -109,7 +109,6 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     )
     assertEquals(r0e, r0)
 
-    /*
     val q1 = for {
       c <- Coffees.sortBy(c => (c.name, c.price.desc)).take(2)
       s <- Suppliers
@@ -281,7 +280,6 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
       ("Colombian_Decaf",None)
     )
     assertEquals(r8e, r8)
-    */
 
     /*val q8b = for {
       t <- Coffees.take(1) leftJoin Coffees.take(2) on (_.name === _.name) leftJoin Coffees.take(3) on (_._1.supID === _.supID)
