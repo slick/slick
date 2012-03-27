@@ -131,12 +131,6 @@ class BasicDDLBuilder(val table: AbstractBasicTable[_], val profile: BasicProfil
   protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) = {
     var first = true
     for(c <- columns) c match {
-      case n:NamedColumn[_] =>
-        if(first) first = false
-        else sb append ","
-        sb append quoteIdentifier(n.name)
-        if(requiredTableName != n.table.asInstanceOf[AbstractTable[_]].tableName)
-          throw new SQueryException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
       case Wrapped(t: AbstractTable[_], n: RawNamedColumn) =>
         if(first) first = false
         else sb append ","

@@ -91,6 +91,7 @@ class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extend
   override protected val supportsTuples = false
   override protected val concatOperator = Some("+")
 
+  /*TODO
   val hasTakeDrop = !query.typedModifiers[TakeDrop].isEmpty
   val hasDropOnly = query.typedModifiers[TakeDrop] match {
     case TakeDrop(None, Some(_)) :: _ => true
@@ -100,6 +101,10 @@ class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extend
     case ColumnOps.CountAll(_) => true
     case _ => false
   }
+  */
+  val hasTakeDrop = false //--
+  val hasDropOnly = false //--
+  val isCountAll = false //--
 
   /*TODO
   override def buildSelect(b: SQLBuilder): Unit = {
@@ -109,6 +114,7 @@ class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extend
   }
   */
 
+  /*TODO
   override protected def innerBuildSelectNoRewrite(rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), Some(d)) :: _ =>
@@ -142,6 +148,7 @@ class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extend
         super.innerBuildSelectNoRewrite(rename)
     }
   }
+  */
 
   def addCopyColumns() {
     //TODO
@@ -178,10 +185,10 @@ class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extend
     case c @ ConstColumn(false) => b += "(1=0)"
 
     /* Convert pseudo-booleans from tables and subqueries to real booleans */
-    case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
+    //TODO case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
       b += "("; super.innerExpr(c); b += " != 0)"
-    case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c); b += " != 0)"
+    //case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
+    //  b += "("; super.innerExpr(c); b += " != 0)"
 
     //TODO case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
     case _ => super.innerExpr(c)
@@ -189,9 +196,11 @@ class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extend
 
   override protected def appendClauses(): Unit = {
     appendConditions()
+    /*TODO
     appendGroupClause()
-    //appendHavingConditions()
-    //if(!hasDropOnly) appendOrderClause()
+    appendHavingConditions()
+    if(!hasDropOnly) appendOrderClause()
+    */
   }
 
   override protected def appendOrdering(n: Node, o: Ordering) {

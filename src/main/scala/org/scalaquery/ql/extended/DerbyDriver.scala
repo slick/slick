@@ -93,10 +93,10 @@ class DerbyQueryBuilder(_query: Query[_, _], profile: DerbyDriver) extends Basic
     case c @ ConstColumn(false) => b += "(1=0)"
 
     /* Convert pseudo-booleans from tables and subqueries to real booleans */
-    case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
+    //TODO case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
       b += "("; super.innerExpr(c); b += " != 0)"
-    case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c); b += " != 0)"
+    //case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
+    //  b += "("; super.innerExpr(c); b += " != 0)"
 
     case EscFunction("ifnull", l, r) => r match {
       /* Derby does not support IFNULL so we use COALESCE instead,

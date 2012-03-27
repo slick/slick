@@ -55,7 +55,7 @@ class JoinTest(tdb: TestDB) extends DBTest(tdb) {
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q1.map(p => p._1 ~ p._2).list)
 
     val q2 = for {
-      Join(c,p) <- Categories innerJoin Posts on (_.id is _.category)
+      (c,p) <- Categories innerJoin Posts on (_.id is _.category)
       _ <- Query orderBy p.id
     } yield p.id ~ c.id ~ c.name ~ p.title
     println("Explicit inner join: "+q2.selectStatement)
@@ -63,7 +63,7 @@ class JoinTest(tdb: TestDB) extends DBTest(tdb) {
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q2.map(p => p._1 ~ p._2).list)
 
     val q3 = for {
-      Join(c,p) <- Categories leftJoin Posts on (_.id is _.category)
+      (c,p) <- Categories leftJoin Posts on (_.id is _.category)
       _ <- Query orderBy p.id.nullsFirst
     } yield p.id ~ c.id ~ c.name ~ p.title
     println("Left outer join (nulls first): "+q3.selectStatement)
@@ -71,7 +71,7 @@ class JoinTest(tdb: TestDB) extends DBTest(tdb) {
     assertEquals(List((0,4), (2,1), (3,2), (4,3), (5,2)), q3.map(p => p._1 ~ p._2).list)
 
     val q3b = for {
-      Join(c,p) <- Categories leftJoin Posts on (_.id is _.category)
+      (c,p) <- Categories leftJoin Posts on (_.id is _.category)
       _ <- Query orderBy p.id.nullsLast
     } yield p.id ~ c.id ~ c.name ~ p.title
     println("Left outer join (nulls last): "+q3b.selectStatement)
@@ -81,7 +81,7 @@ class JoinTest(tdb: TestDB) extends DBTest(tdb) {
     if(tdb.driver != SQLiteDriver) {
     // SQLite does not support right and full outer joins
       val q4 = for {
-        Join(c,p) <- Categories rightJoin Posts on (_.id is _.category)
+        (c,p) <- Categories rightJoin Posts on (_.id is _.category)
         _ <- Query orderBy p.id
       } yield p.id ~ c.id ~ c.name ~ p.title
       println("Right outer join: "+q4.selectStatement)

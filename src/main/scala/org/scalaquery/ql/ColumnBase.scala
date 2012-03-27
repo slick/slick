@@ -7,7 +7,7 @@ import org.scalaquery.ast._
 import org.scalaquery.util._
 
 /**
- * Common base trait for columns, tables and projections (but not unions and joins).
+ * Common base trait for columns, tables and projections
  */
 trait ColumnBase[T] extends NodeGenerator with ValueLinearizer[T] with WithOp
 
@@ -74,9 +74,7 @@ final case class BindColumn[T : TypeMapper](value: T) extends Column[T] with Nul
 /**
  * A parameter from a QueryTemplate which gets turned into a bind variable.
  */
-final case class ParameterColumn[T : TypeMapper](idx: Int) extends Column[T] with NullaryNode {
-  override def toString = "ParameterColumn "+idx
-}
+final case class ParameterColumn[T : TypeMapper](idx: Int) extends Column[T] with NullaryNode
 
 /**
  * A column which gets created as the result of applying an operator.
@@ -97,16 +95,14 @@ sealed class WrappedColumn[T : TypeMapper](parent: ColumnBase[_]) extends Column
  * A column which is part of a Table.
  */
 final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[T, _]])
-  extends Column[T] with UnaryNode { //TODO should not be a Node
+  extends Column[T] {
   def raw = RawNamedColumn(name, options, implicitly[TypeMapper[T]])
   override def nodeDelegate = new Wrapped(table, raw)
-  val child = table
-  override def toString = "NamedColumn " + name
-  protected[this] override def nodeChildNames = Seq("table")
-  protected[this] def nodeRebuild(child: Node): Node = copy[T](table = child)
 }
 
 final case class RawNamedColumn(name: String, options: Seq[ColumnOption[_, _]], typeMapper: TypeMapper[_]) extends NullaryNode {
   override def toString = "RawNamedColumn " + name
   def symbol = FieldSymbol(name)(Some(this))
 }
+
+abstract class ColumnOption[+T, -Profile]

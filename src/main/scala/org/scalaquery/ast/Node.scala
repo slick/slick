@@ -37,7 +37,6 @@ trait Node extends NodeGenerator {
   def nodeMapChildren(f: Node => Node): Node
 
   def nodeDelegate: Node = this
-  def isNamedTable = false
 
   protected[this] final def nodeMapNodes(s: Iterable[Node], f: Node => Node): Option[IndexedSeq[Node]] = {
     var change = false

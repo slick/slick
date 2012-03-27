@@ -65,6 +65,7 @@ class AccessQueryBuilder(query: Query[_, _], profile: AccessDriver) extends Basi
 
   val pi = "3.1415926535897932384626433832795"
 
+  /*TODO
   override protected def innerBuildSelectNoRewrite(rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(_ , Some(_)) :: _ =>
@@ -85,6 +86,7 @@ class AccessQueryBuilder(query: Query[_, _], profile: AccessDriver) extends Basi
         super.innerBuildSelectNoRewrite(rename)
     }
   }
+  */
 
   override protected def innerExpr(c: Node): Unit = c match {
     case c: Case.CaseNode => {

@@ -1,12 +1,13 @@
 package org.scalaquery.ql
 
 import org.scalaquery.ast._
+import scala.annotation.implicitNotFound
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, +U] extends NodeGenerator {
+abstract class Query[+E, +U] extends NodeGenerator { self =>
 
   def unpackable: Unpackable[_ <: E, _ <: U]
   lazy val reified = unpackable.reifiedNode
@@ -26,7 +27,6 @@ abstract class Query[+E, +U] extends NodeGenerator {
 
   def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = {
     val generator = new AnonSymbol
-    //val aliased = WithOp.mapOp(unpackable.value, (n => InRef(generator, n)))
     val aliased = InRef.forUnpackable(generator, unpackable)
     val fv = f(aliased.value)
     new WrappingQuery[E, U](Filter(generator, Node(this), Node(wt(fv))), unpackable)
@@ -57,17 +57,11 @@ abstract class Query[+E, +U] extends NodeGenerator {
     new Query[E, U](unpackable, cond, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
   */
 
-  def cond: Seq[NodeGenerator] = Nil //--
-  def modifiers: List[QueryModifier] = Nil //--
-  def typedModifiers[T <: QueryModifier]: List[T] = Nil //--
-
-  def union[O >: E, T >: U, R](other: Query[O, T]) = {
+  def union[O >: E, T >: U, R](other: Query[O, T]) =
     new WrappingQuery[O, T](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable)
-  }
 
-  def unionAll[O >: E, T >: U, R](other: Query[O, T]) = {
+  def unionAll[O >: E, T >: U, R](other: Query[O, T]) =
     new WrappingQuery[O, T](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
-  }
 
   def count = ColumnOps.CountAll(Node(unpackable.value))
   def exists = StdFunction[Boolean]("exists", Node(unpackable.value))
@@ -75,8 +69,11 @@ abstract class Query[+E, +U] extends NodeGenerator {
   @deprecated("Query.sub is not needed anymore", "0.10.0-M2")
   def sub = this
 
-  //def reify[R](implicit reify: Reify[E, R]) =
-  //  new Query[R, U](unpackable.reifiedUnpackable, cond, modifiers)
+  def reify[R](implicit reifyE: Reify[E, R]): Query[R, U] =
+    new Query[R, U] {
+      val unpackable: Unpackable[_ <: R, _ <: U] = self.unpackable.reifiedUnpackable(reifyE)
+      def nodeDelegate = self.nodeDelegate
+    }
 
   // Query[Column[_]] only
   def asColumn(implicit ev: E <:< Column[_]): E =
@@ -103,9 +100,8 @@ object Query extends Query[Column[Unit], Unit] {
     new WrappingQuery[Column[Unit], Unit](OrderBy(new AnonSymbol, Node(this), by.columns), unpackable)
 }
 
-trait CanBeQueryCondition[-T] {
-  def apply(value: T): Column[_]
-}
+@implicitNotFound("Type ${T} cannot be a query condition (only Boolean, Column[Boolean] and Column[Option[Boolean]] are allowed")
+trait CanBeQueryCondition[-T] extends (T => Column[_])
 
 object CanBeQueryCondition {
   implicit object BooleanColumnCanBeQueryCondition extends CanBeQueryCondition[Column[Boolean]] {
@@ -117,22 +113,6 @@ object CanBeQueryCondition {
   implicit object BooleanCanBeQueryCondition extends CanBeQueryCondition[Boolean] {
     def apply(value: Boolean) = new ConstColumn(value)(TypeMapper.BooleanTypeMapper)
   }
-}
-
-//TODO remove
-final case class Subquery(query: Node, rename: Boolean) extends UnaryNode {
-  val child = Node(query)
-  protected[this] override def nodeChildNames = Seq("query")
-  protected[this] def nodeRebuild(child: Node): Node = copy(query = child)
-  override def isNamedTable = true
-}
-
-//TODO remove
-final case class SubqueryColumn(pos: Int, subquery: Node, typeMapper: TypeMapper[_]) extends UnaryNode {
-  val child = Node(subquery)
-  protected[this] override def nodeChildNames = Seq("subquery")
-  protected[this] def nodeRebuild(child: Node): Node = copy(subquery = child)
-  override def toString = "SubqueryColumn c"+pos
 }
 
 class WrappingQuery[+E, +U](val nodeDelegate: Node, val base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {

@@ -5,11 +5,7 @@ import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.ast._
 
-sealed trait TableBase[T] extends Node with WithOp {
-  override def isNamedTable = true
-}
-
-abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableBase[T] with ColumnBase[T] with NullaryNode {
+abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends Node with ColumnBase[T] with NullaryNode with WithOp {
 
   final type TableType = T
   override def toString = "Table " + tableName
@@ -37,7 +33,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
       (name: String, sourceColumns: P, targetTable: TT)
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U], unpackp: Unpack[P, PU]): ForeignKeyQuery[TT, U] = {
-    //Query(targetTable).filter[Column[Boolean]](tt => ColumnOps.Is(Node(targetColumns(tt)), Node(sourceColumns)))
     val q = Query[TT, U, TT](targetTable)
     val generator = new AnonSymbol
     val aliased = InRef.forUnpackable(generator, q.unpackable)

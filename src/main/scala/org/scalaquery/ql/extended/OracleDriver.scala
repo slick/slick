@@ -27,6 +27,7 @@ class OracleQueryBuilder(query: Query[_, _], profile: OracleDriver) extends Basi
   override protected val scalarFrom = Some("DUAL")
   override protected val concatOperator = Some("||")
 
+  /*TODO
   override protected def innerBuildSelectNoRewrite(rename: Boolean) {
     query.typedModifiers[TakeDrop] match {
       case TakeDrop(Some(t), None) :: _ =>
@@ -56,6 +57,7 @@ class OracleQueryBuilder(query: Query[_, _], profile: OracleDriver) extends Basi
         appendClauses()
     }
   }
+  */
 
   override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
 }

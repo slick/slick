@@ -271,7 +271,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
 
 
   protected def rewriteCountStarQuery(q: Query[_, _]) =
-    q.modifiers.isEmpty && (q.reified match {
+    /*q.modifiers.isEmpty &&*/ (q.reified match {
       case _: AbstractTable[_] => true
       case _ => false
     })
@@ -280,10 +280,12 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
 
   protected def appendClauses(): Unit = sys.error("obsolete")
 
+  /*TODO
   final protected def appendGroupClause(): Unit = query.typedModifiers[Grouping] match {
     case Nil =>
     case xs => b += " group by "; b.sep(xs, ",")(x => expr(x.by))
   }
+  */
 
   protected def innerExpr(c: Node): Unit = sys.error("obsolete")
 
