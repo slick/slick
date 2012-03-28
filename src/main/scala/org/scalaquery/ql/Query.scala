@@ -84,8 +84,8 @@ abstract class Query[+E, +U] extends NodeGenerator { self =>
 }
 
 object Query extends Query[Column[Unit], Unit] {
-  def nodeDelegate = Pure(reified)
-  def unpackable = Unpackable(ConstColumn(()), Unpack.unpackColumnBase[Unit])
+  def nodeDelegate = reified
+  def unpackable = Unpackable(ConstColumn(()).mapOp(Pure(_)), Unpack.unpackColumnBase[Unit])
   def apply[E, U, R](value: E)(implicit unpack: Unpack[E, U], reify: Reify[E, R]) =
     apply[R, U](Unpackable(value, unpack).reifiedUnpackable)
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
