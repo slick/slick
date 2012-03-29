@@ -3,14 +3,14 @@ package org.scalaquery.ql.basic
 import annotation.implicitNotFound
 import java.sql.Statement
 import org.scalaquery.SQueryException
-import org.scalaquery.ql.{ColumnBase, Query, Unpackable, Unpack}
+import org.scalaquery.ql.{ColumnBase, Query, Unpackable, Packing}
 import org.scalaquery.session.{Session, PositionedParameters}
 
 class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProfile) {
 
   lazy val insertStatement = profile.buildInsertStatement(unpackable.value)
   def insertStatementFor[TT](query: Query[TT, U]): String = profile.buildInsertStatement(unpackable.value, query).sql
-  def insertStatementFor[TT](c: TT)(implicit unpack: Unpack[TT, U]): String = insertStatementFor(Query(c)(unpack, null))
+  def insertStatementFor[TT](c: TT)(implicit unpack: Packing[TT, U, _]): String = insertStatementFor(Query(c)(unpack))
 
   def useBatchUpdates(implicit session: Session) = session.capabilities.supportsBatchUpdates
 
@@ -26,8 +26,8 @@ class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProf
     st.executeUpdate()
   }
 
-  def insertExpr[TT](c: TT)(implicit unpack: Unpack[TT, U], session: Session): Int =
-    insert(Query(c)(unpack, null))(session)
+  def insertExpr[TT](c: TT)(implicit unpack: Packing[TT, U, _], session: Session): Int =
+    insert(Query(c)(unpack))(session)
 
   /**
    * Insert multiple rows. Uses JDBC's batch update feature if supported by
@@ -70,19 +70,19 @@ class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProf
   def insertInvoker: this.type = this
 }
 
-@implicitNotFound(msg = "union type mismatch;\n found   : ${T}\n required: ${U}\n or      : ${P} with evidence Unpack[${P}, ${U}]")
+@implicitNotFound(msg = "union type mismatch;\n found   : ${T}\n required: ${U}\n or      : ${P} with evidence Packing[${P}, ${U}, _]")
 trait PackedUnpackedUnion[P, U, T] {
-  def fold[R](f: U => R, g: (P, Unpack[P, U]) => R)(v: T): R
+  def fold[R](f: U => R, g: (P, Packing[P, U, _]) => R)(v: T): R
 }
 
 object PackedUnpackedUnion extends PackedUnpackedUnionLowPriority {
   implicit def packedUnpackedUnionTypeU[P, U, T <: U] = new PackedUnpackedUnion[P, U, T] {
-    def fold[R](f: U => R, g: (P, Unpack[P, U]) => R)(v: T): R = f(v)
+    def fold[R](f: U => R, g: (P, Packing[P, U, _]) => R)(v: T): R = f(v)
   }
 }
 
 class PackedUnpackedUnionLowPriority {
-  implicit def packedUnpackedUnionTypeP[P, U, T <: P](implicit ev: Unpack[P, U]) = new PackedUnpackedUnion[P, U, T] {
-    def fold[R](f: U => R, g: (P, Unpack[P, U]) => R)(v: T): R = g(v, ev)
+  implicit def packedUnpackedUnionTypeP[P, U, T <: P](implicit ev: Packing[P, U, _]) = new PackedUnpackedUnion[P, U, T] {
+    def fold[R](f: U => R, g: (P, Packing[P, U, _]) => R)(v: T): R = g(v, ev)
   }
 }

@@ -5,97 +5,73 @@ import org.scalaquery.ast.{Node, WithOp}
 import org.scalaquery.util.{ValueLinearizer, ProductLinearizer}
 
 /**
- * A type class that encodes the unpacking `Packed => Unpacked` of a
- * `Query[Packed]` to its result element type `Unpacked`.
+ * A type class that encodes the unpacking `Mixed => Unpacked` of a
+ * `Query[Mixed]` to its result element type `Unpacked` and the packing  to a
+ * fully packed type `Packed`, i.e. a type where everything which is not a
+ * transparent container is wrapped in a `Column[_]`.
  *
  * At run-time, it provides the reification, `ValueLinearizer` of the
  * `Unpacked` type.
  *
  * =Example:=
- * - Packed: (Column[Int], Column[(Int, String)], (Int, Option[Double]))
+ * - Mixed: (Column[Int], Column[(Int, String)], (Int, Option[Double]))
  * - Unpacked: (Int, (Int, String), (Int, Option[Double]))
- * - Reified: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
+ * - Packed: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
  * - Linearized: (Int, Int, String, Int, Option[Double])
  */
-@implicitNotFound(msg = "Don't know how to unpack ${r"${Packed_}"} (to ${r"${Unpacked_}"})")
-trait Unpack[-Packed_, Unpacked_] {
-  type Packed = Packed_
+@implicitNotFound(msg = "Don't know how to unpack ${r"${Mixed_}"} to ${r"${Unpacked_}"} and pack to ${r"${Packed_}"}")
+trait Packing[-Mixed_, Unpacked_, Packed_] {
+  type Mixed = Mixed_
   type Unpacked = Unpacked_
-  def reify(from: Packed): Any = from // must return the reified type
-  def reifiedUnpack: Unpack[_, Unpacked] = this // must return an Unpack for the reified type
-  def linearizer(from: Packed): ValueLinearizer[_]
-  def mapOp(x: Packed, f: Node => Node): Any // really returns x.type
+  type Packed = Packed_
+  def reify(from: Mixed): Any = from // must return the reified type
+  def reifiedPacking: Packing[_, Unpacked, _] = this // must return a Packing for the reified type
+  def linearizer(from: Mixed): ValueLinearizer[_]
+  def mapOp(x: Mixed, f: Node => Node): Any // really returns x.type
 }
 
-object Unpack extends UnpackLowPriority {
-  def unpackValueLinearizer[T <: ValueLinearizer[_] with WithOp, U] = new Unpack[T, U] {
-    def linearizer(from: Packed): ValueLinearizer[_] = from
-    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+object Packing extends PackingLowPriority {
+  def unpackValueLinearizer[T <: ValueLinearizer[_] with WithOp, U]: Packing[T, U, T] = new Packing[T, U, T] {
+    def linearizer(from: Mixed): ValueLinearizer[_] = from
+    def mapOp(from: Mixed, f: Node => Node) = from.mapOp(f)
   }
 
-  def unpackTable[T <: AbstractTable[_]]: Unpack[T, Nothing] = new Unpack[T, Nothing] {
-    def linearizer(from: Packed): ValueLinearizer[_] = from match {
+  def unpackTable[T <: AbstractTable[_]]: Packing[T, Nothing, T] = new Packing[T, Nothing, T] {
+    def linearizer(from: Mixed): ValueLinearizer[_] = from match {
       case a: AbstractTable[_] => a.*
     }
-    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+    def mapOp(from: Mixed, f: Node => Node) = from.mapOp(f)
   }
 }
 
-trait UnpackLowPriority extends UnpackLowPriority2 {
-  implicit final def unpackColumnBase[T]: Unpack[ColumnBase[T], T] = new Unpack[ColumnBase[T], T] {
-    def linearizer(from: Packed) = from
-    def mapOp(from: Packed, f: Node => Node) = from.mapOp(f)
+trait PackingLowPriority extends PackingLowPriority2 {
+  //implicit final def unpackColumnBase[T]: Packing[ColumnBase[T], T, ColumnBase[T]] = new Packing[ColumnBase[T], T, ColumnBase[T]] { //TODO
+  implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Packing[C, T, C] = new Packing[C, T, C] {
+    def linearizer(from: Mixed) = from
+    def mapOp(from: Mixed, f: Node => Node) = from.mapOp(f)
   }
 
-  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Unpack[T, T] = new Unpack[T, T] {
-    override def reify(from: Packed) = ConstColumn(from)
-    override def reifiedUnpack = unpackColumnBase[T]
-    def linearizer(from: Packed) = ConstColumn(from)
-    def mapOp(from: Packed, f: Node => Node) = from
+  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Packing[T, T, ConstColumn[T]] = new Packing[T, T, ConstColumn[T]] {
+    override def reify(from: Mixed) = ConstColumn(from)
+    override def reifiedPacking: Packing[_, Unpacked, _] = unpackColumnBase[T, ConstColumn[T]]
+    def linearizer(from: Mixed) = ConstColumn(from)
+    def mapOp(from: Mixed, f: Node => Node) = from
   }
 }
 
-trait UnpackLowPriority2 {
+trait PackingLowPriority2 {
 <#list 2..22 as i>
-  implicit final def unpackTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>R${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Unpack[T${j}, U${j}]<#if i != j>, </#if></#list>): Unpack[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>)] = new Unpack[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>)] {
-    override def reify(from: Packed) =
+  implicit final def unpackTuple${i}[<#list 1..i as j>M${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>P${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Packing[M${j}, U${j}, P${j}]<#if i != j>, </#if></#list>): Packing[(<#list 1..i as j>M${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>P${j}<#if i != j>,</#if></#list>)] = new Packing[(<#list 1..i as j>M${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>P${j}<#if i != j>,</#if></#list>)] {
+    override def reify(from: Mixed) =
       (<#list 1..i as j>u${j}.reify(from._${j})<#if i != j>, </#if></#list>)
-    override def reifiedUnpack: Unpack[_, Unpacked] =
-      unpackTuple${i}(<#list 1..i as j>u${j}.reifiedUnpack<#if i != j>, </#if></#list>)
-    def linearizer(from: Packed) = {
+    override def reifiedPacking: Packing[_, Unpacked, _] =
+      unpackTuple${i}(<#list 1..i as j>u${j}.reifiedPacking<#if i != j>, </#if></#list>)
+    def linearizer(from: Mixed) = {
       val sub = Vector(<#list 1..i as j>u${j}.linearizer(from._${j})<#if i != j>, </#if></#list>)
       new ProductLinearizer(sub)
     }
-    def mapOp(from: Packed, f: Node => Node) =
+    def mapOp(from: Mixed, f: Node => Node) =
       (<#list 1..i as j>u${j}.mapOp(from._${j}, f)<#if i != j>, </#if></#list>)
   }
-</#list>
-}
-
-/**
- * A type class that encodes the reification `Packed => Reified` of a
- * `Query[Packed]` to a fully packed type `Reified`, i.e. a type where
- * everything which is not a transparent container is wrapped in a `Column[_]`.
- *
- * This needs to be defined in a separate typeclass but in lockstep with Unpack
- * because of limitations of Scala's type inferencer.
- *
- * =Example:=
- * - Packed: (Column[Int], Column[(Int, String)], (Int, Option[Double]))
- * - Reified: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
- * - Reified: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
- */
-@implicitNotFound(msg = "Don't know how to reify ${r"${Packed}"} (to ${r"${Reified}"})")
-sealed trait Reify[-Packed, Reified]
-
-object Reify extends ReifyLowPriority {
-  implicit final def reifyColumnBase[T <: ColumnBase[_]]: Reify[T, T] = null
-}
-
-trait ReifyLowPriority {
-  implicit final def reifyPrimitive[T](implicit tm: TypeMapper[T]): Reify[T, ConstColumn[T]] = null
-
-<#list 2..22 as i>
-  implicit final def reifyTuple${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>R${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Reify[T${j}, R${j}]<#if i != j>, </#if></#list>): Reify[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>R${j}<#if i != j>,</#if></#list>)] = null
 </#list>
 }

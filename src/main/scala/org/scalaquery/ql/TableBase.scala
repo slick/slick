@@ -32,8 +32,8 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTable: TT)
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Unpack[TT, U], unpackp: Unpack[P, PU]): ForeignKeyQuery[TT, U] = {
-    val q = Query[TT, U, TT](targetTable)
+       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Packing[TT, U, _], unpackp: Packing[P, PU, _]): ForeignKeyQuery[TT, U] = {
+    val q = Query[TT, U, TT](targetTable)(Packing.unpackTable.asInstanceOf[Packing[TT, U, TT]])
     val generator = new AnonSymbol
     val aliased = InRef.forUnpackable(generator, q.unpackable)
     val fv = ColumnOps.Is(Node(targetColumns(aliased.value)), Node(sourceColumns))
@@ -42,7 +42,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
     new ForeignKeyQuery[TT, U](Filter(generator, Node(q), Node(fv)), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
-  def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Unpack[T, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).getLinearizedNodes)
+  def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Packing[T, _, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).getLinearizedNodes)
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
@@ -56,7 +56,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints collect { case k: PrimaryKey => k } toIndexedSeq
 
-  def index[T](name: String, on: T, unique: Boolean = false)(implicit unpack: Unpack[T, _]) = new Index(name, this, unpack.linearizer(on).getLinearizedNodes, unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit unpack: Packing[T, _, _]) = new Index(name, this, unpack.linearizer(on).getLinearizedNodes, unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view

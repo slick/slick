@@ -1,7 +1,6 @@
 package org.scalaquery.ql
 
-import org.scalaquery.ast.{AnonSymbol, Filter, SimpleNode, Node}
-import org.scalaquery.ql.ColumnOps.And
+import org.scalaquery.ast.{AnonSymbol, Filter, Node}
 
 
 /**
@@ -27,7 +26,7 @@ object ForeignKey {
       sourceTable: Node,
       targetTableUnpackable: Unpackable[TT, _],
       originalTargetTable: TT,
-      unpackp: Unpack[P, _],
+      unpackp: Packing[P, _, _],
       originalSourceColumns: P,
       originalTargetColumns: TT => P,
       onUpdate: ForeignKeyAction,

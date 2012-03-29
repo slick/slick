@@ -20,7 +20,7 @@ abstract class Query[+E, +U] extends NodeGenerator { self =>
     new WrappingQuery[F, T](new Bind(generator, Node(unpackable.value), Node(fv)), fv.unpackable)
   }
 
-  def map[F, G, T](f: E => F)(implicit unpack: Unpack[F, T], reify: Reify[F, G]): Query[G, T] =
+  def map[F, G, T](f: E => F)(implicit packing: Packing[F, T, G]): Query[G, T] =
     flatMap(v => Query[F, T, G](f(v)))
 
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
@@ -69,9 +69,9 @@ abstract class Query[+E, +U] extends NodeGenerator { self =>
   @deprecated("Query.sub is not needed anymore", "0.10.0-M2")
   def sub = this
 
-  def reify[R](implicit reifyE: Reify[E, R]): Query[R, U] =
+  def reify[R](implicit packing: Packing[E, _, R]): Query[R, U] =
     new Query[R, U] {
-      val unpackable: Unpackable[_ <: R, _ <: U] = self.unpackable.reifiedUnpackable(reifyE)
+      val unpackable: Unpackable[_ <: R, _ <: U] = self.unpackable.reifiedUnpackable(packing)
       def nodeDelegate = self.nodeDelegate
     }
 
@@ -85,8 +85,8 @@ abstract class Query[+E, +U] extends NodeGenerator { self =>
 
 object Query extends Query[Column[Unit], Unit] {
   def nodeDelegate = reified
-  def unpackable = Unpackable(ConstColumn(()).mapOp(Pure(_)), Unpack.unpackColumnBase[Unit])
-  def apply[E, U, R](value: E)(implicit unpack: Unpack[E, U], reify: Reify[E, R]) =
+  def unpackable = Unpackable(ConstColumn(()).mapOp(Pure(_)), Packing.unpackColumnBase[Unit, Column[Unit]])
+  def apply[E, U, R](value: E)(implicit unpack: Packing[E, U, R]) =
     apply[R, U](Unpackable(value, unpack).reifiedUnpackable)
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
     if(unpackable.reifiedNode.isInstanceOf[AbstractTable[_]])
