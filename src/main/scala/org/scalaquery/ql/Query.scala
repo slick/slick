@@ -10,7 +10,7 @@ import scala.annotation.implicitNotFound
 abstract class Query[+E, +U] extends NodeGenerator { self =>
 
   def unpackable: Unpackable[_ <: E, _ <: U]
-  lazy val reified = unpackable.reifiedNode
+  lazy val packed = unpackable.packedNode
   lazy val linearizer = unpackable.linearizer
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
@@ -69,9 +69,9 @@ abstract class Query[+E, +U] extends NodeGenerator { self =>
   @deprecated("Query.sub is not needed anymore", "0.10.0-M2")
   def sub = this
 
-  def reify[R](implicit packing: Packing[E, _, R]): Query[R, U] =
+  def pack[R](implicit packing: Packing[E, _, R]): Query[R, U] =
     new Query[R, U] {
-      val unpackable: Unpackable[_ <: R, _ <: U] = self.unpackable.reifiedUnpackable(packing)
+      val unpackable: Unpackable[_ <: R, _ <: U] = self.unpackable.packedUnpackable(packing)
       def nodeDelegate = self.nodeDelegate
     }
 
@@ -84,16 +84,16 @@ abstract class Query[+E, +U] extends NodeGenerator { self =>
 }
 
 object Query extends Query[Column[Unit], Unit] {
-  def nodeDelegate = reified
+  def nodeDelegate = packed
   def unpackable = Unpackable(ConstColumn(()).mapOp(Pure(_)), Packing.unpackColumnBase[Unit, Column[Unit]])
   def apply[E, U, R](value: E)(implicit unpack: Packing[E, U, R]) =
-    apply[R, U](Unpackable(value, unpack).reifiedUnpackable)
+    apply[R, U](Unpackable(value, unpack).packedUnpackable)
   def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
-    if(unpackable.reifiedNode.isInstanceOf[AbstractTable[_]])
-      new WrappingQuery[E, U](unpackable.reifiedNode, unpackable) {
+    if(unpackable.packedNode.isInstanceOf[AbstractTable[_]])
+      new WrappingQuery[E, U](unpackable.packedNode, unpackable) {
         override lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
       }
-    else new WrappingQuery[E, U](Pure(unpackable.reifiedNode), unpackable)
+    else new WrappingQuery[E, U](Pure(unpackable.packedNode), unpackable)
 
   @deprecated("Use .sortBy on a query instead of mixing in Query.orderBy", "0.10.0-M2")
   def orderBy[T <% Ordered](by: T) =

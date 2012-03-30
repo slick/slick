@@ -271,7 +271,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
 
 
   protected def rewriteCountStarQuery(q: Query[_, _]) =
-    /*q.modifiers.isEmpty &&*/ (q.reified match {
+    /*q.modifiers.isEmpty &&*/ (q.packed match {
       case _: AbstractTable[_] => true
       case _ => false
     })

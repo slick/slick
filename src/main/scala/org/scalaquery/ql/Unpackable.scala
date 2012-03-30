@@ -11,10 +11,9 @@ case class Unpackable[T, U](value: T, unpack: Packing[T, U, _]) {
     val fv = f(value)
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new Unpackable(fv, unpack)
   }
-  def reifiedNode = Node(unpack.reify(value))
-  def reifiedUnpackable[R](implicit ev: Packing[T, _, R]): Unpackable[R, U] = Unpackable(unpack.reify(value).asInstanceOf[R], unpack.reifiedPacking.asInstanceOf[Packing[R, U, _]])
+  def packedNode = Node(unpack.pack(value))
+  def packedUnpackable[R](implicit ev: Packing[T, _, R]): Unpackable[R, U] = Unpackable(unpack.pack(value).asInstanceOf[R], unpack.packedPacking.asInstanceOf[Packing[R, U, _]])
   def linearizer = unpack.linearizer(value).asInstanceOf[ValueLinearizer[U]]
-  def mapOp(f: Node => Node) = unpack.mapOp(value, f).asInstanceOf[T]
   def zip[T2, U2](u2: Unpackable[T2, U2]) = new Unpackable[(T, T2), (U, U2)]((value, u2.value), Packing.unpackTuple2(unpack, u2.unpack))
 }
 
