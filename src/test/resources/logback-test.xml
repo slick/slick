@@ -4,7 +4,9 @@
             <pattern>*** \(%logger{30}\) %msg%n</pattern>
         </encoder>
     </appender>
-    <root level="${root-level:-info}">
+    <root level="${log.root:-info}">
         <appender-ref ref="STDOUT" />
     </root>
+    <logger name="org.scalaquery.ast" level="${log.ast:-info}" />
+    <logger name="org.scalaquery.session" level="${log.session:-info}" />
 </configuration>

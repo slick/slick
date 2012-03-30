@@ -1,24 +1,46 @@
 package org.scalaquery.util
 
-import org.slf4j.LoggerFactory
-import org.slf4j.spi.{ LocationAwareLogger => Slf4jLocationAwareLogger }
-import com.weiglewilczek.slf4s._
+import org.slf4j.{ Logger => Slf4jLogger, LoggerFactory }
 import org.scalaquery.ast.NodeGenerator
 
-trait SlickLogger extends Logger {
+final class SlickLogger(val slf4jLogger: Slf4jLogger) {
+  @inline
   def debug(msg: => String, ng: => NodeGenerator): Unit = debug(msg+"\n"+ng.dumpString(prefix = "  "))
 
+  @inline
   def isDebugEnabled = slf4jLogger.isDebugEnabled()
+
+  @inline
+  def error(msg: => String) { if (slf4jLogger.isErrorEnabled) slf4jLogger.error(msg) }
+
+  @inline
+  def error(msg: => String, t: Throwable) { if (slf4jLogger.isErrorEnabled) slf4jLogger.error(msg, t) }
+
+  @inline
+  def warn(msg: => String) { if (slf4jLogger.isWarnEnabled) slf4jLogger.warn(msg) }
+
+  @inline
+  def warn(msg: => String, t: Throwable) { if (slf4jLogger.isWarnEnabled) slf4jLogger.warn(msg, t) }
+
+  @inline
+  def info(msg: => String) { if (slf4jLogger.isInfoEnabled) slf4jLogger.info(msg) }
+
+  @inline
+  def info(msg: => String, t: Throwable) { if (slf4jLogger.isInfoEnabled) slf4jLogger.info(msg, t) }
+
+  @inline
+  def debug(msg: => String) { if (slf4jLogger.isDebugEnabled) slf4jLogger.debug(msg) }
+
+  @inline
+  def debug(msg: => String, t: Throwable) { if (slf4jLogger.isDebugEnabled) slf4jLogger.debug(msg, t) }
+
+  @inline
+  def trace(msg: => String) { if (slf4jLogger.isTraceEnabled) slf4jLogger.trace(msg) }
+
+  @inline
+  def trace(msg: => String, t: Throwable) { if (slf4jLogger.isTraceEnabled) slf4jLogger.trace(msg, t) }
 }
 
 trait Logging {
-  protected lazy val logger: SlickLogger = LoggerFactory.getLogger(getClass) match {
-    case l: Slf4jLocationAwareLogger => new DefaultLocationAwareLogger(l)
-    case l => new SlickLogger { override protected val slf4jLogger = l }
-  }
-}
-
-final class DefaultLocationAwareLogger(override protected val slf4jLogger: Slf4jLocationAwareLogger)
-  extends LocationAwareLogger with SlickLogger {
-  override protected val wrapperClassName = classOf[DefaultLocationAwareLogger].getName
+  protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(getClass))
 }

@@ -49,7 +49,7 @@ object OptimizerUtil {
     if(changed) b.result() else c
   }
 
-  def mapOrNone[Coll <: TraversableLike[A, Coll], A <: AnyRef, To >: Coll <: AnyRef](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): Option[To] = {
+  def mapOrNone[Coll <: TraversableLike[A, Coll] with AnyRef, A <: AnyRef, To >: Coll <: AnyRef](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): Option[To] = {
     val n = mapOrSame[Coll, A, To](c, f)(bf)
     if(c eq n) None else Some(n)
   }

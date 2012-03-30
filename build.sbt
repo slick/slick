@@ -22,7 +22,7 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",
   "com.novocode" % "junit-interface" % "0.8" % "test",
-  "com.weiglewilczek.slf4s" % "slf4s_2.9.1" % "1.0.7",
+  "org.slf4j" % "slf4j-api" % "1.6.4",
   "ch.qos.logback" % "logback-classic" % "0.9.28" % "test"
 )}
 
