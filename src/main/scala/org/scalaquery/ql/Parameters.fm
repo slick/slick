@@ -12,6 +12,7 @@ final class Parameters[P, C](c: C) {
   def filter(f: C => Boolean): Parameters[P, C] =
     if(!f(c)) throw new SQueryException("Match failed when unpacking Parameters")
     else this
+  def withFilter(f: C => Boolean) = filter(f)
 }
 
 object Parameters {
