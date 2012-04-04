@@ -75,17 +75,21 @@ class PackingLowPriority extends PackingLowPriority2 {
 
 class PackingLowPriority2 {
 <#list 2..22 as i>
-  implicit final def unpackTuple${i}[<#list 1..i as j>M${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>P${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Packing[M${j}, U${j}, P${j}]<#if i != j>, </#if></#list>): Packing[(<#list 1..i as j>M${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>P${j}<#if i != j>,</#if></#list>)] = new Packing[(<#list 1..i as j>M${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>P${j}<#if i != j>,</#if></#list>)] {
-    def pack(from: Mixed) =
-      (<#list 1..i as j>u${j}.pack(from._${j})<#if i != j>, </#if></#list>)
-    def packedPacking: Packing[Packed, Unpacked, Packed] =
-      unpackTuple${i}(<#list 1..i as j>u${j}.packedPacking<#if i != j>, </#if></#list>)
-    def linearizer(from: Mixed) =
-      new ProductLinearizer(Vector(<#list 1..i as j>u${j}.linearizer(from._${j})<#if i != j>, </#if></#list>))
-    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
-      (<#list 1..i as j>u${j}.buildPacked(productTf[Unpacked, U${j}](${j-1}, f))<#if i != j>, </#if></#list>)
-  }
+  @inline
+  implicit final def unpackTuple${i}[<#list 1..i as j>M${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>P${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Packing[M${j}, U${j}, P${j}]<#if i != j>, </#if></#list>): Packing[(<#list 1..i as j>M${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>P${j}<#if i != j>,</#if></#list>)] =
+    new TuplePacking(<#list 1..i as j>u${j}<#if i != j>,</#if></#list>)
 </#list>
+}
+
+final class TuplePacking[M <: Product, U <: Product, P <: Product](ps: Packing[_, _, _]*) extends Packing[M, U, P] {
+  def pack(from: Mixed) =
+    buildTuple(ps.iterator.zip(from.productIterator).map{case (p, f) => p.pack(f.asInstanceOf[p.Mixed])}.toIndexedSeq).asInstanceOf[Packed]
+  def packedPacking: Packing[Packed, Unpacked, Packed] =
+    new TuplePacking(ps.map(_.packedPacking): _*)
+  def linearizer(from: Mixed) =
+    new ProductLinearizer(ps.iterator.zip(from.productIterator).map{case (p, f) => p.linearizer(f.asInstanceOf[p.Mixed])}.toIndexedSeq)
+  def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
+    buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
 
   private[this] def productTf[Unpacked <: Product, U](idx: Int,
       f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]):
@@ -93,4 +97,10 @@ class PackingLowPriority2 {
     new NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] {
       def apply[T](p1: TypeMapper[T], p2: (U => T)) = f.apply[T](p1, (u => p2(u.productElement(idx).asInstanceOf[U])))
     }
+
+  private[this] def buildTuple(s: IndexedSeq[Any]): Product = s.length match {
+<#list 2..22 as i>
+    case ${i} => (<#list 1..i as j>s(${j-1})<#if i != j>, </#if></#list>)
+</#list>
+  }
 }
