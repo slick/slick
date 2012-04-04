@@ -74,7 +74,7 @@ final case class BindColumn[T : TypeMapper](value: T) extends Column[T] with Nul
 /**
  * A parameter from a QueryTemplate which gets turned into a bind variable.
  */
-final case class ParameterColumn[T : TypeMapper](idx: Int) extends Column[T] with NullaryNode
+final case class ParameterColumn[T : TypeMapper](linearIdx: Int, extractor: (_ => T)) extends Column[T] with NullaryNode
 
 /**
  * A column which gets created as the result of applying an operator.

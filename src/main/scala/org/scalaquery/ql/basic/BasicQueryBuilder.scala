@@ -188,9 +188,8 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
     case s: SimpleBinaryOperator => b += '('; expr(s.left); b += ' ' += s.name += ' '; expr(s.right); b += ')'
     case c @ ConstColumn(v) => b += c.typeMapper(driver).valueToSQLLiteral(v)
     case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
-    case pc @ ParameterColumn(idx) => b +?= { (p, param) =>
-      val v = if(idx == -1) param else param.asInstanceOf[Product].productElement(idx)
-      pc.typeMapper(driver).setValue(v, p)
+    case pc @ ParameterColumn(_, extractor) => b +?= { (p, param) =>
+      pc.typeMapper(driver).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
     }
     case c: Case.CaseNode =>
       b += "(case"

@@ -1,8 +1,8 @@
 package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
-import org.scalaquery.ast.WithOp
-import org.scalaquery.util.{ValueLinearizer, ProductLinearizer}
+import org.scalaquery.SQueryException
+import org.scalaquery.util.{ValueLinearizer, ProductLinearizer, NaturalTransformation2}
 
 /**
  * A type class that encodes the unpacking `Mixed => Unpacked` of a
@@ -24,6 +24,14 @@ abstract class Packing[-Mixed_, Unpacked_, Packed_] {
   def pack(from: Mixed): Packed
   def packedPacking: Packing[Packed, Unpacked, Packed]
   def linearizer(from: Mixed): ValueLinearizer[_]
+
+  /** Build a packed representation from the shape and the TypeMappers alone.
+   * This method is not available for packings where Mixed and Unpacked are
+   * different types. */
+  def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed
+
+  protected[this] def impurePacking =
+    throw new SQueryException("Packing does not have the same Mixed and Unpacked type")
 }
 
 object Packing extends PackingLowPriority {
@@ -37,10 +45,12 @@ object Packing extends PackingLowPriority {
 
   val selfLinearizingPacking: Packing[ValueLinearizer[_], Any, ValueLinearizer[_]] = new IdentityPacking[ValueLinearizer[_], Any] {
     def linearizer(from: Mixed) = from
+    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impurePacking
   }
 
   val tablePacking: Packing[AbstractTable[_], Any, AbstractTable[_]] = new IdentityPacking[AbstractTable[_], Any] {
     def linearizer(from: Mixed) = from.*
+    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impurePacking
   }
 }
 
@@ -54,10 +64,12 @@ class PackingLowPriority extends PackingLowPriority2 {
   implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Packing[C, T, C] =
     Packing.selfLinearizingPacking.asInstanceOf[Packing[C, T, C]]
 
-  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Packing[T, T, ConstColumn[T]] = new Packing[T, T, ConstColumn[T]] {
+  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Packing[T, T, Column[T]] = new Packing[T, T, Column[T]] {
     def pack(from: Mixed) = ConstColumn(from)
-    def packedPacking: Packing[Packed, Unpacked, Packed] = unpackColumnBase[T, ConstColumn[T]]
+    def packedPacking: Packing[Packed, Unpacked, Packed] = unpackColumnBase[T, Column[T]]
     def linearizer(from: Mixed) = ConstColumn(from)
+    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
+      f(tm, identity)
   }
 }
 
@@ -70,6 +82,15 @@ class PackingLowPriority2 {
       unpackTuple${i}(<#list 1..i as j>u${j}.packedPacking<#if i != j>, </#if></#list>)
     def linearizer(from: Mixed) =
       new ProductLinearizer(Vector(<#list 1..i as j>u${j}.linearizer(from._${j})<#if i != j>, </#if></#list>))
+    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
+      (<#list 1..i as j>u${j}.buildPacked(productTf[Unpacked, U${j}](${j-1}, f))<#if i != j>, </#if></#list>)
   }
 </#list>
+
+  private[this] def productTf[Unpacked <: Product, U](idx: Int,
+      f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]):
+      NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] =
+    new NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] {
+      def apply[T](p1: TypeMapper[T], p2: (U => T)) = f.apply[T](p1, (u => p2(u.productElement(idx).asInstanceOf[U])))
+    }
 }
