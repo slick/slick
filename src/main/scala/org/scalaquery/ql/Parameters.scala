@@ -4,18 +4,18 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql.basic.{BasicProfile, BasicQueryTemplate}
 import org.scalaquery.util.NaturalTransformation2
 
-final class Parameters[P, C](c: C) {
-  def flatMap[F](f: C => Query[_, F])(implicit profile: BasicProfile): BasicQueryTemplate[P, F] =
-    profile.createQueryTemplate[P, F](f(c))
+final class Parameters[PU, PP](c: PP) {
+  def flatMap[QU](f: PP => Query[_, QU])(implicit profile: BasicProfile): BasicQueryTemplate[PU, QU] =
+    profile.createQueryTemplate[PU, QU](f(c))
 
-  def map[F](f: C => ColumnBase[F])(implicit profile: BasicProfile): BasicQueryTemplate[P, F] =
-    profile.createQueryTemplate[P, F](Query(f(c)))
+  def map[QM, QU](f: PP => QM)(implicit profile: BasicProfile, unpack: Packing[QM, QU, _]): BasicQueryTemplate[PU, QU] =
+    profile.createQueryTemplate[PU, QU](Query(f(c)))
 
-  def filter(f: C => Boolean): Parameters[P, C] =
+  def filter(f: PP => Boolean): Parameters[PU, PP] =
     if (!f(c)) throw new SQueryException("Match failed when unpacking Parameters")
     else this
 
-  def withFilter(f: C => Boolean) = filter(f)
+  def withFilter(f: PP => Boolean) = filter(f)
 }
 
 object Parameters {
