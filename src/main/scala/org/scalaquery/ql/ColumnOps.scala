@@ -27,13 +27,13 @@ trait ColumnOps[B1, P1] {
     om(Not(Is(leftOperand, Node(e))))
   def =!= [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
     om(Not(Is(leftOperand, Node(e))))
-  def < [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def < [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
     om(Relational("<", leftOperand, Node(e)))
-  def <= [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def <= [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
     om(Relational("<=", leftOperand, Node(e)))
-  def > [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def > [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
     om(Relational(">", leftOperand, Node(e)))
-  def >= [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def >= [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
     om(Relational(">=", leftOperand, Node(e)))
   def inSet[R](seq: Traversable[B1])(implicit om: OM2Bin[Boolean, P1, R], tm: BaseTM) =
     om(InSet(leftOperand, seq, false)(tm))
@@ -49,15 +49,15 @@ trait ColumnOps[B1, P1] {
     om(StdFunction[B1]("max", leftOperand))
 
   // NumericTypeMapper only
-  def + [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def + [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
     om(Arith[B1]("+", leftOperand, Node(e)))
-  def - [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def - [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
     om(Arith[B1]("-", leftOperand, Node(e)))
-  def * [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def * [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
     om(Arith[B1]("*", leftOperand, Node(e)))
-  def / [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def / [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
     om(Arith[B1]("/", leftOperand, Node(e)))
-  def % [P2, R](e: ColumnBase[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def % [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
     om(EscFunction[B1]("mod", leftOperand, Node(e)))
   def abs(implicit om: ToSame, tm: Num) =
     om(EscFunction[B1]("abs", leftOperand))
@@ -77,9 +77,9 @@ trait ColumnOps[B1, P1] {
     om(StdFunction[B1]("sum", leftOperand))
 
   // Boolean only
-  def &&[P2, R](b: ColumnBase[P2])(implicit om: Restr2[Boolean, Boolean, P2, R]) =
+  def &&[P2, R](b: Column[P2])(implicit om: Restr2[Boolean, Boolean, P2, R]) =
     om(And(leftOperand, Node(b)))
-  def ||[P2, R](b: ColumnBase[P2])(implicit om: Restr2[Boolean, Boolean, P2, R]) =
+  def ||[P2, R](b: Column[P2])(implicit om: Restr2[Boolean, Boolean, P2, R]) =
     om(Or(leftOperand, Node(b)))
   def unary_![R](implicit om: Restr1[Boolean, Boolean, R]) =
     om(Not(leftOperand))

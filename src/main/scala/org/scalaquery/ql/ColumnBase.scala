@@ -86,7 +86,7 @@ abstract class OperatorColumn[T : TypeMapper] extends Column[T] {
 /**
  * A WrappedColumn can be used to change a column's nullValue.
  */
-sealed class WrappedColumn[T : TypeMapper](parent: ColumnBase[_]) extends Column[T] {
+sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   protected[this] def nodeChildGenerators = Seq(nodeDelegate)
 }
