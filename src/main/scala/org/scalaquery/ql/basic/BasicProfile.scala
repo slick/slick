@@ -1,7 +1,6 @@
 package org.scalaquery.ql.basic
 
 import org.scalaquery.ql.{Sequence, Query, DDL}
-import org.scalaquery.util.{ValueLinearizer, SQLBuilder}
 import org.scalaquery.ast.{Optimizer, NodeGenerator, Node, Relational}
 
 trait BasicProfile {
@@ -15,15 +14,15 @@ trait BasicProfile {
   val typeMapperDelegates: TypeMapperDelegatesT
   val sqlUtils = new BasicSQLUtils
 
-  def buildSelectStatement(query: Query[_, _]): (SQLBuilder.Result, ValueLinearizer[_]) =
+  def buildSelectStatement(query: Query[_, _]): QueryBuilderResult =
     createQueryBuilder(query).buildSelect
-  def buildUpdateStatement(query: Query[_, _]): SQLBuilder.Result =
+  def buildUpdateStatement(query: Query[_, _]): QueryBuilderResult =
     createQueryBuilder(query).buildUpdate
-  def buildDeleteStatement(query: Query[_, _]): SQLBuilder.Result =
+  def buildDeleteStatement(query: Query[_, _]): QueryBuilderResult =
     createQueryBuilder(query).buildDelete
 
   def buildInsertStatement(cb: Any): String = new BasicInsertBuilder(cb, this).buildInsert
-  def buildInsertStatement(cb: Any, q: Query[_, _]): SQLBuilder.Result =
+  def buildInsertStatement(cb: Any, q: Query[_, _]): QueryBuilderResult =
     new BasicInsertBuilder(cb, this).buildInsert(q)
 
   def buildTableDDL(table: AbstractBasicTable[_]): DDL = new BasicDDLBuilder(table, this).buildDDL

@@ -20,9 +20,9 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
 
   def sqlBuilder = b
 
-  final def buildSelect(): (SQLBuilder.Result, ValueLinearizer[_]) = {
+  final def buildSelect(): QueryBuilderResult = {
     buildComprehension(ast)
-    (b.build, query.linearizer)
+    QueryBuilderResult(b.build, query.linearizer)
   }
 
   protected def buildComprehension(n: Node): Unit = n match {
@@ -229,7 +229,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
     else if(o.nulls.last) b += " nulls last"
   }
 
-  def buildUpdate: SQLBuilder.Result = {
+  def buildUpdate: QueryBuilderResult = {
     val (gen, from, where, select) = ast match {
       case Comprehension(Seq((sym, from: AbstractTable[_])), where, _, Some(Pure(select))) => select match {
         case f @ FieldRef(struct, _) if struct == sym => (sym, from, where, Seq(f.field))
@@ -247,10 +247,10 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       expr(where.reduceLeft(And))
     }
     //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
-    b.build
+    QueryBuilderResult(b.build, query.linearizer)
   }
 
-  def buildDelete: SQLBuilder.Result = {
+  def buildDelete: QueryBuilderResult = {
     val (gen, from, where) = ast match {
       case Comprehension(Seq((sym, from: AbstractTable[_])), where, _, Some(Pure(select))) => (sym, from, where)
       case _ => throw new SQueryException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
@@ -262,7 +262,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       expr(where.reduceLeft(And))
     }
     //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
-    b.build
+    QueryBuilderResult(b.build, query.linearizer)
   }
 
 
@@ -289,4 +289,9 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
   protected def innerExpr(c: Node): Unit = sys.error("obsolete")
 
   final protected def appendConditions(): Unit = sys.error("obsolete")
+}
+
+case class QueryBuilderResult(sbr: SQLBuilder.Result, linearizer: ValueLinearizer[_]) {
+  def sql = sbr.sql
+  def setter = sbr.setter
 }

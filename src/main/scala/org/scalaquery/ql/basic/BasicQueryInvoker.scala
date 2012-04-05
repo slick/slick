@@ -11,17 +11,17 @@ class BasicQueryInvoker[Q, R](q: Query[Q, R], profile: BasicProfile)
 
   override protected val delegate = this
 
-  protected lazy val (built, lin) = profile.buildSelectStatement(q)
+  protected lazy val sres = profile.buildSelectStatement(q)
 
   def selectStatement = getStatement
 
-  protected def getStatement = built.sql
+  protected def getStatement = sres.sql
 
-  protected def setParam(param: Unit, st: PreparedStatement): Unit = built.setter(new PositionedParameters(st), null)
+  protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
 
-  protected def extractValue(rs: PositionedResult): R = lin.asInstanceOf[ValueLinearizer[R]].getResult(profile, rs)
+  protected def extractValue(rs: PositionedResult): R = sres.linearizer.asInstanceOf[ValueLinearizer[R]].getResult(profile, rs)
 
-  protected def updateRowValues(rs: PositionedResult, value: R) = lin.asInstanceOf[ValueLinearizer[R]].updateResult(profile, rs, value)
+  protected def updateRowValues(rs: PositionedResult, value: R) = sres.linearizer.asInstanceOf[ValueLinearizer[R]].updateResult(profile, rs, value)
 
   def invoker: this.type = this
 }
