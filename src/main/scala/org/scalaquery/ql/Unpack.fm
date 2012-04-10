@@ -36,8 +36,8 @@ abstract class Packing[-Mixed_, Unpacked_, Packed_] {
 
 object Packing extends PackingLowPriority {
   @inline
-  def unpackTable[T <: AbstractTable[_]]: Packing[T, Nothing, T] =
-    tablePacking.asInstanceOf[Packing[T, Nothing, T]]
+  def unpackTable[T <: AbstractTable[_]]: Packing[T, TableNothing, T] =
+    tablePacking.asInstanceOf[Packing[T, TableNothing, T]]
 
   @inline
   implicit def unpackColumn[T]: Packing[Column[T], T, Column[T]] =

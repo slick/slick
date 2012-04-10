@@ -9,7 +9,6 @@ trait ExtendedProfile extends BasicProfile {
 }
 
 trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicImplicitConversions[DriverType] {
-  implicit def extendedQueryToDeleteInvoker[T](q: Query[ExtendedTable[T], T]): BasicDeleteInvoker[T] = new BasicDeleteInvoker(q, scalaQueryDriver)
 }
 
 object ExtendedQueryOps { //TODO remove

@@ -98,3 +98,9 @@ object Join {
   @deprecated("Use JoinType.Outer instead", "0.10.0-M2")
   val Outer = JoinType.Outer
 }
+
+/**
+ * Uninhabited type for queries of raw tables that can be used instead of
+ * Nothing (because the type inferencer will not infer Nothing where needed)
+ */
+final class TableNothing private[this] ()
