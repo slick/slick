@@ -23,7 +23,7 @@ abstract class Packing[-Mixed_, Unpacked_, Packed_] {
   type Packed = Packed_
   def pack(from: Mixed): Packed
   def packedPacking: Packing[Packed, Unpacked, Packed]
-  def linearizer(from: Mixed): ValueLinearizer[_]
+  def linearizer(from: Mixed): ValueLinearizer[Unpacked]
 
   /** Build a packed representation from the shape and the TypeMappers alone.
    * This method is not available for packings where Mixed and Unpacked are
@@ -44,12 +44,12 @@ object Packing extends PackingLowPriority {
     selfLinearizingPacking.asInstanceOf[Packing[Column[T], T, Column[T]]]
 
   val selfLinearizingPacking: Packing[ValueLinearizer[_], Any, ValueLinearizer[_]] = new IdentityPacking[ValueLinearizer[_], Any] {
-    def linearizer(from: Mixed) = from
+    def linearizer(from: Mixed) = from.asInstanceOf[ValueLinearizer[Unpacked]]
     def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impurePacking
   }
 
   val tablePacking: Packing[AbstractTable[_], Any, AbstractTable[_]] = new IdentityPacking[AbstractTable[_], Any] {
-    def linearizer(from: Mixed) = from.*
+    def linearizer(from: Mixed) = from.*.asInstanceOf[ValueLinearizer[Unpacked]]
     def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impurePacking
   }
 }

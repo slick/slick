@@ -24,23 +24,23 @@ trait DelegateValueLinearizer[T] {
   final def getLinearizedNodes: IndexedSeq[Node] = valueLinearizer.getLinearizedNodes
 }
 
-class ProductLinearizer(sub: IndexedSeq[ValueLinearizer[_]]) extends ValueLinearizer[Product] {
+class ProductLinearizer[T <: Product](sub: IndexedSeq[ValueLinearizer[_]]) extends ValueLinearizer[T] {
 
   def getLinearizedNodes: IndexedSeq[Node] =
     (0 until sub.length).flatMap(i => sub(i).asInstanceOf[ValueLinearizer[Any]].getLinearizedNodes)(collection.breakOut)
 
-  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[Product]) =
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) =
     for(i <- 0 until sub.length)
       sub(i).asInstanceOf[ValueLinearizer[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
 
-  def updateResult(profile: BasicProfile, rs: PositionedResult, value: Product) =
+  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) =
     for(i <- 0 until sub.length)
       sub(i).asInstanceOf[ValueLinearizer[Any]].updateResult(profile, rs, value.productElement(i))
 
-  def getResult(profile: BasicProfile, rs: PositionedResult): Product = {
+  def getResult(profile: BasicProfile, rs: PositionedResult): T = {
     var i = -1
     def f = { i += 1; sub(i).getResult(profile, rs) }
-    sub.length match {
+    val tuple = sub.length match {
       case 2 => (f,f)
       case 3 => (f,f,f)
       case 4 => (f,f,f,f)
@@ -63,5 +63,6 @@ class ProductLinearizer(sub: IndexedSeq[ValueLinearizer[_]]) extends ValueLinear
       case 21 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
       case 22 => (f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f)
     }
+    tuple.asInstanceOf[T]
   }
 }
