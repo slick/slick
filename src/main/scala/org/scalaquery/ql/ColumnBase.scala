@@ -6,14 +6,17 @@ import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.ast._
 import org.scalaquery.util._
 
-/**
- * Common base trait for columns, tables and projections
- */
-trait ColumnBase[T] extends NodeGenerator with ValueLinearizer[T] with WithOp
+/** Common base trait for all lifted values.
+  */
+trait Rep[T] extends NodeGenerator with WithOp { self: ValueLinearizer[T] => }
 
-/**
- * Base classs for columns.
- */
+/** Common base trait for record values
+  * (anything that is isomorphic to a tuple of scalar values).
+  */
+trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T]
+
+/** Base classs for columns.
+  */
 abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   final val typeMapper = implicitly[TypeMapper[T]]
   def getLinearizedNodes = Vector(Node(this))

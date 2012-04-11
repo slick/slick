@@ -1,5 +1,6 @@
 package org.scalaquery.util
 
+import org.scalaquery.ql.AbstractCollection
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
 import org.scalaquery.ast.Node
@@ -8,34 +9,49 @@ import org.scalaquery.ast.Node
  * Converts between unpacked (e.g. in query results) and linearized (a
  * sequence of columns) form of values.
  */
+sealed trait ValueLinearizer[T] {
+  def narrowedLinearizer: RecordLinearizer[_]
+}
 
-trait ValueLinearizer[T] {
+/**
+ * A linearizer for collection values.
+ */
+trait CollectionLinearizer[F[+_], T] extends ValueLinearizer[AbstractCollection[F, T]] {
+  def elementLinearizer: ValueLinearizer[T]
+  final def narrowedLinearizer = elementLinearizer.narrowedLinearizer
+}
+
+/**
+ * A linearizer for record values.
+ */
+trait RecordLinearizer[T] extends ValueLinearizer[T] {
   def getResult(profile: BasicProfile, rs: PositionedResult): T
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T): Unit
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit
   def getLinearizedNodes: IndexedSeq[Node]
+  final def narrowedLinearizer = this
 }
 
-trait DelegateValueLinearizer[T] {
-  protected[this] def valueLinearizer: ValueLinearizer[T]
+trait DelegateRecordLinearizer[T] extends RecordLinearizer[T] {
+  protected[this] def valueLinearizer: RecordLinearizer[T]
   final def getResult(profile: BasicProfile, rs: PositionedResult): T = valueLinearizer.getResult(profile, rs)
   final def updateResult(profile: BasicProfile, rs: PositionedResult, value: T): Unit = valueLinearizer.updateResult(profile, rs, value)
   final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = valueLinearizer.setParameter(profile, ps, value)
   final def getLinearizedNodes: IndexedSeq[Node] = valueLinearizer.getLinearizedNodes
 }
 
-class ProductLinearizer[T <: Product](sub: IndexedSeq[ValueLinearizer[_]]) extends ValueLinearizer[T] {
+class ProductLinearizer[T <: Product](sub: IndexedSeq[RecordLinearizer[_]]) extends RecordLinearizer[T] {
 
   def getLinearizedNodes: IndexedSeq[Node] =
-    (0 until sub.length).flatMap(i => sub(i).asInstanceOf[ValueLinearizer[Any]].getLinearizedNodes)(collection.breakOut)
+    (0 until sub.length).flatMap(i => sub(i).asInstanceOf[RecordLinearizer[Any]].getLinearizedNodes)(collection.breakOut)
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) =
     for(i <- 0 until sub.length)
-      sub(i).asInstanceOf[ValueLinearizer[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
+      sub(i).asInstanceOf[RecordLinearizer[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
 
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) =
     for(i <- 0 until sub.length)
-      sub(i).asInstanceOf[ValueLinearizer[Any]].updateResult(profile, rs, value.productElement(i))
+      sub(i).asInstanceOf[RecordLinearizer[Any]].updateResult(profile, rs, value.productElement(i))
 
   def getResult(profile: BasicProfile, rs: PositionedResult): T = {
     var i = -1

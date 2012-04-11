@@ -2,7 +2,7 @@ package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
 import org.scalaquery.SQueryException
-import org.scalaquery.util.{ValueLinearizer, ProductLinearizer, NaturalTransformation2}
+import org.scalaquery.util.{ValueLinearizer, ProductLinearizer, RecordLinearizer, NaturalTransformation2}
 
 /**
  * A type class that encodes the unpacking `Mixed => Unpacked` of a
@@ -87,7 +87,7 @@ final class TuplePacking[M <: Product, U <: Product, P <: Product](ps: Packing[_
   def packedPacking: Packing[Packed, Unpacked, Packed] =
     new TuplePacking(ps.map(_.packedPacking): _*)
   def linearizer(from: Mixed) =
-    new ProductLinearizer(ps.iterator.zip(from.productIterator).map{case (p, f) => p.linearizer(f.asInstanceOf[p.Mixed])}.toIndexedSeq)
+    new ProductLinearizer(ps.iterator.zip(from.productIterator).map{case (p, f) => p.linearizer(f.asInstanceOf[p.Mixed]).asInstanceOf[RecordLinearizer[_]]}.toIndexedSeq)
   def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
     buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
 

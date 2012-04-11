@@ -2,17 +2,17 @@ package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
 import org.scalaquery.ast._
-import org.scalaquery.util.{ValueLinearizer, DelegateValueLinearizer}
+import org.scalaquery.util.{ValueLinearizer, CollectionLinearizer}
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, U] extends ColumnBase[AbstractCollection[Seq, U]] with DelegateValueLinearizer[AbstractCollection[Seq, U]] { self =>
+abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with CollectionLinearizer[Seq, U] { self =>
 
   def unpackable: Unpackable[_ <: E, U]
   final lazy val packed = unpackable.packedNode
-  final lazy val valueLinearizer = unpackable.linearizer.asInstanceOf[ValueLinearizer[AbstractCollection[Seq,U]]] //TODO get rid of cast
+  final lazy val elementLinearizer = unpackable.linearizer
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
     val generator = new AnonSymbol

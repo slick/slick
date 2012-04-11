@@ -1,8 +1,8 @@
 package org.scalaquery.ql.basic
 
-import org.scalaquery.ql.{Query, ColumnBase}
+import org.scalaquery.ql.Query
 import org.scalaquery.session.{Session, PositionedParameters}
-import org.scalaquery.util.ValueLinearizer
+import org.scalaquery.util.RecordLinearizer
 
 class BasicUpdateInvoker[T] (query: Query[_, T], profile: BasicProfile) {
 
@@ -15,7 +15,7 @@ class BasicUpdateInvoker[T] (query: Query[_, T], profile: BasicProfile) {
   def update(value: T)(implicit session: Session): Int = session.withPreparedStatement(updateStatement) { st =>
     st.clearParameters
     val pp = new PositionedParameters(st)
-    built.linearizer.asInstanceOf[ValueLinearizer[T]].setParameter(profile, pp, Some(value))
+    built.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[T]].setParameter(profile, pp, Some(value))
     built.setter(pp, null)
     st.executeUpdate
   }

@@ -38,9 +38,9 @@ object ForeignKey {
       onDelete,
       originalSourceColumns,
       originalTargetColumns,
-      unpackp.linearizer(originalSourceColumns).getLinearizedNodes,
-      unpackp.linearizer(originalTargetColumns(targetTableUnpackable.value)).getLinearizedNodes,
-      unpackp.linearizer(originalTargetColumns(originalTargetTable)).getLinearizedNodes,
+      unpackp.linearizer(originalSourceColumns).narrowedLinearizer.getLinearizedNodes,
+      unpackp.linearizer(originalTargetColumns(targetTableUnpackable.value)).narrowedLinearizer.getLinearizedNodes,
+      unpackp.linearizer(originalTargetColumns(originalTargetTable)).narrowedLinearizer.getLinearizedNodes,
       targetTableUnpackable.value
     )
 }

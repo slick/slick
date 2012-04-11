@@ -1,10 +1,11 @@
 package org.scalaquery.ql.basic
 
-import annotation.implicitNotFound
+import scala.annotation.implicitNotFound
 import java.sql.Statement
 import org.scalaquery.SQueryException
-import org.scalaquery.ql.{ColumnBase, Query, Unpackable, Packing}
+import org.scalaquery.ql.{Query, Unpackable, Packing}
 import org.scalaquery.session.{Session, PositionedParameters}
+import org.scalaquery.util.RecordLinearizer
 
 class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProfile) {
 
@@ -22,7 +23,7 @@ class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProf
 
   def insertValue(value: U)(implicit session: Session): Int = session.withPreparedStatement(insertStatement) { st =>
     st.clearParameters()
-    unpackable.linearizer.setParameter(profile, new PositionedParameters(st), Some(value))
+    unpackable.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[U]].setParameter(profile, new PositionedParameters(st), Some(value))
     st.executeUpdate()
   }
 
@@ -42,7 +43,7 @@ class BasicInsertInvoker[T, U] (unpackable: Unpackable[T, U], profile: BasicProf
       session.withPreparedStatement(insertStatement) { st =>
         st.clearParameters()
         for(value <- values) {
-          unpackable.linearizer.setParameter(profile, new PositionedParameters(st), Some(value))
+          unpackable.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[U]].setParameter(profile, new PositionedParameters(st), Some(value))
           st.addBatch()
         }
         var unknown = false
