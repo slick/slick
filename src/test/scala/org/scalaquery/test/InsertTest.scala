@@ -1,13 +1,10 @@
 package org.scalaquery.test
 
-import org.junit.After
 import org.junit.Test
 import org.junit.Assert._
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.extended.{ExtendedTable => Table}
-import org.scalaquery.meta.MTable
-import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
@@ -48,8 +45,8 @@ class InsertTest(tdb: TestDB) extends DBTest(tdb) {
     assertEquals(Set((1,"A"), (2,"B"), (42,"X")), Query(Dst2).list.toSet)
 
     val q4 = 43 ~ "Y".bind
-    println("Insert 4: "+Dst2.toUnpackable.insertStatementFor(q4))
-    Dst2.toUnpackable.insert(q4)
+    println("Insert 4: "+Dst2.shaped.insertStatementFor(q4))
+    Dst2.shaped.insert(q4)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X"), (43,"Y")), Query(Dst2).list.toSet)
   }
 }

@@ -1,6 +1,6 @@
 package org.scalaquery.ql
 
-import org.scalaquery.ast.{SimpleNode, Node, BinaryNode}
+import org.scalaquery.ast.{Node, BinaryNode}
 
 object Case {
 

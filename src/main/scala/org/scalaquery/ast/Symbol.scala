@@ -1,7 +1,8 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
-import org.scalaquery.ql.{RawNamedColumn, Unpackable}
+import org.scalaquery.ShapedValue
+import org.scalaquery.ql.RawNamedColumn
 
 /**
  * A symbol which can be used in the AST.
@@ -53,7 +54,7 @@ case class InRef(sym: Symbol, child: Node) extends UnaryNode with RefNode {
 }
 
 object InRef {
-  def forUnpackable[E, U](sym: Symbol, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => InRef(sym, x) }))
+  def forShapedValue[E, U](sym: Symbol, u: ShapedValue[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => InRef(sym, x) }))
 }
 
 /**

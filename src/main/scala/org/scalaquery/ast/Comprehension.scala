@@ -1,9 +1,6 @@
 package org.scalaquery.ast
 
 import OptimizerUtil._
-import scala.collection.mutable.{ArrayBuffer, HashMap}
-import org.scalaquery.ql.AbstractTable
-import org.scalaquery.util.Logging
 
 case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None) extends Node with DefNode {
   protected[this] def nodeChildGenerators = from.map(_._2) ++ where ++ orderBy.map(_._1) ++ select

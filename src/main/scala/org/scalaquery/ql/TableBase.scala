@@ -1,6 +1,7 @@
 package org.scalaquery.ql
 
 import scala.collection.mutable.{ArrayBuffer, HashSet}
+import org.scalaquery.{Shape, ShapedValue}
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.ast._
@@ -32,17 +33,17 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTable: TT)
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Packing[TT, U, _], unpackp: Packing[P, PU, _]): ForeignKeyQuery[TT, U] = {
-    val q = Query[TT, U, TT](targetTable)(Packing.unpackTable.asInstanceOf[Packing[TT, U, TT]])
+       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[TT, U, _], unpackp: Shape[P, PU, _]): ForeignKeyQuery[TT, U] = {
+    val q = Query[TT, U, TT](targetTable)(Shape.tableShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
-    val aliased = InRef.forUnpackable(generator, q.unpackable)
+    val aliased = InRef.forShapedValue(generator, q.unpackable)
     val fv = ColumnOps.Is(Node(targetColumns(aliased.value)), Node(sourceColumns))
-    val fk = ForeignKey(name, this, q.unpackable.asInstanceOf[Unpackable[TT, _]],
+    val fk = ForeignKey(name, this, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
     new ForeignKeyQuery[TT, U](Filter(generator, Node(q), Node(fv)), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
-  def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Packing[T, _, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).narrowedLinearizer.getLinearizedNodes)
+  def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).narrowedLinearizer.getLinearizedNodes)
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
@@ -56,7 +57,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints collect { case k: PrimaryKey => k } toIndexedSeq
 
-  def index[T](name: String, on: T, unique: Boolean = false)(implicit unpack: Packing[T, _, _]) = new Index(name, this, unpack.linearizer(on).narrowedLinearizer.getLinearizedNodes, unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, shape.linearizer(on).narrowedLinearizer.getLinearizedNodes, unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view

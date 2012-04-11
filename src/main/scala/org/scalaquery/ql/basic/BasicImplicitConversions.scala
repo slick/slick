@@ -1,5 +1,6 @@
 package org.scalaquery.ql.basic
 
+import org.scalaquery.{Shape, ShapedValue, ToShapedValue}
 import org.scalaquery.ql._
 import org.scalaquery.ast.Node
 
@@ -19,7 +20,7 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
 
   implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
 
-  implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, TableNothing, T](t)(Packing.unpackTable)
+  implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, TableNothing, T](t)(Shape.tableShape)
 
   implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
 
@@ -34,11 +35,11 @@ trait BasicImplicitConversions[DriverType <: BasicProfile] {
   // This conversion only works for fully packed types
   implicit def productQueryToUpdateInvoker[T](q: Query[_ <: ColumnBase[T], T]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, scalaQueryDriver)
 
-  implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(Unpackable.unpackableValueToUnpackable(c), scalaQueryDriver)
-  implicit def unpackableToInsertInvoker[T, U](u: Unpackable[T, U]) = new BasicInsertInvoker(u, scalaQueryDriver)
+  implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(ShapedValue.createShapedValue(c), scalaQueryDriver)
+  implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = new BasicInsertInvoker(u, scalaQueryDriver)
 
   implicit val scalaQueryDriver: DriverType
 
   // Work-around for SI-3346
-  implicit def anyToToUnpackable[T](value: T) = new ToUnpackable[T](value)
+  implicit def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
 }

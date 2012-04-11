@@ -1,6 +1,7 @@
 package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
+import org.scalaquery.{Shape, ShapedValue}
 import org.scalaquery.ast._
 import org.scalaquery.util.{ValueLinearizer, CollectionLinearizer}
 
@@ -10,7 +11,7 @@ import org.scalaquery.util.{ValueLinearizer, CollectionLinearizer}
  */
 abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with CollectionLinearizer[Seq, U] { self =>
 
-  def unpackable: Unpackable[_ <: E, U]
+  def unpackable: ShapedValue[_ <: E, U]
   final lazy val packed = unpackable.packedNode
   final lazy val elementLinearizer = unpackable.linearizer
 
@@ -21,14 +22,14 @@ abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with Collect
     new WrappingQuery[F, T](new Bind(generator, Node(unpackable.value), Node(fv)), fv.unpackable)
   }
 
-  def map[F, G, T](f: E => F)(implicit packing: Packing[F, T, G]): Query[G, T] =
+  def map[F, G, T](f: E => F)(implicit shape: Shape[F, T, G]): Query[G, T] =
     flatMap(v => Query[F, T, G](f(v)))
 
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
 
   def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = {
     val generator = new AnonSymbol
-    val aliased = InRef.forUnpackable(generator, unpackable)
+    val aliased = InRef.forShapedValue(generator, unpackable)
     val fv = f(aliased.value)
     new WrappingQuery[E, U](Filter(generator, Node(this), Node(wt(fv))), unpackable)
   }
@@ -39,8 +40,8 @@ abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with Collect
 
   def join[E2, U2](q2: Query[E2, U2], jt: JoinType = JoinType.Inner) = {
     val leftGen, rightGen = new AnonSymbol
-    val aliased1 = InRef.forUnpackable(leftGen, unpackable)
-    val aliased2 = InRef.forUnpackable(rightGen, q2.unpackable)
+    val aliased1 = InRef.forShapedValue(leftGen, unpackable)
+    val aliased2 = InRef.forShapedValue(rightGen, q2.unpackable)
     new BaseJoinQuery[E, E2, U, U2](leftGen, rightGen, Node(unpackable.value), Node(q2.unpackable.value), jt, aliased1.zip(aliased2))
   }
   def innerJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Inner)
@@ -50,7 +51,7 @@ abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with Collect
 
   def sortBy[T <% Ordered](f: E => T): Query[E, U] = {
     val generator = new AnonSymbol
-    val aliased = InRef.forUnpackable(generator, unpackable)
+    val aliased = InRef.forShapedValue(generator, unpackable)
     new WrappingQuery[E, U](SortBy(generator, Node(this), f(aliased.value).columns), unpackable)
   }
   /*
@@ -70,9 +71,9 @@ abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with Collect
   @deprecated("Query.sub is not needed anymore", "0.10.0-M2")
   def sub = this
 
-  def pack[R](implicit packing: Packing[E, _, R]): Query[R, U] =
+  def pack[R](implicit packing: Shape[E, _, R]): Query[R, U] =
     new Query[R, U] {
-      val unpackable: Unpackable[_ <: R, U] = self.unpackable.packedUnpackable(packing)
+      val unpackable: ShapedValue[_ <: R, U] = self.unpackable.packedValue(packing)
       def nodeDelegate = self.nodeDelegate
     }
 
@@ -86,10 +87,10 @@ abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with Collect
 
 object Query extends Query[Column[Unit], Unit] {
   def nodeDelegate = packed
-  def unpackable = Unpackable(ConstColumn(()).mapOp(Pure(_)), Packing.unpackColumnBase[Unit, Column[Unit]])
-  def apply[E, U, R](value: E)(implicit unpack: Packing[E, U, R]) =
-    apply[R, U](Unpackable(value, unpack).packedUnpackable)
-  def apply[E, U](unpackable: Unpackable[_ <: E, U]): Query[E, U] =
+  def unpackable = ShapedValue(ConstColumn(()).mapOp(Pure(_)), Shape.unpackColumnBase[Unit, Column[Unit]])
+  def apply[E, U, R](value: E)(implicit unpack: Shape[E, U, R]) =
+    apply[R, U](ShapedValue(value, unpack).packedValue)
+  def apply[E, U](unpackable: ShapedValue[_ <: E, U]): Query[E, U] =
     if(unpackable.packedNode.isInstanceOf[AbstractTable[_]])
       new WrappingQuery[E, U](unpackable.packedNode, unpackable) {
         override lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
@@ -116,11 +117,11 @@ object CanBeQueryCondition {
   }
 }
 
-class WrappingQuery[+E, U](val nodeDelegate: Node, val base: Unpackable[_ <: E, U]) extends Query[E, U] {
-  lazy val unpackable = Wrapped.wrapUnpackable(Node(this), base)
+class WrappingQuery[+E, U](val nodeDelegate: Node, val base: ShapedValue[_ <: E, U]) extends Query[E, U] {
+  lazy val unpackable = Wrapped.wrapShapedValue(Node(this), base)
 }
 
-final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: Unpackable[_ <: (E1, E2), (U1, U2)])
+final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)])
     extends WrappingQuery[(E1, E2), (U1,  U2)](BaseJoin(leftGen, rightGen, left, right, jt), base) {
   def on[T <: Column[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]) =
     new WrappingQuery[(E1, E2), (U1, U2)](FilteredJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)

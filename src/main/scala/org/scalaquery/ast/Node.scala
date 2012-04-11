@@ -3,8 +3,8 @@ package org.scalaquery.ast
 import scala.math.{min, max}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
-import org.scalaquery.SQueryException
-import org.scalaquery.ql.{Unpackable, ConstColumn, JoinType}
+import org.scalaquery.{SQueryException, ShapedValue}
+import org.scalaquery.ql.{ConstColumn, JoinType}
 import org.scalaquery.util.{RefId, SimpleTypeName}
 
 trait NodeGenerator {
@@ -189,7 +189,7 @@ final case class Wrapped(in: Node, what: Node) extends BinaryNode {
 object Wrapped {
   def ifNeeded(in: Node, what: Node): Node =
     if(in eq what) what else Wrapped(in, what)
-  def wrapUnpackable[E, U](in: Node, u: Unpackable[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped.ifNeeded(Node(in), Node(x)) }))
+  def wrapShapedValue[E, U](in: Node, u: ShapedValue[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped.ifNeeded(Node(in), Node(x)) }))
 }
 
 final case class Pure(value: Node) extends UnaryNode {

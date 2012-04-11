@@ -1,5 +1,6 @@
 package org.scalaquery.ql
 
+import org.scalaquery.{Shape, ShapedValue}
 import org.scalaquery.ast.{AnonSymbol, Filter, Node}
 
 
@@ -24,9 +25,9 @@ object ForeignKey {
   def apply[TT <: AbstractTable[_], P](
       name: String,
       sourceTable: Node,
-      targetTableUnpackable: Unpackable[TT, _],
+      targetTableShaped: ShapedValue[TT, _],
       originalTargetTable: TT,
-      unpackp: Packing[P, _, _],
+      pShape: Shape[P, _, _],
       originalSourceColumns: P,
       originalTargetColumns: TT => P,
       onUpdate: ForeignKeyAction,
@@ -38,10 +39,10 @@ object ForeignKey {
       onDelete,
       originalSourceColumns,
       originalTargetColumns,
-      unpackp.linearizer(originalSourceColumns).narrowedLinearizer.getLinearizedNodes,
-      unpackp.linearizer(originalTargetColumns(targetTableUnpackable.value)).narrowedLinearizer.getLinearizedNodes,
-      unpackp.linearizer(originalTargetColumns(originalTargetTable)).narrowedLinearizer.getLinearizedNodes,
-      targetTableUnpackable.value
+      pShape.linearizer(originalSourceColumns).narrowedLinearizer.getLinearizedNodes,
+      pShape.linearizer(originalTargetColumns(targetTableShaped.value)).narrowedLinearizer.getLinearizedNodes,
+      pShape.linearizer(originalTargetColumns(originalTargetTable)).narrowedLinearizer.getLinearizedNodes,
+      targetTableShaped.value
     )
 }
 
@@ -57,7 +58,7 @@ object ForeignKeyAction {
 
 class ForeignKeyQuery[E <: AbstractTable[_], U](
     nodeDelegate: Node,
-    base: Unpackable[_ <: E, U],
+    base: ShapedValue[_ <: E, U],
     val fks: IndexedSeq[ForeignKey[E, _]],
     targetBaseQuery: Query[E, U],
     generator: AnonSymbol,
