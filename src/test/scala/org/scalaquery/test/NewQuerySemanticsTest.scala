@@ -194,7 +194,7 @@ class NewQuerySemanticsTest(tdb: TestDB) extends DBTest(tdb) {
     val r4 = q4.to[Set]()
     println("r4: "+r4)
     val r4e = Set(("Colombian",42))
-    //TODO broken in H2: assertEquals(r4e, r4)
+    assertEquals(r4e, r4)
 
     val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 8.0)
     val q4b = for {

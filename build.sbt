@@ -23,7 +23,7 @@ crossVersion := CrossVersion.Disabled
 scalacOptions ++= List("-deprecation")
 
 libraryDependencies <++= (useJDBC4) { u => Seq(
-  "com.h2database" % "h2" % "1.3.164" % "test",
+  "com.h2database" % "h2" % "1.3.166" % "test",
   "org.xerial" % "sqlite-jdbc" % "3.6.20" % "test",
   "org.apache.derby" % "derby" % "10.6.1.0" % "test",
   "org.hsqldb" % "hsqldb" % "2.0.0" % "test",
