@@ -1,17 +1,18 @@
 package org.scalaquery.ql
 
-import org.scalaquery.ast._
 import scala.annotation.implicitNotFound
+import org.scalaquery.ast._
+import org.scalaquery.util.{ValueLinearizer, DelegateValueLinearizer}
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, U] extends NodeGenerator { self =>
+abstract class Query[+E, U] extends ColumnBase[AbstractCollection[Seq, U]] with DelegateValueLinearizer[AbstractCollection[Seq, U]] { self =>
 
-  def unpackable: Unpackable[_ <: E, _ <: U]
-  lazy val packed = unpackable.packedNode
-  lazy val linearizer = unpackable.linearizer
+  def unpackable: Unpackable[_ <: E, U]
+  final lazy val packed = unpackable.packedNode
+  final lazy val valueLinearizer = unpackable.linearizer.asInstanceOf[ValueLinearizer[AbstractCollection[Seq,U]]] //TODO get rid of cast
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
     val generator = new AnonSymbol
@@ -57,11 +58,11 @@ abstract class Query[+E, U] extends NodeGenerator { self =>
     new Query[E, U](unpackable, cond, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
   */
 
-  def union[O >: E, T >: U, R](other: Query[O, T]) =
-    new WrappingQuery[O, T](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable)
+  def union[O >: E, R](other: Query[O, U]) =
+    new WrappingQuery[O, U](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable)
 
-  def unionAll[O >: E, T >: U, R](other: Query[O, T]) =
-    new WrappingQuery[O, T](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
+  def unionAll[O >: E, R](other: Query[O, U]) =
+    new WrappingQuery[O, U](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
 
   def count = ColumnOps.CountAll(Node(unpackable.value))
   def exists = StdFunction[Boolean]("exists", Node(unpackable.value))
@@ -71,7 +72,7 @@ abstract class Query[+E, U] extends NodeGenerator { self =>
 
   def pack[R](implicit packing: Packing[E, _, R]): Query[R, U] =
     new Query[R, U] {
-      val unpackable: Unpackable[_ <: R, _ <: U] = self.unpackable.packedUnpackable(packing)
+      val unpackable: Unpackable[_ <: R, U] = self.unpackable.packedUnpackable(packing)
       def nodeDelegate = self.nodeDelegate
     }
 
@@ -88,7 +89,7 @@ object Query extends Query[Column[Unit], Unit] {
   def unpackable = Unpackable(ConstColumn(()).mapOp(Pure(_)), Packing.unpackColumnBase[Unit, Column[Unit]])
   def apply[E, U, R](value: E)(implicit unpack: Packing[E, U, R]) =
     apply[R, U](Unpackable(value, unpack).packedUnpackable)
-  def apply[E, U](unpackable: Unpackable[_ <: E, _ <: U]): Query[E, U] =
+  def apply[E, U](unpackable: Unpackable[_ <: E, U]): Query[E, U] =
     if(unpackable.packedNode.isInstanceOf[AbstractTable[_]])
       new WrappingQuery[E, U](unpackable.packedNode, unpackable) {
         override lazy val unpackable = base.endoMap(n => WithOp.mapOp(n, { x => Node(this) }))
@@ -115,11 +116,11 @@ object CanBeQueryCondition {
   }
 }
 
-class WrappingQuery[+E, U](val nodeDelegate: Node, val base: Unpackable[_ <: E, _ <: U]) extends Query[E, U] {
+class WrappingQuery[+E, U](val nodeDelegate: Node, val base: Unpackable[_ <: E, U]) extends Query[E, U] {
   lazy val unpackable = Wrapped.wrapUnpackable(Node(this), base)
 }
 
-final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: Unpackable[_ <: (E1, E2), _ <: (U1, U2)])
+final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: Unpackable[_ <: (E1, E2), (U1, U2)])
     extends WrappingQuery[(E1, E2), (U1,  U2)](BaseJoin(leftGen, rightGen, left, right, jt), base) {
   def on[T <: Column[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]) =
     new WrappingQuery[(E1, E2), (U1, U2)](FilteredJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)

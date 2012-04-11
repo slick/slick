@@ -16,6 +16,14 @@ trait ValueLinearizer[T] {
   def getLinearizedNodes: IndexedSeq[Node]
 }
 
+trait DelegateValueLinearizer[T] {
+  protected[this] def valueLinearizer: ValueLinearizer[T]
+  final def getResult(profile: BasicProfile, rs: PositionedResult): T = valueLinearizer.getResult(profile, rs)
+  final def updateResult(profile: BasicProfile, rs: PositionedResult, value: T): Unit = valueLinearizer.updateResult(profile, rs, value)
+  final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = valueLinearizer.setParameter(profile, ps, value)
+  final def getLinearizedNodes: IndexedSeq[Node] = valueLinearizer.getLinearizedNodes
+}
+
 class ProductLinearizer(sub: IndexedSeq[ValueLinearizer[_]]) extends ValueLinearizer[Product] {
 
   def getLinearizedNodes: IndexedSeq[Node] =

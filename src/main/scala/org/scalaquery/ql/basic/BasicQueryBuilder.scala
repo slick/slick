@@ -22,7 +22,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
 
   final def buildSelect(): QueryBuilderResult = {
     buildComprehension(ast)
-    QueryBuilderResult(b.build, query.linearizer)
+    QueryBuilderResult(b.build, query)
   }
 
   protected def buildComprehension(n: Node): Unit = n match {
@@ -247,7 +247,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       expr(where.reduceLeft(And))
     }
     //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
-    QueryBuilderResult(b.build, query.linearizer)
+    QueryBuilderResult(b.build, query)
   }
 
   def buildDelete: QueryBuilderResult = {
@@ -262,7 +262,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       expr(where.reduceLeft(And))
     }
     //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
-    QueryBuilderResult(b.build, query.linearizer)
+    QueryBuilderResult(b.build, query)
   }
 
 

@@ -57,7 +57,7 @@ object ForeignKeyAction {
 
 class ForeignKeyQuery[E <: AbstractTable[_], U](
     nodeDelegate: Node,
-    base: Unpackable[_ <: E, _ <: U],
+    base: Unpackable[_ <: E, U],
     val fks: IndexedSeq[ForeignKey[E, _]],
     targetBaseQuery: Query[E, U],
     generator: AnonSymbol,
