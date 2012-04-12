@@ -1,20 +1,24 @@
 package org.scalaquery.ast
 
-import org.scalaquery.SQueryException
+import org.scalaquery.Shape
 
-trait WithOp extends Cloneable { self: NodeGenerator =>
+trait WithOp extends Cloneable {
+  self: NodeGenerator =>
   def mapOp(f: Node => Node): this.type = {
     val tv = Node(this)
     val fv = f(tv)
-    if(fv eq tv) this
+    if (fv eq tv) this
     else {
       val t = clone
       t._op = fv
       t.asInstanceOf[WithOp.this.type] // work around https://issues.scala-lang.org/browse/SI-5210
     }
   }
+
   private[WithOp] var _op: Node = _
+
   final def op: Node = _op
+
   override def clone(): this.type = super.clone.asInstanceOf[this.type]
 }
 
@@ -23,15 +27,14 @@ object WithOp {
 
   def mapOp[T](x: T, f: Node => Node): T = x match {
     case w: WithOp => w.mapOp(f).asInstanceOf[T]
-<#list 2..22 as i>
-    case (<#list 1..i as j>x${j}<#if i != j>, </#if></#list>) => {
-    <#list 1..i as j>
-      val y${j} = mapOp(x${j}, f)
-    </#list>
-      if(<#list 1..i as j>x${j}.asInstanceOf[AnyRef].eq(y${j}.asInstanceOf[AnyRef])<#if i != j> && </#if></#list>) x
-      else (<#list 1..i as j>y${j}<#if i != j>, </#if></#list>).asInstanceOf[T]
-    }
-</#list>
-    case x => x
+    case p: Product => // Only works for tuples but they have no common superclass
+      var changed = false
+      val seq = p.productIterator.map { x =>
+        val y = mapOp(x, f)
+        if(x.asInstanceOf[AnyRef].ne(y.asInstanceOf[AnyRef])) changed = true
+        y
+      }.toIndexedSeq
+      if(changed) Shape.buildTuple(seq).asInstanceOf[T]
+      else x
   }
 }
