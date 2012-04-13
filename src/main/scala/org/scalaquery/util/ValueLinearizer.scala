@@ -1,5 +1,6 @@
 package org.scalaquery.util
 
+import scala.collection.generic.CanBuildFrom
 import org.scalaquery.ql.AbstractCollection
 import org.scalaquery.ql.basic.BasicProfile
 import org.scalaquery.session.{PositionedParameters, PositionedResult}
@@ -18,6 +19,7 @@ sealed trait ValueLinearizer[T] {
  */
 trait CollectionLinearizer[F[+_], T] extends ValueLinearizer[AbstractCollection[F, T]] {
   def elementLinearizer: ValueLinearizer[T]
+  def canBuildFrom: CanBuildFrom[Nothing, T, F[T]]
   final def narrowedLinearizer = elementLinearizer.narrowedLinearizer
 }
 

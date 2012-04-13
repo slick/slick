@@ -1,6 +1,7 @@
 package org.scalaquery.ql
 
 import scala.annotation.implicitNotFound
+import scala.collection.generic.CanBuildFrom
 import org.scalaquery.{Shape, ShapedValue}
 import org.scalaquery.ast._
 import org.scalaquery.util.{ValueLinearizer, CollectionLinearizer}
@@ -14,6 +15,7 @@ abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with Collect
   def unpackable: ShapedValue[_ <: E, U]
   final lazy val packed = unpackable.packedNode
   final lazy val elementLinearizer = unpackable.linearizer
+  final val canBuildFrom: CanBuildFrom[Nothing, U, Seq[U]] = implicitly
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
     val generator = new AnonSymbol
