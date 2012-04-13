@@ -3,7 +3,8 @@ package org.scalaquery.ql.basic
 import java.sql.Types._
 import org.scalaquery.ql.TypeMapperDelegate
 
-class BasicSQLUtils {
+trait BasicSQLUtilsComponent {
+
   def quoteIdentifier(id: String): String = {
     val s = new StringBuilder(id.length + 4) append '"'
     for(c <- id) if(c == '"') s append "\"\"" else s append c

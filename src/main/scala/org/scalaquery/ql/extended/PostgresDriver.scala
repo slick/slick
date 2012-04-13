@@ -7,69 +7,55 @@ import org.scalaquery.session.{PositionedResult, PositionedParameters}
 import org.scalaquery.ast.Node
 import org.scalaquery.util.ValueLinearizer
 
-class PostgresDriver extends ExtendedProfile { self =>
+class PostgresDriver extends ExtendedDriver { driver =>
 
-  type ImplicitT = ExtendedImplicitConversions[PostgresDriver]
-  type TypeMapperDelegatesT = PostgresTypeMapperDelegates
+  override val typeMapperDelegates = new TypeMapperDelegates
+  override def createQueryBuilder(query: Query[_, _]) = new QueryBuilder(processAST(query), query)
+  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDLBuilder(table).buildDDL
 
-  val Implicit = new ExtendedImplicitConversions[PostgresDriver] {
-    implicit val scalaQueryDriver = self
-  }
+  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+    override protected val concatOperator = Some("||")
 
-  val typeMapperDelegates = new PostgresTypeMapperDelegates
-
-  override def createQueryBuilder(query: Query[_, _]) = new PostgresQueryBuilder(processAST(query), query, this)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new PostgresDDLBuilder(table, this).buildDDL
-}
-
-object PostgresDriver extends PostgresDriver
-
-class PostgresTypeMapperDelegates extends BasicTypeMapperDelegates {
-  override val byteArrayTypeMapperDelegate = new BasicTypeMapperDelegates.ByteArrayTypeMapperDelegate {
-    override val sqlTypeName = "BYTEA"
-  }
-  override val uuidTypeMapperDelegate = new BasicTypeMapperDelegates.UUIDTypeMapperDelegate {
-    override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
-    override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
-    override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
-    override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
-    override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
-  }
-
-  override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
-
-  /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
-  class ByteTypeMapperDelegate extends BasicTypeMapperDelegates.ByteTypeMapperDelegate {
-    override def sqlTypeName = "SMALLINT"
-  }
-}
-
-class PostgresQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: PostgresDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
-
-  override protected val concatOperator = Some("||")
-
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
-    case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
-    case (Some(t), None) => b += " LIMIT " += t
-    case (None, Some(d)) => b += " OFFSET " += d
-    case _ =>
-  }
-}
-
-class PostgresDDLBuilder(table: AbstractBasicTable[_], profile: PostgresDriver) extends BasicDDLBuilder(table, profile) {
-  import profile.sqlUtils._
-
-  protected class PostgresColumnDDLBuilder(column: RawNamedColumn) extends BasicColumnDDLBuilder(column) {
-    override def appendColumn(sb: StringBuilder) {
-      sb append quoteIdentifier(column.name) append ' '
-      if(autoIncrement) {
-        sb append "SERIAL"
-        autoIncrement = false
-      }
-      else sb append sqlType
-      appendOptions(sb)
+    override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
+      case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
+      case (Some(t), None) => b += " LIMIT " += t
+      case (None, Some(d)) => b += " OFFSET " += d
+      case _ =>
     }
   }
 
-  override protected def createColumnDDLBuilder(c: RawNamedColumn) = new PostgresColumnDDLBuilder(c)
+  class DDLBuilder(table: AbstractBasicTable[_]) extends super.DDLBuilder(table) {
+    override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
+
+    protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+      override def appendColumn(sb: StringBuilder) {
+        sb append quoteIdentifier(column.name) append ' '
+        if(autoIncrement) {
+          sb append "SERIAL"
+          autoIncrement = false
+        }
+        else sb append sqlType
+        appendOptions(sb)
+      }
+    }
+  }
+
+  class TypeMapperDelegates extends super.TypeMapperDelegates {
+    /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
+    override val byteTypeMapperDelegate = new ByteTypeMapperDelegate {
+      override def sqlTypeName = "SMALLINT"
+    }
+    override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate {
+      override val sqlTypeName = "BYTEA"
+    }
+    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
+      override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
+      override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
+      override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
+      override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
+      override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
+    }
+  }
 }
+
+object PostgresDriver extends PostgresDriver

@@ -100,7 +100,7 @@ class MetaTest(tdb: TestDB) extends DBTest(tdb) {
       assertTrue("Tables before deleting",
         Set("orders", "users") subsetOf MTable.getTables(None, None, None, None).list.map(_.name.name).toSet)
       for(t <- tdb.getLocalTables.sorted) {
-        val st = "drop table " + tdb.driver.sqlUtils.quoteIdentifier(t)
+        val st = "drop table " + tdb.driver.quoteIdentifier(t)
         println("Executing statement: "+st)
         Q.u + st execute
       }

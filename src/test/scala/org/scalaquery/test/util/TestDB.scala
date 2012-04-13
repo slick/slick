@@ -2,7 +2,7 @@ package org.scalaquery.test.util
 
 import java.util.Properties
 import java.sql.SQLException
-import org.scalaquery.ql.extended.{ExtendedProfile, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver, AccessDriver, SQLServerDriver}
+import org.scalaquery.ql.extended.{ExtendedDriver, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver, AccessDriver, SQLServerDriver}
 import org.scalaquery.ResultSetInvoker
 import org.scalaquery.session._
 import org.scalaquery.simple.{StaticQuery => Q}
@@ -38,7 +38,7 @@ abstract class TestDB(val confName: String) {
   override def toString = url
   val url: String
   val jdbcDriver: String
-  val driver: ExtendedProfile
+  val driver: ExtendedDriver
   def dbName = ""
   def userName = ""
   def createDB() = Database.forURL(url, driver = jdbcDriver)
@@ -65,7 +65,7 @@ abstract class TestDB(val confName: String) {
   }
   def assertTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
-      try Q[Int]+"select 1 from "+driver.sqlUtils.quoteIdentifier(t)+" where 1 < 0" list catch { case _: Exception =>
+      try Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0" list catch { case _: Exception =>
         Assert.fail("Table "+t+" should exist")
       }
     }
@@ -73,7 +73,7 @@ abstract class TestDB(val confName: String) {
   def assertNotTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
       try {
-        Q[Int]+"select 1 from "+driver.sqlUtils.quoteIdentifier(t)+" where 1 < 0" list;
+        Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0" list;
         Assert.fail("Table "+t+" should not exist")
       } catch { case _: Exception => }
     }
@@ -121,7 +121,7 @@ class SQLiteTestDB(dburl: String, confName: String) extends TestDB(confName) {
     super.getLocalTables.filter(s => !s.toLowerCase.contains("sqlite_"))
 }
 
-class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends TestDB(confName) {
+class ExternalTestDB(confName: String, val driver: ExtendedDriver) extends TestDB(confName) {
   val jdbcDriver = TestDBOptions.get(confName, "driver").orNull
   val urlTemplate = TestDBOptions.get(confName, "url").getOrElse("")
   override def dbName = TestDBOptions.get(confName, "testDB").getOrElse("")
@@ -158,7 +158,7 @@ class ExternalTestDB(confName: String, val driver: ExtendedProfile) extends Test
   }
 }
 
-class AccessDB(confName: String, val driver: ExtendedProfile) extends TestDB(confName) {
+class AccessDB(confName: String, val driver: ExtendedDriver) extends TestDB(confName) {
   val jdbcDriver = TestDBOptions.get(confName, "driver").orNull
   override def dbName = TestDBOptions.get(confName, "testDB").getOrElse(super.dbName)
   val dir = new File(TestDBOptions.testDBDir)

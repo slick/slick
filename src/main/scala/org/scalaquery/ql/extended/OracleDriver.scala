@@ -1,64 +1,51 @@
 package org.scalaquery.ql.extended
 
 import org.scalaquery.ql._
-import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
 import org.scalaquery.util.ValueLinearizer
 
-class OracleDriver extends ExtendedProfile { self =>
+class OracleDriver extends ExtendedDriver { driver =>
 
-  type ImplicitT = ExtendedImplicitConversions[OracleDriver]
-  type TypeMapperDelegatesT = BasicTypeMapperDelegates
+  override def createQueryBuilder(query: Query[_, _]) = new QueryBuilder(processAST(query), query)
 
-  val Implicit = new ExtendedImplicitConversions[OracleDriver] {
-    implicit val scalaQueryDriver = self
+  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+    override protected val scalarFrom = Some("DUAL")
+    override protected val concatOperator = Some("||")
+
+    /*TODO
+    override protected def innerBuildSelectNoRewrite(rename: Boolean) {
+      query.typedModifiers[TakeDrop] match {
+        case TakeDrop(Some(t), None) :: _ =>
+          b += "SELECT * FROM (SELECT "
+          expr(query.reified)
+          //TODO fromSlot = b.createSlot
+          appendClauses()
+          b += ") WHERE ROWNUM <= " += t
+        case TakeDrop(to, Some(d)) :: _ =>
+          b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (SELECT "
+          expr(Node(query.reified))
+          b += ",ROWNUM ROWNUM_I"
+          //TODO fromSlot = b.createSlot
+          appendClauses()
+          b += ") t0) WHERE ROWNUM_O"
+          to match {
+            case Some(t) =>
+              b += " BETWEEN (1+" += d += ") AND (" += d += "+" += t += ")"
+            case None =>
+              b += ">" += d
+          }
+          b += " ORDER BY ROWNUM_I"
+        case _ =>
+          b += "SELECT "
+          expr(query.reified)
+          //TODO fromSlot = b.createSlot
+          appendClauses()
+      }
+    }
+    */
+
+    override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
   }
-
-  val typeMapperDelegates = new BasicTypeMapperDelegates {}
-
-  override def createQueryBuilder(query: Query[_, _]) = new OracleQueryBuilder(processAST(query), query, this)
 }
 
 object OracleDriver extends OracleDriver
-
-class OracleQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: OracleDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
-
-  import ExtendedQueryOps._
-
-  override protected val scalarFrom = Some("DUAL")
-  override protected val concatOperator = Some("||")
-
-  /*TODO
-  override protected def innerBuildSelectNoRewrite(rename: Boolean) {
-    query.typedModifiers[TakeDrop] match {
-      case TakeDrop(Some(t), None) :: _ =>
-        b += "SELECT * FROM (SELECT "
-        expr(query.reified)
-        //TODO fromSlot = b.createSlot
-        appendClauses()
-        b += ") WHERE ROWNUM <= " += t
-      case TakeDrop(to, Some(d)) :: _ =>
-        b += "SELECT * FROM (SELECT t0.*, ROWNUM ROWNUM_O FROM (SELECT "
-        expr(Node(query.reified))
-        b += ",ROWNUM ROWNUM_I"
-        //TODO fromSlot = b.createSlot
-        appendClauses()
-        b += ") t0) WHERE ROWNUM_O"
-        to match {
-          case Some(t) =>
-            b += " BETWEEN (1+" += d += ") AND (" += d += "+" += t += ")"
-          case None =>
-            b += ">" += d
-        }
-        b += " ORDER BY ROWNUM_I"
-      case _ =>
-        b += "SELECT "
-        expr(query.reified)
-        //TODO fromSlot = b.createSlot
-        appendClauses()
-    }
-  }
-  */
-
-  override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
-}

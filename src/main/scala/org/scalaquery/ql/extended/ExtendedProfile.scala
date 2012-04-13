@@ -2,14 +2,11 @@ package org.scalaquery.ql.extended
 
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
-import org.scalaquery.ast.{Drop, Take, Node, NullaryNode}
+import org.scalaquery.ast.NullaryNode
 
-trait ExtendedProfile extends BasicProfile {
-  type ImplicitT <: ExtendedImplicitConversions[_ <: ExtendedProfile]
-}
+trait ExtendedProfile extends BasicProfile { driver: BasicDriver => }
 
-trait ExtendedImplicitConversions[DriverType <: ExtendedProfile] extends BasicImplicitConversions[DriverType] {
-}
+class ExtendedDriver extends ExtendedProfile with BasicDriver
 
 object ExtendedQueryOps { //TODO remove
   final case class TakeDrop(take: Option[Int], drop: Option[Int]) extends QueryModifier with NullaryNode
