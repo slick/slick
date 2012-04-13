@@ -6,6 +6,7 @@ import org.scalaquery.ast._
 import org.scalaquery.SQueryException
 import java.sql.{Timestamp, Time, Date}
 import org.scalaquery.session.{PositionedParameters, PositionedResult, ResultSetType}
+import org.scalaquery.util.ValueLinearizer
 
 /**
  * ScalaQuery driver for Microsoft SQL Server.
@@ -37,7 +38,7 @@ class SQLServerDriver extends ExtendedProfile { self =>
   override val sqlUtils = new SQLServerSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLServerDDLBuilder(table, this).buildDDL
-  override def createQueryBuilder(query: Query[_, _]) = new SQLServerQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new SQLServerQueryBuilder(processAST(query), query, this)
 }
 
 object SQLServerDriver extends SQLServerDriver
@@ -84,7 +85,7 @@ object SQLServerTypeMapperDelegates {
   }
 }
 
-class SQLServerQueryBuilder(query: Query[_, _], profile: SQLServerDriver) extends BasicQueryBuilder(query, profile) {
+class SQLServerQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: SQLServerDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   import ExtendedQueryOps._
 

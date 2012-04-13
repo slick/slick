@@ -5,6 +5,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
+import org.scalaquery.util.ValueLinearizer
 
 /**
  * ScalaQuery driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -31,7 +32,7 @@ class HsqldbDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new HsqldbTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_, _]) = new HsqldbQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new HsqldbQueryBuilder(processAST(query), query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new HsqldbDDLBuilder(table, this).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new HsqldbSequenceDDLBuilder(seq, this).buildDDL
 }
@@ -77,7 +78,7 @@ class HsqldbDDLBuilder(table: AbstractBasicTable[_], profile: HsqldbDriver) exte
   }
 }
 
-class HsqldbQueryBuilder(_query: Query[_, _], profile: HsqldbDriver) extends BasicQueryBuilder(_query, profile) {
+class HsqldbQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: HsqldbDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   import profile.sqlUtils._
 

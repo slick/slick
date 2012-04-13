@@ -5,6 +5,7 @@ import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
 import java.sql.{Timestamp, Time, Date}
+import org.scalaquery.util.ValueLinearizer
 
 /**
  * ScalaQuery driver for SQLite.
@@ -33,7 +34,7 @@ class SQLiteDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new SQLiteTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_, _]) = new SQLiteQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new SQLiteQueryBuilder(processAST(query), query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new SQLiteDDLBuilder(table, this).buildDDL
 }
 
@@ -115,7 +116,7 @@ class SQLiteDDLBuilder(table: AbstractBasicTable[_], profile: SQLiteDriver) exte
   }
 }
 
-class SQLiteQueryBuilder(_query: Query[_, _], profile: SQLiteDriver) extends BasicQueryBuilder(_query, profile) {
+class SQLiteQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: SQLiteDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   import ExtendedQueryOps._
   import profile.sqlUtils._

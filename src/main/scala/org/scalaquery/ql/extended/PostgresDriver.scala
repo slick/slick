@@ -4,6 +4,8 @@ import java.util.UUID
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.session.{PositionedResult, PositionedParameters}
+import org.scalaquery.ast.Node
+import org.scalaquery.util.ValueLinearizer
 
 class PostgresDriver extends ExtendedProfile { self =>
 
@@ -16,7 +18,7 @@ class PostgresDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new PostgresTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_, _]) = new PostgresQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new PostgresQueryBuilder(processAST(query), query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new PostgresDDLBuilder(table, this).buildDDL
 }
 
@@ -42,7 +44,7 @@ class PostgresTypeMapperDelegates extends BasicTypeMapperDelegates {
   }
 }
 
-class PostgresQueryBuilder(_query: Query[_, _], profile: PostgresDriver) extends BasicQueryBuilder(_query, profile) {
+class PostgresQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: PostgresDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   override protected val concatOperator = Some("||")
 

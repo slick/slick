@@ -8,7 +8,7 @@ trait BasicProfile {
   type TypeMapperDelegatesT <: BasicTypeMapperDelegates
 
   def createQueryTemplate[P,R](query: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](query, this)
-  def createQueryBuilder(query: Query[_, _]): BasicQueryBuilder = new BasicQueryBuilder(query, this)
+  def createQueryBuilder(query: Query[_, _]): BasicQueryBuilder = new BasicQueryBuilder(processAST(query), query, this)
 
   val Implicit: ImplicitT
   val typeMapperDelegates: TypeMapperDelegatesT

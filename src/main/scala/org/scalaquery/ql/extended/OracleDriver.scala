@@ -3,6 +3,7 @@ package org.scalaquery.ql.extended
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
+import org.scalaquery.util.ValueLinearizer
 
 class OracleDriver extends ExtendedProfile { self =>
 
@@ -15,12 +16,12 @@ class OracleDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
 
-  override def createQueryBuilder(query: Query[_, _]) = new OracleQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new OracleQueryBuilder(processAST(query), query, this)
 }
 
 object OracleDriver extends OracleDriver
 
-class OracleQueryBuilder(query: Query[_, _], profile: OracleDriver) extends BasicQueryBuilder(query, profile) {
+class OracleQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: OracleDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   import ExtendedQueryOps._
 

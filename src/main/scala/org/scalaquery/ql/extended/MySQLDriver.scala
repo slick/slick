@@ -4,6 +4,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
+import org.scalaquery.util.ValueLinearizer
 
 class MySQLDriver extends ExtendedProfile { self =>
 
@@ -17,7 +18,7 @@ class MySQLDriver extends ExtendedProfile { self =>
   val typeMapperDelegates = new MySQLTypeMapperDelegates
   override val sqlUtils = new MySQLSQLUtils
 
-  override def createQueryBuilder(query: Query[_, _]) = new MySQLQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new MySQLQueryBuilder(processAST(query), query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new MySQLDDLBuilder(table, this).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new MySQLSequenceDDLBuilder(seq, this).buildDDL
 }
@@ -52,7 +53,7 @@ class MySQLTypeMapperDelegates extends BasicTypeMapperDelegates {
   }
 }
 
-class MySQLQueryBuilder(_query: Query[_, _], profile: MySQLDriver) extends BasicQueryBuilder(_query, profile) {
+class MySQLQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: MySQLDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   import ExtendedQueryOps._
   import profile.sqlUtils._

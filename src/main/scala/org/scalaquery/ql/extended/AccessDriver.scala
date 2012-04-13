@@ -7,6 +7,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.session.{PositionedParameters, PositionedResult, ResultSetType}
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
+import org.scalaquery.util.ValueLinearizer
 
 /**
  * ScalaQuery driver for Microsoft Access via JdbcOdbcDriver.
@@ -50,12 +51,12 @@ class AccessDriver extends ExtendedProfile { self =>
   override val sqlUtils = new AccessSQLUtils
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new AccessDDLBuilder(table, this).buildDDL
-  override def createQueryBuilder(query: Query[_, _]) = new AccessQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new AccessQueryBuilder(processAST(query), query, this)
 }
 
 object AccessDriver extends AccessDriver
 
-class AccessQueryBuilder(query: Query[_, _], profile: AccessDriver) extends BasicQueryBuilder(query, profile) {
+class AccessQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: AccessDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   import profile.sqlUtils._
   import ExtendedQueryOps._

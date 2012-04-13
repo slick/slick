@@ -6,10 +6,9 @@ import org.scalaquery.util._
 import org.scalaquery.ql.ColumnOps._
 import org.scalaquery.ast._
 
-class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
+class BasicQueryBuilder(val ast: Node, val linearizer: ValueLinearizer[_], driver: BasicProfile) {
   import driver.sqlUtils._
 
-  protected final val ast = driver.processAST(query)
   protected final val b = new SQLBuilder
 
   protected val mayLimit0 = true
@@ -22,7 +21,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
 
   final def buildSelect(): QueryBuilderResult = {
     buildComprehension(ast)
-    QueryBuilderResult(b.build, query)
+    QueryBuilderResult(b.build, linearizer)
   }
 
   protected def buildComprehension(n: Node): Unit = n match {
@@ -247,7 +246,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       expr(where.reduceLeft(And))
     }
     //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
-    QueryBuilderResult(b.build, query)
+    QueryBuilderResult(b.build, linearizer)
   }
 
   def buildDelete: QueryBuilderResult = {
@@ -262,7 +261,7 @@ class BasicQueryBuilder(query: Query[_, _], driver: BasicProfile) {
       expr(where.reduceLeft(And))
     }
     //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
-    QueryBuilderResult(b.build, query)
+    QueryBuilderResult(b.build, linearizer)
   }
 
 

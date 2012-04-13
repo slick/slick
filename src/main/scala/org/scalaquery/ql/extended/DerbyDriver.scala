@@ -4,6 +4,7 @@ import org.scalaquery.SQueryException
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
+import org.scalaquery.util.ValueLinearizer
 
 /**
  * ScalaQuery driver for Derby/JavaDB.
@@ -34,7 +35,7 @@ class DerbyDriver extends ExtendedProfile { self =>
 
   val typeMapperDelegates = new DerbyTypeMapperDelegates
 
-  override def createQueryBuilder(query: Query[_, _]) = new DerbyQueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new DerbyQueryBuilder(processAST(query), query, this)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DerbyDDLBuilder(table, this).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new DerbySequenceDDLBuilder(seq, this).buildDDL
 }
@@ -64,9 +65,8 @@ object DerbyTypeMapperDelegates {
   }
 }
 
-class DerbyQueryBuilder(_query: Query[_, _], profile: DerbyDriver) extends BasicQueryBuilder(_query, profile) {
+class DerbyQueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: DerbyDriver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
-  import ExtendedQueryOps._
   import profile.sqlUtils._
 
   override protected val mayLimit0 = false

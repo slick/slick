@@ -3,6 +3,7 @@ package org.scalaquery.ql.extended
 import org.scalaquery.ql._
 import org.scalaquery.ql.basic._
 import org.scalaquery.ast._
+import org.scalaquery.util.ValueLinearizer
 
 class H2Driver extends ExtendedProfile { self =>
 
@@ -16,12 +17,12 @@ class H2Driver extends ExtendedProfile { self =>
   val typeMapperDelegates = new BasicTypeMapperDelegates {}
   override val sqlUtils = new H2SQLUtils
 
-  override def createQueryBuilder(query: Query[_, _]) = new H2QueryBuilder(query, this)
+  override def createQueryBuilder(query: Query[_, _]) = new H2QueryBuilder(processAST(query), query, this)
 }
 
 object H2Driver extends H2Driver
 
-class H2QueryBuilder(_query: Query[_, _], profile: H2Driver) extends BasicQueryBuilder(_query, profile) {
+class H2QueryBuilder(ast: Node, linearizer: ValueLinearizer[_], profile: H2Driver) extends BasicQueryBuilder(ast, linearizer, profile) {
 
   override protected val mayLimit0 = false
   override protected val concatOperator = Some("||")
