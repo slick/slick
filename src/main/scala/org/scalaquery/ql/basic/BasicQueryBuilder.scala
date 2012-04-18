@@ -139,13 +139,13 @@ abstract class BasicQueryBuilder(_query: Query[_, _], _nc: NamingContext, parent
 
   def buildDelete = {
     val b = new SQLBuilder += "DELETE FROM "
-    val (delTable, delTableName) = query.reified match {
-      case t @ AbstractTable.Alias(base:AbstractTable[_]) => (t, base.tableName)
-      case t:AbstractTable[_] => (t, t.tableName)
+    val (delTable, delTableName, delSchemaName) = query.reified match {
+      case t @ AbstractTable.Alias(base:AbstractTable[_]) => (t, base.tableName, base.schemaName)
+      case t:AbstractTable[_] => (t, t.tableName, t.schemaName)
       case n => throw new SQueryException("Cannot create a DELETE statement from an \""+n+
         "\" expression; An aliased or base table is required")
     }
-    b += quoteIdentifier(delTableName)
+    b += delSchemaName.map(quoteIdentifier(_)+"."+quoteIdentifier(delTableName)).getOrElse(quoteIdentifier(delTableName))
     nc = nc.overrideName(delTable, delTableName) // Alias table to itself because DELETE does not support aliases
     appendConditions(b)
     if(localTables.size > 1)
