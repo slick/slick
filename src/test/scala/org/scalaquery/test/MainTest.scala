@@ -5,7 +5,6 @@ import org.junit.Assert._
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
 import org.scalaquery.ql.extended.{ExtendedTable => Table}
-import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.test.util._
 import org.scalaquery.test.util.TestDB._
@@ -90,9 +89,8 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
           u.id, "Gizmo "+((scala.math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
 
       val q3 = for (
-        u <- Users if u.last isNotNull;
+        u <- Users.sortBy(_.first) if u.last isNotNull;
         o <- u.orders
-             orderBy u.first
       ) yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
       println("q3: " + q3.selectStatement)
       println("All Orders by Users with a last name by first name:")
@@ -111,7 +109,7 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
         Set(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)),
         q4.list.toSet)
 
-      def maxOfPer[T <: TableBase[_]]
+      def maxOfPer[T <: Table[_]]
         (c: T, m: (T => Column[Int]), p: (T => Column[Int])) =
         c where { o => m(o) in (for { o2 <- c if p(o) is p(o2) } yield m(o2).max) }
 
@@ -130,9 +128,9 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       val q4c = for (
         u <- Users;
         o <- Orders if o.userID is u.id;
-        _ <- Query groupBy u.id
+        _ <- Query /*TODO groupBy u.id
                    having { _ => o.orderID.max > 5 }
-                   orderBy o.orderID.max
+                   orderBy o.orderID.max*/
       ) yield u.first.min.get ~ o.orderID.max
       println("q4c: " + q4c.selectStatement)
       println("Latest Order per User, using GroupBy, with orderID > 5:")
