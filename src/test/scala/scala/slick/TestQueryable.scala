@@ -5,7 +5,6 @@ import ql._
 //import org.scalaquery.ql.Unpack._
 import ql.ColumnOps.{Relational =>Op}
 import ast._
-import org.scalaquery.ql.basic._
 import language.{reflectiveCalls,implicitConversions}
 
 @table(name="COFFEES")
@@ -35,18 +34,24 @@ object TestingTools{
   object TableName{
     def unapply( t:Table[_] ) = {
       val name = t.tableName
-      assert(name(0) == '"') // FIXME
-      assert(name(name.length-1) == '"') // FIXME
-      Some( name.slice( 1,name.length-1 ) )
+      Some(name)
+    }
+  }
+  object ExpandedTable{
+    def unapply( n:Node ) =
+      n match {
+        case Bind (
+          sym1a,
+          TableName(name),
+          Pure( _ ))
+        => Some(name)
     }
   }
   object ColumnName{
     def unapply( t:Symbol ) = t match {
       case FieldSymbol( name ) => 
       /*case RawNamedColumn( name, _, _ ) =>*/
-        assert(name(0) == '"') // FIXME
-        assert(name(name.length-1) == '"') // FIXME
-        Some( name.slice( 1,name.length-1 ) )
+        Some(name)
     }
   }
   def fail(msg:String = ""){
@@ -63,14 +68,9 @@ object TestQueryable extends App{
   import TestingTools._
   val q : Queryable[CoffeesTable] = Queryable[CoffeesTable]
   
-/*  val query = Query(Unpackable( q.query.node, (unpackPrimitive[Unit]).asInstanceOf[Unpack[Node,Unit]] ) )(null,null)
-  val b = new BasicQueryBuilder(query,BasicDriver){
-    def buildComprehension2( n:Node ) = super.buildComprehension(n)
-  }
-  print( b.buildComprehension2( q.query.node ) )*/
-  //Query( Unpackable( q.query.node, (unpackPrimitive[Unit]).asInstanceOf[Unpack[Node,Unit]] ) )
-//  q.query.node.asInstanceOf[Node].selectStatement
-
+//  q.dump
+//  println (q.toSql)
+  
   // Queryable argument
   try{
     Queryable[String]
@@ -82,28 +82,34 @@ object TestQueryable extends App{
 
   // queryable
   q.assertQuery {
-      case TableName("COFFEES")
+      case
+      Bind (
+          sym1a,
+          TableName("COFFEES"),
+          Pure(
+            ProductNode(
+              FieldRef(sym1b, ColumnName("COF_NAME")),
+              FieldRef(sym1c, ColumnName("COF_SALES")) )))
+      if sym1a == sym1b && sym1b == sym1c
       => ()
     }
 
-/*
-  // blocked by: https://github.com/cvogt/scala/commit/db5b5ebcadd4d7a7ea4b5f50410b0936bbfedc36
   class MyQuerycollection{
     def findUserByName( name:String ) = q.filter( _.name == name )
-//    def findUserByName2( name:String ) = Queryable[CoffeesTable].filter( _.name == name )
+    // FIXME:
+    // def findUserByName2( name:String ) = Queryable[CoffeesTable].filter( _.name == name )
   }
 
   val qc = new MyQuerycollection
   qc.findUserByName("some value")
-//  qc.findUserByName2("test")
-*/
+  //qc.findUserByName2("test")
 
   // simple map
   q.map( (_:CoffeesTable).sales + 5 )
    .assertQuery {
       case Bind(
               sym1a,
-              TableName("COFFEES"),
+              ExpandedTable("COFFEES"),
               Pure(
                    Op( "+", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
               )
@@ -117,7 +123,7 @@ object TestQueryable extends App{
    .assertQuery {
       case Bind(
               sym1a,
-              TableName("COFFEES"),
+              ExpandedTable("COFFEES"),
               Pure(
                    Op( "concat", FieldRef(sym1b, ColumnName("COF_NAME")), ConstColumn(".") )
               )
@@ -131,7 +137,7 @@ object TestQueryable extends App{
    .assertQuery {
       case Filter(
               sym1a,
-              TableName("COFFEES"),
+              ExpandedTable("COFFEES"),
               Op( "||",
                   Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) ),
                   Op( "==", ConstColumn("Chris"), FieldRef(sym1c, ColumnName("COF_NAME")) )
@@ -146,7 +152,7 @@ object TestQueryable extends App{
    .assertQuery {
       case Bind(
               sym1a,
-              TableName("COFFEES"),
+              ExpandedTable("COFFEES"),
               Pure(
                    FieldRef(sym1b, ColumnName("COF_NAME"))
               )
@@ -162,7 +168,7 @@ object TestQueryable extends App{
              sym1a,
              Bind(
                sym2a,
-               TableName("COFFEES"),
+               ExpandedTable("COFFEES"),
                Pure(
                     FieldRef(sym2b, ColumnName("COF_NAME"))
                )
@@ -179,23 +185,25 @@ object TestQueryable extends App{
    .assertQuery {
       case Filter(
               sym1a,
-              TableName("COFFEES"),
+              ExpandedTable("COFFEES"),
               Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
       )
       if sym1a == sym1b
       => ()
     }
 /*
+  // BLOCKED by https://issues.scala-lang.org/browse/SI-5706
+
   // nesting
   q.map(e1 => q.map(e2=>e1))
    .assertQuery {
       case Bind(
              sym1a,
-             TableName("COFFEES"),
+             ExpandedTable("COFFEES"),
              Pure(
                Bind(
                  sym2a,
-                 TableName("COFFEES"), 
+                 ExpandedTable("COFFEES"), 
                  Pure(
                    Ref( sym1b )
                  )
@@ -209,7 +217,7 @@ object TestQueryable extends App{
    .assertQuery {
       case Filter(
               sym1a,
-              TableName("COFFEES"),
+              ExpandedTable("COFFEES"),
               Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
       )
       if sym1a == sym1b
@@ -220,7 +228,7 @@ object TestQueryable extends App{
   (for( c <- q ) yield c.name).assertQuery{
     case Bind(
            sym1a,
-           TableName("COFFEES"),
+           ExpandedTable("COFFEES"),
            Pure(
              FieldRef( sym1b, ColumnName("COF_NAME") )
            )
@@ -233,10 +241,10 @@ object TestQueryable extends App{
   val pattern1 : Node => Unit =  {
     case Bind(
            sym1a,
-           TableName("COFFEES"),
+           ExpandedTable("COFFEES"),
            Bind(
              sym2a,
-             TableName("COFFEES"),
+             ExpandedTable("COFFEES"),
              Pure(
                FieldRef( sym2b, ColumnName("COF_NAME") )
     )))
@@ -251,10 +259,10 @@ object TestQueryable extends App{
   val pattern2 : Node => Unit =  {
     case Bind(
            sym1a,
-           TableName("COFFEES"),
+           ExpandedTable("COFFEES"),
            Bind(
              sym2a,
-             TableName("COFFEES"),
+             ExpandedTable("COFFEES"),
              Pure(
                FieldRef( sym1b, ColumnName("COF_NAME") )
     )))
@@ -269,12 +277,12 @@ object TestQueryable extends App{
   val pattern3 : Node => Unit =  {
     case Bind(
            sym1a,
-           TableName("COFFEES"),
+           ExpandedTable("COFFEES"),
            Bind(
              sym3a,
              Filter(
                sym2a,
-               TableName("COFFEES"),
+               ExpandedTable("COFFEES"),
                Op( "==",
                    FieldRef( sym2b, ColumnName("COF_SALES") ),
                    FieldRef( sym1b, ColumnName("COF_SALES") )

@@ -25,7 +25,6 @@ object scala2scalaquery{
       }
     }
   }
-
   
   type Scope = Map[Symbol,sq.Symbol]
   def Scope() : Scope = Map() 
@@ -38,17 +37,43 @@ object scala2scalaquery{
   def symbol2type( s:Symbol ) : Type = classToType(symbolToClass(s))
   def classToQuery[T:reflect.ConcreteTypeTag] : Query = {
     val scala_symbol = classToSymbol(typeTag[T].erasure)
-    val table = new Table[Nothing]({
-          val ants = scala_symbol.annotations
-          ants match {
-            case AnnotationInfo(tpe,tree,_) :: Nil
-              //if tpe <:< classToType(classOf[table]) // genJVM bug
-              =>
-              tree(0).toString
+    val table = 
+      new Table[Nothing]({
+        val ants = scala_symbol.annotations
+            ants match {
+            case AnnotationInfo(tpe,tree,_) :: Nil // FIXME:<- don't match list, match any annotation
+            //if tpe <:< classToType(classOf[table]) // genJVM bug
+            =>
+              {
+                val name = tree(0).toString
+                name.slice( 1,name.length-1 ) // FIXME: <- why needed?
+              }
             case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typeTag[T].erasure.toString )
-          }
-        }){def * = ???}
-    new Query(table, Scope() )
+        }
+      }){def * = ???}
+    
+    val sq_symbol = new sq.AnonSymbol
+
+    val columns = 
+      classToType( typeTag[T].erasure ).widen.members.collect{
+        case member if member.annotations.size > 0 && member.annotations.exists{
+          case x@AnnotationInfo(tpe,tree,_)
+            if tpe <:< classToType(classOf[column])
+              => true
+        } => member.annotations.collect{
+          case x@AnnotationInfo(tpe,tree,_)
+            if tpe <:< classToType(classOf[column])
+          =>{ // FIXME: is this the right way to do it?
+              val name = tree(0).toString
+              name.slice( 1,name.length-1 ) // FIXME: <- why needed?
+            }
+        }.head
+      }.map(
+        column_name =>
+          sq.FieldRef(sq_symbol, sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name,List(),null))) )
+      ).toSeq
+
+    new Query( sq.Bind(sq_symbol, table, sq.Pure(sq.ProductNode(columns:_*))), Scope() )
   }
   def apply( tree:Tree, queryable:Queryable[_] ) : Query = {
     this.apply(tree,queryable.query.scope)
@@ -96,7 +121,11 @@ object scala2scalaquery{
           val type_ = from.tpe.widen
           val member = type_.members.filter(_.name == name).toList(0)
           val column_name = member.annotations match {
-              case x@AnnotationInfo(_,tree,_) :: Nil => tree(0).toString // FIXME: is this the right way to do it?
+              case x@AnnotationInfo(_,tree,_) :: Nil => 
+                { // FIXME: is this the right way to do it?
+                  val name = tree(0).toString
+                  name.slice( 1,name.length-1 ) // FIXME: <- why needed?
+                }
               case a => throw new Exception(member.toString) // FIXME
             }
           sq.FieldRef(sq_symbol, sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name,List(),null))) )
@@ -187,4 +216,11 @@ object scala2scalaquery{
     }
   }
   def dump( query:Query ) = sq.Node(query.node).dump("")
+  def toSql( query:Query ) = {
+    import BasicDriver._
+    val node = processAST(query.node)
+    sq.AnonSymbol.assignNames( node )
+    val builder = new QueryBuilder( node, null )
+    builder.buildSelect.sql   
+  }
 }

@@ -41,14 +41,6 @@ object QueryableMacros{
   private def _helper[C <: Context,S:c.TypeTag]( c:C )( name:String, projection:c.mirror.Expr[_] ) = {
     import c.mirror._
     val element_type = implicitly[TypeTag[S]].tpe
-    // 
-/*
-        val tree = Apply(Select(c.prefix.tree, newTermName( "_"+name+"_placeholder" )), List( projection.tree ))
-        println("------------------")
-        println(showRaw(tree))
-        println("------------------")
-*/
-
     val reifiedExpression = Expr[reflect.mirror.Expr[Queryable[S]]](
     c.reifyTree( c.reflectMirrorPrefix, c.typeCheck(
       Utils[c.type](c).removeDoubleReify(
@@ -70,7 +62,11 @@ object QueryableMacros{
 }
 
 class Queryable[T]( protected[slick] val query:scala2scalaquery.Query ){
-  def dump = scala2scalaquery.dump(query)
+  val driver = scala2scalaquery
+
+  def dump = driver.dump(query)
+  def toSql = driver.toSql(query)
+
   def _map_placeholder[S]( projection: T => S ) : Queryable[S] = ???
   def map[S]( projection: T => S ) : Queryable[S] = macro QueryableMacros.map[T,S]
   
@@ -80,4 +76,3 @@ class Queryable[T]( protected[slick] val query:scala2scalaquery.Query ){
   def _filter_placeholder( projection: T => Boolean ) : Queryable[T] = ???
   def filter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
 }
-
