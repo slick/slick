@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import OptimizerUtil._
-import scala.slick.ql.{RawNamedColumn, AbstractTable}
+import scala.slick.ql.RawNamedColumn
 import scala.slick.SLICKException
 import scala.slick.util.Logging
 
@@ -43,7 +43,7 @@ object RewriteGenerators extends Logging {
 
     val (withNewSelect, replacementMap) = {
       val isTableBased = findSelect(from) match {
-        case AbstractTable(_) => true
+        case _: TableNode => true
         case Pure(TableRef(_)) => true
         case x =>
           logger.debug("not table-based:", x)
@@ -124,7 +124,7 @@ object RewriteGenerators extends Logging {
       case f: FilteredQuery => f.nodeMapFrom(n => replaceSelect(n, struct, genChain, ctx))
       case b @ Bind(_, _, p @ Pure(_)) => b.copy(select = replaceSelect(p, struct, genChain, ctx))
       case b @ Bind(gen, _, nonPure) => b.copy(select = replaceSelect(nonPure, struct, genChain, ctx))
-      case t @ AbstractTable(_) => //TODO support keepExisting and useIndices
+      case t: TableNode => //TODO support keepExisting and useIndices
         val gen = new SyntheticBindSymbol
         val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, genChain.iterator.map(s => (s, gen)).toMap, gen)) })
         logger.debug("actual replacement:", rewrapped)

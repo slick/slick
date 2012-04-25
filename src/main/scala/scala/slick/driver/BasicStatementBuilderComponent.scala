@@ -53,7 +53,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += "select "
         buildSelectClause(p)
         buildScalarFrom
-      case AbstractTable(name) =>
+      case TableNode(name) =>
         b += "select * from " += quoteIdentifier(name)
       case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
       case Union(left, right, all, _, _) =>
@@ -99,7 +99,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildFrom(n: Node, alias: Option[Symbol]){
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
-        case AbstractTable(name) =>
+        case TableNode(name) =>
           b += quoteIdentifier(name)
           addAlias
         case BaseJoin(leftGen, rightGen, left, right, jt) =>
@@ -231,7 +231,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildUpdate: QueryBuilderResult = {
       val (gen, from, where, select) = ast match {
-        case Comprehension(Seq((sym, from: AbstractTable[_])), where, _, Some(Pure(select))) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select))) => select match {
           case f @ FieldRef(struct, _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch @ _*) if ch.forall{ case FieldRef(struct, _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case FieldRef(_, field) => field })
@@ -252,7 +252,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildDelete: QueryBuilderResult = {
       val (gen, from, where) = ast match {
-        case Comprehension(Seq((sym, from: AbstractTable[_])), where, _, Some(Pure(select))) => (sym, from, where)
+        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select))) => (sym, from, where)
         case _ => throw new SLICKException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
 
@@ -271,7 +271,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     protected def rewriteCountStarQuery(q: Query[_, _]) =
       /*q.modifiers.isEmpty &&*/ (q.packed match {
-        case _: AbstractTable[_] => true
+        case _: TableNode => true
         case _ => false
       })
 
@@ -314,12 +314,12 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case p:Projection[_] =>
           for(i <- 0 until p.productArity)
             f(Node(p.productElement(i)))
-        case t:AbstractTable[_] => f(Node(t.*))
+        case t:TableNode => f(Node(t.nodeShaped_*.value))
         case n:NamedColumn[_] =>
-          if(table eq null) table = n.table.asInstanceOf[AbstractTable[_]].tableName
-          else if(table != n.table.asInstanceOf[AbstractTable[_]].tableName) throw new SLICKException("Inserts must all be to the same table")
+          if(table eq null) table = n.table.asInstanceOf[TableNode].tableName
+          else if(table != n.table.asInstanceOf[TableNode].tableName) throw new SLICKException("Inserts must all be to the same table")
           appendNamedColumn(n.raw, cols, vals)
-        case Wrapped(t: AbstractTable[_], n: RawNamedColumn) =>
+        case Wrapped(t: TableNode, n: RawNamedColumn) =>
           if(table eq null) table = t.tableName
           else if(table != t.tableName) throw new SLICKException("Inserts must all be to the same table")
           appendNamedColumn(n, cols, vals)
@@ -418,13 +418,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       b.toString
     }
 
-    protected def createForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _]) = {
+    protected def createForeignKey(fk: ForeignKey[_ <: TableNode, _]) = {
       val sb = new StringBuilder append "ALTER TABLE " append quoteIdentifier(table.tableName) append " ADD "
       addForeignKey(fk, sb)
       sb.toString
     }
 
-    protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
+    protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
       sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
       sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
@@ -445,7 +445,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       sb append ")"
     }
 
-    protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _]) = {
+    protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]) = {
       "ALTER TABLE " + quoteIdentifier(table.tableName) + " DROP CONSTRAINT " + quoteIdentifier(fk.name)
     }
 
@@ -465,7 +465,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) = {
       var first = true
       for(c <- columns) c match {
-        case Wrapped(t: AbstractTable[_], n: RawNamedColumn) =>
+        case Wrapped(t: TableNode, n: RawNamedColumn) =>
           if(first) first = false
           else sb append ","
           sb append quoteIdentifier(n.name)

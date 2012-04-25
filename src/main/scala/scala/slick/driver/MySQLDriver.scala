@@ -49,7 +49,7 @@ class MySQLDriver extends ExtendedDriver { driver =>
   }
 
   class DDLBuilder(table: AbstractBasicTable[_]) extends super.DDLBuilder(table) {
-    override protected def dropForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _]) = {
+    override protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]) = {
       "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
     }
   }

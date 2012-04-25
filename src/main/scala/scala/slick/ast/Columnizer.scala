@@ -1,7 +1,6 @@
 package scala.slick.ast
 
 import OptimizerUtil._
-import scala.slick.ql.{Query, AbstractTable}
 import scala.slick.util.Logging
 
 /**
@@ -14,14 +13,14 @@ object Columnizer extends (Node => Node) with Logging {
       // Remove unnecessary wrapping of generated TableRef reference
       case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
       // Rewrite a table reference that has already been rewritten to a Ref
-      case ResolvedRef(sym, f @ FilterChain(syms, t: AbstractTable[_])) => InRef(sym, Node(t.*))
+      case ResolvedRef(sym, f @ FilterChain(syms, t: TableNode)) => InRef(sym, Node(t.nodeShaped_*.value))
       // Push InRef down into ProductNode
       case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
       // Merge products
       case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
       // Rewrite a table reference returned in a Bind
-      case b @ Bind(_, _, t: AbstractTable[_]) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.*))))
-      case Pure(ResolvedRef(sym1, f @ FilterChain(syms, t: AbstractTable[_]))) => Pure(TableRef(sym1))
+      case b @ Bind(_, _, t: TableNode) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.nodeShaped_*.value))))
+      case Pure(ResolvedRef(sym1, f @ FilterChain(syms, t: TableNode))) => Pure(TableRef(sym1))
       // Rewrite orderBy dummy bind -- Not really part of columnization but we
       // cannot do it before the first optimizer run has unwrapped everything
       case Bind(_, OrderBy(gen, _, by), select) =>
@@ -56,21 +55,19 @@ object Columnizer extends (Node => Node) with Logging {
   def expandAndOptimize(tree: Node): Node = {
     def isFilterOrUnionOfTable(n: Node): Boolean = n match {
       case FilteredQuery(_, from) => isFilterOrUnionOfTable(from)
-      case _: AbstractTable[_] => true
+      case _: TableNode => true
       case Union(left, right, _, _, _) => isFilterOrUnionOfTable(left) || isFilterOrUnionOfTable(right)
       case _ => false
     }
-    def mapSourceTable(n: Node, f: AbstractTable[_] => Node): Node = n match {
+    def mapSourceTable(n: Node, f: TableNode => Node): Node = n match {
       case q @ FilteredQuery(_, _) =>
         q.nodeMapFrom(mapSourceTable(_, f))
       case u @ Union(left, right, _, _, _) =>
         u.copy(left = mapSourceTable(left, f), right = mapSourceTable(right, f))
-      case source: AbstractTable[_] => f(source)
+      case source: TableNode => f(source)
       case n => n
     }
-    val t2 = if(isFilterOrUnionOfTable(tree)) {
-      mapSourceTable(tree, source => Node(Query(source).map(_.*)))
-    } else tree
+    val t2 = if(isFilterOrUnionOfTable(tree)) mapSourceTable(tree, _.nodeExpand_*) else tree
     val t3 = expandColumns(t2)
     //TODO This hack unwraps the expanded references within their scope
     // There may be other situations where unwrapping finds the wrong symbols,

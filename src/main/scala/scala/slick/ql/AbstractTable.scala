@@ -5,12 +5,17 @@ import scala.slick.driver.BasicProfile
 import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast._
 
-abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends Node with ColumnBase[T] with NullaryNode with WithOp {
-
-  final type TableType = T
-  override def toString = "Table " + tableName
+abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with ColumnBase[T] with NullaryNode with WithOp {
 
   def * : ColumnBase[T]
+  def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
+
+  def nodeExpand_* = {
+    val qq = Query[TableNode, TableNothing, TableNode](this)(Shape.tableShape)
+    Node(
+      qq.map[Any, Any, Any](_.nodeShaped_*.value)(qq.unpackable.shape.asInstanceOf[Shape[Any, Any, Any]])
+    )
+  }
 
   def create_* : Iterable[RawNamedColumn] = {
     val seq = new ArrayBuffer[RawNamedColumn]
@@ -29,7 +34,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
     seq
   }
 
-  def foreignKey[P, PU, TT <: AbstractTable[_], U]
+  def foreignKey[P, PU, TT <: TableNode, U]
       (name: String, sourceColumns: P, targetTable: TT)
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[TT, U, _], unpackp: Shape[P, PU, _]): ForeignKeyQuery[TT, U] = {
@@ -50,7 +55,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
       q = m.invoke(this).asInstanceOf[Constraint]
     } yield q
 
-  final def foreignKeys: Iterable[ForeignKey[_ <: AbstractTable[_], _]] =
+  final def foreignKeys: Iterable[ForeignKey[_ <: TableNode, _]] =
     tableConstraints.collect{ case q: ForeignKeyQuery[_, _] => q.fks }.flatten.toIndexedSeq
 
   final def primaryKeys: Iterable[PrimaryKey] =
@@ -67,19 +72,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = *.updateResult(profile, rs, value)
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)
-}
-
-object AbstractTable {
-  def unapply(t: AbstractTable[_]) = Some(t.tableName)
-}
-
-abstract class JoinType(val sqlName: String)
-
-object JoinType {
-  case object Inner extends JoinType("inner")
-  case object Left extends JoinType("left outer")
-  case object Right extends JoinType("right outer")
-  case object Outer extends JoinType("full outer")
 }
 
 object Join {

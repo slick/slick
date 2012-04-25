@@ -4,7 +4,6 @@ import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SLICKException
 import scala.slick.util.Logging
 import OptimizerUtil._
-import scala.slick.ql.{AbstractTable, JoinType}
 
 /**
  * Conversion of basic ASTs to a shape suitable for relational DBs.
@@ -188,13 +187,13 @@ object Relational extends Logging {
    */
   def aliasTableColumns(tree: Node): Node = {
     val allDefs = tree.collectAll[(Symbol, Node)]{ case d: DefNode => d.nodeGenerators }.toMap
-    def narrow(s: Symbol): Option[AbstractTable[_]] = allDefs.get(s) match {
-      case Some(t: AbstractTable[_]) => Some(t)
+    def narrow(s: Symbol): Option[TableNode] = allDefs.get(s) match {
+      case Some(t: TableNode) => Some(t)
       case Some(f: FilteredQuery) => narrow(f.generator)
       case _ => None
     }
     def chain(s: Symbol): Seq[Symbol] = allDefs.get(s) match {
-      case Some(t: AbstractTable[_]) => Seq(s)
+      case Some(t: TableNode) => Seq(s)
       case Some(f: FilteredQuery) => chain(f.generator) match {
         case Seq() => Seq.empty
         case seq => s +: seq
@@ -231,7 +230,7 @@ object Relational extends Logging {
         }
         case _ => p
       }
-      case t: AbstractTable[_] if(sym.isDefined && needed.contains(sym.get)) =>
+      case t: TableNode if(sym.isDefined && needed.contains(sym.get)) =>
         val gen = new AnonSymbol
         val (symMap, _) = needed(sym.get)
         //val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }

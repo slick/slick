@@ -165,7 +165,7 @@ class AccessDriver extends ExtendedDriver { driver =>
       }
     }
 
-    override protected def addForeignKey(fk: ForeignKey[_ <: AbstractTable[_], _], sb: StringBuilder) {
+    override protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
       sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)

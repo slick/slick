@@ -4,7 +4,7 @@ import scala.math.{min, max}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
 import scala.slick.SLICKException
-import scala.slick.ql.{ConstColumn, JoinType, ShapedValue}
+import scala.slick.ql.{ConstColumn, ShapedValue}
 import scala.slick.util.{RefId, SimpleTypeName}
 
 trait NodeGenerator {
@@ -371,4 +371,15 @@ final case class Bind(generator: Symbol, from: Node, select: Node) extends Binar
     if(fs eq generator) this else copy(generator = fs)
   }
   def nodePostGeneratorChildren = Seq(select)
+}
+
+abstract class TableNode extends Node {
+  def nodeShaped_* : ShapedValue[_, _]
+  def nodeExpand_* : Node
+  def tableName: String
+  override def toString = "Table " + tableName
+}
+
+object TableNode {
+  def unapply(t: TableNode) = Some(t.tableName)
 }

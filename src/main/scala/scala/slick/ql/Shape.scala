@@ -2,8 +2,8 @@ package scala.slick.ql
 
 import scala.annotation.implicitNotFound
 import scala.slick.SLICKException
-import scala.slick.ast.Node
 import scala.slick.util.{ProductLinearizer, ValueLinearizer, NaturalTransformation2, RecordLinearizer}
+import slick.ast.{TableNode, Node}
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
  * `Query[Mixed]` to its result element type `Unpacked` and the packing to a
@@ -37,7 +37,7 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
 
 object Shape extends ShapeLowPriority {
   @inline
-  def tableShape[T <: AbstractTable[_]]: Shape[T, TableNothing, T] =
+  def tableShape[T <: TableNode]: Shape[T, TableNothing, T] =
     sharedTableShape.asInstanceOf[Shape[T, TableNothing, T]]
 
   @inline
@@ -49,8 +49,8 @@ object Shape extends ShapeLowPriority {
     def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
   }
 
-  val sharedTableShape: Shape[AbstractTable[_], Any, AbstractTable[_]] = new IdentityShape[AbstractTable[_], Any] {
-    def linearizer(from: Mixed) = from.*.asInstanceOf[ValueLinearizer[Unpacked]]
+  val sharedTableShape: Shape[TableNode, Any, TableNode] = new IdentityShape[TableNode, Any] {
+    def linearizer(from: Mixed) = from.nodeShaped_*.value.asInstanceOf[ValueLinearizer[Unpacked]]
     def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
   }
 }

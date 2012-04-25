@@ -1,6 +1,6 @@
 package scala.slick.ql
 
-import scala.slick.ast.{AnonSymbol, Filter, Node}
+import scala.slick.ast.{AnonSymbol, Filter, Node, TableNode}
 
 
 /**
@@ -8,7 +8,7 @@ import scala.slick.ast.{AnonSymbol, Filter, Node}
  */
 trait Constraint
 
-final class ForeignKey[TT <: AbstractTable[_], P]( //TODO Simplify this mess!
+final class ForeignKey[TT <: TableNode, P]( //TODO Simplify this mess!
     val name: String,
     val sourceTable: Node,
     val onUpdate: ForeignKeyAction,
@@ -21,7 +21,7 @@ final class ForeignKey[TT <: AbstractTable[_], P]( //TODO Simplify this mess!
     val targetTable: TT)
 
 object ForeignKey {
-  def apply[TT <: AbstractTable[_], P](
+  def apply[TT <: TableNode, P](
       name: String,
       sourceTable: Node,
       targetTableShaped: ShapedValue[TT, _],
@@ -55,7 +55,7 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-class ForeignKeyQuery[E <: AbstractTable[_], U](
+class ForeignKeyQuery[E <: TableNode, U](
     nodeDelegate: Node,
     base: ShapedValue[_ <: E, U],
     val fks: IndexedSeq[ForeignKey[E, _]],
@@ -84,4 +84,4 @@ case class PrimaryKey(name: String, columns: IndexedSeq[Node]) extends Constrain
 /**
  * An index (or foreign key constraint with an implicit index).
  */
-class Index(val name: String, val table: AbstractTable[_], val on: IndexedSeq[Node], val unique: Boolean)
+class Index(val name: String, val table: TableNode, val on: IndexedSeq[Node], val unique: Boolean)
