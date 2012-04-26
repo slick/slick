@@ -12,9 +12,10 @@ version := "0.10.0-SNAPSHOT"
 scalaVersion := "2.10.0-SNAPSHOT"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
+//resolvers += "Sonatype OSS Snapshots Repository" at "http://oss.sonatype.org/content/groups/public/"
 
 //crossScalaVersions ++= "2.9.1-1" :: "2.9.1" :: "2.9.0-1" :: "2.9.0" :: Nil
-crossVersion := CrossVersion.Disabled
+//crossVersion := CrossVersion.Disabled
 
 //scalaHome := Some(file("C:/Users/szeiger/code/scala/build/pack"))
 
