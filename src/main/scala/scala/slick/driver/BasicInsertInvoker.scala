@@ -1,6 +1,5 @@
 package scala.slick.driver
 
-import scala.annotation.implicitNotFound
 import java.sql.Statement
 import scala.slick.SLICKException
 import scala.slick.ql.{Query, Shape, ShapedValue}
@@ -18,10 +17,7 @@ class BasicInsertInvoker[T, U] (unpackable: ShapedValue[T, U], profile: BasicPro
   /**
    * Insert a single row.
    */
-  def insert[V, TT](value: V)(implicit ev: PackedUnpackedUnion[TT, U, V], session: Session): Int =
-    ev.fold(u => insertValue(u), (t, unpack) => insertExpr(t)(unpack, session))(value)
-
-  def insertValue(value: U)(implicit session: Session): Int = session.withPreparedStatement(insertStatement) { st =>
+  def insert(value: U)(implicit session: Session): Int = session.withPreparedStatement(insertStatement) { st =>
     st.clearParameters()
     unpackable.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[U]].setParameter(profile, new PositionedParameters(st), Some(value))
     st.executeUpdate()
@@ -38,7 +34,7 @@ class BasicInsertInvoker[T, U] (unpackable: ShapedValue[T, U], profile: BasicPro
    */
   def insertAll(values: U*)(implicit session: Session): Option[Int] = {
     if(!useBatchUpdates || (values.isInstanceOf[IndexedSeq[_]] && values.length < 2))
-      Some( (0 /: values) { _ + insertValue(_) } )
+      Some( (0 /: values) { _ + insert(_) } )
     else session.withTransaction {
       session.withPreparedStatement(insertStatement) { st =>
         st.clearParameters()
@@ -69,21 +65,4 @@ class BasicInsertInvoker[T, U] (unpackable: ShapedValue[T, U], profile: BasicPro
   }
 
   def insertInvoker: this.type = this
-}
-
-@implicitNotFound(msg = "union type mismatch;\n found   : ${T}\n required: ${U}\n or      : ${P} with evidence Packing[${P}, ${U}, _]")
-trait PackedUnpackedUnion[P, U, T] {
-  def fold[R](f: U => R, g: (P, Shape[P, U, _]) => R)(v: T): R
-}
-
-object PackedUnpackedUnion extends PackedUnpackedUnionLowPriority {
-  implicit def packedUnpackedUnionTypeU[P, U, T <: U] = new PackedUnpackedUnion[P, U, T] {
-    def fold[R](f: U => R, g: (P, Shape[P, U, _]) => R)(v: T): R = f(v)
-  }
-}
-
-class PackedUnpackedUnionLowPriority {
-  implicit def packedUnpackedUnionTypeP[P, U, T <: P](implicit ev: Shape[P, U, _]) = new PackedUnpackedUnion[P, U, T] {
-    def fold[R](f: U => R, g: (P, Shape[P, U, _]) => R)(v: T): R = g(v, ev)
-  }
 }

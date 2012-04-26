@@ -31,7 +31,7 @@ class InsertTest(tdb: TestDB) extends DBTest(tdb) {
     Src1.insert(1, "A")
     Src1.insertAll((2, "B"), (3, "C"))
 
-    Dst1.insert(Src1)
+    Dst1.insertExpr(Src1)
     assertEquals(Set((1,"A"), (2,"B"), (3,"C")), Query(Dst1).list.toSet)
 
     val q2 = for(s <- Src1 if s.id <= 2) yield s
@@ -41,12 +41,12 @@ class InsertTest(tdb: TestDB) extends DBTest(tdb) {
 
     val q3 = 42 ~ "X".bind
     println("Insert 3: "+Dst2.insertStatementFor(q3))
-    Dst2.insert(q3)
+    Dst2.insertExpr(q3)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X")), Query(Dst2).list.toSet)
 
     val q4 = 43 ~ "Y".bind
     println("Insert 4: "+Dst2.shaped.insertStatementFor(q4))
-    Dst2.shaped.insert(q4)
+    Dst2.shaped.insertExpr(q4)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X"), (43,"Y")), Query(Dst2).list.toSet)
   }
 }
