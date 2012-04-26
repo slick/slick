@@ -31,7 +31,8 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
   "postgresql" % "postgresql" % (if(u) "8.4-701.jdbc4" else "8.4-701.jdbc3") % "test",
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",
-  "com.novocode" % "junit-interface" % "0.9-SNAPSHOT" % "test",
+  "com.novocode" % "junit-interface" % "0.8" % "test",
+  //"com.novocode" % "junit-interface" % "0.9-SNAPSHOT" % "test",
   "org.slf4j" % "slf4j-api" % "1.6.4",
   "ch.qos.logback" % "logback-classic" % "0.9.28" % "test"
 )}
