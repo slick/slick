@@ -109,5 +109,3 @@ final case class RawNamedColumn(name: String, options: Seq[ColumnOption[_, _]], 
 }
 
 abstract class ColumnOption[+T, -Profile]
-
-trait AbstractCollection[F[+_], E]

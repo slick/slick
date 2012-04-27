@@ -38,14 +38,14 @@ import scala.slick.util.ValueLinearizer
 class AccessDriver extends ExtendedDriver { driver =>
 
   override val Implicit: Implicits = new Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): BasicQueryInvoker[T, U] = new AccessQueryInvoker(q, scalaQueryDriver)
+    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): BasicQueryInvoker[T, U] = new AccessQueryInvoker(q, driver)
   }
 
   val retryCount = 10
   override val typeMapperDelegates = new TypeMapperDelegates(retryCount)
 
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDLBuilder(table).buildDDL
-  override def createQueryBuilder(query: Query[_, _]) = new QueryBuilder(processAST(query), query)
+  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"

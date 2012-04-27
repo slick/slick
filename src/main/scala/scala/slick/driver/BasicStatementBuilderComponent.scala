@@ -21,11 +21,11 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     def sqlBuilder = b
 
     final def buildSelect(): QueryBuilderResult = {
-      buildComprehension(ast)
+      buildComprehension(ast, true)
       QueryBuilderResult(b.build, linearizer)
     }
 
-    protected def buildComprehension(n: Node): Unit = n match {
+    protected def buildComprehension(n: Node, liftExpression: Boolean): Unit = n match {
       case Comprehension(from, where, orderBy, select) =>
         b += "select "
         select match {
@@ -61,7 +61,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         buildFrom(left, None)
         b += (if(all) " union all " else " union ")
         buildFrom(right, None)
-      case n => throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
+      case n =>
+        if(liftExpression) buildComprehension(Pure(n), false)
+        else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
 
     protected def buildScalarFrom: Unit = scalarFrom.foreach { s => b += " from " += s }
@@ -72,7 +74,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         buildFrom(from, None)
         b += " where 1=0"
       } else {
-        buildComprehension(from)
+        buildComprehension(from, true)
         appendTakeDropClause(take, drop)
       }
     }
@@ -114,7 +116,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           expr(on)
         case n =>
           b += '('
-          buildComprehension(n)
+          buildComprehension(n, true)
           b += ')'
           addAlias
       }
@@ -212,7 +214,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
       case n => // try to build a sub-query
         b += '('
-        buildComprehension(n)
+        buildComprehension(n, false)
         b += ')'
       //case _ => throw new SLICKException("Don't know what to do with node "+n+" in an expression")
     }

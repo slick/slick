@@ -12,7 +12,7 @@ abstract class AbstractBasicTable[T](_schemaName: Option[String], _tableName: St
   def column[C : TypeMapper](n: String, options: ColumnOption[C, ProfileType]*) = NamedColumn[C](Node(this), n, options)
 
   def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit driver: BasicProfile, tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
-    import driver.Implicit.{scalaQueryDriver => _, _}
+    import driver.Implicit.{slickDriver => _, _}
     for {
       param <- Parameters[P]
       table <- this if ColumnOps.Is(Node(f(this)), Node(param))

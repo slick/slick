@@ -25,7 +25,7 @@ import scala.slick.util.ValueLinearizer
 class SQLiteDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(query: Query[_, _]) = new QueryBuilder(processAST(query), query)
+  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
   override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDLBuilder(table).buildDDL
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {

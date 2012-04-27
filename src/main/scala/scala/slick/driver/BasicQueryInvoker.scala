@@ -1,10 +1,10 @@
 package scala.slick.driver
 
 import java.sql.PreparedStatement
-import scala.slick.{UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}
-import scala.slick.ql.Query
 import scala.slick.session.{PositionedParameters, PositionedResult}
-import scala.slick.util.RecordLinearizer
+import scala.slick.ql.Query
+import scala.slick.{UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}
+import slick.util.RecordLinearizer
 
 class BasicQueryInvoker[Q, R](q: Query[Q, _ <: R], profile: BasicProfile)
   extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {

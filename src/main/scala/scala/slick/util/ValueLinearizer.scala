@@ -1,7 +1,6 @@
 package scala.slick.util
 
 import scala.collection.generic.CanBuildFrom
-import scala.slick.ql.AbstractCollection
 import scala.slick.driver.BasicProfile
 import scala.slick.session.{PositionedParameters, PositionedResult}
 import scala.slick.ast.Node
@@ -17,7 +16,7 @@ sealed trait ValueLinearizer[T] {
 /**
  * A linearizer for collection values.
  */
-trait CollectionLinearizer[F[+_], T] extends ValueLinearizer[AbstractCollection[F, T]] {
+trait CollectionLinearizer[F[+_], T] extends ValueLinearizer[F[T]] {
   def elementLinearizer: ValueLinearizer[T]
   def canBuildFrom: CanBuildFrom[Nothing, T, F[T]]
   final def narrowedLinearizer = elementLinearizer.narrowedLinearizer

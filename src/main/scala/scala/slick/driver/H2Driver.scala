@@ -6,7 +6,7 @@ import scala.slick.util.ValueLinearizer
 
 class H2Driver extends ExtendedDriver { driver =>
 
-  override def createQueryBuilder(query: Query[_, _]) = new QueryBuilder(processAST(query), query)
+  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"

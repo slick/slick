@@ -3,13 +3,13 @@ package scala.slick.ql
 import scala.annotation.implicitNotFound
 import scala.collection.generic.CanBuildFrom
 import scala.slick.ast._
-import scala.slick.util.{ValueLinearizer, CollectionLinearizer}
+import scala.slick.util.CollectionLinearizer
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with CollectionLinearizer[Seq, U] { self =>
+abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U] { self =>
 
   def unpackable: ShapedValue[_ <: E, U]
   final lazy val packed = unpackable.packedNode
@@ -66,7 +66,9 @@ abstract class Query[+E, U] extends Rep[AbstractCollection[Seq, U]] with Collect
   def unionAll[O >: E, R](other: Query[O, U]) =
     new WrappingQuery[O, U](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
 
-  def count = ColumnOps.CountAll(Node(unpackable.value))
+  def length: Column[Int] = ColumnOps.CountAll(Node(unpackable.value))
+  @deprecated("Use .length instead of .count", "0.10.0-M2")
+  def count = length
   def exists = StdFunction[Boolean]("exists", Node(unpackable.value))
 
   @deprecated("Query.sub is not needed anymore", "0.10.0-M2")
