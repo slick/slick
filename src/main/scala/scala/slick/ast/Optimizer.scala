@@ -5,7 +5,7 @@ import scala.slick.util.{Logging, RefId}
 import scala.collection.mutable.HashMap
 
 /**
- * Basic optimizers for the ScalaQuery AST
+ * Basic optimizers for the SLICK AST
  */
 object Optimizer extends Logging {
 

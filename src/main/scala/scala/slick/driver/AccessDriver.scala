@@ -9,7 +9,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 import scala.slick.util.ValueLinearizer
 
 /**
- * ScalaQuery driver for Microsoft Access via JdbcOdbcDriver.
+ * SLICK driver for Microsoft Access via JdbcOdbcDriver.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>
@@ -26,7 +26,7 @@ import scala.slick.util.ValueLinearizer
  *   <li><code>Drop(n)</code> modifiers are not supported. Trying to generate
  *     SQL code which uses this feature throws an SLICKException.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
- *     not available in Access. ScalaQuery will return empty strings for
+ *     not available in Access. SLICK will return empty strings for
  *     both.</li>
  *   <li>Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
  *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is

@@ -8,7 +8,7 @@ import scala.slick.session.{PositionedParameters, PositionedResult, ResultSetTyp
 import scala.slick.util.ValueLinearizer
 
 /**
- * ScalaQuery driver for Microsoft SQL Server.
+ * SLICK driver for Microsoft SQL Server.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>

@@ -6,12 +6,12 @@ import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
 
 /**
- * ScalaQuery driver for Derby/JavaDB.
+ * SLICK driver for Derby/JavaDB.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>
  * <ul>
- *   <li><code>Functions.database</code> is not available in Derby. ScalaQuery
+ *   <li><code>Functions.database</code> is not available in Derby. SLICK
  *     will return an empty string instead.</li>
  *   <li><code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported by Derby. Trying to generate SQL code which uses this

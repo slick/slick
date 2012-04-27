@@ -7,7 +7,7 @@ import java.sql.{Timestamp, Time, Date}
 import scala.slick.util.ValueLinearizer
 
 /**
- * ScalaQuery driver for SQLite.
+ * SLICK driver for SQLite.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>
@@ -18,7 +18,7 @@ import scala.slick.util.ValueLinearizer
  *   <li>SQLite does not allow mutation of result sets. All cursors are
  *     read-only.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
- *     not available in SQLite. ScalaQuery will return empty strings for
+ *     not available in SQLite. SLICK will return empty strings for
  *     both.</li>
  * </ul>
  */

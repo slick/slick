@@ -7,7 +7,7 @@ import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
 
 /**
- * ScalaQuery driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
+ * SLICK driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
  * (starting with version 2.0).
  * 
  * <p>This driver implements the ExtendedProfile with the following

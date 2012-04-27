@@ -7,6 +7,6 @@
     <root level="${log.root:-info}">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="org.scalaquery.ast" level="${log.ast:-info}" />
-    <logger name="org.scalaquery.session" level="${log.session:-info}" />
+    <logger name="scala.slick.ast" level="${log.ast:-info}" />
+    <logger name="scala.slick.session" level="${log.session:-info}" />
 </configuration>
