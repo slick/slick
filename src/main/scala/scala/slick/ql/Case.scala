@@ -18,25 +18,40 @@ object Case {
     }
   }
 
-  def when[C <: Column[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(Node(cond))
+  def If[C <: Column[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(Node(cond))
+  @deprecated("Use If instead of when", "0.10.0-M2")
+  def when[C <: Column[_] : CanBeQueryCondition](cond: C) = If(cond)
 
   final class UntypedWhen(cond: Node) {
-    def then[B : BaseTypeMapper](res: Column[B]) = new TypedCase[B,B](IndexedSeq(new WhenNode(cond, Node(res))))
-    def then[B](res: Column[Option[B]]) = res.typeMapper match {
+    def Then[B : BaseTypeMapper](res: Column[B]) = new TypedCase[B,B](IndexedSeq(new WhenNode(cond, Node(res))))
+    @deprecated("Use Then instead of then", "0.10.0-M2")
+    def then[B : BaseTypeMapper](res: Column[B]) = Then(res)
+
+    def Then[B](res: Column[Option[B]]) = res.typeMapper match {
       case tmt: OptionTypeMapper[_] =>
         new TypedCase[B,Option[B]](IndexedSeq(new WhenNode(cond, Node(res))))(tmt.base, tmt)
     }
+    @deprecated("Use Then instead of then", "0.10.0-M2")
+    def then[B](res: Column[Option[B]]) = Then(res)
   }
 
   final class TypedCase[B : TypeMapper, T : TypeMapper](clauses: IndexedSeq[Node])
   extends Column[Option[B]] {
     def nodeDelegate = CaseNode(clauses, ConstColumn.NULL)
-    def when[C <: Column[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](Node(cond), clauses)
-    def otherwise(res: Column[T]): Column[T] = new TypedCaseWithElse[T](clauses, Node(res))
+
+    def If[C <: Column[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](Node(cond), clauses)
+    @deprecated("Use If instead of when", "0.10.0-M2")
+    def when[C <: Column[_] : CanBeQueryCondition](cond: C) = If(cond)
+
+    def Else(res: Column[T]): Column[T] = new TypedCaseWithElse[T](clauses, Node(res))
+    @deprecated("Use Else instead of otherwise", "0.10.0-M2")
+    def otherwise(res: Column[T]): Column[T] = Else(res)
   }
 
   final class TypedWhen[B : TypeMapper, T : TypeMapper](cond: Node, parentClauses: IndexedSeq[Node]) {
-    def then(res: Column[T]) = new TypedCase[B,T](new WhenNode(cond, Node(res)) +: parentClauses)
+    def Then(res: Column[T]) = new TypedCase[B,T](new WhenNode(cond, Node(res)) +: parentClauses)
+    @deprecated("Use Then instead of then", "0.10.0-M2")
+    def then(res: Column[T]) = Then(res)
   }
 
   final class TypedCaseWithElse[T : TypeMapper](clauses: IndexedSeq[Node], elseClause: Node) extends Column[T] {

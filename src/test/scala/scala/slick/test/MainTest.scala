@@ -69,7 +69,7 @@ class MainTest(tdb: TestDB) extends DBTest(tdb) {
       assertEquals(expectedUserTuples.map{ case (id,f,l) => User(id,f,l.orNull) }, allUsers)
 
       val q1b = for(u <- Users) yield u.id ~ u.first.? ~ u.last ~
-        (Case when u.id < 3 then "low" when u.id < 6 then "medium" otherwise "high")
+        (Case If u.id < 3 Then "low" If u.id < 6 Then "medium" Else "high")
       println("q1b: " + q1b.selectStatement)
       for(t <- q1b) println("With options and sequence: "+t)
 
