@@ -20,7 +20,6 @@ object Optimizer extends Logging {
     if(n3 ne n2) logger.debug("columnized:", n3)
     val n4 = assignUniqueSymbols(n3)
     if(logger.isDebugEnabled && (n4 ne n3)) {
-      AnonSymbol.assignNames(n4, "u")
       logger.debug("unique symbols:", n4)
     }
     val n5 = RewriteGenerators(n4)
@@ -165,7 +164,6 @@ object Optimizer extends Logging {
     rootSym.name = "-root-"
     val rootScope = new Scope(rootSym, None)
     buildSymbolTable(tree, rootScope)
-    logger.debug("rootScope:\n" + rootScope.dumpString(indent = "  "))
     def tr(n: Node, scope: Scope): Node = n match {
       case d: DefNode =>
         d.nodeMapScopedChildren{ case (symO, ch) =>
@@ -188,6 +186,11 @@ object Optimizer extends Logging {
       }
       case n => n.nodeMapChildren(ch => tr(ch, scope))
     }
-    tr(tree, rootScope)
+    val res = tr(tree, rootScope)
+    if(logger.isDebugEnabled && (res ne tree)) {
+      AnonSymbol.assignNames(res, "u")
+      logger.debug("rootScope:\n" + rootScope.dumpString(indent = "  "))
+    }
+    res
   }
 }

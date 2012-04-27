@@ -99,11 +99,11 @@ sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] 
  */
 final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[T, _]])
   extends Column[T] {
-  def raw = RawNamedColumn(name, options, implicitly[TypeMapper[T]])
+  def raw = RawNamedColumn(name)(options, implicitly[TypeMapper[T]])
   override def nodeDelegate = new Wrapped(table, raw)
 }
 
-final case class RawNamedColumn(name: String, options: Seq[ColumnOption[_, _]], typeMapper: TypeMapper[_]) extends NullaryNode {
+final case class RawNamedColumn(name: String)(val options: Seq[ColumnOption[_, _]], val typeMapper: TypeMapper[_]) extends NullaryNode {
   override def toString = "RawNamedColumn " + name
   def symbol = FieldSymbol(name)(Some(this))
 }

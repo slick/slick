@@ -147,11 +147,10 @@ class ForeignKeyTest(tdb: TestDB) extends DBTest(tdb) {
     B.insertAll((1, 1), (2, 1), (3, 2))
     C.insertAll((1, 1), (2, 3))
 
-    val q1 = for {
+    val q1 = (for {
       b <- B
       a <- b.a
-      _ <- Query orderBy a.s
-    } yield a.s
+    } yield a.s).sortBy(identity)
     println("q1: " + q1.selectStatement)
     println("    " + q1.list)
     assertEquals(List("a", "a", "b"), q1.list)

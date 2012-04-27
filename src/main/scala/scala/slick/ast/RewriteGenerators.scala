@@ -18,8 +18,20 @@ object RewriteGenerators extends Logging {
     // This can happen in queries without projections.
     memoized[Node, Node](r => {
       case InRef(t, r: RawNamedColumn) => FieldRef(t, r.symbol)
+      case InRef(t, n) =>
+        findPureTarget(n) match {
+          case StructNode(IndexedSeq((sym, _))) => FieldRef(t, sym)
+          case ProductNode(FieldRef(_, sym)) => FieldRef(t, sym)
+        }
       case n => n.nodeMapChildren(r)
     })(t2)
+  }
+
+  def findPureTarget(in: Node): Node = in match {
+    case f: FilteredQuery => findPureTarget(f.from)
+    case Bind(_, _, Pure(n)) => n
+    case Bind(_, _, nonPure) => findPureTarget(nonPure)
+    case n => n
   }
 
   def rewriteGenerators(tree: Node): Node = memoized[Node, Node](r => {
@@ -168,7 +180,7 @@ object RewriteGenerators extends Logging {
   }
 
   def rewrap(n: Node, wrappers: Map[Symbol, Symbol], newWrapper: Symbol): Node = n match {
-    case c @ RawNamedColumn(_, _, _) => FieldRef(newWrapper, c.symbol)
+    case c @ RawNamedColumn(_) => FieldRef(newWrapper, c.symbol)
     case InRef(sym, what) =>
       if(wrappers.keySet contains sym) rewrap(what, wrappers, wrappers(sym))
       else rewrap(what, wrappers, newWrapper)
