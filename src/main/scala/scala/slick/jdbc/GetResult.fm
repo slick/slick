@@ -8,7 +8,7 @@ import scala.slick.session.PositionedResult
  * Basic conversions for extracting values from PositionedResults.
  */
 trait GetResult[+T] extends (PositionedResult => T) { self =>
-  override def andThen[A](g: T => A): GetResult[A] = new GetResult[A] { def apply(rs: PositionedResult): A = g(self.apply(rs)) }
+  def andThen[A](g: T => A): GetResult[A] = new GetResult[A] { def apply(rs: PositionedResult): A = g(self.apply(rs)) }
 }
 
 object GetResult {
