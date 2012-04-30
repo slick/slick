@@ -1,7 +1,6 @@
 package scala.slick.jdbc
 
 import java.sql.PreparedStatement
-import scala.slick.{StatementInvoker, UnitInvokerMixin}
 import scala.slick.session.{PositionedParameters, PositionedResult}
 
 /**

@@ -2,7 +2,7 @@ package scala.slick.jdbc.meta
 
 import java.sql._
 import java.lang.reflect.{Method, InvocationTargetException}
-import scala.slick.{ResultSetInvoker, UnitInvoker}
+import scala.slick.jdbc.ResultSetInvoker
 import scala.slick.session._
 import scala.slick.jdbc.GetResult.GetString
 

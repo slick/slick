@@ -1,4 +1,4 @@
-package scala.slick
+package scala.slick.jdbc
 
 import scala.collection.immutable.Map
 import scala.collection.generic.CanBuildFrom

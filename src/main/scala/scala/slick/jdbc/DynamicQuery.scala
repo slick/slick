@@ -2,7 +2,7 @@ package scala.slick.jdbc
 
 import scala.collection.mutable.ArrayBuffer
 import java.sql.{PreparedStatement, ResultSet, Date, Time, Timestamp}
-import scala.slick.{StatementInvoker, UnitInvokerMixin, SLICKException}
+import scala.slick.SLICKException
 import scala.slick.session.{PositionedParameters, PositionedResult}
 
 /**

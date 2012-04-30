@@ -1,4 +1,4 @@
-package scala.slick
+package scala.slick.jdbc
 
 trait ResultSetMutator[T] {
 

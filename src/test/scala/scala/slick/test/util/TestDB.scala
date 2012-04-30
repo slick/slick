@@ -3,9 +3,8 @@ package scala.slick.test.util
 import java.util.Properties
 import java.sql.SQLException
 import scala.slick.driver.{ExtendedDriver, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver, AccessDriver, SQLServerDriver}
-import scala.slick.ResultSetInvoker
 import scala.slick.session._
-import scala.slick.jdbc.{StaticQuery => Q}
+import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
 import scala.slick.jdbc.GetResult._
 import java.util.zip.GZIPInputStream
 import java.io._

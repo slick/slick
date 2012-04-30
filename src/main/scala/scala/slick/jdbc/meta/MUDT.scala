@@ -1,7 +1,6 @@
 package scala.slick.jdbc.meta
 
-import java.sql._
-import scala.slick.{ResultSetInvoker, UnitInvoker}
+import scala.slick.jdbc.ResultSetInvoker
 import scala.slick.ql.TypeMapperDelegate
 
 /**

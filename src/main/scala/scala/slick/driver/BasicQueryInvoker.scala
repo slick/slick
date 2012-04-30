@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.sql.PreparedStatement
 import scala.slick.session.{PositionedParameters, PositionedResult}
 import scala.slick.ql.Query
-import scala.slick.{UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}
+import scala.slick.jdbc.{UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}
 import slick.util.RecordLinearizer
 
 class BasicQueryInvoker[Q, R](q: Query[Q, _ <: R], profile: BasicProfile)

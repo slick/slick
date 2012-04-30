@@ -1,4 +1,4 @@
-package scala.slick
+package scala.slick.jdbc
 
 import java.sql.PreparedStatement
 import scala.slick.session._
@@ -20,10 +20,10 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
    * Invoke the statement and return the raw results.
    */
   def results(param: P, maxRows: Int,
-        defaultType: ResultSetType = ResultSetType.ForwardOnly,
-        defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
-        defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)
-      (implicit session: Session): Either[Int, PositionedResultIterator[R]] = {
+              defaultType: ResultSetType = ResultSetType.ForwardOnly,
+              defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
+              defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)
+             (implicit session: Session): Either[Int, PositionedResultIterator[R]] = {
     //TODO Support multiple results
     val statement = getStatement
     val st = session.prepareStatement(statement, defaultType, defaultConcurrency, defaultHoldability)

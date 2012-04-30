@@ -4,7 +4,6 @@ import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
 import java.io.Closeable
 import scala.slick.jdbc.GetResult
 import scala.slick.util.CloseableIterator
-import scala.slick.UnitInvokerMixin
 import collection.generic.CanBuildFrom
 
 /**

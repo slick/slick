@@ -1,5 +1,6 @@
-package scala.slick
+package scala.slick.jdbc
 
+import scala.slick.SLICKException
 import scala.slick.session._
 
 trait MutatingInvoker[-P,R] extends Invoker[P,R] { self =>

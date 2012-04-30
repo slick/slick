@@ -1,4 +1,4 @@
-package scala.slick
+package scala.slick.jdbc
 
 import java.sql.ResultSet
 import scala.slick.session._
