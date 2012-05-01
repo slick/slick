@@ -1,18 +1,16 @@
 package scala.slick
 import language.implicitConversions
 
-class ScalaQueryDriver extends Driver{
-  
-}
-object scala2scalaquery{
+import driver._
+import driver.{ExtendedTable => Table}
+import ql._
+import slick.{ast => sq}
 
+trait QueryableBackend
+
+class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   import scala.reflect.mirror._
   
-  import driver._
-  import driver.{ExtendedTable => Table}
-  import ql._
-  import slick.{ast => sq}
-
   object removeTypeAnnotations extends reflect.mirror.Transformer {
     def apply( tree:Tree ) = transform(tree)
     override def transform(tree: Tree): Tree = {
@@ -35,8 +33,9 @@ object scala2scalaquery{
   // // Why does this not work?
   //      invoke( n, classToType( n.getClass ).nonPrivateMember(newTermName("generator")) ).asInstanceOf[sq.Symbol]
   def symbol2type( s:Symbol ) : Type = classToType(symbolToClass(s))
-  def classToQuery[T:reflect.ConcreteTypeTag] : Query = {
-    val scala_symbol = classToSymbol(typeTag[T].erasure)
+  def classToQuery[T:reflect.ConcreteTypeTag] : Query = typetagToQuery( typeTag[T] )
+  def typetagToQuery(typetag:reflect.mirror.TypeTag[_]) : Query = {
+    val scala_symbol = classToSymbol(typetag.erasure)
     val table = 
       new Table[Nothing]({
         val ants = scala_symbol.annotations
@@ -48,14 +47,14 @@ object scala2scalaquery{
                 val name = tree(0).toString
                 name.slice( 1,name.length-1 ) // FIXME: <- why needed?
               }
-            case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typeTag[T].erasure.toString )
+            case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typetag.erasure.toString )
         }
       }){def * = ???}
     
     val sq_symbol = new sq.AnonSymbol
 
     val columns = 
-      classToType( typeTag[T].erasure ).widen.members.collect{
+      classToType( typetag.erasure ).widen.members.collect{
         case member if member.annotations.size > 0 && member.annotations.exists{
           case x@AnnotationInfo(tpe,tree,_)
             if tpe <:< classToType(classOf[column])
@@ -75,10 +74,10 @@ object scala2scalaquery{
 
     new Query( sq.Bind(sq_symbol, table, sq.Pure(sq.ProductNode(columns:_*))), Scope() )
   }
-  def apply( tree:Tree, queryable:Queryable[_] ) : Query = {
+/*  def apply( tree:Tree, queryable:Queryable[_] ) : Query = {
     this.apply(tree,queryable.query.scope)
-  }
-  def apply( tree:Tree, scope : Scope = Scope() ) : Query = {
+  }*/
+  def toQuery( tree:Tree, scope : Scope = Scope() ) : Query = {
     val toolbox = mkToolBox(mkConsoleFrontEnd(),"")
 //    val typed_tree = toolbox.typeCheck(tree.asInstanceOf[reflect.runtime.Mirror.Tree]  ).asInstanceOf[reflect.mirror.Tree]
     val typed_tree = toolbox.typeCheck(tree)
@@ -94,9 +93,9 @@ object scala2scalaquery{
         case Literal(Constant(x:String)) => ConstColumn[String](x)
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
   
-       case node@Ident(name) if node.symbol.isInstanceOf[scala.reflect.internal.Symbols#FreeTerm] =>
+       case node@Ident(name) if node.symbol.isInstanceOf[scala.reflect.internal.Symbols#FreeTerm] => // TODO: move this into a separate inlining step in queryable
          node.symbol.asInstanceOf[scala.reflect.internal.Symbols#FreeTerm].value match{
-            case q:Queryable[_] => q.query
+            case q:Queryable[_] => toQuery( q )
             case x => s2sq( Literal(Constant(x)) )
           }
   
@@ -134,7 +133,7 @@ object scala2scalaquery{
           val obj = companionInstance( a.symbol )
           val value = invoke( obj, a.tpe.nonPrivateMember(b) )()
           value match{
-            case q:Queryable[_] => q.query
+            case q:Queryable[_] => toQuery( q )
             case x => s2sq( Literal(Constant(x)) )
           }
           
@@ -215,12 +214,26 @@ object scala2scalaquery{
       case e:java.lang.NullPointerException => { println("NPE in tree "+showRaw(tree));throw e}
     }
   }
-  def dump( query:Query ) = sq.Node(query.node).dump("")
-  def toSql( query:Query ) = {
-    import BasicDriver._
+  protected[slick] def dump( queryable:Queryable[_] ) = {
+    val query = this.toQuery(queryable)
+    sq.Node(query.node).dump("")
+  }
+  protected[slick] def toSql( queryable:Queryable[_] ) = {
+    val query = this.toQuery(queryable)
+    import driver._
     val node = processAST(query.node)
     sq.AnonSymbol.assignNames( node )
     val builder = new QueryBuilder( node, null )
     builder.buildSelect.sql   
+  }
+  protected[slick] def toQuery(queryable:Queryable[_]) : this.Query = queryable.expr_or_typetag match {
+    case Right(typetag) => this.typetagToQuery( typetag )
+    case Left(expr_)    => this.toQuery(expr_.tree)
+  }
+  
+  def toList[T]( queryable:Queryable[T] ) : List[T] = {
+    import this.driver.Implicit._
+    val node = this.toQuery(queryable).node : scala.slick.ast.Node
+    null
   }
 }

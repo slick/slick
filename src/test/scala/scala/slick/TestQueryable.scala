@@ -2,10 +2,10 @@ package scala.slick
 
 import driver.{ExtendedTable => Table}
 import ql._
-//import org.scalaquery.ql.Unpack._
 import ql.ColumnOps.{Relational =>Op}
 import ast._
 import language.{reflectiveCalls,implicitConversions}
+import scala.slick.driver.MySQLDriver
 
 @table(name="COFFEES")
 trait CoffeesTable{
@@ -14,18 +14,19 @@ trait CoffeesTable{
   @column(name="COF_NAME")
   def name : String
 }
+object backend extends SlickBackend( new MySQLDriver )
 
 object TestingTools{
   implicit def enableAssertQuery( q:Queryable[_] ) = new{
     def assertQuery( matcher : Node => Unit ) = {
       try{
-        matcher( q.query.asInstanceOf[scala2scalaquery.Query].node : @unchecked ) : @unchecked
+        matcher( backend.toQuery( q ).node : @unchecked ) : @unchecked
         print(".")
       } catch {
         case e:MatchError => {
           println("F")
           println("")
-          q.dump
+          backend.dump(q)
           assert(false,"did not match")
         }
       }
@@ -69,16 +70,18 @@ object TestQueryable extends App{
   val q : Queryable[CoffeesTable] = Queryable[CoffeesTable]
   
 //  q.dump
-//  println (q.toSql)
-  
-  // Queryable argument
+  println( backend.toSql(q) )
+
+/*
+  // now checked later during translation
   try{
     Queryable[String]
     fail("expected exception about missing annotations")
   } catch{
     case e:Exception if e.getMessage.contains( "annotation" ) => success
-    case _ => fail
+    case e => fail
   }
+*/
 
   // queryable
   q.assertQuery {

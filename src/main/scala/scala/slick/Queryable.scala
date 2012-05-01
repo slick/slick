@@ -5,10 +5,10 @@ final case class column(name:String) extends StaticAnnotation
 import scala.reflect.makro.Context
 
 object Queryable{
-  def apply[T](q:Queryable[T]) = new Queryable[T](q.query) // TODO: make this a macro
-  def apply[T:reflect.ConcreteTypeTag] = new Queryable[T](scala2scalaquery.classToQuery[T])
+  def apply[T](q:Queryable[T]) = new Queryable[T](q.expr_or_typetag) // TODO: make this a macro
+  def apply[T:reflect.ConcreteTypeTag] = new Queryable[T](Right(typeTag[T]))
   def factory[S]( projection:scala.reflect.mirror.Expr[Queryable[S]] ) : Queryable[S] = {
-    new Queryable[S](scala2scalaquery( projection.tree ))
+    new Queryable[S]( Left(projection) )
   }
 }
 
@@ -61,12 +61,19 @@ object QueryableMacros{
                (projection: c.mirror.Expr[T => Boolean]): c.mirror.Expr[scala.slick.Queryable[T]] = _helper[c.type,T]( c )( "filter", projection )
 }
 
-class Queryable[T]( protected[slick] val query:scala2scalaquery.Query ){
-  val driver = scala2scalaquery
+/*
+class BoundQueryable[T]( backend : SlickBackend ){
+  class Queryable[T](
+    val expr_or_typetag : Either[ reflect.mirror.Expr[_], reflect.mirror.TypeTag[_] ]
+  ) extends slick.Queryable( expr_or_typetag ){
+    def toList = backend.toList( this )
+  }
+}
+*/
 
-  def dump = driver.dump(query)
-  def toSql = driver.toSql(query)
-
+class Queryable[T](
+    val expr_or_typetag : Either[ reflect.mirror.Expr[_], reflect.mirror.TypeTag[_] ]
+  ){
   def _map_placeholder[S]( projection: T => S ) : Queryable[S] = ???
   def map[S]( projection: T => S ) : Queryable[S] = macro QueryableMacros.map[T,S]
   
