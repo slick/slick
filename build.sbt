@@ -37,6 +37,11 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
   "ch.qos.logback" % "logback-classic" % "0.9.28" % "test"
 )}
 
+// Add scala-compiler dependency for scala.reflect.internal
+libraryDependencies <+= scalaVersion(
+  "org.scala-lang" % "scala-compiler" % _
+)
+
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
 
 publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r))))
