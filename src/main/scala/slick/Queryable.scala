@@ -6,7 +6,7 @@ import scala.reflect.makro.Context
 
 object Queryable{
   def apply[T](q:Queryable[T]) = new Queryable[T](q.query) // TODO: make this a macro
-  def apply[T:Manifest] = new Queryable[T](scala2scalaquery.classToQuery[T])
+  def apply[T:reflect.ConcreteTypeTag] = new Queryable[T](scala2scalaquery.classToQuery[T])
   def factory[S]( projection:scala.reflect.mirror.Expr[Queryable[S]] ) : Queryable[S] = {
     new Queryable[S](scala2scalaquery( projection.tree ))
   }
@@ -42,6 +42,13 @@ object QueryableMacros{
     import c.mirror._
     val element_type = implicitly[TypeTag[S]].tpe
     // 
+/*
+        val tree = Apply(Select(c.prefix.tree, newTermName( "_"+name+"_placeholder" )), List( projection.tree ))
+        println("------------------")
+        println(showRaw(tree))
+        println("------------------")
+*/
+
     val reifiedExpression = Expr[reflect.mirror.Expr[Queryable[S]]](
     c.reifyTree( c.reflectMirrorPrefix, c.typeCheck(
       Utils[c.type](c).removeDoubleReify(

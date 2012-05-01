@@ -1,13 +1,14 @@
 package scala.slick
 
-import org.scalaquery.ql.extended.{ExtendedTable => Table}
-import org.scalaquery.ql._
-import org.scalaquery.ql.Unpack._
-import org.scalaquery.ql.ColumnOps.{Relational =>Op}
-import org.scalaquery.ast._
+import driver.{ExtendedTable => Table}
+import ql._
+//import org.scalaquery.ql.Unpack._
+import ql.ColumnOps.{Relational =>Op}
+import ast._
 import org.scalaquery.ql.basic._
+import language.{reflectiveCalls,implicitConversions}
 
-@table(name="coffees")
+@table(name="COFFEES")
 trait CoffeesTable{
   @column(name="COF_SALES")
   def sales : Int
@@ -19,7 +20,7 @@ object TestingTools{
   implicit def enableAssertQuery( q:Queryable[_] ) = new{
     def assertQuery( matcher : Node => Unit ) = {
       try{
-        matcher( q.query.asInstanceOf[scala2scalaquery.Query].node )
+        matcher( q.query.asInstanceOf[scala2scalaquery.Query].node : @unchecked ) : @unchecked
         print(".")
       } catch {
         case e:MatchError => {
@@ -40,10 +41,12 @@ object TestingTools{
     }
   }
   object ColumnName{
-    def unapply( t:RawNamedColumn ) = t match { case RawNamedColumn( name, _, _ ) =>
-      assert(name(0) == '"') // FIXME
-      assert(name(name.length-1) == '"') // FIXME
-      Some( name.slice( 1,name.length-1 ) )
+    def unapply( t:Symbol ) = t match {
+      case FieldSymbol( name ) => 
+      /*case RawNamedColumn( name, _, _ ) =>*/
+        assert(name(0) == '"') // FIXME
+        assert(name(name.length-1) == '"') // FIXME
+        Some( name.slice( 1,name.length-1 ) )
     }
   }
   def fail(msg:String = ""){
@@ -79,27 +82,30 @@ object TestQueryable extends App{
 
   // queryable
   q.assertQuery {
-      case TableName("coffees")
+      case TableName("COFFEES")
       => ()
     }
 
+/*
+  // blocked by: https://github.com/cvogt/scala/commit/db5b5ebcadd4d7a7ea4b5f50410b0936bbfedc36
   class MyQuerycollection{
     def findUserByName( name:String ) = q.filter( _.name == name )
 //    def findUserByName2( name:String ) = Queryable[CoffeesTable].filter( _.name == name )
   }
 
   val qc = new MyQuerycollection
-  qc.findUserByName("test")
+  qc.findUserByName("some value")
 //  qc.findUserByName2("test")
+*/
 
   // simple map
   q.map( (_:CoffeesTable).sales + 5 )
    .assertQuery {
       case Bind(
               sym1a,
-              TableName("coffees"),
+              TableName("COFFEES"),
               Pure(
-                   Op( "+", InRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
+                   Op( "+", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
               )
       )
       if sym1a == sym1b
@@ -111,9 +117,9 @@ object TestQueryable extends App{
    .assertQuery {
       case Bind(
               sym1a,
-              TableName("coffees"),
+              TableName("COFFEES"),
               Pure(
-                   Op( "concat", InRef(sym1b, ColumnName("COF_NAME")), ConstColumn(".") )
+                   Op( "concat", FieldRef(sym1b, ColumnName("COF_NAME")), ConstColumn(".") )
               )
       )
       if sym1a == sym1b
@@ -125,10 +131,10 @@ object TestQueryable extends App{
    .assertQuery {
       case Filter(
               sym1a,
-              TableName("coffees"),
+              TableName("COFFEES"),
               Op( "||",
-                  Op( ">", InRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) ),
-                  Op( "==", ConstColumn("Chris"), InRef(sym1c, ColumnName("COF_NAME")) )
+                  Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) ),
+                  Op( "==", ConstColumn("Chris"), FieldRef(sym1c, ColumnName("COF_NAME")) )
               )
       )
       if sym1a == sym1b && sym1b == sym1c
@@ -140,9 +146,9 @@ object TestQueryable extends App{
    .assertQuery {
       case Bind(
               sym1a,
-              TableName("coffees"),
+              TableName("COFFEES"),
               Pure(
-                   InRef(sym1b, ColumnName("COF_NAME"))
+                   FieldRef(sym1b, ColumnName("COF_NAME"))
               )
       )
       if sym1a == sym1b
@@ -156,9 +162,9 @@ object TestQueryable extends App{
              sym1a,
              Bind(
                sym2a,
-               TableName("coffees"),
+               TableName("COFFEES"),
                Pure(
-                    InRef(sym2b, ColumnName("COF_NAME"))
+                    FieldRef(sym2b, ColumnName("COF_NAME"))
                )
              ),
              Op( "==", Ref(sym1b), ConstColumn("") )
@@ -173,23 +179,23 @@ object TestQueryable extends App{
    .assertQuery {
       case Filter(
               sym1a,
-              TableName("coffees"),
-              Op( ">", InRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
+              TableName("COFFEES"),
+              Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
       )
       if sym1a == sym1b
       => ()
     }
-
+/*
   // nesting
   q.map(e1 => q.map(e2=>e1))
    .assertQuery {
       case Bind(
              sym1a,
-             TableName("coffees"),
+             TableName("COFFEES"),
              Pure(
                Bind(
                  sym2a,
-                 TableName("coffees"), 
+                 TableName("COFFEES"), 
                  Pure(
                    Ref( sym1b )
                  )
@@ -203,8 +209,8 @@ object TestQueryable extends App{
    .assertQuery {
       case Filter(
               sym1a,
-              TableName("coffees"),
-              Op( ">", InRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
+              TableName("COFFEES"),
+              Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
       )
       if sym1a == sym1b
       => ()
@@ -214,9 +220,9 @@ object TestQueryable extends App{
   (for( c <- q ) yield c.name).assertQuery{
     case Bind(
            sym1a,
-           TableName("coffees"),
+           TableName("COFFEES"),
            Pure(
-             InRef( sym1b, ColumnName("COF_NAME") )
+             FieldRef( sym1b, ColumnName("COF_NAME") )
            )
     )
     if sym1a == sym1b
@@ -227,12 +233,12 @@ object TestQueryable extends App{
   val pattern1 : Node => Unit =  {
     case Bind(
            sym1a,
-           TableName("coffees"),
+           TableName("COFFEES"),
            Bind(
              sym2a,
-             TableName("coffees"),
+             TableName("COFFEES"),
              Pure(
-               InRef( sym2b, ColumnName("COF_NAME") )
+               FieldRef( sym2b, ColumnName("COF_NAME") )
     )))
     if sym1a != sym2a && sym2a == sym2b
     => ()
@@ -245,12 +251,12 @@ object TestQueryable extends App{
   val pattern2 : Node => Unit =  {
     case Bind(
            sym1a,
-           TableName("coffees"),
+           TableName("COFFEES"),
            Bind(
              sym2a,
-             TableName("coffees"),
+             TableName("COFFEES"),
              Pure(
-               InRef( sym1b, ColumnName("COF_NAME") )
+               FieldRef( sym1b, ColumnName("COF_NAME") )
     )))
     if sym1a != sym2a && sym1a == sym1b
     => ()
@@ -263,18 +269,18 @@ object TestQueryable extends App{
   val pattern3 : Node => Unit =  {
     case Bind(
            sym1a,
-           TableName("coffees"),
+           TableName("COFFEES"),
            Bind(
              sym3a,
              Filter(
                sym2a,
-               TableName("coffees"),
+               TableName("COFFEES"),
                Op( "==",
-                   InRef( sym2b, ColumnName("COF_SALES") ),
-                   InRef( sym1b, ColumnName("COF_SALES") )
+                   FieldRef( sym2b, ColumnName("COF_SALES") ),
+                   FieldRef( sym1b, ColumnName("COF_SALES") )
              )),
              Pure(
-               InRef( sym3b, ColumnName("COF_NAME") )
+               FieldRef( sym3b, ColumnName("COF_NAME") )
     )))
     if sym1a != sym2a && sym2a != sym3a && sym1a == sym1b && sym3a == sym3b
     => ()
@@ -282,7 +288,7 @@ object TestQueryable extends App{
   q.flatMap(o => q.filter( i => i.sales == o.sales ).map(i => i.name)) .assertQuery{ pattern3 }
            (for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
   Queryable(for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
-
+*/
 /*
   //FAILS:
   (for( o <- Queryable[CoffeesTable];
