@@ -3,10 +3,14 @@ package scala.slick.jdbc
 import java.sql.{SQLException, Date, Time, Timestamp}
 import scala.slick.session.PositionedParameters
 
-/**
- * Basic conversions for setting parameters in PositionedParameters.
- */
+/** Basic conversions for setting parameters in PositionedParameters. */
 trait SetParameter[-T] extends ((T, PositionedParameters) => Unit)
+
+/** SetParameter for tuple types. */
+class SetTupleParameter[-T <: Product](val children: SetParameter[_]*) extends SetParameter[T] {
+  def apply(param: T, pp: PositionedParameters): Unit =
+    children.iterator.zip(param.productIterator).foreach(t => t._1.asInstanceOf[SetParameter[Any]](t._2, pp))
+}
 
 object SetParameter {
   implicit object SetBoolean extends SetParameter[Boolean] { def apply(v: Boolean, pp: PositionedParameters) { pp.setBoolean(v) } }
@@ -34,13 +38,7 @@ object SetParameter {
   implicit object SetTimestampOption extends SetParameter[Option[Timestamp]] { def apply(v: Option[Timestamp], pp: PositionedParameters) { pp.setTimestampOption(v) } }
 
 <#list 2..22 as i>
-  implicit def createSetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: SetParameter[T${j}]<#if i != j>, </#if></#list>): SetParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new SetParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] {
-    def apply(param: (<#list 1..i as j>T${j}<#if i != j>, </#if></#list>), pp: PositionedParameters) {
-<#list 1..i as j>
-      c${j}(param._${j}, pp)
-</#list>
-    }
-  }
+  implicit def createSetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: SetParameter[T${j}]<#if i != j>, </#if></#list>): SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
 </#list>
 
   object SetSimpleProduct extends SetParameter[Product] {
