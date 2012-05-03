@@ -3,12 +3,18 @@ package scala.slick.jdbc
 import java.sql.{SQLException, Date, Time, Timestamp}
 import scala.slick.SLICKException
 import scala.slick.session.PositionedResult
+import scala.slick.ql.Shape
 
-/**
- * Basic conversions for extracting values from PositionedResults.
- */
+/** Basic conversions for extracting values from PositionedResults. */
 trait GetResult[+T] extends (PositionedResult => T) { self =>
   override def andThen[A](g: T => A): GetResult[A] = new GetResult[A] { def apply(rs: PositionedResult): A = g(self.apply(rs)) }
+}
+
+/** GetResult for tuple types. */
+class GetTupleResult[+T <: Product](val children: GetResult[_]*) extends GetResult[T] {
+  def apply(rs: PositionedResult) =
+    Shape.buildTuple(children.iterator.map(_.apply(rs)).toIndexedSeq).asInstanceOf[T]
+    override def toString = "GetTupleResult<"+children.length+">"
 }
 
 object GetResult {
@@ -37,9 +43,7 @@ object GetResult {
   implicit object GetTimestampOption extends GetResult[Option[Timestamp]] { def apply(rs: PositionedResult) = rs.nextTimestampOption() }
 
 <#list 2..22 as i>
-  implicit def createGetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: GetResult[T${j}]<#if i != j>, </#if></#list>): GetResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new GetResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] {
-    def apply(rs: PositionedResult) = (<#list 1..i as j>c${j}(rs)<#if i != j>, </#if></#list>)
-  }
+  implicit def createGetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: GetResult[T${j}]<#if i != j>, </#if></#list>): GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new GetTupleResult[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
 </#list>
 
   private[jdbc] object GetUpdateValue extends GetResult[Int] {
