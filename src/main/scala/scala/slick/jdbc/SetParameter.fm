@@ -4,12 +4,19 @@ import java.sql.{SQLException, Date, Time, Timestamp}
 import scala.slick.session.PositionedParameters
 
 /** Basic conversions for setting parameters in PositionedParameters. */
-trait SetParameter[-T] extends ((T, PositionedParameters) => Unit)
+trait SetParameter[-T] extends ((T, PositionedParameters) => Unit) { self =>
+  def applied(value: T): SetParameter[Unit] = new SetParameter[Unit] {
+    def apply(u: Unit, pp: PositionedParameters) {
+      self.apply(value, pp)
+    }
+  }
+}
 
 /** SetParameter for tuple types. */
 class SetTupleParameter[-T <: Product](val children: SetParameter[_]*) extends SetParameter[T] {
   def apply(param: T, pp: PositionedParameters): Unit =
     children.iterator.zip(param.productIterator).foreach(t => t._1.asInstanceOf[SetParameter[Any]](t._2, pp))
+  override def toString = "SetTupleParameter<"+children.length+">"
 }
 
 object SetParameter {

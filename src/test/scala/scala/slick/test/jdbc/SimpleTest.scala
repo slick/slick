@@ -16,7 +16,7 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
   case class User(id:Int, name:String)
 
-  @Test def test() {
+  @Test def testSimple() {
     def getUsers(id: Option[Int]) = {
       val q = Q[User] + "select id, name from users "
       id map { q + "where id =" +? _ } getOrElse q
@@ -24,12 +24,8 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
     def InsertUser(id: Int, name: String) = Q.u + "insert into USERS values (" +? id + "," +? name + ")"
 
-    def InsertUser2(id: Int, name: String) = sql"insert into USERS values ($id, $name)".as[Int]
-
-    def InsertUser3(id: Int, name: String) = sqlu"insert into USERS values ($id, $name)"
-
     val createTable = Q[Int] + "create table USERS(ID int not null primary key, NAME varchar(255))"
-    val populateUsers = List(InsertUser(1, "szeiger"), InsertUser2(0, "admin"), InsertUser3(2, "guest"), InsertUser(3, "foo"))
+    val populateUsers = List(InsertUser(1, "szeiger"), InsertUser(0, "admin"), InsertUser(2, "guest"), InsertUser(3, "foo"))
 
     val allIDs = Q[Int] + "select id from users"
     val userForID = Q[Int, User] + "select id, name from users where id = ?"
@@ -102,6 +98,34 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
     }
   }
 
+  @Test def testInterpolation() {
+    def userForID(id: Int) = sql"select id, name from users where id = $id".as[User]
+    def userForIdAndName(id: Int, name: String) = sql"select id, name from users where id = $id and name = $name".as[User]
+
+    db withSession {
+      sqlu"create table USERS(ID int not null primary key, NAME varchar(255))".execute
+      val total = (for {
+        (id, name) <- List((1, "szeiger"), (0, "admin"), (2, "guest"), (3, "foo"))
+      } yield sqlu"insert into USERS values ($id, $name)".first).sum
+      assertEquals(4, total)
+
+      assertEquals(Set(0,1,2,3), sql"select id from users".as[Int].to[Set]())
+
+      val res = userForID(2).first
+      println("User for ID 2: "+res)
+      assertEquals(User(2,"guest"), res)
+
+      val s1 = sql"select id from users where name = ${"szeiger"}".as[Int]
+      val s2 = sql"select id from users where name = '#${"guest"}'".as[Int]
+      assertEquals("select id from users where name = ?", s1.getStatement)
+      assertEquals("select id from users where name = 'guest'", s2.getStatement)
+      assertEquals(List(1), s1.list)
+      assertEquals(List(2), s2.list)
+
+      assertEquals(User(2,"guest"), userForIdAndName(2, "guest").first)
+      assertEquals(None, userForIdAndName(2, "foo").firstOption)
+    }
+  }
 
   @deprecated("DynamicQuery replaced by better StaticQuery", "0.10")
   @Test def testDynamic() {
