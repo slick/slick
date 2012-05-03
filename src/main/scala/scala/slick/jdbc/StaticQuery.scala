@@ -42,6 +42,21 @@ object StaticQuery {
 
   def updateNA(query: String) =
     new StaticQuery0[Int](query, GetResult.GetUpdateValue, SetParameter.SetUnit)
+
+  implicit def interpolation(s: StringContext) = new SQLInterpolation(s)
+}
+
+class SQLInterpolation(val s: StringContext) extends AnyVal {
+  def sql[P](param: P)(implicit pconv: SetParameter[P]) =
+    new SQLInterpolationResult[P](s.parts, param, pconv)
+  def sqlu[P](param: P)(implicit pconv: SetParameter[P]) =
+    new SQLInterpolationResult[P](s.parts, param, pconv).as[Int](GetResult.GetUpdateValue)
+}
+
+case class SQLInterpolationResult[P](strings: Seq[String], param: P, pconv: SetParameter[P]) {
+  def as[R](implicit rconv: GetResult[R]): UnitInvoker[R] =
+    new StaticQuery1[P, R](strings.mkString("?"), rconv, pconv)(param)
+  def u = as[Int](GetResult.GetUpdateValue)
 }
 
 class StaticQuery0[R](query: String, rconv: GetResult[R], pconv: SetParameter[Unit]) extends StaticQuery[Unit, R](query, rconv, pconv) with UnitInvokerMixin[R] {

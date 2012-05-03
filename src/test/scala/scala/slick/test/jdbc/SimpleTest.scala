@@ -6,6 +6,7 @@ import scala.slick.jdbc.{GetResult, StaticQuery => Q, DynamicQuery}
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
+import Q.interpolation
 
 object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Postgres, MySQL, DerbyMem, DerbyDisk, HsqldbMem, MSAccess, SQLServer)
 
@@ -23,8 +24,12 @@ class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
 
     def InsertUser(id: Int, name: String) = Q.u + "insert into USERS values (" +? id + "," +? name + ")"
 
+    def InsertUser2(id: Int, name: String) = sql"insert into USERS values ($id, $name)".as[Int]
+
+    def InsertUser3(id: Int, name: String) = sqlu"insert into USERS values ($id, $name)"
+
     val createTable = Q[Int] + "create table USERS(ID int not null primary key, NAME varchar(255))"
-    val populateUsers = List(InsertUser(1, "szeiger"), InsertUser(0, "admin"), InsertUser(2, "guest"), InsertUser(3, "foo"))
+    val populateUsers = List(InsertUser(1, "szeiger"), InsertUser2(0, "admin"), InsertUser3(2, "guest"), InsertUser(3, "foo"))
 
     val allIDs = Q[Int] + "select id from users"
     val userForID = Q[Int, User] + "select id, name from users where id = ?"
