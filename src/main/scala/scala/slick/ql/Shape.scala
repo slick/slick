@@ -36,12 +36,10 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
 }
 
 object Shape extends ShapeLowPriority {
-  @inline
-  def tableShape[T <: TableNode]: Shape[T, TableNothing, T] =
+  @inline def tableShape[T <: TableNode]: Shape[T, TableNothing, T] =
     sharedTableShape.asInstanceOf[Shape[T, TableNothing, T]]
 
-  @inline
-  implicit def columnShape[T]: Shape[Column[T], T, Column[T]] =
+  @inline implicit def columnShape[T]: Shape[Column[T], T, Column[T]] =
     selfLinearizingShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
 
   val selfLinearizingShape: Shape[ValueLinearizer[_], Any, ValueLinearizer[_]] = new IdentityShape[ValueLinearizer[_], Any] {
@@ -61,8 +59,7 @@ abstract class IdentityShape[Packed, Unpacked] extends Shape[Packed, Unpacked, P
 }
 
 class ShapeLowPriority extends ShapeLowPriority2 {
-  @inline
-  implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[C, T, C] =
+  @inline implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[C, T, C] =
     Shape.selfLinearizingShape.asInstanceOf[Shape[C, T, C]]
 
   implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
@@ -85,8 +82,7 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
     Shape.buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
 
   private[this] def productTf[Unpacked <: Product, U](idx: Int,
-                                                      f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]):
-  NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] =
+      f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] =
     new NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] {
       def apply[T](p1: TypeMapper[T], p2: (U => T)) = f.apply[T](p1, (u => p2(u.productElement(idx).asInstanceOf[U])))
     }
@@ -107,10 +103,10 @@ case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
 
 object ShapedValue {
   // Should be implicit for using ShapedValue as a view bound, but SI-3346 prevents this use case
-  def createShapedValue[T, U](value: T)(implicit shape: Shape[T, U, _]) = ShapedValue(value, shape)
+  @inline def createShapedValue[T, U](value: T)(implicit shape: Shape[T, U, _]) = ShapedValue(value, shape)
 }
 
 // Work-around for SI-3346
-final class ToShapedValue[T](value: T) {
-  def shaped[U](implicit shape: Shape[T, U, _]) = new ShapedValue[T, U](value, shape)
+final class ToShapedValue[T](val value: T) extends AnyVal {
+  @inline def shaped[U](implicit shape: Shape[T, U, _]) = new ShapedValue[T, U](value, shape)
 }

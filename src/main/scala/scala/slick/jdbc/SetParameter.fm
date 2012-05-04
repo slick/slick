@@ -45,7 +45,7 @@ object SetParameter {
   implicit object SetTimestampOption extends SetParameter[Option[Timestamp]] { def apply(v: Option[Timestamp], pp: PositionedParameters) { pp.setTimestampOption(v) } }
 
 <#list 2..22 as i>
-  implicit def createSetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: SetParameter[T${j}]<#if i != j>, </#if></#list>): SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
+  @inline implicit def createSetTuple${i}[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](implicit <#list 1..i as j>c${j}: SetParameter[T${j}]<#if i != j>, </#if></#list>): SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)] = new SetTupleParameter[(<#list 1..i as j>T${j}<#if i != j>, </#if></#list>)](<#list 1..i as j>c${j}<#if i != j>, </#if></#list>)
 </#list>
 
   object SetSimpleProduct extends SetParameter[Product] {

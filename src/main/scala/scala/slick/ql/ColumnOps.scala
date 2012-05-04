@@ -3,8 +3,7 @@ package scala.slick.ql
 import TypeMapper._
 import scala.slick.ast.{SimpleNode, Node, UnaryNode, BinaryNode}
 
-trait ColumnOps[B1, P1] {
-  protected val leftOperand: Node
+final class ColumnOps[B1, P1](val leftOperand: Node) extends AnyVal {
   import ColumnOps._
   type OM2[B2, BR, P2, R] = OptionMapper2[B1, B2, BR, P1, P2, R]
   type OM2Bin[BR, P2, R] = OM2[B1, BR, P2, R]

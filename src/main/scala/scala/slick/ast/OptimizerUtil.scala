@@ -8,7 +8,7 @@ import scala.slick.util.RefId
 /**
  * Utility methods for the optimizers.
  */
-object OptimizerUtil {
+object OptimizerUtil extends OptimizerUtilLowPriority {
 
   def pfidentity[T]: PartialFunction[T, T] = { case x => x }
 
@@ -59,13 +59,17 @@ object OptimizerUtil {
     if(x == v) x else fixpoint(x)(f)
   }
 
-  implicit def nodeToNodeOps(n: Node): NodeOps = new NodeOps(n)
+  @inline implicit def nodeToNodeOps(n: Node): NodeOps = new NodeOps(n)
+}
+
+class OptimizerUtilLowPriority {
+  @inline implicit def nodeToTraversable(n: Node): Traversable[Node] = new NodeTraversable(n)
 }
 
 /**
  * Extra methods for Nodes.
  */
-class NodeOps(tree: Node) extends Traversable[Node] {
+class NodeOps(val tree: Node) extends AnyVal {
   import OptimizerUtil._
 
   def collect[T](pf: PartialFunction[Node, T]): Iterable[T] = {
@@ -141,6 +145,13 @@ class NodeOps(tree: Node) extends Traversable[Node] {
 }
 
 /**
+ * A Traversable instance for nodes.
+ */
+class NodeTraversable(tree: Node) extends Traversable[Node] {
+  def foreach[U](f: (Node => U)) = new NodeOps(tree).foreach(f)
+}
+
+  /**
  * An extractor for the transitive source of a chain of FilteredQuery nodes
  */
 object FilterChain {

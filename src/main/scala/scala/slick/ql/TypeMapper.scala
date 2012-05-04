@@ -35,7 +35,7 @@ sealed trait TypeMapper[T] extends (BasicProfile => TypeMapperDelegate[T]) { sel
 }
 
 object TypeMapper {
-  implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = t.createOptionTypeMapper
+  @inline implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = t.createOptionTypeMapper
 
   implicit object BooleanTypeMapper extends BaseTypeMapper[Boolean] {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.booleanTypeMapperDelegate

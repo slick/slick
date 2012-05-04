@@ -31,14 +31,10 @@ trait BasicProfile { driver: BasicDriver =>
 
   class Implicits {
     implicit val slickDriver: driver.type = driver
-    implicit def baseColumnToColumnOps[B1 : BaseTypeMapper](c: Column[B1]): ColumnOps[B1, B1] = c match {
-      case o: ColumnOps[_,_] => o.asInstanceOf[ColumnOps[B1, B1]]
-      case _ => new ColumnOps[B1, B1] { protected[this] val leftOperand = Node(c) }
-    }
-    implicit def optionColumnToColumnOps[B1](c: Column[Option[B1]]): ColumnOps[B1, Option[B1]] = c match {
-      case o: ColumnOps[_,_] => o.asInstanceOf[ColumnOps[B1, Option[B1]]]
-      case _ => new ColumnOps[B1, Option[B1]] { protected[this] val leftOperand = Node(c) }
-    }
+    implicit def baseColumnToColumnOps[B1 : BaseTypeMapper](c: Column[B1]): ColumnOps[B1, B1] =
+      new ColumnOps[B1, B1](Node(c))
+    implicit def optionColumnToColumnOps[B1](c: Column[Option[B1]]): ColumnOps[B1, Option[B1]] =
+      new ColumnOps[B1, Option[B1]](Node(c))
     implicit def columnToOptionColumn[T : BaseTypeMapper](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, TableNothing, T](t)(Shape.tableShape)
@@ -63,7 +59,7 @@ trait BasicProfile { driver: BasicDriver =>
     implicit def productQueryToUpdateInvoker[T](q: Query[_ <: ColumnBase[T], T]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, driver)
 
     // Work-around for SI-3346
-    implicit def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
+    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
   }
 }
 

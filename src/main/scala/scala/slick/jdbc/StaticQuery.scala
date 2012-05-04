@@ -44,7 +44,7 @@ object StaticQuery {
   def updateNA(query: String) =
     new StaticQuery0[Int](query, GetResult.GetUpdateValue)
 
-  implicit def interpolation(s: StringContext) = new SQLInterpolation(s)
+  @inline implicit def interpolation(s: StringContext) = new SQLInterpolation(s)
 }
 
 class SQLInterpolation(val s: StringContext) extends AnyVal {
