@@ -1,18 +1,16 @@
-name := "ScalaQuery"
+name := "SLICK"
 
-organizationName := "ScalaQuery"
+organizationName := "Typesafe"
 
-organization := "org.scalaquery"
+organization := "com.typesafe"
 
 version := "0.10.0-SNAPSHOT"
 
-//scalaVersion := "2.9.1-1"
 //scalaVersion := "2.10.0-unknown-unknown"
 //scalaVersion := "2.10.0-SNAPSHOT"
 scalaVersion := "2.10.0-M3"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
-//resolvers += "Sonatype OSS Snapshots Repository" at "http://oss.sonatype.org/content/groups/public/"
 
 //crossScalaVersions ++= "2.9.1-1" :: "2.9.1" :: "2.9.0-1" :: "2.9.0" :: Nil
 //crossVersion := CrossVersion.Disabled
@@ -31,7 +29,6 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
   "postgresql" % "postgresql" % (if(u) "8.4-701.jdbc4" else "8.4-701.jdbc3") % "test",
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",
-  //"com.novocode" % "junit-interface" % "0.8" % "test",
   "com.novocode" % "junit-interface" % "0.9-RC2" % "test",
   "org.slf4j" % "slf4j-api" % "1.6.4",
   "ch.qos.logback" % "logback-classic" % "0.9.28" % "test"
@@ -59,15 +56,13 @@ publishArtifact in Test := false
 
 pomIncludeRepository := { _ => false }
 
-credentials += Credentials(Path.userHome / ".ivy2" / ".credentials")
-
 description := "A type-safe database API for Scala"
 
-homepage := Some(url("http://scalaquery.org/"))
+homepage := Some(url("https://github.com/typesafehub/slick/wiki"))
 
 startYear := Some(2008)
 
-licenses += ("Two-clause BSD-style license", url("http://github.com/szeiger/scala-query/blob/master/LICENSE.txt")) 
+licenses += ("Two-clause BSD-style license", url("http://github.com/typesafehub/slick/blob/master/LICENSE.txt"))
 
 pomExtra :=
   <developers>
@@ -77,10 +72,16 @@ pomExtra :=
       <timezone>+1</timezone>
       <url>http://szeiger.de</url>
     </developer>
+    <developer>
+      <id>cvogt</id>
+      <name>Jan Christopher Vogt</name>
+      <timezone>+1</timezone>
+      <url>https://github.com/cvogt/</url>
+    </developer>
   </developers>
   <scm>
-    <url>git@github.com:szeiger/scala-query.git</url>
-    <connection>scm:git:git@github.com:szeiger/scala-query.git</connection>
+    <url>git@github.com:typesafehub/slick.git</url>
+    <connection>scm:git:git@github.com:typesafehub/slick.git</connection>
   </scm>
 
 // Work around scaladoc problem
