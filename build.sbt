@@ -32,7 +32,7 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",
   //"com.novocode" % "junit-interface" % "0.8" % "test",
-  "com.novocode" % "junit-interface" % "0.9-RC1" % "test",
+  "com.novocode" % "junit-interface" % "0.9-RC2" % "test",
   "org.slf4j" % "slf4j-api" % "1.6.4",
   "ch.qos.logback" % "logback-classic" % "0.9.28" % "test"
 )}
@@ -41,6 +41,9 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
 libraryDependencies <+= scalaVersion(
   "org.scala-lang" % "scala-compiler" % _
 )
+
+// Fork for the test run to avoid classloader problems with reification
+fork in Test := true
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")
 
