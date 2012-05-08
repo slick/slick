@@ -38,7 +38,7 @@ import scala.slick.util.ValueLinearizer
 trait AccessDriver extends ExtendedDriver { driver =>
 
   override val Implicit: Implicits = new Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): BasicQueryInvoker[T, U] = new AccessQueryInvoker(q, driver)
+    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[T, U] = new QueryInvoker(q)
   }
 
   val retryCount = 10
@@ -256,13 +256,13 @@ trait AccessDriver extends ExtendedDriver { driver =>
     override val nullTypeMapperDelegate = new NullTypeMapperDelegate with Retry[Null]
     override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate with Retry[UUID]
   }
+
+  class QueryInvoker[Q, R](q: Query[Q, _ <: R]) extends super.QueryInvoker[Q, R](q) {
+    /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
+    override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
+    /* Access goes forward instead of backward after deleting the current row in a mutable result set */
+    override protected val previousAfterDelete = true
+  }
 }
 
 object AccessDriver extends AccessDriver
-
-class AccessQueryInvoker[Q, R](q: Query[Q, _ <: R], profile: BasicProfile) extends BasicQueryInvoker[Q, R](q, profile) {
-  /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
-  override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
-  /* Access goes forward instead of backward after deleting the current row in a mutable result set */
-  override protected val previousAfterDelete = true
-}
