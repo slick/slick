@@ -1,5 +1,6 @@
 package scala.slick.jdbc
 
+import scala.language.higherKinds
 import scala.collection.immutable.Map
 import scala.collection.generic.CanBuildFrom
 import scala.slick.session.Session

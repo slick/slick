@@ -14,7 +14,7 @@ class ExecutorTest(val tdb: TestDB) extends DBTest {
 
   @Test def test() {
 
-    val T = new Table[Int]("t") {
+    object T extends Table[Int]("t") {
       def a = column[Int]("a")
       def * = a
     }

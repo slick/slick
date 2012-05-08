@@ -1,5 +1,6 @@
 package scala.slick.driver
 
+import scala.language.implicitConversions
 import scala.slick.ast.{Optimizer, NodeGenerator, Node, Relational}
 import scala.slick.ql._
 import slick.util.ValueLinearizer

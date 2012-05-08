@@ -1,5 +1,6 @@
 package scala.slick.jdbc
 
+import scala.language.implicitConversions
 import java.sql.PreparedStatement
 import scala.slick.session.{PositionedParameters, PositionedResult}
 import collection.mutable.ArrayBuffer

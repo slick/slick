@@ -1,5 +1,6 @@
 package scala.slick.test.ql
 
+import scala.language.reflectiveCalls
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.driver.H2Driver.Implicit._

@@ -1,5 +1,6 @@
 package scala.slick.driver
 
+import scala.language.existentials
 import scala.slick.SLICKException
 import scala.slick.ast._
 import scala.slick.util._

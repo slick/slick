@@ -18,7 +18,7 @@ object MBestRowIdentifierColumn {
   def getBestRowIdentifier(table: MQName, scope: Scope, nullable: Boolean = false) =
     ResultSetInvoker[MBestRowIdentifierColumn](
       _.metaData.getBestRowIdentifier(table.catalog_?, table.schema_?, table.name, scope.value, nullable)) { r =>
-      MBestRowIdentifierColumn(Scope(r<<), r<<, r<<, r<<, r<<, r.skip<<, r.nextShort match {
+      MBestRowIdentifierColumn(Scope(r.<<), r.<<, r.<<, r.<<, r.<<, r.skip.<<, r.nextShort match {
           case DatabaseMetaData.bestRowNotPseudo => Some(false)
           case DatabaseMetaData.bestRowPseudo => Some(true)
           case _ => None

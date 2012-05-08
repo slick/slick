@@ -15,7 +15,7 @@ class IterateeTest(val tdb: TestDB) extends DBTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  val A = new Table[(String, Int)]("a") {
+  object A extends Table[(String, Int)]("a") {
     def s = column[String]("s", O.PrimaryKey)
     def i = column[Int]("i")
     def * = s ~ i

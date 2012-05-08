@@ -17,15 +17,15 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
   @Test def test1(): Unit = db withSession {
 
     object Categories extends Table[(Int, String)]("categories") {
-      def id = column[Int]("id", O PrimaryKey)
+      def id = column[Int]("id", O.PrimaryKey)
       def name = column[String]("name")
       def * = id ~ name
     }
 
-    val Posts = new Table[(Int, String, Int)]("posts") {
-      def id = column[Int]("id", O PrimaryKey, O AutoInc)
+    object Posts extends Table[(Int, String, Int)]("posts") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
-      def category = column[Int]("category", O Nullable)
+      def category = column[Int]("category", O.Nullable)
       def * = id ~ title ~ category
       def categoryFK = foreignKey("category_fk", category, Categories)(_.id)
       def categoryJoin = Categories.where(_.id === category)
@@ -34,7 +34,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
     tdb.assertNotTablesExist("categories", "posts")
     val ddl = Posts.ddl ++ Categories.ddl
     ddl.createStatements foreach println
-    ddl create;
+    ddl.create
     tdb.assertTablesExist("categories", "posts")
 
     Categories insertAll (
@@ -73,7 +73,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
 
     val ddl2 = Categories.ddl ++ Posts.ddl
     ddl2.dropStatements foreach println
-    ddl2 drop;
+    ddl2.drop
     tdb.assertNotTablesExist("categories", "posts")
   }
 
@@ -100,7 +100,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
 
     val ddl = A.ddl ++ B.ddl
     ddl.createStatements foreach println
-    ddl create;
+    ddl.create
 
     B insertAll (
       (1, 2, "b12"),

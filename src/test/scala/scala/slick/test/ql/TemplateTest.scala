@@ -15,14 +15,14 @@ class TemplateTest(val tdb: TestDB) extends DBTest {
   import tdb.profile.Implicit._
 
   object Users extends Table[(Int, String)]("users") {
-    def id = column[Int]("id", O PrimaryKey, O AutoInc)
+    def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first")
     def * = id ~ first
   }
 
   object Orders extends Table[(Int, Int, String)]("orders") {
     def userID = column[Int]("userID")
-    def orderID = column[Int]("orderID", O PrimaryKey, O AutoInc)
+    def orderID = column[Int]("orderID", O.PrimaryKey, O.AutoInc)
     def product = column[String]("product")
     def * = userID ~ orderID ~ product
   }
@@ -31,7 +31,7 @@ class TemplateTest(val tdb: TestDB) extends DBTest {
     db withSession {
 
       (Users.ddl ++ Orders.ddl).createStatements foreach println
-      (Users.ddl ++ Orders.ddl) create
+      (Users.ddl ++ Orders.ddl).create
 
       Users.first.insertAll("Homer", "Marge", "Apu", "Carl", "Lenny")
       for(uid <- Users.map(_.id))

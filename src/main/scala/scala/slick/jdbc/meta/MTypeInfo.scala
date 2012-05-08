@@ -18,10 +18,10 @@ case class MTypeInfo(
 
 object MTypeInfo {
   def getTypeInfo = ResultSetInvoker[MTypeInfo](_.metaData.getTypeInfo()) { r =>
-      MTypeInfo(r<<, r<<, r<<, r<<, r<<, r<<, r.nextInt match {
+      MTypeInfo(r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextInt match {
           case DatabaseMetaData.columnNoNulls => Some(false)
           case DatabaseMetaData.columnNullable => Some(true)
           case _ => None
-        }, r<<, r<<, r<<, r<<, r<<, r<<, r<<, r<<, r<<)
+        }, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<)
   }
 }

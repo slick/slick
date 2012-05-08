@@ -1,5 +1,6 @@
 package scala.slick.test.ql
 
+import scala.language.postfixOps
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._

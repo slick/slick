@@ -19,7 +19,7 @@ resolvers += Resolver.sonatypeRepo("snapshots")
 
 //autoScalaLibrary := false
 
-scalacOptions ++= List("-deprecation")
+scalacOptions ++= List("-deprecation", "-feature")
 
 libraryDependencies <++= (useJDBC4) { u => Seq(
   "com.h2database" % "h2" % "1.3.166" % "test",

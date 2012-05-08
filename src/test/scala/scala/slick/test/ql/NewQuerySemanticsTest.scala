@@ -17,7 +17,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends DBTest {
 
   @Test def test(): Unit = db withSession {
 
-    val SuppliersStd = new Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
+    object SuppliersStd extends Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
       def name = column[String]("SUP_NAME")
       def street = column[String]("STREET")
@@ -27,7 +27,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends DBTest {
       def * = id ~ name ~ street ~ city ~ state ~ zip
     }
 
-    val CoffeesStd = new Table[(String, Int, Double, Int, Int)]("COFFEES") {
+    object CoffeesStd extends Table[(String, Int, Double, Int, Int)]("COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
       def supID = column[Int]("SUP_ID")
       def price = column[Double]("PRICE")
@@ -37,7 +37,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends DBTest {
       def supplier = foreignKey("SUP_FK", supID, SuppliersStd)(_.id)
     }
 
-    val Suppliers = new Table[(Int, String, String)]("SUPPLIERS") {
+    object Suppliers extends Table[(Int, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
       def name = column[String]("SUP_NAME")
       def street = column[String]("STREET")
@@ -48,7 +48,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends DBTest {
       def forInsert = id ~ name ~ street ~ city ~ state ~ zip
     }
 
-    val Coffees = new Table[(String, Int, Double, Int, Int)]("COFFEES") {
+    object Coffees extends Table[(String, Int, Double, Int, Int)]("COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
       def supID = column[Int]("SUP_ID")
       def price = column[Double]("PRICE")

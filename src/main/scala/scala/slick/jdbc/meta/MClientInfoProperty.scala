@@ -15,11 +15,11 @@ object MClientInfoProperty {
   def getClientInfoProperties: UnitInvoker[MClientInfoProperty] = {
     /* Regular version, requires Java 1.6: 
     ResultSetInvoker[MClientInfoProperty](_.metaData.getClientInfoProperties()) { r =>
-      MClientInfoProperty(r<<, r<<, r<<, r<<)
+      MClientInfoProperty(r.<<, r.<<, r.<<, r.<<)
     }*/
     if(m == null) UnitInvoker.empty
     else ResultSetInvoker[MClientInfoProperty](s => DatabaseMeta.invokeForRS(m, s.metaData)) { r =>
-      MClientInfoProperty(r<<, r<<, r<<, r<<)
+      MClientInfoProperty(r.<<, r.<<, r.<<, r.<<)
     }
   }
 }

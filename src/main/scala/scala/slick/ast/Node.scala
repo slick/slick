@@ -71,7 +71,7 @@ trait Node extends NodeGenerator {
     case p: Product =>
       val n = getClass.getName.replaceFirst(".*\\.", "").replaceFirst(".*\\$", "")
       val args = p.productIterator.filterNot(_.isInstanceOf[Node]).mkString(", ")
-      if(args isEmpty) n else (n + ' ' + args)
+      if(args.isEmpty) n else (n + ' ' + args)
     case _ => super.toString
   }
 }
@@ -219,7 +219,7 @@ abstract class FilteredQuery extends Node with DefNode {
     case p: Product =>
       val n = getClass.getName.replaceFirst(".*\\.", "").replaceFirst(".*\\$", "")
       val args = p.productIterator.filterNot(n => n.isInstanceOf[Node] || n.isInstanceOf[Symbol]).mkString(", ")
-      if(args isEmpty) n else (n + ' ' + args)
+      if(args.isEmpty) n else (n + ' ' + args)
     case _ => super.toString
   }
 }

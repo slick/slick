@@ -18,7 +18,7 @@ class MetaTest(val tdb: TestDB) extends DBTest {
   import tdb.profile.Implicit._
 
   object Users extends Table[(Int, String, Option[String])]("users") {
-    def id = column[Int]("id", O PrimaryKey)
+    def id = column[Int]("id", O.PrimaryKey)
     def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = id ~ first ~ last
@@ -26,7 +26,7 @@ class MetaTest(val tdb: TestDB) extends DBTest {
 
   object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
     def userID = column[Int]("userID")
-    def orderID = column[Int]("orderID", O PrimaryKey)
+    def orderID = column[Int]("orderID", O.PrimaryKey)
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped", O Default false)
     def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
@@ -102,10 +102,10 @@ class MetaTest(val tdb: TestDB) extends DBTest {
       for(t <- tdb.getLocalTables.sorted) {
         val st = "drop table " + tdb.driver.quoteIdentifier(t)
         println("Executing statement: "+st)
-        Q.u + st execute
+        (Q.u + st).execute
       }
       assertTrue("Tables after deleting",
-        Set("orders", "users") intersect MTable.getTables(None, None, None, None).list.map(_.name.name).toSet isEmpty)
+        (Set("orders", "users") intersect MTable.getTables(None, None, None, None).list.map(_.name.name).toSet).isEmpty)
     }
   }
 }

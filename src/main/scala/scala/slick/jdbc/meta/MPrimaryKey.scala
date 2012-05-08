@@ -10,7 +10,7 @@ case class MPrimaryKey(table: MQName, column: String, keySeq: Short, pkName: Opt
 object MPrimaryKey {
   def getPrimaryKeys(table: MQName): UnitInvoker[MPrimaryKey] = ResultSetInvoker[MPrimaryKey](
       _.metaData.getPrimaryKeys(table.catalog_?, table.schema_?, table.name) ) { r =>
-      MPrimaryKey(MQName.from(r), r<<, r<<, r<<)
+      MPrimaryKey(MQName.from(r), r.<<, r.<<, r.<<)
   }
   def getPrimaryKeys(table: String): UnitInvoker[MPrimaryKey] = getPrimaryKeys(MQName.local(table))
 }

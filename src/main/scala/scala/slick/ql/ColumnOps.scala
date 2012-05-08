@@ -174,6 +174,6 @@ object ColumnOps {
       case '%' | '_' | '^' => b append '^' append c
       case _ => b append c
     }
-    b toString
+    b.toString
   }
 }

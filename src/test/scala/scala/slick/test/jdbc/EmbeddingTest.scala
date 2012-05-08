@@ -13,25 +13,25 @@ class EmbeddingTest(val tdb: TestDB) extends DBTest {
   @Test def testRaw(): Unit = db withSession {
     import scala.slick.jdbc.{StaticQuery => Q, GetResult}
 
-    Q.u + "create table USERS(ID int not null primary key, NAME varchar(255))" execute;
-    Q.u + "create table POSTS(ID int not null primary key, NAME varchar(255), UID int not null)" execute;
+    (Q.u + "create table USERS(ID int not null primary key, NAME varchar(255))").execute
+    (Q.u + "create table POSTS(ID int not null primary key, NAME varchar(255), UID int not null)").execute
     List(
       (1, "u1"),
       (2, "u2"),
       (3, "u3")
-    ).foreach(Q.u1[(Int, String)] + "insert into USERS values (?, ?)" execute)
+    ).foreach((Q.u1[(Int, String)] + "insert into USERS values (?, ?)").execute)
     List(
       (1, "p1u1", 1),
       (2, "p2u1", 1),
       (3, "p3u1", 1),
       (4, "p4u2", 2)
-    ).foreach(Q.u1[(Int, String, Int)] + "insert into POSTS values (?, ?, ?)" execute)
+    ).foreach((Q.u1[(Int, String, Int)] + "insert into POSTS values (?, ?, ?)").execute)
 
-    val l1 = Q(GetResult { r => (r.nextString, r.nextString) }) + """
+    val l1 = (Q(GetResult { r => (r.nextString, r.nextString) }) + """
       select u.NAME, p.NAME
       from USERS u left join POSTS p on u.ID = p.UID
       order by u.NAME, p.NAME
-    """ list;
+    """).list
     l1 foreach println
     assertEquals(List(
       ("u1", "p1u1"),
@@ -41,13 +41,13 @@ class EmbeddingTest(val tdb: TestDB) extends DBTest {
       ("u3", null)
     ), l1)
 
-    val l2 = Q(GetResult { r => (r.nextString, r.view1.to[List](GetResult(_.nextString))) }) + """
+    val l2 = (Q(GetResult { r => (r.nextString, r.view1.to[List](GetResult(_.nextString))) }) + """
       select u.NAME, (u.r0 + p.r0), p.NAME
       from (select *, rownum as r0 from USERS order by NAME) u
         left join (select *, 0 as r0 from POSTS order by NAME) p
         on u.ID = p.UID
       order by u.r0
-    """ list;
+    """).list
     l2 foreach println
     assertEquals(List(
       ("u1", List("p1u1", "p2u1", "p3u1")),

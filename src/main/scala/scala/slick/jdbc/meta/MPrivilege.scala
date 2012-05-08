@@ -9,7 +9,7 @@ import scala.slick.session._
 case class MPrivilege(grantor: Option[String], grantee: String, privilege: String, grantable: Option[Boolean])
 
 object MPrivilege {
-  private[meta] def from(r: PositionedResult) = MPrivilege(r<<, r<<, r<<, DatabaseMeta.yesNoOpt(r))
+  private[meta] def from(r: PositionedResult) = MPrivilege(r.<<, r.<<, r.<<, DatabaseMeta.yesNoOpt(r))
 }
 
 /**
@@ -32,6 +32,6 @@ case class MColumnPrivilege(table: MQName, column: String, privilege: MPrivilege
 object MColumnPrivilege {
   def getColumnPrivileges(tablePattern: MQName, columnPattern: String) = ResultSetInvoker[MColumnPrivilege](
       _.metaData.getColumnPrivileges(tablePattern.catalog_?, tablePattern.schema_?, tablePattern.name, columnPattern)) { r =>
-      MColumnPrivilege(MQName.from(r), r<<, MPrivilege.from(r))
+      MColumnPrivilege(MQName.from(r), r.<<, MPrivilege.from(r))
   }
 }

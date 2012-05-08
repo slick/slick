@@ -21,7 +21,7 @@ class UUIDTest(val tdb: TestDB) extends DBTest {
   }
 
   object T2 extends Table[(Int, UUID)]("test2") {
-    def id = column[Int]("id", O PrimaryKey)
+    def id = column[Int]("id", O.PrimaryKey)
     def data = column[UUID]("data")
     def * = id ~ data
   }
@@ -33,7 +33,7 @@ class UUIDTest(val tdb: TestDB) extends DBTest {
   val u5 = java.util.UUID.randomUUID()
 
   @Test def test() = db withSession {
-    (T1.ddl ++ T2.ddl).create;
+    (T1.ddl ++ T2.ddl).create
 
     T2.insert (1, u3)
     T2.insert (2, u4)

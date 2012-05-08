@@ -65,7 +65,7 @@ abstract class TestDB(val confName: String) {
   }
   def assertTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
-      try Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0" list catch { case _: Exception =>
+      try ((Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").list) catch { case _: Exception =>
         Assert.fail("Table "+t+" should exist")
       }
     }
@@ -73,14 +73,14 @@ abstract class TestDB(val confName: String) {
   def assertNotTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
       try {
-        Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0" list;
+        (Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").list
         Assert.fail("Table "+t+" should not exist")
       } catch { case _: Exception => }
     }
   }
   def assertUnquotedTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
-      try Q[Int]+"select 1 from "+t+" where 1 < 0" list catch { case _: Exception =>
+      try ((Q[Int]+"select 1 from "+t+" where 1 < 0").list) catch { case _: Exception =>
         Assert.fail("Table "+t+" should exist")
       }
     }
@@ -88,7 +88,7 @@ abstract class TestDB(val confName: String) {
   def assertNotUnquotedTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
       try {
-        Q[Int]+"select 1 from "+t+" where 1 < 0" list;
+        (Q[Int]+"select 1 from "+t+" where 1 < 0").list
         Assert.fail("Table "+t+" should not exist")
       } catch { case _: Exception => }
     }
@@ -142,8 +142,8 @@ class ExternalTestDB(confName: String, val driver: ExtendedDriver) extends TestD
     if(drop.length > 0 || create.length > 0) {
       println("[Creating test database "+this+"]")
       Database.forURL(adminDBURL, driver = jdbcDriver, user = configuredUserName, password = password) withSession { implicit s: Session =>
-        Q.u + drop execute;
-        Q.u + create execute
+        (Q.u + drop).execute
+        (Q.u + create).execute
       }
     }
   }
@@ -152,7 +152,7 @@ class ExternalTestDB(confName: String, val driver: ExtendedDriver) extends TestD
     if(drop.length > 0) {
       println("[Dropping test database "+this+"]")
       Database.forURL(adminDBURL, driver = jdbcDriver, user = configuredUserName, password = password) withSession { implicit s: Session =>
-        Q.u + drop execute
+        (Q.u + drop).execute
       }
     }
   }

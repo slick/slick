@@ -20,10 +20,10 @@ case class MColumn(
 object MColumn {
   def getColumns(tablePattern: MQName, columnPattern: String) = ResultSetInvoker[MColumn](
       _.metaData.getColumns(tablePattern.catalog_?, tablePattern.schema_?, tablePattern.name, columnPattern)) { r =>
-      MColumn(MQName.from(r), r<<, r<<, r<<, r<<, r.skip<<, r<<, r.nextInt match {
+      MColumn(MQName.from(r), r.<<, r.<<, r.<<, r.<<, r.skip.<<, r.<<, r.nextInt match {
           case DatabaseMetaData.columnNoNulls => Some(false)
           case DatabaseMetaData.columnNullable => Some(true)
           case _ => None
-        }, r<<, r<<, r.skip.skip<<, r<<, DatabaseMeta.yesNoOpt(r), MQName.optionalFrom(r), r<<, DatabaseMeta.yesNoOpt(r))
+        }, r.<<, r.<<, r.skip.skip.<<, r.<<, DatabaseMeta.yesNoOpt(r), MQName.optionalFrom(r), r.<<, DatabaseMeta.yesNoOpt(r))
   }
 }

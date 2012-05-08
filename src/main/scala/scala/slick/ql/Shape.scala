@@ -1,5 +1,6 @@
 package scala.slick.ql
 
+import scala.language.existentials
 import scala.annotation.implicitNotFound
 import scala.slick.SLICKException
 import scala.slick.util.{ProductLinearizer, ValueLinearizer, NaturalTransformation2, RecordLinearizer}

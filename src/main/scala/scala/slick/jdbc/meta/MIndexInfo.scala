@@ -13,10 +13,10 @@ case class MIndexInfo(table: MQName, nonUnique: Boolean, indexQualifier: Option[
 object MIndexInfo {
   def getIndexInfo(table: MQName, unique: Boolean = false, approximate: Boolean = false) = ResultSetInvoker[MIndexInfo](
       _.metaData.getIndexInfo(table.catalog_?, table.schema_?, table.name, unique, approximate)) { r =>
-      MIndexInfo(MQName.from(r), r<<, r<<, r<<, r<<, r<<, r<<, r.nextStringOption match {
+      MIndexInfo(MQName.from(r), r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextStringOption match {
           case Some("A") => Some(true)
           case Some("D") => Some(false)
           case _ => None
-        }, r<<, r<<, r<<)
+        }, r.<<, r.<<, r.<<)
   }
 }

@@ -26,7 +26,7 @@ class PrimaryKeyTest(val tdb: TestDB) extends DBTest {
     assertEquals(Set("pk_a"), A.primaryKeys.map(_.name).toSet)
 
     A.ddl.createStatements foreach println
-    A.ddl create;
+    A.ddl.create
 
     A insertAll (
       (1, 1, "a11"),

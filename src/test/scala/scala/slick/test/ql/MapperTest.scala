@@ -18,7 +18,7 @@ class MapperTest(val tdb: TestDB) extends DBTest {
     case class User(id: Option[Int], first: String, last: String)
 
     object Users extends Table[User]("users") {
-      def id = column[Int]("id", O PrimaryKey, O AutoInc)
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
       def * = id.? ~ first ~ last <> (User, User.unapply _)
@@ -94,7 +94,7 @@ class MapperTest(val tdb: TestDB) extends DBTest {
       i => if(i == 1) True else False)
 
     object T extends Table[(Int, Bool)]("t") {
-      def id = column[Int]("id", O PrimaryKey, O AutoInc)
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def * = id ~ b
     }

@@ -19,7 +19,7 @@ class InvokerTest(val tdb: TestDB) extends DBTest {
   @Test def testCollections() {
     import scala.slick.session.Database.threadLocalSession
 
-    val T = new Table[Int]("t") {
+    object T extends Table[Int]("t") {
       def a = column[Int]("a")
       def * = a
     }
@@ -83,7 +83,7 @@ class InvokerTest(val tdb: TestDB) extends DBTest {
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   @Test def testLazy() {
 
-    val T = new Table[Int]("t") {
+    object T extends Table[Int]("t") {
       def a = column[Int]("a")
       def * = a
     }

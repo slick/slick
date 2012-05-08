@@ -13,7 +13,7 @@ case class MQName(catalog: Option[String], schema: Option[String], name: String)
 }
 
 object MQName {
-  private[meta] def from(r: PositionedResult) = MQName(r<<, r<<, r<<)
+  private[meta] def from(r: PositionedResult) = MQName(r.<<, r.<<, r.<<)
 
   private[meta] def optionalFrom(r: PositionedResult) = {
     val cat = r.nextStringOption

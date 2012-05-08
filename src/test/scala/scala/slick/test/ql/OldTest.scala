@@ -46,7 +46,7 @@ class OldTest(val tdb: TestDB) extends DBTest {
     val q2 = for {
       u <- Users.sortBy(u => (u.first, u.last.desc))
       o <- Orders where {
-        o => (u.id is o.userID) && (u.first isNotNull)
+        o => (u.id is o.userID) && (u.first.isNotNull)
       }
     } yield u.first ~ u.last ~ o.orderID
 

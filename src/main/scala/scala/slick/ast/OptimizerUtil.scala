@@ -1,5 +1,6 @@
 package scala.slick.ast
 
+import scala.language.implicitConversions
 import collection.TraversableLike
 import collection.generic.CanBuildFrom
 import collection.mutable.ArrayBuffer
@@ -118,18 +119,18 @@ class NodeOps(val tree: Node) extends AnyVal {
     b
   }
 
-  def collectNodeGenerators = collectAll[(Symbol, Node)] {
+  def collectNodeGenerators = collectAll[(Symbol, Node)]{
     case d: DefNode => d.nodeGenerators
-  } toMap
+  }.toMap
 
   def generatorsReplacer = {
     val gens = collectNodeGenerators.map(_._1).toSet
     memoized[Symbol, Symbol](_ => { case s => if(gens contains s) new AnonSymbol else s })
   }
 
-  def collectInRefTargets(In: Symbol) = collect[Node] {
+  def collectInRefTargets(In: Symbol) = collect[Node]{
     case InRef(In, value) => value
-  } toSet
+  }.toSet
 
   def unwrap(wrappers: Set[Symbol]): Node = replace {
     case InRef(sym, what) if wrappers contains sym => what

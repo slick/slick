@@ -1,5 +1,6 @@
 package scala.slick.ql
 
+import scala.language.existentials
 import scala.slick.SLICKException
 import scala.slick.driver.BasicProfile
 import scala.slick.session.{PositionedResult, PositionedParameters}

@@ -34,7 +34,7 @@ class UnionTest(val tdb: TestDB) extends DBTest {
   @Test def test() {
     db withSession {
 
-      (Managers.ddl ++ Employees.ddl) create
+      (Managers.ddl ++ Employees.ddl).create
 
       Managers.insertAll(
         (1, "Peter", "HR"),
@@ -58,7 +58,7 @@ class UnionTest(val tdb: TestDB) extends DBTest {
       println("Employees in IT: " + q2.selectStatement)
       q2.foreach(o => println("  "+o))
 
-      val q3 = for(x @ (id, name) <- q1 union q2; _ <- Query.orderBy(name asc)) yield x
+      val q3 = for(x @ (id, name) <- q1 union q2; _ <- Query.orderBy(name.asc)) yield x
       q3.dump("q3: ")
       println()
       println("Combined and sorted: " + q3.selectStatement)
@@ -70,7 +70,7 @@ class UnionTest(val tdb: TestDB) extends DBTest {
 
   @Test def testUnionWithoutProjection() = db withSession {
 
-    Managers.ddl create;
+    Managers.ddl.create
     Managers.insertAll(
       (1, "Peter", "HR"),
       (2, "Amy", "IT"),

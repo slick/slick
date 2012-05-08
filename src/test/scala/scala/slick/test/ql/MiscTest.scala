@@ -55,7 +55,7 @@ class MiscTest(val tdb: TestDB) extends DBTest {
     }
 
     object T2 extends Table[String]("t2") {
-      def a = column[String]("a", O Nullable)
+      def a = column[String]("a", O.Nullable)
       def * = a
     }
 
@@ -65,12 +65,12 @@ class MiscTest(val tdb: TestDB) extends DBTest {
     }
 
     object T4 extends Table[Option[String]]("t4") {
-      def a = column[Option[String]]("a", O NotNull)
+      def a = column[Option[String]]("a", O.NotNull)
       def * = a
     }
 
     db withSession {
-      (T1.ddl ++ T2.ddl ++ T3.ddl ++ T4.ddl) create
+      (T1.ddl ++ T2.ddl ++ T3.ddl ++ T4.ddl).create
 
       T1.insert("a")
       T2.insert("a")

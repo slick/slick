@@ -8,7 +8,7 @@ trait BasicSQLUtilsComponent {
   def quoteIdentifier(id: String): String = {
     val s = new StringBuilder(id.length + 4) append '"'
     for(c <- id) if(c == '"') s append "\"\"" else s append c
-    s append '"' toString
+    (s append '"').toString
   }
 
   def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {

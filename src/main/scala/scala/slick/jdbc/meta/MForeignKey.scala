@@ -28,7 +28,7 @@ object MForeignKey {
       foreignTable.catalog_?, foreignTable.schema_?, foreignTable.name))
 
   private[this] def createInvoker(f: Session => ResultSet) = ResultSetInvoker[MForeignKey](f) { r =>
-    MForeignKey(MQName.from(r), r<<, MQName.from(r), r<<, r<<, fkActionFor(r<<), fkActionFor(r<<), r<<, r<<, r<<)
+    MForeignKey(MQName.from(r), r.<<, MQName.from(r), r.<<, r.<<, fkActionFor(r.<<), fkActionFor(r.<<), r.<<, r.<<, r.<<)
   }
 
   private[this] def fkActionFor(v: Short) = v match {

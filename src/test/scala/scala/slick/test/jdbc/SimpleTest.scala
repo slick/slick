@@ -12,7 +12,7 @@ object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Pos
 
 class SimpleTest(val tdb: TestDB) extends DBTest {
 
-  implicit val getUserResult = GetResult(r => new User(r<<, r<<))
+  implicit val getUserResult = GetResult(r => new User(r.<<, r.<<))
 
   case class User(id:Int, name:String)
 

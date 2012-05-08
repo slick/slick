@@ -1,5 +1,7 @@
 package scala.slick.util
 
+import scala.language.higherKinds
+
 /**
  * Natural Transformations.
  */

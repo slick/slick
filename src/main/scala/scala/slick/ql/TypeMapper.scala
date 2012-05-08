@@ -155,8 +155,8 @@ trait TypeMapperDelegate[T] { self =>
    * Update a column of the type in a mutable result set.
    */
   def updateValue(v: T, r: PositionedResult): Unit
-  def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs wasNull) d else v }
-  def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs wasNull) None else Some(v) }
+  def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs.wasNull) d else v }
+  def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs.wasNull) None else Some(v) }
   def updateOption(v: Option[T], r: PositionedResult): Unit = v match {
     case Some(s) => updateValue(s, r)
     case None => r.updateNull()

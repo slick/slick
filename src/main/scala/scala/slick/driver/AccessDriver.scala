@@ -1,5 +1,6 @@
 package scala.slick.driver
 
+import scala.language.implicitConversions
 import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.SLICKException

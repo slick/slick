@@ -1,5 +1,6 @@
 package scala.slick.ql
 
+import scala.language.implicitConversions
 import scala.slick.ast.{Ordering, Node}
 
 class Ordered(val columns: Seq[(Node, Ordering)])

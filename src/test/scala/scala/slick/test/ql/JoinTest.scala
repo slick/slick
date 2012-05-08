@@ -21,7 +21,7 @@ class JoinTest(val tdb: TestDB) extends DBTest {
   }
 
   object Posts extends Table[(Int, String, Int)]("posts") {
-    def id = column[Int]("id", O PrimaryKey, O AutoInc)
+    def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def title = column[String]("title")
     def category = column[Int]("category")
     def * = id ~ title ~ category
@@ -30,7 +30,7 @@ class JoinTest(val tdb: TestDB) extends DBTest {
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   @Test def test(): Unit = db withSession {
 
-    (Categories.ddl ++ Posts.ddl) create
+    (Categories.ddl ++ Posts.ddl).create
 
     Categories insertAll (
       (1, "Scala"),
