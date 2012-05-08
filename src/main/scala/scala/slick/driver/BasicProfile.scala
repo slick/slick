@@ -4,7 +4,7 @@ import scala.slick.ast.{Optimizer, NodeGenerator, Node, Relational}
 import scala.slick.ql._
 import slick.util.ValueLinearizer
 
-trait BasicProfile { driver: BasicDriver =>
+trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
 
   def createQueryTemplate[P,R](query: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](query, this)
   def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
@@ -24,7 +24,7 @@ trait BasicProfile { driver: BasicDriver =>
   def buildInsertStatement(cb: Any, q: Query[_, _]): QueryBuilderResult =
     new InsertBuilder(cb).buildInsert(q)
 
-  def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDLBuilder(table).buildDDL
+  def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
   def buildSequenceDDL(seq: Sequence[_]): DDL = new SequenceDDLBuilder(seq).buildDDL
 
   def processAST(g: NodeGenerator): Node = Relational(Optimizer(Node(g)))
@@ -40,7 +40,7 @@ trait BasicProfile { driver: BasicDriver =>
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, TableNothing, T](t)(Shape.tableShape)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): BasicQueryInvoker[T, U] = new BasicQueryInvoker(q, driver)
-    implicit def queryToDeleteInvoker(q: Query[_ <: AbstractBasicTable[_], _]): BasicDeleteInvoker = new BasicDeleteInvoker(q, driver)
+    implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): BasicDeleteInvoker = new BasicDeleteInvoker(q, driver)
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new BasicInsertInvoker(ShapedValue.createShapedValue(c), driver)
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = new BasicInsertInvoker(u, driver)
 
@@ -53,7 +53,7 @@ trait BasicProfile { driver: BasicDriver =>
     // We should really constrain the 2nd type parameter of Query but that won't
     // work for queries on implicitly lifted tables. This conversion is needed
     // for mapped tables.
-    implicit def tableQueryToUpdateInvoker[T](q: Query[_ <: AbstractBasicTable[T], _]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q.asInstanceOf[Query[AbstractBasicTable[T], T]], driver)
+    implicit def tableQueryToUpdateInvoker[T](q: Query[_ <: Table[T], _]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q.asInstanceOf[Query[Table[T], T]], driver)
 
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T](q: Query[_ <: ColumnBase[T], T]): BasicUpdateInvoker[T] = new BasicUpdateInvoker(q, driver)

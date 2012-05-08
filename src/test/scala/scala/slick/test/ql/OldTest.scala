@@ -2,15 +2,14 @@ package scala.slick.test.ql
 
 import org.junit.Test
 import scala.slick.ql._
-import scala.slick.ql.TypeMapper._
-import scala.slick.driver.{ExtendedTable => Table}
 import scala.slick.testutil.TestDB._
 import scala.slick.testutil.{DBTest, TestDB, DBTestObject}
 
 object OldTest extends DBTestObject(H2Mem)
 
-class OldTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class OldTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   @deprecated("Testing deprecated methods Query#sub and Query.orderBy", "0.10.0-M2")
   @Test def test() {

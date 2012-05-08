@@ -343,7 +343,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   }
 
   /** Builder for various DDL statements. */
-  class DDLBuilder(val table: AbstractBasicTable[_]) {
+  class DDLBuilder(val table: Table[_]) {
     //TODO: Move AutoInc handling to extended profile
 
     protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
@@ -362,13 +362,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         if(sqlType eq null) sqlType = mapTypeName(tmDelegate)
       }
 
-      protected def handleColumnOption(o: ColumnOption[_,_]): Unit = o match {
-        case BasicColumnOption.DBType(s) => sqlType = s
-        case BasicColumnOption.NotNull => notNull = true
-        case BasicColumnOption.Nullable => notNull = false
-        case ExtendedColumnOption.AutoInc => autoIncrement = true
-        case BasicColumnOption.PrimaryKey => primaryKey = true
-        case BasicColumnOption.Default(v) => defaultLiteral =
+      protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
+        case ColumnOption.DBType(s) => sqlType = s
+        case ColumnOption.NotNull => notNull = true
+        case ColumnOption.Nullable => notNull = false
+        case ColumnOption.AutoInc => autoIncrement = true
+        case ColumnOption.PrimaryKey => primaryKey = true
+        case ColumnOption.Default(v) => defaultLiteral =
           column.asInstanceOf[RawNamedColumn].typeMapper(driver).asInstanceOf[TypeMapperDelegate[Any]].valueToSQLLiteral(v)
       }
 

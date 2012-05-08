@@ -2,7 +2,6 @@ package scala.slick.testutil
 
 import java.util.Properties
 import java.sql.SQLException
-import scala.slick.driver.{ExtendedDriver, H2Driver, SQLiteDriver, PostgresDriver, MySQLDriver, DerbyDriver, HsqldbDriver, AccessDriver, SQLServerDriver}
 import scala.slick.session._
 import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
 import scala.slick.jdbc.GetResult._
@@ -10,6 +9,7 @@ import java.util.zip.GZIPInputStream
 import java.io._
 import org.junit.Assert
 import scala.slick.jdbc.meta.MTable
+import scala.slick.driver._
 
 object TestDBOptions {
   val testDBDir = dbProps.getProperty("testDir", "test-dbs")
@@ -38,6 +38,7 @@ abstract class TestDB(val confName: String) {
   val url: String
   val jdbcDriver: String
   val driver: ExtendedDriver
+  lazy val profile: ExtendedProfile = driver
   def dbName = ""
   def userName = ""
   def createDB() = Database.forURL(url, driver = jdbcDriver)

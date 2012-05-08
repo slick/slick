@@ -22,11 +22,11 @@ import scala.slick.util.ValueLinearizer
  *     both.</li>
  * </ul>
  */
-class SQLiteDriver extends ExtendedDriver { driver =>
+trait SQLiteDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDLBuilder(table).buildDDL
+  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val supportsTuples = false
@@ -81,7 +81,7 @@ class SQLiteDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class DDLBuilder(table: AbstractBasicTable[_]) extends super.DDLBuilder(table) {
+  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
     override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
 
     protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {

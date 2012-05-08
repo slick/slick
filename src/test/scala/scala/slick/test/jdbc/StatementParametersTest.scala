@@ -8,8 +8,8 @@ import scala.slick.testutil.TestDB._
 
 object StatementParametersTest extends DBTestObject(H2Mem)
 
-class StatementParametersTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class StatementParametersTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Implicit._
 
   @Test def testExplicit() {
     println("*** Explicit ***")

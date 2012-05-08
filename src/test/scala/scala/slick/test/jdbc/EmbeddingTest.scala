@@ -8,7 +8,7 @@ import scala.slick.testutil.TestDB._
 
 object EmbeddingTest extends DBTestObject(H2Mem)
 
-class EmbeddingTest(tdb: TestDB) extends DBTest(tdb) {
+class EmbeddingTest(val tdb: TestDB) extends DBTest {
 
   @Test def testRaw(): Unit = db withSession {
     import scala.slick.jdbc.{StaticQuery => Q, GetResult}

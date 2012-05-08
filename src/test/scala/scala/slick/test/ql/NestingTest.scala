@@ -3,8 +3,6 @@ package scala.slick.test.ql
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.ql.TypeMapper._
-import scala.slick.driver.{BasicTable => Table}
 import scala.slick.session._
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
@@ -13,8 +11,9 @@ import scala.slick.testutil.TestDB._
 object NestingTest extends DBTestObject(H2Mem /*, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer*/)
 
 @deprecated("Using deprecated Query.orderBy feature", "0.10")
-class NestingTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class NestingTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   @Test def testNestedTuples() {
 

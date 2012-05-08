@@ -10,7 +10,7 @@ import Q.interpolation
 
 object SimpleTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Postgres, MySQL, DerbyMem, DerbyDisk, HsqldbMem, MSAccess, SQLServer)
 
-class SimpleTest(tdb: TestDB) extends DBTest(tdb) {
+class SimpleTest(val tdb: TestDB) extends DBTest {
 
   implicit val getUserResult = GetResult(r => new User(r<<, r<<))
 

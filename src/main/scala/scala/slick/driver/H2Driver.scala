@@ -4,7 +4,7 @@ import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
 
-class H2Driver extends ExtendedDriver { driver =>
+trait H2Driver extends ExtendedDriver { driver =>
 
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
 

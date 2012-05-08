@@ -4,7 +4,6 @@ import java.io.PrintWriter
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql.TypeMapper._
-import scala.slick.driver.{BasicTable => Table}
 import scala.slick.driver.{H2Driver, PostgresDriver}
 import scala.slick.jdbc.meta._
 import scala.slick.session.Database.threadLocalSession
@@ -14,8 +13,9 @@ import scala.slick.testutil.TestDB._
 
 object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServer)
 
-class MetaTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class MetaTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   object Users extends Table[(Int, String, Option[String])]("users") {
     def id = column[Int]("id", O PrimaryKey)

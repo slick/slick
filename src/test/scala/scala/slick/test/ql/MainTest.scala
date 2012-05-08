@@ -3,16 +3,15 @@ package scala.slick.test.ql
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.ql.TypeMapper._
-import scala.slick.driver.{ExtendedTable => Table}
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
 
 object MainTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
-class MainTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class MainTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   case class User(id: Int, first: String, last: String)
 

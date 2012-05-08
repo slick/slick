@@ -4,7 +4,6 @@ import scala.language.{reflectiveCalls,implicitConversions}
 
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.driver.{ExtendedTable => Table}
 import scala.slick.ql._
 import scala.slick.ql.ColumnOps.{Relational =>Op}
 import scala.slick.ast._
@@ -14,7 +13,7 @@ import scala.slick.testutil.TestDB._
 
 object QueryableTest extends DBTestObject(H2Mem)
 
-class QueryableTest(tdb: TestDB) extends DBTest(tdb) {
+class QueryableTest(val tdb: TestDB) extends DBTest {
 
   @table(name="COFFEES")
   trait CoffeesTable{
@@ -43,7 +42,7 @@ class QueryableTest(tdb: TestDB) extends DBTest(tdb) {
       }
     }
     object TableName{
-      def unapply( t:Table[_] ) = {
+      def unapply( t:TableNode ) = {
         val name = t.tableName
         Some(name)
       }

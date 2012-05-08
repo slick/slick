@@ -1,27 +1,15 @@
 package scala.slick.driver
 
-import scala.slick.ql._
+import scala.slick.ql.ColumnOption
 
-trait ExtendedProfile extends BasicProfile { driver: BasicDriver => }
+trait ExtendedProfile extends BasicProfile with ExtendedTableComponent { driver: ExtendedDriver => }
 
-class ExtendedDriver extends ExtendedProfile with BasicDriver
+trait ExtendedDriver extends ExtendedProfile with BasicDriver
 
-class ExtendedColumnOptions extends BasicColumnOptions {
-  val AutoInc = ExtendedColumnOption.AutoInc
-}
+trait ExtendedTableComponent extends BasicTableComponent { driver: ExtendedDriver =>
+  override val columnOptions: ExtendedColumnOptions = new ExtendedColumnOptions
 
-object ExtendedColumnOptions extends ExtendedColumnOptions
-
-object ExtendedColumnOption {
-  case object AutoInc extends ColumnOption[Nothing, ExtendedProfile]
-}
-
-abstract class AbstractExtendedTable[T](_schemaName: Option[String], _tableName: String) extends AbstractBasicTable[T](_schemaName, _tableName) {
-  type ProfileType <: ExtendedProfile
-  override val O: ExtendedColumnOptions = ExtendedColumnOptions
-}
-
-abstract class ExtendedTable[T](_schemaName: Option[String], _tableName: String) extends AbstractExtendedTable[T](_schemaName, _tableName) {
-  def this(_tableName: String) = this(None, _tableName)
-  type ProfileType = ExtendedProfile
+  class ExtendedColumnOptions extends BasicColumnOptions {
+    val AutoInc = ColumnOption.AutoInc
+  }
 }

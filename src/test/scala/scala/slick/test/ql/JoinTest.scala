@@ -3,16 +3,16 @@ package scala.slick.test.ql
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.ql.TypeMapper._
-import scala.slick.driver.{ExtendedTable => Table, SQLiteDriver}
+import scala.slick.driver.SQLiteDriver
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
 
 object JoinTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLiteMem, MSAccess, SQLServer)
 
-class JoinTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class JoinTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   object Categories extends Table[(Int, String)]("categories") {
     def id = column[Int]("id")

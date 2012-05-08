@@ -4,7 +4,6 @@ import scala.collection.mutable.ArrayBuffer
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.driver.{ExtendedTable => Table}
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
 import scala.slick.util.CloseableIterator
@@ -12,8 +11,9 @@ import scala.slick.session.Session
 
 object InvokerTest extends DBTestObject(H2Mem)
 
-class InvokerTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class InvokerTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   @Test def testCollections() {

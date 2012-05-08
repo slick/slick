@@ -97,15 +97,24 @@ sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] 
 /**
  * A column which is part of a Table.
  */
-final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[T, _]])
+final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[_]])
   extends Column[T] {
   def raw = RawNamedColumn(name)(options, implicitly[TypeMapper[T]])
   override def nodeDelegate = new Wrapped(table, raw)
 }
 
-final case class RawNamedColumn(name: String)(val options: Seq[ColumnOption[_, _]], val typeMapper: TypeMapper[_]) extends NullaryNode {
+final case class RawNamedColumn(name: String)(val options: Seq[ColumnOption[_]], val typeMapper: TypeMapper[_]) extends NullaryNode {
   override def toString = "RawNamedColumn " + name
   def symbol = FieldSymbol(name)(Some(this))
 }
 
-abstract class ColumnOption[+T, -Profile]
+abstract class ColumnOption[+T]
+
+object ColumnOption {
+  case object NotNull extends ColumnOption[Nothing]
+  case object Nullable extends ColumnOption[Nothing]
+  case object PrimaryKey extends ColumnOption[Nothing]
+  case class Default[T](val defaultValue: T) extends ColumnOption[T]
+  case class DBType(val dbType: String) extends ColumnOption[Nothing]
+  case object AutoInc extends ColumnOption[Nothing]
+}

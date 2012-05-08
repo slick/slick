@@ -5,15 +5,15 @@ import javax.sql.rowset.serial.SerialBlob
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.driver.{BasicTable => Table}
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
 
 object BlobTest extends DBTestObject(H2Mem, /* SQLiteMem, Postgres, HsqldbMem, */ MySQL, DerbyMem, SQLServer)
 
-class BlobTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class BlobTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   @Test def testBlob() {
     object T extends Table[(Int, Blob)]("test") {

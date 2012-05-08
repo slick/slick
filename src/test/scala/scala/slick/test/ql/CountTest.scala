@@ -3,16 +3,15 @@ package scala.slick.test.ql.ql
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.ql.TypeMapper._
-import scala.slick.driver.{ExtendedTable => Table}
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
 
 object CountTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
-class CountTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class CountTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   @Test def test() = db withSession {
     object TestTable extends Table[Int]("TEST") {

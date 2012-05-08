@@ -4,15 +4,15 @@ import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
 import scala.slick.driver.AccessDriver
-import scala.slick.driver.{BasicTable => Table}
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
 
 object DataTypeTest extends DBTestObject(H2Mem, SQLiteMem, HsqldbMem, MySQL, DerbyMem, Postgres, MSAccess, SQLServer)
 
-class DataTypeTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class DataTypeTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   @Test def testByteArray() {
     object T extends Table[(Int, Array[Byte])]("test") {

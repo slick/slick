@@ -1,26 +1,24 @@
 package scala.slick.testutil
 
 import scala.collection.JavaConversions
-import scala.collection.JavaConversions._
-import java.io.{File, IOException, FileInputStream}
-import java.util.Properties
 import org.junit.Assert._
 import org.junit.{Before, After}
 import org.junit.runner.{JUnitCore, RunWith}
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import scala.slick.session._
 
 @RunWith(classOf[Parameterized])
-abstract class DBTest(testDB: TestDB) {
-  println("[Using test database "+testDB+"]")
-  lazy val db = testDB.createDB()
+abstract class DBTest {
+  val tdb: TestDB
+
+  println("[Using test database "+tdb+"]")
+  lazy val db = tdb.createDB()
   private[this] var sessionCreated = false
   lazy val session = { sessionCreated = true; db.createSession() }
-  @Before def beforeDBTest = testDB.cleanUpBefore()
+  @Before def beforeDBTest = tdb.cleanUpBefore()
   @After def afterDBTest = {
     try { if(sessionCreated) session.close() }
-    finally { testDB.cleanUpAfter() }
+    finally { tdb.cleanUpAfter() }
   }
 
   def assertFail(f: =>Unit) = {

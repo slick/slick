@@ -1,13 +1,9 @@
 package scala.slick.test.ql
 
-import org.junit.{AfterClass, BeforeClass, Test}
+import org.junit.Test
 import org.junit.Assert._
-import scala.slick.ql._
-import scala.slick.ql.TypeMapper._
 import scala.slick.driver.H2Driver.Implicit._
-import scala.slick.driver.{ExtendedTable => Table}
-import scala.slick.session._
-import scala.slick.session.Database.threadLocalSession
+import scala.slick.driver.H2Driver.Table
 
 object TablesInObjectTest {
   def main(args: Array[String]) { new TablesInObjectTest().test1() }

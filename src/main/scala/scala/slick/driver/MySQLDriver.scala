@@ -5,12 +5,12 @@ import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
 
-class MySQLDriver extends ExtendedDriver { driver =>
+trait MySQLDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
 
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDLBuilder(table).buildDDL
+  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new SequenceDDLBuilder(seq).buildDDL
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
@@ -48,7 +48,7 @@ class MySQLDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class DDLBuilder(table: AbstractBasicTable[_]) extends super.DDLBuilder(table) {
+  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
     override protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]) = {
       "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
     }

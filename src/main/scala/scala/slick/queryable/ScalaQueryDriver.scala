@@ -3,7 +3,7 @@ package scala.slick.queryable
 import scala.language.implicitConversions
 
 import scala.slick.driver._
-import scala.slick.driver.{ExtendedTable => Table}
+import scala.slick.driver.BasicDriver.Table
 import scala.slick.ql._
 import scala.slick.{ast => sq}
 

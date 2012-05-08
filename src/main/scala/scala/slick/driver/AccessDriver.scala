@@ -35,7 +35,7 @@ import scala.slick.util.ValueLinearizer
  *
  * @author szeiger
  */
-class AccessDriver extends ExtendedDriver { driver =>
+trait AccessDriver extends ExtendedDriver { driver =>
 
   override val Implicit: Implicits = new Implicits {
     override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): BasicQueryInvoker[T, U] = new AccessQueryInvoker(q, driver)
@@ -44,7 +44,7 @@ class AccessDriver extends ExtendedDriver { driver =>
   val retryCount = 10
   override val typeMapperDelegates = new TypeMapperDelegates(retryCount)
 
-  override def buildTableDDL(table: AbstractBasicTable[_]): DDL = new DDLBuilder(table).buildDDL
+  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
@@ -144,7 +144,7 @@ class AccessDriver extends ExtendedDriver { driver =>
     override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
   }
 
-  class DDLBuilder(table: AbstractBasicTable[_]) extends super.DDLBuilder(table) {
+  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
     override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
 
     protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {

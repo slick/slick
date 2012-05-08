@@ -3,8 +3,6 @@ package scala.slick.test.ql
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.ql.TypeMapper._
-import scala.slick.driver.{ExtendedTable => Table}
 import scala.slick.session._
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.util.iter._
@@ -13,8 +11,9 @@ import scala.slick.testutil.TestDB._
 
 object IterateeTest extends DBTestObject(H2Mem)
 
-class IterateeTest(tdb: TestDB) extends DBTest(tdb) {
-  import tdb.driver.Implicit._
+class IterateeTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.Table
+  import tdb.profile.Implicit._
 
   val A = new Table[(String, Int)]("a") {
     def s = column[String]("s", O.PrimaryKey)
