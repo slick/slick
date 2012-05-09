@@ -64,6 +64,8 @@ trait BasicDriver extends BasicProfile
   with BasicStatementBuilderComponent
   with BasicTypeMapperDelegatesComponent
   with BasicSQLUtilsComponent
-  with BasicInvokerComponent
+  with BasicInvokerComponent {
+  val profile: BasicProfile = this
+}
 
 object BasicDriver extends BasicDriver
