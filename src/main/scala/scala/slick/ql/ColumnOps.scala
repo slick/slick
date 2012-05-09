@@ -5,107 +5,103 @@ import scala.slick.ast.{SimpleNode, Node, UnaryNode, BinaryNode}
 
 final class ColumnOps[B1, P1](val leftOperand: Node) extends AnyVal {
   import ColumnOps._
-  type OM2[B2, BR, P2, R] = OptionMapper2[B1, B2, BR, P1, P2, R]
-  type OM2Bin[BR, P2, R] = OM2[B1, BR, P2, R]
-  type OM3[B2, B3, BR, P2, P3, R] = OptionMapper3[B1, B2, B3, BR, P1, P2, P3, R]
-  type ToOption = OptionMapper2[B1, B1, B1, Option[B1], Option[B1], Option[B1]]
-  type ToSame = OM2Bin[B1, P1, P1]
-  type Restr2[B, BR, P2, PR] = OptionMapper2[B, B, BR, P1, P2, PR]
-  type Restr1[B, BR, PR] = Restr2[B, BR, P1, PR]
   type BaseTM = BaseTypeMapper[B1]
   type Num = BaseTM with NumericTypeMapper
 
-  def is[P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  import OptionMapperDSL._
+  type o = arg[B1, P1]
+
+  def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Is(leftOperand, Node(e)))
-  def === [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def === [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Is(leftOperand, Node(e)))
-  def isNot[P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def isNot[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Not(Is(leftOperand, Node(e))))
   @deprecated("Use =!= instead", "0.9.0")
-  def != [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def != [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Not(Is(leftOperand, Node(e))))
-  def =!= [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def =!= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Not(Is(leftOperand, Node(e))))
-  def < [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def < [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Relational("<", leftOperand, Node(e)))
-  def <= [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def <= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Relational("<=", leftOperand, Node(e)))
-  def > [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def > [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Relational(">", leftOperand, Node(e)))
-  def >= [P2, R](e: Column[P2])(implicit om: OM2Bin[Boolean, P2, R]) =
+  def >= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Relational(">=", leftOperand, Node(e)))
-  def inSet[R](seq: Traversable[B1])(implicit om: OM2Bin[Boolean, P1, R], tm: BaseTM) =
+  def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R], tm: BaseTM) =
     om(InSet(leftOperand, seq, false)(tm))
-  def inSetBind[R](seq: Traversable[B1])(implicit om: OM2Bin[Boolean, P1, R], tm: BaseTM) =
+  def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R], tm: BaseTM) =
     om(InSet(leftOperand, seq, true)(tm))
-  def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: OM3[B1, B1, Boolean, P2, P3, R]) =
+  def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
     om(Between(leftOperand, Node(start), Node(end)))
-  def ifNull[B2, P2, R](e: Column[P2])(implicit om: OM2[B2, Boolean, P2, R]): Column[P2] =
+  def ifNull[B2, P2, R](e: Column[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Column[P2] =
     e.mapOp(c => EscFunction[P2]("ifnull", leftOperand, Node(c))(e.typeMapper))
-  def min(implicit om: ToOption, tm: BaseTM) =
+  def min(implicit om: toOption[B1], tm: BaseTM) =
     om(StdFunction[B1]("min", leftOperand))
-  def max(implicit om: ToOption, tm: BaseTM) =
+  def max(implicit om: toOption[B1], tm: BaseTM) =
     om(StdFunction[B1]("max", leftOperand))
 
   // NumericTypeMapper only
-  def + [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def + [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
     om(Arith[B1]("+", leftOperand, Node(e)))
-  def - [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def - [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
     om(Arith[B1]("-", leftOperand, Node(e)))
-  def * [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def * [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
     om(Arith[B1]("*", leftOperand, Node(e)))
-  def / [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def / [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
     om(Arith[B1]("/", leftOperand, Node(e)))
-  def % [P2, R](e: Column[P2])(implicit om: OM2Bin[B1, P2, R], tm: Num) =
+  def % [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
     om(EscFunction[B1]("mod", leftOperand, Node(e)))
-  def abs(implicit om: ToSame, tm: Num) =
-    om(EscFunction[B1]("abs", leftOperand))
-  def ceil(implicit om: ToSame, tm: Num) =
-    om(EscFunction[B1]("ceiling", leftOperand))
-  def floor(implicit om: ToSame, tm: Num) =
-    om(EscFunction[B1]("floor", leftOperand))
-  def sign[R](implicit om: OM2Bin[Int, P1, R], tm: Num) =
+  def abs(implicit tm: Num) =
+    EscFunction[B1]("abs", leftOperand)
+  def ceil(implicit tm: Num) =
+    EscFunction[B1]("ceiling", leftOperand)
+  def floor(implicit tm: Num) =
+    EscFunction[B1]("floor", leftOperand)
+  def sign[R](implicit om: o#to[Int, R], tm: Num) =
     om(EscFunction[Int]("sign", leftOperand))
-  def toDegrees(implicit om: ToSame, tm: Num) =
-    om(EscFunction[B1]("degrees", leftOperand))
-  def toRadians(implicit om: ToSame, tm: Num) =
-    om(EscFunction[B1]("radians", leftOperand))
-  def avg(implicit om: ToOption, tm: Num) =
+  def toDegrees(implicit tm: Num) =
+    EscFunction[B1]("degrees", leftOperand)
+  def toRadians(implicit tm: Num) =
+    EscFunction[B1]("radians", leftOperand)
+  def avg(implicit om: toOption[B1], tm: Num) =
     om(StdFunction[B1]("avg", leftOperand))
-  def sum(implicit om: ToOption, tm: Num) =
+  def sum(implicit om: toOption[B1], tm: Num) =
     om(StdFunction[B1]("sum", leftOperand))
 
   // Boolean only
-  def &&[P2, R](b: Column[P2])(implicit om: Restr2[Boolean, Boolean, P2, R]) =
+  def &&[P2, R](b: Column[P2])(implicit om: arg[Boolean, P1]#arg[Boolean, P2]#to[Boolean, R]) =
     om(And(leftOperand, Node(b)))
-  def ||[P2, R](b: Column[P2])(implicit om: Restr2[Boolean, Boolean, P2, R]) =
+  def ||[P2, R](b: Column[P2])(implicit om: arg[Boolean, P1]#arg[Boolean, P2]#to[Boolean, R]) =
     om(Or(leftOperand, Node(b)))
-  def unary_![R](implicit om: Restr1[Boolean, Boolean, R]) =
-    om(Not(leftOperand))
+  def unary_!(implicit ev: B1 <:< Boolean) =
+    Not(leftOperand)
 
   // String only
-  def length[R](implicit om: Restr1[String, Int, R]) =
+  def length[R](implicit om: arg[String, P1]#to[Int, R]) =
     om(EscFunction[Int]("length", leftOperand))
-  def like[P2, R](e: Column[P2])(implicit om: Restr2[String, Boolean, P2, R]) =
+  def like[P2, R](e: Column[P2])(implicit om: arg[String, P1]#arg[String, P2]#to[Boolean, R]) =
     om(Like(leftOperand, Node(e), None))
-  def like[P2, R](e: Column[P2], esc: Char)(implicit om: Restr2[String, Boolean, P2, R]) =
+  def like[P2, R](e: Column[P2], esc: Char)(implicit om: arg[String, P1]#arg[String, P2]#to[Boolean, R]) =
     om(Like(leftOperand, Node(e), Some(esc)))
-  def ++[P2, R](e: Column[P2])(implicit om: Restr2[String, String, P2, R]) =
+  def ++[P2, R](e: Column[P2])(implicit om: arg[String, P1]#arg[String, P2]#to[String, R]) =
     om(EscFunction[String]("concat", leftOperand, Node(e)))
-  def startsWith[R](s: String)(implicit om: Restr1[String, Boolean, R]) =
+  def startsWith[R](s: String)(implicit om: arg[String, P1]#to[Boolean, R]) =
     om(new StartsWith(leftOperand, s))
-  def endsWith[R](s: String)(implicit om: Restr1[String, Boolean, R]) =
+  def endsWith[R](s: String)(implicit om: arg[String, P1]#to[Boolean, R]) =
     om(new EndsWith(leftOperand, s))
-  def toUpperCase[R](implicit om: Restr1[String, String, R]) =
-    om(EscFunction[String]("ucase", leftOperand))
-  def toLowerCase[R](implicit om: Restr1[String, String, R]) =
-    om(EscFunction[String]("lcase", leftOperand))
-  def ltrim[R](implicit om: Restr1[String, String, R]) =
-    om(EscFunction[String]("ltrim", leftOperand))
-  def rtrim[R](implicit om: Restr1[String, String, R]) =
-    om(EscFunction[String]("rtrim", leftOperand))
-  def trim[R](implicit om: Restr1[String, String, R]) =
-    om(EscFunction[String]("ltrim", EscFunction[String]("rtrim", leftOperand)))
+  def toUpperCase(implicit ev: B1 <:< String) =
+    EscFunction[String]("ucase", leftOperand)
+  def toLowerCase(implicit ev: B1 <:< String) =
+    EscFunction[String]("lcase", leftOperand)
+  def ltrim(implicit ev: B1 <:< String) =
+    EscFunction[String]("ltrim", leftOperand)
+  def rtrim(implicit ev: B1 <:< String) =
+    EscFunction[String]("rtrim", leftOperand)
+  def trim(implicit ev: B1 <:< String) =
+    EscFunction[String]("ltrim", EscFunction[String]("rtrim", leftOperand))
 }
 
 object ColumnOps {

@@ -31,3 +31,17 @@ object OptionMapper3 {
   @inline implicit def getOptionMapper3OOT[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[B2], B3,         Option[BR]]]
   @inline implicit def getOptionMapper3OOO[B1, B2 : BaseTypeMapper, B3 : BaseTypeMapper, BR] = OptionMapper3.option.asInstanceOf[OptionMapper3[B1, B2, B3, BR, Option[B1], Option[B2], Option[B3], Option[BR]]]
 }
+
+object OptionMapperDSL {
+  type arg[B1, P1] = {
+    type to[BR, PR] = OptionMapper2[B1, B1, BR, P1, P1, PR]
+    type toSame = OptionMapper2[B1, B1, B1, P1, P1, P1]
+    type arg[B2, P2] = {
+      type to[BR, PR] = OptionMapper2[B1, B2, BR, P1, P2, PR]
+      type arg[B3, P3] = {
+        type to[BR, PR] = OptionMapper3[B1, B2, B3, BR, P1, P2, P3, PR]
+      }
+    }
+  }
+  type toOption[P] = arg[P, Option[P]]#toSame
+}
