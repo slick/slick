@@ -1,4 +1,4 @@
-package scala.slick.test.ql.ql
+package scala.slick.test.ql
 
 import org.junit.Test
 import org.junit.Assert._

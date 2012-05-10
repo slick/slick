@@ -1,4 +1,4 @@
-package scala.slick.test.ql.ql
+package scala.slick.test.ql
 
 import java.sql.Blob
 import javax.sql.rowset.serial.SerialBlob
