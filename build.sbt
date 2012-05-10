@@ -39,8 +39,13 @@ libraryDependencies <+= scalaVersion(
   "org.scala-lang" % "scala-compiler" % _
 )
 
-// Fork for the test run to avoid classloader problems with reification
-fork in Test := true
+// Run the Queryable tests (which need macros) on a forked JVM
+// to avoid classloader problems with reification
+testGrouping <<= definedTests in Test map partitionTests
+
+parallelExecution in Test := false
+
+logBuffered := false
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")
 

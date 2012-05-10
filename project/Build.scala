@@ -1,24 +1,32 @@
 import sbt._
 import Keys._
+import Tests._
 
-object ScalaQueryBuild extends Build {
+object SLICKBuild extends Build {
 
   /* Custom Settings */
   val useJDBC4 = SettingKey[Boolean]("use-jdbc4", "Use JDBC 4 (Java 1.6+) or JDBC 3 (Java 1.5)")
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   /* Project Definition */
-  lazy val root = Project(id = "scalaquery", base = file("."),
+  lazy val root = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ fmppSettings ++ Seq(
       useJDBC4 := (
         try { classOf[java.sql.DatabaseMetaData].getMethod("getClientInfoProperties"); true }
         catch { case _:NoSuchMethodException => false } ),
       repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
-      scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "ScalaQuery", "-doc-version", v)),
-      parallelExecution in Test := false,
-      logBuffered := false,
+      scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "SLICK", "-doc-version", v)),
       makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime))) }
   ))
+
+  /* Split tests into a group that needs to be forked and another one that can run in-process */
+  def partitionTests(tests: Seq[TestDefinition]) = {
+    val (fork, notFork) = tests partition (_.name contains ".queryable.")
+    Seq(
+      new Group("fork", fork, SubProcess(Seq())),
+      new Group("inProcess", notFork, InProcess)
+    )
+  }
 
   /* FMPP Task */
   lazy val fmpp = TaskKey[Seq[File]]("fmpp")
