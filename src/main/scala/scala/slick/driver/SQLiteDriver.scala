@@ -32,13 +32,6 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
 
-    /*
-    override protected def table(t: Node, name: String): Unit = t match {
-      case j: Join[_,_] => createJoin(j)
-      case _ => super.table(t, name)
-    }
-    */
-
     override protected def appendOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc) {
         b += "("
@@ -60,12 +53,9 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
       case _ =>
     }
 
-    override protected def innerExpr(c: Node): Unit = c match {
-      case StdFunction("exists", q: Query[_, _]) =>
-        // SQLite doesn't like double parens around the sub-expression
-        b += "exists"; expr(q)
-      case EscFunction("ucase", ch) => b += "upper("; expr(ch); b += ')'
-      case EscFunction("lcase", ch) => b += "lower("; expr(ch); b += ')'
+    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+      case EscFunction("ucase", ch) => b += "upper("; expr(ch, true); b += ')'
+      case EscFunction("lcase", ch) => b += "lower("; expr(ch, true); b += ')'
       case EscFunction("mod", l, r) => b += '('; expr(l); b += '%'; expr(r); b += ')'
       case EscFunction("ceiling", ch) => b += "round("; expr(ch); b += "+0.5)"
       case EscFunction("floor", ch) => b += "round("; expr(ch); b += "-0.5)"
@@ -75,9 +65,9 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
         /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
          * unescaped function calls by default */
         b += s.name += '('
-        b.sep(s.nodeChildren, ",")(expr)
+        b.sep(s.nodeChildren, ",")(expr(_, true))
         b += ")"
-      case _ => super.innerExpr(c)
+      case _ => super.expr(c, skipParens)
     }
   }
 
