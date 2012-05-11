@@ -17,10 +17,10 @@ trait H2Driver extends ExtendedDriver { driver =>
     override protected val mayLimit0 = false
     override protected val concatOperator = Some("||")
 
-    override def expr(n: Node) = n match {
+    override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Sequence.Nextval(seq) => b += "nextval(schema(), '" += seq.name += "')"
       case Sequence.Currval(seq) => b += "currval(schema(), '" += seq.name += "')"
-      case _ => super.expr(n)
+      case _ => super.expr(n, skipParens)
     }
 
     override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {

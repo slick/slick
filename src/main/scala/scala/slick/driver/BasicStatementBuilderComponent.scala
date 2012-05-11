@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.util._
 import scala.slick.ql._
 import scala.slick.ql.ColumnOps._
+import scala.collection.mutable.HashMap
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
@@ -18,6 +19,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected val supportsTuples = true
     protected val supportsCast = true
     protected val concatOperator: Option[String] = None
+
+    protected val symbolNames = new HashMap[Symbol, String]
 
     def sqlBuilder = b
 
@@ -44,7 +47,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         }
         if(!where.isEmpty) {
           b += " where "
-          expr(where.reduceLeft(And))
+          expr(where.reduceLeft(And), true)
         }
         if(!orderBy.isEmpty) appendOrderClause(orderBy)
       case Pure(CountAll(q)) =>
@@ -58,10 +61,11 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += "select * from " += quoteIdentifier(name)
       case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
       case Union(left, right, all, _, _) =>
-        b += "select * from "
-        buildFrom(left, None)
+        b += "select * from ("
+        buildFrom(left, None, true)
         b += (if(all) " union all " else " union ")
-        buildFrom(right, None)
+        buildFrom(right, None, true)
+        b += ')'
       case n =>
         if(liftExpression) buildComprehension(Pure(n), false)
         else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
@@ -91,15 +95,15 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildSelectClause(n: Node): Unit = n match {
       case Pure(StructNode(ch)) =>
         b.sep(ch, ", ") { case (sym, n) =>
-          expr(n)
+          expr(n, true)
           b += " as " += symbolName(sym)
         }
       case Pure(ProductNode(ch @ _*)) =>
-        b.sep(ch, ", ")(expr)
-      case Pure(n) => expr(n)
+        b.sep(ch, ", ")(expr(_, true))
+      case Pure(n) => expr(n, true)
     }
 
-    protected def buildFrom(n: Node, alias: Option[Symbol]){
+    protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false){
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
         case TableNode(name) =>
@@ -114,55 +118,77 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           b += ' ' += jt.sqlName += " join "
           buildFrom(right, Some(rightGen))
           b += " on "
-          expr(on)
+          expr(on, true)
         case n =>
-          b += '('
+          if(!skipParens) b += '('
           buildComprehension(n, true)
-          b += ')'
+          if(!skipParens) b += ')'
           addAlias
       }
     }
 
-    protected def symbolName(s: Symbol): String = s match {
-      case AnonSymbol(name) => name
-      case s => quoteIdentifier(s.name)
-    }
+    protected final def symbolName(s: Symbol): String =
+      symbolNames.getOrElse(s, s match {
+        case AnonSymbol(name) => name
+        case s => quoteIdentifier(s.name)
+      })
 
-    def expr(n: Node): Unit = n match {
+    def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case ConstColumn(null) => b += "null"
-      case Not(Is(l, ConstColumn(null))) => b += '('; expr(l); b += " is not null)"
-      case Not(e) => b += "(not "; expr(e); b+= ')'
+      case Not(Is(l, ConstColumn(null))) =>
+        if(!skipParens) b += '('
+        expr(l)
+        b += " is not null"
+        if(!skipParens) b += ')'
+      case Not(e) =>
+        if(!skipParens) b += '('
+        b += "not "
+        expr(e)
+        if(!skipParens) b += ')'
       case i @ InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn.FALSE) else {
-        b += '('; expr(e); b += " in ("
+        if(!skipParens) b += '('
+        expr(e); b += " in ("
         if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(driver).setValue(x, p) })
         else b += seq.map(i.tm(driver).valueToSQLLiteral).mkString(",")
-        b += "))"
+        b += ')'
+        if(!skipParens) b += ')'
       }
-      case Is(l, ConstColumn(null)) => b += '('; expr(l); b += " is null)"
+      case Is(l, ConstColumn(null)) =>
+        if(!skipParens) b += '('
+        expr(l)
+        b += " is null"
+        if(!skipParens) b += ')'
       case Is(left: ProductNode, right: ProductNode) =>
+        if(!skipParens) b += '('
         if(supportsTuples) {
-          b += "("
           expr(left)
           b += " = "
           expr(right)
-          b += ")"
         } else {
           val cols = left.nodeChildren zip right.nodeChildren
-          b += "("
           b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
-          b += ")"
         }
+        if(!skipParens) b += ')'
       case ProductNode(ch @ _*) =>
-        b += "("
-        b.sep(ch, ", ")(expr)
-        b += ")"
-      case Is(l, r) => b += '('; expr(l); b += '='; expr(r); b += ')'
+        if(!skipParens) b += '('
+        b.sep(ch, ", ")(expr(_))
+        if(!skipParens) b += ')'
+      case Is(l, r) =>
+        if(!skipParens) b += '('
+        expr(l)
+        b += '='
+        expr(r)
+        if(!skipParens) b += ')'
       case EscFunction("concat", l, r) if concatOperator.isDefined =>
-        b += '('; expr(l); b += concatOperator.get; expr(r); b += ')'
+        if(!skipParens) b += '('
+        expr(l)
+        b += concatOperator.get
+        expr(r)
+        if(!skipParens) b += ')'
       case s: SimpleFunction =>
         if(s.scalar) b += "{fn "
         b += s.name += '('
-        b.sep(s.nodeChildren, ",")(expr)
+        b.sep(s.nodeChildren, ",")(expr(_, true))
         b += ')'
         if(s.scalar) b += '}'
       case SimpleLiteral(w) => b += w
@@ -170,13 +196,16 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       case Between(left, start, end) => expr(left); b += " between "; expr(start); b += " and "; expr(end)
       case CountDistinct(e) => b += "count(distinct "; expr(e); b += ')'
       case Like(l, r, esc) =>
-        b += '('; expr(l); b += " like "; expr(r);
+        if(!skipParens) b += '('
+        expr(l)
+        b += " like "
+        expr(r)
         esc.foreach { ch =>
           if(ch == '\'' || ch == '%' || ch == '_') throw new SLICKException("Illegal escape character '"+ch+"' for LIKE expression")
           // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
           b += " escape '" += ch += "'"
         }
-        b += ')'
+        if(!skipParens) b += ')'
       case a @ AsColumnOf(ch, name) =>
         val tn = name.getOrElse(mapTypeName(a.typeMapper(driver)))
         if(supportsCast) {
@@ -185,10 +214,15 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           b += " as " += tn += ")"
         } else {
           b += "{fn convert("
-          expr(ch)
+          expr(ch, true)
           b += ',' += tn += ")}"
         }
-      case s: SimpleBinaryOperator => b += '('; expr(s.left); b += ' ' += s.name += ' '; expr(s.right); b += ')'
+      case s: SimpleBinaryOperator =>
+        if(!skipParens) b += '('
+        expr(s.left)
+        b += ' ' += s.name += ' '
+        expr(s.right)
+        if(!skipParens) b += ')'
       case c @ ConstColumn(v) => b += c.typeMapper(driver).valueToSQLLiteral(v)
       case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
       case pc @ ParameterColumn(_, extractor) => b +?= { (p, param) =>
@@ -214,9 +248,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       //TODO case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
       //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
       case n => // try to build a sub-query
-        b += '('
+        if(!skipParens) b += '('
         buildComprehension(n, false)
-        b += ')'
+        if(!skipParens) b += ')'
       //case _ => throw new SLICKException("Don't know what to do with node "+n+" in an expression")
     }
 
@@ -243,13 +277,14 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case _ => throw new SLICKException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
 
-      b += "update " += quoteIdentifier(from.tableName) += ' ' += symbolName(gen) += " set "
+      val qtn = quoteIdentifier(from.tableName)
+      symbolNames += gen -> qtn // Alias table to itself because UPDATE does not support aliases
+      b += "update " += qtn += " set "
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
       if(!where.isEmpty) {
         b += " where "
-        expr(where.reduceLeft(And))
+        expr(where.reduceLeft(And), true)
       }
-      //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
       QueryBuilderResult(b.build, linearizer)
     }
 
@@ -258,13 +293,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select))) => (sym, from, where)
         case _ => throw new SLICKException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
-
-      b += "delete from " += quoteIdentifier(from.tableName) += ' ' += symbolName(gen)
+      val qtn = quoteIdentifier(from.tableName)
+      symbolNames += gen -> qtn // Alias table to itself because DELETE does not support aliases
+      b += "delete from " += qtn
       if(!where.isEmpty) {
         b += " where "
-        expr(where.reduceLeft(And))
+        expr(where.reduceLeft(And), true)
       }
-      //TODO nc = nc.overrideName(table, tableName) // Alias table to itself because UPDATE does not support aliases
       QueryBuilderResult(b.build, linearizer)
     }
 
