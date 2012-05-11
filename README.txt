@@ -13,6 +13,7 @@ It includes the following features:
 
 The following database systems are directly supported for type-safe queries:
 - H2
+- HSQLDB/HyperSQL
 - SQLite
 
 Other previously supported back-ends (in ScalaQuery 0.9) which have not yet
@@ -21,7 +22,6 @@ been fully integrated into SLICK 0.10:
 - MySQL
 - Microsoft SQL Server
 - Microsoft Access
-- HSQLDB/HyperSQL
 - Derby/JavaDB
 
 Accessing other database systems is possible, with a reduced feature set.

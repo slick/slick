@@ -231,7 +231,7 @@ object TestDB {
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
   }
 
-  def HsqldbDisk(to: DBTestObject) = new HsqlDB("hsqldbmem") {
+  def HsqldbDisk(to: DBTestObject) = new HsqlDB("hsqldbdisk") {
     override val dbName = "hsqldb-"+to.testClassName
     val url = "jdbc:hsqldb:file:"+TestDBOptions.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUp() = deleteDBFiles(dbName)

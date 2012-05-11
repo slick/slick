@@ -32,7 +32,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
     override protected val scalarFrom = Some("(VALUES (0))")
     override protected val concatOperator = Some("||")
 
-    override protected def innerExpr(c: Node): Unit = c match {
+    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
 
       case c @ ConstColumn(v: String) if v ne null =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
@@ -40,10 +40,10 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
          * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave
          * enough room for concatenating strings (which extends the size even if
          * it is not needed). */
-        if(c.typeMapper(driver).sqlType == Types.CHAR) super.innerExpr(c)
+        if(c.typeMapper(driver).sqlType == Types.CHAR) super.expr(c, skipParens)
         else {
           b += "cast("
-          super.innerExpr(c)
+          super.expr(c)
           b += " as varchar(16777216))"
         }
 
@@ -52,7 +52,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
 
       case Sequence.Currval(seq) => throw new SLICKException("Hsqldb does not support CURRVAL")
 
-      case _ => super.innerExpr(c)
+      case _ => super.expr(c, skipParens)
     }
 
     override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
