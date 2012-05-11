@@ -37,8 +37,8 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
 }
 
 object Shape extends ShapeLowPriority {
-  @inline def tableShape[T <: TableNode]: Shape[T, TableNothing, T] =
-    sharedTableShape.asInstanceOf[Shape[T, TableNothing, T]]
+  @inline def tableShape[T <: TableNode]: Shape[T, NothingContainer#TableNothing, T] =
+    sharedTableShape.asInstanceOf[Shape[T, NothingContainer#TableNothing, T]]
 
   @inline implicit def columnShape[T]: Shape[Column[T], T, Column[T]] =
     selfLinearizingShape.asInstanceOf[Shape[Column[T], T, Column[T]]]

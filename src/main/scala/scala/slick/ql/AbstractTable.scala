@@ -11,7 +11,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
 
   def nodeExpand_* = {
-    val qq = Query[TableNode, TableNothing, TableNode](this)(Shape.tableShape)
+    val qq = Query[TableNode, NothingContainer#TableNothing, TableNode](this)(Shape.tableShape)
     Node(
       qq.map[Any, Any, Any](_.nodeShaped_*.value)(qq.unpackable.shape.asInstanceOf[Shape[Any, Any, Any]])
     )
@@ -91,8 +91,10 @@ object Join {
   val Outer = JoinType.Outer
 }
 
-/**
- * Uninhabited type for queries of raw tables that can be used instead of
- * Nothing (because the type inferencer will not infer Nothing where needed)
- */
-final class TableNothing private[this] ()
+trait NothingContainer {
+  /**
+   * Uninhabited type for queries of raw tables that can be used instead of
+   * Nothing (because the type inferencer will not infer Nothing where needed)
+   */
+  type TableNothing
+}
