@@ -22,7 +22,7 @@ class UnionTest(val tdb: TestDB) extends DBTest {
 
   object Employees extends Table[(Int, String, Int)]("employees") {
     def id = column[Int]("id")
-    def name = column[String]("name")
+    def name = column[String]("name2")
     def manager = column[Int]("manager")
     def * = id ~ name ~ manager
 

@@ -46,7 +46,7 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
       if(o.direction.desc) b += " desc"
     }
 
-    override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
+    override protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
       case (Some(t), Some(d)) => b += " LIMIT " += d += "," += t
       case (Some(t), None) => b += " LIMIT " += t
       case (None, Some(d)) => b += " LIMIT " += d += ",-1"

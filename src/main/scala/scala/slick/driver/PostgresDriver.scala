@@ -15,7 +15,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val concatOperator = Some("||")
 
-    override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
+    override protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
       case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
       case (Some(t), None) => b += " LIMIT " += t
       case (None, Some(d)) => b += " OFFSET " += d

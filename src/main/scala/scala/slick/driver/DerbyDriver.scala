@@ -35,32 +35,10 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     override protected val mayLimit0 = false
     override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
+    override protected val needsNamedSubqueries = true
+    override protected val useIntForBoolean = true
 
-    /*TODO
-    override protected def expr(c: Node, rename: Boolean, topLevel: Boolean): Unit = {
-      c match {
-        /* Convert proper BOOLEANs which should be returned from a SELECT
-         * statement into pseudo-boolean SMALLINT values 1 and 0 */
-         case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-          b += "case when "
-          innerExpr(c)
-          b += " then 1 else 0 end"
-        case _ => super.expr(c, rename, topLevel)
-      }
-    }
-    */
-
-    override protected def innerExpr(c: Node): Unit = c match {
-      /* Create TRUE and FALSE values because Derby lacks boolean literals */
-      case c @ ConstColumn(true) => b += "(1=1)"
-      case c @ ConstColumn(false) => b += "(1=0)"
-
-      /* Convert pseudo-booleans from tables and subqueries to real booleans */
-      //TODO case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c); b += " != 0)"
-      //case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      //  b += "("; super.innerExpr(c); b += " != 0)"
-
+    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case EscFunction("ifnull", l, r) => r match {
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
@@ -68,11 +46,10 @@ trait DerbyDriver extends ExtendedDriver { driver =>
           b += "coalesce(cast("
           expr(l)
           b += " as " += mapTypeName(c.typeMapper(driver)) += "),"
-          expr(r); b += ")"
+          expr(r, true); b += ")"
         case _ => throw new SLICKException("Cannot determine type of right-hand side for ifNull")
       }
-
-      /*TODO case c @ BindColumn(v) if b == selectSlot =>
+      case c @ BindColumn(v) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
@@ -81,32 +58,11 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         b += "cast("
         b +?= { (p, param) => tmd.setValue(v, p) }
         b += " as " += mapTypeName(tmd) += ")"
-      */
-
-      /* I guess NEXTVAL was too short */
       case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
-
       case Sequence.Currval(seq) => throw new SLICKException("Derby does not support CURRVAL")
-
       case EscFunction("database") => b += "''"
-
-      case _ => super.innerExpr(c)
+      case _ => super.expr(c, skipParens)
     }
-
-    /*
-    override protected def table(t: Node, name: String): Unit = t match {
-      /* Derby requires columns of UNION parts to have the same names. If my
-       * understanding of SQL:2008 is correct, this is a bug. This behavior
-       * would be correct if the CORRESPONDING keyword was used for a UNION.
-       * The workaround is to rename all parts with the same auto-generated
-       * column names. */
-      case Subquery(Union(all, sqs), rename) =>
-        b += "("
-        b.sep(sqs, (if(all) " UNION ALL " else " UNION "))(sq => subQueryBuilderFor(sq.asInstanceOf[Query[_,_]]).innerBuildSelect(b, rename))
-        b += ") " += quoteIdentifier(name)
-      case _ => super.table(t, name)
-    }
-    */
   }
 
   class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {

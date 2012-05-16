@@ -142,7 +142,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
       if(o.direction.desc) b += " desc"
     }
 
-    override protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
+    override protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = ()
   }
 
   class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {

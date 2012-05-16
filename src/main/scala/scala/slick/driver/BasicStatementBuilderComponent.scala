@@ -10,17 +10,28 @@ import scala.collection.mutable.HashMap
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
+  abstract class StatementPart
+  case object SelectPart extends StatementPart
+  case object FromPart extends StatementPart
+  case object WherePart extends StatementPart
+  case object OtherPart extends StatementPart
+
   /** Builder for SELECT and UPDATE statements. */
   class QueryBuilder(val ast: Node, val linearizer: ValueLinearizer[_]) {
-    protected final val b = new SQLBuilder
 
+    // Immutable config options (to be overridden by subclasses)
     protected val mayLimit0 = true
     protected val scalarFrom: Option[String] = None
     protected val supportsTuples = true
     protected val supportsCast = true
     protected val concatOperator: Option[String] = None
+    protected val needsNamedSubqueries = false
+    protected val useIntForBoolean = false
 
-    protected val symbolNames = new HashMap[Symbol, String]
+    // Mutable state accessible to subclasses
+    protected val b = new SQLBuilder
+    protected var currentPart: StatementPart = OtherPart
+    protected val symbolName = new SymbolNamer
 
     def sqlBuilder = b
 
@@ -29,81 +40,110 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       QueryBuilderResult(b.build, linearizer)
     }
 
-    protected def buildComprehension(n: Node, liftExpression: Boolean): Unit = n match {
-      case Comprehension(from, where, orderBy, select) =>
-        b += "select "
-        select match {
-          case Some(n) => buildSelectClause(n)
-          case None =>
-            if(from.length <= 1) b += "*"
-            else b += symbolName(from.last._1) += ".*"
-        }
-        if(from.isEmpty) buildScalarFrom
-        else {
-          b += " from "
-          b.sep(from, ", ") { case (sym, n) =>
-            buildFrom(n, Some(sym))
-          }
-        }
-        if(!where.isEmpty) {
-          b += " where "
-          expr(where.reduceLeft(And), true)
-        }
-        if(!orderBy.isEmpty) appendOrderClause(orderBy)
-      case Pure(CountAll(q)) =>
-        b += "select count(*) from "
-        buildFrom(q, None)
-      case p @ Pure(_) =>
-        b += "select "
-        buildSelectClause(p)
-        buildScalarFrom
-      case TableNode(name) =>
-        b += "select * from " += quoteIdentifier(name)
-      case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
-      case Union(left, right, all, _, _) =>
-        b += "select * from ("
-        buildFrom(left, None, true)
-        b += (if(all) " union all " else " union ")
-        buildFrom(right, None, true)
-        b += ')'
-      case n =>
-        if(liftExpression) buildComprehension(Pure(n), false)
-        else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
+    @inline protected final def building(p: StatementPart)(f: => Unit): Unit = {
+      val oldPart = currentPart
+      currentPart = p
+      f
+      currentPart = oldPart
     }
 
-    protected def buildScalarFrom: Unit = scalarFrom.foreach { s => b += " from " += s }
-
-    protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) {
-      if(take == Some(0)) {
-        b += "select * from "
-        buildFrom(from, None)
-        b += " where 1=0"
-      } else {
-        buildComprehension(from, true)
-        appendTakeDropClause(take, drop)
+    protected def buildComprehension(n: Node, liftExpression: Boolean): Unit = building(OtherPart) {
+      n match {
+        case Comprehension(from, where, orderBy, select) =>
+          b += "select "
+          select match {
+            case Some(n) => buildSelectClause(n)
+            case None =>
+              if(from.length <= 1) b += "*"
+              else b += symbolName(from.last._1) += ".*"
+          }
+          if(from.isEmpty) buildScalarFrom
+          else {
+            b += " from "
+            b.sep(from, ", ") { case (sym, n) =>
+              buildFrom(n, Some(sym))
+            }
+          }
+          if(!where.isEmpty) {
+            b += " where "
+            buildWhereClause(where)
+          }
+          if(!orderBy.isEmpty) appendOrderClause(orderBy)
+        case Pure(CountAll(q)) =>
+          b += "select count(*) from "
+          buildFrom(q, if(needsNamedSubqueries) Some(AnonSymbol.named(symbolName.create)) else None)
+        case p @ Pure(_) =>
+          b += "select "
+          buildSelectClause(p)
+          buildScalarFrom
+        case TableNode(name) =>
+          b += "select * from " += quoteIdentifier(name)
+        case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
+        case Union(left, right, all, _, _) =>
+          b += "select * from ("
+          buildFrom(left, None, true)
+          b += (if(all) " union all " else " union ")
+          buildFrom(right, None, true)
+          b += ')'
+          if(needsNamedSubqueries) b += ' ' += symbolName.create
+        case n =>
+          if(liftExpression) buildComprehension(Pure(n), false)
+          else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
       }
     }
 
-    protected def appendTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
-      /* SQL:2008 syntax */
-      case (Some(t), Some(d)) => b += " offset " += d += " row fetch next " += t += " row only"
-      case (Some(t), None) => b += " fetch next " += t += " row only"
-      case (None, Some(d)) => b += " offset " += d += " row"
-      case _ =>
+    protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
+      expr(where.reduceLeft(And), true)
     }
 
-    protected def buildSelectClause(n: Node): Unit = n match {
-      case Pure(StructNode(ch)) =>
-        b.sep(ch, ", ") { case (sym, n) =>
-          expr(n, true)
-          b += " as " += symbolName(sym)
-        }
-      case Pure(ProductNode(ch @ _*)) =>
-        b.sep(ch, ", ")(expr(_, true))
-      case Pure(n) => expr(n, true)
+    protected def buildScalarFrom = building(FromPart) {
+      scalarFrom.foreach { s => b += " from " += s }
     }
 
-    protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false){
+    protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) = building(OtherPart) {
+      if(take == Some(0)) {
+        b += "select * from "
+        buildFrom(from, if(needsNamedSubqueries) Some(AnonSymbol.named(symbolName.create)) else None)
+        b += " where 1=0"
+      } else {
+        buildComprehension(from, true)
+        buildTakeDropClause(take, drop)
+      }
+    }
+
+    protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = building(OtherPart) {
+      (take, drop) match {
+        /* SQL:2008 syntax */
+        case (Some(t), Some(d)) => b += " offset " += d += " row fetch next " += t += " row only"
+        case (Some(t), None) => b += " fetch next " += t += " row only"
+        case (None, Some(d)) => b += " offset " += d += " row"
+        case _ =>
+      }
+    }
+
+    protected def buildSelectClause(n: Node) = building(SelectPart) {
+      n match {
+        case Pure(StructNode(ch)) =>
+          b.sep(ch, ", ") { case (sym, n) =>
+            buildSelectPart(n)
+            b += " as " += symbolName(sym)
+          }
+        case Pure(ProductNode(ch @ _*)) =>
+          b.sep(ch, ", ")(buildSelectPart)
+        case Pure(n) => buildSelectPart(n)
+      }
+    }
+
+    protected def buildSelectPart(n: Node): Unit = n match {
+      case c: Column[_] if useIntForBoolean && (c.typeMapper(profile) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
+        b += "case when "
+        expr(n)
+        b += " then 1 else 0 end"
+      case n =>
+        expr(n, true)
+    }
+
+    protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
         case TableNode(name) =>
@@ -127,13 +167,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       }
     }
 
-    protected final def symbolName(s: Symbol): String =
-      symbolNames.getOrElse(s, s match {
-        case AnonSymbol(name) => name
-        case s => quoteIdentifier(s.name)
-      })
-
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+      case ConstColumn(true) if useIntForBoolean => b += (if(skipParens) "1=1" else "(1=1)")
+      case ConstColumn(false) if useIntForBoolean => b += (if(skipParens) "1=0" else "(1=0)")
       case ConstColumn(null) => b += "null"
       case Not(Is(l, ConstColumn(null))) =>
         if(!skipParens) b += '('
@@ -179,6 +215,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += '='
         expr(r)
         if(!skipParens) b += ')'
+      case StdFunction("exists", c: Comprehension) if(!supportsTuples) =>
+        /* If tuples are not supported, selecting multiple individial columns
+         * in exists(select ...) is probably not supported, either, so we rewrite
+         * such sub-queries to "select *". */
+        b += "exists("
+        expr(c.copy(select = None), true)
+        b += ')'
       case EscFunction("concat", l, r) if concatOperator.isDefined =>
         if(!skipParens) b += '('
         expr(l)
@@ -278,7 +321,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       }
 
       val qtn = quoteIdentifier(from.tableName)
-      symbolNames += gen -> qtn // Alias table to itself because UPDATE does not support aliases
+      symbolName(gen) = qtn // Alias table to itself because UPDATE does not support aliases
       b += "update " += qtn += " set "
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
       if(!where.isEmpty) {
@@ -294,7 +337,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case _ => throw new SLICKException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
       val qtn = quoteIdentifier(from.tableName)
-      symbolNames += gen -> qtn // Alias table to itself because DELETE does not support aliases
+      symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
       b += "delete from " += qtn
       if(!where.isEmpty) {
         b += " where "

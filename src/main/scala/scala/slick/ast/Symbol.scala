@@ -39,6 +39,11 @@ object AnonSymbol {
       case _ =>
     }
   }
+  def named(name: String) = {
+    val s = new AnonSymbol
+    s.name = name
+    s
+  }
   def unapply(a: AnonSymbol) = Some(a.name)
 }
 
