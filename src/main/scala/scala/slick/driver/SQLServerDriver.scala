@@ -153,7 +153,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
       */
     }
 
-    override protected def appendOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc) {
         b += "case when ("
         expr(n)

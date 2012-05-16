@@ -18,12 +18,13 @@ trait MySQLDriver extends ExtendedDriver { driver =>
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
+    override protected val needsNamedSubqueries = true
 
-    override protected def innerExpr(c: Node): Unit = c match {
+    override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case EscFunction("concat", l, r) => b += "concat("; expr(l); b += ','; expr(r); b += ')'
       case Sequence.Nextval(seq) => b += quoteIdentifier(seq.name + "_nextval") += "()"
       case Sequence.Currval(seq) => b += quoteIdentifier(seq.name + "_currval") += "()"
-      case _ => super.innerExpr(c)
+      case _ => super.expr(n, skipParens)
     }
 
     override protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
@@ -33,7 +34,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       case _ =>
     }
 
-    override protected def appendOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc) {
         b += "isnull("
         expr(n)

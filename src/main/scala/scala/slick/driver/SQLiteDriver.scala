@@ -32,7 +32,7 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
 
-    override protected def appendOrdering(n: Node, o: Ordering) {
+    override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc) {
         b += "("
         expr(n)

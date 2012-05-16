@@ -12,17 +12,17 @@ It includes the following features:
 - Session management based on JDBC Connections
 
 The following database systems are directly supported for type-safe queries:
+- Derby/JavaDB
 - H2
 - HSQLDB/HyperSQL
+- MySQL
 - SQLite
 
 Other previously supported back-ends (in ScalaQuery 0.9) which have not yet
 been fully integrated into SLICK 0.10:
 - PostgreSQL
-- MySQL
 - Microsoft SQL Server
 - Microsoft Access
-- Derby/JavaDB
 
 Accessing other database systems is possible, with a reduced feature set.
 

@@ -68,7 +68,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
             b += " where "
             buildWhereClause(where)
           }
-          if(!orderBy.isEmpty) appendOrderClause(orderBy)
+          if(!orderBy.isEmpty) buildOrderClause(orderBy)
         case Pure(CountAll(q)) =>
           b += "select count(*) from "
           buildFrom(q, if(needsNamedSubqueries) Some(AnonSymbol.named(symbolName.create)) else None)
@@ -297,12 +297,12 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       //case _ => throw new SLICKException("Don't know what to do with node "+n+" in an expression")
     }
 
-    protected def appendOrderClause(order: Seq[(Node, Ordering)]) {
+    protected def buildOrderClause(order: Seq[(Node, Ordering)]) {
       b += " order by "
-      b.sep(order, ", "){ case (n, o) => appendOrdering(n, o) }
+      b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
     }
 
-    protected def appendOrdering(n: Node, o: Ordering) {
+    protected def buildOrdering(n: Node, o: Ordering) {
       expr(n)
       if(o.direction.desc) b += " desc"
       if(o.nulls.first) b += " nulls first"
