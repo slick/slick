@@ -37,9 +37,12 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     case _ => super.mapTypeName(tmd)
   }
 
+  protected val dummyOrdering = Seq[(Node, Ordering)]((Comprehension(select = Some(ConstColumn.NULL)), Ordering()))
+
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
+    override protected val useIntForBoolean = true
 
     /*TODO
     val hasTakeDrop = !query.typedModifiers[TakeDrop].isEmpty
@@ -129,19 +132,10 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     }
     */
 
-    override protected def innerExpr(c: Node): Unit = c match {
-      /* Create TRUE and FALSE values because SQL Server lacks boolean literals */
-      case c @ ConstColumn(true) => b += "(1=1)"
-      case c @ ConstColumn(false) => b += "(1=0)"
-
-      /* Convert pseudo-booleans from tables and subqueries to real booleans */
-      //TODO case n: NamedColumn[_] if n.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      b += "("; super.innerExpr(c); b += " != 0)"
-      //case c @ SubqueryColumn(pos, sq, tm) if tm(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-      //  b += "("; super.innerExpr(c); b += " != 0)"
+    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
 
       //TODO case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
-      case _ => super.innerExpr(c)
+      case _ => super.expr(c, skipParens)
     }
 
     override protected def appendClauses(): Unit = {
@@ -152,6 +146,25 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
       if(!hasDropOnly) appendOrderClause()
       */
     }
+
+    /*
+    override protected def buildProperTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) = {
+      val (newFrom, appendDummyOrdering) = from match {
+        case c @ Comprehension(_, _, o, _) =>
+          (if(o.isEmpty) c.copy(orderBy = dummyOrdering) else c, false)
+        case n => (n, true)
+      }
+      buildComprehension(newFrom, true)
+      if(appendDummyOrdering) b += " order by (select null)"
+      buildFetchOffsetClause(take, drop)
+    }
+
+    override protected def buildFetchOffsetClause(take: Option[Long], drop: Option[Long]) = building(OtherPart) {
+      if(take.isDefined || drop.isDefined) {
+        b += " offset " += drop.getOrElse(0) += " row"
+        take.foreach{ t => b += " fetch next " += t += " row only" }
+      }
+    }*/
 
     override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc) {

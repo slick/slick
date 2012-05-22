@@ -32,7 +32,6 @@ trait DerbyDriver extends ExtendedDriver { driver =>
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
 
-    override protected val mayLimit0 = false
     override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
     override protected val useIntForBoolean = true

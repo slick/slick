@@ -28,7 +28,6 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
   override def buildSequenceDDL(seq: Sequence[_]): DDL = new SequenceDDLBuilder(seq).buildDDL
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
-    override protected val mayLimit0 = false
     override protected val scalarFrom = Some("(VALUES (0))")
     override protected val concatOperator = Some("||")
 
@@ -55,7 +54,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
       case _ => super.expr(c, skipParens)
     }
 
-    override protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
       case (Some(t), None) => b += " LIMIT " += t
       case (None, Some(d)) => b += " OFFSET " += d

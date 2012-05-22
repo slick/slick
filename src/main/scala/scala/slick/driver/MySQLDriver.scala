@@ -26,7 +26,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       case _ => super.expr(n, skipParens)
     }
 
-    override protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b += " LIMIT " += d += ',' += t
       case (Some(t), None) => b += " LIMIT " += t
       case (None, Some(d)) => b += " LIMIT " += d += ",18446744073709551615"

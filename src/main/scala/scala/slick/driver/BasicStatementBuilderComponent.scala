@@ -20,7 +20,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   class QueryBuilder(val ast: Node, val linearizer: ValueLinearizer[_]) {
 
     // Immutable config options (to be overridden by subclasses)
-    protected val mayLimit0 = true
     protected val scalarFrom: Option[String] = None
     protected val supportsTuples = true
     protected val supportsCast = true
@@ -35,7 +34,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     def sqlBuilder = b
 
     final def buildSelect(): QueryBuilderResult = {
-      buildComprehension(ast, true)
+      buildComprehension(toComprehension(ast, true))
       QueryBuilderResult(b.build, linearizer)
     }
 
@@ -46,41 +45,42 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       currentPart = oldPart
     }
 
-    protected def buildComprehension(n: Node, liftExpression: Boolean): Unit = building(OtherPart) {
-      n match {
-        case Comprehension(from, where, orderBy, select) =>
-          b += "select "
-          select match {
-            case Some(n) => buildSelectClause(n)
-            case None =>
-              if(from.length <= 1) b += "*"
-              else b += symbolName(from.last._1) += ".*"
-          }
-          if(from.isEmpty) buildScalarFrom
-          else {
-            b += " from "
-            b.sep(from, ", ") { case (sym, n) =>
-              buildFrom(n, Some(sym))
-            }
-          }
-          if(!where.isEmpty) {
-            b += " where "
-            buildWhereClause(where)
-          }
-          if(!orderBy.isEmpty) buildOrderClause(orderBy)
-        case Pure(CountAll(q)) =>
-          buildComprehension(Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> q), select = Some(Pure(CountStar))), false)
-        case p @ Pure(_) =>
-          buildComprehension(Comprehension(select = Some(p)), false)
-        case t @ TableNode(name) =>
-          buildComprehension(Comprehension(from = Seq(t.nodeTableSymbol -> t)), false)
-        case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
-        case u @ Union(left, right, all, _, _) =>
-          buildComprehension(Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> u)), false)
-        case n =>
-          if(liftExpression) buildComprehension(Pure(n), false)
-          else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
+    protected def toComprehension(n: Node, liftExpression: Boolean = false): Comprehension = n match {
+      case c : Comprehension => c
+      case Pure(CountAll(q)) =>
+        Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> q), select = Some(Pure(CountStar)))
+      case p: Pure =>
+        Comprehension(select = Some(p))
+      case t: TableNode =>
+        Comprehension(from = Seq(t.nodeTableSymbol -> t))
+      case u: Union =>
+        Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> u))
+      case n =>
+        if(liftExpression) toComprehension(Pure(n))
+        else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
+    }
+
+    protected def buildComprehension(c: Comprehension): Unit = {
+      b += "select "
+      c.select match {
+        case Some(n) => buildSelectClause(n)
+        case None =>
+          if(c.from.length <= 1) b += "*"
+          else b += symbolName(c.from.last._1) += ".*"
       }
+      if(c.from.isEmpty) buildScalarFrom
+      else {
+        b += " from "
+        b.sep(c.from, ", ") { case (sym, n) =>
+          buildFrom(n, Some(sym))
+        }
+      }
+      if(!c.where.isEmpty) {
+        b += " where "
+        buildWhereClause(c.where)
+      }
+      if(!c.orderBy.isEmpty) buildOrderClause(c.orderBy)
+      if(!c.fetch.isEmpty || !c.offset.isEmpty) buildFetchOffsetClause(c.fetch, c.offset)
     }
 
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
@@ -91,19 +91,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       scalarFrom.foreach { s => b += " from " += s }
     }
 
-    protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) = building(OtherPart) {
-      if(take == Some(0) && !mayLimit0) {
-        buildComprehension(Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> from), where = Seq(ConstColumn.FALSE)), false)
-      } else buildProperTakeDrop(from, take, drop)
-    }
-
-    protected def buildProperTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) = {
-      buildComprehension(from, true)
-      buildTakeDropClause(take, drop)
-    }
-
-    protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = building(OtherPart) {
-      (take, drop) match {
+    protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = building(OtherPart) {
+      (fetch, offset) match {
         /* SQL:2008 syntax */
         case (Some(t), Some(d)) => b += " offset " += d += " row fetch next " += t += " row only"
         case (Some(t), None) => b += " fetch next " += t += " row only"
@@ -159,7 +148,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           addAlias
         case n =>
           if(!skipParens) b += '('
-          buildComprehension(n, true)
+          buildComprehension(toComprehension(n, true))
           if(!skipParens) b += ')'
           addAlias
       }
@@ -291,7 +280,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
       case n => // try to build a sub-query
         if(!skipParens) b += '('
-        buildComprehension(n, false)
+        buildComprehension(toComprehension(n))
         if(!skipParens) b += ')'
       //case _ => throw new SLICKException("Don't know what to do with node "+n+" in an expression")
     }
@@ -310,7 +299,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildUpdate: QueryBuilderResult = {
       val (gen, from, where, select) = ast match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select))) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select)), None, None) => select match {
           case f @ FieldRef(struct, _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch @ _*) if ch.forall{ case FieldRef(struct, _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case FieldRef(_, field) => field })
@@ -332,7 +321,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildDelete: QueryBuilderResult = {
       val (gen, from, where) = ast match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select))) => (sym, from, where)
+        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select)), None, None) => (sym, from, where)
         case _ => throw new SLICKException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
       val qtn = quoteIdentifier(from.tableName)

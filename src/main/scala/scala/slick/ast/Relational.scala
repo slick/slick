@@ -1,12 +1,17 @@
 package scala.slick.ast
 
+import scala.math.{min, max}
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SLICKException
 import scala.slick.util.Logging
+import scala.slick.ql.ConstColumn
 import OptimizerUtil._
 
 /**
  * Conversion of basic ASTs to a shape suitable for relational DBs.
+ *
+ * This phase replaces all nodes of types Bind, Filter, SortBy, Take and Drop
+ * by Comprehension nodes and merges nested Comprehension nodes.
  */
 object Relational extends Logging {
 
@@ -31,7 +36,7 @@ object Relational extends Logging {
         case FieldRef(Def(Pure(TableRef(table))), fieldSym) => FieldRef(table, fieldSym)
         case FieldRef(Def(Pure(StructNode(defs))), fieldSym) =>
           defs.find(_._1 == fieldSym).get._2
-        case c @ Comprehension(from, _, _, select) =>
+        case c @ Comprehension(from, _, _, select, _, _) =>
           val filtered = from.filter {
             case (sym, Pure(t: TableRef)) => false
             case (sym, Pure(s: StructNode)) => false
@@ -64,19 +69,24 @@ object Relational extends Logging {
       case Filter(gen, from, where) => Comprehension(from = Seq((gen, from)), where = Seq(where))
       // SortBy to Comprehension
       case SortBy(gen, from, by) => Comprehension(from = Seq((gen, from)), orderBy = by)
+      // Take and Drop to Comprehension
+      case TakeDrop(from, take, drop, gen) =>
+        val drop2 = if(drop == Some(0)) None else drop
+        if(take == Some(0)) Comprehension(from = Seq((gen, from)), where = Seq(ConstColumn.FALSE))
+        else Comprehension(from = Seq((gen, from)), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
       // Merge Comprehension which selects another Comprehension
-      case Comprehension(from1, where1, orderBy1, Some(c2 @ Comprehension(from2, where2, orderBy2, select))) =>
-        c2.copy(from = from1 ++ from2, where = where1 ++ where2, orderBy = orderBy2 ++ orderBy1)
+      case Comprehension(from1, where1, orderBy1, Some(c2 @ Comprehension(from2, where2, orderBy2, select, None, None)), fetch, offset) =>
+        c2.copy(from = from1 ++ from2, where = where1 ++ where2, orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset)
     }
   }
 
   def inline(tree: Node) = {
     object ComprehensionStruct {
       def unapply(c: Comprehension): Option[Node] = c match {
-        case Comprehension(_, _, _, Some(Pure(s : ProductNode))) => Some(s)
-        case Comprehension(_, _, _, Some(Pure(t: TableRef))) => Some(t)
-        case Comprehension(_, _, _, Some(c2: Comprehension)) => unapply(c2)
-        case Comprehension(from, _, _, None) =>
+        case Comprehension(_, _, _, Some(Pure(s : ProductNode)), None, None) => Some(s)
+        case Comprehension(_, _, _, Some(Pure(t: TableRef)), None, None) => Some(t)
+        case Comprehension(_, _, _, Some(c2: Comprehension), None, None) => unapply(c2)
+        case Comprehension(from, _, _, None, None, None) =>
           from.last._2 match {
             case c2: Comprehension => unapply(c2)
             case Pure(s: StructNode) => Some(TableRef(from.last._1))
@@ -170,16 +180,11 @@ object Relational extends Logging {
             }
           case n => n.nodeMapChildren(replaceRefs)
         }
-        if(rewrite) replaceRefs(Comprehension(newGens, newWhere, newOrderBy, newSelect)).nodeMapChildren(f)
+        if(rewrite) replaceRefs(Comprehension(newGens, newWhere, newOrderBy, newSelect, c.fetch, c.offset)).nodeMapChildren(f)
         else c.nodeMapChildren(f)
       case n => n.nodeMapChildren(f)
     }
     f(tree)
-  }
-
-  def filterSource(n: Node): Node = n match {
-    case Comprehension(from, _, _, None) => filterSource(from.last._2)
-    case n => n
   }
 
   /**
@@ -240,5 +245,23 @@ object Relational extends Logging {
       case n => n.nodeMapChildren{ ch => tr(None, ch) }
     }
     tr(None, tree)
+  }
+
+  /** An extractor for nested Take and Drop nodes */
+  object TakeDrop {
+    def unapply(n: Node): Option[(Node, Option[Int], Option[Int], Symbol)] = n match {
+      case Take(from, num, sym) => unapply(from) match {
+        case Some((f, Some(t), d, _)) => Some((f, Some(min(t, num)), d, sym))
+        case Some((f, None, d, _)) => Some((f, Some(num), d, sym))
+        case _ => Some((from, Some(num), None, sym))
+      }
+      case Drop(from, num, sym) => unapply(from) match {
+        case Some((f, Some(t), None, _)) => Some((f, Some(max(0, t-num)), Some(num), sym))
+        case Some((f, None, Some(d), _)) => Some((f, None, Some(d+num), sym))
+        case Some((f, Some(t), Some(d), _)) => Some((f, Some(max(0, t-num)), Some(d+num), sym))
+        case _ => Some((from, None, Some(num), sym))
+      }
+      case _ => None
+    }
   }
 }

@@ -14,7 +14,6 @@ trait H2Driver extends ExtendedDriver { driver =>
   }
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
-    override protected val mayLimit0 = false
     override protected val concatOperator = Some("||")
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
@@ -23,7 +22,7 @@ trait H2Driver extends ExtendedDriver { driver =>
       case _ => super.expr(n, skipParens)
     }
 
-    override protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = (take, drop) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
       case (Some(t), None) => b += " LIMIT " += t
       case (None, Some(d)) => b += " LIMIT -1 OFFSET " += d
