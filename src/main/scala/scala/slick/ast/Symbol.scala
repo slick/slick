@@ -17,6 +17,11 @@ abstract class Symbol {
 case class FieldSymbol(name: String)(val column: Option[RawNamedColumn] = None) extends Symbol
 
 /**
+ * A named symbol which refers to a proper database table.
+ */
+case class TableSymbol(name: String) extends Symbol
+
+/**
  * An anonymous symbol defined in the AST.
  */
 class AnonSymbol extends Symbol {

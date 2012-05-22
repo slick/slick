@@ -18,7 +18,6 @@ trait MySQLDriver extends ExtendedDriver { driver =>
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
-    override protected val needsNamedSubqueries = true
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case EscFunction("concat", l, r) => b += "concat("; expr(l); b += ','; expr(r); b += ')'

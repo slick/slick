@@ -35,7 +35,6 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     override protected val mayLimit0 = false
     override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
-    override protected val needsNamedSubqueries = true
     override protected val useIntForBoolean = true
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {

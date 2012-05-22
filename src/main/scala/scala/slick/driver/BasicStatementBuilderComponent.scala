@@ -25,7 +25,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected val supportsTuples = true
     protected val supportsCast = true
     protected val concatOperator: Option[String] = None
-    protected val needsNamedSubqueries = false
     protected val useIntForBoolean = false
 
     // Mutable state accessible to subclasses
@@ -70,22 +69,14 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           }
           if(!orderBy.isEmpty) buildOrderClause(orderBy)
         case Pure(CountAll(q)) =>
-          b += "select count(*) from "
-          buildFrom(q, if(needsNamedSubqueries) Some(AnonSymbol.named(symbolName.create)) else None)
+          buildComprehension(Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> q), select = Some(Pure(CountStar))), false)
         case p @ Pure(_) =>
-          b += "select "
-          buildSelectClause(p)
-          buildScalarFrom
-        case TableNode(name) =>
-          b += "select * from " += quoteIdentifier(name)
+          buildComprehension(Comprehension(select = Some(p)), false)
+        case t @ TableNode(name) =>
+          buildComprehension(Comprehension(from = Seq(t.nodeTableSymbol -> t)), false)
         case TakeDrop(from, take, drop) => buildTakeDrop(from, take, drop)
-        case Union(left, right, all, _, _) =>
-          b += "select * from ("
-          buildFrom(left, None, true)
-          b += (if(all) " union all " else " union ")
-          buildFrom(right, None, true)
-          b += ')'
-          if(needsNamedSubqueries) b += ' ' += symbolName.create
+        case u @ Union(left, right, all, _, _) =>
+          buildComprehension(Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> u)), false)
         case n =>
           if(liftExpression) buildComprehension(Pure(n), false)
           else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
@@ -101,14 +92,14 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def buildTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) = building(OtherPart) {
-      if(take == Some(0)) {
-        b += "select * from "
-        buildFrom(from, if(needsNamedSubqueries) Some(AnonSymbol.named(symbolName.create)) else None)
-        b += " where 1=0"
-      } else {
-        buildComprehension(from, true)
-        buildTakeDropClause(take, drop)
-      }
+      if(take == Some(0) && !mayLimit0) {
+        buildComprehension(Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> from), where = Seq(ConstColumn.FALSE)), false)
+      } else buildProperTakeDrop(from, take, drop)
+    }
+
+    protected def buildProperTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) = {
+      buildComprehension(from, true)
+      buildTakeDropClause(take, drop)
     }
 
     protected def buildTakeDropClause(take: Option[Int], drop: Option[Int]) = building(OtherPart) {
@@ -146,9 +137,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
-        case TableNode(name) =>
+        case t @ TableNode(name) =>
           b += quoteIdentifier(name)
-          addAlias
+          if(alias != Some(t.nodeTableSymbol)) addAlias
         case BaseJoin(leftGen, rightGen, left, right, jt) =>
           buildFrom(left, Some(leftGen))
           b += ' ' += jt.sqlName += " join "
@@ -159,6 +150,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           buildFrom(right, Some(rightGen))
           b += " on "
           expr(on, true)
+        case Union(left, right, all, _, _) =>
+          if(!skipParens) b += '('
+          buildFrom(left, None, true)
+          b += (if(all) " union all " else " union ")
+          buildFrom(right, None, true)
+          if(!skipParens) b += ')'
+          addAlias
         case n =>
           if(!skipParens) b += '('
           buildComprehension(n, true)
@@ -287,6 +285,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         }
         b += " end)"
       case FieldRef(struct, field) => b += symbolName(struct) += '.' += symbolName(field)
+      case CountStar => b += "count(*)"
       //TODO case CountAll(q) => b += "count(*)"; localTableName(q)
       //TODO case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
       //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
