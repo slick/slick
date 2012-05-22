@@ -61,34 +61,50 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def buildComprehension(c: Comprehension): Unit = {
+      buildSelectClause(c)
+      buildFromClause(c.from)
+      buildWhereClause(c.where)
+      buildOrderByClause(c.orderBy)
+      buildFetchOffsetClause(c.fetch, c.offset)
+    }
+
+    protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
       b += "select "
       c.select match {
-        case Some(n) => buildSelectClause(n)
+        case Some(Pure(StructNode(ch))) =>
+          b.sep(ch, ", ") { case (sym, n) =>
+            buildSelectPart(n)
+            b += " as " += symbolName(sym)
+          }
+        case Some(Pure(ProductNode(ch @ _*))) =>
+          b.sep(ch, ", ")(buildSelectPart)
+        case Some(Pure(n)) => buildSelectPart(n)
         case None =>
           if(c.from.length <= 1) b += "*"
           else b += symbolName(c.from.last._1) += ".*"
       }
-      if(c.from.isEmpty) buildScalarFrom
+    }
+
+    protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
+      if(from.isEmpty) scalarFrom.foreach { s => b += " from " += s }
       else {
         b += " from "
-        b.sep(c.from, ", ") { case (sym, n) =>
-          buildFrom(n, Some(sym))
-        }
+        b.sep(from, ", ") { case (sym, n) => buildFrom(n, Some(sym)) }
       }
-      if(!c.where.isEmpty) {
-        b += " where "
-        buildWhereClause(c.where)
-      }
-      if(!c.orderBy.isEmpty) buildOrderClause(c.orderBy)
-      if(!c.fetch.isEmpty || !c.offset.isEmpty) buildFetchOffsetClause(c.fetch, c.offset)
     }
 
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
-      expr(where.reduceLeft(And), true)
+      if(!where.isEmpty) {
+        b += " where "
+        expr(where.reduceLeft(And), true)
+      }
     }
 
-    protected def buildScalarFrom = building(FromPart) {
-      scalarFrom.foreach { s => b += " from " += s }
+    protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
+      if(!order.isEmpty) {
+        b += " order by "
+        b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
+      }
     }
 
     protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = building(OtherPart) {
@@ -98,19 +114,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case (Some(t), None) => b += " fetch next " += t += " row only"
         case (None, Some(d)) => b += " offset " += d += " row"
         case _ =>
-      }
-    }
-
-    protected def buildSelectClause(n: Node) = building(SelectPart) {
-      n match {
-        case Pure(StructNode(ch)) =>
-          b.sep(ch, ", ") { case (sym, n) =>
-            buildSelectPart(n)
-            b += " as " += symbolName(sym)
-          }
-        case Pure(ProductNode(ch @ _*)) =>
-          b.sep(ch, ", ")(buildSelectPart)
-        case Pure(n) => buildSelectPart(n)
       }
     }
 
@@ -275,19 +278,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += " end)"
       case FieldRef(struct, field) => b += symbolName(struct) += '.' += symbolName(field)
       case CountStar => b += "count(*)"
-      //TODO case CountAll(q) => b += "count(*)"; localTableName(q)
-      //TODO case query:Query[_, _] => b += "("; subQueryBuilderFor(query).innerBuildSelect(b, false); b += ")"
-      //TODO case sq @ Subquery(_, _) => b += quoteIdentifier(localTableName(sq)) += ".*"
       case n => // try to build a sub-query
         if(!skipParens) b += '('
         buildComprehension(toComprehension(n))
         if(!skipParens) b += ')'
-      //case _ => throw new SLICKException("Don't know what to do with node "+n+" in an expression")
-    }
-
-    protected def buildOrderClause(order: Seq[(Node, Ordering)]) {
-      b += " order by "
-      b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
     }
 
     protected def buildOrdering(n: Node, o: Ordering) {
@@ -540,8 +534,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           sb append quoteIdentifier(n.name)
           if(requiredTableName != t.tableName)
             throw new SLICKException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
-        case _ => throw new SLICKException("Cannot use column "+c+
-          " in "+typeInfo+" (only named columns are allowed)")
+        case _ => throw new SLICKException("Cannot use column "+c+" in "+typeInfo+" (only named columns are allowed)")
       }
     }
   }
