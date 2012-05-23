@@ -16,10 +16,6 @@ import scala.slick.util.ValueLinearizer
  * <ul>
  *   <li>Sequences are not supported because SQLServer does not have this
  *     feature.</li>
- *   <li>There is limited support for take() and drop() modifiers on
- *     subqueries. Due to the way these modifiers have to be encoded for SQL
- *     Server, they only work on top-level queries or sub-queries of simple
- *     COUNT(*) top-level queries.</li>
  * </ul>
  *
  * @author szeiger
@@ -37,134 +33,71 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     case _ => super.mapTypeName(tmd)
   }
 
-  protected val dummyOrdering = Seq[(Node, Ordering)]((Comprehension(select = Some(ConstColumn.NULL)), Ordering()))
-
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
     override protected val useIntForBoolean = true
 
-    /*TODO
-    val hasTakeDrop = !query.typedModifiers[TakeDrop].isEmpty
-    val hasDropOnly = query.typedModifiers[TakeDrop] match {
-      case TakeDrop(None, Some(_)) :: _ => true
-      case _ => false
-    }
-    val isCountAll = query.reified match {
-      case ColumnOps.CountAll(_) => true
-      case _ => false
-    }
-    */
-    val hasTakeDrop = false //--
-    val hasDropOnly = false //--
-    val isCountAll = false //--
-
-    /*TODO
-    override def buildSelect(b: SQLBuilder): Unit = {
-      /* Rename at top level if we need to wrap with TakeDrop code */
-      innerBuildSelect(b, hasTakeDrop)
-      insertAllFromClauses()
-    }
-    */
-
-    /*TODO
-    override protected def innerBuildSelectNoRewrite(rename: Boolean) {
-      query.typedModifiers[TakeDrop] match {
-        case TakeDrop(Some(t), Some(d)) :: _ =>
-          b += "WITH T AS (SELECT TOP " += (t+d) += ' '
-          expr(query.reified)
-          //TODO fromSlot = b.createSlot
-          appendClauses()
-          b += ") SELECT "
-          addCopyColumns()
-          b += " FROM T WHERE \"c0r\" BETWEEN " += (d+1) += " AND " += (t+d)
-          if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
-        case TakeDrop(Some(t), None) :: _ =>
-          b += "WITH T AS (SELECT TOP " += t += ' '
-          expr(query.reified)
-          //TODO fromSlot = b.createSlot
-          appendClauses()
-          b += ") SELECT "
-          addCopyColumns()
-          b += " FROM T WHERE \"c0r\" BETWEEN 1 AND " += t
-          if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
-        case TakeDrop(None, Some(d)) :: _ =>
-          b += "WITH T AS (SELECT "
-          expr(query.reified)
-          //TODO fromSlot = b.createSlot
-          appendClauses()
-          b += ") SELECT "
-          addCopyColumns()
-          b += " FROM T WHERE \"c0r\" > " += d
-          if(!isCountAll) b += " ORDER BY \"c0r\" ASC"
-        case _ =>
-          super.innerBuildSelectNoRewrite(rename)
-      }
-    }
-    */
-
-    def addCopyColumns() {
-      //TODO
-      /*
-      if(isCountAll) b += "count(*)"
-      else if(maxColumnPos == 0) b += "*"
-      else b.sep(1 to maxColumnPos, ",")(i => b += "\"c" += i += "\"")
-      */
-    }
-
-    /*TODO
-    override protected def expr(c: Node, rename: Boolean, topLevel: Boolean): Unit = {
-      c match {
-        /* Convert proper BOOLEANs which should be returned from a SELECT
-         * statement into pseudo-boolean BIT values 1 and 0 */
-        case c: Column[_] if topLevel && !rename && b == selectSlot && c.typeMapper(profile) == profile.typeMapperDelegates.booleanTypeMapperDelegate =>
-          b += "case when "
-          innerExpr(c)
-          b += " then 1 else 0 end"
-        case _ => super.expr(c, rename, topLevel)
-      }
-      if(topLevel && hasTakeDrop) {
-        b += ",ROW_NUMBER() OVER ("
-        appendOrderClause()
-        if(query.typedModifiers[Ordering].isEmpty) b += "ORDER BY (SELECT NULL)"
-        b += ") AS \"c0r\""
-      }
-    }
-    */
+    case object StarAndRowNum extends NullaryNode
+    case object RowNum extends NullaryNode
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-
-      //TODO case ColumnOps.CountAll(q) if(hasTakeDrop) => b += "*"; localTableName(q)
+      case StarAndRowNum => b += "*, row_number() over(order by (select 1))"
+      case RowNum => b += "row_number() over(order by (select 1))"
       case _ => super.expr(c, skipParens)
     }
 
-    override protected def appendClauses(): Unit = {
-      appendConditions()
-      /*TODO
-      appendGroupClause()
-      appendHavingConditions()
-      if(!hasDropOnly) appendOrderClause()
-      */
+    override protected def buildSelectModifiers(c: Comprehension) {
+      if(!c.orderBy.isEmpty) b += "top 100 percent "
     }
 
-    /*
-    override protected def buildProperTakeDrop(from: Node, take: Option[Int], drop: Option[Int]) = {
-      val (newFrom, appendDummyOrdering) = from match {
-        case c @ Comprehension(_, _, o, _) =>
-          (if(o.isEmpty) c.copy(orderBy = dummyOrdering) else c, false)
-        case n => (n, true)
+    override protected def buildComprehension(c: Comprehension): Unit =
+      if(c.fetch.isDefined || c.offset.isDefined) {
+        val r = newSym
+        val rn = symbolName(r)
+        val tn = symbolName(newSym)
+        val c2 = makeSelectPageable(c, r)
+        b += "select top "
+        (c.fetch, c.offset) match {
+          case (Some(t), Some(d)) => b += (d+t)
+          case (Some(t), None   ) => b += t
+          case (None,    Some(d)) => b += "100 percent"
+        }
+        b += " "
+        c2.select match { case Some(Pure(StructNode(ch))) =>
+          b.sep(ch, ", ") {
+            case (sym, RowNum) =>
+            case (sym, StarAndRowNum) => b += "*"
+            case (sym, _) => b += symbolName(sym)
+          }
+        }
+        b += " from ("
+        super.buildComprehension(c2)
+        b += ") " += tn += " where " += rn
+        (c.fetch, c.offset) match {
+          case (Some(t), Some(d)) => b += " between " += (d+1L) += " and " += (t+d)
+          case (Some(t), None   ) => b += " between 1 and " += t
+          case (None,    Some(d)) => b += " > " += d
+        }
+        b += " order by " += rn
       }
-      buildComprehension(newFrom, true)
-      if(appendDummyOrdering) b += " order by (select null)"
-      buildFetchOffsetClause(take, drop)
-    }
+      else super.buildComprehension(c)
 
-    override protected def buildFetchOffsetClause(take: Option[Long], drop: Option[Long]) = building(OtherPart) {
-      if(take.isDefined || drop.isDefined) {
-        b += " offset " += drop.getOrElse(0) += " row"
-        take.foreach{ t => b += " fetch next " += t += " row only" }
-      }
-    }*/
+    /** Create aliases for all selected rows (unless it is a "select *" query),
+      * add a RowNum column, and remove FETCH and OFFSET clauses. The SELECT
+      * clause of the resulting Comprehension always has the shape
+      * Some(Pure(StructNode(_))). */
+    protected def makeSelectPageable(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
+      case Some(Pure(StructNode(ch))) =>
+        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> RowNum)))), fetch = None, offset = None)
+      case Some(Pure(ProductNode(ch @ _*))) =>
+        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> RowNum)))), fetch = None, offset = None)
+      case Some(Pure(n)) =>
+        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> RowNum)))), fetch = None, offset = None)
+      case None =>
+        // should not happen at the outermost layer, so copying an extra row does not matter
+        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAndRowNum)))), fetch = None, offset = None)
+    }
 
     override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc) {
@@ -179,10 +112,6 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
       expr(n)
       if(o.direction.desc) b += " desc"
     }
-
-    /* Move COUNT(*) into subqueries even if they have TakeDrop modifiers.
-     * It will be treated specially there to make it work. */
-    override protected def rewriteCountStarQuery(q: Query[_, _]) = true
   }
 
   class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {

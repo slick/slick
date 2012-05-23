@@ -38,6 +38,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       QueryBuilderResult(b.build, linearizer)
     }
 
+    protected final def newSym = AnonSymbol.named(symbolName.create)
+
     @inline protected final def building(p: StatementPart)(f: => Unit): Unit = {
       val oldPart = currentPart
       currentPart = p
@@ -48,13 +50,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def toComprehension(n: Node, liftExpression: Boolean = false): Comprehension = n match {
       case c : Comprehension => c
       case Pure(CountAll(q)) =>
-        Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> q), select = Some(Pure(CountStar)))
+        Comprehension(from = Seq(newSym -> q), select = Some(Pure(CountStar)))
       case p: Pure =>
         Comprehension(select = Some(p))
       case t: TableNode =>
         Comprehension(from = Seq(t.nodeTableSymbol -> t))
       case u: Union =>
-        Comprehension(from = Seq(AnonSymbol.named(symbolName.create) -> u))
+        Comprehension(from = Seq(newSym -> u))
       case n =>
         if(liftExpression) toComprehension(Pure(n))
         else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
@@ -70,6 +72,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
       b += "select "
+      buildSelectModifiers(c)
       c.select match {
         case Some(Pure(StructNode(ch))) =>
           b.sep(ch, ", ") { case (sym, n) =>
@@ -84,6 +87,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           else b += symbolName(c.from.last._1) += ".*"
       }
     }
+
+    protected def buildSelectModifiers(c: Comprehension) {}
 
     protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
       if(from.isEmpty) scalarFrom.foreach { s => b += " from " += s }
@@ -332,12 +337,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
 
 
-    protected def rewriteCountStarQuery(q: Query[_, _]) =
-      /*q.modifiers.isEmpty &&*/ (q.packed match {
-        case _: TableNode => true
-        case _ => false
-      })
-
     protected def innerBuildSelectNoRewrite(rename: Boolean): Unit = sys.error("obsolete")
 
     protected def appendClauses(): Unit = sys.error("obsolete")
@@ -350,8 +349,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     */
 
     protected def innerExpr(c: Node): Unit = sys.error("obsolete")
-
-    final protected def appendConditions(): Unit = sys.error("obsolete")
   }
 
   /** Builder for INSERT statements. */
