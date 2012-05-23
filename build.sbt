@@ -47,7 +47,7 @@ parallelExecution in Test := false
 
 logBuffered := false
 
-testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")
+testOptions += Tests.Argument(TestFrameworks.JUnit, /* "-q", */ "-v", "-s", "-a")
 
 publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r))))
 /*publishTo <<= (repoKind){

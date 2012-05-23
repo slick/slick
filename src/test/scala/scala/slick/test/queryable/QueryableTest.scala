@@ -201,9 +201,9 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         if sym1a == sym1b
       => ()
     }
-    /*
-      // BLOCKED by https://issues.scala-lang.org/browse/SI-5706
-
+    
+    // BLOCKED by "[error] failed to typecheck against macro def return type: not found: value free$q8"
+/*
       // nesting
       q.map(e1 => q.map(e2=>e1))
        .assertQuery {
@@ -306,7 +306,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       q.flatMap(o => q.filter( i => i.sales == o.sales ).map(i => i.name)) .assertQuery{ pattern3 }
                (for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
       Queryable(for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
-    */
+*/
     /*
       //FAILS:
       (for( o <- Queryable[CoffeesTable];

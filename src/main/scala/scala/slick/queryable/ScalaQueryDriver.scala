@@ -88,22 +88,20 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     def s2sq( tree:Tree, scope:Scope=scope ) : Query = scala2scalaquery_typed( tree, scope )
     implicit def node2Query(node:sq.Node) = new Query( node, scope )
     try{
+      import scala.reflect.mirror.FreeTerm
       tree match {
         // explicitly state types here until SQ removes type parameters and type mapper from ConstColumn 
         case Literal(Constant(x:Int))    => ConstColumn[Int](x)
         case Literal(Constant(x:String)) => ConstColumn[String](x)
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
-
-        case node@Ident(name) if node.symbol.isInstanceOf[scala.reflect.internal.Symbols#FreeTerm] => // TODO: move this into a separate inlining step in queryable
-          node.symbol.asInstanceOf[scala.reflect.internal.Symbols#FreeTerm].value match{
-            case q:Queryable[_] => toQuery( q )
-            case x => s2sq( Literal(Constant(x)) )
+        case node@Ident(name) if !scope.contains(node.symbol) => // TODO: move this into a separate inlining step in queryable
+          node.symbol match{
+            case FreeTerm(_,_,q:Queryable[_],_) => toQuery( q )
+            case FreeTerm(_,_,x,_) => s2sq( Literal(Constant(x)) )
           }
-
-        case node@Ident(name) => {
+        case node@Ident(name) =>
           val sq_symbol = scope(node.symbol)
-          sq.Ref(sq_symbol) // FIXME: this is probably wrong. what should go here?
-        }
+          sq.Ref(sq_symbol) // FIXME: Ref is probably wrong here. what should go here?
 
         // match columns
         case Select(from,name)
