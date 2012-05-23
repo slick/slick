@@ -24,8 +24,8 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
-  override def buildSequenceDDL(seq: Sequence[_]): DDL = new SequenceDDLBuilder(seq).buildDDL
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val scalarFrom = Some("(VALUES (0))")
@@ -72,7 +72,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
+  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected def createIndex(idx: Index) = {
       if(idx.unique) {
         /* Create a UNIQUE CONSTRAINT (with an automatically generated backing

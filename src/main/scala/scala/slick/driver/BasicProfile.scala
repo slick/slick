@@ -7,24 +7,25 @@ import slick.util.ValueLinearizer
 
 trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
 
+  // Create the different builders -- these methods should be overridden by drivers as needed
   def createQueryTemplate[P,R](q: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](q, this)
   def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  final def createQueryBuilder(q: Query[_, _]): QueryBuilder = createQueryBuilder(processAST(q), q)
+  def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
+  def processAST(g: NodeGenerator): Node = Relational(Optimizer(Node(g)))
   val Implicit = new Implicits
   val typeMapperDelegates = new TypeMapperDelegates
 
-  def buildSelectStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildSelect
-  def buildUpdateStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildUpdate
-  def buildDeleteStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildDelete
-
-  def buildInsertStatement(cb: Any): String = new InsertBuilder(cb).buildInsert
-  def buildInsertStatement(cb: Any, q: Query[_, _]): QueryBuilderResult = new InsertBuilder(cb).buildInsert(q)
-
-  def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
-  def buildSequenceDDL(seq: Sequence[_]): DDL = new SequenceDDLBuilder(seq).buildDDL
-
-  def processAST(g: NodeGenerator): Node = Relational(Optimizer(Node(g)))
+  final def createQueryBuilder(q: Query[_, _]): QueryBuilder = createQueryBuilder(processAST(q), q)
+  final def buildSelectStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildSelect
+  final def buildUpdateStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildUpdate
+  final def buildDeleteStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildDelete
+  final def buildInsertStatement(cb: Any): String = new InsertBuilder(cb).buildInsert
+  final def buildInsertStatement(cb: Any, q: Query[_, _]): QueryBuilderResult = new InsertBuilder(cb).buildInsert(q)
+  final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
+  final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
   class Implicits {
     implicit val slickDriver: driver.type = driver

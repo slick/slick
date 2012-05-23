@@ -45,8 +45,9 @@ trait AccessDriver extends ExtendedDriver { driver =>
   val retryCount = 10
   override val typeMapperDelegates = new TypeMapperDelegates(retryCount)
 
-  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
@@ -135,27 +136,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = ()
   }
 
-  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
-    override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
-
-    protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
-      override def appendColumn(sb: StringBuilder) {
-        sb append quoteIdentifier(column.name) append ' '
-        if(autoIncrement) {
-          sb append "AUTOINCREMENT"
-          autoIncrement = false
-        }
-        else sb append sqlType
-        appendOptions(sb)
-      }
-
-      override protected def appendOptions(sb: StringBuilder) {
-        if(notNull) sb append " NOT NULL"
-        if(defaultLiteral ne null) throw new SLICKException("Default values are not supported by AccessDriver")
-        if(primaryKey) sb append " PRIMARY KEY"
-      }
-    }
-
+  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
       sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
@@ -163,6 +144,24 @@ trait AccessDriver extends ExtendedDriver { driver =>
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
       sb append ")"
       // Foreign key actions are not supported by Access so we ignore them
+    }
+  }
+
+  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+    override def appendColumn(sb: StringBuilder) {
+      sb append quoteIdentifier(column.name) append ' '
+      if(autoIncrement) {
+        sb append "AUTOINCREMENT"
+        autoIncrement = false
+      }
+      else sb append sqlType
+      appendOptions(sb)
+    }
+
+    override protected def appendOptions(sb: StringBuilder) {
+      if(notNull) sb append " NOT NULL"
+      if(defaultLiteral ne null) throw new SLICKException("Default values are not supported by AccessDriver")
+      if(primaryKey) sb append " PRIMARY KEY"
     }
   }
 

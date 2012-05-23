@@ -23,8 +23,8 @@ import scala.slick.util.ValueLinearizer
 trait SQLServerDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
-  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "BIT"
@@ -114,16 +114,12 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
-    override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
-
-    protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
-      override protected def appendOptions(sb: StringBuilder) {
-        if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-        if(notNull) sb append " NOT NULL"
-        if(primaryKey) sb append " PRIMARY KEY"
-        if(autoIncrement) sb append " IDENTITY"
-      }
+  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+    override protected def appendOptions(sb: StringBuilder) {
+      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if(notNull) sb append " NOT NULL"
+      if(primaryKey) sb append " PRIMARY KEY"
+      if(autoIncrement) sb append " IDENTITY"
     }
   }
 
