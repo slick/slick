@@ -60,30 +60,15 @@ trait AccessDriver extends ExtendedDriver { driver =>
 
     val pi = "3.1415926535897932384626433832795"
 
-    /*TODO
-    override protected def innerBuildSelectNoRewrite(rename: Boolean) {
-      query.typedModifiers[TakeDrop] match {
-        case TakeDrop(_ , Some(_)) :: _ =>
-          throw new SLICKException("Access does not support drop(...) modifiers")
-        case TakeDrop(Some(0), _) :: _ =>
-          /* Access does not allow TOP 0, so we use this workaround
-           * to force the query to return no results */
-          b += "SELECT * FROM ("
-          super.innerBuildSelectNoRewrite(rename)
-          b += ") WHERE FALSE"
-        case TakeDrop(Some(n), _) :: _ =>
-          /*TODO selectSlot = b.createSlot
-          selectSlot += "SELECT TOP " += n += ' '
-          expr(query.reified, selectSlot, rename, true)
-          fromSlot = b.createSlot*/
-          appendClauses()
-        case _ =>
-          super.innerBuildSelectNoRewrite(rename)
-      }
-    }
-    */
+    override protected def buildComprehension(c: Comprehension) =
+      if(c.offset.isDefined) throw new SLICKException("Access does not support drop(...) calls")
+      else super.buildComprehension(c)
 
-    override protected def innerExpr(c: Node): Unit = c match {
+    override protected def buildSelectModifiers(c: Comprehension) {
+      if(!c.fetch.isEmpty) b += "top " += c.fetch.get += " "
+    }
+
+    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case c: Case.CaseNode => {
         b += "switch("
         var first = true
@@ -103,12 +88,17 @@ trait AccessDriver extends ExtendedDriver { driver =>
         }
         b += ")"
       }
-      case EscFunction("degrees", ch) => b += "(180/"+pi+"*"; expr(ch); b += ')'
-      case EscFunction("radians", ch) => b += "("+pi+"/180*"; expr(ch); b += ')'
+      case EscFunction("degrees", ch) =>
+        if(!skipParens) b += '('
+        b += "180/"+pi+"*"
+        expr(ch)
+        if(!skipParens) b += ')'
+      case EscFunction("radians", ch) =>
+        if(!skipParens) b += '('
+        b += pi+"/180*"
+        expr(ch)
+        if(!skipParens) b += ')'
       case EscFunction("ifnull", l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
-      case StdFunction("exists", q: Query[_, _]) =>
-        // Access doesn't like double parens around the sub-expression
-        b += "exists"; expr(q)
       case a @ ColumnOps.AsColumnOf(ch, name) => name match {
         case None if a.typeMapper eq TypeMapper.IntTypeMapper =>
           b += "cint("; expr(ch); b += ')'
@@ -125,7 +115,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
       case EscFunction("user") => b += "''"
       case EscFunction("database") => b += "''"
       case EscFunction("pi") => b += pi
-      case _ => super.innerExpr(c)
+      case _ => super.expr(c, skipParens)
     }
 
     override protected def buildOrdering(n: Node, o: Ordering) {
@@ -169,6 +159,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     override protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
       sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
+      sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
       sb append ")"
       // Foreign key actions are not supported by Access so we ignore them

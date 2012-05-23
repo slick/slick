@@ -333,22 +333,12 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       QueryBuilderResult(b.build, linearizer)
     }
 
-
-
-
-
-    protected def innerBuildSelectNoRewrite(rename: Boolean): Unit = sys.error("obsolete")
-
-    protected def appendClauses(): Unit = sys.error("obsolete")
-
     /*TODO
     final protected def appendGroupClause(): Unit = query.typedModifiers[Grouping] match {
       case Nil =>
       case xs => b += " group by "; b.sep(xs, ",")(x => expr(x.by))
     }
     */
-
-    protected def innerExpr(c: Node): Unit = sys.error("obsolete")
   }
 
   /** Builder for INSERT statements. */
