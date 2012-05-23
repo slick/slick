@@ -18,14 +18,14 @@ import scala.slick.util.ValueLinearizer
  *   <li>Sequences are not supported because Access does not have them.</li>
  *   <li><code>O.Default</code> is not supported because Access does not allow
  *     the definition of default values through ODBC but only via OLEDB/ADO.
- *     Trying to generate DDL SQL code which uses this feature throws an
+ *     Trying to generate DDL SQL code which uses this feature throws a
  *     SLICKException.</li>
  *   <li>All foreign key actions are ignored. Access supports CASCADE and
  *     SET NULL but not through ODBC, only via OLEDB/ADO.</li>
  *   <li><code>Take(n)</code> modifiers are mapped to <code>SELECT TOP n</code>
  *     which may return more rows than requested if they are not unique.</li>
  *   <li><code>Drop(n)</code> modifiers are not supported. Trying to generate
- *     SQL code which uses this feature throws an SLICKException.</li>
+ *     SQL code which uses this feature throws a SLICKException.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in Access. SLICK will return empty strings for
  *     both.</li>

@@ -7,7 +7,7 @@ import scala.slick.ast.Node
 import scala.slick.util.ValueLinearizer
 
 /**
- * SLICK driver for Microsoft SQL Server.
+ * SLICK driver for PostgreSQL.
  *
  * All ExtendedProfile features are supported.
  *

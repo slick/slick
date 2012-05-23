@@ -5,6 +5,18 @@ import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
 
+/**
+ * SLICK driver for MySQL.
+ *
+ * <p>This driver implements the ExtendedProfile with the following
+ * limitations:</p>
+ * <ul>
+ *   <li><code>Sequence.curr</code> to get the current value of a sequence is
+ *     not supported. Other sequence features are emulated.</li>
+ * </ul>
+ *
+ * @author szeiger
+ */
 trait MySQLDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
