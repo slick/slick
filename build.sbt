@@ -26,7 +26,7 @@ libraryDependencies <++= (useJDBC4) { u => Seq(
   "org.xerial" % "sqlite-jdbc" % "3.6.20" % "test",
   "org.apache.derby" % "derby" % "10.6.1.0" % "test",
   "org.hsqldb" % "hsqldb" % "2.0.0" % "test",
-  "postgresql" % "postgresql" % (if(u) "8.4-701.jdbc4" else "8.4-701.jdbc3") % "test",
+  "postgresql" % "postgresql" % (if(u) "9.1-901.jdbc4" else "9.1-901.jdbc3") % "test",
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",
   "com.novocode" % "junit-interface" % "0.9-RC2" % "test",

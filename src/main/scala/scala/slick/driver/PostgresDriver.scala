@@ -6,6 +6,13 @@ import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast.Node
 import scala.slick.util.ValueLinearizer
 
+/**
+ * SLICK driver for Microsoft SQL Server.
+ *
+ * All ExtendedProfile features are supported.
+ *
+ * @author szeiger
+ */
 trait PostgresDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
@@ -20,6 +27,12 @@ trait PostgresDriver extends ExtendedDriver { driver =>
       case (Some(t), None) => b += " LIMIT " += t
       case (None, Some(d)) => b += " OFFSET " += d
       case _ =>
+    }
+
+    override def expr(n: Node, skipParens: Boolean = false) = n match {
+      case Sequence.Nextval(seq) => b += "nextval('" += seq.name += "')"
+      case Sequence.Currval(seq) => b += "currval('" += seq.name += "')"
+      case _ => super.expr(n, skipParens)
     }
   }
 
