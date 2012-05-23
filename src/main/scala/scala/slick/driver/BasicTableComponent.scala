@@ -11,6 +11,7 @@ trait BasicTableComponent { driver: BasicDriver =>
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = ColumnOption.Default[T](defaultValue)
     def DBType(dbType: String) = ColumnOption.DBType(dbType)
+    val AutoInc = ColumnOption.AutoInc
   }
 
   val columnOptions: BasicColumnOptions = new BasicColumnOptions

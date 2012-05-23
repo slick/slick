@@ -61,6 +61,17 @@ trait MySQLDriver extends ExtendedDriver { driver =>
   }
 
   class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
+    override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
+
+    protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+      override protected def appendOptions(sb: StringBuilder) {
+        if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+        if(notNull) sb append " NOT NULL"
+        if(autoIncrement) sb append " AUTO_INCREMENT"
+        if(primaryKey) sb append " PRIMARY KEY"
+      }
+    }
+
     override protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]) = {
       "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
     }
