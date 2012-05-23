@@ -6,7 +6,7 @@
 ##############################################################################
 
 # Use only the following DBs (or use all if not set)
-#testDBs = h2mem, h2disk, hsqldbmem, sqlitemem, sqlitedisk, derbymem, derbydisk, postgres, mysql, sqlserver, access
+#testDBs = h2mem, h2disk, hsqldbmem, hsqldbdisk, sqlitemem, sqlitedisk, derbymem, derbydisk, postgres, mysql, sqlserver, access
 
 # Store database files in this path instead of the test-dbs dir
 # (ignored by MySQL and in-memory databases)

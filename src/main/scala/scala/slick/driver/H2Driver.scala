@@ -4,6 +4,13 @@ import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
 
+/**
+ * SLICK driver for H2.
+ *
+ * All ExtendedProfile features are supported.
+ *
+ * @author szeiger
+ */
 trait H2Driver extends ExtendedDriver { driver =>
 
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)

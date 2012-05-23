@@ -26,7 +26,8 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val supportsTuples = false
@@ -71,30 +72,12 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
-    override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
+  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+    override protected val foreignKeys = Nil // handled directly in addTableOptions
+    override protected val primaryKeys = Nil // handled directly in addTableOptions
 
-    protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
-      override protected def appendOptions(sb: StringBuilder) {
-        if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
-        if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
-        else if(notNull) sb append " NOT NULL"
-        else if(primaryKey) sb append " PRIMARY KEY"
-      }
-    }
-
-    override def buildDDL: DDL = {
-      val b = new StringBuilder append "CREATE TABLE " append table.tableName append " ("
-      var first = true
-      for(n <- table.create_*) {
-        if(first) first = false
-        else b append ","
-        createColumnDDLBuilder(n).appendColumn(b)
-      }
-      var prevPK: String = null
+    override protected def addTableOptions(b: StringBuilder) {
       for(pk <- table.primaryKeys) {
-        if(prevPK eq null) prevPK = pk.name
-        else throw new SLICKException("Table "+table.tableName+" defines multiple primary keys "+prevPK+" and "+pk.name)
         b append ","
         addPrimaryKey(pk, b)
       }
@@ -102,13 +85,15 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
         b append ","
         addForeignKey(fk, b)
       }
-      b append ")"
-      new DDL {
-        val createPhase1 = Iterable(b.toString)
-        val createPhase2 = Iterable()
-        val dropPhase1 = Nil
-        val dropPhase2 = Iterable("DROP TABLE " + table.tableName)
-      }
+    }
+  }
+
+  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+    override protected def appendOptions(sb: StringBuilder) {
+      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
+      else if(notNull) sb append " NOT NULL"
+      else if(primaryKey) sb append " PRIMARY KEY"
     }
   }
 

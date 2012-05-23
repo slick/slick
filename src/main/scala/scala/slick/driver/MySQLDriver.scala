@@ -5,13 +5,26 @@ import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
 
+/**
+ * SLICK driver for MySQL.
+ *
+ * <p>This driver implements the ExtendedProfile with the following
+ * limitations:</p>
+ * <ul>
+ *   <li><code>Sequence.curr</code> to get the current value of a sequence is
+ *     not supported. Other sequence features are emulated.</li>
+ * </ul>
+ *
+ * @author szeiger
+ */
 trait MySQLDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
 
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
-  override def buildSequenceDDL(seq: Sequence[_]): DDL = new SequenceDDLBuilder(seq).buildDDL
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
@@ -48,9 +61,18 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
+  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]) = {
       "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
+    }
+  }
+
+  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+    override protected def appendOptions(sb: StringBuilder) {
+      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if(notNull) sb append " NOT NULL"
+      if(autoIncrement) sb append " AUTO_INCREMENT"
+      if(primaryKey) sb append " PRIMARY KEY"
     }
   }
 

@@ -18,14 +18,14 @@ import scala.slick.util.ValueLinearizer
  *   <li>Sequences are not supported because Access does not have them.</li>
  *   <li><code>O.Default</code> is not supported because Access does not allow
  *     the definition of default values through ODBC but only via OLEDB/ADO.
- *     Trying to generate DDL SQL code which uses this feature throws an
+ *     Trying to generate DDL SQL code which uses this feature throws a
  *     SLICKException.</li>
  *   <li>All foreign key actions are ignored. Access supports CASCADE and
  *     SET NULL but not through ODBC, only via OLEDB/ADO.</li>
  *   <li><code>Take(n)</code> modifiers are mapped to <code>SELECT TOP n</code>
  *     which may return more rows than requested if they are not unique.</li>
  *   <li><code>Drop(n)</code> modifiers are not supported. Trying to generate
- *     SQL code which uses this feature throws an SLICKException.</li>
+ *     SQL code which uses this feature throws a SLICKException.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in Access. SLICK will return empty strings for
  *     both.</li>
@@ -45,8 +45,9 @@ trait AccessDriver extends ExtendedDriver { driver =>
   val retryCount = 10
   override val typeMapperDelegates = new TypeMapperDelegates(retryCount)
 
-  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
@@ -60,30 +61,15 @@ trait AccessDriver extends ExtendedDriver { driver =>
 
     val pi = "3.1415926535897932384626433832795"
 
-    /*TODO
-    override protected def innerBuildSelectNoRewrite(rename: Boolean) {
-      query.typedModifiers[TakeDrop] match {
-        case TakeDrop(_ , Some(_)) :: _ =>
-          throw new SLICKException("Access does not support drop(...) modifiers")
-        case TakeDrop(Some(0), _) :: _ =>
-          /* Access does not allow TOP 0, so we use this workaround
-           * to force the query to return no results */
-          b += "SELECT * FROM ("
-          super.innerBuildSelectNoRewrite(rename)
-          b += ") WHERE FALSE"
-        case TakeDrop(Some(n), _) :: _ =>
-          /*TODO selectSlot = b.createSlot
-          selectSlot += "SELECT TOP " += n += ' '
-          expr(query.reified, selectSlot, rename, true)
-          fromSlot = b.createSlot*/
-          appendClauses()
-        case _ =>
-          super.innerBuildSelectNoRewrite(rename)
-      }
-    }
-    */
+    override protected def buildComprehension(c: Comprehension) =
+      if(c.offset.isDefined) throw new SLICKException("Access does not support drop(...) calls")
+      else super.buildComprehension(c)
 
-    override protected def innerExpr(c: Node): Unit = c match {
+    override protected def buildSelectModifiers(c: Comprehension) {
+      if(!c.fetch.isEmpty) b += "top " += c.fetch.get += " "
+    }
+
+    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case c: Case.CaseNode => {
         b += "switch("
         var first = true
@@ -103,12 +89,17 @@ trait AccessDriver extends ExtendedDriver { driver =>
         }
         b += ")"
       }
-      case EscFunction("degrees", ch) => b += "(180/"+pi+"*"; expr(ch); b += ')'
-      case EscFunction("radians", ch) => b += "("+pi+"/180*"; expr(ch); b += ')'
+      case EscFunction("degrees", ch) =>
+        if(!skipParens) b += '('
+        b += "180/"+pi+"*"
+        expr(ch)
+        if(!skipParens) b += ')'
+      case EscFunction("radians", ch) =>
+        if(!skipParens) b += '('
+        b += pi+"/180*"
+        expr(ch)
+        if(!skipParens) b += ')'
       case EscFunction("ifnull", l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
-      case StdFunction("exists", q: Query[_, _]) =>
-        // Access doesn't like double parens around the sub-expression
-        b += "exists"; expr(q)
       case a @ ColumnOps.AsColumnOf(ch, name) => name match {
         case None if a.typeMapper eq TypeMapper.IntTypeMapper =>
           b += "cint("; expr(ch); b += ')'
@@ -125,7 +116,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
       case EscFunction("user") => b += "''"
       case EscFunction("database") => b += "''"
       case EscFunction("pi") => b += pi
-      case _ => super.innerExpr(c)
+      case _ => super.expr(c, skipParens)
     }
 
     override protected def buildOrdering(n: Node, o: Ordering) {
@@ -145,33 +136,32 @@ trait AccessDriver extends ExtendedDriver { driver =>
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = ()
   }
 
-  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
-    override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
-
-    protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
-      override def appendColumn(sb: StringBuilder) {
-        sb append quoteIdentifier(column.name) append ' '
-        if(autoIncrement) {
-          sb append "AUTOINCREMENT"
-          autoIncrement = false
-        }
-        else sb append sqlType
-        appendOptions(sb)
-      }
-
-      override protected def appendOptions(sb: StringBuilder) {
-        if(notNull) sb append " NOT NULL"
-        if(defaultLiteral ne null) throw new SLICKException("Default values are not supported by AccessDriver")
-        if(primaryKey) sb append " PRIMARY KEY"
-      }
-    }
-
+  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
       sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
+      sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
       sb append ")"
       // Foreign key actions are not supported by Access so we ignore them
+    }
+  }
+
+  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+    override def appendColumn(sb: StringBuilder) {
+      sb append quoteIdentifier(column.name) append ' '
+      if(autoIncrement) {
+        sb append "AUTOINCREMENT"
+        autoIncrement = false
+      }
+      else sb append sqlType
+      appendOptions(sb)
+    }
+
+    override protected def appendOptions(sb: StringBuilder) {
+      if(notNull) sb append " NOT NULL"
+      if(defaultLiteral ne null) throw new SLICKException("Default values are not supported by AccessDriver")
+      if(primaryKey) sb append " PRIMARY KEY"
     }
   }
 

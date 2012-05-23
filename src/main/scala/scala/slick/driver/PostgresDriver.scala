@@ -6,11 +6,18 @@ import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast.Node
 import scala.slick.util.ValueLinearizer
 
+/**
+ * SLICK driver for PostgreSQL.
+ *
+ * All ExtendedProfile features are supported.
+ *
+ * @author szeiger
+ */
 trait PostgresDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  override def buildTableDDL(table: Table[_]): DDL = new DDLBuilder(table).buildDDL
+  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val concatOperator = Some("||")
@@ -21,21 +28,23 @@ trait PostgresDriver extends ExtendedDriver { driver =>
       case (None, Some(d)) => b += " OFFSET " += d
       case _ =>
     }
+
+    override def expr(n: Node, skipParens: Boolean = false) = n match {
+      case Sequence.Nextval(seq) => b += "nextval('" += seq.name += "')"
+      case Sequence.Currval(seq) => b += "currval('" += seq.name += "')"
+      case _ => super.expr(n, skipParens)
+    }
   }
 
-  class DDLBuilder(table: Table[_]) extends super.DDLBuilder(table) {
-    override protected def createColumnDDLBuilder(c: RawNamedColumn) = new ColumnDDLBuilder(c)
-
-    protected class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
-      override def appendColumn(sb: StringBuilder) {
-        sb append quoteIdentifier(column.name) append ' '
-        if(autoIncrement) {
-          sb append "SERIAL"
-          autoIncrement = false
-        }
-        else sb append sqlType
-        appendOptions(sb)
+  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+    override def appendColumn(sb: StringBuilder) {
+      sb append quoteIdentifier(column.name) append ' '
+      if(autoIncrement) {
+        sb append "SERIAL"
+        autoIncrement = false
       }
+      else sb append sqlType
+      appendOptions(sb)
     }
   }
 
