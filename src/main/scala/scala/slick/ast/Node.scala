@@ -1,27 +1,33 @@
 package scala.slick.ast
 
 import scala.math.{min, max}
-import scala.collection.mutable.{ArrayBuffer, HashMap}
 import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
 import scala.slick.SLICKException
 import scala.slick.ql.{ConstColumn, ShapedValue}
 import scala.slick.util.{RefId, SimpleTypeName}
+import scala.collection.mutable.{HashSet, ArrayBuffer, HashMap}
+import OptimizerUtil.nodeToNodeOps
 
 trait NodeGenerator {
   def nodeDelegate: Node
 
   final def dump(name: String = "", prefix: String = "") {
     val out = new PrintWriter(new OutputStreamWriter(System.out))
-    nodeDelegate.nodeDump(new DumpContext(out, nodeDelegate), prefix, name)
-    out.flush()
+    dumpTo(out, name, prefix)
   }
 
   final def dumpString(name: String = "", prefix: String = "") = {
     val buf = new StringWriter
-    val out = new PrintWriter(buf)
-    nodeDelegate.nodeDump(new DumpContext(out, nodeDelegate), prefix, name)
-    out.flush()
+    dumpTo(new PrintWriter(buf), name, prefix)
     buf.getBuffer.toString
+  }
+
+  final def dumpTo(out: PrintWriter, name: String = "", prefix: String = "") {
+    val dc = new DumpContext(out, nodeDelegate)
+    nodeDelegate.nodeDump(dc, prefix, name)
+    for(GlobalSymbol(name, node) <- dc.orphans)
+      node.nodeDump(dc, prefix, "/"+name+": ")
+    out.flush()
   }
 }
 
@@ -50,6 +56,11 @@ trait Node extends NodeGenerator {
   }
 
   def nodeDump(dc: DumpContext, prefix: String, name: String) {
+    this match {
+      case n: DefNode => n.nodeGenerators.foreach(t => dc.addDef(t._1))
+      case n: RefNode => n.nodeReferences.foreach(dc.addRef)
+      case _ =>
+    }
     val check = if(this.isInstanceOf[Ref]) None else dc.checkIdFor(this)
     val details = check match {
       case Some((id, true)) =>
@@ -96,6 +107,8 @@ object Node {
 }
 
 final class DumpContext(val out: PrintWriter, base: Node) {
+  private[this] val refs = new HashSet[Symbol]
+  private[this] val defs = new HashSet[Symbol]
   private[this] val counts = new HashMap[RefId[Node], Int]
   private[this] val ids = new HashMap[RefId[Node], Int]
   private[this] var nextId = 1
@@ -120,6 +133,31 @@ final class DumpContext(val out: PrintWriter, base: Node) {
     else None
   }
   def idFor(t: Node) = checkIdFor(t).map(_._1)
+
+  def addRef(s: Symbol) = refs.add(s)
+  def addDef(s: Symbol) = defs.add(s)
+
+  def orphans: Set[Symbol] = {
+    val newRefs = new HashSet[GlobalSymbol] ++ refs.collect { case g: GlobalSymbol => g }
+    def scan(): Unit = {
+      val toScan = newRefs.toSet
+      newRefs.clear()
+      toScan.foreach { _.target.foreach {
+          case r: RefNode =>
+            r.nodeReferences.foreach {
+              case g: GlobalSymbol =>
+                if(!refs.contains(g)) {
+                  refs += g
+                  newRefs += g
+                }
+              case _ =>
+            }
+          case _ =>
+      }}
+    }
+    while(!newRefs.isEmpty) scan()
+    (refs -- defs).toSet
+  }
 }
 
 trait ProductNode extends SimpleNode {
@@ -179,19 +217,6 @@ trait NullaryNode extends SimpleNode {
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = this
 }
 
-final case class Wrapped(in: Node, what: Node) extends BinaryNode {
-  def left = in
-  def right = what
-  protected[this] override def nodeChildNames = Seq("in", "what")
-  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(in = left, what = right)
-}
-
-object Wrapped {
-  def ifNeeded(in: Node, what: Node): Node =
-    if(in eq what) what else Wrapped(in, what)
-  def wrapShapedValue[E, U](in: Node, u: ShapedValue[E, U]) = u.endoMap(n => WithOp.mapOp(n, { x => Wrapped.ifNeeded(Node(in), Node(x)) }))
-}
-
 final case class Pure(value: Node) extends UnaryNode {
   def child = value
   protected[this] override def nodeChildNames = Seq("value")
@@ -245,6 +270,7 @@ final case class SortBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]
   protected[this] override def nodeChildNames = ("from "+generator) +: by.zipWithIndex.map("by" + _._2)
   def withGenerator(gen: Symbol) = copy(generator = gen)
   def nodePostGeneratorChildren = by.map(_._1)
+  override def toString = "SortBy " + by.map(_._2).mkString(", ")
 }
 
 final case class OrderBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]) extends FilteredQuery with SimpleNode with SimpleDefNode {
@@ -353,6 +379,20 @@ final case class Bind(generator: Symbol, from: Node, select: Node) extends Binar
     if(fs eq generator) this else copy(generator = fs)
   }
   def nodePostGeneratorChildren = Seq(select)
+}
+
+final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode {
+  def child = in
+  protected[this] override def nodeChildNames = Seq("in")
+  protected[this] def nodeRebuild(child: Node) = copy(in = child)
+  def nodeReferences: Seq[Symbol] = Seq(field)
+  def nodeMapReferences(f: Symbol => Symbol) = copy(field = f(field))
+}
+
+final case class ProductElement(in: Node, idx: Int) extends UnaryNode {
+  def child = in
+  protected[this] override def nodeChildNames = Seq("in")
+  protected[this] def nodeRebuild(child: Node) = copy(in = child)
 }
 
 abstract class TableNode extends Node {

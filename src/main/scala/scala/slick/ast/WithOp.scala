@@ -4,10 +4,10 @@ import scala.slick.ql.Shape
 
 trait WithOp extends Cloneable {
   self: NodeGenerator =>
-  def mapOp(f: Node => Node): this.type = {
+  def mapOp(f: (Node, List[Int]) => Node, positions: List[Int] = Nil): this.type = {
     val tv = Node(this)
-    val fv = f(tv)
-    if (fv eq tv) this
+    val fv = f(tv, positions)
+    if(fv eq tv) this
     else {
       val t = clone
       t._op = fv
@@ -25,16 +25,15 @@ trait WithOp extends Cloneable {
 object WithOp {
   def unapply(w: WithOp) = if(w.op == null) None else Some(w.op)
 
-  def mapOp[T](x: T, f: Node => Node): T = x match {
-    case w: WithOp => w.mapOp(f).asInstanceOf[T]
+  def mapOp[T](x: T, f: (Node, List[Int]) => Node, positions: List[Int] = Nil): T = (x match {
+    case w: WithOp => w.mapOp(f, positions)
     case p: Product => // Only works for tuples but they have no common superclass
-      var changed = false
-      val seq = p.productIterator.map { x =>
-        val y = mapOp(x, f)
-        if(x.asInstanceOf[AnyRef].ne(y.asInstanceOf[AnyRef])) changed = true
-        y
-      }.toIndexedSeq
-      if(changed) Shape.buildTuple(seq).asInstanceOf[T]
-      else x
-  }
+      Shape.buildTuple(p.productIterator.zipWithIndex.map {
+        case (x, pos) => mapOp(x, f, (pos + 1) :: positions) }.toIndexedSeq)
+  }).asInstanceOf[T]
+
+  def encodeRef[T](x: T, sym: Symbol): T = mapOp(x, { (n, positions) =>
+    if(positions.isEmpty) Ref(sym)
+    else positions.foldRight[Node](Ref(sym))((idx, node) => ProductElement(node, idx))
+  })
 }
