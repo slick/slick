@@ -406,3 +406,14 @@ abstract class TableNode extends Node {
 object TableNode {
   def unapply(t: TableNode) = Some(t.tableName)
 }
+
+final case class DynamicLet(defs: Seq[(Symbol, Node)], in: Node) extends SimpleNode with SimpleDefNode {
+  protected[this] def nodeChildGenerators = defs.map(_._2) :+ in
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
+    copy(defs = defs.zip(ch.init).map{ case ((s, _), n) => (s, n) }, in = ch.last)
+  protected[this] override def nodeChildNames = defs.map(_._1.toString) :+ "in"
+  def nodeGenerators = defs
+  def nodePostGeneratorChildren = Seq(in)
+  def nodeMapGenerators(f: Symbol => Symbol): Node =
+    copy(defs = defs.map{ case (s, n) => (f(s), n) })
+}

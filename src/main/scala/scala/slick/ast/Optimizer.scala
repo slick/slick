@@ -13,24 +13,15 @@ object Optimizer extends Logging {
     if(logger.isDebugEnabled) {
       logger.debug("source:", n)
     }
-    val (n2, extra2) = localizeRefs(n)
+    val n2 = localizeRefs(n)
     if(logger.isDebugEnabled) {
-      var max = AnonSymbol.assignNames(n2, prefix = "s", force = true, allRefs = true)
-      extra2.valuesIterator.foreach { n =>
-        max = AnonSymbol.assignNames(n, prefix = "s", start = max, force = true, allRefs = true)
-      }
-      if(n2 ne n) {
-        logger.debug("localized refs:", n2)
-        for((s, t) <- extra2) logger.debug("localized refs: "+s, t)
-      }
+      AnonSymbol.assignNames(n2, prefix = "s", force = true)
+      if(n2 ne n) logger.debug("localized refs:", n2)
     }
-    val n3 = reconstructProducts(n2, extra2)
+    val n3 = reconstructProducts(n2)
     if(n3 ne n2) logger.debug("products reconstructed:", n3)
-    val (n4, extra4) = inlineUniqueRefs(n3, extra2)
-    if((n4 ne n3) && logger.isDebugEnabled) {
-      logger.debug("unique refs inlined:", n4)
-      for((s, t) <- extra4) logger.debug("unique refs inlined: "+s, t)
-    }
+    val n4 = inlineUniqueRefs(n3)
+    if(n4 ne n3) logger.debug("unique refs inlined:", n4)
     n4
   }
 
@@ -55,8 +46,8 @@ object Optimizer extends Logging {
     n5
   }*/
 
-  /** Replace GlobalSymbols by AnonSymbols and collect them in a map */
-  def localizeRefs(tree: Node): (Node, Map[AnonSymbol, Node]) = {
+  /** Replace GlobalSymbols by AnonSymbols and collect them in a DynamicLet */
+  def localizeRefs(tree: Node): Node = {
     val map = new HashMap[AnonSymbol, Node]
     val newNodes = new HashMap[AnonSymbol, Node]
     val tr = new Transformer {
@@ -77,7 +68,7 @@ object Optimizer extends Logging {
       newNodes.clear()
       m.foreach { case (sym, n) => map += sym -> tr.applyOnce(n) }
     }
-    (tree2, map.toMap)
+    if(map.isEmpty) tree2 else DynamicLet(map.toSeq, tree2)
   }
 
   /**
@@ -87,7 +78,7 @@ object Optimizer extends Logging {
    * to an expression that yields a Query of ProductNode(_, _). This optimizer
    * rewrites those forms to the raw Ref r.
    */
-  def reconstructProducts(tree: Node, extra: Map[AnonSymbol, Node]): Node = {
+  def reconstructProducts(tree: Node): Node = {
     def findCommonRef(n: Node): Option[AnonSymbol] = n match {
       case Ref(sym: AnonSymbol) => Some(sym)
       case ProductElement(in, _) => findCommonRef(in)
@@ -109,7 +100,7 @@ object Optimizer extends Logging {
         case p: ProductNode =>
           (for {
             sym <- findCommonRef(p)
-            target <- defs.get(sym).orElse(extra.get(sym))
+            target <- defs.get(sym)
           } yield {
             logger.debug("Target for common ref "+sym+": "+target)
             if(shapeMatches(p, target)) Ref(sym) else p
@@ -145,9 +136,9 @@ object Optimizer extends Logging {
   }
 
   /** Inline references to global symbols which occur only once in a Ref node */
-  def inlineUniqueRefs(tree: Node, extra: Map[AnonSymbol, Node]): (Node, Map[AnonSymbol, Node]) = {
+  def inlineUniqueRefs(tree: Node): (Node) = {
     val counts = new HashMap[AnonSymbol, Int]
-    def scan(n: Node) = n.foreach {
+    tree.foreach {
       case r: RefNode => r.nodeReferences.foreach {
         case a: AnonSymbol =>
           counts += a -> (counts.getOrElse(a, 0) + 1)
@@ -155,22 +146,25 @@ object Optimizer extends Logging {
       }
       case _ =>
     }
-    scan(tree)
-    extra.valuesIterator.foreach(scan)
+    val (tree2, globals) = tree match {
+      case DynamicLet(defs, in) => (in, defs.toMap)
+      case n => (n, Map[Symbol, Node]())
+    }
     logger.debug("counts: "+counts)
-    val toInline = counts.iterator.filter{ case (a, i) => i == 1 && extra.contains(a) }.map(_._1).toSet
+    val toInline = counts.iterator.filter{ case (a, i) => i == 1 && globals.contains(a) }.map(_._1).toSet
     logger.debug("symbols to inline: "+toInline)
-    val inlined = new HashSet[AnonSymbol]
+    val inlined = new HashSet[Symbol]
     lazy val tr: Transformer = new Transformer {
       def replace = {
         case Ref(a: AnonSymbol) if toInline.contains(a) =>
           inlined += a
-          tr.applyOnce(extra(a))
+          tr.applyOnce(globals(a))
       }
     }
-    val tree2 = tr.applyOnce(tree)
-    val leftExtra = extra.filterKeys(a => !inlined.contains(a))
-    (tree2, leftExtra)
+    val tree3 = tr.applyOnce(tree2)
+    val globalsLeft = globals.filterKeys(a => !inlined.contains(a))
+    if(globalsLeft.isEmpty) tree3
+    else DynamicLet(globalsLeft.iterator.map{ case (sym, n) => (sym, tr.applyOnce(n)) }.toSeq, tree3)
   }
 
 
