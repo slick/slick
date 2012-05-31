@@ -42,6 +42,7 @@ class WeakIdentityHashMapTest {
     x4 = null
     x5 = null
     System.gc()
+    Thread.sleep(100L)
 
     println("After gc")
     for { (k, v) <- m } println("  "+k+" -> "+v)

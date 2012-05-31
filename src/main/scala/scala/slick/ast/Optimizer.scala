@@ -46,7 +46,7 @@ object Optimizer extends Logging {
     n5
   }*/
 
-  /** Replace GlobalSymbols by AnonSymbols and collect them in a DynamicLet */
+  /** Replace GlobalSymbols by AnonSymbols and collect them in a LetDynamic */
   def localizeRefs(tree: Node): Node = {
     val map = new HashMap[AnonSymbol, Node]
     val newNodes = new HashMap[AnonSymbol, Node]
@@ -62,13 +62,13 @@ object Optimizer extends Logging {
         }
       }
     }
-    val tree2 = tr.applyOnce(tree)
+    val tree2 = tr.once(tree)
     while(!newNodes.isEmpty) {
       val m = newNodes.toMap
       newNodes.clear()
-      m.foreach { case (sym, n) => map += sym -> tr.applyOnce(n) }
+      m.foreach { case (sym, n) => map += sym -> tr.once(n) }
     }
-    if(map.isEmpty) tree2 else DynamicLet(map.toSeq, tree2)
+    if(map.isEmpty) tree2 else LetDynamic(map.toSeq, tree2)
   }
 
   /**
@@ -79,6 +79,7 @@ object Optimizer extends Logging {
    * rewrites those forms to the raw Ref r.
    */
   def reconstructProducts(tree: Node): Node = {
+    // Find the common reference in a candidate node
     def findCommonRef(n: Node): Option[AnonSymbol] = n match {
       case Ref(sym: AnonSymbol) => Some(sym)
       case ProductElement(in, _) => findCommonRef(in)
@@ -92,24 +93,6 @@ object Optimizer extends Logging {
         }
       case _ => None
     }
-    def shapeMatches(p: ProductNode, t: Node): Boolean = {
-      true//--
-    }
-    val tr = new Transformer.Defs {
-      def replace = {
-        case p: ProductNode =>
-          (for {
-            sym <- findCommonRef(p)
-            target <- defs.get(sym)
-          } yield {
-            logger.debug("Target for common ref "+sym+": "+target)
-            if(shapeMatches(p, target)) Ref(sym) else p
-          }).getOrElse(p)
-      }
-    }
-    tr.applyOnce(tree)
-
-    /*
     // ADT for representing shapes of ProductNodes
     sealed abstract class PShape
     case object PLeaf extends PShape
@@ -125,17 +108,63 @@ object Optimizer extends Logging {
       }
     }
     // Find the shape and common ref of a product if it exists
-    def shape(n: Node): Option[(PShape, Ref)] = n match {
+    def shapeFor(n: Node, expect: List[Int] = Nil): Option[PShape] = n match {
       case ProductNode(ch @ _*) =>
-      case
+        val chsh = ch.zipWithIndex.map { case (c, i) => shapeFor(c, (i+1) :: expect) }
+        if(chsh.contains(None)) None else Some(PProduct(chsh.map(_.get)))
+      case ProductElements(idxs, _) =>
+        if(idxs == expect) Some(PLeaf) else None
     }
-    def dropElemRefs(n: Node, drop: List[Int]): Option[Node] = n match {
-      case ProductNode(ch @ _*) =>
-        ch.zipWithIndex.map { case (c, i) => dropElemRefs(c, (i+1) :: drop) }
-    }*/
+    // Check if the shape matches the ref target
+    def shapeMatches(s: PShape, t: Node): Boolean = (s, t) match {
+      case (PLeaf, _) => true
+      case (PProduct(pch), ProductNode(nch @ _*)) if(pch.length == nch.length) =>
+        (pch, nch).zipped.map(shapeMatches).forall(identity)
+      case _ => false
+    }
+    // Replace matching products
+    (new Transformer.Defs {
+      // Narrow the target of a ref to the actual Pure value produced
+      def narrow(n: Node): Option[Pure] = n match {
+        case p: Pure => Some(p)
+        case FilteredQuery(_, from) => narrow(from)
+        case Bind(_, _, select) => narrow(select)
+        case Ref(Def(n)) => narrow(n)
+        case _ => None
+      }
+      def replace = {
+        case p: ProductNode =>
+          (for {
+            sym <- findCommonRef(p)
+            target <- {
+              logger.debug("Found ProductNode with common ref "+sym)
+              defs.get(sym)
+            }
+            ntarget <- {
+              logger.debug("  Ref target: "+target)
+              narrow(target)
+            }
+            shape <- {
+              logger.debug("  Narrowed target: "+ntarget)
+              shapeFor(p)
+            }
+          } yield {
+            logger.debug("  Shape: "+shape)
+            if(shapeMatches(shape, ntarget.value)) {
+              logger.debug("  Shape matches")
+              Ref(sym)
+            } else p
+          }).getOrElse(p)
+      }
+    }).repeat(tree)
   }
 
-  /** Inline references to global symbols which occur only once in a Ref node */
+  /**
+   * Inline references to global symbols which occur only once in a Ref node.
+   *
+   * We also remove identity Binds here to avoid an extra pass just for that.
+   * TODO: Necessary? The conversion to relational trees should inline them anyway.
+   */
   def inlineUniqueRefs(tree: Node): (Node) = {
     val counts = new HashMap[AnonSymbol, Int]
     tree.foreach {
@@ -147,7 +176,7 @@ object Optimizer extends Logging {
       case _ =>
     }
     val (tree2, globals) = tree match {
-      case DynamicLet(defs, in) => (in, defs.toMap)
+      case LetDynamic(defs, in) => (in, defs.toMap)
       case n => (n, Map[Symbol, Node]())
     }
     logger.debug("counts: "+counts)
@@ -158,13 +187,15 @@ object Optimizer extends Logging {
       def replace = {
         case Ref(a: AnonSymbol) if toInline.contains(a) =>
           inlined += a
-          tr.applyOnce(globals(a))
+          tr.once(globals(a))
+        // Remove identity Bind
+        case Bind(gen, from, Pure(Ref(sym))) if gen == sym => from
       }
     }
-    val tree3 = tr.applyOnce(tree2)
+    val tree3 = tr.once(tree2)
     val globalsLeft = globals.filterKeys(a => !inlined.contains(a))
     if(globalsLeft.isEmpty) tree3
-    else DynamicLet(globalsLeft.iterator.map{ case (sym, n) => (sym, tr.applyOnce(n)) }.toSeq, tree3)
+    else LetDynamic(globalsLeft.iterator.map{ case (sym, n) => (sym, tr.once(n)) }.toSeq, tree3)
   }
 
 
@@ -177,109 +208,6 @@ object Optimizer extends Logging {
 
 
 
-
-  lazy val standard =
-    eliminateIndirections andThen
-      unwrapGenerators andThen
-      reverseProjectionWrapping
-
-  /**
-   * Eliminate unnecessary nodes from the AST.
-   */
-  val eliminateIndirections = new Transformer.Defs {
-    def replace = {
-      // Remove indirections through global symbols
-      case Ref(GlobalSymbol(_, r: Ref)) => r
-      // Remove wrapping of the entire result of a FilteredQuery
-      case InRef(GlobalSymbol(_, q @ FilteredQuery(_, from)), what) if what == from => q
-      // Remove dual wrapping (remnant of a removed Filter(_, ConstColumn(true)))
-      case InRef(GlobalSymbol(_, in2), w2 @ InRef(GlobalSymbol(_, in1), _)) if in1 == in2 => w2
-      case InRef(in2, i @ InRef(in1, _)) if in1 == in2 => i
-      // Remove identity binds
-      case Bind(_, x, Pure(y)) if x == y => x
-      case Bind(s1, x, Pure(TableRef(s2))) if s1 == s2 => x
-      case Bind(s1, x, Pure(Ref(s2))) if s1 == s2 => x
-      // Remove unnecessary wrapping of pure values
-      case InRef(GlobalSymbol(_, p @ Pure(n1)), n2) if n1 == n2 => p
-      // Remove unnecessary wrapping of binds
-      case InRef(GlobalSymbol(_, b @ Bind(_, _, s1)), s2) if s1 == s2 => b
-      // Remove unnecessary wrapping of filters in FROM clauses
-      case b @ Bind(gen, InRef(GlobalSymbol(_, f: FilteredQuery), _), what) => b.copy(from = f)
-      case b @ Bind(gen, InRef(GlobalSymbol(_, f: FilteredJoin), _), what) => b.copy(from = f)
-      // Unwrap unions
-      case InRef(GlobalSymbol(_, u @ Union(left, _, _, _, _)), what) if left == what => u
-      // Remove incorrect wrapping caused by multiple uses of the referenced sub-tree
-      case InRef(sym1, InRef(sym2, what)) if defs.get(sym1) == defs.get(sym2) => InRef(sym1, what)
-      // Back to using ResolvedInRef with virtpatmat in 2.10 perhaps? It's broken in the old patmat
-      /*case r @ ResolvedInRef(sym1, _, ResolvedInRef(sym2, _, what)) =>
-        println("++++ resolved refs "+sym1+", "+sym2)
-        r
-      case r @ InRef(sym1, InRef(sym2, what)) =>
-        println("++++ unresolved refs "+sym1+", "+sym2)
-        println("++++ resolved: "+defs.get(sym1)+", "+defs.get(sym2))
-        r*/
-    }
-  }
-
-  /**
-   * Since Nodes cannot be encoded into Scala Tuples, they have to be encoded
-   * into the Tuples' children instead, so we end up with trees like
-   * ProductNode(Wrapped(p, x), Wrapped(p, y)). This optimizer rewrites those
-   * forms to Wrapped(p, ProductNode(x, y)).
-   */
-  val reverseProjectionWrapping = new Transformer {
-    def allFrom(sym: Symbol, xs: Seq[Node]) = xs.forall(_ match {
-      case InRef(sym2, _) if sym == sym2 => true
-      case _ => false
-    })
-    def replace = {
-      case p @ ProductNode(InRef(sym: GlobalSymbol, _), xs @ _*) if allFrom(sym, xs) =>
-        val unwrapped = p.nodeChildren.collect { case InRef(_, what) => what }
-        InRef(sym, ProductNode(unwrapped: _*))
-    }
-  }
-
-  /**
-   * Remove unnecessary wrappings of generators
-   */
-  val unwrapGenerators = new Transformer.DefRefsBidirectional {
-    val pureParents = new HashMap[RefId[Pure], Bind]
-    override def initTree(tree: Node) {
-      super.initTree(tree)
-      pureParents.clear()
-      pureParents ++= tree.collect[(RefId[Pure], Bind)] {
-        case b @ Bind(_, _, p @ Pure(_)) => (RefId(p), b)
-      }
-    }
-    def checkSelect(b: Bind, sel: Node): Boolean = {
-      if(b.select eq sel) true
-      else b.select match {
-        case b2: Bind => checkSelect(b2, sel)
-        case _ => false
-      }
-    }
-    def replace = {
-      case InRef(sym, InRef(GlobalSymbol(_, in), what)) if {
-        (defs.get(sym) == Some(RefId(in))) ||
-          defs.get(sym).map(_.e match {
-            case b: Bind if checkSelect(b, in) => true
-            case _ => false
-          }).getOrElse(false)
-      } => InRef(sym, what)
-      case r @ InRef(sym, what) if defs.get(sym) == Some(RefId(what)) => Ref(sym)
-      case InRef(GlobalSymbol(_, in), what) if reverse.get(RefId(in)).isDefined => InRef(reverse.get(RefId(in)).get, what)
-      case InRef(GlobalSymbol(_, Ref(sym)), what) => InRef(sym, what)
-      case InRef(GlobalSymbol(_, InRefChain(syms, Ref(sym2))), what) => InRefChain(syms :+ sym2, what)
-      case InRef(sym, what) if (defs.get(sym) match {
-        case Some(RefId(FilteredQuery(_, from))) if what == from => true
-        case _ => false
-      }) => defs(sym).e
-      // Rewrap from Pure to the enclosing Bind (which can then get resolved to a symbol ref)
-      case InRef(GlobalSymbol(_, p: Pure), what) if p.ne(what) && pureParents.contains(RefId(p)) =>
-        InRef(GlobalSymbol.forNode(pureParents(RefId(p))), what)
-      case InRef(GlobalSymbol(_, in @ Bind(gen, from, Pure(what))), what2) if what eq what2 => in
-    }
-  }
 
   /**
    * Ensure that all symbol definitions in a tree are unique

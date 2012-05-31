@@ -11,24 +11,24 @@ object Columnizer extends (Node => Node) with Logging {
   val expandColumns = new Transformer.Defs {
     def replace = pftransitive {
       // Remove unnecessary wrapping of generated TableRef reference
-      case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
+      //case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
       // Rewrite a table reference that has already been rewritten to a Ref
-      case ResolvedRef(sym, f @ FilterChain(syms, t: TableNode)) => InRef(sym, Node(t.nodeShaped_*.value))
+      //case ResolvedRef(sym, f @ FilterChain(syms, t: TableNode)) => InRef(sym, Node(t.nodeShaped_*.value))
       // Push InRef down into ProductNode
-      case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
+      //case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
       // Merge products
       case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
       // Rewrite a table reference returned in a Bind
       case b @ Bind(_, _, t: TableNode) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.nodeShaped_*.value))))
-      case Pure(ResolvedRef(sym1, f @ FilterChain(syms, t: TableNode))) => Pure(TableRef(sym1))
+      case Pure(Ref(sym1 @ Def(FilterChain(_, t: TableNode)))) => Pure(TableRef(sym1))
       // Rewrite orderBy dummy bind -- Not really part of columnization but we
       // cannot do it before the first optimizer run has unwrapped everything
-      case Bind(_, OrderBy(gen, _, by), select) =>
-        SortBy(gen, select, by)
+      //case Bind(_, OrderBy(gen, _, by), select) =>
+      //  SortBy(gen, select, by)
     }
   }
 
-  def apply(tree: Node): Node = fixpoint(tree)((expandAndOptimize _).andThen(expandPureSelects))
+  def apply(tree: Node): Node = fixpoint(tree)((expandAndOptimize _) /*.andThen(expandPureSelects)*/ )
 
   def expandPureSelects(n: Node): Node = {
     val n2 = memoized[Node, Node](r => {
@@ -68,19 +68,22 @@ object Columnizer extends (Node => Node) with Logging {
       case n => n
     }
     val t2 = if(isFilterOrUnionOfTable(tree)) mapSourceTable(tree, _.nodeExpand_*) else tree
-    val t3 = expandColumns(t2)
+    val t3 = expandColumns.repeat(t2)
+    if(t3 ne tree) logger.debug("Columns expanded: ", t3)
     //TODO This hack unwraps the expanded references within their scope
     // There may be other situations where unwrapping finds the wrong symbols,
     // so this should be done in a completely different way (by introducing
     // StructNodes much earlier and avoiding wrapping altogether)
     def optimizeUnions(n: Node): Node = n match {
       case u @ Union(left, right, _, _, _) =>
-        val l = Optimizer.standard(optimizeUnions(left))
-        val r = Optimizer.standard(optimizeUnions(right))
+        val l = /*Optimizer.standard.repeat*/(optimizeUnions(left))
+        val r = /*Optimizer.standard.repeat*/(optimizeUnions(right))
         u.copy(left = l, right = r)
       case n => n.nodeMapChildren(optimizeUnions)
     }
     val t4 = optimizeUnions(t3)
-    Optimizer.standard(t4)
+    val t5 = /*Optimizer.standard.repeat*/(t4)
+    if(t5 ne t3) logger.debug("Optimized after column expansion: ", t5)
+    t5
   }
 }

@@ -21,7 +21,7 @@ object Relational extends Logging {
       AnonSymbol.assignNames(n2, "a")
       logger.debug("aliased:", n2)
     }
-    val n3 = convert(n2)
+    val n3 = convert.repeat(n2)
     if(n3 ne n2) logger.debug("converted: ", n3)
     val n4 = inline(n3)
     if(n4 ne n3) logger.debug("inlined: ", n4)
@@ -48,7 +48,7 @@ object Relational extends Logging {
           else c
       }
     }
-    val res = tr.applyOnce(tree)
+    val res = tr.once(tree)
     // Ensure that no TableRefs and StructNodes remain inside Pure generators
     res.foreach {
       case d: DefNode => d.nodeGenerators.foreach {

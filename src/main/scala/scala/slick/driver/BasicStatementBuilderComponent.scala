@@ -369,7 +369,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           if(table eq null) table = n.table.asInstanceOf[TableNode].tableName
           else if(table != n.table.asInstanceOf[TableNode].tableName) throw new SLICKException("Inserts must all be to the same table")
           appendNamedColumn(n.raw, cols, vals)
-        case Wrapped(t: TableNode, n: RawNamedColumn) =>
+        case FieldRef(GlobalSymbol(_, t: TableNode), field: FieldSymbol) =>
+          val n = field.column.get
           if(table eq null) table = t.tableName
           else if(table != t.tableName) throw new SLICKException("Inserts must all be to the same table")
           appendNamedColumn(n, cols, vals)
@@ -480,7 +481,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) {
       var first = true
       for(c <- columns) c match {
-        case Wrapped(t: TableNode, n: RawNamedColumn) =>
+        case FieldRef(GlobalSymbol(_, t: TableNode), field: FieldSymbol) =>
+          val n = field.column.get
           if(first) first = false
           else sb append ","
           sb append quoteIdentifier(n.name)
