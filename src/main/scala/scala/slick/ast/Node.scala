@@ -61,21 +61,28 @@ trait Node extends NodeGenerator {
       case n: RefNode => n.nodeReferences.foreach(dc.addRef)
       case _ =>
     }
-    val check = if(this.isInstanceOf[Ref]) None else dc.checkIdFor(this)
-    val details = check match {
-      case Some((id, true)) =>
-        dc.out.println(prefix + name + "[" + id + "] " + this)
-        true
-      case Some((id, false)) =>
-        dc.out.println(prefix + name + "<" + id + ">")
-        false
-      case None =>
-        dc.out.println(prefix + name + this)
-        true
+    this match {
+      case Path(l) =>
+        // Print paths on a single line
+        dc.out.println(prefix + name + Path.toString(l))
+        this.foreach { case n: RefNode => n.nodeReferences.foreach(dc.addRef) }
+      case _ =>
+        val check = if(this.isInstanceOf[Ref]) None else dc.checkIdFor(this)
+        val details = check match {
+          case Some((id, true)) =>
+            dc.out.println(prefix + name + "[" + id + "] " + this)
+            true
+          case Some((id, false)) =>
+            dc.out.println(prefix + name + "<" + id + ">")
+            false
+          case None =>
+            dc.out.println(prefix + name + this)
+            true
+        }
+        if(details)
+          for((chg, n) <- nodeChildGenerators.zip(nodeChildNames))
+            Node(chg).nodeDump(dc, prefix + "  ", n+": ")
     }
-    if(details)
-      for((chg, n) <- nodeChildGenerators.zip(nodeChildNames))
-        Node(chg).nodeDump(dc, prefix + "  ", n+": ")
   }
 
   override def toString = this match {
@@ -387,6 +394,20 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode 
   protected[this] def nodeRebuild(child: Node) = copy(in = child)
   def nodeReferences: Seq[Symbol] = Seq(field)
   def nodeMapReferences(f: Symbol => Symbol) = copy(field = f(field))
+}
+
+/** A constructor/extractor for nested Selects starting at a Ref */
+object Path {
+  def apply(l: List[Symbol]): Node = l match {
+    case s2 :: s1 :: Nil => Select(Ref(s1), s2)
+    case s :: l => Select(apply(l), s)
+  }
+  def unapply(n: Node): Option[List[Symbol]] = n match {
+    case Select(Ref(s1), s2) => Some(s2 :: s1 :: Nil)
+    case Select(in, s) => unapply(in).map(l => s :: l)
+    case _ => None
+  }
+  def toString(path: Seq[Symbol]) = path.reverseIterator.mkString("Path ", ".", "")
 }
 
 abstract class TableNode extends Node {
