@@ -20,8 +20,8 @@ object Optimizer extends Logging {
     }
     val n3 = reconstructProducts(n2)
     if(n3 ne n2) logger.debug("products reconstructed:", n3)
-    val n4 = inlineUniqueRefs(n3)
-    if(n4 ne n3) logger.debug("unique refs inlined:", n4)
+    val n4 = inlineRefs(n3)
+    if(n4 ne n3) logger.debug("refs inlined:", n4)
     n4
   }
 
@@ -138,36 +138,33 @@ object Optimizer extends Logging {
         case p: ProductNode =>
           (for {
             sym <- findCommonRef(p)
-            target <- {
-              logger.debug("Found ProductNode with common ref "+sym)
-              defs.get(sym)
-            }
-            ntarget <- {
-              logger.debug("  Ref target: "+target)
-              narrow(target)
-            }
-            shape <- {
-              logger.debug("  Narrowed target: "+ntarget)
-              shapeFor(p)
-            }
-          } yield {
-            logger.debug("  Shape: "+shape)
-            if(shapeMatches(shape, ntarget.value)) {
+            _ = logger.debug("Found ProductNode with common ref "+sym)
+            target <- defs.get(sym)
+            _ = logger.debug("  Ref target: "+target)
+            ntarget <- narrow(target)
+            _ = logger.debug("  Narrowed target: "+ntarget)
+            shape <- shapeFor(p)
+            _ = logger.debug("  Shape: "+shape)
+          } yield if(shapeMatches(shape, ntarget.value)) {
               logger.debug("  Shape matches")
               Ref(sym)
             } else p
-          }).getOrElse(p)
+          ).getOrElse(p)
       }
     }).repeat(tree)
   }
 
   /**
    * Inline references to global symbols which occur only once in a Ref node.
+   * Paths are always inlined, no matter how many times they occur.
+   * Symbols used in a FROM position are always inlined.
+   *
+   * Inlining behaviour can be controlled with optional parameters.
    *
    * We also remove identity Binds here to avoid an extra pass just for that.
    * TODO: Necessary? The conversion to relational trees should inline them anyway.
    */
-  def inlineUniqueRefs(tree: Node, inlineAll: Boolean = false): (Node) = {
+  def inlineRefs(tree: Node, unique: Boolean = true, paths: Boolean = true, from: Boolean = true, all: Boolean = false): (Node) = {
     val counts = new HashMap[AnonSymbol, Int]
     tree.foreach {
       case r: RefNode => r.nodeReferences.foreach {
@@ -182,16 +179,37 @@ object Optimizer extends Logging {
       case n => (n, Map[Symbol, Node]())
     }
     logger.debug("counts: "+counts)
-    val toInline = counts.iterator.filter{ case (a, i) => (i == 1 || inlineAll) && globals.contains(a) }.map(_._1).toSet
-    logger.debug("symbols to inline: "+toInline)
+    val globalCounts = counts.filterKeys(globals.contains)
+    val toInlineAll = globalCounts.iterator.map(_._1).toSet
+    logger.debug("symbols to inline in FROM positions: "+toInlineAll)
+    val toInline = globalCounts.iterator.filter { case (a, i) =>
+      all ||
+      (unique && i == 1) ||
+      (paths && Path.unapply(globals(a)).isDefined)
+    }.map(_._1).toSet
+    logger.debug("symbols to inline everywhere: "+toInline)
     val inlined = new HashSet[Symbol]
+    def deref(a: AnonSymbol) = { inlined += a; globals(a) }
     lazy val tr: Transformer = new Transformer {
       def replace = {
+        case f @ FilteredQuery(_, Ref(a: AnonSymbol)) if (all || from) && toInlineAll.contains(a) =>
+          tr.once(f.nodeMapFrom(_ => deref(a)))
+        case b @ Bind(_, Ref(a: AnonSymbol), _) if (all || from) && toInlineAll.contains(a) =>
+          tr.once(b.copy(from = deref(a)))
+        case j: JoinNode if(all || from) =>
+          val l = j.left match {
+            case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
+            case x => x
+          }
+          val r = j.right match {
+            case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
+            case x => x
+          }
+          if((l eq j.left) && (r eq j.right)) j else tr.once(j.nodeCopyJoin(left = l, right = r))
         case Ref(a: AnonSymbol) if toInline.contains(a) =>
-          inlined += a
-          tr.once(globals(a))
+          tr.once(deref(a))
         // Remove identity Bind
-        case Bind(gen, from, Pure(Ref(sym))) if gen == sym => from
+        case Bind(gen, from, Pure(Ref(sym))) if gen == sym => tr.once(from)
       }
     }
     val tree3 = tr.once(tree2)

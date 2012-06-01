@@ -340,6 +340,7 @@ trait JoinNode extends Node with DefNode {
   val left: Node
   val right: Node
   val jt: JoinType
+  def nodeCopyJoin(leftGen: Symbol = leftGen, rightGen: Symbol = rightGen, left: Node = left, right: Node = right, jt: JoinType = jt): Node
 }
 
 final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends JoinNode with BinaryNode with SimpleDefNode {
@@ -353,6 +354,8 @@ final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: 
     if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
   }
   def nodePostGeneratorChildren = Seq.empty
+  def nodeCopyJoin(leftGen: Symbol = leftGen, rightGen: Symbol = rightGen, left: Node = left, right: Node = right, jt: JoinType = jt) =
+    copy(leftGen = leftGen, rightGen = rightGen, left = left, right = right, jt = jt)
 }
 
 final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends JoinNode with SimpleNode with SimpleDefNode {
@@ -367,6 +370,8 @@ final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, rig
     if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
   }
   def nodePostGeneratorChildren = Seq(on)
+  def nodeCopyJoin(leftGen: Symbol = leftGen, rightGen: Symbol = rightGen, left: Node = left, right: Node = right, jt: JoinType = jt) =
+    copy(leftGen = leftGen, rightGen = rightGen, left = left, right = right, jt = jt)
 }
 
 final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with SimpleDefNode {
