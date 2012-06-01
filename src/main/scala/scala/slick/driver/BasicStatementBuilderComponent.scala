@@ -281,7 +281,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
             expr(n)
         }
         b += " end)"
-      case FieldRef(struct, field) => b += symbolName(struct) += '.' += symbolName(field)
+      case Select(Ref(struct), field) => b += symbolName(struct) += '.' += symbolName(field)
       case CountStar => b += "count(*)"
       case n => // try to build a sub-query
         if(!skipParens) b += '('
@@ -299,9 +299,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     def buildUpdate: QueryBuilderResult = {
       val (gen, from, where, select) = ast match {
         case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select)), None, None) => select match {
-          case f @ FieldRef(struct, _) if struct == sym => (sym, from, where, Seq(f.field))
-          case ProductNode(ch @ _*) if ch.forall{ case FieldRef(struct, _) if struct == sym => true; case _ => false} =>
-            (sym, from, where, ch.map{ case FieldRef(_, field) => field })
+          case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
+          case ProductNode(ch @ _*) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
+            (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
           case _ => throw new SLICKException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
         }
         case _ => throw new SLICKException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
@@ -369,7 +369,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           if(table eq null) table = n.table.asInstanceOf[TableNode].tableName
           else if(table != n.table.asInstanceOf[TableNode].tableName) throw new SLICKException("Inserts must all be to the same table")
           appendNamedColumn(n.raw, cols, vals)
-        case FieldRef(GlobalSymbol(_, t: TableNode), field: FieldSymbol) =>
+        case Select(Ref(GlobalSymbol(_, t: TableNode)), field: FieldSymbol) =>
           val n = field.column.get
           if(table eq null) table = t.tableName
           else if(table != t.tableName) throw new SLICKException("Inserts must all be to the same table")
@@ -481,7 +481,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) {
       var first = true
       for(c <- columns) c match {
-        case FieldRef(GlobalSymbol(_, t: TableNode), field: FieldSymbol) =>
+        case Select(Ref(GlobalSymbol(_, t: TableNode)), field: FieldSymbol) =>
           val n = field.column.get
           if(first) first = false
           else sb append ","

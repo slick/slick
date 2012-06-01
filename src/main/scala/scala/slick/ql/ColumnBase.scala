@@ -101,9 +101,9 @@ sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] 
 final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[_]])
   extends Column[T] {
   def raw = RawNamedColumn(name)(options, implicitly[TypeMapper[T]])
-  override def nodeDelegate = FieldRef(Node(table) match {
-    case Ref(sym) => sym
-    case _ => GlobalSymbol.forNode(table)
+  override def nodeDelegate = Select(Node(table) match {
+    case r: Ref => r
+    case _ => Ref(GlobalSymbol.forNode(table))
   }, raw.symbol)
 }
 

@@ -33,8 +33,8 @@ object Relational extends Logging {
   def eliminatePureFrom(tree: Node): Node = {
     val tr = new Transformer.Defs {
       def replace = {
-        case FieldRef(Def(Pure(TableRef(table))), fieldSym) => FieldRef(table, fieldSym)
-        case FieldRef(Def(Pure(StructNode(defs))), fieldSym) =>
+        case Select(Ref(Def(Pure(TableRef(table)))), fieldSym) => Select(Ref(table), fieldSym)
+        case Select(Ref(Def(Pure(StructNode(defs)))), fieldSym) =>
           defs.find(_._1 == fieldSym).get._2
         case c @ Comprehension(from, _, _, select, _, _) =>
           val filtered = from.filter {
@@ -139,10 +139,10 @@ object Relational extends Logging {
         val newSelect = scanFrom(c)
         logger.debug("eliminated: "+eliminated)
         def findProductRef(p: ProductNode, sym: Symbol): Option[Node] = p.nodeChildren.collectFirst {
-          case f @ FieldRef(t, s) if sym == s && !eliminated.contains(t) => f
+          case f @ Select(Ref(t), s) if sym == s && !eliminated.contains(t) => f
         }
         def findAliasingTarget(p: ProductNode): Option[Symbol] = {
-          val targets = p.collect[Symbol]{ case FieldRef(t, _) => t }.toSet
+          val targets = p.collect[Symbol]{ case Select(Ref(t), _) => t }.toSet
           if(targets.size != 1) None
           else {
             val target = targets.head
@@ -153,11 +153,11 @@ object Relational extends Logging {
           }
         }
         def replaceRefs(n: Node): Node = n match {
-          case FieldRef(t, c) if eliminated.contains(t) =>
+          case Select(Ref(t), c) if eliminated.contains(t) =>
             eliminated(t) match {
               case TableRef(tab) =>
                 logger.debug("replacing FieldRef("+t+", "+c+") by FieldRef("+tab+", "+c+") [TableRef]")
-                replaceRefs(FieldRef(tab, c))
+                replaceRefs(Select(Ref(tab), c))
               case StructNode(mapping) =>
                 logger.debug("replacing FieldRef("+t+", "+c+") by "+mapping.toMap.apply(c)+" [StructNode]")
                 replaceRefs(mapping.toMap.apply(c))
@@ -170,7 +170,7 @@ object Relational extends Logging {
                   case None =>
                     findAliasingTarget(p) match {
                       case Some(target) =>
-                        val f = FieldRef(target, c)
+                        val f = Select(Ref(target), c)
                         logger.debug("replacing FieldRef("+t+", "+c+") by "+f+" [ProductNode aliasing]")
                         replaceRefs(f)
                       case None => n
@@ -210,7 +210,7 @@ object Relational extends Logging {
       case _ => Seq.empty
     }
     val tableRefs = tree.collectAll[(Seq[Symbol], FieldSymbol)]{
-      case FieldRef(t, f: FieldSymbol) =>
+      case Select(Ref(t), f: FieldSymbol) =>
         val ch = chain(t)
         if(ch.isEmpty) Seq.empty
         else Seq((ch, f))
@@ -228,9 +228,9 @@ object Relational extends Logging {
       tableRefs.flatMap{ case (seq, _) => val l = seq.last; seq.map(i => (i, l)) }(collection.breakOut)
     logger.debug("baseTables: "+baseTables)
     def tr(sym: Option[Symbol], n: Node): Node = n match {
-      case p @ FieldRef(t, f: FieldSymbol) => baseTables.get(t).flatMap(needed.get) match {
+      case p @ Select(Ref(t), f: FieldSymbol) => baseTables.get(t).flatMap(needed.get) match {
         case Some((symMap, _)) => symMap.get(f) match {
-          case Some(a) => FieldRef(t, a)
+          case Some(a) => Select(Ref(t), a)
           case _ => p
         }
         case _ => p
@@ -239,7 +239,7 @@ object Relational extends Logging {
         val gen = new AnonSymbol
         val (symMap, _) = needed(sym.get)
         //val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }
-        val struct = (symMap.toIndexedSeq: IndexedSeq[(FieldSymbol, AnonSymbol)]).map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }
+        val struct = (symMap.toIndexedSeq: IndexedSeq[(FieldSymbol, AnonSymbol)]).map{ case (oldS, newS) => (newS, Select(Ref(gen), oldS)) }
         Bind(gen, t, Pure(StructNode(struct)))
       case d: DefNode => d.nodeMapScopedChildren(tr)
       case n => n.nodeMapChildren{ ch => tr(None, ch) }

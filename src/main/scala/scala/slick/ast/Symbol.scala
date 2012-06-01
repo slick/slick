@@ -107,18 +107,6 @@ case class TableRef(sym: Symbol) extends NullaryNode with RefNode {
   def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
 }
 
-/** A reference to a field in a struct */
-case class FieldRef(struct: Symbol, field: Symbol) extends NullaryNode with RefNode {
-  override def toString = "FieldRef " + struct + "." + field
-  def nodeReferences = Seq(struct, field)
-  def nodeMapReferences(f: Symbol => Symbol) = {
-    val s2 = f(struct)
-    val f2 = f(field)
-    if((s2 eq struct) && (f2 eq field)) this
-    else FieldRef(s2, f2)
-  }
-}
-
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]

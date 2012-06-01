@@ -17,11 +17,11 @@ object RewriteGenerators extends Logging {
     // Replace InRef(RawNamedColumn) occurrences left over after rewriting them in all generators.
     // This can happen in queries without projections.
     memoized[Node, Node](r => {
-      case InRef(t, r: RawNamedColumn) => FieldRef(t, r.symbol)
+      case InRef(t, r: RawNamedColumn) => Select(Ref(t), r.symbol)
       case InRef(t, n) =>
         findPureTarget(n) match {
-          case StructNode(IndexedSeq((sym, _))) => FieldRef(t, sym)
-          case ProductNode(FieldRef(_, sym)) => FieldRef(t, sym)
+          case StructNode(IndexedSeq((sym, _))) => Select(Ref(t), sym)
+          case ProductNode(Select(Ref(_), sym)) => Select(Ref(t), sym)
         }
       case n => n.nodeMapChildren(r)
     })(t2)
@@ -99,7 +99,7 @@ object RewriteGenerators extends Logging {
             replaceReferences(what, syms, repl, parents)
           } else {
             //logger.debug("replacing with FieldRef("+sym+", "+sym2+") at parents "+parents)
-            FieldRef(sym, sym2)
+            Select(Ref(sym), sym2)
           }
         case None =>
           replaceReferences(what, syms, repl, parents)
@@ -180,7 +180,7 @@ object RewriteGenerators extends Logging {
   }
 
   def rewrap(n: Node, wrappers: Map[Symbol, Symbol], newWrapper: Symbol): Node = n match {
-    case c @ RawNamedColumn(_) => FieldRef(newWrapper, c.symbol)
+    case c @ RawNamedColumn(_) => Select(Ref(newWrapper), c.symbol)
     case InRef(sym, what) =>
       if(wrappers.keySet contains sym) rewrap(what, wrappers, wrappers(sym))
       else rewrap(what, wrappers, newWrapper)

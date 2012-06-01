@@ -70,7 +70,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         }.head
       }.map(
         column_name =>
-          sq.FieldRef(sq_symbol, sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
+          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
       ).toSeq
 
     new Query( sq.Bind(sq_symbol, table, sq.Pure(sq.ProductNode(columns:_*))), Scope() )
@@ -126,7 +126,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             }
             case a => throw new Exception(member.toString) // FIXME
           }
-          sq.FieldRef(sq_symbol, sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
+          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
 
         case Select(a:This,b) =>
           val obj = companionInstance( a.symbol )

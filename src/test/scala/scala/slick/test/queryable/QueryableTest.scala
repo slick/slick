@@ -98,8 +98,8 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         TableName("COFFEES"),
         Pure(
         ProductNode(
-        FieldRef(sym1b, ColumnName("COF_NAME")),
-        FieldRef(sym1c, ColumnName("COF_SALES")) )))
+        Select(Ref(sym1b), ColumnName("COF_NAME")),
+        Select(Ref(sym1c), ColumnName("COF_SALES")) )))
         if sym1a == sym1b && sym1b == sym1c
       => ()
     }
@@ -121,7 +121,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       sym1a,
       ExpandedTable("COFFEES"),
       Pure(
-      Op( "+", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
+      Op( "+", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
       )
       )
         if sym1a == sym1b
@@ -135,7 +135,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       sym1a,
       ExpandedTable("COFFEES"),
       Pure(
-      Op( "concat", FieldRef(sym1b, ColumnName("COF_NAME")), ConstColumn(".") )
+      Op( "concat", Select(Ref(sym1b), ColumnName("COF_NAME")), ConstColumn(".") )
       )
       )
         if sym1a == sym1b
@@ -149,8 +149,8 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       sym1a,
       ExpandedTable("COFFEES"),
       Op( "||",
-      Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) ),
-      Op( "==", ConstColumn("Chris"), FieldRef(sym1c, ColumnName("COF_NAME")) )
+      Op( ">", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) ),
+      Op( "==", ConstColumn("Chris"), Select(Ref(sym1c), ColumnName("COF_NAME")) )
       )
       )
         if sym1a == sym1b && sym1b == sym1c
@@ -164,7 +164,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       sym1a,
       ExpandedTable("COFFEES"),
       Pure(
-      FieldRef(sym1b, ColumnName("COF_NAME"))
+      Select(Ref(sym1b), ColumnName("COF_NAME"))
       )
       )
         if sym1a == sym1b
@@ -180,7 +180,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       sym2a,
       ExpandedTable("COFFEES"),
       Pure(
-      FieldRef(sym2b, ColumnName("COF_NAME"))
+      Select(Ref(sym2b), ColumnName("COF_NAME"))
       )
       ),
       Op( "==", Ref(sym1b), ConstColumn("") )
@@ -196,7 +196,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       case Filter(
       sym1a,
       ExpandedTable("COFFEES"),
-      Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
+      Op( ">", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
       )
         if sym1a == sym1b
       => ()
