@@ -34,6 +34,6 @@ object WithOp {
 
   def encodeRef[T](x: T, sym: Symbol): T = mapOp(x, { (n, positions) =>
     if(positions.isEmpty) Ref(sym)
-    else positions.foldRight[Node](Ref(sym))((idx, node) => ProductElement(node, idx))
+    else positions.foldRight[Node](Ref(sym))((idx, node) => Select(node, ElementSymbol(idx)))
   })
 }

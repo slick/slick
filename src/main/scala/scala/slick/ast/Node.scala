@@ -389,12 +389,6 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode 
   def nodeMapReferences(f: Symbol => Symbol) = copy(field = f(field))
 }
 
-final case class ProductElement(in: Node, idx: Int) extends UnaryNode {
-  def child = in
-  protected[this] override def nodeChildNames = Seq("in")
-  protected[this] def nodeRebuild(child: Node) = copy(in = child)
-}
-
 abstract class TableNode extends Node {
   def nodeShaped_* : ShapedValue[_, _]
   def nodeExpand_* : Node

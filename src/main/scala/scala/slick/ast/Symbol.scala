@@ -5,27 +5,24 @@ import scala.slick.ql.RawNamedColumn
 import scala.slick.util.WeakIdentityHashMap
 import java.lang.ref.WeakReference
 
-/**
- * A symbol which can be used in the AST.
- */
+/** A symbol which can be used in the AST. */
 abstract class Symbol {
   def name: String
   override def toString = name
 }
 
-/**
- * A named symbol which refers to an (aliased or unaliased) field.
- */
+/** A named symbol which refers to an (aliased or unaliased) field. */
 case class FieldSymbol(name: String)(val column: Option[RawNamedColumn] = None) extends Symbol
 
-/**
- * A named symbol which refers to a proper database table.
- */
+/** An element of a ProductNode */
+case class ElementSymbol(idx: Int) extends Symbol {
+  def name = "_" + idx
+}
+
+/** A named symbol which refers to a proper database table. */
 case class TableSymbol(name: String) extends Symbol
 
-/**
- * An anonymous symbol defined in the AST.
- */
+/** An anonymous symbol defined in the AST. */
 class AnonSymbol extends Symbol {
   private[this] var _name: String = null
   def name = if(_name eq null) "@"+System.identityHashCode(this) else _name
@@ -90,9 +87,7 @@ object GlobalSymbol {
   }
 }
 
-/**
- * An expression introduced by a Symbol, wrapped in a reference to the Symbol.
- */
+/** An expression introduced by a Symbol, wrapped in a reference to the Symbol. */
 case class InRef(sym: Symbol, child: Node) extends UnaryNode with RefNode {
   protected[this] def nodeRebuild(child: Node) = copy(child = child)
   override def nodeChildNames = Seq("value")
@@ -100,25 +95,19 @@ case class InRef(sym: Symbol, child: Node) extends UnaryNode with RefNode {
   def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
 }
 
-/**
- * A reference to a Symbol
- */
+/** A reference to a Symbol */
 case class Ref(sym: Symbol) extends NullaryNode with RefNode {
   def nodeReferences = Seq(sym)
   def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
 }
 
-/**
- * A reference to a Symbol pointing to a table which should not be expanded
- */
+/** A reference to a Symbol pointing to a table which should not be expanded */
 case class TableRef(sym: Symbol) extends NullaryNode with RefNode {
   def nodeReferences = Seq(sym)
   def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
 }
 
-/**
- * A reference to a field in a struct
- */
+/** A reference to a field in a struct */
 case class FieldRef(struct: Symbol, field: Symbol) extends NullaryNode with RefNode {
   override def toString = "FieldRef " + struct + "." + field
   def nodeReferences = Seq(struct, field)
@@ -130,9 +119,7 @@ case class FieldRef(struct: Symbol, field: Symbol) extends NullaryNode with RefN
   }
 }
 
-/**
- * A Node which introduces Symbols.
- */
+/** A Node which introduces Symbols. */
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]
   def nodePostGeneratorChildren: Seq[Node]
@@ -149,9 +136,7 @@ trait SimpleDefNode extends DefNode { _: SimpleNode =>
   }
 }
 
-/**
- * A Node which references Symbols.
- */
+/** A Node which references Symbols. */
 trait RefNode extends Node {
   def nodeReferences: Seq[Symbol]
   def nodeMapReferences(f: Symbol => Symbol): Node

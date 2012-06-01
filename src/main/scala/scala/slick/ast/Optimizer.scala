@@ -74,15 +74,15 @@ object Optimizer extends Logging {
   /**
    * Since Nodes cannot be encoded into Scala Tuples, they have to be encoded
    * into the Tuples' children instead, so we end up with trees like
-   * ProductNode(ProductElement(1, r), ProductElement(2, r)) where r is a Ref
-   * to an expression that yields a Query of ProductNode(_, _). This optimizer
-   * rewrites those forms to the raw Ref r.
+   * ProductNode(Select(r, ElementSymbol(1)), Select(r, ElementSymbol(2)))
+   * where r is a Ref to an expression that yields a Query of
+   * ProductNode(_, _). This optimizer rewrites those forms to the raw Ref r.
    */
   def reconstructProducts(tree: Node): Node = {
     // Find the common reference in a candidate node
     def findCommonRef(n: Node): Option[AnonSymbol] = n match {
       case Ref(sym: AnonSymbol) => Some(sym)
-      case ProductElement(in, _) => findCommonRef(in)
+      case Select(in, _: ElementSymbol) => findCommonRef(in)
       case ProductNode(ch @ _*) =>
         val chref = ch.map(findCommonRef)
         if(chref.contains(None)) None
@@ -97,11 +97,11 @@ object Optimizer extends Logging {
     sealed abstract class PShape
     case object PLeaf extends PShape
     case class PProduct(children: Seq[PShape]) extends PShape
-    // Extractor for ProductElement chains
+    // Extractor for Select(_, ElementSymbol) chains
     object ProductElements {
       def unapply(n: Node): Option[(List[Int], Symbol)] = n match {
         case Ref(sym) => Some((Nil, sym))
-        case ProductElement(in, idx) => unapply(in) match {
+        case Select(in, ElementSymbol(idx)) => unapply(in) match {
           case None => None
           case Some((l, sym)) => Some((idx :: l, sym))
         }
@@ -180,7 +180,7 @@ object Optimizer extends Logging {
       case n => (n, Map[Symbol, Node]())
     }
     logger.debug("counts: "+counts)
-    val toInline = counts.iterator.filter{ case (a, i) => i == 1 && globals.contains(a) }.map(_._1).toSet
+    val toInline = counts.iterator.filter{ case (a, i) => /*i == 1 &&*/ globals.contains(a) }.map(_._1).toSet
     logger.debug("symbols to inline: "+toInline)
     val inlined = new HashSet[Symbol]
     lazy val tr: Transformer = new Transformer {
@@ -198,6 +198,9 @@ object Optimizer extends Logging {
     else LetDynamic(globalsLeft.iterator.map{ case (sym, n) => (sym, tr.once(n)) }.toSeq, tree3)
   }
 
+  /**
+   * Expand returned tables
+   */
 
 
 
