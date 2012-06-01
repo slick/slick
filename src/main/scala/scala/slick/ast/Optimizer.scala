@@ -126,7 +126,9 @@ object Optimizer extends Logging {
     (new Transformer.Defs {
       // Narrow the target of a ref to the actual Pure value produced
       def narrow(n: Node): Option[Pure] = n match {
-        case p: Pure => Some(p)
+        case n: Pure => Some(n)
+        case n: JoinNode =>
+          Some(Pure(ProductNode(n, n))) // dummy value with correct shape
         case FilteredQuery(_, from) => narrow(from)
         case Bind(_, _, select) => narrow(select)
         case Ref(Def(n)) => narrow(n)
@@ -165,7 +167,7 @@ object Optimizer extends Logging {
    * We also remove identity Binds here to avoid an extra pass just for that.
    * TODO: Necessary? The conversion to relational trees should inline them anyway.
    */
-  def inlineUniqueRefs(tree: Node): (Node) = {
+  def inlineUniqueRefs(tree: Node, inlineAll: Boolean = false): (Node) = {
     val counts = new HashMap[AnonSymbol, Int]
     tree.foreach {
       case r: RefNode => r.nodeReferences.foreach {
@@ -180,7 +182,7 @@ object Optimizer extends Logging {
       case n => (n, Map[Symbol, Node]())
     }
     logger.debug("counts: "+counts)
-    val toInline = counts.iterator.filter{ case (a, i) => /*i == 1 &&*/ globals.contains(a) }.map(_._1).toSet
+    val toInline = counts.iterator.filter{ case (a, i) => (i == 1 || inlineAll) && globals.contains(a) }.map(_._1).toSet
     logger.debug("symbols to inline: "+toInline)
     val inlined = new HashSet[Symbol]
     lazy val tr: Transformer = new Transformer {

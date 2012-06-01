@@ -334,7 +334,15 @@ final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) 
   def nodePostGeneratorChildren = Seq.empty
 }
 
-final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends BinaryNode with SimpleDefNode {
+trait JoinNode extends Node with DefNode {
+  val leftGen: Symbol
+  val rightGen: Symbol
+  val left: Node
+  val right: Node
+  val jt: JoinType
+}
+
+final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends JoinNode with BinaryNode with SimpleDefNode {
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
   override def toString = "BaseJoin " + jt.sqlName
@@ -347,7 +355,7 @@ final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: 
   def nodePostGeneratorChildren = Seq.empty
 }
 
-final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends SimpleNode with SimpleDefNode {
+final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends JoinNode with SimpleNode with SimpleDefNode {
   protected[this] def nodeChildGenerators = IndexedSeq(left, right, on)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
