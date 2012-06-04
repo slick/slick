@@ -118,8 +118,10 @@ object Optimizer extends Logging {
     // Check if the shape matches the ref target
     def shapeMatches(s: PShape, t: Node): Boolean = (s, t) match {
       case (PLeaf, _) => true
-      case (PProduct(pch), ProductNode(nch @ _*)) if(pch.length == nch.length) =>
+      case (PProduct(pch), ProductNode(nch @ _*)) if pch.length == nch.length =>
         (pch, nch).zipped.map(shapeMatches).forall(identity)
+      case (PProduct(pch), j: JoinNode) if pch.length == 2 =>
+        (pch, Seq(j.left, j.right)).zipped.map(shapeMatches).forall(identity)
       case _ => false
     }
     // Replace matching products
@@ -129,9 +131,12 @@ object Optimizer extends Logging {
         case n: Pure => Some(n)
         case n: JoinNode =>
           Some(Pure(ProductNode(n, n))) // dummy value with correct shape
+        case Union(left, _, _, _, _) => narrow(left)
         case FilteredQuery(_, from) => narrow(from)
         case Bind(_, _, select) => narrow(select)
         case Ref(Def(n)) => narrow(n)
+        case p: ProductNode =>
+          Some(Pure(p)) // probably a deconstructed tuple, so try it
         case _ => None
       }
       def replace = {
