@@ -174,7 +174,9 @@ object RewriteGenerators extends Logging {
         logger.debug("replacing Union of "+leftGen+", "+rightGen)
         logger.debug("genChain: "+genChain)
         val unionCtx = ctx.forUnion
-        val lr = replaceSelect(left, struct.map{ case (s,n) => (s, n.unwrap(Set(leftGen))) }, genChain, unionCtx)
+        val lr = replaceSelect(left, struct.map{ case (s,n) => (s, n.replace{
+          case InRef(sym, what) if leftGen == sym => what
+        }) }, genChain, unionCtx)
         val rr = replaceSelect(right, struct, genChain, unionCtx)
         u.copy(left = lr, right = rr)
     }

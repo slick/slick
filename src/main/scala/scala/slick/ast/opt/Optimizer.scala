@@ -2,8 +2,9 @@ package scala.slick.ast
 package opt
 
 import scala.slick.util.Logging
-import scala.collection.mutable.HashMap
 import Util._
+import scala.collection.mutable.{HashSet, HashMap}
+import scala.slick.SLICKException
 
 /**
  * Basic optimizers for the SLICK AST
@@ -24,7 +25,10 @@ object Optimizer extends Logging {
     val n4 = (new Inliner)(n3)
     if(n4 ne n3) logger.debug("refs inlined:", n4)
     val n5 = assignUniqueSymbols(n4)
-    if(n5 ne n4) logger.debug("unique symbols:", n5)
+    if((n5 ne n4) && logger.isDebugEnabled) {
+      AnonSymbol.assignNames(n5, prefix = "u")
+      logger.debug("unique symbols:", n5)
+    }
     n5
   }
 
@@ -57,51 +61,28 @@ object Optimizer extends Logging {
    * Ensure that all symbol definitions in a tree are unique
    */
   def assignUniqueSymbols(tree: Node): Node = {
-    class Scope(val symbol: Symbol, parent: Option[Scope]) extends (Symbol => Symbol) {
-      val replacement = new AnonSymbol
-      private val local = new HashMap[Symbol, Scope]
-      def in(s: Symbol) = local.getOrElseUpdate(s, new Scope(s, Some(this)))
-      def find(s: Symbol): Option[Scope] =
-        local.get(s).orElse(parent.flatMap(_.find(s)))
-      def apply(s: Symbol) = find(s).map(_.replacement).getOrElse(s)
-      def dumpString(prefix: String = "", indent: String = "", builder: StringBuilder = new StringBuilder): StringBuilder = {
-        builder.append(indent + prefix + symbol + " -> " + replacement + "\n")
-        local.foreach { case (_, scope) => scope.dumpString("", indent + "  ", builder) }
-        builder
-      }
-    }
-    def buildSymbolTable(n: Node, scope: Scope) {
-      n match {
-        case d: DefNode =>
-          val defs = d.nodeGenerators.toMap
-          defs.foreach{ case (sym, ch) => buildSymbolTable(ch, scope.in(sym)) }
-          val other = d.nodePostGeneratorChildren.foreach(ch => buildSymbolTable(ch, scope))
-        case n => n.nodeChildren.foreach(ch => buildSymbolTable(ch, scope))
-      }
-    }
-    val rootSym = new AnonSymbol
-    rootSym.name = "-root-"
-    val rootScope = new Scope(rootSym, None)
-    buildSymbolTable(tree, rootScope)
-    def tr(n: Node, scope: Scope): Node = n match {
+    val seen = new HashSet[AnonSymbol]
+    def tr(n: Node, replace: Map[AnonSymbol, AnonSymbol]): Node = n match {
+      case r @ Ref(a: AnonSymbol) => replace.get(a).fold(r)(Ref(_))
       case d: DefNode =>
-        d.nodeMapScopedChildren{ case (symO, ch) =>
-          val chScope = symO match {
-            case None => scope
-            case Some(sym) => scope.find(sym).getOrElse(scope)
+        var defs = replace
+        d.nodeMapScopedChildren { (symO, ch) =>
+          val r = tr(ch, defs)
+          symO match {
+            case Some(a: AnonSymbol) =>
+              if(seen.contains(a)) defs += a -> new AnonSymbol
+              else seen += a
+            case _ =>
           }
-          tr(ch, chScope)
-        }.asInstanceOf[DefNode].nodeMapGenerators(scope)
-      case r @ Ref(s) =>
-        val ns = scope(s)
-        if(s == ns) r else Ref(ns)
-      case n => n.nodeMapChildren(ch => tr(ch, scope))
+          r
+        }.nodeMapGenerators {
+          case a: AnonSymbol => defs.getOrElse(a, a)
+          case s => s
+        }
+      case l: LetDynamic =>
+        throw new SLICKException("Dynamic scopes should be eliminated before assigning unique symbols")
+      case n => n.nodeMapChildren(tr(_, replace))
     }
-    val res = tr(tree, rootScope)
-    if(logger.isDebugEnabled && (res ne tree)) {
-      AnonSymbol.assignNames(res, "u")
-      logger.debug("rootScope:\n" + rootScope.dumpString(indent = "  "))
-    }
-    res
+    tr(tree, Map())
   }
 }

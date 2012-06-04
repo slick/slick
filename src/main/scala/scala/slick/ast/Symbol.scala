@@ -112,15 +112,15 @@ trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]
   def nodePostGeneratorChildren: Seq[Node]
   def nodeMapGenerators(f: Symbol => Symbol): Node
-  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): Node
+  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): DefNode
 }
 
-trait SimpleDefNode extends DefNode { _: SimpleNode =>
+trait SimpleDefNode extends DefNode { this: SimpleNode =>
   def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
     val ft = f.tupled
     val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
       nodePostGeneratorChildren.iterator.map{ n => (None, n) }).toIndexedSeq
-    nodeRebuild(all.map(ft))
+    nodeRebuild(all.map(ft)).asInstanceOf[DefNode]
   }
 }
 

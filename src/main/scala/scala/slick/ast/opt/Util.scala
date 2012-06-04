@@ -129,14 +129,6 @@ class NodeOps(val tree: Node) extends AnyVal {
     memoized[Symbol, Symbol](_ => { case s => if(gens contains s) new AnonSymbol else s })
   }
 
-  def collectInRefTargets(In: Symbol) = collect[Node]{
-    case InRef(In, value) => value
-  }.toSet
-
-  def unwrap(wrappers: Set[Symbol]): Node = replace {
-    case InRef(sym, what) if wrappers contains sym => what
-  }
-
   def flattenProduct = {
     def f(n: Node): IndexedSeq[Node] = n match {
       case ProductNode(ns @ _*) => ns.flatMap(f).toIndexedSeq
@@ -179,19 +171,6 @@ object RealFilterChain {
   def unapply(n: Node): Option[(List[Symbol], Node)] = n match {
     case _: FilteredQuery => FilterChain.unapply(n)
     case _ => None
-  }
-}
-
-/**
- * A constructor and  extractor for a chain of InRef nodes
- */
-object InRefChain {
-  def apply(syms: Seq[Symbol], what: Node) =
-    syms.foldRight(what){ case (sym,z) => InRef(sym, z) }
-  def unapply(n: Node): Option[(List[Symbol], Node)] = n match {
-    case InRef(sym, what) =>
-      unapply(what).map{ case (ss, n) => (sym :: ss, n) }.orElse(Some((List(sym), what)))
-    case n => None
   }
 }
 
