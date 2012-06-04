@@ -64,6 +64,7 @@ final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with Nu
 
 object ConstColumn {
   val NULL = new ConstColumn[Null](null)(TypeMapper.NullTypeMapper)
+  val TRUE = new ConstColumn[Boolean](true)(TypeMapper.BooleanTypeMapper)
   val FALSE = new ConstColumn[Boolean](false)(TypeMapper.BooleanTypeMapper)
   val UNIT = new ConstColumn[Unit](())(TypeMapper.UnitTypeMapper)
 }

@@ -49,16 +49,16 @@ class Inliner(unique: Boolean = true, paths: Boolean = true, from: Boolean = tru
           tr.once(f.nodeMapFrom(_ => deref(a)))
         case b @ Bind(_, Ref(a: AnonSymbol), _) if (all || from) && toInlineAll.contains(a) =>
           tr.once(b.copy(from = deref(a)))
-        case j: JoinNode if(all || from) =>
-          val l = j.left match {
+        case j @ Join(_, _, left, right, _, _) if(all || from) =>
+          val l = left match {
             case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
             case x => x
           }
-          val r = j.right match {
+          val r = right match {
             case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
             case x => x
           }
-          if((l eq j.left) && (r eq j.right)) j else tr.once(j.nodeCopyJoin(left = l, right = r))
+          if((l eq left) && (r eq right)) j else tr.once(j.copy(left = l, right = r))
         case Ref(a: AnonSymbol) if toInline.contains(a) =>
           tr.once(deref(a))
         // Remove identity Bind

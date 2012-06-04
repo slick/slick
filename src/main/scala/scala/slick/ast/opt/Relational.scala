@@ -115,18 +115,12 @@ object Relational extends Logging {
               rewrite = true
               eliminated += ((s, target))
               scanFrom(n)
-            case (s, f @ FilteredJoin(leftGen, rightGen, left, right, JoinType.Inner, on)) =>
-              logger.debug("found FilteredJoin at "+s)
+            case (s, f @ Join(leftGen, rightGen, left, right, JoinType.Inner, on)) =>
+              logger.debug("found Join at "+s)
               rewrite = true
               newGens += ((leftGen, left))
               newGens += ((rightGen, right))
-              newWhere += on
-              c.select
-            case (s, f @ BaseJoin(leftGen, rightGen, left, right, JoinType.Inner)) =>
-              logger.debug("found BaseJoin at "+s)
-              rewrite = true
-              newGens += ((leftGen, left))
-              newGens += ((rightGen, right))
+              if(on != ConstColumn.TRUE) newWhere += on
               c.select
             case t =>
               logger.debug("found other (keeping) at "+t._1)

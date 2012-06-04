@@ -40,9 +40,7 @@ object RewriteGenerators extends Logging {
     //TODO push additional columns needed by the filters into the Bind (without rewriting the existing ones)
     case b @ Bind(gen, from, what) if(!(gen.isInstanceOf[SyntheticBindSymbol])) =>
       rewriteGenerator(b, gen, from).nodeMapChildren(r)
-    case j @ FilteredJoin(leftGen, rightGen, left, right, _, _) =>
-      rewriteGenerator(rewriteGenerator(j, rightGen, right).nodeMapChildren(r), leftGen, left).nodeMapChildren(r)
-    case j @ BaseJoin(leftGen, rightGen, left, right, _) =>
+    case j @ Join(leftGen, rightGen, left, right, _, _) =>
       rewriteGenerator(rewriteGenerator(j, rightGen, right).nodeMapChildren(r), leftGen, left).nodeMapChildren(r)
     case n => n.nodeMapChildren(r)
   })(tree)
@@ -142,13 +140,13 @@ object RewriteGenerators extends Logging {
         val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, genChain.iterator.map(s => (s, gen)).toMap, gen)) })
         logger.debug("actual replacement:", rewrapped)
         Bind(gen, t, Pure(rewrapped))
-      case f @ FilteredJoin(leftGen, rightGen, _, _, jt, on) => //TODO support keepExisting and useIndices
+      case f @ Join(leftGen, rightGen, _, _, jt, _) => //TODO support keepExisting and useIndices
         val gen = new SyntheticBindSymbol
         logger.debug("struct:", StructNode(struct))
         val rewrapMap = genChain.iterator.map(s => (s, gen)).toMap + (leftGen -> leftGen) + (rightGen -> rightGen)
         val rewrapped = StructNode(struct.map { case (s,n) => (s, rewrap(n, rewrapMap, gen)) })
         logger.debug("genChain: "+genChain)
-        logger.debug("replacement for FilteredJoin:", rewrapped)
+        logger.debug("replacement for Join:", rewrapped)
         Bind(gen, f, Pure(rewrapped))
       case Pure(what) =>
         if(ctx.keepExisting) {

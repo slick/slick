@@ -4,9 +4,8 @@ import scala.language.existentials
 import scala.slick.SLICKException
 import scala.slick.ast._
 import scala.slick.util._
-import scala.slick.ql._
+import scala.slick.ql.{Join => _, _}
 import scala.slick.ql.ColumnOps._
-import scala.collection.mutable.HashMap
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
@@ -137,16 +136,12 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case t @ TableNode(name) =>
           b += quoteIdentifier(name)
           if(alias != Some(t.nodeTableSymbol)) addAlias
-        case BaseJoin(leftGen, rightGen, left, right, jt) =>
-          buildFrom(left, Some(leftGen))
-          b += ' ' += jt.sqlName += " join "
-          buildFrom(right, Some(rightGen))
-        case FilteredJoin(leftGen, rightGen, left, right, jt, on) =>
+        case Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
           b += ' ' += jt.sqlName += " join "
           buildFrom(right, Some(rightGen))
           b += " on "
-          expr(on, true)
+          if(on != ConstColumn.TRUE) expr(on, true)
         case Union(left, right, all, _, _) =>
           if(!skipParens) b += '('
           buildFrom(left, None, true)

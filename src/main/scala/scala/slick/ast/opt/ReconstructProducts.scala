@@ -58,8 +58,8 @@ object ReconstructProducts extends (Node => Node) with Logging {
     case (PLeaf, _) => true
     case (PProduct(pch), ProductNode(nch @ _*)) if pch.length == nch.length =>
       (pch, nch).zipped.map(shapeMatches).forall(identity)
-    case (PProduct(pch), j: JoinNode) if pch.length == 2 =>
-      (pch, Seq(j.left, j.right)).zipped.map(shapeMatches).forall(identity)
+    case (PProduct(pch), Join(_, _, left, right, _, _)) if pch.length == 2 =>
+      (pch, Seq(left, right)).zipped.map(shapeMatches).forall(identity)
     case _ => false
   }
 
@@ -68,7 +68,7 @@ object ReconstructProducts extends (Node => Node) with Logging {
     // Narrow the target of a ref to the actual Pure value produced
     def narrow(n: Node): Option[Pure] = n match {
       case n: Pure => Some(n)
-      case n: JoinNode =>
+      case n: Join =>
         Some(Pure(ProductNode(n, n))) // dummy value with correct shape
       case Union(left, _, _, _, _) => narrow(left)
       case FilteredQuery(_, from) => narrow(from)

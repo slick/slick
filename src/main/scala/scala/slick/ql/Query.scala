@@ -2,7 +2,7 @@ package scala.slick.ql
 
 import scala.annotation.implicitNotFound
 import scala.collection.generic.CanBuildFrom
-import scala.slick.ast._
+import scala.slick.ast.{Join => AJoin, _}
 import scala.slick.util.CollectionLinearizer
 
 /**
@@ -142,7 +142,7 @@ class WrappingQuery[+E, U](val nodeDelegate: Node, val base: ShapedValue[_ <: E,
 class NonWrappingQuery[+E, U](val nodeDelegate: Node, val unpackable: ShapedValue[_ <: E, U]) extends Query[E, U]
 
 final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)])
-    extends WrappingQuery[(E1, E2), (U1,  U2)](BaseJoin(leftGen, rightGen, left, right, jt), base) {
+    extends WrappingQuery[(E1, E2), (U1,  U2)](AJoin(leftGen, rightGen, left, right, jt, ConstColumn.TRUE), base) {
   def on[T <: Column[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]) =
-    new WrappingQuery[(E1, E2), (U1, U2)](FilteredJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)
+    new WrappingQuery[(E1, E2), (U1, U2)](AJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)
 }

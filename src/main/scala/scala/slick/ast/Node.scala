@@ -334,35 +334,11 @@ final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) 
   def nodePostGeneratorChildren = Seq.empty
 }
 
-trait JoinNode extends Node with DefNode {
-  val leftGen: Symbol
-  val rightGen: Symbol
-  val left: Node
-  val right: Node
-  val jt: JoinType
-  def nodeCopyJoin(leftGen: Symbol = leftGen, rightGen: Symbol = rightGen, left: Node = left, right: Node = right, jt: JoinType = jt): Node
-}
-
-final case class BaseJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType) extends JoinNode with BinaryNode with SimpleDefNode {
-  protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
-  protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
-  override def toString = "BaseJoin " + jt.sqlName
-  def nodeGenerators = Seq((leftGen, left), (rightGen, right))
-  def nodeMapGenerators(f: Symbol => Symbol) = {
-    val fl = f(leftGen)
-    val fr = f(rightGen)
-    if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
-  }
-  def nodePostGeneratorChildren = Seq.empty
-  def nodeCopyJoin(leftGen: Symbol = leftGen, rightGen: Symbol = rightGen, left: Node = left, right: Node = right, jt: JoinType = jt) =
-    copy(leftGen = leftGen, rightGen = rightGen, left = left, right = right, jt = jt)
-}
-
-final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends JoinNode with SimpleNode with SimpleDefNode {
+final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends SimpleNode with SimpleDefNode {
   protected[this] def nodeChildGenerators = IndexedSeq(left, right, on)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
-  override def toString = "FilteredJoin " + jt.sqlName
+  override def toString = "Join " + jt.sqlName
   def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   def nodeMapGenerators(f: Symbol => Symbol) = {
     val fl = f(leftGen)
@@ -370,8 +346,10 @@ final case class FilteredJoin(leftGen: Symbol, rightGen: Symbol, left: Node, rig
     if((fl eq leftGen) && (fr eq rightGen)) this else copy(leftGen = fl, rightGen = fr)
   }
   def nodePostGeneratorChildren = Seq(on)
-  def nodeCopyJoin(leftGen: Symbol = leftGen, rightGen: Symbol = rightGen, left: Node = left, right: Node = right, jt: JoinType = jt) =
-    copy(leftGen = leftGen, rightGen = rightGen, left = left, right = right, jt = jt)
+  def nodeCopyJoin(leftGen: Symbol = leftGen, rightGen: Symbol = rightGen, left: Node = left, right: Node = right, jt: JoinType = jt) = {
+    if((leftGen eq this.leftGen) && (rightGen eq this.rightGen) && (left eq this.left) && (right eq this.right) && (jt eq this.jt)) this
+    else copy(leftGen = leftGen, rightGen = rightGen, left = left, right = right, jt = jt)
+  }
 }
 
 final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with SimpleDefNode {
