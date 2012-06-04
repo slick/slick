@@ -6,7 +6,7 @@ import scala.slick.SLICKException
 import scala.slick.ql.{ConstColumn, ShapedValue}
 import scala.slick.util.{RefId, SimpleTypeName}
 import scala.collection.mutable.{HashSet, ArrayBuffer, HashMap}
-import OptimizerUtil.nodeToNodeOps
+import opt.Util.nodeToNodeOps
 
 trait NodeGenerator {
   def nodeDelegate: Node

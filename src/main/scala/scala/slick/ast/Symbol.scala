@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-import OptimizerUtil._
+import opt.Util._
 import scala.slick.ql.RawNamedColumn
 import scala.slick.util.WeakIdentityHashMap
 import java.lang.ref.WeakReference

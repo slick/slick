@@ -1,8 +1,8 @@
 package scala.slick.ast
+package opt
 
-import OptimizerUtil._
 import collection.mutable.HashMap
-import scala.slick.util.RefId
+import Util._
 
 /**
  * A tree transformer which replaces nodes transitively while updating

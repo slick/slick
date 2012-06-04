@@ -1,56 +1,15 @@
 package scala.slick.ast
+package opt
 
-import OptimizerUtil._
 import scala.slick.util.Logging
+import Util._
 
 /**
  * Expand columns in queries
  */
 object Columnizer extends (Node => Node) with Logging {
 
-  val expandColumns = new Transformer.Defs {
-    def replace = pftransitive {
-      // Remove unnecessary wrapping of generated TableRef reference
-      //case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
-      // Rewrite a table reference that has already been rewritten to a Ref
-      //case ResolvedRef(sym, f @ FilterChain(syms, t: TableNode)) => InRef(sym, Node(t.nodeShaped_*.value))
-      // Push InRef down into ProductNode
-      //case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
-      // Merge products
-      case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
-      // Rewrite a table reference returned in a Bind
-      case b @ Bind(_, _, t: TableNode) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.nodeShaped_*.value))))
-      case Pure(Ref(sym1 @ Def(FilterChain(_, t: TableNode)))) => Pure(TableRef(sym1))
-      // Rewrite orderBy dummy bind -- Not really part of columnization but we
-      // cannot do it before the first optimizer run has unwrapped everything
-      //case Bind(_, OrderBy(gen, _, by), select) =>
-      //  SortBy(gen, select, by)
-    }
-  }
-
   def apply(tree: Node): Node = fixpoint(tree)((expandAndOptimize _) /*.andThen(expandPureSelects)*/ )
-
-  def expandPureSelects(n: Node): Node = {
-    val n2 = memoized[Node, Node](r => {
-      case b @ Bind(gen, _, Pure(x)) if (x match {
-          case TableRef(_) => false
-          case ProductNode(_*) => false
-          case StructNode(_) => false
-          case _ => true
-        }) => b.copy(select = Pure(ProductNode(x)))
-      case n => n.nodeMapChildren(r)
-    })(n)
-    val defs = n2.collectAll[(Symbol, Node)]{ case d: DefNode => d.nodeGenerators }.toMap
-    logger.debug("Generated defs from single-column selects: "+defs)
-    def findField(n: Node): Node = n match {
-      case Bind(_, _, Pure(ProductNode(x))) => x
-      case FilteredQuery(_, from) => findField(from)
-    }
-    memoized[Node, Node](r => {
-      case Ref(sym) if defs.contains(sym) => InRef(sym, findField(defs(sym)))
-      case n => n.nodeMapChildren(r)
-    })(n2)
-  }
 
   def expandAndOptimize(tree: Node): Node = {
     def isFilterOrUnionOfTable(n: Node): Boolean = n match {
@@ -85,5 +44,47 @@ object Columnizer extends (Node => Node) with Logging {
     val t5 = /*Optimizer.standard.repeat*/(t4)
     if(t5 ne t3) logger.debug("Optimized after column expansion: ", t5)
     t5
+  }
+
+  val expandColumns = new Transformer.Defs {
+    def replace = pftransitive {
+      // Remove unnecessary wrapping of generated TableRef reference
+      //case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
+      // Rewrite a table reference that has already been rewritten to a Ref
+      //case ResolvedRef(sym, f @ FilterChain(syms, t: TableNode)) => InRef(sym, Node(t.nodeShaped_*.value))
+      // Push InRef down into ProductNode
+      //case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
+      // Merge products
+      case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
+      // Rewrite a table reference returned in a Bind
+      case b @ Bind(_, _, t: TableNode) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.nodeShaped_*.value))))
+      case Pure(Ref(sym1 @ Def(FilterChain(_, t: TableNode)))) => Pure(TableRef(sym1))
+      // Rewrite orderBy dummy bind -- Not really part of columnization but we
+      // cannot do it before the first optimizer run has unwrapped everything
+      //case Bind(_, OrderBy(gen, _, by), select) =>
+      //  SortBy(gen, select, by)
+    }
+  }
+
+  def expandPureSelects(n: Node): Node = {
+    val n2 = memoized[Node, Node](r => {
+      case b @ Bind(gen, _, Pure(x)) if (x match {
+          case TableRef(_) => false
+          case ProductNode(_*) => false
+          case StructNode(_) => false
+          case _ => true
+        }) => b.copy(select = Pure(ProductNode(x)))
+      case n => n.nodeMapChildren(r)
+    })(n)
+    val defs = n2.collectAll[(Symbol, Node)]{ case d: DefNode => d.nodeGenerators }.toMap
+    logger.debug("Generated defs from single-column selects: "+defs)
+    def findField(n: Node): Node = n match {
+      case Bind(_, _, Pure(ProductNode(x))) => x
+      case FilteredQuery(_, from) => findField(from)
+    }
+    memoized[Node, Node](r => {
+      case Ref(sym) if defs.contains(sym) => InRef(sym, findField(defs(sym)))
+      case n => n.nodeMapChildren(r)
+    })(n2)
   }
 }

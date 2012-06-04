@@ -1,7 +1,8 @@
 package scala.slick.ast
+package opt
 
-import OptimizerUtil._
 import scala.slick.util.Logging
+import Util._
 
 /**
  * Since Nodes cannot be encoded into Scala Tuples, they have to be encoded

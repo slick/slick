@@ -1,6 +1,7 @@
 package scala.slick.ast
+package opt
 
-import OptimizerUtil._
+import Util._
 import scala.slick.ql.RawNamedColumn
 import scala.slick.SLICKException
 import scala.slick.util.Logging

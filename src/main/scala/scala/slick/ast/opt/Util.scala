@@ -1,4 +1,5 @@
 package scala.slick.ast
+package opt
 
 import scala.language.implicitConversions
 import collection.TraversableLike
@@ -9,7 +10,7 @@ import scala.slick.util.RefId
 /**
  * Utility methods for the optimizers.
  */
-object OptimizerUtil extends OptimizerUtilLowPriority {
+object Util extends UtilLowPriority {
 
   def pfidentity[T]: PartialFunction[T, T] = { case x => x }
 
@@ -63,7 +64,7 @@ object OptimizerUtil extends OptimizerUtilLowPriority {
   @inline implicit def nodeToNodeOps(n: Node): NodeOps = new NodeOps(n)
 }
 
-class OptimizerUtilLowPriority {
+class UtilLowPriority {
   @inline implicit def nodeToTraversable(n: Node): Traversable[Node] = new NodeTraversable(n)
 }
 
@@ -71,7 +72,7 @@ class OptimizerUtilLowPriority {
  * Extra methods for Nodes.
  */
 class NodeOps(val tree: Node) extends AnyVal {
-  import OptimizerUtil._
+  import Util._
 
   def collect[T](pf: PartialFunction[Node, T]): Iterable[T] = {
     val b = new ArrayBuffer[T]

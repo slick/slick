@@ -1,11 +1,12 @@
 package scala.slick.ast
+package opt
 
 import scala.math.{min, max}
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SLICKException
 import scala.slick.util.Logging
 import scala.slick.ql.ConstColumn
-import OptimizerUtil._
+import Util._
 
 /**
  * Conversion of basic ASTs to a shape suitable for relational DBs.
