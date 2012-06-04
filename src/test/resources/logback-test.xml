@@ -8,6 +8,7 @@
         <appender-ref ref="STDOUT" />
     </root>
     <logger name="scala.slick.ast.Optimizer" level="${log.opt:-info}" />
+    <logger name="scala.slick.ast.ReconstructProducts" level="${log.optRP:-info}" />
     <logger name="scala.slick.ast.Columnizer" level="${log.optCol:-info}" />
     <logger name="scala.slick.ast.Relational" level="${log.optRel:-info}" />
     <logger name="scala.slick.ast" level="${log.optFull:-info}" />

@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import OptimizerUtil._
-import scala.slick.util.{Logging, RefId}
+import scala.slick.util.Logging
 import scala.collection.mutable.{HashSet, HashMap}
 
 /**
@@ -18,7 +18,7 @@ object Optimizer extends Logging {
       AnonSymbol.assignNames(n2, prefix = "s", force = true)
       if(n2 ne n) logger.debug("localized refs:", n2)
     }
-    val n3 = reconstructProducts(n2)
+    val n3 = ReconstructProducts(n2)
     if(n3 ne n2) logger.debug("products reconstructed:", n3)
     val n4 = inlineRefs(n3)
     if(n4 ne n3) logger.debug("refs inlined:", n4)
@@ -69,94 +69,6 @@ object Optimizer extends Logging {
       m.foreach { case (sym, n) => map += sym -> tr.once(n) }
     }
     if(map.isEmpty) tree2 else LetDynamic(map.toSeq, tree2)
-  }
-
-  /**
-   * Since Nodes cannot be encoded into Scala Tuples, they have to be encoded
-   * into the Tuples' children instead, so we end up with trees like
-   * ProductNode(Select(r, ElementSymbol(1)), Select(r, ElementSymbol(2)))
-   * where r is a Ref to an expression that yields a Query of
-   * ProductNode(_, _). This optimizer rewrites those forms to the raw Ref r.
-   */
-  def reconstructProducts(tree: Node): Node = {
-    // Find the common reference in a candidate node
-    def findCommonRef(n: Node): Option[AnonSymbol] = n match {
-      case Ref(sym: AnonSymbol) => Some(sym)
-      case Select(in, _: ElementSymbol) => findCommonRef(in)
-      case ProductNode(ch @ _*) =>
-        val chref = ch.map(findCommonRef)
-        if(chref.contains(None)) None
-        else {
-          val refs = chref.map(_.get).toSet
-          if(refs.size == 1) Some(refs.head)
-          else None
-        }
-      case _ => None
-    }
-    // ADT for representing shapes of ProductNodes
-    sealed abstract class PShape
-    case object PLeaf extends PShape
-    case class PProduct(children: Seq[PShape]) extends PShape
-    // Extractor for Select(_, ElementSymbol) chains
-    object ProductElements {
-      def unapply(n: Node): Option[(List[Int], Symbol)] = n match {
-        case Ref(sym) => Some((Nil, sym))
-        case Select(in, ElementSymbol(idx)) => unapply(in) match {
-          case None => None
-          case Some((l, sym)) => Some((idx :: l, sym))
-        }
-      }
-    }
-    // Find the shape and common ref of a product if it exists
-    def shapeFor(n: Node, expect: List[Int] = Nil): Option[PShape] = n match {
-      case ProductNode(ch @ _*) =>
-        val chsh = ch.zipWithIndex.map { case (c, i) => shapeFor(c, (i+1) :: expect) }
-        if(chsh.contains(None)) None else Some(PProduct(chsh.map(_.get)))
-      case ProductElements(idxs, _) =>
-        if(idxs == expect) Some(PLeaf) else None
-    }
-    // Check if the shape matches the ref target
-    def shapeMatches(s: PShape, t: Node): Boolean = (s, t) match {
-      case (PLeaf, _) => true
-      case (PProduct(pch), ProductNode(nch @ _*)) if pch.length == nch.length =>
-        (pch, nch).zipped.map(shapeMatches).forall(identity)
-      case (PProduct(pch), j: JoinNode) if pch.length == 2 =>
-        (pch, Seq(j.left, j.right)).zipped.map(shapeMatches).forall(identity)
-      case _ => false
-    }
-    // Replace matching products
-    (new Transformer.Defs {
-      // Narrow the target of a ref to the actual Pure value produced
-      def narrow(n: Node): Option[Pure] = n match {
-        case n: Pure => Some(n)
-        case n: JoinNode =>
-          Some(Pure(ProductNode(n, n))) // dummy value with correct shape
-        case Union(left, _, _, _, _) => narrow(left)
-        case FilteredQuery(_, from) => narrow(from)
-        case Bind(_, _, select) => narrow(select)
-        case Ref(Def(n)) => narrow(n)
-        case p: ProductNode =>
-          Some(Pure(p)) // probably a deconstructed tuple, so try it
-        case _ => None
-      }
-      def replace = {
-        case p: ProductNode =>
-          (for {
-            sym <- findCommonRef(p)
-            _ = logger.debug("Found ProductNode with common ref "+sym)
-            target <- defs.get(sym)
-            _ = logger.debug("  Ref target: "+target)
-            ntarget <- narrow(target)
-            _ = logger.debug("  Narrowed target: "+ntarget)
-            shape <- shapeFor(p)
-            _ = logger.debug("  Shape: "+shape)
-          } yield if(shapeMatches(shape, ntarget.value)) {
-              logger.debug("  Shape matches")
-              Ref(sym)
-            } else p
-          ).getOrElse(p)
-      }
-    }).repeat(tree)
   }
 
   /**
