@@ -32,16 +32,12 @@ class AnonSymbol extends Symbol {
 }
 
 object AnonSymbol {
-  def assignNames(tree: Node, prefix: String = "s", force: Boolean = false, allRefs: Boolean = false, start: Int = 0): Int = {
+  def assignNames(tree: Node, prefix: String = "s", force: Boolean = false, start: Int = 0): Int = {
     var num = start
     val symName = memoized[AnonSymbol, String](_ => { s => num += 1; prefix + num })
     tree.foreach {
       case d : DefNode => d.nodeGenerators.foreach {
         case (s: AnonSymbol, _) if force || !s.hasName => s.name = symName(s)
-        case _ =>
-      }
-      case r: RefNode if allRefs => r.nodeReferences.foreach {
-        case s: AnonSymbol if force || !s.hasName => s.name = symName(s)
         case _ =>
       }
       case _ =>
@@ -88,23 +84,23 @@ object GlobalSymbol {
 }
 
 /** An expression introduced by a Symbol, wrapped in a reference to the Symbol. */
-case class InRef(sym: Symbol, child: Node) extends UnaryNode with RefNode {
+case class InRef(sym: Symbol, child: Node) extends UnaryNode with SimpleRefNode {
   protected[this] def nodeRebuild(child: Node) = copy(child = child)
   override def nodeChildNames = Seq("value")
   def nodeReferences = Seq(sym)
-  def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
+  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
 }
 
 /** A reference to a Symbol */
-case class Ref(sym: Symbol) extends NullaryNode with RefNode {
+case class Ref(sym: Symbol) extends NullaryNode with SimpleRefNode {
   def nodeReferences = Seq(sym)
-  def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
+  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
 }
 
 /** A reference to a Symbol pointing to a table which should not be expanded */
-case class TableRef(sym: Symbol) extends NullaryNode with RefNode {
+case class TableRef(sym: Symbol) extends NullaryNode with SimpleRefNode {
   def nodeReferences = Seq(sym)
-  def nodeMapReferences(f: Symbol => Symbol) = copy(sym = f(sym))
+  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
 }
 
 /** A Node which introduces Symbols. */
@@ -117,15 +113,26 @@ trait DefNode extends Node {
 
 trait SimpleDefNode extends DefNode { this: SimpleNode =>
   def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
-    val ft = f.tupled
     val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
       nodePostGeneratorChildren.iterator.map{ n => (None, n) }).toIndexedSeq
-    nodeRebuild(all.map(ft)).asInstanceOf[DefNode]
+    val mapped = all.map(f.tupled)
+    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false))
+      nodeRebuild(mapped).asInstanceOf[DefNode]
+    else this
   }
+  def nodeMapGenerators(f: Symbol => Symbol): Node =
+    mapOrNone(nodeGenerators.map(_._1), f).fold[Node](this)(s => nodeRebuildWithGenerators(s.toIndexedSeq))
+  def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
 }
 
 /** A Node which references Symbols. */
 trait RefNode extends Node {
   def nodeReferences: Seq[Symbol]
   def nodeMapReferences(f: Symbol => Symbol): Node
+}
+
+trait SimpleRefNode extends RefNode {
+  def nodeMapReferences(f: Symbol => Symbol): Node =
+    mapOrNone(nodeReferences, f).fold[Node](this)(s => nodeRebuildWithReferences(s.toIndexedSeq))
+  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]): Node
 }

@@ -5,7 +5,6 @@ import scala.language.implicitConversions
 import collection.TraversableLike
 import collection.generic.CanBuildFrom
 import collection.mutable.ArrayBuffer
-import scala.slick.util.RefId
 
 /**
  * Utility methods for the optimizers.
@@ -30,16 +29,6 @@ object Util extends UtilLowPriority {
     r
   }
 
-  def refMemoized[A <: AnyRef, B](f: (A => B) => A => B): (A => B) = {
-    val memo = new collection.mutable.HashMap[RefId[A], B]
-    lazy val g = f(r)
-    lazy val r: (A => B) = { a =>
-      val ra = RefId(a)
-      memo.getOrElseUpdate(ra, g(a))
-    }
-    r
-  }
-
   def mapOrSame[Coll <: TraversableLike[A, Coll], A <: AnyRef, To >: Coll](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): To = {
     val b = bf.apply(c)
     var changed = false
@@ -56,11 +45,6 @@ object Util extends UtilLowPriority {
     if(c eq n) None else Some(n)
   }
 
-  def fixpoint[T](v: T)(f: T => T): T = {
-    val x = f(v)
-    if(x == v) x else fixpoint(x)(f)
-  }
-
   @inline implicit def nodeToNodeOps(n: Node): NodeOps = new NodeOps(n)
 }
 
@@ -68,9 +52,17 @@ class UtilLowPriority {
   @inline implicit def nodeToTraversable(n: Node): Traversable[Node] = new NodeTraversable(n)
 }
 
-/**
- * Extra methods for Nodes.
- */
+/** A scope for scoped traversal */
+case class Scope(m: Map[Symbol, (Node, Scope)]) {
+  def get(s: Symbol) = m.get(s)
+  def + (s: Symbol, n: Node) = Scope(m + (s -> (n, this)))
+}
+
+object Scope {
+  val empty = Scope(Map())
+}
+
+/** Extra methods for Nodes. */
 class NodeOps(val tree: Node) extends AnyVal {
   import Util._
 
@@ -102,33 +94,6 @@ class NodeOps(val tree: Node) extends AnyVal {
     g(tree)
   }
 
-  def forProductElements(f: Node => Unit) {
-    def g(n: Node, f: Node => Unit): Unit = n match {
-      case p: ProductNode => p.nodeChildren.foreach(n => g(n, f))
-      case n => f(n)
-    }
-    g(tree, f)
-  }
-
-  def mapFromProductElements[T](f: Node => T): Seq[T] = {
-    val b = new ArrayBuffer[T]
-    def g(n: Node, f: Node => T): Unit = n match {
-      case p: ProductNode => p.nodeChildren.foreach(n => g(n, f))
-      case n => b += f(n)
-    }
-    g(tree, f)
-    b
-  }
-
-  def collectNodeGenerators = collectAll[(Symbol, Node)]{
-    case d: DefNode => d.nodeGenerators
-  }.toMap
-
-  def generatorsReplacer = {
-    val gens = collectNodeGenerators.map(_._1).toSet
-    memoized[Symbol, Symbol](_ => { case s => if(gens contains s) new AnonSymbol else s })
-  }
-
   def flattenProduct = {
     def f(n: Node): IndexedSeq[Node] = n match {
       case ProductNode(ns @ _*) => ns.flatMap(f).toIndexedSeq
@@ -136,18 +101,25 @@ class NodeOps(val tree: Node) extends AnyVal {
     }
     f(tree)
   }
+
+  def mapChildrenWithScope(f: (Node, Scope) => Node, scope: Scope): Node = tree match {
+    case d: DefNode =>
+      var local = scope
+      d.nodeMapScopedChildren { (symO, ch) =>
+        val r = f(ch, local)
+        symO.foreach(sym => local = local + (sym, r))
+        r
+      }
+    case n => n.nodeMapChildren(ch => f(ch, scope))
+  }
 }
 
-/**
- * A Traversable instance for nodes.
- */
+/** A Traversable instance for nodes. */
 class NodeTraversable(tree: Node) extends Traversable[Node] {
   def foreach[U](f: (Node => U)) = new NodeOps(tree).foreach(f)
 }
 
-  /**
- * An extractor for the transitive source of a chain of FilteredQuery nodes
- */
+/** An extractor for the transitive source of a chain of FilteredQuery nodes */
 object FilterChain {
   def unapply(n: Node): Some[(List[Symbol], Node)] = n match {
     case FilteredQuery(sym, from) =>
@@ -163,20 +135,7 @@ object FilterChain {
   }
 }
 
-/**
- * An extractor for the transitive source of a chain of FilteredQuery nodes
- * which must actually start with a FilteredQuery.
- */
-object RealFilterChain {
-  def unapply(n: Node): Option[(List[Symbol], Node)] = n match {
-    case _: FilteredQuery => FilterChain.unapply(n)
-    case _ => None
-  }
-}
-
-/**
- * An extractor for nested ProductNodes (does not match non-nested ones)
- */
+/** An extractor for nested ProductNodes (does not match non-nested ones) */
 object NestedProductNode {
   def unapplySeq(p: ProductNode): Option[Seq[Node]] = {
     var nested = false

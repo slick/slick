@@ -1,90 +1,134 @@
 package scala.slick.ast
 package opt
 
-import scala.slick.util.Logging
 import Util._
+import scala.slick.util.Logging
+import scala.slick.ast.WithOp
+import scala.collection.mutable.HashMap
 
 /**
  * Expand columns in queries
  */
 object Columnizer extends (Node => Node) with Logging {
 
-  def apply(tree: Node): Node = fixpoint(tree)((expandAndOptimize _) /*.andThen(expandPureSelects)*/ )
-
-  def expandAndOptimize(tree: Node): Node = {
-    def isFilterOrUnionOfTable(n: Node): Boolean = n match {
-      case FilteredQuery(_, from) => isFilterOrUnionOfTable(from)
-      case _: TableNode => true
-      case Union(left, right, _, _, _) => isFilterOrUnionOfTable(left) || isFilterOrUnionOfTable(right)
-      case _ => false
-    }
-    def mapSourceTable(n: Node, f: TableNode => Node): Node = n match {
-      case q @ FilteredQuery(_, _) =>
-        q.nodeMapFrom(mapSourceTable(_, f))
-      case u @ Union(left, right, _, _, _) =>
-        u.copy(left = mapSourceTable(left, f), right = mapSourceTable(right, f))
-      case source: TableNode => f(source)
-      case n => n
-    }
-    val t2 = if(isFilterOrUnionOfTable(tree)) mapSourceTable(tree, _.nodeExpand_*) else tree
-    val t3 = expandColumns.repeat(t2)
-    if(t3 ne tree) logger.debug("Columns expanded: ", t3)
-    //TODO This hack unwraps the expanded references within their scope
-    // There may be other situations where unwrapping finds the wrong symbols,
-    // so this should be done in a completely different way (by introducing
-    // StructNodes much earlier and avoiding wrapping altogether)
-    def optimizeUnions(n: Node): Node = n match {
-      case u @ Union(left, right, _, _, _) =>
-        val l = /*Optimizer.standard.repeat*/(optimizeUnions(left))
-        val r = /*Optimizer.standard.repeat*/(optimizeUnions(right))
-        u.copy(left = l, right = r)
-      case n => n.nodeMapChildren(optimizeUnions)
-    }
-    val t4 = optimizeUnions(t3)
-    val t5 = /*Optimizer.standard.repeat*/(t4)
-    if(t5 ne t3) logger.debug("Optimized after column expansion: ", t5)
-    t5
+  def apply(tree: Node): Node = {
+    val t2 = expandTables(tree)
+    if(t2 ne tree) logger.debug("Tables expanded:", t2)
+    val t3 = expandRefs(t2)
+    if(t3 ne t2) logger.debug("Refs expanded:", t3)
+    val t4 = replaceFieldSymbols(t3)
+    if(t4 ne t3) logger.debug("FieldSymbols replaced:", t4)
+    t4
   }
 
-  val expandColumns = new Transformer.Defs {
-    def replace = pftransitive {
-      // Remove unnecessary wrapping of generated TableRef reference
-      //case ResolvedInRef(sym, Pure(TableRef(sym1)), InRef(sym2, what)) if sym1 == sym2 => InRef(sym, what)
-      // Rewrite a table reference that has already been rewritten to a Ref
-      //case ResolvedRef(sym, f @ FilterChain(syms, t: TableNode)) => InRef(sym, Node(t.nodeShaped_*.value))
-      // Push InRef down into ProductNode
-      //case InRef(sym, ProductNode(ns @ _*)) => ProductNode(ns.map(n => InRef(sym, n)): _*)
-      // Merge products
-      case NestedProductNode(ch @ _*) => ProductNode(ch: _*)
-      // Rewrite a table reference returned in a Bind
-      case b @ Bind(_, _, t: TableNode) => b.copy(select = Bind(new AnonSymbol, t, Pure(Node(t.nodeShaped_*.value))))
-      case Pure(Ref(sym1 @ Def(FilterChain(_, t: TableNode)))) => Pure(TableRef(sym1))
-      // Rewrite orderBy dummy bind -- Not really part of columnization but we
-      // cannot do it before the first optimizer run has unwrapped everything
-      //case Bind(_, OrderBy(gen, _, by), select) =>
-      //  SortBy(gen, select, by)
-    }
+  /** Replace all TableNodes with TableExpansions which contain both the
+    * expansion and the original table */
+  def expandTables(n: Node): Node = n match {
+    case t: TableExpansion => t
+    case t: TableNode =>
+      val sym = new AnonSymbol
+      val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
+      val processed = expandTables(Optimizer.prepareTree(expanded, true))
+      TableExpansion(sym, t, ProductNode(processed.flattenProduct: _*))
+    case n => n.nodeMapChildren(expandTables)
   }
 
-  def expandPureSelects(n: Node): Node = {
-    val n2 = memoized[Node, Node](r => {
-      case b @ Bind(gen, _, Pure(x)) if (x match {
-          case TableRef(_) => false
-          case ProductNode(_*) => false
-          case StructNode(_) => false
-          case _ => true
-        }) => b.copy(select = Pure(ProductNode(x)))
-      case n => n.nodeMapChildren(r)
-    })(n)
-    val defs = n2.collectAll[(Symbol, Node)]{ case d: DefNode => d.nodeGenerators }.toMap
-    logger.debug("Generated defs from single-column selects: "+defs)
-    def findField(n: Node): Node = n match {
-      case Bind(_, _, Pure(ProductNode(x))) => x
-      case FilteredQuery(_, from) => findField(from)
+  /** Expand Paths to TableExpansions into ProductNodes of Paths, so that all
+    * Paths point to individual columns by index */
+  def expandRefs(n: Node, scope: Scope = Scope.empty): Node = n match {
+    case p @ PathOrRef(psyms) =>
+      psyms.head match {
+        case f: FieldSymbol => p
+        case _ =>
+        val syms = psyms.reverse
+        scope.get(syms.head) match {
+          case Some((Structure(ntarget), _)) =>
+            select(syms.tail, ntarget) match {
+              case t: TableExpansion =>
+                logger.debug("Narrowed "+p+" to "+t)
+                burstPath(Ref(syms.head), syms.tail, t)
+
+              case _ => p
+            }
+          case None => p
+        }
+      }
+    case n => n.mapChildrenWithScope(expandRefs, scope)
+  }
+
+  /** Expand a path of selects into a given target on top of a base node */
+  def burstPath(base: Node, selects: List[Symbol], target: Node): Node = target match {
+    case ProductNode(ch @ _*) =>
+      ProductNode(ch.zipWithIndex.map { case (n, idx) =>
+        burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
+      }: _*)
+    case TableExpansion(gen, t, cols) =>
+      ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
+        burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
+      }: _*)
+    case _ => selects.foldLeft(base){ case (z,sym) => Select(z, sym) }
+  }
+
+  /** Replace references to FieldSymbols in TableExpansions by the
+    * appropriate ElementSymbol */
+  def replaceFieldSymbols(n: Node): Node = {
+    val updatedTables = new HashMap[Symbol, ProductNode]
+    def tr(n: Node, scope: Scope = Scope.empty): Node = n match {
+      case sel @ Select(p @ PathOrRef(psyms), field: FieldSymbol) =>
+        val syms = psyms.reverse
+        scope.get(syms.head) match {
+          case Some((Structure(ntarget), _)) =>
+            select(syms.tail, ntarget) match {
+              case t: TableExpansion =>
+                logger.debug("Narrowed "+p+"."+field+" to "+t)
+                val columns: ProductNode = updatedTables.get(t.generator).getOrElse(t.columns.asInstanceOf[ProductNode])
+                val needed = Select(Ref(t.generator), field)
+                val newSel = columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
+                  case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
+                  case None =>
+                    val col = Select(Ref(t.generator), field)
+                    updatedTables += t.generator -> ProductNode((columns.nodeChildren :+ col): _*)
+                    Select(p, ElementSymbol(columns.nodeChildren.size + 1))
+                }
+                logger.debug("Replaced "+sel+" by "+newSel)
+                newSel
+              case _ => // a Table within a TableExpansion -> don't rewrite
+                sel
+            }
+          case None => sel
+        }
+      case n => n.mapChildrenWithScope(tr, scope)
     }
-    memoized[Node, Node](r => {
-      case Ref(sym) if defs.contains(sym) => InRef(sym, findField(defs(sym)))
-      case n => n.nodeMapChildren(r)
-    })(n2)
+    val n2 = tr(n)
+    val n3 = if(!updatedTables.isEmpty) {
+      logger.debug("Patching "+updatedTables.size+" updated TableExpansion(s) "+updatedTables.keysIterator.mkString(", ")+" into the tree")
+      def update(n: Node): Node = n match {
+        case t: TableExpansion =>
+          updatedTables.get(t.generator).fold(t)(c => t.copy(columns = c)).nodeMapChildren(update)
+        case n => n.nodeMapChildren(update)
+      }
+      update(n2)
+    } else n2
+    n3
+  }
+
+  /** Navigate into ProductNodes along a path */
+  def select(selects: List[Symbol], base: Node): Node = (selects, base) match {
+    case (Nil, n) => n
+    case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
+  }
+
+  /** Extractor that finds the actual structure produced by a Node */
+  object Structure {
+    def unapply(n: Node): Option[Node] = n match {
+      case Pure(n) => Some(n)
+      case Join(_, _, l, r, _, _) =>
+        for { l <- unapply(l); r <- unapply(r) } yield ProductNode(l, r)
+      case Union(l, _, _, _, _) => unapply(l)
+      case FilteredQuery(_, from) => unapply(from)
+      case Bind(_, _, select) => unapply(select)
+      case t: TableExpansion => Some(t)
+      case n => Some(n)
+    }
   }
 }
