@@ -12,13 +12,47 @@ import scala.collection.mutable.HashMap
 object Columnizer extends (Node => Node) with Logging {
 
   def apply(tree: Node): Node = {
-    val t2 = expandTables(tree)
-    if(t2 ne tree) logger.debug("Tables expanded:", t2)
+    val t1 = forceOuterBind(tree)
+    if(t1 ne tree) logger.debug("With outer binds:", t1)
+    val t2 = expandTables(t1)
+    if(t2 ne t1) logger.debug("Tables expanded:", t2)
     val t3 = expandRefs(t2)
     if(t3 ne t2) logger.debug("Refs expanded:", t3)
     val t4 = replaceFieldSymbols(t3)
     if(t4 ne t3) logger.debug("FieldSymbols replaced:", t4)
     t4
+  }
+
+  /** Ensure that all collection operations are wrapped in a Bind so that we
+    * have a place for expanding references later. */
+  def forceOuterBind(n: Node): Node = {
+    def idBind(n: Node) = {
+      val gen = new AnonSymbol
+      logger.debug("Introducing new Bind "+gen)
+      Bind(gen, n, Ref(gen))
+    }
+    def wrap(n: Node): Node = n match {
+      case b: Bind => b.nodeMapChildren(nowrap)
+      case n => idBind(n.nodeMapChildren(nowrap))
+    }
+    def nowrap(n: Node): Node = n match {
+      case j: Join => j.nodeMapChildren { ch =>
+        if((ch eq j.left) || (ch eq j.right)) nowrap(ch) else maybewrap(ch)
+      }
+      case u: Union => u.nodeMapChildren(nowrap)
+      case f: FilteredQuery => f.nodeMapChildren { ch =>
+        if(ch eq f.from) nowrap(ch) else maybewrap(ch)
+      }
+      case b: Bind => b.nodeMapChildren(nowrap)
+      case n => n.nodeMapChildren(maybewrap)
+    }
+    def maybewrap(n: Node): Node = n match {
+      case j: Join => wrap(n)
+      case u: Union => wrap(n)
+      case f: FilteredQuery => wrap(n)
+      case n => nowrap(n)
+    }
+    wrap(n)
   }
 
   /** Replace all TableNodes with TableExpansions which contain both the
@@ -33,8 +67,8 @@ object Columnizer extends (Node => Node) with Logging {
     case n => n.nodeMapChildren(expandTables)
   }
 
-  /** Expand Paths to TableExpansions into ProductNodes of Paths, so that all
-    * Paths point to individual columns by index */
+  /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
+    * Paths, so that all Paths point to individual columns by index */
   def expandRefs(n: Node, scope: Scope = Scope.empty): Node = n match {
     case p @ PathOrRef(psyms) =>
       psyms.head match {
@@ -47,7 +81,9 @@ object Columnizer extends (Node => Node) with Logging {
               case t: TableExpansion =>
                 logger.debug("Narrowed "+p+" to "+t)
                 burstPath(Ref(syms.head), syms.tail, t)
-
+              case pr: ProductNode =>
+                logger.debug("Narrowed "+p+" to "+pr)
+                burstPath(Ref(syms.head), syms.tail, pr)
               case _ => p
             }
           case None => p
