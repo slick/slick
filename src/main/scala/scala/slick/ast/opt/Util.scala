@@ -13,15 +13,6 @@ object Util extends UtilLowPriority {
 
   def pfidentity[T]: PartialFunction[T, T] = { case x => x }
 
-  def pftransitive[T <: AnyRef](pf: PartialFunction[T, T]): PartialFunction[T, T] = new PartialFunction[T, T] {
-    def isDefinedAt(x: T): Boolean = pf.isDefinedAt(x)
-    def apply(x: T): T = {
-      val y = pf(x)
-      if(y.eq(x) || !pf.isDefinedAt(y)) y
-      else apply(y)
-    }
-  }
-
   def memoized[A, B](f: (A => B) => A => B): (A => B) = {
     val memo = new collection.mutable.HashMap[A, B]
     lazy val g = f(r)
@@ -79,13 +70,6 @@ class NodeOps(val tree: Node) extends AnyVal {
     memoized[Node, Node](r => { n => g(g(n).nodeMapChildren(r)) })(tree)
   }
 
-  def replaceSymbols(f: Symbol => Symbol): Node = {
-    replace {
-      case d: DefNode => d.nodeMapGenerators(f)
-      case r: RefNode => r.nodeMapReferences(f)
-    }
-  }
-
   def foreach[U](f: (Node => U)) {
     def g(n: Node) {
       f(n)
@@ -117,37 +101,4 @@ class NodeOps(val tree: Node) extends AnyVal {
 /** A Traversable instance for nodes. */
 class NodeTraversable(tree: Node) extends Traversable[Node] {
   def foreach[U](f: (Node => U)) = new NodeOps(tree).foreach(f)
-}
-
-/** An extractor for the transitive source of a chain of FilteredQuery nodes */
-object FilterChain {
-  def unapply(n: Node): Some[(List[Symbol], Node)] = n match {
-    case FilteredQuery(sym, from) =>
-      val (ss, n) = unapply(from).get
-      Some((sym :: ss, n))
-    case n => Some(Nil, n)
-  }
-
-  def mapSource(n: Node, f: Node => Node): Node = n match {
-    case q @ FilteredQuery(_, _) =>
-      q.nodeMapFrom(mapSource(_, f))
-    case source => f(source)
-  }
-}
-
-/** An extractor for nested ProductNodes (does not match non-nested ones) */
-object NestedProductNode {
-  def unapplySeq(p: ProductNode): Option[Seq[Node]] = {
-    var nested = false
-    val b = new ArrayBuffer[Node]
-    def scan(n: Node): Unit = n match {
-      case ProductNode(ch @ _*) =>
-        nested = true
-        ch.foreach(scan)
-      case n => b += n
-    }
-    p.nodeChildren.foreach(scan)
-    if(nested) Some(b)
-    else None
-  }
 }

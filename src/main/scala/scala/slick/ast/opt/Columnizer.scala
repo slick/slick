@@ -68,7 +68,8 @@ object Columnizer extends (Node => Node) with Logging {
   }
 
   /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
-    * Paths, so that all Paths point to individual columns by index */
+    * Paths and TableRefExpansions of Paths, so that all Paths point to
+    * individual columns by index */
   def expandRefs(n: Node, scope: Scope = Scope.empty): Node = n match {
     case p @ PathOrRef(psyms) =>
       psyms.head match {
@@ -76,8 +77,8 @@ object Columnizer extends (Node => Node) with Logging {
         case _ =>
         val syms = psyms.reverse
         scope.get(syms.head) match {
-          case Some((Structure(ntarget), _)) =>
-            select(syms.tail, ntarget).head match {
+          case Some((target, _)) =>
+            select(syms.tail, narrowStructure(target)).head match {
               case t: TableExpansion =>
                 logger.debug("Narrowed "+p+" to "+t)
                 burstPath(Ref(syms.head), syms.tail, t)
@@ -99,9 +100,9 @@ object Columnizer extends (Node => Node) with Logging {
         burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
       }: _*)
     case TableExpansion(gen, t, cols) =>
-      ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
+      TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
-      }: _*)
+      }: _*))
     case _ => selects.foldLeft(base){ case (z,sym) => Select(z, sym) }
   }
 
@@ -109,38 +110,72 @@ object Columnizer extends (Node => Node) with Logging {
     * appropriate ElementSymbol */
   def replaceFieldSymbols(n: Node): Node = {
     val updatedTables = new HashMap[Symbol, ProductNode]
-    def tr(n: Node, scope: Scope = Scope.empty): Node = n match {
-      case sel @ Select(p @ PathOrRef(psyms), field: FieldSymbol) =>
-        val syms = psyms.reverse
-        scope.get(syms.head) match {
-          case Some((Structure(ntarget), _)) =>
-            select(syms.tail, ntarget).map {
-              case t: TableExpansion =>
-                logger.debug("Narrowed "+p+"."+field+" to "+t)
-                val columns: ProductNode = updatedTables.get(t.generator).getOrElse(t.columns.asInstanceOf[ProductNode])
-                val needed = Select(Ref(t.generator), field)
-                val newSel = columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
+    val seenDefs = new HashMap[Symbol, Node]
+
+    def rewrite(target: Node, p: Node, field: FieldSymbol, syms: List[Symbol]): Option[Select] = {
+      val ntarget = narrowStructure(target)
+      logger.debug("Narrowed to structure "+ntarget)
+      select(syms.tail, ntarget).map {
+        case t: TableExpansion =>
+          logger.debug("Narrowed to element "+t)
+          val columns: ProductNode = updatedTables.get(t.generator).getOrElse(t.columns.asInstanceOf[ProductNode])
+          val needed = Select(Ref(t.generator), field)
+          Some(columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
+            case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
+            case None =>
+              val col = Select(Ref(t.generator), field)
+              updatedTables += t.generator -> ProductNode((columns.nodeChildren :+ col): _*)
+              Select(p, ElementSymbol(columns.nodeChildren.size + 1))
+          })
+        case t: TableRefExpansion =>
+          logger.debug("Narrowed to element "+t)
+          PathOrRef.unapply(t.ref).flatMap { psyms =>
+            val syms = psyms.reverse
+            seenDefs.get(syms.head).flatMap { n =>
+              logger.debug("Trying to rewrite recursive match "+t.ref+" ."+field)
+              rewrite(n, t.ref, field, syms).map { recSel =>
+                logger.debug("Found recursive replacement "+recSel.in+" ."+recSel.field)
+                val columns: ProductNode = updatedTables.get(t.marker).getOrElse(t.columns.asInstanceOf[ProductNode])
+                val needed = Select(t.ref, recSel.field)
+                columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
                   case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
                   case None =>
-                    val col = Select(Ref(t.generator), field)
-                    updatedTables += t.generator -> ProductNode((columns.nodeChildren :+ col): _*)
+                    val col = Select(t.ref, field)
+                    updatedTables += t.marker -> ProductNode((columns.nodeChildren :+ col): _*)
                     Select(p, ElementSymbol(columns.nodeChildren.size + 1))
                 }
-                logger.debug("Replaced "+sel+" by "+newSel)
-                newSel
-              case _ => // a Table within a TableExpansion -> don't rewrite
-                sel
-            }.head // we have to assume that the structure is the same for all expansions
-          case None => sel
-        }
+              }
+            }
+          }
+
+        case n => None // Can be a Table within a TableExpansion -> don't rewrite
+      }.head // we have to assume that the structure is the same for all expansions
+    }
+
+    def tr(n: Node, scope: Scope = Scope.empty): Node = n match {
+      case d: DefNode =>
+        val r = d.mapChildrenWithScope(tr, scope)
+        seenDefs ++= r.asInstanceOf[DefNode].nodeGenerators
+        r
+      case sel @ Select(p @ PathOrRef(psyms), field: FieldSymbol) =>
+        val syms = psyms.reverse
+        scope.get(syms.head).flatMap { case (n, _) =>
+          logger.debug("Trying to rewrite "+p+" ."+field)
+          val newSelO = rewrite(n, p, field, syms)
+          newSelO.foreach(newSel => logger.debug("Replaced "+sel+" by "+newSel))
+          newSelO
+        }.getOrElse(sel)
       case n => n.mapChildrenWithScope(tr, scope)
     }
+
     val n2 = tr(n)
     val n3 = if(!updatedTables.isEmpty) {
-      logger.debug("Patching "+updatedTables.size+" updated TableExpansion(s) "+updatedTables.keysIterator.mkString(", ")+" into the tree")
+      logger.debug("Patching "+updatedTables.size+" updated Table(Ref)Expansion(s) "+updatedTables.keysIterator.mkString(", ")+" into the tree")
       def update(n: Node): Node = n match {
         case t: TableExpansion =>
           updatedTables.get(t.generator).fold(t)(c => t.copy(columns = c)).nodeMapChildren(update)
+        case t: TableRefExpansion =>
+          updatedTables.get(t.marker).fold(t)(c => t.copy(columns = c)).nodeMapChildren(update)
         case n => n.nodeMapChildren(update)
       }
       update(n2)
@@ -149,24 +184,22 @@ object Columnizer extends (Node => Node) with Logging {
   }
 
   /** Navigate into ProductNodes along a path */
-  def select(selects: List[Symbol], base: Node): Vector[Node] = (selects, base) match {
-    case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
-    case (Nil, n) => Vector(n)
-    case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
+  def select(selects: List[Symbol], base: Node): Vector[Node] = {
+    logger.debug("select("+selects+", "+base+")")
+    (selects, base) match {
+      case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
+      case (Nil, n) => Vector(n)
+      case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
+    }
   }
 
-  /** Extractor that finds the actual structure produced by a Node */
-  object Structure {
-    def unapply(n: Node): Option[Node] = n match {
-      case Pure(n) => Some(n)
-      case Join(_, _, l, r, _, _) =>
-        for { l <- unapply(l); r <- unapply(r) } yield ProductNode(l, r)
-      case u: Union =>
-        for { l <- unapply(u.left); r <- unapply(u.right) } yield u.copy(left = l, right = r)
-      case FilteredQuery(_, from) => unapply(from)
-      case Bind(_, _, select) => unapply(select)
-      case t: TableExpansion => Some(t)
-      case n => Some(n)
-    }
+  /** Find the actual structure produced by a Node */
+  def narrowStructure(n: Node): Node = n match {
+    case Pure(n) => n
+    case Join(_, _, l, r, _, _) => ProductNode(narrowStructure(l), narrowStructure(r))
+    case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
+    case FilteredQuery(_, from) => narrowStructure(from)
+    case Bind(_, _, select) => narrowStructure(select)
+    case n => n
   }
 }

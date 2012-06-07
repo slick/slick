@@ -375,6 +375,17 @@ final case class TableExpansion(generator: Symbol, table: Node, columns: Node) e
   def nodePostGeneratorChildren = Seq(columns)
 }
 
+final case class TableRefExpansion(marker: Symbol, ref: Node, columns: Node) extends BinaryNode with SimpleDefNode {
+  def left = ref
+  def right = columns
+  protected[this] override def nodeChildNames = Seq("ref", "columns")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(ref = left, columns = right)
+  def nodeGenerators = Seq((marker, ref))
+  override def toString = "TableRefExpansion "+marker
+  def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(marker = gen(0))
+  def nodePostGeneratorChildren = Seq(columns)
+}
+
 final case class Select(in: Node, field: Symbol) extends UnaryNode with SimpleRefNode {
   def child = in
   protected[this] override def nodeChildNames = Seq("in")
