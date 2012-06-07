@@ -77,7 +77,7 @@ object Columnizer extends (Node => Node) with Logging {
         val syms = psyms.reverse
         scope.get(syms.head) match {
           case Some((Structure(ntarget), _)) =>
-            select(syms.tail, ntarget) match {
+            select(syms.tail, ntarget).head match {
               case t: TableExpansion =>
                 logger.debug("Narrowed "+p+" to "+t)
                 burstPath(Ref(syms.head), syms.tail, t)
@@ -114,7 +114,7 @@ object Columnizer extends (Node => Node) with Logging {
         val syms = psyms.reverse
         scope.get(syms.head) match {
           case Some((Structure(ntarget), _)) =>
-            select(syms.tail, ntarget) match {
+            select(syms.tail, ntarget).map {
               case t: TableExpansion =>
                 logger.debug("Narrowed "+p+"."+field+" to "+t)
                 val columns: ProductNode = updatedTables.get(t.generator).getOrElse(t.columns.asInstanceOf[ProductNode])
@@ -130,7 +130,7 @@ object Columnizer extends (Node => Node) with Logging {
                 newSel
               case _ => // a Table within a TableExpansion -> don't rewrite
                 sel
-            }
+            }.head // we have to assume that the structure is the same for all expansions
           case None => sel
         }
       case n => n.mapChildrenWithScope(tr, scope)
@@ -149,8 +149,9 @@ object Columnizer extends (Node => Node) with Logging {
   }
 
   /** Navigate into ProductNodes along a path */
-  def select(selects: List[Symbol], base: Node): Node = (selects, base) match {
-    case (Nil, n) => n
+  def select(selects: List[Symbol], base: Node): Vector[Node] = (selects, base) match {
+    case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
+    case (Nil, n) => Vector(n)
     case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
   }
 
@@ -160,7 +161,8 @@ object Columnizer extends (Node => Node) with Logging {
       case Pure(n) => Some(n)
       case Join(_, _, l, r, _, _) =>
         for { l <- unapply(l); r <- unapply(r) } yield ProductNode(l, r)
-      case Union(l, _, _, _, _) => unapply(l)
+      case u: Union =>
+        for { l <- unapply(u.left); r <- unapply(u.right) } yield u.copy(left = l, right = r)
       case FilteredQuery(_, from) => unapply(from)
       case Bind(_, _, select) => unapply(select)
       case t: TableExpansion => Some(t)
