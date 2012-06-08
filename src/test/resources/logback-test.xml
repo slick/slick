@@ -10,6 +10,7 @@
     <logger name="scala.slick.ast.opt.Optimizer" level="${log.opt:-info}" />
     <logger name="scala.slick.ast.opt.ReconstructProducts" level="${log.opt.rp:-info}" />
     <logger name="scala.slick.ast.opt.Columnizer" level="${log.opt.col:-info}" />
+    <logger name="scala.slick.ast.opt.PathRewriter" level="${log.opt.path:-info}" />
     <logger name="scala.slick.ast.opt.Relational" level="${log.opt.rel:-info}" />
     <logger name="scala.slick.ast.opt.Inliner" level="${log.opt.in:-info}" />
     <logger name="scala.slick.ast.opt" level="${log.opt.full:-info}" />

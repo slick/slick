@@ -15,7 +15,7 @@ abstract class Transformer { self =>
   def initTree(n: Node) = ()
 
   private[this] def run(tree: Node, once: Boolean): Node = {
-    val repl = replace.orElse(pfidentity[Node])
+    val repl = replace.orElse[Node, Node] { case n => n }
     def scanAndTr(n: Node): Node = {
       initTree(n)
       val n2 = memoized[Node, Node](r => { n => repl(n).nodeMapChildren(r) })(n)

@@ -9,9 +9,7 @@ import collection.mutable.ArrayBuffer
 /**
  * Utility methods for the optimizers.
  */
-object Util extends UtilLowPriority {
-
-  def pfidentity[T]: PartialFunction[T, T] = { case x => x }
+object Util {
 
   def memoized[A, B](f: (A => B) => A => B): (A => B) = {
     val memo = new collection.mutable.HashMap[A, B]
@@ -20,7 +18,7 @@ object Util extends UtilLowPriority {
     r
   }
 
-  def mapOrSame[Coll <: TraversableLike[A, Coll], A <: AnyRef, To >: Coll](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): To = {
+  def mapOrNone[Coll <: TraversableLike[A, Coll] with AnyRef, A <: AnyRef, To >: Coll <: AnyRef](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): Option[To] = {
     val b = bf.apply(c)
     var changed = false
     c.foreach { x =>
@@ -28,19 +26,10 @@ object Util extends UtilLowPriority {
       b += n
       if(n ne x) changed = true
     }
-    if(changed) b.result() else c
-  }
-
-  def mapOrNone[Coll <: TraversableLike[A, Coll] with AnyRef, A <: AnyRef, To >: Coll <: AnyRef](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): Option[To] = {
-    val n = mapOrSame[Coll, A, To](c, f)(bf)
-    if(c eq n) None else Some(n)
+    if(changed) Some(b.result()) else None
   }
 
   @inline implicit def nodeToNodeOps(n: Node): NodeOps = new NodeOps(n)
-}
-
-class UtilLowPriority {
-  @inline implicit def nodeToTraversable(n: Node): Traversable[Node] = new NodeTraversable(n)
 }
 
 /** A scope for scoped traversal */
@@ -64,11 +53,6 @@ class NodeOps(val tree: Node) extends AnyVal {
   }
 
   def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
-
-  def replace(f: PartialFunction[Node, Node]): Node = {
-    val g = f.orElse(pfidentity[Node])
-    memoized[Node, Node](r => { n => g(g(n).nodeMapChildren(r)) })(tree)
-  }
 
   def foreach[U](f: (Node => U)) {
     def g(n: Node) {
@@ -96,9 +80,4 @@ class NodeOps(val tree: Node) extends AnyVal {
       }
     case n => n.nodeMapChildren(ch => f(ch, scope))
   }
-}
-
-/** A Traversable instance for nodes. */
-class NodeTraversable(tree: Node) extends Traversable[Node] {
-  def foreach[U](f: (Node => U)) = new NodeOps(tree).foreach(f)
 }

@@ -7,7 +7,7 @@ import scala.slick.ast.WithOp
 import scala.collection.mutable.HashMap
 
 /**
- * Expand columns in queries
+ * Expand columns in queries.
  */
 object Columnizer extends (Node => Node) with Logging {
 
@@ -29,7 +29,7 @@ object Columnizer extends (Node => Node) with Logging {
     def idBind(n: Node) = {
       val gen = new AnonSymbol
       logger.debug("Introducing new Bind "+gen)
-      Bind(gen, n, Ref(gen))
+      Bind(gen, n, Pure(Ref(gen)))
     }
     def wrap(n: Node): Node = n match {
       case b: Bind => b.nodeMapChildren(nowrap)
@@ -149,7 +149,7 @@ object Columnizer extends (Node => Node) with Logging {
           }
 
         case n => None // Can be a Table within a TableExpansion -> don't rewrite
-      }.head // we have to assume that the structure is the same for all expansions
+      }.head // we have to assume that the structure is the same for all Union expansions
     }
 
     def tr(n: Node, scope: Scope = Scope.empty): Node = n match {
