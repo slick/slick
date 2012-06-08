@@ -7,8 +7,8 @@ import scala.slick.util.Logging
 import scala.collection.mutable.{HashSet, HashMap}
 
 /**
- * Remove TableExpansions and TableRefExpansions
- * and flatten ProductNodes into StructNodes.
+ * Remove TableExpansions and TableRefExpansions, and flatten ProductNodes
+ * into StructNodes and remove unnecessary columns from them.
  */
 object PathRewriter extends (Node => Node) with Logging {
 
@@ -99,7 +99,7 @@ object PathRewriter extends (Node => Node) with Logging {
     val n2 = gather(None, n)
     if(n2 ne n) logger.debug("Expansions removed, ProductsNodes rewritten to StructNodes", n2)
     val n3 = replaceRefs(n2)
-    n3
+    prune.repeat(n3)
   }
 
   def findFieldSymbol(n: Node, path: List[Symbol]): Symbol = (path, n) match {
@@ -112,5 +112,20 @@ object PathRewriter extends (Node => Node) with Logging {
     case TableExpansion(gen, t, cols) => Bind(gen, t, Pure(cols))
     case TableRefExpansion(_, _, cols) => cols
     case n => n
+  }
+
+  val prune = new Transformer {
+    val refs = new HashSet[Symbol]()
+    override def initTree(n: Node) {
+      super.initTree(n)
+      refs.clear()
+      refs ++= n.collect[Symbol] { case Select(_, f: Symbol) => f }
+      logger.debug("Protecting refs: "+refs)
+    }
+    def replace = {
+      case n @ StructNode(ch) =>
+        val ch2 = ch.filter { case (sym, n) => refs.contains(sym) }
+        if(ch2.length == ch.length) n else StructNode(ch2)
+    }
   }
 }
