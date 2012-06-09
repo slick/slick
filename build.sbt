@@ -7,8 +7,8 @@ organization := "com.typesafe"
 version := "0.10.0-SNAPSHOT"
 
 //scalaVersion := "2.10.0-unknown-unknown"
-//scalaVersion := "2.10.0-SNAPSHOT"
-scalaVersion := "2.10.0-M3"
+scalaVersion := "2.10.0-SNAPSHOT"
+//scalaVersion := "2.10.0-M3"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 

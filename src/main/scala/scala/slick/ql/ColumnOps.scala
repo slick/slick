@@ -117,7 +117,7 @@ object ColumnOps {
     protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(left = left, right = right)
   }
   final case class Arith[T : TypeMapper](name: String, left: Node, right: Node) extends OperatorColumn[T] with SimpleBinaryOperator {
-    protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[T](left = left, right = right)
+    protected[this] def nodeRebuild(left: Node, right: Node): Node = copy[T](left = left, right = right)(implicitly[TypeMapper[T]])
   }
 
   final case class Is(left: Node, right: Node) extends OperatorColumn[Boolean] with BinaryNode {
@@ -127,7 +127,7 @@ object ColumnOps {
     protected[this] def nodeRebuild(child: Node): Node = copy(child = child)
   }
   final case class InSet[T](child: Node, seq: Traversable[T], bind: Boolean)(val tm: TypeMapper[T]) extends OperatorColumn[Boolean] with UnaryNode {
-    protected[this] def nodeRebuild(child: Node): Node = copy[T](child = child)()
+    protected[this] def nodeRebuild(child: Node): Node = copy[T](child = child)(tm)
   }
 
   final case class Between(left: Node, start: Node, end: Node) extends OperatorColumn[Boolean] with SimpleNode {
@@ -136,7 +136,7 @@ object ColumnOps {
   }
 
   final case class AsColumnOf[T : TypeMapper](child: Node, typeName: Option[String]) extends Column[T] with UnaryNode {
-    protected[this] def nodeRebuild(child: Node): Node = copy[T](child = child)
+    protected[this] def nodeRebuild(child: Node): Node = copy[T](child = child)(implicitly[TypeMapper[T]])
   }
 
   // Boolean
