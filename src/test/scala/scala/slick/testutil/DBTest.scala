@@ -26,6 +26,10 @@ abstract class DBTest {
     try { f; succeeded = true } catch { case _ => }
     if(succeeded) fail("Exception expected")
   }
+
+  def assertAllMatch[T](t: TraversableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
+    if(!f.isDefinedAt(x)) fail("Expected shape not matched by: "+x)
+  }
 }
 
 abstract class DBTestObject(dbs: TestDB.TestDBSpec*) {
