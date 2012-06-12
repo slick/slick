@@ -52,7 +52,16 @@ object PathRewriter extends (Node => Node) with Logging {
     /** Remove expansions, flatten structs, and gather defs and flattened structs */
     def gather(refO: Option[Symbol], n: Node): Node = removeExpansion(n) match {
       case Bind(gen, from, Pure(x)) =>
-        val from2 = gather(Some(gen), from)
+        val from2 = from match {
+          case Pure(_) =>
+            val x2 = gather(Some(gen), from).asInstanceOf[Pure].child
+            val (mapping, repl) = flattenToStruct(x2)
+            logger.debug("Storing flattened Pure struct as "+Path.toString(List(gen)))
+            flattened += List(gen) -> mapping
+            Pure(StructNode(repl))
+          case n =>
+            gather(Some(gen), n)
+        }
         logger.debug("Storing def for "+gen)
         defs += gen -> from2
         val x2 = gather(None, x)

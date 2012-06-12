@@ -15,6 +15,7 @@ import Util._
  * by Comprehension nodes and merges nested Comprehension nodes.
  */
 object Relational extends Logging {
+  val PureEmptyStruct = Pure(StructNode(IndexedSeq()))
 
   def apply(n: Node): Node = {
     val n3 = convert.repeat(n)
@@ -51,23 +52,32 @@ object Relational extends Logging {
     case n => n
   }
 
-  /** Check if a 'select' node is a ProductNode that consists only of paths.
-    * Only Comprehensions with these kinds of selects will be fused into their
-    * parent Comprehensions. */
-  def isSimpleSelect(n: Node) = n match {
-    case Pure(ProductNode(ch @ _*)) =>
-      ch.map {
-        case PathOrRef(_) => true
-        case _ => false
-      }.forall(identity)
-    case _ => false
+  /** Check if a Comprehension should be fused into its parent. This happens
+    * in the following cases:
+    * - It has a Pure generator. This generator is eliminated during fusion.
+    *   The AST is expected to already be in a shape where only Unit values
+    *   can occur in a Pure 'from' position (PureEmptyStruct).
+    * - It does not have any generators. This can happen if it is the result
+    *   of a previous fusion where a PureEmptyStruct generator was eliminated.
+    * - The Comprehension has a 'select' clause which consists only of Paths. */
+  def isFuseable(c: Comprehension): Boolean = {
+    c.from.isEmpty || c.from.exists {
+      case (sym, Pure(_)) => true
+      case _ => false
+    } || (c.select match {
+      case Some(Pure(ProductNode(ch @ _*))) =>
+        ch.map {
+          case PathOrRef(_) => true
+          case _ => false
+        }.forall(identity)
+      case _ => false
+    })
   }
 
    /** Fuse simple Comprehensions (no orderBy, fetch or offset), which are
     * contained in the 'from' list of another Comprehension, into their
     * parent. */
   def fuseComprehension(c: Comprehension): Comprehension = {
-    logger.debug("Trying to fuse Comprehension", c)
     var newFrom = new ArrayBuffer[(Symbol, Node)]
     val newWhere = new ArrayBuffer[Node]
     val structs = new HashMap[Symbol, Node]
@@ -79,28 +89,35 @@ object Relational extends Logging {
         val syms = psyms.reverse
         structs.get(syms.head).map{ base =>
           logger.debug("  found struct "+base)
-          select(syms.tail, base)(0)
+          val repl = select(syms.tail, base)(0)
+          inline(repl)
         }.getOrElse(p)
       case n => n.nodeMapChildren(inline)
     }
 
     c.from.foreach {
-      case (sym, from @ Comprehension(_, _, Seq(), Some(sel), None, None)) if isSimpleSelect(sel) =>
-        logger.debug("Found fuseable "+from+" "+sym)
-        for((s, n) <- from.from) newFrom += s -> inline(n)
+      case (sym, from @ Comprehension(cfrom, _, Seq(), _, None, None)) if isFuseable(from) =>
+        logger.debug("Found fuseable generator "+sym+": "+from)
+        from.from.foreach { case (s, n) =>
+          if(n != PureEmptyStruct) newFrom += s -> inline(n)
+        }
         for(n <- from.where) newWhere += inline(n)
         structs += sym -> narrowStructure(from)
         fuse = true
       case t =>
         newFrom += t
     }
-    if(fuse)
-      Comprehension(
+    if(fuse) {
+      logger.debug("Fusing Comprehension:", c)
+      val c2 = Comprehension(
         newFrom,
         newWhere ++ c.where.map(inline),
         c.orderBy.map { case (n, o) => (inline(n), o) },
         c.select.map { case n => inline(n) },
         c.fetch, c.offset)
+      logger.debug("Fused to:", c2)
+      c2
+    }
     else c
   }
 
@@ -132,6 +149,12 @@ object Relational extends Logging {
           (field, Select(r, field))
         })
         c.copy(select = Some(Pure(copyStruct)))
+      /*case (sym, Pure(StructNode(struct))) =>
+        val r = Ref(sym)
+        val copyStruct = StructNode(struct.map { case (field, _) =>
+          (field, Select(r, field))
+        })
+        c.copy(select = Some(Pure(copyStruct)))*/
       case _ => c
     }
   }

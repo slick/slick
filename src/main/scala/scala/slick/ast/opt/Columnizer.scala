@@ -26,12 +26,17 @@ object Columnizer extends (Node => Node) with Logging {
   /** Ensure that all collection operations are wrapped in a Bind so that we
     * have a place for expanding references later. FilteredQueries are allowed
     * on top of collection operations without a Bind in between, unless that
-    * operation is a Join. */
+    * operation is a Join or a Pure node. */
   def forceOuterBind(n: Node): Node = {
-    def idBind(n: Node) = {
-      val gen = new AnonSymbol
-      logger.debug("Introducing new Bind "+gen)
-      Bind(gen, n, Pure(Ref(gen)))
+    def idBind(n: Node) = n match {
+      case p: Pure =>
+        val gen = new AnonSymbol
+        logger.debug("Introducing new Bind "+gen+" for Pure")
+        Bind(gen, Pure(ProductNode()), p)
+      case _ =>
+        val gen = new AnonSymbol
+        logger.debug("Introducing new Bind "+gen)
+        Bind(gen, n, Pure(Ref(gen)))
     }
     def wrap(n: Node): Node = n match {
       case b: Bind => b.nodeMapChildren(nowrap)
@@ -43,16 +48,17 @@ object Columnizer extends (Node => Node) with Logging {
       }
       case u: Union => u.nodeMapChildren(nowrap)
       case f: FilteredQuery => f.nodeMapChildren { ch =>
-        if((ch eq f.from) && !(ch.isInstanceOf[Join])) nowrap(ch) else maybewrap(ch)
+        if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
       }
       case b: Bind => b.nodeMapChildren(nowrap)
       case n => n.nodeMapChildren(maybewrap)
     }
     def maybewrap(n: Node): Node = n match {
-      case j: Join => wrap(n)
-      case u: Union => wrap(n)
-      case f: FilteredQuery => wrap(n)
-      case n => nowrap(n)
+      case _: Join => wrap(n)
+      case _: Pure => wrap(n)
+      case _: Union => wrap(n)
+      case _: FilteredQuery => wrap(n)
+      case _ => nowrap(n)
     }
     wrap(n)
   }
@@ -80,19 +86,18 @@ object Columnizer extends (Node => Node) with Logging {
         val syms = psyms.reverse
         scope.get(syms.head) match {
           case Some((target, _)) =>
-            select(syms.tail, narrowStructure(target)).head match {
-              case t: TableExpansion =>
-                logger.debug("Narrowed "+p+" to "+t)
-                burstPath(Ref(syms.head), syms.tail, t)
-              case pr: ProductNode =>
-                logger.debug("Narrowed "+p+" to "+pr)
-                burstPath(Ref(syms.head), syms.tail, pr)
-              case _ => p
+            val exp = select(syms.tail, narrowStructure(target)).head
+            logger.debug("Narrowed "+p+" to "+exp)
+            exp match {
+              case t: TableExpansion => burstPath(Ref(syms.head), syms.tail, t)
+              //case t: TableRefExpansion => burstPath(Ref(syms.head), syms.tail, t)
+              case pr: ProductNode => burstPath(Ref(syms.head), syms.tail, pr)
+              case n => p
             }
           case None => p
         }
       }
-    case n => n.mapChildrenWithScope(expandRefs, scope)
+    case n => n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc)), scope)
   }
 
   /** Expand a path of selects into a given target on top of a base node */
@@ -101,10 +106,14 @@ object Columnizer extends (Node => Node) with Logging {
       ProductNode(ch.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
       }: _*)
-    case TableExpansion(gen, t, cols) =>
+    case TableExpansion(_, t, cols) =>
       TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
       }: _*))
+    /*case TableRefExpansion(_, t, cols) =>
+      TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
+        burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
+      }: _*))*/
     case _ => selects.foldLeft(base){ case (z,sym) => Select(z, sym) }
   }
 
@@ -132,6 +141,7 @@ object Columnizer extends (Node => Node) with Logging {
           logger.debug("Narrowed to element "+t)
           PathOrRef.unapply(t.ref).flatMap { psyms =>
             val syms = psyms.reverse
+            logger.debug("Looking for seen def "+syms.head)
             seenDefs.get(syms.head).flatMap { n =>
               logger.debug("Trying to rewrite recursive match "+t.ref+" ."+field)
               rewrite(n, t.ref, field, syms).map { recSel =>
@@ -154,8 +164,11 @@ object Columnizer extends (Node => Node) with Logging {
 
     def tr(n: Node, scope: Scope = Scope.empty): Node = n match {
       case d: DefNode =>
-        val r = d.mapChildrenWithScope(tr, scope)
-        seenDefs ++= r.asInstanceOf[DefNode].nodeGenerators
+        val r = d.mapChildrenWithScope({ (symO, ch, chscope) =>
+          val ch2 = tr(ch, chscope)
+          symO.foreach { sym => seenDefs += sym -> ch2 }
+          ch2
+        }, scope)
         r
       case sel @ Select(p @ PathOrRef(psyms), field: FieldSymbol) =>
         val syms = psyms.reverse
@@ -165,7 +178,7 @@ object Columnizer extends (Node => Node) with Logging {
           newSelO.foreach(newSel => logger.debug("Replaced "+Path.toString(sel)+" by "+Path.toString(newSel)))
           newSelO
         }.getOrElse(sel)
-      case n => n.mapChildrenWithScope(tr, scope)
+      case n => n.mapChildrenWithScope(((_, ch, chsc) => tr(ch, chsc)), scope)
     }
 
     val n2 = tr(n)

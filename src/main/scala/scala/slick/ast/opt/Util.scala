@@ -70,14 +70,14 @@ class NodeOps(val tree: Node) extends AnyVal {
     f(tree)
   }
 
-  def mapChildrenWithScope(f: (Node, Scope) => Node, scope: Scope): Node = tree match {
+  def mapChildrenWithScope(f: (Option[Symbol], Node, Scope) => Node, scope: Scope): Node = tree match {
     case d: DefNode =>
       var local = scope
       d.nodeMapScopedChildren { (symO, ch) =>
-        val r = f(ch, local)
+        val r = f(symO, ch, local)
         symO.foreach(sym => local = local + (sym, r))
         r
       }
-    case n => n.nodeMapChildren(ch => f(ch, scope))
+    case n => n.nodeMapChildren(ch => f(None, ch, scope))
   }
 }
