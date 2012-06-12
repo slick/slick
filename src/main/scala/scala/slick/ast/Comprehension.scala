@@ -26,7 +26,7 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
     else this
   }
   def nodeGenerators = from
-  override def toString = "Comprehension"
+  override def toString = "Comprehension(fetch = "+fetch+", offset = "+offset+")"
   def nodeMapGenerators(f: Symbol => Symbol) = {
     val gens = from.map(_._1)
     mapOrNone(gens, f) match {

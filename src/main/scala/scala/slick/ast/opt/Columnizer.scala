@@ -24,7 +24,9 @@ object Columnizer extends (Node => Node) with Logging {
   }
 
   /** Ensure that all collection operations are wrapped in a Bind so that we
-    * have a place for expanding references later. */
+    * have a place for expanding references later. FilteredQueries are allowed
+    * on top of collection operations without a Bind in between, unless that
+    * operation is a Join. */
   def forceOuterBind(n: Node): Node = {
     def idBind(n: Node) = {
       val gen = new AnonSymbol
@@ -41,7 +43,7 @@ object Columnizer extends (Node => Node) with Logging {
       }
       case u: Union => u.nodeMapChildren(nowrap)
       case f: FilteredQuery => f.nodeMapChildren { ch =>
-        if(ch eq f.from) nowrap(ch) else maybewrap(ch)
+        if((ch eq f.from) && !(ch.isInstanceOf[Join])) nowrap(ch) else maybewrap(ch)
       }
       case b: Bind => b.nodeMapChildren(nowrap)
       case n => n.nodeMapChildren(maybewrap)
@@ -123,8 +125,7 @@ object Columnizer extends (Node => Node) with Logging {
           Some(columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
             case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
             case None =>
-              val col = Select(Ref(t.generator), field)
-              updatedTables += t.generator -> ProductNode((columns.nodeChildren :+ col): _*)
+              updatedTables += t.generator -> ProductNode((columns.nodeChildren :+ needed): _*)
               Select(p, ElementSymbol(columns.nodeChildren.size + 1))
           })
         case t: TableRefExpansion =>
@@ -140,8 +141,7 @@ object Columnizer extends (Node => Node) with Logging {
                 columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
                   case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
                   case None =>
-                    val col = Select(t.ref, field)
-                    updatedTables += t.marker -> ProductNode((columns.nodeChildren :+ col): _*)
+                    updatedTables += t.marker -> ProductNode((columns.nodeChildren :+ needed): _*)
                     Select(p, ElementSymbol(columns.nodeChildren.size + 1))
                 }
               }
@@ -162,7 +162,7 @@ object Columnizer extends (Node => Node) with Logging {
         scope.get(syms.head).flatMap { case (n, _) =>
           logger.debug("Trying to rewrite "+p+" ."+field)
           val newSelO = rewrite(n, p, field, syms)
-          newSelO.foreach(newSel => logger.debug("Replaced "+sel+" by "+newSel))
+          newSelO.foreach(newSel => logger.debug("Replaced "+Path.toString(sel)+" by "+Path.toString(newSel)))
           newSelO
         }.getOrElse(sel)
       case n => n.mapChildrenWithScope(tr, scope)
@@ -171,6 +171,7 @@ object Columnizer extends (Node => Node) with Logging {
     val n2 = tr(n)
     val n3 = if(!updatedTables.isEmpty) {
       logger.debug("Patching "+updatedTables.size+" updated Table(Ref)Expansion(s) "+updatedTables.keysIterator.mkString(", ")+" into the tree")
+      for((sym, n) <- updatedTables) logger.debug("Updated expansion: "+sym, n)
       def update(n: Node): Node = n match {
         case t: TableExpansion =>
           updatedTables.get(t.generator).fold(t)(c => t.copy(columns = c)).nodeMapChildren(update)

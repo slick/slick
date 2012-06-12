@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.util._
 import scala.slick.ql.{Join => _, _}
 import scala.slick.ql.ColumnOps._
+import scala.collection.mutable.HashMap
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
@@ -29,6 +30,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
     protected val symbolName = new SymbolNamer
+    protected val joins = new HashMap[Symbol, Join]
 
     def sqlBuilder = b
 
@@ -62,6 +64,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def buildComprehension(c: Comprehension): Unit = {
+      scanJoins(c.from)
       buildSelectClause(c)
       buildFromClause(c.from)
       buildWhereClause(c.where)
@@ -88,6 +91,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def buildSelectModifiers(c: Comprehension) {}
+
+    protected def scanJoins(from: Seq[(Symbol, Node)]) {
+      for((sym, j: Join) <- from) joins += sym -> j
+    }
 
     protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
       if(from.isEmpty) scalarFrom.foreach { s => b += " from " += s }
@@ -140,8 +147,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           buildFrom(left, Some(leftGen))
           b += ' ' += jt.sqlName += " join "
           buildFrom(right, Some(rightGen))
-          b += " on "
-          if(on != ConstColumn.TRUE) expr(on, true)
+          if(on != ConstColumn.TRUE) {
+            b += " on "
+            expr(on, true)
+          }
         case Union(left, right, all, _, _) =>
           if(!skipParens) b += '('
           buildFrom(left, None, true)
@@ -276,7 +285,12 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
             expr(n)
         }
         b += " end)"
-      case Select(Ref(struct), field) => b += symbolName(struct) += '.' += symbolName(field)
+      case Select(Ref(struct), field) =>
+        b += symbolName(struct) += '.' += symbolName(field)
+      case Select(Select(Ref(jref), elem: ElementSymbol), field) =>
+        // A path into the left or right side of a Join
+        val struct = joins(jref).nodeGenerators(elem.idx-1)._1
+        b += symbolName(struct) += '.' += symbolName(field)
       case CountStar => b += "count(*)"
       case n => // try to build a sub-query
         if(!skipParens) b += '('

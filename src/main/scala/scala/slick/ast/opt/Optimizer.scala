@@ -47,6 +47,8 @@ object Optimizer extends Logging {
       logger.debug("Unique symbols:", n5)
     }
     logger.debug("prepareTree finished")
+    if(n5.isInstanceOf[LetDynamic])
+      throw new SLICKException("LetDynamic should have been eliminated in prepareTree()")
     n5
   }
 

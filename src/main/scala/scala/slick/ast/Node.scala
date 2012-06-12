@@ -405,7 +405,11 @@ object Path {
     case Select(in, s) => unapply(in).map(l => s :: l)
     case _ => None
   }
-  def toString(path: Seq[Symbol]) = path.reverseIterator.mkString("Path ", ".", "")
+  def toString(path: Seq[Symbol]): String = path.reverseIterator.mkString("Path ", ".", "")
+  def toString(s: Select): String = s match {
+    case PathOrRef(syms) => toString(syms)
+    case n => n.toString
+  }
 }
 
 /** An extractor for a possibly empty Path */
