@@ -59,7 +59,8 @@ object Relational extends Logging {
     *   can occur in a Pure 'from' position (PureEmptyStruct).
     * - It does not have any generators. This can happen if it is the result
     *   of a previous fusion where a PureEmptyStruct generator was eliminated.
-    * - The Comprehension has a 'select' clause which consists only of Paths. */
+    * - The Comprehension has a 'select' clause which consists only of Paths
+    *   and constant values. */
   def isFuseable(c: Comprehension): Boolean = {
     c.from.isEmpty || c.from.exists {
       case (sym, Pure(_)) => true
@@ -68,6 +69,7 @@ object Relational extends Logging {
       case Some(Pure(ProductNode(ch @ _*))) =>
         ch.map {
           case PathOrRef(_) => true
+          case c: ConstColumn[_] => true
           case _ => false
         }.forall(identity)
       case _ => false
@@ -80,6 +82,7 @@ object Relational extends Logging {
   def fuseComprehension(c: Comprehension): Comprehension = {
     var newFrom = new ArrayBuffer[(Symbol, Node)]
     val newWhere = new ArrayBuffer[Node]
+    val newOrderBy = new ArrayBuffer[(Node, Ordering)]
     val structs = new HashMap[Symbol, Node]
     var fuse = false
 
@@ -96,12 +99,13 @@ object Relational extends Logging {
     }
 
     c.from.foreach {
-      case (sym, from @ Comprehension(cfrom, _, Seq(), _, None, None)) if isFuseable(from) =>
+      case (sym, from @ Comprehension(_, _, _, _, None, None)) if isFuseable(from) =>
         logger.debug("Found fuseable generator "+sym+": "+from)
         from.from.foreach { case (s, n) =>
           if(n != PureEmptyStruct) newFrom += s -> inline(n)
         }
         for(n <- from.where) newWhere += inline(n)
+        for((n, o) <- from.orderBy) newOrderBy += inline(n) -> o
         structs += sym -> narrowStructure(from)
         fuse = true
       case t =>
@@ -112,7 +116,7 @@ object Relational extends Logging {
       val c2 = Comprehension(
         newFrom,
         newWhere ++ c.where.map(inline),
-        c.orderBy.map { case (n, o) => (inline(n), o) },
+        c.orderBy.map { case (n, o) => (inline(n), o) } ++ newOrderBy,
         c.select.map { case n => inline(n) },
         c.fetch, c.offset)
       logger.debug("Fused to:", c2)
