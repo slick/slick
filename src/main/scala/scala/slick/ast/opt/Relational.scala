@@ -17,49 +17,11 @@ import Util._
 object Relational extends Logging {
 
   def apply(n: Node): Node = {
-    val n2 = aliasTableColumns(n)
-    if(n2 ne n) {
-      AnonSymbol.assignNames(n2, "a")
-      logger.debug("aliased:", n2)
-    }
-    val n3 = convert.repeat(n2)
-    if(n3 ne n2) logger.debug("converted: ", n3)
-    val n4 = inline(n3)
-    if(n4 ne n3) logger.debug("inlined: ", n4)
-    val n5 = eliminatePureFrom(n4)
-    if(n5 ne n4) logger.debug("Pure from eliminated: ", n5)
-    n5
-  }
-
-  def eliminatePureFrom(tree: Node): Node = {
-    val tr = new Transformer.Defs {
-      def replace = {
-        case Select(Ref(Def(Pure(TableRef(table)))), fieldSym) => Select(Ref(table), fieldSym)
-        case Select(Ref(Def(Pure(StructNode(defs)))), fieldSym) =>
-          defs.find(_._1 == fieldSym).get._2
-        case c @ Comprehension(from, _, _, select, _, _) =>
-          val filtered = from.filter {
-            case (sym, Pure(t: TableRef)) => false
-            case (sym, Pure(s: StructNode)) => false
-            case _ => true
-          }
-          if(filtered.length != from.length) c.copy(from = filtered)
-          else if(select == None && from.last._2.isInstanceOf[Pure])
-            c.copy(from = from.init, select = Some(from.last._2))
-          else c
-      }
-    }
-    val res = tr.once(tree)
-    // Ensure that no TableRefs and StructNodes remain inside Pure generators
-    res.foreach {
-      case d: DefNode => d.nodeGenerators.foreach {
-        case (sym, Pure(t: TableRef)) => throw new SLICKException("Could not eliminate "+sym+" <- "+t)
-        case (sym, Pure(s: StructNode)) => throw new SLICKException("Could not eliminate "+sym+" <- "+s)
-        case _ =>
-      }
-      case _ =>
-    }
-    res
+    val n3 = convert.repeat(n)
+    if(n3 ne n) logger.debug("converted: ", n3)
+    val n4 = fuse(n3)
+    if(n4 ne n3) logger.debug("fused: ", n4)
+    n4
   }
 
   val convert = new Transformer {
@@ -81,165 +43,97 @@ object Relational extends Logging {
     }
   }
 
-  def inline(tree: Node) = {
-    object ComprehensionStruct {
-      def unapply(c: Comprehension): Option[Node] = c match {
-        case Comprehension(_, _, _, Some(Pure(s : ProductNode)), None, None) => Some(s)
-        case Comprehension(_, _, _, Some(Pure(t: TableRef)), None, None) => Some(t)
-        case Comprehension(_, _, _, Some(c2: Comprehension), None, None) => unapply(c2)
-        case Comprehension(from, _, _, None, None, None) =>
-          from.last._2 match {
-            case c2: Comprehension => unapply(c2)
-            case Pure(s: StructNode) => Some(TableRef(from.last._1))
-            case Pure(t: TableRef) => Some(TableRef(from.last._1))
-            case _ => None
-          }
-        case _ => None
-      }
+  def fuse(n: Node): Node = n.nodeMapChildren(fuse) match {
+    case c: Comprehension => createSelect(c) match {
+      case c2 @ Comprehension(_, _, _, Some(sel), _, _) => fuseComprehension(c2)
+      case c2 => c2
     }
-    def protectedRefs = tree.collect[Symbol]{ case TableRef(sym) => sym }.toSet
-    logger.debug("protected refs: "+protectedRefs)
-
-    def f(n: Node): Node = n match {
-      case c: Comprehension =>
-        val newGens = new ArrayBuffer[(Symbol, Node)]
-        val newWhere = new ArrayBuffer[Node]
-        val newOrderBy = new ArrayBuffer[(Node, Ordering)]
-        val eliminated = new HashMap[Symbol, Node]
-        var rewrite = false
-        def scanFrom(c: Comprehension): Option[Node] = {
-          logger.debug("Scanning from clauses of Comprehension "+c.from.map(_._1).mkString(", "))
-          val sel = c.from.map {
-            case (s,  n @ ComprehensionStruct(target)) if(!protectedRefs(s)) =>
-              logger.debug("found ComprehensionStruct at "+s)
-              rewrite = true
-              eliminated += ((s, target))
-              scanFrom(n)
-            case (s, f @ Join(leftGen, rightGen, left, right, JoinType.Inner, on)) =>
-              logger.debug("found Join at "+s)
-              rewrite = true
-              newGens += ((leftGen, left))
-              newGens += ((rightGen, right))
-              if(on != ConstColumn.TRUE) newWhere += on
-              c.select
-            case t =>
-              logger.debug("found other (keeping) at "+t._1)
-              newGens += t
-              c.select
-          }.lastOption
-          newWhere ++= c.where
-          newOrderBy ++= c.orderBy
-          c.select.orElse(sel.getOrElse(None))
-        }
-        val newSelect = scanFrom(c)
-        logger.debug("eliminated: "+eliminated)
-        def findProductRef(p: ProductNode, sym: Symbol): Option[Node] = p.nodeChildren.collectFirst {
-          case f @ Select(Ref(t), s) if sym == s && !eliminated.contains(t) => f
-        }
-        def findAliasingTarget(p: ProductNode): Option[Symbol] = {
-          val targets = p.collect[Symbol]{ case Select(Ref(t), _) => t }.toSet
-          if(targets.size != 1) None
-          else {
-            val target = targets.head
-            eliminated.get(target) match {
-              case Some(p: ProductNode) => findAliasingTarget(p)
-              case None => Some(target)
-            }
-          }
-        }
-        def replaceRefs(n: Node): Node = n match {
-          case Select(Ref(t), c) if eliminated.contains(t) =>
-            eliminated(t) match {
-              case TableRef(tab) =>
-                logger.debug("replacing FieldRef("+t+", "+c+") by FieldRef("+tab+", "+c+") [TableRef]")
-                replaceRefs(Select(Ref(tab), c))
-              case StructNode(mapping) =>
-                logger.debug("replacing FieldRef("+t+", "+c+") by "+mapping.toMap.apply(c)+" [StructNode]")
-                replaceRefs(mapping.toMap.apply(c))
-              case p: ProductNode =>
-                logger.debug("Finding "+c+" in ProductNode "+t)
-                findProductRef(p, c) match {
-                  case Some(n) =>
-                    logger.debug("replacing FieldRef("+t+", "+c+") by "+n+" [ProductNode]")
-                    replaceRefs(n)
-                  case None =>
-                    findAliasingTarget(p) match {
-                      case Some(target) =>
-                        val f = Select(Ref(target), c)
-                        logger.debug("replacing FieldRef("+t+", "+c+") by "+f+" [ProductNode aliasing]")
-                        replaceRefs(f)
-                      case None => n
-                    }
-                }
-              case _ => n
-            }
-          case n => n.nodeMapChildren(replaceRefs)
-        }
-        if(rewrite) replaceRefs(Comprehension(newGens, newWhere, newOrderBy, newSelect, c.fetch, c.offset)).nodeMapChildren(f)
-        else c.nodeMapChildren(f)
-      case n => n.nodeMapChildren(f)
-    }
-    f(tree)
+    case n => n
   }
 
-  /**
-   * Alias all table columns. Requires a tree with unique symbols.
-   */
-  def aliasTableColumns(tree: Node): Node = {
-    val allDefs = tree.collectAll[(Symbol, Node)]{ case d: DefNode => d.nodeGenerators }.toMap
-    def narrow(s: Symbol): Option[TableNode] = allDefs.get(s) match {
-      case Some(t: TableNode) => Some(t)
-      case Some(f: FilteredQuery) => narrow(f.generator)
-      case _ => None
+  /** Check if a 'select' node is a ProductNode that consists only of paths.
+    * Only Comprehensions with these kinds of selects will be fused into their
+    * parent Comprehensions. */
+  def isSimpleSelect(n: Node) = n match {
+    case Pure(ProductNode(ch @ _*)) =>
+      ch.map {
+        case PathOrRef(_) => true
+        case _ => false
+      }.forall(identity)
+    case _ => false
+  }
+
+   /** Fuse simple Comprehensions (no orderBy, fetch or offset), which are
+    * contained in the 'from' list of another Comprehension, into their
+    * parent. */
+  def fuseComprehension(c: Comprehension): Comprehension = {
+    logger.debug("Trying to fuse Comprehension", c)
+    var newFrom = new ArrayBuffer[(Symbol, Node)]
+    val newWhere = new ArrayBuffer[Node]
+    val structs = new HashMap[Symbol, Node]
+    var fuse = false
+
+    def inline(n: Node): Node = n match {
+      case p @ PathOrRef(psyms) =>
+        logger.debug("Inlining "+Path.toString(psyms)+" with structs "+structs.keySet)
+        val syms = psyms.reverse
+        structs.get(syms.head).map{ base =>
+          logger.debug("  found struct "+base)
+          select(syms.tail, base)(0)
+        }.getOrElse(p)
+      case n => n.nodeMapChildren(inline)
     }
-    def chain(s: Symbol): Seq[Symbol] = allDefs.get(s) match {
-      case Some(t: TableNode) => Seq(s)
-      case Some(f: FilteredQuery) => chain(f.generator) match {
-        case Seq() => Seq.empty
-        case seq => s +: seq
-      }
-      case Some(Pure(TableRef(sym))) => chain(sym) match {
-        case Seq() => Seq.empty
-        case seq => s +: seq
-      }
-      case _ => Seq.empty
+
+    c.from.foreach {
+      case (sym, from @ Comprehension(_, _, Seq(), Some(sel), None, None)) if isSimpleSelect(sel) =>
+        logger.debug("Found fuseable "+from+" "+sym)
+        for((s, n) <- from.from) newFrom += s -> inline(n)
+        for(n <- from.where) newWhere += inline(n)
+        structs += sym -> narrowStructure(from)
+        fuse = true
+      case t =>
+        newFrom += t
     }
-    val tableRefs = tree.collectAll[(Seq[Symbol], FieldSymbol)]{
-      case Select(Ref(t), f: FieldSymbol) =>
-        val ch = chain(t)
-        if(ch.isEmpty) Seq.empty
-        else Seq((ch, f))
+    if(fuse)
+      Comprehension(
+        newFrom,
+        newWhere ++ c.where.map(inline),
+        c.orderBy.map { case (n, o) => (inline(n), o) },
+        c.select.map { case n => inline(n) },
+        c.fetch, c.offset)
+    else c
+  }
+
+  def select(selects: List[Symbol], base: Node): Vector[Node] = {
+    logger.debug("select("+selects+", "+base+")")
+    (selects, base) match {
+      //case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
+      case (Nil, n) => Vector(n)
+      case ((s: AnonSymbol) :: t, StructNode(ch)) => select(t, ch.find{ case (s2,_) => s == s2 }.get._2)
+      //case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
     }
-    logger.debug("tableRefs: "+tableRefs)
-    val needed = tableRefs.foldLeft(Map.empty[Symbol, (Map[FieldSymbol, AnonSymbol], Set[Symbol])]) { case (m, (seq, f)) =>
-      val t = seq.last
-      m.updated(t, m.get(t) match {
-        case Some((fields, in)) => (fields.updated(f, new AnonSymbol), in ++ seq)
-        case None => (Map((f, new AnonSymbol)), seq.toSet)
-      })
+  }
+
+  def narrowStructure(n: Node): Node = n match {
+    case Pure(n) => n
+    //case Join(_, _, l, r, _, _) => ProductNode(narrowStructure(l), narrowStructure(r))
+    //case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
+    case Comprehension(from, _, _, None, _, _) => narrowStructure(from.head._2)
+    case Comprehension(_, _, _, Some(n), _, _) => narrowStructure(n)
+    case n => n
+  }
+
+  /** Create a select for a Comprehension without one. */
+  def createSelect(c: Comprehension): Comprehension = if(c.select.isDefined) c else {
+    c.from.last match {
+      case (sym, Comprehension(_, _, _, Some(Pure(StructNode(struct))), _, _)) =>
+        val r = Ref(sym)
+        val copyStruct = StructNode(struct.map { case (field, _) =>
+          (field, Select(r, field))
+        })
+        c.copy(select = Some(Pure(copyStruct)))
+      case _ => c
     }
-    logger.debug("needed: "+needed)
-    val baseTables: Map[Symbol, Symbol] =
-      tableRefs.flatMap{ case (seq, _) => val l = seq.last; seq.map(i => (i, l)) }(collection.breakOut)
-    logger.debug("baseTables: "+baseTables)
-    def tr(sym: Option[Symbol], n: Node): Node = n match {
-      case p @ Select(Ref(t), f: FieldSymbol) => baseTables.get(t).flatMap(needed.get) match {
-        case Some((symMap, _)) => symMap.get(f) match {
-          case Some(a) => Select(Ref(t), a)
-          case _ => p
-        }
-        case _ => p
-      }
-      case t: TableNode if(sym.isDefined && needed.contains(sym.get)) =>
-        val gen = new AnonSymbol
-        val (symMap, _) = needed(sym.get)
-        //val struct = symMap.toIndexedSeq[(FieldSymbol, AnonSymbol)].map{ case (oldS, newS) => (newS, FieldRef(gen, oldS)) }
-        val struct = (symMap.toIndexedSeq: IndexedSeq[(FieldSymbol, AnonSymbol)]).map{ case (oldS, newS) => (newS, Select(Ref(gen), oldS)) }
-        Bind(gen, t, Pure(StructNode(struct)))
-      case d: DefNode => d.nodeMapScopedChildren(tr)
-      case n => n.nodeMapChildren{ ch => tr(None, ch) }
-    }
-    tr(None, tree)
   }
 
   /** An extractor for nested Take and Drop nodes */

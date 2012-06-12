@@ -1,10 +1,9 @@
 package scala.slick.ast
 
-import scala.math.{min, max}
 import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
 import scala.slick.SLICKException
 import scala.slick.ql.{ConstColumn, ShapedValue}
-import scala.slick.util.{RefId, SimpleTypeName}
+import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.{HashSet, ArrayBuffer, HashMap}
 import opt.Util.nodeToNodeOps
 
@@ -67,21 +66,9 @@ trait Node extends NodeGenerator {
         dc.out.println(prefix + name + Path.toString(l))
         this.foreach { case n: RefNode => n.nodeReferences.foreach(dc.addRef) }
       case _ =>
-        val check = if(this.isInstanceOf[Ref]) None else dc.checkIdFor(this)
-        val details = check match {
-          case Some((id, true)) =>
-            dc.out.println(prefix + name + "[" + id + "] " + this)
-            true
-          case Some((id, false)) =>
-            dc.out.println(prefix + name + "<" + id + ">")
-            false
-          case None =>
-            dc.out.println(prefix + name + this)
-            true
-        }
-        if(details)
-          for((chg, n) <- nodeChildGenerators.zip(nodeChildNames))
-            Node(chg).nodeDump(dc, prefix + "  ", n+": ")
+        dc.out.println(prefix + name + this)
+        for((chg, n) <- nodeChildGenerators.zip(nodeChildNames))
+          Node(chg).nodeDump(dc, prefix + "  ", n+": ")
     }
   }
 
@@ -116,30 +103,6 @@ object Node {
 final class DumpContext(val out: PrintWriter, base: Node) {
   private[this] val refs = new HashSet[Symbol]
   private[this] val defs = new HashSet[Symbol]
-  private[this] val counts = new HashMap[RefId[Node], Int]
-  private[this] val ids = new HashMap[RefId[Node], Int]
-  private[this] var nextId = 1
-  private[this] def scan(n: Node) {
-    val r = RefId(n)
-    val c = counts.getOrElse(r, 0)
-    counts(r) = c + 1
-    if(c == 0) n.nodeChildren.foreach(scan _)
-  }
-  scan(base)
-
-  def checkIdFor(t: Node): Option[(Int, Boolean)] = {
-    val r = RefId(t)
-    val id = ids.getOrElse(r, 0)
-    if(id > 0) Some((id, false))
-    else if(counts.getOrElse(r, 0) > 1) {
-      val nid = nextId
-      nextId += 1
-      ids(r) = nid
-      Some((nid, true))
-    }
-    else None
-  }
-  def idFor(t: Node) = checkIdFor(t).map(_._1)
 
   def addRef(s: Symbol) = refs.add(s)
   def addDef(s: Symbol) = defs.add(s)

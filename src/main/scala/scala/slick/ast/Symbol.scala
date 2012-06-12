@@ -83,22 +83,8 @@ object GlobalSymbol {
   }
 }
 
-/** An expression introduced by a Symbol, wrapped in a reference to the Symbol. */
-case class InRef(sym: Symbol, child: Node) extends UnaryNode with SimpleRefNode {
-  protected[this] def nodeRebuild(child: Node) = copy(child = child)
-  override def nodeChildNames = Seq("value")
-  def nodeReferences = Seq(sym)
-  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
-}
-
 /** A reference to a Symbol */
 case class Ref(sym: Symbol) extends NullaryNode with SimpleRefNode {
-  def nodeReferences = Seq(sym)
-  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
-}
-
-/** A reference to a Symbol pointing to a table which should not be expanded */
-case class TableRef(sym: Symbol) extends NullaryNode with SimpleRefNode {
   def nodeReferences = Seq(sym)
   def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
 }
