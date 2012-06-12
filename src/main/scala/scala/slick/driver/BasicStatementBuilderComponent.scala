@@ -93,7 +93,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildSelectModifiers(c: Comprehension) {}
 
     protected def scanJoins(from: Seq[(Symbol, Node)]) {
-      for((sym, j: Join) <- from) joins += sym -> j
+      for((sym, j: Join) <- from) {
+        joins += sym -> j
+        scanJoins(j.nodeGenerators)
+      }
     }
 
     protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
@@ -143,7 +146,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case t @ TableNode(name) =>
           b += quoteIdentifier(name)
           if(alias != Some(t.nodeTableSymbol)) addAlias
-        case Join(leftGen, rightGen, left, right, jt, on) =>
+        case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
           b += ' ' += jt.sqlName += " join "
           buildFrom(right, Some(rightGen))
@@ -285,11 +288,11 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
             expr(n)
         }
         b += " end)"
-      case Select(Ref(struct), field) =>
-        b += symbolName(struct) += '.' += symbolName(field)
-      case Select(Select(Ref(jref), elem: ElementSymbol), field) =>
-        // A path into the left or right side of a Join
-        val struct = joins(jref).nodeGenerators(elem.idx-1)._1
+      case Path(psyms) =>
+        val field = psyms.head
+        val struct = psyms.tail.reduceRight[Symbol] {
+          case (ElementSymbol(idx), z) => joins(z).nodeGenerators(idx-1)._1
+        }
         b += symbolName(struct) += '.' += symbolName(field)
       case CountStar => b += "count(*)"
       case n => // try to build a sub-query

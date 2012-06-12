@@ -46,7 +46,7 @@ object Columnizer extends (Node => Node) with Logging {
       case j: Join => j.nodeMapChildren { ch =>
         if((ch eq j.left) || (ch eq j.right)) nowrap(ch) else maybewrap(ch)
       }
-      case u: Union => u.nodeMapChildren(nowrap)
+      case u: Union => u.nodeMapChildren(wrap)
       case f: FilteredQuery => f.nodeMapChildren { ch =>
         if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
       }
