@@ -43,31 +43,42 @@ class Inliner(unique: Boolean = true, paths: Boolean = true, from: Boolean = tru
     logger.debug("symbols to inline everywhere: "+toInline)
     val inlined = new HashSet[Symbol]
     def deref(a: AnonSymbol) = { inlined += a; globals(a) }
-    lazy val tr: Transformer = new Transformer {
-      def replace = {
-        case f @ FilteredQuery(_, Ref(a: AnonSymbol)) if (all || from) && toInlineAll.contains(a) =>
-          tr.once(f.nodeMapFrom(_ => deref(a)))
-        case b @ Bind(_, Ref(a: AnonSymbol), _) if (all || from) && toInlineAll.contains(a) =>
-          tr.once(b.copy(from = deref(a)))
-        case j @ Join(_, _, left, right, _, _) if(all || from) =>
-          val l = left match {
-            case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
-            case x => x
-          }
-          val r = right match {
-            case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
-            case x => x
-          }
-          if((l eq left) && (r eq right)) j else tr.once(j.copy(left = l, right = r))
-        case Ref(a: AnonSymbol) if toInline.contains(a) =>
-          tr.once(deref(a))
-        // Remove identity Bind
-        case Bind(gen, from, Pure(Ref(sym))) if gen == sym => tr.once(from)
-      }
+    def tr(n: Node): Node = n match {
+      case f @ FilteredQuery(_, Ref(a: AnonSymbol)) if (all || from) && toInlineAll.contains(a) =>
+        tr(f.nodeMapFrom(_ => deref(a)))
+      case b @ Bind(_, Ref(a: AnonSymbol), _) if (all || from) && toInlineAll.contains(a) =>
+        tr(b.copy(from = deref(a)))
+      case j @ Join(_, _, left, right, _, _) if(all || from) =>
+        val l = left match {
+          case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
+          case x => x
+        }
+        val r = right match {
+          case Ref(a: AnonSymbol) if toInlineAll.contains(a) => deref(a)
+          case x => x
+        }
+        if((l eq left) && (r eq right)) j.nodeMapChildren(tr) else tr(j.copy(left = l, right = r))
+      case Ref(a: AnonSymbol) if toInline.contains(a) => tr(deref(a))
+      // Remove identity Bind
+      case Bind(gen, from, Pure(Ref(sym))) if gen == sym => tr(from)
+      case n => n.nodeMapChildren(tr)
     }
-    val tree3 = tr.once(tree2)
+    val tree3 = rewriteOrderBy(tr(tree2))
     val globalsLeft = globals.filterKeys(a => !inlined.contains(a))
     if(globalsLeft.isEmpty) tree3
-    else LetDynamic(globalsLeft.iterator.map{ case (sym, n) => (sym, tr.once(n)) }.toSeq, tree3)
+    else LetDynamic(globalsLeft.iterator.map{ case (sym, n) => (sym, rewriteOrderBy(tr(n))) }.toSeq, tree3)
+  }
+
+  def rewriteOrderBy(n: Node): Node = n match {
+    case Bind(gen, from, Bind(bgen, OrderBy(ogen, _, by), Pure(sel))) =>
+      def substRef(n: Node): Node = n match {
+        case Ref(g) if g == gen => Select(Ref(ogen), ElementSymbol(2))
+        case n => n.nodeMapChildren(substRef)
+      }
+      val innerBind = Bind(gen, from, Pure(ProductNode(sel, Ref(gen))))
+      val sort = SortBy(ogen, innerBind, by.map { case (n, o) => (substRef(n), o) })
+      val outerBind = Bind(bgen, sort, Pure(Select(Ref(bgen), ElementSymbol(1))))
+      outerBind
+    case n => n
   }
 }
