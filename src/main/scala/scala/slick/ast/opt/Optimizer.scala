@@ -111,15 +111,29 @@ object Optimizer extends Logging {
 
   /** Rewrite OrderBy to SortBy */
   def rewriteOrderBy(n: Node): Node = n match {
-    case Bind(gen, from, Bind(bgen, OrderBy(ogen, _, by), Pure(sel))) =>
+    case BoundOrderBy(gens, bgen, OrderBy(ogen, _, by), Pure(sel)) =>
+      val map = gens.iterator.map(_._1).zipWithIndex.toMap
       def substRef(n: Node): Node = n match {
-        case Ref(g) if g == gen => Select(Ref(ogen), ElementSymbol(2))
+        case r @ Ref(g) => map.get(g) match {
+          case Some(idx) => Select(Ref(ogen), ElementSymbol(idx + 2))
+          case None => r
+        }
         case n => n.nodeMapChildren(substRef)
       }
-      val innerBind = Bind(gen, from, Pure(ProductNode(sel, Ref(gen))))
+      val innerSel = Pure(ProductNode((sel +: gens.map(g => Ref(g._1))): _*))
+      val innerBind = gens.foldRight[Node](innerSel) { case ((gen, from), z) => Bind(gen, from, z) }
       val sort = SortBy(ogen, innerBind, by.map { case (n, o) => (substRef(n), o) })
       val outerBind = Bind(bgen, sort, Pure(Select(Ref(bgen), ElementSymbol(1))))
       outerBind
     case n => n.nodeMapChildren(rewriteOrderBy)
+  }
+
+  /** Extractor for OrderBy nested in one or more Binds */
+  object BoundOrderBy {
+    def unapply(n: Node): Option[(List[(Symbol, Node)], Symbol, OrderBy, Node)] = n match {
+      case Bind(gen, o: OrderBy, sel) => Some(Nil, gen, o, sel)
+      case Bind(gen, from, BoundOrderBy(l, s, o, n)) => Some(((gen, from) :: l, s, o, n))
+      case _ => None
+    }
   }
 }
