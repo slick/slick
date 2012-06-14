@@ -43,7 +43,7 @@ object Columnizer extends (Node => Node) with Logging {
     }
     def wrap(n: Node): Node = n match {
       case b: Bind => b.nodeMapChildren(nowrap)
-      case n => idBind(n.nodeMapChildren(nowrap))
+      case n => idBind(nowrap(n))
     }
     def nowrap(n: Node): Node = n match {
       case j: Join => j.nodeMapChildren { ch =>
