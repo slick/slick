@@ -5,6 +5,7 @@ import Util._
 import scala.slick.util.Logging
 import scala.slick.ast.WithOp
 import scala.collection.mutable.HashMap
+import scala.slick.ql.Column
 
 /**
  * Expand columns in queries.
@@ -28,7 +29,9 @@ object Columnizer extends (Node => Node) with Logging {
     * on top of collection operations without a Bind in between, unless that
     * operation is a Join or a Pure node. */
   def forceOuterBind(n: Node): Node = {
-    def idBind(n: Node) = n match {
+    def idBind(n: Node): Bind = n match {
+      case c: Column[_] =>
+        idBind(Pure(c))
       case p: Pure =>
         val gen = new AnonSymbol
         logger.debug("Introducing new Bind "+gen+" for Pure")
@@ -80,6 +83,7 @@ object Columnizer extends (Node => Node) with Logging {
     * individual columns by index */
   def expandRefs(n: Node, scope: Scope = Scope.empty): Node = n match {
     case p @ PathOrRef(psyms) =>
+      logger.debug("Checking path "+Path.toString(psyms))
       psyms.head match {
         case f: FieldSymbol => p
         case _ =>
@@ -87,11 +91,11 @@ object Columnizer extends (Node => Node) with Logging {
         scope.get(syms.head) match {
           case Some((target, _)) =>
             val exp = select(syms.tail, narrowStructure(target)).head
-            logger.debug("Narrowed "+p+" to "+exp)
+            logger.debug("  narrowed "+p+" to "+exp)
             exp match {
-              case t: TableExpansion => burstPath(Ref(syms.head), syms.tail, t)
-              //case t: TableRefExpansion => burstPath(Ref(syms.head), syms.tail, t)
-              case pr: ProductNode => burstPath(Ref(syms.head), syms.tail, pr)
+              case t: TableExpansion => burstPath(Path(syms.reverse), t)
+              case t: TableRefExpansion => burstPath(Path(syms.reverse), t)
+              case pr: ProductNode => burstPath(Path(syms.reverse), pr)
               case n => p
             }
           case None => p
@@ -100,21 +104,21 @@ object Columnizer extends (Node => Node) with Logging {
     case n => n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc)), scope)
   }
 
-  /** Expand a path of selects into a given target on top of a base node */
-  def burstPath(base: Node, selects: List[Symbol], target: Node): Node = target match {
+  /** Expand a base path into a given target */
+  def burstPath(base: Node, target: Node): Node = target match {
     case ProductNode(ch @ _*) =>
       ProductNode(ch.zipWithIndex.map { case (n, idx) =>
-        burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
+        burstPath(Select(base, ElementSymbol(idx+1)), n)
       }: _*)
     case TableExpansion(_, t, cols) =>
       TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
-        burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
+        burstPath(Select(base, ElementSymbol(idx+1)), n)
       }: _*))
-    /*case TableRefExpansion(_, t, cols) =>
+    case TableRefExpansion(_, t, cols) =>
       TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
-        burstPath(Select(base, ElementSymbol(idx+1)), selects, n)
-      }: _*))*/
-    case _ => selects.foldLeft(base){ case (z,sym) => Select(z, sym) }
+        burstPath(Select(base, ElementSymbol(idx+1)), n)
+      }: _*))
+    case _ => base
   }
 
   /** Replace references to FieldSymbols in TableExpansions by the
@@ -199,7 +203,7 @@ object Columnizer extends (Node => Node) with Logging {
 
   /** Navigate into ProductNodes along a path */
   def select(selects: List[Symbol], base: Node): Vector[Node] = {
-    logger.debug("select("+selects+", "+base+")")
+    logger.debug("  select("+selects+", "+base+")")
     (selects, base) match {
       case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)

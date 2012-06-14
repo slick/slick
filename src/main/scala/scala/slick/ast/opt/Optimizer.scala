@@ -41,15 +41,17 @@ object Optimizer extends Logging {
     if(n3 ne n2) logger.debug("Products reconstructed:", n3)
     val n4 = (new Inliner)(n3)
     if(n4 ne n3) logger.debug("Refs inlined:", n4)
-    val n5 = assignUniqueSymbols(n4)
-    if((n5 ne n4) && logger.isDebugEnabled) {
-      if(assignNames) AnonSymbol.assignNames(n5, prefix = "u")
-      logger.debug("Unique symbols:", n5)
+    val n5 = rewriteOrderBy(n4)
+    if(n5 ne n4) logger.debug("OrderBy rewritten:", n5)
+    val n6 = assignUniqueSymbols(n5)
+    if((n6 ne n5) && logger.isDebugEnabled) {
+      if(assignNames) AnonSymbol.assignNames(n6, prefix = "u")
+      logger.debug("Unique symbols:", n6)
     }
+    if(n6.isInstanceOf[LetDynamic])
+      throw new SLICKException("Unexpected LetDynamic after Inliner")
     logger.debug("prepareTree finished")
-    if(n5.isInstanceOf[LetDynamic])
-      throw new SLICKException("LetDynamic should have been eliminated in prepareTree()")
-    n5
+    n6
   }
 
   /** Replace GlobalSymbols by AnonSymbols and collect them in a LetDynamic */
@@ -77,9 +79,7 @@ object Optimizer extends Logging {
     if(map.isEmpty) tree2 else LetDynamic(map.toSeq, tree2)
   }
 
-  /**
-   * Ensure that all symbol definitions in a tree are unique
-   */
+  /** Ensure that all symbol definitions in a tree are unique */
   def assignUniqueSymbols(tree: Node): Node = {
     val seen = new HashSet[AnonSymbol]
     def tr(n: Node, replace: Map[AnonSymbol, AnonSymbol]): Node = n match {
@@ -107,5 +107,19 @@ object Optimizer extends Logging {
       case n => n.nodeMapChildren(tr(_, replace))
     }
     tr(tree, Map())
+  }
+
+  /** Rewrite OrderBy to SortBy */
+  def rewriteOrderBy(n: Node): Node = n match {
+    case Bind(gen, from, Bind(bgen, OrderBy(ogen, _, by), Pure(sel))) =>
+      def substRef(n: Node): Node = n match {
+        case Ref(g) if g == gen => Select(Ref(ogen), ElementSymbol(2))
+        case n => n.nodeMapChildren(substRef)
+      }
+      val innerBind = Bind(gen, from, Pure(ProductNode(sel, Ref(gen))))
+      val sort = SortBy(ogen, innerBind, by.map { case (n, o) => (substRef(n), o) })
+      val outerBind = Bind(bgen, sort, Pure(Select(Ref(bgen), ElementSymbol(1))))
+      outerBind
+    case n => n.nodeMapChildren(rewriteOrderBy)
   }
 }

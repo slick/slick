@@ -15,8 +15,6 @@ import Util._
  * by Comprehension nodes and merges nested Comprehension nodes.
  */
 object Relational extends Logging {
-  val PureEmptyStruct = Pure(StructNode(IndexedSeq()))
-
   def apply(n: Node): Node = {
     val n3 = convert.repeat(n)
     if(n3 ne n) logger.debug("converted: ", n3)
@@ -26,18 +24,22 @@ object Relational extends Logging {
   }
 
   val convert = new Transformer {
+    def mkFrom(s: Symbol, n: Node): Seq[(Symbol, Node)] = n match {
+      case Pure(ProductNode()) => Seq.empty
+      case n => Seq((s, n))
+    }
     def replace = {
       // Bind to Comprehension
-      case Bind(gen, from, select) => Comprehension(from = Seq((gen, from)), select = Some(select))
+      case Bind(gen, from, select) => Comprehension(from = mkFrom(gen, from), select = Some(select))
       // Filter to Comprehension
-      case Filter(gen, from, where) => Comprehension(from = Seq((gen, from)), where = Seq(where))
+      case Filter(gen, from, where) => Comprehension(from = mkFrom(gen, from), where = Seq(where))
       // SortBy to Comprehension
-      case SortBy(gen, from, by) => Comprehension(from = Seq((gen, from)), orderBy = by)
+      case SortBy(gen, from, by) => Comprehension(from = mkFrom(gen, from), orderBy = by)
       // Take and Drop to Comprehension
       case TakeDrop(from, take, drop, gen) =>
         val drop2 = if(drop == Some(0)) None else drop
-        if(take == Some(0)) Comprehension(from = Seq((gen, from)), where = Seq(ConstColumn.FALSE))
-        else Comprehension(from = Seq((gen, from)), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
+        if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(ConstColumn.FALSE))
+        else Comprehension(from = mkFrom(gen, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
       // Merge Comprehension which selects another Comprehension
       case Comprehension(from1, where1, orderBy1, Some(c2 @ Comprehension(from2, where2, orderBy2, select, None, None)), fetch, offset) =>
         c2.copy(from = from1 ++ from2, where = where1 ++ where2, orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset)
@@ -54,11 +56,8 @@ object Relational extends Logging {
 
   /** Check if a Comprehension should be fused into its parent. This happens
     * in the following cases:
-    * - It has a Pure generator. This generator is eliminated during fusion.
-    *   The AST is expected to already be in a shape where only Unit values
-    *   can occur in a Pure 'from' position (PureEmptyStruct).
-    * - It does not have any generators. This can happen if it is the result
-    *   of a previous fusion where a PureEmptyStruct generator was eliminated.
+    * - It has a Pure generator.
+    * - It does not have any generators.
     * - The Comprehension has a 'select' clause which consists only of Paths
     *   and constant values. */
   def isFuseable(c: Comprehension): Boolean = {
@@ -101,9 +100,7 @@ object Relational extends Logging {
     c.from.foreach {
       case (sym, from @ Comprehension(_, _, _, _, None, None)) if isFuseable(from) =>
         logger.debug("Found fuseable generator "+sym+": "+from)
-        from.from.foreach { case (s, n) =>
-          if(n != PureEmptyStruct) newFrom += s -> inline(n)
-        }
+        from.from.foreach { case (s, n) => newFrom += s -> inline(n) }
         for(n <- from.where) newWhere += inline(n)
         for((n, o) <- from.orderBy) newOrderBy += inline(n) -> o
         structs += sym -> narrowStructure(from)

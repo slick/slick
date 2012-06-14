@@ -49,9 +49,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def toComprehension(n: Node, liftExpression: Boolean = false): Comprehension = n match {
-      case c : Comprehension => c
-      case Pure(CountAll(q)) =>
+      case Comprehension(Seq(), Seq(), Seq(), Some(Pure(ProductNode(CountAll(q)))), None, None) =>
         Comprehension(from = Seq(newSym -> q), select = Some(Pure(CountStar)))
+      case c : Comprehension => c
       case p: Pure =>
         Comprehension(select = Some(p))
       case t: TableNode =>

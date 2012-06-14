@@ -119,7 +119,7 @@ object PathRewriter extends (Node => Node) with Logging {
   def findFieldSymbol(n: Node, path: List[Symbol]): Symbol = (path, n) match {
     case (Nil, Ref(sym)) => sym
     case (ElementSymbol(idx) :: t, ProductNode(ch @ _*)) => findFieldSymbol(ch(idx-1), t)
-    case _ => throw new SLICKException("Illegal path "+Path.toString(path)+"into TableExpansion structure")
+    case _ => throw new SLICKException("Illegal "+Path.toString(path)+" into TableExpansion structure")
   }
 
   def removeExpansion(n: Node) = n match {

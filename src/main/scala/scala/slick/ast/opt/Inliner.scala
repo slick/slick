@@ -63,22 +63,9 @@ class Inliner(unique: Boolean = true, paths: Boolean = true, from: Boolean = tru
       case Bind(gen, from, Pure(Ref(sym))) if gen == sym => tr(from)
       case n => n.nodeMapChildren(tr)
     }
-    val tree3 = rewriteOrderBy(tr(tree2))
+    val tree3 = tr(tree2)
     val globalsLeft = globals.filterKeys(a => !inlined.contains(a))
     if(globalsLeft.isEmpty) tree3
-    else LetDynamic(globalsLeft.iterator.map{ case (sym, n) => (sym, rewriteOrderBy(tr(n))) }.toSeq, tree3)
-  }
-
-  def rewriteOrderBy(n: Node): Node = n match {
-    case Bind(gen, from, Bind(bgen, OrderBy(ogen, _, by), Pure(sel))) =>
-      def substRef(n: Node): Node = n match {
-        case Ref(g) if g == gen => Select(Ref(ogen), ElementSymbol(2))
-        case n => n.nodeMapChildren(substRef)
-      }
-      val innerBind = Bind(gen, from, Pure(ProductNode(sel, Ref(gen))))
-      val sort = SortBy(ogen, innerBind, by.map { case (n, o) => (substRef(n), o) })
-      val outerBind = Bind(bgen, sort, Pure(Select(Ref(bgen), ElementSymbol(1))))
-      outerBind
-    case n => n
+    else LetDynamic(globalsLeft.iterator.map{ case (sym, n) => (sym, tr(n)) }.toSeq, tree3)
   }
 }

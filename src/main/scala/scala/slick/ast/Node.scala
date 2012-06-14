@@ -360,7 +360,7 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with SimpleRe
 /** A constructor/extractor for nested Selects starting at a Ref */
 object Path {
   def apply(l: List[Symbol]): Node = l match {
-    case s2 :: s1 :: Nil => Select(Ref(s1), s2)
+    case s :: Nil => Ref(s)
     case s :: l => Select(apply(l), s)
   }
   def unapply(n: Node): Option[List[Symbol]] = n match {
