@@ -38,8 +38,8 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     override protected val concatOperator = Some("+")
     override protected val useIntForBoolean = true
 
-    case object StarAndRowNum extends NullaryNode
-    case object RowNum extends NullaryNode
+    case object StarAndRowNum extends NullaryNode { override def toString = "StarAndRowNum" }
+    case object RowNum extends NullaryNode { override def toString = "RowNum" }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case StarAndRowNum => b += "*, row_number() over(order by (select 1))"
@@ -66,8 +66,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
         }
         b += " "
         c2.select match { case Some(Pure(StructNode(ch))) =>
-          b.sep(ch, ", ") {
-            case (sym, RowNum) =>
+          b.sep(ch.filter { case (_, x) => x != RowNum }, ", ") {
             case (sym, StarAndRowNum) => b += "*"
             case (sym, _) => b += symbolName(sym)
           }
