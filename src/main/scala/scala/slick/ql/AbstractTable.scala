@@ -10,13 +10,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def * : ColumnBase[T]
   def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
 
-  def nodeExpand_* = {
-    val qq = Query[TableNode, NothingContainer#TableNothing, TableNode](this)(Shape.tableShape)
-    Node(
-      qq.map[Any, Any, Any](_.nodeShaped_*.value)(qq.unpackable.shape.asInstanceOf[Shape[Any, Any, Any]])
-    )
-  }
-
   def create_* : Iterable[RawNamedColumn] = {
     val seq = new ArrayBuffer[RawNamedColumn]
     val seen = new HashSet[RawNamedColumn]
@@ -27,7 +20,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
       }
     }
     def scan(n:Node): Unit = n match {
-      case Wrapped(in, c: RawNamedColumn) if in == this => add(c)
+      case Select(Ref(GlobalSymbol(_, in)), f: FieldSymbol) if in == this => add(f.column.get)
       case n => n.nodeChildren.foreach(scan)
     }
     scan(Node(*))
@@ -40,7 +33,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[TT, U, _], unpackp: Shape[P, PU, _]): ForeignKeyQuery[TT, U] = {
     val q = Query[TT, U, TT](targetTable)(Shape.tableShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
-    val aliased = InRef.forShapedValue(generator, q.unpackable)
+    val aliased = q.unpackable.endoMap(x => WithOp.encodeRef(x, generator))
     val fv = ColumnOps.Is(Node(targetColumns(aliased.value)), Node(sourceColumns))
     val fk = ForeignKey(name, this, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)

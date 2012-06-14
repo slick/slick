@@ -51,7 +51,8 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
       if(!c.orderBy.isEmpty) b += "top 100 percent "
     }
 
-    override protected def buildComprehension(c: Comprehension): Unit =
+    override protected def buildComprehension(c: Comprehension) {
+      scanJoins(c.from)
       if(c.fetch.isDefined || c.offset.isDefined) {
         val r = newSym
         val rn = symbolName(r)
@@ -82,6 +83,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
         b += " order by " += rn
       }
       else super.buildComprehension(c)
+    }
 
     /** Create aliases for all selected rows (unless it is a "select *" query),
       * add a RowNum column, and remove FETCH and OFFSET clauses. The SELECT

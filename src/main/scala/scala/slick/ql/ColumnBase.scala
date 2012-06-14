@@ -64,6 +64,7 @@ final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with Nu
 
 object ConstColumn {
   val NULL = new ConstColumn[Null](null)(TypeMapper.NullTypeMapper)
+  val TRUE = new ConstColumn[Boolean](true)(TypeMapper.BooleanTypeMapper)
   val FALSE = new ConstColumn[Boolean](false)(TypeMapper.BooleanTypeMapper)
   val UNIT = new ConstColumn[Unit](())(TypeMapper.UnitTypeMapper)
 }
@@ -101,7 +102,10 @@ sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] 
 final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[_]])
   extends Column[T] {
   def raw = RawNamedColumn(name)(options, implicitly[TypeMapper[T]])
-  override def nodeDelegate = new Wrapped(table, raw)
+  override def nodeDelegate = Select(Node(table) match {
+    case r: Ref => r
+    case _ => Ref(GlobalSymbol.forNode(table))
+  }, raw.symbol)
 }
 
 final case class RawNamedColumn(name: String)(val options: Seq[ColumnOption[_]], val typeMapper: TypeMapper[_]) extends NullaryNode {

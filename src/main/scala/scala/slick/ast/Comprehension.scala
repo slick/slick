@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-import OptimizerUtil._
+import opt.Util._
 
 /** A SQL comprehension */
 case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Long] = None, offset: Option[Long] = None) extends Node with DefNode {
@@ -26,7 +26,7 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
     else this
   }
   def nodeGenerators = from
-  override def toString = "Comprehension"
+  override def toString = "Comprehension(fetch = "+fetch+", offset = "+offset+")"
   def nodeMapGenerators(f: Symbol => Symbol) = {
     val gens = from.map(_._1)
     mapOrNone(gens, f) match {
