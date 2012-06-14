@@ -10,13 +10,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def * : ColumnBase[T]
   def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
 
-  def nodeExpand_* = {
-    val qq = Query[TableNode, NothingContainer#TableNothing, TableNode](this)(Shape.tableShape)
-    Node(
-      qq.map[Any, Any, Any](_.nodeShaped_*.value)(qq.unpackable.shape.asInstanceOf[Shape[Any, Any, Any]])
-    )
-  }
-
   def create_* : Iterable[RawNamedColumn] = {
     val seq = new ArrayBuffer[RawNamedColumn]
     val seen = new HashSet[RawNamedColumn]

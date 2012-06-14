@@ -37,23 +37,8 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   def classToQuery[T:reflect.ConcreteTypeTag] : Query = typetagToQuery( typeTag[T] )
   def typetagToQuery(typetag:reflect.mirror.TypeTag[_]) : Query = {
     val scala_symbol = classToSymbol(typetag.erasure)
-    val table =
-      new Table[Nothing]({
-        val ants = scala_symbol.annotations
-        ants match {
-          case AnnotationInfo(tpe,tree,_) :: Nil // FIXME:<- don't match list, match any annotation
-            //if tpe <:< classToType(classOf[table]) // genJVM bug
-          =>
-          {
-            val name = tree(0).toString
-            name.slice( 1,name.length-1 ) // FIXME: <- why needed?
-          }
-          case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typetag.erasure.toString )
-        }
-      }){def * = ???}
 
     val sq_symbol = new sq.AnonSymbol
-
     val columns =
       classToType( typetag.erasure ).widen.members.collect{
         case member if member.annotations.size > 0 && member.annotations.exists{
@@ -72,6 +57,25 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         column_name =>
           sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
       ).toSeq
+
+    val table = new sq.TableNode with sq.NullaryNode with sq.WithOp {
+      val tableName = {
+        val ants = scala_symbol.annotations
+        ants match {
+          case AnnotationInfo(tpe,tree,_) :: Nil // FIXME:<- don't match list, match any annotation
+            //if tpe <:< classToType(classOf[table]) // genJVM bug
+          =>
+          {
+            val name = tree(0).toString
+            name.slice( 1,name.length-1 ) // FIXME: <- why needed?
+          }
+          case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typetag.erasure.toString )
+        }
+      }
+
+      def * = sq.ProductNode(columns: _*)
+      def nodeShaped_* = ShapedValue(sq.ProductNode(columns: _*), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
+    }
 
     new Query( sq.Bind(sq_symbol, table, sq.Pure(sq.ProductNode(columns:_*))), Scope() )
   }

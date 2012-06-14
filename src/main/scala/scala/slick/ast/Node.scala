@@ -386,7 +386,6 @@ object PathOrRef {
 
 abstract class TableNode extends Node {
   def nodeShaped_* : ShapedValue[_, _]
-  def nodeExpand_* : Node
   def tableName: String
   def nodeTableSymbol: TableSymbol = TableSymbol(tableName)
   override def toString = "Table " + tableName
