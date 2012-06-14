@@ -25,9 +25,10 @@ trait BasicTableComponent { driver: BasicDriver =>
 
     def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
       import driver.Implicit._
+      val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {
         param <- Parameters[P]
-        table <- this if ColumnOps.Is(Node(f(this)), Node(param))
+        table <- thisQ if ColumnOps.Is(Node(f(table)), Node(param))
       } yield table
     }
 
