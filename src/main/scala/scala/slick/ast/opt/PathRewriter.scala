@@ -75,6 +75,13 @@ object PathRewriter extends (Node => Node) with Logging {
             ProductNode(x2.flattenProduct: _*)
         }
         Bind(gen, from2, Pure(pure2))
+      case b @ Bind(gen, from, sel) =>
+        val from2 = gather(Some(gen), from)
+        logger.debug("Storing def for "+gen)
+        defs += gen -> from2
+        val sel2 = gather(refO, sel) // the "select" clause inherits our ref
+        if((from2 eq from) && (sel2 eq sel)) b
+        else Bind(gen, from2, sel2)
       case d: DefNode =>
         d.nodeMapScopedChildren { case (symO, ch) =>
           val ch2 = gather(symO, ch)
