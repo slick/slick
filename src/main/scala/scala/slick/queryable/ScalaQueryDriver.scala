@@ -1,18 +1,21 @@
 package scala.slick.queryable
 
 import scala.language.implicitConversions
-
 import scala.slick.driver._
 import scala.slick.driver.BasicDriver.Table
 import scala.slick.ql._
 import scala.slick.{ast => sq}
+import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
+import scala.slick.session.{Session}
+import scala.reflect.ClassTag
 
 trait QueryableBackend
 
 class SlickBackend(driver:BasicDriver) extends QueryableBackend{
-  import scala.reflect.mirror._
+  import scala.reflect.runtime.universe._
+  import scala.reflect.runtime.{currentMirror=>cm}
 
-  object removeTypeAnnotations extends reflect.mirror.Transformer {
+  object removeTypeAnnotations extends Transformer {
     def apply( tree:Tree ) = transform(tree)
     override def transform(tree: Tree): Tree = {
       super.transform {
@@ -33,13 +36,11 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
                )
   // // Why does this not work?
   //      invoke( n, classToType( n.getClass ).nonPrivateMember(newTermName("generator")) ).asInstanceOf[sq.Symbol]
-  def symbol2type( s:Symbol ) : Type = classToType(symbolToClass(s))
-  def classToQuery[T:reflect.ConcreteTypeTag] : Query = typetagToQuery( typeTag[T] )
-  def typetagToQuery(typetag:reflect.mirror.TypeTag[_]) : Query = {
-    val scala_symbol = classToSymbol(typetag.erasure)
+  def typetagToQuery(typetag:TypeTag[_]) : Query = {
+    val scala_symbol = typetag.tpe.typeSymbol
     val table =
       new Table[Nothing]({
-        val ants = scala_symbol.annotations
+        val ants = scala_symbol.getAnnotations
         ants match {
           case AnnotationInfo(tpe,tree,_) :: Nil // FIXME:<- don't match list, match any annotation
             //if tpe <:< classToType(classOf[table]) // genJVM bug
@@ -48,21 +49,21 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             val name = tree(0).toString
             name.slice( 1,name.length-1 ) // FIXME: <- why needed?
           }
-          case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typetag.erasure.toString )
+          case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typetag.tpe.toString )
         }
       }){def * = ???}
 
     val sq_symbol = new sq.AnonSymbol
 
     val columns =
-      classToType( typetag.erasure ).widen.members.collect{
-        case member if member.annotations.size > 0 && member.annotations.exists{
+      typetag.tpe.widen.members.collect{
+        case member if member.getAnnotations.size > 0 && member.getAnnotations.exists{
           case x@AnnotationInfo(tpe,tree,_)
-            if tpe <:< classToType(classOf[column])
+            if tpe <:< typeOf[column]
           => true
-        } => member.annotations.collect{
+        } => member.getAnnotations.collect{
           case x@AnnotationInfo(tpe,tree,_)
-            if tpe <:< classToType(classOf[column])
+            if tpe <:< typeOf[column]
           =>{ // FIXME: is this the right way to do it?
           val name = tree(0).toString
             name.slice( 1,name.length-1 ) // FIXME: <- why needed?
@@ -79,25 +80,26 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     this.apply(tree,queryable.query.scope)
   }*/
   def toQuery( tree:Tree, scope : Scope = Scope() ) : Query = {
-    val toolbox = mkToolBox(mkConsoleFrontEnd(),"")
-    //    val typed_tree = toolbox.typeCheck(tree.asInstanceOf[reflect.runtime.Mirror.Tree]  ).asInstanceOf[reflect.mirror.Tree]
-    val typed_tree = toolbox.typeCheck(tree)
+    import scala.tools.reflect._
+    // external references (symbols) are preserved by reify, so cm suffices (its class loader does not need to load any new classes)
+    val toolbox = cm.mkToolBox()//mkConsoleFrontEnd().asInstanceOf[scala.tools.reflect.FrontEnd],"") // FIXME cast
+    val typed_tree = toolbox.typeCheck(tree) // TODO: can we get rid of this to remove the compiler dependency?
     scala2scalaquery_typed( removeTypeAnnotations(typed_tree), scope )
   }
   private def scala2scalaquery_typed( tree:Tree, scope : Scope ) : Query = {
     def s2sq( tree:Tree, scope:Scope=scope ) : Query = scala2scalaquery_typed( tree, scope )
     implicit def node2Query(node:sq.Node) = new Query( node, scope )
     try{
-      import scala.reflect.mirror.FreeTerm
+      val string_types = List("String","java.lang.String")
       tree match {
         // explicitly state types here until SQ removes type parameters and type mapper from ConstColumn 
         case Literal(Constant(x:Int))    => ConstColumn[Int](x)
         case Literal(Constant(x:String)) => ConstColumn[String](x)
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
         case node@Ident(name) if !scope.contains(node.symbol) => // TODO: move this into a separate inlining step in queryable
-          node.symbol match{
-            case FreeTerm(_,_,q:Queryable[_],_) => toQuery( q )
-            case FreeTerm(_,_,x,_) => s2sq( Literal(Constant(x)) )
+          node.symbol.asFreeTermSymbol.value match {
+            case q:Queryable[_] => toQuery( q )
+            case x => s2sq( Literal(Constant(x)) )
           }
         case node@Ident(name) =>
           val sq_symbol = scope(node.symbol)
@@ -106,10 +108,10 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         // match columns
         case Select(from,name)
           if {
-            val annotations = from.tpe.widen.typeSymbol.annotations
+            val annotations = from.tpe.widen.typeSymbol.getAnnotations
             annotations.length > 0 && (annotations match {
               case AnnotationInfo(tpe,_,_) :: Nil
-                if tpe <:< classToType(classOf[table])
+                if tpe <:< typeOf[table]
               => true
               case _ => false
             })
@@ -118,7 +120,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           val sq_symbol= scope(from.symbol)
           val type_ = from.tpe.widen
           val member = type_.members.filter(_.name == name).toList(0)
-          val column_name = member.annotations match {
+          val column_name = member.getAnnotations match {
             case x@AnnotationInfo(_,tree,_) :: Nil =>
             { // FIXME: is this the right way to do it?
             val name = tree(0).toString
@@ -128,6 +130,8 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           }
           sq.FieldRef(sq_symbol, sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
 
+/*
+        // TODO: Where is this needed?
         case Select(a:This,b) =>
           val obj = companionInstance( a.symbol )
           val value = invoke( obj, a.tpe.nonPrivateMember(b) )()
@@ -135,10 +139,11 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             case q:Queryable[_] => toQuery( q )
             case x => s2sq( Literal(Constant(x)) )
           }
+*/
 
         // match queryable methods
         case Apply(Select(scala_lhs,term),Function( arg::Nil, body )::Nil)
-          if scala_lhs.tpe.erasure <:< classToType(classOf[Queryable[_]]).erasure
+          if scala_lhs.tpe.erasure <:< typeOf[Queryable[_]].erasure
         =>
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
@@ -155,17 +160,17 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
 
         // match scalar operators
         case Apply(Select(lhs,term),rhs::Nil)
-          if lhs.tpe <:< classToType( classOf[Boolean] )
-            && rhs.tpe <:< classToType( classOf[Boolean] )
+          if lhs.tpe <:< typeOf[Boolean]
+            && rhs.tpe <:< typeOf[Boolean]
             && List("||", "&&").contains( term.decoded )
         =>
           ColumnOps.Relational(term.decoded, s2sq( lhs ).node, s2sq( rhs ).node )
 
         case Apply(Select(lhs,term),rhs::Nil)
-          if (lhs.tpe <:< classToType( classOf[Int] )
-            && rhs.tpe <:< classToType( classOf[Int] )
-            ) || ( lhs.tpe <:< classToType( classOf[Double] )
-            && rhs.tpe <:< classToType( classOf[Double] )
+          if (lhs.tpe <:< typeOf[Int]
+            && rhs.tpe <:< typeOf[Int]
+            ) || ( lhs.tpe <:< typeOf[Double]
+            && rhs.tpe <:< typeOf[Double]
             )
             && List("+").contains( term.decoded )
         =>
@@ -180,8 +185,8 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             println(rhs.tpe)
             println("_b__")*/
             (
-              (lhs.tpe <:< classToType( classOf[String] ))
-                && (rhs.tpe <:< classToType( classOf[String] ))
+              (string_types contains lhs.tpe.widen.toString) //(lhs.tpe <:< typeOf[String])
+                && (string_types contains rhs.tpe.widen.toString) // (rhs.tpe <:< typeOf[String] )
                 && (List("+").contains( term.decoded ))
               )
           }
@@ -201,7 +206,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
                 =>
                 throw new UnsupportedMethodException( lhs.tpe.erasedType+"."+term.decoded+"("+rhs.tpe.erasedType+")" )
         */
-
+        case Apply(Select(lhs,term),rhs::Nil) => throw new Exception("cannot handle"+(lhs.tpe,term.decoded, rhs.tpe))
         case tree => /*Expr[Any](tree).eval match{
             case q:Queryable[_] => q.query
             case x => s2sq( Literal(Constant(x)) )
@@ -220,13 +225,13 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   protected[slick] def toSql( queryable:Queryable[_] ) = {
     val query = this.toQuery(queryable)
     import driver._
-    val node = processAST(query.node)
+    val node = sq.Relational(query.node)
     sq.AnonSymbol.assignNames( node )
     val builder = new QueryBuilder( node, null )
     builder.buildSelect.sql
   }
   protected[slick] def toQuery(queryable:Queryable[_]) : this.Query = queryable.expr_or_typetag match {
-    case Right(typetag) => this.typetagToQuery( typetag )
+    case Right((typetag,classtag)) => this.typetagToQuery( typetag )
     case Left(expr_)    => this.toQuery(expr_.tree)
   }
 
