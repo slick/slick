@@ -6,6 +6,7 @@ import scala.slick.ql._
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
+import scala.slick.ast.Dump
 
 object UnionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
@@ -59,7 +60,7 @@ class UnionTest(val tdb: TestDB) extends DBTest {
       q2.foreach(o => println("  "+o))
 
       val q3 = for(x @ (id, name) <- q1 union q2; _ <- Query.orderBy(name.asc)) yield x
-      q3.dump("q3: ")
+      Dump(q3, "q3: ")
       println()
       println("Combined and sorted: " + q3.selectStatement)
       q3.foreach(o => println("  "+o))
@@ -79,7 +80,7 @@ class UnionTest(val tdb: TestDB) extends DBTest {
 
     def f (s: String) = Managers where { _.name === s}
     val q = f("Peter") union f("Amy")
-    q.dump("q: ")
+    Dump(q, "q: ")
     println(q.selectStatement)
     assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.list.toSet)
   }

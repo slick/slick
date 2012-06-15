@@ -4,6 +4,7 @@ import org.junit.Test
 import scala.slick.ql._
 import scala.slick.testutil.TestDB._
 import scala.slick.testutil.{DBTest, TestDB, DBTestObject}
+import scala.slick.ast.Dump
 
 object OldTest extends DBTestObject(H2Mem)
 
@@ -32,7 +33,7 @@ class OldTest(val tdb: TestDB) extends DBTest {
     }
 
     def dump(n: String, q: Query[ColumnBase[_], _]) {
-      q.dump(n + ": ")
+      Dump(q, n + ": ")
       println(tdb.driver.buildSelectStatement(q))
       println()
     }

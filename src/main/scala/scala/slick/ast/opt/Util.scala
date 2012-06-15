@@ -4,7 +4,7 @@ package opt
 import scala.language.implicitConversions
 import collection.TraversableLike
 import collection.generic.CanBuildFrom
-import collection.mutable.ArrayBuffer
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * Utility methods for the optimizers.
@@ -43,7 +43,7 @@ object Scope {
 }
 
 /** Extra methods for Nodes. */
-class NodeOps(val tree: Node) extends AnyVal {
+final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
 
   def collect[T](pf: PartialFunction[Node, T]): Iterable[T] = {

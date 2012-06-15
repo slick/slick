@@ -7,6 +7,7 @@ import scala.slick.session._
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
+import scala.slick.ast.Dump
 
 object NestingTest extends DBTestObject(H2Mem /*, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer*/)
 
@@ -75,14 +76,14 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       val q2a = for {
         a ~ b ~ c <- T.where(_.a === 1).map(t => t.a ~ t.b ~ 4) unionAll T.where(_.a === 2).map(t => t.a ~ t.b ~ 5)
       } yield a ~ b ~ (c*2)
-      //q2a.dump("q2a: ")
+      //Dump(q2a, "q2a: ")
       println("q2a: "+q2a.selectStatement)
       assertEquals(res2, q2a.to[Set])
 
       val q2b = for {
         (a, b, c) <- T.where(_.a === 1).map(t => (t.a, t.b, ConstColumn(4))) unionAll T.where(_.a === 2).map(t => (t.a, t.b, ConstColumn(5)))
       } yield a ~ b ~ (c*2)
-      q2b.dump("q2b: ")
+      Dump(q2b, "q2b: ")
       println("q2b: "+q2b.selectStatement)
       println(q2b.list)
       assertEquals(res2, q2b.to[Set])
@@ -90,7 +91,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       val q2c = for {
         (a, b, c) <- T.where(_.a === 1).map(t => (t.a, t.b, 4)) unionAll T.where(_.a === 2).map(t => (t.a, t.b, 5))
       } yield a ~ b ~ (c*2)
-      q2c.dump("q2c: ")
+      Dump(q2c, "q2c: ")
       println("q2c: "+q2c.selectStatement)
       println(q2c.list)
       assertEquals(res2, q2c.to[Set])

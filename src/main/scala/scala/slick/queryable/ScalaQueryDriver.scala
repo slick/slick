@@ -6,6 +6,7 @@ import scala.slick.driver._
 import scala.slick.driver.BasicDriver.Table
 import scala.slick.ql._
 import scala.slick.{ast => sq}
+import scala.slick.ast.Dump
 
 trait QueryableBackend
 
@@ -219,7 +220,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   }
   protected[slick] def dump( queryable:Queryable[_] ) = {
     val query = this.toQuery(queryable)
-    sq.Node(query.node).dump("")
+    Dump(query.node)
   }
   protected[slick] def toSql( queryable:Queryable[_] ) = {
     val query = this.toQuery(queryable)

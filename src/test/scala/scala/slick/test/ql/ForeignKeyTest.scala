@@ -6,6 +6,7 @@ import scala.slick.ql._
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
+import scala.slick.ast.Dump
 
 object ForeignKeyTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
@@ -56,7 +57,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
       c <- p.categoryJoin
       _ <- Query orderBy p.id
     } yield (p.id, c.id, c.name, p.title)
-    q1.dump("Manual join: ")
+    Dump(q1, "Manual join: ")
     println("Manual join: "+q1.selectStatement)
     q1.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q1.map(p => (p._1, p._2)).list)
@@ -66,7 +67,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
       c <- p.categoryFK
       _ <- Query orderBy p.id
     } yield (p.id, c.id, c.name, p.title)
-    q2.dump("Foreign-key join: ")
+    Dump(q2, "Foreign-key join: ")
     println("Foreign-key join: "+q2.selectStatement)
     q2.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q2.map(p => (p._1, p._2)).list)

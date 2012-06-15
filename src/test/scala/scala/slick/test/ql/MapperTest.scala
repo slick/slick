@@ -6,6 +6,7 @@ import scala.slick.ql._
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
+import scala.slick.ast.Dump
 
 object MapperTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
@@ -72,7 +73,7 @@ class MapperTest(val tdb: TestDB) extends DBTest {
       Ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
 
       val updateQ = Ts.where(_.a === 1)
-      updateQ.dump("updateQ: ")
+      Dump(updateQ, "updateQ: ")
       println("Update: "+updateQ.updateStatement)
       updateQ.update(Data(7, 8))
 
