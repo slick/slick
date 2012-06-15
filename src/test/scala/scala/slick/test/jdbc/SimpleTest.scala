@@ -109,7 +109,7 @@ class SimpleTest(val tdb: TestDB) extends DBTest {
       } yield sqlu"insert into USERS values ($id, $name)".first).sum
       assertEquals(4, total)
 
-      assertEquals(Set(0,1,2,3), sql"select id from users".as[Int].to[Set]())
+      assertEquals(Set(0,1,2,3), sql"select id from users".as[Int].to[Set])
 
       val res = userForID(2).first
       println("User for ID 2: "+res)

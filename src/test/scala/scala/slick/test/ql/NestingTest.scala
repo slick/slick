@@ -41,7 +41,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
         _ <- Query.orderBy(c, a)
       } yield a ~ b ~ c ~ 5
       println("q1a: "+q1a.selectStatement)
-      assertEquals(res1, q1a.to[List]())
+      assertEquals(res1, q1a.to[List])
 
       val q1b = for {
         (a, b) <- T.map(t => (t.a, t.b))
@@ -50,7 +50,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       } yield a ~ b ~ c ~ 5
       println("q1b: "+q1b.selectStatement)
       println(q1b.list)
-      assertEquals(res1, q1b.to[List]())
+      assertEquals(res1, q1b.to[List])
 
       val q1c = for {
         (a, b) <- T.map(t => (t.a, t.b))
@@ -59,7 +59,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       } yield (a, b, c, ConstColumn(5))
       println("q1c: "+q1c.selectStatement)
       println(q1c.list)
-      assertEquals(res1, q1c.to[List]())
+      assertEquals(res1, q1c.to[List])
 
       val q1d = for {
         (a, b) <- T.map(t => (t.a, t.b))
@@ -68,7 +68,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       } yield ((a, b), (c, 5))
       println("q1d: "+q1d.selectStatement)
       println(q1d.list)
-      assertEquals(res1b, q1d.to[List]())
+      assertEquals(res1b, q1d.to[List])
 
       val res2 = Set((1, "1", 8), (2, "2", 10))
 
@@ -77,7 +77,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       } yield a ~ b ~ (c*2)
       //q2a.dump("q2a: ")
       println("q2a: "+q2a.selectStatement)
-      assertEquals(res2, q2a.to[Set]())
+      assertEquals(res2, q2a.to[Set])
 
       val q2b = for {
         (a, b, c) <- T.where(_.a === 1).map(t => (t.a, t.b, ConstColumn(4))) unionAll T.where(_.a === 2).map(t => (t.a, t.b, ConstColumn(5)))
@@ -85,7 +85,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       q2b.dump("q2b: ")
       println("q2b: "+q2b.selectStatement)
       println(q2b.list)
-      assertEquals(res2, q2b.to[Set]())
+      assertEquals(res2, q2b.to[Set])
 
       val q2c = for {
         (a, b, c) <- T.where(_.a === 1).map(t => (t.a, t.b, 4)) unionAll T.where(_.a === 2).map(t => (t.a, t.b, 5))
@@ -93,7 +93,7 @@ class NestingTest(val tdb: TestDB) extends DBTest {
       q2c.dump("q2c: ")
       println("q2c: "+q2c.selectStatement)
       println(q2c.list)
-      assertEquals(res2, q2c.to[Set]())
+      assertEquals(res2, q2c.to[Set])
     }
   }
 }

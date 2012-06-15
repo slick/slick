@@ -1,6 +1,7 @@
 package scala.slick.jdbc
 
 import scala.language.higherKinds
+import scala.annotation.unchecked.{uncheckedVariance => uV}
 import scala.collection.immutable.Map
 import scala.collection.generic.CanBuildFrom
 import scala.slick.session.Session
@@ -67,17 +68,10 @@ trait Invoker[-P, +R] { self =>
   }
 
   /**
-   * Return a converter for the specified collection type constructor.
+   * Execute the statement and return a fully materialized collection.
    */
-  final def to[C[_]] = new To[C]()
-
-  final class To[C[_]] private[Invoker] () {
-    /**
-     * Execute the statement and return a fully materialized collection.
-     */
-    def apply[RR >: R](param: P)(implicit session: Session, canBuildFrom: CanBuildFrom[Nothing, RR, C[RR]]) =
-      build[C[RR]](param)(session, canBuildFrom)
-  }
+  final def to[C[_]](param: P)(implicit session: Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
+    build[C[R]](param)(session, canBuildFrom)
 
   /**
    * Execute the statement and call f for each converted row of the result set.
@@ -154,6 +148,8 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   final def firstOption(implicit session: Session): Option[R] = delegate.firstOption(appliedParameter)
   final def first()(implicit session: Session): R = delegate.first(appliedParameter)
   final def list()(implicit session: Session): List[R] = delegate.list(appliedParameter)
+  final def to[C[_]](implicit session: Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
+    delegate.to(appliedParameter)
   final def toMap[T, U](implicit session: Session, ev: R <:< (T, U)): Map[T, U] = delegate.toMap(appliedParameter)
   final def foreach(f: R => Unit)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f)
   final def foreach(f: R => Unit, maxRows: Int)(implicit session: Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
