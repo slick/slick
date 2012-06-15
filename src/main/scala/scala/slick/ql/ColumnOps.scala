@@ -131,7 +131,7 @@ object ColumnOps {
   }
 
   final case class Between(left: Node, start: Node, end: Node) extends OperatorColumn[Boolean] with SimpleNode {
-    protected[this] def nodeChildGenerators = Seq(left, start, end)
+    val nodeChildren = Seq(left, start, end)
     protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = Between(ch(0), ch(1), ch(2))
   }
 

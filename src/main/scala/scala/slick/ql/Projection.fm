@@ -6,7 +6,7 @@ import scala.slick.ast.{Node, UnaryNode, ProductNode}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
   type V = T
-  lazy val nodeChildGenerators = productIterator.toIndexedSeq
+  lazy val nodeChildren = productIterator.map(Node(_)).toIndexedSeq
 
   def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) {
     for(i <- 0 until productArity) {

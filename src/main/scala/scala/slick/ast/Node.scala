@@ -34,10 +34,8 @@ trait NodeGenerator {
  * A node in the query AST
  */
 trait Node extends NodeGenerator {
-  protected[this] def nodeChildGenerators: Seq[Any]
+  def nodeChildren: Seq[Node]
   protected[this] def nodeChildNames: Iterable[String] = Stream.from(0).map(_.toString)
-
-  final lazy val nodeChildren = nodeChildGenerators.map(Node.apply _)
 
   def nodeMapChildren(f: Node => Node): Node
 
@@ -67,7 +65,7 @@ trait Node extends NodeGenerator {
         this.foreach { case n: RefNode => n.nodeReferences.foreach(dc.addRef) }
       case _ =>
         dc.out.println(prefix + name + this)
-        for((chg, n) <- nodeChildGenerators.zip(nodeChildNames))
+        for((chg, n) <- nodeChildren.zip(nodeChildNames))
           Node(chg).nodeDump(dc, prefix + "  ", n+": ")
     }
   }
@@ -133,7 +131,7 @@ final class DumpContext(val out: PrintWriter, base: Node) {
 trait ProductNode extends SimpleNode {
   override def toString = "ProductNode"
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = new ProductNode {
-    lazy val nodeChildGenerators = ch
+    val nodeChildren = ch
   }
   override protected[this] def nodeChildNames: Iterable[String] = Stream.from(1).map(_.toString)
   override def hashCode() = nodeChildren.hashCode()
@@ -145,14 +143,14 @@ trait ProductNode extends SimpleNode {
 
 object ProductNode {
   def apply(s: Seq[Any]): ProductNode =
-    new ProductNode { lazy val nodeChildGenerators = s }
+    new ProductNode { lazy val nodeChildren = s.map(Node(_)) }
   def unapply(p: ProductNode) = Some(p.nodeChildren)
 }
 
 case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode with SimpleDefNode {
   override def toString = "StructNode"
   protected[this] override def nodeChildNames = elements.map(_._1.toString)
-  def nodeChildGenerators = elements.map(_._2)
+  val nodeChildren = elements.map(_._2)
   override protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
     new StructNode(elements.zip(ch).map{ case ((s,_),n) => (s,n) })
   override def hashCode() = elements.hashCode()
@@ -169,20 +167,20 @@ case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode 
 trait BinaryNode extends SimpleNode {
   def left: Node
   def right: Node
-  protected[this] final def nodeChildGenerators = Seq(left, right)
+  lazy val nodeChildren = Seq(left, right)
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = nodeRebuild(ch(0), ch(1))
   protected[this] def nodeRebuild(left: Node, right: Node): Node
 }
 
 trait UnaryNode extends SimpleNode {
   def child: Node
-  protected[this] final def nodeChildGenerators = Seq(child)
+  lazy val nodeChildren = Seq(child)
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = nodeRebuild(ch(0))
   protected[this] def nodeRebuild(child: Node): Node
 }
 
 trait NullaryNode extends SimpleNode {
-  protected[this] final def nodeChildGenerators = Nil
+  val nodeChildren = Nil
   protected[this] final def nodeRebuild(ch: IndexedSeq[Node]): Node = this
 }
 
@@ -228,7 +226,7 @@ final case class Filter(generator: Symbol, from: Node, where: Node) extends Filt
 }
 
 final case class SortBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]) extends FilteredQuery with SimpleNode with SimpleDefNode {
-  protected[this] def nodeChildGenerators = from +: by.map(_._1)
+  lazy val nodeChildren = from +: by.map(_._1)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
     copy(from = ch(0), by = by.zip(ch.tail).map{ case ((_, o), n) => (n, o) })
   protected[this] override def nodeChildNames = ("from "+generator) +: by.zipWithIndex.map("by" + _._2)
@@ -238,7 +236,7 @@ final case class SortBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]
 }
 
 final case class OrderBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]) extends FilteredQuery with SimpleNode with SimpleDefNode {
-  protected[this] def nodeChildGenerators = from +: by.map(_._1)
+  lazy val nodeChildren = from +: by.map(_._1)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
     copy(from = ch(0), by = by.zip(ch.tail).map{ case ((_, o), n) => (n, o) })
   protected[this] override def nodeChildNames = ("from "+generator) +: by.zipWithIndex.map("by" + _._2)
@@ -292,7 +290,7 @@ final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) 
 }
 
 final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends SimpleNode with SimpleDefNode {
-  protected[this] def nodeChildGenerators = IndexedSeq(left, right, on)
+  lazy val nodeChildren = IndexedSeq(left, right, on)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
   protected[this] override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
   override def toString = "Join " + jt.sqlName
@@ -385,7 +383,7 @@ object TableNode {
 }
 
 final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends SimpleNode with SimpleDefNode {
-  protected[this] def nodeChildGenerators = defs.map(_._2) :+ in
+  val nodeChildren = defs.map(_._2) :+ in
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
     copy(defs = defs.zip(ch.init).map{ case ((s, _), n) => (s, n) }, in = ch.last)
   protected[this] override def nodeChildNames = defs.map("let " + _._1.toString) :+ "in"

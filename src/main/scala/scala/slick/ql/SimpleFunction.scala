@@ -20,7 +20,7 @@ object SimpleFunction {
       new OperatorColumn[T] with SimpleFunction {
         val name = fname
         override val scalar = fn
-        protected[this] def nodeChildGenerators = paramsC
+        lazy val nodeChildren = paramsC.map(Node(_))
         protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)
       }
     builder
@@ -42,12 +42,12 @@ object SimpleFunction {
 }
 
 case class StdFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
-  protected[this] def nodeChildGenerators = children
+  val nodeChildren = children
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = StdFunction(name, ch: _*)
 }
 
 case class EscFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
-  protected[this] def nodeChildGenerators = children
+  val nodeChildren = children
   override val scalar = true
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = EscFunction(name, ch: _*)
 }
@@ -80,7 +80,7 @@ object SimpleExpression {
     lazy val builder: (Seq[NodeGenerator] => OperatorColumn[T] with SimpleExpression) = paramsC =>
       new OperatorColumn[T] with SimpleExpression {
         def toSQL(qb: BasicStatementBuilderComponent#QueryBuilder) = f(nodeChildren.toSeq, qb)
-        protected[this] def nodeChildGenerators = paramsC
+        val nodeChildren = paramsC.map(Node(_))
         protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)
       }
     builder

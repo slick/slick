@@ -9,7 +9,7 @@ object Case {
   }
 
   final case class CaseNode(val clauses: IndexedSeq[Node], val elseClause: Node) extends Node {
-    protected[this] def nodeChildGenerators = elseClause +: clauses
+    val nodeChildren = elseClause +: clauses
     def nodeMapChildren(f: Node => Node): Node = {
       val e = f(elseClause)
       val c = nodeMapNodes(clauses, f)
