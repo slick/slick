@@ -67,7 +67,7 @@ object Relational extends Logging {
     } || (c.select match {
       case Some(Pure(ProductNode(ch))) =>
         ch.map {
-          case PathOrRef(_) => true
+          case Path(_) => true
           case c: ConstColumn[_] => true
           case _ => false
         }.forall(identity)
@@ -86,7 +86,7 @@ object Relational extends Logging {
     var fuse = false
 
     def inline(n: Node): Node = n match {
-      case p @ PathOrRef(psyms) =>
+      case p @ Path(psyms) =>
         logger.debug("Inlining "+Path.toString(psyms)+" with structs "+structs.keySet)
         val syms = psyms.reverse
         structs.get(syms.head).map{ base =>

@@ -288,9 +288,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
             expr(n)
         }
         b += " end)"
-      case Path(psyms) =>
-        val field = psyms.head
-        val struct = psyms.tail.reduceRight[Symbol] {
+      case Path(field :: (rest @ (_ :: _))) =>
+        val struct = rest.reduceRight[Symbol] {
           case (ElementSymbol(idx), z) => joins(z).nodeGenerators(idx-1)._1
         }
         b += symbolName(struct) += '.' += symbolName(field)

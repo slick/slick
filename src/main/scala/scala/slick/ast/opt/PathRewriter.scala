@@ -96,7 +96,7 @@ object PathRewriter extends (Node => Node) with Logging {
     }
 
     def replaceRefs(n: Node): Node = n match {
-      case PathOrRef(syms) => syms.head match {
+      case Path(syms) => syms.head match {
         case f: FieldSymbol => n // inside a former TableExpansion - no need to go down this path
         case _ =>
           logger.debug("Trying to replace "+Path.toString(syms))

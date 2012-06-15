@@ -82,7 +82,7 @@ object Columnizer extends (Node => Node) with Logging {
     * Paths and TableRefExpansions of Paths, so that all Paths point to
     * individual columns by index */
   def expandRefs(n: Node, scope: Scope = Scope.empty): Node = n match {
-    case p @ PathOrRef(psyms) =>
+    case p @ Path(psyms) =>
       logger.debug("Checking path "+Path.toString(psyms))
       psyms.head match {
         case f: FieldSymbol => p
@@ -143,7 +143,7 @@ object Columnizer extends (Node => Node) with Logging {
           })
         case t: TableRefExpansion =>
           logger.debug("Narrowed to element "+t)
-          PathOrRef.unapply(t.ref).flatMap { psyms =>
+          Path.unapply(t.ref).flatMap { psyms =>
             val syms = psyms.reverse
             logger.debug("Looking for seen def "+syms.head)
             seenDefs.get(syms.head).flatMap { n =>
@@ -174,7 +174,7 @@ object Columnizer extends (Node => Node) with Logging {
           ch2
         }, scope)
         r
-      case sel @ Select(p @ PathOrRef(psyms), field: FieldSymbol) =>
+      case sel @ Select(p @ Path(psyms), field: FieldSymbol) =>
         val syms = psyms.reverse
         scope.get(syms.head).flatMap { case (n, _) =>
           logger.debug("Trying to rewrite "+p+" ."+field)

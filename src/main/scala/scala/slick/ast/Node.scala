@@ -61,7 +61,7 @@ trait Node extends NodeGenerator {
       case _ =>
     }
     this match {
-      case Path(l) =>
+      case Path(l @ (_ :: _ :: _)) =>
         // Print paths on a single line
         dc.out.println(prefix + name + Path.toString(l))
         this.foreach { case n: RefNode => n.nodeReferences.foreach(dc.addRef) }
@@ -362,23 +362,14 @@ object Path {
     case s :: l => Select(apply(l), s)
   }
   def unapply(n: Node): Option[List[Symbol]] = n match {
-    case Select(Ref(s1), s2) => Some(s2 :: s1 :: Nil)
+    case Ref(sym) => Some(List(sym))
     case Select(in, s) => unapply(in).map(l => s :: l)
     case _ => None
   }
   def toString(path: Seq[Symbol]): String = path.reverseIterator.mkString("Path ", ".", "")
   def toString(s: Select): String = s match {
-    case PathOrRef(syms) => toString(syms)
+    case Path(syms) => toString(syms)
     case n => n.toString
-  }
-}
-
-/** An extractor for a possibly empty Path */
-object PathOrRef {
-  def unapply(n: Node): Option[List[Symbol]] = n match {
-    case Path(l) => Some(l)
-    case Ref(sym) => Some(List(sym))
-    case _ => None
   }
 }
 
