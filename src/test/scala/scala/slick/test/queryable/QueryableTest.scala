@@ -97,9 +97,9 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         sym1a,
         TableName("COFFEES"),
         Pure(
-        ProductNode(
+        ProductNode(Seq(
         Select(Ref(sym1b), ColumnName("COF_NAME")),
-        Select(Ref(sym1c), ColumnName("COF_SALES")) )))
+        Select(Ref(sym1c), ColumnName("COF_SALES")) ))))
         if sym1a == sym1b && sym1b == sym1c
       => ()
     }

@@ -91,7 +91,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     protected def makeSelectPageable(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
       case Some(Pure(StructNode(ch))) =>
         c.copy(select = Some(Pure(StructNode(ch :+ (rn -> RowNum)))), fetch = None, offset = None)
-      case Some(Pure(ProductNode(ch @ _*))) =>
+      case Some(Pure(ProductNode(ch))) =>
         c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> RowNum)))), fetch = None, offset = None)
       case Some(Pure(n)) =>
         c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> RowNum)))), fetch = None, offset = None)

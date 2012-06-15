@@ -25,7 +25,7 @@ object Relational extends Logging {
 
   val convert = new Transformer {
     def mkFrom(s: Symbol, n: Node): Seq[(Symbol, Node)] = n match {
-      case Pure(ProductNode()) => Seq.empty
+      case Pure(ProductNode(Seq())) => Seq.empty
       case n => Seq((s, n))
     }
     def replace = {
@@ -65,7 +65,7 @@ object Relational extends Logging {
       case (sym, Pure(_)) => true
       case _ => false
     } || (c.select match {
-      case Some(Pure(ProductNode(ch @ _*))) =>
+      case Some(Pure(ProductNode(ch))) =>
         ch.map {
           case PathOrRef(_) => true
           case c: ConstColumn[_] => true

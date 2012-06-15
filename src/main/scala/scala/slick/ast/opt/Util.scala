@@ -64,7 +64,7 @@ class NodeOps(val tree: Node) extends AnyVal {
 
   def flattenProduct = {
     def f(n: Node): IndexedSeq[Node] = n match {
-      case ProductNode(ns @ _*) => ns.flatMap(f).toIndexedSeq
+      case ProductNode(ns) => ns.flatMap(f).toIndexedSeq
       case n => IndexedSeq(n)
     }
     f(tree)

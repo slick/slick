@@ -96,7 +96,7 @@ object Node {
       val gen = o.asInstanceOf[NodeGenerator]
       if(gen.nodeDelegate eq gen) gen.nodeDelegate else Node(gen.nodeDelegate)
     }
-    else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product])
+    else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product].productIterator.toSeq)
     else throw new SLICKException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
 }
 
@@ -144,11 +144,9 @@ trait ProductNode extends SimpleNode {
 }
 
 object ProductNode {
-  def apply(p: Product): ProductNode =
-    new ProductNode { lazy val nodeChildGenerators = p.productIterator.toSeq }
-  def apply(s: Any*): ProductNode =
+  def apply(s: Seq[Any]): ProductNode =
     new ProductNode { lazy val nodeChildGenerators = s }
-  def unapplySeq(p: ProductNode) = Some(p.nodeChildren)
+  def unapply(p: ProductNode) = Some(p.nodeChildren)
 }
 
 case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode with SimpleDefNode {

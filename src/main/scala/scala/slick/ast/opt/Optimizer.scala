@@ -120,7 +120,7 @@ object Optimizer extends Logging {
         }
         case n => n.nodeMapChildren(substRef)
       }
-      val innerSel = Pure(ProductNode((sel +: gens.map(g => Ref(g._1))): _*))
+      val innerSel = Pure(ProductNode((sel +: gens.map(g => Ref(g._1)))))
       val innerBind = gens.foldRight[Node](innerSel) { case ((gen, from), z) => Bind(gen, from, z) }
       val sort = SortBy(ogen, innerBind, by.map { case (n, o) => (substRef(n), o) })
       val outerBind = Bind(bgen, sort, Pure(Select(Ref(bgen), ElementSymbol(1))))

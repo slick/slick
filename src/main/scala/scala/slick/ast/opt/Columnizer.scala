@@ -35,7 +35,7 @@ object Columnizer extends (Node => Node) with Logging {
       case p: Pure =>
         val gen = new AnonSymbol
         logger.debug("Introducing new Bind "+gen+" for Pure")
-        Bind(gen, Pure(ProductNode()), p)
+        Bind(gen, Pure(ProductNode(Seq())), p)
       case _ =>
         val gen = new AnonSymbol
         logger.debug("Introducing new Bind "+gen)
@@ -74,7 +74,7 @@ object Columnizer extends (Node => Node) with Logging {
       val sym = new AnonSymbol
       val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
       val processed = expandTables(Optimizer.prepareTree(expanded, true))
-      TableExpansion(sym, t, ProductNode(processed.flattenProduct: _*))
+      TableExpansion(sym, t, ProductNode(processed.flattenProduct))
     case n => n.nodeMapChildren(expandTables)
   }
 
@@ -106,18 +106,18 @@ object Columnizer extends (Node => Node) with Logging {
 
   /** Expand a base path into a given target */
   def burstPath(base: Node, target: Node): Node = target match {
-    case ProductNode(ch @ _*) =>
+    case ProductNode(ch) =>
       ProductNode(ch.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), n)
-      }: _*)
+      })
     case TableExpansion(_, t, cols) =>
       TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), n)
-      }: _*))
+      }))
     case TableRefExpansion(_, t, cols) =>
       TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), n)
-      }: _*))
+      }))
     case _ => base
   }
 
@@ -138,7 +138,7 @@ object Columnizer extends (Node => Node) with Logging {
           Some(columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
             case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
             case None =>
-              updatedTables += t.generator -> ProductNode((columns.nodeChildren :+ needed): _*)
+              updatedTables += t.generator -> ProductNode((columns.nodeChildren :+ needed))
               Select(p, ElementSymbol(columns.nodeChildren.size + 1))
           })
         case t: TableRefExpansion =>
@@ -155,7 +155,7 @@ object Columnizer extends (Node => Node) with Logging {
                 columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
                   case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
                   case None =>
-                    updatedTables += t.marker -> ProductNode((columns.nodeChildren :+ needed): _*)
+                    updatedTables += t.marker -> ProductNode((columns.nodeChildren :+ needed))
                     Select(p, ElementSymbol(columns.nodeChildren.size + 1))
                 }
               }
@@ -207,14 +207,14 @@ object Columnizer extends (Node => Node) with Logging {
     (selects, base) match {
       case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)
-      case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
+      case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1))
     }
   }
 
   /** Find the actual structure produced by a Node */
   def narrowStructure(n: Node): Node = n match {
     case Pure(n) => n
-    case Join(_, _, l, r, _, _) => ProductNode(narrowStructure(l), narrowStructure(r))
+    case Join(_, _, l, r, _, _) => ProductNode(Seq(narrowStructure(l), narrowStructure(r)))
     case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
     case FilteredQuery(_, from) => narrowStructure(from)
     case Bind(_, _, select) => narrowStructure(select)

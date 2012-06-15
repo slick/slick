@@ -22,7 +22,7 @@ object ReconstructProducts extends (Node => Node) with Logging {
   private def findCommonRef(n: Node): Option[AnonSymbol] = n match {
     case Ref(sym: AnonSymbol) => Some(sym)
     case Select(in, _: ElementSymbol) => findCommonRef(in)
-    case ProductNode(ch @ _*) =>
+    case ProductNode(ch) =>
       val chref = ch.map(findCommonRef)
       if(chref.contains(None)) None
       else {
@@ -46,7 +46,7 @@ object ReconstructProducts extends (Node => Node) with Logging {
 
   /** Find the shape and common ref of a product if it exists */
   private def shapeFor(n: Node, expect: List[Int] = Nil): Option[PShape] = n match {
-    case ProductNode(ch @ _*) =>
+    case ProductNode(ch) =>
       val chsh = ch.zipWithIndex.map { case (c, i) => shapeFor(c, (i+1) :: expect) }
       if(chsh.contains(None)) None else Some(PProduct(chsh.map(_.get)))
     case ProductElements(idxs, _) =>
@@ -56,7 +56,7 @@ object ReconstructProducts extends (Node => Node) with Logging {
   /** Check if the shape matches the ref target */
   private def shapeMatches(s: PShape, t: Node): Boolean = (s, t) match {
     case (PLeaf, _) => true
-    case (PProduct(pch), ProductNode(nch @ _*)) if pch.length == nch.length =>
+    case (PProduct(pch), ProductNode(nch)) if pch.length == nch.length =>
       (pch, nch).zipped.map(shapeMatches).forall(identity)
     case (PProduct(pch), Join(_, _, left, right, _, _)) if pch.length == 2 =>
       (pch, Seq(left, right)).zipped.map(shapeMatches).forall(identity)
@@ -69,7 +69,7 @@ object ReconstructProducts extends (Node => Node) with Logging {
     def narrow(n: Node): Option[Pure] = n match {
       case n: Pure => Some(n)
       case n: Join =>
-        Some(Pure(ProductNode(n, n))) // dummy value with correct shape
+        Some(Pure(ProductNode(Seq(n, n)))) // dummy value with correct shape
       case Union(left, _, _, _, _) => narrow(left)
       case FilteredQuery(_, from) => narrow(from)
       case Bind(_, _, select) => narrow(select)

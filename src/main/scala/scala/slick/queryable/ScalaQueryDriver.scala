@@ -73,11 +73,11 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         }
       }
 
-      def * = sq.ProductNode(columns: _*)
-      def nodeShaped_* = ShapedValue(sq.ProductNode(columns: _*), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
+      def * = sq.ProductNode(columns)
+      def nodeShaped_* = ShapedValue(sq.ProductNode(columns), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
     }
 
-    new Query( sq.Bind(sq_symbol, table, sq.Pure(sq.ProductNode(columns:_*))), Scope() )
+    new Query( sq.Bind(sq_symbol, table, sq.Pure(sq.ProductNode(columns))), Scope() )
   }
   /*  def apply( tree:Tree, queryable:Queryable[_] ) : Query = {
     this.apply(tree,queryable.query.scope)

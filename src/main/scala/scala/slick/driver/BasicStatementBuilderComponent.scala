@@ -49,7 +49,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def toComprehension(n: Node, liftExpression: Boolean = false): Comprehension = n match {
-      case Comprehension(Seq(), Seq(), Seq(), Some(Pure(ProductNode(CountAll(q)))), None, None) =>
+      case Comprehension(Seq(), Seq(), Seq(), Some(Pure(ProductNode(Seq(CountAll(q))))), None, None) =>
         Comprehension(from = Seq(newSym -> q), select = Some(Pure(CountStar)))
       case c : Comprehension => c
       case p: Pure =>
@@ -81,7 +81,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
             buildSelectPart(n)
             b += " as " += symbolName(sym)
           }
-        case Some(Pure(ProductNode(ch @ _*))) =>
+        case Some(Pure(ProductNode(ch))) =>
           b.sep(ch, ", ")(buildSelectPart)
         case Some(Pure(n)) => buildSelectPart(n)
         case None =>
@@ -207,7 +207,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
         }
         if(!skipParens) b += ')'
-      case ProductNode(ch @ _*) =>
+      case ProductNode(ch) =>
         if(!skipParens) b += '('
         b.sep(ch, ", ")(expr(_))
         if(!skipParens) b += ')'
@@ -312,7 +312,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       val (gen, from, where, select) = ast match {
         case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select)), None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
-          case ProductNode(ch @ _*) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
+          case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
           case _ => throw new SLICKException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
         }

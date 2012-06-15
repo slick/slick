@@ -14,9 +14,9 @@ object PathRewriter extends (Node => Node) with Logging {
 
   def apply(n: Node): Node = {
     def flattenToStruct(n: Node): (Node, Vector[(Symbol, Node)]) = n match {
-      case ProductNode(ch @ _*) =>
+      case ProductNode(ch) =>
         val chf = ch.map(flattenToStruct)
-        (ProductNode(chf.map(_._1): _*), chf.map(_._2).foldLeft[Vector[(Symbol, Node)]](Vector())(_ ++ _))
+        (ProductNode(chf.map(_._1)), chf.map(_._2).foldLeft[Vector[(Symbol, Node)]](Vector())(_ ++ _))
       case n =>
         val sym = new AnonSymbol
         (Ref(sym), Vector((sym, n)))
@@ -72,7 +72,7 @@ object PathRewriter extends (Node => Node) with Logging {
             flattened += List(ref) -> mapping
             StructNode(repl)
           case None =>
-            ProductNode(x2.flattenProduct: _*)
+            ProductNode(x2.flattenProduct)
         }
         Bind(gen, from2, Pure(pure2))
       case b @ Bind(gen, from, sel) =>
@@ -125,7 +125,7 @@ object PathRewriter extends (Node => Node) with Logging {
 
   def findFieldSymbol(n: Node, path: List[Symbol]): Symbol = (path, n) match {
     case (Nil, Ref(sym)) => sym
-    case (ElementSymbol(idx) :: t, ProductNode(ch @ _*)) => findFieldSymbol(ch(idx-1), t)
+    case (ElementSymbol(idx) :: t, ProductNode(ch)) => findFieldSymbol(ch(idx-1), t)
     case _ => throw new SLICKException("Illegal "+Path.toString(path)+" into TableExpansion structure")
   }
 
