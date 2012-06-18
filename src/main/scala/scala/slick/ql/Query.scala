@@ -134,7 +134,7 @@ object CanBeQueryCondition {
 class WrappingQuery[+E, U](val nodeDelegate: Node, val base: ShapedValue[_ <: E, U]) extends Query[E, U] {
   lazy val unpackable = {
     val nt = nodeDelegate
-    val sym = GlobalSymbol.forNode(nt)
+    val sym = nt.nodeIntrinsicSymbol
     base.endoMap(n => WithOp.encodeRef(n, sym))
   }
 }

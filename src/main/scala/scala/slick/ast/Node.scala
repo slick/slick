@@ -4,7 +4,7 @@ import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
 import scala.slick.SLICKException
 import scala.slick.ql.{ConstColumn, ShapedValue}
 import scala.slick.util.SimpleTypeName
-import scala.collection.mutable.{HashSet, ArrayBuffer, HashMap}
+import scala.collection.mutable.ArrayBuffer
 import opt.Util.nodeToNodeOps
 
 trait NodeGenerator {
@@ -40,6 +40,27 @@ trait Node extends NodeGenerator {
       if(args.isEmpty) n else (n + ' ' + args)
     case _ => super.toString
   }
+
+  private var intrinsicSymbol: GlobalSymbol = _
+
+  def nodeIntrinsicSymbol: GlobalSymbol = {
+    if(intrinsicSymbol eq null) {
+      synchronized {
+        if(intrinsicSymbol eq null) {
+          val s = new GlobalSymbol(this)
+          intrinsicSymbol = s
+        }
+      }
+    }
+    intrinsicSymbol
+  }
+
+  override def clone(): this.type = {
+    val c = super.clone.asInstanceOf[this.type]
+    c.intrinsicSymbol = null
+    c.asInstanceOf[this.type]
+  }
+
 }
 
 trait SimpleNode extends Node {

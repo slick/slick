@@ -104,7 +104,7 @@ final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, 
   def raw = RawNamedColumn(name)(options, implicitly[TypeMapper[T]])
   override def nodeDelegate = Select(Node(table) match {
     case r: Ref => r
-    case _ => Ref(GlobalSymbol.forNode(table))
+    case _ => Ref(table.nodeIntrinsicSymbol)
   }, raw.symbol)
 }
 

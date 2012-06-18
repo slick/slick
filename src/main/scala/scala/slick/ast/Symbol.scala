@@ -2,8 +2,6 @@ package scala.slick.ast
 
 import opt.Util._
 import scala.slick.ql.RawNamedColumn
-import scala.slick.util.WeakIdentityHashMap
-import java.lang.ref.WeakReference
 
 /** A symbol which can be used in the AST. */
 abstract class Symbol {
@@ -58,29 +56,6 @@ class GlobalSymbol(val target: Node) extends AnonSymbol {
 
 object GlobalSymbol {
   def unapply(g: GlobalSymbol) = Some(g.name, g.target)
-
-  // Keep symbols around as long as the Node and the existing Symbol are
-  // reachable. We can safely create a new Symbol when no references are left
-  // to the old one. We must not keep hard references to Symbols, so that
-  // GlobalSymbol#target will not prevent Nodes from being garbage-collected.
-  private val symbols = new WeakIdentityHashMap[Node, WeakReference[GlobalSymbol]]
-
-  private def newSym(n: Node): GlobalSymbol = {
-    val sym = new GlobalSymbol(n)
-    symbols.update(n, new WeakReference(sym))
-    sym
-  }
-
-  /** Return the GlobalSymbol for the given Node */
-  def forNode(n: Node): GlobalSymbol = symbols.synchronized {
-    val g: GlobalSymbol = symbols.get(n) match {
-      case Some(wr) =>
-        val sym = wr.get()
-        if(sym eq null) newSym(n) else sym
-      case None => newSym(n)
-    }
-    g
-  }
 }
 
 /** A reference to a Symbol */
