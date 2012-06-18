@@ -60,6 +60,20 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     // Work-around for SI-3346
     @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
   }
+
+  class SimpleQL extends Implicits with scala.slick.ql.Aliases {
+    type Table[T] = driver.Table[T]
+    type Database = scala.slick.session.Database
+    val Database = scala.slick.session.Database
+    type Session = scala.slick.session.Session
+    type SLICKException = scala.slick.SLICKException
+  }
+
+  /** A collection of values for using the query language with a single import
+    * statement. This provides the driver's implicits, the Database and
+    * Session objects for DB connections, and commonly used query language
+    * types and objects. */
+  val simple = new SimpleQL
 }
 
 trait BasicDriver extends BasicProfile
