@@ -7,8 +7,8 @@ organization := "com.typesafe"
 version := "0.10.0-SNAPSHOT"
 
 //scalaVersion := "2.10.0-unknown-unknown"
-scalaVersion := "2.10.0-SNAPSHOT"
-//scalaVersion := "2.10.0-M3"
+//scalaVersion := "2.10.0-SNAPSHOT"
+scalaVersion := "2.10.0-M4"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 
@@ -63,11 +63,11 @@ pomIncludeRepository := { _ => false }
 
 description := "A type-safe database API for Scala"
 
-homepage := Some(url("https://github.com/typesafehub/slick/wiki"))
+homepage := Some(url("https://github.com/slick/slick/wiki"))
 
 startYear := Some(2008)
 
-licenses += ("Two-clause BSD-style license", url("http://github.com/typesafehub/slick/blob/master/LICENSE.txt"))
+licenses += ("Two-clause BSD-style license", url("http://github.com/slick/slick/blob/master/LICENSE.txt"))
 
 pomExtra :=
   <developers>
@@ -85,8 +85,8 @@ pomExtra :=
     </developer>
   </developers>
   <scm>
-    <url>git@github.com:typesafehub/slick.git</url>
-    <connection>scm:git:git@github.com:typesafehub/slick.git</connection>
+    <url>git@github.com:slick/slick.git</url>
+    <connection>scm:git:git@github.com:slick/slick.git</connection>
   </scm>
 
 // Work around scaladoc problem
