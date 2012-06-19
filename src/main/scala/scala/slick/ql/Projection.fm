@@ -48,7 +48,7 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = proj.updateResult(profile, rs, g(value).get)
   def getLinearizedNodes = proj.getLinearizedNodes
 
-  protected[this] def nodeRebuild(child: Node): Node = copy[T, P](child = child)()
+  protected[this] def nodeRebuild(child: Node): Node = copy[T, P](child = child)(proj)
 
   override def hashCode() = child.hashCode() + f.hashCode() + g.hashCode()
   override def equals(o: Any) = o match {

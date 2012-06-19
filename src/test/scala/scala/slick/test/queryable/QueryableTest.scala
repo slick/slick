@@ -202,8 +202,6 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       => ()
     }
     
-    // BLOCKED by "[error] failed to typecheck against macro def return type: not found: value free$q8"
-/*
       // nesting
       q.map(e1 => q.map(e2=>e1))
        .assertQuery {
@@ -228,7 +226,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
           case Filter(
                   sym1a,
                   ExpandedTable("COFFEES"),
-                  Op( ">", FieldRef(sym1b, ColumnName("COF_SALES")), ConstColumn(5) )
+                  Op( ">", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
           )
           if sym1a == sym1b
           => ()
@@ -240,7 +238,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
                sym1a,
                ExpandedTable("COFFEES"),
                Pure(
-                 FieldRef( sym1b, ColumnName("COF_NAME") )
+                 Select(Ref( sym1b), ColumnName("COF_NAME") )
                )
         )
         if sym1a == sym1b
@@ -256,7 +254,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
                  sym2a,
                  ExpandedTable("COFFEES"),
                  Pure(
-                   FieldRef( sym2b, ColumnName("COF_NAME") )
+                   Select(Ref( sym2b), ColumnName("COF_NAME") )
         )))
         if sym1a != sym2a && sym2a == sym2b
         => ()
@@ -274,7 +272,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
                  sym2a,
                  ExpandedTable("COFFEES"),
                  Pure(
-                   FieldRef( sym1b, ColumnName("COF_NAME") )
+                   Select(Ref( sym1b), ColumnName("COF_NAME") )
         )))
         if sym1a != sym2a && sym1a == sym1b
         => ()
@@ -294,11 +292,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
                    sym2a,
                    ExpandedTable("COFFEES"),
                    Op( "==",
-                       FieldRef( sym2b, ColumnName("COF_SALES") ),
-                       FieldRef( sym1b, ColumnName("COF_SALES") )
+                       Select(Ref( sym2b), ColumnName("COF_SALES") ),
+                       Select(Ref( sym1b), ColumnName("COF_SALES") )
                  )),
                  Pure(
-                   FieldRef( sym3b, ColumnName("COF_NAME") )
+                   Select(Ref( sym3b), ColumnName("COF_NAME") )
         )))
         if sym1a != sym2a && sym2a != sym3a && sym1a == sym1b && sym3a == sym3b
         => ()
@@ -306,7 +304,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       q.flatMap(o => q.filter( i => i.sales == o.sales ).map(i => i.name)) .assertQuery{ pattern3 }
                (for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
       Queryable(for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
-*/
+
     /*
       //FAILS:
       (for( o <- Queryable[CoffeesTable];
