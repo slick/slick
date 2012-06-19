@@ -32,4 +32,5 @@ trait Aliases {
   val TypeMapperDelegate = ql.TypeMapperDelegate
   type MappedTypeMapper[T, U] = ql.MappedTypeMapper[T, U]
   val MappedTypeMapper = ql.MappedTypeMapper
+  val ~ = ql.~
 }
