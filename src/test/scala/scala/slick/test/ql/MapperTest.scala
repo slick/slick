@@ -77,8 +77,13 @@ class MapperTest(val tdb: TestDB) extends DBTest {
       println("Update: "+updateQ.updateStatement)
       updateQ.update(Data(7, 8))
 
+      val updateQ2 = Ts.where(_.a === 3).map(identity)
+      Dump(updateQ2, "updateQ2: ")
+      println("Update2: "+updateQ2.updateStatement)
+      updateQ2.update(Data(9, 10))
+
       assertEquals(
-        Set(Data(7, 8), Data(3, 4), Data(5, 6)),
+        Set(Data(7, 8), Data(9, 10), Data(5, 6)),
         Query(Ts).list.toSet
       )
     }

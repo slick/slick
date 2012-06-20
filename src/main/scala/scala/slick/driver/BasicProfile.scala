@@ -52,7 +52,7 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     // We should really constrain the 2nd type parameter of Query but that won't
     // work for queries on implicitly lifted tables. This conversion is needed
     // for mapped tables.
-    implicit def tableQueryToUpdateInvoker[T](q: Query[_ <: Table[T], _]): UpdateInvoker[T] = new UpdateInvoker(q.asInstanceOf[Query[Table[T], T]])
+    implicit def tableQueryToUpdateInvoker[T](q: Query[_ <: Table[T], NothingContainer#TableNothing]): UpdateInvoker[T] = new UpdateInvoker(q.asInstanceOf[Query[Table[T], T]])
 
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T](q: Query[_ <: ColumnBase[T], T]): UpdateInvoker[T] = new UpdateInvoker(q)
