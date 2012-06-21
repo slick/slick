@@ -62,14 +62,16 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
         (c.fetch, c.offset) match {
           case (Some(t), Some(d)) => b += (d+t)
           case (Some(t), None   ) => b += t
-          case (None,    Some(d)) => b += "100 percent"
+          case (None,    _      ) => b += "100 percent"
         }
         b += " "
-        c2.select match { case Some(Pure(StructNode(ch))) =>
-          b.sep(ch.filter { case (_, x) => x != RowNum }, ", ") {
-            case (sym, StarAndRowNum) => b += "*"
-            case (sym, _) => b += symbolName(sym)
-          }
+        c2.select match {
+          case Some(Pure(StructNode(ch))) =>
+            b.sep(ch.filter { case (_, x) => x != RowNum }, ", ") {
+              case (sym, StarAndRowNum) => b += "*"
+              case (sym, _) => b += symbolName(sym)
+            }
+          case o => throw new SLICKException("Unexpected node "+o+" in SELECT slot of "+c)
         }
         b += " from ("
         super.buildComprehension(c2)
@@ -78,6 +80,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
           case (Some(t), Some(d)) => b += " between " += (d+1L) += " and " += (t+d)
           case (Some(t), None   ) => b += " between 1 and " += t
           case (None,    Some(d)) => b += " > " += d
+          case _ => throw new SLICKException("Unexpected empty fetch/offset")
         }
         b += " order by " += rn
       }

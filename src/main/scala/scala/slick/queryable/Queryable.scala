@@ -92,4 +92,5 @@ class Queryable[T](
 
   def _filter_placeholder( projection: T => Boolean ) : Queryable[T] = ???
   def filter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
+  def withFilter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
 }

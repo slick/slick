@@ -87,6 +87,8 @@ object Optimizer extends Logging {
         case Some(s) => if(s eq a) r else Ref(s)
         case None => r
       }
+      case l: LetDynamic =>
+        throw new SLICKException("Dynamic scopes should be eliminated before assigning unique symbols")
       case d: DefNode =>
         var defs = replace
         d.nodeMapScopedChildren { (symO, ch) =>
@@ -102,8 +104,6 @@ object Optimizer extends Logging {
           case a: AnonSymbol => defs.getOrElse(a, a)
           case s => s
         }
-      case l: LetDynamic =>
-        throw new SLICKException("Dynamic scopes should be eliminated before assigning unique symbols")
       case n => n.nodeMapChildren(tr(_, replace))
     }
     tr(tree, Map())

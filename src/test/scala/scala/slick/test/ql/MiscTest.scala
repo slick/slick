@@ -35,10 +35,14 @@ class MiscTest(val tdb: TestDB) extends DBTest {
       q2.foreach(println _)
       assertEquals(q2.to[Set], Set(("2", "a"), ("3", "b")))
 
+      // No need to test that the unexpected result is actually unexpected
+      // now that the compiler prints a warning about it
+      /*
       val q3 = for(t <- T if (t.a != "1") || (t.b != "a")) yield t
       println("q3: "+q3.selectStatement) // Hah, not what you expect!
       q3.foreach(println _)
       assertEquals(q3.to[Set], Set(("1", "a"), ("2", "a"), ("3", "b")))
+      */
 
       val q4 = for(t <- T if t.a =!= "1" || t.b =!= "a") yield t
       println("q4: "+q4.selectStatement)
