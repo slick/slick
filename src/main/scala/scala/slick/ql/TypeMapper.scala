@@ -2,7 +2,7 @@ package scala.slick.ql
 
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.driver.BasicProfile
 import scala.slick.session.{PositionedParameters, PositionedResult}
 
@@ -112,7 +112,7 @@ object TypeMapper {
 
 trait BaseTypeMapper[T] extends TypeMapper[T] {
   def getBaseTypeMapper[U](implicit ev: Option[U] =:= T) =
-    throw new SLICKException("A BaseTypeMapper should not have an Option type")
+    throw new SlickException("A BaseTypeMapper should not have an Option type")
 }
 
 abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[Option[T]]
@@ -138,7 +138,7 @@ trait TypeMapperDelegate[T] { self =>
    * The default name for the SQL type that is used for column declarations.
    */
   def sqlTypeName: String = TypeMapperDelegate.typeNames.getOrElse(sqlType,
-    throw new SLICKException("No SQL type name found in java.sql.Types for code "+sqlType))
+    throw new SlickException("No SQL type name found in java.sql.Types for code "+sqlType))
   /**
    * Set a parameter of the type.
    */

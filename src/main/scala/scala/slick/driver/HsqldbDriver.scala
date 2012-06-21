@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import java.sql.Types
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
@@ -15,7 +15,7 @@ import scala.slick.util.ValueLinearizer
  * <ul>
  *   <li><code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported by Hsqldb. Trying to generate SQL code which uses this
- *     feature throws a SLICKException.</li>
+ *     feature throws a SlickException.</li>
  * </ul>
  * 
  * @author szeiger
@@ -49,7 +49,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
       /* Hsqldb uses the SQL:2008 syntax for NEXTVAL */
       case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
 
-      case Sequence.Currval(seq) => throw new SLICKException("Hsqldb does not support CURRVAL")
+      case Sequence.Currval(seq) => throw new SlickException("Hsqldb does not support CURRVAL")
 
       case _ => super.expr(c, skipParens)
     }

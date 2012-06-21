@@ -2,7 +2,7 @@ package scala.slick.jdbc
 
 import scala.collection.mutable.ArrayBuffer
 import java.sql.{PreparedStatement, ResultSet, Date, Time, Timestamp}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.session.{PositionedParameters, PositionedResult}
 
 /**
@@ -74,7 +74,7 @@ class DynamicUpdate extends DynamicQueryBase[Int,DynamicUpdate] {
   def update = this ~ "update"
   def update(s: String) = this ~ "update" ~ s
   protected def extractValue(rs: PositionedResult): Int =
-    throw new SLICKException("DynamicUpdate.extractValue called; Non-query statements should not return a ResultSet")
+    throw new SlickException("DynamicUpdate.extractValue called; Non-query statements should not return a ResultSet")
 }
 
 @deprecated("Use StaticQuery instead", "0.10")

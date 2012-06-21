@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.ql.{ConstColumn, ShapedValue}
 import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.ArrayBuffer
@@ -79,7 +79,7 @@ object Node {
       if(gen.nodeDelegate eq gen) gen.nodeDelegate else Node(gen.nodeDelegate)
     }
     else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product].productIterator.toSeq)
-    else throw new SLICKException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
+    else throw new SlickException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
 }
 
 trait ProductNode extends SimpleNode {

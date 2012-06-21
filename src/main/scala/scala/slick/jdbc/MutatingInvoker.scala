@@ -1,6 +1,6 @@
 package scala.slick.jdbc
 
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.session._
 
 trait MutatingInvoker[-P,R] extends Invoker[P,R] { self =>
@@ -41,7 +41,7 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
       /* Hsqldb forces ResultSets to be read-only in auto-commit mode, so we
        * use an explicit transaction. It shouldn't hurt other databases. */
       results(param, 0, defaultConcurrency = mutateConcurrency, defaultType = mutateType).fold(
-        _ => throw new SLICKException("Cannot transform an update result"),
+        _ => throw new SlickException("Cannot transform an update result"),
         pr => try {
           val rs = pr.rs
           var current: R = null.asInstanceOf[R]
@@ -70,9 +70,9 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
           }
           if(end ne null) {
             end(new ResultSetMutator[R] {
-              def row = throw new SLICKException("After end of result set")
-              def row_=(value: R) = throw new SLICKException("After end of result set")
-              def delete() = throw new SLICKException("After end of result set")
+              def row = throw new SlickException("After end of result set")
+              def row_=(value: R) = throw new SlickException("After end of result set")
+              def delete() = throw new SlickException("After end of result set")
               def insert(value: R) {
                 rs.moveToInsertRow()
                 pr.restart

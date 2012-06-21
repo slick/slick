@@ -1,6 +1,6 @@
 package scala.slick.util.iter
 
-import scala.slick.SLICKException
+import scala.slick.SlickException
 
 /**
  * An iteratee for DB results.
@@ -8,7 +8,7 @@ import scala.slick.SLICKException
 sealed trait IterV[E, +A] {
   def runOption: Option[A]
 
-  def run = runOption.getOrElse(throw new SLICKException("Diverging iteratee"))
+  def run = runOption.getOrElse(throw new SlickException("Diverging iteratee"))
 
   def map[B](f: A => B): IterV[E, B]
 

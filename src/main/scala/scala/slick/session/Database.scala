@@ -5,7 +5,7 @@ import java.sql._
 import javax.sql.DataSource
 import javax.naming.InitialContext
 import scala.util.DynamicVariable
-import scala.slick.SLICKException
+import scala.slick.SlickException
 
 /**
  * A database instance to which connections can be created.
@@ -87,7 +87,7 @@ object Database {
    */
   def forName(name: String) = new InitialContext().lookup(name) match {
     case ds: DataSource => forDataSource(ds)
-    case x => throw new SLICKException("Expected a DataSource for JNDI name "+name+", but got "+x)
+    case x => throw new SlickException("Expected a DataSource for JNDI name "+name+", but got "+x)
   }
 
   /**

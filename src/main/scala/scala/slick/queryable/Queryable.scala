@@ -3,7 +3,7 @@ package scala.slick.queryable
 import scala.language.experimental.macros
 
 import scala.reflect.makro.Context
-import scala.slick.SLICKException
+import scala.slick.SlickException
 
 import scala.annotation.StaticAnnotation
 
@@ -22,7 +22,7 @@ object Queryable{
   }
 }
 
-class UnsupportedMethodException(msg : String = "" ) extends SLICKException(msg)
+class UnsupportedMethodException(msg : String = "" ) extends SlickException(msg)
 
 case class Utils[C <: Context]( c:C ) {
   import c.universe._

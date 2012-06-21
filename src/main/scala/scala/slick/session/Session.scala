@@ -1,7 +1,7 @@
 package scala.slick.session
 
 import java.sql.{PreparedStatement, Connection, DatabaseMetaData, Statement}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.util.Logging
 
 /**
@@ -115,7 +115,7 @@ class BaseSession private[session] (db: Database) extends Session {
   }
 
   def rollback() {
-    if(conn.getAutoCommit) throw new SLICKException("Cannot roll back session in auto-commit mode")
+    if(conn.getAutoCommit) throw new SlickException("Cannot roll back session in auto-commit mode")
     doRollback = true
   }
 

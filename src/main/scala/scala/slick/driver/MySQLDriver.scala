@@ -1,6 +1,6 @@
 package scala.slick.driver
 
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
@@ -88,7 +88,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       val start = seq._start.getOrElse(if(desc) maxValue else minValue)
       val beforeStart = start - increment
       if(!seq._cycle && (seq._minValue.isDefined && desc || seq._maxValue.isDefined && !desc))
-        throw new SLICKException("Sequences with limited size and without CYCLE are not supported by MySQLDriver's sequence emulation")
+        throw new SlickException("Sequences with limited size and without CYCLE are not supported by MySQLDriver's sequence emulation")
       val incExpr = if(seq._cycle) {
         if(desc) "if(id-"+(-increment)+"<"+minValue+","+maxValue+",id-"+(-increment)+")"
         else "if(id+"+increment+">"+maxValue+","+minValue+",id+"+increment+")"

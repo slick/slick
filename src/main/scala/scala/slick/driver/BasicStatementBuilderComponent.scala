@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import scala.language.existentials
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.util._
 import scala.slick.ql.{Join => _, _}
@@ -60,7 +60,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         Comprehension(from = Seq(newSym -> u))
       case n =>
         if(liftExpression) toComprehension(Pure(n))
-        else throw new SLICKException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
+        else throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
 
     protected def buildComprehension(c: Comprehension): Unit = {
@@ -246,7 +246,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += " like "
         expr(r)
         esc.foreach { ch =>
-          if(ch == '\'' || ch == '%' || ch == '_') throw new SLICKException("Illegal escape character '"+ch+"' for LIKE expression")
+          if(ch == '\'' || ch == '%' || ch == '_') throw new SlickException("Illegal escape character '"+ch+"' for LIKE expression")
           // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
           b += " escape '" += ch += "'"
         }
@@ -313,9 +313,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
-          case _ => throw new SLICKException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
+          case _ => throw new SlickException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
         }
-        case _ => throw new SLICKException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
+        case _ => throw new SlickException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
 
       val qtn = quoteIdentifier(from.tableName)
@@ -332,7 +332,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     def buildDelete: QueryBuilderResult = {
       val (gen, from, where) = ast match {
         case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select)), None, None) => (sym, from, where)
-        case _ => throw new SLICKException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
+        case _ => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
       val qtn = quoteIdentifier(from.tableName)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
@@ -378,17 +378,17 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case t:TableNode => f(Node(t.nodeShaped_*.value))
         case n:NamedColumn[_] =>
           if(table eq null) table = n.table.asInstanceOf[TableNode].tableName
-          else if(table != n.table.asInstanceOf[TableNode].tableName) throw new SLICKException("Inserts must all be to the same table")
+          else if(table != n.table.asInstanceOf[TableNode].tableName) throw new SlickException("Inserts must all be to the same table")
           appendNamedColumn(n.raw, cols, vals)
         case Select(Ref(GlobalSymbol(_, t: TableNode)), field: FieldSymbol) =>
           val n = field.column.get
           if(table eq null) table = t.tableName
-          else if(table != t.tableName) throw new SLICKException("Inserts must all be to the same table")
+          else if(table != t.tableName) throw new SlickException("Inserts must all be to the same table")
           appendNamedColumn(n, cols, vals)
-        case _ => throw new SLICKException("Cannot use column "+c+" in INSERT statement")
+        case _ => throw new SlickException("Cannot use column "+c+" in INSERT statement")
       }
       f(Node(column))
-      if(table eq null) throw new SLICKException("No table to insert into")
+      if(table eq null) throw new SlickException("No table to insert into")
       (table, cols, vals)
     }
 
@@ -410,7 +410,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildDDL: DDL = {
       if(primaryKeys.size > 1)
-        throw new SLICKException("Table "+table.tableName+" defines multiple primary keys ("
+        throw new SlickException("Table "+table.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
       new DDL {
         val createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
@@ -498,8 +498,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           else sb append ","
           sb append quoteIdentifier(n.name)
           if(requiredTableName != t.tableName)
-            throw new SLICKException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
-        case _ => throw new SLICKException("Cannot use column "+c+" in "+typeInfo+" (only named columns are allowed)")
+            throw new SlickException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
+        case _ => throw new SlickException("Cannot use column "+c+" in "+typeInfo+" (only named columns are allowed)")
       }
     }
   }

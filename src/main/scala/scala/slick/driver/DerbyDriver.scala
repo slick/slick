@@ -1,6 +1,6 @@
 package scala.slick.driver
 
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.util.ValueLinearizer
@@ -15,7 +15,7 @@ import scala.slick.util.ValueLinearizer
  *     will return an empty string instead.</li>
  *   <li><code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported by Derby. Trying to generate SQL code which uses this
- *     feature throws a SLICKException.</li>
+ *     feature throws a SlickException.</li>
  *   <li>Sequence cycling is supported but does not conform to SQL:2008
  *     semantics. Derby cycles back to the START value instead of MINVALUE or
  *     MAXVALUE.</li>
@@ -46,7 +46,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
           expr(l)
           b += " as " += mapTypeName(c.typeMapper(driver)) += "),"
           expr(r, true); b += ")"
-        case _ => throw new SLICKException("Cannot determine type of right-hand side for ifNull")
+        case _ => throw new SlickException("Cannot determine type of right-hand side for ifNull")
       }
       case c @ BindColumn(v) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
@@ -58,7 +58,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         b +?= { (p, param) => tmd.setValue(v, p) }
         b += " as " += mapTypeName(tmd) += ")"
       case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
-      case Sequence.Currval(seq) => throw new SLICKException("Derby does not support CURRVAL")
+      case Sequence.Currval(seq) => throw new SlickException("Derby does not support CURRVAL")
       case EscFunction("database") => b += "''"
       case _ => super.expr(c, skipParens)
     }

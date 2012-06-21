@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import java.sql.{Statement, PreparedStatement}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.ql.{Query, Shape, ShapedValue}
 import scala.slick.session.{Session, PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
@@ -77,7 +77,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
           for((res, idx) <- st.executeBatch().zipWithIndex) res match {
             case Statement.SUCCESS_NO_INFO => unknown = true
             case Statement.EXECUTE_FAILED =>
-              throw new SLICKException("Failed to insert row #" + (idx+1))
+              throw new SlickException("Failed to insert row #" + (idx+1))
             case i => count += i
           }
           if(unknown) None else Some(count)

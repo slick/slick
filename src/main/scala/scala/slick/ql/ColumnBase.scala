@@ -1,7 +1,7 @@
 package scala.slick.ql
 
 import scala.language.existentials
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.driver.BasicProfile
 import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast._
@@ -31,13 +31,13 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   def orElse(n: =>T): Column[T] = new WrappedColumn[T](this) {
     override def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValueOrElse(n, rs)
   }
-  final def orFail = orElse { throw new SLICKException("Read NULL value for column "+this) }
+  final def orFail = orElse { throw new SlickException("Read NULL value for column "+this) }
   def ? : Column[Option[T]] = new WrappedColumn(this)(typeMapper.createOptionTypeMapper)
 
   def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(typeMapper.getBaseTypeMapper) {
     override def getResult(profile: BasicProfile, rs: PositionedResult): U = typeMapper(profile).nextValueOrElse(n, rs)
   }
-  def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SLICKException("Read NULL value for column "+this) }
+  def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   // Functions which don't need an OptionMapper

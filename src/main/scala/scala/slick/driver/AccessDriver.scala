@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.language.implicitConversions
 import scala.slick.ql._
 import scala.slick.ast._
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.session.{PositionedParameters, PositionedResult, ResultSetType}
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
@@ -19,13 +19,13 @@ import scala.slick.util.ValueLinearizer
  *   <li><code>O.Default</code> is not supported because Access does not allow
  *     the definition of default values through ODBC but only via OLEDB/ADO.
  *     Trying to generate DDL SQL code which uses this feature throws a
- *     SLICKException.</li>
+ *     SlickException.</li>
  *   <li>All foreign key actions are ignored. Access supports CASCADE and
  *     SET NULL but not through ODBC, only via OLEDB/ADO.</li>
  *   <li><code>Take(n)</code> modifiers are mapped to <code>SELECT TOP n</code>
  *     which may return more rows than requested if they are not unique.</li>
  *   <li><code>Drop(n)</code> modifiers are not supported. Trying to generate
- *     SQL code which uses this feature throws a SLICKException.</li>
+ *     SQL code which uses this feature throws a SlickException.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in Access. SLICK will return empty strings for
  *     both.</li>
@@ -62,7 +62,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     val pi = "3.1415926535897932384626433832795"
 
     override protected def buildComprehension(c: Comprehension) =
-      if(c.offset.isDefined) throw new SLICKException("Access does not support drop(...) calls")
+      if(c.offset.isDefined) throw new SlickException("Access does not support drop(...) calls")
       else super.buildComprehension(c)
 
     override protected def buildSelectModifiers(c: Comprehension) {
@@ -111,7 +111,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
           b += "clng("; expr(ch); b += ')'
         case _ =>
           val tn = name.getOrElse(mapTypeName(a.typeMapper(driver)))
-          throw new SLICKException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
+          throw new SlickException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
       }
       case EscFunction("user") => b += "''"
       case EscFunction("database") => b += "''"
@@ -160,7 +160,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
 
     override protected def appendOptions(sb: StringBuilder) {
       if(notNull) sb append " NOT NULL"
-      if(defaultLiteral ne null) throw new SLICKException("Default values are not supported by AccessDriver")
+      if(defaultLiteral ne null) throw new SlickException("Default values are not supported by AccessDriver")
       if(primaryKey) sb append " PRIMARY KEY"
     }
   }

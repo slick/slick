@@ -2,7 +2,7 @@ package scala.slick.ql
 
 import scala.language.existentials
 import scala.annotation.implicitNotFound
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.util.{ProductLinearizer, ValueLinearizer, NaturalTransformation2, RecordLinearizer}
 import slick.ast.{TableNode, Node}
 
@@ -33,7 +33,7 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
   def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed
 
   protected[this] def impureShape =
-    throw new SLICKException("Shape does not have the same Mixed and Unpacked type")
+    throw new SlickException("Shape does not have the same Mixed and Unpacked type")
 }
 
 object Shape extends ShapeLowPriority {

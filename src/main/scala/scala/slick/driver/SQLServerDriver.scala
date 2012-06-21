@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.slick.ql._
 import scala.slick.ast._
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import java.sql.{Timestamp, Time, Date}
 import scala.slick.session.{PositionedParameters, PositionedResult, ResultSetType}
 import scala.slick.util.ValueLinearizer
@@ -71,7 +71,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
               case (sym, StarAndRowNum) => b += "*"
               case (sym, _) => b += symbolName(sym)
             }
-          case o => throw new SLICKException("Unexpected node "+o+" in SELECT slot of "+c)
+          case o => throw new SlickException("Unexpected node "+o+" in SELECT slot of "+c)
         }
         b += " from ("
         super.buildComprehension(c2)
@@ -80,7 +80,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
           case (Some(t), Some(d)) => b += " between " += (d+1L) += " and " += (t+d)
           case (Some(t), None   ) => b += " between 1 and " += t
           case (None,    Some(d)) => b += " > " += d
-          case _ => throw new SLICKException("Unexpected empty fetch/offset")
+          case _ => throw new SlickException("Unexpected empty fetch/offset")
         }
         b += " order by " += rn
       }

@@ -4,7 +4,7 @@ package opt
 import scala.slick.util.Logging
 import Util._
 import scala.collection.mutable.{HashSet, HashMap}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 
 /**
  * Basic optimizers for the SLICK AST
@@ -49,7 +49,7 @@ object Optimizer extends Logging {
       logger.debug("Unique symbols:", n6)
     }
     if(n6.isInstanceOf[LetDynamic])
-      throw new SLICKException("Unexpected LetDynamic after Inliner")
+      throw new SlickException("Unexpected LetDynamic after Inliner")
     logger.debug("prepareTree finished")
     n6
   }
@@ -88,7 +88,7 @@ object Optimizer extends Logging {
         case None => r
       }
       case l: LetDynamic =>
-        throw new SLICKException("Dynamic scopes should be eliminated before assigning unique symbols")
+        throw new SlickException("Dynamic scopes should be eliminated before assigning unique symbols")
       case d: DefNode =>
         var defs = replace
         d.nodeMapScopedChildren { (symO, ch) =>

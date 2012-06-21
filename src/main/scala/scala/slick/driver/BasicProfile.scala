@@ -66,7 +66,7 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     type Database = scala.slick.session.Database
     val Database = scala.slick.session.Database
     type Session = scala.slick.session.Session
-    type SLICKException = scala.slick.SLICKException
+    type SlickException = scala.slick.SlickException
   }
 
   /** A collection of values for using the query language with a single import

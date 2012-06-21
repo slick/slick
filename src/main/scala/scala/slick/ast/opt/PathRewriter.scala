@@ -2,7 +2,7 @@ package scala.slick.ast
 package opt
 
 import Util._
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.util.Logging
 import scala.collection.mutable.{HashSet, HashMap}
 
@@ -126,7 +126,7 @@ object PathRewriter extends (Node => Node) with Logging {
   def findFieldSymbol(n: Node, path: List[Symbol]): Symbol = (path, n) match {
     case (Nil, Ref(sym)) => sym
     case (ElementSymbol(idx) :: t, ProductNode(ch)) => findFieldSymbol(ch(idx-1), t)
-    case _ => throw new SLICKException("Illegal "+Path.toString(path)+" into TableExpansion structure")
+    case _ => throw new SlickException("Illegal "+Path.toString(path)+" into TableExpansion structure")
   }
 
   def removeExpansion(n: Node) = n match {

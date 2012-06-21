@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.ql.TypeMapperDelegate
 import scala.slick.session.{PositionedParameters, PositionedResult}
 import java.util.UUID
@@ -45,7 +45,7 @@ trait BasicTypeMapperDelegatesComponent {
       def nextValue(r: PositionedResult) = r.nextBlob
       def updateValue(v: Blob, r: PositionedResult) = r.updateBlob(v)
       override def valueToSQLLiteral(value: Blob) =
-        throw new SLICKException("Blob does not have a literal representation")
+        throw new SlickException("Blob does not have a literal representation")
     }
 
     class ByteTypeMapperDelegate extends TypeMapperDelegate[Byte] {
@@ -65,7 +65,7 @@ trait BasicTypeMapperDelegatesComponent {
       def nextValue(r: PositionedResult) = r.nextBytes
       def updateValue(v: Array[Byte], r: PositionedResult) = r.updateBytes(v)
       override def valueToSQLLiteral(value: Array[Byte]) =
-        throw new SLICKException("Array[Byte] does not have a literal representation")
+        throw new SlickException("Array[Byte] does not have a literal representation")
     }
 
     class ClobTypeMapperDelegate extends TypeMapperDelegate[Clob] {
@@ -191,7 +191,7 @@ trait BasicTypeMapperDelegatesComponent {
       def nextValue(r: PositionedResult) = fromBytes(r.nextBytes())
       def updateValue(v: UUID, r: PositionedResult) = r.updateBytes(toBytes(v))
       override def valueToSQLLiteral(value: UUID): String =
-        throw new SLICKException("UUID does not support a literal representation")
+        throw new SlickException("UUID does not support a literal representation")
       def toBytes(uuid: UUID) = if(uuid eq null) null else {
         val msb = uuid.getMostSignificantBits
         val lsb = uuid.getLeastSignificantBits

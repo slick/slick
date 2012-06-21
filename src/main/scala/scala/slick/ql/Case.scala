@@ -1,7 +1,7 @@
 package scala.slick.ql
 
 import scala.slick.ast.{Node, BinaryNode}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 
 object Case {
 
@@ -31,7 +31,7 @@ object Case {
     def Then[B](res: Column[Option[B]]) = res.typeMapper match {
       case tmt: OptionTypeMapper[_] =>
         new TypedCase[B,Option[B]](IndexedSeq(new WhenNode(cond, Node(res))))(tmt.base, tmt)
-      case tm => throw new SLICKException("Unexpected non-Option TypeMapper "+tm+" for Option type")
+      case tm => throw new SlickException("Unexpected non-Option TypeMapper "+tm+" for Option type")
     }
     @deprecated("Use Then instead of then", "0.10.0-M2")
     def `then`[B](res: Column[Option[B]]) = Then(res)

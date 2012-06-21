@@ -3,7 +3,7 @@ package opt
 
 import scala.math.{min, max}
 import scala.collection.mutable.{HashMap, ArrayBuffer}
-import scala.slick.SLICKException
+import scala.slick.SlickException
 import scala.slick.util.Logging
 import scala.slick.ql.ConstColumn
 import Util._
@@ -129,7 +129,7 @@ object Relational extends Logging {
       case (Nil, n) => Vector(n)
       case ((s: AnonSymbol) :: t, StructNode(ch)) => select(t, ch.find{ case (s2,_) => s == s2 }.get._2)
       //case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
-      case _ => throw new SLICKException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
+      case _ => throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
     }
   }
 
