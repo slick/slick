@@ -54,14 +54,14 @@ object Optimizer extends Logging {
     n6
   }
 
-  /** Replace GlobalSymbols by AnonSymbols and collect them in a LetDynamic */
+  /** Replace IntrinsicSymbols by AnonSymbols and collect them in a LetDynamic */
   def localizeRefs(tree: Node): Node = {
     val map = new HashMap[AnonSymbol, Node]
     val newNodes = new HashMap[AnonSymbol, Node]
     val tr = new Transformer {
       def replace = {
         case r: RefNode => r.nodeMapReferences {
-          case GlobalSymbol(name, target) =>
+          case IntrinsicSymbol(target) =>
             val s = new AnonSymbol
             map += s -> target
             newNodes += s -> target

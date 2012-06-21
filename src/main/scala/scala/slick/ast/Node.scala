@@ -1,11 +1,9 @@
 package scala.slick.ast
 
-import java.io.{StringWriter, PrintWriter, OutputStreamWriter}
 import scala.slick.SlickException
 import scala.slick.ql.{ConstColumn, ShapedValue}
 import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.ArrayBuffer
-import opt.Util.nodeToNodeOps
 
 trait NodeGenerator {
   def nodeDelegate: Node
@@ -41,26 +39,7 @@ trait Node extends NodeGenerator {
     case _ => super.toString
   }
 
-  private var intrinsicSymbol: GlobalSymbol = _
-
-  def nodeIntrinsicSymbol: GlobalSymbol = {
-    if(intrinsicSymbol eq null) {
-      synchronized {
-        if(intrinsicSymbol eq null) {
-          val s = new GlobalSymbol(this)
-          intrinsicSymbol = s
-        }
-      }
-    }
-    intrinsicSymbol
-  }
-
-  override def clone(): this.type = {
-    val c = super.clone.asInstanceOf[this.type]
-    c.intrinsicSymbol = null
-    c.asInstanceOf[this.type]
-  }
-
+  def nodeIntrinsicSymbol = new IntrinsicSymbol(this)
 }
 
 trait SimpleNode extends Node {

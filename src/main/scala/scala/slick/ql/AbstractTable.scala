@@ -20,7 +20,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
       }
     }
     def scan(n:Node): Unit = n match {
-      case Select(Ref(GlobalSymbol(_, in)), f: FieldSymbol) if in == this => add(f.column.get)
+      case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == this => add(f.column.get)
       case n => n.nodeChildren.foreach(scan)
     }
     scan(Node(*))

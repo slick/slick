@@ -380,7 +380,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           if(table eq null) table = n.table.asInstanceOf[TableNode].tableName
           else if(table != n.table.asInstanceOf[TableNode].tableName) throw new SlickException("Inserts must all be to the same table")
           appendNamedColumn(n.raw, cols, vals)
-        case Select(Ref(GlobalSymbol(_, t: TableNode)), field: FieldSymbol) =>
+        case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
           val n = field.column.get
           if(table eq null) table = t.tableName
           else if(table != t.tableName) throw new SlickException("Inserts must all be to the same table")
@@ -492,7 +492,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) {
       var first = true
       for(c <- columns) c match {
-        case Select(Ref(GlobalSymbol(_, t: TableNode)), field: FieldSymbol) =>
+        case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
           val n = field.column.get
           if(first) first = false
           else sb append ","

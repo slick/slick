@@ -18,28 +18,33 @@ object Dump {
     val out = if(to eq null) new PrintWriter(new OutputStreamWriter(System.out)) else to
     val dc = new DumpContext(out)
     dc.dump(Node(n), prefix, name)
-    for(GlobalSymbol(name, node) <- dc.orphans)
-      dc.dump(node, prefix, "/"+name+": ")
+    for(i <- dc.orphans) dc.dump(i.target, prefix, "/"+i.name+": ")
     out.flush()
   }
 }
 
 class DumpContext(val out: PrintWriter) {
-  private[this] val refs = new HashSet[Symbol]
-  private[this] val defs = new HashSet[Symbol]
+  private[this] val refs = new HashSet[IntrinsicSymbol]
+  private[this] val defs = new HashSet[IntrinsicSymbol]
 
-  def addRef(s: Symbol) = refs.add(s)
-  def addDef(s: Symbol) = defs.add(s)
+  def addRef(s: Symbol) = s match {
+    case s: IntrinsicSymbol => refs.add(s)
+    case _ =>
+  }
+  def addDef(s: Symbol) = s match {
+    case s: IntrinsicSymbol => defs.add(s)
+    case _ =>
+  }
 
-  def orphans: Set[Symbol] = {
-    val newRefs = new HashSet[GlobalSymbol] ++ refs.collect { case g: GlobalSymbol => g }
+  def orphans: Set[IntrinsicSymbol] = {
+    val newRefs = new HashSet[IntrinsicSymbol] ++ refs.collect { case g: IntrinsicSymbol => g }
     def scan(): Unit = {
       val toScan = newRefs.toSet
       newRefs.clear()
       toScan.foreach { _.target.foreach {
         case r: RefNode =>
           r.nodeReferences.foreach {
-            case g: GlobalSymbol =>
+            case g: IntrinsicSymbol =>
               if(!refs.contains(g)) {
                 refs += g
                 newRefs += g

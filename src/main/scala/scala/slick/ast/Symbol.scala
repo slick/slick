@@ -50,12 +50,13 @@ object AnonSymbol {
   def unapply(a: AnonSymbol) = Some(a.name)
 }
 
-class GlobalSymbol(val target: Node) extends AnonSymbol {
-  override def toString = "/" + name
-}
-
-object GlobalSymbol {
-  def unapply(g: GlobalSymbol) = Some(g.name, g.target)
+case class IntrinsicSymbol(val target: Node) extends Symbol {
+  def name = "/"+System.identityHashCode(this)
+  override def hashCode = System.identityHashCode(target)
+  override def equals(o: Any) = o match {
+    case i: IntrinsicSymbol => target eq i.target
+    case _ => false
+  }
 }
 
 /** A reference to a Symbol */
