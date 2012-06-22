@@ -1,6 +1,7 @@
 package scala.slick.ql
 
-import scala.slick.ast.{AnonSymbol, Filter, Node, TableNode}
+import scala.slick.ast._
+import scala.slick.ast.Filter
 
 
 /**
@@ -72,8 +73,8 @@ class ForeignKeyQuery[E <: TableNode, U](
   def & (other: ForeignKeyQuery[E, U]): ForeignKeyQuery[E, U] = {
     val newFKs = fks ++ other.fks
     val conditions =
-      newFKs.map(fk => ColumnOps.Is(Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
-        reduceLeft(ColumnOps.And.apply _)
+      newFKs.map(fk => Library.==(Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
+        reduceLeft[Node]((a, b) => Library.And(a, b))
     val newDelegate = Filter(generator, Node(targetBaseQuery), conditions)
     new ForeignKeyQuery[E, U](newDelegate, base, newFKs, targetBaseQuery, generator, aliasedValue)
   }

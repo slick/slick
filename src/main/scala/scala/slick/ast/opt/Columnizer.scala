@@ -5,7 +5,7 @@ import Util._
 import scala.slick.util.Logging
 import scala.slick.ast.WithOp
 import scala.collection.mutable.HashMap
-import scala.slick.ql.Column
+import scala.slick.ql.{TypeMapper, Column}
 
 /**
  * Expand columns in queries.
@@ -32,6 +32,8 @@ object Columnizer extends (Node => Node) with Logging {
     def idBind(n: Node): Bind = n match {
       case c: Column[_] =>
         idBind(Pure(c))
+      case a: Apply =>
+        idBind(Pure(a))
       case p: Pure =>
         val gen = new AnonSymbol
         logger.debug("Introducing new Bind "+gen+" for Pure")

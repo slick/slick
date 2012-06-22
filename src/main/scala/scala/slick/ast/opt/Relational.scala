@@ -68,7 +68,7 @@ object Relational extends Logging {
       case Some(Pure(ProductNode(ch))) =>
         ch.map {
           case Path(_) => true
-          case c: ConstColumn[_] => true
+          case _: LiteralNode => true
           case _ => false
         }.forall(identity)
       case _ => false

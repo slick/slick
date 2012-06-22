@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import scala.slick.ql._
-import scala.slick.ast.Node
+import scala.slick.ast.{Library, Node}
 
 trait BasicTableComponent { driver: BasicDriver =>
 
@@ -28,7 +28,7 @@ trait BasicTableComponent { driver: BasicDriver =>
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {
         param <- Parameters[P]
-        table <- thisQ if ColumnOps.Is(Node(f(table)), Node(param))
+        table <- thisQ if Library.==.column[Boolean](Node(f(table)), Node(param))
       } yield table
     }
 

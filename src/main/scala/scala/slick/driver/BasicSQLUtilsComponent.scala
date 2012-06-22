@@ -1,11 +1,11 @@
 package scala.slick.driver
 
 import java.sql.Types._
-import scala.slick.ql.TypeMapperDelegate
+import scala.slick.ql.{TypeMapper, TypeMapperDelegate}
 import scala.collection.mutable.HashMap
 import scala.slick.ast.{AnonSymbol, Symbol}
 
-trait BasicSQLUtilsComponent {
+trait BasicSQLUtilsComponent { driver: BasicDriver =>
 
   def quoteIdentifier(id: String): String = {
     val s = new StringBuilder(id.length + 4) append '"'
@@ -13,9 +13,20 @@ trait BasicSQLUtilsComponent {
     (s append '"').toString
   }
 
+  def quote[T](v: T)(implicit tm: TypeMapper[T]): String = tm(driver).valueToSQLLiteral(v)
+
   def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case VARCHAR => "VARCHAR(254)"
     case _ => tmd.sqlTypeName
+  }
+
+  def likeEncode(s: String) = {
+    val b = new StringBuilder
+    for(c <- s) c match {
+      case '%' | '_' | '^' => b append '^' append c
+      case _ => b append c
+    }
+    b.toString
   }
 
   /** Provides names for symbols */

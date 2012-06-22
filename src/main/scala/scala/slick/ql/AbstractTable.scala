@@ -34,10 +34,10 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
     val q = Query[TT, U, TT](targetTable)(Shape.tableShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
     val aliased = q.unpackable.endoMap(x => WithOp.encodeRef(x, generator))
-    val fv = ColumnOps.Is(Node(targetColumns(aliased.value)), Node(sourceColumns))
+    val fv = Library.==(Node(targetColumns(aliased.value)), Node(sourceColumns))
     val fk = ForeignKey(name, this, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
-    new ForeignKeyQuery[TT, U](Filter(generator, Node(q), Node(fv)), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
+    new ForeignKeyQuery[TT, U](Filter(generator, Node(q), fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
   def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).narrowedLinearizer.getLinearizedNodes)

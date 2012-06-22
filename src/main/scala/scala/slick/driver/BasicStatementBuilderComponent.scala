@@ -7,6 +7,7 @@ import scala.slick.util._
 import scala.slick.ql.{Join => _, _}
 import scala.slick.ql.ColumnOps._
 import scala.collection.mutable.HashMap
+import scala.slick.ql.TypeMapper.StringTypeMapper
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
@@ -49,7 +50,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def toComprehension(n: Node, liftExpression: Boolean = false): Comprehension = n match {
-      case Comprehension(Seq(), Seq(), Seq(), Some(Pure(ProductNode(Seq(CountAll(q))))), None, None) =>
+      case Comprehension(Seq(), Seq(), Seq(), Some(Pure(ProductNode(Seq(Library.CountAll(q))))), None, None) =>
         Comprehension(from = Seq(newSym -> q), select = Some(Pure(CountStar)))
       case c : Comprehension => c
       case p: Pure =>
@@ -110,7 +111,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
         b += " where "
-        expr(where.reduceLeft(And), true)
+        expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
     }
 
@@ -132,7 +133,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
-      case c: Column[_] if useIntForBoolean && (c.typeMapper(profile) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
+      case Typed(t: TypeMapper[_]) if useIntForBoolean && (t(profile) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
         b += "case when "
         expr(n)
         b += " then 1 else 0 end"
@@ -173,30 +174,17 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       case ConstColumn(true) if useIntForBoolean => b += (if(skipParens) "1=1" else "(1=1)")
       case ConstColumn(false) if useIntForBoolean => b += (if(skipParens) "1=0" else "(1=0)")
       case ConstColumn(null) => b += "null"
-      case Not(Is(l, ConstColumn(null))) =>
+      case Library.Not(Library.==(l, ConstColumn(null))) =>
         if(!skipParens) b += '('
         expr(l)
         b += " is not null"
         if(!skipParens) b += ')'
-      case Not(e) =>
-        if(!skipParens) b += '('
-        b += "not "
-        expr(e)
-        if(!skipParens) b += ')'
-      case i @ InSet(e, seq, bind) => if(seq.isEmpty) expr(ConstColumn.FALSE) else {
-        if(!skipParens) b += '('
-        expr(e); b += " in ("
-        if(bind) b.sep(seq, ",")(x => b +?= { (p, param) => i.tm(driver).setValue(x, p) })
-        else b += seq.map(i.tm(driver).valueToSQLLiteral).mkString(",")
-        b += ')'
-        if(!skipParens) b += ')'
-      }
-      case Is(l, ConstColumn(null)) =>
+      case Library.==(l, ConstColumn(null)) =>
         if(!skipParens) b += '('
         expr(l)
         b += " is null"
         if(!skipParens) b += ')'
-      case Is(left: ProductNode, right: ProductNode) =>
+      case Library.==(left: ProductNode, right: ProductNode) =>
         if(!skipParens) b += '('
         if(supportsTuples) {
           expr(left)
@@ -210,12 +198,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       case ProductNode(ch) =>
         if(!skipParens) b += '('
         b.sep(ch, ", ")(expr(_))
-        if(!skipParens) b += ')'
-      case Is(l, r) =>
-        if(!skipParens) b += '('
-        expr(l)
-        b += '='
-        expr(r)
         if(!skipParens) b += ')'
       case StdFunction("exists", c: Comprehension) if(!supportsTuples) =>
         /* If tuples are not supported, selecting multiple individial columns
@@ -238,28 +220,49 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         if(s.scalar) b += '}'
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)
-      case Between(left, start, end) => expr(left); b += " between "; expr(start); b += " and "; expr(end)
-      case CountDistinct(e) => b += "count(distinct "; expr(e); b += ')'
-      case Like(l, r, esc) =>
+      case Library.Between(left, start, end) => expr(left); b += " between "; expr(start); b += " and "; expr(end)
+      case Library.CountDistinct(e) => b += "count(distinct "; expr(e); b += ')'
+      /*
+     sealed case class Like(left: Node, right: Node, esc: Option[Char]) extends OperatorColumn[Boolean] with BinaryNode {
+     final class StartsWith(n: Node, s: String) extends Like(n, ConstColumn(likeEncode(s)+'%'), Some('^')) {
+     final class EndsWith(n: Node, s: String) extends Like(n, ConstColumn('%'+likeEncode(s)), Some('^')) {
+      */
+      case Library.Like(l, r) =>
         if(!skipParens) b += '('
         expr(l)
         b += " like "
         expr(r)
-        esc.foreach { ch =>
-          if(ch == '\'' || ch == '%' || ch == '_') throw new SlickException("Illegal escape character '"+ch+"' for LIKE expression")
-          // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
-          b += " escape '" += ch += "'"
-        }
         if(!skipParens) b += ')'
-      case a @ AsColumnOf(ch, name) =>
-        val tn = name.getOrElse(mapTypeName(a.typeMapper(driver)))
+      case Library.Like(l, r, LiteralNode(esc: Char)) =>
+        if(!skipParens) b += '('
+        expr(l)
+        b += " like "
+        expr(r)
+        if(esc == '\'' || esc == '%' || esc == '_') throw new SlickException("Illegal escape character '"+esc+"' for LIKE expression")
+        // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
+        b += " escape '" += esc += "'"
+        if(!skipParens) b += ')'
+      case Library.StartsWith(n, LiteralNode(s: String)) =>
+        if(!skipParens) b += '('
+        expr(n)
+        b += " like " += quote(likeEncode(s)+'%') += " escape '^'"
+        if(!skipParens) b += ')'
+      case Library.EndsWith(n, LiteralNode(s: String)) =>
+        if(!skipParens) b += '('
+        expr(n)
+        b += " like " += quote("%"+likeEncode(s)) += " escape '^'"
+        if(!skipParens) b += ')'
+      case a @ Library.Cast(ch @ _*) =>
+        val tn =
+          if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
+          else mapTypeName(a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver))
         if(supportsCast) {
           b += "cast("
-          expr(ch)
+          expr(ch(0))
           b += " as " += tn += ")"
         } else {
           b += "{fn convert("
-          expr(ch, true)
+          expr(ch(0), true)
           b += ',' += tn += ")}"
         }
       case s: SimpleBinaryOperator =>
@@ -268,6 +271,21 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += ' ' += s.name += ' '
         expr(s.right)
         if(!skipParens) b += ')'
+      case Apply(sym: Library.SqlOperator, ch) =>
+        if(!skipParens) b += '('
+        if(ch.length == 1) {
+          b += sym.name += ' '
+          expr(ch.head)
+        } else b.sep(ch, " " + sym.name + " ")(expr(_))
+        if(!skipParens) b += ')'
+      case Apply(sym: Library.JdbcFunction, ch) =>
+        b += "{fn "+= sym.name += '('
+        b.sep(ch, ",")(expr(_, true))
+        b += ")}"
+      case Apply(sym: Library.SqlFunction, ch) =>
+        b += sym.name += '('
+        b.sep(ch, ",")(expr(_, true))
+        b += ')'
       case c @ ConstColumn(v) => b += c.typeMapper(driver).valueToSQLLiteral(v)
       case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
       case pc @ ParameterColumn(_, extractor) => b +?= { (p, param) =>
@@ -324,7 +342,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
       if(!where.isEmpty) {
         b += " where "
-        expr(where.reduceLeft(And), true)
+        expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
       QueryBuilderResult(b.build, linearizer)
     }
@@ -339,7 +357,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       b += "delete from " += qtn
       if(!where.isEmpty) {
         b += " where "
-        expr(where.reduceLeft(And), true)
+        expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
       QueryBuilderResult(b.build, linearizer)
     }

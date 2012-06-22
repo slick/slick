@@ -49,6 +49,8 @@ trait SimpleNode extends Node {
     nodeMapNodes(nodeChildren, f).map(nodeRebuild).getOrElse(this)
 }
 
+trait TypedNode extends Node with Typed
+
 object Node {
   def apply(o:Any): Node =
     if(o == null) ConstColumn.NULL
@@ -95,6 +97,17 @@ case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode 
   def nodePostGeneratorChildren = Seq.empty
   def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node =
     copy(elements = (elements, gen).zipped.map((e, s) => (s, e._2)))
+}
+
+trait LiteralNode extends NullaryNode {
+  def value: Any
+}
+
+object LiteralNode {
+  def apply(v: Any): LiteralNode = new LiteralNode {
+    val value = v
+  }
+  def unapply(n: LiteralNode) = Some(n.value)
 }
 
 trait BinaryNode extends SimpleNode {
@@ -284,6 +297,24 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with SimpleRe
   protected[this] def nodeRebuild(child: Node) = copy(in = child)
   def nodeReferences: Seq[Symbol] = Seq(field)
   def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(field = gen(0))
+}
+
+case class Apply(sym: Symbol, children: Seq[Node]) extends SimpleNode with SimpleRefNode {
+  def nodeChildren = children
+  protected[this] def nodeRebuild(ch: IndexedSeq[scala.slick.ast.Node]) = copy(children = ch)
+  def nodeReferences: Seq[Symbol] = Seq(sym)
+  def nodeRebuildWithReferences(syms: IndexedSeq[Symbol]) = copy(sym = syms(0))
+  override def toString = "Apply "+sym
+}
+
+object Apply {
+  /** Create a typed Apply */
+  def apply(sym: Symbol, children: Seq[Node], tp: Type): Apply with TypedNode =
+    new Apply(sym, children) with TypedNode {
+      def tpe = tp
+      override protected[this] def nodeRebuild(ch: IndexedSeq[scala.slick.ast.Node]) = Apply(sym, ch, tp)
+      override def nodeRebuildWithReferences(syms: IndexedSeq[Symbol]) = Apply(syms(0), children, tp)
+    }
 }
 
 /** A constructor/extractor for nested Selects starting at a Ref */

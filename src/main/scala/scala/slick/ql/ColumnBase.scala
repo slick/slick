@@ -18,8 +18,9 @@ trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T]
 
 /** Base classs for columns.
   */
-abstract class Column[T : TypeMapper] extends ColumnBase[T] {
+abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   final val typeMapper = implicitly[TypeMapper[T]]
+  final def tpe = typeMapper
   def getLinearizedNodes = Vector(Node(this))
   def getAllColumnTypeMappers = Vector(typeMapper)
   def getResult(profile: BasicProfile, rs: PositionedResult): T = {
@@ -41,14 +42,12 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   // Functions which don't need an OptionMapper
-  def in(e: Query[Column[_], _]) = ColumnOps.In(Node(this), Node(e))
-  def notIn(e: Query[Column[_], _]) = ColumnOps.Not(Node(ColumnOps.In(Node(this), Node(e))))
   def count = StdFunction[Int]("count", Node(this))
-  def isNull = ColumnOps.Is(Node(this), ConstColumn.NULL)
-  def isNotNull = ColumnOps.Not(Node(ColumnOps.Is(Node(this), ConstColumn.NULL)))
-  def countDistinct = ColumnOps.CountDistinct(Node(this))
-  def asColumnOf[U : TypeMapper]: Column[U] = ColumnOps.AsColumnOf[U](Node(this), None)
-  def asColumnOfType[U : TypeMapper](typeName: String): Column[U] = ColumnOps.AsColumnOf[U](Node(this), Some(typeName))
+  def isNull = Library.==.column[Boolean](Node(this), ConstColumn.NULL)
+  def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](Node(this), ConstColumn.NULL))
+  def countDistinct = Library.CountDistinct.column[Int](Node(this))
+  def asColumnOf[U : TypeMapper]: Column[U] = Library.Cast.column[U](Node(this))
+  def asColumnOfType[U : TypeMapper](typeName: String): Column[U] = Library.Cast.column[U](Node(this), LiteralNode(typeName))
 
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
@@ -57,7 +56,7 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] {
 /**
  * A column with a constant value which is inserted into an SQL statement as a literal.
  */
-final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with NullaryNode {
+final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with LiteralNode {
   override def toString = "ConstColumn["+SimpleTypeName.forVal(value)+"] "+value
   def bind = new BindColumn(value)
 }

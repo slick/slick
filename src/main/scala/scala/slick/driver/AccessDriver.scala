@@ -100,19 +100,15 @@ trait AccessDriver extends ExtendedDriver { driver =>
         expr(ch)
         if(!skipParens) b += ')'
       case EscFunction("ifnull", l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
-      case a @ ColumnOps.AsColumnOf(ch, name) => name match {
-        case None if a.typeMapper eq TypeMapper.IntTypeMapper =>
-          b += "cint("; expr(ch); b += ')'
-        case None if a.typeMapper eq TypeMapper.LongTypeMapper =>
-          b += "clng("; expr(ch); b += ')'
-        case Some(n) if n.toLowerCase == "integer" =>
-          b += "cint("; expr(ch); b += ')'
-        case Some(n) if n.toLowerCase == "long" =>
-          b += "clng("; expr(ch); b += ')'
-        case _ =>
-          val tn = name.getOrElse(mapTypeName(a.typeMapper(driver)))
-          throw new SlickException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
-      }
+      case a @ Library.Cast(ch @ _*) =>
+        (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
+          else mapTypeName(a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver))
+        ).toLowerCase match {
+          case "integer" => b += "cint("; expr(ch(0)); b += ')'
+          case "long" => b += "clng("; expr(ch(0)); b += ')'
+          case tn =>
+            throw new SlickException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
+        }
       case EscFunction("user") => b += "''"
       case EscFunction("database") => b += "''"
       case EscFunction("pi") => b += pi

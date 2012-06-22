@@ -3,6 +3,7 @@ package scala.slick.ql
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import scala.slick.SlickException
+import scala.slick.ast.Type
 import scala.slick.driver.BasicProfile
 import scala.slick.session.{PositionedParameters, PositionedResult}
 
@@ -26,7 +27,7 @@ import scala.slick.session.{PositionedParameters, PositionedResult}
  * }
  * </pre></code>
  */
-sealed trait TypeMapper[T] extends (BasicProfile => TypeMapperDelegate[T]) { self =>
+sealed trait TypeMapper[T] extends (BasicProfile => TypeMapperDelegate[T]) with Type { self =>
   def createOptionTypeMapper: OptionTypeMapper[T] = new OptionTypeMapper[T](self) {
     def apply(profile: BasicProfile) = self(profile).createOptionTypeMapperDelegate
     def getBaseTypeMapper[U](implicit ev: Option[U] =:= Option[T]): TypeMapper[U] = self.asInstanceOf[TypeMapper[U]]
