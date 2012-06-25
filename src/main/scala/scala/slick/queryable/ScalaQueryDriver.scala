@@ -5,6 +5,7 @@ import scala.slick.driver._
 import scala.slick.driver.BasicDriver.Table
 import scala.slick.ql._
 import scala.slick.{ast => sq}
+import scala.slick.ast.Library
 import scala.slick.ast.Dump
 import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.slick.session.{Session}
@@ -79,7 +80,8 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
       def nodeShaped_* = ShapedValue(sq.ProductNode(columns), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
     }
 
-    new Query( sq.Bind(sq_symbol, table, sq.Pure(sq.ProductNode(columns))), Scope() )
+    
+    new Query( table, Scope() )
   }
   /*  def apply( tree:Tree, queryable:Queryable[_] ) : Query = {
     this.apply(tree,queryable.query.scope)
@@ -167,19 +169,20 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         case Apply(Select(lhs,term),rhs::Nil)
           if lhs.tpe <:< typeOf[Boolean]
             && rhs.tpe <:< typeOf[Boolean]
-            && List("||", "&&").contains( term.decoded )
-        =>
-          ColumnOps.Relational(term.decoded, s2sq( lhs ).node, s2sq( rhs ).node )
+            => term.decoded match {
+              case "||" => Library.Or ( s2sq( lhs ).node, s2sq( rhs ).node )
+              case "&&" => Library.And( s2sq( lhs ).node, s2sq( rhs ).node )
+            }
 
         case Apply(Select(lhs,term),rhs::Nil)
-          if (lhs.tpe <:< typeOf[Int]
+          if ((lhs.tpe <:< typeOf[Int]
             && rhs.tpe <:< typeOf[Int]
             ) || ( lhs.tpe <:< typeOf[Double]
             && rhs.tpe <:< typeOf[Double]
-            )
+            ))
             && List("+").contains( term.decoded )
         =>
-          ColumnOps.Relational(term.decoded, s2sq( lhs ).node, s2sq( rhs ).node )
+          Library.+(s2sq( lhs ).node, s2sq( rhs ).node)//( typeMappers(rhs.tpe.widen.toString) )
 
         case d@Apply(Select(lhs,term),rhs::Nil)
           if {
@@ -197,13 +200,19 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           }
         =>
           term.decoded match {
-            case "+" => ColumnOps.Relational("concat", s2sq( lhs ).node, s2sq( rhs ).node )
+            case "+" => Library.Concat(s2sq( lhs ).node, s2sq( rhs ).node )
           }
 
         case Apply(Select(lhs,term),rhs::Nil)
           if List("<",">","==","!=").contains( term.decoded )
         =>
-          ColumnOps.Relational(term.decoded, s2sq( lhs ).node, s2sq( rhs ).node )
+          (term.decoded match{
+            case "<" => Library.<
+            case ">" => Library.>
+//            case "!" => Library.Not
+//            case "!=" => Library.!=
+            case "==" => Library.==
+          })(s2sq( lhs ).node, s2sq( rhs ).node )
 
         /*
               // match other methods

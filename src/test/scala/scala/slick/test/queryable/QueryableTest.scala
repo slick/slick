@@ -5,7 +5,8 @@ import scala.language.{reflectiveCalls,implicitConversions}
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
-import scala.slick.ql.ColumnOps.{Relational =>Op}
+import scala.slick.ast.Library.{SqlOperator =>Op,_}
+import scala.slick.ast.{Library => Ops}
 import scala.slick.ast._
 import scala.slick.queryable._
 import scala.slick.testutil._
@@ -47,16 +48,6 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         Some(name)
       }
     }
-    object ExpandedTable{
-      def unapply( n:Node ) =
-        n match {
-          case Bind (
-          sym1a,
-          TableName(name),
-          Pure( _ ))
-          => Some(name)
-        }
-    }
     object ColumnName{
       def unapply( t:Symbol ) = t match {
         case FieldSymbol( name ) =>
@@ -92,16 +83,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
 
     // queryable
     q.assertQuery {
-      case
-        Bind (
-        sym1a,
-        TableName("COFFEES"),
-        Pure(
-        ProductNode(Seq(
-        Select(Ref(sym1b), ColumnName("COF_NAME")),
-        Select(Ref(sym1c), ColumnName("COF_SALES")) ))))
-        if sym1a == sym1b && sym1b == sym1c
-      => ()
+      case TableName("COFFEES") => ()
     }
 
     class MyQuerycollection{
@@ -117,13 +99,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     // simple map
     q.map( (_:CoffeesTable).sales + 5 )
       .assertQuery {
-      case Bind(
-      sym1a,
-      ExpandedTable("COFFEES"),
-      Pure(
-      Op( "+", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
-      )
-      )
+        case Bind(
+          sym1a,
+          TableName("COFFEES"),
+            Pure(
+              Ops.+(Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) ) ))
         if sym1a == sym1b
       => ()
     }
@@ -132,12 +112,10 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     q.map( _.name + "." )
       .assertQuery {
       case Bind(
-      sym1a,
-      ExpandedTable("COFFEES"),
-      Pure(
-      Op( "concat", Select(Ref(sym1b), ColumnName("COF_NAME")), ConstColumn(".") )
-      )
-      )
+             sym1a,
+             TableName("COFFEES"),
+             Pure(
+               Concat( Select(Ref(sym1b), ColumnName("COF_NAME")), ConstColumn(".")) ))
         if sym1a == sym1b
       => ()
     }
@@ -145,14 +123,12 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     // filter with more complex condition
     q.filter( c => c.sales > 5 || "Chris" == c.name )
       .assertQuery {
-      case Filter(
-      sym1a,
-      ExpandedTable("COFFEES"),
-      Op( "||",
-      Op( ">", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) ),
-      Op( "==", ConstColumn("Chris"), Select(Ref(sym1c), ColumnName("COF_NAME")) )
-      )
-      )
+        case Filter(
+             sym1a,
+             TableName("COFFEES"),
+             Or(
+               Ops.>( Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) ),
+               Ops.==( ConstColumn("Chris"), Select(Ref(sym1c), ColumnName("COF_NAME"))) ))
         if sym1a == sym1b && sym1b == sym1c
       => ()
     }
@@ -161,8 +137,8 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     q.map[String]( (_:CoffeesTable).name : String )
       .assertQuery {
       case Bind(
-      sym1a,
-      ExpandedTable("COFFEES"),
+             sym1a,
+             TableName("COFFEES"),
       Pure(
       Select(Ref(sym1b), ColumnName("COF_NAME"))
       )
@@ -178,16 +154,17 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       sym1a,
       Bind(
       sym2a,
-      ExpandedTable("COFFEES"),
+      TableName("COFFEES"),
       Pure(
       Select(Ref(sym2b), ColumnName("COF_NAME"))
       )
       ),
-      Op( "==", Ref(sym1b), ConstColumn("") )
+      Ops.==( Ref(sym1b), ConstColumn("") )
       )
         if sym1a == sym1b && sym2a == sym2b
       => ()
     }
+
 
     // referenced values are inlined as constants using reflection
     val o = 2 + 3
@@ -195,27 +172,28 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       .assertQuery {
       case Filter(
       sym1a,
-      ExpandedTable("COFFEES"),
-      Op( ">", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
+      TableName("COFFEES"),
+      Ops.>( Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
       )
         if sym1a == sym1b
       => ()
     }
-    
+
       // nesting
-      q.map(e1 => q.map(e2=>e1))
+      // not supported yet: q.map(e1 => q.map(e2=>e1)) 
+    
+      q.flatMap(e1 => q.map(e2=>e1))
        .assertQuery {
           case Bind(
                  sym1a,
-                 ExpandedTable("COFFEES"),
-                 Pure(
+                 TableName("COFFEES"),
                    Bind(
                      sym2a,
-                     ExpandedTable("COFFEES"),
+                     TableName("COFFEES"),
                      Pure(
                        Ref( sym1b )
                      )
-          )))
+          ))
           if sym1a == sym1b && sym1a != sym2a
           => ()
         }
@@ -225,8 +203,8 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
        .assertQuery {
           case Filter(
                   sym1a,
-                  ExpandedTable("COFFEES"),
-                  Op( ">", Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
+                  TableName("COFFEES"),
+                  Ops.>( Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
           )
           if sym1a == sym1b
           => ()
@@ -236,7 +214,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       (for( c <- q ) yield c.name).assertQuery{
         case Bind(
                sym1a,
-               ExpandedTable("COFFEES"),
+               TableName("COFFEES"),
                Pure(
                  Select(Ref( sym1b), ColumnName("COF_NAME") )
                )
@@ -249,10 +227,10 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       val pattern1 : Node => Unit =  {
         case Bind(
                sym1a,
-               ExpandedTable("COFFEES"),
+               TableName("COFFEES"),
                Bind(
                  sym2a,
-                 ExpandedTable("COFFEES"),
+                 TableName("COFFEES"),
                  Pure(
                    Select(Ref( sym2b), ColumnName("COF_NAME") )
         )))
@@ -267,10 +245,10 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       val pattern2 : Node => Unit =  {
         case Bind(
                sym1a,
-               ExpandedTable("COFFEES"),
+               TableName("COFFEES"),
                Bind(
                  sym2a,
-                 ExpandedTable("COFFEES"),
+                 TableName("COFFEES"),
                  Pure(
                    Select(Ref( sym1b), ColumnName("COF_NAME") )
         )))
@@ -285,13 +263,13 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       val pattern3 : Node => Unit =  {
         case Bind(
                sym1a,
-               ExpandedTable("COFFEES"),
+               TableName("COFFEES"),
                Bind(
                  sym3a,
                  Filter(
                    sym2a,
-                   ExpandedTable("COFFEES"),
-                   Op( "==",
+                   TableName("COFFEES"),
+                   Ops.==(
                        Select(Ref( sym2b), ColumnName("COF_SALES") ),
                        Select(Ref( sym1b), ColumnName("COF_SALES") )
                  )),
