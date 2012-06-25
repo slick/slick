@@ -57,8 +57,8 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         b += "cast("
         b +?= { (p, param) => tmd.setValue(v, p) }
         b += " as " += mapTypeName(tmd) += ")"
-      case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
-      case Sequence.Currval(seq) => throw new SlickException("Derby does not support CURRVAL")
+      case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"
+      case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
       case Library.Database() => b += "''"
       case _ => super.expr(c, skipParens)
     }

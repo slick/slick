@@ -71,6 +71,10 @@ object Library {
   val CurrentDate = new JdbcFunction("curdate")
   val CurrentTime = new JdbcFunction("curtime")
   val Pi = new JdbcFunction("pi")
+
+  // Sequence operations
+  val NextValue = new FunctionSymbol("NextValue")
+  val CurrentValue = new FunctionSymbol("CurrentValue")
 }
 
 /** A Symbol that represents a library function or operator */

@@ -24,8 +24,8 @@ trait H2Driver extends ExtendedDriver { driver =>
     override protected val concatOperator = Some("||")
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
-      case Sequence.Nextval(seq) => b += "nextval(schema(), '" += seq.name += "')"
-      case Sequence.Currval(seq) => b += "currval(schema(), '" += seq.name += "')"
+      case Library.NextValue(SequenceNode(name)) => b += "nextval(schema(), '" += name += "')"
+      case Library.CurrentValue(SequenceNode(name)) => b += "currval(schema(), '" += name += "')"
       case _ => super.expr(n, skipParens)
     }
 

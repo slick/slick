@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.util.UUID
 import scala.slick.ql._
 import scala.slick.session.{PositionedResult, PositionedParameters}
-import scala.slick.ast.{FieldSymbol, Node}
+import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.ValueLinearizer
 
 /**
@@ -30,8 +30,8 @@ trait PostgresDriver extends ExtendedDriver { driver =>
     }
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
-      case Sequence.Nextval(seq) => b += "nextval('" += seq.name += "')"
-      case Sequence.Currval(seq) => b += "currval('" += seq.name += "')"
+      case Library.NextValue(SequenceNode(name)) => b += "nextval('" += name += "')"
+      case Library.CurrentValue(SequenceNode(name)) => b += "currval('" += name += "')"
       case _ => super.expr(n, skipParens)
     }
   }

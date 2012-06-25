@@ -47,9 +47,9 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
         }
 
       /* Hsqldb uses the SQL:2008 syntax for NEXTVAL */
-      case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
+      case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"
 
-      case Sequence.Currval(seq) => throw new SlickException("Hsqldb does not support CURRVAL")
+      case Library.CurrentValue(_*) => throw new SlickException("Hsqldb does not support CURRVAL")
 
       case _ => super.expr(c, skipParens)
     }
