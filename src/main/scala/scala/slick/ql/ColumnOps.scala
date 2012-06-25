@@ -45,11 +45,11 @@ final class ColumnOps[B1, P1](val leftOperand: Node) extends AnyVal {
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
     om(Library.Between.column(leftOperand, Node(start), Node(end)))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Column[P2] =
-    EscFunction[P2]("ifnull", leftOperand, Node(e))(e.typeMapper)
+    Library.IfNull.column[P2](leftOperand, Node(e))(e.typeMapper)
   def min(implicit om: toOption[B1], tm: BaseTM) =
-    om(StdFunction[B1]("min", leftOperand))
+    om(Library.Min.column[B1](leftOperand))
   def max(implicit om: toOption[B1], tm: BaseTM) =
-    om(StdFunction[B1]("max", leftOperand))
+    om(Library.Max.column[B1](leftOperand))
 
   // NumericTypeMapper only
   def + [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
@@ -61,23 +61,23 @@ final class ColumnOps[B1, P1](val leftOperand: Node) extends AnyVal {
   def / [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
     om(Library./.column[B1](leftOperand, Node(e)))
   def % [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R], tm: Num) =
-    om(EscFunction[B1]("mod", leftOperand, Node(e)))
-  def abs(implicit tm: Num) =
-    EscFunction[B1]("abs", leftOperand)
-  def ceil(implicit tm: Num) =
-    EscFunction[B1]("ceiling", leftOperand)
-  def floor(implicit tm: Num) =
-    EscFunction[B1]("floor", leftOperand)
+    om(Library.%.column[B1](leftOperand, Node(e)))
+  def abs(implicit om: o#toSame, tm: Num) =
+    om(Library.Abs.column[B1](leftOperand))
+  def ceil(implicit om: o#toSame, tm: Num) =
+    om(Library.Ceiling.column[B1](leftOperand))
+  def floor(implicit om: o#toSame, tm: Num) =
+    om(Library.Floor.column[B1](leftOperand))
   def sign[R](implicit om: o#to[Int, R], tm: Num) =
-    om(EscFunction[Int]("sign", leftOperand))
-  def toDegrees(implicit tm: Num) =
-    EscFunction[B1]("degrees", leftOperand)
-  def toRadians(implicit tm: Num) =
-    EscFunction[B1]("radians", leftOperand)
+    om(Library.Sign.column[Int](leftOperand))
+  def toDegrees(implicit om: o#toSame, tm: Num) =
+    om(Library.Degrees.column[B1](leftOperand))
+  def toRadians(implicit om: o#toSame, tm: Num) =
+    om(Library.Radians.column[B1](leftOperand))
   def avg(implicit om: toOption[B1], tm: Num) =
-    om(StdFunction[B1]("avg", leftOperand))
+    om(Library.Avg.column[B1](leftOperand))
   def sum(implicit om: toOption[B1], tm: Num) =
-    om(StdFunction[B1]("sum", leftOperand))
+    om(Library.Sum.column[B1](leftOperand))
 
   // Boolean only
   def &&[P2, R](b: Column[P2])(implicit om: arg[Boolean, P1]#arg[Boolean, P2]#to[Boolean, R]) =
@@ -89,26 +89,26 @@ final class ColumnOps[B1, P1](val leftOperand: Node) extends AnyVal {
 
   // String only
   def length[R](implicit om: arg[String, P1]#to[Int, R]) =
-    om(EscFunction[Int]("length", leftOperand))
+    om(Library.Length.column[Int](leftOperand))
   def like[P2, R](e: Column[P2], esc: Char = '\0')(implicit om: arg[String, P1]#arg[String, P2]#to[Boolean, R]) = om(
     if(esc == '\0') Library.Like.column(leftOperand, Node(e))
     else Library.Like.column(leftOperand, Node(e), LiteralNode(esc)))
   def ++[P2, R](e: Column[P2])(implicit om: arg[String, P1]#arg[String, P2]#to[String, R]) =
-    om(EscFunction[String]("concat", leftOperand, Node(e)))
+    om(Library.Concat.column[String](leftOperand, Node(e)))
   def startsWith[R](s: String)(implicit om: arg[String, P1]#to[Boolean, R]) =
     om(Library.StartsWith.column(leftOperand, LiteralNode(s)))
   def endsWith[R](s: String)(implicit om: arg[String, P1]#to[Boolean, R]) =
     om(Library.EndsWith.column(leftOperand, LiteralNode(s)))
-  def toUpperCase(implicit ev: B1 <:< String) =
-    EscFunction[String]("ucase", leftOperand)
-  def toLowerCase(implicit ev: B1 <:< String) =
-    EscFunction[String]("lcase", leftOperand)
-  def ltrim(implicit ev: B1 <:< String) =
-    EscFunction[String]("ltrim", leftOperand)
-  def rtrim(implicit ev: B1 <:< String) =
-    EscFunction[String]("rtrim", leftOperand)
-  def trim(implicit ev: B1 <:< String) =
-    EscFunction[String]("ltrim", EscFunction[String]("rtrim", leftOperand))
+  def toUpperCase[R](implicit om: o#to[String, R], ev: B1 <:< String) =
+    om(Library.UCase.column[String](leftOperand))
+  def toLowerCase[R](implicit om: o#to[String, R], ev: B1 <:< String) =
+    om(Library.LCase.column[String](leftOperand))
+  def ltrim[R](implicit om: o#to[String, R], ev: B1 <:< String) =
+    om(Library.LTrim.column[String](leftOperand))
+  def rtrim[R](implicit om: o#to[String, R], ev: B1 <:< String) =
+    om(Library.RTrim.column[String](leftOperand))
+  def trim[R](implicit om: o#to[String, R], ev: B1 <:< String) =
+    om(Library.Trim.column[String](leftOperand))
 }
 
 object ColumnOps {

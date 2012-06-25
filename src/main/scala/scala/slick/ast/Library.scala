@@ -9,18 +9,26 @@ object Library {
   class JdbcFunction(name: String) extends FunctionSymbol(name)
   class SqlFunction(name: String) extends FunctionSymbol(name)
   class SqlOperator(name: String) extends FunctionSymbol(name)
+  class SqlAggregateFunction(name: String) extends SqlFunction(name)
 
   // Boolean operators
   val And = new SqlOperator("and")
   val Or = new SqlOperator("or")
   val Not = new SqlOperator("not")
 
-  // Numeric operators
+  // Numeric operators and functions
   val + = new SqlOperator("+")
   val - = new SqlOperator("-")
   val * = new SqlOperator("*")
   val / = new SqlOperator("/")
-  val Between = new FunctionSymbol("Between")
+  val % = new JdbcFunction("mod")
+  val Between = new FunctionSymbol("between")
+  val Abs = new JdbcFunction("abs")
+  val Ceiling = new JdbcFunction("ceiling")
+  val Floor = new JdbcFunction("floor")
+  val Sign = new JdbcFunction("sign")
+  val Degrees = new JdbcFunction("degrees")
+  val Radians = new JdbcFunction("radians")
 
   // Comparison
   val < = new SqlOperator("<")
@@ -33,15 +41,36 @@ object Library {
   val In = new SqlOperator("in")
 
   // String functions
+  val Length = new JdbcFunction("length")
+  val Concat = new JdbcFunction("concat")
   val UCase = new JdbcFunction("ucase")
   val LCase = new JdbcFunction("lcase")
+  val LTrim = new JdbcFunction("ltrim")
+  val RTrim = new JdbcFunction("rtrim")
+  val Trim = new FunctionSymbol("Trim")
   val Like = new FunctionSymbol("Like")
   val StartsWith = new FunctionSymbol("StartsWith")
   val EndsWith = new FunctionSymbol("EndsWith")
 
+  // Aggregate functions
+  val Min = new SqlAggregateFunction("min")
+  val Max = new SqlAggregateFunction("max")
+  val Avg = new SqlAggregateFunction("avg")
+  val Sum = new SqlAggregateFunction("sum")
+  val Count = new SqlAggregateFunction("count")
+  val Exists = new SqlAggregateFunction("exists")
+
   val CountAll = new FunctionSymbol("CountAll")
   val CountDistinct = new FunctionSymbol("CountDistinct")
   val Cast = new FunctionSymbol("Cast")
+  val IfNull = new JdbcFunction("ifnull")
+
+  // Values
+  val User = new JdbcFunction("user")
+  val Database = new JdbcFunction("database")
+  val CurrentDate = new JdbcFunction("curdate")
+  val CurrentTime = new JdbcFunction("curtime")
+  val Pi = new JdbcFunction("pi")
 }
 
 /** A Symbol that represents a library function or operator */

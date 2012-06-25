@@ -55,14 +55,20 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case EscFunction("ucase", ch) => b += "upper("; expr(ch, true); b += ')'
-      case EscFunction("lcase", ch) => b += "lower("; expr(ch, true); b += ')'
-      case EscFunction("mod", l, r) => b += '('; expr(l); b += '%'; expr(r); b += ')'
-      case EscFunction("ceiling", ch) => b += "round("; expr(ch); b += "+0.5)"
-      case EscFunction("floor", ch) => b += "round("; expr(ch); b += "-0.5)"
-      case EscFunction("user") => b += "''"
-      case EscFunction("database") => b += "''"
-      case s: SimpleFunction if s.scalar && s.name != "concat" =>
+      case Library.UCase(ch) => b += "upper("; expr(ch, true); b += ')'
+      case Library.LCase(ch) => b += "lower("; expr(ch, true); b += ')'
+      case Library.%(l, r) => b += '('; expr(l); b += '%'; expr(r); b += ')'
+      case Library.Ceiling(ch) => b += "round("; expr(ch); b += "+0.5)"
+      case Library.Floor(ch) => b += "round("; expr(ch); b += "-0.5)"
+      case Library.User() => b += "''"
+      case Library.Database() => b += "''"
+      case Apply(j: Library.JdbcFunction, ch) if j != Library.Concat =>
+        /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
+         * unescaped function calls by default */
+        b += j.name += '('
+        b.sep(ch, ",")(expr(_, true))
+        b += ")"
+      case s: SimpleFunction if s.scalar =>
         /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
          * unescaped function calls by default */
         b += s.name += '('

@@ -33,7 +33,6 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     override protected val supportsCast = false
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case EscFunction("concat", l, r) => b += "concat("; expr(l); b += ','; expr(r); b += ')'
       case Sequence.Nextval(seq) => b += quoteIdentifier(seq.name + "_nextval") += "()"
       case Sequence.Currval(seq) => b += quoteIdentifier(seq.name + "_currval") += "()"
       case _ => super.expr(n, skipParens)

@@ -89,17 +89,17 @@ trait AccessDriver extends ExtendedDriver { driver =>
         }
         b += ")"
       }
-      case EscFunction("degrees", ch) =>
+      case Library.Degrees(ch) =>
         if(!skipParens) b += '('
         b += "180/"+pi+"*"
         expr(ch)
         if(!skipParens) b += ')'
-      case EscFunction("radians", ch) =>
+      case Library.Radians(ch) =>
         if(!skipParens) b += '('
         b += pi+"/180*"
         expr(ch)
         if(!skipParens) b += ')'
-      case EscFunction("ifnull", l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
+      case Library.IfNull(l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
       case a @ Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
           else mapTypeName(a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver))
@@ -109,9 +109,9 @@ trait AccessDriver extends ExtendedDriver { driver =>
           case tn =>
             throw new SlickException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
         }
-      case EscFunction("user") => b += "''"
-      case EscFunction("database") => b += "''"
-      case EscFunction("pi") => b += pi
+      case Library.User() => b += "''"
+      case Library.Database() => b += "''"
+      case Library.Pi() => b += pi
       case _ => super.expr(c, skipParens)
     }
 

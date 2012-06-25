@@ -199,14 +199,14 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         if(!skipParens) b += '('
         b.sep(ch, ", ")(expr(_))
         if(!skipParens) b += ')'
-      case StdFunction("exists", c: Comprehension) if(!supportsTuples) =>
+      case Library.Exists(c: Comprehension) if(!supportsTuples) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite
          * such sub-queries to "select *". */
         b += "exists("
         expr(c.copy(select = None), true)
         b += ')'
-      case EscFunction("concat", l, r) if concatOperator.isDefined =>
+      case Library.Concat(l, r) if concatOperator.isDefined =>
         if(!skipParens) b += '('
         expr(l)
         b += concatOperator.get
@@ -252,6 +252,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         expr(n)
         b += " like " += quote("%"+likeEncode(s)) += " escape '^'"
         if(!skipParens) b += ')'
+      case Library.Trim(n) =>
+        expr(Library.LTrim(Library.RTrim(n)), skipParens)
       case a @ Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]

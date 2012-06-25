@@ -41,17 +41,6 @@ object SimpleFunction {
   }
 }
 
-case class StdFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
-  val nodeChildren = children
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = StdFunction(name, ch: _*)
-}
-
-case class EscFunction[T : TypeMapper](name: String, children: Node*) extends OperatorColumn[T] with SimpleFunction {
-  val nodeChildren = children
-  override val scalar = true
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = EscFunction(name, ch: _*)
-}
-
 trait SimpleBinaryOperator extends BinaryNode {
   val name: String
 }

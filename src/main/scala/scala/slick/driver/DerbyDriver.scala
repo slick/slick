@@ -38,7 +38,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     override protected val useIntForBoolean = true
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case EscFunction("ifnull", l, r) => r match {
+      case Library.IfNull(l, r) => r match {
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         case c: Column[_] =>
@@ -59,7 +59,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         b += " as " += mapTypeName(tmd) += ")"
       case Sequence.Nextval(seq) => b += "(next value for " += quoteIdentifier(seq.name) += ")"
       case Sequence.Currval(seq) => throw new SlickException("Derby does not support CURRVAL")
-      case EscFunction("database") => b += "''"
+      case Library.Database() => b += "''"
       case _ => super.expr(c, skipParens)
     }
   }

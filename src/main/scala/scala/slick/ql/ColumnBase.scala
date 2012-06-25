@@ -42,7 +42,7 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   // Functions which don't need an OptionMapper
-  def count = StdFunction[Int]("count", Node(this))
+  def count = Library.Count.column[Int](Node(this))
   def isNull = Library.==.column[Boolean](Node(this), ConstColumn.NULL)
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](Node(this), ConstColumn.NULL))
   def countDistinct = Library.CountDistinct.column[Int](Node(this))
