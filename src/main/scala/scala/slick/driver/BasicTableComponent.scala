@@ -28,6 +28,10 @@ trait BasicTableComponent { driver: BasicDriver =>
         case r: Ref => r
         case _ => Ref(Node(table).nodeIntrinsicSymbol)
       }, FieldSymbol(n)(options, tm))
+      override def toString = (Node(table) match {
+        case r: Ref => "(" + _tableName + " " + r.sym.name + ")"
+        case _ => _tableName
+      }) + "." + n
     }
 
     def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {

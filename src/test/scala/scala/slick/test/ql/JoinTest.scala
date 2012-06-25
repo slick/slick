@@ -66,15 +66,21 @@ class JoinTest(val tdb: TestDB) extends DBTest {
     val q3 = for {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)
       _ <- Query orderBy p.id.nullsFirst
-    } yield p.id ~ c.id ~ c.name ~ p.title
+    } yield p.id.orZero ~ c.id ~ c.name ~ p.title.orZero
     println("Left outer join (nulls first): "+q3.selectStatement)
     q3.foreach(x => println("  "+x))
     assertEquals(List((0,4), (2,1), (3,2), (4,3), (5,2)), q3.map(p => p._1 ~ p._2).list)
 
+    val q3a = for {
+      (c,p) <- Categories leftJoin Posts on (_.id is _.category)
+      _ <- Query orderBy p.id.nullsFirst
+    } yield p.id ~ c.id ~ c.name ~ p.title
+    assertFail(q3a.list) // reads NULL form non-nullable column
+
     val q3b = for {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)
       _ <- Query orderBy p.id.nullsLast
-    } yield p.id ~ c.id ~ c.name ~ p.title
+    } yield p.id.orZero ~ c.id ~ c.name ~ p.title.orZero
     println("Left outer join (nulls last): "+q3b.selectStatement)
     q3b.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => p._1 ~ p._2).list)
@@ -84,7 +90,7 @@ class JoinTest(val tdb: TestDB) extends DBTest {
       val q4 = for {
         (c,p) <- Categories rightJoin Posts on (_.id is _.category)
         _ <- Query orderBy p.id
-      } yield p.id ~ c.id ~ c.name ~ p.title
+      } yield p.id ~ c.id.orZero ~ c.name.orZero ~ p.title
       println("Right outer join: "+q4.selectStatement)
       q4.foreach(x => println("  "+x))
       assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => p._1 ~ p._2).list)

@@ -25,12 +25,20 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   def getAllColumnTypeMappers = Vector(typeMapper)
   def getResult(profile: BasicProfile, rs: PositionedResult): T = {
     val tmd = typeMapper(profile)
-    tmd.nextValueOrElse(tmd.zero, rs)
+    tmd.nextValueOrElse(
+      if(tmd.nullable) tmd.zero else throw new SlickException("Read NULL value for column "+this),
+      rs)
   }
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = typeMapper(profile).updateValue(value, rs)
   final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(profile).setOption(value, ps)
   def orElse(n: =>T): Column[T] = new WrappedColumn[T](this) {
     override def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValueOrElse(n, rs)
+  }
+  def orZero: Column[T] = new WrappedColumn[T](this) {
+    override def getResult(profile: BasicProfile, rs: PositionedResult): T = {
+      val tmd = typeMapper(profile)
+      tmd.nextValueOrElse(tmd.zero, rs)
+    }
   }
   final def orFail = orElse { throw new SlickException("Read NULL value for column "+this) }
   def ? : Column[Option[T]] = new WrappedColumn(this)(typeMapper.createOptionTypeMapper)
