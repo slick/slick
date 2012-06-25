@@ -28,12 +28,8 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
-  class Implicits {
+  class Implicits extends ExtensionMethodConversions {
     implicit val slickDriver: driver.type = driver
-    implicit def baseColumnToColumnOps[B1 : BaseTypeMapper](c: Column[B1]): ColumnOps[B1, B1] =
-      new ColumnOps[B1, B1](Node(c))
-    implicit def optionColumnToColumnOps[B1](c: Column[Option[B1]]): ColumnOps[B1, Option[B1]] =
-      new ColumnOps[B1, Option[B1]](Node(c))
     implicit def columnToOptionColumn[T : BaseTypeMapper](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)

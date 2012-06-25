@@ -41,14 +41,6 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
-  // Functions which don't need an OptionMapper
-  def count = Library.Count.column[Int](Node(this))
-  def isNull = Library.==.column[Boolean](Node(this), ConstColumn.NULL)
-  def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](Node(this), ConstColumn.NULL))
-  def countDistinct = Library.CountDistinct.column[Int](Node(this))
-  def asColumnOf[U : TypeMapper]: Column[U] = Library.Cast.column[U](Node(this))
-  def asColumnOfType[U : TypeMapper](typeName: String): Column[U] = Library.Cast.column[U](Node(this), LiteralNode(typeName))
-
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 }

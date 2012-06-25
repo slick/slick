@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-import scala.slick.ql.{OperatorColumn, TypeMapper}
+import scala.slick.ql.{Column, OperatorColumn, TypeMapper}
 
 /**
  * The standard library for query operators.
@@ -92,7 +92,7 @@ class FunctionSymbol(val name: String) extends Symbol {
   def typed[T : TypeMapper](ch: Node*): Apply with TypedNode = Apply(this, ch, implicitly[TypeMapper[T]])
 
   /** Create a Column with a typed Apply of this Symbol */
-  def column[T : TypeMapper](ch: Node*): OperatorColumn[T] = new OperatorColumn[T] {
+  def column[T : TypeMapper](ch: Node*): Column[T] = new OperatorColumn[T] {
     val nodeDelegate = typed[T](ch: _*)
   }
 

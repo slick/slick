@@ -43,5 +43,4 @@ object OptionMapperDSL {
       }
     }
   }
-  type toOption[P] = arg[P, Option[P]]#toSame
 }
