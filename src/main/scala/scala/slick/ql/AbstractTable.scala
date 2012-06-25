@@ -10,17 +10,17 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def * : ColumnBase[T]
   def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
 
-  def create_* : Iterable[RawNamedColumn] = {
-    val seq = new ArrayBuffer[RawNamedColumn]
-    val seen = new HashSet[RawNamedColumn]
-    def add(c: RawNamedColumn) {
+  def create_* : Iterable[FieldSymbol] = {
+    val seq = new ArrayBuffer[FieldSymbol]
+    val seen = new HashSet[FieldSymbol]
+    def add(c: FieldSymbol) {
       if(!seen.contains(c)) {
         seen += c
         seq += c
       }
     }
     def scan(n:Node): Unit = n match {
-      case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == this => add(f.column.get)
+      case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == this => add(f)
       case n => n.nodeChildren.foreach(scan)
     }
     scan(Node(*))

@@ -73,35 +73,11 @@ final case class BindColumn[T : TypeMapper](value: T) extends Column[T] with Nul
 final case class ParameterColumn[T : TypeMapper](linearIdx: Int, extractor: (_ => T)) extends Column[T] with NullaryNode
 
 /**
- * A column which gets created as the result of applying an operator.
- */
-abstract class OperatorColumn[T : TypeMapper] extends Column[T] {
-  protected[this] val leftOperand: Node = Node(this)
-}
-
-/**
  * A WrappedColumn can be used to change a column's nullValue.
  */
 sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   val nodeChildren = Seq(nodeDelegate)
-}
-
-/**
- * A column which is part of a Table.
- */
-final case class NamedColumn[T : TypeMapper](val table: Node, val name: String, val options: Seq[ColumnOption[_]])
-  extends Column[T] {
-  def raw = RawNamedColumn(name)(options, implicitly[TypeMapper[T]])
-  override def nodeDelegate = Select(Node(table) match {
-    case r: Ref => r
-    case _ => Ref(table.nodeIntrinsicSymbol)
-  }, raw.symbol)
-}
-
-final case class RawNamedColumn(name: String)(val options: Seq[ColumnOption[_]], val typeMapper: TypeMapper[_]) extends NullaryNode {
-  override def toString = "RawNamedColumn " + name
-  def symbol = FieldSymbol(name)(Some(this))
 }
 
 abstract class ColumnOption[+T]

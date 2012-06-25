@@ -139,7 +139,7 @@ trait ExtensionMethodConversions {
 //TODO remove when not used by SlickBackend anymore
 @deprecated("Use Library", "0.10.0")
 object ColumnOps {
-  final case class Relational(name: String, left: Node, right: Node) extends OperatorColumn[Boolean] with SimpleBinaryOperator {
+  final case class Relational(name: String, left: Node, right: Node) extends Column[Boolean] with SimpleBinaryOperator {
     protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
   }
 }

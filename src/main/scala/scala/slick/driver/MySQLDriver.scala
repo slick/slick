@@ -23,7 +23,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
 
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
@@ -66,7 +66,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder) {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"

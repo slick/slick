@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import opt.Util._
-import scala.slick.ql.RawNamedColumn
+import scala.slick.ql.{TypeMapper, ColumnOption}
 
 /** A symbol which can be used in the AST. */
 abstract class Symbol {
@@ -10,7 +10,7 @@ abstract class Symbol {
 }
 
 /** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val column: Option[RawNamedColumn] = None) extends Symbol
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val typeMapper: TypeMapper[_]) extends Symbol
 
 /** An element of a ProductNode */
 case class ElementSymbol(idx: Int) extends Symbol {

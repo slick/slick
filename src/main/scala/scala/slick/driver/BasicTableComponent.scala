@@ -1,7 +1,9 @@
 package scala.slick.driver
 
 import scala.slick.ql._
-import scala.slick.ast.{Library, Node}
+import scala.slick.ast._
+import scala.slick.ast.Select
+import scala.slick.ast.Ref
 
 trait BasicTableComponent { driver: BasicDriver =>
 
@@ -16,14 +18,19 @@ trait BasicTableComponent { driver: BasicDriver =>
 
   val columnOptions: BasicColumnOptions = new BasicColumnOptions
 
-  abstract class Table[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) {
+  abstract class Table[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) { table =>
     def this(_tableName: String) = this(None, _tableName)
 
     val O: driver.columnOptions.type = columnOptions
 
-    def column[C : TypeMapper](n: String, options: ColumnOption[C]*) = NamedColumn[C](Node(this), n, options)
+    def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]): Column[C] = new Column[C] {
+      override def nodeDelegate = Select(Node(table) match {
+        case r: Ref => r
+        case _ => Ref(Node(table).nodeIntrinsicSymbol)
+      }, FieldSymbol(n)(options, tm))
+    }
 
-    def createFinderBy[P](f: (this.type => NamedColumn[P]))(implicit tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
+    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
       import driver.Implicit._
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {

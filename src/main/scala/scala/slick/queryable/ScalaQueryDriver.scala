@@ -57,7 +57,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         }.head
       }.map(
         column_name =>
-          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
+          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(List(),null))
       ).toSeq
 
     val table = new sq.TableNode with sq.NullaryNode with sq.WithOp {
@@ -133,7 +133,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             }
             case a => throw new Exception(member.toString) // FIXME
           }
-          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(Some(RawNamedColumn(column_name)(List(),null))) )
+          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(List(),null))
 
 /*
         // TODO: Where is this needed?

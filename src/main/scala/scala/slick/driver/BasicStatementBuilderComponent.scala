@@ -396,15 +396,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           for(i <- 0 until p.productArity)
             f(Node(p.productElement(i)))
         case t:TableNode => f(Node(t.nodeShaped_*.value))
-        case n:NamedColumn[_] =>
-          if(table eq null) table = n.table.asInstanceOf[TableNode].tableName
-          else if(table != n.table.asInstanceOf[TableNode].tableName) throw new SlickException("Inserts must all be to the same table")
-          appendNamedColumn(n.raw, cols, vals)
         case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
-          val n = field.column.get
           if(table eq null) table = t.tableName
           else if(table != t.tableName) throw new SlickException("Inserts must all be to the same table")
-          appendNamedColumn(n, cols, vals)
+          appendNamedColumn(field, cols, vals)
         case _ => throw new SlickException("Cannot use column "+c+" in INSERT statement")
       }
       f(Node(column))
@@ -412,7 +407,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       (table, cols, vals)
     }
 
-    protected def appendNamedColumn(n: RawNamedColumn, cols: StringBuilder, vals: StringBuilder) {
+    protected def appendNamedColumn(n: FieldSymbol, cols: StringBuilder, vals: StringBuilder) {
       if(!cols.isEmpty) {
         cols append ","
         vals append ","
@@ -513,10 +508,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       var first = true
       for(c <- columns) c match {
         case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
-          val n = field.column.get
           if(first) first = false
           else sb append ","
-          sb append quoteIdentifier(n.name)
+          sb append quoteIdentifier(field.name)
           if(requiredTableName != t.tableName)
             throw new SlickException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
         case _ => throw new SlickException("Cannot use column "+c+" in "+typeInfo+" (only named columns are allowed)")
@@ -525,7 +519,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   }
 
   /** Builder for column specifications in DDL statements. */
-  class ColumnDDLBuilder(column: RawNamedColumn) {
+  class ColumnDDLBuilder(column: FieldSymbol) {
     protected val tmDelegate = column.typeMapper(driver)
     protected var sqlType: String = null
     protected var notNull = !tmDelegate.nullable
@@ -546,7 +540,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.PrimaryKey => primaryKey = true
       case ColumnOption.Default(v) => defaultLiteral =
-        column.asInstanceOf[RawNamedColumn].typeMapper(driver).asInstanceOf[TypeMapperDelegate[Any]].valueToSQLLiteral(v)
+        column.typeMapper(driver).asInstanceOf[TypeMapperDelegate[Any]].valueToSQLLiteral(v)
     }
 
     def appendColumn(sb: StringBuilder) {

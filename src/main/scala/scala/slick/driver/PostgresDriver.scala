@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.util.UUID
 import scala.slick.ql._
 import scala.slick.session.{PositionedResult, PositionedParameters}
-import scala.slick.ast.Node
+import scala.slick.ast.{FieldSymbol, Node}
 import scala.slick.util.ValueLinearizer
 
 /**
@@ -17,7 +17,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
-  override def createColumnDDLBuilder(column: RawNamedColumn, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
     override protected val concatOperator = Some("||")
@@ -36,7 +36,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class ColumnDDLBuilder(column: RawNamedColumn) extends super.ColumnDDLBuilder(column) {
+  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
       if(autoIncrement) {
