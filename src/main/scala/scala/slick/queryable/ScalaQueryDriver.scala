@@ -17,6 +17,18 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
 
+  val typeMappers = Map( // FIXME use symbols instead of strings for type names here
+     "Int"              /*typeOf[Int]*/    -> TypeMapper.IntTypeMapper
+    ,"Double"           /*typeOf[Double]*/ -> TypeMapper.DoubleTypeMapper
+    ,"String"           /*typeOf[String]*/ -> TypeMapper.StringTypeMapper
+    ,"java.lang.String" /*typeOf[String]*/ -> TypeMapper.StringTypeMapper // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
+  )
+/*
+    val opMappers : Map[ (String,List[Type]), Library.FunctionSymbol ] = Map(
+      ("+",List(typeof))
+    )
+*/
+
   object removeTypeAnnotations extends Transformer {
     def apply( tree:Tree ) = transform(tree)
     override def transform(tree: Tree): Tree = {
@@ -243,12 +255,52 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     val query = this.toQuery(queryable)
     Dump(query.node)
   }
-  protected[slick] def toSql( queryable:Queryable[_] ) = {
+  import scala.collection.generic.CanBuildFrom
+  import scala.slick.session.{PositionedParameters, PositionedResult}
+  import scala.slick.ast.Node
+  import scala.slick.ql.TypeMapper
+  
+  private def queryable2node[R]( queryable:Queryable[R] ) : sq.Node = {
     val query = this.toQuery(queryable)
     import driver._
-    val node = sq.opt.Relational(query.node)
+    val node = sq.opt.Relational( sq.opt.Optimizer(query.node) )
     sq.AnonSymbol.assignNames( node )
-    val builder = new QueryBuilder( node, null )
+    node
+  }
+
+  protected[slick] def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
+    val node = queryable2node( queryable )
+    val linearizer = new CollectionLinearizer[Vector,R]{
+      def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
+          def getResult(profile: BasicProfile, rs: PositionedResult): R = {
+            val expectedType = implicitly[TypeTag[R]]
+            (expectedType.tpe match {
+              case t if typeMappers.isDefinedAt(expectedType.tpe.toString) => typeMappers( expectedType.tpe.toString )(driver).nextValue(rs)
+              case _ =>
+                val args = expectedType.tpe.member( nme.CONSTRUCTOR ).typeSignature match {
+                  case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
+                    param =>  typeMappers( param.typeSignature.toString )(driver).nextValue(rs)
+                  }
+                } 
+                val classTag = implicitly[ClassTag[R]]
+                val cl = classTag.runtimeClass.getClassLoader
+                val cm = runtimeMirror(cl)
+                val constructor = expectedType.tpe.member( nme.CONSTRUCTOR ).asMethodSymbol
+                val cls = cm.reflectClass( cm.classSymbol(classTag.runtimeClass) )
+                cls.reflectConstructor( constructor )( args:_* )
+            }).asInstanceOf[R]
+          }
+          def updateResult(profile: BasicProfile, rs: PositionedResult, value: R): Unit = ???
+          def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
+          def getLinearizedNodes: IndexedSeq[Node] = ???
+        }
+        def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]] 
+    }
+    new QueryExecutor[Vector[R]](node,driver,linearizer).run
+  }
+  protected[slick] def toSql( queryable:Queryable[_] ) = {
+    val node = queryable2node( queryable )
+    val builder = driver.createQueryBuilder( node, null )
     builder.buildSelect.sql
   }
   protected[slick] def toQuery(queryable:Queryable[_]) : this.Query = queryable.expr_or_typetag match {

@@ -11,6 +11,10 @@ import scala.slick.ast._
 import scala.slick.queryable._
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
+import scala.slick.session.Database.threadLocalSession
+import slick.jdbc.StaticQuery.interpolation
+import scala.reflect.runtime.universe.TypeTag
+import scala.reflect.ClassTag
 
 object QueryableTest extends DBTestObject(H2Mem)
 
@@ -28,8 +32,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
   object backend extends SlickBackend(tdb.driver)
 
   object TestingTools{
-    implicit def enableAssertQuery( q:Queryable[_] ) = new{
+    implicit def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
       def assertQuery( matcher : Node => Unit ) = {
+        //backend.dump(q)
+        println( backend.toSql(q) )
+        println( backend.result(q) )
         try{
           matcher( backend.toQuery( q ).node : @unchecked ) : @unchecked
           print(".")
@@ -67,9 +74,15 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
   @Test def test() {
     import TestingTools._
     val q : Queryable[Coffees] = Queryable[Coffees]
+   db withSession {
+    import scala.slick.jdbc.StaticQuery.Interpolation
+    sqlu"create table COFFEES(COF_SALES int, COF_NAME varchar(255))".execute
+    (for {
+      (sales, name) <- List((1, "szeiger"), (0, "admin"), (2, "guest"), (3, "foo"))
+    } yield sqlu"insert into COFFEES values ($sales, $name)".first).sum
 
-    //  q.dump
     println( backend.toSql(q) )
+    println( backend.result(q) )
 
     /*
       // now checked later during translation
@@ -299,4 +312,5 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       //FAILS: scala2scalaquery(scala.reflect.mirror.reify{5 + d}.tree )
     */
   }
+ }
 }
