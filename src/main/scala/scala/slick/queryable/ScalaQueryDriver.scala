@@ -30,7 +30,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     }
   }
 
-  type Scope = Map[Symbol,sq.Symbol]
+  type Scope = Map[Symbol,sq.Node]
   def Scope() : Scope = Map()
   class Query(
                val node : sq.Node,
@@ -38,11 +38,30 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
                )
   // // Why does this not work?
   //      invoke( n, classToType( n.getClass ).nonPrivateMember(newTermName("generator")) ).asInstanceOf[sq.Symbol]
+
+  def getConstructorArgs( tpe:Type ) =
+    tpe.member( nme.CONSTRUCTOR ).typeSignature match {
+      case MethodType( params, resultType ) => params // TODO check that the field order is correct
+    }
+
+  def extractColumn( sym:Symbol, sq_symbol:sq.Node ) = {
+    val column_name = sym.getAnnotations.collect{
+      case x@AnnotationInfo(tpe,tree,_)
+          if tpe <:< typeOf[column]
+        => { // FIXME: is this the right way to do it?
+          val name = tree(0).toString
+            name.slice( 1,name.length-1 ) // FIXME: <- why needed?
+        }
+    }.head
+
+    sq.Select(sq_symbol, sq.FieldSymbol(column_name)(List(),null))
+  }
+
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     val scala_symbol = typetag.tpe.typeSymbol
 
-    val sq_symbol = new sq.AnonSymbol
-    val columns =
+/*
+      // DISABLED get column names from memer annotations
       typetag.tpe.widen.members.collect{
         case member if member.getAnnotations.size > 0 && member.getAnnotations.exists{
           case x@AnnotationInfo(tpe,tree,_)
@@ -59,7 +78,8 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
       }.map(
         column_name =>
           sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(List(),null))
-      ).toSeq
+      ).toSeq*/
+    // get column names from constructor arg annotations
 
     val table = new sq.TableNode with sq.NullaryNode with sq.WithOp {
       val tableName = {
@@ -75,8 +95,8 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typetag.tpe.toString )
         }
       }
+      def columns = getConstructorArgs( typetag.tpe ).map{extractColumn(_,sq.Node(this))} // use def here, not val, so expansion is still correct after cloning
 
-      def * = sq.ProductNode(columns)
       def nodeShaped_* = ShapedValue(sq.ProductNode(columns), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
     }
 
@@ -103,14 +123,12 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         case Literal(Constant(x:Int))    => ConstColumn[Int](x)
         case Literal(Constant(x:String)) => ConstColumn[String](x)
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
-        case node@Ident(name) if !scope.contains(node.symbol) => // TODO: move this into a separate inlining step in queryable
-          node.symbol.asFreeTermSymbol.value match {
+        case ident@Ident(name) if !scope.contains(ident.symbol) => // TODO: move this into a separate inlining step in queryable
+          ident.symbol.asFreeTermSymbol.value match {
             case q:Queryable[_] => toQuery( q )
             case x => s2sq( Literal(Constant(x)) )
           }
-        case node@Ident(name) =>
-          val sq_symbol = scope(node.symbol)
-          sq.Ref(sq_symbol) // FIXME: Ref is probably wrong here. what should go here?
+        case ident@Ident(name) => scope(ident.symbol)
 
         // match columns
         case Select(from,name)
@@ -124,19 +142,8 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             })
           }
         =>
-          val sq_symbol= scope(from.symbol)
-          val type_ = from.tpe.widen
-          val member = type_.members.filter(_.name == name).toList(0)
-          val column_name = member.getAnnotations match {
-            case x@AnnotationInfo(_,tree,_) :: Nil =>
-            { // FIXME: is this the right way to do it?
-            val name = tree(0).toString
-              name.slice( 1,name.length-1 ) // FIXME: <- why needed?
-            }
-            case a => throw new Exception(member.toString) // FIXME
-          }
-          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(List(),null))
-
+          extractColumn( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
+          
 /*
         // TODO: Where is this needed?
         case Select(a:This,b) =>
@@ -154,7 +161,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         =>
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
-          val new_scope = scope+(arg.symbol -> sq_symbol)
+          val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
           val rhs = s2sq(body, new_scope)
           new Query( term.decoded match {
             case "_filter_placeholder"     => sq.Filter( sq_symbol, sq_lhs, rhs.node )

@@ -14,15 +14,16 @@ import scala.slick.testutil.TestDB._
 
 object QueryableTest extends DBTestObject(H2Mem)
 
-class QueryableTest(val tdb: TestDB) extends DBTest {
 
-  @table(name="COFFEES")
-  trait CoffeesTable{
-    @column(name="COF_SALES")
-    def sales : Int
-    @column(name="COF_NAME")
-    def name : String
-  }
+@table(name="COFFEES")
+case class Coffees(
+  @column(name="COF_SALES")
+  sales : Int,
+  @column(name="COF_NAME")
+  name : String
+)
+
+class QueryableTest(val tdb: TestDB) extends DBTest {
 
   object backend extends SlickBackend(tdb.driver)
 
@@ -65,7 +66,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
 
   @Test def test() {
     import TestingTools._
-    val q : Queryable[CoffeesTable] = Queryable[CoffeesTable]
+    val q : Queryable[Coffees] = Queryable[Coffees]
 
     //  q.dump
     println( backend.toSql(q) )
@@ -89,7 +90,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     class MyQuerycollection{
       def findUserByName( name:String ) = q.filter( _.name == name )
       // FIXME:
-      // def findUserByName2( name:String ) = Queryable[CoffeesTable].filter( _.name == name )
+      // def findUserByName2( name:String ) = Queryable[Coffees].filter( _.name == name )
     }
 
     val qc = new MyQuerycollection
@@ -97,7 +98,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     //qc.findUserByName2("test")
 
     // simple map
-    q.map( (_:CoffeesTable).sales + 5 )
+    q.map( (_:Coffees).sales + 5 )
       .assertQuery {
         case Bind(
           sym1a,
@@ -134,7 +135,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     }
 
     // type annotations
-    q.map[String]( (_:CoffeesTable).name : String )
+    q.map[String]( (_:Coffees).name : String )
       .assertQuery {
       case Bind(
              sym1a,
@@ -279,14 +280,15 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         if sym1a != sym2a && sym2a != sym3a && sym1a == sym1b && sym3a == sym3b
         => ()
       }
+      
       q.flatMap(o => q.filter( i => i.sales == o.sales ).map(i => i.name)) .assertQuery{ pattern3 }
                (for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
       Queryable(for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
 
     /*
       //FAILS:
-      (for( o <- Queryable[CoffeesTable];
-                          i <- Queryable[CoffeesTable] ) yield (o.name,i.name))
+      (for( o <- Queryable[Coffees];
+                          i <- Queryable[Coffees] ) yield (o.name,i.name))
     */
     /*  val d = 5.4
       val i = 5
