@@ -5,7 +5,6 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.util._
 import scala.slick.ql.{Join => _, _}
-import scala.slick.ql.ColumnOps._
 import scala.collection.mutable.HashMap
 import scala.slick.ql.TypeMapper.StringTypeMapper
 
@@ -171,15 +170,15 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case ConstColumn(true) if useIntForBoolean => b += (if(skipParens) "1=1" else "(1=1)")
-      case ConstColumn(false) if useIntForBoolean => b += (if(skipParens) "1=0" else "(1=0)")
-      case ConstColumn(null) => b += "null"
-      case Library.Not(Library.==(l, ConstColumn(null))) =>
+      case LiteralNode(true) if useIntForBoolean => b += (if(skipParens) "1=1" else "(1=1)")
+      case LiteralNode(false) if useIntForBoolean => b += (if(skipParens) "1=0" else "(1=0)")
+      case LiteralNode(null) => b += "null"
+      case Library.Not(Library.==(l, LiteralNode(null))) =>
         if(!skipParens) b += '('
         expr(l)
         b += " is not null"
         if(!skipParens) b += ')'
-      case Library.==(l, ConstColumn(null)) =>
+      case Library.==(l, LiteralNode(null)) =>
         if(!skipParens) b += '('
         expr(l)
         b += " is null"
@@ -302,7 +301,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           expr(w.asInstanceOf[Case.WhenNode].right)
         }
         c.elseClause match {
-          case ConstColumn(null) =>
+          case LiteralNode(null) =>
           case n =>
             b += " else "
             expr(n)

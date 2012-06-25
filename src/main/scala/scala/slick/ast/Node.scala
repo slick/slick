@@ -166,7 +166,9 @@ final case class Filter(generator: Symbol, from: Node, where: Node) extends Filt
   def right = where
   override def nodeChildNames = Seq("from "+generator, "where")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, where = right)
-  override def nodeDelegate = if(where == ConstColumn(true)) left else super.nodeDelegate
+  override def nodeDelegate =
+    if(where match { case LiteralNode(true) => true; case _ => false }) left
+    else super.nodeDelegate
   def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
   def nodePostGeneratorChildren = Seq(where)
 }
@@ -357,3 +359,5 @@ final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends SimpleN
     copy(defs = (defs, gen).zipped.map((e, s) => (s, e._2)))
   override def toString = "LetDynamic"
 }
+
+final case class SequenceNode(name: String) extends NullaryNode

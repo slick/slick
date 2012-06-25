@@ -75,7 +75,7 @@ class JoinTest(val tdb: TestDB) extends DBTest {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)
       _ <- Query orderBy p.id.nullsFirst
     } yield p.id ~ c.id ~ c.name ~ p.title
-    assertFail(q3a.list) // reads NULL form non-nullable column
+    assertFail(q3a.list) // reads NULL from non-nullable column
 
     val q3b = for {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)
