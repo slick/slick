@@ -39,11 +39,12 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new InsertInvoker(ShapedValue.createShapedValue(c))
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = new InsertInvoker(u)
 
-    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = new QueryExecutor[Seq[U]](processAST(Node(q)), driver, q)
+    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = new QueryExecutor[Seq[U]](processAST(Node(q)), q)
 
     // We can't use this direct way due to SI-3346
-    //implicit def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = new QueryExecutor[R](processAST(Node(q)), driver, shape.linearizer(q))
-    implicit def recordToQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutor[M](q, processAST(Node(q)), driver)
+    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = new QueryExecutor[R](processAST(Node(q)), shape.linearizer(q))
+    implicit final def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutor[M](q)
+    implicit final def anyToToQueryExecutor[T](value: T) = new ToQueryExecutor[T](value)
 
     // We should really constrain the 2nd type parameter of Query but that won't
     // work for queries on implicitly lifted tables. This conversion is needed
@@ -76,7 +77,8 @@ trait BasicDriver extends BasicProfile
   with BasicStatementBuilderComponent
   with BasicTypeMapperDelegatesComponent
   with BasicSQLUtilsComponent
-  with BasicInvokerComponent {
+  with BasicExecutorComponent
+  with BasicInvokerComponent{
   val profile: BasicProfile = this
 }
 

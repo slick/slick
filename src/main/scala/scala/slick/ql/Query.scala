@@ -93,6 +93,21 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
 
   def take(num: Int): Query[E, U] = new WrappingQuery[E, U](Take(Node(this), num), unpackable)
   def drop(num: Int): Query[E, U] = new WrappingQuery[E, U](Drop(Node(this), num), unpackable)
+
+  /*def min(implicit om: toOption[B1], tm: BaseTM) =
+    om(StdFunction[B1]("min", leftOperand))
+  def max(implicit om: toOption[B1], tm: BaseTM) =
+    om(StdFunction[B1]("max", leftOperand))
+  def avg(implicit om: toOption[B1], tm: Num) =
+    om(StdFunction[B1]("avg", leftOperand))
+  def sum(implicit om: toOption[B1], tm: Num) =
+    om(StdFunction[B1]("sum", leftOperand))
+  */
+
+  def sum[C](implicit ev: E <:< Column[C], tm: TypeMapper[C]): Column[C] = {
+    val c = ev(unpackable.value).mapOp((_, _) => Node(this))
+    Library.Sum.column[C](Node(c))
+  }
 }
 
 object Query extends Query[Column[Unit], Unit] {

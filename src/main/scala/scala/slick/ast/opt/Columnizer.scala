@@ -34,6 +34,8 @@ object Columnizer extends (Node => Node) with Logging {
         idBind(Pure(c))
       case a: Apply =>
         idBind(Pure(a))
+      case p: ProductNode =>
+        idBind(Pure(p))
       case p: Pure =>
         val gen = new AnonSymbol
         logger.debug("Introducing new Bind "+gen+" for Pure")

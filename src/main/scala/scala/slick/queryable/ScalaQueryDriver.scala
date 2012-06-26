@@ -296,7 +296,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]] 
     }
-    new QueryExecutor[Vector[R]](node,driver,linearizer).run
+    new driver.QueryExecutor[Vector[R]](node,linearizer).run
   }
   protected[slick] def toSql( queryable:Queryable[_] ) = {
     val node = queryable2node( queryable )
