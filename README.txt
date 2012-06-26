@@ -6,12 +6,13 @@ back-ends. Queries can be processed and validated at compile time, even in
 user-provided back-ends.
 
 It includes the following features:
-- Query language with type-safe queries based on a query monad and combinators
-- Lifting plain Scala code to database queries
+- Query language with type-safe queries
+- Writing database queries with plain Scala code
 - Simple execution of raw SQL queries
 - Session management based on JDBC Connections
 
-The following database systems are directly supported for type-safe queries:
+The following database systems are directly supported for type-safe queries
+(using the query language or Scala code lifted to DB queries):
 - Derby/JavaDB
 - H2
 - HSQLDB/HyperSQL
