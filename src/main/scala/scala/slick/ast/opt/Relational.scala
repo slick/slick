@@ -47,10 +47,14 @@ object Relational extends Logging {
   }
 
   def fuse(n: Node): Node = n.nodeMapChildren(fuse) match {
-    case c: Comprehension => createSelect(c) match {
-      case c2 @ Comprehension(_, _, _, Some(sel), _, _) => fuseComprehension(c2)
-      case c2 => c2
-    }
+    case c: Comprehension =>
+      val fused = createSelect(c) match {
+        case c2 @ Comprehension(_, _, _, Some(sel), _, _) => fuseComprehension(c2)
+        case c2 => c2
+      }
+      val f2 = liftAggregates(fused)
+      //if(f2 eq fused) f2 else fuse(f2)
+      f2
     case n => n
   }
 
@@ -120,6 +124,54 @@ object Relational extends Logging {
       c2
     }
     else c
+  }
+
+  /** Lift aggregates of sub-queries into the 'from' list. */
+  def liftAggregates(c: Comprehension): Comprehension = {
+    val lift = ArrayBuffer[(AnonSymbol, AnonSymbol, Library.AggregateFunctionSymbol, Comprehension)]()
+    def tr(n: Node): Node = n match {
+      //TODO Once we can recognize structurally equivalent sub-queries and merge them, c2 could be a Ref
+      case Apply(s: Library.AggregateFunctionSymbol, Seq(c2: Comprehension)) =>
+        val a = new AnonSymbol
+        val f = new AnonSymbol
+        lift += ((a, f, s, c2))
+        Select(Ref(a), f)
+      case c: Comprehension => c // don't recurse into sub-queries
+      case n => n.nodeMapChildren(tr)
+    }
+    if(c.select.isEmpty) c else {
+      val sel = c.select.get
+      val sel2 = tr(sel)
+      if(lift.isEmpty) c else {
+        val newFrom = lift.map { case (a, f, s, c2) =>
+          val a2 = new AnonSymbol
+          val (c2b, call) = s match {
+            case Library.CountAll =>
+              (c2, Apply(Library.Count, Seq(ConstColumn(1))))
+            case s =>
+              val c3 = ensureStruct(c2)
+              // All standard aggregate functions operate on a single column
+              val Some(Pure(StructNode(Seq((f2, _))))) = c3.select
+              (c3, Apply(s, Seq(Select(Ref(a2), f2))))
+          }
+          a -> Comprehension(from = Seq(a2 -> c2b),
+            select = Some(Pure(StructNode(IndexedSeq(f -> call)))))
+        }
+        c.copy(from = c.from ++ newFrom, select = Some(sel2))
+      }
+    }
+  }
+
+  /** Rewrite a Comprehension to always return a StructNode */
+  def ensureStruct(c: Comprehension): Comprehension = {
+    val c2 = createSelect(c)
+    c2.select match {
+      case Some(Pure(_: StructNode)) => c2
+      case Some(Pure(ProductNode(ch))) =>
+        c2.copy(select = Some(Pure(StructNode(ch.iterator.map(n => (new AnonSymbol) -> n).toIndexedSeq))))
+      case Some(Pure(n)) =>
+        c2.copy(select = Some(Pure(StructNode(IndexedSeq((new AnonSymbol) -> n)))))
+    }
   }
 
   def select(selects: List[Symbol], base: Node): Vector[Node] = {

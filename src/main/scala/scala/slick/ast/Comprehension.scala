@@ -52,7 +52,3 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
     else this
   }
 }
-
-/** Token for the special count(*) aggregate function which can appear in the
-  * SELECT slot of a Comprehension */
-case object CountStar extends NullaryNode

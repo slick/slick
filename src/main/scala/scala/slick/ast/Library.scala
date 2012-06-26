@@ -6,10 +6,12 @@ import scala.slick.ql.{Column, TypeMapper}
  * The standard library for query operators.
  */
 object Library {
+  trait AggregateFunctionSymbol extends Symbol
   class JdbcFunction(name: String) extends FunctionSymbol(name)
   class SqlFunction(name: String) extends FunctionSymbol(name)
   class SqlOperator(name: String) extends FunctionSymbol(name)
-  class SqlAggregateFunction(name: String) extends SqlFunction(name)
+  class AggregateFunction(name: String) extends FunctionSymbol(name) with AggregateFunctionSymbol
+  class SqlAggregateFunction(name: String) extends SqlFunction(name) with AggregateFunctionSymbol
 
   // Boolean operators
   val And = new SqlOperator("and")
@@ -59,9 +61,9 @@ object Library {
   val Sum = new SqlAggregateFunction("sum")
   val Count = new SqlAggregateFunction("count")
   val Exists = new SqlAggregateFunction("exists")
+  val CountAll = new AggregateFunction("count(*)")
+  val CountDistinct = new AggregateFunction("count distinct")
 
-  val CountAll = new FunctionSymbol("CountAll")
-  val CountDistinct = new FunctionSymbol("CountDistinct")
   val Cast = new FunctionSymbol("Cast")
   val IfNull = new JdbcFunction("ifnull")
 

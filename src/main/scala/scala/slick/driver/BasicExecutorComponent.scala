@@ -12,6 +12,8 @@ trait BasicExecutorComponent { driver: BasicDriver =>
 
   class QueryExecutor[R](query: Node, linearizer: ValueLinearizer[R]) {
 
+    def _selectStatement = sres.sql //TODO This should eventually replace StatementInvoker.selectStatement
+
     protected lazy val sres = createQueryBuilder(query, linearizer).buildSelect()
 
     def run(implicit session: Session): R = {
