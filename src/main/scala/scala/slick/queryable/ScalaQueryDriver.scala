@@ -244,7 +244,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             case q:Queryable[_] => q.query
             case x => s2sq( Literal(Constant(x)) )
           }*/
-          throw new Exception( "no match for: " + showRaw(tree) )
+          throw new Exception( "You probably used currently not supported scala code in a query. No match for: " + showRaw(tree) )
 
       }
     } catch{
