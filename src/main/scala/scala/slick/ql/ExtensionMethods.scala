@@ -123,19 +123,15 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
 
 /** Extension methods for Queries of a single Column */
 final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _]) extends AnyVal {
-  /*def min(implicit om: toOption[B1], tm: BaseTM) =
-    om(StdFunction[B1]("min", leftOperand))
-  def max(implicit om: toOption[B1], tm: BaseTM) =
-    om(StdFunction[B1]("max", leftOperand))
-  def avg(implicit om: toOption[B1], tm: Num) =
-    om(StdFunction[B1]("avg", leftOperand))
-  def sum(implicit om: toOption[B1], tm: Num) =
-    om(StdFunction[B1]("sum", leftOperand))
-  */
-  def sum(implicit tm: TypeMapper[Option[B1]]): Column[Option[B1]] = {
+  type OptionTM =  TypeMapper[Option[B1]]
+  def asColumn: Column[P1] = {
     val c = q.unpackable.value.mapOp((_, _) => Node(q))
-    Library.Sum.column[Option[B1]](Node(c))
+    c
   }
+  def min(implicit tm: OptionTM) = Library.Min.column[Option[B1]](Node(q))
+  def max(implicit tm: OptionTM) = Library.Max.column[Option[B1]](Node(q))
+  def avg(implicit tm: OptionTM) = Library.Avg.column[Option[B1]](Node(q))
+  def sum(implicit tm: OptionTM) = Library.Sum.column[Option[B1]](Node(q))
 }
 
 trait ExtensionMethodConversions {

@@ -87,10 +87,6 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
       def nodeDelegate = self.nodeDelegate
     }
 
-  // Query[Column[_]] only
-  def asColumn(implicit ev: E <:< Column[_]): E =
-    ev(unpackable.value).mapOp((_, _) => Node(this)).asInstanceOf[E]
-
   def take(num: Int): Query[E, U] = new WrappingQuery[E, U](Take(Node(this), num), unpackable)
   def drop(num: Int): Query[E, U] = new WrappingQuery[E, U](Drop(Node(this), num), unpackable)
 }
