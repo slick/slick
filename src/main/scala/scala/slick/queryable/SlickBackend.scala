@@ -255,37 +255,37 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     node
   }
 
-  protected[slick] def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
-    val expectedType = implicitly[TypeTag[R]]
+  protected def resultByType( expectedType : Type, cl: ClassLoader, rs: PositionedResult )(implicit session:Session) : Any = {
+    val cm = runtimeMirror(cl)
     def createInstance( args:Seq[Any] ) = {
-      val classTag = implicitly[ClassTag[R]]
-      val cl = classTag.runtimeClass.getClassLoader
-      val cm = runtimeMirror(cl)
-      val constructor = expectedType.tpe.member( nme.CONSTRUCTOR ).asMethodSymbol
-      val cls = cm.reflectClass( cm.classSymbol(classTag.runtimeClass) )
+      val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethodSymbol
+      val cls = cm.reflectClass( cm.classSymbol(cm.runtimeClass(expectedType)) )
       cls.reflectConstructor( constructor )( args:_* )
     }
+    import TupleTypes.tupleTypes
+    (expectedType match {
+      case t if typeMappers.isDefinedAt(expectedType.toString) => typeMappers( expectedType.toString )(driver).nextValue(rs)
+      case t if tupleTypes.exists( expectedType <:< _ ) =>
+        val args = expectedType.typeArguments.map{
+          tpe => resultByType( tpe, cl, rs )
+        }
+        createInstance( args )
+      case t if t.typeSymbol.hasFlag( Flag.CASE ) => //cm.classSymbol(cm.runtimeClass(t))
+        val args = expectedType.member( nme.CONSTRUCTOR ).typeSignature match {
+          case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
+            param =>  resultByType( param.typeSignature, cl, rs )
+          }
+        }
+        createInstance( args )
+    })
+  }
+
+  def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
     val node = queryable2node( queryable )
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
-          def getResult(profile: BasicProfile, rs: PositionedResult): R = {
-            import TupleTypes.tupleTypes
-            (expectedType.tpe match {
-              case t if typeMappers.isDefinedAt(expectedType.tpe.toString) => typeMappers( expectedType.tpe.toString )(driver).nextValue(rs)
-              case t if tupleTypes.exists( expectedType.tpe <:< _ ) =>
-                val args = expectedType.tpe.typeArguments.map{
-                  tpe => typeMappers( tpe.toString )(driver).nextValue(rs)
-                }
-                createInstance( args )
-              case _ =>
-                val args = expectedType.tpe.member( nme.CONSTRUCTOR ).typeSignature match {
-                  case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
-                    param =>  typeMappers( param.typeSignature.toString )(driver).nextValue(rs)
-                  }
-                }
-                createInstance( args )
-            }).asInstanceOf[R]
-          }
+          def getResult(profile: BasicProfile, rs: PositionedResult): R
+            = resultByType( implicitly[TypeTag[R]].tpe, implicitly[ClassTag[R]].runtimeClass.getClassLoader, rs ).asInstanceOf[R]
           def updateResult(profile: BasicProfile, rs: PositionedResult, value: R): Unit = ???
           def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
           def getLinearizedNodes: IndexedSeq[Node] = ???
