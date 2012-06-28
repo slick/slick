@@ -222,8 +222,17 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             case _ => throw new SlickException("Internal Slick error: resolution of "+ lhs.tpe +" "+term.decoded+" "+ rhs.tpe +" was ambigious")
           }
         }
+        
+        // Tuples
+        case Apply(
+            Select(Select(Ident(package_), class_), method_),
+            components
+        )
+        if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
+        =>
+            sq.ProductNode( components.map(s2sq(_).node) )
 
-        case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for: " + showRaw(tree) )
+        case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
     } catch{
       case e:java.lang.NullPointerException => { println("NPE in tree "+showRaw(tree));throw e}
@@ -247,25 +256,34 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   }
 
   protected[slick] def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
+    val expectedType = implicitly[TypeTag[R]]
+    def createInstance( args:Seq[Any] ) = {
+      val classTag = implicitly[ClassTag[R]]
+      val cl = classTag.runtimeClass.getClassLoader
+      val cm = runtimeMirror(cl)
+      val constructor = expectedType.tpe.member( nme.CONSTRUCTOR ).asMethodSymbol
+      val cls = cm.reflectClass( cm.classSymbol(classTag.runtimeClass) )
+      cls.reflectConstructor( constructor )( args:_* )
+    }
     val node = queryable2node( queryable )
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
           def getResult(profile: BasicProfile, rs: PositionedResult): R = {
-            val expectedType = implicitly[TypeTag[R]]
+            import TupleTypes.tupleTypes
             (expectedType.tpe match {
               case t if typeMappers.isDefinedAt(expectedType.tpe.toString) => typeMappers( expectedType.tpe.toString )(driver).nextValue(rs)
+              case t if tupleTypes.exists( expectedType.tpe <:< _ ) =>
+                val args = expectedType.tpe.typeArguments.map{
+                  tpe => typeMappers( tpe.toString )(driver).nextValue(rs)
+                }
+                createInstance( args )
               case _ =>
                 val args = expectedType.tpe.member( nme.CONSTRUCTOR ).typeSignature match {
                   case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
                     param =>  typeMappers( param.typeSignature.toString )(driver).nextValue(rs)
                   }
                 }
-                val classTag = implicitly[ClassTag[R]]
-                val cl = classTag.runtimeClass.getClassLoader
-                val cm = runtimeMirror(cl)
-                val constructor = expectedType.tpe.member( nme.CONSTRUCTOR ).asMethodSymbol
-                val cls = cm.reflectClass( cm.classSymbol(classTag.runtimeClass) )
-                cls.reflectConstructor( constructor )( args:_* )
+                createInstance( args )
             }).asInstanceOf[R]
           }
           def updateResult(profile: BasicProfile, rs: PositionedResult, value: R): Unit = ???

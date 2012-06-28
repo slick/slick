@@ -213,11 +213,17 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         }
       }
 
-      /* not supported yet
       // tuples
       assert( resultsMatch(
         query.map( c=> (c.name,c.sales) ),
         inMem.map( c=> (c.name,c.sales) )
+      ))
+      
+      /*
+      // nested structures (here tuples and case classes)
+      assert( resultsMatch(
+        query.map( c=> (c.name,c.sales,c) ),
+        inMem.map( c=> (c.name,c.sales,c) )
       ))
       */
 
