@@ -60,6 +60,8 @@ object ReconstructProducts extends (Node => Node) with Logging {
       (pch, nch).zipped.map(shapeMatches).forall(identity)
     case (PProduct(pch), Join(_, _, left, right, _, _)) if pch.length == 2 =>
       (pch, Seq(left, right)).zipped.map(shapeMatches).forall(identity)
+    case (PProduct(pch), GroupBy(_, from, by)) if pch.length == 2 =>
+      (pch, Seq(from, by)).zipped.map(shapeMatches).forall(identity)
     case _ => false
   }
 
@@ -69,6 +71,8 @@ object ReconstructProducts extends (Node => Node) with Logging {
     def narrow(n: Node): Option[Pure] = n match {
       case n: Pure => Some(n)
       case n: Join =>
+        Some(Pure(ProductNode(Seq(n, n)))) // dummy value with correct shape
+      case n: GroupBy =>
         Some(Pure(ProductNode(Seq(n, n)))) // dummy value with correct shape
       case Union(left, _, _, _, _) => narrow(left)
       case FilteredQuery(_, from) => narrow(from)

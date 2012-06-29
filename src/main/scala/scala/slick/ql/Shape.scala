@@ -92,8 +92,8 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
 /** A value together with its Shape
   */
 case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
-  def encodeRef(s: Symbol): ShapedValue[T, U] = {
-    val fv = WithOp.encodeRef(value, s)
+  def encodeRef(s: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
+    val fv = WithOp.encodeRef(value, s, positions)
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def packedNode = Node(shape.pack(value))

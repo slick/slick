@@ -58,10 +58,20 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
     val aliased = unpackable.encodeRef(generator)
     new WrappingQuery[E, U](SortBy(generator, Node(this), f(aliased.value).columns), unpackable)
   }
-  /*
-  def groupBy(by: Column[_]*) =
-    new Query[E, U](unpackable, cond, modifiers ::: by.view.map(c => new Grouping(Node(c))).toList)
-  */
+
+  def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[K, T, G], vshape: Shape[E, _, P]): Query[(G, Query[P, U]), (T, Query[P, U])] = {
+    val sym = new AnonSymbol
+    val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
+    val value = ShapedValue(pack, Shape.selfLinearizingShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
+    val group = GroupBy(sym, Node(unpackable.value), Node(key.value))
+    new WrappingQuery(group, key.zip(value))
+  }
+
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Query[E, U] = new Query[E, U] {
+    val unpackable = self.unpackable.encodeRef(sym, positions)
+    lazy val nodeDelegate =
+      positions.foldRight[Node](Ref(sym))((idx, node) => Select(node, ElementSymbol(idx)))
+  }
 
   def union[O >: E, R](other: Query[O, U]) =
     new WrappingQuery[O, U](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable)

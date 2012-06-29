@@ -8,8 +8,8 @@ class ShapeLowPriority2 {
 </#list>
 
   private[slick] def buildTuple(s: IndexedSeq[Any]): Product = s.length match {
-<#list 2..22 as i>
-    case ${i} => (<#list 1..i as j>s(${j-1})<#if i != j>, </#if></#list>)
+<#list 1..22 as i>
+    case ${i} => new Tuple${i}(<#list 1..i as j>s(${j-1})<#if i != j>, </#if></#list>)
 </#list>
   }
 }

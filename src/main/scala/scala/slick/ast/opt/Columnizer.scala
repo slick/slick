@@ -6,6 +6,7 @@ import scala.slick.util.Logging
 import scala.slick.ast.WithOp
 import scala.collection.mutable.HashMap
 import scala.slick.ql.{TypeMapper, Column}
+import scala.slick.SlickException
 
 /**
  * Expand columns in queries.
@@ -212,6 +213,7 @@ object Columnizer extends (Node => Node) with Logging {
       case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)
       case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1))
+      case _ => throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
     }
   }
 
