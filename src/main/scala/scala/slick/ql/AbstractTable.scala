@@ -23,7 +23,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[TT, U, _], unpackp: Shape[P, PU, _]): ForeignKeyQuery[TT, U] = {
     val q = Query[TT, U, TT](targetTable)(Shape.tableShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
-    val aliased = q.unpackable.endoMap(x => WithOp.encodeRef(x, generator))
+    val aliased = q.unpackable.encodeRef(generator)
     val fv = Library.==(Node(targetColumns(aliased.value)), Node(sourceColumns))
     val fk = ForeignKey(name, this, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)

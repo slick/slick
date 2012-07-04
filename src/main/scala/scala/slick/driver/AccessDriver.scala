@@ -26,6 +26,9 @@ import scala.slick.util.ValueLinearizer
  *     which may return more rows than requested if they are not unique.</li>
  *   <li><code>Drop(n)</code> modifiers are not supported. Trying to generate
  *     SQL code which uses this feature throws a SlickException.</li>
+ *   <li>Row numbers (required by <code>zip</code> and <code>zipWithIndex</code>)
+ *     are not supported. Trying to generate SQL code which uses this feature
+ *     throws a SlickException.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in Access. SLICK will return empty strings for
  *     both.</li>
@@ -112,6 +115,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
       case Library.User() => b += "''"
       case Library.Database() => b += "''"
       case Library.Pi() => b += pi
+      case RowNumber(_) => throw new SlickException("Access does not support row numbers")
       case _ => super.expr(c, skipParens)
     }
 

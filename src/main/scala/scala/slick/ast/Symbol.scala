@@ -4,7 +4,7 @@ import opt.Util._
 import scala.slick.ql.{TypeMapper, ColumnOption}
 
 /** A symbol which can be used in the AST. */
-abstract class Symbol {
+trait Symbol {
   def name: String
   override def toString = name
 }

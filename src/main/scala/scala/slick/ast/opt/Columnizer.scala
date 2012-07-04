@@ -5,7 +5,8 @@ import Util._
 import scala.slick.util.Logging
 import scala.slick.ast.WithOp
 import scala.collection.mutable.HashMap
-import scala.slick.ql.{TypeMapper, Column}
+import scala.slick.ql.Column
+import scala.slick.SlickException
 
 /**
  * Expand columns in queries.
@@ -34,6 +35,8 @@ object Columnizer extends (Node => Node) with Logging {
         idBind(Pure(c))
       case a: Apply =>
         idBind(Pure(a))
+      case p: ProductNode =>
+        idBind(Pure(p))
       case p: Pure =>
         val gen = new AnonSymbol
         logger.debug("Introducing new Bind "+gen+" for Pure")
@@ -48,9 +51,6 @@ object Columnizer extends (Node => Node) with Logging {
       case n => idBind(nowrap(n))
     }
     def nowrap(n: Node): Node = n match {
-      case j: Join => j.nodeMapChildren { ch =>
-        if((ch eq j.left) || (ch eq j.right)) nowrap(ch) else maybewrap(ch)
-      }
       case u: Union => u.nodeMapChildren(wrap)
       case f: FilteredQuery => f.nodeMapChildren { ch =>
         if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
@@ -210,6 +210,7 @@ object Columnizer extends (Node => Node) with Logging {
       case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)
       case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1))
+      case _ => throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
     }
   }
 

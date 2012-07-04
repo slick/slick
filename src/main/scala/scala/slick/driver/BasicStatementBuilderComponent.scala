@@ -49,8 +49,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def toComprehension(n: Node, liftExpression: Boolean = false): Comprehension = n match {
-      case Comprehension(Seq(), Seq(), Seq(), Some(Pure(ProductNode(Seq(Library.CountAll(q))))), None, None) =>
-        Comprehension(from = Seq(newSym -> q), select = Some(Pure(CountStar)))
       case c : Comprehension => c
       case p: Pure =>
         Comprehension(select = Some(p))
@@ -221,11 +219,6 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       case s: SimpleExpression => s.toSQL(this)
       case Library.Between(left, start, end) => expr(left); b += " between "; expr(start); b += " and "; expr(end)
       case Library.CountDistinct(e) => b += "count(distinct "; expr(e); b += ')'
-      /*
-     sealed case class Like(left: Node, right: Node, esc: Option[Char]) extends OperatorColumn[Boolean] with BinaryNode {
-     final class StartsWith(n: Node, s: String) extends Like(n, ConstColumn(likeEncode(s)+'%'), Some('^')) {
-     final class EndsWith(n: Node, s: String) extends Like(n, ConstColumn('%'+likeEncode(s)), Some('^')) {
-      */
       case Library.Like(l, r) =>
         if(!skipParens) b += '('
         expr(l)
@@ -307,12 +300,16 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
             expr(n)
         }
         b += " end)"
+      case RowNumber(by) =>
+        b += "row_number() over("
+        if(by.isEmpty) b += "order by (select 1)"
+        else buildOrderByClause(by)
+        b += ")"
       case Path(field :: (rest @ (_ :: _))) =>
         val struct = rest.reduceRight[Symbol] {
           case (ElementSymbol(idx), z) => joins(z).nodeGenerators(idx-1)._1
         }
         b += symbolName(struct) += '.' += symbolName(field)
-      case CountStar => b += "count(*)"
       case n => // try to build a sub-query
         if(!skipParens) b += '('
         buildComprehension(toComprehension(n))

@@ -4,7 +4,7 @@ import scala.language.existentials
 import scala.annotation.implicitNotFound
 import scala.slick.SlickException
 import scala.slick.util.{ProductLinearizer, ValueLinearizer, NaturalTransformation2, RecordLinearizer}
-import slick.ast.{TableNode, Node}
+import scala.slick.ast.{WithOp, TableNode, Node, Symbol}
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
  * `Query[Mixed]` to its result element type `Unpacked` and the packing to a
@@ -92,8 +92,8 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
 /** A value together with its Shape
   */
 case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
-  def endoMap(f: T => T): ShapedValue[T, U] = {
-    val fv = f(value)
+  def encodeRef(s: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
+    val fv = WithOp.encodeRef(value, s, positions)
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def packedNode = Node(shape.pack(value))

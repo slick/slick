@@ -121,6 +121,19 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
   def trim = Library.Trim.column[P1](n)
 }
 
+/** Extension methods for Queries of a single Column */
+final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _]) extends AnyVal {
+  type OptionTM =  TypeMapper[Option[B1]]
+  def asColumn: Column[P1] = {
+    val c = q.unpackable.value.mapOp((_, _) => Node(q))
+    c
+  }
+  def min(implicit tm: OptionTM) = Library.Min.column[Option[B1]](Node(q))
+  def max(implicit tm: OptionTM) = Library.Max.column[Option[B1]](Node(q))
+  def avg(implicit tm: OptionTM) = Library.Avg.column[Option[B1]](Node(q))
+  def sum(implicit tm: OptionTM) = Library.Sum.column[Option[B1]](Node(q))
+}
+
 trait ExtensionMethodConversions {
   implicit def anyColumnExtensionMethods[B1 : BaseTypeMapper](c: Column[B1]) = new AnyExtensionMethods(Node(c))
   implicit def anyOptionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new AnyExtensionMethods(Node(c))
@@ -134,12 +147,7 @@ trait ExtensionMethodConversions {
   implicit def stringOptionColumnExtensionMethods(c: Column[Option[String]]) = new StringColumnExtensionMethods[Option[String]](c)
   implicit def booleanColumnExtensionMethods(c: Column[Boolean]) = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Column[Option[Boolean]]) = new BooleanColumnExtensionMethods[Option[Boolean]](c)
-}
 
-//TODO remove when not used by SlickBackend anymore
-@deprecated("Use Library", "0.10.0")
-object ColumnOps {
-  final case class Relational(name: String, left: Node, right: Node) extends Column[Boolean] with SimpleBinaryOperator {
-    protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
-  }
+  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypeMapper](q: Query[Column[B1], _]) = new SingleColumnQueryExtensionMethods[B1, B1](q)
+  implicit def singleOptionColumnQueryExtensionMethods[B1](q: Query[Column[Option[B1]], _]) = new SingleColumnQueryExtensionMethods[B1, Option[B1]](q)
 }

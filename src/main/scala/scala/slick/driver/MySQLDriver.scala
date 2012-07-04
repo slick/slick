@@ -3,6 +3,8 @@ package scala.slick.driver
 import scala.slick.SlickException
 import scala.slick.ql._
 import scala.slick.ast._
+import scala.slick.ast.opt.Util._
+import scala.slick.ast.opt.ExtraUtil._
 import scala.slick.util.ValueLinearizer
 
 /**
@@ -32,9 +34,35 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
 
+    case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode
+    case class RowNumGen(sym: AnonSymbol) extends NullaryNode
+
+    override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
+      super.toComprehension(n, liftExpression) match {
+        case c @ Comprehension(from, _, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+          // MySQL does not support ROW_NUMBER() but you can manually increment
+          // a variable in the SELECT clause to emulate it.
+          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
+          val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
+          val gen, rownumSym, rownumGen = new AnonSymbol
+          var inc = true
+          val newSel = replaceRowNumber(sel.replace {
+            case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
+          }){ _ =>
+            val r = RowNum(rownumSym, inc)
+            inc = false
+            r
+          }
+          Comprehension(Seq(gen -> inner, rownumGen -> RowNumGen(rownumSym)), select = Some(newSel))
+        case c => c
+      }
+
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.NextValue(SequenceNode(name)) => b += quoteIdentifier(name + "_nextval") += "()"
       case Library.CurrentValue(SequenceNode(name)) => b += quoteIdentifier(name + "_currval") += "()"
+      case RowNum(sym, true) => b += "(@" += symbolName(sym) += " := @" += symbolName(sym) += " + 1)"
+      case RowNum(sym, false) => b += "@" += symbolName(sym)
+      case RowNumGen(sym) => b += "(select @" += symbolName(sym) += " := 0)"
       case _ => super.expr(n, skipParens)
     }
 

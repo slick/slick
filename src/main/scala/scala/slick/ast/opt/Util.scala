@@ -4,7 +4,7 @@ package opt
 import scala.language.implicitConversions
 import collection.TraversableLike
 import collection.generic.CanBuildFrom
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{HashSet, ArrayBuffer}
 
 /**
  * Utility methods for the optimizers.
@@ -54,6 +54,9 @@ final class NodeOps(val tree: Node) extends AnyVal {
 
   def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
 
+  def replace(f: PartialFunction[Node, Node]): Node =
+    f.applyOrElse(tree, ({ case n: Node => n.nodeMapChildren(_.replace(f)) }): PartialFunction[Node, Node])
+
   def foreach[U](f: (Node => U)) {
     def g(n: Node) {
       f(n)
@@ -79,5 +82,31 @@ final class NodeOps(val tree: Node) extends AnyVal {
         r
       }
     case n => n.nodeMapChildren(ch => f(None, ch, scope))
+  }
+}
+
+/** Some less general but still useful methods for the code generators. */
+object ExtraUtil {
+
+  def findPaths(startingAt: Set[Symbol], n: Node) = {
+    val b = new HashSet[Node]
+    def f(n: Node): Unit = n match {
+      case p @ Path(syms) if startingAt contains syms.last => b += p
+      case n => n.nodeChildren.foreach(f)
+    }
+    f(n)
+    b.toSet
+  }
+
+  def hasRowNumber(n: Node): Boolean = n match {
+    case c: Comprehension => false
+    case r: RowNumber => true
+    case n => n.nodeChildren.exists(hasRowNumber)
+  }
+
+  def replaceRowNumber(n: Node)(f: RowNumber => Node): Node = n match {
+    case c: Comprehension => c
+    case r: RowNumber => f(r)
+    case n => n.nodeMapChildren(ch => replaceRowNumber(ch)(f))
   }
 }

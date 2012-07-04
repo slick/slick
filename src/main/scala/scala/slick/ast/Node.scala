@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import scala.slick.SlickException
-import scala.slick.ql.{ConstColumn, ShapedValue}
+import slick.ql.{Column, ConstColumn, ShapedValue}
 import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.ArrayBuffer
 
@@ -33,7 +33,8 @@ trait Node extends NodeGenerator {
 
   override def toString = this match {
     case p: Product =>
-      val n = getClass.getName.replaceFirst(".*\\.", "").replaceFirst(".*\\$", "")
+      val cln = getClass.getName.replaceFirst(".*\\.", "")
+      val n = if(cln.endsWith("$")) cln.substring(0, cln.length-1) else cln.replaceFirst(".*\\$", "")
       val args = p.productIterator.filterNot(_.isInstanceOf[Node]).mkString(", ")
       if(args.isEmpty) n else (n + ' ' + args)
     case _ => super.toString
@@ -212,13 +213,15 @@ object Ordering {
   final case object Desc extends Direction(true) { def reverse = Asc }
 }
 
-final case class GroupBy(from: Node, groupBy: Node, generator: Symbol = new AnonSymbol) extends FilteredQuery with BinaryNode with SimpleDefNode {
+final case class GroupBy(generator: Symbol, from: Node, by: Node) extends BinaryNode with SimpleDefNode {
   def left = from
-  def right = groupBy
-  override def nodeChildNames = Seq("from "+generator, "groupBy")
-  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, groupBy = right)
+  def right = by
+  override def nodeChildNames = Seq("from "+generator, "by")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, by = right)
   def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodePostGeneratorChildren = Seq(groupBy)
+  def nodePostGeneratorChildren = Seq(by)
+  def nodeGenerators = Seq((generator, from))
+  override def toString = "GroupBy"
 }
 
 final case class Take(from: Node, num: Int, generator: Symbol = new AnonSymbol) extends FilteredQuery with UnaryNode with SimpleDefNode {
@@ -361,3 +364,10 @@ final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends SimpleN
 }
 
 final case class SequenceNode(name: String) extends NullaryNode
+
+/** A Query of this special Node represents an infinite stream of consecutive
+  * numbers starting at the given number. This is used as an operand for
+  * zipWithIndex. It is not exposed directly in the query language because it
+  * cannot be represented in SQL outside of a 'zip' operation. */
+final case class RangeFrom(start: Long = 1L) extends Column[Long] with NullaryNode
+//TODO should not have to be a Column

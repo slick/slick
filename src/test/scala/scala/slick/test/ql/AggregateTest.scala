@@ -31,4 +31,24 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
     assertEquals((0, 0, None, None, None, None), q.first(0))
     assertEquals((3, 3, Some(3), Some(6), Some(1), Some(2)), q.first(1))
   }
+
+  @Test def testNewAggregates() = db withSession {
+    object T extends Table[(Int, Option[Int])]("t") {
+      def a = column[Int]("a")
+      def b = column[Option[Int]]("b")
+      def * = a ~ b
+    }
+    T.ddl.create
+    T.insertAll((1, Some(1)), (1, Some(2)), (1, Some(3)))
+    def q1(i: Int) = for { t <- T if t.a === i } yield t
+    def q2(i: Int) = (q1(i).length, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
+    val q2_0 = q2(0).toQueryExecutor
+    val q2_1 = q2(1).toQueryExecutor
+    println("q2_0: "+q2_0._selectStatement)
+    println("q2_1: "+q2_1._selectStatement)
+    println(q2_0.run)
+    println(q2_1.run)
+    assertEquals((0, None, None, None), q2_0.run)
+    assertEquals((3, Some(3), Some(6), Some(2)), q2_1.run)
+  }
 }

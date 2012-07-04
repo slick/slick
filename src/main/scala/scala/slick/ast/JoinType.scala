@@ -10,4 +10,5 @@ object JoinType {
   case object Left extends JoinType("left outer")
   case object Right extends JoinType("right outer")
   case object Outer extends JoinType("full outer")
+  case object Zip extends JoinType("zip")
 }
