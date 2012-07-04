@@ -34,5 +34,15 @@ class TransactionTest(val tdb: TestDB) extends DBTest {
       }
       assertEquals(None, q.firstOption)
     }
+
+    db withSession {
+      T.insert(1)
+      threadLocalSession withTransaction {
+        Query(T).delete
+        assertEquals(None, q.firstOption)
+        threadLocalSession.rollback()
+      }
+      assertEquals(Some(1), q.firstOption)
+    }
   }
 }
