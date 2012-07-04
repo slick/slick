@@ -1,11 +1,12 @@
 package scala.slick.queryable
 
+import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.driver._
 import scala.slick.driver.BasicDriver.Table
 import scala.slick.ql._
 import scala.slick.{ast => sq}
-import scala.slick.ast.Library
+import scala.slick.ast.{Library,FunctionSymbol}
 import scala.slick.ast.Dump
 import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.slick.session.{Session}
@@ -23,11 +24,39 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     ,"String"           /*typeOf[String]*/ -> TypeMapper.StringTypeMapper
     ,"java.lang.String" /*typeOf[String]*/ -> TypeMapper.StringTypeMapper // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
   )
-/*
-    val opMappers : Map[ (String,List[Type]), Library.FunctionSymbol ] = Map(
-      ("+",List(typeof))
+
+  def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTermSymbol.resolveOverloaded(actuals = rhs.toList)
+
+  val operatorMap : Vector[ (Map[String, FunctionSymbol], List[List[Type]]) ] = {
+    import Library._
+    Vector(
+      Map( "==" -> Library.== )
+      ->
+      List(
+        List(typeOf[Any]),
+        List(typeOf[Any])
+      ),
+      Map( "+" -> Library.+, "<" -> <, ">" -> > )
+      ->
+      List(
+        List(typeOf[Int],typeOf[Double]),
+        List(typeOf[Int],typeOf[Double])
+      ),
+      Map( "+" -> Concat )
+      ->
+      List(
+        List(typeOf[String],typeOf[java.lang.String]),
+        List(typeOf[String],typeOf[java.lang.String])
+      ),
+      Map( "||" -> <, "&&" -> > )
+      ->
+      List(
+        List(typeOf[Boolean]),
+        List(typeOf[Boolean])
+      )
     )
-*/
+  }
+
 
   object removeTypeAnnotations extends Transformer {
     def apply( tree:Tree ) = transform(tree)
@@ -48,8 +77,6 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
                val node : sq.Node,
                val scope : Scope
                )
-  // // Why does this not work?
-  //      invoke( n, classToType( n.getClass ).nonPrivateMember(newTermName("generator")) ).asInstanceOf[sq.Symbol]
 
   def getConstructorArgs( tpe:Type ) =
     tpe.member( nme.CONSTRUCTOR ).typeSignature match {
@@ -72,27 +99,6 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     val scala_symbol = typetag.tpe.typeSymbol
 
-/*
-      // DISABLED get column names from memer annotations
-      typetag.tpe.widen.members.collect{
-        case member if member.getAnnotations.size > 0 && member.getAnnotations.exists{
-          case x@AnnotationInfo(tpe,tree,_)
-            if tpe <:< typeOf[column]
-          => true
-        } => member.getAnnotations.collect{
-          case x@AnnotationInfo(tpe,tree,_)
-            if tpe <:< typeOf[column]
-          =>{ // FIXME: is this the right way to do it?
-          val name = tree(0).toString
-            name.slice( 1,name.length-1 ) // FIXME: <- why needed?
-          }
-        }.head
-      }.map(
-        column_name =>
-          sq.Select(sq.Ref(sq_symbol), sq.FieldSymbol(column_name)(List(),null))
-      ).toSeq*/
-    // get column names from constructor arg annotations
-
     val table = new sq.TableNode with sq.NullaryNode with sq.WithOp {
       val tableName = {
         val ants = scala_symbol.getAnnotations
@@ -111,13 +117,9 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
 
       def nodeShaped_* = ShapedValue(sq.ProductNode(columns), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
     }
-
-    
     new Query( table, Scope() )
   }
-  /*  def apply( tree:Tree, queryable:Queryable[_] ) : Query = {
-    this.apply(tree,queryable.query.scope)
-  }*/
+
   def toQuery( tree:Tree, scope : Scope = Scope() ) : Query = {
     import scala.tools.reflect._
     // external references (symbols) are preserved by reify, so cm suffices (its class loader does not need to load any new classes)
@@ -131,7 +133,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     try{
       val string_types = List("String","java.lang.String")
       tree match {
-        // explicitly state types here until SQ removes type parameters and type mapper from ConstColumn 
+        // explicitly state types here until SQ removes type parameters and type mapper from ConstColumn
         case Literal(Constant(x:Int))    => ConstColumn[Int](x)
         case Literal(Constant(x:String)) => ConstColumn[String](x)
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
@@ -155,7 +157,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           }
         =>
           extractColumn( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
-          
+
 /*
         // TODO: Where is this needed?
         case Select(a:This,b) =>
@@ -184,25 +186,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             new_scope
           )
 
-        // match scalar operators
-        case Apply(Select(lhs,term),rhs::Nil)
-          if lhs.tpe <:< typeOf[Boolean]
-            && rhs.tpe <:< typeOf[Boolean]
-            => term.decoded match {
-              case "||" => Library.Or ( s2sq( lhs ).node, s2sq( rhs ).node )
-              case "&&" => Library.And( s2sq( lhs ).node, s2sq( rhs ).node )
-            }
-
-        case Apply(Select(lhs,term),rhs::Nil)
-          if ((lhs.tpe <:< typeOf[Int]
-            && rhs.tpe <:< typeOf[Int]
-            ) || ( lhs.tpe <:< typeOf[Double]
-            && rhs.tpe <:< typeOf[Double]
-            ))
-            && List("+").contains( term.decoded )
-        =>
-          Library.+(s2sq( lhs ).node, s2sq( rhs ).node)//( typeMappers(rhs.tpe.widen.toString) )
-
+        // FIXME: this case is required because of a bug, but should be covered by the next case
         case d@Apply(Select(lhs,term),rhs::Nil)
           if {
             /*println("_a__")
@@ -222,30 +206,33 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
             case "+" => Library.Concat(s2sq( lhs ).node, s2sq( rhs ).node )
           }
 
-        case Apply(Select(lhs,term),rhs::Nil)
-          if List("<",">","==","!=").contains( term.decoded )
+        case Apply(op@Select(lhs,term),rhs::Nil) => {
+          val actualTypes = lhs.tpe :: rhs.tpe :: Nil //.map(_.tpe).toList
+          val matching_ops = ( operatorMap.collect{
+              case (str2sym, types)
+                    if str2sym.isDefinedAt( term.decoded )
+                      && types.zipWithIndex.forall{
+                           case (expectedTypes, index) => expectedTypes.exists( actualTypes(index) <:< _ ) 
+                         }
+              => str2sym( term.decoded )
+          })
+          matching_ops.size match{
+            case 0 => throw new SlickException("Operator not supported: "+ lhs.tpe +" "+term.decoded+" "+ rhs.tpe +"  ")
+            case 1 => matching_ops.head( s2sq( lhs ).node, s2sq( rhs ).node )
+            case _ => throw new SlickException("Internal Slick error: resolution of "+ lhs.tpe +" "+term.decoded+" "+ rhs.tpe +" was ambigious")
+          }
+        }
+        
+        // Tuples
+        case Apply(
+            Select(Select(Ident(package_), class_), method_),
+            components
+        )
+        if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
         =>
-          (term.decoded match{
-            case "<" => Library.<
-            case ">" => Library.>
-//            case "!" => Library.Not
-//            case "!=" => Library.!=
-            case "==" => Library.==
-          })(s2sq( lhs ).node, s2sq( rhs ).node )
+            sq.ProductNode( components.map(s2sq(_).node) )
 
-        /*
-              // match other methods
-              case Apply(Select(lhs,term),rhs::Nil)
-                =>
-                throw new UnsupportedMethodException( lhs.tpe.erasedType+"."+term.decoded+"("+rhs.tpe.erasedType+")" )
-        */
-        case Apply(Select(lhs,term),rhs::Nil) => throw new Exception("cannot handle"+(lhs.tpe,term.decoded, rhs.tpe))
-        case tree => /*Expr[Any](tree).eval match{
-            case q:Queryable[_] => q.query
-            case x => s2sq( Literal(Constant(x)) )
-          }*/
-          throw new Exception( "no match for: " + showRaw(tree) )
-
+        case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
     } catch{
       case e:java.lang.NullPointerException => { println("NPE in tree "+showRaw(tree));throw e}
@@ -259,7 +246,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   import scala.slick.session.{PositionedParameters, PositionedResult}
   import scala.slick.ast.Node
   import scala.slick.ql.TypeMapper
-  
+
   private def queryable2node[R]( queryable:Queryable[R] ) : sq.Node = {
     val query = this.toQuery(queryable)
     import driver._
@@ -268,33 +255,42 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     node
   }
 
-  protected[slick] def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
+  protected def resultByType( expectedType : Type, cl: ClassLoader, rs: PositionedResult )(implicit session:Session) : Any = {
+    val cm = runtimeMirror(cl)
+    def createInstance( args:Seq[Any] ) = {
+      val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethodSymbol
+      val cls = cm.reflectClass( cm.classSymbol(cm.runtimeClass(expectedType)) )
+      cls.reflectConstructor( constructor )( args:_* )
+    }
+    import TupleTypes.tupleTypes
+    (expectedType match {
+      case t if typeMappers.isDefinedAt(expectedType.toString) => typeMappers( expectedType.toString )(driver).nextValue(rs)
+      case t if tupleTypes.exists( expectedType <:< _ ) =>
+        val args = expectedType.typeArguments.map{
+          tpe => resultByType( tpe, cl, rs )
+        }
+        createInstance( args )
+      case t if t.typeSymbol.hasFlag( Flag.CASE ) => //cm.classSymbol(cm.runtimeClass(t))
+        val args = expectedType.member( nme.CONSTRUCTOR ).typeSignature match {
+          case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
+            param =>  resultByType( param.typeSignature, cl, rs )
+          }
+        }
+        createInstance( args )
+    })
+  }
+
+  def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
     val node = queryable2node( queryable )
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
-          def getResult(profile: BasicProfile, rs: PositionedResult): R = {
-            val expectedType = implicitly[TypeTag[R]]
-            (expectedType.tpe match {
-              case t if typeMappers.isDefinedAt(expectedType.tpe.toString) => typeMappers( expectedType.tpe.toString )(driver).nextValue(rs)
-              case _ =>
-                val args = expectedType.tpe.member( nme.CONSTRUCTOR ).typeSignature match {
-                  case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
-                    param =>  typeMappers( param.typeSignature.toString )(driver).nextValue(rs)
-                  }
-                } 
-                val classTag = implicitly[ClassTag[R]]
-                val cl = classTag.runtimeClass.getClassLoader
-                val cm = runtimeMirror(cl)
-                val constructor = expectedType.tpe.member( nme.CONSTRUCTOR ).asMethodSymbol
-                val cls = cm.reflectClass( cm.classSymbol(classTag.runtimeClass) )
-                cls.reflectConstructor( constructor )( args:_* )
-            }).asInstanceOf[R]
-          }
+          def getResult(profile: BasicProfile, rs: PositionedResult): R
+            = resultByType( implicitly[TypeTag[R]].tpe, implicitly[ClassTag[R]].runtimeClass.getClassLoader, rs ).asInstanceOf[R]
           def updateResult(profile: BasicProfile, rs: PositionedResult, value: R): Unit = ???
           def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
           def getLinearizedNodes: IndexedSeq[Node] = ???
         }
-        def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]] 
+        def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
     }
     new QueryExecutor[Vector[R]](node,driver,linearizer).run
   }

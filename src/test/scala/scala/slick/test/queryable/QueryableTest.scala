@@ -20,11 +20,11 @@ object QueryableTest extends DBTestObject(H2Mem)
 
 
 @table(name="COFFEES")
-case class Coffees(
-  @column(name="COF_SALES")
-  sales : Int,
+case class Coffee(
   @column(name="COF_NAME")
-  name : String
+  name : String,
+  @column(name="SALES")
+  sales : Int
 )
 
 class QueryableTest(val tdb: TestDB) extends DBTest {
@@ -69,248 +69,162 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     }
     def fail : Unit = fail()
     def success{ print(".") }
+    def isEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = lhs.groupBy(x=>x) == rhs.groupBy(x=>x)
+    def resultsMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = isEqualMultiSet( backend.result(queryable), expected)
   }
 
   @Test def test() {
     import TestingTools._
-    val q : Queryable[Coffees] = Queryable[Coffees]
-   db withSession {
-    import scala.slick.jdbc.StaticQuery.Interpolation
-    sqlu"create table COFFEES(COF_SALES int, COF_NAME varchar(255))".execute
-    (for {
-      (sales, name) <- List((1, "szeiger"), (0, "admin"), (2, "guest"), (3, "foo"))
-    } yield sqlu"insert into COFFEES values ($sales, $name)".first).sum
-
-    println( backend.toSql(q) )
-    println( backend.result(q) )
-
-    /*
-      // now checked later during translation
-      try{
-        Queryable[String]
-        fail("expected exception about missing annotations")
-      } catch{
-        case e:Exception if e.getMessage.contains( "annotation" ) => success
-        case e => fail
-      }
-    */
-
-    // queryable
-    q.assertQuery {
-      case TableName("COFFEES") => ()
-    }
-
-    class MyQuerycollection{
-      def findUserByName( name:String ) = q.filter( _.name == name )
-      // FIXME:
-      // def findUserByName2( name:String ) = Queryable[Coffees].filter( _.name == name )
-    }
-
-    val qc = new MyQuerycollection
-    qc.findUserByName("some value")
-    //qc.findUserByName2("test")
-
-    // simple map
-    q.map( (_:Coffees).sales + 5 )
-      .assertQuery {
-        case Bind(
-          sym1a,
-          TableName("COFFEES"),
-            Pure(
-              Ops.+(Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) ) ))
-        if sym1a == sym1b
-      => ()
-    }
-
-    // map with string concatenation
-    q.map( _.name + "." )
-      .assertQuery {
-      case Bind(
-             sym1a,
-             TableName("COFFEES"),
-             Pure(
-               Concat( Select(Ref(sym1b), ColumnName("COF_NAME")), ConstColumn(".")) ))
-        if sym1a == sym1b
-      => ()
-    }
-
-    // filter with more complex condition
-    q.filter( c => c.sales > 5 || "Chris" == c.name )
-      .assertQuery {
-        case Filter(
-             sym1a,
-             TableName("COFFEES"),
-             Or(
-               Ops.>( Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) ),
-               Ops.==( ConstColumn("Chris"), Select(Ref(sym1c), ColumnName("COF_NAME"))) ))
-        if sym1a == sym1b && sym1b == sym1c
-      => ()
-    }
-
-    // type annotations
-    q.map[String]( (_:Coffees).name : String )
-      .assertQuery {
-      case Bind(
-             sym1a,
-             TableName("COFFEES"),
-      Pure(
-      Select(Ref(sym1b), ColumnName("COF_NAME"))
-      )
-      )
-        if sym1a == sym1b
-      => ()
-    }
-
-    // chaining
-    q.map( _.name ).filter(_ == "")
-      .assertQuery {
-      case Filter(
-      sym1a,
-      Bind(
-      sym2a,
-      TableName("COFFEES"),
-      Pure(
-      Select(Ref(sym2b), ColumnName("COF_NAME"))
-      )
-      ),
-      Ops.==( Ref(sym1b), ConstColumn("") )
-      )
-        if sym1a == sym1b && sym2a == sym2b
-      => ()
-    }
-
-
-    // referenced values are inlined as constants using reflection
-    val o = 2 + 3
-    q.filter( _.sales > o )
-      .assertQuery {
-      case Filter(
-      sym1a,
-      TableName("COFFEES"),
-      Ops.>( Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
-      )
-        if sym1a == sym1b
-      => ()
-    }
-
-      // nesting
-      // not supported yet: q.map(e1 => q.map(e2=>e1)) 
     
-      q.flatMap(e1 => q.map(e2=>e1))
-       .assertQuery {
-          case Bind(
-                 sym1a,
-                 TableName("COFFEES"),
-                   Bind(
-                     sym2a,
-                     TableName("COFFEES"),
-                     Pure(
-                       Ref( sym1b )
-                     )
-          ))
-          if sym1a == sym1b && sym1a != sym2a
-          => ()
-        }
+    val coffees_data = Vector(
+      ("Colombian",          1),
+      ("French_Roast",       2),
+      ("Espresso",           3),
+      ("Colombian_Decaf",    4),
+      ("French_Roast_Decaf", 5)
+    )
+    
+    db withSession {
+      // create test table
+      import scala.slick.jdbc.StaticQuery.Interpolation
+      sqlu"create table COFFEES(COF_NAME varchar(255), SALES int)".execute
+      (for {
+        (name, sales) <- coffees_data
+      } yield sqlu"insert into COFFEES values ($name, $sales)".first).sum
 
+      // FIXME: reflective typecheck failed:  backend.result(Queryable[Coffee].map(x=>x))
+      
+      // setup query and equivalent inMemory data structure
+      val inMem = coffees_data.map{ case (name, sales) => Coffee(name, sales) }
+      val query : Queryable[Coffee] = Queryable[Coffee]
+
+      // test framework sanity checks
+      assert( ! resultsMatch(query, inMem ++ inMem) )
+      assert( ! resultsMatch(query, List()) )
+
+      // fetch whole table
+      assert( resultsMatch( query, inMem ) )
+
+      // FIXME: make this test less artificial
+      class MyQuerycollection{
+        def findUserByName( name:String ) = query.filter( _.name == name )
+      }  
+      val qc = new MyQuerycollection
+      qc.findUserByName("some value")
+  
+      // simple map
+      assert( resultsMatch(
+        query.map( (_:Coffee).sales + 5 ),
+        inMem.map( (_:Coffee).sales + 5 )
+      ))
+  
+      // map with string concatenation
+      assert( resultsMatch(
+        query.map( _.name + "." ),
+        inMem.map( _.name + "." )
+      ))
+  
+      // filter with more complex condition
+      assert( resultsMatch(
+        query.filter( c => c.sales > 5 || "Chris" == c.name ),
+        inMem.filter( c => c.sales > 5 || "Chris" == c.name )
+      ))
+  
+      // type annotations FIXME canBuildFrom
+      assert( resultsMatch(
+        query.map[String]( (_:Coffee).name : String ),
+        inMem.map        ( (_:Coffee).name : String )
+      ))
+
+      // chaining
+      assert( resultsMatch(
+        query.map( _.name ).filter(_ == ""),
+        inMem.map( _.name ).filter(_ == "")
+      ))
+  
+      // referenced values are inlined as constants using reflection
+      val o = 2 + 3
+      assert( resultsMatch(
+        query.filter( _.sales > o ),
+        inMem.filter( _.sales > o )
+      ))
+
+      // nesting (not supported yet: query.map(e1 => query.map(e2=>e1))) 
+      assert( resultsMatch(
+        query.flatMap(e1 => query.map(e2=>e1)),
+        inMem.flatMap(e1 => inMem.map(e2=>e1))
+      ))
+  
       // query scope
-      Queryable( q.filter( _.sales > 5 ) )
-       .assertQuery {
-          case Filter(
-                  sym1a,
-                  TableName("COFFEES"),
-                  Ops.>( Select(Ref(sym1b), ColumnName("COF_SALES")), ConstColumn(5) )
-          )
-          if sym1a == sym1b
-          => ()
+      {
+        val inMemResult = inMem.filter( _.sales > 5 )
+        List(
+          query.filter( _.sales > 5 ),
+          Queryable( query.filter( _.sales > 5 ) ),
+          Queryable{
+            val foo = query
+            val bar = foo.filter( _.sales > 5 )
+            bar  
+          }
+        ).foreach{
+          query_ => assert( resultsMatch( query_, inMemResult ) )
         }
+      }
 
       // comprehension with map
-      (for( c <- q ) yield c.name).assertQuery{
-        case Bind(
-               sym1a,
-               TableName("COFFEES"),
-               Pure(
-                 Select(Ref( sym1b), ColumnName("COF_NAME") )
-               )
-        )
-        if sym1a == sym1b
-        => ()
-      }
-
+      assert( resultsMatch(
+        for( c <- query ) yield c.name,
+        for( c <- inMem ) yield c.name
+      ))
+  
       // nesting with flatMap
-      val pattern1 : Node => Unit =  {
-        case Bind(
-               sym1a,
-               TableName("COFFEES"),
-               Bind(
-                 sym2a,
-                 TableName("COFFEES"),
-                 Pure(
-                   Select(Ref( sym2b), ColumnName("COF_NAME") )
-        )))
-        if sym1a != sym2a && sym2a == sym2b
-        => ()
+      {
+        val inMemResult = for( o <- inMem; i <- inMem ) yield i.name
+        List(
+                   query.flatMap( o => query.map(i => i.name) ),
+                    for( o <- query; i <- query ) yield i.name ,
+          Queryable(for( o <- query; i <- query ) yield i.name)
+        ).foreach{
+          query_ => assert( resultsMatch( query_, inMemResult ) )
+        }
       }
-               q.flatMap( o => q.map(i => i.name) ) .assertQuery{ pattern1 }
-               (for( o <- q; i <- q ) yield i.name) .assertQuery{ pattern1 }
-      Queryable(for( o <- q; i <- q ) yield i.name) .assertQuery{ pattern1 }
 
       // nesting with outer macro reference
-      val pattern2 : Node => Unit =  {
-        case Bind(
-               sym1a,
-               TableName("COFFEES"),
-               Bind(
-                 sym2a,
-                 TableName("COFFEES"),
-                 Pure(
-                   Select(Ref( sym1b), ColumnName("COF_NAME") )
-        )))
-        if sym1a != sym2a && sym1a == sym1b
-        => ()
+      {
+        val inMemResult = for( o <- inMem; i <- inMem ) yield o.name
+        List(
+                   query.flatMap( o => query.map(i => o.name) ),
+                   for( o <- query; i <- query ) yield o.name ,
+          Queryable(for( o <- query; i <- query ) yield o.name)
+        ).foreach{
+          query_ => assert( resultsMatch( query_, inMemResult ) )
+        }
       }
-               q.flatMap( o => q.map(i => o.name) ) .assertQuery{ pattern2 }
-               (for( o <- q; i <- q ) yield o.name) .assertQuery{ pattern2 }
-      Queryable(for( o <- q; i <- q ) yield o.name) .assertQuery{ pattern2 }
-
+  
       // nesting with chaining / comprehension with cartesian product and if
-      val pattern3 : Node => Unit =  {
-        case Bind(
-               sym1a,
-               TableName("COFFEES"),
-               Bind(
-                 sym3a,
-                 Filter(
-                   sym2a,
-                   TableName("COFFEES"),
-                   Ops.==(
-                       Select(Ref( sym2b), ColumnName("COF_SALES") ),
-                       Select(Ref( sym1b), ColumnName("COF_SALES") )
-                 )),
-                 Pure(
-                   Select(Ref( sym3b), ColumnName("COF_NAME") )
-        )))
-        if sym1a != sym2a && sym2a != sym3a && sym1a == sym1b && sym3a == sym3b
-        => ()
+      {
+        val inMemResult = for( o <- inMem; i <- inMem; if i.sales == o.sales ) yield i.name
+        List(
+          query.flatMap(o => query.filter( i => i.sales == o.sales ).map(i => i.name)),
+                    for( o <- query; i <- query; if i.sales == o.sales ) yield i.name ,
+          Queryable(for( o <- query; i <- query; if i.sales == o.sales ) yield i.name)
+        ).foreach{
+          query_ => assert( resultsMatch( query_, inMemResult ) )
+        }
       }
+
+      // tuples
+      assert( resultsMatch(
+        query.map( c=> (c.name,c.sales) ),
+        inMem.map( c=> (c.name,c.sales) )
+      ))
       
-      q.flatMap(o => q.filter( i => i.sales == o.sales ).map(i => i.name)) .assertQuery{ pattern3 }
-               (for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
-      Queryable(for( o <- q; i <- q; if i.sales == o.sales ) yield i.name) .assertQuery{ pattern3 }
+      // nested structures (here tuples and case classes)
+      assert( resultsMatch(
+        query.map( c=> (c.name,c.sales,c) ),
+        inMem.map( c=> (c.name,c.sales,c) )
+      ))
 
-    /*
-      //FAILS:
-      (for( o <- Queryable[Coffees];
-                          i <- Queryable[Coffees] ) yield (o.name,i.name))
-    */
-    /*  val d = 5.4
-      val i = 5
-
-      //FAILS: scala2scalaquery(scala.reflect.mirror.reify{5.4 + i}.tree )
-      //FAILS: scala2scalaquery(scala.reflect.mirror.reify{d + 5}.tree )
-      //FAILS: scala2scalaquery(scala.reflect.mirror.reify{i + 5.4}.tree )
-      //FAILS: scala2scalaquery(scala.reflect.mirror.reify{5 + d}.tree )
-    */
+    }
   }
- }
 }
