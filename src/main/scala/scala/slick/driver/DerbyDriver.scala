@@ -19,6 +19,14 @@ import scala.slick.util.ValueLinearizer
  *   <li>Sequence cycling is supported but does not conform to SQL:2008
  *     semantics. Derby cycles back to the START value instead of MINVALUE or
  *     MAXVALUE.</li>
+ *   <li>Ordered sub-queries and window functions with orderings are currently
+ *     not supported by Derby. These are required by <code>zip</code> and
+ *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
+ *     feature causes the DB to throw an exception. We do not prevent these
+ *     queries from being generated because we expect future Derby versions to
+ *     support them with the standard SQL:2003 syntax (see
+ *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber"
+ *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
  * </ul>
  *
  * @author szeiger

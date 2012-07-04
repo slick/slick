@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import scala.slick.SlickException
-import scala.slick.ql.{ConstColumn, ShapedValue}
+import slick.ql.{Column, ConstColumn, ShapedValue}
 import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.ArrayBuffer
 
@@ -33,7 +33,8 @@ trait Node extends NodeGenerator {
 
   override def toString = this match {
     case p: Product =>
-      val n = getClass.getName.replaceFirst(".*\\.", "").replaceFirst(".*\\$", "")
+      val cln = getClass.getName.replaceFirst(".*\\.", "")
+      val n = if(cln.endsWith("$")) cln.substring(0, cln.length-1) else cln.replaceFirst(".*\\$", "")
       val args = p.productIterator.filterNot(_.isInstanceOf[Node]).mkString(", ")
       if(args.isEmpty) n else (n + ' ' + args)
     case _ => super.toString
@@ -363,3 +364,10 @@ final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends SimpleN
 }
 
 final case class SequenceNode(name: String) extends NullaryNode
+
+/** A Query of this special Node represents an infinite stream of consecutive
+  * numbers starting at the given number. This is used as an operand for
+  * zipWithIndex. It is not exposed directly in the query language because it
+  * cannot be represented in SQL outside of a 'zip' operation. */
+final case class RangeFrom(start: Long = 1L) extends Column[Long] with NullaryNode
+//TODO should not have to be a Column

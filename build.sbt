@@ -24,8 +24,8 @@ scalacOptions ++= List("-deprecation", "-feature")
 libraryDependencies <++= (useJDBC4) { u => Seq(
   "com.h2database" % "h2" % "1.3.166" % "test",
   "org.xerial" % "sqlite-jdbc" % "3.6.20" % "test",
-  "org.apache.derby" % "derby" % "10.6.1.0" % "test",
-  "org.hsqldb" % "hsqldb" % "2.0.0" % "test",
+  "org.apache.derby" % "derby" % "10.9.1.0" % "test",
+  "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
   "postgresql" % "postgresql" % (if(u) "9.1-901.jdbc4" else "9.1-901.jdbc3") % "test",
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",

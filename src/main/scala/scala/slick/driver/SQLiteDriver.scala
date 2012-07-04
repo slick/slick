@@ -20,6 +20,9 @@ import scala.slick.util.ValueLinearizer
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in SQLite. SLICK will return empty strings for
  *     both.</li>
+ *   <li>Row numbers (required by <code>zip</code> and <code>zipWithIndex</code>)
+ *     are not supported. Trying to generate SQL code which uses this feature
+ *     throws a SlickException.</li>
  * </ul>
  */
 trait SQLiteDriver extends ExtendedDriver { driver =>
@@ -74,6 +77,7 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
         b += s.name += '('
         b.sep(s.nodeChildren, ",")(expr(_, true))
         b += ")"
+      case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
       case _ => super.expr(c, skipParens)
     }
   }

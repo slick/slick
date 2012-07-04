@@ -1,9 +1,12 @@
 package scala.slick.driver
 
+import scala.collection.mutable.HashSet
 import java.sql.Types
 import scala.slick.SlickException
 import scala.slick.ql._
 import scala.slick.ast._
+import scala.slick.ast.opt.Util._
+import scala.slick.ast.opt.ExtraUtil._
 import scala.slick.util.ValueLinearizer
 
 /**
@@ -31,6 +34,22 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
     override protected val scalarFrom = Some("(VALUES (0))")
     override protected val concatOperator = Some("||")
 
+    override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
+      super.toComprehension(n, liftExpression) match {
+        case c @ Comprehension(from, _, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+          // Hsqldb supports only Oracle-style ROWNUM (applied before ORDER BY),
+          // so we pull the SELECT clause with the ROWNUM up into a new query
+          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
+          //println(paths.map { case (p: Select, _) => Path.toString(p) })
+          val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
+          val gen = new AnonSymbol
+          val newSel = sel.replace {
+            case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
+          }
+          Comprehension(Seq((gen, inner)), select = Some(newSel))
+        case c => c
+      }
+
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
 
       case c @ ConstColumn(v: String) if v ne null =>
@@ -45,6 +64,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
           super.expr(c)
           b += " as varchar(16777216))"
         }
+      case RowNumber(_) => b += "rownum()"
 
       /* Hsqldb uses the SQL:2008 syntax for NEXTVAL */
       case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"

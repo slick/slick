@@ -52,6 +52,10 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
   def leftJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Left)
   def rightJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Right)
   def outerJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Outer)
+  def zip[E2, U2](q2: Query[E2, U2]): Query[(E, E2), (U, U2)] = join(q2, JoinType.Zip)
+  def zipWith[E2, U2, F, G, T](q2: Query[E2, U2], f: (E, E2) => F)(implicit shape: Shape[F, T, G]): Query[G, T] =
+    join(q2, JoinType.Zip).map[F, G, T](x => f(x._1, x._2))
+  def zipWithIndex = zip(Query(RangeFrom(0L)))
 
   def sortBy[T <% Ordered](f: E => T): Query[E, U] = {
     val generator = new AnonSymbol
