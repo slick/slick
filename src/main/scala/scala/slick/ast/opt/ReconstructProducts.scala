@@ -60,7 +60,7 @@ object ReconstructProducts extends (Node => Node) with Logging {
       (pch, nch).zipped.map(shapeMatches).forall(identity)
     case (PProduct(pch), Join(_, _, left, right, _, _)) if pch.length == 2 =>
       (pch, Seq(left, right)).zipped.map(shapeMatches).forall(identity)
-    case (PProduct(pch), GroupBy(_, from, by)) if pch.length == 2 =>
+    case (PProduct(pch), GroupBy(_, _, from, by)) if pch.length == 2 =>
       (pch, Seq(from, by)).zipped.map(shapeMatches).forall(identity)
     case _ => false
   }

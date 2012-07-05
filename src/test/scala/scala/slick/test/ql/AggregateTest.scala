@@ -51,4 +51,34 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
     assertEquals((0, None, None, None), q2_0.run)
     assertEquals((3, Some(3), Some(6), Some(2)), q2_1.run)
   }
+
+  @Test def testGroupBy() = db withSession {
+    object T extends Table[(Int, Option[Int])]("t") {
+      def a = column[Int]("a")
+      def b = column[Option[Int]]("b")
+      def * = a ~ b
+    }
+    T.ddl.create
+    T.insertAll((1, Some(1)), (1, Some(2)), (1, Some(3)))
+    T.insertAll((2, Some(1)), (2, Some(2)), (2, Some(5)))
+    T.insertAll((3, Some(1)), (3, Some(9)))
+
+    /*
+    println("=========================================================== q0")
+    val q0 = T.groupBy(_.a)
+    val q1 = q0.map(_._2.length)
+    val r = q1.list
+    (r: List[Int])
+    println(q1.selectStatement)
+    */
+
+    println("=========================================================== q")
+    val q = for {
+      (k, v) <- T.groupBy(t => t.a)
+    } yield (k, v.length, v.map(_.a).sum, v.map(_.b).sum)
+    println(q.selectStatement)
+    val r = q.list
+    val rt = r: List[(Int, Int, Option[Int], Option[Int])]
+    println(r)
+  }
 }

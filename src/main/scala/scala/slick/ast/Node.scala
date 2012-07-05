@@ -213,14 +213,14 @@ object Ordering {
   final case object Desc extends Direction(true) { def reverse = Asc }
 }
 
-final case class GroupBy(generator: Symbol, from: Node, by: Node) extends BinaryNode with SimpleDefNode {
+final case class GroupBy(fromGen: Symbol, byGen: Symbol, from: Node, by: Node) extends BinaryNode with SimpleDefNode {
   def left = from
   def right = by
-  override def nodeChildNames = Seq("from "+generator, "by")
+  override def nodeChildNames = Seq("from "+fromGen, "by "+byGen)
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, by = right)
-  def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodePostGeneratorChildren = Seq(by)
-  def nodeGenerators = Seq((generator, from))
+  def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(fromGen = gen(0), byGen = gen(1))
+  def nodePostGeneratorChildren = Nil
+  def nodeGenerators = Seq((fromGen, from), (byGen, by))
   override def toString = "GroupBy"
 }
 

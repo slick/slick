@@ -67,7 +67,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
     val sym = new AnonSymbol
     val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
     val value = ShapedValue(pack, Shape.selfLinearizingShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
-    val group = GroupBy(sym, Node(unpackable.value), Node(key.value))
+    val group = GroupBy(sym, new AnonSymbol, Node(unpackable.value), Node(key.value))
     new WrappingQuery(group, key.zip(value))
   }
 

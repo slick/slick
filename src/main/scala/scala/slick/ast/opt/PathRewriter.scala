@@ -43,14 +43,26 @@ object PathRewriter extends (Node => Node) with Logging {
               case (e @ ElementSymbol(2)) :: tt => findFlattened(j.rightGen :: tt, e :: base)
               case _ => None
             }
+          case Some(g: GroupBy) =>
+            logger.debug("  found GroupBy for "+nh+" (from "+h+")")
+            t match {
+              case (e @ ElementSymbol(1)) :: tt => findFlattened(g.byGen :: tt, e :: base)
+              case (e @ ElementSymbol(2)) :: tt => findFlattened(g.fromGen :: tt, e :: base)
+              case _ => None
+            }
+          case Some(Path(syms)) =>
+            logger.debug("  found path for "+nh+" (from "+h+"): "+Path.toString(syms)+", remaining: "+t)
+            val target = findFlattened(syms.reverse, Nil)
+            logger.debug("    pointing to "+target)
+            target.map { case (struct, _, _) => (struct, t, Nil) }
           case o =>
-            logger.debug("  found non-join for "+nh+" (from "+h+"): "+o)
+            logger.debug("  found non-Join/GroupBy for "+nh+" (from "+h+"): "+o)
             flattened.get(List(nh)).map(n => (n, t, base))
         }
     }
 
     /** Remove expansions, flatten structs, and gather defs and flattened structs */
-    def gather(refO: Option[Symbol], n: Node): Node = removeExpansion(n) match {
+    def gather(refO: Option[Symbol], n: Node): Node = removeExpansion(refO.isDefined, n) match {
       case Bind(gen, from, Pure(x)) =>
         val from2 = from match {
           case Pure(_) =>
@@ -62,7 +74,7 @@ object PathRewriter extends (Node => Node) with Logging {
           case n =>
             gather(Some(gen), n)
         }
-        logger.debug("Storing def for "+gen)
+        logger.debug("Storing def for "+gen+" from Pure Bind")
         defs += gen -> from2
         val x2 = gather(None, x)
         val pure2 = refO match {
@@ -77,7 +89,7 @@ object PathRewriter extends (Node => Node) with Logging {
         Bind(gen, from2, Pure(pure2))
       case b @ Bind(gen, from, sel) =>
         val from2 = gather(Some(gen), from)
-        logger.debug("Storing def for "+gen)
+        logger.debug("Storing def for "+gen+" from non-Pure Bind")
         defs += gen -> from2
         val sel2 = gather(refO, sel) // the "select" clause inherits our ref
         if((from2 eq from) && (sel2 eq sel)) b
@@ -91,6 +103,9 @@ object PathRewriter extends (Node => Node) with Logging {
           }
           ch2
         }
+      case n @ Apply(sym: Library.AggregateFunctionSymbol, ch) =>
+        // Remove the expansion here so that we get unexpanded refs in aggregate functions
+        n.nodeMapChildren(ch => gather(None, removeExpansion(true, ch)))
       case n =>
         n.nodeMapChildren(ch => gather(None, ch))
     }
@@ -104,8 +119,10 @@ object PathRewriter extends (Node => Node) with Logging {
           findFlattened(rsyms, Nil) match {
             case Some(fl @ (struct, rest, base)) =>
               logger.debug("  found flattened: "+fl)
-              val fsym = findFieldSymbol(struct, rest)
-              Path(fsym :: base ::: rsyms.head :: Nil)
+              findFieldSymbol(struct, rest) match {
+                case Some(fsym) => Path(fsym :: base ::: rsyms.head :: Nil)
+                case None => n
+              }
             case _ => n
           }
       }
@@ -113,7 +130,7 @@ object PathRewriter extends (Node => Node) with Logging {
     }
 
     val n2 = gather(None, n)
-    if(n2 ne n) logger.debug("Expansions removed, ProductsNodes rewritten to StructNodes", n2)
+    if(n2 ne n) logger.debug("Expansions removed, ProductNodes rewritten to StructNodes", n2)
     val n3 = replaceRefs(n2)
     if(n3 ne n2) logger.debug("Refs replaced", n3)
     val n4 = relabelUnions(n3)
@@ -123,15 +140,16 @@ object PathRewriter extends (Node => Node) with Logging {
     n5
   }
 
-  def findFieldSymbol(n: Node, path: List[Symbol]): Symbol = (path, n) match {
-    case (Nil, Ref(sym)) => sym
+  def findFieldSymbol(n: Node, path: List[Symbol]): Option[Symbol] = (path, n) match {
     case (ElementSymbol(idx) :: t, ProductNode(ch)) => findFieldSymbol(ch(idx-1), t)
-    case _ => throw new SlickException("Illegal "+Path.toString(path)+" into TableExpansion structure")
+    case (Nil, Ref(sym)) => Some(sym)
+    case (Nil, _) => None
+    case _ => throw new SlickException("Illegal "+Path.toString(path)+" into TableExpansion structure "+n)
   }
 
-  def removeExpansion(n: Node) = n match {
+  def removeExpansion(hasRef: Boolean, n: Node) = n match {
     case TableExpansion(gen, t, cols) => Bind(gen, t, Pure(cols))
-    case TableRefExpansion(_, _, cols) => cols
+    case TableRefExpansion(_, ref, cols) => if(hasRef) ref else cols
     case n => n
   }
 

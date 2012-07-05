@@ -218,6 +218,7 @@ object Columnizer extends (Node => Node) with Logging {
   def narrowStructure(n: Node): Node = n match {
     case Pure(n) => n
     case Join(_, _, l, r, _, _) => ProductNode(Seq(narrowStructure(l), narrowStructure(r)))
+    case GroupBy(_, _, from, by) => ProductNode(Seq(narrowStructure(by), narrowStructure(from)))
     case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
     case FilteredQuery(_, from) => narrowStructure(from)
     case Bind(_, _, select) => narrowStructure(select)
