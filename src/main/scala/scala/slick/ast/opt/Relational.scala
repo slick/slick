@@ -90,6 +90,11 @@ object Relational extends Logging {
       case n => Seq((s, n))
     }
     def replace = {
+      // GroupBy to Comprehension
+      case Bind(gen, GroupBy(fromGen, _, from, by), Pure(sel)) =>
+        convertSimpleGrouping(gen, fromGen, from, by, sel)
+      case g: GroupBy =>
+        throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
       // Bind to Comprehension
       case Bind(gen, from, select) => Comprehension(from = mkFrom(gen, from), select = Some(select))
       // Filter to Comprehension
@@ -102,15 +107,29 @@ object Relational extends Logging {
         if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(ConstColumn.FALSE))
         else Comprehension(from = mkFrom(gen, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
       // Merge Comprehension which selects another Comprehension
-      case Comprehension(from1, where1, orderBy1, Some(c2 @ Comprehension(from2, where2, orderBy2, select, None, None)), fetch, offset) =>
+      case Comprehension(from1, where1, None, orderBy1, Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)), fetch, offset) =>
         c2.copy(from = from1 ++ from2, where = where1 ++ where2, orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset)
     }
+  }
+
+  /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
+  def convertSimpleGrouping(gen: Symbol, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
+    val newBy = by.replace { case Ref(f) if f == fromGen => Ref(gen) }
+    val newSel = sel.replace {
+      case Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
+          if (s2 == s1) && (gen2 == gen) => Select(Ref(gen), field)
+      case Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
+        Library.Count(ConstColumn(1))
+      case Select(Ref(gen2), ElementSymbol(2)) if gen2 == gen => Ref(gen2)
+      case Select(Ref(gen2), ElementSymbol(1)) if gen2 == gen => newBy
+    }
+    Comprehension(Seq(gen -> from), groupBy = Some(newBy), select = Some(Pure(newSel)))
   }
 
   def fuse(n: Node): Node = n.nodeMapChildren(fuse) match {
     case c: Comprehension =>
       val fused = createSelect(c) match {
-        case c2 @ Comprehension(_, _, _, Some(sel), _, _) => fuseComprehension(c2)
+        case c2 @ Comprehension(_, _, None, _, Some(sel), _, _) => fuseComprehension(c2)
         case c2 => c2
       }
       val f2 = liftAggregates(fused)
@@ -163,7 +182,7 @@ object Relational extends Logging {
     }
 
     c.from.foreach {
-      case (sym, from @ Comprehension(_, _, _, _, None, None)) if isFuseable(from) =>
+      case (sym, from @ Comprehension(_, _, None, _, _, None, None)) if isFuseable(from) =>
         logger.debug("Found fuseable generator "+sym+": "+from)
         from.from.foreach { case (s, n) => newFrom += s -> inline(n) }
         for(n <- from.where) newWhere += inline(n)
@@ -178,6 +197,7 @@ object Relational extends Logging {
       val c2 = Comprehension(
         newFrom,
         newWhere ++ c.where.map(inline),
+        None,
         c.orderBy.map { case (n, o) => (inline(n), o) } ++ newOrderBy,
         c.select.map { case n => inline(n) },
         c.fetch, c.offset)
@@ -208,7 +228,7 @@ object Relational extends Logging {
           val a2 = new AnonSymbol
           val (c2b, call) = s match {
             case Library.CountAll =>
-              (c2, Apply(Library.Count, Seq(ConstColumn(1))))
+              (c2, Library.Count(ConstColumn(1)))
             case s =>
               val c3 = ensureStruct(c2)
               // All standard aggregate functions operate on a single column
@@ -250,15 +270,15 @@ object Relational extends Logging {
     case Pure(n) => n
     //case Join(_, _, l, r, _, _) => ProductNode(narrowStructure(l), narrowStructure(r))
     //case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
-    case Comprehension(from, _, _, None, _, _) => narrowStructure(from.head._2)
-    case Comprehension(_, _, _, Some(n), _, _) => narrowStructure(n)
+    case Comprehension(from, _, _, _, None, _, _) => narrowStructure(from.head._2)
+    case Comprehension(_, _, _, _, Some(n), _, _) => narrowStructure(n)
     case n => n
   }
 
   /** Create a select for a Comprehension without one. */
   def createSelect(c: Comprehension): Comprehension = if(c.select.isDefined) c else {
     c.from.last match {
-      case (sym, Comprehension(_, _, _, Some(Pure(StructNode(struct))), _, _)) =>
+      case (sym, Comprehension(_, _, _, _, Some(Pure(StructNode(struct))), _, _)) =>
         val r = Ref(sym)
         val copyStruct = StructNode(struct.map { case (field, _) =>
           (field, Select(r, field))

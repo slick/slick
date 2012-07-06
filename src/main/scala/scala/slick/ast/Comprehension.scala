@@ -3,23 +3,26 @@ package scala.slick.ast
 import opt.Util._
 
 /** A SQL comprehension */
-case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Long] = None, offset: Option[Long] = None) extends Node with DefNode {
-  val nodeChildren = from.map(_._2) ++ where ++ orderBy.map(_._1) ++ select
+case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Long] = None, offset: Option[Long] = None) extends Node with DefNode {
+  val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select
   override def nodeChildNames =
     from.map("from " + _._1) ++
     where.zipWithIndex.map("where" + _._2) ++
+    groupBy.map(_ => "groupBy") ++
     orderBy.map("orderBy " + _._2) ++
     select.map(_ => "select")
   def nodeMapChildren(f: Node => Node) = mapChildren(f, f)
   def mapChildren(fromMap: Node => Node, otherMap: Node => Node): Node = {
     val fromO = nodeMapNodes(from.view.map(_._2), fromMap)
     val whereO = nodeMapNodes(where, otherMap)
+    val groupByO = groupBy.map(otherMap)
     val orderByO = nodeMapNodes(orderBy.map(_._1), otherMap)
     val selectO = select.map(otherMap)
-    if(fromO.isDefined || whereO.isDefined || orderByO.isDefined || selectO != select)
+    if(fromO.isDefined || whereO.isDefined || groupByO != groupBy || orderByO.isDefined || selectO != select)
       copy(
         from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from),
         where = whereO.getOrElse(where),
+        groupBy = groupByO,
         orderBy = orderByO.map(_.zip(orderBy.map(_._2))).getOrElse(orderBy),
         select = selectO
       )
@@ -40,12 +43,14 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
     val from2 = from.map{ case (s, n) => f(Some(s), n) }
     val fromO = if(from.zip(from2).forall{ case ((_, n1), n2) => n1 eq n2 }) None else Some(from2)
     val whereO = nodeMapNodes(where, fn)
+    val groupByO = groupBy.map(fn)
     val orderByO = nodeMapNodes(orderBy.map(_._1), fn)
     val selectO = select.map(fn)
-    if(fromO.isDefined || whereO.isDefined || orderByO.isDefined || selectO != select)
+    if(fromO.isDefined || whereO.isDefined || groupByO != groupBy || orderByO.isDefined || selectO != select)
       copy(
         from = fromO.map(f => from.view.map(_._1).zip(f)).getOrElse(from),
         where = whereO.getOrElse(where),
+        groupBy = groupByO,
         orderBy = orderByO.map(_.zip(orderBy.map(_._2))).getOrElse(orderBy),
         select = selectO
       )

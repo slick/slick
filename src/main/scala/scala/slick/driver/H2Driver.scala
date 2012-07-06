@@ -27,7 +27,7 @@ trait H2Driver extends ExtendedDriver { driver =>
 
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
           // H2 supports only Oracle-style ROWNUM (applied before ORDER BY and GROUP BY),
           // so we pull the SELECT clause with the ROWNUM up into a new query
           val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap

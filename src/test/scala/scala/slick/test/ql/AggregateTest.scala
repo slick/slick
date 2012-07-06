@@ -63,14 +63,13 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
     T.insertAll((2, Some(1)), (2, Some(2)), (2, Some(5)))
     T.insertAll((3, Some(1)), (3, Some(9)))
 
-    /*
     println("=========================================================== q0")
     val q0 = T.groupBy(_.a)
     val q1 = q0.map(_._2.length)
-    val r = q1.list
-    (r: List[Int])
+    val r0 = q1.list
+    (r0: List[Int])
     println(q1.selectStatement)
-    */
+    assertEquals(List(3, 3, 2), q1.list)
 
     println("=========================================================== q")
     val q = for {
@@ -80,5 +79,6 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
     val r = q.list
     val rt = r: List[(Int, Int, Option[Int], Option[Int])]
     println(r)
+    assertEquals(List((1, 3, Some(3), Some(6)), (2, 3, Some(6), Some(8)), (3, 2, Some(6), Some(10))), rt)
   }
 }

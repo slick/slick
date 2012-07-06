@@ -66,6 +66,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       buildSelectClause(c)
       buildFromClause(c.from)
       buildWhereClause(c.where)
+      buildGroupByClause(c.groupBy)
       buildOrderByClause(c.orderBy)
       buildFetchOffsetClause(c.fetch, c.offset)
     }
@@ -109,6 +110,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       if(!where.isEmpty) {
         b += " where "
         expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
+      }
+    }
+
+    protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
+      groupBy.foreach { e =>
+        b += " group by "
+        expr(e, true)
       }
     }
 
@@ -325,7 +333,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildUpdate: QueryBuilderResult = {
       val (gen, from, where, select) = ast match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select)), None, None) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select)), None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -347,7 +355,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildDelete: QueryBuilderResult = {
       val (gen, from, where) = ast match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, Some(Pure(select)), None, None) => (sym, from, where)
+        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select)), None, None) => (sym, from, where)
         case _ => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
       }
       val qtn = quoteIdentifier(from.tableName)
