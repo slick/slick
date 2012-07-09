@@ -129,7 +129,7 @@ object Relational extends Logging {
   def fuse(n: Node): Node = n.nodeMapChildren(fuse) match {
     case c: Comprehension =>
       val fused = createSelect(c) match {
-        case c2 @ Comprehension(_, _, None, _, Some(sel), _, _) => fuseComprehension(c2)
+        case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
       val f2 = liftAggregates(fused)
@@ -138,33 +138,51 @@ object Relational extends Logging {
     case n => n
   }
 
+  /** Check if a comprehension allow sub-comprehensions to be fused.
+    * This is the case if it has a select clause and not more than one
+    * sub-comprehension with a groupBy clause. */
+  def isFuseableOuter(c: Comprehension): Boolean = c.select.isDefined &&
+    c.from.collect { case (_, c: Comprehension) if c.groupBy.isDefined => 0 }.size <= 1
+
   /** Check if a Comprehension should be fused into its parent. This happens
     * in the following cases:
     * - It has a Pure generator.
     * - It does not have any generators.
     * - The Comprehension has a 'select' clause which consists only of Paths
     *   and constant values. */
-  def isFuseable(c: Comprehension): Boolean = {
-    c.from.isEmpty || c.from.exists {
-      case (sym, Pure(_)) => true
-      case _ => false
-    } || (c.select match {
-      case Some(Pure(ProductNode(ch))) =>
-        ch.map {
-          case Path(_) => true
-          case _: LiteralNode => true
-          case _ => false
-        }.forall(identity)
-      case _ => false
-    })
-  }
+  def isFuseableInner(c: Comprehension): Boolean =
+    c.fetch.isEmpty && c.offset.isEmpty && {
+      c.from.isEmpty || c.from.exists {
+        case (sym, Pure(_)) => true
+        case _ => false
+      } || (c.select match {
+        case Some(Pure(ProductNode(ch))) =>
+          ch.map {
+            case Path(_) => true
+            case _: LiteralNode => true
+            case _ => false
+          }.forall(identity)
+        case _ => false
+      })
+    }
 
-   /** Fuse simple Comprehensions (no orderBy, fetch or offset), which are
+  /** Check if two comprehensions can be fused (assuming the outer and inner
+    * comprehension have already been deemed fuseable on their own). */
+  def isFuseable(outer: Comprehension, inner: Comprehension): Boolean =
+    if(!inner.orderBy.isEmpty || inner.groupBy.isDefined) {
+      // inner has groupBy or orderBy
+      // -> do not allow another groupBy or where on the outside
+      // Further orderBy clauses are allowed. They can be fused with the inner ones.
+      outer.groupBy.isEmpty && outer.where.isEmpty
+    } else true
+
+  /** Fuse simple Comprehensions (no orderBy, fetch or offset), which are
     * contained in the 'from' list of another Comprehension, into their
     * parent. */
   def fuseComprehension(c: Comprehension): Comprehension = {
     var newFrom = new ArrayBuffer[(Symbol, Node)]
     val newWhere = new ArrayBuffer[Node]
+    val newGroupBy = new ArrayBuffer[Node]
     val newOrderBy = new ArrayBuffer[(Node, Ordering)]
     val structs = new HashMap[Symbol, Node]
     var fuse = false
@@ -182,11 +200,12 @@ object Relational extends Logging {
     }
 
     c.from.foreach {
-      case (sym, from @ Comprehension(_, _, None, _, _, None, None)) if isFuseable(from) =>
+      case (sym, from: Comprehension) if isFuseableInner(from) && isFuseable(c, from) =>
         logger.debug("Found fuseable generator "+sym+": "+from)
         from.from.foreach { case (s, n) => newFrom += s -> inline(n) }
         for(n <- from.where) newWhere += inline(n)
         for((n, o) <- from.orderBy) newOrderBy += inline(n) -> o
+        for(n <- from.groupBy) newGroupBy += inline(n)
         structs += sym -> narrowStructure(from)
         fuse = true
       case t =>
@@ -197,7 +216,7 @@ object Relational extends Logging {
       val c2 = Comprehension(
         newFrom,
         newWhere ++ c.where.map(inline),
-        None,
+        (c.groupBy.toSeq.map { case n => inline(n) } ++ newGroupBy).headOption,
         c.orderBy.map { case (n, o) => (inline(n), o) } ++ newOrderBy,
         c.select.map { case n => inline(n) },
         c.fetch, c.offset)
