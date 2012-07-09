@@ -65,16 +65,16 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
 
     println("=========================================================== q0")
     val q0 = T.groupBy(_.a)
-    val q1 = q0.map(_._2.length)
+    val q1 = q0.map(_._2.length).sortBy(identity)
     val r0 = q1.list
     (r0: List[Int])
     println(q1.selectStatement)
-    assertEquals(List(3, 3, 2), q1.list)
+    assertEquals(List(2, 3, 3), q1.list)
 
     println("=========================================================== q")
-    val q = for {
+    val q = (for {
       (k, v) <- T.groupBy(t => t.a)
-    } yield (k, v.length, v.map(_.a).sum, v.map(_.b).sum)
+    } yield (k, v.length, v.map(_.a).sum, v.map(_.b).sum)).sortBy(_._1)
     println(q.selectStatement)
     val r = q.list
     val rt = r: List[(Int, Int, Option[Int], Option[Int])]
