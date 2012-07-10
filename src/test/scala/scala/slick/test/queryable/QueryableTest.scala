@@ -197,6 +197,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         }
       }
 
+      assert( resultsMatch(
+        query.flatMap(e1 => query.map(e2=>e1).map(e2=>e1)),
+        inMem.flatMap(e1 => inMem.map(e2=>e1).map(e2=>e1))
+      )) 
+
       // nesting with outer macro reference
       {
         val inMemResult = for( o <- inMem; i <- inMem ) yield o.name
@@ -232,6 +237,9 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         query.map( c=> (c.name,c.sales,c) ),
         inMem.map( c=> (c.name,c.sales,c) )
       ))
+      // length
+      val l = backend.result(query.length)
+      assertEquals( l, inMem.length )
     }
   }
 }

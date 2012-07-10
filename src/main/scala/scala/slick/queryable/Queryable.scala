@@ -42,6 +42,20 @@ case class Utils[C <: Context]( c:C ) {
 }
 
 object QueryableMacros{
+  private def _scalar_helper[C <: Context]( c:C )( name:String ) = {
+    import c.universe._
+    //val element_type = implicitly[c.TypeTag[S]].tpe
+    val reifiedExpression = c.Expr[ru.Expr[Int]](
+      c.reifyTree( c.runtimeUniverse, EmptyTree, c.typeCheck(
+        Utils[c.type](c).removeDoubleReify(
+          Select(c.prefix.tree, newTermName( "_"+name+"_placeholder" ))
+      ).asInstanceOf[Tree])))
+    c.reify{ new QueryableValue( reifiedExpression.splice ) } //new QueryableValue( reifiedExpression.splice )}
+  }
+  def length
+      (c: scala.reflect.makro.Context)
+      : c.Expr[QueryableValue[Int]] = _scalar_helper[c.type]( c )( "length" )
+
   private def _helper[C <: Context,S:c.TypeTag]( c:C )( name:String, projection:c.Expr[_] ) = {
     import c.universe._
     //val element_type = implicitly[c.TypeTag[S]].tpe
@@ -75,9 +89,9 @@ class BoundQueryable[T]( backend : SlickBackend ){
 }
 */
 
-class Queryable[T](
-                    val expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTag[_]) ]
-                    ){
+class QueryableValue[T]( val value : ru.Expr[T] )
+
+class Queryable[T]( val expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTag[_]) ] ){
   def _map_placeholder[S]( projection: T => S ) : Queryable[S] = ???
   def map[S]( projection: T => S ) : Queryable[S] = macro QueryableMacros.map[T,S]
 
@@ -87,4 +101,7 @@ class Queryable[T](
   def _filter_placeholder( projection: T => Boolean ) : Queryable[T] = ???
   def filter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
   def withFilter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
+  
+  def _length_placeholder[S] : Int = ???
+  def length : QueryableValue[Int]  = macro QueryableMacros.length
 }

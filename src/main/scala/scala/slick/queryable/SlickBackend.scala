@@ -241,7 +241,10 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
         =>
             sq.ProductNode( components.map(s2sq(_).node) )
-
+        
+        case Select(scala_lhs, term) 
+          if scala_lhs.tpe.erasure <:< typeOf[Queryable[_]].erasure && (term.decoded == "_length_placeholder" || term.decoded == "_size_placeholder")
+          => sq.Pure( Library.CountAll( s2sq(scala_lhs).node ) )
 
         case tree if tree.tpe.erasure <:< typeOf[Queryable[_]].erasure
             => toQuery( eval(tree).asInstanceOf[Queryable[_]] )
@@ -263,6 +266,11 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
 
   private def queryable2cstate[R]( queryable:Queryable[R] ) : CompilationState = {
     val query = this.toQuery(queryable)
+    driver.compiler.run(query.node)
+  }
+  
+  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R] ) : CompilationState = {
+    val query = this.toQuery(queryablevalue.value.tree)
     driver.compiler.run(query.node)
   }
 
@@ -290,9 +298,16 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         createInstance( args )
     })
   }
-
-  def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
+  def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) : Vector[R] = {
     val cstate = queryable2cstate( queryable )
+    result( cstate )
+  }
+  def result[R:TypeTag:ClassTag]( queryablevalue:QueryableValue[R] )(implicit session:Session) : R = {
+    val cstate = queryablevalue2cstate( queryablevalue )
+    val res = result( cstate )
+    res(0)
+  }
+  def result[R:TypeTag:ClassTag]( cstate:CompilationState )(implicit session:Session) : Vector[R] = {
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
           def getResult(profile: BasicProfile, rs: PositionedResult): R
