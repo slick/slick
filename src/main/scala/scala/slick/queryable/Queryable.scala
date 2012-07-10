@@ -5,14 +5,8 @@ import scala.language.experimental.macros
 import scala.reflect.makro.Context
 import scala.slick.SlickException
 
-import scala.annotation.StaticAnnotation
-
 import scala.reflect.runtime.{universe => ru}
 import scala.reflect.ClassTag
-
-
-final case class table(name:String) extends StaticAnnotation
-final case class column(name:String) extends StaticAnnotation
 
 object Queryable{
   def apply[T](q:Queryable[T]) = new Queryable[T](q.expr_or_typetag) // TODO: make this a macro
