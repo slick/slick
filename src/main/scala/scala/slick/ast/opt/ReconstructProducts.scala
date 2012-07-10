@@ -44,12 +44,24 @@ object ReconstructProducts extends (Node => Node) with Logging {
     }
   }
 
+  /** Find the common prefix in a ProductNode of nested paths */
+  def commonPrefix(n: Node, base: Symbol): Option[List[Int]] = n match {
+    case ProductNode(ch) if !ch.isEmpty =>
+      val chpr = ch.map(n => commonPrefix(n, base)).iterator.collect { case Some(x) => x }
+      if(chpr.isEmpty) None
+      else Some(chpr.reduceLeft((a, b) => a.zip(b).takeWhile{case (a,b) => a == b}.map(_._1)))
+    case ProductElements(idxs, sym) if sym == base => Some(idxs.reverse)
+    case _ => None
+  }
+
   /** Find the shape and common ref of a product if it exists */
   private def shapeFor(n: Node, expect: List[Int] = Nil): Option[PShape] = n match {
     case ProductNode(ch) =>
+      logger.debug("    shapeFor: ProductNode("+ch+"), expecting "+expect)
       val chsh = ch.zipWithIndex.map { case (c, i) => shapeFor(c, (i+1) :: expect) }
       if(chsh.contains(None)) None else Some(PProduct(chsh.map(_.get)))
     case ProductElements(idxs, _) =>
+      logger.debug("    shapeFor: ProductElements("+idxs+"), expecting "+expect)
       if(idxs == expect) Some(PLeaf) else None
   }
 
@@ -91,13 +103,16 @@ object ReconstructProducts extends (Node => Node) with Logging {
           _ = logger.debug("  Ref target: "+target)
           ntarget <- narrow(target)
           _ = logger.debug("  Narrowed target: "+ntarget)
-          shape <- shapeFor(p)
+          prefix = commonPrefix(p, sym).getOrElse(Nil)
+          _ = logger.debug("  Common prefix: "+prefix)
+          shape <- shapeFor(p, prefix)
           _ = logger.debug("  Shape: "+shape)
         } yield if(shapeMatches(shape, ntarget.value)) {
-            logger.debug("  Shape matches")
-            Ref(sym)
+            val repl = (sym :: prefix.map(ElementSymbol.apply)).reverse
+            logger.debug("  Shape matches -> replacing with "+Path.toString(repl))
+            Path(repl)
           } else p
-          ).getOrElse(p)
+        ).getOrElse(p)
     }
   }
 
