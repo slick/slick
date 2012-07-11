@@ -1,7 +1,6 @@
 package scala.slick.ast
 package opt
 
-import scala.slick.util.Logging
 import Util._
 
 /**
@@ -11,7 +10,8 @@ import Util._
  * where r is a Ref to an expression that yields a Query of
  * ProductNode(_, _). This optimizer rewrites those forms to the raw Ref r.
  */
-object ReconstructProducts extends (Node => Node) with Logging {
+class ReconstructProducts extends Phase {
+  val name = "reconstructProducts"
 
   /** ADT for representing shapes of ProductNodes */
   private sealed abstract class PShape
@@ -116,5 +116,5 @@ object ReconstructProducts extends (Node => Node) with Logging {
     }
   }
 
-  def apply(tree: Node) = transformer.repeat(tree)
+  def apply(tree: Node, state: CompilationState): Node = transformer.repeat(tree)
 }

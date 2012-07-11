@@ -8,15 +8,14 @@ import scala.collection.mutable.HashMap
 import scala.slick.ql.Column
 import scala.slick.SlickException
 
-/**
- * Expand columns in queries.
- */
-object Columnizer extends (Node => Node) with Logging {
+/** Expand columns in queries. */
+class Columnizer extends Phase {
+  val name = "columnize"
 
-  def apply(tree: Node): Node = {
+  def apply(tree: Node, state: CompilationState): Node = {
     val t1 = forceOuterBind(tree)
     if(t1 ne tree) logger.debug("With outer binds:", t1)
-    val t2 = expandTables(t1)
+    val t2 = expandTables(t1, state)
     if(t2 ne t1) logger.debug("Tables expanded:", t2)
     val t3 = expandRefs(t2)
     if(t3 ne t2) logger.debug("Refs expanded:", t3)
@@ -70,14 +69,14 @@ object Columnizer extends (Node => Node) with Logging {
 
   /** Replace all TableNodes with TableExpansions which contain both the
     * expansion and the original table */
-  def expandTables(n: Node): Node = n match {
+  def expandTables(n: Node, state: CompilationState): Node = n match {
     case t: TableExpansion => t
     case t: TableNode =>
       val sym = new AnonSymbol
       val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
-      val processed = expandTables(Optimizer.prepareTree(expanded, true))
+      val processed = expandTables(state.compiler.runBefore(this, expanded, state), state)
       TableExpansion(sym, t, ProductNode(processed.flattenProduct))
-    case n => n.nodeMapChildren(expandTables)
+    case n => n.nodeMapChildren(ch => expandTables(ch, state))
   }
 
   /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of

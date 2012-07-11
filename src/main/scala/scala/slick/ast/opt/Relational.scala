@@ -14,8 +14,10 @@ import Util._
  * This phase replaces all nodes of types Bind, Filter, SortBy, Take and Drop
  * by Comprehension nodes and merges nested Comprehension nodes.
  */
-object Relational extends Logging {
-  def apply(n: Node): Node = {
+class Relational extends Phase {
+  val name = "relational"
+
+  def apply(n: Node, state: CompilationState): Node = {
     val n2 = resolveZipJoins(n)
     val hasRowNumbers = (n2 ne n)
     if(n2 ne n) logger.debug("zip joins resolved: ", n2)

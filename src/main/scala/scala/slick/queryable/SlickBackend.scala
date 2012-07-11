@@ -250,7 +250,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   private def queryable2node[R]( queryable:Queryable[R] ) : sq.Node = {
     val query = this.toQuery(queryable)
     import driver._
-    val node = sq.opt.Relational( sq.opt.Optimizer(query.node) )
+    val node = sq.opt.QueryCompiler.relational.run(query.node)
     sq.AnonSymbol.assignNames( node )
     node
   }

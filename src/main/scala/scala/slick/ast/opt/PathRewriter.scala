@@ -10,9 +10,10 @@ import scala.collection.mutable.{HashSet, HashMap}
  * Remove TableExpansions and TableRefExpansions, and flatten ProductNodes
  * into StructNodes and remove unnecessary columns from them.
  */
-object PathRewriter extends (Node => Node) with Logging {
+class PathRewriter extends Phase {
+  val name = "rewritePaths"
 
-  def apply(n: Node): Node = {
+  def apply(n: Node, state: CompilationState): Node = {
     def flattenToStruct(n: Node): (Node, Vector[(Symbol, Node)]) = n match {
       case ProductNode(ch) =>
         val chf = ch.map(flattenToStruct)

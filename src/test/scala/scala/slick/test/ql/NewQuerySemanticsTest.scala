@@ -8,7 +8,6 @@ import scala.slick.jdbc.StaticQuery._
 import scala.slick.ast._
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
-import scala.slick.ast.opt.{Relational, Optimizer}
 
 object NewQuerySemanticsTest extends DBTestObject(H2Mem)
 

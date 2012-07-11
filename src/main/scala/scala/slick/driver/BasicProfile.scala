@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.language.implicitConversions
 import scala.slick.ast.{FieldSymbol, NodeGenerator, Node}
-import scala.slick.ast.opt.{Optimizer, Relational}
+import scala.slick.ast.opt.QueryCompiler
 import scala.slick.ql._
 import slick.util.ValueLinearizer
 
@@ -15,7 +15,7 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
-  def processAST(g: NodeGenerator): Node = Relational(Optimizer(Node(g)))
+  def processAST(g: NodeGenerator): Node = QueryCompiler.relational.run(Node(g))
   val Implicit = new Implicits
   val typeMapperDelegates = new TypeMapperDelegates
 
