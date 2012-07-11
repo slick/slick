@@ -83,27 +83,33 @@ object Columnizer extends (Node => Node) with Logging {
   /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
     * Paths and TableRefExpansions of Paths, so that all Paths point to
     * individual columns by index */
-  def expandRefs(n: Node, scope: Scope = Scope.empty): Node = n match {
+  def expandRefs(n: Node, scope: Scope = Scope.empty, keepRef: Boolean = false): Node = n match {
     case p @ Path(psyms) =>
       logger.debug("Checking path "+Path.toString(psyms))
       psyms.head match {
         case f: FieldSymbol => p
+        case _ if keepRef => p
         case _ =>
-        val syms = psyms.reverse
-        scope.get(syms.head) match {
-          case Some((target, _)) =>
-            val exp = select(syms.tail, narrowStructure(target)).head
-            logger.debug("  narrowed "+p+" to "+exp)
-            exp match {
-              case t: TableExpansion => burstPath(Path(syms.reverse), t)
-              case t: TableRefExpansion => burstPath(Path(syms.reverse), t)
-              case pr: ProductNode => burstPath(Path(syms.reverse), pr)
-              case n => p
-            }
+          val syms = psyms.reverse
+          scope.get(syms.head) match {
+            case Some((target, _)) =>
+              val exp = select(syms.tail, narrowStructure(target), (s => scope.get(s).map(_._1))).head
+              logger.debug("  narrowed "+p+" to "+exp)
+              exp match {
+                case t: TableExpansion => burstPath(Path(syms.reverse), t)
+                case t: TableRefExpansion => burstPath(Path(syms.reverse), t)
+                case pr: ProductNode => burstPath(Path(syms.reverse), pr)
+                case n => p
+              }
           case None => p
         }
       }
-    case n => n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc)), scope)
+    case n @ Apply(sym: Library.AggregateFunctionSymbol, _) =>
+      // Don't expand children of aggregate functions
+      n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc, true)), scope)
+    case n =>
+      // Don't expand children in 'from' positions
+      n.mapChildrenWithScope(((symO, ch, chsc) => expandRefs(ch, chsc, symO.isDefined)), scope)
   }
 
   /** Expand a base path into a given target */
@@ -131,8 +137,8 @@ object Columnizer extends (Node => Node) with Logging {
 
     def rewrite(target: Node, p: Node, field: FieldSymbol, syms: List[Symbol]): Option[Select] = {
       val ntarget = narrowStructure(target)
-      logger.debug("Narrowed to structure "+ntarget)
-      select(syms.tail, ntarget).map {
+      logger.debug("Narrowed to structure "+ntarget+" with tail "+Path.toString(syms.tail.reverse))
+      select(syms.tail, ntarget, seenDefs.get _).map {
         case t: TableExpansion =>
           logger.debug("Narrowed to element "+t)
           val columns: ProductNode = updatedTables.get(t.generator).getOrElse(t.columns.asInstanceOf[ProductNode])
@@ -163,8 +169,18 @@ object Columnizer extends (Node => Node) with Logging {
               }
             }
           }
-
-        case n => None // Can be a Table within a TableExpansion -> don't rewrite
+        case _: TableNode =>
+          None // A table within a TableExpansion -> don't rewrite
+        case Path(psyms) =>
+          logger.debug("Narrowed to "+Path.toString(psyms))
+          val syms = psyms.reverse
+          seenDefs.get(syms.head).flatMap { n =>
+            logger.debug("Trying to rewrite target "+p+" ."+field)
+            rewrite(n, p, field, syms)
+          }
+        case n =>
+          throw new SlickException("Unexpected target node "+n+" (from "+Path.toString(syms.reverse)+")")
+          None
       }.head // we have to assume that the structure is the same for all Union expansions
     }
 
@@ -204,13 +220,25 @@ object Columnizer extends (Node => Node) with Logging {
   }
 
   /** Navigate into ProductNodes along a path */
-  def select(selects: List[Symbol], base: Node): Vector[Node] = {
+  def select(selects: List[Symbol], base: Node, lookup: (Symbol => Option[Node]) = (_ => None)): Vector[Node] = {
     logger.debug("  select("+selects+", "+base+")")
     (selects, base) match {
-      case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
+      case (s, Union(l, r, _, _, _)) => select(s, l, lookup) ++ select(s, r, lookup)
       case (Nil, n) => Vector(n)
-      case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1))
-      case _ => throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
+      case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1), lookup)
+      case (selects, Path(rpath)) =>
+        val path = rpath.reverse
+        logger.debug("  encountered reference "+Path.toString(rpath)+" -> resolving "+path.head)
+        lookup(path.head) match {
+          case Some(n) =>
+            select(path.tail ::: selects, n, lookup)
+          case None => throw new SlickException("Cannot resolve "+path.head+" in "+Path.toString(rpath))
+        }
+      case _ =>
+        val narrowed = narrowStructure(base)
+        if(narrowed eq base)
+          throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
+        else select(selects, narrowed, lookup)
     }
   }
 

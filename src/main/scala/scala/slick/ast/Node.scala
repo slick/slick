@@ -302,6 +302,10 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with SimpleRe
   protected[this] def nodeRebuild(child: Node) = copy(in = child)
   def nodeReferences: Seq[Symbol] = Seq(field)
   def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(field = gen(0))
+  override def toString = Path.unapply(this) match {
+    case Some(l) => super.toString + " for " + Path.toString(l)
+    case None => super.toString
+  }
 }
 
 case class Apply(sym: Symbol, children: Seq[Node]) extends SimpleNode with SimpleRefNode {

@@ -62,7 +62,7 @@ object PathRewriter extends (Node => Node) with Logging {
     }
 
     /** Remove expansions, flatten structs, and gather defs and flattened structs */
-    def gather(refO: Option[Symbol], n: Node): Node = removeExpansion(refO.isDefined, n) match {
+    def gather(refO: Option[Symbol], n: Node): Node = removeExpansion(n) match {
       case Bind(gen, from, Pure(x)) =>
         val from2 = from match {
           case Pure(_) =>
@@ -103,9 +103,6 @@ object PathRewriter extends (Node => Node) with Logging {
           }
           ch2
         }
-      case n @ Apply(sym: Library.AggregateFunctionSymbol, ch) =>
-        // Remove the expansion here so that we get unexpanded refs in aggregate functions
-        n.nodeMapChildren(ch => gather(None, removeExpansion(true, ch)))
       case n =>
         n.nodeMapChildren(ch => gather(None, ch))
     }
@@ -147,9 +144,9 @@ object PathRewriter extends (Node => Node) with Logging {
     case _ => throw new SlickException("Illegal "+Path.toString(path)+" into TableExpansion structure "+n)
   }
 
-  def removeExpansion(hasRef: Boolean, n: Node) = n match {
+  def removeExpansion(n: Node) = n match {
     case TableExpansion(gen, t, cols) => Bind(gen, t, Pure(cols))
-    case TableRefExpansion(_, ref, cols) => if(hasRef) ref else cols
+    case TableRefExpansion(_, ref, cols) => cols
     case n => n
   }
 

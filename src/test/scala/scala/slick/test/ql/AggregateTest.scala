@@ -80,5 +80,35 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
     val rt = r: List[(Int, Int, Option[Int], Option[Int])]
     println(r)
     assertEquals(List((1, 3, Some(3), Some(6)), (2, 3, Some(6), Some(8)), (3, 2, Some(6), Some(10))), rt)
+
+    object U extends Table[Int]("u") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    U.ddl.create
+    U.insertAll(1, 2, 3)
+
+    println("=========================================================== q2")
+    val q2 = (for {
+      u <- U
+      t <- T if t.a === u.id
+    } yield (u, t)).groupBy(_._1.id).map {
+      case (id, q) => (id, q.length, q.map(_._2.a).sum, q.map(_._2.b).sum)
+    }
+    println(q2.selectStatement)
+    val r2 = q2.list
+    val r2t = r2: List[(Int, Int, Option[Int], Option[Int])]
+    println(r2)
+    assertEquals(List((1, 3, Some(3), Some(6)), (2, 3, Some(6), Some(8)), (3, 2, Some(6), Some(10))), r2)
+
+    println("=========================================================== q3")
+    val q3 = (for {
+      (x, q) <- T.map(t => (t.a + 10, t.b)).groupBy(_._1)
+    } yield (x, q.map(_._2).sum)).sortBy(_._1)
+    println(q3.selectStatement)
+    val r3 = q3.list
+    val r3t = r3: List[(Int, Option[Int])]
+    println(r3)
+    assertEquals(List((11, Some(6)), (12, Some(8)), (13, Some(10))), r3)
   }
 }
