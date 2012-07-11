@@ -2,7 +2,6 @@ package scala.slick.driver
 
 import scala.slick.ql._
 import scala.slick.ast._
-import scala.slick.util.ValueLinearizer
 import scala.slick.ast.opt.Util._
 import scala.slick.ast.opt.ExtraUtil._
 
@@ -15,14 +14,14 @@ import scala.slick.ast.opt.ExtraUtil._
  */
 trait H2Driver extends ExtendedDriver { driver =>
 
-  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
     case _ => super.mapTypeName(tmd)
   }
 
-  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val concatOperator = Some("||")
 
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =

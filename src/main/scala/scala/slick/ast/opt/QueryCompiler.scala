@@ -1,6 +1,6 @@
 package scala.slick.ast.opt
 
-import scala.slick.ast.Node
+import scala.slick.ast.{SymbolNamer, Node}
 import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.util.Logging
@@ -28,7 +28,14 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
    * original phase's state. */
   def replace(p: Phase) = new QueryCompiler(phases.map(o => if(o.name == p.name) p else o))
 
-  def run(tree: Node, state: CompilationState = new CompilationState(this)): Node = {
+  def run(tree: Node): CompilationState = {
+    val state = new CompilationState(this)
+    state.ast = tree
+    run(tree, state)
+    state
+  }
+
+  def run(tree: Node, state: CompilationState): Node = {
     logger.debug("Source:", tree)
     phases.foldLeft(tree){ case (n,p) => runPhase(p, n, state) }
   }
@@ -38,9 +45,13 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
     phases.iterator.takeWhile(_.name != before.name).foldLeft(tree){ case (n,p) => runPhase(p, n, state) }
   }
 
-  protected[this] def runPhase(p: Phase, tree: Node, state: CompilationState): Node = {
+  protected[this] def runPhase(p: Phase, tree: Node, state: CompilationState): Node = state.symbolNamer.use {
+    state.ast = tree
     val t2 = p(tree, state)
-    if(t2 ne tree) logger.debug("After phase "+p.name+":", t2)
+    if(t2 ne tree) {
+      state.ast = t2
+      logger.debug("After phase "+p.name+":", t2)
+    }
     t2
   }
 }
@@ -89,6 +100,9 @@ object Phase {
 /** The mutable state of a compiler run, consisting of immutable state of
   * individual phases that can be updated. */
 class CompilationState(val compiler: QueryCompiler) {
+  val symbolNamer = new SymbolNamer("s")
+  private[opt] var ast: Node = null
+  def tree = ast
   private[this] val state = new HashMap[String, Any]
   def apply[P <: Phase](p: P): p.State = state(p.name).asInstanceOf[p.State]
   def get[P <: Phase](p: P): Option[p.State] = state.get(p.name).asInstanceOf[Option[p.State]]

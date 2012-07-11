@@ -3,9 +3,8 @@ package scala.slick.driver
 import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.SlickException
-import java.sql.{Timestamp, Time, Date}
-import scala.slick.session.{PositionedParameters, PositionedResult, ResultSetType}
-import scala.slick.util.ValueLinearizer
+import java.sql.{Timestamp, Date}
+import scala.slick.session.PositionedResult
 
 /**
  * SLICK driver for Microsoft SQL Server.
@@ -23,7 +22,7 @@ import scala.slick.util.ValueLinearizer
 trait SQLServerDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
@@ -33,7 +32,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     case _ => super.mapTypeName(tmd)
   }
 
-  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
     override protected val useIntForBoolean = true

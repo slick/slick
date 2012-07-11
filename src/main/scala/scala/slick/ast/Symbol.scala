@@ -2,11 +2,13 @@ package scala.slick.ast
 
 import opt.Util._
 import scala.slick.ql.{TypeMapper, ColumnOption}
+import scala.collection.mutable.HashMap
+import scala.util.DynamicVariable
 
 /** A symbol which can be used in the AST. */
 trait Symbol {
   def name: String
-  override def toString = name
+  override def toString = SymbolNamer(this)
 }
 
 /** A named symbol which refers to an (aliased or unaliased) field. */
@@ -22,31 +24,10 @@ case class TableSymbol(name: String) extends Symbol
 
 /** An anonymous symbol defined in the AST. */
 class AnonSymbol extends Symbol {
-  private[this] var _name: String = null
-  def name = if(_name eq null) "@"+System.identityHashCode(this) else _name
-  def name_= (s: String) = _name = s
-  def hasName = _name ne null
-  override def toString = name
+  def name = "@"+System.identityHashCode(this)
 }
 
 object AnonSymbol {
-  def assignNames(tree: Node, prefix: String = "s", force: Boolean = false, start: Int = 0): Int = {
-    var num = start
-    val symName = memoized[AnonSymbol, String](_ => { s => num += 1; prefix + num })
-    tree.foreach {
-      case d : DefNode => d.nodeGenerators.foreach {
-        case (s: AnonSymbol, _) if force || !s.hasName => s.name = symName(s)
-        case _ =>
-      }
-      case _ =>
-    }
-    num
-  }
-  def named(name: String) = {
-    val s = new AnonSymbol
-    s.name = name
-    s
-  }
   def unapply(a: AnonSymbol) = Some(a.name)
 }
 
@@ -97,4 +78,40 @@ trait SimpleRefNode extends RefNode {
   def nodeMapReferences(f: Symbol => Symbol): Node =
     mapOrNone(nodeReferences, f).fold[Node](this)(s => nodeRebuildWithReferences(s.toIndexedSeq))
   def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]): Node
+}
+
+/** Provides names for symbols */
+class SymbolNamer(symbolPrefix: String, parent: Option[SymbolNamer] = None) {
+  private var curSymbolId = 1
+  private val map = new HashMap[Symbol, String]
+
+  def create = {
+    curSymbolId += 1
+    symbolPrefix + curSymbolId
+  }
+
+  def get(s: Symbol): Option[String] =
+    parent.flatMap(_.get(s)).orElse(map.get(s))
+
+  def apply(s: Symbol): String = get(s).getOrElse(s match {
+    case a: AnonSymbol =>
+      val n = create
+      update(a, n)
+      n
+    case s => namedSymbolName(s)
+  })
+
+  def namedSymbolName(s: Symbol) = s.name
+
+  def update(s: Symbol, n: String): Unit = map += s -> n
+
+  def use[T](f: => T): T = SymbolNamer.dyn.withValue(this)(f)
+}
+
+object SymbolNamer {
+  private val dyn = new DynamicVariable[SymbolNamer](null)
+  def apply(s: Symbol): String = {
+    val n = dyn.value
+    if(n eq null) s.name else n(s)
+  }
 }

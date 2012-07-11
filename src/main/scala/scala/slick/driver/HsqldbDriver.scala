@@ -7,7 +7,6 @@ import scala.slick.ql._
 import scala.slick.ast._
 import scala.slick.ast.opt.Util._
 import scala.slick.ast.opt.ExtraUtil._
-import scala.slick.util.ValueLinearizer
 
 /**
  * SLICK driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -26,11 +25,11 @@ import scala.slick.util.ValueLinearizer
 trait HsqldbDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val scalarFrom = Some("(VALUES (0))")
     override protected val concatOperator = Some("||")
 

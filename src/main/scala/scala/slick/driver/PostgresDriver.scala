@@ -4,7 +4,6 @@ import java.util.UUID
 import scala.slick.ql._
 import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
-import scala.slick.util.ValueLinearizer
 
 /**
  * SLICK driver for PostgreSQL.
@@ -16,10 +15,10 @@ import scala.slick.util.ValueLinearizer
 trait PostgresDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val concatOperator = Some("||")
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
