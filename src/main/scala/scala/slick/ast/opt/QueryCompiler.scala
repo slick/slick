@@ -128,6 +128,6 @@ class CompilationState(val compiler: QueryCompiler) {
   private[this] val state = new HashMap[String, Any]
   def apply[P <: Phase](p: P): p.State = state(p.name).asInstanceOf[p.State]
   def get[P <: Phase](p: P): Option[p.State] = state.get(p.name).asInstanceOf[Option[p.State]]
-  def update[P <: Phase](p: P, s: P#State): Unit = state(p.name) = s
+  def update[S, P <: Phase { type State = S }](p: P, s: S): Unit = state(p.name) = s
   def contains(p: Phase) = state.contains(p.name)
 }

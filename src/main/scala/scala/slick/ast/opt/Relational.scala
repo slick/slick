@@ -19,7 +19,7 @@ class ResolveZipJoins extends Phase {
 
   def apply(n: Node, state: CompilationState) = {
     val n2 = resolveZipJoins(n)
-    state.update[this.type](this, new State(n2 ne n))
+    state(this) = new State(n2 ne n)
     n2
   }
 
