@@ -15,7 +15,7 @@ import Util._
  * We also remove identity Binds here to avoid an extra pass just for that.
  * TODO: Necessary? The conversion to relational trees should inline them anyway.
  */
-class Inliner(unique: Boolean = true, paths: Boolean = true, from: Boolean = true, all: Boolean = false) extends Phase {
+class Inline(unique: Boolean = true, paths: Boolean = true, from: Boolean = true, all: Boolean = false) extends Phase {
   val name = "inline"
 
   def apply(tree: Node, state: CompilationState): Node = {

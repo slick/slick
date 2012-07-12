@@ -104,7 +104,7 @@ trait Phase extends ((Node, CompilationState) => Node) with Logging {
 object Phase {
   val localizeRefs = new LocalizeRefs
   val reconstructProducts = new ReconstructProducts
-  val inline = new Inliner
+  val inline = new Inline
   val rewriteOrderBy = new RewriteOrderBy
   val letDynamicEliminated = new LetDynamicEliminated
   val assignUniqueSymbols = new AssignUniqueSymbols

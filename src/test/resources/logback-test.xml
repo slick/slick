@@ -7,12 +7,22 @@
     <root level="${log.root:-info}">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="scala.slick.ast.opt.QueryCompiler" level="${log.opt:-info}" />
-    <logger name="scala.slick.ast.opt.ReconstructProducts" level="${log.opt.rp:-info}" />
-    <logger name="scala.slick.ast.opt.Columnizer" level="${log.opt.col:-info}" />
-    <logger name="scala.slick.ast.opt.PathRewriter" level="${log.opt.path:-info}" />
-    <logger name="scala.slick.ast.opt.Relational" level="${log.opt.rel:-info}" />
-    <logger name="scala.slick.ast.opt.Inliner" level="${log.opt.in:-info}" />
-    <logger name="scala.slick.ast.opt" level="${log.opt.other:-info}" />
-    <logger name="scala.slick.session" level="${log.session:-info}" />
+    <logger name="scala.slick.ast.opt"                         level="${log.qcomp:-info}" />
+    <logger name="scala.slick.ast.opt.QueryCompiler"           level="${log.qcomp.phases:-inherited}" />
+    <logger name="scala.slick.ast.opt.LocalizeRefs"            level="${log.qcomp.localizeRefs:-inherited}" />
+    <logger name="scala.slick.ast.opt.ReconstructProducts"     level="${log.qcomp.reconstructProducts:-inherited}" />
+    <logger name="scala.slick.ast.opt.Inline"                  level="${log.qcomp.inline:-inherited}" />
+    <logger name="scala.slick.ast.opt.RewriteOrderBy"          level="${log.qcomp.rewriteOrderBy:-inherited}" />
+    <logger name="scala.slick.ast.opt.LetDynamicEliminated"    level="${log.qcomp.letDynamicEliminated:-inherited}" />
+    <logger name="scala.slick.ast.opt.AssignUniqueSymbols"     level="${log.qcomp.assignUniqueSymbols:-inherited}" />
+    <logger name="scala.slick.ast.opt.ForceOuterBinds"         level="${log.qcomp.forceOuterBinds:-inherited}" />
+    <logger name="scala.slick.ast.opt.ExpandTables"            level="${log.qcomp.expandTables:-inherited}" />
+    <logger name="scala.slick.ast.opt.ExpandRefs"              level="${log.qcomp.expandRefs:-inherited}" />
+    <logger name="scala.slick.ast.opt.ReplaceFieldSymbols"     level="${log.qcomp.replaceFieldSymbols:-inherited}" />
+    <logger name="scala.slick.ast.opt.RewritePaths"            level="${log.qcomp.rewritePaths:-inherited}" />
+    <logger name="scala.slick.ast.opt.ResolveZipJoins"         level="${log.qcomp.resolveZipJoins:-inherited}" />
+    <logger name="scala.slick.ast.opt.ConvertToComprehensions" level="${log.qcomp.convertToComprehensions:-inherited}" />
+    <logger name="scala.slick.ast.opt.FuseComprehensions"      level="${log.qcomp.fuseComprehensions:-inherited}" />
+    <logger name="scala.slick.ast.opt.FixRowNumberOrdering"    level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
+    <logger name="scala.slick.session"                         level="${log.session:-info}" />
 </configuration>
