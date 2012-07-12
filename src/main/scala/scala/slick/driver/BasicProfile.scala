@@ -1,25 +1,24 @@
 package scala.slick.driver
 
 import scala.language.implicitConversions
-import scala.slick.ast.{FieldSymbol, NodeGenerator, Node}
-import scala.slick.ast.opt.{Optimizer, Relational}
+import scala.slick.ast.{FieldSymbol, Node}
+import scala.slick.compiler.QueryCompiler
 import scala.slick.ql._
-import slick.util.ValueLinearizer
 
 trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
   def createQueryTemplate[P,R](q: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](q, this)
-  def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
-  def processAST(g: NodeGenerator): Node = Relational(Optimizer(Node(g)))
+  val compiler = QueryCompiler.relational
   val Implicit = new Implicits
   val typeMapperDelegates = new TypeMapperDelegates
 
-  final def createQueryBuilder(q: Query[_, _]): QueryBuilder = createQueryBuilder(processAST(q), q)
+  final def createQueryBuilder(q: Query[_, _]): QueryBuilder = createQueryBuilder(new QueryBuilderInput(compiler.run(Node(q)), q))
   final def buildSelectStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildSelect
   final def buildUpdateStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildUpdate
   final def buildDeleteStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildDelete
@@ -39,10 +38,10 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new InsertInvoker(ShapedValue.createShapedValue(c))
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = new InsertInvoker(u)
 
-    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = new QueryExecutor[Seq[U]](processAST(Node(q)), q)
+    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = new QueryExecutor[Seq[U]](new QueryBuilderInput(compiler.run(Node(q)), q))
 
     // We can't use this direct way due to SI-3346
-    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = new QueryExecutor[R](processAST(Node(q)), shape.linearizer(q))
+    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = new QueryExecutor[R](new QueryBuilderInput(compiler.run(Node(q)), shape.linearizer(q)))
     implicit final def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutor[M](q)
     implicit final def anyToToQueryExecutor[T](value: T) = new ToQueryExecutor[T](value)
 

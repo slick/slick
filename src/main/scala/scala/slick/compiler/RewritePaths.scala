@@ -1,18 +1,18 @@
-package scala.slick.ast
-package opt
+package scala.slick.compiler
 
-import Util._
-import scala.slick.SlickException
-import scala.slick.util.Logging
 import scala.collection.mutable.{HashSet, HashMap}
+import scala.slick.SlickException
+import scala.slick.ast._
+import Util._
 
 /**
  * Remove TableExpansions and TableRefExpansions, and flatten ProductNodes
  * into StructNodes and remove unnecessary columns from them.
  */
-object PathRewriter extends (Node => Node) with Logging {
+class RewritePaths extends Phase {
+  val name = "rewritePaths"
 
-  def apply(n: Node): Node = {
+  def apply(n: Node, state: CompilationState): Node = {
     def flattenToStruct(n: Node): (Node, Vector[(Symbol, Node)]) = n match {
       case ProductNode(ch) =>
         val chf = ch.map(flattenToStruct)

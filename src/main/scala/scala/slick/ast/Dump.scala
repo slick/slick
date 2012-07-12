@@ -2,7 +2,7 @@ package scala.slick.ast
 
 import java.io.{OutputStreamWriter, StringWriter, PrintWriter}
 import scala.collection.mutable.HashSet
-import scala.slick.ast.opt.Util.nodeToNodeOps
+import Util.nodeToNodeOps
 
 /**
  * Create a readable printout of an AST

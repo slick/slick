@@ -7,7 +7,6 @@ import scala.slick.SlickException
 import scala.slick.session.{PositionedParameters, PositionedResult, ResultSetType}
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
-import scala.slick.util.ValueLinearizer
 
 /**
  * SLICK driver for Microsoft Access via JdbcOdbcDriver.
@@ -48,7 +47,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
   val retryCount = 10
   override val typeMapperDelegates = new TypeMapperDelegates(retryCount)
 
-  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
@@ -58,7 +57,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     case _ => super.mapTypeName(tmd)
   }
 
-  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("&")
 

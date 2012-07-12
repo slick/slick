@@ -11,6 +11,7 @@ import scala.slick.ast.Dump
 import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.slick.session.{Session}
 import scala.reflect.ClassTag
+import scala.slick.compiler.CompilationState
 
 trait QueryableBackend
 
@@ -247,12 +248,9 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   import scala.slick.ast.Node
   import scala.slick.ql.TypeMapper
 
-  private def queryable2node[R]( queryable:Queryable[R] ) : sq.Node = {
+  private def queryable2cstate[R]( queryable:Queryable[R] ) : CompilationState = {
     val query = this.toQuery(queryable)
-    import driver._
-    val node = sq.opt.Relational( sq.opt.Optimizer(query.node) )
-    sq.AnonSymbol.assignNames( node )
-    node
+    driver.compiler.run(query.node)
   }
 
   protected def resultByType( expectedType : Type, cl: ClassLoader, rs: PositionedResult )(implicit session:Session) : Any = {
@@ -281,7 +279,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   }
 
   def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) = {
-    val node = queryable2node( queryable )
+    val cstate = queryable2cstate( queryable )
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
           def getResult(profile: BasicProfile, rs: PositionedResult): R
@@ -292,11 +290,11 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
     }
-    new driver.QueryExecutor[Vector[R]](node,linearizer).run
+    new driver.QueryExecutor[Vector[R]](new QueryBuilderInput(cstate, linearizer)).run
   }
   protected[slick] def toSql( queryable:Queryable[_] ) = {
-    val node = queryable2node( queryable )
-    val builder = driver.createQueryBuilder( node, null )
+    val cstate = queryable2cstate( queryable )
+    val builder = driver.createQueryBuilder(new QueryBuilderInput(cstate, null))
     builder.buildSelect.sql
   }
   protected[slick] def toQuery(queryable:Queryable[_]) : this.Query = queryable.expr_or_typetag match {

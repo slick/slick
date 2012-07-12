@@ -1,8 +1,7 @@
-package scala.slick.ast
-package opt
+package scala.slick.compiler
 
-import scala.slick.util.Logging
 import scala.collection.mutable.{HashSet, HashMap}
+import scala.slick.ast._
 import Util._
 
 /**
@@ -15,9 +14,10 @@ import Util._
  * We also remove identity Binds here to avoid an extra pass just for that.
  * TODO: Necessary? The conversion to relational trees should inline them anyway.
  */
-class Inliner(unique: Boolean = true, paths: Boolean = true, from: Boolean = true, all: Boolean = false) extends (Node => Node) with Logging {
+class Inline(unique: Boolean = true, paths: Boolean = true, from: Boolean = true, all: Boolean = false) extends Phase {
+  val name = "inline"
 
-  def apply(tree: Node): Node = {
+  def apply(tree: Node, state: CompilationState): Node = {
     val counts = new HashMap[AnonSymbol, Int]
     tree.foreach {
       case r: RefNode => r.nodeReferences.foreach {

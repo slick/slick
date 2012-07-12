@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.sql.Types._
 import scala.slick.ql.{TypeMapper, TypeMapperDelegate}
 import scala.collection.mutable.HashMap
-import scala.slick.ast.{AnonSymbol, Symbol}
+import scala.slick.ast.{SymbolNamer, AnonSymbol, Symbol}
 
 trait BasicSQLUtilsComponent { driver: BasicDriver =>
 
@@ -29,30 +29,7 @@ trait BasicSQLUtilsComponent { driver: BasicDriver =>
     b.toString
   }
 
-  /** Provides names for symbols */
-  class SymbolNamer(symbolPrefix: String = "x") {
-    private var curSymbolId = 1
-    private val map = new HashMap[Symbol, String]
-    private val reverse = new HashMap[String, Option[Symbol]]
-
-    def create = {
-      curSymbolId += 1
-      symbolPrefix + curSymbolId
-    }
-
-    def apply(s: Symbol): String = map.getOrElse(s, s match {
-      case a: AnonSymbol =>
-        if(a.hasName) a.name else {
-          val n = create
-          update(a, n)
-          n
-        }
-      case s => quoteIdentifier(s.name)
-    })
-
-    def update(s: Symbol, n: String) {
-      map += s -> n
-      reverse += n -> Some(s)
-    }
+  class QuotingSymbolNamer(parent: Option[SymbolNamer]) extends SymbolNamer("x", parent) {
+    override def namedSymbolName(s: Symbol) = quoteIdentifier(s.name)
   }
 }

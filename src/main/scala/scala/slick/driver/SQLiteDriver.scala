@@ -4,7 +4,6 @@ import scala.slick.SlickException
 import scala.slick.ql._
 import scala.slick.ast._
 import java.sql.{Timestamp, Time, Date}
-import scala.slick.util.ValueLinearizer
 
 /**
  * SLICK driver for SQLite.
@@ -28,11 +27,11 @@ import scala.slick.util.ValueLinearizer
 trait SQLiteDriver extends ExtendedDriver { driver =>
 
   override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(node: Node, vl: ValueLinearizer[_]): QueryBuilder = new QueryBuilder(node, vl)
+  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  class QueryBuilder(ast: Node, linearizer: ValueLinearizer[_]) extends super.QueryBuilder(ast, linearizer) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
 

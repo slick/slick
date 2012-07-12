@@ -6,7 +6,7 @@ import scala.slick.ast._
 import scala.slick.util._
 import scala.slick.ql.{Join => _, _}
 import scala.collection.mutable.HashMap
-import scala.slick.ql.TypeMapper.StringTypeMapper
+import scala.slick.compiler.CompilationState
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
@@ -17,7 +17,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   case object OtherPart extends StatementPart
 
   /** Builder for SELECT and UPDATE statements. */
-  class QueryBuilder(val ast: Node, val linearizer: ValueLinearizer[_]) {
+  class QueryBuilder(val input: QueryBuilderInput) {
 
     // Immutable config options (to be overridden by subclasses)
     protected val scalarFrom: Option[String] = None
@@ -29,17 +29,17 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
-    protected val symbolName = new SymbolNamer
+    protected val symbolName = new QuotingSymbolNamer(Some(input.state.symbolNamer))
     protected val joins = new HashMap[Symbol, Join]
 
     def sqlBuilder = b
 
     final def buildSelect(): QueryBuilderResult = {
-      buildComprehension(toComprehension(ast, true))
-      QueryBuilderResult(b.build, linearizer)
+      buildComprehension(toComprehension(input.ast, true))
+      QueryBuilderResult(b.build, input.linearizer)
     }
 
-    protected final def newSym = AnonSymbol.named(symbolName.create)
+    protected final def newSym = new AnonSymbol
 
     @inline protected final def building(p: StatementPart)(f: => Unit): Unit = {
       val oldPart = currentPart
@@ -332,14 +332,14 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     def buildUpdate: QueryBuilderResult = {
-      val (gen, from, where, select) = ast match {
+      val (gen, from, where, select) = input.ast match {
         case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select)), None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
           case _ => throw new SlickException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
         }
-        case _ => throw new SlickException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
+        case o => throw new SlickException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
 
       val qtn = quoteIdentifier(from.tableName)
@@ -350,13 +350,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += " where "
         expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
-      QueryBuilderResult(b.build, linearizer)
+      QueryBuilderResult(b.build, input.linearizer)
     }
 
     def buildDelete: QueryBuilderResult = {
-      val (gen, from, where) = ast match {
+      val (gen, from, where) = input.ast match {
         case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select)), None, None) => (sym, from, where)
-        case _ => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+ast)
+        case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
       val qtn = quoteIdentifier(from.tableName)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
@@ -365,7 +365,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += " where "
         expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
-      QueryBuilderResult(b.build, linearizer)
+      QueryBuilderResult(b.build, input.linearizer)
     }
 
     /*TODO
@@ -578,6 +578,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       }
     }
   }
+}
+
+case class QueryBuilderInput(state: CompilationState, linearizer: ValueLinearizer[_]) {
+  def ast = state.tree
 }
 
 case class QueryBuilderResult(sbr: SQLBuilder.Result, linearizer: ValueLinearizer[_]) {

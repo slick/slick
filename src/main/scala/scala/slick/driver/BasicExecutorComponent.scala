@@ -10,11 +10,11 @@ import slick.util.{ValueLinearizer, CollectionLinearizer, RecordLinearizer}
 
 trait BasicExecutorComponent { driver: BasicDriver =>
 
-  class QueryExecutor[R](query: Node, linearizer: ValueLinearizer[R]) {
+  class QueryExecutor[R](input: QueryBuilderInput) {
 
     def _selectStatement = sres.sql //TODO This should eventually replace StatementInvoker.selectStatement
 
-    protected lazy val sres = createQueryBuilder(query, linearizer).buildSelect()
+    protected lazy val sres = createQueryBuilder(input).buildSelect()
 
     def run(implicit session: Session): R = {
       val i = new StatementInvoker[Unit, Any] {
@@ -24,8 +24,8 @@ trait BasicExecutorComponent { driver: BasicDriver =>
       }
       val res = sres.linearizer match {
         case _: RecordLinearizer[_] => i.first()
-        case c: CollectionLinearizer[_, _] =>
-          val builder = c.canBuildFrom().asInstanceOf[Builder[Any, Any]]
+        case c =>
+          val builder = c.asInstanceOf[CollectionLinearizer[Any, Any]].canBuildFrom()
           i.foreach((), builder += _)
           builder.result()
       }
