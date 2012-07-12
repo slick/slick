@@ -57,19 +57,35 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 }
 
 object QueryCompiler {
-  /** The default compiler */
-  val standard = new QueryCompiler(Vector(
+  val standardPhases = Vector(
+    // Optimizer
     Phase.localizeRefs,
     Phase.reconstructProducts,
     Phase.inline,
     Phase.rewriteOrderBy,
     Phase.letDynamicEliminated,
     Phase.assignUniqueSymbols,
-    Phase.columnize,
+    // Columnizer
+    Phase.forceOuterBinds,
+    Phase.expandTables,
+    Phase.expandRefs,
+    Phase.replaceFieldSymbols,
+    // PathRewriter
     Phase.rewritePaths
-  ))
+  )
+
+  val relationalPhases = Vector(
+    Phase.resolveZipJoins,
+    Phase.convertToComprehensions,
+    Phase.fuseComprehensions,
+    Phase.fixRowNumberOrdering
+  )
+
+  /** The default compiler */
+  val standard = new QueryCompiler(standardPhases)
+
   /** The default compiler with the additional conversion to relational trees */
-  val relational = standard + Phase.relational
+  val relational = new QueryCompiler(standardPhases ++ relationalPhases)
 }
 
 /** A phase of the query compiler, identified by a unique name */
@@ -92,9 +108,15 @@ object Phase {
   val rewriteOrderBy = new RewriteOrderBy
   val letDynamicEliminated = new LetDynamicEliminated
   val assignUniqueSymbols = new AssignUniqueSymbols
-  val columnize = new Columnizer
-  val rewritePaths = new PathRewriter
-  val relational = new Relational
+  val forceOuterBinds = new ForceOuterBinds
+  val expandTables = new ExpandTables
+  val expandRefs = new ExpandRefs
+  val replaceFieldSymbols = new ReplaceFieldSymbols
+  val rewritePaths = new RewritePaths
+  val resolveZipJoins = new ResolveZipJoins
+  val convertToComprehensions = new ConvertToComprehensions
+  val fuseComprehensions = new FuseComprehensions
+  val fixRowNumberOrdering = new FixRowNumberOrdering
 }
 
 /** The mutable state of a compiler run, consisting of immutable state of

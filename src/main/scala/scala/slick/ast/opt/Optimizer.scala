@@ -1,7 +1,6 @@
 package scala.slick.ast
 package opt
 
-import scala.slick.util.Logging
 import Util._
 import scala.collection.mutable.{HashSet, HashMap}
 import scala.slick.SlickException

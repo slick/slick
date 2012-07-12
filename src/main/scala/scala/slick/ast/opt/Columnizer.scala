@@ -8,129 +8,12 @@ import scala.collection.mutable.HashMap
 import scala.slick.ql.Column
 import scala.slick.SlickException
 
-/** Expand columns in queries. */
-class Columnizer extends Phase {
-  val name = "columnize"
+/** Replace references to FieldSymbols in TableExpansions by the
+  * appropriate ElementSymbol */
+class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
+  val name = "replaceFieldSymbols"
 
-  def apply(tree: Node, state: CompilationState): Node = {
-    val t1 = forceOuterBind(tree)
-    if(t1 ne tree) logger.debug("With outer binds:", t1)
-    val t2 = expandTables(t1, state)
-    if(t2 ne t1) logger.debug("Tables expanded:", t2)
-    val t3 = expandRefs(t2)
-    if(t3 ne t2) logger.debug("Refs expanded:", t3)
-    val t4 = replaceFieldSymbols(t3)
-    if(t4 ne t3) logger.debug("FieldSymbols replaced:", t4)
-    t4
-  }
-
-  /** Ensure that all collection operations are wrapped in a Bind so that we
-    * have a place for expanding references later. FilteredQueries are allowed
-    * on top of collection operations without a Bind in between, unless that
-    * operation is a Join or a Pure node. */
-  def forceOuterBind(n: Node): Node = {
-    def idBind(n: Node): Bind = n match {
-      case c: Column[_] =>
-        idBind(Pure(c))
-      case a: Apply =>
-        idBind(Pure(a))
-      case p: ProductNode =>
-        idBind(Pure(p))
-      case p: Pure =>
-        val gen = new AnonSymbol
-        logger.debug("Introducing new Bind "+gen+" for Pure")
-        Bind(gen, Pure(ProductNode(Seq())), p)
-      case _ =>
-        val gen = new AnonSymbol
-        logger.debug("Introducing new Bind "+gen)
-        Bind(gen, n, Pure(Ref(gen)))
-    }
-    def wrap(n: Node): Node = n match {
-      case b: Bind => b.nodeMapChildren(nowrap)
-      case n => idBind(nowrap(n))
-    }
-    def nowrap(n: Node): Node = n match {
-      case u: Union => u.nodeMapChildren(wrap)
-      case f: FilteredQuery => f.nodeMapChildren { ch =>
-        if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
-      }
-      case b: Bind => b.nodeMapChildren(nowrap)
-      case n => n.nodeMapChildren(maybewrap)
-    }
-    def maybewrap(n: Node): Node = n match {
-      case _: Join => wrap(n)
-      case _: Pure => wrap(n)
-      case _: Union => wrap(n)
-      case _: FilteredQuery => wrap(n)
-      case _ => nowrap(n)
-    }
-    wrap(n)
-  }
-
-  /** Replace all TableNodes with TableExpansions which contain both the
-    * expansion and the original table */
-  def expandTables(n: Node, state: CompilationState): Node = n match {
-    case t: TableExpansion => t
-    case t: TableNode =>
-      val sym = new AnonSymbol
-      val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
-      val processed = expandTables(state.compiler.runBefore(this, expanded, state), state)
-      TableExpansion(sym, t, ProductNode(processed.flattenProduct))
-    case n => n.nodeMapChildren(ch => expandTables(ch, state))
-  }
-
-  /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
-    * Paths and TableRefExpansions of Paths, so that all Paths point to
-    * individual columns by index */
-  def expandRefs(n: Node, scope: Scope = Scope.empty, keepRef: Boolean = false): Node = n match {
-    case p @ Path(psyms) =>
-      logger.debug("Checking path "+Path.toString(psyms))
-      psyms.head match {
-        case f: FieldSymbol => p
-        case _ if keepRef => p
-        case _ =>
-          val syms = psyms.reverse
-          scope.get(syms.head) match {
-            case Some((target, _)) =>
-              val exp = select(syms.tail, narrowStructure(target), (s => scope.get(s).map(_._1))).head
-              logger.debug("  narrowed "+p+" to "+exp)
-              exp match {
-                case t: TableExpansion => burstPath(Path(syms.reverse), t)
-                case t: TableRefExpansion => burstPath(Path(syms.reverse), t)
-                case pr: ProductNode => burstPath(Path(syms.reverse), pr)
-                case n => p
-              }
-          case None => p
-        }
-      }
-    case n @ Apply(sym: Library.AggregateFunctionSymbol, _) =>
-      // Don't expand children of aggregate functions
-      n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc, true)), scope)
-    case n =>
-      // Don't expand children in 'from' positions
-      n.mapChildrenWithScope(((symO, ch, chsc) => expandRefs(ch, chsc, symO.isDefined)), scope)
-  }
-
-  /** Expand a base path into a given target */
-  def burstPath(base: Node, target: Node): Node = target match {
-    case ProductNode(ch) =>
-      ProductNode(ch.zipWithIndex.map { case (n, idx) =>
-        burstPath(Select(base, ElementSymbol(idx+1)), n)
-      })
-    case TableExpansion(_, t, cols) =>
-      TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
-        burstPath(Select(base, ElementSymbol(idx+1)), n)
-      }))
-    case TableRefExpansion(_, t, cols) =>
-      TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
-        burstPath(Select(base, ElementSymbol(idx+1)), n)
-      }))
-    case _ => base
-  }
-
-  /** Replace references to FieldSymbols in TableExpansions by the
-    * appropriate ElementSymbol */
-  def replaceFieldSymbols(n: Node): Node = {
+  def apply(n: Node, state: CompilationState): Node = {
     val updatedTables = new HashMap[Symbol, ProductNode]
     val seenDefs = new HashMap[Symbol, Node]
 
@@ -217,6 +100,127 @@ class Columnizer extends Phase {
     } else n2
     n3
   }
+}
+
+/** Ensure that all collection operations are wrapped in a Bind so that we
+  * have a place for expanding references later. FilteredQueries are allowed
+  * on top of collection operations without a Bind in between, unless that
+  * operation is a Join or a Pure node. */
+class ForceOuterBinds extends Phase {
+  val name = "forceOuterBinds"
+
+  def apply(n: Node, state: CompilationState): Node = {
+    def idBind(n: Node): Bind = n match {
+      case c: Column[_] =>
+        idBind(Pure(c))
+      case a: Apply =>
+        idBind(Pure(a))
+      case p: ProductNode =>
+        idBind(Pure(p))
+      case p: Pure =>
+        val gen = new AnonSymbol
+        logger.debug("Introducing new Bind "+gen+" for Pure")
+        Bind(gen, Pure(ProductNode(Seq())), p)
+      case _ =>
+        val gen = new AnonSymbol
+        logger.debug("Introducing new Bind "+gen)
+        Bind(gen, n, Pure(Ref(gen)))
+    }
+    def wrap(n: Node): Node = n match {
+      case b: Bind => b.nodeMapChildren(nowrap)
+      case n => idBind(nowrap(n))
+    }
+    def nowrap(n: Node): Node = n match {
+      case u: Union => u.nodeMapChildren(wrap)
+      case f: FilteredQuery => f.nodeMapChildren { ch =>
+        if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
+      }
+      case b: Bind => b.nodeMapChildren(nowrap)
+      case n => n.nodeMapChildren(maybewrap)
+    }
+    def maybewrap(n: Node): Node = n match {
+      case _: Join => wrap(n)
+      case _: Pure => wrap(n)
+      case _: Union => wrap(n)
+      case _: FilteredQuery => wrap(n)
+      case _ => nowrap(n)
+    }
+    wrap(n)
+  }
+}
+
+/** Replace all TableNodes with TableExpansions which contain both the
+  * expansion and the original table. */
+class ExpandTables extends Phase {
+  val name = "expandTables"
+
+  def apply(n: Node, state: CompilationState): Node = n match {
+    case t: TableExpansion => t
+    case t: TableNode =>
+      val sym = new AnonSymbol
+      val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
+      val processed = apply(state.compiler.runBefore(Phase.forceOuterBinds, expanded, state), state)
+      TableExpansion(sym, t, ProductNode(processed.flattenProduct))
+    case n => n.nodeMapChildren(ch => apply(ch, state))
+  }
+}
+
+/** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
+  * Paths and TableRefExpansions of Paths, so that all Paths point to
+  * individual columns by index */
+class ExpandRefs extends Phase with ColumnizerUtils {
+  val name = "expandRefs"
+
+  def apply(n: Node, state: CompilationState) = expandRefs(n)
+
+  def expandRefs(n: Node, scope: Scope = Scope.empty, keepRef: Boolean = false): Node = n match {
+    case p @ Path(psyms) =>
+      logger.debug("Checking path "+Path.toString(psyms))
+      psyms.head match {
+        case f: FieldSymbol => p
+        case _ if keepRef => p
+        case _ =>
+          val syms = psyms.reverse
+          scope.get(syms.head) match {
+            case Some((target, _)) =>
+              val exp = select(syms.tail, narrowStructure(target), (s => scope.get(s).map(_._1))).head
+              logger.debug("  narrowed "+p+" to "+exp)
+              exp match {
+                case t: TableExpansion => burstPath(Path(syms.reverse), t)
+                case t: TableRefExpansion => burstPath(Path(syms.reverse), t)
+                case pr: ProductNode => burstPath(Path(syms.reverse), pr)
+                case n => p
+              }
+            case None => p
+          }
+      }
+    case n @ Apply(sym: Library.AggregateFunctionSymbol, _) =>
+      // Don't expand children of aggregate functions
+      n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc, true)), scope)
+    case n =>
+      // Don't expand children in 'from' positions
+      n.mapChildrenWithScope(((symO, ch, chsc) => expandRefs(ch, chsc, symO.isDefined)), scope)
+  }
+
+  /** Expand a base path into a given target */
+  def burstPath(base: Node, target: Node): Node = target match {
+    case ProductNode(ch) =>
+      ProductNode(ch.zipWithIndex.map { case (n, idx) =>
+        burstPath(Select(base, ElementSymbol(idx+1)), n)
+      })
+    case TableExpansion(_, t, cols) =>
+      TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
+        burstPath(Select(base, ElementSymbol(idx+1)), n)
+      }))
+    case TableRefExpansion(_, t, cols) =>
+      TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
+        burstPath(Select(base, ElementSymbol(idx+1)), n)
+      }))
+    case _ => base
+  }
+}
+
+trait ColumnizerUtils { _: Logging =>
 
   /** Navigate into ProductNodes along a path */
   def select(selects: List[Symbol], base: Node, lookup: (Symbol => Option[Node]) = (_ => None)): Vector[Node] = {
