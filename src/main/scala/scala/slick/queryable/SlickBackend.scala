@@ -11,6 +11,7 @@ import scala.slick.ast.Dump
 import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.slick.session.{Session}
 import scala.reflect.ClassTag
+import scala.slick.compiler.CompilationState
 
 trait QueryableBackend
 
@@ -247,10 +248,9 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   import scala.slick.ast.Node
   import scala.slick.ql.TypeMapper
 
-  private def queryable2cstate[R]( queryable:Queryable[R] ) : sq.opt.CompilationState = {
+  private def queryable2cstate[R]( queryable:Queryable[R] ) : CompilationState = {
     val query = this.toQuery(queryable)
-    import driver._
-    sq.opt.QueryCompiler.relational.run(query.node)
+    driver.compiler.run(query.node)
   }
 
   protected def resultByType( expectedType : Type, cl: ClassLoader, rs: PositionedResult )(implicit session:Session) : Any = {

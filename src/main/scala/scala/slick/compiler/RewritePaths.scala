@@ -1,10 +1,9 @@
-package scala.slick.ast
-package opt
+package scala.slick.compiler
 
-import Util._
-import scala.slick.SlickException
-import scala.slick.util.Logging
 import scala.collection.mutable.{HashSet, HashMap}
+import scala.slick.SlickException
+import scala.slick.ast._
+import Util._
 
 /**
  * Remove TableExpansions and TableRefExpansions, and flatten ProductNodes

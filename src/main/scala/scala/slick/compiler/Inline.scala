@@ -1,8 +1,7 @@
-package scala.slick.ast
-package opt
+package scala.slick.compiler
 
-import scala.slick.util.Logging
 import scala.collection.mutable.{HashSet, HashMap}
+import scala.slick.ast._
 import Util._
 
 /**

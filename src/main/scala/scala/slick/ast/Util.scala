@@ -1,13 +1,12 @@
 package scala.slick.ast
-package opt
 
 import scala.language.implicitConversions
-import collection.TraversableLike
-import collection.generic.CanBuildFrom
+import scala.collection.TraversableLike
+import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable.{HashSet, ArrayBuffer}
 
 /**
- * Utility methods for the optimizers.
+ * Utility methods for AST manipulation.
  */
 object Util {
 

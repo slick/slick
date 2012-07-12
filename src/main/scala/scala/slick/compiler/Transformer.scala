@@ -1,6 +1,6 @@
-package scala.slick.ast
-package opt
+package scala.slick.compiler
 
+import scala.slick.ast._
 import collection.mutable.HashMap
 import Util._
 

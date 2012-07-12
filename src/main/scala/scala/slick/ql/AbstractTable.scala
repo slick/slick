@@ -1,10 +1,9 @@
 package scala.slick.ql
 
-import scala.collection.mutable.{ArrayBuffer, HashSet}
 import scala.slick.driver.BasicProfile
 import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast._
-import scala.slick.ast.opt.Util.nodeToNodeOps
+import scala.slick.ast.Util.nodeToNodeOps
 
 abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with ColumnBase[T] with NullaryNode with WithOp {
 

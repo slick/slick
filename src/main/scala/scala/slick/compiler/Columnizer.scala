@@ -1,12 +1,9 @@
-package scala.slick.ast
-package opt
+package scala.slick.compiler
 
-import Util._
-import scala.slick.util.Logging
-import scala.slick.ast.WithOp
 import scala.collection.mutable.HashMap
-import scala.slick.ql.Column
 import scala.slick.SlickException
+import scala.slick.ast._
+import Util._
 
 /** Replace references to FieldSymbols in TableExpansions by the
   * appropriate ElementSymbol */
@@ -102,53 +99,6 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
   }
 }
 
-/** Ensure that all collection operations are wrapped in a Bind so that we
-  * have a place for expanding references later. FilteredQueries are allowed
-  * on top of collection operations without a Bind in between, unless that
-  * operation is a Join or a Pure node. */
-class ForceOuterBinds extends Phase {
-  val name = "forceOuterBinds"
-
-  def apply(n: Node, state: CompilationState): Node = {
-    def idBind(n: Node): Bind = n match {
-      case c: Column[_] =>
-        idBind(Pure(c))
-      case a: Apply =>
-        idBind(Pure(a))
-      case p: ProductNode =>
-        idBind(Pure(p))
-      case p: Pure =>
-        val gen = new AnonSymbol
-        logger.debug("Introducing new Bind "+gen+" for Pure")
-        Bind(gen, Pure(ProductNode(Seq())), p)
-      case _ =>
-        val gen = new AnonSymbol
-        logger.debug("Introducing new Bind "+gen)
-        Bind(gen, n, Pure(Ref(gen)))
-    }
-    def wrap(n: Node): Node = n match {
-      case b: Bind => b.nodeMapChildren(nowrap)
-      case n => idBind(nowrap(n))
-    }
-    def nowrap(n: Node): Node = n match {
-      case u: Union => u.nodeMapChildren(wrap)
-      case f: FilteredQuery => f.nodeMapChildren { ch =>
-        if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
-      }
-      case b: Bind => b.nodeMapChildren(nowrap)
-      case n => n.nodeMapChildren(maybewrap)
-    }
-    def maybewrap(n: Node): Node = n match {
-      case _: Join => wrap(n)
-      case _: Pure => wrap(n)
-      case _: Union => wrap(n)
-      case _: FilteredQuery => wrap(n)
-      case _ => nowrap(n)
-    }
-    wrap(n)
-  }
-}
-
 /** Replace all TableNodes with TableExpansions which contain both the
   * expansion and the original table. */
 class ExpandTables extends Phase {
@@ -220,7 +170,7 @@ class ExpandRefs extends Phase with ColumnizerUtils {
   }
 }
 
-trait ColumnizerUtils { _: Logging =>
+trait ColumnizerUtils { _: Phase =>
 
   /** Navigate into ProductNodes along a path */
   def select(selects: List[Symbol], base: Node, lookup: (Symbol => Option[Node]) = (_ => None)): Vector[Node] = {

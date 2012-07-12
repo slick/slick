@@ -6,8 +6,7 @@ import scala.slick.ast._
 import scala.slick.util._
 import scala.slick.ql.{Join => _, _}
 import scala.collection.mutable.HashMap
-import scala.slick.ql.TypeMapper.StringTypeMapper
-import scala.slick.ast.opt.CompilationState
+import scala.slick.compiler.CompilationState
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 

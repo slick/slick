@@ -1,9 +1,9 @@
-package scala.slick.ast.opt
+package scala.slick.compiler
 
-import scala.slick.ast.{SymbolNamer, Node}
 import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.util.Logging
+import scala.slick.ast.{SymbolNamer, Node}
 
 /** An immutable, stateless query compiler consisting of a series of phases */
 class QueryCompiler(val phases: Vector[Phase]) extends Logging {
@@ -123,7 +123,7 @@ object Phase {
   * individual phases that can be updated. */
 class CompilationState(val compiler: QueryCompiler) {
   val symbolNamer = new SymbolNamer("s")
-  private[opt] var ast: Node = null
+  private[compiler] var ast: Node = null
   def tree = ast
   private[this] val state = new HashMap[String, Any]
   def apply[P <: Phase](p: P): p.State = state(p.name).asInstanceOf[p.State]

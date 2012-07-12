@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.language.implicitConversions
 import scala.slick.ast.{FieldSymbol, Node}
-import scala.slick.ast.opt.QueryCompiler
+import scala.slick.compiler.QueryCompiler
 import scala.slick.ql._
 
 trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>

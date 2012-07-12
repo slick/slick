@@ -1,12 +1,11 @@
 package scala.slick.driver
 
-import scala.collection.mutable.HashSet
 import java.sql.Types
 import scala.slick.SlickException
 import scala.slick.ql._
 import scala.slick.ast._
-import scala.slick.ast.opt.Util._
-import scala.slick.ast.opt.ExtraUtil._
+import scala.slick.ast.Util._
+import scala.slick.ast.ExtraUtil._
 
 /**
  * SLICK driver for <a href="http://www.hsqldb.org/">HyperSQL</a>

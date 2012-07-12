@@ -1,10 +1,10 @@
-package scala.slick.ast
-package opt
+package scala.slick.compiler
 
 import scala.math.{min, max}
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SlickException
 import scala.slick.ql.ConstColumn
+import scala.slick.ast._
 import Util._
 
 /** Rewrite zip joins into a form suitable for SQL (using inner joins and

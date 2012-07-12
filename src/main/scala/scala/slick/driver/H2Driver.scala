@@ -2,8 +2,8 @@ package scala.slick.driver
 
 import scala.slick.ql._
 import scala.slick.ast._
-import scala.slick.ast.opt.Util._
-import scala.slick.ast.opt.ExtraUtil._
+import scala.slick.ast.Util._
+import scala.slick.ast.ExtraUtil._
 
 /**
  * SLICK driver for H2.

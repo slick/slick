@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-import opt.Util._
+import Util._
 import scala.slick.ql.{TypeMapper, ColumnOption}
 import scala.collection.mutable.HashMap
 import scala.util.DynamicVariable
