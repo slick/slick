@@ -4,15 +4,15 @@ organizationName := "Typesafe"
 
 organization := "com.typesafe"
 
-version := "0.10.0-SNAPSHOT"
+version := "0.10.0"
 
 //scalaVersion := "2.10.0-unknown-unknown"
 //scalaVersion := "2.10.0-SNAPSHOT"
-scalaVersion := "2.10.0-M4"
+scalaVersion := "2.10.0-M5"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 
-//crossScalaVersions ++= "2.9.1-1" :: "2.9.1" :: "2.9.0-1" :: "2.9.0" :: Nil
+crossScalaVersions ++= "2.10.0-M4" :: Nil
 //crossVersion := CrossVersion.Disabled
 
 //scalaHome := Some(file("C:/Users/szeiger/code/scala/build/pack"))

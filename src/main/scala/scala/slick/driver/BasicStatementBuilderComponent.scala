@@ -176,9 +176,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case LiteralNode(true) if useIntForBoolean => b += (if(skipParens) "1=1" else "(1=1)")
-      case LiteralNode(false) if useIntForBoolean => b += (if(skipParens) "1=0" else "(1=0)")
-      case LiteralNode(null) => b += "null"
+      //TODO Workaround for M5 bug -- We should use the LiteralNode extractor in the next 3 lines
+      case l: LiteralNode if l.value == true && useIntForBoolean => b += (if(skipParens) "1=1" else "(1=1)")
+      case l: LiteralNode if l.value == false && useIntForBoolean => b += (if(skipParens) "1=0" else "(1=0)")
+      case l: LiteralNode if l.value == null => b += "null"
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         if(!skipParens) b += '('
         expr(l)
