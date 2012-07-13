@@ -26,7 +26,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     ,"java.lang.String" /*typeOf[String]*/ -> TypeMapper.StringTypeMapper // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
   )
 
-  def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTermSymbol.resolveOverloaded(actuals = rhs.toList)
+  //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTermSymbol.resolveOverloaded(actuals = rhs.toList)
 
   val operatorMap : Vector[ (Map[String, FunctionSymbol], List[List[Type]]) ] = {
     import Library._
