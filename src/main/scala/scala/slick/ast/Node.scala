@@ -108,7 +108,7 @@ object LiteralNode {
   def apply(v: Any): LiteralNode = new LiteralNode {
     val value = v
   }
-  def unapply(n: LiteralNode) = Some(n.value)
+  def unapply(n: LiteralNode): Option[Any] = Some(n.value)
 }
 
 trait BinaryNode extends SimpleNode {
