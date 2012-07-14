@@ -18,6 +18,7 @@ import scala.reflect.ClassTag
 
 object QueryableTest extends DBTestObject(H2Mem)
 
+class Foo[T]( val q : Queryable[T] )
 
 @table(name="COFFEES")
 case class Coffee(
@@ -115,6 +116,13 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       // simple map
       assert( resultsMatch(
         query.map( (_:Coffee).sales + 5 ),
+        inMem.map( (_:Coffee).sales + 5 )
+      ))
+      
+      // left-hand-side coming from attribute
+      val foo = new Foo(query)
+      assert( resultsMatch(
+        foo.q.map( (_:Coffee).sales + 5 ),
         inMem.map( (_:Coffee).sales + 5 )
       ))
   
@@ -224,7 +232,6 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         query.map( c=> (c.name,c.sales,c) ),
         inMem.map( c=> (c.name,c.sales,c) )
       ))
-
     }
   }
 }

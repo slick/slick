@@ -128,6 +128,16 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     val typed_tree = toolbox.typeCheck(tree) // TODO: can we get rid of this to remove the compiler dependency?
     scala2scalaquery_typed( removeTypeAnnotations(typed_tree), scope )
   }
+  private def eval( tree:Tree ) :Any = tree match {
+    case Select(from,name) => {
+      val i = cm.reflect( eval(from) )
+      val m = i.symbol.typeSignature.member( name ).asMethodSymbol
+      val mm = i.reflectMethod( m )
+      mm()
+    }
+    case ident:Ident => ident.symbol.asFreeTermSymbol.value
+  }
+  
   private def scala2scalaquery_typed( tree:Tree, scope : Scope ) : Query = {
     def s2sq( tree:Tree, scope:Scope=scope ) : Query = scala2scalaquery_typed( tree, scope )
     implicit def node2Query(node:sq.Node) = new Query( node, scope )
@@ -158,7 +168,6 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           }
         =>
           extractColumn( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
-
 /*
         // TODO: Where is this needed?
         case Select(a:This,b) =>
@@ -232,6 +241,10 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
         =>
             sq.ProductNode( components.map(s2sq(_).node) )
+
+
+        case tree if tree.tpe.erasure <:< typeOf[Queryable[_]].erasure
+            => toQuery( eval(tree).asInstanceOf[Queryable[_]] )
 
         case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
