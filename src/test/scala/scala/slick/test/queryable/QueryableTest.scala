@@ -238,8 +238,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         inMem.map( c=> (c.name,c.sales,c) )
       ))
       // length
-      val l = backend.result(query.length)
-      assertEquals( l, inMem.length )
+      assertEquals( backend.result(query.length), inMem.length )
+      
+      val iquery = ImplicitQueryable( query, backend )
+      assertEquals( iquery.length, inMem.length )
+      
     }
   }
 }
