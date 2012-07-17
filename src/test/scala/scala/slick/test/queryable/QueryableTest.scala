@@ -18,6 +18,7 @@ import scala.reflect.ClassTag
 
 object QueryableTest extends DBTestObject(H2Mem)
 
+class Foo[T]( val q : Queryable[T] )
 
 @table(name="COFFEES")
 case class Coffee(
@@ -117,6 +118,13 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         query.map( (_:Coffee).sales + 5 ),
         inMem.map( (_:Coffee).sales + 5 )
       ))
+      
+      // left-hand-side coming from attribute
+      val foo = new Foo(query)
+      assert( resultsMatch(
+        foo.q.map( (_:Coffee).sales + 5 ),
+        inMem.map( (_:Coffee).sales + 5 )
+      ))
   
       // map with string concatenation
       assert( resultsMatch(
@@ -189,6 +197,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         }
       }
 
+      assert( resultsMatch(
+        query.flatMap(e1 => query.map(e2=>e1).map(e2=>e1)),
+        inMem.flatMap(e1 => inMem.map(e2=>e1).map(e2=>e1))
+      )) 
+
       // nesting with outer macro reference
       {
         val inMemResult = for( o <- inMem; i <- inMem ) yield o.name
@@ -224,7 +237,12 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         query.map( c=> (c.name,c.sales,c) ),
         inMem.map( c=> (c.name,c.sales,c) )
       ))
-
+      // length
+      assertEquals( backend.result(query.length), inMem.length )
+      
+      val iquery = ImplicitQueryable( query, backend )
+      assertEquals( iquery.length, inMem.length )
+      
     }
   }
 }
