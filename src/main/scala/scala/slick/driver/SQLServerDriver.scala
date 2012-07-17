@@ -29,6 +29,8 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     case java.sql.Types.BOOLEAN => "BIT"
     case java.sql.Types.BLOB => "IMAGE"
     case java.sql.Types.CLOB => "TEXT"
+    case java.sql.Types.DOUBLE => "FLOAT(53)"
+    case java.sql.Types.FLOAT => "FLOAT(24)"
     case _ => super.mapTypeName(tmd)
   }
 

@@ -31,19 +31,21 @@ class DataTypeTest(val tdb: TestDB) extends DBTest {
   }
 
   @Test def testNumeric() = db withSession {
-    object T extends Table[(Int, Int, Long, Short, Byte)]("test") {
+    object T extends Table[(Int, Int, Long, Short, Byte, Double, Float)]("test") {
       def id = column[Int]("id")
       def intData = column[Int]("int_data")
       def longData = column[Long]("long_data")
       def shortData = column[Short]("short_data")
       def byteData = column[Byte]("byte_data")
-      def * = id ~ intData ~ longData ~ shortData ~ byteData
+      def doubleData = column[Double]("double_data")
+      def floatData = column[Float]("float_data")
+      def * = id ~ intData ~ longData ~ shortData ~ byteData ~ doubleData ~ floatData
     }
 
     T.ddl.createStatements foreach println
     T.ddl.create;
 
-    def test(data: List[(Int, Int, Long, Short, Byte)]) {
+    def test(data: List[(Int, Int, Long, Short, Byte, Double, Float)]) {
       T.insertAll(data: _*)
       val q = T.sortBy(_.id)
       assertEquals(data, q.list)
@@ -51,20 +53,20 @@ class DataTypeTest(val tdb: TestDB) extends DBTest {
     }
 
     test(List(
-      (2, -1,          -1L,           -1: Short,      -1: Byte),
-      (3, 0,            0L,            0: Short,       0: Byte),
-      (4, 1,            1L,            1: Short,       1: Byte)
+      ( 2, -1, -1L, -1: Short, -1: Byte, -1.0, -1.0f),
+      ( 3,  0,  0L,  0: Short,  0: Byte,  0.0,  0.0f),
+      ( 4,  1,  1L,  1: Short,  1: Byte,  1.0,  1.0f)
     ))
 
     test(List(
-      (1, Int.MinValue, 0L, Short.MinValue, Byte.MinValue),
-      (5, Int.MaxValue, 0L, Short.MaxValue, Byte.MaxValue)
+      (1, Int.MinValue, 0L, Short.MinValue, Byte.MinValue, 0.0, 0.0f),
+      (5, Int.MaxValue, 0L, Short.MaxValue, Byte.MaxValue, 0.0, 0.0f)
     ))
 
     if(tdb.driver != AccessDriver) { // No proper LONG type support in Access via JDBC
       test(List(
-        (1, 0, Long.MinValue, 0, 0),
-        (5, 0, Long.MaxValue, 0, 0)
+        (1, 0, Long.MinValue, 0, 0, 0.0, 0.0f),
+        (5, 0, Long.MaxValue, 0, 0, 0.0, 0.0f)
       ))
     }
   }
