@@ -1,7 +1,6 @@
 package scala.slick.test.queryable
 
 import scala.language.{reflectiveCalls,implicitConversions}
-
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.ql._
@@ -39,7 +38,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         println( backend.toSql(q) )
         println( backend.result(q) )
         try{
-          matcher( backend.toQuery( q ).node : @unchecked ) : @unchecked
+          matcher( backend.toQuery( q )._2.node : @unchecked ) : @unchecked
           print(".")
         } catch {
           case e:MatchError => {
@@ -243,6 +242,18 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       val iquery = ImplicitQueryable( query, backend )
       assertEquals( iquery.length, inMem.length )
       
+      assert( resultsMatch(
+        query.map( c=>c ),
+        iquery.map( c=>c ).toSeq
+      ))
+      
+      ({
+        import ImplicitQueryable.implicitExecution._
+        assert( resultsMatch(
+          query.map( c=>c ),
+          iquery.map( c=>c )
+        ))
+      })
     }
   }
 }

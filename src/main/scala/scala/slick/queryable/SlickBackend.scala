@@ -121,12 +121,12 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     new Query( table, Scope() )
   }
 
-  def toQuery( tree:Tree, scope : Scope = Scope() ) : Query = {
+  def toQuery( tree:Tree, scope : Scope = Scope() ) : (Type,Query) = {
     import scala.tools.reflect._
     // external references (symbols) are preserved by reify, so cm suffices (its class loader does not need to load any new classes)
     val toolbox = cm.mkToolBox()//mkConsoleFrontEnd().asInstanceOf[scala.tools.reflect.FrontEnd],"") // FIXME cast
     val typed_tree = toolbox.typeCheck(tree) // TODO: can we get rid of this to remove the compiler dependency?
-    scala2scalaquery_typed( removeTypeAnnotations(typed_tree), scope )
+    ( typed_tree.tpe, scala2scalaquery_typed( removeTypeAnnotations(typed_tree), scope ) )
   }
   private def eval( tree:Tree ) :Any = tree match {
     case Select(from,name) => {
@@ -150,7 +150,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
         case ident@Ident(name) if !scope.contains(ident.symbol) => // TODO: move this into a separate inlining step in queryable
           ident.symbol.asFreeTermSymbol.value match {
-            case q:Queryable[_] => toQuery( q )
+            case q:Queryable[_] => val (tpe,query) = toQuery( q ); query
             case x => s2sq( Literal(Constant(x)) )
           }
         case ident@Ident(name) => scope(ident.symbol)
@@ -247,7 +247,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           => sq.Pure( Library.CountAll( s2sq(scala_lhs).node ) )
 
         case tree if tree.tpe.erasure <:< typeOf[Queryable[_]].erasure
-            => toQuery( eval(tree).asInstanceOf[Queryable[_]] )
+            => val (tpe,query) = toQuery( eval(tree).asInstanceOf[Queryable[_]] ); query
 
         case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
@@ -256,7 +256,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     }
   }
   protected[slick] def dump( queryable:Queryable[_] ) = {
-    val query = this.toQuery(queryable)
+    val (_,query) = this.toQuery(queryable)
     Dump(query.node)
   }
   import scala.collection.generic.CanBuildFrom
@@ -264,18 +264,17 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   import scala.slick.ast.Node
   import scala.slick.ql.TypeMapper
 
-  private def queryable2cstate[R]( queryable:Queryable[R] ) : CompilationState = {
-    val query = this.toQuery(queryable)
-    driver.compiler.run(query.node)
+  private def queryable2cstate[R]( queryable:Queryable[R] ) : (Type,CompilationState) = {
+    val (tpe,query) = this.toQuery(queryable)
+    (tpe,driver.compiler.run(query.node))
   }
   
-  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R] ) : CompilationState = {
-    val query = this.toQuery(queryablevalue.value.tree)
-    driver.compiler.run(query.node)
+  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R] ) : (Type,CompilationState) = {
+    val (tpe,query) = this.toQuery(queryablevalue.value.tree)
+    (tpe,driver.compiler.run(query.node))
   }
 
-  protected def resultByType( expectedType : Type, cl: ClassLoader, rs: PositionedResult )(implicit session:Session) : Any = {
-    val cm = runtimeMirror(cl)
+  protected def resultByType( expectedType : Type, rs: PositionedResult )(implicit session:Session) : Any = {
     def createInstance( args:Seq[Any] ) = {
       val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethodSymbol
       val cls = cm.reflectClass( cm.classSymbol(cm.runtimeClass(expectedType)) )
@@ -286,32 +285,32 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
       case t if typeMappers.isDefinedAt(expectedType.toString) => typeMappers( expectedType.toString )(driver).nextValue(rs)
       case t if tupleTypes.exists( expectedType <:< _ ) =>
         val args = expectedType.typeArguments.map{
-          tpe => resultByType( tpe, cl, rs )
+          tpe => resultByType( tpe, rs )
         }
         createInstance( args )
-      case t if t.typeSymbol.hasFlag( Flag.CASE ) => //cm.classSymbol(cm.runtimeClass(t))
+      case t if t.typeSymbol.hasFlag( Flag.CASE ) =>
         val args = expectedType.member( nme.CONSTRUCTOR ).typeSignature match {
           case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
-            param =>  resultByType( param.typeSignature, cl, rs )
+            param =>  resultByType( param.typeSignature, rs )
           }
         }
         createInstance( args )
     })
   }
-  def result[R:TypeTag:ClassTag]( queryable:Queryable[R] )(implicit session:Session) : Vector[R] = {
-    val cstate = queryable2cstate( queryable )
-    result( cstate )
+  def result[R]( queryable:Queryable[R] )(implicit session:Session) : Vector[R] = {
+    val (tpe,query) = queryable2cstate( queryable )
+    result(tpe,query)
   }
-  def result[R:TypeTag:ClassTag]( queryablevalue:QueryableValue[R] )(implicit session:Session) : R = {
-    val cstate = queryablevalue2cstate( queryablevalue )
-    val res = result( cstate )
+  def result[R]( queryablevalue:QueryableValue[R] )(implicit session:Session) : R = {
+    val (tpe,query) = queryablevalue2cstate( queryablevalue )
+    val res = result(tpe,query)
     res(0)
   }
-  def result[R:TypeTag:ClassTag]( cstate:CompilationState )(implicit session:Session) : Vector[R] = {
+  def result[R]( tpe:Type, cstate:CompilationState )(implicit session:Session) : Vector[R] = {
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
           def getResult(profile: BasicProfile, rs: PositionedResult): R
-            = resultByType( implicitly[TypeTag[R]].tpe, implicitly[ClassTag[R]].runtimeClass.getClassLoader, rs ).asInstanceOf[R]
+            = resultByType( tpe, rs ).asInstanceOf[R]
           def updateResult(profile: BasicProfile, rs: PositionedResult, value: R): Unit = ???
           def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
           def getLinearizedNodes: IndexedSeq[Node] = ???
@@ -321,18 +320,21 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     new driver.QueryExecutor[Vector[R]](new QueryBuilderInput(cstate, linearizer)).run
   }
   protected[slick] def toSql( queryable:Queryable[_] ) = {
-    val cstate = queryable2cstate( queryable )
+    val (_,cstate) = queryable2cstate( queryable )
     val builder = driver.createQueryBuilder(new QueryBuilderInput(cstate, null))
     builder.buildSelect.sql
   }
-  protected[slick] def toQuery(queryable:Queryable[_]) : this.Query = queryable.expr_or_typetag match {
-    case Right((typetag,classtag)) => this.typetagToQuery( typetag )
-    case Left(expr_)    => this.toQuery(expr_.tree)
+  protected[slick] def toQuery(queryable:Queryable[_]) : (Type,this.Query) = queryable.expr_or_typetag match {
+    case Right((typetag,classtag)) => (typetag.tpe, this.typetagToQuery( typetag ))
+    case Left(expr_)    =>
+        val (tpe,query) = this.toQuery(expr_.tree)
+        (tpe.typeArguments(0), query)
   }
 
   def toList[T]( queryable:Queryable[T] ) : List[T] = {
     import this.driver.Implicit._
-    val node = this.toQuery(queryable).node : scala.slick.ast.Node
+    val (_,query) = this.toQuery(queryable)
+    val node = query.node : scala.slick.ast.Node
     null
   }
 }
