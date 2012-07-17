@@ -23,7 +23,12 @@ abstract class DBTest {
 
   def assertFail(f: =>Unit) = {
     var succeeded = false
-    try { f; succeeded = true } catch { case _ => }
+    try {
+      f
+      succeeded = true
+    } catch {
+      case e: Exception if !scala.util.control.Exception.shouldRethrow(e) =>
+    }
     if(succeeded) fail("Exception expected")
   }
 

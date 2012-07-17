@@ -282,6 +282,8 @@ class FuseComprehensions extends Phase {
         c2.copy(select = Some(Pure(StructNode(ch.iterator.map(n => (new AnonSymbol) -> n).toIndexedSeq))))
       case Some(Pure(n)) =>
         c2.copy(select = Some(Pure(StructNode(IndexedSeq((new AnonSymbol) -> n)))))
+      case _ =>
+        throw new SlickException("Unexpected Comprehension shape in "+c2)
     }
   }
 

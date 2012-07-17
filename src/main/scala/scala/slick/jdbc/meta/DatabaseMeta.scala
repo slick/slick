@@ -22,7 +22,7 @@ object DatabaseMeta {
   } else None
 
   private[meta] def invokeForRS(m: Method, target: AnyRef, args: AnyRef*): ResultSet = {
-    try { m.invoke(target, args:_*).asInstanceOf[ResultSet] } catch { case t => 
+    try { m.invoke(target, args:_*).asInstanceOf[ResultSet] } catch { case t: Throwable =>
       (t match {
         case i: InvocationTargetException => i.getCause()
         case other => other
