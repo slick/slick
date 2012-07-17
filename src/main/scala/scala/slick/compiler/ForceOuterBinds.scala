@@ -28,7 +28,10 @@ class ForceOuterBinds extends Phase {
         Bind(gen, n, Pure(Ref(gen)))
     }
     def wrap(n: Node): Node = n match {
-      case b: Bind => b.nodeMapChildren(nowrap)
+      case b: Bind => b.nodeMapChildren { ch =>
+        if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)
+        else maybewrap(ch)
+      }
       case n => idBind(nowrap(n))
     }
     def nowrap(n: Node): Node = n match {
@@ -36,7 +39,10 @@ class ForceOuterBinds extends Phase {
       case f: FilteredQuery => f.nodeMapChildren { ch =>
         if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
       }
-      case b: Bind => b.nodeMapChildren(nowrap)
+      case b: Bind => b.nodeMapChildren { ch =>
+        if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)
+        else maybewrap(ch)
+      }
       case n => n.nodeMapChildren(maybewrap)
     }
     def maybewrap(n: Node): Node = n match {

@@ -173,4 +173,46 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
     println("    " + q3.list)
     assertEquals(List("a", "a"), q3.list)
   }
+
+  @Test def testManyToMany(): Unit = db withSession {
+
+    object A extends Table[(Int, String)]("a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = id ~ s
+      def bs = AToB.filter(_.aId === id).flatMap(_.bFK)
+    }
+
+    object B extends Table[(Int, String)]("b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = id ~ s
+      def as = AToB.filter(_.bId === id).flatMap(_.aFK)
+    }
+
+    object AToB extends Table[(Int, Int)]("a_to_b") {
+      def aId = column[Int]("a")
+      def bId = column[Int]("b")
+      def * = aId ~ bId
+      def aFK = foreignKey("a_fk", aId, A)(a => a.id)
+      def bFK = foreignKey("b_fk", bId, B)(b => b.id)
+    }
+
+    (A.ddl ++ B.ddl ++ AToB.ddl).create
+    A.insertAll(1 -> "a", 2 -> "b", 3 -> "c")
+    B.insertAll(1 -> "x", 2 -> "y", 3 -> "z")
+    AToB.insertAll(1 -> 1, 1 -> 2, 2 -> 2, 2 -> 3)
+
+    /*val q1 = for {
+      a <- A if a.id >= 2
+      aToB <- AToB if aToB.aId === a.id
+      b <- B if b.id === aToB.bId
+    } yield (a.s, b.s)*/
+    val q1 = for {
+      a <- A if a.id >= 2
+      b <- a.bs
+    } yield (a.s, b.s)
+    q1.foreach(x => println("  "+x))
+    assertEquals(Set(("b","y"), ("b","z")), q1.list.toSet)
+  }
 }
