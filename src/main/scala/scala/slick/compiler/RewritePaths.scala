@@ -130,11 +130,7 @@ class RewritePaths extends Phase {
     if(n2 ne n) logger.debug("Expansions removed, ProductNodes rewritten to StructNodes", n2)
     val n3 = replaceRefs(n2)
     if(n3 ne n2) logger.debug("Refs replaced", n3)
-    val n4 = relabelUnions(n3)
-    if(n4 ne n3) logger.debug("Unions relabled", n4)
-    val n5 = prune.repeat(n4)
-    if(n5 ne n4) logger.debug("Pruned", n5)
-    n5
+    n3
   }
 
   def findFieldSymbol(n: Node, path: List[Symbol]): Option[Symbol] = (path, n) match {
@@ -149,17 +145,30 @@ class RewritePaths extends Phase {
     case TableRefExpansion(_, ref, cols) => cols
     case n => n
   }
+}
 
-  /** Assign the AnonSymbols of fields from the left side of a Union to the
-    * right side. This ensures that both sides are protected when we prune
-    * unused references pointing to left-side Symbols. */
+/** Assign the AnonSymbols of fields from the left side of a Union to the
+  * right side. This ensures that both sides are protected when we prune
+  * unused references pointing to left-side Symbols. */
+class RelabelUnions extends Phase {
+  val name = "relabelUnions"
+
+  def apply(n: Node, state: CompilationState) = relabelUnions(n)
+
   def relabelUnions(n: Node): Node = n match {
     case u @ Union(l @ Bind(_, _, Pure(StructNode(ls))), rb @ Bind(_, _, Pure(StructNode(rs))), _, _, _)
-        if ls.size == rs.size =>
+      if ls.size == rs.size =>
       val rs2 = (ls, rs).zipped.map { case ((s, _), (_, n)) => (s, n) }
       u.copy(right = rb.copy(select = Pure(StructNode(rs2)))).nodeMapChildren(relabelUnions)
     case n => n.nodeMapChildren(relabelUnions)
   }
+}
+
+/** Remove unreferenced fields from StructNodes */
+class PruneFields extends Phase {
+  val name = "pruneFields"
+
+  def apply(n: Node, state: CompilationState) = prune.repeat(n)
 
   val prune = new Transformer {
     val refs = new HashSet[Symbol]()

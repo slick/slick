@@ -20,6 +20,8 @@
     <logger name="scala.slick.compiler.ExpandRefs"                level="${log.qcomp.expandRefs:-inherited}" />
     <logger name="scala.slick.compiler.ReplaceFieldSymbols"       level="${log.qcomp.replaceFieldSymbols:-inherited}" />
     <logger name="scala.slick.compiler.RewritePaths"              level="${log.qcomp.rewritePaths:-inherited}" />
+    <logger name="scala.slick.compiler.RelabelUnions"             level="${log.qcomp.relabelUnions:-inherited}" />
+    <logger name="scala.slick.compiler.PruneFields"               level="${log.qcomp.pruneFields:-inherited}" />
     <logger name="scala.slick.compiler.ResolveZipJoins"           level="${log.qcomp.resolveZipJoins:-inherited}" />
     <logger name="scala.slick.compiler.ConvertToComprehensions"   level="${log.qcomp.convertToComprehensions:-inherited}" />
     <logger name="scala.slick.compiler.FuseComprehensions"        level="${log.qcomp.fuseComprehensions:-inherited}" />

@@ -51,7 +51,7 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
     if(t2 ne tree) {
       state.ast = t2
       logger.debug("After phase "+p.name+":", t2)
-    }
+    } else logger.debug("After phase "+p.name+": (no change)")
     t2
   }
 }
@@ -71,7 +71,9 @@ object QueryCompiler {
     Phase.expandRefs,
     Phase.replaceFieldSymbols,
     // PathRewriter
-    Phase.rewritePaths
+    Phase.rewritePaths,
+    Phase.relabelUnions,
+    Phase.pruneFields
   )
 
   val relationalPhases = Vector(
@@ -113,6 +115,8 @@ object Phase {
   val expandRefs = new ExpandRefs
   val replaceFieldSymbols = new ReplaceFieldSymbols
   val rewritePaths = new RewritePaths
+  val relabelUnions = new RelabelUnions
+  val pruneFields = new PruneFields
   val resolveZipJoins = new ResolveZipJoins
   val convertToComprehensions = new ConvertToComprehensions
   val fuseComprehensions = new FuseComprehensions
