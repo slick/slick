@@ -4,6 +4,7 @@ target/
 /test-dbs/databases.properties
 *.log
 *.iml
+*.pyc
 /\.target/
 /\.cache
 /\.project

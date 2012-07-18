@@ -15,6 +15,11 @@ It includes the following features:
 * Simple execution of raw SQL queries
 * Session management based on JDBC Connections
 
+.. _supported-dbs:
+
+Supported database systems
+--------------------------
+
 The following database systems are directly supported for type-safe queries
 (using the query language or Scala code lifted to DB queries):
 
@@ -27,9 +32,13 @@ The following database systems are directly supported for type-safe queries
 * PostgreSQL
 * SQLite
 
-Accessing other database systems is possible, with a reduced feature set.
+Accessing other databases is possible, with a reduced feature set.
 
 .. toctree::
    :maxdepth: 4
    
-   gettingstarted.rst
+   gettingstarted
+   session
+   ql
+   queryable
+   sql

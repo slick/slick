@@ -1,0 +1,4 @@
+.. _sbt: http://www.scala-sbt.org/
+.. _SLF4J: http://www.slf4j.org/
+.. _Logback: http://logback.qos.ch/
+.. _H2: http://h2database.com/
