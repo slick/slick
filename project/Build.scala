@@ -7,15 +7,11 @@ import com.jsuereth.sbtsite.SitePlugin.site
 object SLICKBuild extends Build {
 
   /* Custom Settings */
-  val useJDBC4 = SettingKey[Boolean]("use-jdbc4", "Use JDBC 4 (Java 1.6+) or JDBC 3 (Java 1.5)")
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   /* Project Definition */
   lazy val root = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ Seq(
-      useJDBC4 := (
-        try { classOf[java.sql.DatabaseMetaData].getMethod("getClientInfoProperties"); true }
-        catch { case _:NoSuchMethodException => false } ),
       repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "SLICK", "-doc-version", v)),
       makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime))) },
