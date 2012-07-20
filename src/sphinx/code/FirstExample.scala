@@ -48,6 +48,7 @@ object FirstExample extends App {
     // thread as the threadLocalSession that we imported
 //#setup
 
+//#create
     // Create the tables, including primary and foreign keys
     (Suppliers.ddl ++ Coffees.ddl).create
 
@@ -64,38 +65,53 @@ object FirstExample extends App {
       ("Colombian_Decaf",   101, 8.99, 0, 0),
       ("French_Roast_Decaf", 49, 9.99, 0, 0)
     )
+//#create
 
+//#foreach
     // Iterate through all coffees and output them
+//#foreach
     println("Coffees:")
+//#foreach
     Query(Coffees) foreach { case (name, supID, price, sales, total) =>
       println("  " + name + "\t" + supID + "\t" + price + "\t" + sales + "\t" + total)
     }
+//#foreach
 
+//#projection
     // Why not let the database do the string conversion and concatenation?
+//#projection
     println("Coffees (concatenated by DB):")
+//#projection
     val q1 = for(c <- Coffees) // Coffees lifted automatically to a Query
-    yield ConstColumn("  ") ++ c.name ++ "\t" ++ c.supID.asColumnOf[String] ++
+      yield ConstColumn("  ") ++ c.name ++ "\t" ++ c.supID.asColumnOf[String] ++
         "\t" ++ c.price.asColumnOf[String] ++ "\t" ++ c.sales.asColumnOf[String] ++
         "\t" ++ c.total.asColumnOf[String]
     // The first string constant needs to be lifted manually to a ConstColumn
     // so that the proper ++ operator is found
     q1 foreach println
+//#projection
 
+//#join
     // Perform a join to retrieve coffee names and supplier names for
     // all coffees costing less than $9.00
+//#join
     println("Manual join:")
+//#join
     val q2 = for {
       c <- Coffees if c.price < 9.0
       s <- Suppliers if s.id === c.supID
-    } yield c.name ~ s.name
+    } yield (c.name, s.name)
+//#join
     for(t <- q2) println("  " + t._1 + " supplied by " + t._2)
 
     // Do the same thing using the navigable foreign key
     println("Join by foreign key:")
+//#fkjoin
     val q3 = for {
       c <- Coffees if c.price < 9.0
       s <- c.supplier
-    } yield c.name ~ s.name
+    } yield (c.name, s.name)
+//#fkjoin
     // This time we read the result set into a List
     val l3: List[(String, String)] = q3.list
     for((s1, s2) <- l3) println("  " + s1 + " supplied by " + s2)
