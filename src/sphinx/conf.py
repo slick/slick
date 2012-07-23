@@ -245,17 +245,19 @@ epub_copyright = u'2011-2012 Typesafe, Inc.'
 
 # -- Custom set-up -------------------------------------------------------------
 
+slick_examples_version = version
+
 # e.g. :issue:`36` :ticket:`8`
 extlinks = {
   'issue': ('https://github.com/slick/slick/issues/%s', 'issue #'),
-  'ticket': ('https://www.assembla.com/spaces/typesafe-slick/tickets/%s', 'ticket #')
+  'ticket': ('https://www.assembla.com/spaces/typesafe-slick/tickets/%s', 'ticket #'),
+  'ex': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/scala/slick/examples/%s.scala', 'SLICK example ')
 }
 
 rst_epilog = '''
 .. include:: %(links)s
 .. _SLICK Examples: https://github.com/slick/slick-examples/tree/%(examples-version)s
-.. _FirstExample.scala: https://github.com/slick/slick-examples/blob/%(examples-version)s/src/main/scala/scala/slick/examples/ql/FirstExample.scala
 ''' % {
   'links': os.path.abspath('links.txt'),
-  'examples-version': version
+  'examples-version': slick_examples_version
 }

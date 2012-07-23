@@ -24,10 +24,10 @@ implementation. Here we are using ``slf4j-nop`` to disable logging. You have
 to replace this with a real logging framework like Logback_ if you want to see
 log output.
 
-Scaffolding
------------
+Imports
+-------
 
-`FirstExample.scala`_ contains a self-contained application that you can run.
+:ex:`ql/FirstExample` contains a self-contained application that you can run.
 It starts off with some imports:
 
 .. includecode:: code/FirstExample.scala#imports
@@ -39,6 +39,11 @@ needed imports from the driver and other parts of SLICK such as
 ``threadLocalSession``. This simplifies the session handling by attaching a
 session to the current thread so you do not have to pass it around on your own
 (or at least assign it to an implicit variable).
+
+.. _gettingstarted-dbconnection:
+
+Database Connection
+-------------------
 
 In the body of the application we create a ``Database`` object which specifies
 how to connect to a database, and then immediately open a session, running all
@@ -76,7 +81,7 @@ A ``Coffees`` row points to exactly one ``Suppliers`` row but any number
 of coffees can point to the same supplier. This constraint is enforced at the
 database level.
 
-Populating the database
+Populating the Database
 -----------------------
 
 The connection to the embedded H2 database engine provides us with an empty
