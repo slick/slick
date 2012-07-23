@@ -15,8 +15,25 @@ object SLICKBuild extends Build {
       repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "SLICK", "-doc-version", v)),
       makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime))) },
-      includeFilter in Sphinx := ("*.html" | "*.png" | "*.js" | "*.css" | "*.gif" | "*.txt")
-  ))
+      includeFilter in Sphinx := ("*.html" | "*.png" | "*.js" | "*.css" | "*.gif" | "*.txt"),
+      // Run the Queryable tests (which need macros) on a forked JVM
+      // to avoid classloader problems with reification
+      testGrouping <<= definedTests in Test map partitionTests,
+      // Workaround for sbt bug: Without a testGrouping for all test configs,
+      // the wrong tests are run
+      testGrouping in DocTest <<= definedTests in DocTest map partitionTests,
+      parallelExecution in Test := false,
+      logBuffered := false
+    )).configs(DocTest).settings(inConfig(DocTest)(Defaults.testSettings): _*).settings(
+    unmanagedSourceDirectories in DocTest <+= baseDirectory { _ / "src/sphinx/code" }
+    //resourceDirectory in DocTest <<= baseDirectory { _ / "src/test/resources" }
+    //test <<= Seq(test in Test, test in DocTest).dependOn,
+    //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
+    //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
+  )
+
+  /* Test Configuration for running tests on doc sources */
+  lazy val DocTest = config("doctest") extend(Test)
 
   /* Split tests into a group that needs to be forked and another one that can run in-process */
   def partitionTests(tests: Seq[TestDefinition]) = {

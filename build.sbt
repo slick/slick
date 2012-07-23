@@ -39,14 +39,6 @@ libraryDependencies <+= scalaVersion(
   "org.scala-lang" % "scala-compiler" % _
 )
 
-// Run the Queryable tests (which need macros) on a forked JVM
-// to avoid classloader problems with reification
-testGrouping <<= definedTests in Test map partitionTests
-
-parallelExecution in Test := false
-
-logBuffered := false
-
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")
 
 publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r))))
