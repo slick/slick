@@ -57,7 +57,7 @@ object QueryableMacros{
           Apply(Select(c.prefix.tree, newTermName( "_"+name+"_placeholder" )), List( projection.tree ))
         ).asInstanceOf[Tree]
       )))
-    c.reify{ Queryable.factory[S]( reifiedExpression.splice )}
+    reify{ Queryable.factory[S]( reifiedExpression.splice )}
   }
 
   def map[T:c.TypeTag, S:c.TypeTag]

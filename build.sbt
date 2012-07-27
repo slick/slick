@@ -8,11 +8,13 @@ version := "0.10.0"
 
 //scalaVersion := "2.10.0-unknown-unknown"
 //scalaVersion := "2.10.0-SNAPSHOT"
-scalaVersion := "2.10.0-M5"
+scalaVersion := "2.10.0-M6"
+
+scalaBinaryVersion in Global := "2.10.0-M6"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 
-crossScalaVersions ++= "2.10.0-M4" :: Nil
+//crossScalaVersions ++= "2.10.0-M4" :: Nil
 //crossVersion := CrossVersion.Disabled
 
 //scalaHome := Some(file("C:/Users/szeiger/code/scala/build/pack"))
