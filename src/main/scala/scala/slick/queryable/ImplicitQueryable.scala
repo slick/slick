@@ -27,7 +27,7 @@ object ImplicitQueryableMacros{
     val backend = c.Expr[SlickBackend]( Select( c.prefix.tree, newTermName("backend") ) )
     val session = c.Expr[Session]( Select( c.prefix.tree, newTermName("session") ) )
 
-    c.reify{
+    reify{
       implicit val _session = session.splice
       backend.splice.result( queryable.splice )
     }
@@ -39,7 +39,7 @@ object ImplicitQueryableMacros{
     val backend = c.Expr[SlickBackend]( Select( c.prefix.tree, newTermName("backend") ) )
     val session = c.Expr[Session]( Select( c.prefix.tree, newTermName("session") ) )
   
-    c.reify{
+    reify{
       implicit val _session = session.splice
       ImplicitQueryable( queryable.splice, backend.splice )
     }
