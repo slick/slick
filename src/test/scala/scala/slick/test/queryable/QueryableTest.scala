@@ -28,15 +28,14 @@ case class Coffee(
 )
 
 class QueryableTest(val tdb: TestDB) extends DBTest {
-
   object backend extends SlickBackend(tdb.driver)
 
   object TestingTools{
-    implicit def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
+    def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
       def assertQuery( matcher : Node => Unit ) = {
         //backend.dump(q)
-        println( backend.toSql(q) )
-        println( backend.result(q) )
+        println( backend.toSql(q,session) )
+        println( backend.result(q,session) )
         try{
           matcher( backend.toQuery( q )._2.node : @unchecked ) : @unchecked
           print(".")
@@ -70,7 +69,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     def fail : Unit = fail()
     def success{ print(".") }
     def isEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = lhs.groupBy(x=>x) == rhs.groupBy(x=>x)
-    def resultsMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = isEqualMultiSet( backend.result(queryable), expected)
+    def resultsMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = isEqualMultiSet( backend.result(queryable,session), expected)
   }
 
   @Test def test() {
@@ -237,9 +236,9 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         inMem.map( c=> (c.name,c.sales,c) )
       ))
       // length
-      assertEquals( backend.result(query.length), inMem.length )
+      assertEquals( backend.result(query.length,session), inMem.length )
       
-      val iquery = ImplicitQueryable( query, backend )
+      val iquery = ImplicitQueryable( query, backend, session )
       assertEquals( iquery.length, inMem.length )
       
       assert( resultsMatch(

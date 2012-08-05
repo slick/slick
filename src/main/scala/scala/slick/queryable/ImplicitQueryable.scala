@@ -15,7 +15,7 @@ object ImplicitQueryable{
     import language.implicitConversions
     implicit def implicitQueryableToSeq[T]( iq: ImplicitQueryable[T] ) : Seq[T] = iq.toSeq 
   }
-  def apply[T]( q:Queryable[T], backend:SlickBackend )( implicit session:Session ) = new ImplicitQueryable[T]( q, backend, session )
+  def apply[T]( q:Queryable[T], backend:SlickBackend, session:Session ) = new ImplicitQueryable[T]( q, backend, session )
 }
 
 
@@ -28,8 +28,7 @@ object ImplicitQueryableMacros{
     val session = c.Expr[Session]( Select( c.prefix.tree, newTermName("session") ) )
 
     reify{
-      implicit val _session = session.splice
-      backend.splice.result( queryable.splice )
+      backend.splice.result( queryable.splice, session.splice )
     }
   }
   private def _helper[C <: Context,S,T]( c:C )( name:String, projection:c.Expr[T => S] ) : c.Expr[ImplicitQueryable[T]] = {
@@ -40,8 +39,7 @@ object ImplicitQueryableMacros{
     val session = c.Expr[Session]( Select( c.prefix.tree, newTermName("session") ) )
   
     reify{
-      implicit val _session = session.splice
-      ImplicitQueryable( queryable.splice, backend.splice )
+      ImplicitQueryable( queryable.splice, backend.splice, session.splice )
     }
   }
   def length[T]
@@ -53,10 +51,9 @@ object ImplicitQueryableMacros{
 }
 
 class ImplicitQueryable[T]( val queryable : Queryable[T], val backend: SlickBackend, val session : Session ){
-  implicit val _session = session
   import scala.collection._
   import scala.collection.generic._
-  def toSeq : Seq[T] = backend.result( queryable )
+  def toSeq : Seq[T] = backend.result( queryable, session )
   def map[S]( projection: T => S )                   : ImplicitQueryable[S] = macro ImplicitQueryableMacros.map[T,S]
 /*  def flatMap[S:TypeTag:ClassTag]( projection: T => ImplicitQueryable[S] ) : ImplicitQueryable[S] = ImplicitQueryable( queryable.flatMap[S](projection), backend )
   def filter    ( projection: T => Boolean )              : ImplicitQueryable[T] = ImplicitQueryable( queryable.filter    (projection), backend )
