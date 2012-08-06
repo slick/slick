@@ -3,7 +3,7 @@ Plain SQL Queries
 
 Sometimes you may need to write your own SQL code for an operation which is
 not well supported at a higher level of abstraction. Instead of falling back
-to the low level of JDBC_, you can use SLICK's *Plain SQL* queries with a much
+to the low level of JDBC_, you can use Slick's *Plain SQL* queries with a much
 nicer Scala-based API.
 
 Scaffolding
@@ -15,8 +15,8 @@ imports are different from what you're used to for the
 
 .. includecode:: code/PlainSQL.scala#imports
 
-First of all, there is no *SLICK driver* being imported. The JDBC-based APIs
-in SLICK depend only on JDBC itself and do not implement any database-specific
+First of all, there is no *Slick driver* being imported. The JDBC-based APIs
+in Slick depend only on JDBC itself and do not implement any database-specific
 abstractions. All we need for the database connection is ``Database``, plus
 the ``threadLocalSession`` to simplify session handling.
 
@@ -69,7 +69,7 @@ parameter for the rows of the result set. You can use it to execute a
 
 .. includecode:: code/PlainSQL.scala#queryNA
 
-In order for this to work, SLICK needs to know how to read ``Coffee`` values
+In order for this to work, Slick needs to know how to read ``Coffee`` values
 from a ``PositionedResult`` object. This is done with an implicit
 ``GetResult`` value. There are predefined ``GetResult`` implicits for the
 standard JDBC types, for Options of those (to represent nullable columns) and

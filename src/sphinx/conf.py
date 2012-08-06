@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# SLICK documentation config
+# Slick documentation config
 #
 
 import sys, os
@@ -32,7 +32,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'SLICK'
+project = u'Slick'
 copyright = u'2011-2012 Typesafe, Inc.'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -175,7 +175,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'gm.tex', u"SLICK",
+  ('index', 'gm.tex', u"Slick",
    u'Typesafe, Inc.', 'manual', True),
 ]
 
@@ -203,8 +203,8 @@ latex_documents = [
 # -- Options for Epub output ---------------------------------------------------
 
 # Bibliographic Dublin Core info.
-epub_title = u"SLICK"
-epub_author = u'SLICK Team'
+epub_title = u"Slick"
+epub_author = u'Slick Team'
 epub_publisher = u'Typesafe, Inc.'
 epub_copyright = u'2011-2012 Typesafe, Inc.'
 
@@ -251,12 +251,12 @@ slick_examples_version = version
 extlinks = {
   'issue': ('https://github.com/slick/slick/issues/%s', 'issue #'),
   'ticket': ('https://www.assembla.com/spaces/typesafe-slick/tickets/%s', 'ticket #'),
-  'ex': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/scala/slick/examples/%s.scala', 'SLICK example ')
+  'ex': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/scala/slick/examples/%s.scala', 'Slick example ')
 }
 
 rst_epilog = '''
 .. include:: %(links)s
-.. _SLICK Examples: https://github.com/slick/slick-examples/tree/%(examples-version)s
+.. _Slick Examples: https://github.com/slick/slick-examples/tree/%(examples-version)s
 ''' % {
   'links': os.path.abspath('links.txt'),
   'examples-version': slick_examples_version

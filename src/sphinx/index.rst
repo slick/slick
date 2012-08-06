@@ -1,7 +1,7 @@
-SLICK - Scala Language Integrated Connection Kit
+Slick - Scala Language Integrated Connection Kit
 ################################################
 
-Project SLICK (Scala Language Integrated Connection Kit) aims at the
+Project Slick (Scala Language Integrated Connection Kit) aims at the
 development of a complete, modern, convenient, efficient and safe data query
 and access framework for the Scala programming language that operates on the
 Java platform. Ordinary Scala code can be used to query different database

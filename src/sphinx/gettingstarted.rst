@@ -1,15 +1,15 @@
 Getting Started
 ===============
 
-The easiest way of setting up a SLICK application is by starting with the
-`SLICK Examples`_ project. You can build and run this project by following the
+The easiest way of setting up a Slick application is by starting with the
+`Slick Examples`_ project. You can build and run this project by following the
 instructions in its README file.
 
 Dependencies
 ------------
 
 Let's take a closer look at what's happening in that project. First of all,
-you need to add SLICK and the embedded databases or drivers for external
+you need to add Slick and the embedded databases or drivers for external
 databases to your project. If you are using sbt_, you do this in your
 main ``build.sbt`` file::
 
@@ -19,7 +19,7 @@ main ``build.sbt`` file::
     "com.h2database" % "h2" % "1.3.166"
   )
 
-SLICK uses SLF4J_ for its own debug logging so you also need to add an SLF4J
+Slick uses SLF4J_ for its own debug logging so you also need to add an SLF4J
 implementation. Here we are using ``slf4j-nop`` to disable logging. You have
 to replace this with a real logging framework like Logback_ if you want to see
 log output.
@@ -33,8 +33,8 @@ It starts off with some imports:
 .. includecode:: code/FirstExample.scala#imports
 
 Since we are using H2_ as our database system, we need to import features
-from SLICK's ``H2Driver``. A driver's ``simple`` object contains all commonly
-needed imports from the driver and other parts of SLICK such as
+from Slick's ``H2Driver``. A driver's ``simple`` object contains all commonly
+needed imports from the driver and other parts of Slick such as
 :doc:`session handling <session>`. The only extra import we use is the
 ``threadLocalSession``. This simplifies the session handling by attaching a
 session to the current thread so you do not have to pass it around on your own
@@ -54,10 +54,10 @@ code within the following block inside that session:
 In a Java SE environment, database sessions are usually created by connecting
 to a JDBC URL using a JDBC driver class (see the JDBC driver's documentation
 for the correct URL syntax). If you are only using
-:doc:`plain SQL queries <sql>`, nothing more is required, but when SLICK is
+:doc:`plain SQL queries <sql>`, nothing more is required, but when Slick is
 generating SQL code for you (using :doc:`plain Scala queries <queryable>` or
 the :doc:`query language <ql>`), you need to make sure to use a matching
-SLICK driver (in our case the ``H2Driver`` import above).
+Slick driver (in our case the ``H2Driver`` import above).
 
 Tables
 ------

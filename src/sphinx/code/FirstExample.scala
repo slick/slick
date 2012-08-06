@@ -127,7 +127,7 @@ object FirstExample extends App {
     } yield (c, s)).groupBy(_._2.id).map {
       case (_, q) => (q.map(_._2.name).min.get, q.length)
     }
-    // .get is needed because SLICK cannot enforce statically that
+    // .get is needed because Slick cannot enforce statically that
     // the supplier is always available (being a non-nullable foreign key),
     // thus wrapping it in an Option
     q4 foreach { case (name, count) =>
