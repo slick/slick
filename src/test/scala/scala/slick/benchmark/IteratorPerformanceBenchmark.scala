@@ -3,7 +3,7 @@ package scala.slick.benchmark
 import collection.mutable.ArrayBuffer
 import scala.slick.session._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.ql._
+import scala.slick.lifted._
 import scala.slick.driver.H2Driver.Table
 import scala.slick.driver.H2Driver.Implicit._
 

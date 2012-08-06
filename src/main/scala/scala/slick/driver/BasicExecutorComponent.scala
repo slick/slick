@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import java.sql.PreparedStatement
 import scala.slick.session.{Session, PositionedParameters, PositionedResult}
-import scala.slick.ql.Shape
+import scala.slick.lifted.Shape
 import scala.slick.ast.Node
 import scala.slick.jdbc.StatementInvoker
 import scala.collection.mutable.Builder

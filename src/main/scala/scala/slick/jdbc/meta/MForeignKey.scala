@@ -2,7 +2,7 @@ package scala.slick.jdbc.meta
 
 import java.sql._
 import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker}
-import scala.slick.ql.ForeignKeyAction
+import scala.slick.lifted.ForeignKeyAction
 import scala.slick.session._
 
 /**

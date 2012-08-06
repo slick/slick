@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-import scala.slick.ql.{Column, TypeMapper}
+import scala.slick.lifted.{Column, TypeMapper}
 
 /**
  * The standard library for query operators.

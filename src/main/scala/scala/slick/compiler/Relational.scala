@@ -3,7 +3,7 @@ package scala.slick.compiler
 import scala.math.{min, max}
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SlickException
-import scala.slick.ql.ConstColumn
+import scala.slick.lifted.ConstColumn
 import scala.slick.ast._
 import Util._
 

@@ -3,7 +3,7 @@ package scala.slick.jdbc
 import java.sql.{SQLException, Date, Time, Timestamp}
 import scala.slick.SlickException
 import scala.slick.session.PositionedResult
-import scala.slick.ql.Shape
+import scala.slick.lifted.Shape
 
 /** Basic conversions for extracting values from PositionedResults. */
 trait GetResult[+T] extends (PositionedResult => T) { self =>

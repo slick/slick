@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
-import scala.slick.ql.{Query, Shape, ShapedValue}
+import scala.slick.lifted.{Query, Shape, ShapedValue}
 import scala.slick.session.{Session, PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
 import scala.slick.jdbc.{UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker}

@@ -1,0 +1,88 @@
+package scala.slick.lifted
+
+import scala.slick.driver.BasicProfile
+import scala.slick.session.{PositionedResult, PositionedParameters}
+import scala.slick.ast.{Node, UnaryNode, ProductNode}
+
+sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
+  type V = T
+  lazy val nodeChildren = productIterator.map(Node(_)).toIndexedSeq
+
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) {
+    for(i <- 0 until productArity) {
+      productElement(i).asInstanceOf[Column[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
+    }
+  }
+
+  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) {
+    for(i <- 0 until productArity) {
+      productElement(i).asInstanceOf[Column[Any]].updateResult(profile, rs, value.productElement(i))
+    }
+  }
+
+  def getAllColumnTypeMappers = 0.until(productArity).flatMap[TypeMapper[_], Vector[TypeMapper[_]]](
+    i => productElement(i).asInstanceOf[Column[_]].getAllColumnTypeMappers)(collection.breakOut)
+
+  def getLinearizedNodes: IndexedSeq[Node] =
+    (0 until productArity).map(i => Node(productElement(i).asInstanceOf[Column[Any]]))(collection.breakOut)
+
+  def <>[R](f: (T => R), g: (R => Option[T])) = MappedProjection[R, T](this, f, g)(this)
+
+  override def toString = "Projection" + productArity
+}
+
+object Projection {
+<#list 2..22 as i>
+  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = Some(p)
+</#list>
+}
+
+final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with UnaryNode {
+  override def toString = "MappedProjection"
+  override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
+  def getAllColumnTypeMappers = proj.getAllColumnTypeMappers
+
+  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit =
+    proj.setParameter(profile, ps, value.flatMap(g))
+  def getResult(profile: BasicProfile, rs: PositionedResult) = f(proj.getResult(profile, rs))
+  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = proj.updateResult(profile, rs, g(value).get)
+  def getLinearizedNodes = proj.getLinearizedNodes
+
+  protected[this] def nodeRebuild(child: Node): Node = copy[T, P](child = child)(proj)
+
+  override def hashCode() = child.hashCode() + f.hashCode() + g.hashCode()
+  override def equals(o: Any) = o match {
+    case m: MappedProjection[_,_] => child == m.child && f == m.f && g == m.g
+    case _ => false
+  }
+}
+
+object ~ {
+  def unapply[T1,T2](p: Projection2[T1,T2]) =
+    Some(p)
+<#list 3..22 as i>
+  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
+    Some((new Projection${i-1}(<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i}))
+</#list>
+}
+
+<#list 2..22 as i>
+final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
+<#list 1..i as j>
+  override val _${j}: Column[T${j}]<#if i != j>,</#if>
+</#list>)
+extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
+  <#if i != 22>def ~[U](c: Column[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
+  def getResult(profile: BasicProfile, rs: PositionedResult) = (
+<#list 1..i as j>
+    _${j}.getResult(profile, rs)<#if i != j>,</#if>
+</#list>  )
+  override def mapOp(f: (Node, List[Int]) => Node, positions: List[Int]): this.type = new Projection${i}(
+<#list 1..i as j>
+    _${j}.mapOp(f, ${j} :: positions)<#if i != j>,</#if>
+</#list>  ).asInstanceOf[this.type]
+  def <>[R](f: ((<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) => R), g: (R => Option[V])): MappedProjection[R,V] =
+    <>(t => f(<#list 1..i as j>t._${j}<#if i != j>,</#if></#list>), g)
+}
+
+</#list>

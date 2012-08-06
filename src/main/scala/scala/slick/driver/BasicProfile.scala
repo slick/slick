@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.language.implicitConversions
 import scala.slick.ast.{FieldSymbol, Node}
 import scala.slick.compiler.QueryCompiler
-import scala.slick.ql._
+import scala.slick.lifted._
 
 trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
 
@@ -57,7 +57,7 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
   }
 
-  class SimpleQL extends Implicits with scala.slick.ql.Aliases {
+  class SimpleQL extends Implicits with scala.slick.lifted.Aliases {
     type Table[T] = driver.Table[T]
     type Database = scala.slick.session.Database
     val Database = scala.slick.session.Database

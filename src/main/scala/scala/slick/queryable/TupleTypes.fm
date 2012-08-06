@@ -1,9 +1,0 @@
-package scala.slick.queryable
-import scala.reflect.runtime.universe._
-object TupleTypes{
-  val tupleTypes = (
-<#list 1..22 as i>
-  typeOf[ Tuple${i}[<#list 1..i as j>_<#if i != j>,</#if></#list>] ] ::
-</#list>
-  Nil )
-}

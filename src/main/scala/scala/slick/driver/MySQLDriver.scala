@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import scala.slick.SlickException
-import scala.slick.ql._
+import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._

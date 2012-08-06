@@ -1,6 +1,6 @@
 package scala.slick.driver
 
-import scala.slick.ql._
+import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Select
 import scala.slick.ast.Ref

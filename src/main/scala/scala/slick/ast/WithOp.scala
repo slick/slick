@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-import scala.slick.ql.{ShapedValue, Query, Shape}
+import scala.slick.lifted.{ShapedValue, Query, Shape}
 
 trait WithOp extends Cloneable {
   self: NodeGenerator =>

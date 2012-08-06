@@ -1,6 +1,6 @@
 package scala.slick.compiler
 
-import scala.slick.ql.Column
+import scala.slick.lifted.Column
 import scala.slick.ast._
 
 /** Ensure that all collection operations are wrapped in a Bind so that we

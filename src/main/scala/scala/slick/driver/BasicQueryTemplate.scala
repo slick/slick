@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import java.sql.PreparedStatement
 import scala.slick.jdbc.MutatingStatementInvoker
-import scala.slick.ql.Query
+import scala.slick.lifted.Query
 import scala.slick.session.{PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
 

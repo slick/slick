@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import Util._
-import scala.slick.ql.{TypeMapper, ColumnOption}
+import scala.slick.lifted.{TypeMapper, ColumnOption}
 import scala.collection.mutable.HashMap
 import scala.util.DynamicVariable
 

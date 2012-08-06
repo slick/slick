@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import java.util.UUID
-import scala.slick.ql._
+import scala.slick.lifted._
 import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 

@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import scala.slick.SlickException
-import slick.ql.{Column, ConstColumn, ShapedValue}
+import slick.lifted.{Column, ConstColumn, ShapedValue}
 import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.ArrayBuffer
 

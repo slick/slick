@@ -1,10 +1,10 @@
 package scala.slick.benchmark
 
-import scala.slick.ql.Query
+import scala.slick.lifted.Query
 import scala.slick.driver.BasicDriver
 import scala.slick.driver.BasicDriver.Implicit._
 import scala.slick.driver.BasicDriver.Table
-import scala.slick.ql.TypeMapper._
+import scala.slick.lifted.TypeMapper._
 
 @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
 object Benchmark {

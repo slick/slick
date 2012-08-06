@@ -4,7 +4,7 @@ import scala.language.existentials
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.util._
-import scala.slick.ql.{Join => _, _}
+import scala.slick.lifted.{Join => _, _}
 import scala.collection.mutable.HashMap
 import scala.slick.compiler.CompilationState
 

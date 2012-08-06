@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import scala.slick.jdbc.ResultSetInvoker
-import scala.slick.ql.TypeMapperDelegate
+import scala.slick.lifted.TypeMapperDelegate
 
 /**
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getUDTs().
