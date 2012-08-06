@@ -1,5 +1,5 @@
-Direct embedding
-===================
+Direct Embedding
+================
 
 The direct embedding is a new, experimental front-end for writing queries. The API may change without deprecation during experimental status.
 Unlike the (stable) lifted embedding, the direct embedding uses macros instead of operator overloading and implicit conversions for its implementation.
@@ -24,7 +24,7 @@ Query
 ------------
 Queryable takes an annotated case class as its type argument to formulate queries agains the corresponding table.
 
-_.price is of type Int here. The underlying, macro-based implementation takes care of that the shown arguments to map
+``_.price`` is of type Int here. The underlying, macro-based implementation takes care of that the shown arguments to map
 and filter are not executed on the JVM but translated to database queries instead. 
 
 .. includecode:: code/DirectEmbedding.scala#query

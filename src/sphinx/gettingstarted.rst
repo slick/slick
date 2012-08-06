@@ -75,15 +75,15 @@ In a Java SE environment, database sessions are usually created by connecting
 to a JDBC URL using a JDBC driver class (see the JDBC driver's documentation
 for the correct URL syntax). If you are only using
 :doc:`plain SQL queries <sql>`, nothing more is required, but when Slick is
-generating SQL code for you (using :doc:`the direct embedding <queryable>` or
-the :doc:`lifted embedding <ql>`), you need to make sure to use a matching
-Slick driver (in our case the ``H2Driver`` import above).
+generating SQL code for you (using the :doc:`direct embedding <direct-embedding>`
+or the :doc:`lifted embedding <lifted-embedding>`), you need to make sure to use
+a matching Slick driver (in our case the ``H2Driver`` import above).
 
 Schema
 ------
 
-We are using the :doc:`lifted embedding <ql>` in this application, so we have to
-write ``Table`` objects for our database tables:
+We are using the :doc:`lifted embedding <lifted-embedding>` in this
+application, so we have to write ``Table`` objects for our database tables:
 
 .. includecode:: code/FirstExample.scala#tables
 
