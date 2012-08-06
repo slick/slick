@@ -23,6 +23,9 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
      "Int"              /*typeOf[Int]*/    -> TypeMapper.IntTypeMapper
     ,"Double"           /*typeOf[Double]*/ -> TypeMapper.DoubleTypeMapper
     ,"String"           /*typeOf[String]*/ -> TypeMapper.StringTypeMapper
+    ,"scala.Int"              /*typeOf[Int]*/    -> TypeMapper.IntTypeMapper
+    ,"scala.Double"           /*typeOf[Double]*/ -> TypeMapper.DoubleTypeMapper
+    ,"scala.String"           /*typeOf[String]*/ -> TypeMapper.StringTypeMapper
     ,"java.lang.String" /*typeOf[String]*/ -> TypeMapper.StringTypeMapper // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
   )
 
