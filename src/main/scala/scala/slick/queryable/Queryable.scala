@@ -8,64 +8,74 @@ import scala.slick.SlickException
 import scala.reflect.runtime.{universe => ru}
 import scala.reflect.ClassTag
 
-object Queryable{
+abstract class BaseQueryableFactory{
+  //def factory[S]( projection:ru.Expr[BaseQueryable[S]] ) : BaseQueryable[S]  
+}
+
+object Queryable extends BaseQueryableFactory{
   def apply[T](q:Queryable[T]) = new Queryable[T](q.expr_or_typetag) // TODO: make this a macro
   def apply[T:ru.TypeTag:ClassTag] = new Queryable[T](Right( (implicitly[ru.TypeTag[T]],implicitly[ClassTag[T]]) ))
-  def factory[S]( projection:ru.Expr[Queryable[S]] ) : Queryable[S] = {
+  def factory[S]( projection:ru.Expr[BaseQueryable[S]] ) : Queryable[S] = {
     new Queryable[S]( Left(projection) )
   }
 }
 
 class UnsupportedMethodException(msg : String = "" ) extends SlickException(msg)
 
-case class Utils[C <: Context]( c:C ) {
-  import c.universe._
-  import c.{Tree=>_}
+class QueryableUtils[C <: Context]( val context :C ) {
+  import context.universe._
+  def queryTree(queryable:Tree) = Apply( Select( (reify{QueryOps}).tree, newTermName("query") ), List(queryable) )
   object removeDoubleReify extends Transformer {
     def apply( tree:Tree ) = transform(tree)
     override def transform(tree: Tree): Tree = {
       super.transform {
         tree match {
           case  //Apply( // needed to account for ApplyToImplicitArgs
-            Apply(TypeApply(Select(_this, termname), _), reified::Nil )
+            Apply(TypeApply(Select(q, termname), _), reified::tail )
             //,_)
-            if termname.toString == "factory" => c.unreifyTree(reified)
+            if termname.toString == "factory"
+            && q.tpe <:< typeOf[BaseQueryableFactory]
+            => context.unreifyTree(reified)
           case //Apply(
-            Apply(Select(_this, termname), reified::Nil )
+            Apply(lhs@Select(q, termname), reified::tail )
             //,_)
-            if termname.toString == "factory" => c.unreifyTree(reified)
+            if termname.toString == "factory"
+            && q.tpe <:< typeOf[BaseQueryableFactory]
+            => context.unreifyTree(reified)
           case _ => tree
         }
       }
     }
   }
+  def _select( queryable:Tree, method: String ) = removeDoubleReify(
+    Select( queryTree(queryable), newTermName( method ))
+  )
+  def _apply( queryable:Tree, method: String, args:Tree* ) = removeDoubleReify(
+    Apply( Select( queryTree(queryable), newTermName( method )), args.toList )
+  )
+  def _reifyTree[T]( tree:Tree ) = context.Expr[ru.Expr[T]](
+      context.reifyTree( context.runtimeUniverse, EmptyTree, context.typeCheck(
+        tree
+      ).asInstanceOf[Tree]))
+      
+  def select[T]( queryable:Tree, method:String ) = _reifyTree[T]( _select(queryable, method) )
+  def apply[T]( queryable:Tree, method: String, args:Tree* ) = _reifyTree[T]( _apply(queryable, method,args:_*) )
 }
 
 object QueryableMacros{
   private def _scalar_helper[C <: Context]( c:C )( name:String ) = {
-    import c.universe._
-    //val element_type = implicitly[c.TypeTag[S]].tpe
-    val reifiedExpression = c.Expr[ru.Expr[Int]](
-      c.reifyTree( c.runtimeUniverse, EmptyTree, c.typeCheck(
-        Utils[c.type](c).removeDoubleReify(
-          Select(c.prefix.tree, newTermName( "_"+name+"_placeholder" ))
-      ).asInstanceOf[Tree])))
-    reify{ new QueryableValue( reifiedExpression.splice ) } //new QueryableValue( reifiedExpression.splice )}
+    val utils = new QueryableUtils[c.type](c)
+    val reifiedExpression = utils.select[Int]( c.prefix.tree, name )
+    c.universe.reify{ new QueryableValue( reifiedExpression.splice ) }
   }
   def length
       (c: scala.reflect.makro.Context)
       : c.Expr[QueryableValue[Int]] = _scalar_helper[c.type]( c )( "length" )
 
   private def _helper[C <: Context,S:c.TypeTag]( c:C )( name:String, projection:c.Expr[_] ) = {
-    import c.universe._
-    //val element_type = implicitly[c.TypeTag[S]].tpe
-    val reifiedExpression = c.Expr[ru.Expr[Queryable[S]]](
-      c.reifyTree( c.runtimeUniverse, EmptyTree, c.typeCheck(
-        Utils[c.type](c).removeDoubleReify(
-          Apply(Select(c.prefix.tree, newTermName( "_"+name+"_placeholder" )), List( projection.tree ))
-        ).asInstanceOf[Tree]
-      )))
-    reify{ Queryable.factory[S]( reifiedExpression.splice )}
+    val utils = new QueryableUtils[c.type](c)
+    val reifiedExpression = utils.apply[Queryable[S]]( c.prefix.tree, name, projection.tree )
+    c.universe.reify{ Queryable.factory[S]( reifiedExpression.splice )}
   }
 
   def map[T:c.TypeTag, S:c.TypeTag]
@@ -79,29 +89,25 @@ object QueryableMacros{
   (projection: c.Expr[T => Boolean]): c.Expr[scala.slick.queryable.Queryable[T]] = _helper[c.type,T]( c )( "filter", projection )
 }
 
-/*
-class BoundQueryable[T]( backend : SlickBackend ){
-  class Queryable[T](
-    val expr_or_typetag : Either[ reflect.basis.Expr[_], reflect.basis.TypeTag[_] ]
-  ) extends slick.Queryable( expr_or_typetag ){
-    def toList = backend.toList( this )
-  }
-}
-*/
-
 class QueryableValue[T]( val value : ru.Expr[T] )
+abstract class BaseQueryable [T]( val expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTag[_]) ] ){
+  def queryable = this
+}
 
-class Queryable[T]( val expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTag[_]) ] ){
-  def _map_placeholder[S]( projection: T => S ) : Queryable[S] = ???
+object QueryOps{
+  def query[T]( queryable:BaseQueryable[T] ) : QueryOps[T] = ???
+}
+class QueryOps[T]{
+  def map[S]( projection: T => S ) : BaseQueryable[S] = ???
+  def flatMap[S]( projection: T => BaseQueryable[S] ) : BaseQueryable[S] = ???
+  def filter( projection: T => Boolean ) : BaseQueryable[T] = ???
+  def length[S] : Int = ???  
+}
+
+class Queryable[T]( expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTag[_]) ] ) extends BaseQueryable[T]( expr_or_typetag ){
   def map[S]( projection: T => S ) : Queryable[S] = macro QueryableMacros.map[T,S]
-
-  def _flatMap_placeholder[S]( projection: T => Queryable[S] ) : Queryable[S] = ???
   def flatMap[S]( projection: T => Queryable[S] ) : Queryable[S] = macro QueryableMacros.flatMap[T,S]
-
-  def _filter_placeholder( projection: T => Boolean ) : Queryable[T] = ???
   def filter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
-  def withFilter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
-  
-  def _length_placeholder[S] : Int = ???
+  def withFilter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]  
   def length : QueryableValue[Int]  = macro QueryableMacros.length
 }

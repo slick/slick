@@ -150,10 +150,12 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
         case ident@Ident(name) if !scope.contains(ident.symbol) => // TODO: move this into a separate inlining step in queryable
           ident.symbol.asFreeTermSymbol.value match {
-            case q:Queryable[_] => val (tpe,query) = toQuery( q ); query
+            case q:BaseQueryable[_] => val (tpe,query) = toQuery( q ); query
             case x => s2sq( Literal(Constant(x)) )
           }
         case ident@Ident(name) => scope(ident.symbol)
+
+        case Select( t, term ) if t.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure && term.decoded == "queryable" => s2sq(t)
 
         // match columns
         case Select(from,name)
@@ -174,23 +176,27 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
           val obj = companionInstance( a.symbol )
           val value = invoke( obj, a.tpe.nonPrivateMember(b) )()
           value match{
-            case q:Queryable[_] => toQuery( q )
+            case q:BaseQueryable[_] => toQuery( q )
             case x => s2sq( Literal(Constant(x)) )
           }
 */
-
+          
+        case Apply( Select( queryOps, term ), queryable::Nil )
+          if queryOps.tpe <:< typeOf[QueryOps.type] && queryable.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure && term.decoded == "query"
+        => s2sq( queryable ).node
+        
         // match queryable methods
         case Apply(Select(scala_lhs,term),Function( arg::Nil, body )::Nil)
-          if scala_lhs.tpe.erasure <:< typeOf[Queryable[_]].erasure
+          if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure
         =>
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
           val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
           val rhs = s2sq(body, new_scope)
           new Query( term.decoded match {
-            case "_filter_placeholder"     => sq.Filter( sq_symbol, sq_lhs, rhs.node )
-            case "_map_placeholder"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(rhs.node) )
-            case "_flatMap_placeholder"    => sq.Bind( sq_symbol, sq_lhs, rhs.node )
+            case "filter"     => sq.Filter( sq_symbol, sq_lhs, rhs.node )
+            case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(rhs.node) )
+            case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, rhs.node )
             case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
           },
             new_scope
@@ -241,13 +247,13 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
         =>
             sq.ProductNode( components.map(s2sq(_).node) )
-        
+
         case Select(scala_lhs, term) 
-          if scala_lhs.tpe.erasure <:< typeOf[Queryable[_]].erasure && (term.decoded == "_length_placeholder" || term.decoded == "_size_placeholder")
+          if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure && (term.decoded == "length" || term.decoded == "size")
           => sq.Pure( Library.CountAll( s2sq(scala_lhs).node ) )
 
-        case tree if tree.tpe.erasure <:< typeOf[Queryable[_]].erasure
-            => val (tpe,query) = toQuery( eval(tree).asInstanceOf[Queryable[_]] ); query
+        case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
+            => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query
 
         case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
@@ -255,7 +261,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
       case e:java.lang.NullPointerException => { println("NPE in tree "+showRaw(tree));throw e}
     }
   }
-  protected[slick] def dump( queryable:Queryable[_] ) = {
+  protected[slick] def dump( queryable:BaseQueryable[_] ) = {
     val (_,query) = this.toQuery(queryable)
     Dump(query.node)
   }
@@ -264,7 +270,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
   import scala.slick.ast.Node
   import scala.slick.ql.TypeMapper
 
-  private def queryable2cstate[R]( queryable:Queryable[R], session:Session ) : (Type,CompilationState) = {
+  private def queryable2cstate[R]( queryable:BaseQueryable[R], session:Session ) : (Type,CompilationState) = {
     val (tpe,query) = this.toQuery(queryable)
     (tpe,driver.compiler.run(query.node))
   }
@@ -297,7 +303,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         createInstance( args )
     })
   }
-  def result[R]( queryable:Queryable[R], session:Session) : Vector[R] = {
+  def result[R]( queryable:BaseQueryable[R], session:Session) : Vector[R] = {
     val (tpe,query) = queryable2cstate( queryable, session )
     result(tpe,query, session)
   }
@@ -319,19 +325,19 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     }
     new driver.QueryExecutor[Vector[R]](new QueryBuilderInput(cstate, linearizer)).run(session)
   }
-  protected[slick] def toSql( queryable:Queryable[_], session:Session ) = {
+  protected[slick] def toSql( queryable:BaseQueryable[_], session:Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
     val builder = driver.createQueryBuilder(new QueryBuilderInput(cstate, null))
     builder.buildSelect.sql
   }
-  protected[slick] def toQuery(queryable:Queryable[_]) : (Type,this.Query) = queryable.expr_or_typetag match {
+  protected[slick] def toQuery(queryable:BaseQueryable[_]) : (Type,this.Query) = queryable.expr_or_typetag match {
     case Right((typetag,classtag)) => (typetag.tpe, this.typetagToQuery( typetag ))
     case Left(expr_)    =>
         val (tpe,query) = this.toQuery(expr_.tree)
         (tpe.typeArguments(0), query)
   }
 
-  def toList[T]( queryable:Queryable[T] ) : List[T] = {
+  def toList[T]( queryable:BaseQueryable[T] ) : List[T] = {
     import this.driver.Implicit._
     val (_,query) = this.toQuery(queryable)
     val node = query.node : scala.slick.ast.Node

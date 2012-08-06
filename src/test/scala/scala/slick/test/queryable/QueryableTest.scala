@@ -253,6 +253,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
           iquery.map( c=>c )
         ))
       })
+   
+      assert( resultsMatch(
+           for( o <-  query; i <-  query; if i.sales == o.sales  ) yield i.name,
+          (for( o <- iquery; i <- iquery; if i.sales == o.sales ) yield i.name).toSeq
+      ))
     }
   }
 }
