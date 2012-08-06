@@ -47,7 +47,7 @@ log output.
 Imports
 -------
 
-:ex:`ql/FirstExample` contains a self-contained application that you can run.
+:ex:`lifted/FirstExample` contains a self-contained application that you can run.
 It starts off with some imports:
 
 .. includecode:: code/FirstExample.scala#imports
