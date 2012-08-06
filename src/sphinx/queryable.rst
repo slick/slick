@@ -1,4 +1,0 @@
-Plain Scala Queries
-===================
-
-tbd

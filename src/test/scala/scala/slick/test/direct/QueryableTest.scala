@@ -10,7 +10,6 @@ import scala.slick.ast._
 import scala.slick.direct._
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
-import scala.slick.session.Database.threadLocalSession
 import slick.jdbc.StaticQuery.interpolation
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.ClassTag
@@ -86,6 +85,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     db withSession {
       // create test table
       import scala.slick.jdbc.StaticQuery.Interpolation
+      implicit val session_ = session
       sqlu"create table COFFEES(COF_NAME varchar(255), SALES int)".execute
       (for {
         (name, sales) <- coffees_data
@@ -240,6 +240,8 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       
       val iquery = ImplicitQueryable( query, backend, session )
       assertEquals( iquery.length, inMem.length )
+      
+      // iquery.filter( _.sales > 10.0 ).map( _.name ) // currently crashed compiler
       
       assert( resultsMatch(
         query.map( c=>c ),

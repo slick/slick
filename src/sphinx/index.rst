@@ -10,8 +10,8 @@ user-provided back-ends.
 
 It includes the following features:
 
-* Query language with type-safe queries
-* Writing database queries with plain Scala code
+* Lifted query embedding (fully featured, composable, uses lifted types, evolved from ScalaQuery)
+* Direct query embedding (experimental, limited features, uses ordinary Scala types, based on macros)
 * Simple execution of raw SQL queries
 * Session management based on JDBC Connections
 
@@ -21,7 +21,7 @@ Supported database systems
 --------------------------
 
 The following database systems are directly supported for type-safe queries
-(using the query language or Scala code lifted to DB queries):
+(with lifted and direct embedding):
 
 * Derby/JavaDB
 * H2
@@ -38,7 +38,5 @@ Accessing other databases is possible, with a reduced feature set.
    :maxdepth: 4
    
    gettingstarted
-   session
-   ql
-   queryable
+   direct-embedding
    sql

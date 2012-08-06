@@ -1,4 +1,0 @@
-Query Language
-==============
-
-tbd

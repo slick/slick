@@ -5,6 +5,26 @@ The easiest way of setting up a Slick application is by starting with the
 `Slick Examples`_ project. You can build and run this project by following the
 instructions in its README file.
 
+Overview
+------------
+
+First a quick overview. Accessing databases using slick's lifted embedding requires the following steps.
+
+#. Add the Slick jar and its dependencies to your project
+#. Pick a driver for a particular db and create a session (or simply pick threadLocalSession)
+
+   .. includecode:: code/GettingStartedOverview.scala#quick-imports
+
+#. Describe your Database schema
+
+   .. includecode:: code/GettingStartedOverview.scala#quick-schema
+
+#. Write queries using for-comprehensions or map/flatMap wrapped in a session scope
+
+   .. includecode:: code/GettingStartedOverview.scala#quick-query
+
+The next paragraphs explain these steps and further aspects in more detail.
+
 Dependencies
 ------------
 
@@ -55,14 +75,14 @@ In a Java SE environment, database sessions are usually created by connecting
 to a JDBC URL using a JDBC driver class (see the JDBC driver's documentation
 for the correct URL syntax). If you are only using
 :doc:`plain SQL queries <sql>`, nothing more is required, but when Slick is
-generating SQL code for you (using :doc:`plain Scala queries <queryable>` or
-the :doc:`query language <ql>`), you need to make sure to use a matching
+generating SQL code for you (using :doc:`the direct embedding <queryable>` or
+the :doc:`lifted embedding <ql>`), you need to make sure to use a matching
 Slick driver (in our case the ``H2Driver`` import above).
 
-Tables
+Schema
 ------
 
-We are using the :doc:`query language <ql>` in this application, so we have to
+We are using the :doc:`lifted embedding <ql>` in this application, so we have to
 write ``Table`` objects for our database tables:
 
 .. includecode:: code/FirstExample.scala#tables
@@ -141,7 +161,7 @@ collections:
 .. includecode:: code/FirstExample.scala#join
 
 Note the use of ``===`` instead of ``==`` for comparing two values for
-equality. Similarly, the query language uses ``=!=`` instead of ``!=`` for
+equality. Similarly, the lifted embedding uses ``=!=`` instead of ``!=`` for
 inequality. (The other comparison operators are the same as in Scala:
 ``<``, ``<=``, ``>=``, ``>``.)
 
