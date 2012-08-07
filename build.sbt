@@ -4,7 +4,7 @@ organizationName := "Typesafe"
 
 organization := "com.typesafe"
 
-version := "0.11.0"
+version := "1.0.0-SNAPSHOT"
 
 //scalaVersion := "2.10.0-unknown-unknown"
 //scalaVersion := "2.10.0-SNAPSHOT"
