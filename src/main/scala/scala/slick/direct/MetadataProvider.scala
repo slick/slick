@@ -7,30 +7,34 @@ trait Mapper{
   def isMapped( tpe:Type ) : Boolean
 }
 
+// FIXME: AnnotationMapper is implemented a bit hacky
 object AnnotationMapper extends Mapper{
   import scala.annotation.StaticAnnotation
-  final case class table(name:String) extends StaticAnnotation
-  final case class column(name:String) extends StaticAnnotation
+  final case class table(name:String = "") extends StaticAnnotation
+  final case class column(name:String = "") extends StaticAnnotation
   def typeToTable( tpe : Type ) = {
-    tpe.typeSymbol.getAnnotations match {
-      case AnnotationInfo(tpe,tree,_) :: Nil // FIXME:<- don't match list, match any annotation
+    val sym = tpe.typeSymbol
+    sym.getAnnotations match {
+      case AnnotationInfo( tpe, args, _ ) :: Nil // FIXME:<- don't match list, match any annotation
         //if tpe <:< classToType(classOf[table]) // genJVM bug
       =>
-      {
-        val name = tree(0).toString
-        name.slice( 1,name.length-1 ) // FIXME: <- why needed?
-      }
+        args(0) match {
+          case Literal(Constant(name:String)) => name
+          case Select(_,term) if term.decoded == "<init>$default$1" => sym.name.decoded.toUpperCase // FIXME: make match more precise and don't hard code term name
+          case _ => throw new Exception( "invalid argument to table annotation" )
+        }
       case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + tpe.toString )
     }
   }
-  def fieldToColumn( sym:Symbol ) = sym.getAnnotations.collect{
-    case x@AnnotationInfo(tpe,tree,_)
-        if tpe <:< typeOf[column]
-      => { // FIXME: is this the right way to do it?
-        val name = tree(0).toString
-          name.slice( 1,name.length-1 ) // FIXME: <- why needed?
-      }
-  }.head
+  def fieldToColumn( sym:Symbol ) = (sym.getAnnotations.collect{
+    case AnnotationInfo( tpe, args, _ ) if tpe <:< typeOf[column]
+      =>
+        args(0) match {
+          case Literal(Constant(name:String)) => name
+          case Select(_,term) if term.decoded == "<init>$default$1" => sym.name.decoded.toUpperCase // FIXME: make match more precise and don't hard code term name
+          case _ => throw new Exception( "invalid argument to column annotation" )
+        }
+  }).head
   def isMapped( tpe:Type ) = {
     val annotations = tpe.typeSymbol.getAnnotations
     annotations.length > 0 && (annotations match {

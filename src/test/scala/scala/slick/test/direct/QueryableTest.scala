@@ -24,7 +24,7 @@ class Foo[T]( val q : Queryable[T] )
 case class Coffee(
   @column(name="COF_NAME")
   name : String,
-  @column(name="SALES")
+  @column // <- assumes "SALES" automatically
   sales : Int
 )
 
