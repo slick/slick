@@ -34,7 +34,7 @@ databases to your project. If you are using sbt_, you do this in your
 main ``build.sbt`` file::
 
   libraryDependencies ++= List(
-    "com.typesafe" % "slick" %% "0.10.0-SNAPSHOT",
+    "com.typesafe" %% "slick" % "0.11.0", // use the right version here
     "org.slf4j" % "slf4j-nop" % "1.6.4",
     "com.h2database" % "h2" % "1.3.166"
   )
