@@ -8,11 +8,13 @@ import scala.slick.ast.Library.{SqlOperator =>Op,_}
 import scala.slick.ast.{Library => Ops}
 import scala.slick.ast._
 import scala.slick.direct._
+import scala.slick.direct.AnnotationMapper._
 import scala.slick.testutil._
 import scala.slick.testutil.TestDB._
 import slick.jdbc.StaticQuery.interpolation
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.ClassTag
+
 
 object QueryableTest extends DBTestObject(H2Mem)
 
@@ -27,7 +29,7 @@ case class Coffee(
 )
 
 class QueryableTest(val tdb: TestDB) extends DBTest {
-  object backend extends SlickBackend(tdb.driver)
+  object backend extends SlickBackend(tdb.driver,AnnotationMapper)
 
   object TestingTools{
     def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
