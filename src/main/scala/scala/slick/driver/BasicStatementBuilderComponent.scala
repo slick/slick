@@ -5,10 +5,13 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.util._
 import scala.slick.lifted.{Join => _, _}
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.compiler.CompilationState
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
+
+  // Immutable config options (to be overridden by subclasses)
+  val supportsArbitraryInsertReturnColumns: Boolean = true
 
   abstract class StatementPart
   case object SelectPart extends StatementPart
@@ -367,57 +370,56 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       }
       QueryBuilderResult(b.build, input.linearizer)
     }
-
-    /*TODO
-    final protected def appendGroupClause(): Unit = query.typedModifiers[Grouping] match {
-      case Nil =>
-      case xs => b += " group by "; b.sep(xs, ",")(x => expr(x.by))
-    }
-    */
   }
 
   /** Builder for INSERT statements. */
-  class InsertBuilder(val column: Any) {
+  class InsertBuilder(val node: Node) {
 
-    def buildInsert: String = {
-      val (table, cols, vals) = buildParts
-      "INSERT INTO " + quoteIdentifier(table) + " (" + cols + ") VALUES (" + vals + ")"
+    class PartsResult(val table: String, val fields: IndexedSeq[FieldSymbol]) {
+      def qtable = quoteIdentifier(table)
+      def qcolumns = fields.map(s => quoteIdentifier(s.name)).mkString(",")
+      def qvalues = IndexedSeq.fill(fields.size)("?").mkString(",")
     }
 
-    def buildInsert(query: Query[_, _]): QueryBuilderResult = {
-      val (table, cols, _) = buildParts
+    def buildInsert: InsertBuilderResult = {
+      val pr = buildParts(node)
+      InsertBuilderResult(pr.table,
+        "INSERT INTO " + pr.qtable + " (" + pr.qcolumns + ") VALUES (" + pr.qvalues + ")")
+    }
+
+    def buildInsert(query: Query[_, _]): InsertBuilderResult = {
+      val pr = buildParts(node)
       val qb = driver.createQueryBuilder(query)
-      qb.sqlBuilder += "INSERT INTO " += quoteIdentifier(table) += " (" += cols.toString += ") "
-      qb.buildSelect()
+      qb.sqlBuilder += "INSERT INTO " += pr.qtable += " (" += pr.qcolumns += ") "
+      val qbr = qb.buildSelect()
+      InsertBuilderResult(pr.table, qbr.sql, qbr.setter)
     }
 
-    protected def buildParts: (String, StringBuilder, StringBuilder) = {
-      val cols = new StringBuilder
-      val vals = new StringBuilder
-      var table:String = null
+    def buildReturnColumns(node: Node, table: String): IndexedSeq[FieldSymbol] = {
+      val r = buildParts(node)
+      if(r.table != table)
+        throw new SlickException("Returned key columns must be from same table as inserted columns ("+
+          r.table+" != "+table+")")
+      if(!supportsArbitraryInsertReturnColumns && (r.fields.size > 1 || !r.fields.head.options.contains(ColumnOption.AutoInc)))
+        throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
+      r.fields
+    }
+
+    protected def buildParts(node: Node): PartsResult = {
+      val cols = new ArrayBuffer[FieldSymbol]
+      var table: String = null
       def f(c: Any): Unit = c match {
-        case p:Projection[_] =>
-          for(i <- 0 until p.productArity)
-            f(Node(p.productElement(i)))
+        case ProductNode(ch) => ch.foreach(f)
         case t:TableNode => f(Node(t.nodeShaped_*.value))
         case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
           if(table eq null) table = t.tableName
           else if(table != t.tableName) throw new SlickException("Inserts must all be to the same table")
-          appendNamedColumn(field, cols, vals)
+          cols += field
         case _ => throw new SlickException("Cannot use column "+c+" in INSERT statement")
       }
-      f(Node(column))
+      f(node)
       if(table eq null) throw new SlickException("No table to insert into")
-      (table, cols, vals)
-    }
-
-    protected def appendNamedColumn(n: FieldSymbol, cols: StringBuilder, vals: StringBuilder) {
-      if(!cols.isEmpty) {
-        cols append ","
-        vals append ","
-      }
-      cols append quoteIdentifier(n.name)
-      vals append '?'
+      new PartsResult(table, cols)
     }
   }
 
@@ -588,3 +590,5 @@ case class QueryBuilderResult(sbr: SQLBuilder.Result, linearizer: ValueLinearize
   def sql = sbr.sql
   def setter = sbr.setter
 }
+
+case class InsertBuilderResult(table: String, sql: String, setter: SQLBuilder.Setter = SQLBuilder.EmptySetter)

@@ -63,6 +63,8 @@ final class SQLBuilder extends SQLBuilder.Segment { self =>
 object SQLBuilder {
   final type Setter = ((PositionedParameters, Any) => Unit)
 
+  val EmptySetter: Setter = (_: PositionedParameters, _: Any) => ()
+
   final case class Result(sql: String, setter: Setter)
 
   private class CombinedSetter(b: Seq[Setter]) extends Setter {

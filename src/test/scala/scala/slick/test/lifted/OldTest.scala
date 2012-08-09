@@ -12,7 +12,7 @@ class OldTest(val tdb: TestDB) extends DBTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @deprecated("Testing deprecated methods Query#sub and Query.orderBy", "0.10.0-M2")
+  @deprecated("Testing deprecated methods Query#sub, Query.orderBy and BasicProfile.buildInsertStatement", "0.10.0-M2")
   @Test def test() {
     object Users extends Table[(Int, String, String)]("users") {
       def id = column[Int]("id")

@@ -22,9 +22,12 @@ import java.sql.{Timestamp, Time, Date}
  *   <li>Row numbers (required by <code>zip</code> and <code>zipWithIndex</code>)
  *     are not supported. Trying to generate SQL code which uses this feature
  *     throws a SlickException.</li>
+ *   <li>When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
  * </ul>
  */
 trait SQLiteDriver extends ExtendedDriver { driver =>
+  override val supportsArbitraryInsertReturnColumns = false
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)

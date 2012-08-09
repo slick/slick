@@ -34,6 +34,8 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  *   <li>Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
  *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is
  *     supported.</li>
+ *   <li>Returning columns from an INSERT operation is not supported. Trying
+ *     to execute such an insert statement throws a SlickException.</li>
  * </ul>
  *
  * @author szeiger
@@ -48,6 +50,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
   override val typeMapperDelegates = new TypeMapperDelegates(retryCount)
 
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
@@ -133,6 +136,11 @@ trait AccessDriver extends ExtendedDriver { driver =>
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = ()
+  }
+
+  class InsertBuilder(node: Node) extends super.InsertBuilder(node) {
+    override def buildReturnColumns(node: Node, table: String): IndexedSeq[FieldSymbol] =
+      throw new SlickException("Returning columns from INSERT statements is not supported by Access")
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {

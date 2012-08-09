@@ -26,11 +26,14 @@ import scala.slick.ast._
  *     support them with the standard SQL:2003 syntax (see
  *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber"
  *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
+ *   <li>When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
  * </ul>
  *
  * @author szeiger
  */
 trait DerbyDriver extends ExtendedDriver { driver =>
+  override val supportsArbitraryInsertReturnColumns = false
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)

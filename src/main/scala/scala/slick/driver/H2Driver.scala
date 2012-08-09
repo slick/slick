@@ -4,15 +4,22 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
+import scala.slick.SlickException
 
 /**
  * SLICK driver for H2.
  *
- * All ExtendedProfile features are supported.
+ * <p>This driver implements the ExtendedProfile with the following
+ * limitations:</p>
+ * <ul>
+ *   <li>When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
+ * </ul>
  *
  * @author szeiger
  */
 trait H2Driver extends ExtendedDriver { driver =>
+  override val supportsArbitraryInsertReturnColumns = false
 
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
 

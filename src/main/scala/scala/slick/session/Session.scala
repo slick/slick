@@ -33,6 +33,12 @@ trait Session extends java.io.Closeable with Logging { self =>
     }
   }
 
+  final def prepareInsertStatement(sql: String,
+              columnNames: Array[String] = new Array[String](0)): PreparedStatement = {
+    logger.debug("Preparing insert statement: "+sql+", returning: "+columnNames.mkString(","))
+    conn.prepareStatement(sql, columnNames)
+  }
+
   final def createStatement(defaultType: ResultSetType = ResultSetType.ForwardOnly,
              defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
              defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): Statement = {
@@ -52,6 +58,12 @@ trait Session extends java.io.Closeable with Logging { self =>
               defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
               defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)(f: (PreparedStatement => T)): T = {
     val st = prepareStatement(sql, defaultType, defaultConcurrency, defaultHoldability)
+    try f(st) finally st.close()
+  }
+
+  final def withPreparedInsertStatement[T](sql: String,
+              columnNames: Array[String] = new Array[String](0))(f: (PreparedStatement => T)): T = {
+    val st = prepareInsertStatement(sql, columnNames)
     try f(st) finally st.close()
   }
 

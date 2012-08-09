@@ -14,11 +14,14 @@ import scala.slick.ast.ExtraUtil._
  * <ul>
  *   <li><code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported. Other sequence features are emulated.</li>
+ *   <li>When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
  * </ul>
  *
  * @author szeiger
  */
 trait MySQLDriver extends ExtendedDriver { driver =>
+  override val supportsArbitraryInsertReturnColumns = false
 
   override val typeMapperDelegates = new TypeMapperDelegates
 

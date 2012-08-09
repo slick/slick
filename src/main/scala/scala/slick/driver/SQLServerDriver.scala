@@ -15,11 +15,14 @@ import scala.slick.session.PositionedResult
  * <ul>
  *   <li>Sequences are not supported because SQLServer does not have this
  *     feature.</li>
+ *   <li>When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
  * </ul>
  *
  * @author szeiger
  */
 trait SQLServerDriver extends ExtendedDriver { driver =>
+  override val supportsArbitraryInsertReturnColumns = false
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
