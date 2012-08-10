@@ -1,5 +1,6 @@
 package scala.slick.test.lifted
 
+import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.Blob
 import javax.sql.rowset.serial.SerialBlob
 import org.junit.Test
@@ -30,6 +31,34 @@ class BlobTest(val tdb: TestDB) extends DBTest {
 
       assertEquals(Set((1,"123"), (2,"45")),
         Query(T).list.map{ case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }.toSet)
+    }
+  }
+
+  @Test def testMappedBlob() {
+
+    case class Serialized[T](value: T)
+
+    implicit def serializedTypeMapper[T] = MappedTypeMapper.base[Serialized[T], Blob]({ s =>
+      val b = new ByteArrayOutputStream
+      val out = new ObjectOutputStream(b)
+      out.writeObject(s.value)
+      out.flush
+      new SerialBlob(b.toByteArray)
+    }, { b =>
+      val in = new ObjectInputStream(b.getBinaryStream)
+      Serialized[T](in.readObject().asInstanceOf[T])
+    })
+
+    object T extends Table[(Int, Serialized[List[Int]])]("t") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def b = column[Serialized[List[Int]]]("b")
+      def * = id ~ b
+    }
+
+    db withSession {
+      T.ddl.create
+      T.b.insertAll(Serialized(List(1,2,3)), Serialized(List(4,5)))
+      assertEquals(Set((1, Serialized(List(1,2,3))), (2, Serialized(List(4,5)))), Query(T).list.toSet)
     }
   }
 }
