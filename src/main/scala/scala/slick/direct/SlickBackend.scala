@@ -15,7 +15,7 @@ import scala.slick.compiler.CompilationState
 
 trait QueryableBackend
 
-class SlickBackend(driver:BasicDriver) extends QueryableBackend{
+class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend{
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
 
@@ -86,37 +86,15 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
     tpe.member( nme.CONSTRUCTOR ).typeSignature match {
       case MethodType( params, resultType ) => params // TODO check that the field order is correct
     }
-
+  
   def extractColumn( sym:Symbol, sq_symbol:sq.Node ) = {
-    val column_name = sym.getAnnotations.collect{
-      case x@AnnotationInfo(tpe,tree,_)
-          if tpe <:< typeOf[column]
-        => { // FIXME: is this the right way to do it?
-          val name = tree(0).toString
-            name.slice( 1,name.length-1 ) // FIXME: <- why needed?
-        }
-    }.head
-
+    val column_name = mapper.fieldToColumn( sym )
     sq.Select(sq_symbol, sq.FieldSymbol(column_name)(List(),null))
   }
 
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
-    val scala_symbol = typetag.tpe.typeSymbol
-
     val table = new sq.TableNode with sq.NullaryNode with sq.WithOp {
-      val tableName = {
-        val ants = scala_symbol.getAnnotations
-        ants match {
-          case AnnotationInfo(tpe,tree,_) :: Nil // FIXME:<- don't match list, match any annotation
-            //if tpe <:< classToType(classOf[table]) // genJVM bug
-          =>
-          {
-            val name = tree(0).toString
-            name.slice( 1,name.length-1 ) // FIXME: <- why needed?
-          }
-          case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + typetag.tpe.toString )
-        }
-      }
+      val tableName = mapper.typeToTable( typetag.tpe )
       def columns = getConstructorArgs( typetag.tpe ).map{extractColumn(_,sq.Node(this))} // use def here, not val, so expansion is still correct after cloning
 
       def nodeShaped_* = ShapedValue(sq.ProductNode(columns), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
@@ -161,16 +139,7 @@ class SlickBackend(driver:BasicDriver) extends QueryableBackend{
         case Select( t, term ) if t.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure && term.decoded == "queryable" => s2sq(t)
 
         // match columns
-        case Select(from,name)
-          if {
-            val annotations = from.tpe.widen.typeSymbol.getAnnotations
-            annotations.length > 0 && (annotations match {
-              case AnnotationInfo(tpe,_,_) :: Nil
-                if tpe <:< typeOf[table]
-              => true
-              case _ => false
-            })
-          }
+        case Select(from,name) if mapper.isMapped( from.tpe.widen )
         =>
           extractColumn( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
 /*
