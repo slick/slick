@@ -8,7 +8,7 @@ import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
 
 /**
- * SLICK driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
+ * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
  * (starting with version 2.0).
  * 
  * <p>This driver implements the ExtendedProfile with the following

@@ -4,7 +4,7 @@ import Tests._
 import com.jsuereth.sbtsite.SphinxSupport.Sphinx
 import com.jsuereth.sbtsite.SitePlugin.site
 
-object SLICKBuild extends Build {
+object SlickBuild extends Build {
 
   /* Custom Settings */
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
@@ -13,7 +13,7 @@ object SLICKBuild extends Build {
   lazy val root = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ Seq(
       repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
-      scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "SLICK", "-doc-version", v)),
+      scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime))) },
       includeFilter in Sphinx := ("*.html" | "*.png" | "*.js" | "*.css" | "*.gif" | "*.txt"),
       // Run the Queryable tests (which need macros) on a forked JVM

@@ -1,4 +1,4 @@
-name := "SLICK"
+name := "Slick"
 
 organizationName := "Typesafe"
 

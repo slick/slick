@@ -7,7 +7,7 @@ import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
 
 /**
- * SLICK driver for MySQL.
+ * Slick driver for MySQL.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>

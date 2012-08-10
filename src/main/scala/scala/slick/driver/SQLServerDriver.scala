@@ -7,7 +7,7 @@ import java.sql.{Timestamp, Date}
 import scala.slick.session.PositionedResult
 
 /**
- * SLICK driver for Microsoft SQL Server.
+ * Slick driver for Microsoft SQL Server.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>

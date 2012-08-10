@@ -9,7 +9,7 @@ import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 
 /**
- * SLICK driver for Microsoft Access via JdbcOdbcDriver.
+ * Slick driver for Microsoft Access via JdbcOdbcDriver.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>
@@ -29,7 +29,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  *     are not supported. Trying to generate SQL code which uses this feature
  *     throws a SlickException.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
- *     not available in Access. SLICK will return empty strings for
+ *     not available in Access. Slick will return empty strings for
  *     both.</li>
  *   <li>Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
  *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is

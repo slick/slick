@@ -49,7 +49,7 @@ class MetaTest(val tdb: TestDB) extends DBTest {
       if(tdb.driver != PostgresDriver) {
         /* Not supported by PostgreSQL and H2 but calling it on H2 is safe
          * because it throws an AbstractMethodError which is handled
-         * automatically by SLICK and turned into an empty result set. */
+         * automatically by Slick and turned into an empty result set. */
         println("Functions from DatabaseMetaData:")
         for(f <- MFunction.getFunctions(MQName.local("%"))) {
           println("  "+f)

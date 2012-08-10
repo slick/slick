@@ -6,7 +6,7 @@ import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 
 /**
- * SLICK driver for PostgreSQL.
+ * Slick driver for PostgreSQL.
  *
  * All ExtendedProfile features are supported.
  *

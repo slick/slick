@@ -7,7 +7,7 @@ import scala.slick.ast.ExtraUtil._
 import scala.slick.SlickException
 
 /**
- * SLICK driver for H2.
+ * Slick driver for H2.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>

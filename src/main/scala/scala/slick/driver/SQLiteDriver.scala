@@ -6,7 +6,7 @@ import scala.slick.ast._
 import java.sql.{Timestamp, Time, Date}
 
 /**
- * SLICK driver for SQLite.
+ * Slick driver for SQLite.
  *
  * <p>This driver implements the ExtendedProfile with the following
  * limitations:</p>
@@ -17,7 +17,7 @@ import java.sql.{Timestamp, Time, Date}
  *   <li>SQLite does not allow mutation of result sets. All cursors are
  *     read-only.</li>
  *   <li><code>Functions.user</code> and <code>Functions.database</code> are
- *     not available in SQLite. SLICK will return empty strings for
+ *     not available in SQLite. Slick will return empty strings for
  *     both.</li>
  *   <li>Row numbers (required by <code>zip</code> and <code>zipWithIndex</code>)
  *     are not supported. Trying to generate SQL code which uses this feature
