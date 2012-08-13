@@ -1,20 +1,20 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
 import scala.slick.ast.Dump
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object MapperTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
+//object MapperTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
-class MapperTest(val tdb: TestDB) extends DBTest {
+class MapperTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def testMappedEntity() {
+  def testMappedEntity {
 
     case class User(id: Option[Int], first: String, last: String)
 
@@ -58,7 +58,7 @@ class MapperTest(val tdb: TestDB) extends DBTest {
     }
   }
 
-  @Test def testUpdate() {
+  def testUpdate {
 
     case class Data(a: Int, b: Int)
 
@@ -89,7 +89,7 @@ class MapperTest(val tdb: TestDB) extends DBTest {
     }
   }
 
-  @Test def testMappedType() {
+  def testMappedType {
 
     sealed trait Bool
     case object True extends Bool

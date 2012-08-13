@@ -1,15 +1,15 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object PagingTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServer)
+//object PagingTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServer)
 
-class PagingTest(val tdb: TestDB) extends DBTest {
+class PagingTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
@@ -19,7 +19,7 @@ class PagingTest(val tdb: TestDB) extends DBTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def test() {
+  def test {
     db withSession {
 
       IDs.ddl.create;

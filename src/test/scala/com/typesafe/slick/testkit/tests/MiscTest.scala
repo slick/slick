@@ -1,19 +1,19 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.driver.AccessDriver
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object MiscTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
+//object MiscTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
-class MiscTest(val tdb: TestDB) extends DBTest {
+class MiscTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def isNotAndOrTest() {
+  def isNotAndOrTest {
 
     object T extends Table[(String, String)]("users") {
       def a = column[String]("a")
@@ -51,7 +51,7 @@ class MiscTest(val tdb: TestDB) extends DBTest {
     }
   }
 
-  @Test def testNullability() {
+  def testNullability {
 
     object T1 extends Table[String]("t1") {
       def a = column[String]("a")
@@ -89,7 +89,7 @@ class MiscTest(val tdb: TestDB) extends DBTest {
     }
   }
 
-  @Test def testLike() {
+  def testLike {
 
     object T1 extends Table[String]("t1") {
       def a = column[String]("a")

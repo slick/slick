@@ -1,22 +1,22 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import scala.collection.mutable.ArrayBuffer
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
 import scala.slick.util.CloseableIterator
 import scala.slick.session.Session
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object InvokerTest extends DBTestObject(H2Mem)
+//object InvokerTest extends TestkitTestObject(H2Mem)
 
-class InvokerTest(val tdb: TestDB) extends DBTest {
+class InvokerTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def testCollections() {
+  def testCollections {
     import scala.slick.session.Database.threadLocalSession
 
     object T extends Table[Int]("t") {
@@ -59,7 +59,7 @@ class InvokerTest(val tdb: TestDB) extends DBTest {
     }
   }
 
-  @Test def testMap() {
+  def testMap {
     import scala.slick.session.Database.threadLocalSession
 
     val T = new Table[(Int, String)]("t") {
@@ -81,8 +81,7 @@ class InvokerTest(val tdb: TestDB) extends DBTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def testLazy() {
-
+  def testLazy {
     object T extends Table[Int]("t") {
       def a = column[Int]("a")
       def * = a
@@ -112,6 +111,7 @@ class InvokerTest(val tdb: TestDB) extends DBTest {
     val it = f()
     it.use { assertEquals((1 to 1000).toList, it.toStream.toList) }
     assertFail(g())
+    db.withSession { s: Session => T.ddl.drop(s) }
     val it2 = f()
     it2.use { assertEquals((1 to 1000).toList, it2.toStream.toList) }
   }

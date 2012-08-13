@@ -1,21 +1,21 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
 import scala.slick.ast.Dump
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object ForeignKeyTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
+//object ForeignKeyTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
-class ForeignKeyTest(val tdb: TestDB) extends DBTest {
+class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def test1(): Unit = db withSession {
+  def test1 = db withSession {
 
     object Categories extends Table[(Int, String)]("categories") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -78,7 +78,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
     tdb.assertNotTablesExist("categories", "posts")
   }
 
-  @Test def test2(): Unit = db withSession {
+  def test2 = db withSession {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")
@@ -123,7 +123,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def testCombinedJoin(): Unit = db withSession {
+  def testCombinedJoin = db withSession {
 
     object A extends Table[(Int, String)]("a") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -174,7 +174,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
     assertEquals(List("a", "a"), q3.list)
   }
 
-  @Test def testManyToMany(): Unit = db withSession {
+  def testManyToMany = db withSession {
 
     object A extends Table[(Int, String)]("a") {
       def id = column[Int]("id", O.PrimaryKey)

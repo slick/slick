@@ -1,15 +1,15 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.driver.{DerbyDriver, AccessDriver, SQLiteDriver}
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object ZipTest extends DBTestObject(H2Mem, Postgres, MySQL, HsqldbMem, SQLServer)
+//object ZipTest extends TestkitTestObject(H2Mem, Postgres, MySQL, HsqldbMem, SQLServer)
 
-class ZipTest(val tdb: TestDB) extends DBTest {
+class ZipTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
   object Categories extends Table[(Int, String)]("categories") {
@@ -25,7 +25,7 @@ class ZipTest(val tdb: TestDB) extends DBTest {
     def * = id ~ title ~ category
   }
 
-  @Test def testZip(): Unit = db withSession {
+  def testZip = db withSession {
     (Categories.ddl ++ Posts.ddl).create
 
     Categories insertAll (

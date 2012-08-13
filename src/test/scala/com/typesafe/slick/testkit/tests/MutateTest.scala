@@ -1,19 +1,19 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object MutateTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
+//object MutateTest extends TestkitTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
-class MutateTest(val tdb: TestDB) extends DBTest {
+class MutateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def test() {
+  def test {
 
     object Users extends Table[(Int,String,String)]("users") {
       def id = column[Int]("id", O.PrimaryKey)

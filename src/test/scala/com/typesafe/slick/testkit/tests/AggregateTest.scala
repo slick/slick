@@ -1,19 +1,19 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object AggregateTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
+//object AggregateTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
-class AggregateTest(val tdb: TestDB) extends DBTest {
+class AggregateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def testAggregates() = db withSession {
+  def testAggregates = db withSession {
     object T extends Table[(Int, Option[Int])]("t") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
@@ -32,7 +32,7 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
     assertEquals((3, 3, Some(3), Some(6), Some(1), Some(2)), q.first(1))
   }
 
-  @Test def testNewAggregates() = db withSession {
+  def testNewAggregates = db withSession {
     object T extends Table[(Int, Option[Int])]("t") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
@@ -52,7 +52,7 @@ class AggregateTest(val tdb: TestDB) extends DBTest {
     assertEquals((3, Some(3), Some(6), Some(2)), q2_1.run)
   }
 
-  @Test def testGroupBy() = db withSession {
+  def testGroupBy = db withSession {
     object T extends Table[(Int, Option[Int])]("t") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")

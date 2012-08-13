@@ -1,19 +1,19 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import scala.slick.lifted._
-import scala.slick.testutil.TestDB._
-import scala.slick.testutil.{DBTest, TestDB, DBTestObject}
 import scala.slick.ast.Dump
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object OldTest extends DBTestObject(H2Mem)
+//object OldTest extends TestkitTestObject(H2Mem)
 
-class OldTest(val tdb: TestDB) extends DBTest {
+class OldTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
   @deprecated("Testing deprecated methods Query#sub, Query.orderBy and BasicProfile.buildInsertStatement", "0.10.0-M2")
-  @Test def test() {
+  def test {
     object Users extends Table[(Int, String, String)]("users") {
       def id = column[Int]("id")
 

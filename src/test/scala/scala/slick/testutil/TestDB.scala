@@ -63,6 +63,11 @@ abstract class TestDB(val confName: String) {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list.map(_._3).sorted
   }
+  def dropUserArtifacts(implicit session: Session) = {
+    for(t <- getLocalTables) {
+      (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
+    }
+  }
   def assertTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
       try ((Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").list) catch { case _: Exception =>
@@ -209,47 +214,47 @@ abstract class HsqlDB(confName: String) extends TestDB(confName) {
 }
 
 object TestDB {
-  type TestDBSpec = (DBTestObject => TestDB)
+  type TestDBSpec = (String => TestDB)
 
-  def H2Mem(to: DBTestObject) = new TestDB("h2mem") {
+  def H2Mem(cname: String) = new TestDB("h2mem") {
     val url = "jdbc:h2:mem:test1"
     val jdbcDriver = "org.h2.Driver"
     val driver = H2Driver
     override val dbName = "test1"
   }
 
-  def H2Disk(to: DBTestObject) = new TestDB("h2disk") {
-    override val dbName = "h2-"+to.testClassName
+  def H2Disk(cname: String) = new TestDB("h2disk") {
+    override val dbName = "h2-"+cname
     val url = "jdbc:h2:"+TestDBOptions.testDBPath+"/"+dbName
     val jdbcDriver = "org.h2.Driver"
     val driver = H2Driver
     override def cleanUp() = deleteDBFiles(dbName)
   }
 
-  def HsqldbMem(to: DBTestObject) = new HsqlDB("hsqldbmem") {
+  def HsqldbMem(cname: String) = new HsqlDB("hsqldbmem") {
     override val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
   }
 
-  def HsqldbDisk(to: DBTestObject) = new HsqlDB("hsqldbdisk") {
-    override val dbName = "hsqldb-"+to.testClassName
+  def HsqldbDisk(cname: String) = new HsqlDB("hsqldbdisk") {
+    override val dbName = "hsqldb-"+cname
     val url = "jdbc:hsqldb:file:"+TestDBOptions.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUp() = deleteDBFiles(dbName)
   }
 
-  def SQLiteMem(to: DBTestObject) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
+  def SQLiteMem(cname: String) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
     override val dbName = ":memory:"
   }
 
-  def SQLiteDisk(to: DBTestObject) = {
-    val prefix = "sqlite-"+to.testClassName
+  def SQLiteDisk(cname: String) = {
+    val prefix = "sqlite-"+cname
     new SQLiteTestDB("jdbc:sqlite:"+TestDBOptions.testDBPath+"/"+prefix+".db", "sqlitedisk") {
       override val dbName = prefix
       override def cleanUp() = deleteDBFiles(prefix)
     }
   }
 
-  def DerbyMem(to: DBTestObject) = new DerbyDB("derbymem") {
+  def DerbyMem(cname: String) = new DerbyDB("derbymem") {
     override val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUp() = {
@@ -259,8 +264,8 @@ object TestDB {
     }
   }
 
-  def DerbyDisk(to: DBTestObject) = new DerbyDB("derbydisk") {
-    override val dbName = "derby-"+to.testClassName
+  def DerbyDisk(cname: String) = new DerbyDB("derbydisk") {
+    override val dbName = "derby-"+cname
     val url = "jdbc:derby:"+TestDBOptions.testDBPath+"/"+dbName+";create=true"
     override def cleanUp() = {
       val dropUrl = "jdbc:derby:"+TestDBOptions.testDBPath+"/"+dbName+";shutdown=true"
@@ -270,18 +275,18 @@ object TestDB {
     }
   }
 
-  def Postgres(to: DBTestObject) = new ExternalTestDB("postgres", PostgresDriver) {
+  def Postgres(cname: String) = new ExternalTestDB("postgres", PostgresDriver) {
     override def getLocalTables(implicit session: Session) = {
       val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "public", null, null))
       tables.list.map(_._3).filter(s => !s.toLowerCase.endsWith("_pkey") && !s.toLowerCase.endsWith("_id_seq")).sorted
     }
   }
 
-  def MySQL(to: DBTestObject) = new ExternalTestDB("mysql", MySQLDriver) {
+  def MySQL(cname: String) = new ExternalTestDB("mysql", MySQLDriver) {
     override def userName = super.userName + "@localhost"
   }
 
-  def SQLServer(to: DBTestObject) = new ExternalTestDB("sqlserver", SQLServerDriver) {
+  def SQLServer(cname: String) = new ExternalTestDB("sqlserver", SQLServerDriver) {
     val defaultSchema = TestDBOptions.get(confName, "defaultSchema").getOrElse("")
     override def getLocalTables(implicit session: Session): List[String] = {
       val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(dbName, defaultSchema, null, null))
@@ -289,5 +294,5 @@ object TestDB {
     }
   }
 
-  def MSAccess(to: DBTestObject) = new AccessDB("access", AccessDriver)
+  def MSAccess(cname: String) = new AccessDB("access", AccessDriver)
 }

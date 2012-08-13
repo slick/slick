@@ -1,19 +1,19 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object TransactionTest extends DBTestObject(H2Disk, SQLiteDisk, Postgres, MySQL, DerbyDisk, HsqldbDisk, MSAccess, SQLServer)
+//object TransactionTest extends TestkitTestObject(H2Disk, SQLiteDisk, Postgres, MySQL, DerbyDisk, HsqldbDisk, MSAccess, SQLServer)
 
-class TransactionTest(val tdb: TestDB) extends DBTest {
+class TransactionTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def test() {
+  def test {
 
     val T = new Table[Int]("t") {
       def a = column[Int]("a")
@@ -44,5 +44,6 @@ class TransactionTest(val tdb: TestDB) extends DBTest {
       }
       assertEquals(Some(1), q.firstOption)
     }
+    println("### here 6")
   }
 }

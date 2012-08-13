@@ -1,4 +1,4 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.Blob
@@ -7,16 +7,16 @@ import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object BlobTest extends DBTestObject(H2Mem, /* SQLiteMem, Postgres, HsqldbMem, */ MySQL, DerbyMem, SQLServer)
+//object BlobTest extends TestkitTestObject(H2Mem, /* SQLiteMem, Postgres, HsqldbMem, */ MySQL, DerbyMem, SQLServer)
 
-class BlobTest(val tdb: TestDB) extends DBTest {
+class BlobTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def testBlob() {
+  def testBlob {
     object T extends Table[(Int, Blob)]("test") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
@@ -34,7 +34,7 @@ class BlobTest(val tdb: TestDB) extends DBTest {
     }
   }
 
-  @Test def testMappedBlob() {
+  def testMappedBlob {
 
     case class Serialized[T](value: T)
 

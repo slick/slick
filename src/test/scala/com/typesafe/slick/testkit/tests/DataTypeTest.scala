@@ -1,20 +1,20 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
+import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.driver.AccessDriver
 import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object DataTypeTest extends DBTestObject(H2Mem, SQLiteMem, HsqldbMem, MySQL, DerbyMem, Postgres, MSAccess, SQLServer)
+//object DataTypeTest extends TestkitTestObject(H2Mem, SQLiteMem, HsqldbMem, MySQL, DerbyMem, Postgres, MSAccess, SQLServer)
 
-class DataTypeTest(val tdb: TestDB) extends DBTest {
+class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def testByteArray() {
+  def testByteArray {
     object T extends Table[(Int, Array[Byte])]("test") {
       def id = column[Int]("id")
       def data = column[Array[Byte]]("data")
@@ -30,7 +30,7 @@ class DataTypeTest(val tdb: TestDB) extends DBTest {
     }
   }
 
-  @Test def testNumeric() = db withSession {
+  def testNumeric = db withSession {
     object T extends Table[(Int, Int, Long, Short, Byte, Double, Float)]("test") {
       def id = column[Int]("id")
       def intData = column[Int]("int_data")
