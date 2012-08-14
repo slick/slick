@@ -8,6 +8,12 @@ trait BasicCapabilitiesComponent { driver: BasicDriver =>
   class Capabilities {
     /** Supports the Blob data type */
     val blob = true
+    /** Supports default values in column definitions */
+    val columnDefaults = true
+    /** Supports .drop on queries */
+    val pagingDrop = true
+    /** Supports mutable result sets */
+    val mutable = true
     /** Supports sequences (real or emulated) */
     val sequence = true
     /** Can get current sequence value */

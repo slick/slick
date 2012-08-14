@@ -22,7 +22,7 @@ class ColumnDefaultTest(val tdb: TestDB) extends TestkitTest {
     def * = id ~ a ~ b
   }
 
-  def test {
+  def test = if(cap.columnDefaults) {
     db withSession {
       A.ddl.createStatements foreach println
       A.ddl.create

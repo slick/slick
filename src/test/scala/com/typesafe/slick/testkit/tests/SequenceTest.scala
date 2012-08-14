@@ -13,7 +13,7 @@ import com.typesafe.slick.testkit.util.TestkitTest
 class SequenceTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  def test1 = db withSession {
+  def test1 = if(cap.sequence) db withSession {
     case class User(id: Int, first: String, last: String)
 
     object Users extends Table[Int]("users") {
@@ -33,7 +33,7 @@ class SequenceTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(Set((200, 1), (210, 2), (220, 3)), q1.list.toSet)
   }
 
-  def test2 = db withSession {
+  def test2 = if(cap.sequence) db withSession {
     val s1 = Sequence[Int]("s1")
     val s2 = Sequence[Int]("s2") start 3
     val s3 = Sequence[Int]("s3") start 3 inc 2

@@ -12,7 +12,6 @@ import org.junit.internal.runners.model.MultipleFailureException
 import scala.collection.JavaConverters._
 import java.lang.reflect.{InvocationTargetException, Method}
 import org.junit.Assert._
-import scala.slick.driver.BasicProfile
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends ParentRunner[TestMethod](clazz) {
@@ -51,15 +50,17 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
 
   def describeChild(ch: TestMethod) = ch.desc
 
-  def getChildren: java.util.List[TestMethod] = tests.flatMap { t =>
-    val ms = t.getMethods.filter { m =>
-      m.getName.startsWith("test") && m.getParameterTypes.length == 0
-    }
-    ms.map { m =>
-      val tname = m.getName + '[' + tdb.confName + ']'
-      new TestMethod(tname, Description.createTestDescription(t, tname), m, t)
-    }
-  }.toList.asJava
+  def getChildren: java.util.List[TestMethod] = if(tdb.isEnabled) {
+    tests.flatMap { t =>
+      val ms = t.getMethods.filter { m =>
+        m.getName.startsWith("test") && m.getParameterTypes.length == 0
+      }
+      ms.map { m =>
+        val tname = m.getName + '[' + tdb.confName + ']'
+        new TestMethod(tname, Description.createTestDescription(t, tname), m, t)
+      }
+    }.toList.asJava
+  } else new java.util.ArrayList[TestMethod]
 
   def runChild(ch: TestMethod, notifier: RunNotifier): Unit = {
     notifier.fireTestStarted(ch.desc)
@@ -96,11 +97,13 @@ case class TestMethod(name: String, desc: Description, method: Method, cl: Class
 abstract class TestkitTest {
   val tdb: TestDB
   private[this] var keepAliveSession: Session = null
+  protected val useKeepAlive = true
 
   lazy val db = {
     val db = tdb.createDB()
     keepAliveSession = db.createSession()
-    if(!tdb.isPersistent) keepAliveSession.conn // force connection
+    if(useKeepAlive && !tdb.isPersistent && tdb.isShared)
+      keepAliveSession.conn // keep the database in memory with an extra connection
     db
   }
 

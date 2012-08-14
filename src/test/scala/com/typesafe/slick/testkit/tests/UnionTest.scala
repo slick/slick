@@ -66,6 +66,8 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
       q3.foreach(o => println("  "+o))
 
       assertEquals(q3.list, List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")))
+
+      (Managers.ddl ++ Employees.ddl).drop
     }
   }
 
@@ -83,5 +85,7 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     Dump(q, "q: ")
     println(q.selectStatement)
     assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.list.toSet)
+
+    Managers.ddl.drop
   }
 }

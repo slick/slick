@@ -81,7 +81,7 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def testLazy {
+  def testLazy = if(tdb.isShared) {
     object T extends Table[Int]("t") {
       def a = column[Int]("a")
       def * = a

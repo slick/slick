@@ -10,6 +10,7 @@ import java.io._
 import org.junit.Assert
 import scala.slick.jdbc.meta.MTable
 import scala.slick.driver._
+import java.util.logging.{Level, Logger}
 
 object TestDBOptions {
   val testDBDir = dbProps.getProperty("testDir", "test-dbs")
@@ -60,6 +61,7 @@ abstract class TestDB(val confName: String) {
   }
   def isEnabled = TestDBOptions.isInternalEnabled(confName)
   def isPersistent = true
+  def isShared = true
   def getLocalTables(implicit session: Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
@@ -130,6 +132,12 @@ class SQLiteTestDB(dburl: String, confName: String) extends TestDB(confName) {
   val driver = SQLiteDriver
   override def getLocalTables(implicit session: Session) =
     super.getLocalTables.filter(s => !s.toLowerCase.contains("sqlite_"))
+  override def dropUserArtifacts(implicit session: Session) = {
+    for(t <- getLocalTables)
+      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)).execute()
+    for(t <- getLocalSequences)
+      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)).execute()
+  }
 }
 
 class ExternalTestDB(confName: String, val driver: ExtendedDriver) extends TestDB(confName) {
@@ -188,6 +196,7 @@ class AccessDB(confName: String, val driver: ExtendedDriver) extends TestDB(conf
     copy(new File(emptyDBFile), new File(testDBFile))
   }
   override def cleanUpAfter() = deleteDBFiles(dbName)
+  override def dropUserArtifacts(implicit session: Session) = cleanUpBefore()
   /* Works in some situations but fails with "Optional feature not implemented" in others */
   override def canGetLocalTables = false
   override def getLocalTables(implicit session: Session) =
@@ -203,6 +212,19 @@ abstract class DerbyDB(confName: String) extends TestDB(confName) {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
     tables.list.map(_._3).sorted
   }
+  override def dropUserArtifacts(implicit session: Session) = {
+    val constraints = (Q[(String, String)]+"""
+          select c.constraintname, t.tablename
+          from sys.sysconstraints c, sys.sysschemas s, sys.systables t
+          where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
+                                           """).list
+    for((c, t) <- constraints if !c.startsWith("SQL"))
+      (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
+    for(t <- getLocalTables)
+      (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
+    for(t <- getLocalSequences)
+      (Q.u+"drop sequence "+driver.quoteIdentifier(t)).execute()
+  }
 }
 
 object DerbyDB {
@@ -217,6 +239,14 @@ abstract class HsqlDB(confName: String) extends TestDB(confName) {
     tables.list.map(_._3).sorted
   }
   override def userName = "sa"
+  override def cleanUpBefore() {
+    // Try to turn Hsqldb logging off -- does not work :(
+    System.setProperty("hsqldb.reconfig_logging", "false")
+    Logger.getLogger("org.hsqldb.persist.Logger").setLevel(Level.OFF)
+    Logger.getLogger("org.hsqldb").setLevel(Level.OFF)
+    Logger.getLogger("hsqldb").setLevel(Level.OFF)
+    super.cleanUpBefore()
+  }
 }
 
 object TestDB {
@@ -250,11 +280,13 @@ object TestDB {
     override val dbName = "hsqldb-"+cname
     val url = "jdbc:hsqldb:file:"+TestDBOptions.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUp() = deleteDBFiles(dbName)
+    // Recreating the DB is faster than dropping everything individually
+    override def dropUserArtifacts(implicit session: Session) = cleanUp()
   }
 
   def SQLiteMem(cname: String) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
-    override val dbName = ":memory:"
     override def isPersistent = false
+    override def isShared = false
   }
 
   def SQLiteDisk(cname: String) = {
@@ -273,7 +305,6 @@ object TestDB {
       try { Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:Session => s.conn } }
       catch { case e: SQLException => }
     }
-    override def dropUserArtifacts(implicit session: Session) = cleanUp()
   }
 
   def DerbyDisk(cname: String) = new DerbyDB("derbydisk") {
@@ -300,6 +331,25 @@ object TestDB {
 
   def MySQL(cname: String) = new ExternalTestDB("mysql", MySQLDriver) {
     override def userName = super.userName + "@localhost"
+    // Recreating the DB is faster than dropping everything individually
+    override def dropUserArtifacts(implicit session: Session) = {
+      cleanUpAfter()
+      cleanUpBefore()
+    }
+    /*override def dropUserArtifacts(implicit session: Session) = {
+      val constraints = (Q[(String, String)]+"""
+          select distinct constraint_name, table_name
+          from information_schema.key_column_usage
+          where referenced_table_name is not null
+        """).list
+      println("###### "+constraints)
+      for((c, t) <- constraints if !c.startsWith("SQL"))
+        (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop foreign key "+driver.quoteIdentifier(c)).execute()
+      for(t <- getLocalTables)
+        (Q.u+"drop table if exists "+driver.quoteIdentifier(t)+" cascade").execute()
+      for(t <- getLocalSequences)
+        (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute()
+    }*/
   }
 
   def SQLServer(cname: String) = new ExternalTestDB("sqlserver", SQLServerDriver) {
@@ -307,6 +357,18 @@ object TestDB {
     override def getLocalTables(implicit session: Session): List[String] = {
       val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(dbName, defaultSchema, null, null))
       tables.list.map(_._3).sorted
+    }
+    override def dropUserArtifacts(implicit session: Session) = {
+      val constraints = (Q[(String, String)]+"""
+          select constraint_name, table_name
+          from information_schema.table_constraints
+          where constraint_type = 'FOREIGN KEY'
+        """).list
+      println("##### "+constraints)
+      for((c, t) <- constraints if !c.startsWith("SQL"))
+        (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
+      for(t <- getLocalTables)
+        (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
     }
   }
 

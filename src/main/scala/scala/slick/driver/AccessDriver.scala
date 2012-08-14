@@ -54,6 +54,16 @@ trait AccessDriver extends ExtendedDriver { driver =>
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
+  override val capabilities = new Capabilities
+
+  class Capabilities extends super.Capabilities {
+    override val blob = false
+    override val columnDefaults = false
+    override val pagingDrop = false
+    override val sequence = false
+    override val zip = false
+  }
+
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
     case java.sql.Types.BLOB => "LONGBINARY"

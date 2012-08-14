@@ -22,20 +22,16 @@ class TransactionTest(val tdb: TestDB) extends TestkitTest {
 
     db withSession {
       T.ddl.create
-    }
 
-    val q = Query(T)
+      val q = Query(T)
 
-    db withSession {
       threadLocalSession withTransaction {
         T.insert(42)
         assertEquals(Some(42), q.firstOption)
         threadLocalSession.rollback()
       }
       assertEquals(None, q.firstOption)
-    }
 
-    db withSession {
       T.insert(1)
       threadLocalSession withTransaction {
         Query(T).delete
@@ -44,6 +40,5 @@ class TransactionTest(val tdb: TestDB) extends TestkitTest {
       }
       assertEquals(Some(1), q.firstOption)
     }
-    println("### here 6")
   }
 }

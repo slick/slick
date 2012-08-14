@@ -10,6 +10,8 @@ import com.typesafe.slick.testkit.util.TestkitTest
 
 @RunWith(classOf[Parameterized])
 abstract class DBTest extends TestkitTest {
+  override protected val useKeepAlive = false
+
   println("[Using test database "+tdb+"]")
 
   private[this] var sessionCreated = false

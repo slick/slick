@@ -13,7 +13,7 @@ class MutateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def test {
+  def test = if(cap.mutable) {
 
     object Users extends Table[(Int,String,String)]("users") {
       def id = column[Int]("id", O.PrimaryKey)
