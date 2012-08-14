@@ -3,7 +3,6 @@ package com.typesafe.slick.testkit.tests
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.Blob
 import javax.sql.rowset.serial.SerialBlob
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session.Database.threadLocalSession
@@ -16,7 +15,7 @@ class BlobTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def testBlob {
+  def testBlob = if(cap.blob) {
     object T extends Table[(Int, Blob)]("test") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
@@ -34,7 +33,7 @@ class BlobTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  def testMappedBlob {
+  def testMappedBlob = if(cap.blob) {
 
     case class Serialized[T](value: T)
 

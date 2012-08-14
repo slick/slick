@@ -5,7 +5,7 @@ import scala.slick.ast.{FieldSymbol, Node}
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
 
-trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
+trait BasicProfile extends BasicTableComponent with BasicCapabilitiesComponent { driver: BasicDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
   def createQueryTemplate[P,R](q: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](q, this)

@@ -25,7 +25,7 @@ class ZipTest(val tdb: TestDB) extends TestkitTest {
     def * = id ~ title ~ category
   }
 
-  def testZip = db withSession {
+  def testZip = if(cap.zip) db withSession {
     (Categories.ddl ++ Posts.ddl).create
 
     Categories insertAll (

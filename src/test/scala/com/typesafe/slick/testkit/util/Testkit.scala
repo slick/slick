@@ -12,9 +12,10 @@ import org.junit.internal.runners.model.MultipleFailureException
 import scala.collection.JavaConverters._
 import java.lang.reflect.{InvocationTargetException, Method}
 import org.junit.Assert._
+import scala.slick.driver.BasicProfile
 
 /** JUnit runner for the Slick driver test kit. */
-class TestkitRunner(clazz: Class[_ <: TestkitRunnable], runnerBuilder: RunnerBuilder) extends ParentRunner[TestMethod](clazz) {
+class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends ParentRunner[TestMethod](clazz) {
 
   val tests: Seq[Class[_ <: TestkitTest]] = Seq(
     classOf[tk.AggregateTest],
@@ -73,9 +74,7 @@ class TestkitRunner(clazz: Class[_ <: TestkitRunnable], runnerBuilder: RunnerBui
     try {
       val cons = ch.cl.getConstructor(classOf[TestDB])
       val testObject = cons.newInstance(tdb)
-      try ch.method.invoke(testObject) finally {
-        if(testObject.hasDB) testObject.db.withSession { s: Session => tdb.dropUserArtifacts(s) }
-      }
+      try ch.method.invoke(testObject) finally testObject.cleanup()
     } catch {
       case t: Throwable => addFailure(t)
     } finally notifier.fireTestFinished(ch.desc)
@@ -90,18 +89,25 @@ class TestkitRunner(clazz: Class[_ <: TestkitRunnable], runnerBuilder: RunnerBui
   }
 }
 
-abstract class TestkitRunnable(val tdbSpec: TestDB.TestDBSpec)
+abstract class DriverTest(val tdbSpec: TestDB.TestDBSpec)
 
 case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: TestkitTest])
 
 abstract class TestkitTest {
   val tdb: TestDB
-  private[this] var _hasDB = false
+  private[this] var keepAliveSession: Session = null
+
   lazy val db = {
-    _hasDB = true
-    tdb.createDB()
+    val db = tdb.createDB()
+    keepAliveSession = db.createSession()
+    if(!tdb.isPersistent) keepAliveSession.conn // force connection
+    db
   }
-  def hasDB = _hasDB
+
+  def cleanup() = if(keepAliveSession ne null) {
+    try if(tdb.isPersistent) tdb.dropUserArtifacts(keepAliveSession)
+    finally keepAliveSession.close()
+  }
 
   def assertFail(f: =>Unit) = {
     var succeeded = false
@@ -117,4 +123,6 @@ abstract class TestkitTest {
   def assertAllMatch[T](t: TraversableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
     if(!f.isDefinedAt(x)) fail("Expected shape not matched by: "+x)
   }
+
+  def cap = tdb.driver.capabilities
 }

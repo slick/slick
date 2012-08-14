@@ -59,14 +59,20 @@ abstract class TestDB(val confName: String) {
     }
   }
   def isEnabled = TestDBOptions.isInternalEnabled(confName)
-  def getLocalTables(implicit session: Session): List[String] = {
-    val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "", null, null))
-    tables.list.map(_._3).sorted
+  def isPersistent = true
+  def getLocalTables(implicit session: Session) = {
+    val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
+    tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+  }
+  def getLocalSequences(implicit session: Session) = {
+    val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
+    tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
   }
   def dropUserArtifacts(implicit session: Session) = {
-    for(t <- getLocalTables) {
-      (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
-    }
+    for(t <- getLocalTables)
+      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)+" cascade").execute()
+    for(t <- getLocalSequences)
+      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute()
   }
   def assertTablesExist(tables: String*)(implicit session: Session) {
     for(t <- tables) {
@@ -221,6 +227,7 @@ object TestDB {
     val jdbcDriver = "org.h2.Driver"
     val driver = H2Driver
     override val dbName = "test1"
+    override def isPersistent = false
   }
 
   def H2Disk(cname: String) = new TestDB("h2disk") {
@@ -229,11 +236,14 @@ object TestDB {
     val jdbcDriver = "org.h2.Driver"
     val driver = H2Driver
     override def cleanUp() = deleteDBFiles(dbName)
+    // Recreating the DB is faster than dropping everything individually
+    override def dropUserArtifacts(implicit session: Session) = cleanUp()
   }
 
   def HsqldbMem(cname: String) = new HsqlDB("hsqldbmem") {
     override val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
+    override def isPersistent = false
   }
 
   def HsqldbDisk(cname: String) = new HsqlDB("hsqldbdisk") {
@@ -244,6 +254,7 @@ object TestDB {
 
   def SQLiteMem(cname: String) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
     override val dbName = ":memory:"
+    override def isPersistent = false
   }
 
   def SQLiteDisk(cname: String) = {
@@ -262,6 +273,7 @@ object TestDB {
       try { Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:Session => s.conn } }
       catch { case e: SQLException => }
     }
+    override def dropUserArtifacts(implicit session: Session) = cleanUp()
   }
 
   def DerbyDisk(cname: String) = new DerbyDB("derbydisk") {
@@ -277,8 +289,12 @@ object TestDB {
 
   def Postgres(cname: String) = new ExternalTestDB("postgres", PostgresDriver) {
     override def getLocalTables(implicit session: Session) = {
-      val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.list.map(_._3).filter(s => !s.toLowerCase.endsWith("_pkey") && !s.toLowerCase.endsWith("_id_seq")).sorted
+      val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
+      tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+    }
+    override def getLocalSequences(implicit session: Session) = {
+      val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
+      tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
   }
 

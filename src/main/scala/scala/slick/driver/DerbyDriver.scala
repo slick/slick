@@ -40,6 +40,11 @@ trait DerbyDriver extends ExtendedDriver { driver =>
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
+  override val capabilities = new Capabilities
+
+  class Capabilities extends super.Capabilities {
+    override val zip = false
+  }
 
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
 
