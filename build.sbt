@@ -25,7 +25,7 @@ scalacOptions ++= List("-deprecation", "-feature")
 
 libraryDependencies ++= Seq(
   "com.h2database" % "h2" % "1.3.166" % "test",
-  "org.xerial" % "sqlite-jdbc" % "3.6.20" % "test",
+  "org.xerial" % "sqlite-jdbc" % "3.7.2" % "test",
   "org.apache.derby" % "derby" % "10.9.1.0" % "test",
   "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
   "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
