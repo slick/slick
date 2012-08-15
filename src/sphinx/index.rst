@@ -42,5 +42,6 @@ Table of Contents
    :maxdepth: 4
    
    gettingstarted
+   lifted-embedding
    direct-embedding
    sql
