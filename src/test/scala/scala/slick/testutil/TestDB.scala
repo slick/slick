@@ -212,7 +212,12 @@ abstract class DerbyDB(confName: String) extends TestDB(confName) {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
     tables.list.map(_._3).sorted
   }
+  /*override def dropUserArtifacts(implicit session: Session) = {
+    cleanUpAfter()
+    cleanUpBefore()
+  }*/
   override def dropUserArtifacts(implicit session: Session) = {
+    (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute
     val constraints = (Q[(String, String)]+"""
           select c.constraintname, t.tablename
           from sys.sysconstraints c, sys.sysschemas s, sys.systables t
