@@ -170,7 +170,7 @@ class PruneFields extends Phase {
 
   def apply(n: Node, state: CompilationState) = prune.repeat(n)
 
-  val prune = new Transformer {
+  def prune = new Transformer {
     val refs = new HashSet[Symbol]()
     override def initTree(n: Node) {
       super.initTree(n)

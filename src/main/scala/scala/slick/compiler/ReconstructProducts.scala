@@ -78,7 +78,7 @@ class ReconstructProducts extends Phase {
   }
 
   /** Replace matching products */
-  private object transformer extends Transformer.Defs {
+  private def transformer = new Transformer.Defs {
     // Narrow the target of a ref to the actual Pure value produced
     def narrow(n: Node): Option[Pure] = n match {
       case n: Pure => Some(n)
