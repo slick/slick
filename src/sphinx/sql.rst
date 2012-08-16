@@ -11,7 +11,8 @@ Scaffolding
 
 :ex:`jdbc/PlainSQL` demonstrates some features of the *Plain SQL* support. The
 imports are different from what you're used to for the
-:doc:`Query Language <ql>` or :doc:`Plain Scala <queryable>` queries:
+:doc:`lifted embedding <lifted-embedding>` or
+:doc:`direct embedding <direct-embedding>`:
 
 .. includecode:: code/PlainSQL.scala#imports
 
@@ -36,8 +37,9 @@ DDL/DML Statements
 The simplest ``StaticQuery`` method is ``updateNA`` which creates a
 parameterless (*NA = no args*) ``StaticQuery[Unit, Int]`` that is supposed to
 return the row count from a DDL statement instead of a result set. It can be
-executed the same way as a query from the :doc:`Query Language <ql>`. Here we
-are using ``.execute`` to run the query without getting the results:
+executed the same way as a query that uses the :doc:`lifted embedding
+<lifted-embedding>`. Here we are using ``.execute`` to run the query without
+getting the results:
 
 .. includecode:: code/PlainSQL.scala#updateNA
 
@@ -87,7 +89,7 @@ the type is actually known like in this constructor call.)
 
 The ``queryNA`` method for parameterless queries is complemented by ``query``
 which takes two type parameters, one for the query parameters and one for the
-result set rows. Similarly, there is matching ``update`` for ``updateNA``.
+result set rows. Similarly, there is a matching ``update`` for ``updateNA``.
 The execution methods of the resulting ``StaticQuery`` need to be called with
 the query parameters, as seen here in the call to ``.list``:
 
