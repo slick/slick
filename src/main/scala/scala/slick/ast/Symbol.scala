@@ -91,7 +91,7 @@ class SymbolNamer(symbolPrefix: String, parent: Option[SymbolNamer] = None) {
   }
 
   def get(s: Symbol): Option[String] =
-    parent.flatMap(_.get(s)).orElse(map.get(s))
+    map.get(s) orElse parent.flatMap(_.get(s))
 
   def apply(s: Symbol): String = get(s).getOrElse(s match {
     case a: AnonSymbol =>
