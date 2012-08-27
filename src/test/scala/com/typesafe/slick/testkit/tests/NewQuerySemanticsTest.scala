@@ -99,14 +99,14 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
 
     val qa = for {
       c <- Coffees.take(3)
-    } yield (c.name, (c.supID, 42))
+    } yield (c.supID, (c.name, 42))
     show("qa", qa)
     if(run) {
       val ra = qa.to[Set]
       println("ra: "+ra)
       assertEquals(3, ra.size)
       // No sorting, so result contents can vary
-      assertAllMatch(ra){ case (s: String, (i: Int, 42)) => () }
+      assertAllMatch(ra){ case (s: Int, (i: String, 42)) => () }
     }
 
     val qb = qa.take(2).map(_._2)
@@ -116,7 +116,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       println("rb: "+rb)
       assertEquals(2, rb.size)
       // No sorting, so result contents can vary
-      assertAllMatch(rb){ case (i: Int, 42) => () }
+      assertAllMatch(rb){ case (i: String, 42) => () }
     }
 
     val qb2 = qa.map(n => n).take(2).map(_._2)
@@ -126,7 +126,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       println("rb2: "+rb2)
       assertEquals(2, rb2.size)
       // No sorting, so result contents can vary
-      assertAllMatch(rb2){ case (i: Int, 42) => () }
+      assertAllMatch(rb2){ case (i: String, 42) => () }
     }
 
     val qc = qa.map(_._2).take(2)
@@ -136,7 +136,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       println("rc: "+rc)
       assertEquals(2, rc.size)
       // No sorting, so result contents can vary
-      assertAllMatch(rc){ case (i: Int, 42) => () }
+      assertAllMatch(rc){ case (i: String, 42) => () }
     }
 
     val q0 = Query(Coffees)
