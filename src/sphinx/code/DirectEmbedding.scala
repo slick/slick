@@ -5,6 +5,7 @@ import scala.slick.driver.H2Driver
 import H2Driver.simple.Database
 import Database.{threadLocalSession => session}
 import scala.slick.direct._
+import scala.slick.direct.AnnotationMapper._
 //#imports
 
 //#schema
@@ -48,7 +49,7 @@ object DirectEmbedding extends App {
 
     //#result
       // execute query using a chosen db backend
-      val backend = new SlickBackend( H2Driver )
+      val backend = new SlickBackend( H2Driver, AnnotationMapper )
       println( backend.result( q2, session ) )
       println( backend.result( q2.length, session ) )
     //#result
