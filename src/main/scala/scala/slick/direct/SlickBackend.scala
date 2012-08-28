@@ -12,6 +12,7 @@ import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.slick.session.{Session}
 import scala.reflect.ClassTag
 import scala.slick.compiler.CompilationState
+import scala.reflect.runtime.universe.TypeRef
 
 trait QueryableBackend
 
@@ -29,7 +30,7 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
     ,"java.lang.String" /*typeOf[String]*/ -> TypeMapper.StringTypeMapper // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
   )
 
-  //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTermSymbol.resolveOverloaded(actuals = rhs.toList)
+  //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTerm.resolveOverloaded(actuals = rhs.toList)
 
   val operatorMap : Vector[ (Map[String, FunctionSymbol], List[List[Type]]) ] = {
     import Library._
@@ -112,11 +113,11 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
   private def eval( tree:Tree ) :Any = tree match {
     case Select(from,name) => {
       val i = cm.reflect( eval(from) )
-      val m = i.symbol.typeSignature.member( name ).asMethodSymbol
+      val m = i.symbol.typeSignature.member( name ).asMethod
       val mm = i.reflectMethod( m )
       mm()
     }
-    case ident:Ident => ident.symbol.asFreeTermSymbol.value
+    case ident:Ident => ident.symbol.asFreeTerm.value
   }
   
   private def scala2scalaquery_typed( tree:Tree, scope : Scope ) : Query = {
@@ -130,7 +131,7 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
         case Literal(Constant(x:String)) => ConstColumn[String](x)
         case Literal(Constant(x:Double)) => ConstColumn[Double](x)
         case ident@Ident(name) if !scope.contains(ident.symbol) => // TODO: move this into a separate inlining step in queryable
-          ident.symbol.asFreeTermSymbol.value match {
+          ident.symbol.asFreeTerm.value match {
             case q:BaseQueryable[_] => val (tpe,query) = toQuery( q ); query
             case x => s2sq( Literal(Constant(x)) )
           }
@@ -254,7 +255,7 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
 
   protected def resultByType( expectedType : Type, rs: PositionedResult, session:Session) : Any = {
     def createInstance( args:Seq[Any] ) = {
-      val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethodSymbol
+      val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethod
       val cls = cm.reflectClass( cm.classSymbol(cm.runtimeClass(expectedType)) )
       cls.reflectConstructor( constructor )( args:_* )
     }
@@ -262,11 +263,12 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
     (expectedType match {
       case t if typeMappers.isDefinedAt(expectedType.toString) => typeMappers( expectedType.toString )(driver).nextValue(rs)
       case t if tupleTypes.exists( expectedType <:< _ ) =>
-        val args = expectedType.typeArguments.map{
+        val typeArgs = expectedType match { case TypeRef(_,_,args_) => args_ } 
+        val args = typeArgs.map{
           tpe => resultByType( tpe, rs, session )
         }
         createInstance( args )
-      case t if t.typeSymbol.hasFlag( Flag.CASE ) =>
+      case t if t.typeSymbol.asClass.isCaseClass =>
         val args = expectedType.member( nme.CONSTRUCTOR ).typeSignature match {
           case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
             param =>  resultByType( param.typeSignature, rs, session )
@@ -306,7 +308,8 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
     case Right((typetag,classtag)) => (typetag.tpe, this.typetagToQuery( typetag ))
     case Left(expr_)    =>
         val (tpe,query) = this.toQuery(expr_.tree)
-        (tpe.typeArguments(0), query)
+        val args = tpe match { case TypeRef(_,_,args_) => args_ } 
+        (args(0), query)
   }
 
   def toList[T]( queryable:BaseQueryable[T] ) : List[T] = {

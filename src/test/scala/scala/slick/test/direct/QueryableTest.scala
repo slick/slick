@@ -86,7 +86,6 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     
     db withSession {
       // create test table
-      import scala.slick.jdbc.StaticQuery.Interpolation
       implicit val session_ = session
       sqlu"create table COFFEES(COF_NAME varchar(255), SALES int)".execute
       (for {

@@ -2,7 +2,7 @@ package scala.slick.direct
 
 import scala.language.experimental.macros
 
-import scala.reflect.makro.Context
+import scala.reflect.macros.Context
 import scala.slick.SlickException
 
 import scala.reflect.runtime.{universe => ru}
@@ -38,7 +38,7 @@ object ImplicitQueryableMacros{
       ), session.splice)
     }
   }
-  private def _helper[C <: Context,S:c.TypeTag,T]( c:C )( name:String, projection:c.Expr[_] ) : c.Expr[ImplicitQueryable[S]] = {
+  private def _helper[C <: Context,S:c.AbsTypeTag,T]( c:C )( name:String, projection:c.Expr[_] ) : c.Expr[ImplicitQueryable[S]] = {
     val utils = new ImplicitQueryableUtils[c.type](c)
     import utils._
     c.universe.reify{
@@ -47,17 +47,17 @@ object ImplicitQueryableMacros{
       , backend.splice, session.splice )
     }
   }
-  def flatMap[T,S:c.TypeTag]
-    (c: scala.reflect.makro.Context)
+  def flatMap[T,S:c.AbsTypeTag]
+    (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => ImplicitQueryable[S]]): c.Expr[ImplicitQueryable[S]] = _helper[c.type,S,T]( c )( "flatMap", projection )
   def length[T]
-      (c: scala.reflect.makro.Context)
+      (c: scala.reflect.macros.Context)
       : c.Expr[Int] = _scalar_helper[c.type,Int]( c )( "length" )
-  def map[T,S:c.TypeTag]
-    (c: scala.reflect.makro.Context)
+  def map[T,S:c.AbsTypeTag]
+    (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => S]): c.Expr[ImplicitQueryable[S]] = _helper[c.type,S,T]( c )( "map", projection )
-  def filter[T:c.TypeTag]
-    (c: scala.reflect.makro.Context)
+  def filter[T:c.AbsTypeTag]
+    (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => Boolean]): c.Expr[ImplicitQueryable[T]] = _helper[c.type,T,T]( c )( "filter", projection )
 }
 

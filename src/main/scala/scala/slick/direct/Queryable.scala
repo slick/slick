@@ -2,7 +2,7 @@ package scala.slick.direct
 
 import scala.language.experimental.macros
 
-import scala.reflect.makro.Context
+import scala.reflect.macros.Context
 import scala.slick.SlickException
 
 import scala.reflect.runtime.{universe => ru}
@@ -69,23 +69,23 @@ object QueryableMacros{
     c.universe.reify{ new QueryableValue( reifiedExpression.splice ) }
   }
   def length
-      (c: scala.reflect.makro.Context)
+      (c: scala.reflect.macros.Context)
       : c.Expr[QueryableValue[Int]] = _scalar_helper[c.type]( c )( "length" )
 
-  private def _helper[C <: Context,S:c.TypeTag]( c:C )( name:String, projection:c.Expr[_] ) = {
+  private def _helper[C <: Context,S:c.AbsTypeTag]( c:C )( name:String, projection:c.Expr[_] ) = {
     val utils = new QueryableUtils[c.type](c)
     val reifiedExpression = utils.apply[Queryable[S]]( c.prefix.tree, name, projection.tree )
     c.universe.reify{ Queryable.factory[S]( reifiedExpression.splice )}
   }
 
-  def map[T:c.TypeTag, S:c.TypeTag]
-  (c: scala.reflect.makro.Context)
+  def map[T:c.AbsTypeTag, S:c.AbsTypeTag]
+  (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => S]): c.Expr[scala.slick.direct.Queryable[S]] = _helper[c.type,S]( c )( "map", projection )
-  def flatMap[T:c.TypeTag, S:c.TypeTag]
-  (c: scala.reflect.makro.Context)
+  def flatMap[T:c.AbsTypeTag, S:c.AbsTypeTag]
+  (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => Queryable[S]]): c.Expr[scala.slick.direct.Queryable[S]] = _helper[c.type,S]( c )( "flatMap", projection )
-  def filter[T:c.TypeTag]
-  (c: scala.reflect.makro.Context)
+  def filter[T:c.AbsTypeTag]
+  (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => Boolean]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "filter", projection )
 }
 
