@@ -13,7 +13,7 @@ import com.typesafe.slick.testkit.util.TestkitTest
 class ScalarFunctionTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Implicit._
 
-  def test = db withSession {
+  def test = run {
     def check[T](q: Query[ColumnBase[T], T], exp: T*) = {
       println("Executing: " + q.selectStatement)
       assertEquals(exp.toSet, q.list.toSet)

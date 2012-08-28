@@ -21,7 +21,7 @@ class IterateeTest(val tdb: TestDB) extends TestkitTest {
     def * = s ~ i
   }
 
-  def test = db withSession {
+  def test = run {
     A.ddl.create
     A.insertAll(("a", 1), ("b", 2), ("c", 3), ("d", 4))
 

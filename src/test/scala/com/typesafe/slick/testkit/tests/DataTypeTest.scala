@@ -14,23 +14,21 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def testByteArray {
+  def testByteArray = run {
     object T extends Table[(Int, Array[Byte])]("test") {
       def id = column[Int]("id")
       def data = column[Array[Byte]]("data")
       def * = id ~ data
     }
 
-    db withSession {
-      T.ddl.createStatements foreach println
-      T.ddl.create;
-      T insert (1, Array[Byte](1,2,3))
-      T insert (2, Array[Byte](4,5))
-      assertEquals(Set((1,"123"), (2,"45")), Query(T).list.map{ case (id, data) => (id, data.mkString) }.toSet)
-    }
+    T.ddl.createStatements foreach println
+    T.ddl.create;
+    T insert (1, Array[Byte](1,2,3))
+    T insert (2, Array[Byte](4,5))
+    assertEquals(Set((1,"123"), (2,"45")), Query(T).list.map{ case (id, data) => (id, data.mkString) }.toSet)
   }
 
-  def testNumeric = db withSession {
+  def testNumeric = run {
     object T extends Table[(Int, Int, Long, Short, Byte, Double, Float)]("test") {
       def id = column[Int]("id")
       def intData = column[Int]("int_data")

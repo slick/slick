@@ -22,12 +22,10 @@ class ColumnDefaultTest(val tdb: TestDB) extends TestkitTest {
     def * = id ~ a ~ b
   }
 
-  def test = if(cap.columnDefaults) {
-    db withSession {
-      A.ddl.createStatements foreach println
-      A.ddl.create
-      A.id insert 42
-      assertEquals(List((42, "foo", Some(true))), Query(A).list)
-    }
+  def test = runIf(bcap.columnDefaults) {
+    A.ddl.createStatements foreach println
+    A.ddl.create
+    A.id insert 42
+    assertEquals(List((42, "foo", Some(true))), Query(A).list)
   }
 }

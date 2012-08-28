@@ -13,32 +13,30 @@ class TransactionTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def test {
+  def test = run {
 
     val T = new Table[Int]("t") {
       def a = column[Int]("a")
       def * = a
     }
 
-    db withSession {
-      T.ddl.create
+    T.ddl.create
 
-      val q = Query(T)
+    val q = Query(T)
 
-      threadLocalSession withTransaction {
-        T.insert(42)
-        assertEquals(Some(42), q.firstOption)
-        threadLocalSession.rollback()
-      }
-      assertEquals(None, q.firstOption)
-
-      T.insert(1)
-      threadLocalSession withTransaction {
-        Query(T).delete
-        assertEquals(None, q.firstOption)
-        threadLocalSession.rollback()
-      }
-      assertEquals(Some(1), q.firstOption)
+    threadLocalSession withTransaction {
+      T.insert(42)
+      assertEquals(Some(42), q.firstOption)
+      threadLocalSession.rollback()
     }
+    assertEquals(None, q.firstOption)
+
+    T.insert(1)
+    threadLocalSession withTransaction {
+      Query(T).delete
+      assertEquals(None, q.firstOption)
+      threadLocalSession.rollback()
+    }
+    assertEquals(Some(1), q.firstOption)
   }
 }

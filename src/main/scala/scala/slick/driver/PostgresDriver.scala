@@ -17,11 +17,10 @@ trait PostgresDriver extends ExtendedDriver { driver =>
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  override val capabilities = new Capabilities
 
-  class Capabilities extends super.Capabilities {
-    override val blob = false
-  }
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.blob
+  )
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"

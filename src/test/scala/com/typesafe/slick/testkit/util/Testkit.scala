@@ -6,8 +6,9 @@ import org.junit.runner.notification.{Failure, RunNotifier}
 import org.junit.runners.ParentRunner
 import org.junit.runners.model.{Statement, RunnerBuilder}
 import scala.slick.session.Session
-import com.typesafe.slick.testkit.{tests => tk}
+import scala.slick.driver.{Capability, BasicProfile}
 import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.{tests => tk}
 import org.junit.internal.runners.model.MultipleFailureException
 import scala.collection.JavaConverters._
 import java.lang.reflect.{InvocationTargetException, Method}
@@ -127,5 +128,9 @@ abstract class TestkitTest {
     if(!f.isDefinedAt(x)) fail("Expected shape not matched by: "+x)
   }
 
-  def cap = tdb.driver.capabilities
+  def bcap = BasicProfile.capabilities
+  def ifCap[T](caps: Capability*)(f: => T): Unit =
+    if(caps.forall(c => tdb.driver.capabilities.contains(c))) f
+  def run[T](f: => T) = db.withSession(f)
+  def runIf[T](caps: Capability*)(f: => T) = ifCap(caps: _*)(db.withSession(f))
 }

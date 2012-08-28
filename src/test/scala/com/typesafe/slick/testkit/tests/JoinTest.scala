@@ -28,7 +28,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def test = db withSession {
+  def test = run {
 
     (Categories.ddl ++ Posts.ddl).create
 

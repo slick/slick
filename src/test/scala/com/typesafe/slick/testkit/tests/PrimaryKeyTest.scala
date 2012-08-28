@@ -12,7 +12,7 @@ class PrimaryKeyTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def test = db withSession {
+  def test = run {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")

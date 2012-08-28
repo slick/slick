@@ -13,7 +13,7 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def testAggregates = db withSession {
+  def testAggregates = run {
     object T extends Table[(Int, Option[Int])]("t") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
@@ -32,7 +32,7 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     assertEquals((3, 3, Some(3), Some(6), Some(1), Some(2)), q.first(1))
   }
 
-  def testNewAggregates = db withSession {
+  def testNewAggregates = run {
     object T extends Table[(Int, Option[Int])]("t") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
@@ -52,7 +52,7 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     assertEquals((3, Some(3), Some(6), Some(2)), q2_1.run)
   }
 
-  def testGroupBy = db withSession {
+  def testGroupBy = run {
     object T extends Table[(Int, Option[Int])]("t") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
@@ -67,9 +67,9 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     val q0 = T.groupBy(_.a)
     val q1 = q0.map(_._2.length).sortBy(identity)
     val r0 = q1.list
-    (r0: List[Int])
+    val r0t: List[Int] = r0
     println(q1.selectStatement)
-    assertEquals(List(2, 3, 3), q1.list)
+    assertEquals(List(2, 3, 3), r0t)
 
     println("=========================================================== q")
     val q = (for {

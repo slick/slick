@@ -15,7 +15,7 @@ class CountTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def test = db withSession {
+  def test = run {
     object TestTable extends Table[Int]("TEST") {
       def id = column[Int]("ID")
       def * = id

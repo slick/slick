@@ -13,7 +13,7 @@ class MutateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def test = if(cap.mutable) {
+  def test = runIf(bcap.mutable) {
 
     object Users extends Table[(Int,String,String)]("users") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -22,34 +22,31 @@ class MutateTest(val tdb: TestDB) extends TestkitTest {
       def * = id ~ first ~ last
     }
 
-    db withSession {
+    Users.ddl.create
+    Users insertAll(
+      (1, "Marge", "Bouvier"),
+      (2, "Homer", "Simpson"),
+      (3, "Bart", "Simpson"),
+      (4, "Carl", "Carlson")
+    )
 
-      Users.ddl.create
-      Users insertAll(
-        (1, "Marge", "Bouvier"),
-        (2, "Homer", "Simpson"),
-        (3, "Bart", "Simpson"),
-        (4, "Carl", "Carlson")
-      )
+    println("Before mutating:")
+    Query(Users).foreach(u => println("  "+u))
 
-      println("Before mutating:")
-      Query(Users).foreach(u => println("  "+u))
-
-      val q1 = for(u <- Users if u.last === "Simpson" || u.last === "Bouvier") yield u
-      q1.mutate { m =>
-        println("***** Row: "+m.row)
-        if(m.row._3 == "Bouvier") m.row = m.row.copy(_3 = "Simpson")
-        else if(m.row._2 == "Homer") m.delete()
-        else if(m.row._2 == "Bart") m.insert((42, "Lisa", "Simpson"))
-      }
-
-      println("After mutating:")
-      Query(Users).foreach(u => println("  "+u))
-
-      assertEquals(
-        Set("Marge Simpson", "Bart Simpson", "Lisa Simpson", "Carl Carlson"),
-        (for(u <- Users) yield u.first ++ " " ++ u.last).list.toSet
-      )
+    val q1 = for(u <- Users if u.last === "Simpson" || u.last === "Bouvier") yield u
+    q1.mutate { m =>
+      println("***** Row: "+m.row)
+      if(m.row._3 == "Bouvier") m.row = m.row.copy(_3 = "Simpson")
+      else if(m.row._2 == "Homer") m.delete()
+      else if(m.row._2 == "Bart") m.insert((42, "Lisa", "Simpson"))
     }
+
+    println("After mutating:")
+    Query(Users).foreach(u => println("  "+u))
+
+    assertEquals(
+      Set("Marge Simpson", "Bart Simpson", "Lisa Simpson", "Carl Carlson"),
+      (for(u <- Users) yield u.first ++ " " ++ u.last).list.toSet
+    )
   }
 }

@@ -15,7 +15,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Implicit._
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def test1 = db withSession {
+  def test1 = run {
 
     object Categories extends Table[(Int, String)]("categories") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -78,7 +78,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     tdb.assertNotTablesExist("categories", "posts")
   }
 
-  def test2 = db withSession {
+  def test2 = run {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")
@@ -123,7 +123,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def testCombinedJoin = db withSession {
+  def testCombinedJoin = run {
 
     object A extends Table[(Int, String)]("a") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -174,7 +174,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(List("a", "a"), q3.list)
   }
 
-  def testManyToMany = db withSession {
+  def testManyToMany = run {
 
     object A extends Table[(Int, String)]("a") {
       def id = column[Int]("id", O.PrimaryKey)
