@@ -76,10 +76,11 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       ("French_Roast_Decaf", 49, 9.99, 5, 0)
     )
 
-    val l1 = queryNA[String]("select c.cof_name from coffees c").list
+    def q(s: String) = tdb.driver.quoteIdentifier(s)
+    val l1 = queryNA[String]("select c."+q("COF_NAME")+" from "+q("COFFEES")+" c").list
     println("l1: "+l1)
     assertEquals(5, l1.length)
-    val l2 = queryNA[String]("select c.cof_name from coffees c, suppliers s").list
+    val l2 = queryNA[String]("select c."+q("COF_NAME")+" from "+q("COFFEES")+" c, "+q("SUPPLIERS")+" s").list
     println("l2: "+l2)
     assertEquals(15, l2.length)
 
