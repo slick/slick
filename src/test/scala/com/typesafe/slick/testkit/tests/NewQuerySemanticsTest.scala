@@ -29,10 +29,10 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       def * = id ~ name ~ street ~ city ~ state ~ zip
     }
 
-    object CoffeesStd extends Table[(String, Int, Double, Int, Int)]("COFFEES") {
+    object CoffeesStd extends Table[(String, Int, Int, Int, Int)]("COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
       def supID = column[Int]("SUP_ID")
-      def price = column[Double]("PRICE")
+      def price = column[Int]("PRICE")
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
       def * = name ~ supID ~ price ~ sales ~ total
@@ -50,15 +50,15 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       def forInsert = id ~ name ~ street ~ city ~ state ~ zip
     }
 
-    object Coffees extends Table[(String, Int, Double, Int, Int)]("COFFEES") {
+    object Coffees extends Table[(String, Int, Int, Int, Int)]("COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
       def supID = column[Int]("SUP_ID")
-      def price = column[Double]("PRICE")
+      def price = column[Int]("PRICE")
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
       def * = name ~ supID ~ price ~ sales ~ (total * 10)
       def forInsert = name ~ supID ~ price ~ sales ~ total
-      def totalComputed = sales.asColumnOf[Double] * price
+      def totalComputed = sales * price
       def supplier = foreignKey("SUP_FK", supID, Suppliers)(_.id)
     }
 
@@ -69,11 +69,11 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     SuppliersStd.insert(150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
 
     CoffeesStd.insertAll(
-      ("Colombian",         101, 7.99, 1, 0),
-      ("French_Roast",       49, 7.99, 2, 0),
-      ("Espresso",          150, 9.99, 3, 0),
-      ("Colombian_Decaf",   101, 8.49, 4, 0),
-      ("French_Roast_Decaf", 49, 9.99, 5, 0)
+      ("Colombian",         101, 799, 1, 0),
+      ("French_Roast",       49, 799, 2, 0),
+      ("Espresso",          150, 999, 3, 0),
+      ("Colombian_Decaf",   101, 849, 4, 0),
+      ("French_Roast_Decaf", 49, 999, 5, 0)
     )
 
     def q(s: String) = tdb.driver.quoteIdentifier(s)
@@ -146,11 +146,11 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       val r0 = q0.to[Set]
       println("r0: "+r0)
       val r0e = Set(
-        ("Colombian",         101, 7.99, 1, 0),
-        ("French_Roast",       49, 7.99, 2, 0),
-        ("Espresso",          150, 9.99, 3, 0),
-        ("Colombian_Decaf",   101, 8.49, 4, 0),
-        ("French_Roast_Decaf", 49, 9.99, 5, 0)
+        ("Colombian",         101, 799, 1, 0),
+        ("French_Roast",       49, 799, 2, 0),
+        ("Espresso",          150, 999, 3, 0),
+        ("Colombian_Decaf",   101, 849, 4, 0),
+        ("French_Roast_Decaf", 49, 999, 5, 0)
       )
       assertEquals(r0e, r0)
     }
@@ -164,12 +164,12 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       val r1 = q1.to[Set]
       println("r1: "+r1)
       val r1e = Set(
-        (("Colombian","Groundsville:"),("Colombian",101,7.99,1,0),(101,"Acme, Inc.","99 Market Street"),7.99),
-        (("Colombian","Mendocino:"),("Colombian",101,7.99,1,0),(49,"Superior Coffee","1 Party Place"),7.99),
-        (("Colombian","Meadows:"),("Colombian",101,7.99,1,0),(150,"The High Ground","100 Coffee Lane"),7.99),
-        (("Colombian_Decaf","Groundsville:"),("Colombian_Decaf",101,8.49,4,0),(101,"Acme, Inc.","99 Market Street"),33.96),
-        (("Colombian_Decaf","Mendocino:"),("Colombian_Decaf",101,8.49,4,0),(49,"Superior Coffee","1 Party Place"),33.96),
-        (("Colombian_Decaf","Meadows:"),("Colombian_Decaf",101,8.49,4,0),(150,"The High Ground","100 Coffee Lane"),33.96)
+        (("Colombian","Groundsville:"),("Colombian",101,799,1,0),(101,"Acme, Inc.","99 Market Street"),799),
+        (("Colombian","Mendocino:"),("Colombian",101,799,1,0),(49,"Superior Coffee","1 Party Place"),799),
+        (("Colombian","Meadows:"),("Colombian",101,799,1,0),(150,"The High Ground","100 Coffee Lane"),799),
+        (("Colombian_Decaf","Groundsville:"),("Colombian_Decaf",101,849,4,0),(101,"Acme, Inc.","99 Market Street"),3396),
+        (("Colombian_Decaf","Mendocino:"),("Colombian_Decaf",101,849,4,0),(49,"Superior Coffee","1 Party Place"),3396),
+        (("Colombian_Decaf","Meadows:"),("Colombian_Decaf",101,849,4,0),(150,"The High Ground","100 Coffee Lane"),3396)
       )
       assertEquals(r1e, r1)
     }
@@ -192,7 +192,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
 
     val q2 = for {
-      c <- Coffees.filter(_.price < 9.0).map(_.*)
+      c <- Coffees.filter(_.price < 900).map(_.*)
       s <- Suppliers if s.id === c._2
     } yield c._1 ~ s.name
     show("q2: More elaborate query", q2)
@@ -208,7 +208,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
 
     val q3 = Coffees.flatMap { c =>
-      val cf = Query(c).where(_.price === 8.49)
+      val cf = Query(c).where(_.price === 849)
       cf.flatMap { cf =>
         Suppliers.where(_.id === c.supID).map { s =>
           c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed
@@ -219,12 +219,12 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     if(run) {
       val r3 = q3.to[Set]
       println("r3: "+r3)
-      val r3e = Set(("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,33.96))
+      val r3e = Set(("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396))
       assertEquals(r3e, r3)
     }
 
     val q3b = Coffees.flatMap { c =>
-      val cf = Query((c, 42)).where(_._1.price < 9.0)
+      val cf = Query((c, 42)).where(_._1.price < 900)
       cf.flatMap { case (cf, num) =>
         Suppliers.where(_.id === c.supID).map { s =>
           c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed ~ num
@@ -236,15 +236,15 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       val r3b = q3b.to[Set]
       println("r3b: "+r3b)
       val r3be = Set(
-        ("Colombian","Acme, Inc.","Colombian",0,7.99,42),
-        ("French_Roast","Superior Coffee","French_Roast",0,15.98,42),
-        ("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,33.96,42)
+        ("Colombian","Acme, Inc.","Colombian",0,799,42),
+        ("French_Roast","Superior Coffee","French_Roast",0,1598,42),
+        ("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396,42)
       )
       assertEquals(r3be, r3b)
     }
 
     val q4 = for {
-      c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 8.0)
+      c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 800)
     } yield c._1 ~ c._3
     show("q4: Map to tuple, then filter", q4)
     if(run) {
@@ -254,7 +254,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(r4e, r4)
     }
 
-    val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 8.0)
+    val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 800)
     val q4b = for {
       c <- q4b_0
       d <- q4b_0
@@ -264,10 +264,10 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       val r4b = q4b.to[Set]
       println("r4b: "+r4b)
       val r4be = Set(
-        (("Colombian",7.99,42),("Colombian",7.99,42)),
-        (("Colombian",7.99,42),("French_Roast",7.99,42)),
-        (("French_Roast",7.99,42),("Colombian",7.99,42)),
-        (("French_Roast",7.99,42),("French_Roast",7.99,42))
+        (("Colombian",799,42),("Colombian",799,42)),
+        (("Colombian",799,42),("French_Roast",799,42)),
+        (("French_Roast",799,42),("Colombian",799,42)),
+        (("French_Roast",799,42),("French_Roast",799,42))
       )
       assertEquals(r4be, r4b)
     }
@@ -282,10 +282,10 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       val r5 = q5.to[Set]
       println("r5: "+r5)
       val r5e = Set(
-        (("Colombian",101,7.99,1,0),("Colombian",101,7.99,1,0)),
-        (("Colombian",101,7.99,1,0),("French_Roast",49,7.99,2,0)),
-        (("French_Roast",49,7.99,2,0),("Colombian",101,7.99,1,0)),
-        (("French_Roast",49,7.99,2,0),("French_Roast",49,7.99,2,0))
+        (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
+        (("Colombian",101,799,1,0),("French_Roast",49,799,2,0)),
+        (("French_Roast",49,799,2,0),("Colombian",101,799,1,0)),
+        (("French_Roast",49,799,2,0),("French_Roast",49,799,2,0))
       )
       assertEquals(r5e, r5)
     }
@@ -298,8 +298,8 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       val r5b = q5b.to[Set]
       println("r5b: "+r5b)
       val r5be = Set(
-        (("Colombian",101,7.99,1,0),("Colombian",101,7.99,1,0)),
-        (("French_Roast",49,7.99,2,0),("French_Roast",49,7.99,2,0))
+        (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
+        (("French_Roast",49,799,2,0),("French_Roast",49,799,2,0))
       )
       assertEquals(r5be, r5b)
     }
@@ -318,7 +318,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
 
     val q7a = for {
-      c <- Coffees.filter(_.price < 8.0) union Coffees.filter(_.price > 9.5)
+      c <- Coffees.filter(_.price < 800) union Coffees.filter(_.price > 950)
     } yield c.name ~ c.supID ~ c.total
     show("q7a: Simple union", q7a)
     if(run) {
@@ -334,7 +334,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
 
     val q7 = for {
-      c <- Coffees.filter(_.price < 8.0).map((_, 1)) union Coffees.filter(_.price > 9.5).map((_, 2))
+      c <- Coffees.filter(_.price < 800).map((_, 1)) union Coffees.filter(_.price > 950).map((_, 2))
     } yield c._1.name ~ c._1.supID ~ c._2
     show("q7: Union", q7)
     if(run) {
@@ -350,7 +350,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
 
     val q71 = for {
-      c <- Coffees.filter(_.price < 8.0).map((_, 1))
+      c <- Coffees.filter(_.price < 800).map((_, 1))
     } yield c._1.name ~ c._1.supID ~ c._2
     show("q71: Transitive push-down without union", q71)
     if(run) {
@@ -377,7 +377,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
 
     val q8 = for {
-      (c1, c2) <- Coffees.where(_.price < 9.0) leftJoin Coffees.where(_.price < 8.0) on (_.name === _.name)
+      (c1, c2) <- Coffees.where(_.price < 900) leftJoin Coffees.where(_.price < 800) on (_.name === _.name)
     } yield (c1.name, c2.name.?)
     show("q8: Outer join", q8)
     if(run) {
@@ -399,8 +399,8 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       val r8b = q8b.to[Set]
       println("r8b: "+r8b)
       val r8be = Set(
-        ((("Colombian",101,7.99,1,0),("Colombian",101,7.99,1,0)),("Colombian",101,7.99,1,0)),
-        ((("Colombian",101,7.99,1,0),("Colombian",101,7.99,1,0)),("Colombian_Decaf",101,8.49,4,0))
+        ((("Colombian",101,799,1,0),("Colombian",101,799,1,0)),("Colombian",101,799,1,0)),
+        ((("Colombian",101,799,1,0),("Colombian",101,799,1,0)),("Colombian_Decaf",101,849,4,0))
       )
       assertEquals(r8be, r8b)
     }
