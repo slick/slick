@@ -176,7 +176,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
 
     val q1b_0 = Coffees.sortBy(_.price).take(3) join Suppliers on (_.supID === _.id)
     val q1b = for {
-      (c, s) <- q1b_0.take(2).filter(_._1.name =!= "Colombian")
+      (c, s) <- q1b_0.sortBy(_._1.price).take(2).filter(_._1.name =!= "Colombian")
       (c2, s2) <- q1b_0
     } yield c.name ~ s.city ~ c2.name
     show("q1b: Explicit join with condition", q1b)
