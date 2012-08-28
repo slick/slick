@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.TestDB

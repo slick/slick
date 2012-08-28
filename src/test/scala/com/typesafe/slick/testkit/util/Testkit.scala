@@ -37,6 +37,7 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
     classOf[tk.NewQuerySemanticsTest],
     classOf[tk.OldTest],
     classOf[tk.PagingTest],
+    classOf[tk.PlainSQLTest],
     classOf[tk.PrimaryKeyTest],
     classOf[tk.ScalarFunctionTest],
     classOf[tk.SequenceTest],
@@ -130,7 +131,7 @@ abstract class TestkitTest {
 
   def bcap = BasicProfile.capabilities
   def ifCap[T](caps: Capability*)(f: => T): Unit =
-    if(caps.forall(c => tdb.driver.capabilities.contains(c))) f
+    if(caps.forall(c => tdb.capabilities.contains(c))) f
   def run[T](f: => T) = db.withSession(f)
   def runIf[T](caps: Capability*)(f: => T) = ifCap(caps: _*)(db.withSession(f))
 }

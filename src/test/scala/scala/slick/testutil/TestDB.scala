@@ -32,6 +32,9 @@ object TestDBOptions {
   def isInternalEnabled(db: String) = testDBs.map(_.contains(db)).getOrElse(true)
   def isExternalEnabled(db: String) = isInternalEnabled(db) && "true" == dbProps.getProperty(db+".enabled")
   def get(db: String, o: String) = Option(dbProps.getProperty(db+"."+o))
+
+  /** Marks a driver which is specially supported by the test kit for plain SQL queries */
+  val plainSql = new Capability("test.plainSql")
 }
 
 abstract class TestDB(val confName: String) {
@@ -124,6 +127,7 @@ abstract class TestDB(val confName: String) {
     } finally out.close()
   }
   def canGetLocalTables = true
+  lazy val capabilities = driver.capabilities
 }
 
 class SQLiteTestDB(dburl: String, confName: String) extends TestDB(confName) {
@@ -138,6 +142,7 @@ class SQLiteTestDB(dburl: String, confName: String) extends TestDB(confName) {
     for(t <- getLocalSequences)
       (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)).execute()
   }
+  override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
 }
 
 class ExternalTestDB(confName: String, val driver: ExtendedDriver) extends TestDB(confName) {
@@ -201,6 +206,7 @@ class AccessDB(confName: String, val driver: ExtendedDriver) extends TestDB(conf
   override def canGetLocalTables = false
   override def getLocalTables(implicit session: Session) =
     MTable.getTables.list.map(_.name.name).sorted
+  override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
 }
 
 abstract class DerbyDB(confName: String) extends TestDB(confName) {
@@ -230,6 +236,7 @@ abstract class DerbyDB(confName: String) extends TestDB(confName) {
     for(t <- getLocalSequences)
       (Q.u+"drop sequence "+driver.quoteIdentifier(t)).execute()
   }
+  override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
 }
 
 object DerbyDB {
@@ -252,6 +259,7 @@ abstract class HsqlDB(confName: String) extends TestDB(confName) {
     Logger.getLogger("hsqldb").setLevel(Level.OFF)
     super.cleanUpBefore()
   }
+  override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
 }
 
 object TestDB {
@@ -263,6 +271,7 @@ object TestDB {
     val driver = H2Driver
     override val dbName = "test1"
     override def isPersistent = false
+    override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
   }
 
   def H2Disk(cname: String) = new TestDB("h2disk") {
@@ -273,6 +282,7 @@ object TestDB {
     override def cleanUp() = deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
     override def dropUserArtifacts(implicit session: Session) = cleanUp()
+    override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
   }
 
   def HsqldbMem(cname: String) = new HsqlDB("hsqldbmem") {
@@ -332,6 +342,7 @@ object TestDB {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
       tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
+    override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
   }
 
   def MySQL(cname: String) = new ExternalTestDB("mysql", MySQLDriver) {
@@ -355,6 +366,7 @@ object TestDB {
       for(t <- getLocalSequences)
         (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute()
     }*/
+    override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
   }
 
   def SQLServer(cname: String) = new ExternalTestDB("sqlserver", SQLServerDriver) {
@@ -375,6 +387,7 @@ object TestDB {
       for(t <- getLocalTables)
         (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
     }
+    override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
   }
 
   def MSAccess(cname: String) = new AccessDB("access", AccessDriver)
