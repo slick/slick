@@ -1,7 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.collection.mutable.ArrayBuffer
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.util.CloseableIterator
@@ -9,16 +8,14 @@ import scala.slick.session.Session
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
-//object InvokerTest extends TestkitTestObject(H2Mem)
-
 class InvokerTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def testCollections = run {
-    import scala.slick.session.Database.threadLocalSession
+  override val reuseInstance = true
 
+  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
+  def testCollections {
     object T extends Table[Int]("t") {
       def a = column[Int]("a")
       def * = a
@@ -57,10 +54,8 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(Array(1, 2, 3, 4, 5).toList, r6.toList)
   }
 
-  def testMap = run {
-    import scala.slick.session.Database.threadLocalSession
-
-    val T = new Table[(Int, String)]("t") {
+  def testMap {
+    val T = new Table[(Int, String)]("t2") {
       def k = column[Int]("k")
       def v = column[String]("v")
       def * = k ~ v
@@ -78,7 +73,7 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def testLazy = if(tdb.isShared) {
-    object T extends Table[Int]("t") {
+    object T extends Table[Int]("t3") {
       def a = column[Int]("a")
       def * = a
     }
@@ -88,19 +83,19 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
       _ <- Query orderBy t.a
     } yield t
 
-    def setUp(implicit session: Session) {
-      T.ddl.create
+    def setUp(session: Session) {
+      T.ddl.create(session)
       for(g <- 1 to 1000 grouped 100)
-        T.insertAll(g:_*)
+        T.insertAll(g:_*)(session)
     }
 
-    def f() = CloseableIterator close db.createSession after { implicit session =>
-      setUp
-      q.elements
+    def f() = CloseableIterator close db.createSession after { session =>
+      setUp(session)
+      q.elements()(session)
     }
 
-    def g() = CloseableIterator close db.createSession after { implicit session =>
-      setUp
+    def g() = CloseableIterator close db.createSession after { session =>
+      setUp(session)
       throw new Exception("make sure it gets closed")
     }
 

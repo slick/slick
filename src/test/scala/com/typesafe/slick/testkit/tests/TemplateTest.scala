@@ -1,14 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object TemplateTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
 class TemplateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
@@ -27,7 +22,7 @@ class TemplateTest(val tdb: TestDB) extends TestkitTest {
     def * = userID ~ orderID ~ product
   }
 
-  def test = run {
+  def test {
 
     (Users.ddl ++ Orders.ddl).createStatements foreach println
     (Users.ddl ++ Orders.ddl).create

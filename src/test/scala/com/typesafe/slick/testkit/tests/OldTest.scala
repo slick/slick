@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import scala.slick.lifted._
 import scala.slick.ast.Dump
 import scala.slick.testutil.TestDB

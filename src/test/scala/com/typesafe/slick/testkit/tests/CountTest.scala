@@ -1,21 +1,16 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.{Ignore, Test}
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.ast.Dump
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
-//object CountTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
-
-@Ignore
 class CountTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def test = run {
+  def test {
     object TestTable extends Table[Int]("TEST") {
       def id = column[Int]("ID")
       def * = id

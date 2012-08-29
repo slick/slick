@@ -2,12 +2,9 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.jdbc.{GetResult, StaticQuery => Q, DynamicQuery}
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.{TestDBOptions, TestDB}
 import Q.interpolation
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object PlainSQLTest extends DBTestObject(H2Mem, H2Disk, SQLiteMem, SQLiteDisk, Postgres, MySQL, DerbyMem, DerbyDisk, HsqldbMem, MSAccess, SQLServer)
 
 class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
 
@@ -15,7 +12,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
 
   case class User(id:Int, name:String)
 
-  def testSimple = runIf(TestDBOptions.plainSql) {
+  def testSimple = ifCap(TestDBOptions.plainSql) {
     def getUsers(id: Option[Int]) = {
       val q = Q[User] + "select id, name from users "
       id map { q + "where id =" +? _ } getOrElse q
@@ -30,7 +27,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
     val userForID = Q[Int, User] + "select id, name from users where id = ?"
     val userForIdAndName = Q[(Int, String), User] + "select id, name from users where id = ? and name = ?"
 
-    threadLocalSession.withTransaction {
+    sharedSession.withTransaction {
       println("Creating user table: "+createTable.first)
       println("Inserting users:")
       for(i <- populateUsers) println("  "+i.first)
@@ -95,7 +92,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
     tdb.assertUnquotedTablesExist("USERS")
   }
 
-  def testInterpolation = runIf(TestDBOptions.plainSql) {
+  def testInterpolation = ifCap(TestDBOptions.plainSql) {
     def userForID(id: Int) = sql"select id, name from users where id = $id".as[User]
     def userForIdAndName(id: Int, name: String) = sql"select id, name from users where id = $id and name = $name".as[User]
 
@@ -123,7 +120,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
   }
 
   @deprecated("DynamicQuery replaced by better StaticQuery", "0.10")
-  def testDynamic = runIf(TestDBOptions.plainSql) {
+  def testDynamic = ifCap(TestDBOptions.plainSql) {
     case class GetUsers(id: Option[Int]) extends DynamicQuery[User] {
       select ~ "id, name from users"
       id foreach { this ~ "where id =" ~? _ }
@@ -140,7 +137,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
     val createTable = Q.updateNA("create table USERS(ID int not null primary key, NAME varchar(255))")
     val populateUsers = List(InsertUser(1, "szeiger"), InsertUser(0, "admin"), InsertUser(2, "guest"), InsertUser(3, "foo"))
 
-    threadLocalSession.withTransaction {
+    sharedSession.withTransaction {
       println("Creating user table: "+createTable.first)
       println("Inserting users:")
       for(i <- populateUsers) println("  "+i.first)

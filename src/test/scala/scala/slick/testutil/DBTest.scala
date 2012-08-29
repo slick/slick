@@ -1,26 +1,21 @@
 package scala.slick.testutil
 
 import scala.collection.JavaConversions
-import org.junit.Assert._
 import org.junit.{Before, After}
 import org.junit.runner.{JUnitCore, RunWith}
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import com.typesafe.slick.testkit.util.TestkitTest
 
 @RunWith(classOf[Parameterized])
-abstract class DBTest extends TestkitTest {
-  override protected val useKeepAlive = false
+abstract class DBTest {
+  val tdb: TestDB
+
+  lazy val db = tdb.createDB()
 
   println("[Using test database "+tdb+"]")
 
-  private[this] var sessionCreated = false
-  lazy val session = { sessionCreated = true; db.createSession() }
   @Before def beforeDBTest = tdb.cleanUpBefore()
-  @After def afterDBTest = {
-    try { if(sessionCreated) session.close() }
-    finally { tdb.cleanUpAfter() }
-  }
+  @After def afterDBTest = tdb.cleanUpAfter()
 }
 
 abstract class DBTestObject(dbs: TestDB.TestDBSpec*) {

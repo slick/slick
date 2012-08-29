@@ -1,12 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object MainTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, HsqldbDisk, MSAccess, SQLServer)
 
 class MainTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
@@ -31,7 +27,7 @@ class MainTest(val tdb: TestDB) extends TestkitTest {
     def * = userID ~ orderID ~ product ~ shipped ~ rebate
   }
 
-  def test = run {
+  def test {
 
     val ddl = Users.ddl ++ Orders.ddl
     ddl.createStatements.foreach(println)

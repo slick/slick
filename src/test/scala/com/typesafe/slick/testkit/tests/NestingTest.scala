@@ -1,22 +1,18 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.session._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.ast.Dump
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
-//object NestingTest extends TestkitTestObject(H2Mem /*, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer*/)
-
-@deprecated("Using deprecated Query.orderBy feature", "0.10")
 class NestingTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def testNestedTuples = run {
+  @deprecated("Using deprecated Query.orderBy feature", "0.10")
+  def testNestedTuples {
 
     object T extends Table[(Int, String, String)]("T") {
       def a = column[Int]("A")

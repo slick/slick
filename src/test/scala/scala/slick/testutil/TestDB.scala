@@ -201,7 +201,10 @@ class AccessDB(confName: String, val driver: ExtendedDriver) extends TestDB(conf
     copy(new File(emptyDBFile), new File(testDBFile))
   }
   override def cleanUpAfter() = deleteDBFiles(dbName)
-  override def dropUserArtifacts(implicit session: Session) = cleanUpBefore()
+  override def dropUserArtifacts(implicit session: Session) = {
+    session.close()
+    cleanUpBefore()
+  }
   /* Works in some situations but fails with "Optional feature not implemented" in others */
   override def canGetLocalTables = false
   override def getLocalTables(implicit session: Session) =
@@ -281,7 +284,10 @@ object TestDB {
     val driver = H2Driver
     override def cleanUp() = deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: Session) = cleanUp()
+    override def dropUserArtifacts(implicit session: Session) = {
+      session.close()
+      cleanUp()
+    }
     override lazy val capabilities = driver.capabilities + TestDBOptions.plainSql
   }
 
@@ -296,7 +302,10 @@ object TestDB {
     val url = "jdbc:hsqldb:file:"+TestDBOptions.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUp() = deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: Session) = cleanUp()
+    override def dropUserArtifacts(implicit session: Session) = {
+      session.close()
+      cleanUp()
+    }
   }
 
   def SQLiteMem(cname: String) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
@@ -349,6 +358,7 @@ object TestDB {
     override def userName = super.userName + "@localhost"
     // Recreating the DB is faster than dropping everything individually
     override def dropUserArtifacts(implicit session: Session) = {
+      session.close()
       cleanUpAfter()
       cleanUpBefore()
     }

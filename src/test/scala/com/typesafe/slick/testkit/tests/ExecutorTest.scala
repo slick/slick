@@ -1,18 +1,14 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.{Ignore, Test}
 import org.junit.Assert._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object ExecutorTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
 class ExecutorTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def test = run {
+  def test {
 
     object T extends Table[Int]("t") {
       def a = column[Int]("a")

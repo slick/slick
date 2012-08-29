@@ -1,13 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
-import scala.slick.driver.{DerbyDriver, AccessDriver, SQLiteDriver}
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object ZipTest extends TestkitTestObject(H2Mem, Postgres, MySQL, HsqldbMem, SQLServer)
 
 class ZipTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
@@ -25,7 +20,7 @@ class ZipTest(val tdb: TestDB) extends TestkitTest {
     def * = id ~ title ~ category
   }
 
-  def testZip = runIf(bcap.zip) {
+  def testZip = ifCap(bcap.zip) {
     (Categories.ddl ++ Posts.ddl).create
 
     Categories insertAll (

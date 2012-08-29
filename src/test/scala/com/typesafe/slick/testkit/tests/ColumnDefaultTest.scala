@@ -1,13 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object ColumnDefaultTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServer)
 
 class ColumnDefaultTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
@@ -22,7 +18,7 @@ class ColumnDefaultTest(val tdb: TestDB) extends TestkitTest {
     def * = id ~ a ~ b
   }
 
-  def test = runIf(bcap.columnDefaults) {
+  def test = ifCap(bcap.columnDefaults) {
     A.ddl.createStatements foreach println
     A.ddl.create
     A.id insert 42

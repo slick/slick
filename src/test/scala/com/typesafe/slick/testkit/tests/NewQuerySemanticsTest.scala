@@ -1,15 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.jdbc.StaticQuery._
 import scala.slick.ast._
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object NewQuerySemanticsTest extends TestkitTestObject(H2Mem)
 
 class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
@@ -17,7 +13,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
 
   val doRun = true
 
-  def test = run {
+  def test {
 
     object SuppliersStd extends Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column

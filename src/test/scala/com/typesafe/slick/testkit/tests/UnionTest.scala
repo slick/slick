@@ -1,14 +1,10 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.ast.Dump
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object UnionTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
 class UnionTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
@@ -32,8 +28,7 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def test = run {
-
+  def test {
     (Managers.ddl ++ Employees.ddl).create
 
     Managers.insertAll(
@@ -69,8 +64,7 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     (Managers.ddl ++ Employees.ddl).drop
   }
 
-  def testUnionWithoutProjection = run {
-
+  def testUnionWithoutProjection {
     Managers.ddl.create
     Managers.insertAll(
       (1, "Peter", "HR"),

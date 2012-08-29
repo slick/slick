@@ -4,6 +4,7 @@ import scala.language.{reflectiveCalls,implicitConversions}
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
+import scala.slick.session.Database.threadLocalSession
 import scala.slick.ast.Library.{SqlOperator =>Op,_}
 import scala.slick.ast.{Library => Ops}
 import scala.slick.ast._
@@ -35,8 +36,8 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
       def assertQuery( matcher : Node => Unit ) = {
         //backend.dump(q)
-        println( backend.toSql(q,session) )
-        println( backend.result(q,session) )
+        println( backend.toSql(q,threadLocalSession) )
+        println( backend.result(q,threadLocalSession) )
         try{
           matcher( backend.toQuery( q )._2.node : @unchecked ) : @unchecked
           print(".")
@@ -70,7 +71,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     def fail : Unit = fail()
     def success{ print(".") }
     def isEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = lhs.groupBy(x=>x) == rhs.groupBy(x=>x)
-    def resultsMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = isEqualMultiSet( backend.result(queryable,session), expected)
+    def resultsMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = isEqualMultiSet( backend.result(queryable,threadLocalSession), expected)
   }
 
   @Test def test() {
@@ -87,7 +88,6 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     db withSession {
       // create test table
       import scala.slick.jdbc.StaticQuery.Interpolation
-      implicit val session_ = session
       sqlu"create table COFFEES(COF_NAME varchar(255), SALES int)".execute
       (for {
         (name, sales) <- coffees_data
@@ -238,9 +238,9 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         inMem.map( c=> (c.name,c.sales,c) )
       ))
       // length
-      assertEquals( backend.result(query.length,session), inMem.length )
+      assertEquals( backend.result(query.length,threadLocalSession), inMem.length )
       
-      val iquery = ImplicitQueryable( query, backend, session )
+      val iquery = ImplicitQueryable( query, backend, threadLocalSession )
       assertEquals( iquery.length, inMem.length )
       
       // iquery.filter( _.sales > 10.0 ).map( _.name ) // currently crashed compiler

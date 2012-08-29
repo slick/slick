@@ -31,7 +31,7 @@ libraryDependencies ++= Seq(
   "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
   "mysql" % "mysql-connector-java" % "5.1.13" % "test",
   "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test",
-  "com.novocode" % "junit-interface" % "0.9-RC2" % "test",
+  "com.novocode" % "junit-interface" % "0.10-M1" % "test",
   "org.slf4j" % "slf4j-api" % "1.6.4",
   "ch.qos.logback" % "logback-classic" % "0.9.28" % "test"
 )

@@ -1,21 +1,18 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.ast.Dump
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object MapperTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
 class MapperTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def testMappedEntity = run {
+  override val reuseInstance = true
 
+  def testMappedEntity {
     case class User(id: Option[Int], first: String, last: String)
 
     object Users extends Table[User]("users") {
@@ -55,8 +52,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     )
   }
 
-  def testUpdate = run {
-
+  def testUpdate {
     case class Data(a: Int, b: Int)
 
     object Ts extends Table[Data]("T") {
@@ -84,8 +80,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     )
   }
 
-  def testMappedType = run {
-
+  def testMappedType {
     sealed trait Bool
     case object True extends Bool
     case object False extends Bool
@@ -94,7 +89,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       b => if(b == True) 1 else 0,
       i => if(i == 1) True else False)
 
-    object T extends Table[(Int, Bool)]("t") {
+    object T extends Table[(Int, Bool)]("t2") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def * = id ~ b

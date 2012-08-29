@@ -1,15 +1,10 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.util.iter._
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object IterateeTest extends TestkitTestObject(H2Mem)
 
 class IterateeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
@@ -21,7 +16,7 @@ class IterateeTest(val tdb: TestDB) extends TestkitTest {
     def * = s ~ i
   }
 
-  def test = run {
+  def test {
     A.ddl.create
     A.insertAll(("a", 1), ("b", 2), ("c", 3), ("d", 4))
 

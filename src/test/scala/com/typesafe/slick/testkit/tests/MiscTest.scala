@@ -1,20 +1,17 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.driver.AccessDriver
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
-
-//object MiscTest extends TestkitTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
 
 class MiscTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  def isNotAndOrTest = run {
+  override val reuseInstance = true
 
+  def isNotAndOrTest {
     object T extends Table[(String, String)]("users") {
       def a = column[String]("a")
       def b = column[String]("b")
@@ -49,8 +46,7 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(q4.to[Set], Set(("2", "a"), ("3", "b")))
   }
 
-  def testNullability = run {
-
+  def testNullability {
     object T1 extends Table[String]("t1") {
       def a = column[String]("a")
       def * = a
@@ -85,9 +81,8 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
     assertFail { T4.insert(None) }
   }
 
-  def testLike = run {
-
-    object T1 extends Table[String]("t1") {
+  def testLike {
+    object T1 extends Table[String]("t1_2") {
       def a = column[String]("a")
       def * = a
     }

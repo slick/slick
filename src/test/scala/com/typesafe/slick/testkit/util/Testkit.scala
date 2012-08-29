@@ -2,24 +2,20 @@ package com.typesafe.slick.testkit.util
 
 import scala.language.existentials
 import org.junit.runner.Description
-import org.junit.runner.notification.{Failure, RunNotifier}
-import org.junit.runners.ParentRunner
-import org.junit.runners.model.{Statement, RunnerBuilder}
+import org.junit.runner.notification.RunNotifier
+import org.junit.runners.model._
+import org.junit.Assert._
 import scala.slick.session.Session
 import scala.slick.driver.{Capability, BasicProfile}
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.{tests => tk}
-import org.junit.internal.runners.model.MultipleFailureException
-import scala.collection.JavaConverters._
-import java.lang.reflect.{InvocationTargetException, Method}
-import org.junit.Assert._
+import java.lang.reflect.Method
 
 /** JUnit runner for the Slick driver test kit. */
-class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends ParentRunner[TestMethod](clazz) {
+class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
 
   val tests: Seq[Class[_ <: TestkitTest]] = Seq(
     classOf[tk.AggregateTest],
-    classOf[tk.BlobTest],
     classOf[tk.ColumnDefaultTest],
     classOf[tk.CountTest],
     classOf[tk.DataTypeTest],
@@ -52,7 +48,7 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
 
   def describeChild(ch: TestMethod) = ch.desc
 
-  def getChildren: java.util.List[TestMethod] = if(tdb.isEnabled) {
+  def getChildren = if(tdb.isEnabled) {
     tests.flatMap { t =>
       val ms = t.getMethods.filter { m =>
         m.getName.startsWith("test") && m.getParameterTypes.length == 0
@@ -61,34 +57,38 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
         val tname = m.getName + '[' + tdb.confName + ']'
         new TestMethod(tname, Description.createTestDescription(t, tname), m, t)
       }
-    }.toList.asJava
-  } else new java.util.ArrayList[TestMethod]
-
-  def runChild(ch: TestMethod, notifier: RunNotifier): Unit = {
-    notifier.fireTestStarted(ch.desc)
-    def addFailure(t: Throwable): Unit = t match {
-      case t: MultipleFailureException =>
-        t.getFailures.asScala.foreach(addFailure)
-      case i: InvocationTargetException =>
-        addFailure(i.getTargetException)
-      case t: Throwable =>
-        notifier.fireTestFailure(new Failure(ch.desc, t))
     }
-    try {
-      val cons = ch.cl.getConstructor(classOf[TestDB])
-      val testObject = cons.newInstance(tdb)
-      try ch.method.invoke(testObject) finally testObject.cleanup()
-    } catch {
-      case t: Throwable => addFailure(t)
-    } finally notifier.fireTestFinished(ch.desc)
-  }
+  } else Nil
 
-  override def classBlock(notifier: RunNotifier) = {
-    val s = super.classBlock(notifier)
-    new Statement { def evaluate() {
-      tdb.cleanUpBefore()
-      try s.evaluate() finally tdb.cleanUpAfter()
-    }}
+  override def runChildren(notifier: RunNotifier) = {
+    tdb.cleanUpBefore()
+    try {
+      val is = children.iterator.zipWithIndex.toIndexedSeq
+      val last = is.length - 1
+      var previousTestObject: TestkitTest = null
+      for((ch, idx) <- is) {
+        val desc = describeChild(ch)
+        notifier.fireTestStarted(desc)
+        try {
+          val testObject =
+            if(previousTestObject ne null) previousTestObject
+            else ch.cl.getConstructor(classOf[TestDB]).newInstance(tdb)
+          previousTestObject = null
+          try {
+            ch.method.invoke(testObject)
+          } finally {
+            val skipCleanup = idx == last || (testObject.reuseInstance && (ch.cl eq is(idx+1)._1.cl))
+            if(skipCleanup) {
+              if(idx == last) testObject.closeKeepAlive()
+              else previousTestObject = testObject
+            }
+            else testObject.cleanup()
+          }
+        } catch {
+          case t: Throwable => addFailure(t, notifier, desc)
+        } finally notifier.fireTestFinished(desc)
+      }
+    } finally tdb.cleanUpAfter()
   }
 }
 
@@ -99,19 +99,29 @@ case class TestMethod(name: String, desc: Description, method: Method, cl: Class
 abstract class TestkitTest {
   val tdb: TestDB
   private[this] var keepAliveSession: Session = null
-  protected val useKeepAlive = true
+
+  protected implicit def sharedSession = {
+    db
+    keepAliveSession
+  }
+
+  val reuseInstance = false
 
   lazy val db = {
     val db = tdb.createDB()
     keepAliveSession = db.createSession()
-    if(useKeepAlive && !tdb.isPersistent && tdb.isShared)
+    if(!tdb.isPersistent && tdb.isShared)
       keepAliveSession.conn // keep the database in memory with an extra connection
     db
   }
 
   def cleanup() = if(keepAliveSession ne null) {
     try if(tdb.isPersistent) tdb.dropUserArtifacts(keepAliveSession)
-    finally keepAliveSession.close()
+    finally closeKeepAlive()
+  }
+
+  def closeKeepAlive() = {
+    if(keepAliveSession ne null) keepAliveSession.close()
   }
 
   def assertFail(f: =>Unit) = {
@@ -132,6 +142,6 @@ abstract class TestkitTest {
   def bcap = BasicProfile.capabilities
   def ifCap[T](caps: Capability*)(f: => T): Unit =
     if(caps.forall(c => tdb.capabilities.contains(c))) f
-  def run[T](f: => T) = db.withSession(f)
-  def runIf[T](caps: Capability*)(f: => T) = ifCap(caps: _*)(db.withSession(f))
+  //def run[T](f: => T) = db.withSession(f)
+  //def runIf[T](caps: Capability*)(f: => T) = ifCap(caps: _*)(db.withSession(f))
 }
