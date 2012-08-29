@@ -41,6 +41,11 @@ trait DerbyDriver extends ExtendedDriver { driver =>
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.pagingNested
+    - BasicProfile.capabilities.zip
+  )
+
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
 
     override protected val scalarFrom = Some("sysibm.sysdummy1")

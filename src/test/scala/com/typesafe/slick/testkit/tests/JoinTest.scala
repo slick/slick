@@ -1,16 +1,12 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.driver.SQLiteDriver
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object JoinTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLiteMem, MSAccess, SQLServer)
-
-class JoinTest(val tdb: TestDB) extends DBTest {
+class JoinTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
@@ -28,7 +24,7 @@ class JoinTest(val tdb: TestDB) extends DBTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def test(): Unit = db withSession {
+  def test {
 
     (Categories.ddl ++ Posts.ddl).create
 

@@ -1,21 +1,19 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
 import scala.slick.ast.Dump
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object ForeignKeyTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
-
-class ForeignKeyTest(val tdb: TestDB) extends DBTest {
+class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
+  override val reuseInstance = true
+
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def test1(): Unit = db withSession {
+  def test1 {
 
     object Categories extends Table[(Int, String)]("categories") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -78,7 +76,7 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
     tdb.assertNotTablesExist("categories", "posts")
   }
 
-  @Test def test2(): Unit = db withSession {
+  def test2 {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")
@@ -123,9 +121,9 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
   }
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  @Test def testCombinedJoin(): Unit = db withSession {
+  def testCombinedJoin {
 
-    object A extends Table[(Int, String)]("a") {
+    object A extends Table[(Int, String)]("a2") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
       def * = id ~ s
@@ -135,11 +133,11 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
       def id = column[Int]("id", O.PrimaryKey)
       def aRef = column[Int]("aRef")
       def * = id ~ aRef
-      def a = foreignKey(n+"_a_fk", aRef, A)(_.id)
+      def a = foreignKey(n+"_a2_fk", aRef, A)(_.id)
     }
 
-    val B = new Dep("b")
-    val C = new Dep("c")
+    val B = new Dep("b2")
+    val C = new Dep("c2")
 
     (A.ddl ++ B.ddl ++ C.ddl).create
     A.insertAll((1, "a"), (2, "b"), (3, "c"), (4, "d"))
@@ -174,28 +172,28 @@ class ForeignKeyTest(val tdb: TestDB) extends DBTest {
     assertEquals(List("a", "a"), q3.list)
   }
 
-  @Test def testManyToMany(): Unit = db withSession {
+  def testManyToMany {
 
-    object A extends Table[(Int, String)]("a") {
+    object A extends Table[(Int, String)]("a3") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
       def * = id ~ s
       def bs = AToB.filter(_.aId === id).flatMap(_.bFK)
     }
 
-    object B extends Table[(Int, String)]("b") {
+    object B extends Table[(Int, String)]("b3") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
       def * = id ~ s
       def as = AToB.filter(_.bId === id).flatMap(_.aFK)
     }
 
-    object AToB extends Table[(Int, Int)]("a_to_b") {
+    object AToB extends Table[(Int, Int)]("a3_to_b3") {
       def aId = column[Int]("a")
       def bId = column[Int]("b")
       def * = aId ~ bId
-      def aFK = foreignKey("a_fk", aId, A)(a => a.id)
-      def bFK = foreignKey("b_fk", bId, B)(b => b.id)
+      def aFK = foreignKey("a3_fk", aId, A)(a => a.id)
+      def bFK = foreignKey("b3_fk", bId, B)(b => b.id)
     }
 
     (A.ddl ++ B.ddl ++ AToB.ddl).create

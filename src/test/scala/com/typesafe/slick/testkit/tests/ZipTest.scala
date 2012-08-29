@@ -1,15 +1,10 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
-import scala.slick.driver.{DerbyDriver, AccessDriver, SQLiteDriver}
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object ZipTest extends DBTestObject(H2Mem, Postgres, MySQL, HsqldbMem, SQLServer)
-
-class ZipTest(val tdb: TestDB) extends DBTest {
+class ZipTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
   object Categories extends Table[(Int, String)]("categories") {
@@ -25,7 +20,7 @@ class ZipTest(val tdb: TestDB) extends DBTest {
     def * = id ~ title ~ category
   }
 
-  @Test def testZip(): Unit = db withSession {
+  def testZip = ifCap(bcap.zip) {
     (Categories.ddl ++ Posts.ddl).create
 
     Categories insertAll (
@@ -33,14 +28,14 @@ class ZipTest(val tdb: TestDB) extends DBTest {
       (3, "Windows"),
       (2, "ScalaQuery"),
       (4, "Software")
-    )
+      )
     Posts.title ~ Posts.category insertAll (
       ("Test Post", -1),
       ("Formal Language Processing in Scala, Part 5", 1),
       ("Efficient Parameterized Queries in ScalaQuery", 2),
       ("Removing Libraries and HomeGroup icons from the Windows 7 desktop", 3),
       ("A ScalaQuery Update", 2)
-    )
+      )
 
     val q1 = for {
       (c, i) <- Categories.sortBy(_.id).zipWithIndex

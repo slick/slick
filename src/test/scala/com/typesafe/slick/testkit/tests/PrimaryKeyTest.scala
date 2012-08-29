@@ -1,18 +1,14 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object PrimaryKeyTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLiteMem, MSAccess, SQLServer)
-
-class PrimaryKeyTest(val tdb: TestDB) extends DBTest {
+class PrimaryKeyTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def test1(): Unit = db withSession {
+  def test {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")

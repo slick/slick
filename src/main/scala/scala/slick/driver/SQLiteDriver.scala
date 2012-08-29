@@ -34,6 +34,13 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.blob
+    - BasicProfile.capabilities.mutable
+    - BasicProfile.capabilities.sequence
+    - BasicProfile.capabilities.zip
+  )
+
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")

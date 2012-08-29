@@ -1,19 +1,15 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
 import java.sql.{Time, Date, Timestamp}
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object ScalarFunctionTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
-
-class ScalarFunctionTest(val tdb: TestDB) extends DBTest {
+class ScalarFunctionTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Implicit._
 
-  @Test def test = db withSession {
+  def test {
     def check[T](q: Query[ColumnBase[T], T], exp: T*) = {
       println("Executing: " + q.selectStatement)
       assertEquals(exp.toSet, q.list.toSet)
@@ -53,8 +49,8 @@ class ScalarFunctionTest(val tdb: TestDB) extends DBTest {
     check(Query(ConstColumn("  foo  ").ltrim), "foo  ")
     check(Query(ConstColumn("  foo  ").rtrim), "  foo")
     check(Query(ConstColumn("  foo  ").trim), "foo")
-    checkIn(Query(Functions.database.toLowerCase), tdb.dbName.toLowerCase, "")
-    checkIn(Query(Functions.user.toLowerCase), tdb.userName.toLowerCase, "")
+    assertEquals(1, Query(Functions.database.toLowerCase).list.length)
+    assertEquals(1, Query(Functions.user.toLowerCase).list.length)
     check(Query(ConstColumn(8) % 3 ), 2)
     check(Query(ConstColumn(-12.5).abs), 12.5)
     check(Query(ConstColumn(1.9).ceil), 2.0)

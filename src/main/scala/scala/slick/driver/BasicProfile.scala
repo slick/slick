@@ -18,6 +18,7 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
   val compiler = QueryCompiler.relational
   val Implicit = new Implicits
   val typeMapperDelegates = new TypeMapperDelegates
+  val capabilities: Set[Capability] = BasicProfile.capabilities.all
 
   final def createQueryBuilder(q: Query[_, _]): QueryBuilder = createQueryBuilder(new QueryBuilderInput(compiler.run(Node(q)), q))
   final def buildSelectStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildSelect
@@ -73,6 +74,32 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     * Session objects for DB connections, and commonly used query language
     * types and objects. */
   val simple = new SimpleQL
+}
+
+object BasicProfile {
+  object capabilities {
+    /** Supports the Blob data type */
+    val blob = Capability("basic.blob")
+    /** Supports default values in column definitions */
+    val columnDefaults = Capability("basic.columnDefaults")
+    /** Supports .drop on queries */
+    val pagingDrop = Capability("basic.pagingDrop")
+    /** Supports properly compositional paging in sub-queries */
+    val pagingNested = Capability("basic.pagingNested")
+    /** Supports mutable result sets */
+    val mutable = Capability("basic.mutable")
+    /** Supports sequences (real or emulated) */
+    val sequence = Capability("basic.sequence")
+    /** Can get current sequence value */
+    val currval = Capability("basic.currval")
+    /** Supports zip, zipWith and zipWithIndex */
+    val zip = Capability("basic.zip")
+
+    /** Supports all BasicProfile features which do not have separate capability values */
+    val basic = Capability("basic")
+    /** All basic capabilities */
+    val all = Set(basic, blob, columnDefaults, pagingDrop, pagingNested, mutable, sequence, currval, zip)
+  }
 }
 
 trait BasicDriver extends BasicProfile

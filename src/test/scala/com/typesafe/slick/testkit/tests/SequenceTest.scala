@@ -1,19 +1,17 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
 import scala.language.postfixOps
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.driver.{H2Driver, MySQLDriver, DerbyDriver}
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object SequenceTest extends DBTestObject(H2Mem, Postgres, MySQL, DerbyMem, HsqldbMem)
-
-class SequenceTest(val tdb: TestDB) extends DBTest {
+class SequenceTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  @Test def test1(): Unit = db withSession {
+  override val reuseInstance = true
+
+  def test1 = ifCap(bcap.sequence) {
     case class User(id: Int, first: String, last: String)
 
     object Users extends Table[Int]("users") {
@@ -33,7 +31,7 @@ class SequenceTest(val tdb: TestDB) extends DBTest {
     assertEquals(Set((200, 1), (210, 2), (220, 3)), q1.list.toSet)
   }
 
-  @Test def test2(): Unit = db withSession {
+  def test2 = ifCap(bcap.sequence) {
     val s1 = Sequence[Int]("s1")
     val s2 = Sequence[Int]("s2") start 3
     val s3 = Sequence[Int]("s3") start 3 inc 2

@@ -1,20 +1,18 @@
-package scala.slick.test.lifted
+package com.typesafe.slick.testkit.tests
 
-import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
 import scala.slick.driver.{AccessDriver, H2Driver}
+import scala.slick.testutil.TestDB
+import com.typesafe.slick.testkit.util.TestkitTest
 
-object InsertTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, MSAccess, SQLServer)
-
-class InsertTest(val tdb: TestDB) extends DBTest {
+class InsertTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 
-  @Test def testSimple(): Unit = db withSession {
+  override val reuseInstance = true
+
+  def testSimple {
 
     class TestTable(name: String) extends Table[(Int, String)](name) {
       def id = column[Int]("id")
@@ -50,7 +48,7 @@ class InsertTest(val tdb: TestDB) extends DBTest {
     assertEquals(Set((1,"A"), (2,"B"), (42,"X"), (43,"Y")), Query(Dst2).list.toSet)
   }
 
-  @Test def testReturning(): Unit = db withSession {
+  def testReturning {
 
     object A extends Table[(Int, String, String)]("a") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
