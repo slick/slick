@@ -7,7 +7,6 @@ import org.junit.runners.model._
 import org.junit.Assert._
 import scala.slick.session.Session
 import scala.slick.driver.{Capability, BasicProfile}
-import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.{tests => tk}
 import java.lang.reflect.Method
 

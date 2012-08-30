@@ -2,8 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import scala.slick.lifted._
 import scala.slick.ast.Dump
-import scala.slick.testutil.TestDB
-import com.typesafe.slick.testkit.util.TestkitTest
+import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class OldTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table

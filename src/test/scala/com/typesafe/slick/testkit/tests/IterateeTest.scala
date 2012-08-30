@@ -3,8 +3,7 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.util.iter._
-import scala.slick.testutil.TestDB
-import com.typesafe.slick.testkit.util.TestkitTest
+import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class IterateeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table

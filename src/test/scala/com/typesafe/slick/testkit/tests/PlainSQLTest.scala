@@ -2,9 +2,8 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.jdbc.{GetResult, StaticQuery => Q, DynamicQuery}
-import scala.slick.testutil.{TestDBOptions, TestDB}
 import Q.interpolation
-import com.typesafe.slick.testkit.util.TestkitTest
+import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
 
@@ -12,7 +11,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
 
   case class User(id:Int, name:String)
 
-  def testSimple = ifCap(TestDBOptions.plainSql) {
+  def testSimple = ifCap(TestDB.plainSql) {
     def getUsers(id: Option[Int]) = {
       val q = Q[User] + "select id, name from users "
       id map { q + "where id =" +? _ } getOrElse q
@@ -92,7 +91,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
     tdb.assertUnquotedTablesExist("USERS")
   }
 
-  def testInterpolation = ifCap(TestDBOptions.plainSql) {
+  def testInterpolation = ifCap(TestDB.plainSql) {
     def userForID(id: Int) = sql"select id, name from users where id = $id".as[User]
     def userForIdAndName(id: Int, name: String) = sql"select id, name from users where id = $id and name = $name".as[User]
 
@@ -120,7 +119,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
   }
 
   @deprecated("DynamicQuery replaced by better StaticQuery", "0.10")
-  def testDynamic = ifCap(TestDBOptions.plainSql) {
+  def testDynamic = ifCap(TestDB.plainSql) {
     case class GetUsers(id: Option[Int]) extends DynamicQuery[User] {
       select ~ "id, name from users"
       id foreach { this ~ "where id =" ~? _ }

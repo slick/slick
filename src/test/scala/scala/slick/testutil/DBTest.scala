@@ -5,6 +5,7 @@ import org.junit.{Before, After}
 import org.junit.runner.{JUnitCore, RunWith}
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
+import com.typesafe.slick.testkit.util.TestDB
 
 @RunWith(classOf[Parameterized])
 abstract class DBTest {

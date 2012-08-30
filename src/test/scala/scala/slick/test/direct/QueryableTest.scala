@@ -11,13 +11,13 @@ import scala.slick.ast._
 import scala.slick.direct._
 import scala.slick.direct.AnnotationMapper._
 import scala.slick.testutil._
-import scala.slick.testutil.TestDB._
 import slick.jdbc.StaticQuery.interpolation
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.ClassTag
+import com.typesafe.slick.testkit.util.TestDB
 
 
-object QueryableTest extends DBTestObject(H2Mem)
+object QueryableTest extends DBTestObject(TestDBs.H2Mem)
 
 class Foo[T]( val q : Queryable[T] )
 

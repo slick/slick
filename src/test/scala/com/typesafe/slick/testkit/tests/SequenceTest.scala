@@ -2,8 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import scala.language.postfixOps
 import org.junit.Assert._
-import scala.slick.testutil.TestDB
-import com.typesafe.slick.testkit.util.TestkitTest
+import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class SequenceTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._

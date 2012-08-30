@@ -5,8 +5,7 @@ import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.util.CloseableIterator
 import scala.slick.session.Session
-import scala.slick.testutil.TestDB
-import com.typesafe.slick.testkit.util.TestkitTest
+import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class InvokerTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table

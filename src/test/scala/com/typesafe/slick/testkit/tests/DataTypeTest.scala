@@ -2,8 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.testutil.TestDB
-import com.typesafe.slick.testkit.util.TestkitTest
+import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.Blob
 import javax.sql.rowset.serial.SerialBlob

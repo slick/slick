@@ -4,8 +4,7 @@ import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.jdbc.StaticQuery._
 import scala.slick.ast._
-import scala.slick.testutil.TestDB
-import com.typesafe.slick.testkit.util.TestkitTest
+import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table

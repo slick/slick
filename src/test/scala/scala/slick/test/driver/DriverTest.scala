@@ -2,40 +2,40 @@ package scala.slick.test.driver
 
 import org.junit.runner.RunWith
 import com.typesafe.slick.testkit.util.{DriverTest, Testkit}
-import scala.slick.testutil.TestDB
+import scala.slick.testutil.TestDBs
 
 @RunWith(classOf[Testkit])
-class H2MemTest extends DriverTest(TestDB.H2Mem)
+class H2MemTest extends DriverTest(TestDBs.H2Mem)
 
 @RunWith(classOf[Testkit])
-class H2DiskTest extends DriverTest(TestDB.H2Disk)
+class H2DiskTest extends DriverTest(TestDBs.H2Disk)
 
 @RunWith(classOf[Testkit])
-class HsqldbMemTest extends DriverTest(TestDB.HsqldbMem)
+class HsqldbMemTest extends DriverTest(TestDBs.HsqldbMem)
 
 @RunWith(classOf[Testkit])
-class HsqldbDiskTest extends DriverTest(TestDB.HsqldbDisk)
+class HsqldbDiskTest extends DriverTest(TestDBs.HsqldbDisk)
 
 @RunWith(classOf[Testkit])
-class SQLiteMemTest extends DriverTest(TestDB.SQLiteMem)
+class SQLiteMemTest extends DriverTest(TestDBs.SQLiteMem)
 
 @RunWith(classOf[Testkit])
-class SQLiteDiskTest extends DriverTest(TestDB.SQLiteDisk)
+class SQLiteDiskTest extends DriverTest(TestDBs.SQLiteDisk)
 
 @RunWith(classOf[Testkit])
-class DerbyMemTest extends DriverTest(TestDB.DerbyMem)
+class DerbyMemTest extends DriverTest(TestDBs.DerbyMem)
 
 @RunWith(classOf[Testkit])
-class DerbyDiskTest extends DriverTest(TestDB.DerbyDisk)
+class DerbyDiskTest extends DriverTest(TestDBs.DerbyDisk)
 
 @RunWith(classOf[Testkit])
-class PostgresTest extends DriverTest(TestDB.Postgres)
+class PostgresTest extends DriverTest(TestDBs.Postgres)
 
 @RunWith(classOf[Testkit])
-class MySQLTest extends DriverTest(TestDB.MySQL)
+class MySQLTest extends DriverTest(TestDBs.MySQL)
 
 @RunWith(classOf[Testkit])
-class SQLServerTest extends DriverTest(TestDB.SQLServer)
+class SQLServerTest extends DriverTest(TestDBs.SQLServer)
 
 @RunWith(classOf[Testkit])
-class MSAccessTest extends DriverTest(TestDB.MSAccess)
+class MSAccessTest extends DriverTest(TestDBs.MSAccess)
