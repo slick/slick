@@ -134,7 +134,6 @@ object TestDBs {
           from information_schema.table_constraints
           where constraint_type = 'FOREIGN KEY'
         """).list
-      println("##### "+constraints)
       for((c, t) <- constraints if !c.startsWith("SQL"))
         (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
       for(t <- getLocalTables)
@@ -200,24 +199,28 @@ abstract class DerbyDB(confName: String) extends TestDB(confName) {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
     tables.list.map(_._3).sorted
   }
-  /*override def dropUserArtifacts(implicit session: Session) = {
-    cleanUpAfter()
-    cleanUpBefore()
-  }*/
   override def dropUserArtifacts(implicit session: Session) = {
-    try { (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute }
-    catch { case ignore: SQLException => }
-    val constraints = (Q[(String, String)]+"""
-          select c.constraintname, t.tablename
-          from sys.sysconstraints c, sys.sysschemas s, sys.systables t
-          where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
-                                           """).list
-    for((c, t) <- constraints if !c.startsWith("SQL"))
-      (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
-    for(t <- getLocalTables)
-      (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
-    for(t <- getLocalSequences)
-      (Q.u+"drop sequence "+driver.quoteIdentifier(t)).execute()
+    try {
+      try { (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute }
+      catch { case ignore: SQLException => }
+      val constraints = (Q[(String, String)]+"""
+            select c.constraintname, t.tablename
+            from sys.sysconstraints c, sys.sysschemas s, sys.systables t
+            where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
+                                             """).list
+      for((c, t) <- constraints if !c.startsWith("SQL"))
+        (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
+      for(t <- getLocalTables)
+        (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
+      for(t <- getLocalSequences)
+        (Q.u+"drop sequence "+driver.quoteIdentifier(t)).execute()
+    } catch {
+      case e: Exception =>
+        println("[Caught Exception while dropping user artifacts in Derby: "+e+"]")
+        session.close()
+        cleanUpAfter()
+        cleanUpBefore()
+    }
   }
   override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }
