@@ -1,12 +1,10 @@
 package com.typesafe.slick.testkit.tests
 
-import scala.slick.lifted._
 import scala.slick.ast.Dump
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class OldTest(val tdb: TestDB) extends TestkitTest {
-  import tdb.profile.Table
-  import tdb.profile.Implicit._
+  import tdb.profile.simple._
 
   @deprecated("Testing deprecated methods Query#sub, Query.orderBy and BasicProfile.buildInsertStatement", "0.10.0-M2")
   def test {
@@ -28,7 +26,7 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
       def * = userID ~ orderID
     }
 
-    def dump(n: String, q: Query[ColumnBase[_], _]) {
+    def dump(n: String, q: Query[Rep[_], _]) {
       Dump(q, n + ": ")
       println(tdb.driver.buildSelectStatement(q))
       println()

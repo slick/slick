@@ -1,19 +1,18 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.lifted._
 import java.sql.{Time, Date, Timestamp}
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class ScalarFunctionTest(val tdb: TestDB) extends TestkitTest {
-  import tdb.profile.Implicit._
+  import tdb.profile.simple._
 
   def test {
-    def check[T](q: Query[ColumnBase[T], T], exp: T*) = {
+    def check[T](q: Query[Rep[T], T], exp: T*) = {
       println("Executing: " + q.selectStatement)
       assertEquals(exp.toSet, q.list.toSet)
     }
-    def checkIn[T](q: Query[ColumnBase[T], T], exp: T*) = {
+    def checkIn[T](q: Query[Rep[T], T], exp: T*) = {
       println("Executing: " + q.selectStatement)
       val found = q.list.toSet
       assert(found.forall(exp contains _), "all of result "+found+" should be in expected "+exp)

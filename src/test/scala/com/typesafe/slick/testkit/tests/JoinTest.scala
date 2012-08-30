@@ -1,12 +1,10 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.lifted._
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class JoinTest(val tdb: TestDB) extends TestkitTest {
-  import tdb.profile.Table
-  import tdb.profile.Implicit._
+  import tdb.profile.simple._
 
   object Categories extends Table[(Int, String)]("categories") {
     def id = column[Int]("id")

@@ -1,13 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.lifted._
 import scala.slick.ast.Dump
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class CountTest(val tdb: TestDB) extends TestkitTest {
-  import tdb.profile.Table
-  import tdb.profile.Implicit._
+  import tdb.profile.simple._
 
   def test {
     object TestTable extends Table[Int]("TEST") {
