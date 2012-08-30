@@ -66,7 +66,10 @@ trait AccessDriver extends ExtendedDriver { driver =>
     - BasicProfile.capabilities.zip
     )
 
-  override val Implicit: Implicits = new Implicits {
+  override val Implicit: Implicits = new Implicits
+  override val simple: SimpleQL = new Implicits with SimpleQL
+
+  class Implicits extends super.Implicits {
     override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[T, U] = new QueryInvoker(q)
   }
 
