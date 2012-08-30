@@ -226,7 +226,8 @@ abstract class DerbyDB(confName: String) extends TestDB(confName) {
     cleanUpBefore()
   }*/
   override def dropUserArtifacts(implicit session: Session) = {
-    (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute
+    try { (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute }
+    catch { case ignore: SQLException => }
     val constraints = (Q[(String, String)]+"""
           select c.constraintname, t.tablename
           from sys.sysconstraints c, sys.sysschemas s, sys.systables t
