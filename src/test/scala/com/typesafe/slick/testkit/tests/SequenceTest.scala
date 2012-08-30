@@ -2,7 +2,6 @@ package com.typesafe.slick.testkit.tests
 
 import scala.language.postfixOps
 import org.junit.Assert._
-import scala.slick.driver.{H2Driver, MySQLDriver, DerbyDriver}
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
@@ -29,6 +28,11 @@ class SequenceTest(val tdb: TestDB) extends TestkitTest {
     val q1 = for(u <- Users) yield (mySequence.next, u.id)
     println("q1: " + q1.selectStatement)
     assertEquals(Set((200, 1), (210, 2), (220, 3)), q1.list.toSet)
+
+    ifCap(bcap.sequenceCurr) {
+      val curr = mySequence.curr.run
+      assertEquals(220, curr)
+    }
   }
 
   def test2 = ifCap(bcap.sequence) {
@@ -53,15 +57,12 @@ class SequenceTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(List(1, 2, 3, 4, 5), values(s1))
     assertEquals(List(3, 4, 5, 6, 7), values(s2))
     assertEquals(List(3, 5, 7, 9, 11), values(s3))
-    if(tdb.driver != H2Driver) {
-      // H2 does not support MINVALUE, MAXVALUE and CYCLE
-      if(tdb.driver != DerbyDriver) {
-        // Cycling is broken in Derby. It cycles to the start value instead of min or max
+    ifCap(bcap.sequenceMin, bcap.sequenceMax) {
+      ifCap(bcap.sequenceCycle) {
         assertEquals(List(3, 4, 5, 2, 3), values(s4))
         assertEquals(List(3, 2, 5, 4, 3), values(s5))
       }
-      if(tdb.driver != MySQLDriver) {
-        // MySQL sequence emulation does not support non-cycling limited sequences
+      ifCap(bcap.sequenceLimited) {
         assertEquals(List(3, 4, 5), values(s6, 3))
         assertFail(values(s6, 1, false))
       }

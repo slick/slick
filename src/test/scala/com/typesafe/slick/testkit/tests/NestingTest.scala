@@ -2,7 +2,6 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session._
 import scala.slick.ast.Dump
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest

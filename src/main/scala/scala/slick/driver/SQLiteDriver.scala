@@ -8,38 +8,49 @@ import java.sql.{Timestamp, Time, Date}
 /**
  * Slick driver for SQLite.
  *
- * <p>This driver implements the ExtendedProfile with the following
- * limitations:</p>
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
+ * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ *
  * <ul>
- *   <li>Sequences are not supported because SQLite does not have them.</li>
- *   <li>Blobs are not supported by the SQLite JDBC driver (but binary data in
- *     the form of <code>Array[Byte]</code> is).</li>
- *   <li>SQLite does not allow mutation of result sets. All cursors are
- *     read-only.</li>
- *   <li><code>Functions.user</code> and <code>Functions.database</code> are
- *     not available in SQLite. Slick will return empty strings for
- *     both.</li>
- *   <li>Row numbers (required by <code>zip</code> and <code>zipWithIndex</code>)
- *     are not supported. Trying to generate SQL code which uses this feature
- *     throws a SlickException.</li>
- *   <li>When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
+ *   <li><b>functionDatabase</b>, <b>functionUser</b>:
+ *     <code>Functions.user</code> and <code>Functions.database</code> are
+ *     not available in SQLite. Slick will return empty strings for both.</li>
+ *   <li><b>joinFull</b>, <b>joinRight</b>: Right and full outer joins are
+ *     not supported by SQLite.</li>
+ *   <li><b>mutable</b>: SQLite does not allow mutation of result sets. All
+ *     cursors are read-only.</li>
+ *   <li><b>sequence</b>: Sequences are not supported by SQLite.</li>
+ *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
+ *     operation, only a single column may be specified which must be the
+ *     table's AutoInc column.</li>
+ *   <li><b>typeBlob</b>: Blobs are not supported by the SQLite JDBC driver
+ *     (but binary data in the form of <code>Array[Byte]</code> is).</li>
+ *   <li><b>zip</b>: Row numbers (required by <code>zip</code> and
+ *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
+ *     code which uses this feature throws a SlickException.</li>
  * </ul>
+ *
+ * @author Paul Snively
+ * @author Stefan Zeiger
  */
 trait SQLiteDriver extends ExtendedDriver { driver =>
-  override val supportsArbitraryInsertReturnColumns = false
+
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.functionDatabase
+    - BasicProfile.capabilities.functionUser
+    - BasicProfile.capabilities.joinFull
+    - BasicProfile.capabilities.joinRight
+    - BasicProfile.capabilities.mutable
+    - BasicProfile.capabilities.sequence
+    - BasicProfile.capabilities.returnInsertOther
+    - BasicProfile.capabilities.typeBlob
+    - BasicProfile.capabilities.zip
+  )
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.blob
-    - BasicProfile.capabilities.mutable
-    - BasicProfile.capabilities.sequence
-    - BasicProfile.capabilities.zip
-  )
 
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val supportsTuples = false

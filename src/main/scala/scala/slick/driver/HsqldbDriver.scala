@@ -10,18 +10,23 @@ import scala.slick.ast.ExtraUtil._
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
  * (starting with version 2.0).
- * 
- * <p>This driver implements the ExtendedProfile with the following
- * limitations:</p>
+ *
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
+ * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ *
  * <ul>
- *   <li><code>Sequence.curr</code> to get the current value of a sequence is
- *     not supported by Hsqldb. Trying to generate SQL code which uses this
- *     feature throws a SlickException.</li>
+ *   <li><b>sequenceCurr</b>: <code>Sequence.curr</code> to get the current
+ *     value of a sequence is not supported by Hsqldb. Trying to generate SQL
+ *     code which uses this feature throws a SlickException.</li>
  * </ul>
  * 
  * @author szeiger
  */
 trait HsqldbDriver extends ExtendedDriver { driver =>
+
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.sequenceCurr
+  )
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)

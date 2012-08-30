@@ -78,27 +78,64 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
 
 object BasicProfile {
   object capabilities {
-    /** Supports the Blob data type */
-    val blob = Capability("basic.blob")
     /** Supports default values in column definitions */
     val columnDefaults = Capability("basic.columnDefaults")
+    /** Supports foreignKeyActions */
+    val foreignKeyActions = Capability("basic.foreignKeyActions")
+    /** Supports the ''database'' function to get the current database name.
+      * A driver without this capability will return an empty string. */
+    val functionDatabase = Capability("basic.functionDatabase")
+    /** Supports the ''user'' function to get the current database user.
+      * A driver without this capability will return an empty string. */
+    val functionUser = Capability("basic.functionUser")
+    /** Supports full outer joins */
+    val joinFull = Capability("basic.joinFull")
+    /** Supports right outer joins */
+    val joinRight = Capability("basic.joinRight")
+    /** Supports escape characters in "like" */
+    val likeEscape = Capability("basic.likeEscape")
+    /** Supports mutable result sets */
+    val mutable = Capability("basic.mutable")
     /** Supports .drop on queries */
     val pagingDrop = Capability("basic.pagingDrop")
     /** Supports properly compositional paging in sub-queries */
     val pagingNested = Capability("basic.pagingNested")
-    /** Supports mutable result sets */
-    val mutable = Capability("basic.mutable")
+    /** Returns only the requested number of rows even if some rows are not
+      * unique. Without this capability, non-unique rows may be counted as
+      * only one row each. */
+    val pagingPreciseTake = Capability("basic.pagingPreciseTake")
+    /** Can return primary key of inserted row */
+    val returnInsertKey = Capability("basic.returnInsertKey")
+    /** Can also return non-primary-key columns of inserted row */
+    val returnInsertOther = Capability("basic.returnInsertOther")
     /** Supports sequences (real or emulated) */
     val sequence = Capability("basic.sequence")
     /** Can get current sequence value */
-    val currval = Capability("basic.currval")
+    val sequenceCurr = Capability("basic.sequenceCurr")
+    /** Supports cyclic sequences */
+    val sequenceCycle = Capability("basic.sequenceCycle")
+    /** Supports non-cyclic limited sequences (with a max value) */
+    val sequenceLimited = Capability("basic.sequenceLimited")
+    /** Supports max value for sequences */
+    val sequenceMax = Capability("basic.sequenceMax")
+    /** Supports min value for sequences */
+    val sequenceMin = Capability("basic.sequenceMin")
+    /** Supports the Blob data type */
+    val typeBlob = Capability("basic.typeBlob")
+    /** Supports the Long data type */
+    val typeLong = Capability("basic.typeLong")
     /** Supports zip, zipWith and zipWithIndex */
     val zip = Capability("basic.zip")
 
     /** Supports all BasicProfile features which do not have separate capability values */
     val basic = Capability("basic")
+
     /** All basic capabilities */
-    val all = Set(basic, blob, columnDefaults, pagingDrop, pagingNested, mutable, sequence, currval, zip)
+    val all = Set(basic, columnDefaults, foreignKeyActions, joinFull,
+      joinRight, likeEscape, mutable, pagingDrop, pagingNested,
+      pagingPreciseTake, returnInsertKey, returnInsertOther, sequence,
+      sequenceCurr, sequenceCycle, sequenceLimited, sequenceMax, sequenceMin,
+      typeBlob, typeLong, zip)
   }
 }
 

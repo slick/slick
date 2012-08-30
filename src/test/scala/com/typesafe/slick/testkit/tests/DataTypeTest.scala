@@ -2,7 +2,6 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.driver.AccessDriver
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
@@ -62,7 +61,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
       (5, Int.MaxValue, 0L, Short.MaxValue, Byte.MaxValue, 0.0, 0.0f)
     ))
 
-    if(tdb.driver != AccessDriver) { // No proper LONG type support in Access via JDBC
+    ifCap(bcap.typeLong) {
       test(List(
         (1, 0, Long.MinValue, 0, 0, 0.0, 0.0f),
         (5, 0, Long.MaxValue, 0, 0, 0.0, 0.0f)
@@ -70,7 +69,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  def testBlob = ifCap(bcap.blob) {
+  def testBlob = ifCap(bcap.typeBlob) {
     object T extends Table[(Int, Blob)]("test3") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
@@ -88,7 +87,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  def testMappedBlob = ifCap(bcap.blob) {
+  def testMappedBlob = ifCap(bcap.typeBlob) {
 
     case class Serialized[T](value: T)
 

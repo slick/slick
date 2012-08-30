@@ -2,7 +2,6 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.driver.{AccessDriver, H2Driver}
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
@@ -62,14 +61,15 @@ class InsertTest(val tdb: TestDB) extends TestkitTest {
 
     A.ddl.create
 
-    if(tdb.driver != AccessDriver) {
+    ifCap(bcap.returnInsertKey) {
       val id1: Int = A.ins1.insert("a", "b")
       assertEquals(1, id1)
 
-      if(tdb.driver.supportsArbitraryInsertReturnColumns) {
+      ifCap(bcap.returnInsertOther) {
         val id2: (Int, String) = A.ins2.insert("c", "d")
         assertEquals((2, "c"), id2)
-      } else {
+      }
+      ifNotCap(bcap.returnInsertOther) {
         val id2: Int = A.ins1.insert("c", "d")
         assertEquals(2, id2)
       }

@@ -7,44 +7,54 @@ import scala.slick.ast._
 /**
  * Slick driver for Derby/JavaDB.
  *
- * <p>This driver implements the ExtendedProfile with the following
- * limitations:</p>
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
+ * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ *
  * <ul>
- *   <li><code>Functions.database</code> is not available in Derby. Slick
+ *   <li><b>functionDatabase</b>:
+ *     <code>Functions.database</code> is not available in Derby. Slick
  *     will return an empty string instead.</li>
- *   <li><code>Sequence.curr</code> to get the current value of a sequence is
- *     not supported by Derby. Trying to generate SQL code which uses this
- *     feature throws a SlickException.</li>
- *   <li>Sequence cycling is supported but does not conform to SQL:2008
- *     semantics. Derby cycles back to the START value instead of MINVALUE or
- *     MAXVALUE.</li>
- *   <li>Ordered sub-queries and window functions with orderings are currently
- *     not supported by Derby. These are required by <code>zip</code> and
- *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
- *     feature causes the DB to throw an exception. We do not prevent these
- *     queries from being generated because we expect future Derby versions to
- *     support them with the standard SQL:2003 syntax (see
- *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber"
+ *   <li><b>pagingNested</b>: See
+ *     <a href="https://issues.apache.org/jira/browse/DERBY-5911" target="_parent"
+ *     >DERBY-5911</a>.</li>
+ *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
+ *     operation, only a single column may be specified which must be the
+ *     table's AutoInc column.</li>
+ *   <li><b>sequenceCurr</b>: <code>Sequence.curr</code> to get the current
+ *     value of a sequence is not supported by Derby. Trying to generate SQL
+ *     code which uses this feature throws a SlickException.</li>
+ *   <li><b>sequenceCycle</b>: Sequence cycling is supported but does not
+ *     conform to SQL:2008 semantics. Derby cycles back to the START value
+ *     instead of MINVALUE or MAXVALUE.</li>
+ *   <li><b>zip</b>: Ordered sub-queries and window functions with orderings
+ *     are currently not supported by Derby. These are required by
+ *     <code>zip</code> and <code>zipWithIndex</code>. Trying to generate SQL
+ *     code which uses this feature causes the DB to throw an exception. We do
+ *     not prevent these queries from being generated because we expect future
+ *     Derby versions to support them with the standard SQL:2003 syntax (see
+ *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber" target="_parent"
  *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
- *   <li>When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
  * </ul>
  *
  * @author szeiger
  */
 trait DerbyDriver extends ExtendedDriver { driver =>
-  override val supportsArbitraryInsertReturnColumns = false
+
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.functionDatabase
+    - BasicProfile.capabilities.pagingNested
+    - BasicProfile.capabilities.returnInsertOther
+    - BasicProfile.capabilities.sequenceCurr
+    // Cycling is broken in Derby. It cycles to the start value instead of min or max
+    - BasicProfile.capabilities.sequenceCycle
+    - BasicProfile.capabilities.zip
+  )
 
   override val typeMapperDelegates = new TypeMapperDelegates
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
-
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.pagingNested
-    - BasicProfile.capabilities.zip
-  )
 
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
 
@@ -74,7 +84,6 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         b += " as " += mapTypeName(tmd) += ")"
       case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
-      case Library.Database() => b += "''"
       case _ => super.expr(c, skipParens)
     }
   }

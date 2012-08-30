@@ -2,7 +2,6 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.driver.SQLiteDriver
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
@@ -81,8 +80,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
     q3b.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => p._1 ~ p._2).list)
 
-    if(tdb.driver != SQLiteDriver) {
-    // SQLite does not support right and full outer joins
+    ifCap(bcap.joinRight) {
       val q4 = for {
         (c,p) <- Categories rightJoin Posts on (_.id is _.category)
         _ <- Query orderBy p.id

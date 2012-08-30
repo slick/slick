@@ -9,19 +9,30 @@ import scala.slick.ast.ExtraUtil._
 /**
  * Slick driver for MySQL.
  *
- * <p>This driver implements the ExtendedProfile with the following
- * limitations:</p>
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
+ * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ *
  * <ul>
- *   <li><code>Sequence.curr</code> to get the current value of a sequence is
- *     not supported. Other sequence features are emulated.</li>
- *   <li>When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
+ *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
+ *     operation, only a single column may be specified which must be the
+ *     table's AutoInc column.</li>
+ *   <li><b>sequenceLimited</b>: Non-cyclic sequence may not have an upper
+ *     limit.</li>
  * </ul>
  *
+ * Sequences are supported through an emulation which requires the schema to
+ * be created by Slick. You can also use an existing schema with your own
+ * sequence emulation if you provide for each sequence ''s'' a pair of
+ * functions <code>s_nextval</code> and <code>s_currval</code>.
+
  * @author szeiger
  */
 trait MySQLDriver extends ExtendedDriver { driver =>
-  override val supportsArbitraryInsertReturnColumns = false
+
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.returnInsertOther
+    - BasicProfile.capabilities.sequenceLimited
+  )
 
   override val typeMapperDelegates = new TypeMapperDelegates
 

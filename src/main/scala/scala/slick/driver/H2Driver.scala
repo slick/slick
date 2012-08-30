@@ -9,17 +9,27 @@ import scala.slick.SlickException
 /**
  * Slick driver for H2.
  *
- * <p>This driver implements the ExtendedProfile with the following
- * limitations:</p>
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
+ * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ *
  * <ul>
- *   <li>When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
+ *   <li><b>sequenceMin</b>, <b>sequenceMax</b>, <b>sequenceCycle</b>:
+ *     H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
+ *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
+ *     operation, only a single column may be specified which must be the
+ *     table's AutoInc column.</li>
  * </ul>
  *
  * @author szeiger
  */
 trait H2Driver extends ExtendedDriver { driver =>
-  override val supportsArbitraryInsertReturnColumns = false
+
+  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
+    - BasicProfile.capabilities.sequenceMin
+    - BasicProfile.capabilities.sequenceMax
+    - BasicProfile.capabilities.sequenceCycle
+    - BasicProfile.capabilities.returnInsertOther
+  )
 
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
 

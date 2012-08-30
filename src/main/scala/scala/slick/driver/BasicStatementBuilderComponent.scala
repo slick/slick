@@ -10,9 +10,6 @@ import scala.slick.compiler.CompilationState
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
-  // Immutable config options (to be overridden by subclasses)
-  val supportsArbitraryInsertReturnColumns: Boolean = true
-
   abstract class StatementPart
   case object SelectPart extends StatementPart
   case object FromPart extends StatementPart
@@ -220,6 +217,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += concatOperator.get
         expr(r)
         if(!skipParens) b += ')'
+      case Library.User() if !capabilities.contains(BasicProfile.capabilities.functionUser) =>
+        b += "''"
+      case Library.Database() if !capabilities.contains(BasicProfile.capabilities.functionDatabase) =>
+        b += "''"
       case s: SimpleFunction =>
         if(s.scalar) b += "{fn "
         b += s.name += '('
@@ -400,7 +401,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       if(r.table != table)
         throw new SlickException("Returned key columns must be from same table as inserted columns ("+
           r.table+" != "+table+")")
-      if(!supportsArbitraryInsertReturnColumns && (r.fields.size > 1 || !r.fields.head.options.contains(ColumnOption.AutoInc)))
+      if(!capabilities.contains(BasicProfile.capabilities.returnInsertOther) && (r.fields.size > 1 || !r.fields.head.options.contains(ColumnOption.AutoInc)))
         throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
       r.fields
     }

@@ -1,7 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.driver.AccessDriver
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
@@ -98,7 +97,7 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
     println("q2: " + q2.selectStatement)
     assertEquals(Set("foo", "foobar", "foo%"), q2.to[Set])
 
-    if(tdb.driver != AccessDriver) { // Access does not support ESCAPE
+    ifCap(bcap.likeEscape) {
       val q3 = for { t1 <- T1 if t1.a.like("foo^%", '^') } yield t1.a
       println("q3: " + q3.selectStatement)
       assertEquals(Set("foo%"), q3.to[Set])

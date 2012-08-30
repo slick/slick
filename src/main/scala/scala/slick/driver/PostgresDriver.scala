@@ -8,7 +8,13 @@ import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 /**
  * Slick driver for PostgreSQL.
  *
- * All ExtendedProfile features are supported.
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
+ * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ *
+ * <ul>
+ *   <li><b>typeBlob</b>: Blobs are not supported (but binary data in the form
+ *     of <code>Array[Byte]</code> is)</li>
+ * </ul>
  *
  * @author szeiger
  */
@@ -19,7 +25,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.blob
+    - BasicProfile.capabilities.typeBlob
   )
 
   override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {

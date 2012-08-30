@@ -5,8 +5,6 @@ import scala.slick.ast.Dump
 import scala.slick.testutil.TestDB
 import com.typesafe.slick.testkit.util.TestkitTest
 
-//object OldTest extends TestkitTestObject(H2Mem)
-
 class OldTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._

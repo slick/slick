@@ -142,6 +142,6 @@ abstract class TestkitTest {
   def bcap = BasicProfile.capabilities
   def ifCap[T](caps: Capability*)(f: => T): Unit =
     if(caps.forall(c => tdb.capabilities.contains(c))) f
-  //def run[T](f: => T) = db.withSession(f)
-  //def runIf[T](caps: Capability*)(f: => T) = ifCap(caps: _*)(db.withSession(f))
+  def ifNotCap[T](caps: Capability*)(f: => T): Unit =
+    if(!caps.forall(c => tdb.capabilities.contains(c))) f
 }
