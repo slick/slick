@@ -12,7 +12,7 @@ trait Aliases {
   type ConstColumn[T] = lifted.ConstColumn[T]
   val ConstColumn = lifted.ConstColumn
   val Case = lifted.Case
-  type Re[T] = lifted.Rep[T]
+  type Rep[T] = lifted.Rep[T]
   val Functions = lifted.Functions
   type Parameters[PU, PP] = lifted.Parameters[PU, PP]
   val Parameters = lifted.Parameters
