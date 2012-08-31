@@ -8,12 +8,13 @@ import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 /**
  * Slick driver for PostgreSQL.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
- * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * ''without'' the following capabilities:
  *
  * <ul>
- *   <li><b>typeBlob</b>: Blobs are not supported (but binary data in the form
- *     of <code>Array[Byte]</code> is)</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]:
+ *   Blobs are not supported (but binary data in the form of
+ *   <code>Array[Byte]</code> is).</li>
  * </ul>
  *
  * @author szeiger

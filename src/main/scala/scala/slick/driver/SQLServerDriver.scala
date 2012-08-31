@@ -10,15 +10,16 @@ import scala.slick.compiler.Phase
 /**
  * Slick driver for Microsoft SQL Server.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
- * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * ''without'' the following capabilities:
  *
  * <ul>
- *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
- *     operation, only a single column may be specified which must be the
- *     table's AutoInc column.</li>
- *   <li><b>sequence</b>: Sequences are not supported because SQLServer does
- *     not have this feature.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *     When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *     Sequences are not supported because SQLServer does not have this
+ *     feature.</li>
  * </ul>
  *
  * @author szeiger

@@ -11,13 +11,14 @@ import scala.slick.ast.ExtraUtil._
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
  * (starting with version 2.0).
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
- * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * ''without'' the following capabilities:
  *
  * <ul>
- *   <li><b>sequenceCurr</b>: <code>Sequence.curr</code> to get the current
- *     value of a sequence is not supported by Hsqldb. Trying to generate SQL
- *     code which uses this feature throws a SlickException.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCurr]]:
+ *     <code>Sequence.curr</code> to get the current value of a sequence is
+ *     not supported by Hsqldb. Trying to generate SQL code which uses this
+ *     feature throws a SlickException.</li>
  * </ul>
  * 
  * @author szeiger

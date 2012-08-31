@@ -7,31 +7,34 @@ import scala.slick.ast._
 /**
  * Slick driver for Derby/JavaDB.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
- * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * ''without'' the following capabilities:
  *
  * <ul>
- *   <li><b>functionDatabase</b>:
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]]:
  *     <code>Functions.database</code> is not available in Derby. Slick
  *     will return an empty string instead.</li>
- *   <li><b>pagingNested</b>: See
- *     <a href="https://issues.apache.org/jira/browse/DERBY-5911" target="_parent"
- *     >DERBY-5911</a>.</li>
- *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
- *     operation, only a single column may be specified which must be the
- *     table's AutoInc column.</li>
- *   <li><b>sequenceCurr</b>: <code>Sequence.curr</code> to get the current
- *     value of a sequence is not supported by Derby. Trying to generate SQL
- *     code which uses this feature throws a SlickException.</li>
- *   <li><b>sequenceCycle</b>: Sequence cycling is supported but does not
- *     conform to SQL:2008 semantics. Derby cycles back to the START value
- *     instead of MINVALUE or MAXVALUE.</li>
- *   <li><b>zip</b>: Ordered sub-queries and window functions with orderings
- *     are currently not supported by Derby. These are required by
- *     <code>zip</code> and <code>zipWithIndex</code>. Trying to generate SQL
- *     code which uses this feature causes the DB to throw an exception. We do
- *     not prevent these queries from being generated because we expect future
- *     Derby versions to support them with the standard SQL:2003 syntax (see
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.pagingNested]]:
+ *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
+ *     target="_parent">DERBY-5911</a>.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *     When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCurr]]:
+ *     <code>Sequence.curr</code> to get the current value of a sequence is
+ *     not supported by Derby. Trying to generate SQL code which uses this
+ *     feature throws a SlickException.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCycle]]:
+ *     Sequence cycling is supported but does not conform to SQL:2008
+ *     semantics. Derby cycles back to the START value instead of MINVALUE or
+ *     MAXVALUE.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *     Ordered sub-queries and window functions with orderings are currently
+ *     not supported by Derby. These are required by <code>zip</code> and
+ *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
+ *     feature causes the DB to throw an exception. We do not prevent these
+ *     queries from being generated because we expect future Derby versions to
+ *     support them with the standard SQL:2003 syntax (see
  *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber" target="_parent"
  *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
  * </ul>

@@ -11,37 +11,44 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 /**
  * Slick driver for Microsoft Access via JdbcOdbcDriver.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
- * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * ''without'' the following capabilities:
  *
  * <ul>
- *   <li><b>columnDefaults</b>: Access does not allow
- *     the definition of default values through ODBC but only via OLEDB/ADO.
- *     Trying to generate DDL SQL code which uses this feature throws a
- *     SlickException.</li>
- *   <li><b>foreignKeyActions</b>: All foreign key actions are ignored.
- *     Access supports CASCADE and SET NULL but not through ODBC, only
- *     via OLEDB/ADO.</li>
- *   <li><b>functionDatabase</b>, <b>functionUser</b>:
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.columnDefaults]]:
+ *     Access does not allow the definition of default values through ODBC but
+ *     only via OLEDB/ADO. Trying to generate DDL SQL code which uses this
+ *     feature throws a SlickException.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.foreignKeyActions]]:
+ *     All foreign key actions are ignored. Access supports CASCADE and SET
+ *     NULL but not through ODBC, only via OLEDB/ADO.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]],
+ *     [[scala.slick.driver.BasicProfile.capabilities.functionUser]]:
  *     <code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in Access. Slick will return empty strings for both.</li>
- *   <li><b>likeEscape</b>: Access does not allow you to specify a custom
- *     escape character for <code>like</code>.</li>
- *   <li><b>pagingDrop</b>: <code>Drop(n)</code> modifiers are not supported.
- *     Trying to generate SQL code which uses this feature throws a
- *     SlickException.</li>
- *   <li><b>pagingPreciseTake</b>: <code>Take(n)</code> modifiers are mapped
- *     to <code>SELECT TOP n</code> which may return more rows than requested
- *     if they are not unique.</li>
- *   <li><b>sequence</b>: Sequences are not supported by Access</li>
- *   <li><b>returnInsertKey</b>, <b>returnInsertOther</b>: Returning columns
- *     from an INSERT operation is not supported. Trying to execute such an
- *     insert statement throws a SlickException.</li>
- *   <li><b>typeBlob</b>: Trying to use <code>java.sql.Blob</code> objects
- *     causes a NPE in the JdbcOdbcDriver. Binary data in the form of
- *     <code>Array[Byte]</code> is supported.</li>
- *   <li><b>typeLong</b>: Access does not have a long integer type.</li>
- *   <li><b>zip</b>: Row numbers (required by <code>zip</code> and
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.likeEscape]]:
+ *     Access does not allow you to specify a custom escape character for
+ *     <code>like</code>.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.pagingDrop]]:
+ *     <code>Drop(n)</code> modifiers are not supported. Trying to generate
+ *     SQL code which uses this feature throws a SlickException.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.pagingPreciseTake]]:
+ *     <code>Take(n)</code> modifiers are mapped to <code>SELECT TOP n</code>
+ *     which may return more rows than requested if they are not unique.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *     Sequences are not supported by Access</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertKey]],
+ *     [[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *     Returning columns from an INSERT operation is not supported. Trying to
+ *     execute such an insert statement throws a SlickException.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]:
+ *     Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
+ *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is
+ *     supported.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeLong]]:
+ *     Access does not have a long integer type.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
  *     code which uses this feature throws a SlickException.</li>
  * </ul>

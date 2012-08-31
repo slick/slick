@@ -9,15 +9,15 @@ import scala.slick.ast.ExtraUtil._
 /**
  * Slick driver for MySQL.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
- * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * ''without'' the following capabilities:
  *
  * <ul>
- *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
- *     operation, only a single column may be specified which must be the
- *     table's AutoInc column.</li>
- *   <li><b>sequenceLimited</b>: Non-cyclic sequence may not have an upper
- *     limit.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *     When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceLimited]]:
+ *     Non-cyclic sequence may not have an upper limit.</li>
  * </ul>
  *
  * Sequences are supported through an emulation which requires the schema to

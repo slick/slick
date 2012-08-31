@@ -8,24 +8,30 @@ import java.sql.{Timestamp, Time, Date}
 /**
  * Slick driver for SQLite.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]] ''without'' the following
- * capabilities (see <a href="../../../index.html#scala.slick.driver.BasicProfile$$capabilities$" target="_parent">BasicProfile.capabilities</a>):
+ * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * ''without'' the following capabilities:
  *
  * <ul>
- *   <li><b>functionDatabase</b>, <b>functionUser</b>:
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]],
+ *     [[scala.slick.driver.BasicProfile.capabilities.functionUser]]:
  *     <code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in SQLite. Slick will return empty strings for both.</li>
- *   <li><b>joinFull</b>, <b>joinRight</b>: Right and full outer joins are
- *     not supported by SQLite.</li>
- *   <li><b>mutable</b>: SQLite does not allow mutation of result sets. All
- *     cursors are read-only.</li>
- *   <li><b>sequence</b>: Sequences are not supported by SQLite.</li>
- *   <li><b>returnInsertOther</b>: When returning columns from an INSERT
- *     operation, only a single column may be specified which must be the
- *     table's AutoInc column.</li>
- *   <li><b>typeBlob</b>: Blobs are not supported by the SQLite JDBC driver
- *     (but binary data in the form of <code>Array[Byte]</code> is).</li>
- *   <li><b>zip</b>: Row numbers (required by <code>zip</code> and
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.joinFull]],
+ *     [[scala.slick.driver.BasicProfile.capabilities.joinRight]]:
+ *     Right and full outer joins are not supported by SQLite.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.mutable]]:
+ *     SQLite does not allow mutation of result sets. All cursors are
+ *     read-only.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *     Sequences are not supported by SQLite.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *     When returning columns from an INSERT operation, only a single column
+ *     may be specified which must be the table's AutoInc column.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]: Blobs are
+ *     not supported by the SQLite JDBC driver (but binary data in the form of
+ *     <code>Array[Byte]</code> is).</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
  *     code which uses this feature throws a SlickException.</li>
  * </ul>
