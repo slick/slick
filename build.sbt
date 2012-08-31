@@ -4,13 +4,13 @@ organizationName := "Typesafe"
 
 organization := "com.typesafe"
 
-version := "1.0.0-SNAPSHOT"
+version := "0.11.1"
 
 //scalaVersion := "2.10.0-unknown-unknown"
 //scalaVersion := "2.10.0-SNAPSHOT"
 scalaVersion := "2.10.0-M7"
 
-scalaBinaryVersion in Global := "2.10.0-M6"
+scalaBinaryVersion in Global := "2.10.0-M7"
 
 resolvers += Resolver.sonatypeRepo("snapshots")
 
@@ -43,11 +43,11 @@ libraryDependencies <+= scalaVersion(
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a")
 
-publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r))))
-/*publishTo <<= (repoKind){
+//publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r))))
+publishTo <<= (repoKind){
   case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
   case "releases" =>  Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
-}*/
+}
 
 publishMavenStyle := true
 
@@ -57,7 +57,7 @@ pomIncludeRepository := { _ => false }
 
 description := "A type-safe database API for Scala"
 
-homepage := Some(url("https://github.com/slick/slick/wiki"))
+homepage := Some(url("http://slick.typesafe.com"))
 
 startYear := Some(2008)
 
