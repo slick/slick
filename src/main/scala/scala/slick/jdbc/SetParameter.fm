@@ -20,6 +20,7 @@ class SetTupleParameter[-T <: Product](val children: SetParameter[_]*) extends S
 }
 
 object SetParameter {
+  implicit object SetBigDecimal extends SetParameter[BigDecimal] { def apply(v: BigDecimal, pp: PositionedParameters) { pp.setBigDecimal(v) } }
   implicit object SetBoolean extends SetParameter[Boolean] { def apply(v: Boolean, pp: PositionedParameters) { pp.setBoolean(v) } }
   implicit object SetByte extends SetParameter[Byte] { def apply(v: Byte, pp: PositionedParameters) { pp.setByte(v) } }
   implicit object SetDate extends SetParameter[Date] { def apply(v: Date, pp: PositionedParameters) { pp.setDate(v) } }
@@ -32,6 +33,7 @@ object SetParameter {
   implicit object SetTime extends SetParameter[Time] { def apply(v: Time, pp: PositionedParameters) { pp.setTime(v) } }
   implicit object SetTimestamp extends SetParameter[Timestamp] { def apply(v: Timestamp, pp: PositionedParameters) { pp.setTimestamp(v) } }
 
+  implicit object SetBigDecimalOption extends SetParameter[Option[BigDecimal]] { def apply(v: Option[BigDecimal], pp: PositionedParameters) { pp.setBigDecimalOption(v) } }
   implicit object SetBooleanOption extends SetParameter[Option[Boolean]] { def apply(v: Option[Boolean], pp: PositionedParameters) { pp.setBooleanOption(v) } }
   implicit object SetByteOption extends SetParameter[Option[Byte]] { def apply(v: Option[Byte], pp: PositionedParameters) { pp.setByteOption(v) } }
   implicit object SetDateOption extends SetParameter[Option[Date]] { def apply(v: Option[Date], pp: PositionedParameters) { pp.setDateOption(v) } }

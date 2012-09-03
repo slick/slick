@@ -18,6 +18,7 @@ class GetTupleResult[+T <: Product](val children: GetResult[_]*) extends GetResu
 }
 
 object GetResult {
+  implicit object GetBigDecimal extends GetResult[BigDecimal] { def apply(rs: PositionedResult) = rs.nextBigDecimal() }
   implicit object GetBoolean extends GetResult[Boolean] { def apply(rs: PositionedResult) = rs.nextBoolean() }
   implicit object GetByte extends GetResult[Byte] { def apply(rs: PositionedResult) = rs.nextByte() }
   implicit object GetDate extends GetResult[Date] { def apply(rs: PositionedResult) = rs.nextDate() }
@@ -30,6 +31,7 @@ object GetResult {
   implicit object GetTime extends GetResult[Time] { def apply(rs: PositionedResult) = rs.nextTime() }
   implicit object GetTimestamp extends GetResult[Timestamp] { def apply(rs: PositionedResult) = rs.nextTimestamp() }
 
+  implicit object GetBigDecimalOption extends GetResult[Option[BigDecimal]] { def apply(rs: PositionedResult) = rs.nextBigDecimalOption() }
   implicit object GetBooleanOption extends GetResult[Option[Boolean]] { def apply(rs: PositionedResult) = rs.nextBooleanOption() }
   implicit object GetByteOption extends GetResult[Option[Byte]] { def apply(rs: PositionedResult) = rs.nextByteOption() }
   implicit object GetDateOption extends GetResult[Option[Date]] { def apply(rs: PositionedResult) = rs.nextDateOption() }
