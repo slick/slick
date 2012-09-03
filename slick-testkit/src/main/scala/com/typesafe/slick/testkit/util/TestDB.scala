@@ -54,6 +54,7 @@ abstract class TestDB(val confName: String) {
   def cleanUpAfter() = cleanUp()
   def cleanUp() {}
   def deleteDBFiles(prefix: String) {
+    assert(!prefix.isEmpty, "prefix must not be empty")
     def deleteRec(f: File): Boolean = {
       if(f.isDirectory()) f.listFiles.forall(deleteRec _) && f.delete()
       else f.delete()

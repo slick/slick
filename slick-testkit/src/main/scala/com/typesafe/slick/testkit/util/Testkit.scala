@@ -59,7 +59,7 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
     }
   } else Nil
 
-  override def runChildren(notifier: RunNotifier) = {
+  override def runChildren(notifier: RunNotifier) = if(!children.isEmpty) {
     tdb.cleanUpBefore()
     try {
       val is = children.iterator.zipWithIndex.toIndexedSeq
