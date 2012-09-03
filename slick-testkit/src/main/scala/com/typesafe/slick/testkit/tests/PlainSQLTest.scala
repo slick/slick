@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import org.junit.Assert
 import org.junit.Assert._
 import scala.slick.jdbc.{GetResult, StaticQuery => Q, DynamicQuery}
 import Q.interpolation
@@ -88,7 +89,7 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
       for(t <- tdb.getLocalTables) println("  "+t)
       assertEquals(List("users"), tdb.getLocalTables.map(_.toLowerCase))
     }
-    tdb.assertUnquotedTablesExist("USERS")
+    assertUnquotedTablesExist("USERS")
   }
 
   def testInterpolation = ifCap(TestDB.plainSql) {
@@ -149,5 +150,21 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
       s4 += s
     }
     assertEquals(Set(User(1,"szeiger"), User(2,"guest"), User(0,"admin"), User(3,"foo")), s4)
+  }
+
+  def assertUnquotedTablesExist(tables: String*) {
+    for(t <- tables) {
+      try ((Q[Int]+"select 1 from "+t+" where 1 < 0").list) catch { case _: Exception =>
+        Assert.fail("Table "+t+" should exist")
+      }
+    }
+  }
+  def assertNotUnquotedTablesExist(tables: String*) {
+    for(t <- tables) {
+      try {
+        (Q[Int]+"select 1 from "+t+" where 1 < 0").list
+        Assert.fail("Table "+t+" should not exist")
+      } catch { case _: Exception => }
+    }
   }
 }

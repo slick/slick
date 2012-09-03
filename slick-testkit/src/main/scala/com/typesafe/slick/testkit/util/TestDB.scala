@@ -8,6 +8,8 @@ import java.util.zip.GZIPInputStream
 import java.io._
 import org.junit.Assert
 import scala.slick.driver._
+import java.net.{URL, URLClassLoader}
+import java.sql.Driver
 
 object TestDB {
   type TestDBSpec = (String => TestDB)
@@ -34,25 +36,27 @@ object TestDB {
   def isInternalEnabled(db: String) = testDBs.map(_.contains(db)).getOrElse(true)
   def isExternalEnabled(db: String) = isInternalEnabled(db) && "true" == dbProps.getProperty(db+".enabled")
   def get(db: String, o: String) = Option(dbProps.getProperty(db+"."+o))
-}
 
-/**
- * Describes a database against which you can run TestKit tests. It includes
- * features such as reading the configuration file, setting up a DB connection,
- * removing DB files left over by a test run, etc.
- */
-abstract class TestDB(val confName: String) {
-  override def toString = url
-  val url: String
-  val jdbcDriver: String
-  val driver: ExtendedDriver
-  lazy val profile: ExtendedProfile = driver
-  def dbName = ""
-  def userName = ""
-  def createDB() = Database.forURL(url, driver = jdbcDriver)
-  def cleanUpBefore() = cleanUp()
-  def cleanUpAfter() = cleanUp()
-  def cleanUp() {}
+  /** Copy a file, expanding it if the source name ends with .gz */
+  def copy(src: File, dest: File) {
+    dest.createNewFile()
+    val out = new FileOutputStream(dest)
+    try {
+      var in: InputStream = new FileInputStream(src)
+      try {
+        if(src.getName.endsWith(".gz")) in = new GZIPInputStream(in)
+        val buf = new Array[Byte](4096)
+        var cont = true
+        while(cont) {
+          val len = in.read(buf)
+          if(len < 0) cont = false
+          else out.write(buf, 0, len)
+        }
+      } finally in.close()
+    } finally out.close()
+  }
+
+  /** Delete files in the testDB directory */
   def deleteDBFiles(prefix: String) {
     assert(!prefix.isEmpty, "prefix must not be empty")
     def deleteRec(f: File): Boolean = {
@@ -67,6 +71,23 @@ abstract class TestDB(val confName: String) {
       else throw new IOException("Couldn't delete database file "+p)
     }
   }
+}
+
+/**
+ * Describes a database against which you can run TestKit tests. It includes
+ * features such as reading the configuration file, setting up a DB connection,
+ * removing DB files left over by a test run, etc.
+ */
+abstract class TestDB(final val confName: String, final val driver: ExtendedDriver) {
+  final val profile: ExtendedProfile = driver
+
+  override def toString = url
+  val url: String
+  val jdbcDriver: String
+  def dbName = ""
+  def createDB() = Database.forURL(url, driver = jdbcDriver)
+  def cleanUpBefore() {}
+  def cleanUpAfter() = cleanUpBefore()
   def isEnabled = TestDB.isInternalEnabled(confName)
   def isPersistent = true
   def isShared = true
@@ -99,65 +120,43 @@ abstract class TestDB(val confName: String) {
       } catch { case _: Exception => }
     }
   }
-  def assertUnquotedTablesExist(tables: String*)(implicit session: Session) {
-    for(t <- tables) {
-      try ((Q[Int]+"select 1 from "+t+" where 1 < 0").list) catch { case _: Exception =>
-        Assert.fail("Table "+t+" should exist")
-      }
-    }
-  }
-  def assertNotUnquotedTablesExist(tables: String*)(implicit session: Session) {
-    for(t <- tables) {
-      try {
-        (Q[Int]+"select 1 from "+t+" where 1 < 0").list
-        Assert.fail("Table "+t+" should not exist")
-      } catch { case _: Exception => }
-    }
-  }
-  final def copy(src: File, dest: File) {
-    dest.createNewFile()
-    val out = new FileOutputStream(dest)
-    try {
-      var in: InputStream = new FileInputStream(src)
-      try {
-        if(src.getName.endsWith(".gz")) in = new GZIPInputStream(in)
-        val buf = new Array[Byte](4096)
-        var cont = true
-        while(cont) {
-          val len = in.read(buf)
-          if(len < 0) cont = false
-          else out.write(buf, 0, len)
-        }
-      } finally in.close()
-    } finally out.close()
-  }
   def canGetLocalTables = true
   lazy val capabilities = driver.capabilities
 }
 
-class ExternalTestDB(confName: String, val driver: ExtendedDriver) extends TestDB(confName) {
+class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(confName, driver) {
   val jdbcDriver = TestDB.get(confName, "driver").orNull
   val urlTemplate = TestDB.get(confName, "url").getOrElse("")
   override def dbName = TestDB.get(confName, "testDB").getOrElse("")
   val url = urlTemplate.replace("[DB]", dbName)
-  val configuredUserName = TestDB.get(confName, "user").orNull
   val password = TestDB.get(confName, "password").orNull
-  override def userName = TestDB.get(confName, "user").orNull
+  val user = TestDB.get(confName, "user").orNull
+  val adminUser = TestDB.get(confName, "adminUser").getOrElse(user)
+  val adminPassword = TestDB.get(confName, "adminPassword").getOrElse(password)
 
   val adminDBURL = urlTemplate.replace("[DB]", TestDB.get(confName, "adminDB").getOrElse(""))
-  val create = TestDB.get(confName, "create").getOrElse("").replace("[DB]", dbName).replace("[DBPATH]", new File(TestDB.testDBDir).getAbsolutePath)
-  val drop = TestDB.get(confName, "drop").getOrElse("").replace("[DB]", dbName).replace("[DBPATH]", new File(TestDB.testDBDir).getAbsolutePath)
+  val create = replaceVars(TestDB.get(confName, "create").getOrElse(""))
+  val drop = replaceVars(TestDB.get(confName, "drop").getOrElse(""))
+
+  def replaceVars(s: String) =
+    s.replace("[DB]", dbName).replace("[DBPATH]", new File(TestDB.testDBDir).getAbsolutePath).
+      replace("[USER]", user).replace("[PASSWORD]", password)
 
   override def isEnabled = TestDB.isExternalEnabled(confName)
 
-  override def createDB() = Database.forURL(url, driver = jdbcDriver, user = configuredUserName, password = password)
+  def databaseFor(url: String, user: String, password: String) = loadCustomDriver() match {
+    case Some(dr) => Database.forDriver(dr, url, user = user, password = password)
+    case None => Database.forURL(url, user = user, password = password, driver = jdbcDriver)
+  }
+
+  override def createDB() = databaseFor(url, user, password)
 
   override def cleanUpBefore() {
     if(drop.length > 0 || create.length > 0) {
       println("[Creating test database "+this+"]")
-      Database.forURL(adminDBURL, driver = jdbcDriver, user = configuredUserName, password = password) withSession { implicit s: Session =>
-        (Q.u + drop).execute
-        (Q.u + create).execute
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit s: Session =>
+        if(drop != "") (Q.u + drop).execute
+        if(create != "") (Q.u + create).execute
       }
     }
   }
@@ -165,9 +164,13 @@ class ExternalTestDB(confName: String, val driver: ExtendedDriver) extends TestD
   override def cleanUpAfter() {
     if(drop.length > 0) {
       println("[Dropping test database "+this+"]")
-      Database.forURL(adminDBURL, driver = jdbcDriver, user = configuredUserName, password = password) withSession { implicit s: Session =>
-        (Q.u + drop).execute
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit s: Session =>
+        if(drop != "") (Q.u + drop).execute
       }
     }
+  }
+
+  def loadCustomDriver() = TestDB.get(confName, "driverJar").map { jar =>
+    new URLClassLoader(Array(new URL(jar)), getClass.getClassLoader).loadClass(jdbcDriver).newInstance.asInstanceOf[Driver]
   }
 }

@@ -106,6 +106,27 @@ object Database {
   }
 
   /**
+   * Create a Database that directly uses a Driver to open new connections.
+   * This is needed to open a JDBC URL with a driver that was not loaded by
+   * the system ClassLoader.
+   */
+  def forDriver(driver:Driver, url:String, user:String = null, password:String = null, prop: Properties = null): Database = new Database {
+    val cprop = if(prop.ne(null) && user.eq(null) && password.eq(null)) prop else {
+      val p = new Properties(prop)
+      if(user ne null) p.setProperty("user", user)
+      if(password ne null) p.setProperty("password", password)
+      p
+    }
+
+    protected[session] def createConnection(): Connection = {
+      val conn = driver.connect(url, cprop)
+      if(conn eq null)
+        throw new SQLException("Driver "+driver+" does not know how to handle URL "+url, "08001")
+      conn
+    }
+  }
+
+  /**
    * Create a Database that uses the DriverManager to open new connections.
    */
   def forURL(url:String, prop: Map[String, String]): Database = {
