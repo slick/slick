@@ -37,6 +37,12 @@ object TestDB {
   def isExternalEnabled(db: String) = isInternalEnabled(db) && "true" == dbProps.getProperty(db+".enabled")
   def get(db: String, o: String) = Option(dbProps.getProperty(db+"."+o))
 
+  def getMulti(db: String, key: String): Seq[String] = get(db, key) match {
+    case Some(s) => Seq(s)
+    case None =>
+      Iterator.from(1).map(i => get(db, key+"."+i)).takeWhile(_.isDefined).toSeq.flatten
+  }
+
   /** Copy a file, expanding it if the source name ends with .gz */
   def copy(src: File, dest: File) {
     dest.createNewFile()
@@ -135,8 +141,8 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   val adminPassword = TestDB.get(confName, "adminPassword").getOrElse(password)
 
   val adminDBURL = urlTemplate.replace("[DB]", TestDB.get(confName, "adminDB").getOrElse(""))
-  val create = replaceVars(TestDB.get(confName, "create").getOrElse(""))
-  val drop = replaceVars(TestDB.get(confName, "drop").getOrElse(""))
+  val create = TestDB.getMulti(confName, "create").map(replaceVars)
+  val drop = TestDB.getMulti(confName, "drop").map(replaceVars)
 
   def replaceVars(s: String) =
     s.replace("[DB]", dbName).replace("[DBPATH]", new File(TestDB.testDBDir).getAbsolutePath).
@@ -152,20 +158,20 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   override def createDB() = databaseFor(url, user, password)
 
   override def cleanUpBefore() {
-    if(drop.length > 0 || create.length > 0) {
+    if(!drop.isEmpty || !create.isEmpty) {
       println("[Creating test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit s: Session =>
-        if(drop != "") (Q.u + drop).execute
-        if(create != "") (Q.u + create).execute
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: Session =>
+        for(s <- drop) (Q.u + s).execute
+        for(s <- create) (Q.u + s).execute
       }
     }
   }
 
   override def cleanUpAfter() {
-    if(drop.length > 0) {
+    if(!drop.isEmpty) {
       println("[Dropping test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit s: Session =>
-        if(drop != "") (Q.u + drop).execute
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: Session =>
+        for(s <- drop) (Q.u + s).execute
       }
     }
   }
