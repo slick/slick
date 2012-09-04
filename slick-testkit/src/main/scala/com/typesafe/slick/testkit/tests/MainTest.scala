@@ -40,7 +40,7 @@ class MainTest(val tdb: TestDB) extends TestkitTest {
     println("Inserted "+total.getOrElse("<unknown>")+" users")
     /* All test DBs seem to report the actual number of rows.
      * None would also be an acceptable result here. */
-    assertEquals(Some(7), total)
+    assertTrue("returned row count should be 7 or unknown", total == Some(7) || total == None)
 
     val q1 = for(u <- Users) yield u.id ~ u.first ~ u.last
     println("q1: " + q1.selectStatement)
