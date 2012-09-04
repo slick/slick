@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.Node
-import scala.slick.lifted.{Query, Shape, ShapedValue}
+import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
 import scala.slick.session.{Session, PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
 import scala.slick.jdbc.{UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker}
@@ -21,6 +21,23 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     protected def extractValue(rs: PositionedResult): R = sres.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].getResult(driver, rs)
     protected def updateRowValues(rs: PositionedResult, value: R) = sres.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].updateResult(driver, rs, value)
     def invoker: this.type = this
+  }
+
+  /** Pseudo-invoker for running DDL statements. */
+  class DDLInvoker(ddl: DDL) {
+    /** Create the entities described by this DDL object */
+    def create(implicit session: Session): Unit = session.withTransaction {
+      for(s <- ddl.createStatements)
+        session.withPreparedStatement(s)(_.execute)
+    }
+
+    /** Drop the entities described by this DDL object */
+    def drop(implicit session: Session): Unit = session.withTransaction {
+      for(s <- ddl.dropStatements)
+        session.withPreparedStatement(s)(_.execute)
+    }
+
+    def ddlInvoker: this.type = this
   }
 
   /** Pseudo-invoker for running DELETE calls. */

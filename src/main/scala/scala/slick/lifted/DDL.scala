@@ -1,7 +1,5 @@
 package scala.slick.lifted
 
-import scala.slick.session.Session
-
 /**
  * A DDL object contains the SQL statements for creating and dropping
  * database entities. DDLs can be combined for creating or dropping multiple
@@ -17,12 +15,6 @@ trait DDL { self =>
   /** All statements to execute for create() */
   def createStatements: Iterator[String] = createPhase1.iterator ++ createPhase2.iterator
 
-  /** Create the entities described by this DDL object */
-  def create(implicit session: Session): Unit = session.withTransaction {
-    for(s <- createStatements)
-      session.withPreparedStatement(s)(_.execute)
-  }
-
   /** Statements to execute first for drop(), e.g. removing connections from other entities. */
   protected def dropPhase1: Iterable[String]
 
@@ -31,12 +23,6 @@ trait DDL { self =>
 
   /** All statements to execute for drop() */
   def dropStatements: Iterator[String] = dropPhase1.iterator ++ dropPhase2.iterator
-
-  /** Drop the entities described by this DDL object */
-  def drop(implicit session: Session): Unit = session.withTransaction {
-    for(s <- dropStatements)
-      session.withPreparedStatement(s)(_.execute)
-  }
 
   /** Create a new DDL object which combines this and the other DDL object. */
   def ++(other: DDL): DDL = new DDL {

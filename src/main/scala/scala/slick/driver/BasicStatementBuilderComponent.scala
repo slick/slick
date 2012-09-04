@@ -425,7 +425,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   }
 
   /** Builder for various DDL statements. */
-  class TableDDLBuilder(val table: Table[_]) {
+  class TableDDLBuilder(val table: Table[_]) { self =>
+    protected val columns: Iterable[ColumnDDLBuilder] = table.create_*.map(fs => createColumnDDLBuilder(fs, table))
     protected val indexes: Iterable[Index] = table.indexes
     protected val foreignKeys: Iterable[ForeignKey[_ <: TableNode, _]] = table.foreignKeys
     protected val primaryKeys: Iterable[PrimaryKey] = table.primaryKeys
@@ -435,20 +436,24 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         throw new SlickException("Table "+table.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
       new DDL {
-        val createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
-        val createPhase2 = foreignKeys.map(createForeignKey)
-        val dropPhase1 = foreignKeys.map(dropForeignKey)
-        val dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
+        val createPhase1 = self.createPhase1
+        val createPhase2 = self.createPhase2
+        val dropPhase1 = self.dropPhase1
+        val dropPhase2 = self.dropPhase2
       }
     }
+
+    protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createPhase2 = foreignKeys.map(createForeignKey)
+    protected def dropPhase1 = foreignKeys.map(dropForeignKey)
+    protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
 
     protected def createTable: String = {
       val b = new StringBuilder append "create table " append quoteIdentifier(table.tableName) append " ("
       var first = true
-      for(n <- table.create_*) {
-        if(first) first = false
-        else b append ","
-        createColumnDDLBuilder(n, table).appendColumn(b)
+      for(c <- columns) {
+        if(first) first = false else b append ","
+        c.appendColumn(b)
       }
       addTableOptions(b)
       b append ")"
