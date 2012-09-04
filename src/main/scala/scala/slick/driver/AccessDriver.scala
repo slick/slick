@@ -129,15 +129,13 @@ trait AccessDriver extends ExtendedDriver { driver =>
         b += ")"
       }
       case Library.Degrees(ch) =>
-        if(!skipParens) b += '('
-        b += "180/"+pi+"*"
+        b += "(180/"+pi+"*"
         expr(ch)
-        if(!skipParens) b += ')'
+        b += ')'
       case Library.Radians(ch) =>
-        if(!skipParens) b += '('
-        b += pi+"/180*"
+        b += '('+pi+"/180*"
         expr(ch)
-        if(!skipParens) b += ')'
+        b += ')'
       case Library.IfNull(l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
       case a @ Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
