@@ -10,6 +10,14 @@ import scala.slick.compiler.CompilationState
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
+  // Create the different builders -- these methods should be overridden by drivers as needed
+  def createQueryTemplate[P,R](q: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](q, this)
+  def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
+  def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
+
   abstract class StatementPart
   case object SelectPart extends StatementPart
   case object FromPart extends StatementPart
