@@ -24,6 +24,9 @@ object MColumn {
           case DatabaseMetaData.columnNoNulls => Some(false)
           case DatabaseMetaData.columnNullable => Some(true)
           case _ => None
-        }, r.<<, r.<<, r.skip.skip.<<, r.<<, DatabaseMeta.yesNoOpt(r), MQName.optionalFrom(r), r.<<, DatabaseMeta.yesNoOpt(r))
+        }, r.<<, r.<<, r.skip.skip.<<, r.<<, DatabaseMeta.yesNoOpt(r),
+        if(r.hasMoreColumns) MQName.optionalFrom(r) else None,
+        r.<<?,
+        if(r.hasMoreColumns) DatabaseMeta.yesNoOpt(r) else None)
   }
 }
