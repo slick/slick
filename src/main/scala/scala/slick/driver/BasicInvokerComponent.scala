@@ -10,6 +10,11 @@ import scala.slick.jdbc.{UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker
 
 trait BasicInvokerComponent { driver: BasicDriver =>
 
+  // Create the different invokers -- these methods should be overridden by drivers as needed
+  def createCountingInsertInvoker[T, U](u: ShapedValue[T, U]) = new CountingInsertInvoker(u)
+  def createKeysInsertInvoker[U, RU](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU]) = new KeysInsertInvoker(unpackable, keys)
+  def createMappedKeysInsertInvoker[U, RU, R](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU], tr: (U, RU) => R) = new MappedKeysInsertInvoker(unpackable, keys, tr)
+
   /** Invoker for executing queries. */
   class QueryInvoker[QQ, R](q: Query[QQ, _ <: R])
     extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
@@ -154,7 +159,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
 
     def returning[RT, RU](value: RT)(implicit shape: Shape[RT, RU, _]) =
-      new KeysInsertInvoker[U, RU](unpackable, new ShapedValue[RT, RU](value, shape))
+      createKeysInsertInvoker[U, RU](unpackable, new ShapedValue[RT, RU](value, shape))
   }
 
   /** Base class with common functionality for KeysInsertInvoker and MappedKeysInsertInvoker. */
@@ -199,7 +204,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
       buildKeysResult(st).to[Vector]
     }
 
-    def into[R](f: (U, RU) => R) = new MappedKeysInsertInvoker[U, RU, R](unpackable, keys, f)
+    def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](unpackable, keys, f)
   }
 
   /** Pseudo-invoker for running INSERT calls and returning generated keys combined with the values. */

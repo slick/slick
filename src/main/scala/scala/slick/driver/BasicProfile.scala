@@ -32,8 +32,8 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
     implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[T, U] = new QueryInvoker(q)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = new DeleteInvoker(q)
-    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = new CountingInsertInvoker(ShapedValue.createShapedValue(c))
-    implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = new CountingInsertInvoker(u)
+    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createCountingInsertInvoker(ShapedValue.createShapedValue(c))
+    implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createCountingInsertInvoker(u)
 
     implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = new QueryExecutor[Seq[U]](new QueryBuilderInput(compiler.run(Node(q)), q))
 
