@@ -46,10 +46,10 @@ class InsertTest(val tdb: TestDB) extends TestkitTest {
 
   def testReturning {
 
-    object A extends Table[(Int, String, String)]("a") {
-      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
-      def s1 = column[String]("s1")
-      def s2 = column[String]("s2")
+    object A extends Table[(Int, String, String)]("A") {
+      def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
+      def s1 = column[String]("S1")
+      def s2 = column[String]("S2")
       def * = id ~ s1 ~ s2
       def ins1 = s1 ~ s2 returning id
       def ins2 = (s1, s2).shaped returning (id, s1)
