@@ -10,45 +10,48 @@ import scala.slick.driver.{Capability, BasicProfile}
 import com.typesafe.slick.testkit.{tests => tk}
 import java.lang.reflect.Method
 
+/** Lists all tests of the Slick driver test kit */
+object Testkit {
+  val tests: List[Class[_ <: TestkitTest]] =
+    classOf[tk.AggregateTest] ::
+    classOf[tk.ColumnDefaultTest] ::
+    classOf[tk.CountTest] ::
+    classOf[tk.DataTypeTest] ::
+    classOf[tk.ExecutorTest] ::
+    classOf[tk.ForeignKeyTest] ::
+    classOf[tk.InsertTest] ::
+    classOf[tk.InvokerTest] ::
+    classOf[tk.IterateeTest] ::
+    classOf[tk.JoinTest] ::
+    classOf[tk.MainTest] ::
+    classOf[tk.MapperTest] ::
+    classOf[tk.MiscTest] ::
+    classOf[tk.MutateTest] ::
+    classOf[tk.NestingTest] ::
+    classOf[tk.NewQuerySemanticsTest] ::
+    classOf[tk.OldTest] ::
+    classOf[tk.PagingTest] ::
+    classOf[tk.PlainSQLTest] ::
+    classOf[tk.PrimaryKeyTest] ::
+    classOf[tk.ScalarFunctionTest] ::
+    classOf[tk.SequenceTest] ::
+    classOf[tk.TemplateTest] ::
+    classOf[tk.TransactionTest] ::
+    classOf[tk.UnionTest] ::
+    classOf[tk.ZipTest] ::
+    (Nil: List[Class[_ <: TestkitTest]])
+}
+
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
 
-  val tests: Seq[Class[_ <: TestkitTest]] = Seq(
-    classOf[tk.AggregateTest],
-    classOf[tk.ColumnDefaultTest],
-    classOf[tk.CountTest],
-    classOf[tk.DataTypeTest],
-    classOf[tk.ExecutorTest],
-    classOf[tk.ForeignKeyTest],
-    classOf[tk.InsertTest],
-    classOf[tk.InvokerTest],
-    classOf[tk.IterateeTest],
-    classOf[tk.JoinTest],
-    classOf[tk.MainTest],
-    classOf[tk.MapperTest],
-    classOf[tk.MiscTest],
-    classOf[tk.MutateTest],
-    classOf[tk.NestingTest],
-    classOf[tk.NewQuerySemanticsTest],
-    classOf[tk.OldTest],
-    classOf[tk.PagingTest],
-    classOf[tk.PlainSQLTest],
-    classOf[tk.PrimaryKeyTest],
-    classOf[tk.ScalarFunctionTest],
-    classOf[tk.SequenceTest],
-    classOf[tk.TemplateTest],
-    classOf[tk.TransactionTest],
-    classOf[tk.UnionTest],
-    classOf[tk.ZipTest]
-  )
-
-  val spec = clazz.newInstance().tdbSpec
-  var tdb: TestDB = spec(clazz.getName)
+  val driverTest = clazz.newInstance
+  var tdb: TestDB = driverTest.tdbSpec(clazz.getName)
 
   def describeChild(ch: TestMethod) = ch.desc
 
   def getChildren = if(tdb.isEnabled) {
-    tests.flatMap { t =>
+    driverTest.tests.flatMap { t =>
       val ms = t.getMethods.filter { m =>
         m.getName.startsWith("test") && m.getParameterTypes.length == 0
       }
@@ -91,11 +94,13 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
   }
 }
 
-abstract class DriverTest(val tdbSpec: TestDB.TestDBSpec)
+abstract class DriverTest(val tdbSpec: TestDB.TestDBSpec) {
+  def tests = Testkit.tests
+}
 
 case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: TestkitTest])
 
-abstract class TestkitTest {
+trait TestkitTest {
   val tdb: TestDB
   private[this] var keepAliveSession: Session = null
 
