@@ -1,13 +1,13 @@
 package scala.slick.driver
 
 import scala.language.implicitConversions
-import scala.slick.ast.{FieldSymbol, Node}
+import scala.slick.ast.Node
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
 
 trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
 
- val compiler = QueryCompiler.relational
+  val compiler = QueryCompiler.relational
   val Implicit = new Implicits
   val typeMapperDelegates = new TypeMapperDelegates
   val capabilities: Set[Capability] = BasicProfile.capabilities.all

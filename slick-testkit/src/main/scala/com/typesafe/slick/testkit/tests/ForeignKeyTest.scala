@@ -12,7 +12,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
   override val reuseInstance = true
 
   @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def test1 {
+  def testSimple {
 
     object Categories extends Table[(Int, String)]("categories") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -75,7 +75,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     tdb.assertNotTablesExist("categories", "posts")
   }
 
-  def test2 {
+  def testMultiColumn {
 
     object A extends Table[(Int, Int, String)]("a") {
       def k1 = column[Int]("k1")
