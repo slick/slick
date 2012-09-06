@@ -10,6 +10,7 @@ import org.junit.Assert
 import scala.slick.driver._
 import java.net.{URL, URLClassLoader}
 import java.sql.Driver
+import scala.collection.mutable
 
 object TestDB {
   type TestDBSpec = (String => TestDB)
@@ -177,6 +178,17 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   }
 
   def loadCustomDriver() = TestDB.get(confName, "driverJar").map { jar =>
-    new URLClassLoader(Array(new URL(jar)), getClass.getClassLoader).loadClass(jdbcDriver).newInstance.asInstanceOf[Driver]
+    ExternalTestDB.getCustomDriver(jar, jdbcDriver)
+  }
+}
+
+object ExternalTestDB {
+  // A cache for custom drivers to avoid excessive reloading and memory leaks
+  private[this] val driverCache = new mutable.HashMap[(String, String), Driver]()
+
+  def getCustomDriver(url: String, driverClass: String): Driver = synchronized {
+    driverCache.getOrElseUpdate((url, driverClass),
+      new URLClassLoader(Array(new URL(url)), getClass.getClassLoader).loadClass(driverClass).newInstance.asInstanceOf[Driver]
+    )
   }
 }
