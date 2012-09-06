@@ -8,10 +8,10 @@ class MutateTest(val tdb: TestDB) extends TestkitTest {
 
   def test = ifCap(bcap.mutable) {
 
-    object Users extends Table[(Int,String,String)]("users") {
-      def id = column[Int]("id", O.PrimaryKey)
-      def first = column[String]("first")
-      def last = column[String]("last")
+    object Users extends Table[(Int,String,String)]("USERS") {
+      def id = column[Int]("ID", O.PrimaryKey)
+      def first = column[String]("FIRST")
+      def last = column[String]("LAST")
       def * = id ~ first ~ last
     }
 
