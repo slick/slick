@@ -78,6 +78,13 @@ object TestDB {
       else throw new IOException("Couldn't delete database file "+p)
     }
   }
+
+  def mapToProps(m: Map[String, String]) = {
+    val p = new Properties
+    if(m ne null)
+      for((k,v) <- m) if(k.ne(null) && v.ne(null)) p.setProperty(k, v)
+    p
+  }
 }
 
 /**
@@ -151,9 +158,9 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
 
   override def isEnabled = TestDB.isExternalEnabled(confName)
 
-  def databaseFor(url: String, user: String, password: String) = loadCustomDriver() match {
-    case Some(dr) => Database.forDriver(dr, url, user = user, password = password)
-    case None => Database.forURL(url, user = user, password = password, driver = jdbcDriver)
+  def databaseFor(url: String, user: String, password: String, prop: Map[String, String] = null) = loadCustomDriver() match {
+    case Some(dr) => Database.forDriver(dr, url, user = user, password = password, prop = TestDB.mapToProps(prop))
+    case None => Database.forURL(url, user = user, password = password, driver = jdbcDriver, prop = TestDB.mapToProps(prop))
   }
 
   override def createDB() = databaseFor(url, user, password)
