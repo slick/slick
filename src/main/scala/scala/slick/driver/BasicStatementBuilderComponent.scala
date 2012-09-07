@@ -33,6 +33,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected val supportsCast = true
     protected val concatOperator: Option[String] = None
     protected val useIntForBoolean = false
+    protected val hasPiFunction = true
+    protected val hasRadDegConversion = true
+    protected val pi = "3.1415926535897932384626433832795"
 
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
@@ -229,6 +232,19 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += "''"
       case Library.Database() if !capabilities.contains(BasicProfile.capabilities.functionDatabase) =>
         b += "''"
+      case Library.Pi() if !hasPiFunction => b += pi
+      case Library.Degrees(ch) if !hasRadDegConversion =>
+        b += "(180/"
+        expr(Library.Pi(), true)
+        b += "*"
+        expr(ch)
+        b += ')'
+      case Library.Radians(ch) if!hasRadDegConversion =>
+        b += '('
+        expr(Library.Pi(), true)
+        b += "/180*"
+        expr(ch)
+        b += ')'
       case s: SimpleFunction =>
         if(s.scalar) b += "{fn "
         b += s.name += '('

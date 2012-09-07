@@ -97,8 +97,8 @@ trait AccessDriver extends ExtendedDriver { driver =>
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("&")
-
-    val pi = "3.1415926535897932384626433832795"
+    override protected val hasPiFunction = false
+    override protected val hasRadDegConversion = false
 
     override protected def buildComprehension(c: Comprehension) =
       if(c.offset.isDefined) throw new SlickException("Access does not support drop(...) calls")
@@ -128,14 +128,6 @@ trait AccessDriver extends ExtendedDriver { driver =>
         }
         b += ")"
       }
-      case Library.Degrees(ch) =>
-        b += "(180/"+pi+"*"
-        expr(ch)
-        b += ')'
-      case Library.Radians(ch) =>
-        b += '('+pi+"/180*"
-        expr(ch)
-        b += ')'
       case Library.IfNull(l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
       case a @ Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
@@ -146,7 +138,6 @@ trait AccessDriver extends ExtendedDriver { driver =>
           case tn =>
             throw new SlickException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
         }
-      case Library.Pi() => b += pi
       case RowNumber(_) => throw new SlickException("Access does not support row numbers")
       case _ => super.expr(c, skipParens)
     }
