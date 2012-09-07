@@ -59,8 +59,8 @@ class ScalarFunctionTest(val tdb: TestDB) extends TestkitTest {
     check(Query(ConstColumn(1.4).floor), 1.0)
     check(Query(ConstColumn(-1.5).floor), -2.0)
     check(Query(ConstColumn(-10.0).sign), -1)
-    check(Query(Functions.pi.toDegrees), 180.0)
-    check(Query(Functions.pi.toDegrees.toRadians is Functions.pi), true)
+    assertEquals(180.0, Query(Functions.pi.toDegrees).first, 0.00001)
+    assertTrue(Query((Functions.pi.toDegrees.toRadians - Functions.pi).abs).first <= 0.00001)
 
     val myExpr = SimpleExpression.binary[Int, Int, Int] { (l, r, qb) =>
       qb.sqlBuilder += '('
