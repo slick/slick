@@ -234,7 +234,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b += "''"
       case Library.Pi() if !hasPiFunction => b += pi
       case Library.Degrees(ch) if !hasRadDegConversion =>
-        b += "(180/"
+        b += "(180.0/"
         expr(Library.Pi(), true)
         b += "*"
         expr(ch)
@@ -242,7 +242,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       case Library.Radians(ch) if!hasRadDegConversion =>
         b += '('
         expr(Library.Pi(), true)
-        b += "/180*"
+        b += "/180.0*"
         expr(ch)
         b += ')'
       case s: SimpleFunction =>
