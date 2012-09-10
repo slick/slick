@@ -22,7 +22,7 @@ class Sequence[T] private[Sequence] (val name: String,
   final def next = Library.NextValue.column[T](Node(this))
   final def curr = Library.CurrentValue.column[T](Node(this))
 
-  def nodeDelegate = SequenceNode(name)
+  def nodeDelegate = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
 
   def ddl(implicit profile: BasicProfile): DDL = profile.buildSequenceDDL(this)
 }

@@ -367,7 +367,7 @@ final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends SimpleN
   override def toString = "LetDynamic"
 }
 
-final case class SequenceNode(name: String) extends NullaryNode
+final case class SequenceNode(name: String)(val increment: Long) extends NullaryNode
 
 /** A Query of this special Node represents an infinite stream of consecutive
   * numbers starting at the given number. This is used as an operand for
