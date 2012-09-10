@@ -73,15 +73,12 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
       def * = id ~ data
     }
 
-    // A Blob result does not survive a commit on all DBMSs so we wrap everything in a transaction
-    sharedSession.withTransaction {
-      T.ddl.create;
-      T insert (1, new SerialBlob(Array[Byte](1,2,3)))
-      T insert (2, new SerialBlob(Array[Byte](4,5)))
+    T.ddl.create;
+    T insert (1, new SerialBlob(Array[Byte](1,2,3)))
+    T insert (2, new SerialBlob(Array[Byte](4,5)))
 
-      assertEquals(Set((1,"123"), (2,"45")),
-        Query(T).list.map{ case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }.toSet)
-    }
+    assertEquals(Set((1,"123"), (2,"45")),
+      Query(T).mapResult{ case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }.to[Set])
   }
 
   def testMappedBlob = ifCap(bcap.typeBlob) {
