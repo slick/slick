@@ -14,13 +14,12 @@ object TestDBs {
   def H2Mem(cname: String) = new TestDB("h2mem", H2Driver) {
     val url = "jdbc:h2:mem:test1"
     val jdbcDriver = "org.h2.Driver"
-    override val dbName = "test1"
     override def isPersistent = false
     override lazy val capabilities = driver.capabilities + TestDB.plainSql
   }
 
   def H2Disk(cname: String) = new TestDB("h2disk", H2Driver) {
-    override val dbName = "h2-"+cname
+    val dbName = "h2-"+cname
     val url = "jdbc:h2:"+TestDB.testDBPath+"/"+dbName
     val jdbcDriver = "org.h2.Driver"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -33,13 +32,13 @@ object TestDBs {
   }
 
   def HsqldbMem(cname: String) = new HsqlDB("hsqldbmem") {
-    override val dbName = "test1"
+    val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
     override def isPersistent = false
   }
 
   def HsqldbDisk(cname: String) = new HsqlDB("hsqldbdisk") {
-    override val dbName = "hsqldb-"+cname
+    val dbName = "hsqldb-"+cname
     val url = "jdbc:hsqldb:file:"+TestDB.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
@@ -57,13 +56,12 @@ object TestDBs {
   def SQLiteDisk(cname: String) = {
     val prefix = "sqlite-"+cname
     new SQLiteTestDB("jdbc:sqlite:"+TestDB.testDBPath+"/"+prefix+".db", "sqlitedisk") {
-      override val dbName = prefix
       override def cleanUpBefore() = TestDB.deleteDBFiles(prefix)
     }
   }
 
   def DerbyMem(cname: String) = new DerbyDB("derbymem") {
-    override val dbName = "test1"
+    val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
@@ -73,7 +71,7 @@ object TestDBs {
   }
 
   def DerbyDisk(cname: String) = new DerbyDB("derbydisk") {
-    override val dbName = "derby-"+cname
+    val dbName = "derby-"+cname
     val url = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";shutdown=true"
@@ -157,7 +155,7 @@ class SQLiteTestDB(dburl: String, confName: String) extends TestDB(confName, SQL
 
 class AccessDB(confName: String) extends TestDB(confName, AccessDriver) {
   val jdbcDriver = TestDB.get(confName, "driver").orNull
-  override def dbName = TestDB.get(confName, "testDB").getOrElse(super.dbName)
+  def dbName = TestDB.get(confName, "testDB").get
   val dir = new File(TestDB.testDBDir)
   val dbPath = dir.getAbsolutePath.replace("\\", "/")
   lazy val emptyDBFile = TestDB.get(confName, "emptyDBFile").get

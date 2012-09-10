@@ -98,7 +98,6 @@ abstract class TestDB(final val confName: String, final val driver: ExtendedDriv
   override def toString = url
   val url: String
   val jdbcDriver: String
-  def dbName = ""
   def createDB() = Database.forURL(url, driver = jdbcDriver)
   def cleanUpBefore() {}
   def cleanUpAfter() = cleanUpBefore()
@@ -141,19 +140,21 @@ abstract class TestDB(final val confName: String, final val driver: ExtendedDriv
 class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(confName, driver) {
   val jdbcDriver = TestDB.get(confName, "driver").orNull
   val urlTemplate = TestDB.get(confName, "url").getOrElse("")
-  override def dbName = TestDB.get(confName, "testDB").getOrElse("")
-  val url = urlTemplate.replace("[DB]", dbName)
+  val dbPath = new File(TestDB.testDBDir).getAbsolutePath
+  val dbName = TestDB.get(confName, "testDB").getOrElse("").replace("[DBPATH]", dbPath)
   val password = TestDB.get(confName, "password").orNull
   val user = TestDB.get(confName, "user").orNull
   val adminUser = TestDB.get(confName, "adminUser").getOrElse(user)
   val adminPassword = TestDB.get(confName, "adminPassword").getOrElse(password)
+  val url = replaceVars(urlTemplate)
 
-  val adminDBURL = urlTemplate.replace("[DB]", TestDB.get(confName, "adminDB").getOrElse(""))
+  val adminDB = TestDB.get(confName, "adminDB").getOrElse("").replace("[DBPATH]", dbPath)
+  val adminDBURL = replaceVars(urlTemplate.replace("[DB]", adminDB))
   val create = TestDB.getMulti(confName, "create").map(replaceVars)
   val drop = TestDB.getMulti(confName, "drop").map(replaceVars)
 
-  def replaceVars(s: String) =
-    s.replace("[DB]", dbName).replace("[DBPATH]", new File(TestDB.testDBDir).getAbsolutePath).
+  def replaceVars(s: String): String =
+    s.replace("[DB]", dbName).replace("[DBPATH]", dbPath).
       replace("[USER]", user).replace("[PASSWORD]", password)
 
   override def isEnabled = TestDB.isExternalEnabled(confName)
