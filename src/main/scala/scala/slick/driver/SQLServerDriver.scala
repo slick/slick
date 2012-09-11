@@ -2,10 +2,8 @@ package scala.slick.driver
 
 import scala.slick.lifted._
 import scala.slick.ast._
-import scala.slick.SlickException
 import java.sql.{Timestamp, Date}
 import scala.slick.session.PositionedResult
-import scala.slick.compiler.Phase
 
 /**
  * Slick driver for Microsoft SQL Server.
@@ -44,77 +42,17 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     case _ => super.mapTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) with RowNumberPagination {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
     override protected val useIntForBoolean = true
 
-    case class StarAnd(child: Node) extends UnaryNode {
-      protected[this] def nodeRebuild(child: Node): Node = StarAnd(child)
-    }
-
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case StarAnd(ch) =>
-        b += "*, "
-        expr(ch, true)
-      case _ => super.expr(c, skipParens)
-    }
-
     override protected def buildSelectModifiers(c: Comprehension) {
-      if(!c.orderBy.isEmpty) b += "top 100 percent "
-    }
-
-    override protected def buildComprehension(c: Comprehension) {
-      scanJoins(c.from)
-      if(c.fetch.isDefined || c.offset.isDefined) {
-        val r = newSym
-        val rn = symbolName(r)
-        val tn = symbolName(newSym)
-        val c2 = makeSelectPageable(c, r)
-        val c3 = Phase.fixRowNumberOrdering.fixRowNumberOrdering(c2, None).asInstanceOf[Comprehension]
-        b += "select top "
-        (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b += (d+t)
-          case (Some(t), None   ) => b += t
-          case (None,    _      ) => b += "100 percent"
-        }
-        b += " "
-        c3.select match {
-          case Some(Pure(StructNode(ch))) =>
-            b.sep(ch.filter { case (_, RowNumber(_)) => false; case _ => true }, ", ") {
-              case (sym, StarAnd(RowNumber(_))) => b += "*"
-              case (sym, _) => b += symbolName(sym)
-            }
-          case o => throw new SlickException("Unexpected node "+o+" in SELECT slot of "+c)
-        }
-        b += " from ("
-        super.buildComprehension(c3)
-        b += ") " += tn += " where " += rn
-        (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b += " between " += (d+1L) += " and " += (t+d)
-          case (Some(t), None   ) => b += " between 1 and " += t
-          case (None,    Some(d)) => b += " > " += d
-          case _ => throw new SlickException("Unexpected empty fetch/offset")
-        }
-        b += " order by " += rn
+      (c.fetch, c.offset) match {
+        case (Some(t), Some(d)) => b += "top " += (d+t) += " "
+        case (Some(t), None   ) => b += "top " += t += " "
+        case (None,    _      ) => if(!c.orderBy.isEmpty) b += "top 100 percent "
       }
-      else super.buildComprehension(c)
-    }
-
-    /** Create aliases for all selected rows (unless it is a "select *" query),
-      * add a RowNumber column, and remove FETCH and OFFSET clauses. The SELECT
-      * clause of the resulting Comprehension always has the shape
-      * Some(Pure(StructNode(_))). */
-    protected def makeSelectPageable(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
-      case Some(Pure(StructNode(ch))) =>
-        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(ProductNode(ch))) =>
-        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(n)) =>
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> RowNumber())))), fetch = None, offset = None)
-      case None =>
-        // should not happen at the outermost layer, so copying an extra row does not matter
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAnd(RowNumber()))))), fetch = None, offset = None)
     }
 
     override protected def buildOrdering(n: Node, o: Ordering) {

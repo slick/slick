@@ -3,10 +3,12 @@ package scala.slick.driver
 import scala.language.existentials
 import scala.slick.SlickException
 import scala.slick.ast._
+import scala.slick.ast.Util.nodeToNodeOps
+import scala.slick.ast.ExtraUtil._
 import scala.slick.util._
 import scala.slick.lifted.{Join => _, _}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
-import scala.slick.compiler.CompilationState
+import scala.slick.compiler.{Phase, CompilationState}
 
 trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
@@ -394,6 +396,90 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
       QueryBuilderResult(b.build, input.linearizer)
+    }
+  }
+
+  /** QueryBuilder mix-in for pagination based on RowNumber. */
+  trait RowNumberPagination extends QueryBuilder {
+    case class StarAnd(child: Node) extends UnaryNode {
+      protected[this] def nodeRebuild(child: Node): Node = StarAnd(child)
+    }
+
+    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+      case StarAnd(ch) =>
+        b += "*, "
+        expr(ch, true)
+      case _ => super.expr(c, skipParens)
+    }
+
+    override protected def buildComprehension(c: Comprehension) {
+      if(c.fetch.isDefined || c.offset.isDefined) {
+        val r = newSym
+        val rn = symbolName(r)
+        val tn = symbolName(newSym)
+        val c2 = makeSelectPageable(c, r)
+        val c3 = Phase.fixRowNumberOrdering.fixRowNumberOrdering(c2, None).asInstanceOf[Comprehension]
+        b += "select "
+        buildSelectModifiers(c)
+        c3.select match {
+          case Some(Pure(StructNode(ch))) =>
+            b.sep(ch.filter { case (_, RowNumber(_)) => false; case _ => true }, ", ") {
+              case (sym, StarAnd(RowNumber(_))) => b += "*"
+              case (sym, _) => b += symbolName(sym)
+            }
+          case o => throw new SlickException("Unexpected node "+o+" in SELECT slot of "+c)
+        }
+        b += " from ("
+        super.buildComprehension(c3)
+        b += ") " += tn += " where " += rn
+        (c.fetch, c.offset) match {
+          case (Some(t), Some(d)) => b += " between " += (d+1L) += " and " += (t+d)
+          case (Some(t), None   ) => b += " between 1 and " += t
+          case (None,    Some(d)) => b += " > " += d
+          case _ => throw new SlickException("Unexpected empty fetch/offset")
+        }
+        b += " order by " += rn
+      }
+      else super.buildComprehension(c)
+    }
+
+    /** Create aliases for all selected rows (unless it is a "select *" query),
+      * add a RowNumber column, and remove FETCH and OFFSET clauses. The SELECT
+      * clause of the resulting Comprehension always has the shape
+      * Some(Pure(StructNode(_))). */
+    protected def makeSelectPageable(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
+      case Some(Pure(StructNode(ch))) =>
+        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> RowNumber())))), fetch = None, offset = None)
+      case Some(Pure(ProductNode(ch))) =>
+        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> RowNumber())))), fetch = None, offset = None)
+      case Some(Pure(n)) =>
+        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> RowNumber())))), fetch = None, offset = None)
+      case None =>
+        // should not happen at the outermost layer, so copying an extra row does not matter
+        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAnd(RowNumber()))))), fetch = None, offset = None)
+    }
+  }
+
+  /** QueryBuilder mix-in for Oracle-style ROWNUM (applied before ORDER BY
+    * and GROUP BY) instead of the standard SQL ROWNUMBER(). */
+  trait OracleStyleRowNum extends QueryBuilder {
+    override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
+      super.toComprehension(n, liftExpression) match {
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+          // Pull the SELECT clause with the ROWNUM up into a new query
+          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
+          val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
+          val gen = new AnonSymbol
+          val newSel = sel.replace {
+            case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
+          }
+          Comprehension(Seq((gen, inner)), select = Some(newSel))
+        case c => c
+      }
+
+    override def expr(n: Node, skipParens: Boolean = false) = n match {
+      case RowNumber(_) => b += "rownum"
+      case _ => super.expr(n, skipParens)
     }
   }
 

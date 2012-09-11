@@ -4,8 +4,6 @@ import java.sql.Types
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
-import scala.slick.ast.Util._
-import scala.slick.ast.ExtraUtil._
 
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -34,28 +32,11 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) with OracleStyleRowNum {
     override protected val scalarFrom = Some("(VALUES (0))")
     override protected val concatOperator = Some("||")
 
-    override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
-      super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
-          // Hsqldb supports only Oracle-style ROWNUM (applied before ORDER BY),
-          // so we pull the SELECT clause with the ROWNUM up into a new query
-          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
-          //println(paths.map { case (p: Select, _) => Path.toString(p) })
-          val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
-          val gen = new AnonSymbol
-          val newSel = sel.replace {
-            case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
-          }
-          Comprehension(Seq((gen, inner)), select = Some(newSel))
-        case c => c
-      }
-
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-
       case c @ ConstColumn(v: String) if v ne null =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
          * spaces in some expressions, so we cast all string literals to
@@ -68,13 +49,10 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
           super.expr(c)
           b += " as varchar(16777216))"
         }
-      case RowNumber(_) => b += "rownum()"
-
       /* Hsqldb uses the SQL:2008 syntax for NEXTVAL */
       case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"
-
       case Library.CurrentValue(_*) => throw new SlickException("Hsqldb does not support CURRVAL")
-
+      case RowNumber(_) => b += "rownum()" // Hsqldb uses Oracle ROWNUM semantics but needs parens
       case _ => super.expr(c, skipParens)
     }
 
