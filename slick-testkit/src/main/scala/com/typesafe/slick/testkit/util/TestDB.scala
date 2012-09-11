@@ -151,6 +151,7 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   val adminDB = TestDB.get(confName, "adminDB").getOrElse("").replace("[DBPATH]", dbPath)
   val adminDBURL = replaceVars(urlTemplate.replace("[DB]", adminDB))
   val create = TestDB.getMulti(confName, "create").map(replaceVars)
+  val postCreate = TestDB.getMulti(confName, "postCreate").map(replaceVars)
   val drop = TestDB.getMulti(confName, "drop").map(replaceVars)
 
   def replaceVars(s: String): String =
@@ -172,6 +173,11 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
       databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: Session =>
         for(s <- drop) (Q.u + s).execute
         for(s <- create) (Q.u + s).execute
+      }
+    }
+    if(!postCreate.isEmpty) {
+      createDB() withSession { implicit session: Session =>
+        for(s <- postCreate) (Q.u + s).execute
       }
     }
   }
