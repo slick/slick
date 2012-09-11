@@ -73,12 +73,14 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
       def * = id ~ data
     }
 
-    T.ddl.create;
-    T insert (1, new SerialBlob(Array[Byte](1,2,3)))
-    T insert (2, new SerialBlob(Array[Byte](4,5)))
+    sharedSession.withTransaction {
+      T.ddl.create;
+      T insert (1, new SerialBlob(Array[Byte](1,2,3)))
+      T insert (2, new SerialBlob(Array[Byte](4,5)))
 
-    assertEquals(Set((1,"123"), (2,"45")),
-      Query(T).mapResult{ case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }.to[Set])
+      assertEquals(Set((1,"123"), (2,"45")),
+        Query(T).mapResult{ case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }.to[Set])
+    }
   }
 
   def testMappedBlob = ifCap(bcap.typeBlob) {
@@ -102,8 +104,10 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
       def * = id ~ b
     }
 
-    T.ddl.create
-    T.b.insertAll(Serialized(List(1,2,3)), Serialized(List(4,5)))
-    assertEquals(Set((1, Serialized(List(1,2,3))), (2, Serialized(List(4,5)))), Query(T).list.toSet)
+    sharedSession.withTransaction {
+      T.ddl.create
+      T.b.insertAll(Serialized(List(1,2,3)), Serialized(List(4,5)))
+      assertEquals(Set((1, Serialized(List(1,2,3))), (2, Serialized(List(4,5)))), Query(T).list.toSet)
+    }
   }
 }
