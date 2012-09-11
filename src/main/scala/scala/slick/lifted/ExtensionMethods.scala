@@ -124,6 +124,7 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
 /** Extension methods for Queries of a single Column */
 final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _]) extends AnyVal {
   type OptionTM =  TypeMapper[Option[B1]]
+  @deprecated("asColumn subverts correct typing and can lead to incorrect queries", "1.0.0")
   def asColumn: Column[P1] = {
     val c = q.unpackable.value.mapOp((_, _) => Node(q))
     c
