@@ -21,11 +21,12 @@ postgres.url = jdbc:postgresql:[DB]
 postgres.user = postgres
 postgres.password = secret
 postgres.adminDB = postgres
-postgres.testDB = scala-query-test
-postgres.create = CREATE TABLESPACE scalaquery_test LOCATION '[DBPATH]'; CREATE DATABASE "[DB]" TEMPLATE = template0 TABLESPACE scalaquery_test
-#postgres.create = CREATE DATABASE "[DB]"
-postgres.drop = DROP DATABASE IF EXISTS "[DB]"; DROP TABLESPACE IF EXISTS scalaquery_test
-#postgres.drop = DROP DATABASE IF EXISTS "[DB]"
+postgres.testDB = slick-test
+postgres.create.1 = CREATE TABLESPACE slick_test LOCATION '[DBPATH]'
+postgres.create.2 = CREATE DATABASE "[DB]" TEMPLATE = template0 TABLESPACE slick_test
+postgres.postCreate = create extension lo
+postgres.drop.1 = DROP DATABASE IF EXISTS "[DB]"
+postgres.drop.2 = DROP TABLESPACE IF EXISTS slick_test
 postgres.driver = org.postgresql.Driver
 
 # MySQL quick setup:
