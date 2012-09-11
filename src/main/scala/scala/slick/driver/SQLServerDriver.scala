@@ -33,13 +33,13 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "BIT"
     case java.sql.Types.BLOB => "IMAGE"
     case java.sql.Types.CLOB => "TEXT"
     case java.sql.Types.DOUBLE => "FLOAT(53)"
     case java.sql.Types.FLOAT => "FLOAT(24)"
-    case _ => super.mapTypeName(tmd)
+    case _ => super.defaultSqlTypeName(tmd)
   }
 
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) with RowNumberPagination {

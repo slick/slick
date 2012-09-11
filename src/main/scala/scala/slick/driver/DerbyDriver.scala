@@ -59,6 +59,13 @@ trait DerbyDriver extends ExtendedDriver { driver =>
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
+  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+    case java.sql.Types.BOOLEAN => "SMALLINT"
+    /* Derby does not have a TINYINT type, so we use SMALLINT instead. */
+    case java.sql.Types.TINYINT => "SMALLINT"
+    case _ => super.defaultSqlTypeName(tmd)
+  }
+
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
 
     override protected val scalarFrom = Some("sysibm.sysdummy1")
@@ -72,7 +79,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         case c: Column[_] =>
           b += "coalesce(cast("
           expr(l)
-          b += " as " += mapTypeName(c.typeMapper(driver)) += "),"
+          b += " as " += c.typeMapper(driver).sqlTypeName += "),"
           expr(r, true); b += ")"
         case _ => throw new SlickException("Cannot determine type of right-hand side for ifNull")
       }
@@ -84,7 +91,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         val tmd = c.typeMapper(profile)
         b += "cast("
         b +?= { (p, param) => tmd.setValue(v, p) }
-        b += " as " += mapTypeName(tmd) += ")"
+        b += " as " += tmd.sqlTypeName += ")"
       case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
       case _ => super.expr(c, skipParens)
@@ -143,21 +150,17 @@ trait DerbyDriver extends ExtendedDriver { driver =>
 
   class TypeMapperDelegates extends super.TypeMapperDelegates {
     override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
-    override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
-      override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName = "CHAR(16) FOR BIT DATA"
-    }
+    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */
     class BooleanTypeMapperDelegate extends super.BooleanTypeMapperDelegate {
-      override def sqlTypeName = "SMALLINT"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
-    /* Derby does not have a TINYINT type, so we use SMALLINT instead. */
-    class ByteTypeMapperDelegate extends super.ByteTypeMapperDelegate {
-      override def sqlTypeName = "SMALLINT"
+
+    class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+      override def sqlType = java.sql.Types.BINARY
+      override def sqlTypeName = "CHAR(16) FOR BIT DATA"
     }
   }
 }

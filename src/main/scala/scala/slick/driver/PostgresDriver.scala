@@ -30,9 +30,12 @@ trait PostgresDriver extends ExtendedDriver { driver =>
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+    case java.sql.Types.BLOB => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
-    case _ => super.mapTypeName(tmd)
+    /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
+    case java.sql.Types.TINYINT => "SMALLINT"
+    case _ => super.defaultSqlTypeName(tmd)
   }
 
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
@@ -92,19 +95,8 @@ trait PostgresDriver extends ExtendedDriver { driver =>
   }
 
   class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val blobTypeMapperDelegate = new BlobTypeMapperDelegate
-    override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
     override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate
     override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
-
-    class BlobTypeMapperDelegate extends super.BlobTypeMapperDelegate {
-      override val sqlTypeName = "lo"
-    }
-
-    /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
-    class ByteTypeMapperDelegate extends super.ByteTypeMapperDelegate {
-      override def sqlTypeName = "SMALLINT"
-    }
 
     class ByteArrayTypeMapperDelegate extends super.ByteArrayTypeMapperDelegate {
       override val sqlTypeName = "BYTEA"

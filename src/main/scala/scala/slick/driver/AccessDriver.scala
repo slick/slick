@@ -88,10 +88,13 @@ trait AccessDriver extends ExtendedDriver { driver =>
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
     case java.sql.Types.BLOB => "LONGBINARY"
-    case _ => super.mapTypeName(tmd)
+    case java.sql.Types.SMALLINT => "INTEGER"
+    case java.sql.Types.BIGINT => "LONG"
+    case java.sql.Types.TINYINT => "BYTE"
+    case _ => super.defaultSqlTypeName(tmd)
   }
 
   class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
@@ -131,7 +134,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
       case Library.IfNull(l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
       case a @ Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else mapTypeName(a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver))
+          else a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver).sqlTypeName
         ).toLowerCase match {
           case "integer" => b += "cint("; expr(ch(0)); b += ')'
           case "long" => b += "clng("; expr(ch(0)); b += ')'
@@ -231,7 +234,6 @@ trait AccessDriver extends ExtendedDriver { driver =>
     // This is a nightmare... but it seems to work
     class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
       override def sqlType = java.sql.Types.BLOB
-      override def sqlTypeName = "LONGBINARY"
       override def setOption(v: Option[UUID], p: PositionedParameters) =
         if(v == None) p.setString(null) else p.setBytes(toBytes(v.get))
       override def nextValueOrElse(d: =>UUID, r: PositionedResult) = { val v = nextValue(r); if(v.eq(null) || r.rs.wasNull) d else v }
@@ -240,19 +242,13 @@ trait AccessDriver extends ExtendedDriver { driver =>
 
     /* Access does not have a TINYINT (8-bit signed type), so we use 16-bit signed. */
     class ByteTypeMapperDelegate extends super.ByteTypeMapperDelegate {
-      override def sqlTypeName = "BYTE"
       override def setValue(v: Byte, p: PositionedParameters) = p.setShort(v)
       override def setOption(v: Option[Byte], p: PositionedParameters) = p.setIntOption(v.map(_.toInt))
       override def nextValue(r: PositionedResult) = r.nextInt.toByte
       override def updateValue(v: Byte, r: PositionedResult) = r.updateInt(v)
     }
 
-    class ShortTypeMapperDelegate extends super.ShortTypeMapperDelegate {
-      override def sqlTypeName = "INTEGER"
-    }
-
     class LongTypeMapperDelegate extends super.LongTypeMapperDelegate {
-      override def sqlTypeName = "LONG"
       override def setValue(v: Long, p: PositionedParameters) = p.setString(v.toString)
       override def setOption(v: Option[Long], p: PositionedParameters) = p.setStringOption(v.map(_.toString))
     }

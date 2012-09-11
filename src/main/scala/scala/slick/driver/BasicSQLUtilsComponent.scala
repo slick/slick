@@ -15,11 +15,6 @@ trait BasicSQLUtilsComponent { driver: BasicDriver =>
 
   def quote[T](v: T)(implicit tm: TypeMapper[T]): String = tm(driver).valueToSQLLiteral(v)
 
-  def mapTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
-    case VARCHAR => "VARCHAR(254)"
-    case _ => tmd.sqlTypeName
-  }
-
   def likeEncode(s: String) = {
     val b = new StringBuilder
     for(c <- s) c match {

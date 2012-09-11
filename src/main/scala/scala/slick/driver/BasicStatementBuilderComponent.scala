@@ -287,7 +287,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       case a @ Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else mapTypeName(a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver))
+          else a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver).sqlTypeName
         if(supportsCast) {
           b += "cast("
           expr(ch(0))
@@ -652,7 +652,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     protected def init() {
       for(o <- column.options) handleColumnOption(o)
-      if(sqlType eq null) sqlType = mapTypeName(tmDelegate)
+      if(sqlType eq null) sqlType = tmDelegate.sqlTypeName
     }
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {

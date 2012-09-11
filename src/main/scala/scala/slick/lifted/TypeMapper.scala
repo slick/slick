@@ -138,8 +138,7 @@ trait TypeMapperDelegate[T] { self =>
   /**
    * The default name for the SQL type that is used for column declarations.
    */
-  def sqlTypeName: String = TypeMapperDelegate.typeNames.getOrElse(sqlType,
-    throw new SlickException("No SQL type name found in java.sql.Types for code "+sqlType))
+  def sqlTypeName: String
   /**
    * Set a parameter of the type.
    */

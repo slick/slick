@@ -6,7 +6,17 @@ import scala.slick.lifted.TypeMapperDelegate
 import scala.slick.session.{PositionedParameters, PositionedResult}
 import java.util.UUID
 
-trait BasicTypeMapperDelegatesComponent {
+trait BasicTypeMapperDelegatesComponent { driver: BasicDriver =>
+
+  def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+    case java.sql.Types.VARCHAR => "VARCHAR(254)"
+    case t => TypeMapperDelegate.typeNames.getOrElse(t,
+      throw new SlickException("No SQL type name found in java.sql.Types for code "+t))
+  }
+
+  trait DriverTypeMapperDelegate[T] extends TypeMapperDelegate[T] {
+    def sqlTypeName: String = driver.defaultSqlTypeName(this)
+  }
 
   class TypeMapperDelegates {
     val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
@@ -28,7 +38,7 @@ trait BasicTypeMapperDelegatesComponent {
     val bigDecimalTypeMapperDelegate = new BigDecimalTypeMapperDelegate
     val nullTypeMapperDelegate = new NullTypeMapperDelegate
 
-    class BooleanTypeMapperDelegate extends TypeMapperDelegate[Boolean] {
+    class BooleanTypeMapperDelegate extends DriverTypeMapperDelegate[Boolean] {
       def zero = false
       def sqlType = java.sql.Types.BOOLEAN
       def setValue(v: Boolean, p: PositionedParameters) = p.setBoolean(v)
@@ -37,7 +47,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Boolean, r: PositionedResult) = r.updateBoolean(v)
     }
 
-    class BlobTypeMapperDelegate extends TypeMapperDelegate[Blob] {
+    class BlobTypeMapperDelegate extends DriverTypeMapperDelegate[Blob] {
       def zero = null
       def sqlType = java.sql.Types.BLOB
       def setValue(v: Blob, p: PositionedParameters) = p.setBlob(v)
@@ -48,7 +58,7 @@ trait BasicTypeMapperDelegatesComponent {
         throw new SlickException("Blob does not have a literal representation")
     }
 
-    class ByteTypeMapperDelegate extends TypeMapperDelegate[Byte] {
+    class ByteTypeMapperDelegate extends DriverTypeMapperDelegate[Byte] {
       def zero = 0
       def sqlType = java.sql.Types.TINYINT
       def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
@@ -57,7 +67,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Byte, r: PositionedResult) = r.updateByte(v)
     }
 
-    class ByteArrayTypeMapperDelegate extends TypeMapperDelegate[Array[Byte]] {
+    class ByteArrayTypeMapperDelegate extends DriverTypeMapperDelegate[Array[Byte]] {
       val zero = new Array[Byte](0)
       val sqlType = java.sql.Types.BLOB
       def setValue(v: Array[Byte], p: PositionedParameters) = p.setBytes(v)
@@ -68,7 +78,7 @@ trait BasicTypeMapperDelegatesComponent {
         throw new SlickException("Array[Byte] does not have a literal representation")
     }
 
-    class ClobTypeMapperDelegate extends TypeMapperDelegate[Clob] {
+    class ClobTypeMapperDelegate extends DriverTypeMapperDelegate[Clob] {
       def zero = null
       def sqlType = java.sql.Types.CLOB
       def setValue(v: Clob, p: PositionedParameters) = p.setClob(v)
@@ -77,7 +87,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Clob, r: PositionedResult) = r.updateClob(v)
     }
 
-    class DateTypeMapperDelegate extends TypeMapperDelegate[Date] {
+    class DateTypeMapperDelegate extends DriverTypeMapperDelegate[Date] {
       def zero = new Date(0L)
       def sqlType = java.sql.Types.DATE
       def setValue(v: Date, p: PositionedParameters) = p.setDate(v)
@@ -87,7 +97,7 @@ trait BasicTypeMapperDelegatesComponent {
       override def valueToSQLLiteral(value: Date) = "{d '"+value.toString+"'}"
     }
 
-    class DoubleTypeMapperDelegate extends TypeMapperDelegate[Double] {
+    class DoubleTypeMapperDelegate extends DriverTypeMapperDelegate[Double] {
       def zero = 0
       def sqlType = java.sql.Types.DOUBLE
       def setValue(v: Double, p: PositionedParameters) = p.setDouble(v)
@@ -96,7 +106,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Double, r: PositionedResult) = r.updateDouble(v)
     }
 
-    class FloatTypeMapperDelegate extends TypeMapperDelegate[Float] {
+    class FloatTypeMapperDelegate extends DriverTypeMapperDelegate[Float] {
       def zero = 0
       def sqlType = java.sql.Types.FLOAT
       def setValue(v: Float, p: PositionedParameters) = p.setFloat(v)
@@ -105,7 +115,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Float, r: PositionedResult) = r.updateFloat(v)
     }
 
-    class IntTypeMapperDelegate extends TypeMapperDelegate[Int] {
+    class IntTypeMapperDelegate extends DriverTypeMapperDelegate[Int] {
       def zero = 0
       def sqlType = java.sql.Types.INTEGER
       def setValue(v: Int, p: PositionedParameters) = p.setInt(v)
@@ -114,7 +124,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Int, r: PositionedResult) = r.updateInt(v)
     }
 
-    class LongTypeMapperDelegate extends TypeMapperDelegate[Long] {
+    class LongTypeMapperDelegate extends DriverTypeMapperDelegate[Long] {
       def zero = 0
       def sqlType = java.sql.Types.BIGINT
       def setValue(v: Long, p: PositionedParameters) = p.setLong(v)
@@ -123,7 +133,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Long, r: PositionedResult) = r.updateLong(v)
     }
 
-    class ShortTypeMapperDelegate extends TypeMapperDelegate[Short] {
+    class ShortTypeMapperDelegate extends DriverTypeMapperDelegate[Short] {
       def zero = 0
       def sqlType = java.sql.Types.SMALLINT
       def setValue(v: Short, p: PositionedParameters) = p.setShort(v)
@@ -132,7 +142,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: Short, r: PositionedResult) = r.updateShort(v)
     }
 
-    class StringTypeMapperDelegate extends TypeMapperDelegate[String] {
+    class StringTypeMapperDelegate extends DriverTypeMapperDelegate[String] {
       def zero = ""
       def sqlType = java.sql.Types.VARCHAR
       def setValue(v: String, p: PositionedParameters) = p.setString(v)
@@ -151,7 +161,7 @@ trait BasicTypeMapperDelegatesComponent {
       }
     }
 
-    class TimeTypeMapperDelegate extends TypeMapperDelegate[Time] {
+    class TimeTypeMapperDelegate extends DriverTypeMapperDelegate[Time] {
       def zero = new Time(0L)
       def sqlType = java.sql.Types.TIME
       def setValue(v: Time, p: PositionedParameters) = p.setTime(v)
@@ -161,7 +171,7 @@ trait BasicTypeMapperDelegatesComponent {
       override def valueToSQLLiteral(value: Time) = "{t '"+value.toString+"'}"
     }
 
-    class TimestampTypeMapperDelegate extends TypeMapperDelegate[Timestamp] {
+    class TimestampTypeMapperDelegate extends DriverTypeMapperDelegate[Timestamp] {
       def zero = new Timestamp(0L)
       def sqlType = java.sql.Types.TIMESTAMP
       def setValue(v: Timestamp, p: PositionedParameters) = p.setTimestamp(v)
@@ -171,7 +181,7 @@ trait BasicTypeMapperDelegatesComponent {
       override def valueToSQLLiteral(value: Timestamp) = "{ts '"+value.toString+"'}"
     }
 
-    class UnitTypeMapperDelegate extends TypeMapperDelegate[Unit] {
+    class UnitTypeMapperDelegate extends DriverTypeMapperDelegate[Unit] {
       def zero = ()
       def sqlType = java.sql.Types.INTEGER
       def setValue(v: Unit, p: PositionedParameters) = p.setInt(1)
@@ -181,10 +191,9 @@ trait BasicTypeMapperDelegatesComponent {
       override def valueToSQLLiteral(value: Unit) = "1"
     }
 
-    class UUIDTypeMapperDelegate extends TypeMapperDelegate[UUID] {
+    class UUIDTypeMapperDelegate extends DriverTypeMapperDelegate[UUID] {
       def zero = new UUID(0, 0)
       def sqlType = java.sql.Types.OTHER
-      override def sqlTypeName = "UUID"
       def setValue(v: UUID, p: PositionedParameters) = p.setBytes(toBytes(v))
       def setOption(v: Option[UUID], p: PositionedParameters) =
         if(v == None) p.setNull(sqlType) else p.setBytes(toBytes(v.get))
@@ -220,7 +229,7 @@ trait BasicTypeMapperDelegatesComponent {
       }
     }
 
-    class BigDecimalTypeMapperDelegate extends TypeMapperDelegate[BigDecimal] {
+    class BigDecimalTypeMapperDelegate extends DriverTypeMapperDelegate[BigDecimal] {
       def zero = BigDecimal(0)
       def sqlType = java.sql.Types.DECIMAL
       def setValue(v: BigDecimal, p: PositionedParameters) = p.setBigDecimal(v)
@@ -229,7 +238,7 @@ trait BasicTypeMapperDelegatesComponent {
       def updateValue(v: BigDecimal, r: PositionedResult) = r.updateBigDecimal(v)
     }
 
-    class NullTypeMapperDelegate extends TypeMapperDelegate[Null] {
+    class NullTypeMapperDelegate extends DriverTypeMapperDelegate[Null] {
       def zero = null
       def sqlType = java.sql.Types.NULL
       def setValue(v: Null, p: PositionedParameters) = p.setString(null)
