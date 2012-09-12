@@ -32,3 +32,17 @@ trait DDL { self =>
     protected lazy val dropPhase2 = self.dropPhase2 ++ other.dropPhase2
   }
 }
+
+object DDL {
+  def apply(create1: Iterable[String], create2: Iterable[String], drop1: Iterable[String],
+            drop2: Iterable[String]): DDL = new DDL {
+    protected def createPhase1 = create1
+    protected def createPhase2 = create2
+    protected def dropPhase1 = drop1
+    protected def dropPhase2 = drop2
+  }
+
+  def apply(create1: Iterable[String], drop2: Iterable[String]): DDL = apply(create1, Nil, Nil, drop2)
+
+  def apply(create1: String, drop2: String): DDL = apply(Iterable(create1), Iterable(drop2))
+}

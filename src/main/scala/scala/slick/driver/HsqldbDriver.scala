@@ -104,12 +104,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
        * conventional 1/-1 so we rewrite it to make 1/-1 the default. */
       if(start != 0) b append " START WITH " append start
       if(seq._cycle) b append " CYCLE"
-      new DDL {
-        val createPhase1 = Iterable(b.toString)
-        val createPhase2 = Nil
-        val dropPhase1 = Nil
-        val dropPhase2 = Iterable("DROP SEQUENCE " + quoteIdentifier(seq.name))
-      }
+      DDL(b.toString, "DROP SEQUENCE " + quoteIdentifier(seq.name))
     }
   }
 }

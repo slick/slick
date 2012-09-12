@@ -545,12 +545,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       if(primaryKeys.size > 1)
         throw new SlickException("Table "+table.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
-      new DDL {
-        val createPhase1 = self.createPhase1
-        val createPhase2 = self.createPhase2
-        val dropPhase1 = self.dropPhase1
-        val dropPhase2 = self.dropPhase2
-      }
+      DDL(createPhase1, createPhase2, dropPhase1, dropPhase2)
     }
 
     protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
@@ -572,13 +567,12 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     protected def addTableOptions(b: StringBuilder) {}
 
-    protected def dropTable: String =
-      "drop table " + quoteIdentifier(table.tableName)
+    protected def dropTable: String = q"drop table `${table.tableName}"
 
     protected def createIndex(idx: Index): String = {
       val b = new StringBuilder append "create "
       if(idx.unique) b append "unique "
-      b append "index " append quoteIdentifier(idx.name) append " on " append quoteIdentifier(table.tableName) append "("
+      b append q"index `${idx.name} on `${table.tableName} ("
       addIndexColumnList(idx.on, b, idx.table.tableName)
       b append ")"
       b.toString
@@ -688,12 +682,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       seq._maxValue.foreach { b append " maxvalue " append _ }
       seq._start.foreach { b append " start " append _ }
       if(seq._cycle) b append " cycle"
-      new DDL {
-        val createPhase1 = Iterable(b.toString)
-        val createPhase2 = Nil
-        val dropPhase1 = Nil
-        val dropPhase2 = Iterable("drop sequence " + quoteIdentifier(seq.name))
-      }
+      DDL(b.toString, "drop sequence " + quoteIdentifier(seq.name))
     }
   }
 }

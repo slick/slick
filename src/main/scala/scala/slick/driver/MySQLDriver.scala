@@ -135,21 +135,19 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       } else {
         "id+("+increment+")"
       }
-      new DDL {
-        val createPhase1 = Iterable(
+      DDL(
+        Iterable(
           "create table " + quoteIdentifier(seq.name + "_seq") + " (id " + t + ")",
           "insert into " + quoteIdentifier(seq.name + "_seq") + " values (" + beforeStart + ")",
           "create function " + quoteIdentifier(seq.name + "_nextval") + "() returns " + sqlType + " begin update " +
             quoteIdentifier(seq.name + "_seq") + " set id=last_insert_id(" + incExpr + "); return last_insert_id(); end",
           "create function " + quoteIdentifier(seq.name + "_currval") + "() returns " + sqlType + " begin " +
-            "select max(id) into @v from " + quoteIdentifier(seq.name + "_seq") + "; return @v; end")
-        val createPhase2 = Nil
-        val dropPhase1 = Nil
-        val dropPhase2 = Iterable(
+            "select max(id) into @v from " + quoteIdentifier(seq.name + "_seq") + "; return @v; end"),
+        Iterable(
           "drop function " + quoteIdentifier(seq.name + "_currval"),
           "drop function " + quoteIdentifier(seq.name + "_nextval"),
           "drop table " + quoteIdentifier(seq.name + "_seq"))
-      }
+      )
     }
   }
 

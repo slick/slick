@@ -139,12 +139,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
        * cycles back to the START value instead of MINVALUE or MAXVALUE. No good
        * workaround available AFAICT. */
       if(seq._cycle) b append " CYCLE"
-      new DDL {
-        val createPhase1 = Iterable(b.toString)
-        val createPhase2 = Nil
-        val dropPhase1 = Nil
-        val dropPhase2 = Iterable("DROP SEQUENCE " + quoteIdentifier(seq.name))
-      }
+      DDL(b.toString, "DROP SEQUENCE " + quoteIdentifier(seq.name))
     }
   }
 
