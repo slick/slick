@@ -1,11 +1,12 @@
 package scala.slick.driver
 
-import scala.language.existentials
+import scala.language.{existentials, implicitConversions}
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util._
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted.{Join => _, _}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.compiler.{Phase, CompilationState}
@@ -27,7 +28,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   case object OtherPart extends StatementPart
 
   /** Builder for SELECT and UPDATE statements. */
-  class QueryBuilder(val input: QueryBuilderInput) {
+  class QueryBuilder(val input: QueryBuilderInput) { queryBuilder =>
 
     // Immutable config options (to be overridden by subclasses)
     protected val scalarFrom: Option[String] = None
@@ -85,20 +86,20 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
-      b += "select "
+      b"select "
       buildSelectModifiers(c)
       c.select match {
         case Some(Pure(StructNode(ch))) =>
           b.sep(ch, ", ") { case (sym, n) =>
             buildSelectPart(n)
-            b += " as " += symbolName(sym)
+            b" as `$sym"
           }
         case Some(Pure(ProductNode(ch))) =>
           b.sep(ch, ", ")(buildSelectPart)
         case Some(Pure(n)) => buildSelectPart(n)
         case None =>
-          if(c.from.length <= 1) b += "*"
-          else b += symbolName(c.from.last._1) += ".*"
+          if(c.from.length <= 1) b"*"
+          else b"`${c.from.last._1}.*"
       }
     }
 
@@ -112,30 +113,27 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
-      if(from.isEmpty) scalarFrom.foreach { s => b += " from " += s }
+      if(from.isEmpty) scalarFrom.foreach { s => b" from $s" }
       else {
-        b += " from "
+        b" from "
         b.sep(from, ", ") { case (sym, n) => buildFrom(n, Some(sym)) }
       }
     }
 
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
-        b += " where "
+        b" where "
         expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
     }
 
     protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
-      groupBy.foreach { e =>
-        b += " group by "
-        expr(e, true)
-      }
+      groupBy.foreach { e => b" group by !$e" }
     }
 
     protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
       if(!order.isEmpty) {
-        b += " order by "
+        b" order by "
         b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
       }
     }
@@ -143,18 +141,16 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = building(OtherPart) {
       (fetch, offset) match {
         /* SQL:2008 syntax */
-        case (Some(t), Some(d)) => b += " offset " += d += " row fetch next " += t += " row only"
-        case (Some(t), None) => b += " fetch next " += t += " row only"
-        case (None, Some(d)) => b += " offset " += d += " row"
+        case (Some(t), Some(d)) => b" offset $d row fetch next $t row only"
+        case (Some(t), None) => b" fetch next $t row only"
+        case (None, Some(d)) => b" offset $d row"
         case _ =>
       }
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
       case Typed(t: TypeMapper[_]) if useIntForBoolean && (t(profile) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
-        b += "case when "
-        expr(n)
-        b += " then 1 else 0 end"
+        b"case when $n then 1 else 0 end"
       case n =>
         expr(n, true)
     }
@@ -167,198 +163,134 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
           if(alias != Some(t.nodeTableSymbol)) addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
-          b += ' ' += jt.sqlName += " join "
+          b" ${jt.sqlName} join "
           buildFrom(right, Some(rightGen))
-          if(on != ConstColumn.TRUE) {
-            b += " on "
-            expr(on, true)
-          }
+          if(on != ConstColumn.TRUE) b" on !$on"
         case Union(left, right, all, _, _) =>
-          if(!skipParens) b += '('
+          b"\("
           buildFrom(left, None, true)
-          b += (if(all) " union all " else " union ")
+          if(all) b" union all " else b" union "
           buildFrom(right, None, true)
-          if(!skipParens) b += ')'
+          b"\)"
           addAlias
         case n =>
-          if(!skipParens) b += '('
+          b"\("
           buildComprehension(toComprehension(n, true))
-          if(!skipParens) b += ')'
+          b"\)"
           addAlias
       }
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case LiteralNode(true) if useIntForBoolean => b += (if(skipParens) "1=1" else "(1=1)")
-      case LiteralNode(false) if useIntForBoolean => b += (if(skipParens) "1=0" else "(1=0)")
-      case LiteralNode(null) => b += "null"
+      case LiteralNode(true) if useIntForBoolean => b"\(1=1\)"
+      case LiteralNode(false) if useIntForBoolean => b"\(1=0\)"
+      case LiteralNode(null) => b"null"
       case Library.Not(Library.==(l, LiteralNode(null))) =>
-        if(!skipParens) b += '('
-        expr(l)
-        b += " is not null"
-        if(!skipParens) b += ')'
+        b"\($l is not null\)"
       case Library.==(l, LiteralNode(null)) =>
-        if(!skipParens) b += '('
-        expr(l)
-        b += " is null"
-        if(!skipParens) b += ')'
+        b"\($l is null\)"
       case Library.==(left: ProductNode, right: ProductNode) =>
-        if(!skipParens) b += '('
-        if(supportsTuples) {
-          expr(left)
-          b += " = "
-          expr(right)
-        } else {
+        b"\("
+        if(supportsTuples) b"$left = $right"
+        else {
           val cols = left.nodeChildren zip right.nodeChildren
           b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
         }
-        if(!skipParens) b += ')'
+        b"\)"
       case ProductNode(ch) =>
-        if(!skipParens) b += '('
+        b"\("
         b.sep(ch, ", ")(expr(_))
-        if(!skipParens) b += ')'
+        b"\)"
       case Library.Exists(c: Comprehension) if(!supportsTuples) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite
          * such sub-queries to "select *". */
-        b += "exists("
-        expr(c.copy(select = None), true)
-        b += ')'
+        b"exists(!${c.copy(select = None)})"
       case Library.Concat(l, r) if concatOperator.isDefined =>
-        if(!skipParens) b += '('
-        expr(l)
-        b += concatOperator.get
-        expr(r)
-        if(!skipParens) b += ')'
+        b"\($l${concatOperator.get}$r\)"
       case Library.User() if !capabilities.contains(BasicProfile.capabilities.functionUser) =>
         b += "''"
       case Library.Database() if !capabilities.contains(BasicProfile.capabilities.functionDatabase) =>
         b += "''"
       case Library.Pi() if !hasPiFunction => b += pi
-      case Library.Degrees(ch) if !hasRadDegConversion =>
-        b += "(180.0/"
-        expr(Library.Pi(), true)
-        b += "*"
-        expr(ch)
-        b += ')'
-      case Library.Radians(ch) if!hasRadDegConversion =>
-        b += '('
-        expr(Library.Pi(), true)
-        b += "/180.0*"
-        expr(ch)
-        b += ')'
+      case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi()}*$ch)"
+      case Library.Radians(ch) if!hasRadDegConversion => b"(!${Library.Pi()}/180.0*$ch)"
       case s: SimpleFunction =>
-        if(s.scalar) b += "{fn "
-        b += s.name += '('
+        if(s.scalar) b"{fn "
+        b"${s.name}("
         b.sep(s.nodeChildren, ",")(expr(_, true))
-        b += ')'
+        b")"
         if(s.scalar) b += '}'
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)
-      case Library.Between(left, start, end) => expr(left); b += " between "; expr(start); b += " and "; expr(end)
-      case Library.CountDistinct(e) => b += "count(distinct "; expr(e); b += ')'
-      case Library.Like(l, r) =>
-        if(!skipParens) b += '('
-        expr(l)
-        b += " like "
-        expr(r)
-        if(!skipParens) b += ')'
+      case Library.Between(left, start, end) => b"$left between $start and $end"
+      case Library.CountDistinct(e) => b"count(distinct $e)"
+      case Library.Like(l, r) => b"\($l like $r\)"
       case Library.Like(l, r, LiteralNode(esc: Char)) =>
-        if(!skipParens) b += '('
-        expr(l)
-        b += " like "
-        expr(r)
         if(esc == '\'' || esc == '%' || esc == '_') throw new SlickException("Illegal escape character '"+esc+"' for LIKE expression")
         // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
-        b += " escape '" += esc += "'"
-        if(!skipParens) b += ')'
+        b"\($l like $r escape '$esc'\)"
       case Library.StartsWith(n, LiteralNode(s: String)) =>
-        if(!skipParens) b += '('
-        expr(n)
-        b += " like " += quote(likeEncode(s)+'%') += " escape '^'"
-        if(!skipParens) b += ')'
+        b"\($n like ${quote(likeEncode(s)+'%')} escape '^'\)"
       case Library.EndsWith(n, LiteralNode(s: String)) =>
-        if(!skipParens) b += '('
-        expr(n)
-        b += " like " += quote("%"+likeEncode(s)) += " escape '^'"
-        if(!skipParens) b += ')'
+        b"\($n like ${quote("%"+likeEncode(s))} escape '^'\)"
       case Library.Trim(n) =>
         expr(Library.LTrim(Library.RTrim(n)), skipParens)
       case a @ Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
           else a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver).sqlTypeName
-        if(supportsCast) {
-          b += "cast("
-          expr(ch(0))
-          b += " as " += tn += ")"
-        } else {
-          b += "{fn convert("
-          expr(ch(0), true)
-          b += ',' += tn += ")}"
-        }
-      case s: SimpleBinaryOperator =>
-        if(!skipParens) b += '('
-        expr(s.left)
-        b += ' ' += s.name += ' '
-        expr(s.right)
-        if(!skipParens) b += ')'
+        if(supportsCast) b"cast(${ch(0)} as $tn)"
+        else b"{fn convert(!${ch(0)},$tn)}"
+      case s: SimpleBinaryOperator => b"\(${s.left} ${s.name} ${s.right}\)"
       case Apply(sym: Library.SqlOperator, ch) =>
-        if(!skipParens) b += '('
+        b"\("
         if(ch.length == 1) {
-          b += sym.name += ' '
-          expr(ch.head)
+          b"${sym.name} ${ch.head}"
         } else b.sep(ch, " " + sym.name + " ")(expr(_))
-        if(!skipParens) b += ')'
+        b"\)"
       case Apply(sym: Library.JdbcFunction, ch) =>
-        b += "{fn "+= sym.name += '('
+        b"{fn ${sym.name}("
         b.sep(ch, ",")(expr(_, true))
-        b += ")}"
+        b")}"
       case Apply(sym: Library.SqlFunction, ch) =>
-        b += sym.name += '('
+        b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
-        b += ')'
+        b")"
       case c @ ConstColumn(v) => b += c.typeMapper(driver).valueToSQLLiteral(v)
       case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
       case pc @ ParameterColumn(_, extractor) => b +?= { (p, param) =>
         pc.typeMapper(driver).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
       }
       case c: Case.CaseNode =>
-        b += "(case"
-        c.clauses.foldRight(()) { (w,_) =>
-          b += " when "
-          expr(w.asInstanceOf[Case.WhenNode].left)
-          b += " then "
-          expr(w.asInstanceOf[Case.WhenNode].right)
-        }
+        b"(case"
+        c.clauses.reverseIterator.foreach { case Case.WhenNode(l, r) => b" when $l then $r" }
         c.elseClause match {
           case LiteralNode(null) =>
-          case n =>
-            b += " else "
-            expr(n)
+          case n => b" else $n"
         }
-        b += " end)"
+        b" end)"
       case RowNumber(by) =>
-        b += "row_number() over("
-        if(by.isEmpty) b += "order by (select 1)"
+        b"row_number() over("
+        if(by.isEmpty) b"order by (select 1)"
         else buildOrderByClause(by)
-        b += ")"
+        b")"
       case Path(field :: (rest @ (_ :: _))) =>
         val struct = rest.reduceRight[Symbol] {
           case (ElementSymbol(idx), z) => joins(z).nodeGenerators(idx-1)._1
         }
         b += symbolName(struct) += '.' += symbolName(field)
       case n => // try to build a sub-query
-        if(!skipParens) b += '('
+        b"\("
         buildComprehension(toComprehension(n))
-        if(!skipParens) b += ')'
+        b"\)"
     }
 
     protected def buildOrdering(n: Node, o: Ordering) {
       expr(n)
-      if(o.direction.desc) b += " desc"
-      if(o.nulls.first) b += " nulls first"
-      else if(o.nulls.last) b += " nulls last"
+      if(o.direction.desc) b" desc"
+      if(o.nulls.first) b" nulls first"
+      else if(o.nulls.last) b" nulls last"
     }
 
     def buildUpdate: QueryBuilderResult = {
@@ -374,10 +306,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
       val qtn = quoteIdentifier(from.tableName)
       symbolName(gen) = qtn // Alias table to itself because UPDATE does not support aliases
-      b += "update " += qtn += " set "
+      b"update $qtn set "
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
       if(!where.isEmpty) {
-        b += " where "
+        b" where "
         expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
       QueryBuilderResult(b.build, input.linearizer)
@@ -390,9 +322,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       }
       val qtn = quoteIdentifier(from.tableName)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
-      b += "delete from " += qtn
+      b"delete from $qtn"
       if(!where.isEmpty) {
-        b += " where "
+        b" where "
         expr(where.reduceLeft((a, b) => Library.And(a, b)), true)
       }
       QueryBuilderResult(b.build, input.linearizer)
@@ -406,9 +338,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case StarAnd(ch) =>
-        b += "*, "
-        expr(ch, true)
+      case StarAnd(ch) => b"*, !$ch"
       case _ => super.expr(c, skipParens)
     }
 
@@ -419,26 +349,26 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         val tn = symbolName(newSym)
         val c2 = makeSelectPageable(c, r)
         val c3 = Phase.fixRowNumberOrdering.fixRowNumberOrdering(c2, None).asInstanceOf[Comprehension]
-        b += "select "
+        b"select "
         buildSelectModifiers(c)
         c3.select match {
           case Some(Pure(StructNode(ch))) =>
             b.sep(ch.filter { case (_, RowNumber(_)) => false; case _ => true }, ", ") {
-              case (sym, StarAnd(RowNumber(_))) => b += "*"
+              case (sym, StarAnd(RowNumber(_))) => b"*"
               case (sym, _) => b += symbolName(sym)
             }
           case o => throw new SlickException("Unexpected node "+o+" in SELECT slot of "+c)
         }
-        b += " from ("
+        b" from ("
         super.buildComprehension(c3)
-        b += ") " += tn += " where " += rn
+        b") $tn where $rn"
         (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b += " between " += (d+1L) += " and " += (t+d)
-          case (Some(t), None   ) => b += " between 1 and " += t
-          case (None,    Some(d)) => b += " > " += d
+          case (Some(t), Some(d)) => b" between ${d+1L} and ${t+d}"
+          case (Some(t), None   ) => b" between 1 and $t"
+          case (None,    Some(d)) => b" > $d"
           case _ => throw new SlickException("Unexpected empty fetch/offset")
         }
-        b += " order by " += rn
+        b" order by $rn"
       }
       else super.buildComprehension(c)
     }
@@ -478,7 +408,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       }
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
-      case RowNumber(_) => b += "rownum"
+      case RowNumber(_) => b"rownum"
       case _ => super.expr(n, skipParens)
     }
   }
@@ -494,14 +424,13 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     def buildInsert: InsertBuilderResult = {
       val pr = buildParts(node)
-      InsertBuilderResult(pr.table,
-        "INSERT INTO " + pr.qtable + " (" + pr.qcolumns + ") VALUES (" + pr.qvalues + ")")
+      InsertBuilderResult(pr.table, s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) VALUES (${pr.qvalues})")
     }
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
       val pr = buildParts(node)
       val qb = driver.createQueryBuilder(query)
-      qb.sqlBuilder += "INSERT INTO " += pr.qtable += " (" += pr.qcolumns += ") "
+      qb.sqlBuilder += s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) "
       val qbr = qb.buildSelect()
       InsertBuilderResult(pr.table, qbr.sql, qbr.setter)
     }
@@ -567,12 +496,12 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     protected def addTableOptions(b: StringBuilder) {}
 
-    protected def dropTable: String = q"drop table `${table.tableName}"
+    protected def dropTable: String = "drop table "+quoteIdentifier(table.tableName)
 
     protected def createIndex(idx: Index): String = {
       val b = new StringBuilder append "create "
       if(idx.unique) b append "unique "
-      b append q"index `${idx.name} on `${table.tableName} ("
+      b append "index " append quoteIdentifier(idx.name) append " on " append quoteIdentifier(table.tableName) append " ("
       addIndexColumnList(idx.on, b, idx.table.tableName)
       b append ")"
       b.toString

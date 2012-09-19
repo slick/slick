@@ -3,6 +3,7 @@ package scala.slick.driver
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -77,10 +78,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         case c: Column[_] =>
-          b += "coalesce(cast("
-          expr(l)
-          b += " as " += c.typeMapper(driver).sqlTypeName += "),"
-          expr(r, true); b += ")"
+          b"coalesce(cast($l as ${c.typeMapper(driver).sqlTypeName}),!$r)"
         case _ => throw new SlickException("Cannot determine type of right-hand side for ifNull")
       }
       case c @ BindColumn(v) if currentPart == SelectPart =>
@@ -89,10 +87,10 @@ trait DerbyDriver extends ExtendedDriver { driver =>
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
          * explicit type annotation (in the form of a CAST expression). */
         val tmd = c.typeMapper(profile)
-        b += "cast("
+        b"cast("
         b +?= { (p, param) => tmd.setValue(v, p) }
-        b += " as " += tmd.sqlTypeName += ")"
-      case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"
+        b" as ${tmd.sqlTypeName})"
+      case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
       case _ => super.expr(c, skipParens)
     }

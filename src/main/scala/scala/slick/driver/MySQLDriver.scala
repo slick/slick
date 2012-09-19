@@ -5,6 +5,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 
 /**
  * Slick driver for MySQL.
@@ -71,33 +72,28 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       }
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case Library.NextValue(SequenceNode(name)) => b += quoteIdentifier(name + "_nextval") += "()"
-      case Library.CurrentValue(SequenceNode(name)) => b += quoteIdentifier(name + "_currval") += "()"
-      case RowNum(sym, true) => b += "(@" += symbolName(sym) += " := @" += symbolName(sym) += " + 1)"
-      case RowNum(sym, false) => b += "@" += symbolName(sym)
-      case RowNumGen(sym) => b += "(select @" += symbolName(sym) += " := 0)"
+      case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
+      case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
+      case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
+      case RowNum(sym, false) => b"@`$sym"
+      case RowNumGen(sym) => b"(select @`$sym := 0)"
       case _ => super.expr(n, skipParens)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b += " LIMIT " += d += ',' += t
-      case (Some(t), None) => b += " LIMIT " += t
-      case (None, Some(d)) => b += " LIMIT " += d += ",18446744073709551615"
+      case (Some(t), Some(d)) => b" limit $d,$t"
+      case (Some(t), None   ) => b" limit $t"
+      case (None,    Some(d)) => b" limit $d,18446744073709551615"
       case _ =>
     }
 
     override protected def buildOrdering(n: Node, o: Ordering) {
-      if(o.nulls.last && !o.direction.desc) {
-        b += "isnull("
-        expr(n)
-        b += "),"
-      } else if(o.nulls.first && o.direction.desc) {
-        b += "isnull("
-        expr(n)
-        b += ") desc,"
-      }
+      if(o.nulls.last && !o.direction.desc)
+        b"isnull($n),"
+      else if(o.nulls.first && o.direction.desc)
+        b"isnull($n) desc,"
       expr(n)
-      if(o.direction.desc) b += " desc"
+      if(o.direction.desc) b" desc"
     }
   }
 

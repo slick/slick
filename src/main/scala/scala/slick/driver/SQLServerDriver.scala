@@ -2,8 +2,9 @@ package scala.slick.driver
 
 import scala.slick.lifted._
 import scala.slick.ast._
-import java.sql.{Timestamp, Date}
 import scala.slick.session.PositionedResult
+import scala.slick.util.MacroSupport.macroSupportInterpolation
+import java.sql.{Timestamp, Date}
 
 /**
  * Slick driver for Microsoft SQL Server.
@@ -49,24 +50,19 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
 
     override protected def buildSelectModifiers(c: Comprehension) {
       (c.fetch, c.offset) match {
-        case (Some(t), Some(d)) => b += "top " += (d+t) += " "
-        case (Some(t), None   ) => b += "top " += t += " "
-        case (None,    _      ) => if(!c.orderBy.isEmpty) b += "top 100 percent "
+        case (Some(t), Some(d)) => b"top ${d+t} "
+        case (Some(t), None   ) => b"top $t "
+        case (None,    _      ) => if(!c.orderBy.isEmpty) b"top 100 percent "
       }
     }
 
     override protected def buildOrdering(n: Node, o: Ordering) {
-      if(o.nulls.last && !o.direction.desc) {
-        b += "case when ("
-        expr(n)
-        b += ") is null then 1 else 0 end,"
-      } else if(o.nulls.first && o.direction.desc) {
-        b += "case when ("
-        expr(n)
-        b += ") is null then 0 else 1 end,"
-      }
+      if(o.nulls.last && !o.direction.desc)
+        b"case when ($n) is null then 1 else 0 end,"
+      else if(o.nulls.first && o.direction.desc)
+        b"case when ($n) is null then 0 else 1 end,"
       expr(n)
-      if(o.direction.desc) b += " desc"
+      if(o.direction.desc) b" desc"
     }
   }
 

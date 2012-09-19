@@ -3,6 +3,7 @@ package scala.slick.driver
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Time, Date}
 
 /**
@@ -63,46 +64,41 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     override protected val concatOperator = Some("||")
 
     override protected def buildOrdering(n: Node, o: Ordering) {
-      if(o.nulls.last && !o.direction.desc) {
-        b += "("
-        expr(n)
-        b += ") is null,"
-      } else if(o.nulls.first && o.direction.desc) {
-        b += "("
-        expr(n)
-        b += ") is null desc,"
-      }
+      if(o.nulls.last && !o.direction.desc)
+        b"($n) is null,"
+      else if(o.nulls.first && o.direction.desc)
+        b"($n) is null desc,"
       expr(n)
-      if(o.direction.desc) b += " desc"
+      if(o.direction.desc) b" desc"
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b += " LIMIT " += d += "," += t
-      case (Some(t), None) => b += " LIMIT " += t
-      case (None, Some(d)) => b += " LIMIT " += d += ",-1"
+      case (Some(t), Some(d)) => b" LIMIT $d,$t"
+      case (Some(t), None   ) => b" LIMIT $t"
+      case (None,    Some(d)) => b" LIMIT $d,-1"
       case _ =>
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case Library.UCase(ch) => b += "upper("; expr(ch, true); b += ')'
-      case Library.LCase(ch) => b += "lower("; expr(ch, true); b += ')'
-      case Library.%(l, r) => b += '('; expr(l); b += '%'; expr(r); b += ')'
-      case Library.Ceiling(ch) => b += "round("; expr(ch); b += "+0.5)"
-      case Library.Floor(ch) => b += "round("; expr(ch); b += "-0.5)"
-      case Library.User() => b += "''"
-      case Library.Database() => b += "''"
+      case Library.UCase(ch) => b"upper(!$ch)"
+      case Library.LCase(ch) => b"lower(!$ch)"
+      case Library.%(l, r) => b"\($l%$r\)"
+      case Library.Ceiling(ch) => b"round($ch+0.5)"
+      case Library.Floor(ch) => b"round($ch-0.5)"
+      case Library.User() => b"''"
+      case Library.Database() => b"''"
       case Apply(j: Library.JdbcFunction, ch) if j != Library.Concat =>
         /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
          * unescaped function calls by default */
-        b += j.name += '('
+        b"${j.name}("
         b.sep(ch, ",")(expr(_, true))
-        b += ")"
+        b")"
       case s: SimpleFunction if s.scalar =>
         /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
          * unescaped function calls by default */
-        b += s.name += '('
+        b"${s.name}("
         b.sep(s.nodeChildren, ",")(expr(_, true))
-        b += ")"
+        b")"
       case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
       case _ => super.expr(c, skipParens)
     }

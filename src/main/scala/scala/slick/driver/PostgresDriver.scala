@@ -4,6 +4,7 @@ import java.util.UUID
 import scala.slick.lifted._
 import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 
 /**
  * Slick driver for PostgreSQL.
@@ -42,15 +43,15 @@ trait PostgresDriver extends ExtendedDriver { driver =>
     override protected val concatOperator = Some("||")
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
-      case (Some(t), None) => b += " LIMIT " += t
-      case (None, Some(d)) => b += " OFFSET " += d
+      case (Some(t), Some(d)) => b" limit $t offset $d"
+      case (Some(t), None   ) => b" limit $t"
+      case (None,    Some(d)) => b" offset $d"
       case _ =>
     }
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
-      case Library.NextValue(SequenceNode(name)) => b += "nextval('" += name += "')"
-      case Library.CurrentValue(SequenceNode(name)) => b += "currval('" += name += "')"
+      case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
+      case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
       case _ => super.expr(n, skipParens)
     }
   }

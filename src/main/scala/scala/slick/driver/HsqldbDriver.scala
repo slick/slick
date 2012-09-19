@@ -4,6 +4,7 @@ import java.sql.Types
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -37,29 +38,26 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
     override protected val concatOperator = Some("||")
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case c @ ConstColumn(v: String) if v ne null =>
+      case c @ ConstColumn(v: String) if (v ne null) && c.typeMapper(driver).sqlType != Types.CHAR =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
          * spaces in some expressions, so we cast all string literals to
          * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave
          * enough room for concatenating strings (which extends the size even if
          * it is not needed). */
-        if(c.typeMapper(driver).sqlType == Types.CHAR) super.expr(c, skipParens)
-        else {
-          b += "cast("
-          super.expr(c)
-          b += " as varchar(16777216))"
-        }
+        b"cast("
+        super.expr(c)
+        b" as varchar(16777216))"
       /* Hsqldb uses the SQL:2008 syntax for NEXTVAL */
-      case Library.NextValue(SequenceNode(name)) => b += "(next value for " += quoteIdentifier(name) += ")"
+      case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Hsqldb does not support CURRVAL")
-      case RowNumber(_) => b += "rownum()" // Hsqldb uses Oracle ROWNUM semantics but needs parens
+      case RowNumber(_) => b"rownum()" // Hsqldb uses Oracle ROWNUM semantics but needs parens
       case _ => super.expr(c, skipParens)
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b += " LIMIT " += t += " OFFSET " += d
-      case (Some(t), None) => b += " LIMIT " += t
-      case (None, Some(d)) => b += " OFFSET " += d
+      case (Some(t), Some(d)) => b" limit $t offset $d"
+      case (Some(t), None   ) => b" limit $t"
+      case (None, Some(d)   ) => b" offset $d"
       case _ =>
     }
   }

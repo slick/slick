@@ -65,12 +65,17 @@ object SlickBuild extends Build {
       testOnly <<= inputTask { argTask => (argTask) map { args => }}
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ Seq(
+    settings = Project.defaultSettings ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ inConfig(config("macro"))(Defaults.configSettings) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (),
-      testOnly <<= inputTask { argTask => (argTask) map { args => }}
+      testOnly <<= inputTask { argTask => (argTask) map { args => }},
+      ivyConfigurations += config("macro").hide.extend(Compile),
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
+      unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
+      mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
+      mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
     ))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
     settings = Project.defaultSettings ++ sharedSettings ++ Seq(
@@ -78,6 +83,7 @@ object SlickBuild extends Build {
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
+      //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++= Seq(
         // TestKit needs JUnit for its Runner
         "junit" % "junit-dep" % "4.10",

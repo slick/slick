@@ -3,6 +3,7 @@ package scala.slick.driver
 import scala.language.implicitConversions
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.SlickException
 import scala.slick.session.{PositionedParameters, PositionedResult, ResultSetType}
 import java.util.UUID
@@ -108,38 +109,35 @@ trait AccessDriver extends ExtendedDriver { driver =>
       else super.buildComprehension(c)
 
     override protected def buildSelectModifiers(c: Comprehension) {
-      if(!c.fetch.isEmpty) b += "top " += c.fetch.get += " "
+      if(!c.fetch.isEmpty) b"top ${c.fetch.get} "
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case c: Case.CaseNode => {
-        b += "switch("
+        b"switch("
         var first = true
-        c.clauses.foldRight(()) { (w,_) =>
+        c.clauses.reverseIterator.foreach { case Case.WhenNode(l, r) =>
           if(first) first = false
-          else b += ","
-          expr(w.asInstanceOf[Case.WhenNode].left)
-          b += ","
-          expr(w.asInstanceOf[Case.WhenNode].right)
+          else b","
+          b"$l,$r"
         }
         c.elseClause match {
           case ConstColumn(null) =>
           case n =>
             if(!first) b += ","
-            b += "1=1,"
-            expr(n)
+            b"1=1,$n"
         }
-        b += ")"
+        b")"
       }
-      case Library.IfNull(l, r) => b += "iif(isnull("; expr(l); b += "),"; expr(r); b += ','; expr(l); b += ')'
+      case Library.IfNull(l, r) => b"iif(isnull($l),$r,$l)"
       case a @ Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
           else a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver).sqlTypeName
         ).toLowerCase match {
-          case "integer" => b += "cint("; expr(ch(0)); b += ')'
-          case "long" => b += "clng("; expr(ch(0)); b += ')'
+          case "integer" => b"cint(${ch(0)})"
+          case "long" => b"clng(${ch(0)})"
           case tn =>
-            throw new SlickException("Cannot represent cast to type \"" + tn + "\" in Access SQL")
+            throw new SlickException(s"""Cannot represent cast to type "$tn" in Access SQL""")
         }
       case RowNumber(_) => throw new SlickException("Access does not support row numbers")
       case _ => super.expr(c, skipParens)
@@ -147,16 +145,12 @@ trait AccessDriver extends ExtendedDriver { driver =>
 
     override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc) {
-        b += "(1-isnull("
-        expr(n)
-        b += ")),"
+        b"(1-isnull($n)),"
       } else if(o.nulls.first && o.direction.desc) {
-        b += "(1-isnull("
-        expr(n)
-        b += ")) desc,"
+        b"(1-isnull($n)) desc,"
       }
       expr(n)
-      if(o.direction.desc) b += " desc"
+      if(o.direction.desc) b" desc"
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = ()

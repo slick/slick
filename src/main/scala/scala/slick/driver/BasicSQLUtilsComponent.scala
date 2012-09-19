@@ -1,9 +1,7 @@
 package scala.slick.driver
 
-import java.sql.Types._
-import scala.slick.lifted.{TypeMapper, TypeMapperDelegate}
-import scala.collection.mutable.HashMap
-import scala.slick.ast.{SymbolNamer, AnonSymbol, Symbol}
+import scala.slick.lifted.TypeMapper
+import scala.slick.ast.{SymbolNamer, Symbol}
 
 trait BasicSQLUtilsComponent { driver: BasicDriver =>
 
