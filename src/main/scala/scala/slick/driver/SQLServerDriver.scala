@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.slick.lifted._
 import scala.slick.ast._
-import scala.slick.session.PositionedResult
+import scala.slick.jdbc.PositionedResult
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Date}
 

@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import java.util.UUID
 import scala.slick.lifted._
-import scala.slick.session.{PositionedResult, PositionedParameters}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 

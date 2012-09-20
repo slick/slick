@@ -5,7 +5,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import scala.slick.SlickException
 import scala.slick.ast.Type
 import scala.slick.driver.BasicProfile
-import scala.slick.session.{PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 
 /**
  * A (usually implicit) TypeMapper object represents a Scala type that can be

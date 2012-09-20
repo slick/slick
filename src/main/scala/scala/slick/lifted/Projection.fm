@@ -1,7 +1,7 @@
 package scala.slick.lifted
 
 import scala.slick.driver.BasicProfile
-import scala.slick.session.{PositionedResult, PositionedParameters}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast.{Node, UnaryNode, ProductNode}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {

@@ -94,6 +94,7 @@ object TestDB {
  */
 abstract class TestDB(final val confName: String, final val driver: ExtendedDriver) {
   final val profile: ExtendedProfile = driver
+  import profile.backend.{Database, Session}
 
   override def toString = url
   val url: String
@@ -138,6 +139,8 @@ abstract class TestDB(final val confName: String, final val driver: ExtendedDriv
 }
 
 class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(confName, driver) {
+  import profile.backend.{Database, Session}
+
   val jdbcDriver = TestDB.get(confName, "driver").orNull
   val urlTemplate = TestDB.get(confName, "url").getOrElse("")
   val dbPath = new File(TestDB.testDBDir).getAbsolutePath

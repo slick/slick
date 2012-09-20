@@ -1,7 +1,6 @@
-package scala.slick.session
+package scala.slick.jdbc
 
 import java.sql.{PreparedStatement, Date, Time, Timestamp, Types, Blob, Clob}
-import scala.slick.jdbc.SetParameter
 
 class PositionedParameters(val ps: PreparedStatement) {
 

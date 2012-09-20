@@ -6,7 +6,6 @@ import org.junit.Assert._
 import scala.slick.lifted.TypeMapper._
 import scala.slick.driver.{H2Driver, PostgresDriver}
 import scala.slick.jdbc.meta._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.jdbc.{StaticQuery => Q}
 import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
@@ -17,6 +16,7 @@ object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem
 class MetaTest(val tdb: TestDB) extends DBTest {
   import tdb.profile.Table
   import tdb.profile.Implicit._
+  import tdb.profile.backend.Database.threadLocalSession
 
   object Users extends Table[(Int, String, Option[String])]("users") {
     def id = column[Int]("id", O.PrimaryKey)

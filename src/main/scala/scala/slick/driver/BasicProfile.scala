@@ -4,9 +4,13 @@ import scala.language.implicitConversions
 import scala.slick.ast.Node
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
+import scala.slick.jdbc.JdbcBackend
 
-trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
+trait BasicProfile extends BasicTableComponent
+  with BasicInvokerComponent with BasicExecutorComponent { driver: BasicDriver =>
 
+  type Backend = JdbcBackend
+  val backend: Backend = JdbcBackend
   val compiler = QueryCompiler.relational
   val Implicit = new Implicits
   val typeMapperDelegates = new TypeMapperDelegates
@@ -56,9 +60,9 @@ trait BasicProfile extends BasicTableComponent { driver: BasicDriver =>
 
   trait SimpleQL extends Implicits with scala.slick.lifted.Aliases {
     type Table[T] = driver.Table[T]
-    type Database = scala.slick.session.Database
-    val Database = scala.slick.session.Database
-    type Session = scala.slick.session.Session
+    type Database = backend.Database
+    val Database = backend.Database
+    type Session = backend.Session
     type SlickException = scala.slick.SlickException
   }
 
@@ -135,9 +139,7 @@ object BasicProfile {
 trait BasicDriver extends BasicProfile
   with BasicStatementBuilderComponent
   with BasicTypeMapperDelegatesComponent
-  with BasicSQLUtilsComponent
-  with BasicExecutorComponent
-  with BasicInvokerComponent {
+  with BasicSQLUtilsComponent {
   val profile: BasicProfile = this
 }
 

@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import scala.slick.SlickException
 import scala.slick.lifted.TypeMapperDelegate
-import scala.slick.session.{PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import java.util.UUID
 
 trait BasicTypeMapperDelegatesComponent { driver: BasicDriver =>

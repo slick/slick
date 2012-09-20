@@ -1,7 +1,7 @@
 package scala.slick.util
 
 import scala.collection.mutable.ArrayBuffer
-import scala.slick.session.PositionedParameters
+import scala.slick.jdbc.PositionedParameters
 
 final class SQLBuilder extends SQLBuilder.Segment { self =>
   import SQLBuilder._

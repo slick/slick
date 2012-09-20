@@ -2,15 +2,16 @@ package scala.slick.test.jdbc
 
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.session._
 import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
 import com.typesafe.slick.testkit.util.TestDB
+import scala.slick.jdbc.{ResultSetType, ResultSetHoldability, ResultSetConcurrency}
 
 object StatementParametersTest extends DBTestObject(H2Mem)
 
 class StatementParametersTest(val tdb: TestDB) extends DBTest {
   import tdb.profile.Implicit._
+  import tdb.profile.backend.{Session, Database}
 
   @Test def testExplicit() {
     println("*** Explicit ***")

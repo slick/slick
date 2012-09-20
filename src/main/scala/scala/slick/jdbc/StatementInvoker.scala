@@ -13,7 +13,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
 
   protected def setParam(param: P, st: PreparedStatement): Unit
 
-  def elementsTo(param: P, maxRows: Int)(implicit session: Session): CloseableIterator[R] =
+  def elementsTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] =
     results(param, maxRows).fold(r => new CloseableIterator.Single[R](r.asInstanceOf[R]), identity)
 
   /**
@@ -23,7 +23,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
               defaultType: ResultSetType = ResultSetType.ForwardOnly,
               defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
               defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)
-             (implicit session: Session): Either[Int, PositionedResultIterator[R]] = {
+             (implicit session: JdbcBackend#Session): Either[Int, PositionedResultIterator[R]] = {
     //TODO Support multiple results
     val statement = getStatement
     val st = session.prepareStatement(statement, defaultType, defaultConcurrency, defaultHoldability)

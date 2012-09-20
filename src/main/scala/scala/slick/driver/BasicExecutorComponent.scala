@@ -1,14 +1,13 @@
 package scala.slick.driver
 
 import java.sql.PreparedStatement
-import scala.slick.session.{Session, PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.lifted.Shape
-import scala.slick.ast.Node
 import scala.slick.jdbc.StatementInvoker
-import scala.collection.mutable.Builder
-import slick.util.{ValueLinearizer, CollectionLinearizer, RecordLinearizer}
+import slick.util.{CollectionLinearizer, RecordLinearizer}
 
 trait BasicExecutorComponent { driver: BasicDriver =>
+  import backend.Session
 
   class QueryExecutor[R](input: QueryBuilderInput) {
 

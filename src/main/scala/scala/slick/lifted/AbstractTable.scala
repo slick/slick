@@ -1,7 +1,7 @@
 package scala.slick.lifted
 
 import scala.slick.driver.BasicProfile
-import scala.slick.session.{PositionedResult, PositionedParameters}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 

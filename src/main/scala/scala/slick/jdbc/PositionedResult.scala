@@ -1,9 +1,8 @@
-package scala.slick.session
+package scala.slick.jdbc
 
 import scala.language.higherKinds
 import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
 import java.io.Closeable
-import scala.slick.jdbc.GetResult
 import scala.slick.util.CloseableIterator
 import collection.generic.CanBuildFrom
 
@@ -155,7 +154,7 @@ sealed abstract class PositionedResult(val rs: ResultSet) extends Closeable { ou
   final def to[C[_]] = new To[C]()
 
   final class To[C[_]] private[PositionedResult] () {
-    def apply[R](gr: GetResult[R])(implicit session: Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R]]) =
+    def apply[R](gr: GetResult[R])(implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R]]) =
       build[C, R](gr)
   }
 }

@@ -3,7 +3,7 @@ package scala.slick.util
 import scala.language.higherKinds
 import scala.collection.generic.CanBuildFrom
 import scala.slick.driver.BasicProfile
-import scala.slick.session.{PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast.Node
 
 /**

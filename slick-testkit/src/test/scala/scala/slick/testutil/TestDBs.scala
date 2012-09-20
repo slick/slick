@@ -7,7 +7,6 @@ import scala.slick.driver._
 import scala.slick.jdbc.{ResultSetInvoker, StaticQuery => Q}
 import scala.slick.jdbc.GetResult._
 import scala.slick.jdbc.meta.MTable
-import scala.slick.session.{Database, Session}
 import com.typesafe.slick.testkit.util.{ExternalTestDB, TestDB}
 
 object TestDBs {
@@ -24,7 +23,7 @@ object TestDBs {
     val jdbcDriver = "org.h2.Driver"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
       cleanUpBefore()
     }
@@ -42,7 +41,7 @@ object TestDBs {
     val url = "jdbc:hsqldb:file:"+TestDB.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
       cleanUpBefore()
     }
@@ -65,7 +64,7 @@ object TestDBs {
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
-      try { Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:Session => s.conn } }
+      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:profile.backend.Session => s.conn } }
       catch { case e: SQLException => }
     }
   }
@@ -75,18 +74,18 @@ object TestDBs {
     val url = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";shutdown=true"
-      try { Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:Session => s.conn } }
+      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:profile.backend.Session => s.conn } }
       catch { case e: SQLException => }
       TestDB.deleteDBFiles(dbName)
     }
   }
 
   def Postgres(cname: String) = new ExternalTestDB("postgres", PostgresDriver) {
-    override def getLocalTables(implicit session: Session) = {
+    override def getLocalTables(implicit session: profile.backend.Session) = {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
       tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
     }
-    override def getLocalSequences(implicit session: Session) = {
+    override def getLocalSequences(implicit session: profile.backend.Session) = {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
       tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
@@ -95,11 +94,11 @@ object TestDBs {
 
   def MySQL(cname: String) = new ExternalTestDB("mysql", MySQLDriver) {
     // Recreating the DB is faster than dropping everything individually
-    override def dropUserArtifacts(implicit session: Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       session.close()
       cleanUpBefore()
     }
-    /*override def dropUserArtifacts(implicit session: Session) = {
+    /*override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       val constraints = (Q[(String, String)]+"""
           select distinct constraint_name, table_name
           from information_schema.key_column_usage
@@ -118,11 +117,11 @@ object TestDBs {
 
   def SQLServer(cname: String) = new ExternalTestDB("sqlserver", SQLServerDriver) {
     val defaultSchema = TestDB.get(confName, "defaultSchema").getOrElse("")
-    override def getLocalTables(implicit session: Session): List[String] = {
+    override def getLocalTables(implicit session: profile.backend.Session): List[String] = {
       val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(dbName, defaultSchema, null, null))
       tables.list.map(_._3).sorted
     }
-    override def dropUserArtifacts(implicit session: Session) = {
+    override def dropUserArtifacts(implicit session: profile.backend.Session) = {
       val constraints = (Q[(String, String)]+"""
           select constraint_name, table_name
           from information_schema.table_constraints
@@ -142,9 +141,9 @@ object TestDBs {
 class SQLiteTestDB(dburl: String, confName: String) extends TestDB(confName, SQLiteDriver) {
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
-  override def getLocalTables(implicit session: Session) =
+  override def getLocalTables(implicit session: profile.backend.Session) =
     super.getLocalTables.filter(s => !s.toLowerCase.contains("sqlite_"))
-  override def dropUserArtifacts(implicit session: Session) = {
+  override def dropUserArtifacts(implicit session: profile.backend.Session) = {
     for(t <- getLocalTables)
       (Q.u+"drop table if exists "+driver.quoteIdentifier(t)).execute()
     for(t <- getLocalSequences)
@@ -166,19 +165,19 @@ class AccessDB(confName: String) extends TestDB(confName, AccessDriver) {
     .replace("[DB]", dbName).replace("[DBPATH]", dbPath)
 
   override def isEnabled = TestDB.isExternalEnabled(confName)
-  override def createDB() = Database.forURL(url, driver = jdbcDriver)
+  override def createDB() = profile.backend.Database.forURL(url, driver = jdbcDriver)
   override def cleanUpBefore() {
     cleanUpAfter()
     TestDB.copy(new File(emptyDBFile), new File(testDBFile))
   }
   override def cleanUpAfter() = TestDB.deleteDBFiles(dbName)
-  override def dropUserArtifacts(implicit session: Session) = {
+  override def dropUserArtifacts(implicit session: profile.backend.Session) = {
     session.close()
     cleanUpBefore()
   }
   /* Works in some situations but fails with "Optional feature not implemented" in others */
   override def canGetLocalTables = false
-  override def getLocalTables(implicit session: Session) =
+  override def getLocalTables(implicit session: profile.backend.Session) =
     MTable.getTables.list.map(_.name.name).sorted
   override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }
@@ -186,11 +185,11 @@ class AccessDB(confName: String) extends TestDB(confName, AccessDriver) {
 abstract class DerbyDB(confName: String) extends TestDB(confName, DerbyDriver) {
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
-  override def getLocalTables(implicit session: Session): List[String] = {
+  override def getLocalTables(implicit session: profile.backend.Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
     tables.list.map(_._3).sorted
   }
-  override def dropUserArtifacts(implicit session: Session) = {
+  override def dropUserArtifacts(implicit session: profile.backend.Session) = {
     try {
       try { (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute }
       catch { case ignore: SQLException => }
@@ -221,7 +220,7 @@ object DerbyDB {
 
 abstract class HsqlDB(confName: String) extends TestDB(confName, HsqldbDriver) {
   val jdbcDriver = "org.hsqldb.jdbcDriver"
-  override def getLocalTables(implicit session: Session): List[String] = {
+  override def getLocalTables(implicit session: profile.backend.Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null))
     tables.list.map(_._3).sorted
   }

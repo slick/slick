@@ -1,6 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.session.PositionedResult
+import scala.slick.jdbc.PositionedResult
 
 /**
  * A qualified name with an optional catalog and schema.

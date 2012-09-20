@@ -3,7 +3,7 @@ package scala.slick.lifted
 import scala.language.existentials
 import scala.slick.SlickException
 import scala.slick.driver.BasicProfile
-import scala.slick.session.{PositionedResult, PositionedParameters}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast._
 import scala.slick.util._
 

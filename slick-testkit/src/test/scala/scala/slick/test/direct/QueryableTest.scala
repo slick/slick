@@ -4,7 +4,6 @@ import scala.language.{reflectiveCalls,implicitConversions}
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.ast.Library.{SqlOperator =>Op,_}
 import scala.slick.ast.{Library => Ops}
 import scala.slick.ast._
@@ -30,7 +29,9 @@ case class Coffee(
 )
 
 class QueryableTest(val tdb: TestDB) extends DBTest {
-  object backend extends SlickBackend(tdb.driver,AnnotationMapper)
+  import tdb.driver.backend.Database.threadLocalSession
+
+  object backend extends SlickBackend[tdb.driver.type](tdb.driver,AnnotationMapper)
 
   object TestingTools{
     def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{

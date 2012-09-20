@@ -4,11 +4,12 @@ import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.Node
 import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
-import scala.slick.session.{Session, PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
 import scala.slick.jdbc.{UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker}
 
 trait BasicInvokerComponent { driver: BasicDriver =>
+  import backend.Session
 
   // Create the different invokers -- these methods should be overridden by drivers as needed
   def createCountingInsertInvoker[T, U](u: ShapedValue[T, U]) = new CountingInsertInvoker(u)

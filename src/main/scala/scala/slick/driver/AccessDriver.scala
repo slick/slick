@@ -5,7 +5,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.SlickException
-import scala.slick.session.{PositionedParameters, PositionedResult, ResultSetType}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType}
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 

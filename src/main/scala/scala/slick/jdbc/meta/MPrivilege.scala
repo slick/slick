@@ -1,7 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.ResultSetInvoker
-import scala.slick.session._
+import scala.slick.jdbc.{PositionedResult, ResultSetInvoker}
 
 /**
  * A common privilege type which is used by MTablePrivilege and MColumnPrivilege.

@@ -2,7 +2,6 @@ package scala.slick.test.jdbc
 
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
 import com.typesafe.slick.testkit.util.TestDB
@@ -10,6 +9,7 @@ import com.typesafe.slick.testkit.util.TestDB
 object EmbeddingTest extends DBTestObject(H2Mem)
 
 class EmbeddingTest(val tdb: TestDB) extends DBTest {
+  import tdb.profile.backend.Database.threadLocalSession
 
   @Test def testRaw(): Unit = db withSession {
     import scala.slick.jdbc.{StaticQuery => Q, GetResult}

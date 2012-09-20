@@ -1,9 +1,8 @@
 package scala.slick.jdbc
 
 import scala.collection.mutable.ArrayBuffer
-import java.sql.{PreparedStatement, ResultSet, Date, Time, Timestamp}
+import java.sql.{PreparedStatement, Date, Time, Timestamp}
 import scala.slick.SlickException
-import scala.slick.session.{PositionedParameters, PositionedResult}
 
 /**
  * Base class for dynamic queries. These are required when the query text can

@@ -9,16 +9,16 @@ import scala.slick.{ast => sq}
 import scala.slick.ast.{Library,FunctionSymbol}
 import scala.slick.ast.Dump
 import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
-import scala.slick.session.{Session}
 import scala.reflect.ClassTag
 import scala.slick.compiler.CompilationState
 import scala.reflect.runtime.universe.TypeRef
 
 trait QueryableBackend
 
-class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend{
+class SlickBackend[Driver <: BasicDriver]( val driver: Driver, mapper:Mapper ) extends QueryableBackend{
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
+  import driver.backend.Session
 
   val typeMappers = Map( // FIXME use symbols instead of strings for type names here
      "Int"              /*typeOf[Int]*/    -> TypeMapper.IntTypeMapper
@@ -239,7 +239,7 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
     Dump(query.node)
   }
   import scala.collection.generic.CanBuildFrom
-  import scala.slick.session.{PositionedParameters, PositionedResult}
+  import scala.slick.jdbc.{PositionedParameters, PositionedResult}
   import scala.slick.ast.Node
   import scala.slick.lifted.TypeMapper
 
