@@ -101,6 +101,7 @@ trait JdbcBackend extends DatabaseComponent {
 
   trait SessionDef extends super.SessionDef with Logging { self =>
 
+    def database: Database
     def conn: Connection
     def metaData: DatabaseMetaData
     def capabilities: DatabaseCapabilities
@@ -196,6 +197,7 @@ trait JdbcBackend extends DatabaseComponent {
       override def resultSetType = rsType
       override def resultSetConcurrency = rsConcurrency
       override def resultSetHoldability = rsHoldability
+      def database = self.database
       def conn = self.conn
       def metaData = self.metaData
       def capabilities = self.capabilities
@@ -283,21 +285,20 @@ trait JdbcBackend extends DatabaseComponent {
     } else st
   }
 
-  class BaseSession(db: Database) extends SessionDef {
+  class BaseSession(val database: Database) extends SessionDef {
+    protected var open = false
+    protected var doRollback = false
+    protected var inTransaction = false
 
-    var open = false
-    var doRollback = false
-    var inTransaction = false
-
-    lazy val conn = { open = true; db.createConnection() }
+    lazy val conn = { open = true; database.createConnection() }
     lazy val metaData = conn.getMetaData()
 
     def capabilities = {
-      val dc = db.capabilities
+      val dc = database.capabilities
       if(dc ne null) dc
       else {
         val newDC = new DatabaseCapabilities(this)
-        db.capabilities = newDC
+        database.capabilities = newDC
         newDC
       }
     }
