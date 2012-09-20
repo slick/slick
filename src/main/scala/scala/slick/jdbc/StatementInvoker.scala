@@ -1,7 +1,6 @@
 package scala.slick.jdbc
 
 import java.sql.PreparedStatement
-import scala.slick.session._
 import scala.slick.util.CloseableIterator
 
 /**

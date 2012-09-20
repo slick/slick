@@ -31,7 +31,7 @@ case class Coffee(
 class QueryableTest(val tdb: TestDB) extends DBTest {
   import tdb.driver.backend.Database.threadLocalSession
 
-  object backend extends SlickBackend[tdb.driver.type](tdb.driver,AnnotationMapper)
+  object backend extends SlickBackend(tdb.driver,AnnotationMapper)
 
   object TestingTools{
     def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
@@ -239,7 +239,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       ))
       // length
       assertEquals( backend.result(query.length,threadLocalSession), inMem.length )
-      
+
       val iquery = ImplicitQueryable( query, backend, threadLocalSession )
       assertEquals( iquery.length, inMem.length )
       

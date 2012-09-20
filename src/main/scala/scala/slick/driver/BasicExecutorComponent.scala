@@ -7,7 +7,6 @@ import scala.slick.jdbc.StatementInvoker
 import slick.util.{CollectionLinearizer, RecordLinearizer}
 
 trait BasicExecutorComponent { driver: BasicDriver =>
-  import backend.Session
 
   class QueryExecutor[R](input: QueryBuilderInput) {
 
@@ -15,7 +14,7 @@ trait BasicExecutorComponent { driver: BasicDriver =>
 
     protected lazy val sres = createQueryBuilder(input).buildSelect()
 
-    def run(implicit session: Session): R = {
+    def run(implicit session: Backend#Session): R = {
       val i = new StatementInvoker[Unit, Any] {
         protected def getStatement = sres.sql
         protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
@@ -34,7 +33,7 @@ trait BasicExecutorComponent { driver: BasicDriver =>
 
   // Work-around for SI-3346
   final class UnshapedQueryExecutor[M](val value: M) {
-    @inline def run[U](implicit shape: Shape[M, U, _], session: Session): U =
+    @inline def run[U](implicit shape: Shape[M, U, _], session: Backend#Session): U =
       Implicit.recordToQueryExecutor(value).run
   }
 

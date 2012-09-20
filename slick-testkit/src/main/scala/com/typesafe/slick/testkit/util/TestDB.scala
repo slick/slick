@@ -1,7 +1,6 @@
 package com.typesafe.slick.testkit.util
 
 import java.util.Properties
-import scala.slick.session._
 import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
 import scala.slick.jdbc.GetResult._
 import java.util.zip.GZIPInputStream
@@ -94,7 +93,7 @@ object TestDB {
  */
 abstract class TestDB(final val confName: String, final val driver: ExtendedDriver) {
   final val profile: ExtendedProfile = driver
-  import profile.backend.{Database, Session}
+  protected val Database = profile.backend.Database
 
   override def toString = url
   val url: String
@@ -105,28 +104,28 @@ abstract class TestDB(final val confName: String, final val driver: ExtendedDriv
   def isEnabled = TestDB.isInternalEnabled(confName)
   def isPersistent = true
   def isShared = true
-  def getLocalTables(implicit session: Session) = {
+  def getLocalTables(implicit session: profile.Backend#Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
   }
-  def getLocalSequences(implicit session: Session) = {
+  def getLocalSequences(implicit session: profile.Backend#Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
   }
-  def dropUserArtifacts(implicit session: Session) = {
+  def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     for(t <- getLocalTables)
       (Q.u+"drop table if exists "+driver.quoteIdentifier(t)+" cascade").execute()
     for(t <- getLocalSequences)
       (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute()
   }
-  def assertTablesExist(tables: String*)(implicit session: Session) {
+  def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
     for(t <- tables) {
       try ((Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").list) catch { case _: Exception =>
         Assert.fail("Table "+t+" should exist")
       }
     }
   }
-  def assertNotTablesExist(tables: String*)(implicit session: Session) {
+  def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
     for(t <- tables) {
       try {
         (Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").list
@@ -139,8 +138,6 @@ abstract class TestDB(final val confName: String, final val driver: ExtendedDriv
 }
 
 class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(confName, driver) {
-  import profile.backend.{Database, Session}
-
   val jdbcDriver = TestDB.get(confName, "driver").orNull
   val urlTemplate = TestDB.get(confName, "url").getOrElse("")
   val dbPath = new File(TestDB.testDBDir).getAbsolutePath
@@ -173,13 +170,13 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   override def cleanUpBefore() {
     if(!drop.isEmpty || !create.isEmpty) {
       println("[Creating test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: Session =>
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: profile.Backend#Session =>
         for(s <- drop) (Q.u + s).execute
         for(s <- create) (Q.u + s).execute
       }
     }
     if(!postCreate.isEmpty) {
-      createDB() withSession { implicit session: Session =>
+      createDB() withSession { implicit session: profile.Backend#Session =>
         for(s <- postCreate) (Q.u + s).execute
       }
     }
@@ -188,7 +185,7 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   override def cleanUpAfter() {
     if(!drop.isEmpty) {
       println("[Dropping test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: Session =>
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: profile.Backend#Session =>
         for(s <- drop) (Q.u + s).execute
       }
     }

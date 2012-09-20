@@ -4,7 +4,7 @@ import java.sql.ResultSet
 
 sealed abstract class ResultSetConcurrency(val intValue: Int) { self =>
 
-  def apply[T](base: JdbcBackend#Session)(f: base.Session => T): T = f(base.forParameters(rsConcurrency = self))
+  def apply[T](base: JdbcBackend#Session)(f: JdbcBackend#Session => T): T = f(base.forParameters(rsConcurrency = self))
 
   def apply[T](f: => T)(implicit base: JdbcBackend#Session): T = apply(base)(_.asThreadLocal(f))
 
@@ -20,5 +20,4 @@ object ResultSetConcurrency {
   case object ReadOnly extends ResultSetConcurrency(ResultSet.CONCUR_READ_ONLY)
 
   case object Updatable extends ResultSetConcurrency(ResultSet.CONCUR_UPDATABLE)
-
 }

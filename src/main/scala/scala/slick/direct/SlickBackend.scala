@@ -15,10 +15,10 @@ import scala.reflect.runtime.universe.TypeRef
 
 trait QueryableBackend
 
-class SlickBackend[Driver <: BasicDriver]( val driver: Driver, mapper:Mapper ) extends QueryableBackend{
+class SlickBackend( val driver: BasicDriver, mapper:Mapper ) extends QueryableBackend{
+  type Session = BasicDriver#Backend#Session
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
-  import driver.backend.Session
 
   val typeMappers = Map( // FIXME use symbols instead of strings for type names here
      "Int"              /*typeOf[Int]*/    -> TypeMapper.IntTypeMapper
@@ -243,17 +243,17 @@ class SlickBackend[Driver <: BasicDriver]( val driver: Driver, mapper:Mapper ) e
   import scala.slick.ast.Node
   import scala.slick.lifted.TypeMapper
 
-  private def queryable2cstate[R]( queryable:BaseQueryable[R], session:Session ) : (Type,CompilationState) = {
+  private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilationState) = {
     val (tpe,query) = this.toQuery(queryable)
     (tpe,driver.compiler.run(query.node))
   }
   
-  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:Session ) : (Type,CompilationState) = {
+  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilationState) = {
     val (tpe,query) = this.toQuery(queryablevalue.value.tree)
     (tpe,driver.compiler.run(query.node))
   }
 
-  protected def resultByType( expectedType : Type, rs: PositionedResult, session:Session) : Any = {
+  protected def resultByType( expectedType : Type, rs: PositionedResult, session:driver.Backend#Session) : Any = {
     def createInstance( args:Seq[Any] ) = {
       val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethod
       val cls = cm.reflectClass( cm.classSymbol(cm.runtimeClass(expectedType)) )
@@ -277,16 +277,16 @@ class SlickBackend[Driver <: BasicDriver]( val driver: Driver, mapper:Mapper ) e
         createInstance( args )
     })
   }
-  def result[R]( queryable:BaseQueryable[R], session:Session) : Vector[R] = {
+  def result[R]( queryable:BaseQueryable[R], session:driver.Backend#Session) : Vector[R] = {
     val (tpe,query) = queryable2cstate( queryable, session )
     result(tpe,query, session)
   }
-  def result[R]( queryablevalue:QueryableValue[R], session:Session) : R = {
+  def result[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session) : R = {
     val (tpe,query) = queryablevalue2cstate( queryablevalue, session )
     val res = result(tpe,query, session)
     res(0)
   }
-  def result[R]( tpe:Type, cstate:CompilationState, session:Session) : Vector[R] = {
+  def result[R]( tpe:Type, cstate:CompilationState, session:driver.Backend#Session) : Vector[R] = {
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
           def getResult(profile: BasicProfile, rs: PositionedResult): R
@@ -299,7 +299,7 @@ class SlickBackend[Driver <: BasicDriver]( val driver: Driver, mapper:Mapper ) e
     }
     new driver.QueryExecutor[Vector[R]](new QueryBuilderInput(cstate, linearizer)).run(session)
   }
-  protected[slick] def toSql( queryable:BaseQueryable[_], session:Session ) = {
+  protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
     val builder = driver.createQueryBuilder(new QueryBuilderInput(cstate, null))
     builder.buildSelect.sql

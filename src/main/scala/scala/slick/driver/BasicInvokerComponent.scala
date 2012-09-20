@@ -9,7 +9,6 @@ import scala.slick.util.RecordLinearizer
 import scala.slick.jdbc.{UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker}
 
 trait BasicInvokerComponent { driver: BasicDriver =>
-  import backend.Session
 
   // Create the different invokers -- these methods should be overridden by drivers as needed
   def createCountingInsertInvoker[T, U](u: ShapedValue[T, U]) = new CountingInsertInvoker(u)
@@ -32,13 +31,13 @@ trait BasicInvokerComponent { driver: BasicDriver =>
   /** Pseudo-invoker for running DDL statements. */
   class DDLInvoker(ddl: DDL) {
     /** Create the entities described by this DDL object */
-    def create(implicit session: Session): Unit = session.withTransaction {
+    def create(implicit session: Backend#Session): Unit = session.withTransaction {
       for(s <- ddl.createStatements)
         session.withPreparedStatement(s)(_.execute)
     }
 
     /** Drop the entities described by this DDL object */
-    def drop(implicit session: Session): Unit = session.withTransaction {
+    def drop(implicit session: Backend#Session): Unit = session.withTransaction {
       for(s <- ddl.dropStatements)
         session.withPreparedStatement(s)(_.execute)
     }
@@ -52,7 +51,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
 
     def deleteStatement = built.sql
 
-    def delete(implicit session: Session): Int = session.withPreparedStatement(deleteStatement) { st =>
+    def delete(implicit session: Backend#Session): Int = session.withPreparedStatement(deleteStatement) { st =>
       built.setter(new PositionedParameters(st), null)
       st.executeUpdate
     }
@@ -76,13 +75,13 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     def insertStatementFor[TT](query: Query[TT, U]): String = builder.buildInsert(query).sql
     def insertStatementFor[TT](c: TT)(implicit shape: Shape[TT, U, _]): String = insertStatementFor(Query(c)(shape))
 
-    def useBatchUpdates(implicit session: Session) = session.capabilities.supportsBatchUpdates
+    def useBatchUpdates(implicit session: Backend#Session) = session.capabilities.supportsBatchUpdates
 
-    protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Session) =
+    protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
       session.withPreparedStatement(sql)(f)
 
     /** Insert a single row. */
-    def insert(value: U)(implicit session: Session): RetOne = prepared(insertStatement) { st =>
+    def insert(value: U)(implicit session: Backend#Session): RetOne = prepared(insertStatement) { st =>
       st.clearParameters()
       unpackable.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[U]].setParameter(driver, new PositionedParameters(st), Some(value))
       val count = st.executeUpdate()
@@ -93,7 +92,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
       * the JDBC driver. Returns Some(rowsAffected), or None if the database
       * returned no row count for some part of the batch. If any part of the
       * batch fails, an exception is thrown. */
-    def insertAll(values: U*)(implicit session: Session): RetMany = session.withTransaction {
+    def insertAll(values: U*)(implicit session: Backend#Session): RetMany = session.withTransaction {
       if(!useBatchUpdates || (values.isInstanceOf[IndexedSeq[_]] && values.length < 2)) {
         retMany(values, values.map(insert))
       } else {
@@ -119,10 +118,10 @@ trait BasicInvokerComponent { driver: BasicDriver =>
 
     protected def retQuery(st: Statement, updateCount: Int): RetQuery
 
-    def insertExpr[TT](c: TT)(implicit shape: Shape[TT, U, _], session: Session): RetQuery =
+    def insertExpr[TT](c: TT)(implicit shape: Shape[TT, U, _], session: Backend#Session): RetQuery =
       insert(Query(c)(shape))(session)
 
-    def insert[TT](query: Query[TT, U])(implicit session: Session): RetQuery = {
+    def insert[TT](query: Query[TT, U])(implicit session: Backend#Session): RetQuery = {
       val sbr = builder.buildInsert(query)
       prepared(insertStatementFor(query)) { st =>
         st.clearParameters()
@@ -173,12 +172,12 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     }
 
     // Returning keys from batch inserts is generally not supported
-    override def useBatchUpdates(implicit session: Session) = false
+    override def useBatchUpdates(implicit session: Backend#Session) = false
 
     protected lazy val keyColumns =
       builder.buildReturnColumns(keys.packedNode, insertResult.table).map(_.name).toArray
 
-    override protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Session) =
+    override protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
       session.withPreparedInsertStatement(sql, keyColumns)(f)
   }
 
@@ -196,12 +195,12 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     protected def retMany(values: Seq[U], individual: Seq[RetOne]) = individual
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
-      implicit val session: Session = null
+      implicit val session: Backend#Session = null
       buildKeysResult(st).to[Vector]
     }
 
     protected def retQuery(st: Statement, updateCount: Int) = {
-      implicit val session: Session = null
+      implicit val session: Backend#Session = null
       buildKeysResult(st).to[Vector]
     }
 
@@ -223,7 +222,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     protected def retMany(values: Seq[U], individual: Seq[RetOne]) = individual
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
-      implicit val session: Session = null
+      implicit val session: Backend#Session = null
       val ru = buildKeysResult(st).to[Vector]
       (values, ru).zipped.map(tr)
     }
@@ -237,7 +236,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
 
     protected def getStatement = built.sql
 
-    def update(value: T)(implicit session: Session): Int = session.withPreparedStatement(updateStatement) { st =>
+    def update(value: T)(implicit session: Backend#Session): Int = session.withPreparedStatement(updateStatement) { st =>
       st.clearParameters
       val pp = new PositionedParameters(st)
       built.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[T]].setParameter(driver, pp, Some(value))

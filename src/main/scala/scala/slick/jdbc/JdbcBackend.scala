@@ -1,6 +1,6 @@
 package scala.slick.jdbc
 
-import scala.slick.session.DatabaseComponent
+import scala.slick.backend.DatabaseComponent
 import scala.slick.SlickException
 import scala.slick.util.Logging
 import java.util.Properties

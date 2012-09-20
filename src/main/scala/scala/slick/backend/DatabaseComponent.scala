@@ -1,11 +1,11 @@
-package scala.slick.session
+package scala.slick.backend
 
 import scala.util.DynamicVariable
 import scala.slick.SlickException
 import java.io.Closeable
 
 /**
- * Cake slice for the basic database and session handling features.
+ * Backend cake slice for the basic database and session handling features.
  */
 trait DatabaseComponent { self =>
   type Database <: DatabaseDef
@@ -13,13 +13,11 @@ trait DatabaseComponent { self =>
   type Session >: Null <: SessionDef
 
   val Database: DatabaseFactory
-  val backend: DatabaseComponent
 
   /**
    * A database instance to which connections can be created.
    */
   trait DatabaseDef {
-
     /**
      * Create a new session. The session needs to be closed explicitly by calling its close() method.
      */
@@ -70,8 +68,6 @@ trait DatabaseComponent { self =>
   }
 
   trait SessionDef extends Closeable {
-    type Session = self.Session
-
     /**
      * Close this Session.
      */

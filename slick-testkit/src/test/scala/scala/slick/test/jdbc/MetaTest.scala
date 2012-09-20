@@ -14,9 +14,8 @@ import com.typesafe.slick.testkit.util.TestDB
 object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServer)
 
 class MetaTest(val tdb: TestDB) extends DBTest {
-  import tdb.profile.Table
-  import tdb.profile.Implicit._
-  import tdb.profile.backend.Database.threadLocalSession
+  import tdb.profile.simple._
+  import Database.threadLocalSession
 
   object Users extends Table[(Int, String, Option[String])]("users") {
     def id = column[Int]("id", O.PrimaryKey)

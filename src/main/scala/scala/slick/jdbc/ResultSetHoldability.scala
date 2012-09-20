@@ -4,7 +4,7 @@ import java.sql.ResultSet
 
 sealed abstract class ResultSetHoldability(val intValue: Int) { self =>
 
-  def apply[T](base: JdbcBackend#Session)(f: base.Session => T): T = f(base.forParameters(rsHoldability = self))
+  def apply[T](base: JdbcBackend#Session)(f: JdbcBackend#Session => T): T = f(base.forParameters(rsHoldability = self))
 
   def apply[T](f: => T)(implicit base: JdbcBackend#Session): T = apply(base)(_.asThreadLocal(f))
 
@@ -22,5 +22,4 @@ object ResultSetHoldability {
   case object HoldCursorsOverCommit extends ResultSetHoldability(ResultSet.HOLD_CURSORS_OVER_COMMIT)
 
   case object CloseCursorsAtCommit extends ResultSetHoldability(ResultSet.CLOSE_CURSORS_AT_COMMIT)
-
 }

@@ -5,7 +5,6 @@ import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert._
-import scala.slick.session.DatabaseComponent
 import scala.slick.driver.{Capability, BasicProfile}
 import com.typesafe.slick.testkit.{tests => tk}
 import java.lang.reflect.Method
@@ -102,9 +101,9 @@ case class TestMethod(name: String, desc: Description, method: Method, cl: Class
 
 trait TestkitTest {
   val tdb: TestDB
-  private[this] var keepAliveSession: tdb.profile.backend.Session = null
+  private[this] var keepAliveSession: tdb.profile.Backend#Session = null
 
-  protected implicit def sharedSession: tdb.profile.backend.Session = {
+  protected implicit def sharedSession: tdb.profile.Backend#Session = {
     db
     keepAliveSession
   }

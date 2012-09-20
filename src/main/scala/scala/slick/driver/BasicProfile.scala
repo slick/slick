@@ -60,9 +60,9 @@ trait BasicProfile extends BasicTableComponent
 
   trait SimpleQL extends Implicits with scala.slick.lifted.Aliases {
     type Table[T] = driver.Table[T]
-    type Database = backend.Database
+    type Database = Backend#Database
     val Database = backend.Database
-    type Session = backend.Session
+    type Session = Backend#Session
     type SlickException = scala.slick.SlickException
   }
 

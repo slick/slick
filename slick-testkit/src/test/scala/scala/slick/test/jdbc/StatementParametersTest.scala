@@ -10,8 +10,7 @@ import scala.slick.jdbc.{ResultSetType, ResultSetHoldability, ResultSetConcurren
 object StatementParametersTest extends DBTestObject(H2Mem)
 
 class StatementParametersTest(val tdb: TestDB) extends DBTest {
-  import tdb.profile.Implicit._
-  import tdb.profile.backend.{Session, Database}
+  import tdb.profile.simple._
 
   @Test def testExplicit() {
     println("*** Explicit ***")
