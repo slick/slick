@@ -46,3 +46,4 @@ trait JdbcTableComponent { driver: JdbcDriver =>
     def ddl: DDL = driver.buildTableDDL(this)
   }
 }
+

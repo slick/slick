@@ -1,9 +1,11 @@
 package scala.slick.profile
 
+import scala.slick.ast.{Symbol, SymbolNamer}
+
 /**
  * Basic profile for SQL-based drivers.
  */
-trait SqlProfile extends BasicProfile {
+trait SqlProfile extends BasicProfile { driver: SqlDriver =>
 
   override protected def computeCapabilities = super.computeCapabilities ++ SqlProfile.capabilities.all
 }
@@ -61,5 +63,29 @@ object SqlProfile {
       joinRight, likeEscape, pagingDrop, pagingNested, pagingPreciseTake,
       sequence, sequenceCurr, sequenceCycle, sequenceLimited, sequenceMax,
       sequenceMin, typeBlob, typeLong, zip)
+  }
+}
+
+trait SqlDriver extends SqlProfile with SqlUtilsComponent
+
+trait SqlUtilsComponent { driver: SqlDriver =>
+
+  def quoteIdentifier(id: String): String = {
+    val s = new StringBuilder(id.length + 4) append '"'
+    for(c <- id) if(c == '"') s append "\"\"" else s append c
+    (s append '"').toString
+  }
+
+  def likeEncode(s: String) = {
+    val b = new StringBuilder
+    for(c <- s) c match {
+      case '%' | '_' | '^' => b append '^' append c
+      case _ => b append c
+    }
+    b.toString
+  }
+
+  class QuotingSymbolNamer(parent: Option[SymbolNamer]) extends SymbolNamer("x", parent) {
+    override def namedSymbolName(s: Symbol) = quoteIdentifier(s.name)
   }
 }

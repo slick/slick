@@ -10,7 +10,7 @@ trait JdbcExecutorComponent { driver: JdbcDriver =>
 
   class QueryExecutor[R](input: QueryBuilderInput) {
 
-    def _selectStatement = sres.sql //TODO This should eventually replace StatementInvoker.selectStatement
+    def selectStatement = sres.sql
 
     protected lazy val sres = createQueryBuilder(input).buildSelect()
 

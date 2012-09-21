@@ -5,7 +5,7 @@ import scala.slick.ast.Node
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
 import scala.slick.jdbc.JdbcBackend
-import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -95,11 +95,14 @@ object JdbcProfile {
   }
 }
 
-trait JdbcDriver extends JdbcProfile
+trait JdbcDriver extends SqlDriver
+  with JdbcProfile
   with JdbcStatementBuilderComponent
-  with JdbcTypeMapperDelegatesComponent
-  with JdbcSQLUtilsComponent {
+  with JdbcTypeMapperDelegatesComponent { driver =>
+
   val profile: JdbcProfile = this
+
+  def quote[T](v: T)(implicit tm: TypeMapper[T]): String = tm(driver).valueToSQLLiteral(v)
 }
 
 object JdbcDriver extends JdbcDriver

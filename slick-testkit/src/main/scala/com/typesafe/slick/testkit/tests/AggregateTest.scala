@@ -39,8 +39,8 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     def q2(i: Int) = (q1(i).length, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
     val q2_0 = q2(0).toQueryExecutor
     val q2_1 = q2(1).toQueryExecutor
-    println("q2_0: "+q2_0._selectStatement)
-    println("q2_1: "+q2_1._selectStatement)
+    println("q2_0: "+q2_0.selectStatement)
+    println("q2_1: "+q2_1.selectStatement)
     println(q2_0.run)
     println(q2_1.run)
     assertEquals((0, None, None, None), q2_0.run)
