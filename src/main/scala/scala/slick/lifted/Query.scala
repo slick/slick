@@ -84,12 +84,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
     new WrappingQuery[O, U](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
 
   def length: Column[Int] = Library.CountAll.column(Node(unpackable.value))
-  @deprecated("Use .length instead of .count", "0.10.0-M2")
-  def count = length
   def exists = Library.Exists.column[Boolean](Node(unpackable.value))
-
-  @deprecated("Query.sub is not needed anymore", "0.10.0-M2")
-  def sub = this
 
   def pack[R](implicit packing: Shape[E, _, R]): Query[R, U] =
     new Query[R, U] {

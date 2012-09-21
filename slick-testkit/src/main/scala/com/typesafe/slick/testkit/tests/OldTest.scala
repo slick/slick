@@ -6,7 +6,7 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class OldTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  @deprecated("Testing deprecated methods Query#sub, Query.orderBy and JdbcProfile.buildInsertStatement", "0.10.0-M2")
+  @deprecated("Testing deprecated methods Query.orderBy and JdbcProfile.buildInsertStatement", "0.10.0-M2")
   def test {
     object Users extends Table[(Int, String, String)]("users") {
       def id = column[Int]("id")
@@ -58,17 +58,17 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
     ) yield o
 
     val q6a = for (
-      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o.orderID).sub;
+      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o.orderID);
       _ <- Query orderBy o
     ) yield o
 
     val q6b = for (
-      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o.orderID ~ o.userID).sub;
+      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o.orderID ~ o.userID);
       _ <- Query orderBy o._1
     ) yield o
 
     val q6c = for (
-      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o).sub;
+      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o);
       _ <- Query orderBy o.orderID
     ) yield o.orderID ~ o.userID
 

@@ -20,10 +20,8 @@ final class Parameters[PU, PP](c: PP) {
 
 object Parameters {
   def apply[U](implicit shape: Shape[U, U, _]): Parameters[U, shape.Packed] = {
-    var idx = -1
     val params: shape.Packed = shape.buildPacked(new NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] {
-      def apply[T](tm: TypeMapper[T], f: U => T) =
-        new ParameterColumn[T]({ idx += 1; idx }, f)(tm)
+      def apply[T](tm: TypeMapper[T], f: U => T) = new ParameterColumn[T](f)(tm)
     })
     new Parameters[U, shape.Packed](params)
   }

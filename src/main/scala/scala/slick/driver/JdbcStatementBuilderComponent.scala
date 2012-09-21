@@ -7,7 +7,7 @@ import scala.slick.ast.Util.nodeToNodeOps
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import scala.slick.lifted.{Join => _, _}
+import scala.slick.lifted._
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.compiler.{Phase, CompilationState}
 import scala.slick.profile.SqlProfile
@@ -260,7 +260,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b")"
       case c @ ConstColumn(v) => b += c.typeMapper(driver).valueToSQLLiteral(v)
       case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
-      case pc @ ParameterColumn(_, extractor) => b +?= { (p, param) =>
+      case pc @ ParameterColumn(extractor) => b +?= { (p, param) =>
         pc.typeMapper(driver).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
       }
       case c: Case.CaseNode =>

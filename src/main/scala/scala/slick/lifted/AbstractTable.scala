@@ -56,23 +56,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)
 }
 
-object Join {
-  @deprecated("Use a tuple extractor instead", "0.10.0-M2")
-  def unapply[T1, T2](t: (T1, T2)) = Some(t)
-
-  @deprecated("Use JoinType.Inner instead", "0.10.0-M2")
-  val Inner = JoinType.Inner
-
-  @deprecated("Use JoinType.Left instead", "0.10.0-M2")
-  val Left = JoinType.Left
-
-  @deprecated("Use JoinType.Right instead", "0.10.0-M2")
-  val Right = JoinType.Right
-
-  @deprecated("Use JoinType.Outer instead", "0.10.0-M2")
-  val Outer = JoinType.Outer
-}
-
 trait NothingContainer {
   /**
    * Uninhabited type for queries of raw tables that can be used instead of
