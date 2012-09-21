@@ -9,7 +9,7 @@ class SequenceTest(val tdb: TestDB) extends TestkitTest {
 
   override val reuseInstance = true
 
-  def test1 = ifCap(bcap.sequence) {
+  def test1 = ifCap(scap.sequence) {
     case class User(id: Int, first: String, last: String)
 
     object Users extends Table[Int]("users") {
@@ -28,13 +28,13 @@ class SequenceTest(val tdb: TestDB) extends TestkitTest {
     println("q1: " + q1.selectStatement)
     assertEquals(Set((200, 1), (210, 2), (220, 3)), q1.list.toSet)
 
-    ifCap(bcap.sequenceCurr) {
+    ifCap(scap.sequenceCurr) {
       val curr = mySequence.curr.run
       assertEquals(220, curr)
     }
   }
 
-  def test2 = ifCap(bcap.sequence) {
+  def test2 = ifCap(scap.sequence) {
     val s1 = Sequence[Int]("s1")
     val s2 = Sequence[Int]("s2") start 3
     val s3 = Sequence[Int]("s3") start 3 inc 2
@@ -56,12 +56,12 @@ class SequenceTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(List(1, 2, 3, 4, 5), values(s1))
     assertEquals(List(3, 4, 5, 6, 7), values(s2))
     assertEquals(List(3, 5, 7, 9, 11), values(s3))
-    ifCap(bcap.sequenceMin, bcap.sequenceMax) {
-      ifCap(bcap.sequenceCycle) {
+    ifCap(scap.sequenceMin, scap.sequenceMax) {
+      ifCap(scap.sequenceCycle) {
         assertEquals(List(3, 4, 5, 2, 3), values(s4))
         assertEquals(List(3, 2, 5, 4, 3), values(s5))
       }
-      ifCap(bcap.sequenceLimited) {
+      ifCap(scap.sequenceLimited) {
         assertEquals(List(3, 4, 5), values(s6, 3))
         assertFail(values(s6, 1, false))
       }

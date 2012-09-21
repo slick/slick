@@ -5,6 +5,7 @@ import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{SqlProfile, Capability}
 
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -14,7 +15,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCurr]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
  *     <code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported by Hsqldb. Trying to generate SQL code which uses this
  *     feature throws a SlickException.</li>
@@ -24,8 +25,8 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  */
 trait HsqldbDriver extends ExtendedDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.sequenceCurr
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - SqlProfile.capabilities.sequenceCurr
   )
 
   override val typeMapperDelegates = new TypeMapperDelegates

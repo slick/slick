@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.slick.driver.BasicProfile
+import scala.slick.driver.JdbcProfile
 import scala.slick.ast._
 import scala.Some
 import scala.slick.ast.SequenceNode
@@ -24,7 +24,7 @@ class Sequence[T] private[Sequence] (val name: String,
 
   def nodeDelegate = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
 
-  def ddl(implicit profile: BasicProfile): DDL = profile.buildSequenceDDL(this)
+  def ddl(implicit profile: JdbcProfile): DDL = profile.buildSequenceDDL(this)
 }
 
 object Sequence {

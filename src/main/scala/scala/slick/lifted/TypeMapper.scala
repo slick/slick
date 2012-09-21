@@ -4,7 +4,7 @@ import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import scala.slick.SlickException
 import scala.slick.ast.Type
-import scala.slick.driver.BasicProfile
+import scala.slick.driver.JdbcProfile
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 
 /**
@@ -17,7 +17,7 @@ import scala.slick.jdbc.{PositionedParameters, PositionedResult}
  * <code><pre>
  * implicit object MyTypeMapper
  *     extends TypeMapper[MyType] with TypeMapperDelegate[MyType] {
- *   def apply(p: BasicProfile) = this
+ *   def apply(p: JdbcProfile) = this
  *   def zero = ...
  *   def sqlType = ...
  *   def setValue(v: Long, p: PositionedParameters) = ...
@@ -27,9 +27,9 @@ import scala.slick.jdbc.{PositionedParameters, PositionedResult}
  * }
  * </pre></code>
  */
-sealed trait TypeMapper[T] extends (BasicProfile => TypeMapperDelegate[T]) with Type { self =>
+sealed trait TypeMapper[T] extends (JdbcProfile => TypeMapperDelegate[T]) with Type { self =>
   def createOptionTypeMapper: OptionTypeMapper[T] = new OptionTypeMapper[T](self) {
-    def apply(profile: BasicProfile) = self(profile).createOptionTypeMapperDelegate
+    def apply(profile: JdbcProfile) = self(profile).createOptionTypeMapperDelegate
     def getBaseTypeMapper[U](implicit ev: Option[U] =:= Option[T]): TypeMapper[U] = self.asInstanceOf[TypeMapper[U]]
   }
   def getBaseTypeMapper[U](implicit ev: Option[U] =:= T): TypeMapper[U]
@@ -39,75 +39,75 @@ object TypeMapper {
   @inline implicit def typeMapperToOptionTypeMapper[T](implicit t: TypeMapper[T]): OptionTypeMapper[T] = t.createOptionTypeMapper
 
   implicit object BooleanTypeMapper extends BaseTypeMapper[Boolean] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.booleanTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.booleanTypeMapperDelegate
   }
 
   implicit object BlobTypeMapper extends BaseTypeMapper[Blob] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.blobTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.blobTypeMapperDelegate
   }
 
   implicit object ByteTypeMapper extends BaseTypeMapper[Byte] with NumericTypeMapper {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.byteTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.byteTypeMapperDelegate
   }
 
   implicit object ByteArrayTypeMapper extends BaseTypeMapper[Array[Byte]] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.byteArrayTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.byteArrayTypeMapperDelegate
   }
 
   implicit object ClobTypeMapper extends BaseTypeMapper[Clob] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.clobTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.clobTypeMapperDelegate
   }
 
   implicit object DateTypeMapper extends BaseTypeMapper[Date] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.dateTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.dateTypeMapperDelegate
   }
 
   implicit object DoubleTypeMapper extends BaseTypeMapper[Double] with NumericTypeMapper {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.doubleTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.doubleTypeMapperDelegate
   }
 
   implicit object FloatTypeMapper extends BaseTypeMapper[Float] with NumericTypeMapper {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.floatTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.floatTypeMapperDelegate
   }
 
   implicit object IntTypeMapper extends BaseTypeMapper[Int] with NumericTypeMapper {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.intTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.intTypeMapperDelegate
   }
 
   implicit object LongTypeMapper extends BaseTypeMapper[Long] with NumericTypeMapper {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.longTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.longTypeMapperDelegate
   }
 
   implicit object ShortTypeMapper extends BaseTypeMapper[Short] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.shortTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.shortTypeMapperDelegate
   }
 
   implicit object StringTypeMapper extends BaseTypeMapper[String] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.stringTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.stringTypeMapperDelegate
   }
 
   implicit object TimeTypeMapper extends BaseTypeMapper[Time] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.timeTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.timeTypeMapperDelegate
   }
 
   implicit object TimestampTypeMapper extends BaseTypeMapper[Timestamp] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.timestampTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.timestampTypeMapperDelegate
   }
 
   implicit object UnitTypeMapper extends BaseTypeMapper[Unit] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.unitTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.unitTypeMapperDelegate
   }
 
   implicit object UUIDTypeMapper extends BaseTypeMapper[UUID] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.uuidTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.uuidTypeMapperDelegate
   }
 
   implicit object BigDecimalTypeMapper extends BaseTypeMapper[BigDecimal] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.bigDecimalTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.bigDecimalTypeMapperDelegate
   }
 
   object NullTypeMapper extends BaseTypeMapper[Null] {
-    def apply(profile: BasicProfile) = profile.typeMapperDelegates.nullTypeMapperDelegate
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.nullTypeMapperDelegate
   }
 }
 
@@ -192,7 +192,7 @@ abstract class MappedTypeMapper[T,U](implicit tm: TypeMapper[U]) extends TypeMap
   def valueToSQLLiteral(value: T): Option[String] = None
   def nullable: Option[Boolean] = None
 
-  def apply(profile: BasicProfile): TypeMapperDelegate[T] = new TypeMapperDelegate[T] {
+  def apply(profile: JdbcProfile): TypeMapperDelegate[T] = new TypeMapperDelegate[T] {
     val tmd = tm(profile)
     def zero = comap(tmd.zero)
     def sqlType = self.sqlType.getOrElse(tmd.sqlType)

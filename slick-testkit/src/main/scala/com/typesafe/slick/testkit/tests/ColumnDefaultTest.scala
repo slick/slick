@@ -15,7 +15,7 @@ class ColumnDefaultTest(val tdb: TestDB) extends TestkitTest {
     def * = id ~ a ~ b
   }
 
-  def test = ifCap(bcap.columnDefaults) {
+  def test = ifCap(scap.columnDefaults) {
     A.ddl.createStatements foreach println
     A.ddl.create
     A.id insert 42

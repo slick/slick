@@ -6,7 +6,7 @@ import scala.slick.lifted.Query
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
 
-class BasicQueryTemplate[P, R](query: Query[_, R], profile: BasicProfile) extends MutatingStatementInvoker[P, R] {
+class JdbcQueryTemplate[P, R](query: Query[_, R], profile: JdbcProfile) extends MutatingStatementInvoker[P, R] {
 
   protected lazy val sres = profile.buildSelectStatement(query)
 

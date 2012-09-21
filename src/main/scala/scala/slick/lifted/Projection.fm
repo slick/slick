@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.slick.driver.BasicProfile
+import scala.slick.driver.JdbcProfile
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast.{Node, UnaryNode, ProductNode}
 
@@ -8,13 +8,13 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
   type V = T
   lazy val nodeChildren = productIterator.map(Node(_)).toIndexedSeq
 
-  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) {
+  def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]) {
     for(i <- 0 until productArity) {
       productElement(i).asInstanceOf[Column[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
     }
   }
 
-  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) {
+  def updateResult(profile: JdbcProfile, rs: PositionedResult, value: T) {
     for(i <- 0 until productArity) {
       productElement(i).asInstanceOf[Column[Any]].updateResult(profile, rs, value.productElement(i))
     }
@@ -42,10 +42,10 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
   def getAllColumnTypeMappers = proj.getAllColumnTypeMappers
 
-  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit =
+  def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]): Unit =
     proj.setParameter(profile, ps, value.flatMap(g))
-  def getResult(profile: BasicProfile, rs: PositionedResult) = f(proj.getResult(profile, rs))
-  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = proj.updateResult(profile, rs, g(value).get)
+  def getResult(profile: JdbcProfile, rs: PositionedResult) = f(proj.getResult(profile, rs))
+  def updateResult(profile: JdbcProfile, rs: PositionedResult, value: T) = proj.updateResult(profile, rs, g(value).get)
   def getLinearizedNodes = proj.getLinearizedNodes
 
   protected[this] def nodeRebuild(child: Node): Node = copy[T, P](child = child)(proj)
@@ -73,7 +73,7 @@ final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
 </#list>)
 extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
   <#if i != 22>def ~[U](c: Column[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
-  def getResult(profile: BasicProfile, rs: PositionedResult) = (
+  def getResult(profile: JdbcProfile, rs: PositionedResult) = (
 <#list 1..i as j>
     _${j}.getResult(profile, rs)<#if i != j>,</#if>
 </#list>  )

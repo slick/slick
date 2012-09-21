@@ -77,7 +77,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
     q3b.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => p._1 ~ p._2).list)
 
-    ifCap(bcap.joinRight) {
+    ifCap(scap.joinRight) {
       val q4 = for {
         (c,p) <- Categories rightJoin Posts on (_.id is _.category)
         _ <- Query orderBy p.id

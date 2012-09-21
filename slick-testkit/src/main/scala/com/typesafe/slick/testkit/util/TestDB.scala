@@ -10,6 +10,7 @@ import scala.slick.driver._
 import java.net.{URL, URLClassLoader}
 import java.sql.Driver
 import scala.collection.mutable
+import scala.slick.profile.Capability
 
 object TestDB {
   type TestDBSpec = (String => TestDB)

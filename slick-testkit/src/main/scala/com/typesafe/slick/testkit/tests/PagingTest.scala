@@ -27,7 +27,7 @@ class PagingTest(val tdb: TestDB) extends TestkitTest {
     println("    "+q2.list)
     assertEquals((1 to 5).toList, q2.list)
 
-    ifCap(bcap.pagingDrop) {
+    ifCap(scap.pagingDrop) {
       val q3 = q1 drop 5
       println("q3: "+q3.selectStatement)
       println("    "+q3.list)

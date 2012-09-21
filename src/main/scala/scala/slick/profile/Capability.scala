@@ -1,7 +1,6 @@
-package scala.slick.driver
+package scala.slick.profile
 
 /** Describes a feature that can be supported by a driver. */
-
 class Capability(name: String) {
   override def toString = name
 }

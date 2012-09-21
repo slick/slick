@@ -68,7 +68,7 @@ supported primitive types.
 
 After the column name, you can add optional column options to a ``column``
 definition. The applicable options are available through the table's ``O``
-object. The following ones are defined for ``BasicProfile``:
+object. The following ones are defined for ``JdbcProfile``:
 
 ``NotNull``, ``Nullable``
    Explicitly mark the column a nullable or non-nullable when creating the

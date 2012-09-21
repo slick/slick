@@ -5,6 +5,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Time, Date}
+import scala.slick.profile.{SqlProfile, Capability}
 
 /**
  * Slick driver for SQLite.
@@ -13,25 +14,25 @@ import java.sql.{Timestamp, Time, Date}
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]],
- *     [[scala.slick.driver.BasicProfile.capabilities.functionUser]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.functionDatabase]],
+ *     [[scala.slick.profile.SqlProfile.capabilities.functionUser]]:
  *     <code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in SQLite. Slick will return empty strings for both.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.joinFull]],
- *     [[scala.slick.driver.BasicProfile.capabilities.joinRight]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.joinFull]],
+ *     [[scala.slick.profile.SqlProfile.capabilities.joinRight]]:
  *     Right and full outer joins are not supported by SQLite.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.mutable]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.mutable]]:
  *     SQLite does not allow mutation of result sets. All cursors are
  *     read-only.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
  *     Sequences are not supported by SQLite.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]: Blobs are
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeBlob]]: Blobs are
  *     not supported by the SQLite JDBC driver (but binary data in the form of
  *     <code>Array[Byte]</code> is).</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.zip]]:
  *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
  *     code which uses this feature throws a SlickException.</li>
@@ -42,16 +43,16 @@ import java.sql.{Timestamp, Time, Date}
  */
 trait SQLiteDriver extends ExtendedDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.functionDatabase
-    - BasicProfile.capabilities.functionUser
-    - BasicProfile.capabilities.joinFull
-    - BasicProfile.capabilities.joinRight
-    - BasicProfile.capabilities.mutable
-    - BasicProfile.capabilities.sequence
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.typeBlob
-    - BasicProfile.capabilities.zip
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - SqlProfile.capabilities.functionDatabase
+    - SqlProfile.capabilities.functionUser
+    - SqlProfile.capabilities.joinFull
+    - SqlProfile.capabilities.joinRight
+    - JdbcProfile.capabilities.mutable
+    - SqlProfile.capabilities.sequence
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.typeBlob
+    - SqlProfile.capabilities.zip
   )
 
   override val typeMapperDelegates = new TypeMapperDelegates

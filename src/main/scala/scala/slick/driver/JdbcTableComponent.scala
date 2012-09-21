@@ -5,9 +5,9 @@ import scala.slick.ast._
 import scala.slick.ast.Select
 import scala.slick.ast.Ref
 
-trait BasicTableComponent { driver: BasicDriver =>
+trait JdbcTableComponent { driver: JdbcDriver =>
 
-  class BasicColumnOptions {
+  class JdbcColumnOptions {
     val NotNull = ColumnOption.NotNull
     val Nullable = ColumnOption.Nullable
     val PrimaryKey = ColumnOption.PrimaryKey
@@ -16,7 +16,7 @@ trait BasicTableComponent { driver: BasicDriver =>
     val AutoInc = ColumnOption.AutoInc
   }
 
-  val columnOptions: BasicColumnOptions = new BasicColumnOptions
+  val columnOptions: JdbcColumnOptions = new JdbcColumnOptions
 
   abstract class Table[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) { table =>
     def this(_tableName: String) = this(None, _tableName)
@@ -34,7 +34,7 @@ trait BasicTableComponent { driver: BasicDriver =>
       }) + "." + n
     }
 
-    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypeMapper[P]): BasicQueryTemplate[P,T] = {
+    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypeMapper[P]): JdbcQueryTemplate[P,T] = {
       import driver.Implicit._
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {

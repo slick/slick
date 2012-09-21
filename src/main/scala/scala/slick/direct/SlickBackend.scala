@@ -3,7 +3,7 @@ package scala.slick.direct
 import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.driver._
-import scala.slick.driver.BasicDriver.Table
+import scala.slick.driver.JdbcDriver.Table
 import scala.slick.lifted._
 import scala.slick.{ast => sq}
 import scala.slick.ast.{Library,FunctionSymbol}
@@ -15,8 +15,8 @@ import scala.reflect.runtime.universe.TypeRef
 
 trait QueryableBackend
 
-class SlickBackend( val driver: BasicDriver, mapper:Mapper ) extends QueryableBackend{
-  type Session = BasicDriver#Backend#Session
+class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
+  type Session = JdbcDriver#Backend#Session
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
 
@@ -289,10 +289,10 @@ class SlickBackend( val driver: BasicDriver, mapper:Mapper ) extends QueryableBa
   def result[R]( tpe:Type, cstate:CompilationState, session:driver.Backend#Session) : Vector[R] = {
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
-          def getResult(profile: BasicProfile, rs: PositionedResult): R
+          def getResult(profile: JdbcProfile, rs: PositionedResult): R
             = resultByType( tpe, rs, session ).asInstanceOf[R]
-          def updateResult(profile: BasicProfile, rs: PositionedResult, value: R): Unit = ???
-          def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
+          def updateResult(profile: JdbcProfile, rs: PositionedResult, value: R): Unit = ???
+          def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
           def getLinearizedNodes: IndexedSeq[Node] = ???
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]

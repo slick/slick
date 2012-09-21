@@ -8,6 +8,7 @@ import scala.slick.SlickException
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType}
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
+import scala.slick.profile.{SqlProfile, Capability}
 
 /**
  * Slick driver for Microsoft Access via JdbcOdbcDriver.
@@ -16,39 +17,39 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.columnDefaults]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.columnDefaults]]:
  *     Access does not allow the definition of default values through ODBC but
  *     only via OLEDB/ADO. Trying to generate DDL SQL code which uses this
  *     feature throws a SlickException.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.foreignKeyActions]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.foreignKeyActions]]:
  *     All foreign key actions are ignored. Access supports CASCADE and SET
  *     NULL but not through ODBC, only via OLEDB/ADO.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]],
- *     [[scala.slick.driver.BasicProfile.capabilities.functionUser]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.functionDatabase]],
+ *     [[scala.slick.profile.SqlProfile.capabilities.functionUser]]:
  *     <code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in Access. Slick will return empty strings for both.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.likeEscape]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.likeEscape]]:
  *     Access does not allow you to specify a custom escape character for
  *     <code>like</code>.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.pagingDrop]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.pagingDrop]]:
  *     <code>Drop(n)</code> modifiers are not supported. Trying to generate
  *     SQL code which uses this feature throws a SlickException.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.pagingPreciseTake]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.pagingPreciseTake]]:
  *     <code>Take(n)</code> modifiers are mapped to <code>SELECT TOP n</code>
  *     which may return more rows than requested if they are not unique.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
  *     Sequences are not supported by Access</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertKey]],
- *     [[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertKey]],
+ *     [[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     Returning columns from an INSERT operation is not supported. Trying to
  *     execute such an insert statement throws a SlickException.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeBlob]]:
  *     Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
  *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is
  *     supported.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeLong]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeLong]]:
  *     Access does not have a long integer type.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.zip]]:
  *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
  *     code which uses this feature throws a SlickException.</li>
@@ -58,20 +59,20 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  */
 trait AccessDriver extends ExtendedDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.columnDefaults
-    - BasicProfile.capabilities.foreignKeyActions
-    - BasicProfile.capabilities.functionDatabase
-    - BasicProfile.capabilities.functionUser
-    - BasicProfile.capabilities.likeEscape
-    - BasicProfile.capabilities.pagingDrop
-    - BasicProfile.capabilities.pagingPreciseTake
-    - BasicProfile.capabilities.sequence
-    - BasicProfile.capabilities.returnInsertKey
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.typeBlob
-    - BasicProfile.capabilities.typeLong
-    - BasicProfile.capabilities.zip
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - SqlProfile.capabilities.columnDefaults
+    - SqlProfile.capabilities.foreignKeyActions
+    - SqlProfile.capabilities.functionDatabase
+    - SqlProfile.capabilities.functionUser
+    - SqlProfile.capabilities.likeEscape
+    - SqlProfile.capabilities.pagingDrop
+    - SqlProfile.capabilities.pagingPreciseTake
+    - SqlProfile.capabilities.sequence
+    - JdbcProfile.capabilities.returnInsertKey
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.typeBlob
+    - SqlProfile.capabilities.typeLong
+    - SqlProfile.capabilities.zip
     )
 
   override val Implicit: Implicits = new Implicits

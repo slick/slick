@@ -1,13 +1,13 @@
 package scala.slick.driver
 
-trait ExtendedProfile extends BasicProfile with ExtendedTableComponent { driver: ExtendedDriver => }
+trait ExtendedProfile extends JdbcProfile with ExtendedTableComponent { driver: ExtendedDriver => }
 
-trait ExtendedDriver extends ExtendedProfile with BasicDriver {
+trait ExtendedDriver extends ExtendedProfile with JdbcDriver {
   override val profile: ExtendedProfile = this
 }
 
-trait ExtendedTableComponent extends BasicTableComponent { driver: ExtendedDriver =>
+trait ExtendedTableComponent extends JdbcTableComponent { driver: ExtendedDriver =>
   override val columnOptions: ExtendedColumnOptions = new ExtendedColumnOptions
 
-  class ExtendedColumnOptions extends BasicColumnOptions
+  class ExtendedColumnOptions extends JdbcColumnOptions
 }

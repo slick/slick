@@ -58,7 +58,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
       (5, Int.MaxValue, 0L, Short.MaxValue, Byte.MaxValue, 0.0, 0.0f)
     ))
 
-    ifCap(bcap.typeLong) {
+    ifCap(scap.typeLong) {
       test(List(
         (1, 0, Long.MinValue, 0, 0, 0.0, 0.0f),
         (5, 0, Long.MaxValue, 0, 0, 0.0, 0.0f)
@@ -66,7 +66,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  def testBlob = ifCap(bcap.typeBlob) {
+  def testBlob = ifCap(scap.typeBlob) {
     object T extends Table[(Int, Blob)]("test3") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
@@ -83,7 +83,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  def testMappedBlob = ifCap(bcap.typeBlob) {
+  def testMappedBlob = ifCap(scap.typeBlob) {
 
     case class Serialized[T](value: T)
 

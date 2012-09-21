@@ -8,7 +8,7 @@ import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
 import scala.slick.jdbc.{UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker}
 
-trait BasicInvokerComponent { driver: BasicDriver =>
+trait JdbcInvokerComponent { driver: JdbcDriver =>
 
   // Create the different invokers -- these methods should be overridden by drivers as needed
   def createCountingInsertInvoker[T, U](u: ShapedValue[T, U]) = new CountingInsertInvoker(u)

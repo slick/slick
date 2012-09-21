@@ -167,7 +167,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(r1e, r1)
     }
 
-    ifCap(bcap.pagingNested) {
+    ifCap(scap.pagingNested) {
       val q1b_0 = Coffees.sortBy(_.price).take(3) join Suppliers on (_.supID === _.id)
       val q1b = for {
         (c, s) <- q1b_0.sortBy(_._1.price).take(2).filter(_._1.name =!= "Colombian")
@@ -238,7 +238,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(r3be, r3b)
     }
 
-    ifCap(bcap.pagingNested) {
+    ifCap(scap.pagingNested) {
       val q4 = for {
         c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 800)
       } yield c._1 ~ c._3

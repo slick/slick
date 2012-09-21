@@ -82,7 +82,7 @@ trait DatabaseComponent { self =>
     /**
      * Run the supplied function within a transaction. If the function throws an Exception
      * or the session's rollback() method is called, the transaction is rolled back,
-     * otherwise it is commited when the function returns.
+     * otherwise it is committed when the function returns.
      */
     def withTransaction[T](f: => T): T
 

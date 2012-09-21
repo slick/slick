@@ -6,7 +6,7 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class MutateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  def test = ifCap(bcap.mutable) {
+  def test = ifCap(jcap.mutable) {
 
     object Users extends Table[(Int,String,String)]("USERS") {
       def id = column[Int]("ID", O.PrimaryKey)

@@ -6,7 +6,7 @@ import scala.slick.lifted.Shape
 import scala.slick.jdbc.StatementInvoker
 import slick.util.{CollectionLinearizer, RecordLinearizer}
 
-trait BasicExecutorComponent { driver: BasicDriver =>
+trait JdbcExecutorComponent { driver: JdbcDriver =>
 
   class QueryExecutor[R](input: QueryBuilderInput) {
 

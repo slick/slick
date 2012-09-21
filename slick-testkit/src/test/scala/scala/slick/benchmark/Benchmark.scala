@@ -1,9 +1,9 @@
 package scala.slick.benchmark
 
 import scala.slick.lifted.Query
-import scala.slick.driver.BasicDriver
-import scala.slick.driver.BasicDriver.Implicit._
-import scala.slick.driver.BasicDriver.Table
+import scala.slick.driver.JdbcDriver
+import scala.slick.driver.JdbcDriver.Implicit._
+import scala.slick.driver.JdbcDriver.Table
 import scala.slick.lifted.TypeMapper._
 
 @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
@@ -50,11 +50,11 @@ object Benchmark {
         where { o => o.orderID in (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
     ) yield o.orderID
 
-    val s1 = BasicDriver.buildSelectStatement(q1)
-    val s2 = BasicDriver.buildSelectStatement(q2)
-    val s3 = BasicDriver.buildSelectStatement(q3)
-    val s4 = BasicDriver.buildSelectStatement(q4)
-    val s5 = BasicDriver.buildSelectStatement(q5)
+    val s1 = JdbcDriver.buildSelectStatement(q1)
+    val s2 = JdbcDriver.buildSelectStatement(q2)
+    val s3 = JdbcDriver.buildSelectStatement(q3)
+    val s4 = JdbcDriver.buildSelectStatement(q4)
+    val s5 = JdbcDriver.buildSelectStatement(q5)
 
     if(print) {
       println("q1: " + s1)

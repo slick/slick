@@ -5,16 +5,21 @@ import scala.slick.ast.Node
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
 import scala.slick.jdbc.JdbcBackend
+import scala.slick.profile.{SqlProfile, Capability}
 
-trait BasicProfile extends BasicTableComponent
-  with BasicInvokerComponent with BasicExecutorComponent { driver: BasicDriver =>
+/**
+ * A profile for accessing SQL databases via JDBC.
+ */
+trait JdbcProfile extends SqlProfile with JdbcTableComponent
+  with JdbcInvokerComponent with JdbcExecutorComponent { driver: JdbcDriver =>
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
   val compiler = QueryCompiler.relational
   val Implicit = new Implicits
   val typeMapperDelegates = new TypeMapperDelegates
-  val capabilities: Set[Capability] = BasicProfile.capabilities.all
+
+  override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
   final def createQueryBuilder(q: Query[_, _]): QueryBuilder = createQueryBuilder(new QueryBuilderInput(compiler.run(Node(q)), q))
   final def buildSelectStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildSelect
@@ -73,74 +78,28 @@ trait BasicProfile extends BasicTableComponent
   val simple: SimpleQL = new SimpleQL {}
 }
 
-object BasicProfile {
+object JdbcProfile {
   object capabilities {
-    /** Supports default values in column definitions */
-    val columnDefaults = Capability("basic.columnDefaults")
-    /** Supports foreignKeyActions */
-    val foreignKeyActions = Capability("basic.foreignKeyActions")
-    /** Supports the ''database'' function to get the current database name.
-      * A driver without this capability will return an empty string. */
-    val functionDatabase = Capability("basic.functionDatabase")
-    /** Supports the ''user'' function to get the current database user.
-      * A driver without this capability will return an empty string. */
-    val functionUser = Capability("basic.functionUser")
-    /** Supports full outer joins */
-    val joinFull = Capability("basic.joinFull")
-    /** Supports right outer joins */
-    val joinRight = Capability("basic.joinRight")
-    /** Supports escape characters in "like" */
-    val likeEscape = Capability("basic.likeEscape")
     /** Supports mutable result sets */
-    val mutable = Capability("basic.mutable")
-    /** Supports .drop on queries */
-    val pagingDrop = Capability("basic.pagingDrop")
-    /** Supports properly compositional paging in sub-queries */
-    val pagingNested = Capability("basic.pagingNested")
-    /** Returns only the requested number of rows even if some rows are not
-      * unique. Without this capability, non-unique rows may be counted as
-      * only one row each. */
-    val pagingPreciseTake = Capability("basic.pagingPreciseTake")
+    val mutable = Capability("jdbc.mutable")
     /** Can return primary key of inserted row */
-    val returnInsertKey = Capability("basic.returnInsertKey")
+    val returnInsertKey = Capability("jdbc.returnInsertKey")
     /** Can also return non-primary-key columns of inserted row */
-    val returnInsertOther = Capability("basic.returnInsertOther")
-    /** Supports sequences (real or emulated) */
-    val sequence = Capability("basic.sequence")
-    /** Can get current sequence value */
-    val sequenceCurr = Capability("basic.sequenceCurr")
-    /** Supports cyclic sequences */
-    val sequenceCycle = Capability("basic.sequenceCycle")
-    /** Supports non-cyclic limited sequences (with a max value) */
-    val sequenceLimited = Capability("basic.sequenceLimited")
-    /** Supports max value for sequences */
-    val sequenceMax = Capability("basic.sequenceMax")
-    /** Supports min value for sequences */
-    val sequenceMin = Capability("basic.sequenceMin")
-    /** Supports the Blob data type */
-    val typeBlob = Capability("basic.typeBlob")
-    /** Supports the Long data type */
-    val typeLong = Capability("basic.typeLong")
-    /** Supports zip, zipWith and zipWithIndex */
-    val zip = Capability("basic.zip")
+    val returnInsertOther = Capability("jdbc.returnInsertOther")
 
-    /** Supports all BasicProfile features which do not have separate capability values */
-    val basic = Capability("basic")
+    /** Supports all JdbcProfile features which do not have separate capability values */
+    val other = Capability("jdbc.other")
 
-    /** All basic capabilities */
-    val all = Set(basic, columnDefaults, foreignKeyActions, joinFull,
-      joinRight, likeEscape, mutable, pagingDrop, pagingNested,
-      pagingPreciseTake, returnInsertKey, returnInsertOther, sequence,
-      sequenceCurr, sequenceCycle, sequenceLimited, sequenceMax, sequenceMin,
-      typeBlob, typeLong, zip)
+    /** All JDBC capabilities */
+    val all = Set(other, mutable, returnInsertKey, returnInsertOther)
   }
 }
 
-trait BasicDriver extends BasicProfile
-  with BasicStatementBuilderComponent
-  with BasicTypeMapperDelegatesComponent
-  with BasicSQLUtilsComponent {
-  val profile: BasicProfile = this
+trait JdbcDriver extends JdbcProfile
+  with JdbcStatementBuilderComponent
+  with JdbcTypeMapperDelegatesComponent
+  with JdbcSQLUtilsComponent {
+  val profile: JdbcProfile = this
 }
 
-object BasicDriver extends BasicDriver
+object JdbcDriver extends JdbcDriver

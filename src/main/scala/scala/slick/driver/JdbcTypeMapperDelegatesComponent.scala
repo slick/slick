@@ -6,7 +6,7 @@ import scala.slick.lifted.TypeMapperDelegate
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import java.util.UUID
 
-trait BasicTypeMapperDelegatesComponent { driver: BasicDriver =>
+trait JdbcTypeMapperDelegatesComponent { driver: JdbcDriver =>
 
   def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR(254)"

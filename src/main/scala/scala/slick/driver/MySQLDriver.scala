@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{SqlProfile, Capability}
 
 /**
  * Slick driver for MySQL.
@@ -14,10 +15,10 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceLimited]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceLimited]]:
  *     Non-cyclic sequence may not have an upper limit.</li>
  * </ul>
  *
@@ -30,9 +31,9 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  */
 trait MySQLDriver extends ExtendedDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.sequenceLimited
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.sequenceLimited
   )
 
   override val typeMapperDelegates = new TypeMapperDelegates

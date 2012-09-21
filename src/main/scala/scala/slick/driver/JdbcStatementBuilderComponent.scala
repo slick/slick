@@ -10,11 +10,12 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted.{Join => _, _}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.compiler.{Phase, CompilationState}
+import scala.slick.profile.SqlProfile
 
-trait BasicStatementBuilderComponent { driver: BasicDriver =>
+trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
-  def createQueryTemplate[P,R](q: Query[_, R]): BasicQueryTemplate[P,R] = new BasicQueryTemplate[P,R](q, this)
+  def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] = new JdbcQueryTemplate[P,R](q, this)
   def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -208,9 +209,9 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         b"exists(!${c.copy(select = None)})"
       case Library.Concat(l, r) if concatOperator.isDefined =>
         b"\($l${concatOperator.get}$r\)"
-      case Library.User() if !capabilities.contains(BasicProfile.capabilities.functionUser) =>
+      case Library.User() if !capabilities.contains(SqlProfile.capabilities.functionUser) =>
         b += "''"
-      case Library.Database() if !capabilities.contains(BasicProfile.capabilities.functionDatabase) =>
+      case Library.Database() if !capabilities.contains(SqlProfile.capabilities.functionDatabase) =>
         b += "''"
       case Library.Pi() if !hasPiFunction => b += pi
       case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi()}*$ch)"
@@ -440,7 +441,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       if(r.table != table)
         throw new SlickException("Returned key columns must be from same table as inserted columns ("+
           r.table+" != "+table+")")
-      if(!capabilities.contains(BasicProfile.capabilities.returnInsertOther) && (r.fields.size > 1 || !r.fields.head.options.contains(ColumnOption.AutoInc)))
+      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && (r.fields.size > 1 || !r.fields.head.options.contains(ColumnOption.AutoInc)))
         throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
       r.fields
     }

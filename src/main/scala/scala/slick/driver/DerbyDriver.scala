@@ -4,6 +4,7 @@ import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{SqlProfile, Capability}
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -12,24 +13,24 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.functionDatabase]]:
  *     <code>Functions.database</code> is not available in Derby. Slick
  *     will return an empty string instead.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.pagingNested]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.pagingNested]]:
  *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
  *     target="_parent">DERBY-5911</a>.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCurr]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
  *     <code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported by Derby. Trying to generate SQL code which uses this
  *     feature throws a SlickException.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCycle]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
  *     Sequence cycling is supported but does not conform to SQL:2008
  *     semantics. Derby cycles back to the START value instead of MINVALUE or
  *     MAXVALUE.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.zip]]:
  *     Ordered sub-queries and window functions with orderings are currently
  *     not supported by Derby. These are required by <code>zip</code> and
  *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
@@ -44,14 +45,14 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  */
 trait DerbyDriver extends ExtendedDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.functionDatabase
-    - BasicProfile.capabilities.pagingNested
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.sequenceCurr
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - SqlProfile.capabilities.functionDatabase
+    - SqlProfile.capabilities.pagingNested
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.sequenceCurr
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
-    - BasicProfile.capabilities.sequenceCycle
-    - BasicProfile.capabilities.zip
+    - SqlProfile.capabilities.sequenceCycle
+    - SqlProfile.capabilities.zip
   )
 
   override val typeMapperDelegates = new TypeMapperDelegates

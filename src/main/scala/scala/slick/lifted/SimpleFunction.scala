@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.slick.driver.BasicStatementBuilderComponent
+import scala.slick.driver.JdbcStatementBuilderComponent
 import scala.slick.ast._
 import scala.slick.util._
 
@@ -61,37 +61,37 @@ object SimpleBinaryOperator {
 case class SimpleLiteral(name: String) extends NullaryNode
 
 trait SimpleExpression extends SimpleNode {
-  def toSQL(qb: BasicStatementBuilderComponent#QueryBuilder): Unit
+  def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder): Unit
 }
 
 object SimpleExpression {
-  def apply[T : TypeMapper](f: (Seq[Node], BasicStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Column[_]] => Column[T] with SimpleExpression) = {
+  def apply[T : TypeMapper](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Column[_]] => Column[T] with SimpleExpression) = {
     lazy val builder: (Seq[NodeGenerator] => Column[T] with SimpleExpression) = paramsC =>
       new Column[T] with SimpleExpression {
-        def toSQL(qb: BasicStatementBuilderComponent#QueryBuilder) = f(nodeChildren.toSeq, qb)
+        def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(nodeChildren.toSeq, qb)
         val nodeChildren = paramsC.map(Node(_))
         protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)
       }
     builder
   }
 
-  def nullary[R : TypeMapper](f: BasicStatementBuilderComponent#QueryBuilder => Unit): Column[R] with SimpleExpression = {
-    val g = apply({ (ch: Seq[Node], qb: BasicStatementBuilderComponent#QueryBuilder) => f(qb) });
+  def nullary[R : TypeMapper](f: JdbcStatementBuilderComponent#QueryBuilder => Unit): Column[R] with SimpleExpression = {
+    val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(qb) });
     g.apply(Seq())
   }
   
-  def unary[T1, R : TypeMapper](f: (Node, BasicStatementBuilderComponent#QueryBuilder) => Unit): (Column[T1] => Column[R] with SimpleExpression) = {
-    val g = apply({ (ch: Seq[Node], qb: BasicStatementBuilderComponent#QueryBuilder) => f(ch(0), qb) });
+  def unary[T1, R : TypeMapper](f: (Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Column[T1] => Column[R] with SimpleExpression) = {
+    val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(ch(0), qb) });
     { t1: Column[T1] => g(Seq(t1)) }
   }
 
-  def binary[T1, T2, R : TypeMapper](f: (Node, Node, BasicStatementBuilderComponent#QueryBuilder) => Unit): ((Column[T1], Column[T2]) => Column[R] with SimpleExpression) = {
-    val g = apply({ (ch: Seq[Node], qb: BasicStatementBuilderComponent#QueryBuilder) => f(ch(0), ch(1), qb) });
+  def binary[T1, T2, R : TypeMapper](f: (Node, Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): ((Column[T1], Column[T2]) => Column[R] with SimpleExpression) = {
+    val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(ch(0), ch(1), qb) });
     { (t1: Column[T1], t2: Column[T2]) => g(Seq(t1, t2)) }
   }
 
-  def ternary[T1, T2, T3, R : TypeMapper](f: (Node, Node, Node, BasicStatementBuilderComponent#QueryBuilder) => Unit): ((Column[T1], Column[T2], Column[T3]) => Column[R] with SimpleExpression) = {
-    val g = apply({ (ch: Seq[Node], qb: BasicStatementBuilderComponent#QueryBuilder) => f(ch(0), ch(1), ch(2), qb) });
+  def ternary[T1, T2, T3, R : TypeMapper](f: (Node, Node, Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): ((Column[T1], Column[T2], Column[T3]) => Column[R] with SimpleExpression) = {
+    val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(ch(0), ch(1), ch(2), qb) });
     { (t1: Column[T1], t2: Column[T2], t3: Column[T3]) => g(Seq(t1, t2, t3)) }
   }
 }

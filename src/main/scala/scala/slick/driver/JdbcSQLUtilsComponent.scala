@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.slick.lifted.TypeMapper
 import scala.slick.ast.{SymbolNamer, Symbol}
 
-trait BasicSQLUtilsComponent { driver: BasicDriver =>
+trait JdbcSQLUtilsComponent { driver: JdbcDriver =>
 
   def quoteIdentifier(id: String): String = {
     val s = new StringBuilder(id.length + 4) append '"'

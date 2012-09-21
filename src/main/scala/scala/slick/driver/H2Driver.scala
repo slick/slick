@@ -3,6 +3,7 @@ package scala.slick.driver
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{SqlProfile, Capability}
 
 /**
  * Slick driver for H2.
@@ -11,11 +12,11 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceMin]],
- *     [[scala.slick.driver.BasicProfile.capabilities.sequenceMax]],
- *     [[scala.slick.driver.BasicProfile.capabilities.sequenceCycle]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceMin]],
+ *     [[scala.slick.profile.SqlProfile.capabilities.sequenceMax]],
+ *     [[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
  *     H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
  * </ul>
@@ -24,11 +25,11 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  */
 trait H2Driver extends ExtendedDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.sequenceMin
-    - BasicProfile.capabilities.sequenceMax
-    - BasicProfile.capabilities.sequenceCycle
-    - BasicProfile.capabilities.returnInsertOther
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - SqlProfile.capabilities.sequenceMin
+    - SqlProfile.capabilities.sequenceMax
+    - SqlProfile.capabilities.sequenceCycle
+    - JdbcProfile.capabilities.returnInsertOther
   )
 
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)

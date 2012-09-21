@@ -6,7 +6,7 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class OldTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  @deprecated("Testing deprecated methods Query#sub, Query.orderBy and BasicProfile.buildInsertStatement", "0.10.0-M2")
+  @deprecated("Testing deprecated methods Query#sub, Query.orderBy and JdbcProfile.buildInsertStatement", "0.10.0-M2")
   def test {
     object Users extends Table[(Int, String, String)]("users") {
       def id = column[Int]("id")

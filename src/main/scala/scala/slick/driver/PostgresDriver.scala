@@ -15,7 +15,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * Notes:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeBlob]]:
  *   The default implementation of the <code>Blob</code> type uses the
  *   database type <code>lo</code> and the stored procedure
  *   <code>lo_manage</code>, both of which are provided by the "lo"

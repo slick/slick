@@ -1,15 +1,15 @@
 package scala.slick.lifted
 
 import scala.slick.SlickException
-import scala.slick.driver.{BasicDriver, BasicProfile, BasicQueryTemplate}
+import scala.slick.driver.{JdbcDriver, JdbcProfile, JdbcQueryTemplate}
 import scala.slick.util.NaturalTransformation2
 
 final class Parameters[PU, PP](c: PP) {
-  def flatMap[QU](f: PP => Query[_, QU])(implicit profile: BasicProfile): BasicQueryTemplate[PU, QU] =
-    profile.asInstanceOf[BasicDriver].createQueryTemplate[PU, QU](f(c))
+  def flatMap[QU](f: PP => Query[_, QU])(implicit profile: JdbcProfile): JdbcQueryTemplate[PU, QU] =
+    profile.asInstanceOf[JdbcDriver].createQueryTemplate[PU, QU](f(c))
 
-  def map[QM, QU](f: PP => QM)(implicit profile: BasicProfile, shape: Shape[QM, QU, _]): BasicQueryTemplate[PU, QU] =
-    profile.asInstanceOf[BasicDriver].createQueryTemplate[PU, QU](Query(f(c)))
+  def map[QM, QU](f: PP => QM)(implicit profile: JdbcProfile, shape: Shape[QM, QU, _]): JdbcQueryTemplate[PU, QU] =
+    profile.asInstanceOf[JdbcDriver].createQueryTemplate[PU, QU](Query(f(c)))
 
   def filter(f: PP => Boolean): Parameters[PU, PP] =
     if (!f(c)) throw new SlickException("Match failed when unpacking Parameters")

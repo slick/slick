@@ -5,6 +5,7 @@ import scala.slick.ast._
 import scala.slick.jdbc.PositionedResult
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Date}
+import scala.slick.profile.{SqlProfile, Capability}
 
 /**
  * Slick driver for Microsoft SQL Server.
@@ -13,10 +14,10 @@ import java.sql.{Timestamp, Date}
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
  *     Sequences are not supported because SQLServer does not have this
  *     feature.</li>
  * </ul>
@@ -25,9 +26,9 @@ import java.sql.{Timestamp, Date}
  */
 trait SQLServerDriver extends ExtendedDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.sequence
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.sequence
   )
 
   override val typeMapperDelegates = new TypeMapperDelegates
