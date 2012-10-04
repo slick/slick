@@ -1,5 +1,6 @@
 package scala.slick.session
 
+import scala.language.reflectiveCalls
 import java.sql._
 import scala.slick.SlickException
 import scala.slick.util.Logging
@@ -190,6 +191,10 @@ trait Session extends java.io.Closeable with Logging { self =>
     }
     def getConnection: Connection = st.getConnection
     def getMaxFieldSize: Int = st.getMaxFieldSize
+    def closeOnCompletion(): Unit =
+      st.asInstanceOf[{ def closeOnCompletion(): Unit }].closeOnCompletion()
+    def isCloseOnCompletion(): Boolean =
+      st.asInstanceOf[{ def isCloseOnCompletion(): Boolean }].isCloseOnCompletion()
   } else st
 }
 
