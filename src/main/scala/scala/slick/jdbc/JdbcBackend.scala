@@ -1,5 +1,6 @@
 package scala.slick.jdbc
 
+import scala.language.reflectiveCalls
 import scala.slick.backend.DatabaseComponent
 import scala.slick.SlickException
 import scala.slick.util.Logging
@@ -282,6 +283,10 @@ trait JdbcBackend extends DatabaseComponent {
       }
       def getConnection: Connection = st.getConnection
       def getMaxFieldSize: Int = st.getMaxFieldSize
+      def closeOnCompletion(): Unit =
+        st.asInstanceOf[{ def closeOnCompletion(): Unit }].closeOnCompletion()
+      def isCloseOnCompletion(): Boolean =
+        st.asInstanceOf[{ def isCloseOnCompletion(): Boolean }].isCloseOnCompletion()
     } else st
   }
 
