@@ -73,8 +73,8 @@ class ForeignKeyQuery[E <: TableNode, U](
   def & (other: ForeignKeyQuery[E, U]): ForeignKeyQuery[E, U] = {
     val newFKs = fks ++ other.fks
     val conditions =
-      newFKs.map(fk => Library.==(Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
-        reduceLeft[Node]((a, b) => Library.And(a, b))
+      newFKs.map(fk => Library.==.typed(StaticType.Boolean, Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
+        reduceLeft[Node]((a, b) => Library.And.typed(StaticType.Boolean, a, b))
     val newDelegate = Filter(generator, Node(targetBaseQuery), conditions)
     new ForeignKeyQuery[E, U](newDelegate, base, newFKs, targetBaseQuery, generator, aliasedValue)
   }

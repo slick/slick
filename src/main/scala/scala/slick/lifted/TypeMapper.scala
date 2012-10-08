@@ -6,6 +6,7 @@ import scala.slick.SlickException
 import scala.slick.ast.Type
 import scala.slick.driver.JdbcProfile
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
+import scala.reflect.ClassTag
 
 /**
  * A (usually implicit) TypeMapper object represents a Scala type that can be
@@ -27,7 +28,7 @@ import scala.slick.jdbc.{PositionedParameters, PositionedResult}
  * }
  * </pre></code>
  */
-sealed trait TypeMapper[T] extends (JdbcProfile => TypeMapperDelegate[T]) with Type { self =>
+sealed abstract class TypeMapper[T](implicit val classTag: ClassTag[T]) extends (JdbcProfile => TypeMapperDelegate[T]) with Type { self =>
   def createOptionTypeMapper: OptionTypeMapper[T] = new OptionTypeMapper[T](self) {
     def apply(profile: JdbcProfile) = self(profile).createOptionTypeMapperDelegate
     def getBaseTypeMapper[U](implicit ev: Option[U] =:= Option[T]): TypeMapper[U] = self.asInstanceOf[TypeMapper[U]]
@@ -114,9 +115,12 @@ object TypeMapper {
 trait BaseTypeMapper[T] extends TypeMapper[T] {
   def getBaseTypeMapper[U](implicit ev: Option[U] =:= T) =
     throw new SlickException("A BaseTypeMapper should not have an Option type")
+  override def toString = "TypeMapper[" + classTag.runtimeClass.getName + "]"
 }
 
-abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[Option[T]]
+abstract class OptionTypeMapper[T : ClassTag](val base: TypeMapper[T]) extends TypeMapper[Option[T]] {
+  override def toString = "TypeMapper[Option[" + base.classTag.runtimeClass.getName + "]]"
+}
 
 /**
  * Adding this marker trait to a TypeMapper makes the type eligible for
@@ -124,7 +128,7 @@ abstract class OptionTypeMapper[T](val base: TypeMapper[T]) extends TypeMapper[O
  */
 trait NumericTypeMapper
 
-trait TypeMapperDelegate[T] { self =>
+trait TypeMapperDelegate[T] extends Type { self =>
   /**
    * A zero value for the type. This is used as a default instead of NULL when
    * used as a non-nullable column.
@@ -183,7 +187,7 @@ object TypeMapperDelegate {
     yield f.get(null).asInstanceOf[Int] -> f.getName)
 }
 
-abstract class MappedTypeMapper[T,U](implicit tm: TypeMapper[U]) extends TypeMapper[T] { self =>
+abstract class MappedTypeMapper[T : ClassTag,U](implicit tm: TypeMapper[U]) extends TypeMapper[T] { self =>
   def map(t: T): U
   def comap(u: U): T
 
@@ -207,7 +211,7 @@ abstract class MappedTypeMapper[T,U](implicit tm: TypeMapper[U]) extends TypeMap
 }
 
 object MappedTypeMapper {
-  def base[T, U](tmap: T => U, tcomap: U => T)(implicit tm: TypeMapper[U]): BaseTypeMapper[T] =
+  def base[T : ClassTag, U](tmap: T => U, tcomap: U => T)(implicit tm: TypeMapper[U]): BaseTypeMapper[T] =
     new MappedTypeMapper[T, U] with BaseTypeMapper[T] {
       def map(t: T) = tmap(t)
       def comap(u: U) = tcomap(u)

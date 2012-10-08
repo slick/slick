@@ -28,6 +28,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     ,"scala.Double"     /*typeOf[Double]*/ -> TypeMapper.DoubleTypeMapper
     ,"scala.String"     /*typeOf[String]*/ -> TypeMapper.StringTypeMapper
     ,"java.lang.String" /*typeOf[String]*/ -> TypeMapper.StringTypeMapper // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
+    ,"Boolean"          /*typeBof[Boolean]*/ -> TypeMapper.BooleanTypeMapper
+    ,"scala.Boolean"    /*typeBof[Boolean]*/ -> TypeMapper.BooleanTypeMapper
   )
 
   //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTerm.resolveOverloaded(actuals = rhs.toList)
@@ -192,10 +194,10 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           }
         =>
           term.decoded match {
-            case "+" => Library.Concat(s2sq( lhs ).node, s2sq( rhs ).node )
+            case "+" => Library.Concat.typed(sq.StaticType.String, s2sq( lhs ).node, s2sq( rhs ).node )
           }
 
-        case Apply(op@Select(lhs,term),rhs::Nil) => {
+        case a@Apply(op@Select(lhs,term),rhs::Nil) => {
           val actualTypes = lhs.tpe :: rhs.tpe :: Nil //.map(_.tpe).toList
           val matching_ops = ( operatorMap.collect{
               case (str2sym, types)
@@ -207,7 +209,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           })
           matching_ops.size match{
             case 0 => throw new SlickException("Operator not supported: "+ lhs.tpe +"."+term.decoded+"("+ rhs.tpe +")")
-            case 1 => matching_ops.head( s2sq( lhs ).node, s2sq( rhs ).node )
+            case 1 => matching_ops.head.typed(typeMappers(a.tpe.toString), s2sq( lhs ).node, s2sq( rhs ).node )
             case _ => throw new SlickException("Internal Slick error: resolution of "+ lhs.tpe +" "+term.decoded+" "+ rhs.tpe +" was ambigious")
           }
         }
@@ -223,7 +225,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
 
         case Select(scala_lhs, term) 
           if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure && (term.decoded == "length" || term.decoded == "size")
-          => sq.Pure( Library.CountAll( s2sq(scala_lhs).node ) )
+          => sq.Pure( Library.CountAll.typed(sq.StaticType.Int, s2sq(scala_lhs).node ) )
 
         case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
             => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query

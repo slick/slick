@@ -83,7 +83,7 @@ object Library {
 class FunctionSymbol(val name: String) extends Symbol {
 
   /** Create an untyped Apply of this Symbol */
-  def apply(ch: Node*): Apply = Apply(this, ch)
+  //def apply(ch: Node*): Apply = Apply(this, ch)
 
   /** Match an Apply of this Symbol */
   def unapplySeq(n: Node) = n match {
