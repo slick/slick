@@ -23,6 +23,7 @@ trait JdbcTypeMapperDelegatesComponent { driver: JdbcDriver =>
     val blobTypeMapperDelegate = new BlobTypeMapperDelegate
     val byteTypeMapperDelegate = new ByteTypeMapperDelegate
     val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate
+    val charTypeMapperDelegate = new CharTypeMapperDelegate
     val clobTypeMapperDelegate = new ClobTypeMapperDelegate
     val dateTypeMapperDelegate = new DateTypeMapperDelegate
     val doubleTypeMapperDelegate = new DoubleTypeMapperDelegate
@@ -85,6 +86,20 @@ trait JdbcTypeMapperDelegatesComponent { driver: JdbcDriver =>
       def setOption(v: Option[Clob], p: PositionedParameters) = p.setClobOption(v)
       def nextValue(r: PositionedResult) = r.nextClob
       def updateValue(v: Clob, r: PositionedResult) = r.updateClob(v)
+    }
+
+    class CharTypeMapperDelegate extends TypeMapperDelegate[Char] {
+      def zero = ' '
+      def sqlType = java.sql.Types.CHAR
+      def sqlTypeName = "CHAR(1)"
+      def setValue(v: Char, p: PositionedParameters) = stringTypeMapperDelegate.setValue(String.valueOf(v), p)
+      def setOption(v: Option[Char], p: PositionedParameters) = stringTypeMapperDelegate.setOption(v.map(String.valueOf), p)
+      def nextValue(r: PositionedResult) = {
+        val s = stringTypeMapperDelegate.nextValue(r)
+        if(s.isEmpty) zero else s.charAt(0)
+      }
+      def updateValue(v: Char, r: PositionedResult) = stringTypeMapperDelegate.updateValue(String.valueOf(v), r)
+      override def valueToSQLLiteral(v: Char) = stringTypeMapperDelegate.valueToSQLLiteral(String.valueOf(v))
     }
 
     class DateTypeMapperDelegate extends DriverTypeMapperDelegate[Date] {

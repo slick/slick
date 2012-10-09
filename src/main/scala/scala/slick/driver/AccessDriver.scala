@@ -114,16 +114,16 @@ trait AccessDriver extends ExtendedDriver { driver =>
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case c: Case.CaseNode => {
+      case c: ConditionalExpr => {
         b"switch("
         var first = true
-        c.clauses.reverseIterator.foreach { case Case.WhenNode(l, r) =>
+        c.clauses.reverseIterator.foreach { case IfThen(l, r) =>
           if(first) first = false
           else b","
           b"$l,$r"
         }
         c.elseClause match {
-          case ConstColumn(null) =>
+          case LiteralNode(null) =>
           case n =>
             if(!first) b += ","
             b"1=1,$n"

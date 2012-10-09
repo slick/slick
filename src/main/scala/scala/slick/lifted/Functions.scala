@@ -1,10 +1,11 @@
 package scala.slick.lifted
 
 import java.sql.{Date, Time}
-import TypeMapper._
 import scala.slick.ast.Library
+import FunctionSymbolExtensionMethods._
 
 object Functions {
+
   /** The name of the database user, or an empty string if not supported by the DBMS */
   val user = Library.User.column[String]()
 

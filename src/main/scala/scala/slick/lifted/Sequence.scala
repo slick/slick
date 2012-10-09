@@ -4,6 +4,7 @@ import scala.slick.driver.JdbcProfile
 import scala.slick.ast._
 import scala.Some
 import scala.slick.ast.SequenceNode
+import FunctionSymbolExtensionMethods._
 
 class Sequence[T] private[Sequence] (val name: String,
     val _minValue: Option[T],

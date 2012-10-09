@@ -3,7 +3,7 @@ package scala.slick.lifted
 import scala.language.existentials
 import scala.annotation.implicitNotFound
 import scala.slick.SlickException
-import scala.slick.util.{ProductLinearizer, ValueLinearizer, NaturalTransformation2, RecordLinearizer}
+import scala.slick.util._
 import scala.slick.ast.{WithOp, TableNode, Node, Symbol}
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
@@ -74,13 +74,13 @@ class ShapeLowPriority extends ShapeLowPriority2 {
 
 final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _, _]*) extends Shape[M, U, P] {
   def pack(from: Mixed) =
-    Shape.buildTuple(ps.iterator.zip(from.productIterator).map{case (p, f) => p.pack(f.asInstanceOf[p.Mixed])}.toIndexedSeq).asInstanceOf[Packed]
+    TupleSupport.buildTuple(ps.iterator.zip(from.productIterator).map{case (p, f) => p.pack(f.asInstanceOf[p.Mixed])}.toIndexedSeq).asInstanceOf[Packed]
   def packedShape: Shape[Packed, Unpacked, Packed] =
     new TupleShape(ps.map(_.packedShape): _*)
   def linearizer(from: Mixed) =
     new ProductLinearizer(ps.iterator.zip(from.productIterator).map{case (p, f) => p.linearizer(f.asInstanceOf[p.Mixed]).asInstanceOf[RecordLinearizer[_]]}.toIndexedSeq)
   def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
-    Shape.buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
+    TupleSupport.buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
 
   private[this] def productTf[Unpacked <: Product, U](idx: Int,
       f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] =

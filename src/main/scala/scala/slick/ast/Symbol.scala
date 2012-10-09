@@ -1,7 +1,6 @@
 package scala.slick.ast
 
 import Util._
-import scala.slick.lifted.{TypeMapper, ColumnOption}
 import scala.collection.mutable.HashMap
 import scala.util.DynamicVariable
 
@@ -12,7 +11,7 @@ trait Symbol {
 }
 
 /** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val typeMapper: TypeMapper[_]) extends Symbol
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends Symbol with Typed
 
 /** An element of a ProductNode */
 case class ElementSymbol(idx: Int) extends Symbol {

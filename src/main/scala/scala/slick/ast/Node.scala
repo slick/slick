@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import scala.slick.SlickException
-import slick.lifted.{Column, ConstColumn, ShapedValue}
+import slick.lifted.ShapedValue
 import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.ArrayBuffer
 
@@ -54,7 +54,7 @@ trait TypedNode extends Node with Typed
 
 object Node {
   def apply(o:Any): Node =
-    if(o == null) ConstColumn.NULL
+    if(o == null) LiteralNode(null)
     else if(o.isInstanceOf[WithOp] && (o.asInstanceOf[WithOp].op ne null)) Node(o.asInstanceOf[WithOp].op)
     else if(o.isInstanceOf[NodeGenerator]) {
       val gen = o.asInstanceOf[NodeGenerator]
@@ -83,7 +83,7 @@ object ProductNode {
   def unapply(p: ProductNode) = Some(p.nodeChildren)
 }
 
-case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode with SimpleDefNode {
+final case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode with SimpleDefNode {
   override def toString = "StructNode"
   override def nodeChildNames = elements.map(_._1.toString)
   val nodeChildren = elements.map(_._2)
@@ -100,14 +100,16 @@ case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends ProductNode 
     copy(elements = (elements, gen).zipped.map((e, s) => (s, e._2)))
 }
 
-trait LiteralNode extends NullaryNode {
+trait LiteralNode extends NullaryNode with TypedNode {
   def value: Any
 }
 
 object LiteralNode {
-  def apply(v: Any): LiteralNode = new LiteralNode {
+  def apply(tp: Type, v: Any): LiteralNode = new LiteralNode {
     val value = v
+    val tpe = tp
   }
+  def apply[T](v: T)(implicit tp: StaticType[T]): LiteralNode = apply(tp, v)
   def unapply(n: LiteralNode): Option[Any] = Some(n.value)
 }
 
@@ -193,7 +195,7 @@ final case class OrderBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)
   def nodePostGeneratorChildren = by.map(_._1)
 }
 
-case class Ordering(direction: Ordering.Direction = Ordering.Asc, nulls: Ordering.NullOrdering = Ordering.NullsDefault) {
+final case class Ordering(direction: Ordering.Direction = Ordering.Asc, nulls: Ordering.NullOrdering = Ordering.NullsDefault) {
   def asc = copy(direction = Ordering.Asc)
   def desc = copy(direction = Ordering.Desc)
   def reverse = copy(direction = direction.reverse)
@@ -373,5 +375,20 @@ final case class SequenceNode(name: String)(val increment: Long) extends Nullary
   * numbers starting at the given number. This is used as an operand for
   * zipWithIndex. It is not exposed directly in the query language because it
   * cannot be represented in SQL outside of a 'zip' operation. */
-final case class RangeFrom(start: Long = 1L) extends Column[Long] with NullaryNode
-//TODO should not have to be a Column
+final case class RangeFrom(start: Long = 1L) extends NullaryNode
+
+/** An if-then part of a Conditional node */
+final case class IfThen(val left: Node, val right: Node) extends BinaryNode {
+  protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(left = left, right = right)
+}
+
+/** A conditional expression; all clauses should be IfThen nodes */
+final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: Node) extends Node {
+  val nodeChildren = elseClause +: clauses
+  def nodeMapChildren(f: Node => Node): Node = {
+    val e = f(elseClause)
+    val c = nodeMapNodes(clauses, f)
+    if(e.ne(elseClause) || c.isDefined) ConditionalExpr(c.getOrElse(clauses), e)
+    else this
+  }
+}

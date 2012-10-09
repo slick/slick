@@ -66,7 +66,7 @@ object SqlProfile {
   }
 }
 
-trait SqlDriver extends SqlProfile with SqlUtilsComponent
+trait SqlDriver extends BasicDriver with SqlProfile with SqlUtilsComponent
 
 trait SqlUtilsComponent { driver: SqlDriver =>
 

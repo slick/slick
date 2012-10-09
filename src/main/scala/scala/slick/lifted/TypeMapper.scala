@@ -43,6 +43,10 @@ object TypeMapper {
     def apply(profile: JdbcProfile) = profile.typeMapperDelegates.booleanTypeMapperDelegate
   }
 
+  implicit object CharTypeMapper extends BaseTypeMapper[Char] {
+    def apply(profile: JdbcProfile) = profile.typeMapperDelegates.charTypeMapperDelegate
+  }
+
   implicit object BlobTypeMapper extends BaseTypeMapper[Blob] {
     def apply(profile: JdbcProfile) = profile.typeMapperDelegates.blobTypeMapperDelegate
   }

@@ -2,6 +2,7 @@ package scala.slick.lifted
 
 import scala.language.implicitConversions
 import scala.slick.ast._
+import FunctionSymbolExtensionMethods._
 
 trait ExtensionMethods[B1, P1] extends Any {
   def c: Column[P1]
@@ -19,14 +20,15 @@ trait ExtensionMethods[B1, P1] extends Any {
 /** Extension methods for all Columns and all primitive values that can be lifted to Columns */
 final class AnyExtensionMethods(val n: Node) extends AnyVal {
   def asColumnOf[U : TypeMapper] = Library.Cast.column[U](n)
-  def asColumnOfType[U : TypeMapper](typeName: String) = Library.Cast.column[U](n, LiteralNode(typeName))
+  def asColumnOfType[U : TypeMapper](typeName: String) =
+    Library.Cast.column[U](n, LiteralNode(implicitly[TypeMapper[U]], typeName))
 }
 
 /** Extension methods for all Columns */
 final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[B1, P1] {
   def count = Library.Count.column[Int](n)
-  def isNull = Library.==.column[Boolean](n, ConstColumn.NULL)
-  def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, ConstColumn.NULL))
+  def isNull = Library.==.column[Boolean](n, LiteralNode(null))
+  def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
   def countDistinct = Library.CountDistinct.column[Int](n)
 
   def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
@@ -54,11 +56,11 @@ final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal wit
     om(Library.In.column(n, Node(e)))
   def notIn[P2, R](e: Query[Column[P2], _])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Library.Not.column(Library.In.typed[Boolean](n, Node(e))))
-  def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
-    if(seq.isEmpty) ConstColumn.FALSE
-    else Library.In.column(n, ProductNode(seq.map(LiteralNode.apply _).toSeq)))
+  def inSet[R : TypeMapper](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
+    if(seq.isEmpty) ConstColumn(false)
+    else Library.In.column(n, ProductNode(seq.map{ v => LiteralNode.apply(implicitly[TypeMapper[R]], v) }.toSeq)))
   def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
-    if(seq.isEmpty) ConstColumn.FALSE
+    if(seq.isEmpty) ConstColumn(false)
     else Library.In.column(n, ProductNode(seq.map(v => BindColumn[B1](v)).toSeq)))
 
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
@@ -138,8 +140,8 @@ final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _
 trait ExtensionMethodConversions {
   implicit def anyColumnExtensionMethods[B1 : BaseTypeMapper](c: Column[B1]) = new AnyExtensionMethods(Node(c))
   implicit def anyOptionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new AnyExtensionMethods(Node(c))
-  implicit def anyValueExtensionMethods[B1 : BaseTypeMapper](v: B1) = new AnyExtensionMethods(Node(ConstColumn(v)))
-  implicit def anyOptionValueExtensionMethods[B1 : TypeMapper](v: Option[B1]) = new AnyExtensionMethods(Node(ConstColumn(v)))
+  implicit def anyValueExtensionMethods[B1 : BaseTypeMapper](v: B1) = new AnyExtensionMethods(LiteralNode(implicitly[TypeMapper[B1]], v))
+  implicit def anyOptionValueExtensionMethods[B1 : TypeMapper](v: Option[B1]) = new AnyExtensionMethods(LiteralNode(implicitly[TypeMapper[Option[B1]]], v))
   implicit def columnExtensionMethods[B1 : BaseTypeMapper](c: Column[B1]) = new ColumnExtensionMethods[B1, B1](c)
   implicit def optionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new ColumnExtensionMethods[B1, Option[B1]](c)
   implicit def numericColumnExtensionMethods[B1](c: Column[B1])(implicit tm: BaseTypeMapper[B1] with NumericTypeMapper) = new NumericColumnExtensionMethods[B1, B1](c)

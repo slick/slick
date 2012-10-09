@@ -2,7 +2,7 @@ package scala.slick.jdbc
 
 import java.sql.{Date, Time, Timestamp}
 import scala.slick.SlickException
-import scala.slick.lifted.Shape
+import scala.slick.util.TupleSupport
 
 /** Basic conversions for extracting values from PositionedResults. */
 trait GetResult[+T] extends (PositionedResult => T) { self =>
@@ -12,7 +12,7 @@ trait GetResult[+T] extends (PositionedResult => T) { self =>
 /** GetResult for tuple types. */
 class GetTupleResult[+T <: Product](val children: GetResult[_]*) extends GetResult[T] {
   def apply(rs: PositionedResult) =
-    Shape.buildTuple(children.iterator.map(_.apply(rs)).toIndexedSeq).asInstanceOf[T]
+    TupleSupport.buildTuple(children.iterator.map(_.apply(rs)).toIndexedSeq).asInstanceOf[T]
     override def toString = "GetTupleResult<"+children.length+">"
 }
 

@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-import scala.slick.lifted.{ShapedValue, Query, Shape}
+import scala.slick.util.TupleSupport
 
 trait WithOp extends Cloneable {
   self: NodeGenerator =>
@@ -30,11 +30,15 @@ object WithOp {
       positions.foldRight[Node](Ref(sym))((idx, node) => Select(node, ElementSymbol(idx)))
     }
     (x match {
-      case q: Query[_, _] => q.encodeRef(sym, positions)
+      case e: EncodeRef => e.encodeRef(sym, positions)
       case w: WithOp => w.mapOp(f, positions)
       case p: Product => // Only works for tuples but they have no common superclass
-        Shape.buildTuple(p.productIterator.zipWithIndex.map {
+        TupleSupport.buildTuple(p.productIterator.zipWithIndex.map {
           case (x, pos) => encodeRef(x, sym, (pos + 1) :: positions) }.toIndexedSeq)
     }).asInstanceOf[T]
   }
+}
+
+trait EncodeRef {
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Any
 }

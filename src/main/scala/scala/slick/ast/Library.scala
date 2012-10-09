@@ -1,7 +1,5 @@
 package scala.slick.ast
 
-import scala.slick.lifted.{Column, TypeMapper}
-
 /**
  * The standard library for query operators.
  */
@@ -95,12 +93,7 @@ class FunctionSymbol(val name: String) extends Symbol {
   def typed(tpe: Type, ch: Node*): Apply with TypedNode = Apply(this, ch, tpe)
 
   /** Create a typed Apply of this Symbol */
-  def typed[T : TypeMapper](ch: Node*): Apply with TypedNode = Apply(this, ch, implicitly[TypeMapper[T]])
-
-  /** Create a Column with a typed Apply of this Symbol */
-  def column[T : TypeMapper](ch: Node*): Column[T] = new Column[T] {
-    val nodeDelegate = typed[T](ch: _*)
-  }
+  def typed[T : StaticType](ch: Node*): Apply with TypedNode = Apply(this, ch, implicitly[StaticType[T]])
 
   override def toString = "Function "+name
 }

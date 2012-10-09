@@ -3,7 +3,6 @@ package scala.slick.compiler
 import scala.math.{min, max}
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SlickException
-import scala.slick.lifted.ConstColumn
 import scala.slick.ast._
 import Util._
 
@@ -28,11 +27,11 @@ class ResolveZipJoins extends Phase {
     case Bind(oldBindSym, Join(_, _,
         l @ Bind(lsym, lfrom, Pure(StructNode(lstruct))),
         Bind(_, Pure(StructNode(Seq())), Pure(StructNode(Seq((rangeSym, RangeFrom(offset)))))),
-        JoinType.Zip, ConstColumn.TRUE), Pure(sel)) =>
+        JoinType.Zip, LiteralNode(true)), Pure(sel)) =>
       val idxSym = new AnonSymbol
       val idxExpr =
         if(offset == 1L) RowNumber()
-        else Library.-.typed[Long](RowNumber(), ConstColumn(1L - offset))
+        else Library.-.typed[Long](RowNumber(), LiteralNode(1L - offset))
       val innerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (idxSym, idxExpr))))
       val bindSym = new AnonSymbol
       val OldBindRef = Ref(oldBindSym)
@@ -47,7 +46,7 @@ class ResolveZipJoins extends Phase {
     case b @ Bind(_, Join(jlsym, jrsym,
         l @ Bind(lsym, lfrom, Pure(StructNode(lstruct))),
         r @ Bind(rsym, rfrom, Pure(StructNode(rstruct))),
-        JoinType.Zip, ConstColumn.TRUE), _) =>
+        JoinType.Zip, LiteralNode(true)), _) =>
       val lIdxSym, rIdxSym = new AnonSymbol
       val lInnerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (lIdxSym, RowNumber()))))
       val rInnerBind = Bind(rsym, rfrom, Pure(StructNode(rstruct :+ (rIdxSym, RowNumber()))))
@@ -90,7 +89,7 @@ class ConvertToComprehensions extends Phase {
       // Take and Drop to Comprehension
       case TakeDrop(from, take, drop, gen) =>
         val drop2 = if(drop == Some(0)) None else drop
-        if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(ConstColumn.FALSE))
+        if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(LiteralNode(false)))
         else Comprehension(from = mkFrom(gen, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
       // Merge Comprehension which selects another Comprehension
       case Comprehension(from1, where1, None, orderBy1, Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)), fetch, offset) =>
@@ -105,7 +104,7 @@ class ConvertToComprehensions extends Phase {
       case Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
         if (s2 == s1) && (gen2 == gen) => Select(Ref(gen), field)
       case Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
-        Library.Count.typed(StaticType.Long, ConstColumn(1))
+        Library.Count.typed(StaticType.Long, LiteralNode(1))
       case Select(Ref(gen2), ElementSymbol(2)) if gen2 == gen => Ref(gen2)
       case Select(Ref(gen2), ElementSymbol(1)) if gen2 == gen => newBy
     }
@@ -258,7 +257,7 @@ class FuseComprehensions extends Phase {
           val a2 = new AnonSymbol
           val (c2b, call) = s match {
             case Library.CountAll =>
-              (c2, Library.Count.typed(StaticType.Long, ConstColumn(1)))
+              (c2, Library.Count.typed(StaticType.Long, LiteralNode(1)))
             case s =>
               val c3 = ensureStruct(c2)
               // All standard aggregate functions operate on a single column

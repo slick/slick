@@ -53,6 +53,10 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 }
 
+object Column {
+  def forNode[T : TypeMapper](n: Node): Column[T] = new Column[T] { val nodeDelegate = n }
+}
+
 /**
  * A column with a constant value which is inserted into an SQL statement as a literal.
  */
@@ -61,17 +65,10 @@ final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with Li
   def bind = new BindColumn(value)
 }
 
-object ConstColumn {
-  val NULL = new ConstColumn[Null](null)(TypeMapper.NullTypeMapper)
-  val TRUE = new ConstColumn[Boolean](true)(TypeMapper.BooleanTypeMapper)
-  val FALSE = new ConstColumn[Boolean](false)(TypeMapper.BooleanTypeMapper)
-  val UNIT = new ConstColumn[Unit](())(TypeMapper.UnitTypeMapper)
-}
-
 /**
  * A column with a constant value which gets turned into a bind variable.
  */
-final case class BindColumn[T : TypeMapper](value: T) extends Column[T] with NullaryNode {
+final case class BindColumn[T : TypeMapper](value: T) extends Column[T] with NullaryNode with LiteralNode {
   override def toString = "BindColumn["+SimpleTypeName.forVal(value)+"] "+value
 }
 
@@ -86,15 +83,4 @@ final case class ParameterColumn[T : TypeMapper](extractor: (_ => T)) extends Co
 sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   val nodeChildren = Seq(nodeDelegate)
-}
-
-abstract class ColumnOption[+T]
-
-object ColumnOption {
-  case object NotNull extends ColumnOption[Nothing]
-  case object Nullable extends ColumnOption[Nothing]
-  case object PrimaryKey extends ColumnOption[Nothing]
-  case class Default[T](val defaultValue: T) extends ColumnOption[T]
-  case class DBType(val dbType: String) extends ColumnOption[Nothing]
-  case object AutoInc extends ColumnOption[Nothing]
 }

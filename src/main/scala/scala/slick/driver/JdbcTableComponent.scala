@@ -4,6 +4,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Select
 import scala.slick.ast.Ref
+import FunctionSymbolExtensionMethods._
 
 trait JdbcTableComponent { driver: JdbcDriver =>
 

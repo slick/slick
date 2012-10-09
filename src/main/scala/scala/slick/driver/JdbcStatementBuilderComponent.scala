@@ -166,7 +166,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           buildFrom(left, Some(leftGen))
           b" ${jt.sqlName} join "
           buildFrom(right, Some(rightGen))
-          if(on != ConstColumn.TRUE) b" on !$on"
+          on match {
+            case LiteralNode(true) =>
+            case _ => b" on !$on"
+          }
         case Union(left, right, all, _, _) =>
           b"\("
           buildFrom(left, None, true)
@@ -259,14 +262,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
         b")"
-      case c @ ConstColumn(v) => b += c.typeMapper(driver).valueToSQLLiteral(v)
+      case l @ LiteralNode(v) => b += typeInfoFor(l.tpe).valueToSQLLiteral(v)
       case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
       case pc @ ParameterColumn(extractor) => b +?= { (p, param) =>
         pc.typeMapper(driver).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
       }
-      case c: Case.CaseNode =>
+      case c: ConditionalExpr =>
         b"(case"
-        c.clauses.reverseIterator.foreach { case Case.WhenNode(l, r) => b" when $l then $r" }
+        c.clauses.reverseIterator.foreach { case IfThen(l, r) => b" when $l then $r" }
         c.elseClause match {
           case LiteralNode(null) =>
           case n => b" else $n"
@@ -567,7 +570,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   /** Builder for column specifications in DDL statements. */
   class ColumnDDLBuilder(column: FieldSymbol) {
-    protected val tmDelegate = column.typeMapper(driver)
+    protected val tmDelegate = typeInfoFor(column.tpe)
     protected var sqlType: String = null
     protected var notNull = !tmDelegate.nullable
     protected var autoIncrement = false
@@ -586,8 +589,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.PrimaryKey => primaryKey = true
-      case ColumnOption.Default(v) => defaultLiteral =
-        column.typeMapper(driver).asInstanceOf[TypeMapperDelegate[Any]].valueToSQLLiteral(v)
+      case ColumnOption.Default(v) => defaultLiteral = typeInfoFor(column.tpe).valueToSQLLiteral(v)
     }
 
     def appendColumn(sb: StringBuilder) {

@@ -4,12 +4,13 @@ import scala.annotation.implicitNotFound
 import scala.collection.generic.CanBuildFrom
 import scala.slick.ast.{Join => AJoin, _}
 import scala.slick.util.CollectionLinearizer
+import FunctionSymbolExtensionMethods._
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U] { self =>
+abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U] with EncodeRef { self =>
 
   def unpackable: ShapedValue[_ <: E, U]
   final lazy val packed = unpackable.packedNode
@@ -55,7 +56,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
   def zip[E2, U2](q2: Query[E2, U2]): Query[(E, E2), (U, U2)] = join(q2, JoinType.Zip)
   def zipWith[E2, U2, F, G, T](q2: Query[E2, U2], f: (E, E2) => F)(implicit shape: Shape[F, T, G]): Query[G, T] =
     join(q2, JoinType.Zip).map[F, G, T](x => f(x._1, x._2))
-  def zipWithIndex = zip(Query(RangeFrom(0L)))
+  def zipWithIndex = zip(Query(Column.forNode[Long](RangeFrom(0L))))
 
   def sortBy[T <% Ordered](f: E => T): Query[E, U] = {
     val generator = new AnonSymbol
@@ -139,7 +140,7 @@ class WrappingQuery[+E, U](val nodeDelegate: Node, val base: ShapedValue[_ <: E,
 class NonWrappingQuery[+E, U](val nodeDelegate: Node, val unpackable: ShapedValue[_ <: E, U]) extends Query[E, U]
 
 final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)])
-    extends WrappingQuery[(E1, E2), (U1,  U2)](AJoin(leftGen, rightGen, left, right, jt, ConstColumn.TRUE), base) {
+    extends WrappingQuery[(E1, E2), (U1,  U2)](AJoin(leftGen, rightGen, left, right, jt, LiteralNode(true)), base) {
   def on[T <: Column[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]) =
     new WrappingQuery[(E1, E2), (U1, U2)](AJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)
 }
