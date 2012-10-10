@@ -289,10 +289,10 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   def result[R]( tpe:Type, cstate:CompilationState, session:driver.Backend#Session) : Vector[R] = {
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
-          def getResult(profile: JdbcProfile, rs: PositionedResult): R
+          def getResult(driver: JdbcDriver, rs: PositionedResult): R
             = resultByType( tpe, rs, session ).asInstanceOf[R]
-          def updateResult(profile: JdbcProfile, rs: PositionedResult, value: R): Unit = ???
-          def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
+          def updateResult(driver: JdbcDriver, rs: PositionedResult, value: R): Unit = ???
+          def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[R]): Unit = ???
           def getLinearizedNodes: IndexedSeq[Node] = ???
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]

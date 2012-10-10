@@ -2,7 +2,7 @@ package scala.slick.lifted
 
 import scala.language.existentials
 import scala.slick.SlickException
-import scala.slick.driver.JdbcProfile
+import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast._
 import scala.slick.util._
@@ -23,20 +23,20 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   final def tpe = typeMapper
   def getLinearizedNodes = Vector(Node(this))
   def getAllColumnTypeMappers = Vector(typeMapper)
-  def getResult(profile: JdbcProfile, rs: PositionedResult): T = {
-    val tmd = typeMapper(profile)
+  def getResult(driver: JdbcDriver, rs: PositionedResult): T = {
+    val tmd = typeMapper(driver)
     tmd.nextValueOrElse(
       if(tmd.nullable) tmd.zero else throw new SlickException("Read NULL value for column "+this),
       rs)
   }
-  def updateResult(profile: JdbcProfile, rs: PositionedResult, value: T) = typeMapper(profile).updateValue(value, rs)
-  final def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(profile).setOption(value, ps)
+  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = typeMapper(driver).updateValue(value, rs)
+  final def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(driver).setOption(value, ps)
   def orElse(n: =>T): Column[T] = new WrappedColumn[T](this) {
-    override def getResult(profile: JdbcProfile, rs: PositionedResult): T = typeMapper(profile).nextValueOrElse(n, rs)
+    override def getResult(driver: JdbcDriver, rs: PositionedResult): T = typeMapper(driver).nextValueOrElse(n, rs)
   }
   def orZero: Column[T] = new WrappedColumn[T](this) {
-    override def getResult(profile: JdbcProfile, rs: PositionedResult): T = {
-      val tmd = typeMapper(profile)
+    override def getResult(driver: JdbcDriver, rs: PositionedResult): T = {
+      val tmd = typeMapper(driver)
       tmd.nextValueOrElse(tmd.zero, rs)
     }
   }
@@ -44,7 +44,7 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   def ? : Column[Option[T]] = new WrappedColumn(this)(typeMapper.createOptionTypeMapper)
 
   def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(typeMapper.getBaseTypeMapper) {
-    override def getResult(profile: JdbcProfile, rs: PositionedResult): U = typeMapper(profile).nextValueOrElse(n, rs)
+    override def getResult(driver: JdbcDriver, rs: PositionedResult): U = typeMapper(driver).nextValueOrElse(n, rs)
   }
   def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)

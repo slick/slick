@@ -39,12 +39,6 @@ case class IntrinsicSymbol(val target: Node) extends Symbol {
   }
 }
 
-/** A reference to a Symbol */
-case class Ref(sym: Symbol) extends NullaryNode with SimpleRefNode {
-  def nodeReferences = Seq(sym)
-  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
-}
-
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]

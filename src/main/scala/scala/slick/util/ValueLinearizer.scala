@@ -2,7 +2,7 @@ package scala.slick.util
 
 import scala.language.higherKinds
 import scala.collection.generic.CanBuildFrom
-import scala.slick.driver.JdbcProfile
+import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast.Node
 
@@ -27,18 +27,18 @@ trait CollectionLinearizer[F[+_], T] extends ValueLinearizer[F[T]] {
  * A linearizer for record values.
  */
 trait RecordLinearizer[T] extends ValueLinearizer[T] {
-  def getResult(profile: JdbcProfile, rs: PositionedResult): T
-  def updateResult(profile: JdbcProfile, rs: PositionedResult, value: T): Unit
-  def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]): Unit
+  def getResult(driver: JdbcDriver, rs: PositionedResult): T
+  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T): Unit
+  def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit
   def getLinearizedNodes: IndexedSeq[Node]
   final def narrowedLinearizer = this
 }
 
 trait DelegateRecordLinearizer[T] extends RecordLinearizer[T] {
   protected[this] def valueLinearizer: RecordLinearizer[T]
-  final def getResult(profile: JdbcProfile, rs: PositionedResult): T = valueLinearizer.getResult(profile, rs)
-  final def updateResult(profile: JdbcProfile, rs: PositionedResult, value: T): Unit = valueLinearizer.updateResult(profile, rs, value)
-  final def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]): Unit = valueLinearizer.setParameter(profile, ps, value)
+  final def getResult(driver: JdbcDriver, rs: PositionedResult): T = valueLinearizer.getResult(driver, rs)
+  final def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T): Unit = valueLinearizer.updateResult(driver, rs, value)
+  final def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit = valueLinearizer.setParameter(driver, ps, value)
   final def getLinearizedNodes: IndexedSeq[Node] = valueLinearizer.getLinearizedNodes
 }
 
@@ -47,17 +47,17 @@ class ProductLinearizer[T <: Product](sub: IndexedSeq[RecordLinearizer[_]]) exte
   def getLinearizedNodes: IndexedSeq[Node] =
     (0 until sub.length).flatMap(i => sub(i).asInstanceOf[RecordLinearizer[Any]].getLinearizedNodes)(collection.breakOut)
 
-  def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]) =
+  def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) =
     for(i <- 0 until sub.length)
-      sub(i).asInstanceOf[RecordLinearizer[Any]].setParameter(profile, ps, value.map(_.productElement(i)))
+      sub(i).asInstanceOf[RecordLinearizer[Any]].setParameter(driver, ps, value.map(_.productElement(i)))
 
-  def updateResult(profile: JdbcProfile, rs: PositionedResult, value: T) =
+  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) =
     for(i <- 0 until sub.length)
-      sub(i).asInstanceOf[RecordLinearizer[Any]].updateResult(profile, rs, value.productElement(i))
+      sub(i).asInstanceOf[RecordLinearizer[Any]].updateResult(driver, rs, value.productElement(i))
 
-  def getResult(profile: JdbcProfile, rs: PositionedResult): T = {
+  def getResult(driver: JdbcDriver, rs: PositionedResult): T = {
     var i = -1
-    def f = { i += 1; sub(i).getResult(profile, rs) }
+    def f = { i += 1; sub(i).getResult(driver, rs) }
     val tuple = sub.length match {
       case 2 => (f,f)
       case 3 => (f,f,f)

@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.slick.driver.JdbcProfile
+import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
@@ -51,9 +51,9 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
     } yield m.invoke(this).asInstanceOf[Index])
 
   def getLinearizedNodes = *.getLinearizedNodes
-  def getResult(profile: JdbcProfile, rs: PositionedResult) = *.getResult(profile, rs)
-  def updateResult(profile: JdbcProfile, rs: PositionedResult, value: T) = *.updateResult(profile, rs, value)
-  def setParameter(profile: JdbcProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)
+  def getResult(driver: JdbcDriver, rs: PositionedResult) = *.getResult(driver, rs)
+  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = *.updateResult(driver, rs, value)
+  def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) = *.setParameter(driver, ps, value)
 }
 
 trait NothingContainer {

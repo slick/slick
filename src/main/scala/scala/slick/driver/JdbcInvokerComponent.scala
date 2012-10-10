@@ -167,7 +167,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
 
     protected def buildKeysResult(st: Statement): UnitInvoker[RU] = {
       val lin = keys.linearizer.asInstanceOf[RecordLinearizer[RU]]
-      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => lin.getResult(profile, pr))
+      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => lin.getResult(driver, pr))
     }
 
     // Returning keys from batch inserts is generally not supported

@@ -6,9 +6,9 @@ import scala.slick.lifted.Query
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.util.RecordLinearizer
 
-class JdbcQueryTemplate[P, R](query: Query[_, R], profile: JdbcProfile) extends MutatingStatementInvoker[P, R] {
+class JdbcQueryTemplate[P, R](query: Query[_, R], driver: JdbcDriver) extends MutatingStatementInvoker[P, R] {
 
-  protected lazy val sres = profile.buildSelectStatement(query)
+  protected lazy val sres = driver.buildSelectStatement(query)
 
   def selectStatement = getStatement
 
@@ -16,7 +16,7 @@ class JdbcQueryTemplate[P, R](query: Query[_, R], profile: JdbcProfile) extends 
 
   protected def setParam(param: P, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), param)
 
-  protected def extractValue(rs: PositionedResult): R = sres.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].getResult(profile, rs)
+  protected def extractValue(rs: PositionedResult): R = sres.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].getResult(driver, rs)
 
-  protected def updateRowValues(rs: PositionedResult, value: R) = sres.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].updateResult(profile, rs, value)
+  protected def updateRowValues(rs: PositionedResult, value: R) = sres.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].updateResult(driver, rs, value)
 }

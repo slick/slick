@@ -328,6 +328,12 @@ object Apply {
     }
 }
 
+/** A reference to a Symbol */
+case class Ref(sym: Symbol) extends NullaryNode with SimpleRefNode {
+  def nodeReferences = Seq(sym)
+  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
+}
+
 /** A constructor/extractor for nested Selects starting at a Ref */
 object Path {
   def apply(l: List[Symbol]): Node = l match {
