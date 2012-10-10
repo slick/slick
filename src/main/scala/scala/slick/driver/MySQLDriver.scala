@@ -116,7 +116,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
   class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       import seq.integral._
-      val sqlType = seq.typeMapper(driver).sqlTypeName
+      val sqlType = driver.typeInfoFor(seq.tpe).sqlTypeName
       val t = sqlType + " not null"
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero

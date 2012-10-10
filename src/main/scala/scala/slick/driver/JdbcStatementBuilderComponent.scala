@@ -150,7 +150,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
-      case Typed(t: TypeMapper[_]) if useIntForBoolean && (t(profile) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
+      case Typed(t: TypeMapper[_]) if useIntForBoolean && (typeInfoFor(t) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
         b"case when $n then 1 else 0 end"
       case n =>
         expr(n, true)
@@ -244,7 +244,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case a @ Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver).sqlTypeName
+          else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName
         if(supportsCast) b"cast(${ch(0)} as $tn)"
         else b"{fn convert(!${ch(0)},$tn)}"
       case s: SimpleBinaryOperator => b"\(${s.left} ${s.name} ${s.right}\)"
@@ -263,9 +263,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b.sep(ch, ",")(expr(_, true))
         b")"
       case l @ LiteralNode(v) => b += typeInfoFor(l.tpe).valueToSQLLiteral(v)
-      case c @ BindColumn(v) => b +?= { (p, param) => c.typeMapper(driver).setValue(v, p) }
+      case c @ BindColumn(v) => b +?= { (p, param) => typeInfoFor(c.tpe).setValue(v, p) }
       case pc @ ParameterColumn(extractor) => b +?= { (p, param) =>
-        pc.typeMapper(driver).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
+        typeInfoFor(pc.tpe).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
       }
       case c: ConditionalExpr =>
         b"(case"

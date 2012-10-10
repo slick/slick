@@ -79,7 +79,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         case c: Column[_] =>
-          b"coalesce(cast($l as ${c.typeMapper(driver).sqlTypeName}),!$r)"
+          b"coalesce(cast($l as ${typeInfoFor(c.tpe).sqlTypeName}),!$r)"
         case _ => throw new SlickException("Cannot determine type of right-hand side for ifNull")
       }
       case c @ BindColumn(v) if currentPart == SelectPart =>
@@ -87,7 +87,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
          * NullPointerException when using bind variables in a SELECT clause.
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
          * explicit type annotation (in the form of a CAST expression). */
-        val tmd = c.typeMapper(profile)
+        val tmd = typeInfoFor(c.tpe)
         b"cast("
         b +?= { (p, param) => tmd.setValue(v, p) }
         b" as ${tmd.sqlTypeName})"

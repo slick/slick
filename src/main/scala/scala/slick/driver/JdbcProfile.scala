@@ -103,22 +103,7 @@ trait JdbcDriver extends SqlDriver
 
   val profile: JdbcProfile = this
 
-  def quote[T](v: T)(implicit tm: TypeMapper[T]): String = tm(driver).valueToSQLLiteral(v)
-
-  type TypeInfo = TypeMapperDelegate[Any /* it's really _ but we'd have to cast it to Any anyway */]
-
-  def typeInfoFor(t: Type): TypeInfo = ((t match {
-    case tm: TypeMapper[_] => tm(this)
-    case tmd: TypeMapperDelegate[_] => tmd
-    case StaticType.Boolean => typeMapperDelegates.booleanTypeMapperDelegate
-    case StaticType.Char => typeMapperDelegates.charTypeMapperDelegate
-    case StaticType.Int => typeMapperDelegates.intTypeMapperDelegate
-    case StaticType.Long => typeMapperDelegates.longTypeMapperDelegate
-    case StaticType.Null => typeMapperDelegates.nullTypeMapperDelegate
-    case StaticType.String => typeMapperDelegates.stringTypeMapperDelegate
-    case StaticType.Unit => typeMapperDelegates.unitTypeMapperDelegate
-    case t => throw new SlickException("JdbcProfile has no TypeInfo for type "+t)
-  }): TypeMapperDelegate[_]).asInstanceOf[TypeMapperDelegate[Any]]
+  def quote[T](v: T)(implicit tm: TypeMapper[T]): String = typeInfoFor(tm).valueToSQLLiteral(v)
 }
 
 object JdbcDriver extends JdbcDriver

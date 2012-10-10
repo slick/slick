@@ -133,7 +133,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
       case Library.IfNull(l, r) => b"iif(isnull($l),$r,$l)"
       case a @ Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver).sqlTypeName
+          else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName
         ).toLowerCase match {
           case "integer" => b"cint(${ch(0)})"
           case "long" => b"clng(${ch(0)})"

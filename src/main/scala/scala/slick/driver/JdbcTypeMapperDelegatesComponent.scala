@@ -2,11 +2,27 @@ package scala.slick.driver
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import scala.slick.SlickException
-import scala.slick.lifted.TypeMapperDelegate
+import scala.slick.lifted.{TypeMapper, TypeMapperDelegate}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import java.util.UUID
+import scala.slick.ast.{StaticType, Type}
 
 trait JdbcTypeMapperDelegatesComponent { driver: JdbcDriver =>
+
+  type TypeInfo = TypeMapperDelegate[Any /* it's really _ but we'd have to cast it to Any anyway */]
+
+  def typeInfoFor(t: Type): TypeInfo = ((t match {
+    case tm: TypeMapper[_] => tm.toDelegate(this)
+    case tmd: TypeMapperDelegate[_] => tmd
+    case StaticType.Boolean => typeMapperDelegates.booleanTypeMapperDelegate
+    case StaticType.Char => typeMapperDelegates.charTypeMapperDelegate
+    case StaticType.Int => typeMapperDelegates.intTypeMapperDelegate
+    case StaticType.Long => typeMapperDelegates.longTypeMapperDelegate
+    case StaticType.Null => typeMapperDelegates.nullTypeMapperDelegate
+    case StaticType.String => typeMapperDelegates.stringTypeMapperDelegate
+    case StaticType.Unit => typeMapperDelegates.unitTypeMapperDelegate
+    case t => throw new SlickException("JdbcProfile has no TypeInfo for type "+t)
+  }): TypeMapperDelegate[_]).asInstanceOf[TypeMapperDelegate[Any]]
 
   def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR(254)"
