@@ -41,7 +41,7 @@ abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
     }
   }
   final def orFail = orElse { throw new SlickException("Read NULL value for column "+this) }
-  def ? : Column[Option[T]] = new WrappedColumn(this)(tpe.optionType)
+  def ? : Column[Option[T]] = Column.forNode(Node(this))(tpe.optionType)
 
   def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[U]]) {
     override def getResult(driver: JdbcDriver, rs: PositionedResult): U = driver.typeInfoFor(tpe).nextValueOrElse(n, rs).asInstanceOf[U]
@@ -54,7 +54,9 @@ abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
 }
 
 object Column {
-  def forNode[T : TypedType](n: Node): Column[T] = new Column[T] { val nodeDelegate = n }
+  def forNode[T : TypedType](n: Node): Column[T] = new Column[T] {
+    def nodeDelegate = if(op eq null) n else op.nodeDelegate
+  }
 }
 
 /**
@@ -80,7 +82,6 @@ final case class ParameterColumn[T : TypedType](extractor: (_ => T)) extends Col
 /**
  * A WrappedColumn can be used to change a column's nullValue.
  */
-sealed class WrappedColumn[T : TypedType](parent: Column[_]) extends Column[T] {
+sealed abstract class WrappedColumn[T : TypedType](parent: Column[_]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
-  val nodeChildren = Seq(nodeDelegate)
 }
