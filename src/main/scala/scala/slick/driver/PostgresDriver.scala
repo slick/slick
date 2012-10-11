@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import java.util.UUID
 import scala.slick.lifted._
-import scala.slick.jdbc.{PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 
@@ -26,12 +26,12 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  */
 trait PostgresDriver extends ExtendedDriver { driver =>
 
-  override val typeMapperDelegates = new TypeMapperDelegates
+  override val columnTypes = new JdbcTypes
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BLOB => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
@@ -95,15 +95,15 @@ trait PostgresDriver extends ExtendedDriver { driver =>
       ) else None
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
+  class JdbcTypes extends super.JdbcTypes {
+    override val byteArrayJdbcType = new ByteArrayJdbcType
+    override val uuidJdbcType = new UUIDJdbcType
 
-    class ByteArrayTypeMapperDelegate extends super.ByteArrayTypeMapperDelegate {
+    class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override val sqlTypeName = "BYTEA"
     }
 
-    class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+    class UUIDJdbcType extends super.UUIDJdbcType {
       override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
       override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
       override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]

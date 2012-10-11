@@ -19,16 +19,16 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
 
-  val typeMappers = Map( // FIXME use symbols instead of strings for type names here
-     "Int"              /*typeOf[Int]*/    -> driver.typeMapperDelegates.intTypeMapperDelegate
-    ,"Double"           /*typeOf[Double]*/ -> driver.typeMapperDelegates.doubleTypeMapperDelegate
-    ,"String"           /*typeOf[String]*/ -> driver.typeMapperDelegates.stringTypeMapperDelegate
-    ,"scala.Int"        /*typeOf[Int]*/    -> driver.typeMapperDelegates.intTypeMapperDelegate
-    ,"scala.Double"     /*typeOf[Double]*/ -> driver.typeMapperDelegates.doubleTypeMapperDelegate
-    ,"scala.String"     /*typeOf[String]*/ -> driver.typeMapperDelegates.stringTypeMapperDelegate
-    ,"java.lang.String" /*typeOf[String]*/ -> driver.typeMapperDelegates.stringTypeMapperDelegate // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
-    ,"Boolean"          /*typeBof[Boolean]*/ -> driver.typeMapperDelegates.booleanTypeMapperDelegate
-    ,"scala.Boolean"    /*typeBof[Boolean]*/ -> driver.typeMapperDelegates.booleanTypeMapperDelegate
+  val columnTypes = Map( // FIXME use symbols instead of strings for type names here
+     "Int"              /*typeOf[Int]*/    -> driver.columnTypes.intJdbcType
+    ,"Double"           /*typeOf[Double]*/ -> driver.columnTypes.doubleJdbcType
+    ,"String"           /*typeOf[String]*/ -> driver.columnTypes.stringJdbcType
+    ,"scala.Int"        /*typeOf[Int]*/    -> driver.columnTypes.intJdbcType
+    ,"scala.Double"     /*typeOf[Double]*/ -> driver.columnTypes.doubleJdbcType
+    ,"scala.String"     /*typeOf[String]*/ -> driver.columnTypes.stringJdbcType
+    ,"java.lang.String" /*typeOf[String]*/ -> driver.columnTypes.stringJdbcType // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
+    ,"Boolean"          /*typeBof[Boolean]*/ -> driver.columnTypes.booleanJdbcType
+    ,"scala.Boolean"    /*typeBof[Boolean]*/ -> driver.columnTypes.booleanJdbcType
   )
 
   //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTerm.resolveOverloaded(actuals = rhs.toList)
@@ -128,9 +128,9 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       val string_types = List("String","java.lang.String")
       tree match {
         // explicitly state types here until SQ removes type parameters and type mapper from ConstColumn
-        case Literal(Constant(x:Int))    => sq.LiteralNode(driver.typeMapperDelegates.intTypeMapperDelegate, x)
-        case Literal(Constant(x:String)) => sq.LiteralNode(driver.typeMapperDelegates.stringTypeMapperDelegate, x)
-        case Literal(Constant(x:Double)) => sq.LiteralNode(driver.typeMapperDelegates.doubleTypeMapperDelegate, x)
+        case Literal(Constant(x:Int))    => sq.LiteralNode(driver.columnTypes.intJdbcType, x)
+        case Literal(Constant(x:String)) => sq.LiteralNode(driver.columnTypes.stringJdbcType, x)
+        case Literal(Constant(x:Double)) => sq.LiteralNode(driver.columnTypes.doubleJdbcType, x)
         case ident@Ident(name) if !scope.contains(ident.symbol) => // TODO: move this into a separate inlining step in queryable
           ident.symbol.asFreeTerm.value match {
             case q:BaseQueryable[_] => val (tpe,query) = toQuery( q ); query
@@ -208,7 +208,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           })
           matching_ops.size match{
             case 0 => throw new SlickException("Operator not supported: "+ lhs.tpe +"."+term.decoded+"("+ rhs.tpe +")")
-            case 1 => matching_ops.head.typed(typeMappers(a.tpe.toString), s2sq( lhs ).node, s2sq( rhs ).node )
+            case 1 => matching_ops.head.typed(columnTypes(a.tpe.toString), s2sq( lhs ).node, s2sq( rhs ).node )
             case _ => throw new SlickException("Internal Slick error: resolution of "+ lhs.tpe +" "+term.decoded+" "+ rhs.tpe +" was ambigious")
           }
         }
@@ -261,7 +261,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     }
     import TupleTypes.tupleTypes
     (expectedType match {
-      case t if typeMappers.isDefinedAt(expectedType.toString) => driver.typeInfoFor(typeMappers( expectedType.toString )).nextValue(rs)
+      case t if columnTypes.isDefinedAt(expectedType.toString) => driver.typeInfoFor(columnTypes( expectedType.toString )).nextValue(rs)
       case t if tupleTypes.exists( expectedType <:< _ ) =>
         val typeArgs = expectedType match { case TypeRef(_,_,args_) => args_ } 
         val args = typeArgs.map{

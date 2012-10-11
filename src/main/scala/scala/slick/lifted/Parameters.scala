@@ -3,6 +3,7 @@ package scala.slick.lifted
 import scala.slick.SlickException
 import scala.slick.driver.{JdbcDriver, JdbcProfile, JdbcQueryTemplate}
 import scala.slick.util.NaturalTransformation2
+import scala.slick.ast.TypedType
 
 final class Parameters[PU, PP](c: PP) {
   def flatMap[QU](f: PP => Query[_, QU])(implicit profile: JdbcProfile): JdbcQueryTemplate[PU, QU] =
@@ -20,8 +21,8 @@ final class Parameters[PU, PP](c: PP) {
 
 object Parameters {
   def apply[U](implicit shape: Shape[U, U, _]): Parameters[U, shape.Packed] = {
-    val params: shape.Packed = shape.buildPacked(new NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] {
-      def apply[T](tm: TypeMapper[T], f: U => T) = new ParameterColumn[T](f)(tm)
+    val params: shape.Packed = shape.buildPacked(new NaturalTransformation2[TypedType, ({ type L[X] = U => X })#L, Column] {
+      def apply[T](tm: TypedType[T], f: U => T) = new ParameterColumn[T](f)(tm)
     })
     new Parameters[U, shape.Packed](params)
   }

@@ -17,7 +17,7 @@ class ScalarFunctionTest(val tdb: TestDB) extends TestkitTest {
     }
 
     // Literals
-    def checkLit[T : TypeMapper](v: T) = check(Query(ConstColumn(v)), v)
+    def checkLit[T : ColumnType](v: T) = check(Query(ConstColumn(v)), v)
     checkLit(false)
     checkLit(true)
     checkLit(42: Byte)

@@ -3,25 +3,28 @@ package scala.slick.lifted
 import scala.language.implicitConversions
 import scala.slick.ast._
 import FunctionSymbolExtensionMethods._
+import StaticType._
 
 trait ExtensionMethods[B1, P1] extends Any {
   def c: Column[P1]
   @inline def n = Node(c)
-  @inline implicit def p1TypeMapper = c.typeMapper
-  implicit def b1TypeMapper =
-    (if(c.typeMapper.isInstanceOf[OptionTypeMapper[_]]) c.typeMapper.getBaseTypeMapper(null)
-      else c.typeMapper).asInstanceOf[TypeMapper[B1]]
-  implicit def optionTypeMapper =
-    (if(c.typeMapper.isInstanceOf[OptionTypeMapper[_]]) c.typeMapper
-    else c.typeMapper.createOptionTypeMapper).asInstanceOf[TypeMapper[Option[B1]]]
+  @inline implicit def p1Type = c.tpe
+  implicit def b1Type = (c.tpe match {
+    case o: OptionTypedType[_] => o.elementType
+    case b => b
+  }).asInstanceOf[TypedType[B1]]
+  implicit def optionType = (c.tpe match {
+    case o: OptionTypedType[_] => o
+    case b => b.optionType
+  }).asInstanceOf[TypedType[Option[B1]]]
   type o = OptionMapperDSL.arg[B1, P1]
 }
 
 /** Extension methods for all Columns and all primitive values that can be lifted to Columns */
 final class AnyExtensionMethods(val n: Node) extends AnyVal {
-  def asColumnOf[U : TypeMapper] = Library.Cast.column[U](n)
-  def asColumnOfType[U : TypeMapper](typeName: String) =
-    Library.Cast.column[U](n, LiteralNode(implicitly[TypeMapper[U]], typeName))
+  def asColumnOf[U : TypedType] = Library.Cast.column[U](n)
+  def asColumnOfType[U : TypedType](typeName: String) =
+    Library.Cast.column[U](n, LiteralNode(implicitly[TypedType[U]], typeName))
 }
 
 /** Extension methods for all Columns */
@@ -56,9 +59,9 @@ final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal wit
     om(Library.In.column(n, Node(e)))
   def notIn[P2, R](e: Query[Column[P2], _])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Library.Not.column(Library.In.typed[Boolean](n, Node(e))))
-  def inSet[R : TypeMapper](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
+  def inSet[R : TypedType](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
     if(seq.isEmpty) ConstColumn(false)
-    else Library.In.column(n, ProductNode(seq.map{ v => LiteralNode.apply(implicitly[TypeMapper[R]], v) }.toSeq)))
+    else Library.In.column(n, ProductNode(seq.map{ v => LiteralNode.apply(implicitly[TypedType[R]], v) }.toSeq)))
   def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
     if(seq.isEmpty) ConstColumn(false)
     else Library.In.column(n, ProductNode(seq.map(v => BindColumn[B1](v)).toSeq)))
@@ -66,7 +69,7 @@ final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal wit
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
     om(Library.Between.column(n, Node(start), Node(end)))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Column[P2] =
-    Library.IfNull.column[P2](n, Node(e))(e.typeMapper)
+    Library.IfNull.column[P2](n, Node(e))(e.tpe)
   def min = Library.Min.column[Option[B1]](n)
   def max = Library.Max.column[Option[B1]](n)
 }
@@ -125,7 +128,7 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
 
 /** Extension methods for Queries of a single Column */
 final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _]) extends AnyVal {
-  type OptionTM =  TypeMapper[Option[B1]]
+  type OptionTM =  TypedType[Option[B1]]
   @deprecated("asColumn subverts correct typing and can lead to incorrect queries", "1.0.0")
   def asColumn: Column[P1] = {
     val c = q.unpackable.value.mapOp((_, _) => Node(q))
@@ -138,19 +141,19 @@ final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _
 }
 
 trait ExtensionMethodConversions {
-  implicit def anyColumnExtensionMethods[B1 : BaseTypeMapper](c: Column[B1]) = new AnyExtensionMethods(Node(c))
+  implicit def anyColumnExtensionMethods[B1 : BaseTypedType](c: Column[B1]) = new AnyExtensionMethods(Node(c))
   implicit def anyOptionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new AnyExtensionMethods(Node(c))
-  implicit def anyValueExtensionMethods[B1 : BaseTypeMapper](v: B1) = new AnyExtensionMethods(LiteralNode(implicitly[TypeMapper[B1]], v))
-  implicit def anyOptionValueExtensionMethods[B1 : TypeMapper](v: Option[B1]) = new AnyExtensionMethods(LiteralNode(implicitly[TypeMapper[Option[B1]]], v))
-  implicit def columnExtensionMethods[B1 : BaseTypeMapper](c: Column[B1]) = new ColumnExtensionMethods[B1, B1](c)
+  implicit def anyValueExtensionMethods[B1 : BaseTypedType](v: B1) = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[B1]], v))
+  implicit def anyOptionValueExtensionMethods[B1 : TypedType](v: Option[B1]) = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[Option[B1]]], v))
+  implicit def columnExtensionMethods[B1 : BaseTypedType](c: Column[B1]) = new ColumnExtensionMethods[B1, B1](c)
   implicit def optionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new ColumnExtensionMethods[B1, Option[B1]](c)
-  implicit def numericColumnExtensionMethods[B1](c: Column[B1])(implicit tm: BaseTypeMapper[B1] with NumericTypeMapper) = new NumericColumnExtensionMethods[B1, B1](c)
-  implicit def numericOptionColumnExtensionMethods[B1](c: Column[Option[B1]])(implicit tm: BaseTypeMapper[B1] with NumericTypeMapper) = new NumericColumnExtensionMethods[B1, Option[B1]](c)
+  implicit def numericColumnExtensionMethods[B1](c: Column[B1])(implicit tm: BaseTypedType[B1] with NumericTypedType) = new NumericColumnExtensionMethods[B1, B1](c)
+  implicit def numericOptionColumnExtensionMethods[B1](c: Column[Option[B1]])(implicit tm: BaseTypedType[B1] with NumericTypedType) = new NumericColumnExtensionMethods[B1, Option[B1]](c)
   implicit def stringColumnExtensionMethods(c: Column[String]) = new StringColumnExtensionMethods[String](c)
   implicit def stringOptionColumnExtensionMethods(c: Column[Option[String]]) = new StringColumnExtensionMethods[Option[String]](c)
   implicit def booleanColumnExtensionMethods(c: Column[Boolean]) = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Column[Option[Boolean]]) = new BooleanColumnExtensionMethods[Option[Boolean]](c)
 
-  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypeMapper](q: Query[Column[B1], _]) = new SingleColumnQueryExtensionMethods[B1, B1](q)
+  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType](q: Query[Column[B1], _]) = new SingleColumnQueryExtensionMethods[B1, B1](q)
   implicit def singleOptionColumnQueryExtensionMethods[B1](q: Query[Column[Option[B1]], _]) = new SingleColumnQueryExtensionMethods[B1, Option[B1]](q)
 }

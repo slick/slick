@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.slick.lifted._
 import scala.slick.ast._
-import scala.slick.jdbc.PositionedResult
+import scala.slick.jdbc.{PositionedResult, JdbcType}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Date}
 import scala.slick.profile.{SqlProfile, Capability}
@@ -31,11 +31,11 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     - SqlProfile.capabilities.sequence
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
+  override val columnTypes = new JdbcTypes
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "BIT"
     case java.sql.Types.BLOB => "IMAGE"
     case java.sql.Types.CLOB => "TEXT"
@@ -76,27 +76,27 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
-    override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
-    override val dateTypeMapperDelegate = new DateTypeMapperDelegate
-    override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
+  class JdbcTypes extends super.JdbcTypes {
+    override val booleanJdbcType = new BooleanJdbcType
+    override val byteJdbcType = new ByteJdbcType
+    override val dateJdbcType = new DateJdbcType
+    override val timestampJdbcType = new TimestampJdbcType
+    override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName = "UNIQUEIDENTIFIER"
     }
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanTypeMapperDelegate extends super.BooleanTypeMapperDelegate {
+    class BooleanJdbcType extends super.BooleanJdbcType {
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* Selecting a straight Date or Timestamp literal fails with a NPE (probably
      * because the type information gets lost along the way), so we cast all Date
      * and Timestamp values to the proper type. This work-around does not seem to
      * be required for Time values. */
-    class DateTypeMapperDelegate extends super.DateTypeMapperDelegate {
+    class DateJdbcType extends super.DateJdbcType {
       override def valueToSQLLiteral(value: Date) = "{fn convert({d '" + value + "'}, DATE)}"
     }
-    class TimestampTypeMapperDelegate extends super.TimestampTypeMapperDelegate {
+    class TimestampJdbcType extends super.TimestampJdbcType {
       /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
        * want here is DATETIME. */
       override def sqlTypeName = "DATETIME"
@@ -105,7 +105,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result
      * sets, so we read as Short and then convert to Byte. */
-    class ByteTypeMapperDelegate extends super.ByteTypeMapperDelegate {
+    class ByteJdbcType extends super.ByteJdbcType {
       override def sqlTypeName = "SMALLINT"
       //def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
       //def setOption(v: Option[Byte], p: PositionedParameters) = p.setByteOption(v)

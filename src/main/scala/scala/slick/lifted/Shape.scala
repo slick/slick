@@ -4,7 +4,7 @@ import scala.language.existentials
 import scala.annotation.implicitNotFound
 import scala.slick.SlickException
 import scala.slick.util._
-import scala.slick.ast.{WithOp, TableNode, Node, Symbol}
+import scala.slick.ast.{WithOp, TableNode, Node, Symbol, TypedType}
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
  * `Query[Mixed]` to its result element type `Unpacked` and the packing to a
@@ -26,11 +26,11 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
   def packedShape: Shape[Packed, Unpacked, Packed]
   def linearizer(from: Mixed): ValueLinearizer[Unpacked]
 
-  /** Build a packed representation from the shape and the TypeMappers alone.
+  /** Build a packed representation from the shape and the TypedTypes alone.
    * This method is not available for shapes where Mixed and Unpacked are
    * different types.
    */
-  def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed
+  def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed
 
   protected[this] def impureShape =
     throw new SlickException("Shape does not have the same Mixed and Unpacked type")
@@ -45,12 +45,12 @@ object Shape extends ShapeLowPriority {
 
   val selfLinearizingShape: Shape[ValueLinearizer[_], Any, ValueLinearizer[_]] = new IdentityShape[ValueLinearizer[_], Any] {
     def linearizer(from: Mixed) = from.asInstanceOf[ValueLinearizer[Unpacked]]
-    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
+    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
   }
 
   val sharedTableShape: Shape[TableNode, Any, TableNode] = new IdentityShape[TableNode, Any] {
     def linearizer(from: Mixed) = from.nodeShaped_*.value.asInstanceOf[ValueLinearizer[Unpacked]]
-    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
+    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
   }
 }
 
@@ -63,11 +63,11 @@ class ShapeLowPriority extends ShapeLowPriority2 {
   @inline implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[C, T, C] =
     Shape.selfLinearizingShape.asInstanceOf[Shape[C, T, C]]
 
-  implicit final def unpackPrimitive[T](implicit tm: TypeMapper[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
+  implicit final def unpackPrimitive[T](implicit tm: TypedType[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
     def pack(from: Mixed) = ConstColumn(from)
     def packedShape: Shape[Packed, Unpacked, Packed] = unpackColumnBase[T, Column[T]]
     def linearizer(from: Mixed) = ConstColumn(from)
-    def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
+    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
       f(tm, identity)
   }
 }
@@ -79,13 +79,13 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
     new TupleShape(ps.map(_.packedShape): _*)
   def linearizer(from: Mixed) =
     new ProductLinearizer(ps.iterator.zip(from.productIterator).map{case (p, f) => p.linearizer(f.asInstanceOf[p.Mixed]).asInstanceOf[RecordLinearizer[_]]}.toIndexedSeq)
-  def buildPacked(f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
+  def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
     TupleSupport.buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
 
   private[this] def productTf[Unpacked <: Product, U](idx: Int,
-      f: NaturalTransformation2[TypeMapper, ({ type L[X] = Unpacked => X })#L, Column]): NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] =
-    new NaturalTransformation2[TypeMapper, ({ type L[X] = U => X })#L, Column] {
-      def apply[T](p1: TypeMapper[T], p2: (U => T)) = f.apply[T](p1, (u => p2(u.productElement(idx).asInstanceOf[U])))
+      f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): NaturalTransformation2[TypedType, ({ type L[X] = U => X })#L, Column] =
+    new NaturalTransformation2[TypedType, ({ type L[X] = U => X })#L, Column] {
+      def apply[T](p1: TypedType[T], p2: (U => T)) = f.apply[T](p1, (u => p2(u.productElement(idx).asInstanceOf[U])))
     }
 }
 

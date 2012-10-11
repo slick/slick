@@ -5,7 +5,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.SlickException
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 import scala.slick.profile.{SqlProfile, Capability}
@@ -83,14 +83,14 @@ trait AccessDriver extends ExtendedDriver { driver =>
   }
 
   val retryCount = 10
-  override val typeMapperDelegates = new TypeMapperDelegates(retryCount)
+  override val columnTypes = new JdbcTypes(retryCount)
 
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
     case java.sql.Types.BLOB => "LONGBINARY"
     case java.sql.Types.SMALLINT => "INTEGER"
@@ -191,11 +191,11 @@ trait AccessDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates(retryCount: Int) extends super.TypeMapperDelegates {
+  class JdbcTypes(retryCount: Int) extends super.JdbcTypes {
     /* Retry all parameter and result operations because ODBC can randomly throw
      * S1090 (Invalid string or buffer length) exceptions. Retrying the call can
      * sometimes work around the bug. */
-    trait Retry[T] extends TypeMapperDelegate[T] {
+    trait Retry[T] extends JdbcType[T] {
       abstract override def nextValue(r: PositionedResult) = {
         def f(c: Int): T =
           try super.nextValue(r) catch {
@@ -227,7 +227,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     }
 
     // This is a nightmare... but it seems to work
-    class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+    class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB
       override def setOption(v: Option[UUID], p: PositionedParameters) =
         if(v == None) p.setString(null) else p.setBytes(toBytes(v.get))
@@ -236,35 +236,35 @@ trait AccessDriver extends ExtendedDriver { driver =>
     }
 
     /* Access does not have a TINYINT (8-bit signed type), so we use 16-bit signed. */
-    class ByteTypeMapperDelegate extends super.ByteTypeMapperDelegate {
+    class ByteJdbcType extends super.ByteJdbcType {
       override def setValue(v: Byte, p: PositionedParameters) = p.setShort(v)
       override def setOption(v: Option[Byte], p: PositionedParameters) = p.setIntOption(v.map(_.toInt))
       override def nextValue(r: PositionedResult) = r.nextInt.toByte
       override def updateValue(v: Byte, r: PositionedResult) = r.updateInt(v)
     }
 
-    class LongTypeMapperDelegate extends super.LongTypeMapperDelegate {
+    class LongJdbcType extends super.LongJdbcType {
       override def setValue(v: Long, p: PositionedParameters) = p.setString(v.toString)
       override def setOption(v: Option[Long], p: PositionedParameters) = p.setStringOption(v.map(_.toString))
     }
 
-    override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate with Retry[Boolean]
-    override val blobTypeMapperDelegate = new BlobTypeMapperDelegate with Retry[Blob]
-    override val bigDecimalTypeMapperDelegate = new BigDecimalTypeMapperDelegate with Retry[BigDecimal]
-    override val byteTypeMapperDelegate = new ByteTypeMapperDelegate with Retry[Byte]
-    override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate with Retry[Array[Byte]]
-    override val clobTypeMapperDelegate = new ClobTypeMapperDelegate with Retry[Clob]
-    override val dateTypeMapperDelegate = new DateTypeMapperDelegate with Retry[Date]
-    override val doubleTypeMapperDelegate = new DoubleTypeMapperDelegate with Retry[Double]
-    override val floatTypeMapperDelegate = new FloatTypeMapperDelegate with Retry[Float]
-    override val intTypeMapperDelegate = new IntTypeMapperDelegate with Retry[Int]
-    override val longTypeMapperDelegate = new LongTypeMapperDelegate with Retry[Long]
-    override val shortTypeMapperDelegate = new ShortTypeMapperDelegate with Retry[Short]
-    override val stringTypeMapperDelegate = new StringTypeMapperDelegate with Retry[String]
-    override val timeTypeMapperDelegate = new TimeTypeMapperDelegate with Retry[Time]
-    override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate with Retry[Timestamp]
-    override val nullTypeMapperDelegate = new NullTypeMapperDelegate with Retry[Null]
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate with Retry[UUID]
+    override val booleanJdbcType = new BooleanJdbcType with Retry[Boolean]
+    override val blobJdbcType = new BlobJdbcType with Retry[Blob]
+    override val bigDecimalJdbcType = new BigDecimalJdbcType with Retry[BigDecimal]
+    override val byteJdbcType = new ByteJdbcType with Retry[Byte]
+    override val byteArrayJdbcType = new ByteArrayJdbcType with Retry[Array[Byte]]
+    override val clobJdbcType = new ClobJdbcType with Retry[Clob]
+    override val dateJdbcType = new DateJdbcType with Retry[Date]
+    override val doubleJdbcType = new DoubleJdbcType with Retry[Double]
+    override val floatJdbcType = new FloatJdbcType with Retry[Float]
+    override val intJdbcType = new IntJdbcType with Retry[Int]
+    override val longJdbcType = new LongJdbcType with Retry[Long]
+    override val shortJdbcType = new ShortJdbcType with Retry[Short]
+    override val stringJdbcType = new StringJdbcType with Retry[String]
+    override val timeJdbcType = new TimeJdbcType with Retry[Time]
+    override val timestampJdbcType = new TimestampJdbcType with Retry[Timestamp]
+    override val nullJdbcType = new NullJdbcType with Retry[Null]
+    override val uuidJdbcType = new UUIDJdbcType with Retry[UUID]
   }
 
   class QueryInvoker[Q, R](q: Query[Q, _ <: R]) extends super.QueryInvoker[Q, R](q) {

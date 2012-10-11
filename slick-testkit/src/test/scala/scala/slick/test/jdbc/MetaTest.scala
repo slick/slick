@@ -3,7 +3,6 @@ package scala.slick.test.jdbc
 import java.io.PrintWriter
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.lifted.TypeMapper._
 import scala.slick.driver.{H2Driver, PostgresDriver}
 import scala.slick.jdbc.meta._
 import scala.slick.jdbc.{StaticQuery => Q}

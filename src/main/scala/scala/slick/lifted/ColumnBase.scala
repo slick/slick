@@ -18,11 +18,10 @@ trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T]
 
 /** Base classs for columns.
   */
-abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
-  final val typeMapper = implicitly[TypeMapper[T]]
-  final def tpe = typeMapper
+abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
+  final val tpe = implicitly[TypedType[T]]
   def getLinearizedNodes = Vector(Node(this))
-  def getAllColumnTypeMappers = Vector(typeMapper)
+  def getAllColumnTypedTypes = Vector(tpe)
   def getResult(driver: JdbcDriver, rs: PositionedResult): T = {
     val tmd = driver.typeInfoFor(tpe)
     tmd.nextValueOrElse(
@@ -42,9 +41,9 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
     }
   }
   final def orFail = orElse { throw new SlickException("Read NULL value for column "+this) }
-  def ? : Column[Option[T]] = new WrappedColumn(this)(typeMapper.createOptionTypeMapper)
+  def ? : Column[Option[T]] = new WrappedColumn(this)(tpe.optionType)
 
-  def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(typeMapper.getBaseTypeMapper) {
+  def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[U]]) {
     override def getResult(driver: JdbcDriver, rs: PositionedResult): U = driver.typeInfoFor(tpe).nextValueOrElse(n, rs).asInstanceOf[U]
   }
   def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
@@ -55,13 +54,13 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
 }
 
 object Column {
-  def forNode[T : TypeMapper](n: Node): Column[T] = new Column[T] { val nodeDelegate = n }
+  def forNode[T : TypedType](n: Node): Column[T] = new Column[T] { val nodeDelegate = n }
 }
 
 /**
  * A column with a constant value which is inserted into an SQL statement as a literal.
  */
-final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with LiteralNode {
+final case class ConstColumn[T : TypedType](value: T) extends Column[T] with LiteralNode {
   override def toString = "ConstColumn["+SimpleTypeName.forVal(value)+"] "+value
   def bind = new BindColumn(value)
 }
@@ -69,19 +68,19 @@ final case class ConstColumn[T : TypeMapper](value: T) extends Column[T] with Li
 /**
  * A column with a constant value which gets turned into a bind variable.
  */
-final case class BindColumn[T : TypeMapper](value: T) extends Column[T] with NullaryNode with LiteralNode {
+final case class BindColumn[T : TypedType](value: T) extends Column[T] with NullaryNode with LiteralNode {
   override def toString = "BindColumn["+SimpleTypeName.forVal(value)+"] "+value
 }
 
 /**
  * A parameter from a QueryTemplate which gets turned into a bind variable.
  */
-final case class ParameterColumn[T : TypeMapper](extractor: (_ => T)) extends Column[T] with NullaryNode
+final case class ParameterColumn[T : TypedType](extractor: (_ => T)) extends Column[T] with NullaryNode
 
 /**
  * A WrappedColumn can be used to change a column's nullValue.
  */
-sealed class WrappedColumn[T : TypeMapper](parent: Column[_]) extends Column[T] {
+sealed class WrappedColumn[T : TypedType](parent: Column[_]) extends Column[T] {
   override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
   val nodeChildren = Seq(nodeDelegate)
 }

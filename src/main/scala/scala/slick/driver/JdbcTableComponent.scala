@@ -24,7 +24,7 @@ trait JdbcTableComponent { driver: JdbcDriver =>
 
     val O: driver.columnOptions.type = columnOptions
 
-    def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypeMapper[C]): Column[C] = new Column[C] {
+    def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
       override def nodeDelegate = Select(Node(table) match {
         case r: Ref => r
         case _ => Ref(Node(table).nodeIntrinsicSymbol)
@@ -35,7 +35,7 @@ trait JdbcTableComponent { driver: JdbcDriver =>
       }) + "." + n
     }
 
-    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypeMapper[P]): JdbcQueryTemplate[P,T] = {
+    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): JdbcQueryTemplate[P,T] = {
       import driver.Implicit._
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {

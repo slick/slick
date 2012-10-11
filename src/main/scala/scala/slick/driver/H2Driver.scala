@@ -2,6 +2,7 @@ package scala.slick.driver
 
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
 
@@ -34,7 +35,7 @@ trait H2Driver extends ExtendedDriver { driver =>
 
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
     case _ => super.defaultSqlTypeName(tmd)
   }

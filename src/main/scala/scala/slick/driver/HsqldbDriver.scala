@@ -29,7 +29,7 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
     - SqlProfile.capabilities.sequenceCurr
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
+  override val columnTypes = new JdbcTypes
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
@@ -63,11 +63,11 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate {
+  class JdbcTypes extends super.JdbcTypes {
+    override val byteArrayJdbcType = new ByteArrayJdbcType {
       override val sqlTypeName = "LONGVARBINARY"
     }
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
+    override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName = "BINARY(16)"
     }

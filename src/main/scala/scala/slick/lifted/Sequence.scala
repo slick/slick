@@ -11,10 +11,8 @@ class Sequence[T] private[Sequence] (val name: String,
     val _maxValue: Option[T],
     val _increment: Option[T],
     val _start: Option[T],
-    val _cycle: Boolean)(implicit val typeMapper: TypeMapper[T], val integral: Integral[T])
+    val _cycle: Boolean)(implicit val tpe: TypedType[T], val integral: Integral[T])
   extends NodeGenerator with Typed { seq =>
-
-  def tpe = typeMapper
 
   def min(v: T) = new Sequence[T](name, Some(v), _maxValue, _increment, _start, _cycle)
   def max(v: T) = new Sequence[T](name, _minValue, Some(v), _increment, _start, _cycle)
@@ -31,5 +29,5 @@ class Sequence[T] private[Sequence] (val name: String,
 }
 
 object Sequence {
-  def apply[T : TypeMapper : Integral](name: String) = new Sequence[T](name, None, None, None, None, false)
+  def apply[T : TypedType : Integral](name: String) = new Sequence[T](name, None, None, None, None, false)
 }

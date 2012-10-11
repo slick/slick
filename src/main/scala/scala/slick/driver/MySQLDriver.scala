@@ -36,7 +36,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     - SqlProfile.capabilities.sequenceLimited
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
+  override val columnTypes = new JdbcTypes
 
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -148,8 +148,8 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val stringTypeMapperDelegate = new StringTypeMapperDelegate {
+  class JdbcTypes extends super.JdbcTypes {
+    override val stringJdbcType = new StringJdbcType {
       override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
         val sb = new StringBuilder
         sb append '\''
@@ -170,7 +170,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       }
     }
 
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
+    override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName = "BINARY(16)"
     }

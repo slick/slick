@@ -5,6 +5,7 @@ import scala.collection.generic.CanBuildFrom
 import scala.slick.ast.{Join => AJoin, _}
 import scala.slick.util.CollectionLinearizer
 import FunctionSymbolExtensionMethods._
+import StaticType._
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated

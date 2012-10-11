@@ -2,7 +2,7 @@ package scala.slick.lifted
 
 import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
-import scala.slick.ast.{Node, UnaryNode, ProductNode}
+import scala.slick.ast.{Node, UnaryNode, ProductNode, TypedType}
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
   type V = T
@@ -20,8 +20,8 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
     }
   }
 
-  def getAllColumnTypeMappers = 0.until(productArity).flatMap[TypeMapper[_], Vector[TypeMapper[_]]](
-    i => productElement(i).asInstanceOf[Column[_]].getAllColumnTypeMappers)(collection.breakOut)
+  def getAllColumnTypedTypes = 0.until(productArity).flatMap[TypedType[_], Vector[TypedType[_]]](
+    i => productElement(i).asInstanceOf[Column[_]].getAllColumnTypedTypes)(collection.breakOut)
 
   def getLinearizedNodes: IndexedSeq[Node] =
     (0 until productArity).map(i => Node(productElement(i).asInstanceOf[Column[Any]]))(collection.breakOut)
@@ -40,7 +40,7 @@ object Projection {
 final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with UnaryNode {
   override def toString = "MappedProjection"
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
-  def getAllColumnTypeMappers = proj.getAllColumnTypeMappers
+  def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
 
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit =
     proj.setParameter(driver, ps, value.flatMap(g))

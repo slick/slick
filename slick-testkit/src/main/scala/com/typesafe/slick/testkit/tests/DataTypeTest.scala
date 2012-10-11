@@ -87,7 +87,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
 
     case class Serialized[T](value: T)
 
-    implicit def serializedTypeMapper[T] = MappedTypeMapper.base[Serialized[T], Blob]({ s =>
+    implicit def serializedType[T] = MappedColumnType.base[Serialized[T], Blob]({ s =>
       val b = new ByteArrayOutputStream
       val out = new ObjectOutputStream(b)
       out.writeObject(s.value)

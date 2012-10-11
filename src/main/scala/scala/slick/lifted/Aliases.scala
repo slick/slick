@@ -26,11 +26,5 @@ trait Aliases {
   val SimpleExpression = lifted.SimpleExpression
   type SimpleLiteral = lifted.SimpleLiteral
   val SimpleLiteral = lifted.SimpleLiteral
-  type TypeMapper[T] = lifted.TypeMapper[T]
-  val TypeMapper = lifted.TypeMapper
-  type TypeMapperDelegate[T] = lifted.TypeMapperDelegate[T]
-  val TypeMapperDelegate = lifted.TypeMapperDelegate
-  type MappedTypeMapper[T, U] = lifted.MappedTypeMapper[T, U]
-  val MappedTypeMapper = lifted.MappedTypeMapper
   val ~ = lifted.~
 }

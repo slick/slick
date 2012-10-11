@@ -1,12 +1,11 @@
 package scala.slick.driver
 
 import scala.language.implicitConversions
-import scala.slick.ast.{StaticType, Type, Node}
+import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
-import scala.slick.jdbc.JdbcBackend
+import scala.slick.jdbc.{JdbcBackend, JdbcType, MappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
-import scala.slick.SlickException
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -18,7 +17,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   val backend: Backend = JdbcBackend
   val compiler = QueryCompiler.relational
   val Implicit = new Implicits
-  val typeMapperDelegates = new TypeMapperDelegates
+  val columnTypes = new JdbcTypes
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
@@ -33,10 +32,10 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
-  class Implicits extends ExtensionMethodConversions {
+  class Implicits extends ImplicitJdbcTypes with ExtensionMethodConversions {
     implicit val slickDriver: driver.type = driver
-    implicit def columnToOptionColumn[T : BaseTypeMapper](c: Column[T]): Column[Option[T]] = c.?
-    implicit def valueToConstColumn[T : TypeMapper](v: T) = new ConstColumn[T](v)
+    implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
+    implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
@@ -70,6 +69,9 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     val Database = backend.Database
     type Session = Backend#Session
     type SlickException = scala.slick.SlickException
+    type ColumnType[T] = JdbcType[T]
+    type MappedColumnType[T, U] = MappedJdbcType[T, U]
+    val MappedColumnType = MappedJdbcType
   }
 
   /** A collection of values for using the query language with a single import
@@ -99,11 +101,12 @@ object JdbcProfile {
 trait JdbcDriver extends SqlDriver
   with JdbcProfile
   with JdbcStatementBuilderComponent
-  with JdbcTypeMapperDelegatesComponent { driver =>
+  with JdbcTypesComponent { driver =>
 
   val profile: JdbcProfile = this
+  val implicitColumnTypes = new ImplicitJdbcTypes
 
-  def quote[T](v: T)(implicit tm: TypeMapper[T]): String = typeInfoFor(tm).valueToSQLLiteral(v)
+  def quote[T](v: T)(implicit tm: TypedType[T]): String = typeInfoFor(tm).valueToSQLLiteral(v)
 }
 
 object JdbcDriver extends JdbcDriver

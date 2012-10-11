@@ -13,6 +13,7 @@ import scala.slick.compiler.{Phase, CompilationState}
 import scala.slick.profile.SqlProfile
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
+  import driver.implicitColumnTypes._
 
   // Create the different builders -- these methods should be overridden by drivers as needed
   def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] = new JdbcQueryTemplate[P,R](q, this)
@@ -124,7 +125,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
         b" where "
-        expr(where.reduceLeft((a, b) => Library.And.typed(typeMapperDelegates.booleanTypeMapperDelegate, a, b)), true)
+        expr(where.reduceLeft((a, b) => Library.And.typed(columnTypes.booleanJdbcType, a, b)), true)
       }
     }
 
@@ -150,7 +151,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
-      case Typed(t: TypeMapper[_]) if useIntForBoolean && (typeInfoFor(t) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
+      case Typed(t: TypedType[_]) if useIntForBoolean && (typeInfoFor(t) == driver.columnTypes.booleanJdbcType) =>
         b"case when $n then 1 else 0 end"
       case n =>
         expr(n, true)
@@ -217,8 +218,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case Library.Database() if !capabilities.contains(SqlProfile.capabilities.functionDatabase) =>
         b += "''"
       case Library.Pi() if !hasPiFunction => b += pi
-      case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi.typed(typeMapperDelegates.bigDecimalTypeMapperDelegate)}*$ch)"
-      case Library.Radians(ch) if!hasRadDegConversion => b"(!${Library.Pi.typed(typeMapperDelegates.bigDecimalTypeMapperDelegate)}/180.0*$ch)"
+      case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}*$ch)"
+      case Library.Radians(ch) if!hasRadDegConversion => b"(!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}/180.0*$ch)"
       case s: SimpleFunction =>
         if(s.scalar) b"{fn "
         b"${s.name}("
@@ -239,8 +240,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case Library.EndsWith(n, LiteralNode(s: String)) =>
         b"\($n like ${quote("%"+likeEncode(s))} escape '^'\)"
       case Library.Trim(n) =>
-        expr(Library.LTrim.typed(typeMapperDelegates.stringTypeMapperDelegate,
-          Library.RTrim.typed(typeMapperDelegates.stringTypeMapperDelegate, n)), skipParens)
+        expr(Library.LTrim.typed(columnTypes.stringJdbcType,
+          Library.RTrim.typed(columnTypes.stringJdbcType, n)), skipParens)
       case a @ Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
@@ -315,7 +316,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
       if(!where.isEmpty) {
         b" where "
-        expr(where.reduceLeft((a, b) => Library.And.typed(typeMapperDelegates.booleanTypeMapperDelegate, a, b)), true)
+        expr(where.reduceLeft((a, b) => Library.And.typed(columnTypes.booleanJdbcType, a, b)), true)
       }
       QueryBuilderResult(b.build, input.linearizer)
     }
@@ -330,7 +331,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b"delete from $qtn"
       if(!where.isEmpty) {
         b" where "
-        expr(where.reduceLeft((a, b) => Library.And.typed(typeMapperDelegates.booleanTypeMapperDelegate, a, b)), true)
+        expr(where.reduceLeft((a, b) => Library.And.typed(columnTypes.booleanJdbcType, a, b)), true)
       }
       QueryBuilderResult(b.build, input.linearizer)
     }

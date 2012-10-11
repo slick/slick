@@ -82,7 +82,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     case object True extends Bool
     case object False extends Bool
 
-    implicit val boolTypeMapper = MappedTypeMapper.base[Bool, Int](
+    implicit val boolType = MappedColumnType.base[Bool, Int](
       b => if(b == True) 1 else 0,
       i => if(i == 1) True else False)
 

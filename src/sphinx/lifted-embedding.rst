@@ -170,7 +170,7 @@ Expressions
 -----------
 
 Primitive (non-compound, non-collection) values are representend by type
-``Column[T]`` (a sub-type of ``Rep[R]``) where a ``TypeMapper[T]`` must
+``Column[T]`` (a sub-type of ``Rep[R]``) where a ``TypedType[T]`` must
 exist. Only some special methods for internal use and those that deal with
 conversions between nullable and non-nullable columns are defined directly in
 the ``Column`` class.

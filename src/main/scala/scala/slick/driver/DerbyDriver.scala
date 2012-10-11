@@ -3,6 +3,7 @@ package scala.slick.driver
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
 
@@ -55,13 +56,13 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     - SqlProfile.capabilities.zip
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
+  override val columnTypes = new JdbcTypes
   override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "SMALLINT"
     /* Derby does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
@@ -142,17 +143,17 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
+  class JdbcTypes extends super.JdbcTypes {
+    override val booleanJdbcType = new BooleanJdbcType
+    override val uuidJdbcType = new UUIDJdbcType
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanTypeMapperDelegate extends super.BooleanTypeMapperDelegate {
+    class BooleanJdbcType extends super.BooleanJdbcType {
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
 
-    class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+    class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName = "CHAR(16) FOR BIT DATA"
     }

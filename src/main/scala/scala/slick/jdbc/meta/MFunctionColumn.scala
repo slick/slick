@@ -1,8 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
-import scala.slick.lifted.TypeMapperDelegate
+import scala.slick.jdbc.{ResultSetInvoker, JdbcType}
 
 /**
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getFunctionColumns().
@@ -13,7 +12,7 @@ case class MFunctionColumn(
   nullable: Option[Boolean], remarks: String, charOctetLength: Option[Int],
   ordinalPosition: Int, isNullable: Option[Boolean], specificName: String) {
 
-  def sqlTypeName = TypeMapperDelegate.typeNames.get(sqlType)
+  def sqlTypeName = JdbcType.typeNames.get(sqlType)
 }
 
 object MFunctionColumn {

@@ -4,7 +4,6 @@ import scala.slick.lifted.Query
 import scala.slick.driver.JdbcDriver
 import scala.slick.driver.JdbcDriver.Implicit._
 import scala.slick.driver.JdbcDriver.Table
-import scala.slick.lifted.TypeMapper._
 
 @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
 object Benchmark {
