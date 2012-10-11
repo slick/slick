@@ -104,7 +104,6 @@ trait JdbcDriver extends SqlDriver
   with JdbcTypesComponent { driver =>
 
   val profile: JdbcProfile = this
-  val implicitColumnTypes = new ImplicitJdbcTypes
 
   def quote[T](v: T)(implicit tm: TypedType[T]): String = typeInfoFor(tm).valueToSQLLiteral(v)
 }

@@ -104,7 +104,7 @@ class ConvertToComprehensions extends Phase {
       case Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
         if (s2 == s1) && (gen2 == gen) => Select(Ref(gen), field)
       case Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
-        Library.Count.typed(StaticType.Long, LiteralNode(1))
+        Library.Count.typed[Long](LiteralNode(1))
       case Select(Ref(gen2), ElementSymbol(2)) if gen2 == gen => Ref(gen2)
       case Select(Ref(gen2), ElementSymbol(1)) if gen2 == gen => newBy
     }
@@ -257,7 +257,7 @@ class FuseComprehensions extends Phase {
           val a2 = new AnonSymbol
           val (c2b, call) = s match {
             case Library.CountAll =>
-              (c2, Library.Count.typed(StaticType.Long, LiteralNode(1)))
+              (c2, Library.Count.typed[Long](LiteralNode(1)))
             case s =>
               val c3 = ensureStruct(c2)
               // All standard aggregate functions operate on a single column

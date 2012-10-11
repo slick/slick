@@ -13,7 +13,6 @@ import scala.slick.compiler.{Phase, CompilationState}
 import scala.slick.profile.SqlProfile
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
-  import driver.implicitColumnTypes._
 
   // Create the different builders -- these methods should be overridden by drivers as needed
   def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] = new JdbcQueryTemplate[P,R](q, this)
@@ -125,7 +124,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
         b" where "
-        expr(where.reduceLeft((a, b) => Library.And.typed(columnTypes.booleanJdbcType, a, b)), true)
+        expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
     }
 
@@ -236,12 +235,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
         b"\($l like $r escape '$esc'\)"
       case Library.StartsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote(likeEncode(s)+'%')} escape '^'\)"
+        b"\($n like ${quote(likeEncode(s)+'%')(StaticType.String)} escape '^'\)"
       case Library.EndsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote("%"+likeEncode(s))} escape '^'\)"
+        b"\($n like ${quote("%"+likeEncode(s))(StaticType.String)} escape '^'\)"
       case Library.Trim(n) =>
-        expr(Library.LTrim.typed(columnTypes.stringJdbcType,
-          Library.RTrim.typed(columnTypes.stringJdbcType, n)), skipParens)
+        expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
       case a @ Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
@@ -316,7 +314,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
       if(!where.isEmpty) {
         b" where "
-        expr(where.reduceLeft((a, b) => Library.And.typed(columnTypes.booleanJdbcType, a, b)), true)
+        expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
       QueryBuilderResult(b.build, input.linearizer)
     }
@@ -331,7 +329,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b"delete from $qtn"
       if(!where.isEmpty) {
         b" where "
-        expr(where.reduceLeft((a, b) => Library.And.typed(columnTypes.booleanJdbcType, a, b)), true)
+        expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
       QueryBuilderResult(b.build, input.linearizer)
     }

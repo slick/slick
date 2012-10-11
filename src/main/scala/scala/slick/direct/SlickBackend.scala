@@ -193,7 +193,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           }
         =>
           term.decoded match {
-            case "+" => Library.Concat.typed(sq.StaticType.String, s2sq( lhs ).node, s2sq( rhs ).node )
+            case "+" => Library.Concat.typed[String](s2sq( lhs ).node, s2sq( rhs ).node )
           }
 
         case a@Apply(op@Select(lhs,term),rhs::Nil) => {
@@ -224,7 +224,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
 
         case Select(scala_lhs, term) 
           if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure && (term.decoded == "length" || term.decoded == "size")
-          => sq.Pure( Library.CountAll.typed(sq.StaticType.Int, s2sq(scala_lhs).node ) )
+          => sq.Pure( Library.CountAll.typed[Int](s2sq(scala_lhs).node ) )
 
         case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
             => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query
