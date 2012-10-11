@@ -18,7 +18,7 @@ object MacroSupportInterpolationImpl {
     def quoteIdentifier(t: Tree) = Apply(Ident(newTermName("quoteIdentifier")), List(t))
     def symbolName(t: Tree) = Apply(Ident(newTermName("symbolName")), List(t))
     def toStr(t: Tree) = Apply(Select(Ident(definitions.StringClass.companionSymbol), newTermName("valueOf")), List(t))
-    def append(t: Tree) = Apply(Select(sqlBuilder, newTermName(NameTransformer.encode("+="))), List(t))
+    def append(t: Tree) = Apply(Select(sqlBuilder, newTermName("+=").encoded), List(t))
 
     def appendString(str: String): List[Tree] = {
       val exprs = new ListBuffer[Tree]
