@@ -73,6 +73,10 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       }
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+      case a @ Library.Cast(ch) =>
+        val ti = typeInfoFor(a.asInstanceOf[Typed].tpe)
+        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName
+        b"{fn convert(!${ch},$tn)}"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
