@@ -22,5 +22,5 @@ The following database systems are directly supported for type-safe queries:
 
 Accessing other database systems is possible, with a reduced feature set.
 
-See <https://github.com/slick/slick/wiki> for more information.
+See <http://slick.typesafe.com> and <https://github.com/slick/slick/wiki> for more information.
 Licensing conditions (BSD-style) can be found in LICENSE.txt.
