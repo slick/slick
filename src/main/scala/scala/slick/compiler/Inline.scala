@@ -38,7 +38,10 @@ class Inline(unique: Boolean = true, paths: Boolean = true, from: Boolean = true
     val toInline = globalCounts.iterator.filter { case (a, i) =>
       all ||
         (unique && i == 1) ||
-        (paths && Path.unapply(globals(a)).isDefined)
+        (paths && Path.unapply(globals(a)).isDefined) ||
+        /* This happens when referencing a raw TableNode from multiple Selects.
+           We inline it here to make the subsequent Select(TableNode, _) fails */
+        globals(a).isInstanceOf[TableNode]
     }.map(_._1).toSet
     logger.debug("symbols to inline everywhere: "+toInline)
     val inlined = new HashSet[Symbol]

@@ -297,6 +297,10 @@ final case class TableRefExpansion(marker: Symbol, ref: Node, columns: Node) ext
 }
 
 final case class Select(in: Node, field: Symbol) extends UnaryNode with SimpleRefNode {
+  if(in.isInstanceOf[TableNode])
+    throw new SlickException("Select(TableNode, \""+field+"\") found. This is "+
+      "typically caused by an attempt to use a \"raw\" table object directly "+
+      "in a query without introducing it through a generator.")
   def child = in
   override def nodeChildNames = Seq("in")
   protected[this] def nodeRebuild(child: Node) = copy(in = child)
