@@ -56,7 +56,7 @@ final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal wit
     om(Library.Not.column(Library.In.typed[Boolean](n, Node(e))))
   def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
     if(seq.isEmpty) ConstColumn.FALSE
-    else Library.In.column(n, ProductNode(seq.map(LiteralNode.apply _).toSeq)))
+    else Library.In.column(n, ProductNode(seq.map(v => ConstColumn[B1](v)).toSeq)))
   def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
     if(seq.isEmpty) ConstColumn.FALSE
     else Library.In.column(n, ProductNode(seq.map(v => BindColumn[B1](v)).toSeq)))

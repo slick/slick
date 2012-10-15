@@ -32,6 +32,9 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       User(None, "Lenny", "Leonard")
     )
 
+    val lastNames = Set("Bouvier", "Ferdinand")
+    assertEquals(1, Query(Users).where(_.last inSet lastNames).list.size)
+
     val updateQ = Users.where(_.id === 2.bind).map(_.forInsert)
     println("Update: "+updateQ.updateStatement)
     updateQ.update(User(None, "Marge", "Simpson"))
