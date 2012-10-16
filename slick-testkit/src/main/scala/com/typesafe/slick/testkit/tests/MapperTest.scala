@@ -39,6 +39,8 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     println("Update: "+updateQ.updateStatement)
     updateQ.update(User(None, "Marge", "Simpson"))
 
+    assertTrue(Query(Users.where(_.id === 1).exists).first)
+
     Users.where(_.id between(1, 2)).foreach(println)
     println("ID 3 -> " + Users.findByID.first(3))
 

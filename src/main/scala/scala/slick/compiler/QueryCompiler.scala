@@ -19,6 +19,14 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
     else phases.patch(i+1, Seq(p), 0)
   })
 
+  /** Return a new compiler with the new phase added directly before another
+    * phase (or a different implementation of the same phase name). */
+  def addBefore(p: Phase, before: Phase) = new QueryCompiler({
+    val i = phases.indexWhere(_.name == before.name)
+    if(i == -1) throw new SlickException("Following phase "+before.name+" not found")
+    else phases.patch(i, Seq(p), 0)
+  })
+
   /** Return a new compiler without the given phase (or a different
    * implementation of the same phase name. */
   def - (p: Phase) = new QueryCompiler(phases.filterNot(_.name == p.name))

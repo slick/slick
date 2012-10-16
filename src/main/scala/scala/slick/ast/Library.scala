@@ -60,9 +60,10 @@ object Library {
   val Avg = new SqlAggregateFunction("avg")
   val Sum = new SqlAggregateFunction("sum")
   val Count = new SqlAggregateFunction("count")
-  val Exists = new SqlAggregateFunction("exists")
   val CountAll = new AggregateFunction("count(*)")
   val CountDistinct = new AggregateFunction("count distinct")
+
+  val Exists = new SqlFunction("exists")
 
   val Cast = new FunctionSymbol("Cast")
   val IfNull = new JdbcFunction("ifnull")
