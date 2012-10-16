@@ -139,4 +139,20 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
     assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))
   }
+
+  /*
+  def testGetOr {
+    object T extends Table[Option[Int]]("t4") {
+      def year = column[Option[Int]]("YEAR")
+      def * = year
+    }
+
+    T.ddl.create
+    T.insertAll(Some(2000), None)
+
+    val q = T.map(t => (t.year.getOr(2000), (t.year.getOr(2000)-0)))
+    println(q.selectStatement)
+    q.foreach(println)
+  }
+  */
 }
