@@ -88,19 +88,55 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     case object False extends Bool
 
     implicit val boolTypeMapper = MappedTypeMapper.base[Bool, Int](
-      b => if(b == True) 1 else 0,
-      i => if(i == 1) True else False)
+      { b =>
+        assertNotNull(b)
+        if(b == True) 1 else 0
+      }, { i =>
+        assertNotNull(i)
+        if(i == 1) True else False
+      }
+    )
 
-    object T extends Table[(Int, Bool)]("t2") {
+    object T extends Table[(Int, Bool, Option[Bool])]("t2") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
-      def * = id ~ b
+      def c = column[Option[Bool]]("c")
+      def * = id ~ b ~ c
     }
 
     T.ddl.create
-    T.b.insertAll(False, True)
-    assertEquals(Query(T).list.toSet, Set((1, False), (2, True)))
-    assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True)))
-    assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False)))
+    (T.b ~ T.c).insertAll((False, None), (True, Some(True)))
+    assertEquals(Query(T).list.toSet, Set((1, False, None), (2, True, Some(True))))
+    assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
+    assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))
+  }
+
+  def testMappedRefType {
+    sealed trait Bool
+    case object True extends Bool
+    case object False extends Bool
+
+    implicit val boolTypeMapper = MappedTypeMapper.base[Bool, String](
+      { b =>
+        assertNotNull(b)
+        if(b == True) "y" else "n"
+      }, { i =>
+        assertNotNull(i)
+        if(i == "y") True else False
+      }
+    )
+
+    object T extends Table[(Int, Bool, Option[Bool])]("t3") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def b = column[Bool]("b")
+      def c = column[Option[Bool]]("c")
+      def * = id ~ b ~ c
+    }
+
+    T.ddl.create
+    (T.b ~ T.c).insertAll((False, None), (True, Some(True)))
+    assertEquals(Query(T).list.toSet, Set((1, False, None), (2, True, Some(True))))
+    assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
+    assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))
   }
 }

@@ -200,6 +200,8 @@ abstract class MappedTypeMapper[T,U](implicit tm: TypeMapper[U]) extends TypeMap
     def setValue(v: T, p: PositionedParameters) = tmd.setValue(map(v), p)
     def setOption(v: Option[T], p: PositionedParameters) = tmd.setOption(v.map(map _), p)
     def nextValue(r: PositionedResult) = comap(tmd.nextValue(r))
+    override def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = tmd.nextValue(r); if(r.rs.wasNull) d else comap(v) }
+    override def nextOption(r: PositionedResult): Option[T] = { val v = tmd.nextValue(r); if(r.rs.wasNull) None else Some(comap(v)) }
     def updateValue(v: T, r: PositionedResult) = tmd.updateValue(map(v), r)
     override def valueToSQLLiteral(value: T) = self.valueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
     override def nullable = self.nullable.getOrElse(tmd.nullable)
