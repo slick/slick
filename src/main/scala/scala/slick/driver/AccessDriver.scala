@@ -9,6 +9,7 @@ import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, 
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
 
 /**
  * Slick driver for Microsoft Access via JdbcOdbcDriver.
@@ -77,6 +78,8 @@ trait AccessDriver extends ExtendedDriver { driver =>
 
   override val Implicit: Implicits = new Implicits
   override val simple: SimpleQL = new Implicits with SimpleQL
+  override val compiler =
+    QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
   class Implicits extends super.Implicits {
     override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[T, U] = new QueryInvoker(q)
@@ -272,6 +275,24 @@ trait AccessDriver extends ExtendedDriver { driver =>
     override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
     /* Access goes forward instead of backward after deleting the current row in a mutable result set */
     override protected val previousAfterDelete = true
+  }
+
+  /** Query compiler phase that rewrites Exists calls in projections to
+    * equivalent CountAll > 0 calls which can then be fused into aggregation
+    * sub-queries in the fuseComprehensions phase. */
+  class ExistsToCount extends Phase {
+    val name = "access:existsToCount"
+    import StaticType._
+
+    def apply(n: Node, state: CompilationState) = tr(n, false)
+
+    protected def tr(n: Node, inSelect: Boolean): Node = n match {
+      case b @ Bind(_, _, sel) => b.nodeMapChildren { n => tr(n, n eq sel) }
+      case f: FilteredQuery => f.nodeMapChildren(tr(_, false))
+      case a @ Library.Exists(ch) if inSelect =>
+        Library.>.typed[Boolean](Library.CountAll.typed[Int](tr(ch, true)), LiteralNode(0))
+      case n => n.nodeMapChildren(ch => tr(ch, inSelect))
+    }
   }
 }
 

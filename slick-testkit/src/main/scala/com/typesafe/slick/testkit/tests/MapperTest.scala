@@ -32,9 +32,14 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       User(None, "Lenny", "Leonard")
     )
 
+    val lastNames = Set("Bouvier", "Ferdinand")
+    assertEquals(1, Query(Users).where(_.last inSet lastNames).list.size)
+
     val updateQ = Users.where(_.id === 2.bind).map(_.forInsert)
     println("Update: "+updateQ.updateStatement)
     updateQ.update(User(None, "Marge", "Simpson"))
+
+    assertTrue(Query(Users.where(_.id === 1).exists).first)
 
     Users.where(_.id between(1, 2)).foreach(println)
     println("ID 3 -> " + Users.findByID.first(3))
@@ -82,20 +87,72 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     case object True extends Bool
     case object False extends Bool
 
-    implicit val boolType = MappedColumnType.base[Bool, Int](
-      b => if(b == True) 1 else 0,
-      i => if(i == 1) True else False)
+    implicit val boolTypeMapper = MappedColumnType.base[Bool, Int](
+      { b =>
+        assertNotNull(b)
+        if(b == True) 1 else 0
+      }, { i =>
+        assertNotNull(i)
+        if(i == 1) True else False
+      }
+    )
 
-    object T extends Table[(Int, Bool)]("t2") {
+    object T extends Table[(Int, Bool, Option[Bool])]("t2") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
-      def * = id ~ b
+      def c = column[Option[Bool]]("c")
+      def * = id ~ b ~ c
     }
 
     T.ddl.create
-    T.b.insertAll(False, True)
-    assertEquals(Query(T).list.toSet, Set((1, False), (2, True)))
-    assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True)))
-    assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False)))
+    (T.b ~ T.c).insertAll((False, None), (True, Some(True)))
+    assertEquals(Query(T).list.toSet, Set((1, False, None), (2, True, Some(True))))
+    assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
+    assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))
   }
+
+  def testMappedRefType {
+    sealed trait Bool
+    case object True extends Bool
+    case object False extends Bool
+
+    implicit val boolTypeMapper = MappedColumnType.base[Bool, String](
+      { b =>
+        assertNotNull(b)
+        if(b == True) "y" else "n"
+      }, { i =>
+        assertNotNull(i)
+        if(i == "y") True else False
+      }
+    )
+
+    object T extends Table[(Int, Bool, Option[Bool])]("t3") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def b = column[Bool]("b")
+      def c = column[Option[Bool]]("c")
+      def * = id ~ b ~ c
+    }
+
+    T.ddl.create
+    (T.b ~ T.c).insertAll((False, None), (True, Some(True)))
+    assertEquals(Query(T).list.toSet, Set((1, False, None), (2, True, Some(True))))
+    assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
+    assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))
+  }
+
+  /*
+  def testGetOr {
+    object T extends Table[Option[Int]]("t4") {
+      def year = column[Option[Int]]("YEAR")
+      def * = year
+    }
+
+    T.ddl.create
+    T.insertAll(Some(2000), None)
+
+    val q = T.map(t => (t.year.getOr(2000), (t.year.getOr(2000)-0)))
+    println(q.selectStatement)
+    q.foreach(println)
+  }
+  */
 }
