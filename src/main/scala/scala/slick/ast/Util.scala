@@ -1,7 +1,7 @@
 package scala.slick.ast
 
 import scala.language.implicitConversions
-import scala.collection.TraversableLike
+import scala.collection.{mutable, TraversableLike}
 import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable.{HashSet, ArrayBuffer}
 
@@ -17,8 +17,8 @@ object Util {
     r
   }
 
-  def mapOrNone[Coll <: TraversableLike[A, Coll] with AnyRef, A <: AnyRef, To >: Coll <: AnyRef](c: Coll, f: A => A)(implicit bf: CanBuildFrom[Coll, A, To]): Option[To] = {
-    val b = bf.apply(c)
+  def mapOrNone[A <: AnyRef](c: Traversable[A], f: A => A): Option[IndexedSeq[A]] = {
+    val b = new ArrayBuffer[A]
     var changed = false
     c.foreach { x =>
       val n = f(x)

@@ -4,6 +4,7 @@ import scala.slick.SlickException
 import slick.lifted.ShapedValue
 import scala.slick.util.SimpleTypeName
 import scala.collection.mutable.ArrayBuffer
+import Util._
 
 trait NodeGenerator {
   def nodeDelegate: Node
@@ -19,17 +20,6 @@ trait Node extends NodeGenerator {
   def nodeMapChildren(f: Node => Node): Node
 
   def nodeDelegate: Node = this
-
-  protected[this] final def nodeMapNodes(s: Iterable[Node], f: Node => Node): Option[IndexedSeq[Node]] = {
-    var change = false
-    val b = new ArrayBuffer[Node]
-    for(n <- s) {
-      val nn = f(n)
-      b append nn
-      if(nn ne n) change = true
-    }
-    if(change) Some(b) else None
-  }
 
   override def toString = this match {
     case p: Product =>
@@ -47,7 +37,7 @@ trait SimpleNode extends Node {
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node
 
   def nodeMapChildren(f: Node => Node): Node =
-    nodeMapNodes(nodeChildren, f).map(nodeRebuild).getOrElse(this)
+    mapOrNone(nodeChildren, f).map(nodeRebuild).getOrElse(this)
 }
 
 trait TypedNode extends Node with Typed
@@ -397,7 +387,7 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
   val nodeChildren = elseClause +: clauses
   def nodeMapChildren(f: Node => Node): Node = {
     val e = f(elseClause)
-    val c = nodeMapNodes(clauses, f)
+    val c = mapOrNone(clauses, f)
     if(e.ne(elseClause) || c.isDefined) ConditionalExpr(c.getOrElse(clauses), e)
     else this
   }
