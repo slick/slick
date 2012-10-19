@@ -8,7 +8,7 @@ import scala.slick.util._
  * A SimpleFunction gets translated to a plain function call or JDBC/ODBC
  * scalar function {fn ...} call in SQL.
  */
-trait SimpleFunction extends SimpleNode {
+trait SimpleFunction extends Node {
   val name: String
   val scalar = false
   override def toString = "SimpleFunction(" + name + ", " + scalar + ")"
@@ -60,7 +60,7 @@ object SimpleBinaryOperator {
 
 case class SimpleLiteral(name: String) extends NullaryNode
 
-trait SimpleExpression extends SimpleNode {
+trait SimpleExpression extends Node {
   def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder): Unit
 }
 

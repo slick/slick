@@ -43,12 +43,9 @@ case class IntrinsicSymbol(val target: Node) extends Symbol {
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]
   def nodePostGeneratorChildren: Seq[Node]
-  def nodeMapGenerators(f: Symbol => Symbol): Node
-  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): DefNode
-}
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
 
-trait SimpleDefNode extends DefNode { this: SimpleNode =>
-  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
+  final def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
     val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
       nodePostGeneratorChildren.iterator.map{ n => (None, n) }).toIndexedSeq
     val mapped = all.map(f.tupled)
@@ -56,21 +53,16 @@ trait SimpleDefNode extends DefNode { this: SimpleNode =>
       nodeRebuild(mapped).asInstanceOf[DefNode]
     else this
   }
-  def nodeMapGenerators(f: Symbol => Symbol): Node =
+  final def nodeMapGenerators(f: Symbol => Symbol): Node =
     mapOrNone(nodeGenerators.map(_._1), f).fold[Node](this)(s => nodeRebuildWithGenerators(s.toIndexedSeq))
-  def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
 }
 
 /** A Node which references Symbols. */
 trait RefNode extends Node {
   def nodeReferences: Seq[Symbol]
-  def nodeMapReferences(f: Symbol => Symbol): Node
-}
-
-trait SimpleRefNode extends RefNode {
-  def nodeMapReferences(f: Symbol => Symbol): Node =
+  final def nodeMapReferences(f: Symbol => Symbol): Node =
     mapOrNone(nodeReferences, f).fold[Node](this)(s => nodeRebuildWithReferences(s.toIndexedSeq))
-  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]): Node
+  protected[this] def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]): Node
 }
 
 /** Provides names for symbols */
