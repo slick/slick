@@ -20,11 +20,7 @@ class Inline(unique: Boolean = true, paths: Boolean = true, from: Boolean = true
   def apply(tree: Node, state: CompilationState): Node = {
     val counts = new HashMap[AnonSymbol, Int]
     tree.foreach {
-      case r: RefNode => r.nodeReferences.foreach {
-        case a: AnonSymbol =>
-          counts += a -> (counts.getOrElse(a, 0) + 1)
-        case s =>
-      }
+      case RefNode(a: AnonSymbol) => counts += a -> (counts.getOrElse(a, 0) + 1)
       case _ =>
     }
     val (tree2, globals) = tree match {

@@ -11,14 +11,11 @@ class LocalizeRefs extends Phase {
     val newNodes = new HashMap[AnonSymbol, Node]
     val tr = new Transformer {
       def replace = {
-        case r: RefNode => r.nodeMapReferences {
-          case IntrinsicSymbol(target) =>
-            val s = new AnonSymbol
-            map += s -> target
-            newNodes += s -> target
-            s
-          case s => s
-        }
+        case r @ RefNode(IntrinsicSymbol(target)) =>
+          val s = new AnonSymbol
+          map += s -> target
+          newNodes += s -> target
+          r.nodeWithReference(s)
       }
     }
     val tree2 = tr.once(tree)

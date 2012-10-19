@@ -291,8 +291,8 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode 
   def child = in
   override def nodeChildNames = Seq("in")
   protected[this] def nodeRebuild(child: Node) = copy(in = child)
-  def nodeReferences: Seq[Symbol] = Seq(field)
-  protected[this] def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(field = gen(0))
+  def nodeReference = field
+  protected[this] def nodeRebuildWithReference(s: Symbol) = copy(field = s)
   override def toString = Path.unapply(this) match {
     case Some(l) => super.toString + " for " + Path.toString(l)
     case None => super.toString
@@ -302,8 +302,8 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode 
 case class Apply(sym: Symbol, children: Seq[Node]) extends RefNode {
   def nodeChildren = children
   protected[this] def nodeRebuild(ch: IndexedSeq[scala.slick.ast.Node]) = copy(children = ch)
-  def nodeReferences: Seq[Symbol] = Seq(sym)
-  protected[this] def nodeRebuildWithReferences(syms: IndexedSeq[Symbol]) = copy(sym = syms(0))
+  def nodeReference = sym
+  protected[this] def nodeRebuildWithReference(s: Symbol) = copy(sym = s)
   override def toString = "Apply "+sym
 }
 
@@ -313,14 +313,14 @@ object Apply {
     new Apply(sym, children) with TypedNode {
       def tpe = tp
       override protected[this] def nodeRebuild(ch: IndexedSeq[scala.slick.ast.Node]) = Apply(sym, ch, tp)
-      override protected[this] def nodeRebuildWithReferences(syms: IndexedSeq[Symbol]) = Apply(syms(0), children, tp)
+      override protected[this] def nodeRebuildWithReference(s: Symbol) = Apply(s, children, tp)
     }
 }
 
 /** A reference to a Symbol */
 case class Ref(sym: Symbol) extends NullaryNode with RefNode {
-  def nodeReferences = Seq(sym)
-  protected[this] def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
+  def nodeReference = sym
+  protected[this] def nodeRebuildWithReference(s: Symbol) = copy(sym = s)
 }
 
 /** A constructor/extractor for nested Selects starting at a Ref */

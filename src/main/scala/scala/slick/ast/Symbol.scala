@@ -57,12 +57,16 @@ trait DefNode extends Node {
     mapOrNone(nodeGenerators.map(_._1), f).fold[Node](this)(s => nodeRebuildWithGenerators(s.toIndexedSeq))
 }
 
-/** A Node which references Symbols. */
+/** A Node which references a Symbol. */
 trait RefNode extends Node {
-  def nodeReferences: Seq[Symbol]
-  final def nodeMapReferences(f: Symbol => Symbol): Node =
-    mapOrNone(nodeReferences, f).fold[Node](this)(s => nodeRebuildWithReferences(s.toIndexedSeq))
-  protected[this] def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]): Node
+  def nodeReference: Symbol
+  final def nodeWithReference(s: Symbol): RefNode =
+    if(s eq nodeReference) this else nodeRebuildWithReference(s)
+  protected[this] def nodeRebuildWithReference(s: Symbol): RefNode
+}
+
+object RefNode {
+  def unapply(r: RefNode) = Some(r.nodeReference)
 }
 
 /** Provides names for symbols */
