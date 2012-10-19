@@ -42,7 +42,8 @@ case class IntrinsicSymbol(val target: Node) extends Symbol {
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]
-  def nodePostGeneratorChildren: Seq[Node]
+  def nodePostGeneratorChildren: Seq[Node] =
+    nodeChildren.drop(nodeGenerators.length)
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
 
   final def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {

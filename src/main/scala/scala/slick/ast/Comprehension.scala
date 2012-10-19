@@ -29,7 +29,6 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
   }
   def nodeGenerators = from
   override def toString = "Comprehension(fetch = "+fetch+", offset = "+offset+")"
-  def nodePostGeneratorChildren = where ++ groupBy ++ orderBy.map(_._1) ++ select
 
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(from = (from, gen).zipped.map { case ((_, n), s) => (s, n) })
