@@ -38,7 +38,7 @@ object ImplicitQueryableMacros{
       ), session.splice)
     }
   }
-  private def _helper[C <: Context,S:c.AbsTypeTag,T]( c:C )( name:String, projection:c.Expr[_] ) : c.Expr[ImplicitQueryable[S]] = {
+  private def _helper[C <: Context,S:c.WeakTypeTag,T]( c:C )( name:String, projection:c.Expr[_] ) : c.Expr[ImplicitQueryable[S]] = {
     val utils = new ImplicitQueryableUtils[c.type](c)
     import utils._
     c.universe.reify{
@@ -47,16 +47,16 @@ object ImplicitQueryableMacros{
       , backend.splice, session.splice )
     }
   }
-  def flatMap[T,S:c.AbsTypeTag]
+  def flatMap[T,S:c.WeakTypeTag]
     (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => ImplicitQueryable[S]]): c.Expr[ImplicitQueryable[S]] = _helper[c.type,S,T]( c )( "flatMap", projection )
   def length[T]
       (c: scala.reflect.macros.Context)
       : c.Expr[Int] = _scalar_helper[c.type,Int]( c )( "length" )
-  def map[T,S:c.AbsTypeTag]
+  def map[T,S:c.WeakTypeTag]
     (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => S]): c.Expr[ImplicitQueryable[S]] = _helper[c.type,S,T]( c )( "map", projection )
-  def filter[T:c.AbsTypeTag]
+  def filter[T:c.WeakTypeTag]
     (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => Boolean]): c.Expr[ImplicitQueryable[T]] = _helper[c.type,T,T]( c )( "filter", projection )
 }

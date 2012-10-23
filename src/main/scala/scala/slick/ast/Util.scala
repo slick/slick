@@ -45,16 +45,11 @@ object Scope {
 final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
 
-  def collect[T](pf: PartialFunction[Node, T]): Iterable[T] = {
-    val b = new ArrayBuffer[T]
-    foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Node, Unit]{ case _ => () })
-    b
-  }
+  @inline def collect[T](pf: PartialFunction[Node, T]): Iterable[T] = NodeOps.collect(tree, pf)
 
   def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
 
-  def replace(f: PartialFunction[Node, Node]): Node =
-    f.applyOrElse(tree, ({ case n: Node => n.nodeMapChildren(_.replace(f)) }): PartialFunction[Node, Node])
+  def replace(f: PartialFunction[Node, Node]): Node = NodeOps.replace(tree, f)
 
   def foreach[U](f: (Node => U)) {
     def g(n: Node) {
@@ -82,6 +77,22 @@ final class NodeOps(val tree: Node) extends AnyVal {
       }
     case n => n.nodeMapChildren(ch => f(None, ch, scope))
   }
+}
+
+object NodeOps {
+  import Util._
+
+  // These methods should be in the class by 2.10.0-RC1 took away the ability
+  // to use closures in value classes
+
+  def collect[T](tree: Node, pf: PartialFunction[Node, T]): Iterable[T] = {
+    val b = new ArrayBuffer[T]
+    tree.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Node, Unit]{ case _ => () })
+    b
+  }
+
+  def replace(tree: Node, f: PartialFunction[Node, Node]): Node =
+    f.applyOrElse(tree, ({ case n: Node => n.nodeMapChildren(_.replace(f)) }): PartialFunction[Node, Node])
 }
 
 /** Some less general but still useful methods for the code generators. */
