@@ -54,7 +54,7 @@ class QueryableUtils[C <: Context]( val context :C ) {
     Apply( Select( queryTree(queryable), newTermName( method )), args.toList )
   )
   def _reifyTree[T]( tree:Tree ) = context.Expr[ru.Expr[T]](
-      context.reifyTree( context.runtimeUniverse, EmptyTree, context.typeCheck(
+      context.reifyTree( context.universe.treeBuild.mkRuntimeUniverseRef, EmptyTree, context.typeCheck(
         tree
       ).asInstanceOf[Tree]))
       
@@ -72,19 +72,19 @@ object QueryableMacros{
       (c: scala.reflect.macros.Context)
       : c.Expr[QueryableValue[Int]] = _scalar_helper[c.type]( c )( "length" )
 
-  private def _helper[C <: Context,S:c.AbsTypeTag]( c:C )( name:String, projection:c.Expr[_] ) = {
+  private def _helper[C <: Context,S:c.WeakTypeTag]( c:C )( name:String, projection:c.Expr[_] ) = {
     val utils = new QueryableUtils[c.type](c)
     val reifiedExpression = utils.apply[Queryable[S]]( c.prefix.tree, name, projection.tree )
     c.universe.reify{ Queryable.factory[S]( reifiedExpression.splice )}
   }
 
-  def map[T:c.AbsTypeTag, S:c.AbsTypeTag]
+  def map[T:c.WeakTypeTag, S:c.WeakTypeTag]
   (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => S]): c.Expr[scala.slick.direct.Queryable[S]] = _helper[c.type,S]( c )( "map", projection )
-  def flatMap[T:c.AbsTypeTag, S:c.AbsTypeTag]
+  def flatMap[T:c.WeakTypeTag, S:c.WeakTypeTag]
   (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => Queryable[S]]): c.Expr[scala.slick.direct.Queryable[S]] = _helper[c.type,S]( c )( "flatMap", projection )
-  def filter[T:c.AbsTypeTag]
+  def filter[T:c.WeakTypeTag]
   (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => Boolean]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "filter", projection )
 }
