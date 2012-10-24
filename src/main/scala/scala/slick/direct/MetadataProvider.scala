@@ -14,8 +14,8 @@ object AnnotationMapper extends Mapper{
   final case class column(name:String = "") extends StaticAnnotation
   def typeToTable( tpe : Type ) = {
     val sym = tpe.typeSymbol
-    sym.getAnnotations match {
-      case AnnotationInfo( tpe, args, _ ) :: Nil // FIXME:<- don't match list, match any annotation
+    sym.annotations match {
+      case Annotation( tpe, args, _ ) :: Nil // FIXME:<- don't match list, match any annotation
         //if tpe <:< classToType(classOf[table]) // genJVM bug
       =>
         args(0) match {
@@ -26,8 +26,8 @@ object AnnotationMapper extends Mapper{
       case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + tpe.toString )
     }
   }
-  def fieldToColumn( sym:Symbol ) = (sym.getAnnotations.collect{
-    case AnnotationInfo( tpe, args, _ ) if tpe <:< typeOf[column]
+  def fieldToColumn( sym:Symbol ) = (sym.annotations.collect{
+    case Annotation( tpe, args, _ ) if tpe <:< typeOf[column]
       =>
         args(0) match {
           case Literal(Constant(name:String)) => name
@@ -36,9 +36,9 @@ object AnnotationMapper extends Mapper{
         }
   }).head
   def isMapped( tpe:Type ) = {
-    val annotations = tpe.typeSymbol.getAnnotations
+    val annotations = tpe.typeSymbol.annotations
     annotations.length > 0 && (annotations match {
-      case AnnotationInfo(tpe,_,_) :: Nil
+      case Annotation(tpe,_,_) :: Nil
         if tpe <:< typeOf[table]
       => true
       case _ => false
