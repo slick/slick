@@ -154,9 +154,13 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   val postCreate = TestDB.getMulti(confName, "postCreate").map(replaceVars)
   val drop = TestDB.getMulti(confName, "drop").map(replaceVars)
 
+  def nz: String => String = {
+    case null => ""
+    case s    => s
+  }
   def replaceVars(s: String): String =
     s.replace("[DB]", dbName).replace("[DBPATH]", dbPath).
-      replace("[USER]", user).replace("[PASSWORD]", password)
+      replace("[USER]", nz(user)).replace("[PASSWORD]", nz(password))
 
   override def isEnabled = TestDB.isExternalEnabled(confName)
 
