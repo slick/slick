@@ -48,6 +48,46 @@ abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
   }
   def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
+  final def ~[U1,U2](p: Projection2[U1,U2]) =
+    new Projection3(this,p._1,p._2)
+  final def ~[U1,U2,U3](p: Projection3[U1,U2,U3]) =
+    new Projection4(this,p._1,p._2,p._3)
+  final def ~[U1,U2,U3,U4](p: Projection4[U1,U2,U3,U4]) =
+    new Projection5(this,p._1,p._2,p._3,p._4)
+  final def ~[U1,U2,U3,U4,U5](p: Projection5[U1,U2,U3,U4,U5]) =
+    new Projection6(this,p._1,p._2,p._3,p._4,p._5)
+  final def ~[U1,U2,U3,U4,U5,U6](p: Projection6[U1,U2,U3,U4,U5,U6]) =
+    new Projection7(this,p._1,p._2,p._3,p._4,p._5,p._6)
+  final def ~[U1,U2,U3,U4,U5,U6,U7](p: Projection7[U1,U2,U3,U4,U5,U6,U7]) =
+    new Projection8(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8](p: Projection8[U1,U2,U3,U4,U5,U6,U7,U8]) =
+    new Projection9(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9](p: Projection9[U1,U2,U3,U4,U5,U6,U7,U8,U9]) =
+    new Projection10(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10](p: Projection10[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10]) =
+    new Projection11(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11](p: Projection11[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11]) =
+    new Projection12(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12](p: Projection12[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12]) =
+    new Projection13(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13](p: Projection13[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13]) =
+    new Projection14(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14](p: Projection14[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14]) =
+    new Projection15(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15](p: Projection15[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15]) =
+    new Projection16(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16](p: Projection16[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16]) =
+    new Projection17(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17](p: Projection17[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17]) =
+    new Projection18(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18](p: Projection18[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18]) =
+    new Projection19(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19](p: Projection19[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19]) =
+    new Projection20(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18,p._19)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20](p: Projection20[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20]) =
+    new Projection21(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18,p._19,p._20)
+  final def ~[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20,U21](p: Projection21[U1,U2,U3,U4,U5,U6,U7,U8,U9,U10,U11,U12,U13,U14,U15,U16,U17,U18,U19,U20,U21]) =
+    new Projection22(this,p._1,p._2,p._3,p._4,p._5,p._6,p._7,p._8,p._9,p._10,p._11,p._12,p._13,p._14,p._15,p._16,p._17,p._18,p._19,p._20,p._21)
 
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
