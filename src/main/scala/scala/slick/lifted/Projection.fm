@@ -73,6 +73,7 @@ final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
 </#list>)
 extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
   <#if i != 22>def ~[U](c: Column[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
+  <#if i != 22>def ~:[U](c: Column[U]) = new Projection${i+1}(c<#list 1..i as j>,_${j}</#list>)</#if>
   def getResult(profile: BasicProfile, rs: PositionedResult) = (
 <#list 1..i as j>
     _${j}.getResult(profile, rs)<#if i != j>,</#if>

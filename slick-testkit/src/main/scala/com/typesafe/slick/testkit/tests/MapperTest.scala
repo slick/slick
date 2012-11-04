@@ -16,14 +16,15 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
-      def * = id.? ~ first ~ last <> (User, User.unapply _)
-      def forInsert = first ~ last <>
+      def * = id.? ~: baseProjection <> (User, User.unapply _)
+      def baseProjection = first ~ last
+      def forInsert = baseProjection <>
         ({ (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
       val findByID = createFinderBy(_.id)
     }
 
     Users.ddl.create
-    (Users.first ~ Users.last).insert("Homer", "Simpson")
+    Users.baseProjection.insert("Homer", "Simpson")
     /* Using Users.forInsert so that we don't put a NULL value into the ID
      * column. H2 and SQLite allow this but PostgreSQL doesn't. */
     Users.forInsert.insertAll(
