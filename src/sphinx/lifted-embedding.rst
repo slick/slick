@@ -170,7 +170,7 @@ Expressions
 -----------
 
 Primitive (non-compound, non-collection) values are representend by type
-``Column[T]`` (a sub-type of ``Rep[R]``) where a ``TypeMapper[T]`` must
+``Column[T]`` (a sub-type of ``Rep[T]``) where a ``TypeMapper[T]`` must
 exist. Only some special methods for internal use and those that deal with
 conversions between nullable and non-nullable columns are defined directly in
 the ``Column`` class.
@@ -192,11 +192,65 @@ collections.
 Additional methods for queries of non-compound values are added via an
 implicit conversion to ``SingleColumnQueryExtensionMethods``.
 
-Joins
------
+Joining and Zipping
+-------------------
+
+Joins are used to combine two different tables or queries into a single query.
+
+There are two different ways of writing joins: *Explicit* joins are performed
+by calling a method that joins two queries into a single query of a tuple of
+the individual results. *Implicit* joins arise from a specific shape of a query
+without calling a special method.
+
+An *implicit cross-join* is created with a ``flatMap`` operation on a ``Query``
+(i.e. by introducing more than one generator in a for-comprehension):
+
+.. includecode:: code/JoinsUnions.scala#implicitCross
+
+If you add a filter expression, it becomes an *implicit inner join*:
+
+.. includecode:: code/JoinsUnions.scala#implicitInner
+
+The semantics of these implicit joins are the same as when you are using
+``flatMap`` on Scala collections.
+
+Explicit joins are created by calling one of the available join methods:
+
+.. includecode:: code/JoinsUnions.scala#explicit
+
+The explicit versions of the cross join and inner join will result in the same
+SQL code being generated as for the implicit versions (usually an implicit join
+in SQL). Note the use of ``.?`` in the outer joins. Since these joins can
+introduce additional NULL values (on the right-hand side for a left outer join,
+on the left-hand sides for a right outer join, and on both sides for a full
+outer join), you have to make sure to retrieve ``Option`` values from them.
+
+In addition to the usual join operators supported by relational databases
+(which are based off a cross join or outer join), Slick also has *zip joins*
+which create a pairwise join of two queries. The semantics are again the same
+as for Scala collections, using the ``zip`` and ``zipWith`` methods:
+
+.. includecode:: code/JoinsUnions.scala#zip
+
+A particular kind of zip join is provided by ``zipWithIndex``. It zips a query
+result with an infinite sequence starting at 0. Such a sequence cannot be
+represented by an SQL database and Slick does not currently support it, either
+(but this is expected to change in the future). The resulting zipped query,
+however, can be represented in SQL with the use of a *row number* function,
+so ``zipWithIndex`` is supported as a primitive operator:
+
+.. includecode:: code/JoinsUnions.scala#zipWithIndex
 
 Unions
 ------
+
+Two queries can be concatenated with the ``union`` and ``unionAll`` operators
+if they have compatible types:
+
+.. includecode:: code/JoinsUnions.scala#union
+
+Unlike ``union`` which filters out duplicate values, ``unionAll`` simply
+concatenates the queries, which is usually more efficient.
 
 Aggregation
 -----------

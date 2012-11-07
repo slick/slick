@@ -5,26 +5,6 @@ The easiest way of setting up a Slick application is by starting with the
 `Slick Examples`_ project. You can build and run this project by following the
 instructions in its README file.
 
-Overview
-------------
-
-First a quick overview. Accessing databases using slick's lifted embedding requires the following steps.
-
-#. Add the Slick jar and its dependencies to your project
-#. Pick a driver for a particular db and create a session (or simply pick threadLocalSession)
-
-   .. includecode:: code/GettingStartedOverview.scala#quick-imports
-
-#. Describe your Database schema
-
-   .. includecode:: code/GettingStartedOverview.scala#quick-schema
-
-#. Write queries using for-comprehensions or map/flatMap wrapped in a session scope
-
-   .. includecode:: code/GettingStartedOverview.scala#quick-query
-
-The next paragraphs explain these steps and further aspects in more detail.
-
 Dependencies
 ------------
 
