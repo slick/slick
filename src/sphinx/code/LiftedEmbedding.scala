@@ -116,5 +116,44 @@ class LiftedEmbedding {
   ddl.createStatements.foreach(println)
   ddl.dropStatements.foreach(println)
 //#ddl2
-  
+
+  db withSession {
+    //#filtering
+    val q = Query(Coffees)
+    val q1 = q.filter(_.supID === 101)
+    val q2 = q.drop(10).take(5)
+    val q3 = q.sortBy(_.name.desc.nullsFirst)
+    //#filtering
+  }
+
+  db withSession {
+    //#aggregation1
+    val q = Coffees.map(_.price)
+    val q1 = q.min
+    val q2 = q.max
+    val q3 = q.sum
+    val q4 = q.avg
+    //#aggregation1
+  }
+
+  db withSession {
+    //#aggregation2
+    val q = Query(Coffees)
+    val q1 = q.length
+    val q2 = q.exists
+    //#aggregation2
+  }
+
+  db withSession {
+    //#aggregation3
+    val q = (for {
+      c <- Coffees
+      s <- c.supplier
+    } yield (c, s)).groupBy(_._1.supID)
+
+    val q2 = q.map { case (supID, css) =>
+      (supID, css.length, css.map(_._1.price).avg)
+    }
+    //#aggregation3
+  }
 }

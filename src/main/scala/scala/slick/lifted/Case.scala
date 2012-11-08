@@ -5,10 +5,12 @@ import scala.slick.SlickException
 
 object Case {
 
+  /** A when...then clause in a Case expression. */
   final case class WhenNode(val left: Node, val right: Node) extends BinaryNode {
     protected[this] def nodeRebuild(left: Node, right: Node): Node = copy(left = left, right = right)
   }
 
+  /** A 'case' expression. All 'clauses' must be of type WhenNode. */
   final case class CaseNode(val clauses: IndexedSeq[Node], val elseClause: Node) extends Node {
     val nodeChildren = elseClause +: clauses
     def nodeMapChildren(f: Node => Node): Node = {

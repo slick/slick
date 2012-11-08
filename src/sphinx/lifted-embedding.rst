@@ -192,6 +192,14 @@ collections.
 Additional methods for queries of non-compound values are added via an
 implicit conversion to ``SingleColumnQueryExtensionMethods``.
 
+Sorting and Filtering
+---------------------
+
+There are various methods with sorting/filtering semantics (i.e. they take a
+``Query`` and return a new ``Query`` of the same type), for example:
+
+.. includecode:: code/LiftedEmbedding.scala#filtering
+
 Joining and Zipping
 -------------------
 
@@ -254,6 +262,26 @@ concatenates the queries, which is usually more efficient.
 
 Aggregation
 -----------
+
+The simplest form of aggregation consists of computing a primitive value from a
+Query that returns a single column, usually with a numeric type, e.g.:
+
+.. includecode:: code/LiftedEmbedding.scala#aggregation1
+
+Some aggregation functions are defined for arbitrary queries:
+
+.. includecode:: code/LiftedEmbedding.scala#aggregation2
+
+Grouping is done with the ``groupBy`` method. It has the same semantics as for
+Scala collections:
+
+.. includecode:: code/LiftedEmbedding.scala#aggregation3
+
+Note that the intermediate query ``q`` contains nested values of type ``Query``.
+These would turn into nested collections when executing the query, which is
+not supported at the moment. Therefore it is necessary to flatten the nested
+queries by aggregating their values (or individual columns) as done in ``q2``.
+
 
 Querying
 --------
