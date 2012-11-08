@@ -6,6 +6,7 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class UnionTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
+  override val reuseInstance = true
 
   object Managers extends Table[(Int, String, String)]("managers") {
     def id = column[Int]("id")
@@ -76,5 +77,48 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.list.toSet)
 
     Managers.ddl.drop
+  }
+
+  def testUnionOfJoins {
+    abstract class Drinks(tableName: String) extends Table[(Long, Long)](tableName) {
+      def pk = column[Long]("pk")
+      def pkCup = column[Long]("pkCup")
+      def * = pk ~ pkCup
+    }
+    object Coffees extends Drinks("Coffee")
+    object Teas extends Drinks("Tea")
+
+    (Coffees.ddl ++ Teas.ddl).create
+    Coffees.insertAll(
+      (10L, 1L),
+      (20L, 2L),
+      (30L, 3L)
+    )
+    Teas.insertAll(
+      (100L, 1L),
+      (200L, 2L),
+      (300L, 3L)
+    )
+
+    val q1 = for {
+      coffee <- Coffees
+      tea <- Teas if coffee.pkCup === tea.pkCup
+    } yield coffee.pk ~ coffee.pkCup
+    val q2 = for {
+      coffee <- Coffees
+      tea <- Teas if coffee.pkCup === tea.pkCup
+    } yield tea.pk ~ tea.pkCup
+    val q3 = q1 union q2
+
+    println("q1: "+q1.selectStatement)
+    println("q2: "+q2.selectStatement)
+    println("q3: "+q3.selectStatement)
+
+    val r1 = q1.to[Set]
+    assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L)), r1)
+    val r2 = q2.to[Set]
+    assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r2)
+    val r3 = q3.to[Set]
+    assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)), r3)
   }
 }

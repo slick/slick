@@ -156,11 +156,25 @@ class RelabelUnions extends Phase {
   def apply(n: Node, state: CompilationState) = relabelUnions(n)
 
   def relabelUnions(n: Node): Node = n match {
-    case u @ Union(l @ Bind(_, _, Pure(StructNode(ls))), rb @ Bind(_, _, Pure(StructNode(rs))), _, _, _)
+    case u @ Union(BindTarget(Pure(StructNode(ls))), rb @ BindTarget(Pure(StructNode(rs))), _, _, _)
       if ls.size == rs.size =>
       val rs2 = (ls, rs).zipped.map { case ((s, _), (_, n)) => (s, n) }
-      u.copy(right = rb.copy(select = Pure(StructNode(rs2)))).nodeMapChildren(relabelUnions)
+      u.copy(right = BindTarget.replace(rb, Pure(StructNode(rs2)))).nodeMapChildren(relabelUnions)
     case n => n.nodeMapChildren(relabelUnions)
+  }
+
+  object BindTarget {
+    def unapply(n: Node): Option[Node] = n match {
+      case Bind(_, _, t) =>
+        if(t.isInstanceOf[Bind]) unapply(t)
+        else Some(t)
+      case _ => None
+    }
+    def replace(n: Node, sel: Node): Node = n match {
+      case b @ Bind(_, _, t) =>
+        if(t.isInstanceOf[Bind]) b.copy(select = replace(t, sel))
+        else b.copy(select = sel)
+    }
   }
 }
 
