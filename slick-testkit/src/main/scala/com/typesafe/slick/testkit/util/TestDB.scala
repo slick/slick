@@ -147,13 +147,13 @@ class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(co
   val user = TestDB.get(confName, "user").orNull
   val adminUser = TestDB.get(confName, "adminUser").getOrElse(user)
   val adminPassword = TestDB.get(confName, "adminPassword").getOrElse(password)
-  val url = replaceVars(urlTemplate)
+  lazy val url = replaceVars(urlTemplate)
 
-  val adminDB = TestDB.get(confName, "adminDB").getOrElse("").replace("[DBPATH]", dbPath)
-  val adminDBURL = replaceVars(urlTemplate.replace("[DB]", adminDB))
-  val create = TestDB.getMulti(confName, "create").map(replaceVars)
-  val postCreate = TestDB.getMulti(confName, "postCreate").map(replaceVars)
-  val drop = TestDB.getMulti(confName, "drop").map(replaceVars)
+  lazy val adminDB = TestDB.get(confName, "adminDB").getOrElse("").replace("[DBPATH]", dbPath)
+  lazy val adminDBURL = replaceVars(urlTemplate.replace("[DB]", adminDB))
+  lazy val create = TestDB.getMulti(confName, "create").map(replaceVars)
+  lazy val postCreate = TestDB.getMulti(confName, "postCreate").map(replaceVars)
+  lazy val drop = TestDB.getMulti(confName, "drop").map(replaceVars)
 
   def replaceVars(s: String): String =
     s.replace("[DB]", dbName).replace("[DBPATH]", dbPath).

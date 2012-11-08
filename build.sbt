@@ -1,8 +1,8 @@
-version in ThisBuild := "1.0.0-SNAPSHOT"
+version in ThisBuild := "0.11.2"
 
-scalaVersion in ThisBuild := "2.10.0-M7"
+scalaVersion in ThisBuild := "2.10.0-RC2"
 
-scalaBinaryVersion in ThisBuild := "2.10.0-M7"
+scalaBinaryVersion in ThisBuild := "2.10.0-RC2"
 
 //crossScalaVersions in ThisBuild ++= "2.10.0-M4" :: Nil
 //crossVersion in ThisBuild := CrossVersion.Disabled
