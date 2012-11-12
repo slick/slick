@@ -8,6 +8,7 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
 
   override val reuseInstance = true
 
+  @deprecated("Using old-style aggregation", "1.0")
   def testAggregates {
     object T extends Table[(Int, Option[Int])]("t1") {
       def a = column[Int]("a")

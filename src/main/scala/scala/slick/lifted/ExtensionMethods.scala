@@ -24,9 +24,11 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 
 /** Extension methods for all Columns */
 final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[B1, P1] {
+  @deprecated("Use Query.count instead", "1.0")
   def count = Library.Count.column[Int](n)
   def isNull = Library.==.column[Boolean](n, ConstColumn.NULL)
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, ConstColumn.NULL))
+  @deprecated("Use Query.countDistinct instead", "1.0")
   def countDistinct = Library.CountDistinct.column[Int](n)
 
   def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
@@ -65,7 +67,9 @@ final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal wit
     om(Library.Between.column(n, Node(start), Node(end)))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Column[P2] =
     Library.IfNull.column[P2](n, Node(e))(e.typeMapper)
+  @deprecated("Use Query.min instead", "1.0")
   def min = Library.Min.column[Option[B1]](n)
+  @deprecated("Use Query.max instead", "1.0")
   def max = Library.Max.column[Option[B1]](n)
 }
 
@@ -88,7 +92,9 @@ final class NumericColumnExtensionMethods[B1, P1](val c: Column[P1]) extends Any
     om(Library.Sign.column[Int](n))
   def toDegrees = Library.Degrees.column[P1](n)
   def toRadians = Library.Radians.column[P1](n)
+  @deprecated("Use Query.avg instead", "1.0")
   def avg = Library.Avg.column[Option[B1]](n)
+  @deprecated("Use Query.sum instead", "1.0")
   def sum = Library.Sum.column[Option[B1]](n)
 }
 
