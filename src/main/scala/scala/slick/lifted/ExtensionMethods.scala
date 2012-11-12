@@ -29,10 +29,8 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 
 /** Extension methods for all Columns */
 final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[B1, P1] {
-  def count = Library.Count.column[Int](n)
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
-  def countDistinct = Library.CountDistinct.column[Int](n)
 
   def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om(Library.==.column(n, Node(e)))
@@ -70,8 +68,6 @@ final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal wit
     om(Library.Between.column(n, Node(start), Node(end)))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Column[P2] =
     Library.IfNull.column[P2](n, Node(e))(e.tpe)
-  def min = Library.Min.column[Option[B1]](n)
-  def max = Library.Max.column[Option[B1]](n)
 }
 
 /** Extension methods for numeric Columns */
@@ -93,8 +89,6 @@ final class NumericColumnExtensionMethods[B1, P1](val c: Column[P1]) extends Any
     om(Library.Sign.column[Int](n))
   def toDegrees = Library.Degrees.column[P1](n)
   def toRadians = Library.Radians.column[P1](n)
-  def avg = Library.Avg.column[Option[B1]](n)
-  def sum = Library.Sum.column[Option[B1]](n)
 }
 
 /** Extension methods for Column[Boolean] and Column[Option[Boolean]] */
