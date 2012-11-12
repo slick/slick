@@ -26,5 +26,5 @@
     <logger name="scala.slick.compiler.ConvertToComprehensions"   level="${log.qcomp.convertToComprehensions:-inherited}" />
     <logger name="scala.slick.compiler.FuseComprehensions"        level="${log.qcomp.fuseComprehensions:-inherited}" />
     <logger name="scala.slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
-    <logger name="scala.slick.session"                            level="${log.session:-info}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.session:-info}" />
 </configuration>
