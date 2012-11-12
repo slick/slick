@@ -87,12 +87,11 @@ class MainTest(val tdb: TestDB) extends TestkitTest {
     println("All Orders by Users with a last name by first name:")
     q3.foreach(o => println("  "+o))
 
-    val q4 = for (
-      u <- Users;
-      o <- Orders
-        if (o.orderID in (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max))
-           && (o.userID is u.id)
-    ) yield u.first ~ o.orderID
+    val q4 = for {
+      u <- Users
+      o <- u.orders
+        if (o.orderID === (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID).max)
+    } yield u.first ~ o.orderID
     println("q4: " + q4.selectStatement)
     println("Latest Order per User:")
     q4.foreach(o => println("  "+o))
@@ -102,7 +101,7 @@ class MainTest(val tdb: TestDB) extends TestkitTest {
 
     def maxOfPer[T <: Table[_]]
       (c: T, m: (T => Column[Int]), p: (T => Column[Int])) =
-      c where { o => m(o) in (for { o2 <- c if p(o) is p(o2) } yield m(o2).max) }
+      c where { o => m(o) is (for { o2 <- c if p(o) is p(o2) } yield m(o2)).max }
 
     val q4b = for (
       u <- Users;

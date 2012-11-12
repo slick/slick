@@ -5,6 +5,7 @@ import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
+import ExtraUtil._
 
 /** Rewrite zip joins into a form suitable for SQL (using inner joins and
   * RowNumber columns.
@@ -138,13 +139,12 @@ class FuseComprehensions extends Phase {
 
   def fuse(n: Node): Node = n.nodeMapChildren(fuse) match {
     case c: Comprehension =>
+      logger.debug("Checking:",c)
       val fused = createSelect(c) match {
         case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
-      val f2 = liftAggregates(fused)
-      //if(f2 eq fused) f2 else fuse(f2)
-      f2
+      liftAggregates(fused)
     case n => n
   }
 
@@ -236,39 +236,61 @@ class FuseComprehensions extends Phase {
     else c
   }
 
-  /** Lift aggregates of sub-queries into the 'from' list. */
+  /** Lift aggregates of sub-queries into the 'from' list or inline them
+    * (if they would refer to unreachable symbols when used in 'from'
+    * position). */
   def liftAggregates(c: Comprehension): Comprehension = {
     val lift = ArrayBuffer[(AnonSymbol, AnonSymbol, Library.AggregateFunctionSymbol, Comprehension)]()
+    val seenGens = HashMap[Symbol, Node]()
     def tr(n: Node): Node = n match {
       //TODO Once we can recognize structurally equivalent sub-queries and merge them, c2 could be a Ref
-      case Apply(s: Library.AggregateFunctionSymbol, Seq(c2: Comprehension)) =>
-        val a = new AnonSymbol
-        val f = new AnonSymbol
-        lift += ((a, f, s, c2))
-        Select(Ref(a), f)
-      case c: Comprehension => c // don't recurse into sub-queries
-      case n => n.nodeMapChildren(tr)
-    }
-    if(c.select.isEmpty) c else {
-      val sel = c.select.get
-      val sel2 = tr(sel)
-      if(lift.isEmpty) c else {
-        val newFrom = lift.map { case (a, f, s, c2) =>
-          val a2 = new AnonSymbol
-          val (c2b, call) = s match {
+      case ap @ Apply(s: Library.AggregateFunctionSymbol, Seq(c2: Comprehension)) =>
+        if(hasRefToOneOf(c2, seenGens.keySet)) {
+          logger.debug("Seen reference to one of {"+seenGens.keys.mkString(", ")+"} in "+c2+" -- inlining")
+          // This could still produce illegal SQL code if the reference is nested within another
+          // sub-query somewhere in 'from' position. Not much we can do about this though.
+          s match {
             case Library.CountAll =>
-              (c2, Library.Count.typed[Long](LiteralNode(1)))
+              c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed[Long](LiteralNode(1)))))))
             case s =>
               val c3 = ensureStruct(c2)
               // All standard aggregate functions operate on a single column
-              val Some(Pure(StructNode(Seq((f2, _))))) = c3.select
-              (c3, Apply(s, Seq(Select(Ref(a2), f2))))
+              val Some(Pure(StructNode(Seq((f2, expr))))) = c3.select
+              c3.copy(select = Some(Pure(ProductNode(Seq(Apply(s, Seq(expr)))))))
           }
-          a -> Comprehension(from = Seq(a2 -> c2b),
-            select = Some(Pure(StructNode(IndexedSeq(f -> call)))))
+        } else {
+          val a = new AnonSymbol
+          val f = new AnonSymbol
+          lift += ((a, f, s, c2))
+          Select(Ref(a), f)
         }
-        c.copy(from = c.from ++ newFrom, select = Some(sel2))
+      case c: Comprehension => c // don't recurse into sub-queries
+      case n => n.nodeMapChildren(tr)
+    }
+    val c2 = c.nodeMapScopedChildren {
+      case (Some(gen), ch) =>
+        seenGens += gen -> ch
+        ch
+      case (None, ch) => tr(ch)
+    }.asInstanceOf[Comprehension]
+    if(lift.isEmpty) c2
+    else {
+      val newFrom = lift.map { case (a, f, s, c2) =>
+        val a2 = new AnonSymbol
+        val (c2b, call) = s match {
+          case Library.CountAll =>
+            (c2, Library.Count.typed[Long](LiteralNode(1)))
+          case s =>
+            val c3 = ensureStruct(c2)
+            // All standard aggregate functions operate on a single column
+            val Some(Pure(StructNode(Seq((f2, _))))) = c3.select
+            (c3, Apply(s, Seq(Select(Ref(a2), f2))))
+        }
+        a -> Comprehension(from = Seq(a2 -> c2b),
+          select = Some(Pure(StructNode(IndexedSeq(f -> call)))))
       }
+      logger.debug("Introducing new generator(s) "+newFrom.map(_._1).mkString(", ")+" for aggregations")
+      c2.copy(from = c.from ++ newFrom)
     }
   }
 
