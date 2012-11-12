@@ -86,6 +86,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
   def length: Column[Int] = Library.CountAll.column(Node(unpackable.value))
   @deprecated("Use .length instead of .count", "0.10.0-M2")
   def count = length
+  def countDistinct: Column[Int] = Library.CountDistinct.column(Node(unpackable.value))
   def exists = Library.Exists.column[Boolean](Node(unpackable.value))
 
   @deprecated("Query.sub is not needed anymore", "0.10.0-M2")

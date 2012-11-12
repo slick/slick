@@ -47,7 +47,7 @@ object Benchmark {
     } yield u.first ~ o.orderID
     val q5 = for (
       o <- Orders
-        where { o => o.orderID in (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID.max) }
+        where { o => o.orderID === (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID).max }
     ) yield o.orderID
 
     val s1 = BasicDriver.buildSelectStatement(q1)

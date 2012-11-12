@@ -53,22 +53,22 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
     } yield u.first ~ o.orderID
 
     val q5 = for (
-      o <- for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o.orderID;
+      o <- for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID;
       _ <- Query orderBy o
     ) yield o
 
     val q6a = for (
-      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o.orderID).sub;
+      o <- (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID);
       _ <- Query orderBy o
     ) yield o
 
     val q6b = for (
-      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o.orderID ~ o.userID).sub;
+      o <- (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID);
       _ <- Query orderBy o._1
     ) yield o
 
     val q6c = for (
-      o <- (for (o <- Orders if o.orderID in (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID.max)) yield o).sub;
+      o <- (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o);
       _ <- Query orderBy o.orderID
     ) yield o.orderID ~ o.userID
 

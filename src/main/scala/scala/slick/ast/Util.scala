@@ -119,4 +119,10 @@ object ExtraUtil {
     case r: RowNumber => f(r)
     case n => n.nodeMapChildren(ch => replaceRowNumber(ch)(f))
   }
+
+  def hasRefToOneOf(n: Node, s: scala.collection.Set[Symbol]): Boolean = n match {
+    case r: RefNode =>
+      r.nodeReferences.exists(sym => s.contains(sym)) || n.nodeChildren.exists(ch => hasRefToOneOf(ch, s))
+    case n => n.nodeChildren.exists(ch => hasRefToOneOf(ch, s))
+  }
 }
