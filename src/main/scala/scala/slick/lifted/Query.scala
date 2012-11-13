@@ -65,6 +65,8 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
     new WrappingQuery[E, U](SortBy(generator, Node(this), f(aliased.value).columns), unpackable)
   }
 
+  def sorted(implicit ev: (E => Ordered)): Query[E, U] = sortBy(identity)
+
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[K, T, G], vshape: Shape[E, _, P]): Query[(G, Query[P, U]), (T, Query[P, U])] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
@@ -102,10 +104,6 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
 object Query extends Query[Column[Unit], Unit] {
   def nodeDelegate = packed
   def unpackable = ShapedValue(ConstColumn(()).mapOp((n, _) => Pure(n)), Shape.unpackColumnBase[Unit, Column[Unit]])
-
-  @deprecated("Use .sortBy on a query instead of mixing in Query.orderBy", "0.10.0-M2")
-  def orderBy[T <% Ordered](by: T) =
-    new WrappingQuery[Column[Unit], Unit](OrderBy(new AnonSymbol, Node(this), by.columns), unpackable)
 
   def apply[E, U, R](value: E)(implicit unpack: Shape[E, U, R]): Query[R, U] = {
     val unpackable = ShapedValue(value, unpack).packedValue

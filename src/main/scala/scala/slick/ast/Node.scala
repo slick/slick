@@ -192,14 +192,6 @@ final case class SortBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]
   override def toString = "SortBy " + by.map(_._2).mkString(", ")
 }
 
-final case class OrderBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]) extends FilteredQuery {
-  lazy val nodeChildren = from +: by.map(_._1)
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
-    copy(from = ch(0), by = by.zip(ch.tail).map{ case ((_, o), n) => (n, o) })
-  override def nodeChildNames = ("from "+generator) +: by.zipWithIndex.map("by" + _._2)
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-}
-
 final case class Ordering(direction: Ordering.Direction = Ordering.Asc, nulls: Ordering.NullOrdering = Ordering.NullsDefault) {
   def asc = copy(direction = Ordering.Asc)
   def desc = copy(direction = Ordering.Desc)

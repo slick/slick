@@ -25,10 +25,6 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   final def buildSelectStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildSelect
   final def buildUpdateStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildUpdate
   final def buildDeleteStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildDelete
-  @deprecated("Use createInsertBuilder.buildInsert", "1.0")
-  final def buildInsertStatement(cb: Any): InsertBuilderResult = createInsertBuilder(Node(cb)).buildInsert
-  @deprecated("Use createInsertBuilder.buildInsert", "1.0")
-  final def buildInsertStatement(cb: Any, q: Query[_, _]): InsertBuilderResult = createInsertBuilder(Node(cb)).buildInsert(q)
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 

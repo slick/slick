@@ -7,7 +7,6 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class NestingTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  @deprecated("Using deprecated Query.orderBy feature", "0.10")
   def testNestedTuples {
 
     object T extends Table[(Int, String, String)]("T") {
@@ -27,37 +26,33 @@ class NestingTest(val tdb: TestDB) extends TestkitTest {
     )
     val res1b = res1.map { case (a, b, c, d) => ((a, b), (c, d)) }
 
-    val q1a = for {
+    val q1a = (for {
       a ~ b <- T.map(t => t.a ~ t.b)
       c <- T.map(t => t.c)
-      _ <- Query.orderBy(c, a)
-    } yield a ~ b ~ c ~ 5
+    } yield a ~ b ~ c ~ 5).sortBy(t => t._3 ~ t._1)
     println("q1a: "+q1a.selectStatement)
     assertEquals(res1, q1a.to[List])
 
-    val q1b = for {
+    val q1b = (for {
       (a, b) <- T.map(t => (t.a, t.b))
       c <- T.map(t => t.c)
-      _ <- Query.orderBy(c, a)
-    } yield a ~ b ~ c ~ 5
+    } yield a ~ b ~ c ~ 5).sortBy(t => t._3 ~ t._1)
     println("q1b: "+q1b.selectStatement)
     println(q1b.list)
     assertEquals(res1, q1b.to[List])
 
-    val q1c = for {
+    val q1c = (for {
       (a, b) <- T.map(t => (t.a, t.b))
       c <- T.map(t => t.c)
-      _ <- Query.orderBy(c, a)
-    } yield (a, b, c, ConstColumn(5))
+    } yield (a, b, c, ConstColumn(5))).sortBy(t => t._3 ~ t._1)
     println("q1c: "+q1c.selectStatement)
     println(q1c.list)
     assertEquals(res1, q1c.to[List])
 
-    val q1d = for {
+    val q1d = (for {
       (a, b) <- T.map(t => (t.a, t.b))
       c <- T.map(t => t.c)
-      _ <- Query.orderBy(c, a)
-    } yield ((a, b), (c, 5))
+    } yield ((a, b), (c, 5))).sortBy(t => t._2._1 ~ t._1._1)
     println("q1d: "+q1d.selectStatement)
     println(q1d.list)
     assertEquals(res1b, q1d.to[List])

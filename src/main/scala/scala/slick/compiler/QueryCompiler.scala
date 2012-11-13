@@ -70,7 +70,6 @@ object QueryCompiler {
     Phase.localizeRefs,
     Phase.reconstructProducts,
     Phase.inline,
-    Phase.rewriteOrderBy,
     Phase.letDynamicEliminated,
     Phase.assignUniqueSymbols,
     // Columnizer
@@ -115,7 +114,6 @@ object Phase {
   val localizeRefs = new LocalizeRefs
   val reconstructProducts = new ReconstructProducts
   val inline = new Inline
-  val rewriteOrderBy = new RewriteOrderBy
   val letDynamicEliminated = new LetDynamicEliminated
   val assignUniqueSymbols = new AssignUniqueSymbols
   val forceOuterBinds = new ForceOuterBinds

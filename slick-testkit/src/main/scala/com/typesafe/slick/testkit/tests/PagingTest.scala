@@ -11,13 +11,12 @@ class PagingTest(val tdb: TestDB) extends TestkitTest {
     def * = id
   }
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def test {
 
     IDs.ddl.create;
     IDs.insertAll((1 to 10):_*)
 
-    val q1 = for(i <- IDs; _ <- Query orderBy i.id) yield i
+    val q1 = Query(IDs).sortBy(_.id)
     println("q1: "+q1.selectStatement)
     println("    "+q1.list)
     assertEquals((1 to 10).toList, q1.list)

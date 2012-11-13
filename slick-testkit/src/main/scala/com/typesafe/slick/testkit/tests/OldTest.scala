@@ -1,12 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
-import scala.slick.ast.Dump
+import slick.ast.{Node, Dump}
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class OldTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  @deprecated("Testing deprecated methods Query.orderBy and JdbcProfile.buildInsertStatement", "0.10.0-M2")
   def test {
     object Users extends Table[(Int, String, String)]("users") {
       def id = column[Int]("id")
@@ -47,36 +46,23 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
 
     val q3 = for (u <- Users where (_.id is 42)) yield u.first ~ u.last
 
-    val q4 = for {
+    val q4 = (for {
       (u, o) <- Users innerJoin Orders on (_.id is _.userID)
-      _ <- Query orderBy u.last
-    } yield u.first ~ o.orderID
+    } yield (u.last, u.first ~ o.orderID)).sortBy(_._1).map(_._2)
 
-    val q5 = for (
-      o <- for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID;
-      _ <- Query orderBy o
-    ) yield o
+    val q6a =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
 
-    val q6a = for (
-      o <- (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID);
-      _ <- Query orderBy o
-    ) yield o
+    val q6b =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
 
-    val q6b = for (
-      o <- (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID);
-      _ <- Query orderBy o._1
-    ) yield o
-
-    val q6c = for (
-      o <- (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o);
-      _ <- Query orderBy o.orderID
-    ) yield o.orderID ~ o.userID
+    val q6c =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
 
     dump("q1", q1)
     dump("q2", q2)
     dump("q3", q3)
     dump("q4", q4)
-    dump("q5", q5)
     dump("q6a", q6a)
     dump("q6b", q6b)
     dump("q6c", q6c)
@@ -113,8 +99,9 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
 
     println()
 
-    println("Insert1: " + tdb.driver.buildInsertStatement(Users))
-    println("Insert2: " + tdb.driver.buildInsertStatement(Users.first ~ Users.last))
+    def buildInsertStatement(a: Any) = tdb.driver.createInsertBuilder(Node(a)).buildInsert
+    println("Insert1: " + buildInsertStatement(Users))
+    println("Insert2: " + buildInsertStatement(Users.first ~ Users.last))
 
     val d1 = Users.where(_.id is 42)
     val d2 = for (u <- Users where (_.id notIn Orders.map(_.userID))) yield u

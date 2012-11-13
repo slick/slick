@@ -10,7 +10,6 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
 
   override val reuseInstance = true
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def testCollections {
     object T extends Table[Int]("t") {
       def a = column[Int]("a")
@@ -20,10 +19,7 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
     T.ddl.create
     T.insertAll(2, 3, 1, 5, 4)
 
-    val q = for {
-      t <- T
-      _ <- Query orderBy t.a
-    } yield t.a
+    val q = T.map(_.a).sorted
 
     val r1 = q.list
     val r1t: List[Int] = r1
@@ -67,17 +63,13 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(Map(1 -> "a", 2 -> "b", 3 -> "c"), r1)
   }
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def testLazy = if(tdb.isShared) {
     object T extends Table[Int]("t3") {
       def a = column[Int]("a")
       def * = a
     }
 
-    val q = for {
-      t <- T
-      _ <- Query orderBy t.a
-    } yield t
+    val q = Query(T).sortBy(_.a)
 
     def setUp(session: Session) {
       T.ddl.create(session)

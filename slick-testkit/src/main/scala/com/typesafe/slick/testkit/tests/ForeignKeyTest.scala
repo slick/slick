@@ -11,7 +11,6 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
 
   override val reuseInstance = true
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def testSimple {
 
     object Categories extends Table[(Int, String)]("categories") {
@@ -49,21 +48,19 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
       ("A ScalaQuery Update", Some(2))
     )
 
-    val q1 = for {
+    val q1 = (for {
       p <- Posts
       c <- p.categoryJoin
-      _ <- Query orderBy p.id
-    } yield (p.id, c.id, c.name, p.title)
+    } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
     Dump(q1, "Manual join: ")
     println("Manual join: "+q1.selectStatement)
     q1.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q1.map(p => (p._1, p._2)).list)
 
-    val q2 = for {
+    val q2 = (for {
       p <- Posts
       c <- p.categoryFK
-      _ <- Query orderBy p.id
-    } yield (p.id, c.id, c.name, p.title)
+    } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
     Dump(q2, "Foreign-key join: ")
     println("Foreign-key join: "+q2.selectStatement)
     q2.foreach(x => println("  "+x))
@@ -119,7 +116,6 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(Set(("a12","b12"), ("a34","b34")), q1.list.toSet)
   }
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def testCombinedJoin {
 
     object A extends Table[(Int, String)]("a2") {
@@ -146,26 +142,24 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     val q1 = (for {
       b <- B
       a <- b.a
-    } yield a.s).sortBy(identity)
+    } yield a.s).sorted
     println("q1: " + q1.selectStatement)
     println("    " + q1.list)
     assertEquals(List("a", "a", "b"), q1.list)
 
-    val q2 = for {
+    val q2 = (for {
       c <- C
       a <- c.a
-      _ <- Query orderBy a.s
-    } yield a.s
+    } yield a.s).sorted
     println("q2: " + q2.selectStatement)
     println("    " + q2.list)
     assertEquals(List("a", "c"), q2.list)
 
-    val q3 = for {
+    val q3 = (for {
       b <- B
       c <- C
       a <- b.a & c.a
-      _ <- Query orderBy a.s
-    } yield a.s
+    } yield a.s).sorted
     println("q3: " + q3.selectStatement)
     println("    " + q3.list)
     assertEquals(List("a", "a"), q3.list)

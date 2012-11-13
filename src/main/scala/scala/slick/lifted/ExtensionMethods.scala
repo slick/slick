@@ -123,11 +123,6 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
 /** Extension methods for Queries of a single Column */
 final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _]) extends AnyVal {
   type OptionTM =  TypedType[Option[B1]]
-  @deprecated("asColumn subverts correct typing and can lead to incorrect queries", "1.0.0")
-  def asColumn: Column[P1] = {
-    val c = q.unpackable.value.mapOp((_, _) => Node(q))
-    c
-  }
   def min(implicit tm: OptionTM) = Library.Min.column[Option[B1]](Node(q))
   def max(implicit tm: OptionTM) = Library.Max.column[Option[B1]](Node(q))
   def avg(implicit tm: OptionTM) = Library.Avg.column[Option[B1]](Node(q))
