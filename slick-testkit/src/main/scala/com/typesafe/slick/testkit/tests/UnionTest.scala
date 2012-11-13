@@ -25,8 +25,7 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     def departmentIs(dept: String) = manager in Managers.where(_.department is dept).map(_.id)
   }
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
-  def test {
+  def testBasic {
     (Managers.ddl ++ Employees.ddl).create
 
     Managers.insertAll(
@@ -51,7 +50,7 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     println("Employees in IT: " + q2.selectStatement)
     q2.foreach(o => println("  "+o))
 
-    val q3 = for(x @ (id, name) <- q1 union q2; _ <- Query.orderBy(name.asc)) yield x
+    val q3 = (q1 union q2).sortBy(_._2.asc)
     Dump(q3, "q3: ")
     println()
     println("Combined and sorted: " + q3.selectStatement)
