@@ -209,15 +209,20 @@ class FuseComprehensions extends Phase {
       case n => n.nodeMapChildren(inline)
     }
 
+    logger.debug("Checking for fuseable inner comprehensions at "+c.from.map(_._1).mkString(", "))
     c.from.foreach {
-      case (sym, from: Comprehension) if isFuseableInner(from) && isFuseable(c, from) =>
-        logger.debug("Found fuseable generator "+sym+": "+from)
-        from.from.foreach { case (s, n) => newFrom += s -> inline(n) }
-        for(n <- from.where) newWhere += inline(n)
-        for((n, o) <- from.orderBy) newOrderBy += inline(n) -> o
-        for(n <- from.groupBy) newGroupBy += inline(n)
-        structs += sym -> narrowStructure(from)
-        fuse = true
+      case t @ (sym, from: Comprehension) if isFuseableInner(from) =>
+        logger.debug(sym+" is fuseable inner")
+        val from2 = createSelect(from)
+        if(isFuseable(c, from2)) {
+          logger.debug("Found fuseable generator "+sym+": "+from2)
+          from2.from.foreach { case (s, n) => newFrom += s -> inline(n) }
+          for(n <- from2.where) newWhere += inline(n)
+          for((n, o) <- from2.orderBy) newOrderBy += inline(n) -> o
+          for(n <- from2.groupBy) newGroupBy += inline(n)
+          structs += sym -> narrowStructure(from2)
+          fuse = true
+        } else newFrom += t
       case t =>
         newFrom += t
     }
@@ -331,7 +336,7 @@ class FuseComprehensions extends Phase {
   /** Create a select for a Comprehension without one. */
   def createSelect(c: Comprehension): Comprehension = if(c.select.isDefined) c else {
     c.from.last match {
-      case (sym, Comprehension(_, _, _, _, Some(Pure(StructNode(struct))), _, _)) =>
+      case (sym, UnionLeft(Comprehension(_, _, _, _, Some(Pure(StructNode(struct))), _, _))) =>
         val r = Ref(sym)
         val copyStruct = StructNode(struct.map { case (field, _) =>
           (field, Select(r, field))
@@ -345,6 +350,13 @@ class FuseComprehensions extends Phase {
         c.copy(select = Some(Pure(copyStruct)))*/
       case _ => c
     }
+  }
+}
+
+object UnionLeft {
+  def unapply(n: Node): Option[Node] = n match {
+    case u: Union => unapply(u.left)
+    case n => Some(n)
   }
 }
 
