@@ -9,14 +9,35 @@ object SlickBuild extends Build {
   /* Custom Settings */
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
+  val publishedScalaSettings = Seq(
+    scalaVersion := "2.10.0-RC2",
+    scalaBinaryVersion := "2.10.0-RC2",
+    //crossScalaVersions ++= "2.10.0-M4" :: Nil,
+    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
+    libraryDependencies in config("macro") <+= scalaVersion("org.scala-lang" % "scala-compiler" % _)
+  )
+
+  val localScalaSettings: Seq[Setting[_]] = Seq(
+    scalaVersion := "2.10.0-unknown",
+    scalaBinaryVersion := "2.10.0-unknown",
+    crossVersion := CrossVersion.Disabled,
+    scalaHome := Some(file("C:/Users/szeiger/code/scala/build/pack")),
+    autoScalaLibrary := false,
+    unmanagedJars <<= scalaInstance.map( _.jars.classpath),
+    unmanagedJars in config("test") <<= scalaInstance.map( _.jars.classpath),
+    unmanagedJars in config("macro") <<= scalaInstance.map( _.jars.classpath)
+  )
+
+  val scalaSettings = publishedScalaSettings
+  //val scalaSettings = localScalaSettings
+
   lazy val sharedSettings = Seq(
+    version := "0.11.2",
     organizationName := "Typesafe",
     organization := "com.typesafe",
     resolvers += Resolver.sonatypeRepo("snapshots"),
     scalacOptions ++= List("-deprecation", "-feature"),
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",
-    // Add scala-compiler dependency for scala.reflect.internal
-    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     //publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)))),
@@ -53,7 +74,7 @@ object SlickBuild extends Build {
     includeFilter in Sphinx := ("*.html" | "*.png" | "*.js" | "*.css" | "*.gif" | "*.txt"),
     // Work around scaladoc problem
     unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
-  )
+  ) ++ scalaSettings
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
@@ -65,14 +86,13 @@ object SlickBuild extends Build {
       testOnly <<= inputTask { argTask => (argTask) map { args => }}
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ inConfig(config("macro"))(Defaults.configSettings) ++ Seq(
+    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (),
       testOnly <<= inputTask { argTask => (argTask) map { args => }},
       ivyConfigurations += config("macro").hide.extend(Compile),
-      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
