@@ -75,14 +75,15 @@ trait Node extends NodeGenerator {
 }
 
 object Node extends Logging {
-  def apply(o:Any): Node =
+  def apply(o: Any): Node =
     if(o == null) LiteralNode(null)
     else if(o.isInstanceOf[WithOp] && (o.asInstanceOf[WithOp].op ne null)) Node(o.asInstanceOf[WithOp].op)
     else if(o.isInstanceOf[NodeGenerator]) {
       val gen = o.asInstanceOf[NodeGenerator]
       if(gen.nodeDelegate eq gen) gen.nodeDelegate else Node(gen.nodeDelegate)
     }
-    else if(o.isInstanceOf[Product]) ProductNode(o.asInstanceOf[Product].productIterator.toSeq)
+    else if(o.isInstanceOf[Product])
+      ProductNode(o.asInstanceOf[Product].productIterator.map(apply).toSeq)
     else throw new SlickException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
 
   private def logType(n: Node): Unit =
@@ -117,8 +118,8 @@ trait ProductNode extends Node { self =>
 }
 
 object ProductNode {
-  def apply(s: Seq[Any]): ProductNode = new ProductNode {
-    lazy val nodeChildren = s.map(Node(_))
+  def apply(s: Seq[Node]): ProductNode = new ProductNode {
+    val nodeChildren = s
   }
   def unapply(p: ProductNode) = Some(p.nodeChildren)
 }
