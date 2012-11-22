@@ -17,19 +17,25 @@ object SlickBuild extends Build {
     libraryDependencies in config("macro") <+= scalaVersion("org.scala-lang" % "scala-compiler" % _)
   )
 
-  val localScalaSettings: Seq[Setting[_]] = Seq(
+  def localScalaSettings(path: String): Seq[Setting[_]] = Seq(
     scalaVersion := "2.10.0-unknown",
     scalaBinaryVersion := "2.10.0-unknown",
     crossVersion := CrossVersion.Disabled,
-    scalaHome := Some(file("C:/Users/szeiger/code/scala/build/pack")),
+    scalaHome := Some(file(path)),
     autoScalaLibrary := false,
     unmanagedJars <<= scalaInstance.map( _.jars.classpath),
     unmanagedJars in config("test") <<= scalaInstance.map( _.jars.classpath),
     unmanagedJars in config("macro") <<= scalaInstance.map( _.jars.classpath)
   )
 
-  val scalaSettings = publishedScalaSettings
-  //val scalaSettings = localScalaSettings
+  val scalaSettings = {
+    sys.props("scala.home.local") match {
+      case null => publishedScalaSettings
+      case path =>
+        scala.Console.err.println("Using local scala at " + path)
+        localScalaSettings(path)
+    }
+  }
 
   lazy val sharedSettings = Seq(
     version := "0.11.2",
