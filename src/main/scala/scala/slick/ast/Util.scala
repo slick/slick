@@ -17,7 +17,7 @@ object Util {
     r
   }
 
-  def mapOrNone[A <: AnyRef](c: Traversable[A], f: A => A): Option[IndexedSeq[A]] = {
+  def mapOrNone[A <: AnyRef](c: Traversable[A])(f: A => A): Option[IndexedSeq[A]] = {
     val b = new ArrayBuffer[A]
     var changed = false
     c.foreach { x =>

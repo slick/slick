@@ -91,10 +91,10 @@ class FunctionSymbol(val name: String) extends Symbol {
   }
 
   /** Create a typed Apply of this Symbol */
-  def typed(tpe: Type, ch: Node*): Apply with TypedNode = Apply(this, ch, tpe)
+  def typed(tpe: Type, ch: Node*): Apply with TypedNode = Apply(this, ch)(tpe)
 
   /** Create a typed Apply of this Symbol */
-  def typed[T : StaticType](ch: Node*): Apply with TypedNode = Apply(this, ch, implicitly[StaticType[T]])
+  def typed[T : StaticType](ch: Node*): Apply with TypedNode = Apply(this, ch)(implicitly[StaticType[T]])
 
   override def toString = "Function "+name
 }

@@ -13,7 +13,7 @@ trait Symbol {
 /** A named symbol which refers to an (aliased or unaliased) field. */
 case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends Symbol with Typed
 
-/** An element of a ProductNode */
+/** An element of a ProductNode (using a 1-based index) */
 case class ElementSymbol(idx: Int) extends Symbol {
   def name = "_" + idx
 }
@@ -50,12 +50,11 @@ trait DefNode extends Node {
     val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
       nodePostGeneratorChildren.iterator.map{ n => (None, n) }).toIndexedSeq
     val mapped = all.map(f.tupled)
-    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false))
-      nodeRebuild(mapped).asInstanceOf[DefNode]
+    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) nodeRebuild(mapped).asInstanceOf[DefNode]
     else this
   }
   final def nodeMapGenerators(f: Symbol => Symbol): Node =
-    mapOrNone(nodeGenerators.map(_._1), f).fold[Node](this)(s => nodeRebuildWithGenerators(s.toIndexedSeq))
+    mapOrNone(nodeGenerators.map(_._1))(f).fold[Node](this) { s => nodeRebuildWithGenerators(s.toIndexedSeq) }
 }
 
 /** A Node which references a Symbol. */

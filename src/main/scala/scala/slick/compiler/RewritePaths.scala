@@ -4,6 +4,7 @@ import scala.collection.mutable.{HashSet, HashMap}
 import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
+import TypeUtil._
 
 /**
  * Remove TableExpansions and TableRefExpansions, and flatten ProductNodes
@@ -141,7 +142,11 @@ class RewritePaths extends Phase {
   }
 
   def removeExpansion(n: Node) = n match {
-    case TableExpansion(gen, t, cols) => Bind(gen, t, Pure(cols))
+    case TableExpansion(gen, t, cols) =>
+      val tableRefs = cols.collect[Select] { case s @ Select(Ref(gen), _) => s }
+      val structType = StructType(tableRefs.map{ case sel @ Select(_, sym) => (sym, sel.nodeType) }(collection.breakOut))
+      val cons = t.nodeType.asCollectionType.cons
+      Bind(gen, t.nodeRebuildWithType(CollectionType(cons, structType)), Pure(cols))
     case TableRefExpansion(_, ref, cols) => cols
     case n => n
   }

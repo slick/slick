@@ -17,7 +17,7 @@ trait SimpleFunction extends Node {
 object SimpleFunction {
   def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Column[_]] => Column[T] with SimpleFunction) = {
     lazy val builder: (Seq[NodeGenerator] => Column[T] with SimpleFunction) = paramsC =>
-      new Column[T] with SimpleFunction {
+      new Column[T] with SimpleFunction with TypedNode {
         val name = fname
         override val scalar = fn
         lazy val nodeChildren = paramsC.map(Node(_))
@@ -48,7 +48,7 @@ trait SimpleBinaryOperator extends BinaryNode {
 object SimpleBinaryOperator {
   def apply[T : TypedType](fname: String): ((Column[_], Column[_]) => Column[T] with SimpleBinaryOperator) = {
     lazy val builder: ((NodeGenerator, NodeGenerator) => Column[T] with SimpleBinaryOperator) = (leftC, rightC) =>
-      new Column[T] with SimpleBinaryOperator {
+      new Column[T] with SimpleBinaryOperator with TypedNode {
         val name = fname
         val left = Node(leftC)
         val right = Node(rightC)
@@ -58,7 +58,9 @@ object SimpleBinaryOperator {
   }
 }
 
-case class SimpleLiteral(name: String) extends NullaryNode
+case class SimpleLiteral(name: String)(val tpe: Type) extends NullaryNode with TypedNode {
+  def nodeRebuild = copy()(tpe)
+}
 
 trait SimpleExpression extends Node {
   def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder): Unit
@@ -67,7 +69,7 @@ trait SimpleExpression extends Node {
 object SimpleExpression {
   def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Column[_]] => Column[T] with SimpleExpression) = {
     lazy val builder: (Seq[NodeGenerator] => Column[T] with SimpleExpression) = paramsC =>
-      new Column[T] with SimpleExpression {
+      new Column[T] with SimpleExpression with TypedNode {
         def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(nodeChildren.toSeq, qb)
         val nodeChildren = paramsC.map(Node(_))
         protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)

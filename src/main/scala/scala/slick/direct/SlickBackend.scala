@@ -2,6 +2,7 @@ package scala.slick.direct
 
 import scala.slick.SlickException
 import scala.language.implicitConversions
+import language.existentials
 import scala.slick.driver._
 import scala.slick.lifted.{Shape, ShapedValue}
 import scala.slick.{ast => sq}
@@ -88,18 +89,31 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     tpe.member( nme.CONSTRUCTOR ).typeSignature match {
       case MethodType( params, resultType ) => params // TODO check that the field order is correct
     }
-  
-  def extractColumn( sym:Symbol, sq_symbol:sq.Node ) = {
-    val column_name = mapper.fieldToColumn( sym )
-    sq.Select(sq_symbol, sq.FieldSymbol(column_name)(List(),null))
-  }
+
+  def columnName( sym:Symbol ) = mapper.fieldToColumn( sym )
+  def columnType( sym:Symbol ) = columnTypes(sym.typeSignature.typeSymbol.name.decoded)
+  def columnField( sym:Symbol ) = sq.FieldSymbol( columnName(sym) )( List(), columnType(sym) )
+  def columnSelect( sym:Symbol, sq_symbol:sq.Node ) =
+    sq.Select(
+      sq.Ref(sq_symbol.nodeIntrinsicSymbol),
+      columnField(sym)
+    ).nodeTyped( columnType(sym) )
 
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
-    val table = new sq.TableNode with sq.NullaryNode with sq.WithOp {
-      val tableName = mapper.typeToTable( typetag.tpe )
-      def columns = getConstructorArgs( typetag.tpe ).map{extractColumn(_,sq.Node(this))} // use def here, not val, so expansion is still correct after cloning
+    def _fields = getConstructorArgs(typetag.tpe)
 
-      def nodeShaped_* = ShapedValue(sq.ProductNode(columns), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
+    val table = new sq.TableNode with sq.WithOp with sq.TypedNode {
+      val schemaName = None
+      val tableName = mapper.typeToTable( typetag.tpe )
+      def nodeShaped_* = ShapedValue(
+        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym,sq.Node(this)) ) ),
+        Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]]
+      )
+      def tpe = sq.CollectionType(
+        sq.CollectionTypeConstructor.default,
+        sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym) ))
+      )
+      override def nodeWithComputedType(scope: sq.SymbolScope): sq.Node = nodeRebuild
     }
     new Query( table, Scope() )
   }
@@ -143,7 +157,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         // match columns
         case Select(from,name) if mapper.isMapped( from.tpe.widen )
         =>
-          extractColumn( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
+          columnSelect( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
 /*
         // TODO: Where is this needed?
         case Select(a:This,b) =>

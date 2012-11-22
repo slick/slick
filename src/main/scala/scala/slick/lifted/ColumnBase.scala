@@ -14,7 +14,7 @@ trait Rep[T] extends NodeGenerator with WithOp { self: ValueLinearizer[T] => }
 /** Common base trait for record values
   * (anything that is isomorphic to a tuple of scalar values).
   */
-trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T]
+trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T] with Typed
 
 /** Base classs for columns.
   */
@@ -65,6 +65,7 @@ object Column {
 final case class ConstColumn[T : TypedType](value: T) extends Column[T] with LiteralNode {
   override def toString = "ConstColumn["+SimpleTypeName.forVal(value)+"] "+value
   def bind = new BindColumn(value)
+  def nodeRebuild = copy()
 }
 
 /**
@@ -72,12 +73,15 @@ final case class ConstColumn[T : TypedType](value: T) extends Column[T] with Lit
  */
 final case class BindColumn[T : TypedType](value: T) extends Column[T] with NullaryNode with LiteralNode {
   override def toString = "BindColumn["+SimpleTypeName.forVal(value)+"] "+value
+  def nodeRebuild = copy()
 }
 
 /**
  * A parameter from a QueryTemplate which gets turned into a bind variable.
  */
-final case class ParameterColumn[T : TypedType](extractor: (_ => T)) extends Column[T] with NullaryNode
+final case class ParameterColumn[T : TypedType](extractor: (_ => T)) extends Column[T] with NullaryNode with TypedNode {
+  def nodeRebuild = copy()
+}
 
 /**
  * A WrappedColumn can be used to change a column's nullValue.

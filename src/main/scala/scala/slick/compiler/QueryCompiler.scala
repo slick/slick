@@ -80,7 +80,8 @@ object QueryCompiler {
     // PathRewriter
     Phase.rewritePaths,
     Phase.relabelUnions,
-    Phase.pruneFields
+    Phase.pruneFields,
+    Phase.assignTypes
   )
 
   val relationalPhases = Vector(
@@ -116,6 +117,7 @@ object Phase {
   val inline = new Inline
   val letDynamicEliminated = new LetDynamicEliminated
   val assignUniqueSymbols = new AssignUniqueSymbols
+  val assignTypes = new AssignTypes
   val forceOuterBinds = new ForceOuterBinds
   val expandTables = new ExpandTables
   val expandRefs = new ExpandRefs

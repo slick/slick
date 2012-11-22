@@ -49,8 +49,14 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
 
-    case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode
-    case class RowNumGen(sym: AnonSymbol) extends NullaryNode
+    case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
+      def tpe = StaticType.Long
+      def nodeRebuild = copy()
+    }
+    case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
+      def tpe = StaticType.Long
+      def nodeRebuild = copy()
+    }
 
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
