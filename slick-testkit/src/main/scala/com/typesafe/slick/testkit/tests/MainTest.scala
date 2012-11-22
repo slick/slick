@@ -2,6 +2,8 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import slick.lifted.{ColumnBase, Projection3}
+import slick.ast.TypedType
 
 class MainTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
@@ -12,8 +14,7 @@ class MainTest(val tdb: TestDB) extends TestkitTest {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
-    def * = id ~ first ~ last
-
+    def * = (id, first, last)
     def orders = Orders where { _.userID is id }
   }
 
@@ -23,7 +24,7 @@ class MainTest(val tdb: TestDB) extends TestkitTest {
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped")
     def rebate = column[Option[Boolean]]("rebate")
-    def * = userID ~ orderID ~ product ~ shipped ~ rebate
+    def * = (userID, orderID, product, shipped, rebate)
   }
 
   def test {
@@ -31,7 +32,7 @@ class MainTest(val tdb: TestDB) extends TestkitTest {
     val ddl = Users.ddl ++ Orders.ddl
     ddl.createStatements.foreach(println)
     ddl.create
-    println((Users.first ~ Users.last).insertStatement)
+    println((Users.first, Users.last).shaped.insertStatement)
     val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
     val ins2 = (Users.first ~ Users.last).insertAll(
       ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )

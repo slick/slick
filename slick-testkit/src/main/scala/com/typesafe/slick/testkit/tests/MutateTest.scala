@@ -12,7 +12,7 @@ class MutateTest(val tdb: TestDB) extends TestkitTest {
       def id = column[Int]("ID", O.PrimaryKey)
       def first = column[String]("FIRST")
       def last = column[String]("LAST")
-      def * = id ~ first ~ last
+      def * = (id, first, last)
     }
 
     Users.ddl.create

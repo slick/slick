@@ -15,7 +15,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     object T extends Table[(Int, Array[Byte])]("test") {
       def id = column[Int]("id")
       def data = column[Array[Byte]]("data")
-      def * = id ~ data
+      def * = (id, data)
     }
 
     T.ddl.createStatements foreach println
@@ -34,7 +34,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
       def byteData = column[Byte]("byte_data")
       def doubleData = column[Double]("double_data")
       def floatData = column[Float]("float_data")
-      def * = id ~ intData ~ longData ~ shortData ~ byteData ~ doubleData ~ floatData
+      def * = (id, intData, longData, shortData, byteData, doubleData, floatData)
     }
 
     T.ddl.createStatements foreach println
@@ -70,7 +70,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     object T extends Table[(Int, Blob)]("test3") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
-      def * = id ~ data
+      def * = (id, data)
     }
 
     sharedSession.withTransaction {
@@ -101,7 +101,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     object T extends Table[(Int, Serialized[List[Int]])]("t") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Serialized[List[Int]]]("b")
-      def * = id ~ b
+      def * = (id, b)
     }
 
     sharedSession.withTransaction {

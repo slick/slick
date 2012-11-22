@@ -13,7 +13,7 @@ class NestingTest(val tdb: TestDB) extends TestkitTest {
       def a = column[Int]("A")
       def b = column[String]("B")
       def c = column[String]("C")
-      def * = a ~ b ~ c
+      def * = (a, b, c)
     }
 
     T.ddl.create

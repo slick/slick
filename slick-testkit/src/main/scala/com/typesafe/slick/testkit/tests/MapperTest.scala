@@ -16,8 +16,8 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
-      def * = id.? ~ first ~ last <> (User, User.unapply _)
-      def forInsert = first ~ last <>
+      def * = (id.?, first, last) <> (User, User.unapply _)
+      def forInsert = (first, last) <>
         ({ (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
       val findByID = createFinderBy(_.id)
     }
@@ -60,7 +60,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     object Ts extends Table[Data]("T") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = a ~ b <> (Data, Data.unapply _)
+      def * = (a, b) <> (Data, Data.unapply _)
     }
 
     Ts.ddl.create
@@ -101,7 +101,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def c = column[Option[Bool]]("c")
-      def * = id ~ b ~ c
+      def * = (id, b, c)
     }
 
     T.ddl.create
@@ -130,7 +130,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def c = column[Option[Bool]]("c")
-      def * = id ~ b ~ c
+      def * = (id, b, c)
     }
 
     T.ddl.create

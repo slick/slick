@@ -12,7 +12,7 @@ class PrimaryKeyTest(val tdb: TestDB) extends TestkitTest {
       def k1 = column[Int]("k1")
       def k2 = column[Int]("k2")
       def s = column[String]("s")
-      def * = k1 ~ k2 ~ s
+      def * = (k1, k2, s)
       def pk = primaryKey("pk_a", (k1, k2))
     }
 

@@ -9,14 +9,14 @@ class ZipTest(val tdb: TestDB) extends TestkitTest {
   object Categories extends Table[(Int, String)]("categories") {
     def id = column[Int]("id")
     def name = column[String]("name")
-    def * = id ~ name
+    def * = (id, name)
   }
 
   object Posts extends Table[(Int, String, Int)]("posts") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def title = column[String]("title")
     def category = column[Int]("category")
-    def * = id ~ title ~ category
+    def * = (id, title, category)
   }
 
   def testZip = ifCap(scap.zip) {
@@ -27,14 +27,14 @@ class ZipTest(val tdb: TestDB) extends TestkitTest {
       (3, "Windows"),
       (2, "ScalaQuery"),
       (4, "Software")
-      )
-    Posts.title ~ Posts.category insertAll (
+    )
+    (Posts.title, Posts.category).shaped insertAll (
       ("Test Post", -1),
       ("Formal Language Processing in Scala, Part 5", 1),
       ("Efficient Parameterized Queries in ScalaQuery", 2),
       ("Removing Libraries and HomeGroup icons from the Windows 7 desktop", 3),
       ("A ScalaQuery Update", 2)
-      )
+    )
 
     val q1 = for {
       (c, i) <- Categories.sortBy(_.id).zipWithIndex

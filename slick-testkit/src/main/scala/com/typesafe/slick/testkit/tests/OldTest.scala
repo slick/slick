@@ -9,23 +9,18 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
   def test {
     object Users extends Table[(Int, String, String)]("users") {
       def id = column[Int]("id")
-
       def first = column[String]("first")
-
       def last = column[String]("last")
-
-      def * = id ~ first ~ last
+      def * = (id, first, last)
     }
 
     object Orders extends Table[(Int, Int)]("orders") {
       def userID = column[Int]("userID")
-
       def orderID = column[Int]("orderID")
-
-      def * = userID ~ orderID
+      def * = (userID, orderID)
     }
 
-    def dump(n: String, q: Query[Rep[_], _]) {
+    def dump(n: String, q: Query[_, _]) {
       Dump(q, n + ": ")
       println(tdb.driver.buildSelectStatement(q))
       println()
@@ -42,22 +37,22 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
       o <- Orders where {
         o => (u.id is o.userID) && (u.first.isNotNull)
       }
-    } yield u.first ~ u.last ~ o.orderID
+    } yield (u.first, u.last, o.orderID)
 
-    val q3 = for (u <- Users where (_.id is 42)) yield u.first ~ u.last
+    val q3 = for (u <- Users where (_.id is 42)) yield (u.first, u.last)
 
     val q4 = (for {
       (u, o) <- Users innerJoin Orders on (_.id is _.userID)
-    } yield (u.last, u.first ~ o.orderID)).sortBy(_._1).map(_._2)
+    } yield (u.last, (u.first, o.orderID))).sortBy(_._1).map(_._2)
 
     val q6a =
       (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
 
     val q6b =
-      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield (o.orderID, o.userID)).sortBy(_._1)
 
     val q6c =
-      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => (o.orderID, o.userID))
 
     dump("q1", q1)
     dump("q2", q2)

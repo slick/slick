@@ -12,7 +12,7 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
     object T extends Table[(String, String)]("users") {
       def a = column[String]("a")
       def b = column[String]("b")
-      def * = a ~ b
+      def * = (a, b)
     }
 
     T.ddl.create

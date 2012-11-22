@@ -10,7 +10,7 @@ class IterateeTest(val tdb: TestDB) extends TestkitTest {
   object A extends Table[(String, Int)]("a") {
     def s = column[String]("s", O.PrimaryKey)
     def i = column[Int]("i")
-    def * = s ~ i
+    def * = (s, i)
   }
 
   def test {

@@ -9,14 +9,14 @@ class TemplateTest(val tdb: TestDB) extends TestkitTest {
   object Users extends Table[(Int, String)]("users") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first")
-    def * = id ~ first
+    def * = (id, first)
   }
 
   object Orders extends Table[(Int, Int, String)]("orders") {
     def userID = column[Int]("userID")
     def orderID = column[Int]("orderID", O.PrimaryKey, O.AutoInc)
     def product = column[String]("product")
-    def * = userID ~ orderID ~ product
+    def * = (userID, orderID, product)
   }
 
   def test {
@@ -26,7 +26,7 @@ class TemplateTest(val tdb: TestDB) extends TestkitTest {
 
     Users.first.insertAll("Homer", "Marge", "Apu", "Carl", "Lenny")
     for(uid <- Users.map(_.id))
-      (Orders.userID ~ Orders.product).insert(uid, if(uid < 4) "Product A" else "Product B")
+      (Orders.userID, Orders.product).shaped.insert(uid, if(uid < 4) "Product A" else "Product B")
 
     def userNameByID1(id: Int) = for(u <- Users if u.id is id.bind) yield u.first
     def q1 = userNameByID1(3)

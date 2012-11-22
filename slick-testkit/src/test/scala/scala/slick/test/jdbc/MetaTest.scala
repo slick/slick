@@ -20,7 +20,7 @@ class MetaTest(val tdb: TestDB) extends DBTest {
     def id = column[Int]("id", O.PrimaryKey)
     def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
-    def * = id ~ first ~ last
+    def * = (id, first, last)
   }
 
   object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
@@ -29,7 +29,7 @@ class MetaTest(val tdb: TestDB) extends DBTest {
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped", O Default false)
     def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
-    def * = userID ~ orderID ~ product ~ shipped ~ rebate
+    def * = (userID, orderID, product, shipped, rebate)
     def userFK = foreignKey("user_fk", userID, Users)(_.id)
   }
 

@@ -16,14 +16,14 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     object Categories extends Table[(Int, String)]("categories") {
       def id = column[Int]("id", O.PrimaryKey)
       def name = column[String]("name")
-      def * = id ~ name
+      def * = (id, name)
     }
 
     object Posts extends Table[(Int, String, Int)]("posts") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category", O.Nullable)
-      def * = id ~ title ~ category
+      def * = (id, title, category)
       def categoryFK = foreignKey("category_fk", category, Categories)(_.id)
       def categoryJoin = Categories.where(_.id === category)
     }
@@ -40,7 +40,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
       (3, "Windows"),
       (4, "Software")
     )
-    Posts.title ~ Posts.category.? insertAll (
+    (Posts.title, Posts.category.?).shaped insertAll (
       ("Test Post", None),
       ("Formal Language Processing in Scala, Part 5", Some(1)),
       ("Efficient Parameterized Queries in ScalaQuery", Some(2)),
@@ -78,7 +78,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
       def k1 = column[Int]("k1")
       def k2 = column[Int]("k2")
       def s = column[String]("s")
-      def * = k1 ~ k2 ~ s
+      def * = (k1, k2, s)
       def bFK = foreignKey("b_fk", (k1, k2), B)(b => (b.f1, b.f2), onDelete = ForeignKeyAction.Cascade)
     }
 
@@ -86,7 +86,7 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
       def f1 = column[Int]("f1")
       def f2 = column[Int]("f2")
       def s = column[String]("s")
-      def * = f1 ~ f2 ~ s
+      def * = (f1, f2, s)
       def bIdx1 = index("b_idx1", (f1, f2), unique = true)
     }
 
@@ -121,13 +121,13 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     object A extends Table[(Int, String)]("a2") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
-      def * = id ~ s
+      def * = (id, s)
     }
 
     class Dep(n: String) extends Table[(Int, Int)](n) {
       def id = column[Int]("id", O.PrimaryKey)
       def aRef = column[Int]("aRef")
-      def * = id ~ aRef
+      def * = (id, aRef)
       def a = foreignKey(n+"_a2_fk", aRef, A)(_.id)
     }
 
@@ -170,21 +170,21 @@ class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
     object A extends Table[(Int, String)]("a3") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
-      def * = id ~ s
+      def * = (id, s)
       def bs = AToB.filter(_.aId === id).flatMap(_.bFK)
     }
 
     object B extends Table[(Int, String)]("b3") {
       def id = column[Int]("id", O.PrimaryKey)
       def s = column[String]("s")
-      def * = id ~ s
+      def * = (id, s)
       def as = AToB.filter(_.bId === id).flatMap(_.aFK)
     }
 
     object AToB extends Table[(Int, Int)]("a3_to_b3") {
       def aId = column[Int]("a")
       def bId = column[Int]("b")
-      def * = aId ~ bId
+      def * = (aId, bId)
       def aFK = foreignKey("a3_fk", aId, A)(a => a.id)
       def bFK = foreignKey("b3_fk", bId, B)(b => b.id)
     }
