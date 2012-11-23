@@ -80,15 +80,15 @@ object QueryCompiler {
     // PathRewriter
     Phase.rewritePaths,
     Phase.relabelUnions,
-    Phase.pruneFields,
-    Phase.assignTypes
+    Phase.pruneFields
   )
 
   val relationalPhases = Vector(
     Phase.resolveZipJoins,
     Phase.convertToComprehensions,
     Phase.fuseComprehensions,
-    Phase.fixRowNumberOrdering
+    Phase.fixRowNumberOrdering,
+    Phase.assignTypes
   )
 
   /** The default compiler */
