@@ -101,4 +101,19 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(Set("foo%"), q3.to[Set])
     }
   }
+
+  def testCast {
+    object T1 extends Table[(String, Int)]("t1_3") {
+      def a = column[String]("a")
+      def b = column[Int]("b")
+      def * = a ~ b
+    }
+
+    T1.ddl.create
+    T1.insertAll(("foo", 1), ("bar", 2))
+
+    val q1 = T1.map(t1 => t1.a ++ t1.b.asColumnOf[String])
+    val r1 = q1.to[Set]
+    assertEquals(Set("foo1", "bar2"), r1)
+  }
 }
