@@ -37,7 +37,10 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   val operatorMap : Vector[ (Map[String, FunctionSymbol], List[List[Type]]) ] = {
     import Library._
     Vector(
-      Map( "==" -> Library.== )
+      Map( "unary_!" -> Library.Not )
+      ->
+      List(List(typeOf[Any])),
+      Map( "==" -> Library.==, "!=" -> Library.== )
       ->
       List(
         List(typeOf[Any]),
@@ -63,7 +66,6 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       )
     )
   }
-
 
   object removeTypeAnnotations extends Transformer {
     def apply( tree:Tree ) = transform(tree)
@@ -134,9 +136,37 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     }
     case ident:Ident => ident.symbol.asFreeTerm.value
   }
+  def matchingOps(term:Name,actualTypes:List[Type]) = {
+    println((term.decoded,actualTypes))
+    operatorMap.collect{
+      case (str2sym, types)
+            if str2sym.isDefinedAt( term.decoded )
+              && types.zipWithIndex.forall{
+                   case (expectedTypes, index) => expectedTypes.exists( actualTypes(index) <:< _ ) 
+                 }
+      => str2sym( term.decoded )
+    }
+  }
   
   private def scala2scalaquery_typed( tree:Tree, scope : Scope ) : Query = {
     def s2sq( tree:Tree, scope:Scope=scope ) : Query = scala2scalaquery_typed( tree, scope )
+    def applyOp( lhs:Tree, term:Name, args:List[Tree], resultType : Type ) : sq.Node = {
+      val actualTypes = lhs.tpe :: args.map(_.tpe)
+      val sig = lhs.tpe +"."+term.decoded+(if(args.length > 0)"("+ args.map(_.tpe).mkString(",") +")" else "")
+      if( term.decoded == "!=" ){
+        Library.Not.typed(
+         columnTypes("Boolean"),
+         applyOp( lhs, newTermName("=="), args, resultType )
+       )
+      } else {
+        val matchingOps_ = matchingOps(term,actualTypes)
+        matchingOps_.size match{
+          case 0 => throw new SlickException("Operator not supported: "+ sig)
+          case 1 => matchingOps_.head.typed(columnTypes(resultType.toString), (s2sq( lhs ).node :: args.map( s2sq(_).node )) : _* )
+          case _ => throw new SlickException("Internal Slick error: resolution of "+ sig +" was ambigious")
+        }
+      }
+    }
     implicit def node2Query(node:sq.Node) = new Query( node, scope )
     try{
       val string_types = List("String","java.lang.String")
@@ -210,22 +240,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
             case "+" => Library.Concat.typed[String](s2sq( lhs ).node, s2sq( rhs ).node )
           }
 
-        case a@Apply(op@Select(lhs,term),rhs::Nil) => {
-          val actualTypes = lhs.tpe :: rhs.tpe :: Nil //.map(_.tpe).toList
-          val matching_ops = ( operatorMap.collect{
-              case (str2sym, types)
-                    if str2sym.isDefinedAt( term.decoded )
-                      && types.zipWithIndex.forall{
-                           case (expectedTypes, index) => expectedTypes.exists( actualTypes(index) <:< _ ) 
-                         }
-              => str2sym( term.decoded )
-          })
-          matching_ops.size match{
-            case 0 => throw new SlickException("Operator not supported: "+ lhs.tpe +"."+term.decoded+"("+ rhs.tpe +")")
-            case 1 => matching_ops.head.typed(columnTypes(a.tpe.toString), s2sq( lhs ).node, s2sq( rhs ).node )
-            case _ => throw new SlickException("Internal Slick error: resolution of "+ lhs.tpe +" "+term.decoded+" "+ rhs.tpe +" was ambigious")
-          }
-        }
+        case a@Apply(op@Select(lhs,term),args) if matchingOps(term,lhs.tpe :: args.map(_.tpe)).size > 0 => applyOp(lhs,term,args,a.tpe)
+        case op@Select(lhs,term) if matchingOps(term,lhs.tpe :: Nil).size > 0 => applyOp(lhs,term,List(),op.tpe)
         
         // Tuples
         case Apply(
@@ -242,6 +258,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
 
         case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
             => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query
+
 
         case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }

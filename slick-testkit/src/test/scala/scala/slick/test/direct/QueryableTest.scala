@@ -262,6 +262,16 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
            for( o <-  query; i <-  query; if i.sales == o.sales  ) yield i.name,
           (for( o <- iquery; i <- iquery; if i.sales == o.sales ) yield i.name).toSeq
       ))
+      
+      assert(resultsMatch(
+        for( v1<-query;v2<-query; if !(v1.name == v2.name)) yield (v1.name,v2.name)
+        ,for( v1<-inMem;v2<-inMem; if !(v1.name == v2.name)) yield (v1.name,v2.name)
+      ))
+      
+      assert(resultsMatch(
+        for( v1<-query;v2<-query; if v1.name != v2.name) yield (v1.name,v2.name)
+        ,for( v1<-inMem;v2<-inMem; if v1.name != v2.name) yield (v1.name,v2.name)
+      ))
     }
   }
 }
