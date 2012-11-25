@@ -134,6 +134,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       val mm = i.reflectMethod( m )
       mm()
     }
+    case Literal(Constant(x)) => x
     case ident:Ident => ident.symbol.asFreeTerm.value
   }
   def matchingOps(term:Name,actualTypes:List[Type]) = {
@@ -204,21 +205,41 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         => s2sq( queryable ).node
         
         // match queryable methods
-        case Apply(Select(scala_lhs,term),Function( arg::Nil, body )::Nil)
+        case Apply(Select(scala_lhs,term),rhs::Nil)
           if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure
         =>
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
-          val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
-          val rhs = s2sq(body, new_scope)
-          new Query( term.decoded match {
-            case "filter"     => sq.Filter( sq_symbol, sq_lhs, rhs.node )
-            case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(rhs.node) )
-            case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, rhs.node )
-            case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
-          },
-            new_scope
-          )
+          rhs match {
+            case Function( arg::Nil, body ) =>
+              val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
+              val sq_rhs = s2sq(body, new_scope).node
+              new Query( term.decoded match {
+                case "filter"     => sq.Filter( sq_symbol, sq_lhs, sq_rhs )
+                case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(sq_rhs) )
+                case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, sq_rhs )
+                case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
+              },
+              new_scope
+            )
+            case _ => new Query( term.decoded match {
+                case "drop"       =>
+                  val i = eval(rhs)
+                  if( !i.isInstanceOf[Int] ){
+                    throw new Exception("drop expects Int, found "+i.getClass)
+                  }
+                  sq.Drop( sq_lhs, i.asInstanceOf[Int] ) 
+                case "take"       =>
+                  val i = eval(rhs)
+                  if( !i.isInstanceOf[Int] ){
+                    throw new Exception("take expects Int, found "+i.getClass)
+                  }
+                  sq.Take( sq_lhs, i.asInstanceOf[Int] ) 
+                case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
+              },
+              scope
+            )
+          }
 
         // FIXME: this case is required because of a bug, but should be covered by the next case
         case d@Apply(Select(lhs,term),rhs::Nil)

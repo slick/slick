@@ -272,6 +272,17 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         for( v1<-query;v2<-query; if v1.name != v2.name) yield (v1.name,v2.name)
         ,for( v1<-inMem;v2<-inMem; if v1.name != v2.name) yield (v1.name,v2.name)
       ))
+      
+      assert(resultsMatch(
+        query.take(2)
+        ,inMem.take(2)
+      ))
+      
+      assert(resultsMatch(
+        query.drop(2)
+        ,inMem.drop(2)
+      ))
+      
     }
   }
 }

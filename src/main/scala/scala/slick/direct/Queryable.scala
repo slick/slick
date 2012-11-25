@@ -72,9 +72,9 @@ object QueryableMacros{
       (c: scala.reflect.macros.Context)
       : c.Expr[QueryableValue[Int]] = _scalar_helper[c.type]( c )( "length" )
 
-  private def _helper[C <: Context,S:c.WeakTypeTag]( c:C )( name:String, projection:c.Expr[_] ) = {
+  private def _helper[C <: Context,S:c.WeakTypeTag]( c:C )( name:String, arg:c.Expr[_] ) = {
     val utils = new QueryableUtils[c.type](c)
-    val reifiedExpression = utils.apply[Queryable[S]]( c.prefix.tree, name, projection.tree )
+    val reifiedExpression = utils.apply[Queryable[S]]( c.prefix.tree, name, arg.tree )
     c.universe.reify{ Queryable.factory[S]( reifiedExpression.splice )}
   }
 
@@ -87,6 +87,12 @@ object QueryableMacros{
   def filter[T:c.WeakTypeTag]
   (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => Boolean]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "filter", projection )
+  def drop[T:c.WeakTypeTag]
+  (c: scala.reflect.macros.Context)
+  (i: c.Expr[Int]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "drop", i )
+  def take[T:c.WeakTypeTag]
+  (c: scala.reflect.macros.Context)
+  (i: c.Expr[Int]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "take", i )
 }
 
 class QueryableValue[T]( val value : ru.Expr[T] )
@@ -101,6 +107,8 @@ class QueryOps[T]{
   def map[S]( projection: T => S ) : BaseQueryable[S] = ???
   def flatMap[S]( projection: T => BaseQueryable[S] ) : BaseQueryable[S] = ???
   def filter( projection: T => Boolean ) : BaseQueryable[T] = ???
+  def drop( i:Int ) : BaseQueryable[T] = ???
+  def take( i:Int ) : BaseQueryable[T] = ???
   def length[S] : Int = ???  
 }
 
@@ -109,5 +117,7 @@ class Queryable[T]( expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTa
   def flatMap[S]( projection: T => Queryable[S] ) : Queryable[S] = macro QueryableMacros.flatMap[T,S]
   def filter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
   def withFilter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]  
+  def drop( i:Int ) : Queryable[T] = macro QueryableMacros.drop[T]
+  def take( i:Int ) : Queryable[T] = macro QueryableMacros.take[T]
   def length : QueryableValue[Int]  = macro QueryableMacros.length
 }
