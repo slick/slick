@@ -128,14 +128,14 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     ( typed_tree.tpe, scala2scalaquery_typed( removeTypeAnnotations(typed_tree), scope ) )
   }
   private def eval( tree:Tree ) :Any = tree match {
+    case Literal(Constant(x)) => x
+    case ident:Ident => ident.symbol.asFreeTerm.value
     case Select(from,name) => {
       val i = cm.reflect( eval(from) )
       val m = i.symbol.typeSignature.member( name ).asMethod
       val mm = i.reflectMethod( m )
       mm()
     }
-    case Literal(Constant(x)) => x
-    case ident:Ident => ident.symbol.asFreeTerm.value
   }
   def matchingOps(term:Name,actualTypes:List[Type]) = {
     println((term.decoded,actualTypes))

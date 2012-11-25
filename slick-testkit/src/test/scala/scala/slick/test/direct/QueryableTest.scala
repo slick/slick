@@ -71,8 +71,16 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     }
     def fail : Unit = fail()
     def success{ print(".") }
-    def isEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = lhs.groupBy(x=>x) == rhs.groupBy(x=>x)
-    def resultsMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = isEqualMultiSet( backend.result(queryable,threadLocalSession), expected)
+    def assertEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
+    def assertMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEqualMultiSet( backend.result(queryable,threadLocalSession), expected)
+    def assertNotEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
+    def assertNoMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = try{
+      assertEqualMultiSet( backend.result(queryable,threadLocalSession), expected)
+    } catch {
+      case e:AssertionError => 
+      case e:Throwable => throw e
+    }
+    def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEquals( backend.result(queryable,threadLocalSession), expected )
   }
 
   @Test def test() {
@@ -100,11 +108,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       val query : Queryable[Coffee] = Queryable[Coffee]
 
       // test framework sanity checks
-      assert( ! resultsMatch(query, inMem ++ inMem) )
-      assert( ! resultsMatch(query, List()) )
+      assertNoMatch(query, inMem ++ inMem)
+      assertNoMatch(query, List())
 
       // fetch whole table
-      assert( resultsMatch( query, inMem ) )
+      assertMatch( query, inMem )
 
       // FIXME: make this test less artificial
       class MyQuerycollection{
@@ -114,54 +122,54 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       qc.findUserByName("some value")
   
       // simple map
-      assert( resultsMatch(
+      assertMatch(
         query.map( (_:Coffee).sales + 5 ),
         inMem.map( (_:Coffee).sales + 5 )
-      ))
+      )
       
       // left-hand-side coming from attribute
       val foo = new Foo(query)
-      assert( resultsMatch(
+      assertMatch(
         foo.q.map( (_:Coffee).sales + 5 ),
         inMem.map( (_:Coffee).sales + 5 )
-      ))
+      )
   
       // map with string concatenation
-      assert( resultsMatch(
+      assertMatch(
         query.map( _.name + "." ),
         inMem.map( _.name + "." )
-      ))
+      )
   
       // filter with more complex condition
-      assert( resultsMatch(
+      assertMatch(
         query.filter( c => c.sales > 5 || "Chris" == c.name ),
         inMem.filter( c => c.sales > 5 || "Chris" == c.name )
-      ))
+      )
   
       // type annotations FIXME canBuildFrom
-      assert( resultsMatch(
+      assertMatch(
         query.map[String]( (_:Coffee).name : String ),
         inMem.map        ( (_:Coffee).name : String )
-      ))
+      )
 
       // chaining
-      assert( resultsMatch(
+      assertMatch(
         query.map( _.name ).filter(_ == ""),
         inMem.map( _.name ).filter(_ == "")
-      ))
+      )
   
       // referenced values are inlined as constants using reflection
       val o = 2 + 3
-      assert( resultsMatch(
+      assertMatch(
         query.filter( _.sales > o ),
         inMem.filter( _.sales > o )
-      ))
+      )
 
       // nesting (not supported yet: query.map(e1 => query.map(e2=>e1))) 
-      assert( resultsMatch(
+      assertMatch(
         query.flatMap(e1 => query.map(e2=>e1)),
         inMem.flatMap(e1 => inMem.map(e2=>e1))
-      ))
+      )
   
       // query scope
       {
@@ -175,15 +183,15 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
             bar  
           }
         ).foreach{
-          query_ => assert( resultsMatch( query_, inMemResult ) )
+          query_ => assertMatch( query_, inMemResult )
         }
       }
 
       // comprehension with map
-      assert( resultsMatch(
+      assertMatch(
         for( c <- query ) yield c.name,
         for( c <- inMem ) yield c.name
-      ))
+      )
   
       // nesting with flatMap
       {
@@ -193,14 +201,14 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
                     for( o <- query; i <- query ) yield i.name ,
           Queryable(for( o <- query; i <- query ) yield i.name)
         ).foreach{
-          query_ => assert( resultsMatch( query_, inMemResult ) )
+          query_ => assertMatch( query_, inMemResult )
         }
       }
 
-      assert( resultsMatch(
+      assertMatch(
         query.flatMap(e1 => query.map(e2=>e1).map(e2=>e1)),
         inMem.flatMap(e1 => inMem.map(e2=>e1).map(e2=>e1))
-      )) 
+      ) 
 
       // nesting with outer macro reference
       {
@@ -210,7 +218,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
                    for( o <- query; i <- query ) yield o.name ,
           Queryable(for( o <- query; i <- query ) yield o.name)
         ).foreach{
-          query_ => assert( resultsMatch( query_, inMemResult ) )
+          query_ => assertMatch( query_, inMemResult )
         }
       }
   
@@ -222,21 +230,21 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
                     for( o <- query; i <- query; if i.sales == o.sales ) yield i.name ,
           Queryable(for( o <- query; i <- query; if i.sales == o.sales ) yield i.name)
         ).foreach{
-          query_ => assert( resultsMatch( query_, inMemResult ) )
+          query_ => assertMatch( query_, inMemResult )
         }
       }
 
       // tuples
-      assert( resultsMatch(
+      assertMatch(
         query.map( c=> (c.name,c.sales) ),
         inMem.map( c=> (c.name,c.sales) )
-      ))
+      )
       
       // nested structures (here tuples and case classes)
-      assert( resultsMatch(
+      assertMatch(
         query.map( c=> (c.name,c.sales,c) ),
         inMem.map( c=> (c.name,c.sales,c) )
-      ))
+      )
       // length
       assertEquals( backend.result(query.length,threadLocalSession), inMem.length )
 
@@ -245,43 +253,43 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       
       // iquery.filter( _.sales > 10.0 ).map( _.name ) // currently crashed compiler
       
-      assert( resultsMatch(
+      assertMatch(
         query.map( c=>c ),
         iquery.map( c=>c ).toSeq
-      ))
+      )
       
       ({
         import ImplicitQueryable.implicitExecution._
-        assert( resultsMatch(
+        assertMatch(
           query.map( c=>c ),
           iquery.map( c=>c )
-        ))
+        )
       })
    
-      assert( resultsMatch(
+      assertMatch(
            for( o <-  query; i <-  query; if i.sales == o.sales  ) yield i.name,
           (for( o <- iquery; i <- iquery; if i.sales == o.sales ) yield i.name).toSeq
-      ))
+      )
       
-      assert(resultsMatch(
+      assertMatch(
         for( v1<-query;v2<-query; if !(v1.name == v2.name)) yield (v1.name,v2.name)
         ,for( v1<-inMem;v2<-inMem; if !(v1.name == v2.name)) yield (v1.name,v2.name)
-      ))
+      )
       
-      assert(resultsMatch(
+      assertMatch(
         for( v1<-query;v2<-query; if v1.name != v2.name) yield (v1.name,v2.name)
         ,for( v1<-inMem;v2<-inMem; if v1.name != v2.name) yield (v1.name,v2.name)
-      ))
+      )
       
-      assert(resultsMatch(
+      assertMatch(
         query.take(2)
         ,inMem.take(2)
-      ))
+      )
       
-      assert(resultsMatch(
+      assertMatch(
         query.drop(2)
         ,inMem.drop(2)
-      ))
+      )
       
     }
   }
