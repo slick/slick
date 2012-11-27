@@ -31,22 +31,27 @@ abstract class Column[T : TypeMapper] extends ColumnBase[T] with Typed {
   }
   def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = typeMapper(profile).updateValue(value, rs)
   final def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]): Unit = typeMapper(profile).setOption(value, ps)
+  @deprecated("Use .?.getOrElse instead of .orElse", "1.0.0")
   def orElse(n: =>T): Column[T] = new WrappedColumn[T](this) {
     override def getResult(profile: BasicProfile, rs: PositionedResult): T = typeMapper(profile).nextValueOrElse(n, rs)
   }
+  @deprecated("Use .getOrElse with a proper zero value instead of .orZero", "1.0.0")
   def orZero: Column[T] = new WrappedColumn[T](this) {
     override def getResult(profile: BasicProfile, rs: PositionedResult): T = {
       val tmd = typeMapper(profile)
       tmd.nextValueOrElse(tmd.zero, rs)
     }
   }
-  final def orFail = orElse { throw new SlickException("Read NULL value for column "+this) }
+  @deprecated("Use .?.get instead of .orFail", "1.0.0")
+  final def orFail = ?.get
   def ? : Column[Option[T]] = new WrappedColumn(this)(typeMapper.createOptionTypeMapper)
 
-  def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(typeMapper.getBaseTypeMapper) {
-    override def getResult(profile: BasicProfile, rs: PositionedResult): U = typeMapper(profile).nextValueOrElse(n, rs)
+  @deprecated("Use .getOrElse instead of .getOr", "1.0.0")
+  def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = getOrElse(n)
+  def getOrElse[U](default: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(typeMapper.getBaseTypeMapper) {
+    override def getResult(profile: BasicProfile, rs: PositionedResult): U = typeMapper(profile).nextValueOrElse(default, rs)
   }
-  def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
+  def get[U](implicit ev: Option[U] =:= T): Column[U] = getOrElse[U] { throw new SlickException("Read NULL value for column "+this) }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   def asc = ColumnOrdered[T](this, Ordering())
