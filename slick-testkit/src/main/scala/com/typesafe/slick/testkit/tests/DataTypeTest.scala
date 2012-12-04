@@ -3,8 +3,9 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
-import java.sql.Blob
+import java.sql.{Blob, Date, Time, Timestamp}
 import javax.sql.rowset.serial.SerialBlob
+import slick.lifted.BaseTypeMapper
 
 class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
@@ -84,7 +85,6 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   }
 
   def testMappedBlob = ifCap(bcap.typeBlob) {
-
     case class Serialized[T](value: T)
 
     implicit def serializedTypeMapper[T] = MappedTypeMapper.base[Serialized[T], Blob]({ s =>
@@ -110,4 +110,27 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(Set((1, Serialized(List(1,2,3))), (2, Serialized(List(4,5)))), Query(T).list.toSet)
     }
   }
+
+  private def roundtrip[T : BaseTypeMapper](tn: String, v: T) {
+    object T1 extends Table[(Int, T)](tn) {
+      def id = column[Int]("id")
+      def data = column[T]("data")
+      def * = id ~ data
+    }
+
+    T1.ddl.create
+    T1.insert((1, v))
+    assertEquals(v, T1.map(_.data).first)
+    assertEquals(Some(1), T1.filter(_.data === v).map(_.id).firstOption)
+    assertEquals(None, T1.filter(_.data =!= v).map(_.id).firstOption)
+  }
+
+  def testDate =
+    roundtrip("date_t1", Date.valueOf("2012-12-24"))
+
+  def testTime =
+    roundtrip("time_t1", Time.valueOf("17:53:48"))
+
+  def testTimestamp =
+    roundtrip[Timestamp]("timestamp_t1", Timestamp.valueOf("2012-12-24 17:53:48.0"))
 }

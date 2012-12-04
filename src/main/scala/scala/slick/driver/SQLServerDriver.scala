@@ -4,7 +4,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.session.PositionedResult
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import java.sql.{Timestamp, Date}
+import java.sql.{Timestamp, Date, Time}
 
 /**
  * Slick driver for Microsoft SQL Server.
@@ -79,6 +79,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
     override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
     override val dateTypeMapperDelegate = new DateTypeMapperDelegate
+    override val timeTypeMapperDelegate = new TimeTypeMapperDelegate
     override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
     override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
       override def sqlTypeName = "UNIQUEIDENTIFIER"
@@ -93,13 +94,27 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
      * and Timestamp values to the proper type. This work-around does not seem to
      * be required for Time values. */
     class DateTypeMapperDelegate extends super.DateTypeMapperDelegate {
-      override def valueToSQLLiteral(value: Date) = "{fn convert({d '" + value + "'}, DATE)}"
+      override def valueToSQLLiteral(value: Date) = "(convert(date, {d '" + value + "'}))"
+    }
+    class TimeTypeMapperDelegate extends super.TimeTypeMapperDelegate {
+      override def valueToSQLLiteral(value: Time) = "(convert(time, {t '" + value + "'}))"
+      override def nextValue(r: PositionedResult) = {
+        val s = r.nextString()
+        val sep = s.indexOf('.')
+        if(sep == -1) Time.valueOf(s)
+        else {
+          val t = Time.valueOf(s.substring(0, sep))
+          val millis = (("0."+s.substring(sep+1)).toDouble * 1000.0).toInt
+          t.setTime(t.getTime + millis)
+          t
+        }
+      }
     }
     class TimestampTypeMapperDelegate extends super.TimestampTypeMapperDelegate {
       /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
        * want here is DATETIME. */
       override def sqlTypeName = "DATETIME"
-      override def valueToSQLLiteral(value: Timestamp) = "{fn convert({ts '" + value + "'}, DATETIME)}"
+      override def valueToSQLLiteral(value: Timestamp) = "(convert(datetime, {ts '" + value + "'}))"
     }
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result
