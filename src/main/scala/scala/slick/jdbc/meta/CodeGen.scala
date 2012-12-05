@@ -8,48 +8,110 @@ import scala.slick.jdbc.JdbcBackend
  */
 object CodeGen {
 
-  def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend#Session) {
+  def outputCase(table: MTable, out: PrintWriter)(implicit session: JdbcBackend.Session) {
     val columns = table.getColumns.list
     val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
-    if(!columns.isEmpty) {
-      out.print("object "+mkScalaName(table.name.name)+" extends Table[")
-      if(columns.tail.isEmpty) out.print(scalaTypeFor(columns.head))
-      else out.print("(" + columns.map(c => scalaTypeFor(c)).mkString(", ") + ")")
-      out.println("](\""+table.name.name+"\") {")
-      for(c <- columns) output(c, pkeys.get(c.column), out)
-      out.println("  def * = " + columns.map(c => mkScalaName(c.column, false)).mkString(" ~ "))
+
+    if (!columns.isEmpty) {
+      val tableName = table.name.name
+      val scalaName = mkScalaName(tableName)
+      out.println(mkCaseClass(scalaName, columns))
+
+      val scalaTableName = f"$scalaName%sTable"
+      out.println(s"""object $scalaTableName extends Table[$scalaName]("$tableName") {""")
+
+      for (c <- columns) {
+        out.print("  ")
+        out.println(mkAttribute(c, pkeys.get(c.column), false))
+      }
+
+      val starString = columns.map(c => mkAttributeOptionName(c)).mkString(" ~ ")
+      out.println(s"  def * = $starString <> ($scalaName, $scalaName.unapply _)")
       out.println("}")
     }
   }
 
-  def output(c: MColumn, pkey: Option[MPrimaryKey], out: PrintWriter)(implicit session: JdbcBackend#Session) {
-    out.print("  def "+mkScalaName(c.column, false)+" = column["+scalaTypeFor(c)+"](\""+c.column+"\"")
-    for(n <- c.sqlTypeName) {
-      out.print(", O DBType \""+n+"")
-      for(i <- c.columnSize ) out.print("("+i+")")
-      out.print("\"")
+  def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend.Session) {
+    val columns = table.getColumns.list
+    val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
+
+    if (!columns.isEmpty) {
+      val tableName = table.name.name
+      val scalaName = mkScalaName(tableName)
+      val colString = columns.map(c => scalaTypeFor(c)).mkString(", ")
+
+      out.println(s"""object $scalaName extends Table[($colString)]("$tableName") {""")
+
+      for (c <- columns) {
+        out.print("  ")
+        out.println(mkAttribute(c, pkeys.get(c.column)))
+      }
+
+      val starString = columns.map(c => mkScalaName(c.column, false)).mkString(" ~ ")
+      out.println(s"  def * = $starString")
+      out.println("}")
     }
-    if(c.isAutoInc.getOrElse(false)) out.print(", O AutoInc")
-    for(k <- pkey) out.print(", O PrimaryKey")
-    out.println(")")
   }
 
-  def mkScalaName(s: String, capFirst:Boolean = true) = {
+  def mkAttribute(c: MColumn, pkey: Option[MPrimaryKey], allowOption: Boolean = true)(implicit session: JdbcBackend.Session) = {
+    val scalaName = mkScalaName(c.column, false)
+    val scalaType = scalaTypeFor(c, allowOption)
+    val columnName = c.column
+
+    val columnParams = List(
+      s""""$columnName"""",
+      sqlTypeFor(c),
+      if (!pkey.isEmpty) "O PrimaryKey" else null,
+      if (c.isAutoInc.getOrElse(false)) "O AutoInc" else null
+    ).filter(_ != null).mkString(", ")
+
+    s"""  def $scalaName = column[$scalaType]($columnParams)"""
+  }
+
+  def mkCaseClass(scalaName: String, columns: Seq[MColumn]) = {
+    val params = (for (c <- columns) yield mkParam(c)).mkString(", ")
+
+    s"""case class $scalaName (
+	$params)
+"""
+  }
+
+  def mkParam(c: MColumn, allowOption: Boolean = false): String = {
+    val colName = mkScalaName(c.column, false)
+    val colType = scalaTypeFor(c, allowOption)
+
+    s"""$colName: $colType"""
+  }
+
+  def mkAttributeOptionName(c: MColumn) = {
+    val scalaName = mkScalaName(c.column, false)
+    if (c.isNullable.getOrElse(true)) s"$scalaName.?" else scalaName
+  }
+
+  def mkScalaName(s: String, capFirst: Boolean = true) = {
     val b = new StringBuilder
     var cap = capFirst
-    for(c <- s) {
-      if(c == '_') cap = true
+    for (c <- s) {
+      if (c == '_') cap = true
       else {
-        val allowed = if(b.isEmpty) c.isUnicodeIdentifierStart else c.isUnicodeIdentifierPart
-        if(allowed) b append (if(cap) c.toUpper else c.toLower)
+        val allowed = if (b.isEmpty) c.isUnicodeIdentifierStart else c.isUnicodeIdentifierPart
+        if (allowed) b append (if (cap) c.toUpper else c.toLower)
         cap = false
       }
     }
     b.toString
   }
 
-  def scalaTypeFor(c: MColumn): String =
-    if(c.nullable.getOrElse(true)) "Option[" + scalaTypeFor(c.sqlType) + "]" else scalaTypeFor(c.sqlType)
+  def sqlTypeFor(c: MColumn) = (c.sqlTypeName, c.columnSize) match {
+    case (Some(n), None) => s"""O DBType "$n""""
+    case (Some(n), Some(c)) => s"""O DBType "$n($c)""""
+    case _ => ""
+  }
+
+  def scalaTypeFor(c: MColumn, allowOption: Boolean = true): String = {
+    val scalaType = scalaTypeFor(c.sqlType)
+    if (allowOption && c.nullable.getOrElse(true)) s"Option[$scalaType]" else scalaType
+  }
 
   def scalaTypeFor(sqlType: Int): String = {
     import java.sql.Types._
