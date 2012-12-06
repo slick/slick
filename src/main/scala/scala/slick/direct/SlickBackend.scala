@@ -233,12 +233,17 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         =>
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
+          def flatten( node:sq.Node ) : Seq[(sq.Node,sq.Ordering)] = node match {
+            case sq.ProductNode(nodes) => nodes.flatMap(flatten _)
+            case node => Seq( (node,sq.Ordering(sq.Ordering.Asc)) )
+          }            
           rhs match {
             case Function( arg::Nil, body ) =>
               val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
               val sq_rhs = s2sq(body, new_scope).node
               new Query( term.decoded match {
                 case "filter"     => sq.Filter( sq_symbol, sq_lhs, sq_rhs )
+                case "sortBy"     => sq.SortBy( sq_symbol, sq_lhs, flatten(sq_rhs) )
                 case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(sq_rhs) )
                 case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, sq_rhs )
                 case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )

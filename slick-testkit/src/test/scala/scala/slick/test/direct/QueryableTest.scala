@@ -348,6 +348,15 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         ,inMem.drop(2)
       )
       
+      assertMatchOrdered(
+        query.sortBy(_.name)
+        ,inMem.sortBy(_.name)
+      )
+      
+      assertMatchOrdered(
+        query.sortBy(c=>(c.name,c.flavor))
+        ,inMem.sortBy(c=>(c.name,c.flavor))
+      )
     }
   }
 }

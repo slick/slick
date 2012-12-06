@@ -87,6 +87,9 @@ object QueryableMacros{
   def filter[T:c.WeakTypeTag]
   (c: scala.reflect.macros.Context)
   (projection: c.Expr[T => Boolean]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "filter", projection )
+  def sortBy[T:c.WeakTypeTag]
+      (c: scala.reflect.macros.Context)
+      (projection: c.Expr[T => Any]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "sortBy", projection )
   def drop[T:c.WeakTypeTag]
   (c: scala.reflect.macros.Context)
   (i: c.Expr[Int]): c.Expr[scala.slick.direct.Queryable[T]] = _helper[c.type,T]( c )( "drop", i )
@@ -107,6 +110,7 @@ class QueryOps[T]{
   def map[S]( projection: T => S ) : BaseQueryable[S] = ???
   def flatMap[S]( projection: T => BaseQueryable[S] ) : BaseQueryable[S] = ???
   def filter( projection: T => Boolean ) : BaseQueryable[T] = ???
+  def sortBy( projection: T => Any ) : BaseQueryable[T] = ???
   def drop( i:Int ) : BaseQueryable[T] = ???
   def take( i:Int ) : BaseQueryable[T] = ???
   def length[S] : Int = ???  
@@ -116,6 +120,7 @@ class Queryable[T]( expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTa
   def map[S]( projection: T => S ) : Queryable[S] = macro QueryableMacros.map[T,S]
   def flatMap[S]( projection: T => Queryable[S] ) : Queryable[S] = macro QueryableMacros.flatMap[T,S]
   def filter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]
+  def sortBy( projection: T => Any ) : Queryable[T] = macro QueryableMacros.sortBy[T]
   def withFilter( projection: T => Boolean ) : Queryable[T] = macro QueryableMacros.filter[T]  
   def drop( i:Int ) : Queryable[T] = macro QueryableMacros.drop[T]
   def take( i:Int ) : Queryable[T] = macro QueryableMacros.take[T]
