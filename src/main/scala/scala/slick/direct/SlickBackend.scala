@@ -19,11 +19,21 @@ trait QueryableBackend
 /** a node for marking reversed columns in sortBy (only used temporarily in this backend) */
 object CustomNodes{
   import scala.slick.ast._
-  final case class ReverseNode(value: Node) extends UnaryNode {
+  final case class Reverse(value: Node) extends UnaryNode {
     def child = value
     override def nodeChildNames = Seq("value")
     protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
     def nodeWithComputedType(scope: SymbolScope): Node = copy(this).nodeTyped(child.nodeType)
+  }
+  final case class Nullsorting(value: Node,sorting:Nullsorting.Sorting) extends UnaryNode {
+    def child = value
+    override def nodeChildNames = Seq("value")
+    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
+    def nodeWithComputedType(scope: SymbolScope): Node = copy(this).nodeTyped(child.nodeType)
+  }
+  object Nullsorting extends Enumeration{
+    type Sorting = Value
+    val First, Last = Value
   }
 }
 import CustomNodes._
@@ -247,7 +257,11 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           val sq_symbol = new sq.AnonSymbol
           def flattenAndPrepareForSortBy( node:sq.Node ) : Seq[(sq.Node,sq.Ordering)] = node match {
             case sq.ProductNode(nodes) => nodes.flatMap(flattenAndPrepareForSortBy _)
-            case ReverseNode(node) => Seq( (node,sq.Ordering(sq.Ordering.Desc)) )
+            case Reverse(node)                                => Seq( (node,sq.Ordering(sq.Ordering.Desc)) )
+            case Nullsorting(Reverse(node),Nullsorting.First) => Seq( (node,sq.Ordering(sq.Ordering.Desc,sq.Ordering.NullsFirst)) )
+            case Nullsorting(node,Nullsorting.First)          => Seq( (node,sq.Ordering(sq.Ordering.Asc ,sq.Ordering.NullsFirst)) )
+            case Nullsorting(Reverse(node),Nullsorting.Last)  => Seq( (node,sq.Ordering(sq.Ordering.Desc,sq.Ordering.NullsLast)) )
+            case Nullsorting(node,Nullsorting.Last)           => Seq( (node,sq.Ordering(sq.Ordering.Asc ,sq.Ordering.NullsLast)) )
             case node => Seq( (node,sq.Ordering(sq.Ordering.Asc)) )
           }
           rhs match {
@@ -318,6 +332,18 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure && (term.decoded == "length" || term.decoded == "size")
           => sq.Pure( Library.CountAll.typed[Int](s2sq(scala_lhs).node ) )
 
+        case Apply(
+            Select(_, term),
+            scala_rhs::Nil
+        ) if term.decoded == "nonesLast" =>
+          Nullsorting( s2sq(scala_rhs).node, Nullsorting.Last )
+
+        case Apply(
+            Select(_, term),
+            scala_rhs::Nil
+        ) if term.decoded == "nonesFirst" =>
+          Nullsorting( s2sq(scala_rhs).node, Nullsorting.First )
+
         case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
             => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query
 
@@ -325,7 +351,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
             Select(_, term),
             scala_rhs::Nil
         ) if term.decoded == "reversed" =>
-          ReverseNode( s2sq(scala_rhs).node )
+          Reverse( s2sq(scala_rhs).node )
         case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
     } catch{

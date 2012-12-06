@@ -5,9 +5,7 @@ import scala.language.{reflectiveCalls,implicitConversions}
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
-import scala.slick.ast.Library.{SqlOperator =>Op,_}
-import scala.slick.ast.{Library => Ops}
-import scala.slick.ast._
+import scala.slick.ast
 import scala.slick.direct._
 import scala.slick.direct.AnnotationMapper._
 import scala.slick.testutil._
@@ -51,7 +49,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
 
   object TestingTools{
     def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
-      def assertQuery( matcher : Node => Unit ) = {
+      def assertQuery( matcher : ast.Node => Unit ) = {
         //backend.dump(q)
         println( backend.toSql(q,threadLocalSession) )
         println( backend.result(q,threadLocalSession) )
@@ -69,14 +67,14 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       }
     }
     object TableName{
-      def unapply( t:TableNode ) = {
+      def unapply( t:ast.TableNode ) = {
         val name = t.tableName
         Some(name)
       }
     }
     object ColumnName{
-      def unapply( t:Symbol ) = t match {
-        case FieldSymbol( name ) =>
+      def unapply( t:ast.Symbol ) = t match {
+        case ast.FieldSymbol( name ) =>
           /*case RawNamedColumn( name, _, _ ) =>*/
           Some(name)
       }
@@ -96,21 +94,25 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       case e:AssertionError => 
       case e:Throwable => throw e
     }
-    def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEquals( backend.result(queryable,threadLocalSession), expected )
+    def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEquals( expected, backend.result(queryable,threadLocalSession) )
   }
 
   object SingletonInClass{
     val qoo = Queryable[Coffee]
     val q1 = qoo.map( _.sales + 5 )
   }
-
+  def initialStringOptionOrdering = implicitly[Ordering[Option[String]]]
+  
   @Test def test() {
+    implicit var stringOptionOrdering : scala.math.Ordering[Option[String]] = initialStringOptionOrdering
+
     import TestingTools._
     
     val coffees_data = Vector(
       ("Colombian",          1, None),
       ("French_Roast",       2, None),
       ("Espresso",           3, Some("Honey")),
+      ("Espresso",           3, Some("Vanilla")),
       ("Espresso",           4, None),
       ("Colombian_Decaf",    1, None),
       ("Colombian_Decaf",    3, Some("White Chocolate")),
@@ -369,31 +371,52 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         ,inMem.sortBy(c => (c.name,reversed(c.sales)))
       )
       
+      def nullOrdering( x:Int, y:Int ) = new scala.math.Ordering[Option[String]]{
+        def compare(a:Option[String],b:Option[String]) = {
+          if( a == None && b == None ) 0
+          else if( a == None ) x * -1
+          else if( b == None ) x * 1
+          else y * (a.get compare b.get)
+        }
+      }
+
+      stringOptionOrdering = nullOrdering(-1,1)
+      assertMatchOrdered(
+        query.sortBy(c=>(nonesLast(c.flavor),c.name))
+        ,inMem.sortBy(c=>(c.flavor,c.name))
+      )
+
+      stringOptionOrdering = nullOrdering(1,1)
+      assertMatchOrdered(
+        query.sortBy(c=>(nonesFirst(c.flavor),c.name))
+        ,inMem.sortBy(c=>(c.flavor,c.name))
+      )
+
+      stringOptionOrdering = nullOrdering(-1,-1)
+      assertMatchOrdered(
+        query.sortBy(c=>(nonesLast(reversed(c.flavor)),c.name))
+        ,inMem.sortBy(c=>(c.flavor,c.name))
+      )
+
+      stringOptionOrdering = nullOrdering(1,-1)
+      assertMatchOrdered(
+        query.sortBy(c=>(nonesFirst(reversed(c.flavor)),c.name))
+        ,inMem.sortBy(c=>(c.flavor,c.name))
+      )
+      
+      stringOptionOrdering = initialStringOptionOrdering
       assertMatchOrdered(
         query.sortBy( c => (
           c.name
           ,reversed(c.sales)
-          ,reversed(c.sales)
+          ,reversed(c.flavor)
         ))
         ,inMem.sortBy( c => (
           c.name
           ,reversed(c.sales)
-          ,reversed(c.sales)
+          ,reversed(c.flavor)
         ))
       )
-/*
-      assertMatchOrdered(
-        query.sortBy( c => ((
-          c.name
-          ,reversed(c.sales) )
-          ,reversed(c.sales))
-        )
-        ,inMem.sortBy( c => ((
-          c.name
-          ,reversed(c.name))
-          ,reversed(c.sales))
-        )
-      )*/
     }
   }
   @Test def sortingTest(){
@@ -402,30 +425,31 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     val cA1 = Coffee("A",1,None)
     val cB0 = Coffee("B",0,None)
     val cB1 = Coffee("B",1,None)
-    val coffees = List( cA1, cB0, cA0, cB1 )
+    val cB1_ = Coffee("B",1,Some("X"))
+    val coffees = List( cA1, cB0, cA0, cB1, cB1_ )
     assertEquals(
-      List(cA1,cA0,cB0,cB1),
+      List(cA1,cA0,cB0,cB1,cB1_),
       coffees.sortBy(_.name)
     )
     assertEquals(
-      List(cA1,cA0,cB0,cB1),
+      List(cA1,cA0,cB0,cB1,cB1_),
       coffees.sortBy(_.name)
     )
     assertEquals(
-      List(cB0,cB1,cA1,cA0),
+      List(cB0,cB1,cB1_,cA1,cA0),
       coffees.sortBy(c=>reversed(c.name))
     )
     assertEquals(
-      List(cA1,cA0,cB1,cB0),
+      List(cA1,cA0,cB1,cB1_,cB0),
       coffees.sortBy(c => (c.name,reversed(c.sales)))
     )
     //assertEquals( coffees.sortBy(_.name,asc), by(_.sales,desc) ), List(cA1,cA0,cB1,cB0) )
     assertEquals(
-      List(cA1,cA0,cB1,cB0),
+      List(cA1,cA0,cB1_,cB1,cB0),
       coffees.sortBy( c => (
         c.name
         ,reversed(c.sales)
-        ,reversed(c.sales)
+        ,reversed(c.flavor)
       ))
     )
   }
