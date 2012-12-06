@@ -16,6 +16,18 @@ import scala.slick.ast.ColumnOption
 
 trait QueryableBackend
 
+/** a node for marking reversed columns in sortBy (only used temporarily in this backend) */
+object CustomNodes{
+  import scala.slick.ast._
+  final case class ReverseNode(value: Node) extends UnaryNode {
+    def child = value
+    override def nodeChildNames = Seq("value")
+    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
+    def nodeWithComputedType(scope: SymbolScope): Node = copy(this).nodeTyped(child.nodeType)
+  }
+}
+import CustomNodes._
+
 class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
   type Session = JdbcDriver#Backend#Session
   import scala.reflect.runtime.universe._
@@ -233,17 +245,18 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         =>
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
-          def flatten( node:sq.Node ) : Seq[(sq.Node,sq.Ordering)] = node match {
-            case sq.ProductNode(nodes) => nodes.flatMap(flatten _)
+          def flattenAndPrepareForSortBy( node:sq.Node ) : Seq[(sq.Node,sq.Ordering)] = node match {
+            case sq.ProductNode(nodes) => nodes.flatMap(flattenAndPrepareForSortBy _)
+            case ReverseNode(node) => Seq( (node,sq.Ordering(sq.Ordering.Desc)) )
             case node => Seq( (node,sq.Ordering(sq.Ordering.Asc)) )
-          }            
+          }
           rhs match {
             case Function( arg::Nil, body ) =>
               val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
               val sq_rhs = s2sq(body, new_scope).node
               new Query( term.decoded match {
                 case "filter"     => sq.Filter( sq_symbol, sq_lhs, sq_rhs )
-                case "sortBy"     => sq.SortBy( sq_symbol, sq_lhs, flatten(sq_rhs) )
+                case "sortBy"     => sq.SortBy( sq_symbol, sq_lhs, flattenAndPrepareForSortBy(sq_rhs) )
                 case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(sq_rhs) )
                 case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, sq_rhs )
                 case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
@@ -308,7 +321,11 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
             => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query
 
-
+        case Apply(
+            Select(_, term),
+            scala_rhs::Nil
+        ) if term.decoded == "reversed" =>
+          ReverseNode( s2sq(scala_rhs).node )
         case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
     } catch{
