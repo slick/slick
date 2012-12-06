@@ -14,6 +14,7 @@ import slick.jdbc.StaticQuery.interpolation
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.ClassTag
 import com.typesafe.slick.testkit.util.TestDB
+import scala.slick.SlickException
 
 
 object QueryableTest extends DBTestObject(TestDBs.H2Mem)
@@ -27,6 +28,18 @@ case class Coffee(
   @column // <- assumes "SALES" automatically
   sales : Int
 )
+object Singleton{
+  val q = Queryable[Coffee]
+  val q1 = q.map( _.sales + 5 )
+  object Singleton{
+    val q = Queryable[Coffee]
+    val q1 = q.map( _.sales + 5 )
+    object Singleton{
+      val q = Queryable[Coffee]
+      val q1 = q.map( _.sales + 5 )
+    }
+  }
+}
 
 class QueryableTest(val tdb: TestDB) extends DBTest {
   import tdb.driver.backend.Database.threadLocalSession
@@ -83,6 +96,11 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEquals( backend.result(queryable,threadLocalSession), expected )
   }
 
+  object SingletonInClass{
+    val qoo = Queryable[Coffee]
+    val q1 = qoo.map( _.sales + 5 )
+  }
+
   @Test def test() {
     import TestingTools._
     
@@ -120,7 +138,42 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       }  
       val qc = new MyQuerycollection
       qc.findUserByName("some value")
-  
+      
+      // test singleton object
+      assertMatch(
+        Singleton.q1,
+        inMem.map( _.sales + 5 )
+      )
+      
+      // test singleton in package
+      assertMatch(
+        Singleton.q1,
+        inMem.map( _.sales + 5 )
+      )
+      
+      // test singleton in singleton in package
+      assertMatch(
+        Singleton.Singleton.q1,
+        inMem.map( _.sales + 5 )
+      )
+
+      // test singleton in singleton in singleton in package
+      assertMatch(
+        Singleton.Singleton.Singleton.q1,
+        inMem.map( _.sales + 5 )
+      )
+
+      // test singleton in class (not supported (yet?))
+      try{
+        assertMatch(
+          SingletonInClass.q1,
+          inMem.map( _.sales + 5 )
+        )
+        fail()
+      }catch{
+        case _:SlickException => 
+      }
+
       // simple map
       assertMatch(
         query.map( (_:Coffee).sales + 5 ),

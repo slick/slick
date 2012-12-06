@@ -124,7 +124,11 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     import scala.tools.reflect._
     // external references (symbols) are preserved by reify, so cm suffices (its class loader does not need to load any new classes)
     val toolbox = cm.mkToolBox()//mkConsoleFrontEnd().asInstanceOf[scala.tools.reflect.FrontEnd],"") // FIXME cast
-    val typed_tree = toolbox.typeCheck(tree) // TODO: can we get rid of this to remove the compiler dependency?
+    val typed_tree = try
+      toolbox.typeCheck(tree) // TODO: can we get rid of this to remove the compiler dependency?
+    catch{
+      case e:Throwable => println("Failed to typecheck: "+showRaw(tree));throw e 
+    }
     ( typed_tree.tpe, scala2scalaquery_typed( removeTypeAnnotations(typed_tree), scope ) )
   }
   private def eval( tree:Tree ) :Any = tree match {
@@ -136,6 +140,9 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       val mm = i.reflectMethod( m )
       mm()
     }
+    case o:This if o.symbol.isStatic => cm.reflectModule(o.symbol.companionSymbol.asModule).instance
+    case o:This => throw new SlickException( "Cannot handle reference to a query in non-static symbol "+o.symbol )
+    case _ => throw new SlickException("Cannot eval: " + showRaw(tree))
   }
   def matchingOps(term:Name,actualTypes:List[Type]) = {
     println((term.decoded,actualTypes))
