@@ -12,6 +12,7 @@ import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.reflect.ClassTag
 import scala.slick.compiler.CompilationState
 import scala.reflect.runtime.universe.TypeRef
+import scala.slick.ast.ColumnOption
 
 trait QueryableBackend
 
@@ -93,13 +94,29 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     }
 
   def columnName( sym:Symbol ) = mapper.fieldToColumn( sym )
-  def columnType( sym:Symbol ) = columnTypes(sym.typeSignature.typeSymbol.name.decoded)
-  def columnField( sym:Symbol ) = sq.FieldSymbol( columnName(sym) )( List(), columnType(sym) )
-  def columnSelect( sym:Symbol, sq_symbol:sq.Node ) =
+  def columnType( tpe:Type ) = columnTypes(typeName(underlyingType(tpe)))
+  private def columnField( sym:Symbol ) = 
+    sq.FieldSymbol( columnName(sym) )(
+      if(isNullable(sym)) List(ColumnOption.Nullable) else List()
+      , columnType(sym.typeSignature)
+    )
+  private def typeName( sym:Symbol ) : String = sym.name.decoded
+  private def typeName( tpe:Type ) : String = typeName( tpe.typeSymbol )
+  private def isNullable( sym:Symbol ) = typeName(sym) == "Option" 
+  private def isNullable( tpe:Type ) : Boolean = isNullable(tpe.typeSymbol) 
+  private def underlyingType( tpe:Type ) =
+    if( isNullable(tpe) )
+      tpe match {
+        case TypeRef(_,_,args) => args(0)
+        case t => throw new Exception("failed to compute underlying type of "+tpe)
+      }
+    else tpe
+  private def canBeMapped( tpe:Type ) : Boolean = columnTypes.isDefinedAt( typeName(underlyingType(tpe)) )
+  private def columnSelect( sym:Symbol, sq_symbol:sq.Node ) =
     sq.Select(
       sq.Ref(sq_symbol.nodeIntrinsicSymbol),
       columnField(sym)
-    ).nodeTyped( columnType(sym) )
+    ).nodeTyped( columnType(sym.typeSignature) )
 
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     def _fields = getConstructorArgs(typetag.tpe)
@@ -113,7 +130,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       )
       def tpe = sq.CollectionType(
         sq.CollectionTypeConstructor.default,
-        sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym) ))
+        sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ))
       )
       override def nodeWithComputedType(scope: sq.SymbolScope): sq.Node = nodeRebuild
     }
@@ -145,7 +162,6 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     case _ => throw new SlickException("Cannot eval: " + showRaw(tree))
   }
   def matchingOps(term:Name,actualTypes:List[Type]) = {
-    println((term.decoded,actualTypes))
     operatorMap.collect{
       case (str2sym, types)
             if str2sym.isDefinedAt( term.decoded )
@@ -320,7 +336,10 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     }
     import TupleTypes.tupleTypes
     (expectedType match {
-      case t if columnTypes.isDefinedAt(expectedType.toString) => driver.typeInfoFor(columnTypes( expectedType.toString )).nextValue(rs)
+      case t if canBeMapped(expectedType) => {
+        val res = driver.typeInfoFor(columnType(expectedType)).nextValue(rs)
+        if(isNullable(expectedType)) (if(res==null) None else Some(res)) else res
+      }
       case t if tupleTypes.exists( expectedType <:< _ ) =>
         val typeArgs = expectedType match { case TypeRef(_,_,args_) => args_ } 
         val args = typeArgs.map{

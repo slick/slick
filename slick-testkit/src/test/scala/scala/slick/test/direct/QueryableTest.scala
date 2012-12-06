@@ -24,9 +24,11 @@ class Foo[T]( val q : Queryable[T] )
 @table(name="COFFEES")
 case class Coffee(
   @column(name="COF_NAME")
-  name : String,
-  @column // <- assumes "SALES" automatically
+  name : String
+  ,@column // <- assumes "SALES" automatically
   sales : Int
+  ,@column
+  flavor : Option[String]
 )
 object Singleton{
   val q = Queryable[Coffee]
@@ -105,24 +107,26 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     import TestingTools._
     
     val coffees_data = Vector(
-      ("Colombian",          1),
-      ("French_Roast",       2),
-      ("Espresso",           3),
-      ("Colombian_Decaf",    4),
-      ("French_Roast_Decaf", 5)
+      ("Colombian",          1, None),
+      ("French_Roast",       2, None),
+      ("Espresso",           3, Some("Honey")),
+      ("Espresso",           4, None),
+      ("Colombian_Decaf",    1, None),
+      ("Colombian_Decaf",    3, Some("White Chocolate")),
+      ("French_Roast_Decaf", 5, None)
     )
     
     db withSession {
       // create test table
-      sqlu"create table COFFEES(COF_NAME varchar(255), SALES int)".execute
+      sqlu"create table COFFEES(COF_NAME varchar(255), SALES int, FLAVOR varchar(255) NULL)".execute
       (for {
-        (name, sales) <- coffees_data
-      } yield sqlu"insert into COFFEES values ($name, $sales)".first).sum
+        (name, sales, flavor) <- coffees_data
+      } yield sqlu"insert into COFFEES values ($name, $sales, $flavor)".first).sum
 
       // FIXME: reflective typecheck failed:  backend.result(Queryable[Coffee].map(x=>x))
       
       // setup query and equivalent inMemory data structure
-      val inMem = coffees_data.map{ case (name, sales) => Coffee(name, sales) }
+      val inMem = coffees_data.map{ case (name, sales,flavor) => Coffee(name, sales,flavor) }
       val query : Queryable[Coffee] = Queryable[Coffee]
 
       // test framework sanity checks
