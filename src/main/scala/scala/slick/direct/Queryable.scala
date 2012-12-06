@@ -1,4 +1,5 @@
 package scala.slick.direct
+import common._
 
 import scala.language.experimental.macros
 
@@ -104,16 +105,16 @@ abstract class BaseQueryable [T]( val expr_or_typetag : Either[ ru.Expr[_], (ru.
 }
 
 object QueryOps{
-  def query[T]( queryable:BaseQueryable[T] ) : QueryOps[T] = ???
+  def query[T]( queryable:BaseQueryable[T] ) : QueryOps[T] = SLICK_INTERNAL
 }
 class QueryOps[T]{
-  def map[S]( projection: T => S ) : BaseQueryable[S] = ???
-  def flatMap[S]( projection: T => BaseQueryable[S] ) : BaseQueryable[S] = ???
-  def filter( projection: T => Boolean ) : BaseQueryable[T] = ???
-  def sortBy( projection: T => Any ) : BaseQueryable[T] = ???
-  def drop( i:Int ) : BaseQueryable[T] = ???
-  def take( i:Int ) : BaseQueryable[T] = ???
-  def length[S] : Int = ???  
+  def map[S]( projection: T => S ) : BaseQueryable[S] = SLICK_INTERNAL
+  def flatMap[S]( projection: T => BaseQueryable[S] ) : BaseQueryable[S] = SLICK_INTERNAL
+  def filter( projection: T => Boolean ) : BaseQueryable[T] = SLICK_INTERNAL
+  def sortBy( projection: T => Any ) : BaseQueryable[T] = SLICK_INTERNAL
+  def drop( i:Int ) : BaseQueryable[T] = SLICK_INTERNAL
+  def take( i:Int ) : BaseQueryable[T] = SLICK_INTERNAL
+  def length[S] : Int = SLICK_INTERNAL
 }
 
 class Queryable[T]( expr_or_typetag : Either[ ru.Expr[_], (ru.TypeTag[_],ClassTag[_]) ] ) extends BaseQueryable[T]( expr_or_typetag ){
