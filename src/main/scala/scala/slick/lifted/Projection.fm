@@ -10,22 +10,29 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
 
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) {
     for(i <- 0 until productArity) {
-      productElement(i).asInstanceOf[Column[Any]].setParameter(driver, ps, value.map(_.productElement(i)))
+      productElement(i).asInstanceOf[ColumnBase[Any]].setParameter(driver, ps, value.map(_.productElement(i))) // replaced Column[Any] with ColumnBase[Any] in cast
     }
   }
 
   def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) {
     for(i <- 0 until productArity) {
-      productElement(i).asInstanceOf[Column[Any]].updateResult(driver, rs, value.productElement(i))
+      productElement(i).asInstanceOf[ColumnBase[Any]].updateResult(driver, rs, value.productElement(i)) // replaced Column[Any] with ColumnBase[Any] in cast
     }
   }
-
-  def getAllColumnTypedTypes = 0.until(productArity).flatMap[TypedType[_], Vector[TypedType[_]]](
-    i => productElement(i).asInstanceOf[Column[_]].getAllColumnTypedTypes)(collection.breakOut)
-
+  
+  def getAllColumnTypedTypes : Vector[TypedType[_]] = 
+    0.until(productArity).flatMap{ // would have replaced Column[_] with ColumnBase[_] in cast
+      i => 
+        val e = productElement(i)
+        if (e.isInstanceOf[Projection[_]])  // but the method is not defined in ColumnBase, so for now we support it just for this class and Column
+          e.asInstanceOf[Projection[_]].getAllColumnTypedTypes 
+        else
+      	  e.asInstanceOf[Column[_]].getAllColumnTypedTypes
+  	}(collection.breakOut)
+  
   def getLinearizedNodes: IndexedSeq[Node] =
-    (0 until productArity).map(i => Node(productElement(i).asInstanceOf[Column[Any]]))(collection.breakOut)
-
+    (0 until productArity).foldLeft(Vector[Node]())((l, i) => l ++ productElement(i).asInstanceOf[ColumnBase[Any]].getLinearizedNodes) // Generalized
+  
   def <>[R](f: (T => R), g: (R => Option[T])) = MappedProjection[R, T](this, f, g)(this)
 
   override def toString = "Projection" + productArity
@@ -81,10 +88,10 @@ object ~ {
 <#list 2..22 as i>
 final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
 <#list 1..i as j>
-  override val _${j}: Column[T${j}]<#if i != j>,</#if>
+  override val _${j}: ColumnBase[T${j}]<#if i != j>,</#if>
 </#list>)
 extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
-  <#if i != 22>def ~[U](c: Column[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
+  <#if i != 22>def ~[U](c: ColumnBase[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
   def getResult(driver: JdbcDriver, rs: PositionedResult) = (
 <#list 1..i as j>
     _${j}.getResult(driver, rs)<#if i != j>,</#if>

@@ -6,7 +6,7 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class NestingTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
-
+/*
   def testNestedTuples {
 
     object T extends Table[(Int, String, String)]("T") {
@@ -82,4 +82,5 @@ class NestingTest(val tdb: TestDB) extends TestkitTest {
     println(q2c.list)
     assertEquals(res2, q2c.to[Set])
   }
+  */
 }

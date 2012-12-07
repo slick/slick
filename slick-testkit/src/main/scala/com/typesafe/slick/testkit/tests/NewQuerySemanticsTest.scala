@@ -7,7 +7,7 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
-
+/*
   val doRun = true
 
   def test {
@@ -405,4 +405,5 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     (SuppliersStd.ddl ++ CoffeesStd.ddl).drop
     (SuppliersStd.ddl ++ CoffeesStd.ddl).dropStatements.foreach(s => println("drop: "+s))
   }
+  */
 }

@@ -47,7 +47,7 @@ abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
     override def getResult(driver: JdbcDriver, rs: PositionedResult): U = driver.typeInfoFor(tpe).nextValueOrElse(n, rs).asInstanceOf[U]
   }
   def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
-  final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
+  final def ~[U](b: ColumnBase[U]) = new Projection2[T, U](this, b)
 
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))

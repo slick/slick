@@ -5,7 +5,7 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class OldTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
-
+/*
   def test {
     object Users extends Table[(Int, String, String)]("users") {
       def id = column[Int]("id")
@@ -111,4 +111,5 @@ class OldTest(val tdb: TestDB) extends TestkitTest {
 
     (Users.ddl ++ Orders.ddl).createStatements.foreach(println)
   }
+  */
 }
