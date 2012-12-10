@@ -285,9 +285,30 @@ These would turn into nested collections when executing the query, which is
 not supported at the moment. Therefore it is necessary to flatten the nested
 queries by aggregating their values (or individual columns) as done in ``q2``.
 
-
 Querying
 --------
+
+Queries are executed using methods defined in the :api:`scala.slick.jdbc.Invoker`
+trait (or :api:`scala.slick.jdbc.UnitInvoker` for the parameterless versions).
+There is an implicit conversion from ``Query``, so you can execute any
+``Query`` directly. The most common usage scenario is reading a complete
+result set into a strict collection with a specialized method such as ``list``
+or the generic method ``to`` which can build any kind of collection:
+
+.. includecode:: code/LiftedEmbedding.scala#invoker
+
+This snippet also shows how you can get a reference to the invoker without
+having to call the implicit conversion method manually.
+
+All methods that execute a query take an implicit ``Session`` value. Of
+course, you can also pass a session explicitly if you prefer:
+
+.. includecode:: code/LiftedEmbedding.scala#invoker_explicit
+
+If you only want a single result value, you can use ``first`` or
+``firstOption``. The methods ``foreach``, ``foldLeft`` and ``elements`` can be
+used to iterate over the result set without first copying all data into a
+Scala collection.
 
 Inserting and Updating
 ----------------------
