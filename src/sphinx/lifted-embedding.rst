@@ -64,7 +64,10 @@ limitations imposed by the individual database drivers):
 - BigDecimal
 
 Nullable columns are represented by ``Option[T]`` where ``T`` is one of the
-supported primitive types.
+supported primitive types. Note that all operations on Option values are
+currently using the database's null propagation semantics which may differ
+from Scala's Option semantics. In particular, ``None === None`` evaluates
+to ``false``. This behaviour may change in a future major release of Slick.
 
 After the column name, you can add optional column options to a ``column``
 definition. The applicable options are available through the table's ``O``
