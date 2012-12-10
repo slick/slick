@@ -142,6 +142,21 @@ class LiftedEmbedding {
     val q1 = q.length
     val q2 = q.exists
     //#aggregation2
+
+    {
+      //#invoker
+      val l = q.list
+      val v = q.to[Vector]
+      val invoker = q.invoker
+      //#invoker
+    }
+
+    {
+      val session = threadLocalSession
+      //#invoker_explicit
+      val l = q.list(session)
+      //#invoker_explicit
+    }
   }
 
   db withSession {
