@@ -17,7 +17,7 @@ highlight_language = 'scala'
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.extlinks', 'includecode']
+extensions = ['sphinx.ext.extlinks', 'includecode', 'apilinks']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -252,6 +252,10 @@ extlinks = {
   'issue': ('https://github.com/slick/slick/issues/%s', 'issue #'),
   'ticket': ('https://www.assembla.com/spaces/typesafe-slick/tickets/%s', 'ticket #'),
   'ex': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/scala/slick/examples/%s.scala', 'Slick example ')
+}
+
+apilinks = {
+  'api': 'http://slick.typesafe.com/doc/'+version+'/api/#%s'
 }
 
 rst_epilog = '''
