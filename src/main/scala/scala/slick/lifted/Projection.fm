@@ -47,7 +47,7 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
 
 object Projection {
 <#list 2..22 as i>
-  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = Some(p)
+  def unapply[<#list 1..i as j>C${j} <: ColumnLike[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>C${j},</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = Some(p)
 </#list>
 }
 
@@ -77,27 +77,27 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
 }
 
 object ~ {
-  def unapply[T1,T2](p: Projection2[T1,T2]) =
+  def unapply[C1 <: ColumnLike[T1],C2 <: ColumnLike[T2],T1,T2](p: Projection2[C1,C2,T1,T2]) =
     Some(p)
 <#list 3..22 as i>
-  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
-    Some((new Projection${i-1}(<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i}))
+  def unapply[<#list 1..i as j>C${j} <: ColumnLike[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>C${j},</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
+    Some((new Projection${i-1}[<#list 1..(i-1) as j>C${j},</#list><#list 1..(i-1) as j>T${j}<#if (i-1) != j>,</#if></#list>](<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i}))
 </#list>
 }
 
 <#list 2..22 as i>
-final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
+final class Projection${i}[<#list 1..i as j>C${j} <: ColumnLike[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
 <#list 1..i as j>
-  override val _${j}: ColumnBase[T${j}]<#if i != j>,</#if>
+  override val _${j}: C${j}<#if i != j>,</#if>
 </#list>)
 extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
-  <#if i != 22>def ~[U](c: ColumnBase[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
-  <#if i != 22>def ~:[U](c: ColumnBase[U]) = new Projection${i+1}(c<#list 1..i as j>,_${j}</#list>)</#if>
+  <#if i != 22>def ~[C <: ColumnLike[U], U](c: C) = new Projection${i+1}[<#list 1..i as j>C${j},</#list>C,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>,U](<#list 1..i as j>_${j},</#list>c)</#if>
+  <#if i != 22>def ~:[C <: ColumnLike[U], U](c: C) = new Projection${i+1}[C,<#list 1..i as j>C${j},</#list>U,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](c<#list 1..i as j>,_${j}</#list>)</#if>
   def getResult(driver: JdbcDriver, rs: PositionedResult) = (
 <#list 1..i as j>
     _${j}.getResult(driver, rs)<#if i != j>,</#if>
 </#list>  )
-  override def mapOp(f: (Node, List[Int]) => Node, positions: List[Int]): this.type = new Projection${i}(
+  override def mapOp(f: (Node, List[Int]) => Node, positions: List[Int]): this.type = new Projection${i}[<#list 1..i as j>C${j},</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
 <#list 1..i as j>
     _${j}.mapOp(f, ${j} :: positions)<#if i != j>,</#if>
 </#list>  ).asInstanceOf[this.type]

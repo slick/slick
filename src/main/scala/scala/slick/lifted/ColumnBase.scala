@@ -14,11 +14,16 @@ trait Rep[T] extends NodeGenerator with WithOp { self: ValueLinearizer[T] => }
 /** Common base trait for record values
   * (anything that is isomorphic to a tuple of scalar values).
   */
-trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T] with Typed
+trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T] with Typed {
+}
+
+trait ColumnLike[T] extends ColumnBase[T] {
+  def ~[UC <: ColumnLike[U], U](b: UC) = new Projection2[this.type, UC, T, U](this, b)
+}
 
 /** Base classs for columns.
   */
-abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
+abstract class Column[T : TypedType] extends ColumnLike[T] with Typed {
   final val tpe = implicitly[TypedType[T]]
   def getLinearizedNodes = Vector(Node(this))
   def getAllColumnTypedTypes = Vector(tpe)
@@ -47,7 +52,6 @@ abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
     override def getResult(driver: JdbcDriver, rs: PositionedResult): U = driver.typeInfoFor(tpe).nextValueOrElse(n, rs).asInstanceOf[U]
   }
   def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
-  final def ~[U](b: ColumnBase[U]) = new Projection2[T, U](this, b)
 
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
