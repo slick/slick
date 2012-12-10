@@ -50,13 +50,14 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
     // Check if the nodes changed
     val same = (from, f2).zipped.map(_._2 eq _).forall(identity) &&
       w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty
-    val tc = f2.head.nodeType.asCollectionType.cons
     val newSel = s2.map(_.headOption).getOrElse(select)
-    val el = newSel match {
+    val newType = (newSel match {
       case Some(sel) => sel.nodeType
-      case None => f2.last.nodeType.asCollectionType.elementType
-    }
-    val newType = CollectionType(tc, el)
+      case None =>
+        val el = f2.last.nodeType.asCollectionType.elementType
+        val tc = f2.head.nodeType.asCollectionType.cons
+        CollectionType(tc, el)
+    })
     if(same && newType == nodeType) this else {
       // Compute result type
       copy(
@@ -65,7 +66,7 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
         groupBy = g2.map(_.headOption).getOrElse(groupBy),
         orderBy = o2.map(o2 => (orderBy, o2).zipped.map { case ((_, o), n) => (n, o) }).getOrElse(orderBy),
         select = s2.map(_.headOption).getOrElse(select)
-      ).nodeTyped(CollectionType(tc, el))
+      ).nodeTyped(newType)
     }
   }
 }

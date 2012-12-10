@@ -76,6 +76,13 @@ trait AccessDriver extends ExtendedDriver { driver =>
     - SqlProfile.capabilities.zip
     )
 
+  def integralTypes = Set(
+    java.sql.Types.INTEGER,
+    java.sql.Types.BIGINT,
+    java.sql.Types.SMALLINT,
+    java.sql.Types.TINYINT
+  )
+
   override val Implicit: Implicits = new Implicits
   override val simple: SimpleQL = new Implicits with SimpleQL
   override val compiler =
@@ -140,6 +147,8 @@ trait AccessDriver extends ExtendedDriver { driver =>
         ).toLowerCase match {
           case "integer" => b"cint(${ch(0)})"
           case "long" => b"clng(${ch(0)})"
+          case t if t.startsWith("varchar") && integralTypes.contains(typeInfoFor(ch(0).nodeType).sqlType) =>
+            b"format(${ch(0)}, '#############################0')"
           case tn =>
             throw new SlickException(s"""Cannot represent cast to type "$tn" in Access SQL""")
         }

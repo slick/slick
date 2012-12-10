@@ -115,25 +115,9 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql
   }
 
-  def SQLServer(cname: String) = new ExternalTestDB("sqlserver", SQLServerDriver) {
-    val defaultSchema = TestDB.get(confName, "defaultSchema").getOrElse("")
-    override def getLocalTables(implicit session: profile.Backend#Session): List[String] = {
-      val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(dbName, defaultSchema, null, null))
-      tables.list.map(_._3).sorted
-    }
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
-      val constraints = (Q[(String, String)]+"""
-          select constraint_name, table_name
-          from information_schema.table_constraints
-          where constraint_type = 'FOREIGN KEY'
-        """).list
-      for((c, t) <- constraints if !c.startsWith("SQL"))
-        (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
-      for(t <- getLocalTables)
-        (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
-    }
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql
-  }
+  def SQLServerJTDS(cname: String) = new SQLServerDB("sqlserver")
+
+  def SQLServerSQLJDBC(cname: String) = new SQLServerDB("sqlserver-jdbc")
 
   def MSAccess(cname: String) = new AccessDB("access")
 }
@@ -230,6 +214,26 @@ abstract class HsqlDB(confName: String) extends TestDB(confName, HsqldbDriver) {
     Logger.getLogger("org.hsqldb.persist.Logger").setLevel(Level.OFF)
     Logger.getLogger("org.hsqldb").setLevel(Level.OFF)
     Logger.getLogger("hsqldb").setLevel(Level.OFF)
+  }
+  override lazy val capabilities = driver.capabilities + TestDB.plainSql
+}
+
+class SQLServerDB(confName: String) extends ExternalTestDB(confName, SQLServerDriver) {
+  val defaultSchema = TestDB.get(confName, "defaultSchema").getOrElse("")
+  override def getLocalTables(implicit session: profile.Backend#Session): List[String] = {
+    val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(dbName, defaultSchema, null, null))
+    tables.list.map(_._3).sorted
+  }
+    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
+    val constraints = (Q[(String, String)]+"""
+      select constraint_name, table_name
+      from information_schema.table_constraints
+      where constraint_type = 'FOREIGN KEY'
+      """).list
+    for((c, t) <- constraints if !c.startsWith("SQL"))
+    (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
+    for(t <- getLocalTables)
+    (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
   }
   override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }

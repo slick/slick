@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.ast.{Node, Dump}
+import scala.slick.ast.{Node, Dump}
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class OldTest(val tdb: TestDB) extends TestkitTest {

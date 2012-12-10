@@ -66,6 +66,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     type Session = Backend#Session
     type SlickException = scala.slick.SlickException
     type ColumnType[T] = JdbcType[T]
+    type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
     type MappedColumnType[T, U] = MappedJdbcType[T, U]
     val MappedColumnType = MappedJdbcType
   }

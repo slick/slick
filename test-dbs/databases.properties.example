@@ -66,13 +66,40 @@ access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=[DB
 #   domain in sqlserver.url
 # - Set sqlserver.enabled = true
 sqlserver.enabled = false
-sqlserver.url = jdbc:jtds:sqlserver://localhost/[DB];progName=ScalaQuery_Unit_Test;namedPipe=true;domain=local
+sqlserver.url = jdbc:jtds:sqlserver://localhost/[DB];progName=Slick_TestKit;namedPipe=true;domain=local
 sqlserver.user = dbo
 sqlserver.password =
 sqlserver.adminDB = master
-sqlserver.testDB = scalaquery-test
+sqlserver.testDB = slick-test
 sqlserver.defaultSchema = dbo
 sqlserver.create = CREATE DATABASE "[DB]" ON (NAME = '[DB]_dat', FILENAME = '[DBPATH]\\[DB].mdf') LOG ON (NAME = '[DB]_log', FILENAME = "[DBPATH]\\[DB].ldf")
 #sqlserver.create = CREATE DATABASE "[DB]"
 sqlserver.drop = IF EXISTS(SELECT name FROM sys.databases WHERE name = '[DB]') DROP DATABASE "[DB]"
 sqlserver.driver = net.sourceforge.jtds.jdbc.Driver
+
+# SQL Server via sqljdbc quick setup:
+# - Install SQL Server Express 2008 R2:
+#   http://www.microsoft.com/express/Database/InstallOptions.aspx
+# - Install sqljdbc:
+#   http://www.microsoft.com/en-us/download/details.aspx?id=11774
+# - Enter the correct path to sqljdbc4.jar in sqlserver-jdbc.driverJar
+# - Enter the password for the "sa" user in sqlserver-jdbc.password
+#   (use SQL Server Management Studio to set a password if necessary)
+# - Ensure that the TCP transport on port 1433 is enabled (-> SQL Server
+#   Configuration Manager)
+#   Ensure that the "sa" user is allowed to log in, and that SQL Server
+#   accepts SQL Server authentication (not just Windows authentication)
+#   (-> SQL Server Management Studio)
+# - Set sqlserver-jdbc.enabled = true
+sqlserver-jdbc.enabled = false
+sqlserver-jdbc.url = jdbc:sqlserver://localhost;database=[DB];applicationName=Slick_TestKit
+sqlserver-jdbc.user = sa
+sqlserver-jdbc.password = secret
+sqlserver-jdbc.adminDB = master
+sqlserver-jdbc.testDB = slick-test
+sqlserver-jdbc.defaultSchema = dbo
+sqlserver-jdbc.create = CREATE DATABASE "[DB]" ON (NAME = '[DB]_dat', FILENAME = '[DBPATH]\\[DB].mdf') LOG ON (NAME = '[DB]_log', FILENAME = "[DBPATH]\\[DB].ldf")
+#sqlserver-jdbc.create = CREATE DATABASE "[DB]"
+sqlserver-jdbc.drop = IF EXISTS(SELECT name FROM sys.databases WHERE name = '[DB]') DROP DATABASE "[DB]"
+sqlserver-jdbc.driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
+sqlserver-jdbc.driverJar = file:///C:/StandaloneApps/sqljdbc_4.0/enu/sqljdbc4.jar

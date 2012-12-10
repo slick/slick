@@ -76,6 +76,20 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     override protected val useIntForBoolean = true
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+      case a @ Library.Cast(ch @ _*) =>
+        /* Work around DERBY-2072 by casting numeric values first to CHAR and
+         * then to VARCHAR. */
+        val (toVarchar, tn) = {
+          val tn =
+            (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
+            else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName).toLowerCase
+          if(tn == "varchar") (true, columnTypes.stringJdbcType.sqlTypeName)
+          else if(tn.startsWith("varchar")) (true, tn)
+          else (false, tn)
+        }
+        if(toVarchar && typeInfoFor(ch(0).nodeType).isInstanceOf[NumericTypedType])
+          b"trim(cast(cast(${ch(0)} as char(30)) as $tn))"
+        else b"cast(${ch(0)} as $tn)"
       case Library.IfNull(l, r) => r match {
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
