@@ -6,10 +6,10 @@ import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.SlickException
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
-import java.util.UUID
-import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 import scala.slick.profile.{SqlProfile, Capability}
 import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
+import java.util.UUID
+import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 
 /**
  * Slick driver for Microsoft Access via JdbcOdbcDriver.
@@ -101,7 +101,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
 
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
   override def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -115,7 +115,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilationState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("&")
     override protected val hasPiFunction = false

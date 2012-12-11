@@ -2,10 +2,11 @@ package scala.slick.driver
 
 import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
-import scala.slick.compiler.QueryCompiler
+import slick.compiler.{CompilationState, CodeGen, QueryCompiler}
 import scala.slick.lifted._
 import scala.slick.jdbc.{JdbcBackend, JdbcType, MappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
+import slick.util.SQLBuilder
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -21,10 +22,32 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
-  final def createQueryBuilder(q: Query[_, _]): QueryBuilder = createQueryBuilder(new QueryBuilderInput(compiler.run(Node(q)), q))
-  final def buildSelectStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildSelect
-  final def buildUpdateStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildUpdate
-  final def buildDeleteStatement(q: Query[_, _]): QueryBuilderResult = createQueryBuilder(q).buildDelete
+  lazy final val selectStatementCompiler = compiler + CodeGen(() => (n: Node, c: CompilationState) => {
+    val sbr = createQueryBuilder(n, c).buildSelect
+    (sbr.sql, sbr)
+  })
+  lazy final val updateStatementCompiler = compiler + CodeGen(() => (n: Node, c: CompilationState) => {
+    val sbr = createQueryBuilder(n, c).buildUpdate
+    (sbr.sql, sbr)
+  })
+  lazy final val deleteStatementCompiler = compiler + CodeGen(() => (n: Node, c: CompilationState) => {
+    val sbr = createQueryBuilder(n, c).buildDelete
+    (sbr.sql, sbr)
+  })
+
+  private final def createQueryBuilder(q: Query[_, _]): QueryBuilder = {
+    val state = compiler.run(Node(q))
+    createQueryBuilder(state.tree, state)
+  }
+
+  protected final def buildStatement(q: Query[_, _], c: QueryCompiler): QueryBuilderResult = {
+    val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(c.run((Node(q))).tree)
+    QueryBuilderResult(sbr, q)
+  }
+
+  final def buildSelectStatement(q: Query[_, _]) = buildStatement(q, selectStatementCompiler)
+  final def buildUpdateStatement(q: Query[_, _]) = buildStatement(q, updateStatementCompiler)
+  final def buildDeleteStatement(q: Query[_, _]) = buildStatement(q, deleteStatementCompiler)
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
@@ -40,10 +63,10 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createCountingInsertInvoker(ShapedValue.createShapedValue(c))
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createCountingInsertInvoker(u)
 
-    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = new QueryExecutor[Seq[U]](new QueryBuilderInput(compiler.run(Node(q)), q))
+    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = new QueryExecutor[Seq[U]](compiler.run(Node(q)), q)
 
     // We can't use this direct way due to SI-3346
-    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = new QueryExecutor[R](new QueryBuilderInput(compiler.run(Node(q)), shape.linearizer(q)))
+    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = new QueryExecutor[R](compiler.run(Node(q)), shape.linearizer(q))
     implicit final def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutor[M](q)
     implicit final def anyToToQueryExecutor[T](value: T) = new ToQueryExecutor[T](value)
 

@@ -5,6 +5,7 @@ import scala.slick.lifted._
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.compiler.CompilationState
 
 /**
  * Slick driver for PostgreSQL.
@@ -27,7 +28,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 trait PostgresDriver extends ExtendedDriver { driver =>
 
   override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
@@ -39,7 +40,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilationState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
