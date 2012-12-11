@@ -54,7 +54,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
 
     val q3 = (for {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)
-    } yield (p.id, p.id.orZero ~ c.id ~ c.name ~ p.title.orZero)).sortBy(_._1.nullsFirst).map(_._2)
+    } yield (p.id, p.id.?.getOrElse(0) ~ c.id ~ c.name ~ p.title.?.getOrElse(""))).sortBy(_._1.nullsFirst).map(_._2)
     println("Left outer join (nulls first): "+q3.selectStatement)
     q3.foreach(x => println("  "+x))
     assertEquals(List((0,4), (2,1), (3,2), (4,3), (5,2)), q3.map(p => p._1 ~ p._2).list)
@@ -66,7 +66,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
 
     val q3b = (for {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)
-    } yield (p.id, p.id.orZero ~ c.id ~ c.name ~ p.title.orZero)).sortBy(_._1.nullsLast).map(_._2)
+    } yield (p.id, p.id.?.getOrElse(0) ~ c.id ~ c.name ~ p.title.?.getOrElse(""))).sortBy(_._1.nullsLast).map(_._2)
     println("Left outer join (nulls last): "+q3b.selectStatement)
     q3b.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => p._1 ~ p._2).list)
@@ -74,7 +74,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
     ifCap(scap.joinRight) {
       val q4 = (for {
         (c,p) <- Categories rightJoin Posts on (_.id is _.category)
-      } yield p.id ~ c.id.orZero ~ c.name.orZero ~ p.title).sortBy(_._1)
+      } yield p.id ~ c.id.?.getOrElse(0) ~ c.name.?.getOrElse("") ~ p.title).sortBy(_._1)
       println("Right outer join: "+q4.selectStatement)
       q4.foreach(x => println("  "+x))
       assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => p._1 ~ p._2).list)

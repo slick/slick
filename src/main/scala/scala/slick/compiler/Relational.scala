@@ -158,23 +158,27 @@ class FuseComprehensions extends Phase {
     * in the following cases:
     * - It has a Pure generator.
     * - It does not have any generators.
-    * - The Comprehension has a 'select' clause which consists only of Paths
-    *   and constant values. */
-  def isFuseableInner(c: Comprehension): Boolean =
+    * - The Comprehension has a 'select' clause which consists only of Paths,
+    *   constant values and client-side type conversions. */
+  def isFuseableInner(c: Comprehension): Boolean = {
+    def isFuseableColumn(n: Node): Boolean = n match {
+      case Path(_) => true
+      case _: LiteralNode => true
+      case GetOrElse(ch, _) => isFuseableColumn(ch)
+      case OptionApply(ch) => isFuseableColumn(ch)
+      case _ => false
+    }
     c.fetch.isEmpty && c.offset.isEmpty && {
       c.from.isEmpty || c.from.exists {
         case (sym, Pure(_)) => true
         case _ => false
       } || (c.select match {
         case Some(Pure(ProductNode(ch))) =>
-          ch.map {
-            case Path(_) => true
-            case _: LiteralNode => true
-            case _ => false
-          }.forall(identity)
+          ch.map(isFuseableColumn).forall(identity)
         case _ => false
       })
     }
+  }
 
   /** Check if two comprehensions can be fused (assuming the outer and inner
     * comprehension have already been deemed fuseable on their own). */

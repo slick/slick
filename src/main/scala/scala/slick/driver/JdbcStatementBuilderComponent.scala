@@ -186,6 +186,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+      case OptionApply(ch) => expr(ch, skipParens)
+      case GetOrElse(ch, _) => expr(ch, skipParens)
       case LiteralNode(true) if useIntForBoolean => b"\(1=1\)"
       case LiteralNode(false) if useIntForBoolean => b"\(1=0\)"
       case LiteralNode(null) => b"null"
@@ -457,6 +459,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       val cols = new ArrayBuffer[FieldSymbol]
       var table: String = null
       def f(c: Any): Unit = c match {
+        case OptionApply(ch) => f(ch)
+        case GetOrElse(ch, _) => f(ch)
         case ProductNode(ch) => ch.foreach(f)
         case t:TableNode => f(Node(t.nodeShaped_*.value))
         case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
