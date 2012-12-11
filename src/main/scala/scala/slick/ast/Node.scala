@@ -581,3 +581,10 @@ final case class GetOrElse(val child: Node, val default: () => Any) extends Unar
     nodeBuildTypedNode(this2, tp)
   }
 }
+
+/** A compiled statement with a fixed type, a statement string and
+  * driver-specific extra data. */
+case class CompiledStatement(statement: String, extra: Any, tpe: Type) extends NullaryNode with TypedNode {
+  def nodeRebuild = copy()
+  override def toString = "CompiledStatement \"" + statement + "\""
+}

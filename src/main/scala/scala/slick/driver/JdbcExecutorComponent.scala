@@ -4,15 +4,16 @@ import java.sql.PreparedStatement
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.lifted.Shape
 import scala.slick.jdbc.StatementInvoker
-import slick.util.{CollectionLinearizer, RecordLinearizer}
+import scala.slick.util.{ValueLinearizer, CollectionLinearizer, RecordLinearizer}
+import scala.slick.compiler.CompilationState
 
 trait JdbcExecutorComponent { driver: JdbcDriver =>
 
-  class QueryExecutor[R](input: QueryBuilderInput) {
+  class QueryExecutor[R](input: CompilationState, linearizer: ValueLinearizer[_]) {
 
     def selectStatement = sres.sql
 
-    protected lazy val sres = createQueryBuilder(input).buildSelect()
+    protected lazy val sres = QueryBuilderResult(createQueryBuilder(input.tree, input).buildSelect(), linearizer)
 
     def run(implicit session: Backend#Session): R = {
       val i = new StatementInvoker[Unit, Any] {

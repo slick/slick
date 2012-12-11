@@ -7,6 +7,7 @@ import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.CompilationState
 
 /**
  * Slick driver for MySQL.
@@ -38,14 +39,14 @@ trait MySQLDriver extends ExtendedDriver { driver =>
 
   override val columnTypes = new JdbcTypes
 
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilationState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
 

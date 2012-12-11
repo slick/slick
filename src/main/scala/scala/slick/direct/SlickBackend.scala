@@ -1,8 +1,8 @@
 package scala.slick.direct
 
+import language.existentials
 import scala.slick.SlickException
 import scala.language.implicitConversions
-import language.existentials
 import scala.slick.driver._
 import scala.slick.lifted.{Shape, ShapedValue}
 import scala.slick.{ast => sq}
@@ -423,11 +423,11 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
     }
-    new driver.QueryExecutor[Vector[R]](new QueryBuilderInput(cstate, linearizer)).run(session)
+    new driver.QueryExecutor[Vector[R]](cstate, linearizer).run(session)
   }
   protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
-    val builder = driver.createQueryBuilder(new QueryBuilderInput(cstate, null))
+    val builder = driver.createQueryBuilder(cstate.tree, cstate)
     builder.buildSelect.sql
   }
   protected[slick] def toQuery(queryable:BaseQueryable[_]) : (Type,this.Query) = queryable.expr_or_typetag match {

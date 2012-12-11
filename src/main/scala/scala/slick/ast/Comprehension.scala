@@ -80,3 +80,23 @@ final case class RowNumber(by: Seq[(Node, Ordering)] = Seq.empty) extends TypedN
   override def nodeChildNames = by.zipWithIndex.map("by" + _._2)
   override def toString = "RowNumber"
 }
+
+/** A client-side projection of type
+  * (CollectionType(c, t), u) => CollectionType(c, u). */
+final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) extends BinaryNode with DefNode {
+  def left = from
+  def right = map
+  override def nodeChildNames = Seq("from "+generator, "map")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, map = right)
+  def nodeGenerators = Seq((generator, from))
+  override def toString = "ResultSetMapping"
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
+  def nodeWithComputedType(scope: SymbolScope): Node = {
+    val f2 = from.nodeWithComputedType(scope)
+    val fromType = f2.nodeType.asCollectionType
+    val s2 = map.nodeWithComputedType(scope + (generator -> fromType.elementType))
+    val newType = CollectionType(fromType.cons, s2.nodeType)
+    if((f2 eq from) && (s2 eq map) && newType == nodeType) this
+    else copy(from = f2, map = s2).nodeTyped(newType)
+  }
+}

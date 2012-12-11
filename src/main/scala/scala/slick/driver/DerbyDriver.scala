@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
+import slick.compiler.CompilationState
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -57,7 +58,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
   )
 
   override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
@@ -69,8 +70,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
-
+  class QueryBuilder(tree: Node, state: CompilationState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
     override protected val useIntForBoolean = true
