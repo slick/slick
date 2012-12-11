@@ -8,9 +8,10 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  val doRun = true
+  override val reuseInstance = true
 
-  def test {
+  def testNewComposition {
+    val doRun = true
 
     object SuppliersStd extends Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
@@ -404,5 +405,51 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
 
     (SuppliersStd.ddl ++ CoffeesStd.ddl).drop
     (SuppliersStd.ddl ++ CoffeesStd.ddl).dropStatements.foreach(s => println("drop: "+s))
+  }
+
+  def testOldComposition {
+    object Users extends Table[(Int, String, String)]("users") {
+      def id = column[Int]("id")
+      def first = column[String]("first")
+      def last = column[String]("last")
+      def * = id ~ first ~ last
+    }
+
+    object Orders extends Table[(Int, Int)]("orders") {
+      def userID = column[Int]("userID")
+      def orderID = column[Int]("orderID")
+      def * = userID ~ orderID
+    }
+
+    val q2 = for {
+      u <- Users.sortBy(u => (u.first, u.last.desc))
+      o <- Orders where {
+        o => (u.id is o.userID) && (u.first.isNotNull)
+      }
+    } yield u.first ~ u.last ~ o.orderID
+
+    (Users.ddl ++ Orders.ddl).create
+
+    val q3 = for (u <- Users where (_.id is 42)) yield u.first ~ u.last
+    q3.execute
+
+    val q4 = (for {
+      (u, o) <- Users innerJoin Orders on (_.id is _.userID)
+    } yield (u.last, u.first ~ o.orderID)).sortBy(_._1).map(_._2)
+    q4.execute
+
+    val q6a =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
+    q6a.execute
+
+    val q6b =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
+    q6b.execute
+
+    val q6c =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
+    q6c.execute
+
+    (Users.ddl ++ Orders.ddl).drop
   }
 }
