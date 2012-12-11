@@ -18,12 +18,12 @@ trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T] with Typed {
 }
 
 trait ColumnLike[T] extends ColumnBase[T] {
-  def ~[UC <: ColumnLike[U], U](b: UC) = new Projection2[this.type, UC, T, U](this, b)
 }
 
 /** Base classs for columns.
   */
 abstract class Column[T : TypedType] extends ColumnLike[T] with Typed {
+  def ~[UC <: ColumnLike[U], U](b: UC with ColumnLike[U]) = new Projection2[Column[T], UC, T, U](this, b)
   final val tpe = implicitly[TypedType[T]]
   def getLinearizedNodes = Vector(Node(this))
   def getAllColumnTypedTypes = Vector(tpe)

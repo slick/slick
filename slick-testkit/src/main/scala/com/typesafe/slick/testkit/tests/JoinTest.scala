@@ -18,7 +18,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
     def category = column[Int]("category")
     def * = id ~ title ~ category
   }
-/*
+
   def test {
 
     (Categories.ddl ++ Posts.ddl).create
@@ -80,5 +80,5 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => p._1 ~ p._2).list)
     }
   }
-  */
+  
 }

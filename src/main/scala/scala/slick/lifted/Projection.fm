@@ -56,6 +56,8 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
   def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
 
+  def ~[UC <: ColumnLike[U], U](b: UC with ColumnLike[U]) = new Projection2[MappedProjection[T, P], UC, T, U](this, b)
+
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit =
     proj.setParameter(driver, ps, value.flatMap(g))
   def getResult(driver: JdbcDriver, rs: PositionedResult) = f(proj.getResult(driver, rs))
@@ -91,8 +93,8 @@ final class Projection${i}[<#list 1..i as j>C${j} <: ColumnLike[T${j}],</#list><
   override val _${j}: C${j}<#if i != j>,</#if>
 </#list>)
 extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
-  <#if i != 22>def ~[C <: ColumnLike[U], U](c: C) = new Projection${i+1}[<#list 1..i as j>C${j},</#list>C,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>,U](<#list 1..i as j>_${j},</#list>c)</#if>
-  <#if i != 22>def ~:[C <: ColumnLike[U], U](c: C) = new Projection${i+1}[C,<#list 1..i as j>C${j},</#list>U,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](c<#list 1..i as j>,_${j}</#list>)</#if>
+  <#if i != 22>def ~[C <: ColumnLike[U], U](c: C with ColumnLike[U]) = new Projection${i+1}[<#list 1..i as j>C${j},</#list>C,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>,U](<#list 1..i as j>_${j},</#list>c)</#if>
+  <#if i != 22>def ~:[C <: ColumnLike[U], U](c: C with ColumnLike[U]) = new Projection${i+1}[C,<#list 1..i as j>C${j},</#list>U,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](c<#list 1..i as j>,_${j}</#list>)</#if>
   def getResult(driver: JdbcDriver, rs: PositionedResult) = (
 <#list 1..i as j>
     _${j}.getResult(driver, rs)<#if i != j>,</#if>
