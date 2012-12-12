@@ -27,9 +27,12 @@ class HoistClientOps extends Phase {
         case (_, n) => n.replace(tr)
       }
     }
-    tree.replace(tr)
 
-    //tree
+    val Comprehension(_, _, _, _, Some(Pure(ProductNode(treeProjChildren))), _, _) = tree
+    val base = new AnonSymbol
+    val proj = ProductNode(1.to(treeProjChildren.length).map(i => Select(Ref(base), new ElementSymbol(i))))
+    val t2 = ResultSetMapping(base, tree, proj)
+    t2.replace(tr)
   }
 
   def unwrap(n: Node): (Node, (Node => Node)) = n match {

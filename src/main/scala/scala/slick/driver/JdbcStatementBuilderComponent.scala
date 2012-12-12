@@ -5,17 +5,18 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 import scala.slick.ast.ExtraUtil._
+import scala.slick.compiler.{CodeGen, Phase, CompilationState}
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
-import scala.collection.mutable.{ArrayBuffer, HashMap}
-import scala.slick.compiler.{Phase, CompilationState}
 import scala.slick.profile.SqlProfile
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
-  def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] = new JdbcQueryTemplate[P,R](q, this)
+  def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] =
+    new JdbcQueryTemplate[P,R](selectStatementCompiler.run(Node(q)).tree, q, this)
   def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
   def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -439,8 +440,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
       val pr = buildParts(node)
-      val qbr = driver.buildSelectStatement(query).sbr
-      InsertBuilderResult(pr.table, s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) ${qbr.sql}", qbr.setter)
+      val (_, sbr: SQLBuilder.Result) =
+        CodeGen.findResult(driver.selectStatementCompiler.run((Node(query))).tree)
+      InsertBuilderResult(pr.table, s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) ${sbr.sql}", sbr.setter)
     }
 
     def buildReturnColumns(node: Node, table: String): IndexedSeq[FieldSymbol] = {
@@ -623,11 +625,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       DDL(b.toString, "drop sequence " + quoteIdentifier(seq.name))
     }
   }
-}
-
-case class QueryBuilderResult(sbr: SQLBuilder.Result, linearizer: ValueLinearizer[_]) {
-  def sql = sbr.sql
-  def setter = sbr.setter
 }
 
 case class InsertBuilderResult(table: String, sql: String, setter: SQLBuilder.Setter = SQLBuilder.EmptySetter)

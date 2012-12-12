@@ -45,11 +45,11 @@ object Benchmark {
         where { o => o.orderID === (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID).max }
     ) yield o.orderID
 
-    val s1 = JdbcDriver.buildSelectStatement(q1)
-    val s2 = JdbcDriver.buildSelectStatement(q2)
-    val s3 = JdbcDriver.buildSelectStatement(q3)
-    val s4 = JdbcDriver.buildSelectStatement(q4)
-    val s5 = JdbcDriver.buildSelectStatement(q5)
+    val s1 = q1.selectStatement
+    val s2 = q2.selectStatement
+    val s3 = q3.selectStatement
+    val s4 = q4.selectStatement
+    val s5 = q5.selectStatement
 
     if(print) {
       println("q1: " + s1)
