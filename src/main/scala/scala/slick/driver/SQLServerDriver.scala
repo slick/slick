@@ -25,7 +25,7 @@ import java.sql.{Timestamp, Date, Time}
  *
  * @author szeiger
  */
-trait SQLServerDriver extends ExtendedDriver { driver =>
+trait SQLServerDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.returnInsertOther

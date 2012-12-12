@@ -59,7 +59,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  *
  * @author szeiger
  */
-trait AccessDriver extends ExtendedDriver { driver =>
+trait AccessDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.columnDefaults

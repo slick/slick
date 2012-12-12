@@ -42,7 +42,7 @@ import scala.slick.compiler.CompilationState
  * @author Paul Snively
  * @author Stefan Zeiger
  */
-trait SQLiteDriver extends ExtendedDriver { driver =>
+trait SQLiteDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.functionDatabase
