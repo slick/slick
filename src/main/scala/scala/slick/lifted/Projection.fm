@@ -10,25 +10,18 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
 
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) {
     for(i <- 0 until productArity) {
-      productElement(i).asInstanceOf[ColumnBase[Any]].setParameter(driver, ps, value.map(_.productElement(i))) // replaced Column[Any] with ColumnBase[Any] in cast
+      productElement(i).asInstanceOf[ColumnBase[Any]].setParameter(driver, ps, value.map(_.productElement(i)))
     }
   }
 
   def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) {
     for(i <- 0 until productArity) {
-      productElement(i).asInstanceOf[ColumnBase[Any]].updateResult(driver, rs, value.productElement(i)) // replaced Column[Any] with ColumnBase[Any] in cast
+      productElement(i).asInstanceOf[ColumnBase[Any]].updateResult(driver, rs, value.productElement(i))
     }
   }
   
-  def getAllColumnTypedTypes : Vector[TypedType[_]] = 
-    0.until(productArity).flatMap{ // would have replaced Column[_] with ColumnBase[_] in cast
-      i => 
-        val e = productElement(i)
-        if (e.isInstanceOf[Projection[_]])  // but the method is not defined in ColumnBase, so for now we support it just for this class and Column
-          e.asInstanceOf[Projection[_]].getAllColumnTypedTypes 
-        else
-      	  e.asInstanceOf[Column[_]].getAllColumnTypedTypes
-  	}(collection.breakOut)
+  override def getAllColumnTypedTypes = 
+    0.until(productArity).flatMap{i => productElement(i).asInstanceOf[ColumnBase[_]].getAllColumnTypedTypes}(collection.breakOut)
   
   def getLinearizedNodes: IndexedSeq[Node] =
     (0 until productArity).foldLeft(Vector[Node]())((l, i) => l ++ productElement(i).asInstanceOf[ColumnBase[Any]].getLinearizedNodes) // Generalized
@@ -37,7 +30,7 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
 
   override def toString = "Projection" + productArity
 
-  lazy val tpe = ProductType(productIterator.asInstanceOf[Iterator[Column[_]]].map(_.tpe).toIndexedSeq)
+  lazy val tpe = ProductType(productIterator.asInstanceOf[Iterator[ColumnBase[_]]].map(_.tpe).toIndexedSeq)
 
   override def nodeWithComputedType(scope: SymbolScope): Node = {
     val this2 = nodeMapChildren(_.nodeWithComputedType(scope))
@@ -47,16 +40,16 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
 
 object Projection {
 <#list 2..22 as i>
-  def unapply[<#list 1..i as j>C${j} <: ColumnLike[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>C${j},</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = Some(p)
+  def unapply[<#list 1..i as j>C${j} <: ColumnBase[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>C${j},</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = Some(p)
 </#list>
 }
 
 final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with UnaryNode with TypedNode {
   override def toString = "MappedProjection"
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
-  def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
+  override def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
 
-  def ~[UC <: ColumnLike[U], U](b: UC with ColumnLike[U]) = new Projection2[MappedProjection[T, P], UC, T, U](this, b)
+  def ~[UC <: ColumnBase[U], U](b: UC with ColumnBase[U]) = new Projection2[MappedProjection[T, P], UC, T, U](this, b)
 
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit =
     proj.setParameter(driver, ps, value.flatMap(g))
@@ -79,22 +72,22 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
 }
 
 object ~ {
-  def unapply[C1 <: ColumnLike[T1],C2 <: ColumnLike[T2],T1,T2](p: Projection2[C1,C2,T1,T2]) =
+  def unapply[C1 <: ColumnBase[T1],C2 <: ColumnBase[T2],T1,T2](p: Projection2[C1,C2,T1,T2]) =
     Some(p)
 <#list 3..22 as i>
-  def unapply[<#list 1..i as j>C${j} <: ColumnLike[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>C${j},</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
+  def unapply[<#list 1..i as j>C${j} <: ColumnBase[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>C${j},</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
     Some((new Projection${i-1}[<#list 1..(i-1) as j>C${j},</#list><#list 1..(i-1) as j>T${j}<#if (i-1) != j>,</#if></#list>](<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i}))
 </#list>
 }
 
 <#list 2..22 as i>
-final class Projection${i}[<#list 1..i as j>C${j} <: ColumnLike[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
+final class Projection${i}[<#list 1..i as j>C${j} <: ColumnBase[T${j}],</#list><#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
 <#list 1..i as j>
   override val _${j}: C${j}<#if i != j>,</#if>
 </#list>)
 extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
-  <#if i != 22>def ~[C <: ColumnLike[U], U](c: C with ColumnLike[U]) = new Projection${i+1}[<#list 1..i as j>C${j},</#list>C,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>,U](<#list 1..i as j>_${j},</#list>c)</#if>
-  <#if i != 22>def ~:[C <: ColumnLike[U], U](c: C with ColumnLike[U]) = new Projection${i+1}[C,<#list 1..i as j>C${j},</#list>U,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](c<#list 1..i as j>,_${j}</#list>)</#if>
+  <#if i != 22>def ~[C <: ColumnBase[U], U](c: C with ColumnBase[U]) = new Projection${i+1}[<#list 1..i as j>C${j},</#list>C,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>,U](<#list 1..i as j>_${j},</#list>c)</#if>
+  <#if i != 22>def ~:[C <: ColumnBase[U], U](c: C with ColumnBase[U]) = new Projection${i+1}[C,<#list 1..i as j>C${j},</#list>U,<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](c<#list 1..i as j>,_${j}</#list>)</#if>
   def getResult(driver: JdbcDriver, rs: PositionedResult) = (
 <#list 1..i as j>
     _${j}.getResult(driver, rs)<#if i != j>,</#if>

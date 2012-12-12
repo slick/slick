@@ -55,6 +55,8 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = *.updateResult(driver, rs, value)
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) = *.setParameter(driver, ps, value)
 
+  override def getAllColumnTypedTypes = *.getAllColumnTypedTypes
+
   override def nodeWithComputedType(scope: SymbolScope): Node = super[TypedNode].nodeWithComputedType(scope)
 }
 

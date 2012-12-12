@@ -15,15 +15,13 @@ trait Rep[T] extends NodeGenerator with WithOp { self: ValueLinearizer[T] => }
   * (anything that is isomorphic to a tuple of scalar values).
   */
 trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T] with Typed {
-}
-
-trait ColumnLike[T] extends ColumnBase[T] {
+  def getAllColumnTypedTypes : Vector[TypedType[_]] 
 }
 
 /** Base classs for columns.
   */
-abstract class Column[T : TypedType] extends ColumnLike[T] with Typed {
-  def ~[UC <: ColumnLike[U], U](b: UC with ColumnLike[U]) = new Projection2[Column[T], UC, T, U](this, b)
+abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
+  def ~[UC <: ColumnBase[U], U](b: UC with ColumnBase[U]) = new Projection2[Column[T], UC, T, U](this, b)
   final val tpe = implicitly[TypedType[T]]
   def getLinearizedNodes = Vector(Node(this))
   def getAllColumnTypedTypes = Vector(tpe)

@@ -37,6 +37,7 @@ object Testkit {
     classOf[tk.SequenceTest] ::
     classOf[tk.TemplateTest] ::
     classOf[tk.TransactionTest] ::
+    classOf[tk.TupledMapTest] ::
     classOf[tk.UnionTest] ::
     classOf[tk.ZipTest] ::
     (Nil: List[Class[_ <: TestkitTest]])
