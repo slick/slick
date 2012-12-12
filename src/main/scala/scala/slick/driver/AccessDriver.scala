@@ -1,13 +1,14 @@
 package scala.slick.driver
 
 import scala.language.implicitConversions
-import scala.slick.lifted._
-import scala.slick.ast._
-import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.SlickException
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
-import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.ast._
 import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
+import scala.slick.lifted._
+import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.util.ValueLinearizer
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 
@@ -95,7 +96,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
   class Implicits extends super.Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[T, U] = new QueryInvoker(q)
+    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(selectStatementCompiler.run(Node(q)).tree, q)
   }
 
   val retryCount = 10
@@ -291,7 +292,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     override val uuidJdbcType = new UUIDJdbcType with Retry[UUID]
   }
 
-  class QueryInvoker[Q, R](q: Query[Q, _ <: R]) extends super.QueryInvoker[Q, R](q) {
+  class QueryInvoker[R](tree: Node, linearizer: ValueLinearizer[_]) extends super.QueryInvoker[R](tree, linearizer) {
     /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
     override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
     /* Access goes forward instead of backward after deleting the current row in a mutable result set */

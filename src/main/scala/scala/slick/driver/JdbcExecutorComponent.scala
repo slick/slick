@@ -1,27 +1,27 @@
 package scala.slick.driver
 
-import java.sql.PreparedStatement
-import scala.slick.jdbc.{PositionedParameters, PositionedResult}
+import scala.slick.ast.Node
+import scala.slick.compiler.CodeGen
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, StatementInvoker}
 import scala.slick.lifted.Shape
-import scala.slick.jdbc.StatementInvoker
-import scala.slick.util.{ValueLinearizer, CollectionLinearizer, RecordLinearizer}
-import scala.slick.compiler.CompilationState
+import scala.slick.util.{SQLBuilder, ValueLinearizer, CollectionLinearizer, RecordLinearizer}
+import java.sql.PreparedStatement
 
 trait JdbcExecutorComponent { driver: JdbcDriver =>
 
-  class QueryExecutor[R](input: CompilationState, linearizer: ValueLinearizer[_]) {
+  class QueryExecutor[R](tree: Node, linearizer: ValueLinearizer[_]) {
 
     def selectStatement = sres.sql
 
-    protected lazy val sres = QueryBuilderResult(createQueryBuilder(input.tree, input).buildSelect(), linearizer)
+    protected val (_, sres: SQLBuilder.Result) = CodeGen.findResult(tree)
 
     def run(implicit session: Backend#Session): R = {
       val i = new StatementInvoker[Unit, Any] {
         protected def getStatement = sres.sql
         protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
-        protected def extractValue(rs: PositionedResult) = sres.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[Any]].getResult(driver, rs)
+        protected def extractValue(rs: PositionedResult) = linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[Any]].getResult(driver, rs)
       }
-      val res = sres.linearizer match {
+      val res = linearizer match {
         case _: RecordLinearizer[_] => i.first()
         case c =>
           val builder = c.asInstanceOf[CollectionLinearizer[Any, Any]].canBuildFrom()

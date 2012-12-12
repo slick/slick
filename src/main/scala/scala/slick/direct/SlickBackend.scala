@@ -368,12 +368,12 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
 
   private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilationState) = {
     val (tpe,query) = this.toQuery(queryable)
-    (tpe,driver.compiler.run(query.node))
+    (tpe,driver.selectStatementCompiler.run(query.node))
   }
   
   private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilationState) = {
     val (tpe,query) = this.toQuery(queryablevalue.value.tree)
-    (tpe,driver.compiler.run(query.node))
+    (tpe,driver.selectStatementCompiler.run(query.node))
   }
 
   protected def resultByType( expectedType : Type, rs: PositionedResult, session:driver.Backend#Session) : Any = {
@@ -423,7 +423,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
     }
-    new driver.QueryExecutor[Vector[R]](cstate, linearizer).run(session)
+    new driver.QueryExecutor[Vector[R]](cstate.tree, linearizer).run(session)
   }
   protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
