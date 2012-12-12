@@ -24,7 +24,7 @@ import scala.slick.compiler.CompilationState
  * 
  * @author szeiger
  */
-trait HsqldbDriver extends ExtendedDriver { driver =>
+trait HsqldbDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.sequenceCurr

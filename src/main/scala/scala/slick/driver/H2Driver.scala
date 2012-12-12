@@ -25,7 +25,7 @@ import scala.slick.compiler.CompilationState
  *
  * @author szeiger
  */
-trait H2Driver extends ExtendedDriver { driver =>
+trait H2Driver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.sequenceMin

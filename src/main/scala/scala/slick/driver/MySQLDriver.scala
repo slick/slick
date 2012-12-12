@@ -30,7 +30,7 @@ import scala.slick.compiler.CompilationState
 
  * @author szeiger
  */
-trait MySQLDriver extends ExtendedDriver { driver =>
+trait MySQLDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.returnInsertOther

@@ -25,7 +25,7 @@ import scala.slick.compiler.CompilationState
  *
  * @author szeiger
  */
-trait PostgresDriver extends ExtendedDriver { driver =>
+trait PostgresDriver extends JdbcDriver { driver =>
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)

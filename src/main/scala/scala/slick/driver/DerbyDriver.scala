@@ -45,7 +45,7 @@ import slick.compiler.CompilationState
  *
  * @author szeiger
  */
-trait DerbyDriver extends ExtendedDriver { driver =>
+trait DerbyDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.functionDatabase
