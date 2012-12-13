@@ -1,15 +1,25 @@
 package scala.slick.jdbc.meta
 
 import java.io.PrintWriter
+import java.lang.Math.pow
+
+
+import scala.collection.immutable.List.apply
 import scala.slick.jdbc.JdbcBackend
+
+object Optional extends Enumeration {
+  type Optional = Value
+  val AllowOption, DenyOption = Value
+}
 
 /**
  * Generate Scala code from database meta-data.
  */
 object CodeGen {
+	import Optional._
 
-  def outputCase(table: MTable, out: PrintWriter)(implicit session: JdbcBackend.Session) {
-    val columns = table.getColumns.list
+  def outputCase(table: MTable, out: PrintWriter, colPicker: MColumn => Boolean = {c => true})(implicit session: JdbcBackend#Session) {
+    val columns = table.getColumns.list filter colPicker
     val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
 
     if (!columns.isEmpty) {
@@ -17,45 +27,46 @@ object CodeGen {
       val scalaName = mkScalaName(tableName)
       out.println(mkCaseClass(scalaName, columns))
 
-      val scalaTableName = f"$scalaName%sTable"
+      val scalaTableName = s"${scalaName}Table"
       out.println(s"""object $scalaTableName extends Table[$scalaName]("$tableName") {""")
 
       for (c <- columns) {
-        out.print("  ")
-        out.println(mkAttribute(c, pkeys.get(c.column), false))
+        out.println(mkAttribute(c, pkeys.get(c.column), DenyOption))
       }
 
-      val starString = columns.map(c => mkAttributeOptionName(c)).mkString(" ~ ")
+      val starString = columns.map(c => mkAttributeName(c, AllowOption)).mkString(" ~ ")
       out.println(s"  def * = $starString <> ($scalaName, $scalaName.unapply _)")
       out.println("}")
     }
   }
 
-  def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend.Session) {
-    val columns = table.getColumns.list
+//  def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend#Session) =
+//    outputTuple(table, out)(session)
+	
+  def output(table: MTable, out: PrintWriter, colPicker: MColumn => Boolean = {c => true})(implicit session: JdbcBackend#Session) {
+    val columns = table.getColumns.list filter colPicker
     val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
 
     if (!columns.isEmpty) {
       val tableName = table.name.name
       val scalaName = mkScalaName(tableName)
-      val colString = columns.map(c => scalaTypeFor(c)).mkString(", ")
+      val colString = columns.map(c => scalaTypeFor(c, AllowOption)).mkString(", ")
 
       out.println(s"""object $scalaName extends Table[($colString)]("$tableName") {""")
 
       for (c <- columns) {
-        out.print("  ")
-        out.println(mkAttribute(c, pkeys.get(c.column)))
+        out.println(mkAttribute(c, pkeys.get(c.column), AllowOption))
       }
 
-      val starString = columns.map(c => mkScalaName(c.column, false)).mkString(" ~ ")
+      val starString = columns.map(c => mkAttributeName(c, DenyOption)).mkString(" ~ ")
       out.println(s"  def * = $starString")
       out.println("}")
     }
   }
 
-  def mkAttribute(c: MColumn, pkey: Option[MPrimaryKey], allowOption: Boolean = true)(implicit session: JdbcBackend.Session) = {
+  def mkAttribute(c: MColumn, pkey: Option[MPrimaryKey], optional: Optional)(implicit session: JdbcBackend#Session) = {
     val scalaName = mkScalaName(c.column, false)
-    val scalaType = scalaTypeFor(c, allowOption)
+    val scalaType = scalaTypeFor(c, optional)
     val columnName = c.column
 
     val columnParams = List(
@@ -69,23 +80,23 @@ object CodeGen {
   }
 
   def mkCaseClass(scalaName: String, columns: Seq[MColumn]) = {
-    val params = (for (c <- columns) yield mkParam(c)).mkString(", ")
+    val params = (for (c <- columns) yield mkParam(c, AllowOption)).mkString(", ")
 
     s"""case class $scalaName (
-	$params)
+  $params)
 """
   }
 
-  def mkParam(c: MColumn, allowOption: Boolean = false): String = {
+  def mkParam(c: MColumn, optional: Optional): String = {
     val colName = mkScalaName(c.column, false)
-    val colType = scalaTypeFor(c, allowOption)
+    val colType = scalaTypeFor(c, optional)
 
     s"""$colName: $colType"""
   }
 
-  def mkAttributeOptionName(c: MColumn) = {
+  def mkAttributeName(c: MColumn, optional: Optional = DenyOption) = {
     val scalaName = mkScalaName(c.column, false)
-    if (c.isNullable.getOrElse(true)) s"$scalaName.?" else scalaName
+    if (optional == AllowOption && c.isNullable.getOrElse(true)) s"${scalaName}.?" else scalaName
   }
 
   def mkScalaName(s: String, capFirst: Boolean = true) = {
@@ -108,14 +119,18 @@ object CodeGen {
     case _ => ""
   }
 
-  def scalaTypeFor(c: MColumn, allowOption: Boolean = true): String = {
-    val scalaType = scalaTypeFor(c.sqlType)
-    if (allowOption && c.nullable.getOrElse(true)) s"Option[$scalaType]" else scalaType
+  /**
+   * @param optional if column is nullable return Option[Type] instead of [Type]
+   */
+  def scalaTypeFor(c: MColumn, optional: Optional): String = {
+    import Optional._
+    val scalaType = scalaTypeFor(c)
+    if (optional == AllowOption && c.nullable.getOrElse(true)) s"Option[$scalaType]" else scalaType
   }
 
-  def scalaTypeFor(sqlType: Int): String = {
+  def scalaTypeFor(c: MColumn): String = {
     import java.sql.Types._
-    sqlType match {
+    c.sqlType match {
       case BIT | BOOLEAN => "Boolean"
       case TINYINT => "Byte"
       case SMALLINT => "Short"
@@ -123,7 +138,7 @@ object CodeGen {
       case BIGINT => "BigInteger"
       case FLOAT => "Float"
       case REAL | DOUBLE => "Double"
-      case NUMERIC | DECIMAL => "BigDecimal"
+      case NUMERIC | DECIMAL => numericTypeFor(c.columnSize.getOrElse(0), c.decimalDigits.getOrElse(0))
       case CHAR | VARCHAR | LONGVARCHAR => "String"
       case DATE => "java.sql.Date"
       case TIME => "java.sql.Time"
@@ -132,6 +147,23 @@ object CodeGen {
       case NULL => "Null"
       case CLOB => "java.sql.Clob"
       case _ => "AnyRef"
+    }
+  }
+  
+  def numericTypeFor(columnSize: Int, decimalDigits: Int): String = {
+    import Math._
+    if (decimalDigits == 0) {
+      val max = pow(10, columnSize)
+      if ( max <= Int.MaxValue) "Int"
+      else if (max <= Long.MaxValue) "Long"
+      else "BigDecimal"
+    }
+    else {
+      val digits = columnSize + decimalDigits
+      //see http://en.wikipedia.org/wiki/IEEE_floating_point#Basic_formats
+      if (digits <= 23) "Float"
+      else if (digits <= 52) "Double"
+      else "BigDecimal"
     }
   }
 }
