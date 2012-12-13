@@ -4,7 +4,8 @@ import TypeUtil.typeToTypeUtil
 import Util._
 
 /** A SQL comprehension */
-case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Long] = None, offset: Option[Long] = None) extends DefNode {
+final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Long] = None, offset: Option[Long] = None) extends DefNode {
+  type Self = Comprehension
   val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select
   override def nodeChildNames =
     from.map("from " + _._1) ++
@@ -34,7 +35,7 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
   override def toString = "Comprehension(fetch = "+fetch+", offset = "+offset+")"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(from = (from, gen).zipped.map { case ((_, n), s) => (s, n) })
-  def nodeWithComputedType(scope: SymbolScope): Node = {
+  def nodeWithComputedType(scope: SymbolScope): Self = {
     // Assign types to all "from" Nodes and compute the resulting scope
     val (genScope, f2) = from.foldLeft((scope, Vector.empty[Node])) { case ((sc, n2s), (s, n)) =>
       val n2 = n.nodeWithComputedType(sc)
@@ -73,6 +74,7 @@ case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node]
 
 /** The row_number window function */
 final case class RowNumber(by: Seq[(Node, Ordering)] = Seq.empty) extends TypedNode {
+  type Self = RowNumber
   def tpe = StaticType.Long
   lazy val nodeChildren = by.map(_._1)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
@@ -84,6 +86,7 @@ final case class RowNumber(by: Seq[(Node, Ordering)] = Seq.empty) extends TypedN
 /** A client-side projection of type
   * (CollectionType(c, t), u) => CollectionType(c, u). */
 final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) extends BinaryNode with DefNode {
+  type Self = ResultSetMapping
   def left = from
   def right = map
   override def nodeChildNames = Seq("from "+generator, "map")
@@ -91,7 +94,7 @@ final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) exte
   def nodeGenerators = Seq((generator, from))
   override def toString = "ResultSetMapping"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodeWithComputedType(scope: SymbolScope): Node = {
+  def nodeWithComputedType(scope: SymbolScope): Self = {
     val f2 = from.nodeWithComputedType(scope)
     val fromType = f2.nodeType.asCollectionType
     val s2 = map.nodeWithComputedType(scope + (generator -> fromType.elementType))

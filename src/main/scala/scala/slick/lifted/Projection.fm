@@ -32,7 +32,7 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
 
   lazy val tpe = ProductType(productIterator.asInstanceOf[Iterator[Column[_]]].map(_.tpe).toIndexedSeq)
 
-  override def nodeWithComputedType(scope: SymbolScope): Node = {
+  override def nodeWithComputedType(scope: SymbolScope): Self = {
     val this2 = nodeMapChildren(_.nodeWithComputedType(scope))
     nodeBuildTypedNode(this2, tpe)
   }
@@ -45,6 +45,7 @@ object Projection {
 }
 
 final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with UnaryNode with TypedNode {
+  type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
   override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
   def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
@@ -55,7 +56,7 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
   def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = proj.updateResult(driver, rs, g(value).get)
   def getLinearizedNodes = proj.getLinearizedNodes
 
-  protected[this] def nodeRebuild(child: Node): Node = copy[T, P](child = child)(proj)
+  protected[this] def nodeRebuild(child: Node): Self = copy[T, P](child = child)(proj)
 
   override def hashCode() = child.hashCode() + f.hashCode() + g.hashCode()
   override def equals(o: Any) = o match {

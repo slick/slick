@@ -50,11 +50,13 @@ trait MySQLDriver extends JdbcDriver { driver =>
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
 
-    case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
+    final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
+      type Self = RowNum
       def tpe = StaticType.Long
       def nodeRebuild = copy()
     }
-    case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
+    final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
+      type Self = RowNumGen
       def tpe = StaticType.Long
       def nodeRebuild = copy()
     }
