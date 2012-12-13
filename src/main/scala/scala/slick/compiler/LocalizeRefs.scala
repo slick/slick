@@ -15,7 +15,7 @@ class LocalizeRefs extends Phase {
           val s = new AnonSymbol
           map += s -> target
           newNodes += s -> target
-          r.nodeWithReference(s)
+          r.nodeBuildTypedNode(r.nodeWithReference(s), r.nodeType)
       }
     }
     val tree2 = tr.once(tree)

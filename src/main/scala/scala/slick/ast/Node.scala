@@ -121,6 +121,7 @@ trait ProductNode extends Node { self =>
   def withComputedTypeNoRec: ProductNode = nodeBuildTypedNode(this, buildType)
   protected def buildType: Type = ProductType(nodeChildren.map { ch =>
     val t = ch.nodeType
+    if(t == UnassignedType) throw new SlickException(s"ProductNode child $ch has UnassignedType")
     t
   }(collection.breakOut))
 }
@@ -152,6 +153,7 @@ final case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends Produc
   override def withComputedTypeNoRec: StructNode = nodeBuildTypedNode(this, buildType)
   override protected def buildType: Type = StructType(elements.map { case (s, n) =>
     val t = n.nodeType
+    if(t == UnassignedType) throw new SlickException(s"StructNode child $s has UnassignedType")
     (s, t)
   })
 }
@@ -441,7 +443,7 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode 
   type Self = Select
   def child = in
   override def nodeChildNames = Seq("in")
-  protected[this] def nodeRebuild(child: Node) = copy(in = child)
+  protected[this] def nodeRebuild(child: Node) = copy(in = child).nodeTyped(nodeType)
   def nodeReference = field
   protected[this] def nodeRebuildWithReference(s: Symbol) = copy(field = s)
   override def toString = Path.unapply(this) match {
