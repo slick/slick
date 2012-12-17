@@ -7,7 +7,36 @@ import scala.slick.jdbc.JdbcBackend
  * Generate Scala code from database meta-data.
  */
 object CodeGen {
+  def output2(table: MTable)(implicit session: Session) : String = {
+    var s = ""
+    val columns = table.getColumns.list
+    val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
+    if(!columns.isEmpty) {
+      s = s + ("object "+mkScalaName(table.name.name)+" extends Table[")
+      if(columns.tail.isEmpty) s = s + (scalaTypeFor(columns.head))
+      else s = s + ("(" + columns.map(c => scalaTypeFor(c)).mkString(", ") + ")")
+      s = s + ("](\""+table.name.name+"\") {") + "\n"
+      for(c <- columns) s = s + output2(c, pkeys.get(c.column))
+      s = s + ("  def * = " + columns.map(c => mkScalaName(c.column, false)).mkString(" ~ ")) + "\n"
+      s = s + ("}") + "\n"
+    }
+    s
+    
+  }
 
+  def output2(c: MColumn, pkey: Option[MPrimaryKey])(implicit session: Session) : String = {
+    var s = ""
+    s = s + ("  def "+mkScalaName(c.column, false)+" = column["+scalaTypeFor(c)+"](\""+c.column+"\"")
+    for(n <- c.sqlTypeName) {
+      s = s + (", O DBType \""+n+"")
+      for(i <- c.columnSize ) s = s + ("("+i+")")
+      s = s + ("\"")
+    }
+    if(c.isAutoInc.getOrElse(false)) s = s + (", O AutoInc")
+    for(k <- pkey) s = s + (", O PrimaryKey")
+    s = s + (")") + "\n"
+    s
+  }
   def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend#Session) {
     val columns = table.getColumns.list
     val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
