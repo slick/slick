@@ -257,6 +257,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           val sq_symbol = new sq.AnonSymbol
           def flattenAndPrepareForSortBy( node:sq.Node ) : Seq[(sq.Node,sq.Ordering)] = node match {
             case sq.ProductNode(nodes) => nodes.flatMap(flattenAndPrepareForSortBy _)
+            case Reverse(Nullsorting(node,_))  => throw new Exception("Please use nullsFirst(reversed(...) and nullsLast(reversed(...)) instead of reversed(nullsFirst(...)) or reversed(nullsLast(__)).")
             case Reverse(node)                                => Seq( (node,sq.Ordering(sq.Ordering.Desc)) )
             case Nullsorting(Reverse(node),Nullsorting.First) => Seq( (node,sq.Ordering(sq.Ordering.Desc,sq.Ordering.NullsFirst)) )
             case Nullsorting(node,Nullsorting.First)          => Seq( (node,sq.Ordering(sq.Ordering.Asc ,sq.Ordering.NullsFirst)) )

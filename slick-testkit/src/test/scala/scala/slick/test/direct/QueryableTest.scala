@@ -403,6 +403,19 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         query.sortBy(c=>(nonesFirst(reversed(c.flavor)),c.name))
         ,inMem.sortBy(c=>(c.flavor,c.name))
       )
+
+      // inMem.sortBy(c=>(reversed(nonesFirst(c.flavor)),c.name))
+
+      try{
+        stringOptionOrdering = nullOrdering(1,-1)
+        backend.result(
+          query.sortBy(c=>(reversed(nonesFirst(c.flavor)),c.name)),
+          threadLocalSession
+        )
+        fail()
+      } catch {
+        case e:Exception => 
+      }
       
       stringOptionOrdering = initialStringOptionOrdering
       assertMatchOrdered(

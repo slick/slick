@@ -22,9 +22,13 @@ class ReverseOrder{
  * null ordering dummies for slick translation
  */
 class NullAndReverseOrder extends ReverseOrder{
-  def nonesFirst  [T](t:Option[T]) : Option[T] = SLICK_ONLY
-  def nonesLast   [T](t:Option[T]) = SLICK_ONLY
-  def nonesFirst  [T](t:Reversed[Option[T]]) = SLICK_ONLY
-  def nonesLast   [T](t:Reversed[Option[T]]) = SLICK_ONLY
+  final case class NonesFirst[T](t:T)
+  final case class NonesLast[T](t:T)
+  final case class NonesFirstReversed[T](t:T)
+  final case class NonesLastReversed[T](t:T)
+  def nonesFirst  [T](t:Option[T]) = NonesFirst(t)
+  def nonesLast   [T](t:Option[T]) = NonesLast(t)
+  def nonesFirst  [T](t:Reversed[Option[T]]) = NonesFirstReversed(t)
+  def nonesLast   [T](t:Reversed[Option[T]]) = NonesLastReversed(t)
 }
 object order extends NullAndReverseOrder
