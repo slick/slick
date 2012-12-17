@@ -35,19 +35,19 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
   override def toString = "Comprehension(fetch = "+fetch+", offset = "+offset+")"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(from = (from, gen).zipped.map { case ((_, n), s) => (s, n) })
-  def nodeWithComputedType(scope: SymbolScope): Self = {
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
     // Assign types to all "from" Nodes and compute the resulting scope
     val (genScope, f2) = from.foldLeft((scope, Vector.empty[Node])) { case ((sc, n2s), (s, n)) =>
-      val n2 = n.nodeWithComputedType(sc)
+      val n2 = n.nodeWithComputedType(sc, retype)
       val sc2 = sc + (s -> n2.nodeType.asCollectionType.elementType)
       (sc2, n2s :+ n2)
     }
     // Assign types to "where", "groupBy", "orderBy" and "select" Nodes
-    val w2 = mapOrNone(where)(_.nodeWithComputedType(genScope))
-    val g2 = mapOrNone(groupBy)(_.nodeWithComputedType(genScope))
+    val w2 = mapOrNone(where)(_.nodeWithComputedType(genScope, retype))
+    val g2 = mapOrNone(groupBy)(_.nodeWithComputedType(genScope, retype))
     val o = orderBy.map(_._1)
-    val o2 = mapOrNone(o)(_.nodeWithComputedType(genScope))
-    val s2 = mapOrNone(select)(_.nodeWithComputedType(genScope))
+    val o2 = mapOrNone(o)(_.nodeWithComputedType(genScope, retype))
+    val s2 = mapOrNone(select)(_.nodeWithComputedType(genScope, retype))
     // Check if the nodes changed
     val same = (from, f2).zipped.map(_._2 eq _).forall(identity) &&
       w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty
@@ -94,10 +94,10 @@ final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) exte
   def nodeGenerators = Seq((generator, from))
   override def toString = "ResultSetMapping"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val f2 = from.nodeWithComputedType(scope)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val f2 = from.nodeWithComputedType(scope, retype)
     val fromType = f2.nodeType.asCollectionType
-    val s2 = map.nodeWithComputedType(scope + (generator -> fromType.elementType))
+    val s2 = map.nodeWithComputedType(scope + (generator -> fromType.elementType), retype)
     val newType = CollectionType(fromType.cons, s2.nodeType)
     if((f2 eq from) && (s2 eq map) && newType == nodeType) this
     else copy(from = f2, map = s2).nodeTyped(newType)

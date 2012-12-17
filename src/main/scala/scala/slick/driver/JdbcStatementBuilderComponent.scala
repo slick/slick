@@ -343,8 +343,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     final case class StarAnd(child: Node) extends UnaryNode {
       type Self = StarAnd
       protected[this] def nodeRebuild(child: Node) = StarAnd(child)
-      def nodeWithComputedType(scope: SymbolScope) = {
-        val ch2 = child.nodeWithComputedType(scope)
+      def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+        val ch2 = child.nodeWithComputedType(scope, retype)
         if((child eq ch2) && nodeType != NoType) this else copy(ch2).nodeTyped(NoType)
       }
     }

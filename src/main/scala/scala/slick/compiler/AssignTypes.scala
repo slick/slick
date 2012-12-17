@@ -8,5 +8,5 @@ class AssignTypes extends Phase {
   val name = "assignTypes"
 
   def apply(tree: Node, state: CompilationState): Node =
-    tree.nodeWithComputedType(new DefaultSymbolScope(Map.empty))
+    tree.nodeWithComputedType(new DefaultSymbolScope(Map.empty), true)
 }

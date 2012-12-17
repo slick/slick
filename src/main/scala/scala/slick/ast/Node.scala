@@ -18,6 +18,7 @@ trait NodeGenerator {
  */
 trait Node extends NodeGenerator {
   type Self >: this.type <: Node
+  private[this] var seenType: Boolean = false
 
   /** All child nodes of this node. Must be implemented by subclasses. */
   def nodeChildren: Seq[Node]
@@ -52,13 +53,18 @@ trait Node extends NodeGenerator {
   private var _nodeType: Type = UnassignedType
 
   /** The current type of this node */
-  def nodeType: Type = _nodeType
+  def nodeType: Type = {
+    seenType = true
+    _nodeType
+  }
+
+  def nodeHasType: Boolean = _nodeType != UnassignedType
 
   /** Return this Node with a Type assigned. This may only be called on
     * freshly constructed nodes with no other existing references, i.e.
     * creating the Node plus assigning it a Type must be atomic. */
   def nodeTyped(tpe: Type): this.type = {
-    if(_nodeType != UnassignedType && tpe != UnassignedType)
+    if(seenType)
       throw new SlickException("Trying to reassign node type -- nodeTyped() may only be called on freshly constructed nodes")
     _nodeType = tpe
     Node.logType(this)
@@ -72,8 +78,10 @@ trait Node extends NodeGenerator {
 
   def nodeRebuildWithType(tpe: Type): Self = nodeRebuild(nodeChildren.toIndexedSeq).nodeTyped(tpe)
 
-  /** Rebuild this node and all children with their computed type */
-  def nodeWithComputedType(scope: SymbolScope): Self
+  /** Rebuild this node and all children with their computed type.
+    * Child nodes which already have a type are only rebuilt if ``retype`` is
+    * set to true. */
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self
 }
 
 object Node extends Logging {
@@ -97,8 +105,9 @@ trait TypedNode extends Node with Typed {
     val t = super.nodeType
     if(t eq UnassignedType) tpe else t
   }
-  def nodeWithComputedType(scope: SymbolScope): Self =
-    nodeMapChildren(_.nodeWithComputedType(scope))
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
+    if(nodeHasType && !retype) this
+    else nodeMapChildren(_.nodeWithComputedType(scope, retype))
 }
 
 /** An expression that represents a conjunction of expressions. */
@@ -114,8 +123,8 @@ trait ProductNode extends Node { self =>
     case p: ProductNode => nodeChildren == p.nodeChildren
     case _ => false
   }
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val this2 = nodeMapChildren(_.nodeWithComputedType(scope)).asInstanceOf[ProductNode]
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
     nodeBuildTypedNode(this2, this2.buildType)
   }
   def withComputedTypeNoRec: ProductNode = nodeBuildTypedNode(this, buildType)
@@ -201,12 +210,12 @@ final case class Pure(value: Node) extends UnaryNode {
   def child = value
   override def nodeChildNames = Seq("value")
   protected[this] def nodeRebuild(child: Node) = copy(value = child)
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val ch = child
-    val ch2 = ch.nodeWithComputedType(scope)
-    val newType = CollectionType(CollectionTypeConstructor.default, ch2.nodeType)
-    if((ch eq ch2) && (newType == nodeType)) this else copy(ch2).nodeTyped(newType)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
+    nodeBuildTypedNode(this2, this2.buildType)
   }
+  def withComputedTypeNoRec: Self = nodeBuildTypedNode(this, buildType)
+  private def buildType: Type = CollectionType(CollectionTypeConstructor.default, value.nodeType)
 }
 
 /** Common superclass for expressions of type
@@ -230,12 +239,12 @@ abstract class FilteredQuery extends DefNode {
       if(args.isEmpty) n else (n + ' ' + args)
     case _ => super.toString
   }
-  def nodeWithComputedType(scope: SymbolScope): Self = {
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
     val fr = from
-    val fr2 = fr.nodeWithComputedType(scope)
+    val fr2 = fr.nodeWithComputedType(scope, retype)
     val genScope = scope + (generator -> fr2.nodeType.asCollectionType.elementType)
     val n2 = nodeMapChildren { ch =>
-      if(ch eq fr) fr2 else ch.nodeWithComputedType(genScope)
+      if(ch eq fr) fr2 else ch.nodeWithComputedType(genScope, retype)
     }
     nodeBuildTypedNode(n2, n2.nodeChildren.head.nodeType)
   }
@@ -301,12 +310,12 @@ final case class GroupBy(fromGen: Symbol, byGen: Symbol, from: Node, by: Node) e
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(fromGen = gen(0), byGen = gen(1))
   def nodeGenerators = Seq((fromGen, from), (byGen, by))
   override def toString = "GroupBy"
-  def nodeWithComputedType(scope: SymbolScope): Self = {
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
     val fr = from
-    val fr2 = fr.nodeWithComputedType(scope)
+    val fr2 = fr.nodeWithComputedType(scope, retype)
     val fromType = fr2.nodeType.asCollectionType
     val b = by
-    val b2 = b.nodeWithComputedType(scope + (fromGen -> fromType.elementType))
+    val b2 = b.nodeWithComputedType(scope + (fromGen -> fromType.elementType), retype)
     val newType = CollectionType(fromType.cons, ProductType(IndexedSeq(b2.nodeType, CollectionType(CollectionTypeConstructor.default, fromType.elementType))))
     if((fr eq fr2) && (b eq b2) && newType == nodeType) this
     else copy(from = fr2, by = b2).nodeTyped(newType)
@@ -342,12 +351,12 @@ final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node
   def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(leftGen = gen(0), rightGen = gen(1))
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val l2 = left.nodeWithComputedType(scope)
-    val r2 = right.nodeWithComputedType(scope)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val l2 = left.nodeWithComputedType(scope, retype)
+    val r2 = right.nodeWithComputedType(scope, retype)
     val lt = l2.nodeType.asCollectionType
     val rt = r2.nodeType.asCollectionType
-    val o2 = on.nodeWithComputedType(scope + (leftGen -> lt.elementType) + (rightGen -> rt.elementType))
+    val o2 = on.nodeWithComputedType(scope + (leftGen -> lt.elementType) + (rightGen -> rt.elementType), retype)
     val tpe = CollectionType(lt.cons, ProductType(IndexedSeq(lt.elementType, rt.elementType)))
     if((l2 eq left) && (r2 eq right) && (o2 eq on) && tpe == nodeType) this
     else copy(left = l2, right = r2, on = o2).nodeTyped(tpe)
@@ -364,9 +373,9 @@ final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = 
   def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(leftGen = gen(0), rightGen = gen(1))
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val l2 = left.nodeWithComputedType(scope)
-    val r2 = right.nodeWithComputedType(scope)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val l2 = left.nodeWithComputedType(scope, retype)
+    val r2 = right.nodeWithComputedType(scope, retype)
     if((l2 eq left) && (r2 eq right) && r2.nodeType == nodeType) this
     else copy(left = l2, right = r2).nodeTyped(r2.nodeType)
   }
@@ -383,10 +392,10 @@ final case class Bind(generator: Symbol, from: Node, select: Node) extends Binar
   def nodeGenerators = Seq((generator, from))
   override def toString = "Bind"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val f2 = from.nodeWithComputedType(scope)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val f2 = from.nodeWithComputedType(scope, retype)
     val fromType = f2.nodeType.asCollectionType
-    val s2 = select.nodeWithComputedType(scope + (generator -> fromType.elementType))
+    val s2 = select.nodeWithComputedType(scope + (generator -> fromType.elementType), retype)
     val newType = CollectionType(fromType.cons, s2.nodeType.asCollectionType.elementType)
     if((f2 eq from) && (s2 eq select) && newType == nodeType) this
     else copy(from = f2, select = s2).nodeTyped(newType)
@@ -406,9 +415,9 @@ final case class TableExpansion(generator: Symbol, table: Node, columns: Node) e
   def nodeGenerators = Seq((generator, table))
   override def toString = "TableExpansion"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val t2 = table.nodeWithComputedType(scope)
-    val c2 = columns.nodeWithComputedType(scope + (generator -> t2.nodeType))
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val t2 = table.nodeWithComputedType(scope, retype)
+    val c2 = columns.nodeWithComputedType(scope + (generator -> t2.nodeType), retype)
     val newType = CollectionType(t2.nodeType.asCollectionType.cons, c2.nodeType)
     if((t2 eq table) && (c2 eq columns) && newType == nodeType) this
     else copy(table = t2, columns = c2).nodeTyped(newType)
@@ -426,9 +435,9 @@ final case class TableRefExpansion(marker: Symbol, ref: Node, columns: Node) ext
   def nodeGenerators = Seq((marker, ref))
   override def toString = "TableRefExpansion "+marker
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(marker = gen(0))
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val r2 = ref.nodeWithComputedType(scope)
-    val c2 = columns.nodeWithComputedType(scope + (marker -> r2.nodeType))
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val r2 = ref.nodeWithComputedType(scope, retype)
+    val c2 = columns.nodeWithComputedType(scope + (marker -> r2.nodeType), retype)
     if((r2 eq ref) && (c2 eq columns) && c2.nodeType == nodeType) this
     else copy(ref = r2, columns = c2).nodeTyped(c2.nodeType)
   }
@@ -450,8 +459,8 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode 
     case Some(l) => Path.toString(l)
     case None => super.toString
   }
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val i2 = in.nodeWithComputedType(scope)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val i2 = in.nodeWithComputedType(scope, retype)
     val tpe = Type.select(i2.nodeType, field)
     if((i2 eq in) && tpe == nodeType) this
     else copy(in = i2).nodeTyped(tpe)
@@ -473,9 +482,11 @@ final case class Ref(sym: Symbol) extends NullaryNode with RefNode {
   type Self = Ref
   def nodeReference = sym
   protected[this] def nodeRebuildWithReference(s: Symbol) = copy(sym = s)
-  def nodeWithComputedType(scope: SymbolScope): Self = scope.get(sym) match {
-    case Some(t) => if(t == nodeType) this else copy().nodeTyped(t)
-    case _ => throw new SlickException("No type for symbol "+sym+" found for "+this)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    scope.get(sym) match {
+      case Some(t) => if(t == nodeType) this else copy().nodeTyped(t)
+      case _ => throw new SlickException("No type for symbol "+sym+" found for "+this)
+    }
   }
   def nodeRebuild = copy()
 }
@@ -506,7 +517,7 @@ abstract class TableNode extends NullaryNode { self =>
   def schemaName: Option[String]
   def tableName: String
   def nodeTableSymbol: TableSymbol = TableSymbol(tableName)
-  def nodeWithComputedType(scope: SymbolScope): Self = this
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = this
   override def toString = "Table " + tableName
   def nodeRebuild: TableNode = new TableNode {
     def nodeShaped_* = self.nodeShaped_*
@@ -532,13 +543,13 @@ final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends DefNode
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node =
     copy(defs = (defs, gen).zipped.map((e, s) => (s, e._2)))
   override def toString = "LetDynamic"
-  def nodeWithComputedType(scope: SymbolScope): Self = {
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
     var defsMap = defs.toMap.mapValues(n => (n, false))
     var updated = false
     lazy val dynScope: SymbolScope = scope.withDefault { sym =>
       defsMap.get(sym) match {
         case Some((n, false)) =>
-          val n2 = n.nodeWithComputedType(dynScope)
+          val n2 = n.nodeWithComputedType(dynScope, retype)
           if(n2 ne n) updated = true
           defsMap += (sym -> (n2, true))
           n2.nodeType
@@ -546,7 +557,7 @@ final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends DefNode
         case None => throw new SlickException("Symbol "+sym+" not found")
       }
     }
-    val i2 = in.nodeWithComputedType(dynScope)
+    val i2 = in.nodeWithComputedType(dynScope, retype)
     if((i2 eq in) && !updated && i2.nodeType == nodeType) this
     else {
       val d2 = defs.map { case (s, _) => (s, defsMap(s)._1) }
@@ -576,9 +587,9 @@ final case class RangeFrom(start: Long = 1L) extends NullaryNode with TypedNode 
 final case class IfThen(val left: Node, val right: Node) extends BinaryNode {
   type Self = IfThen
   protected[this] def nodeRebuild(left: Node, right: Node): Self = copy(left = left, right = right)
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val l2 = left.nodeWithComputedType(scope)
-    val r2 = right.nodeWithComputedType(scope)
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val l2 = left.nodeWithComputedType(scope, retype)
+    val r2 = right.nodeWithComputedType(scope, retype)
     if((l2 eq left) && (r2 eq right) && right.nodeType == nodeType) this
     else copy(left = l2, right = r2).nodeTyped(right.nodeType)
   }
@@ -590,8 +601,8 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
   val nodeChildren = elseClause +: clauses
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self =
     copy(clauses = ch.tail, elseClause = ch.head)
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val this2 = nodeMapChildren(_.nodeWithComputedType(scope)).asInstanceOf[ConditionalExpr]
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
     nodeBuildTypedNode(this2, this2.clauses.head.nodeType)
   }
 }
@@ -599,8 +610,8 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
 final case class OptionApply(val child: Node) extends UnaryNode {
   type Self = OptionApply
   protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val this2 = nodeMapChildren(_.nodeWithComputedType(scope))
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
     val tp = OptionType(this2.nodeChildren.head.nodeType)
     nodeBuildTypedNode(this2, tp)
   }
@@ -609,8 +620,8 @@ final case class OptionApply(val child: Node) extends UnaryNode {
 final case class GetOrElse(val child: Node, val default: () => Any) extends UnaryNode {
   type Self = GetOrElse
   protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
-  def nodeWithComputedType(scope: SymbolScope): Self = {
-    val this2 = nodeMapChildren(_.nodeWithComputedType(scope))
+  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
     val tp = this2.nodeChildren.head.nodeType.asOptionType.elementType
     nodeBuildTypedNode(this2, tp)
   }
