@@ -28,6 +28,9 @@ trait Node extends NodeGenerator {
     * more suitable names. */
   def nodeChildNames: Iterable[String] = Stream.from(0).map(_.toString)
 
+  /** Rebuild this node with a new list of children. Implementations of this
+    * method *must not* perform any optimization to reuse the current node.
+    * This method always returns a fresh copy. */
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self
 
   /** Apply a mapping function to all children of this node and recreate the
@@ -35,6 +38,15 @@ trait Node extends NodeGenerator {
     * ones, this node is returned. */
   final def nodeMapChildren(f: Node => Node): Self =
     mapOrNone(nodeChildren)(f).map(nodeRebuild).getOrElse(this)
+
+  /** Like nodeMapChildren, except the type of this node is kept even if the
+    * children have changed. We don't do this by default in nodeMapChildren
+    * because many transformations change the type. */
+  final def nodeMapChildrenKeepType(f: Node => Node): Self = {
+    val this2 = nodeMapChildren(f)
+    if(_nodeType == UnassignedType) this2
+    else nodeBuildTypedNode(this2, _nodeType)
+  }
 
   def nodeDelegate: Node = this
 
@@ -64,11 +76,19 @@ trait Node extends NodeGenerator {
     * freshly constructed nodes with no other existing references, i.e.
     * creating the Node plus assigning it a Type must be atomic. */
   def nodeTyped(tpe: Type): this.type = {
-    if(seenType)
+    if(seenType && tpe != _nodeType)
       throw new SlickException("Trying to reassign node type -- nodeTyped() may only be called on freshly constructed nodes")
     _nodeType = tpe
     Node.logType(this)
     this
+  }
+
+  /** Return this Node with a Type assigned (if no other type has been seen
+    * for it yet) or a typed copy. */
+  def nodeTypedOrCopy(tpe: Type): Self = {
+    if(seenType && tpe != _nodeType)
+      nodeRebuild(nodeChildren.toIndexedSeq).nodeTyped(tpe)
+    else nodeTyped(tpe)
   }
 
   def nodeBuildTypedNode[T >: this.type <: Node](newNode: T, newType: Type): T =
@@ -178,6 +198,7 @@ object LiteralNode {
     val value = v
     val tpe = tp
     def nodeRebuild = apply(tp, v)
+    override def toString = "LiteralNode " + value
   }
   def apply[T](v: T)(implicit tp: StaticType[T]): LiteralNode = apply(tp, v)
   def unapply(n: LiteralNode): Option[Any] = Some(n.value)
