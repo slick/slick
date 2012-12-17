@@ -287,7 +287,7 @@ class FuseComprehensions extends Phase {
         seenGens += gen -> ch
         ch
       case (None, ch) => tr(ch)
-    }.asInstanceOf[Comprehension]
+    }
     if(lift.isEmpty) c2
     else {
       val newFrom = lift.map { case (a, f, s, c2) =>
@@ -321,7 +321,12 @@ class FuseComprehensions extends Phase {
     c2.select match {
       case Some(Pure(_: StructNode)) => c2
       case Some(Pure(ProductNode(ch))) =>
-        c2.copy(select = Some(Pure(StructNode(ch.iterator.map(n => (new AnonSymbol) -> n).toIndexedSeq))))
+        val selStr = {
+          val n = StructNode(ch.iterator.map(n => (new AnonSymbol) -> n).toIndexedSeq)
+          if(n.nodeChildren.exists(_.nodeType == UnassignedType)) n
+          else n.withComputedTypeNoRec
+        }
+        c2.copy(select = Some(Pure(selStr)))
       case Some(Pure(n)) =>
         c2.copy(select = Some(Pure(StructNode(IndexedSeq((new AnonSymbol) -> n)))))
       case _ =>

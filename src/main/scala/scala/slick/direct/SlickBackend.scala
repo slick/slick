@@ -24,14 +24,18 @@ object CustomNodes{
     def child = value
     override def nodeChildNames = Seq("value")
     protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
-    def nodeWithComputedType(scope: SymbolScope): Self = copy(this).nodeTyped(child.nodeType)
+    def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
+      if(nodeHasType && !retype) this
+      else copy(this).nodeTyped(child.nodeType)
   }
   final case class Nullsorting(value: Node,sorting:Nullsorting.Sorting) extends UnaryNode {
     type Self = Nullsorting
     def child = value
     override def nodeChildNames = Seq("value")
     protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
-    def nodeWithComputedType(scope: SymbolScope): Self = copy(this).nodeTyped(child.nodeType)
+    def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
+      if(nodeHasType && !retype) this
+      else copy(this).nodeTyped(child.nodeType)
   }
   object Nullsorting extends Enumeration{
     type Sorting = Value
@@ -156,7 +160,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         sq.CollectionTypeConstructor.default,
         sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ))
       )
-      override def nodeWithComputedType(scope: sq.SymbolScope) = nodeRebuild
+      override def nodeWithComputedType(scope: sq.SymbolScope, retype: Boolean) = nodeRebuild
     }
     new Query( table, Scope() )
   }
