@@ -18,7 +18,7 @@ trait ColumnBase[T] extends Rep[T] with RecordLinearizer[T] with Typed
 
 /** Base classs for columns.
   */
-abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
+abstract class Column[T : TypedType] extends ColumnBase[T] with Typed { self =>
   final val tpe = implicitly[TypedType[T]]
   def getLinearizedNodes = Vector(Node(this))
   def getAllColumnTypedTypes = Vector(tpe)
@@ -30,23 +30,18 @@ abstract class Column[T : TypedType] extends ColumnBase[T] with Typed {
   }
   def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = driver.typeInfoFor(tpe).updateValue(value, rs)
   final def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit = driver.typeInfoFor(tpe).setOption(value, ps)
-  def orElse(n: =>T): Column[T] = new WrappedColumn[T](this) {
-    override def getResult(driver: JdbcDriver, rs: PositionedResult): T =
-      driver.typeInfoFor(tpe).nextValueOrElse(n, rs).asInstanceOf[T]
-  }
-  def orZero: Column[T] = new WrappedColumn[T](this) {
-    override def getResult(driver: JdbcDriver, rs: PositionedResult): T = {
-      val tmd = driver.typeInfoFor(tpe)
-      tmd.nextValueOrElse(tmd.zero, rs).asInstanceOf[T]
+  def ? : Column[Option[T]] = Column.forNode(OptionApply(Node(this)))(tpe.optionType)
+
+  def getOrElse[U](default: => U)(implicit ev: Option[U] =:= T): Column[U] = {
+    implicit val uType = tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[U]]
+    new Column[U] {
+      override def nodeDelegate = if(op eq null) GetOrElse(Node(self), () => default) else op.nodeDelegate
+      override def getResult(driver: JdbcDriver, rs: PositionedResult): U =
+        driver.typeInfoFor(tpe).nextValueOrElse(default, rs).asInstanceOf[U]
     }
   }
-  final def orFail = orElse { throw new SlickException("Read NULL value for column "+this) }
-  def ? : Column[Option[T]] = Column.forNode(Node(this))(tpe.optionType)
+  def get[U](implicit ev: Option[U] =:= T): Column[U] = getOrElse[U] { throw new SlickException("Read NULL value for column "+this) }
 
-  def getOr[U](n: => U)(implicit ev: Option[U] =:= T): Column[U] = new WrappedColumn[U](this)(tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[U]]) {
-    override def getResult(driver: JdbcDriver, rs: PositionedResult): U = driver.typeInfoFor(tpe).nextValueOrElse(n, rs).asInstanceOf[U]
-  }
-  def get[U](implicit ev: Option[U] =:= T): Column[U] = getOr[U] { throw new SlickException("Read NULL value for column "+this) }
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   def asc = ColumnOrdered[T](this, Ordering())
@@ -81,11 +76,4 @@ final case class BindColumn[T : TypedType](value: T) extends Column[T] with Null
  */
 final case class ParameterColumn[T : TypedType](extractor: (_ => T)) extends Column[T] with NullaryNode with TypedNode {
   def nodeRebuild = copy()
-}
-
-/**
- * A WrappedColumn can be used to change a column's nullValue.
- */
-sealed abstract class WrappedColumn[T : TypedType](parent: Column[_]) extends Column[T] {
-  override def nodeDelegate = if(op eq null) Node(parent) else op.nodeDelegate
 }

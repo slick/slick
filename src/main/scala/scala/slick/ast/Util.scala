@@ -1,8 +1,6 @@
 package scala.slick.ast
 
 import scala.language.implicitConversions
-import scala.collection.{mutable, TraversableLike}
-import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable.{HashSet, ArrayBuffer}
 
 /**

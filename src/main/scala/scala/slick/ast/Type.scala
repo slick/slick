@@ -20,7 +20,14 @@ case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
 }
 
 trait OptionType extends Type {
+  override def toString = "Option[" + elementType + "]"
   def elementType: Type
+}
+
+object OptionType {
+  def apply(tpe: Type): OptionType = new OptionType {
+    def elementType = tpe
+  }
 }
 
 case class ProductType(elements: IndexedSeq[Type]) extends Type {
@@ -93,6 +100,10 @@ class TypeUtil(val tpe: Type) extends AnyVal {
   def asCollectionType: CollectionType = tpe match {
     case c: CollectionType => c
     case _ => throw new SlickException("Expected a collection type, found "+tpe)
+  }
+  def asOptionType: OptionType = tpe match {
+    case o: OptionType => o
+    case _ => throw new SlickException("Expected an option type, found "+tpe)
   }
 }
 

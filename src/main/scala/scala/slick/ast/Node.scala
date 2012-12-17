@@ -563,3 +563,21 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
     nodeBuildTypedNode(this2, this2.clauses.head.nodeType)
   }
 }
+
+final case class OptionApply(val child: Node) extends UnaryNode {
+  protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
+  def nodeWithComputedType(scope: SymbolScope): Node = {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope))
+    val tp = OptionType(this2.nodeChildren.head.nodeType)
+    nodeBuildTypedNode(this2, tp)
+  }
+}
+
+final case class GetOrElse(val child: Node, val default: () => Any) extends UnaryNode {
+  protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
+  def nodeWithComputedType(scope: SymbolScope): Node = {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope))
+    val tp = this2.nodeChildren.head.nodeType.asOptionType.elementType
+    nodeBuildTypedNode(this2, tp)
+  }
+}
