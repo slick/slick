@@ -6,6 +6,7 @@ import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
 import javax.sql.rowset.serial.SerialBlob
 import slick.lifted.BaseTypeMapper
+import java.util.UUID
 
 class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
@@ -111,7 +112,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  private def roundtrip[T : BaseTypeMapper](tn: String, v: T) {
+  private def roundtrip[T : BaseTypeMapper](tn: String, v: T, literal: Boolean = true, bind: Boolean = true) {
     object T1 extends Table[(Int, T)](tn) {
       def id = column[Int]("id")
       def data = column[T]("data")
@@ -121,16 +122,25 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     T1.ddl.create
     T1.insert((1, v))
     assertEquals(v, T1.map(_.data).first)
-    assertEquals(Some(1), T1.filter(_.data === v).map(_.id).firstOption)
-    assertEquals(None, T1.filter(_.data =!= v).map(_.id).firstOption)
+    if(literal) {
+      assertEquals(Some(1), T1.filter(_.data === v).map(_.id).firstOption)
+      assertEquals(None, T1.filter(_.data =!= v).map(_.id).firstOption)
+    }
+    if(bind) {
+      assertEquals(Some(1), T1.filter(_.data === v.bind).map(_.id).firstOption)
+      assertEquals(None, T1.filter(_.data =!= v.bind).map(_.id).firstOption)
+    }
   }
 
   def testDate =
     roundtrip("date_t1", Date.valueOf("2012-12-24"))
 
   def testTime =
-    roundtrip("time_t1", Time.valueOf("17:53:48"))
+    roundtrip("time_t1", Time.valueOf("17:53:48"), bind = false)
 
   def testTimestamp =
     roundtrip[Timestamp]("timestamp_t1", Timestamp.valueOf("2012-12-24 17:53:48.0"))
+
+  def testUUID =
+    roundtrip[UUID]("uuid_t1", UUID.randomUUID(), literal = false)
 }

@@ -104,6 +104,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
     }
 
     class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+      override def sqlTypeName = "UUID"
       override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
       override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
       override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
