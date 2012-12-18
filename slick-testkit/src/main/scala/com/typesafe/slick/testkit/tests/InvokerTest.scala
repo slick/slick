@@ -48,6 +48,12 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
     val r6 = q.to[Array]
     val r6t: Array[Int] = r6
     assertEquals(Array(1, 2, 3, 4, 5).toList, r6.toList)
+
+    val it = q.elements
+    val sum = try {
+      it.reduceLeft(_ + _)
+    } finally it.close()
+    assertEquals(15, sum)
   }
 
   def testMap {
