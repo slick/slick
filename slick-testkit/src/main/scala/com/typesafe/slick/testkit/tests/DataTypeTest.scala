@@ -136,7 +136,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     roundtrip("date_t1", Date.valueOf("2012-12-24"))
 
   def testTime =
-    roundtrip("time_t1", Time.valueOf("17:53:48"), bind = false)
+    roundtrip("time_t1", Time.valueOf("17:53:48"))
 
   def testTimestamp =
     roundtrip[Timestamp]("timestamp_t1", Timestamp.valueOf("2012-12-24 17:53:48.0"))
