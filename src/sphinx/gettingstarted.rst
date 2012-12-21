@@ -15,7 +15,7 @@ main ``build.sbt`` file::
 
   libraryDependencies ++= List(
     // use the right Scala and Slick versions here:
-    "com.typesafe" % "slick_2.10.0" % "1.0.0",
+    "com.typesafe" %% "slick_2.10" % "1.0.0",
     "org.slf4j" % "slf4j-nop" % "1.6.4",
     "com.h2database" % "h2" % "1.3.166"
   )
@@ -23,11 +23,7 @@ main ``build.sbt`` file::
 Slick uses SLF4J_ for its own debug logging so you also need to add an SLF4J
 implementation. Here we are using ``slf4j-nop`` to disable logging. You have
 to replace this with a real logging framework like Logback_ if you want to see
-log output. Since Slick uses the experimental Reflection and Macro features of
-Scala 2.10, there are separate versions for each minor release of Scala.
-However, the use of these features is confined to Slick's own experimental
-features (i.e. the *direct embedding*). If you stick to the stable features of
-Slick, all builds should also work with newer minor releases of Scala 2.10.
+log output.
 
 Imports
 -------
