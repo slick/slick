@@ -406,8 +406,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     (SuppliersStd.ddl ++ CoffeesStd.ddl).dropStatements.foreach(s => println("drop: "+s))
   }
 
-  /*
-  def testCompositionBug {
+  def testAdvancedFusion {
     object TableA extends Table[Int]("TableA") {
       def id = column[Int]("id")
       def * = id
@@ -434,5 +433,4 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     (TableA.ddl ++ TableB.ddl ++ TableC.ddl).create
     queryErr2.run
   }
-  */
 }

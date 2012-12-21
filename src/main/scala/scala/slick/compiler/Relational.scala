@@ -160,8 +160,11 @@ class FuseComprehensions extends Phase {
     * - It has a Pure generator.
     * - It does not have any generators.
     * - The Comprehension has a 'select' clause which consists only of Paths
-    *   and constant values. */
-  def isFuseableInner(c: Comprehension): Boolean =
+    *   and constant values.
+    * - It refers to a symbol introduced in a previous FROM clause of an outer
+    *   Comprehension. */
+  def isFuseableInner(sym: Symbol, c: Comprehension, prevSyms: scala.collection.Set[Symbol]): Boolean = {
+    logger.debug("Checking for fuseable inner "+sym+" with previous generators: "+prevSyms.mkString(", "))
     c.fetch.isEmpty && c.offset.isEmpty && {
       c.from.isEmpty || c.from.exists {
         case (sym, Pure(_)) => true
@@ -174,8 +177,9 @@ class FuseComprehensions extends Phase {
             case _ => false
           }.forall(identity)
         case _ => false
-      })
+      }) || hasRefToOneOf(c, prevSyms)
     }
+  }
 
   /** Check if two comprehensions can be fused (assuming the outer and inner
     * comprehension have already been deemed fuseable on their own). */
@@ -213,8 +217,9 @@ class FuseComprehensions extends Phase {
     }
 
     logger.debug("Checking for fuseable inner comprehensions at "+c.from.map(_._1).mkString(", "))
+    val prevSyms = c.from.map(_._1).toSet // Add all syms up front, all refs have to up backwards anyway
     c.from.foreach {
-      case t @ (sym, from: Comprehension) if isFuseableInner(from) =>
+      case t @ (sym, from: Comprehension) if isFuseableInner(sym, from, prevSyms) =>
         logger.debug(sym+" is fuseable inner")
         val from2 = createSelect(from)
         if(isFuseable(c, from2)) {
