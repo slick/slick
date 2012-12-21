@@ -205,7 +205,9 @@ class FuseComprehensions extends Phase {
         structs.get(syms.head).map{ base =>
           logger.debug("  found struct "+base)
           val repl = select(syms.tail, base)(0)
-          inline(repl)
+          val ret = inline(repl)
+          logger.debug("  inlined to "+ret)
+          ret
         }.getOrElse(p)
       case n => n.nodeMapChildren(inline)
     }
@@ -223,12 +225,13 @@ class FuseComprehensions extends Phase {
           for(n <- from2.groupBy) newGroupBy += inline(n)
           structs += sym -> narrowStructure(from2)
           fuse = true
-        } else newFrom += t
+        } else newFrom += ((t._1, inline(t._2)))
       case t =>
-        newFrom += t
+        newFrom += ((t._1, inline(t._2)))
     }
     if(fuse) {
-      logger.debug("Fusing Comprehension:", c)
+      if(logger.isDebugEnabled)
+        logger.debug("Fusing Comprehension with new generators "+newFrom.map(_._1).mkString(", ")+":", c)
       val c2 = Comprehension(
         newFrom,
         newWhere ++ c.where.map(inline),

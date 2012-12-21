@@ -346,7 +346,7 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with SimpleRe
   def nodeReferences: Seq[Symbol] = Seq(field)
   def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(field = gen(0))
   override def toString = Path.unapply(this) match {
-    case Some(l) => super.toString + " for " + Path.toString(l)
+    case Some(l) => Path.toString(l)
     case None => super.toString
   }
 }
