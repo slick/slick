@@ -100,7 +100,12 @@ trait PostgresDriver extends ExtendedDriver { driver =>
     override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
 
     class ByteArrayTypeMapperDelegate extends super.ByteArrayTypeMapperDelegate {
+      override val sqlType = java.sql.Types.BINARY
       override val sqlTypeName = "BYTEA"
+      override def setOption(v: Option[Array[Byte]], p: PositionedParameters) = v match {
+        case Some(a) => p.setBytes(a)
+        case None => p.setNull(sqlType)
+      }
     }
 
     class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {

@@ -1,12 +1,12 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
+import scala.slick.lifted.BaseTypeMapper
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
-import javax.sql.rowset.serial.SerialBlob
-import slick.lifted.BaseTypeMapper
 import java.util.UUID
+import javax.sql.rowset.serial.SerialBlob
+import org.junit.Assert._
 
 class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
@@ -14,7 +14,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   override val reuseInstance = true
 
   def testByteArray {
-    object T extends Table[(Int, Array[Byte])]("test") {
+    object T extends Table[(Int, Array[Byte])]("test_ba") {
       def id = column[Int]("id")
       def data = column[Array[Byte]]("data")
       def * = id ~ data
@@ -24,7 +24,28 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     T.ddl.create;
     T insert (1, Array[Byte](1,2,3))
     T insert (2, Array[Byte](4,5))
-    assertEquals(Set((1,"123"), (2,"45")), Query(T).list.map{ case (id, data) => (id, data.mkString) }.toSet)
+    assertEquals(
+      Set((1,"123"), (2,"45")),
+      Query(T).list.map{ case (id, data) => (id, data.mkString) }.toSet
+    )
+  }
+
+  def testByteArrayOption {
+    object T extends Table[(Int, Option[Array[Byte]])]("test_baopt") {
+      def id = column[Int]("id")
+      def data = column[Option[Array[Byte]]]("data")
+      def * = id ~ data
+    }
+
+    T.ddl.createStatements foreach println
+    T.ddl.create;
+    T insert (1, Some(Array[Byte](6,7)))
+    ifCap(bcap.setByteArrayNull)(T.insert(2, None))
+    ifNotCap(bcap.setByteArrayNull)(T.id.insert(2))
+    assertEquals(
+      Set((1,"67"), (2,"")),
+      Query(T).list.map{ case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet
+    )
   }
 
   def testNumeric {

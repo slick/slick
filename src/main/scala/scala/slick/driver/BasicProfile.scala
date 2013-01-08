@@ -113,6 +113,8 @@ object BasicProfile {
     val sequenceMax = Capability("basic.sequenceMax")
     /** Supports min value for sequences */
     val sequenceMin = Capability("basic.sequenceMin")
+    /** Can set an Option[ Array[Byte] ] column to None */
+    val setByteArrayNull = Capability("basic.setByteArrayNull")
     /** Supports the Blob data type */
     val typeBlob = Capability("basic.typeBlob")
     /** Supports the Long data type */
