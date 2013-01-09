@@ -101,4 +101,47 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(Set("foo%"), q3.to[Set])
     }
   }
+
+  def testSorting {
+    object T1 extends Table[(String, String, String)]("t1_3") {
+      def a = column[String]("a")
+      def b = column[String]("b")
+      def c = column[String]("c")
+      def * = a ~ b ~ c
+    }
+
+    T1.ddl.create
+    T1.insertAll(("a2", "b2", "c2"), ("a1", "b1", "c1"))
+
+    implicit class TupledQueryExtensionMethods[E1, E2, U1, U2](q: Query[(E1, E2), (U1, U2)]) {
+      def sortedValues(implicit ordered: (E1 => scala.slick.lifted.Ordered),
+                       shape: scala.slick.lifted.Shape[E2, U2, E2]): Query[E2, U2] =
+          q.sortBy(_._1).map(_._2)
+    }
+
+    val q1 = (for {
+      t1 <- T1
+    } yield t1.c -> (t1.a, t1.b)).sortedValues
+
+    assertEquals(List(("a1", "b1"), ("a2", "b2")), q1.list)
+  }
+
+  def testConditional {
+    object T1 extends Table[Int]("t1_conditional") {
+      def a = column[Int]("a")
+      def * = a
+    }
+
+    T1.ddl.create
+    T1.insertAll(1, 2, 3, 4)
+
+    val q1 = T1.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 Else 0) }
+    assertEquals(Set((1, 1), (2, 1), (3, 0), (4, 0)), q1.to[Set])
+
+    val q2 = T1.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1) }
+    assertEquals(Set((1, Some(1)), (2, Some(1)), (3, None), (4, None)), q2.to[Set])
+
+    val q3 = T1.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 If(t1.a < 4) Then 2 Else 0) }
+    assertEquals(Set((1, 1), (2, 1), (3, 2), (4, 0)), q3.to[Set])
+  }
 }

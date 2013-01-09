@@ -15,7 +15,7 @@ object TestDBs {
     val url = "jdbc:h2:mem:test1"
     val jdbcDriver = "org.h2.Driver"
     override def isPersistent = false
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql
+    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
   def H2Disk(cname: String) = new TestDB("h2disk", H2Driver) {
@@ -28,7 +28,7 @@ object TestDBs {
       session.close()
       cleanUpBefore()
     }
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql
+    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
   def HsqldbMem(cname: String) = new HsqlDB("hsqldbmem") {
@@ -90,7 +90,7 @@ object TestDBs {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
       tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql
+    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
   def MySQL(cname: String) = new ExternalTestDB("mysql", MySQLDriver) {
@@ -113,7 +113,7 @@ object TestDBs {
       for(t <- getLocalSequences)
         (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute()
     }*/
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql
+    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
   def SQLServerJTDS(cname: String) = new SQLServerDB("sqlserver")
