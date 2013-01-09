@@ -50,8 +50,9 @@ import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
  *   <li>[[scala.slick.driver.BasicProfile.capabilities.setByteArrayNull]]:
  *     Setting an Option[ Array[Byte] ] column to None causes an Exception
  *     in the JdbcOdbcDriver.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeLong]]:
- *     Access does not have a long integer type.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBigDecimal]],
+ *     [[scala.slick.driver.BasicProfile.capabilities.typeLong]]:
+ *     Access does not support decimal or long integer types.</li>
  *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
  *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
@@ -74,6 +75,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     - BasicProfile.capabilities.returnInsertKey
     - BasicProfile.capabilities.returnInsertOther
     - BasicProfile.capabilities.setByteArrayNull
+    - BasicProfile.capabilities.typeBigDecimal
     - BasicProfile.capabilities.typeBlob
     - BasicProfile.capabilities.typeLong
     - BasicProfile.capabilities.zip

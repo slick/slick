@@ -28,6 +28,8 @@ import java.sql.{Timestamp, Time, Date}
  *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
+ *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBigDecimal]]:
+ *     SQLite does not support a decimal type.</li>
  *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]: Blobs are
  *     not supported by the SQLite JDBC driver (but binary data in the form of
  *     <code>Array[Byte]</code> is).</li>
@@ -50,6 +52,7 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     - BasicProfile.capabilities.mutable
     - BasicProfile.capabilities.sequence
     - BasicProfile.capabilities.returnInsertOther
+    - BasicProfile.capabilities.typeBigDecimal
     - BasicProfile.capabilities.typeBlob
     - BasicProfile.capabilities.zip
   )

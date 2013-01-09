@@ -78,7 +78,7 @@ object TypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.longTypeMapperDelegate
   }
 
-  implicit object ShortTypeMapper extends BaseTypeMapper[Short] {
+  implicit object ShortTypeMapper extends BaseTypeMapper[Short] with NumericTypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.shortTypeMapperDelegate
   }
 
@@ -102,7 +102,7 @@ object TypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.uuidTypeMapperDelegate
   }
 
-  implicit object BigDecimalTypeMapper extends BaseTypeMapper[BigDecimal] {
+  implicit object BigDecimalTypeMapper extends BaseTypeMapper[BigDecimal] with NumericTypeMapper {
     def apply(profile: BasicProfile) = profile.typeMapperDelegates.bigDecimalTypeMapperDelegate
   }
 

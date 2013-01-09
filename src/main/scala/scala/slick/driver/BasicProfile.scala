@@ -115,6 +115,8 @@ object BasicProfile {
     val sequenceMin = Capability("basic.sequenceMin")
     /** Can set an Option[ Array[Byte] ] column to None */
     val setByteArrayNull = Capability("basic.setByteArrayNull")
+    /** Supports the BigDecimal data type */
+    val typeBigDecimal = Capability("basic.typeBigDecimal")
     /** Supports the Blob data type */
     val typeBlob = Capability("basic.typeBlob")
     /** Supports the Long data type */
@@ -126,11 +128,11 @@ object BasicProfile {
     val basic = Capability("basic")
 
     /** All basic capabilities */
-    val all = Set(basic, columnDefaults, foreignKeyActions, joinFull,
-      joinRight, likeEscape, mutable, pagingDrop, pagingNested,
-      pagingPreciseTake, returnInsertKey, returnInsertOther, sequence,
-      sequenceCurr, sequenceCycle, sequenceLimited, sequenceMax, sequenceMin,
-      typeBlob, typeLong, zip)
+    val all = Set(basic, columnDefaults, foreignKeyActions, functionDatabase,
+      functionUser, joinFull, joinRight, likeEscape, mutable, pagingDrop,
+      pagingNested, pagingPreciseTake, returnInsertKey, returnInsertOther,
+      sequence, sequenceCurr, sequenceCycle, sequenceLimited, sequenceMax,
+      sequenceMin, setByteArrayNull, typeBigDecimal, typeBlob, typeLong, zip)
   }
 }
 

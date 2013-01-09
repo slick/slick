@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import scala.slick.lifted.BaseTypeMapper
+import scala.slick.lifted.{NumericTypeMapper, BaseTypeMapper}
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
@@ -49,43 +49,29 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   }
 
   def testNumeric {
-    object T extends Table[(Int, Int, Long, Short, Byte, Double, Float)]("test2") {
-      def id = column[Int]("id")
-      def intData = column[Int]("int_data")
-      def longData = column[Long]("long_data")
-      def shortData = column[Short]("short_data")
-      def byteData = column[Byte]("byte_data")
-      def doubleData = column[Double]("double_data")
-      def floatData = column[Float]("float_data")
-      def * = id ~ intData ~ longData ~ shortData ~ byteData ~ doubleData ~ floatData
-    }
-
-    T.ddl.createStatements foreach println
-    T.ddl.create;
-
-    def test(data: List[(Int, Int, Long, Short, Byte, Double, Float)]) {
-      T.insertAll(data: _*)
-      val q = T.sortBy(_.id)
+    def testStore[T](values: T*)(implicit tm: BaseTypeMapper[T] with NumericTypeMapper) {
+      object Tbl extends Table[(Int, T)]("test_numeric") {
+        def id = column[Int]("id")
+        def data = column[T]("data")
+        def * = id ~ data
+      }
+      Tbl.ddl.create;
+      val data = values.zipWithIndex.map { case (d, i) => (i+1, d) }
+      Tbl.insertAll(data: _*)
+      val q = Tbl.sortBy(_.id)
       assertEquals(data, q.list)
-      Query(T).delete
+      Tbl.ddl.drop
     }
 
-    test(List(
-      ( 2, -1, -1L, -1: Short, -1: Byte, -1.0, -1.0f),
-      ( 3,  0,  0L,  0: Short,  0: Byte,  0.0,  0.0f),
-      ( 4,  1,  1L,  1: Short,  1: Byte,  1.0,  1.0f)
-    ))
-
-    test(List(
-      (1, Int.MinValue, 0L, Short.MinValue, Byte.MinValue, 0.0, 0.0f),
-      (5, Int.MaxValue, 0L, Short.MaxValue, Byte.MaxValue, 0.0, 0.0f)
-    ))
-
-    ifCap(bcap.typeLong) {
-      test(List(
-        (1, 0, Long.MinValue, 0, 0, 0.0, 0.0f),
-        (5, 0, Long.MaxValue, 0, 0, 0.0, 0.0f)
-      ))
+    testStore[Int](-1, 0, 1, Int.MinValue, Int.MaxValue)
+    ifCap(bcap.typeLong) { testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue) }
+    testStore[Short](-1, 0, 1, Short.MinValue, Short.MaxValue)
+    testStore[Byte](-1, 0, 1, Byte.MinValue, Byte.MaxValue)
+    testStore[Double](-1.0, 0.0, 1.0)
+    testStore[Float](-1.0f, 0.0f, 1.0f)
+    ifCap(bcap.typeBigDecimal) {
+      testStore[BigDecimal](BigDecimal("-1"), BigDecimal("0"), BigDecimal("1"),
+        BigDecimal(Long.MinValue), BigDecimal(Long.MaxValue))
     }
   }
 

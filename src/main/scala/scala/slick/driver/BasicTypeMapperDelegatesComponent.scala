@@ -10,6 +10,7 @@ trait BasicTypeMapperDelegatesComponent { driver: BasicDriver =>
 
   def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR(254)"
+    case java.sql.Types.DECIMAL => "DECIMAL(21,2)"
     case t => TypeMapperDelegate.typeNames.getOrElse(t,
       throw new SlickException("No SQL type name found in java.sql.Types for code "+t))
   }
