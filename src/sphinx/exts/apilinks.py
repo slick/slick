@@ -24,6 +24,8 @@ def make_link_role(base_url):
         if not has_explicit_title:
             idents = part.split(".")
             title = idents[len(idents)-1]
+            idents = title.split("$")
+            title = idents[len(idents)-1]
         pnode = nodes.reference(title, title, internal=False, refuri=full_url)
         return [pnode], []
     return role

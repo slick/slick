@@ -3,3 +3,5 @@
 .. _Logback: http://logback.qos.ch/
 .. _H2: http://h2database.com/
 .. _JDBC: http://en.wikipedia.org/wiki/Java_Database_Connectivity
+.. _Typesafe Subscription Agreement: http://typesafe.com/public/legal/TypesafeSubscriptionAgreement-v1.pdf
+.. _ScalaQuery: http://scalaquery.org
