@@ -1,7 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.ast.Dump
+import scala.slick.ast._
+import scala.slick.ast.Util._
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 
 class MapperTest(val tdb: TestDB) extends TestkitTest {
@@ -139,6 +140,77 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(Query(T).list.toSet, Set((1, False, None), (2, True, Some(True))))
     assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
     assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))
+  }
+
+  def testWideMappedEntity {
+    case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
+    case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
+
+    object T extends Table[Int]("t_wide") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def p1i1 = column[Int]("p1i1")
+      def p1i2 = column[Int]("p1i2")
+      def p1i3 = column[Int]("p1i3")
+      def p1i4 = column[Int]("p1i4")
+      def p1i5 = column[Int]("p1i5")
+      def p1i6 = column[Int]("p1i6")
+      def p2i1 = column[Int]("p2i1")
+      def p2i2 = column[Int]("p2i2")
+      def p2i3 = column[Int]("p2i3")
+      def p2i4 = column[Int]("p2i4")
+      def p2i5 = column[Int]("p2i5")
+      def p2i6 = column[Int]("p2i6")
+      def p3i1 = column[Int]("p3i1")
+      def p3i2 = column[Int]("p3i2")
+      def p3i3 = column[Int]("p3i3")
+      def p3i4 = column[Int]("p3i4")
+      def p3i5 = column[Int]("p3i5")
+      def p3i6 = column[Int]("p3i6")
+      def p4i1 = column[Int]("p4i1")
+      def p4i2 = column[Int]("p4i2")
+      def p4i3 = column[Int]("p4i3")
+      def p4i4 = column[Int]("p4i4")
+      def p4i5 = column[Int]("p4i5")
+      def p4i6 = column[Int]("p4i6")
+      def * = id
+      def all = (
+        id,
+        (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6),
+        (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6),
+        (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6),
+        (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
+      )
+      override def create_* =
+        all.shaped.packedNode.collect {
+          case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == this => f
+        }.toSeq.distinct
+    }
+
+    val data = (
+      0,
+      (11, 12, 13, 14, 15, 16),
+      (21, 22, 23, 24, 25, 26),
+      (31, 32, 33, 34, 35, 36),
+      (41, 42, 43, 44, 45, 46)
+    )
+
+    val oData = Whole(0,
+      Part(11, 12, 13, 14, 15, 16),
+      Part(21, 22, 23, 24, 25, 26),
+      Part(31, 32, 33, 34, 35, 36),
+      Part(41, 42, 43, 44, 45, 46)
+    )
+
+    T.ddl.create
+    T.all.shaped.insert(data)
+
+    val q1 = T.map(_.all)
+    assertEquals(data, q1.first)
+
+    val i2 = q1.mapResult { case (id, p1, p2, p3, p4) =>
+      Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
+    }
+    assertEquals(oData, i2.first)
   }
 
   /*
