@@ -6,7 +6,8 @@ import scala.slick.ast._
 /** Replace IntrinsicSymbols by AnonSymbols and collect them in a LetDynamic */
 class LocalizeRefs extends Phase {
   val name = "localizeRefs"
-  def apply(tree: Node, state: CompilationState): Node = {
+
+  def apply(state: CompilerState) = state.map { tree =>
     val map = new HashMap[AnonSymbol, Node]
     val newNodes = new HashMap[AnonSymbol, Node]
     val tr = new Transformer {

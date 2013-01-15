@@ -10,7 +10,7 @@ import scala.slick.ast.{Library,FunctionSymbol}
 import scala.slick.ast.Dump
 import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.reflect.ClassTag
-import scala.slick.compiler.CompilationState
+import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
 import scala.slick.ast.ColumnOption
 
@@ -372,12 +372,12 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   import scala.slick.jdbc.{PositionedParameters, PositionedResult}
   import scala.slick.ast.Node
 
-  private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilationState) = {
+  private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryable)
     (tpe,driver.selectStatementCompiler.run(query.node))
   }
   
-  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilationState) = {
+  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryablevalue.value.tree)
     (tpe,driver.selectStatementCompiler.run(query.node))
   }
@@ -418,7 +418,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val res = result(tpe,query, session)
     res(0)
   }
-  def result[R]( tpe:Type, cstate:CompilationState, session:driver.Backend#Session) : Vector[R] = {
+  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] = {
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
           def getResult(driver: JdbcDriver, rs: PositionedResult): R

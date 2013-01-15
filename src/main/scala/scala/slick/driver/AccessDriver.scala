@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.language.implicitConversions
 import scala.slick.SlickException
 import scala.slick.ast._
-import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
+import scala.slick.compiler.{QueryCompiler, CompilerState, Phase}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
 import scala.slick.lifted._
 import scala.slick.profile.{SqlProfile, Capability}
@@ -96,7 +96,7 @@ trait AccessDriver extends JdbcDriver { driver =>
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
 
-  override def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -110,7 +110,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(tree: Node, state: CompilationState) extends super.QueryBuilder(tree, state) {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("&")
     override protected val hasPiFunction = false
@@ -294,7 +294,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     val name = "access:existsToCount"
     import StaticType._
 
-    def apply(n: Node, state: CompilationState) = tr(n, false)
+    def apply(state: CompilerState) = state.map(n => tr(n, false))
 
     protected def tr(n: Node, inSelect: Boolean): Node = n match {
       case b @ Bind(_, _, sel) => b.nodeMapChildren { n => tr(n, n eq sel) }

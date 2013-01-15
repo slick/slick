@@ -17,7 +17,7 @@ import Util._
 class Inline(unique: Boolean = true, paths: Boolean = true, from: Boolean = true, all: Boolean = false) extends Phase {
   val name = "inline"
 
-  def apply(tree: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { tree =>
     val counts = new HashMap[AnonSymbol, Int]
     tree.foreach {
       case RefNode(a: AnonSymbol) => counts += a -> (counts.getOrElse(a, 0) + 1)

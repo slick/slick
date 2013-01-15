@@ -10,7 +10,7 @@ import Util._
 class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
   val name = "replaceFieldSymbols"
 
-  def apply(n: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { n =>
     val updatedTables = new HashMap[Symbol, ProductNode]
     val seenDefs = new HashMap[Symbol, Node]
 
@@ -104,12 +104,14 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
 class ExpandTables extends Phase {
   val name = "expandTables"
 
-  def apply(n: Node, state: CompilationState): Node = n match {
+  def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
+
+  def apply(n: Node, state: CompilerState): Node = n match {
     case t: TableExpansion => t
     case t: TableNode =>
       val sym = new AnonSymbol
       val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
-      val processed = apply(state.compiler.runBefore(Phase.forceOuterBinds, expanded, state), state)
+      val processed = apply(state.compiler.runBefore(Phase.forceOuterBinds, state.withNode(expanded)).tree, state)
       TableExpansion(sym, t, ProductNode(processed.flattenProduct))
     case n => n.nodeMapChildren(ch => apply(ch, state))
   }
@@ -121,7 +123,7 @@ class ExpandTables extends Phase {
 class ExpandRefs extends Phase with ColumnizerUtils {
   val name = "expandRefs"
 
-  def apply(n: Node, state: CompilationState) = expandRefs(n)
+  def apply(state: CompilerState) = state.map(n => expandRefs(n))
 
   def expandRefs(n: Node, scope: Scope = Scope.empty, keepRef: Boolean = false): Node = n match {
     case p @ Path(psyms) =>

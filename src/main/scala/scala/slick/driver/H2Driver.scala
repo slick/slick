@@ -5,7 +5,7 @@ import scala.slick.ast._
 import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
-import scala.slick.compiler.CompilationState
+import scala.slick.compiler.CompilerState
 
 /**
  * Slick driver for H2.
@@ -34,14 +34,14 @@ trait H2Driver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.returnInsertOther
   )
 
-  override def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(tree: Node, state: CompilationState) extends super.QueryBuilder(tree, state)  with OracleStyleRowNum {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state)  with OracleStyleRowNum {
     override protected val concatOperator = Some("||")
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {

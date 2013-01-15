@@ -11,7 +11,9 @@ abstract class CodeGen[Extra] extends Phase {
 
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[CodeGen[_]]))
 
-  def apply(tree: Node, state: CompilationState): Node = tree match {
+  def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
+
+  def apply(node: Node, state: CompilerState): Node = node match {
     case r @ ResultSetMapping(_, from, _) =>
       r.copy(from = apply(from, state)).nodeTyped(r.nodeType)
     case n =>
@@ -19,12 +21,12 @@ abstract class CodeGen[Extra] extends Phase {
       CompiledStatement(st, ex, n.nodeType)
   }
 
-  def buildStatement(n: Node, state: CompilationState): (String, Extra)
+  def buildStatement(n: Node, state: CompilerState): (String, Extra)
 }
 
 object CodeGen {
-  def apply[Extra](f: () => ((Node, CompilationState) => (String, Extra))): CodeGen[Extra] = new CodeGen[Extra] {
-    def buildStatement(n: Node, state: CompilationState): (String, Extra) =
+  def apply[Extra](f: () => ((Node, CompilerState) => (String, Extra))): CodeGen[Extra] = new CodeGen[Extra] {
+    def buildStatement(n: Node, state: CompilerState): (String, Extra) =
       f().apply(n, state)
   }
 

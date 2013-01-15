@@ -11,7 +11,7 @@ import slick.SlickException
 class HoistClientOps extends Phase {
   val name = "hoistClientOps"
 
-  def apply(tree: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { tree =>
     /* Temporarily create a comprehension that selects a StructNode instead of
      * a ProductNode at the top level. This makes the actual hoisting simpler. */
     val withStruct = Phase.fuseComprehensions.ensureStruct(tree.asInstanceOf[Comprehension])
