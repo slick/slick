@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
+import slick.compiler.CompilerState
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -44,7 +45,7 @@ import scala.slick.profile.{SqlProfile, Capability}
  *
  * @author szeiger
  */
-trait DerbyDriver extends ExtendedDriver { driver =>
+trait DerbyDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.functionDatabase
@@ -57,7 +58,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
   )
 
   override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
@@ -69,8 +70,7 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
-
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
     override protected val useIntForBoolean = true
@@ -90,13 +90,10 @@ trait DerbyDriver extends ExtendedDriver { driver =>
         if(toVarchar && typeInfoFor(ch(0).nodeType).isInstanceOf[NumericTypedType])
           b"trim(cast(cast(${ch(0)} as char(30)) as $tn))"
         else b"cast(${ch(0)} as $tn)"
-      case Library.IfNull(l, r) => r match {
+      case Library.IfNull(l, r) =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
-        case c: Column[_] =>
-          b"coalesce(cast($l as ${typeInfoFor(c.tpe).sqlTypeName}),!$r)"
-        case _ => throw new SlickException("Cannot determine type of right-hand side for ifNull")
-      }
+        b"coalesce(cast($l as ${typeInfoFor(c.nodeType).sqlTypeName}),!$r)"
       case c @ BindColumn(v) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.

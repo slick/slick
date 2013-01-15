@@ -10,18 +10,18 @@ import Util._
 class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
   val name = "replaceFieldSymbols"
 
-  def apply(n: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { n =>
     val updatedTables = new HashMap[Symbol, ProductNode]
     val seenDefs = new HashMap[Symbol, Node]
 
-    def rewrite(target: Node, p: Node, field: FieldSymbol, syms: List[Symbol]): Option[Select] = {
+    def rewrite(target: Node, p: Node, field: FieldSymbol, syms: List[Symbol], tpe: Type): Option[Select] = {
       val ntarget = narrowStructure(target)
       logger.debug("Narrowed to structure "+ntarget+" with tail "+Path.toString(syms.tail.reverse))
       select(syms.tail, ntarget, seenDefs.get _).map {
         case t: TableExpansion =>
           logger.debug("Narrowed to element "+t)
           val columns: ProductNode = updatedTables.get(t.generator).getOrElse(t.columns.asInstanceOf[ProductNode])
-          val needed = Select(Ref(t.generator), field)
+          val needed = Select(Ref(t.generator), field).nodeTyped(tpe)
           Some(columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
             case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
             case None =>
@@ -35,10 +35,10 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
             logger.debug("Looking for seen def "+syms.head)
             seenDefs.get(syms.head).flatMap { n =>
               logger.debug("Trying to rewrite recursive match "+t.ref+" ."+field)
-              rewrite(n, t.ref, field, syms).map { recSel =>
+              rewrite(n, t.ref, field, syms, tpe).map { recSel =>
                 logger.debug("Found recursive replacement "+recSel.in+" ."+recSel.field)
                 val columns: ProductNode = updatedTables.get(t.marker).getOrElse(t.columns.asInstanceOf[ProductNode])
-                val needed = Select(t.ref, recSel.field)
+                val needed = Select(t.ref, recSel.field).nodeTyped(tpe)
                 columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
                   case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
                   case None =>
@@ -55,7 +55,7 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
           val syms = psyms.reverse
           seenDefs.get(syms.head).flatMap { n =>
             logger.debug("Trying to rewrite target "+p+" ."+field)
-            rewrite(n, p, field, syms)
+            rewrite(n, p, field, syms, tpe)
           }
         case n =>
           throw new SlickException("Unexpected target node "+n+" (from "+Path.toString(syms.reverse)+")")
@@ -74,8 +74,8 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
       case sel @ Select(p @ Path(psyms), field: FieldSymbol) =>
         val syms = psyms.reverse
         scope.get(syms.head).flatMap { case (n, _) =>
-          logger.debug("Trying to rewrite "+p+" ."+field)
-          val newSelO = rewrite(n, p, field, syms)
+          logger.debug(s"Trying to rewrite $p .$field : ${sel.nodeType}")
+          val newSelO = rewrite(n, p, field, syms, sel.nodeType)
           newSelO.foreach(newSel => logger.debug("Replaced "+Path.toString(sel)+" by "+Path.toString(newSel)))
           newSelO
         }.getOrElse(sel)
@@ -104,12 +104,14 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
 class ExpandTables extends Phase {
   val name = "expandTables"
 
-  def apply(n: Node, state: CompilationState): Node = n match {
+  def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
+
+  def apply(n: Node, state: CompilerState): Node = n match {
     case t: TableExpansion => t
     case t: TableNode =>
       val sym = new AnonSymbol
       val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
-      val processed = apply(state.compiler.runBefore(Phase.forceOuterBinds, expanded, state), state)
+      val processed = apply(state.compiler.runBefore(Phase.forceOuterBinds, state.withNode(expanded)).tree, state)
       TableExpansion(sym, t, ProductNode(processed.flattenProduct))
     case n => n.nodeMapChildren(ch => apply(ch, state))
   }
@@ -121,7 +123,7 @@ class ExpandTables extends Phase {
 class ExpandRefs extends Phase with ColumnizerUtils {
   val name = "expandRefs"
 
-  def apply(n: Node, state: CompilationState) = expandRefs(n)
+  def apply(state: CompilerState) = state.map(n => expandRefs(n))
 
   def expandRefs(n: Node, scope: Scope = Scope.empty, keepRef: Boolean = false): Node = n match {
     case p @ Path(psyms) =>

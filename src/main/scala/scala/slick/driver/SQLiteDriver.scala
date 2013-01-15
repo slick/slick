@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Time, Date}
 import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.CompilerState
 
 /**
  * Slick driver for SQLite.
@@ -41,7 +42,7 @@ import scala.slick.profile.{SqlProfile, Capability}
  * @author Paul Snively
  * @author Stefan Zeiger
  */
-trait SQLiteDriver extends ExtendedDriver { driver =>
+trait SQLiteDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.functionDatabase
@@ -56,11 +57,11 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
   )
 
   override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
 

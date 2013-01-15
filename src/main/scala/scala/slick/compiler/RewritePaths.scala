@@ -13,7 +13,7 @@ import TypeUtil._
 class RewritePaths extends Phase {
   val name = "rewritePaths"
 
-  def apply(n: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { n =>
     def flattenToStruct(n: Node): (Node, Vector[(Symbol, Node)]) = n match {
       case ProductNode(ch) =>
         val chf = ch.map(flattenToStruct)
@@ -158,7 +158,7 @@ class RewritePaths extends Phase {
 class RelabelUnions extends Phase {
   val name = "relabelUnions"
 
-  def apply(n: Node, state: CompilationState) = relabelUnions(n)
+  def apply(state: CompilerState) = state.map(relabelUnions)
 
   def relabelUnions(n: Node): Node = n match {
     case u @ Union(BindTarget(Pure(StructNode(ls))), rb @ BindTarget(Pure(StructNode(rs))), _, _, _)
@@ -187,7 +187,7 @@ class RelabelUnions extends Phase {
 class PruneFields extends Phase {
   val name = "pruneFields"
 
-  def apply(n: Node, state: CompilationState) = prune.repeat(n)
+  def apply(state: CompilerState) = state.map(prune.repeat)
 
   def prune = new Transformer {
     val refs = new HashSet[Symbol]()

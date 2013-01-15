@@ -1,8 +1,8 @@
 package scala.slick.direct
 
+import language.existentials
 import scala.slick.SlickException
 import scala.language.implicitConversions
-import language.existentials
 import scala.slick.driver._
 import scala.slick.lifted.{Shape, ShapedValue}
 import scala.slick.{ast => sq}
@@ -10,7 +10,7 @@ import scala.slick.ast.{Library,FunctionSymbol}
 import scala.slick.ast.Dump
 import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.reflect.ClassTag
-import scala.slick.compiler.CompilationState
+import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
 import scala.slick.ast.ColumnOption
 
@@ -20,16 +20,22 @@ trait QueryableBackend
 object CustomNodes{
   import scala.slick.ast._
   final case class Reverse(value: Node) extends UnaryNode {
+    type Self = Reverse
     def child = value
     override def nodeChildNames = Seq("value")
     protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
-    def nodeWithComputedType(scope: SymbolScope): Node = copy(this).nodeTyped(child.nodeType)
+    def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
+      if(nodeHasType && !retype) this
+      else copy(this).nodeTyped(child.nodeType)
   }
   final case class Nullsorting(value: Node,sorting:Nullsorting.Sorting) extends UnaryNode {
+    type Self = Nullsorting
     def child = value
     override def nodeChildNames = Seq("value")
     protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
-    def nodeWithComputedType(scope: SymbolScope): Node = copy(this).nodeTyped(child.nodeType)
+    def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
+      if(nodeHasType && !retype) this
+      else copy(this).nodeTyped(child.nodeType)
   }
   object Nullsorting extends Enumeration{
     type Sorting = Value
@@ -154,7 +160,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         sq.CollectionTypeConstructor.default,
         sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ))
       )
-      override def nodeWithComputedType(scope: sq.SymbolScope): sq.Node = nodeRebuild
+      override def nodeWithComputedType(scope: sq.SymbolScope, retype: Boolean) = nodeRebuild
     }
     new Query( table, Scope() )
   }
@@ -366,14 +372,14 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   import scala.slick.jdbc.{PositionedParameters, PositionedResult}
   import scala.slick.ast.Node
 
-  private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilationState) = {
+  private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryable)
-    (tpe,driver.compiler.run(query.node))
+    (tpe,driver.selectStatementCompiler.run(query.node))
   }
   
-  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilationState) = {
+  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryablevalue.value.tree)
-    (tpe,driver.compiler.run(query.node))
+    (tpe,driver.selectStatementCompiler.run(query.node))
   }
 
   protected def resultByType( expectedType : Type, rs: PositionedResult, session:driver.Backend#Session) : Any = {
@@ -412,7 +418,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val res = result(tpe,query, session)
     res(0)
   }
-  def result[R]( tpe:Type, cstate:CompilationState, session:driver.Backend#Session) : Vector[R] = {
+  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] = {
     val linearizer = new CollectionLinearizer[Vector,R]{
       def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
           def getResult(driver: JdbcDriver, rs: PositionedResult): R
@@ -423,11 +429,11 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
     }
-    new driver.QueryExecutor[Vector[R]](new QueryBuilderInput(cstate, linearizer)).run(session)
+    new driver.QueryExecutor[Vector[R]](cstate.tree, linearizer).run(session)
   }
   protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
-    val builder = driver.createQueryBuilder(new QueryBuilderInput(cstate, null))
+    val builder = driver.createQueryBuilder(cstate.tree, cstate)
     builder.buildSelect.sql
   }
   protected[slick] def toQuery(queryable:BaseQueryable[_]) : (Type,this.Query) = queryable.expr_or_typetag match {

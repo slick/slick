@@ -75,5 +75,6 @@ final case class BindColumn[T : TypedType](value: T) extends Column[T] with Null
  * A parameter from a QueryTemplate which gets turned into a bind variable.
  */
 final case class ParameterColumn[T : TypedType](extractor: (_ => T)) extends Column[T] with NullaryNode with TypedNode {
+  type Self = ParameterColumn[T]
   def nodeRebuild = copy()
 }

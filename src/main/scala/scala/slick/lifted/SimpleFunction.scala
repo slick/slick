@@ -18,10 +18,11 @@ object SimpleFunction {
   def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Column[_]] => Column[T] with SimpleFunction) = {
     lazy val builder: (Seq[NodeGenerator] => Column[T] with SimpleFunction) = paramsC =>
       new Column[T] with SimpleFunction with TypedNode {
+        type Self = Column[T] with SimpleFunction
         val name = fname
         override val scalar = fn
         lazy val nodeChildren = paramsC.map(Node(_))
-        protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)
+        protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = builder(ch)
       }
     builder
   }
@@ -49,16 +50,18 @@ object SimpleBinaryOperator {
   def apply[T : TypedType](fname: String): ((Column[_], Column[_]) => Column[T] with SimpleBinaryOperator) = {
     lazy val builder: ((NodeGenerator, NodeGenerator) => Column[T] with SimpleBinaryOperator) = (leftC, rightC) =>
       new Column[T] with SimpleBinaryOperator with TypedNode {
+        type Self = Column[T] with SimpleBinaryOperator
         val name = fname
         val left = Node(leftC)
         val right = Node(rightC)
-        protected[this] def nodeRebuild(left: Node, right: Node): Node = builder(left, right)
+        protected[this] def nodeRebuild(left: Node, right: Node): Self = builder(left, right)
       }
     builder
   }
 }
 
-case class SimpleLiteral(name: String)(val tpe: Type) extends NullaryNode with TypedNode {
+final case class SimpleLiteral(name: String)(val tpe: Type) extends NullaryNode with TypedNode {
+  type Self = SimpleLiteral
   def nodeRebuild = copy()(tpe)
 }
 
@@ -70,9 +73,10 @@ object SimpleExpression {
   def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Column[_]] => Column[T] with SimpleExpression) = {
     lazy val builder: (Seq[NodeGenerator] => Column[T] with SimpleExpression) = paramsC =>
       new Column[T] with SimpleExpression with TypedNode {
+        type Self = Column[T] with SimpleExpression
         def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(nodeChildren.toSeq, qb)
         val nodeChildren = paramsC.map(Node(_))
-        protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Node = builder(ch)
+        protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = builder(ch)
       }
     builder
   }

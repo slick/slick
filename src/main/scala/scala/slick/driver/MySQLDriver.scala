@@ -7,6 +7,7 @@ import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.CompilerState
 
 /**
  * Slick driver for MySQL.
@@ -29,7 +30,7 @@ import scala.slick.profile.{SqlProfile, Capability}
 
  * @author szeiger
  */
-trait MySQLDriver extends ExtendedDriver { driver =>
+trait MySQLDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.returnInsertOther
@@ -38,22 +39,24 @@ trait MySQLDriver extends ExtendedDriver { driver =>
 
   override val columnTypes = new JdbcTypes
 
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
 
-    case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
+    final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
+      type Self = RowNum
       def tpe = StaticType.Long
       def nodeRebuild = copy()
     }
-    case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
+    final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
+      type Self = RowNumGen
       def tpe = StaticType.Long
       def nodeRebuild = copy()
     }
