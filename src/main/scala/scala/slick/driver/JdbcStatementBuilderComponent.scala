@@ -5,7 +5,7 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 import scala.slick.ast.ExtraUtil._
-import scala.slick.compiler.{CodeGen, Phase, CompilationState}
+import scala.slick.compiler.{CodeGen, Phase, CompilerState}
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
@@ -17,7 +17,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   // Create the different builders -- these methods should be overridden by drivers as needed
   def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] =
     new JdbcQueryTemplate[P,R](selectStatementCompiler.run(Node(q)).tree, q, this)
-  def createQueryBuilder(n: Node, state: CompilationState): QueryBuilder = new QueryBuilder(n, state)
+  def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -30,7 +30,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   case object OtherPart extends StatementPart
 
   /** Builder for SELECT and UPDATE statements. */
-  class QueryBuilder(val tree: Node, val state: CompilationState) { queryBuilder =>
+  class QueryBuilder(val tree: Node, val state: CompilerState) { queryBuilder =>
 
     // Immutable config options (to be overridden by subclasses)
     protected val scalarFrom: Option[String] = None

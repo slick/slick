@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
-import scala.slick.compiler.{CompilationState, CodeGen, QueryCompiler}
+import scala.slick.compiler.{CompilerState, CodeGen, QueryCompiler}
 import scala.slick.lifted._
 import scala.slick.jdbc.{JdbcBackend, JdbcType, MappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
@@ -26,7 +26,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   lazy final val updateStatementCompiler = statementCompiler(_.buildUpdate)
   lazy final val deleteStatementCompiler = statementCompiler(_.buildDelete)
 
-  protected final def statementCompiler(f: QueryBuilder => SQLBuilder.Result) = compiler + CodeGen(() => (n: Node, c: CompilationState) => {
+  protected final def statementCompiler(f: QueryBuilder => SQLBuilder.Result) = compiler + CodeGen(() => (n: Node, c: CompilerState) => {
     val sbr = f(createQueryBuilder(n, c))
     (sbr.sql, sbr)
   })

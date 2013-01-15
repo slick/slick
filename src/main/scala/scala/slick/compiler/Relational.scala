@@ -17,10 +17,9 @@ class ResolveZipJoins extends Phase {
   type State = ResolveZipJoinsState
   val name = "resolveZipJoins"
 
-  def apply(n: Node, state: CompilationState) = {
-    val n2 = resolveZipJoins(n)
-    state(this) = new State(n2 ne n)
-    n2
+  def apply(state: CompilerState) = {
+    val n2 = resolveZipJoins(state.tree)
+    state + (this -> new State(n2 ne state.tree)) withNode n2
   }
 
   def resolveZipJoins(n: Node): Node = (n match {
@@ -68,7 +67,7 @@ class ResolveZipJoinsState(val hasRowNumber: Boolean)
 class ConvertToComprehensions extends Phase {
   val name = "convertToComprehensions"
 
-  def apply(n: Node, state: CompilationState) = convert.repeat(n)
+  def apply(state: CompilerState) = state.map(convert.repeat)
 
   val convert = new Transformer {
     def mkFrom(s: Symbol, n: Node): Seq[(Symbol, Node)] = n match {
@@ -135,7 +134,7 @@ class ConvertToComprehensions extends Phase {
 class FuseComprehensions extends Phase {
   val name = "fuseComprehensions"
 
-  def apply(n: Node, state: CompilationState): Node = fuse(n)
+  def apply(state: CompilerState) = state.map(fuse)
 
   def fuse(n: Node): Node = n.nodeMapChildren(fuse) match {
     case c: Comprehension =>
@@ -393,7 +392,7 @@ object UnionLeft {
 class FixRowNumberOrdering extends Phase {
   val name = "fixRowNumberOrdering"
 
-  def apply(n: Node, state: CompilationState) = {
+  def apply(state: CompilerState) = state.map { n =>
     if(state.get(Phase.resolveZipJoins).map(_.hasRowNumber).getOrElse(true))
       fixRowNumberOrdering(n)
     else {

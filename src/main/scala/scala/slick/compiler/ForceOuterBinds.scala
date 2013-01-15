@@ -10,7 +10,7 @@ import scala.slick.ast._
 class ForceOuterBinds extends Phase {
   val name = "forceOuterBinds"
 
-  def apply(n: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { n =>
     def idBind(n: Node): Bind = n match {
       case c: Column[_] =>
         idBind(Pure(c))
