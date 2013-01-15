@@ -1,4 +1,4 @@
-package scala.slick.docsnippets
+package com.typesafe.slick.docsnippets
 
 import scala.slick.driver.H2Driver.simple._
 import Database.threadLocalSession

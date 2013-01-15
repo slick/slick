@@ -251,7 +251,7 @@ slick_examples_version = version
 extlinks = {
   'issue': ('https://github.com/slick/slick/issues/%s', 'issue #'),
   'ticket': ('https://www.assembla.com/spaces/typesafe-slick/tickets/%s', 'ticket #'),
-  'ex': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/scala/slick/examples/%s.scala', 'Slick example ')
+  'ex': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/com/typesafe/slick/examples/%s.scala', 'Slick example ')
 }
 
 apilinks = {
