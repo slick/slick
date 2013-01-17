@@ -13,7 +13,7 @@ abstract class CodeGen[Extra] extends Phase {
 
   def apply(tree: Node, state: CompilationState): Node = tree match {
     case r @ ResultSetMapping(_, from, _) =>
-      r.copy(from = apply(from, state))
+      r.copy(from = apply(from, state)).nodeTyped(r.nodeType)
     case n =>
       val (st, ex) = buildStatement(n, state)
       CompiledStatement(st, ex, n.nodeType)

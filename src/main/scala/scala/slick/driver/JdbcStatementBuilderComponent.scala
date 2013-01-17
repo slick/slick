@@ -187,8 +187,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case OptionApply(ch) => expr(ch, skipParens)
-      case GetOrElse(ch, _) => expr(ch, skipParens)
       case LiteralNode(true) if useIntForBoolean => b"\(1=1\)"
       case LiteralNode(false) if useIntForBoolean => b"\(1=0\)"
       case LiteralNode(null) => b"null"

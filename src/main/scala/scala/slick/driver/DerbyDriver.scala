@@ -90,13 +90,10 @@ trait DerbyDriver extends JdbcDriver { driver =>
         if(toVarchar && typeInfoFor(ch(0).nodeType).isInstanceOf[NumericTypedType])
           b"trim(cast(cast(${ch(0)} as char(30)) as $tn))"
         else b"cast(${ch(0)} as $tn)"
-      case Library.IfNull(l, r) => r match {
+      case Library.IfNull(l, r) =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
-        case c: Column[_] =>
-          b"coalesce(cast($l as ${typeInfoFor(c.tpe).sqlTypeName}),!$r)"
-        case _ => throw new SlickException("Cannot determine type of right-hand side for ifNull")
-      }
+        b"coalesce(cast($l as ${typeInfoFor(c.nodeType).sqlTypeName}),!$r)"
       case c @ BindColumn(v) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.

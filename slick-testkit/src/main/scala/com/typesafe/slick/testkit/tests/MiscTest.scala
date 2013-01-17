@@ -159,4 +159,23 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
     val r1 = q1.to[Set]
     assertEquals(Set("foo1", "bar2"), r1)
   }
+
+  def testOptionConversions {
+    object T1 extends Table[(Int, Option[Int])]("t1_optconv") {
+      def a = column[Int]("a")
+      def b = column[Option[Int]]("b")
+      def * = a ~ b
+    }
+
+    T1.ddl.create
+    T1.insertAll((1, Some(10)), (2, None))
+
+    // GetOrElse in ResultSetMapping on client side
+    val q1 = for { t <- T1 } yield (t.a, t.b.getOrElse(0))
+    assertEquals(Set((1, 10), (2, 0)), q1.to[Set])
+
+    // GetOrElse in query on the DB side
+    val q2 = for { t <- T1 } yield (t.a, t.b.getOrElse(0) + 1)
+    assertEquals(Set((1, 11), (2, 1)), q2.to[Set])
+  }
 }
