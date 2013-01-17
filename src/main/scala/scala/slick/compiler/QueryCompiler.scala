@@ -82,8 +82,8 @@ object QueryCompiler {
     Phase.resolveZipJoins,
     Phase.convertToComprehensions,
     Phase.fuseComprehensions,
-    Phase.fixRowNumberOrdering,
     Phase.assignTypes,
+    Phase.fixRowNumberOrdering,
     Phase.hoistClientOps
   )
 

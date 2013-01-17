@@ -403,12 +403,12 @@ class FixRowNumberOrdering extends Phase {
 
   /** Push ORDER BY into RowNumbers in ordered Comprehensions. */
   def fixRowNumberOrdering(n: Node, parent: Option[Comprehension] = None): Node = (n, parent) match {
-    case (RowNumber(_), Some(c)) if !c.orderBy.isEmpty =>
-      RowNumber(c.orderBy)
+    case (r @ RowNumber(_), Some(c)) if !c.orderBy.isEmpty =>
+      RowNumber(c.orderBy).nodeTyped(r.nodeType)
     case (c: Comprehension, _) => c.nodeMapScopedChildren {
       case (Some(gen), ch) => fixRowNumberOrdering(ch, None)
       case (None, ch) => fixRowNumberOrdering(ch, Some(c))
     }
-    case (n, _) => n.nodeMapChildren(ch => fixRowNumberOrdering(ch, parent))
+    case (n, _) => n.nodeMapChildrenKeepType(ch => fixRowNumberOrdering(ch, parent))
   }
 }
