@@ -1,10 +1,12 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
+import scala.slick.ast.NumericTypedType
 import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
+import java.util.UUID
 import javax.sql.rowset.serial.SerialBlob
+import org.junit.Assert._
 
 class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
@@ -12,7 +14,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   override val reuseInstance = true
 
   def testByteArray {
-    object T extends Table[(Int, Array[Byte])]("test") {
+    object T extends Table[(Int, Array[Byte])]("test_ba") {
       def id = column[Int]("id")
       def data = column[Array[Byte]]("data")
       def * = id ~ data
@@ -22,47 +24,54 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     T.ddl.create;
     T insert (1, Array[Byte](1,2,3))
     T insert (2, Array[Byte](4,5))
-    assertEquals(Set((1,"123"), (2,"45")), Query(T).list.map{ case (id, data) => (id, data.mkString) }.toSet)
+    assertEquals(
+      Set((1,"123"), (2,"45")),
+      Query(T).list.map{ case (id, data) => (id, data.mkString) }.toSet
+    )
   }
 
-  def testNumeric {
-    object T extends Table[(Int, Int, Long, Short, Byte, Double, Float)]("test2") {
+  def testByteArrayOption {
+    object T extends Table[(Int, Option[Array[Byte]])]("test_baopt") {
       def id = column[Int]("id")
-      def intData = column[Int]("int_data")
-      def longData = column[Long]("long_data")
-      def shortData = column[Short]("short_data")
-      def byteData = column[Byte]("byte_data")
-      def doubleData = column[Double]("double_data")
-      def floatData = column[Float]("float_data")
-      def * = id ~ intData ~ longData ~ shortData ~ byteData ~ doubleData ~ floatData
+      def data = column[Option[Array[Byte]]]("data")
+      def * = id ~ data
     }
 
     T.ddl.createStatements foreach println
     T.ddl.create;
+    T insert (1, Some(Array[Byte](6,7)))
+    ifCap(scap.setByteArrayNull)(T.insert(2, None))
+    ifNotCap(scap.setByteArrayNull)(T.id.insert(2))
+    assertEquals(
+      Set((1,"67"), (2,"")),
+      Query(T).list.map{ case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet
+    )
+  }
 
-    def test(data: List[(Int, Int, Long, Short, Byte, Double, Float)]) {
-      T.insertAll(data: _*)
-      val q = T.sortBy(_.id)
+  def testNumeric {
+    def testStore[T](values: T*)(implicit tm: BaseColumnType[T] with NumericTypedType) {
+      object Tbl extends Table[(Int, T)]("test_numeric") {
+        def id = column[Int]("id")
+        def data = column[T]("data")
+        def * = id ~ data
+      }
+      Tbl.ddl.create;
+      val data = values.zipWithIndex.map { case (d, i) => (i+1, d) }
+      Tbl.insertAll(data: _*)
+      val q = Tbl.sortBy(_.id)
       assertEquals(data, q.list)
-      Query(T).delete
+      Tbl.ddl.drop
     }
 
-    test(List(
-      ( 2, -1, -1L, -1: Short, -1: Byte, -1.0, -1.0f),
-      ( 3,  0,  0L,  0: Short,  0: Byte,  0.0,  0.0f),
-      ( 4,  1,  1L,  1: Short,  1: Byte,  1.0,  1.0f)
-    ))
-
-    test(List(
-      (1, Int.MinValue, 0L, Short.MinValue, Byte.MinValue, 0.0, 0.0f),
-      (5, Int.MaxValue, 0L, Short.MaxValue, Byte.MaxValue, 0.0, 0.0f)
-    ))
-
-    ifCap(scap.typeLong) {
-      test(List(
-        (1, 0, Long.MinValue, 0, 0, 0.0, 0.0f),
-        (5, 0, Long.MaxValue, 0, 0, 0.0, 0.0f)
-      ))
+    testStore[Int](-1, 0, 1, Int.MinValue, Int.MaxValue)
+    ifCap(scap.typeLong) { testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue) }
+    testStore[Short](-1, 0, 1, Short.MinValue, Short.MaxValue)
+    testStore[Byte](-1, 0, 1, Byte.MinValue, Byte.MaxValue)
+    testStore[Double](-1.0, 0.0, 1.0)
+    testStore[Float](-1.0f, 0.0f, 1.0f)
+    ifCap(scap.typeBigDecimal) {
+      testStore[BigDecimal](BigDecimal("-1"), BigDecimal("0"), BigDecimal("1"),
+        BigDecimal(Long.MinValue), BigDecimal(Long.MaxValue))
     }
   }
 
@@ -110,7 +119,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  private def roundtrip[T : BaseColumnType](tn: String, v: T) {
+  private def roundtrip[T : BaseColumnType](tn: String, v: T, literal: Boolean = true, bind: Boolean = true) {
     object T1 extends Table[(Int, T)](tn) {
       def id = column[Int]("id")
       def data = column[T]("data")
@@ -120,8 +129,14 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     T1.ddl.create
     T1.insert((1, v))
     assertEquals(v, T1.map(_.data).first)
-    assertEquals(Some(1), T1.filter(_.data === v).map(_.id).firstOption)
-    assertEquals(None, T1.filter(_.data =!= v).map(_.id).firstOption)
+    if(literal) {
+      assertEquals(Some(1), T1.filter(_.data === v).map(_.id).firstOption)
+      assertEquals(None, T1.filter(_.data =!= v).map(_.id).firstOption)
+    }
+    if(bind) {
+      assertEquals(Some(1), T1.filter(_.data === v.bind).map(_.id).firstOption)
+      assertEquals(None, T1.filter(_.data =!= v.bind).map(_.id).firstOption)
+    }
   }
 
   def testDate =
@@ -132,4 +147,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
 
   def testTimestamp =
     roundtrip[Timestamp]("timestamp_t1", Timestamp.valueOf("2012-12-24 17:53:48.0"))
+
+  def testUUID =
+    roundtrip[UUID]("uuid_t1", UUID.randomUUID(), literal = false)
 }

@@ -423,7 +423,7 @@ final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode 
   def nodeReference = field
   protected[this] def nodeRebuildWithReference(s: Symbol) = copy(field = s)
   override def toString = Path.unapply(this) match {
-    case Some(l) => super.toString + " for " + Path.toString(l)
+    case Some(l) => Path.toString(l)
     case None => super.toString
   }
   def nodeWithComputedType(scope: SymbolScope): Node = {

@@ -45,23 +45,13 @@ Scala type and a column name for the database (usually in upper-case). The
 following primitive types are supported out of the box (with certain
 limitations imposed by the individual database drivers):
 
+- *Numeric types*: Byte, Short, Int, Long, BigDecimal, Float, Double
+- *LOB types*: java.sql.Blob, java.sql.Clob, Array[Byte]
+- *Date types*: java.sql.Date, java.sql.Time, java.sql.Timestamp
 - Boolean
-- java.sql.Blob
-- Byte
-- Array[Byte]
-- java.sql.Clob
-- java.sql.Date
-- Double
-- Float
-- Int
-- Long
-- Short
 - String
-- java.sql.Time
-- java.sql.Timestamp
 - Unit
 - java.util.UUID
-- BigDecimal
 
 Nullable columns are represented by ``Option[T]`` where ``T`` is one of the
 supported primitive types. Note that all operations on Option values are
@@ -310,11 +300,127 @@ If you only want a single result value, you can use ``first`` or
 used to iterate over the result set without first copying all data into a
 Scala collection.
 
-Inserting and Updating
-----------------------
+Deleting
+--------
+
+Deleting works very similarly to querying. You write a query which selects the
+rows to delete and then call the ``delete`` method on it. There is again an
+implicit conversion from ``Query`` to the special
+:api:`scala.slick.driver.BasicInvokerComponent$DeleteInvoker` which provides
+the ``delete`` method and a self-reference ``deleteInvoker``:
+
+.. includecode:: code/LiftedEmbedding.scala#delete
+
+A query for deleting must only select from a single table. Any projection is
+ignored (it always deletes full rows).
+
+Inserting
+---------
+
+Inserts are done based on a projection of columns from a single table. When
+you use the table directly, the insert is performed against its ``*``
+projection. Omitting some of a table's columns when inserting causes the
+database to use the default values specified in the table definition, or
+a type-specific default in case no explicit default was given. All methods
+for inserting are defined in
+:api:`scala.slick.driver.BasicInvokerComponent$InsertInvoker` and
+:api:`scala.slick.driver.BasicInvokerComponent$FullInsertInvoker`.
+
+.. includecode:: code/LiftedEmbedding.scala#insert1
+
+While some database systems allow inserting proper values into AutoInc columns
+or inserting ``None`` to get a created value, most databases forbid this
+behaviour, so you have to make sure to omit these columns. Slick does not yet
+have a feature to do this automatically but it is planned for a future
+release. For now, you have to use a projection which does not include the
+AutoInc column, like ``forInsert`` in the following example:
+
+.. includecode:: code/LiftedEmbedding.scala#insert2
+
+In these cases you frequently want to get back the auto-generated primary key
+column. By default, ``insert`` gives you a count of the number of affected
+rows (which will usually be 1) and ``insertAll`` gives you an accumulated
+count in an ``Option`` (which can be ``None`` if the database system does not
+provide counts for all rows). This can be changed with the ``returning``
+method where you specify the columns to be returned (as a single value or
+tuple from ``insert`` and a ``Seq`` of such values from ``insertAll``):
+
+.. includecode:: code/LiftedEmbedding.scala#insert3
+
+Note that many database systems only allow a single column to be returned
+which must be the table's auto-incrementing primary key. If you ask for
+other columns a ``SlickException`` is thrown at runtime (unless the database
+actually supports it).
+
+Instead of inserting data from the client side you can also insert data
+created by a ``Query`` or a scalar expression that is executed in the
+database server:
+
+.. includecode:: code/LiftedEmbedding.scala#insert4
+
+Updating
+--------
+
+Updates are performed by writing a query that selects the data to update and
+then replacing it with new data. The query must only return raw columns (no
+computed values) selected from a single table. The relevant methods for
+updating are defined in
+:api:`scala.slick.driver.BasicInvokerComponent$UpdateInvoker`.
+
+.. includecode:: code/LiftedEmbedding.scala#update1
+
+There is currently no way to use scalar expressions or transformations of
+the existing data in the database for updates.
 
 Query Templates
 ---------------
 
+Query templates are parameterized queries. A template works like a function
+that takes some parameters and returns a ``Query`` for them except that the
+template is more efficient. When you evaluate a function to create a query
+the function constructs a new query AST, and when you execute that query it
+has to be compiled anew by the query compiler every time even if that always
+results in the same SQL string. A query template on the other hand is limited
+to a single SQL string (where all parameters are turned into bind
+variables) by design but the query is built and compiled only once.
+
+You can create a query template by calling ``flatMap`` on a
+:api:`scala.slick.lifted.Parameters` object. In many cases this enables you
+to write a single *for comprehension* for a template.
+
+.. includecode:: code/LiftedEmbedding.scala#template1
+
 User-Defined Functions and Types
 --------------------------------
+
+If your database system supports a scalar function that is not available as
+a method in Slick you can define it as a
+:api:`scala.slick.lifted.SimpleFunction`. There are predefined methods for
+creating unary, binary and ternary functions with fixed parameter and return
+types.
+
+.. includecode:: code/LiftedEmbedding.scala#simplefunction1
+
+If you need more flexibility regarding the types (e.g. for varargs,
+polymorphic functions, or to support Option and non-Option types in a single
+function), you can use ``SimpleFunction.apply`` to get an untyped instance and
+write your own wrapper function with the proper type-checking:
+
+.. includecode:: code/LiftedEmbedding.scala#simplefunction2
+
+:api:`scala.slick.lifted.SimpleBinaryOperator` and
+:api:`scala.slick.lifted.SimpleLiteral` work in a similar way. For even more
+flexibility (e.g. function-like expressions with unusual syntax), you can
+use :api:`scala.slick.lifted.SimpleExpression`.
+
+If you need a custom column type you can implement
+:api:`scala.slick.lifted.TypeMapper` and
+:api:`scala.slick.lifted.TypeMapperDelegate`. The most common scenario is
+mapping an application-specific type to an already supported type in the
+database. This can be done much simpler by using a
+:api:`scala.slick.lifted.MappedTypeMapper` which takes care of all the
+boilerplate:
+
+.. includecode:: code/LiftedEmbedding.scala#mappedtype1
+
+You can also subclass ``MappedTypeMapper`` for a bit more flexibility.

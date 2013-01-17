@@ -1,4 +1,4 @@
-package scala.slick.examples.direct
+package com.typesafe.slick.examples.direct
 
 //#imports
 import scala.slick.driver.H2Driver

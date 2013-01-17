@@ -48,8 +48,12 @@ import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
  *     Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
  *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is
  *     supported.</li>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeLong]]:
- *     Access does not have a long integer type.</li>
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.setByteArrayNull]]:
+ *     Setting an Option[ Array[Byte] ] column to None causes an Exception
+ *     in the JdbcOdbcDriver.</li>
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeBigDecimal]],
+ *     [[scala.slick.profile.SqlProfile.capabilities.typeLong]]:
+ *     Access does not support decimal or long integer types.</li>
  *   <li>[[scala.slick.profile.SqlProfile.capabilities.zip]]:
  *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
@@ -71,6 +75,8 @@ trait AccessDriver extends ExtendedDriver { driver =>
     - SqlProfile.capabilities.sequence
     - JdbcProfile.capabilities.returnInsertKey
     - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.setByteArrayNull
+    - SqlProfile.capabilities.typeBigDecimal
     - SqlProfile.capabilities.typeBlob
     - SqlProfile.capabilities.typeLong
     - SqlProfile.capabilities.zip
@@ -253,6 +259,12 @@ trait AccessDriver extends ExtendedDriver { driver =>
       override def setOption(v: Option[Byte], p: PositionedParameters) = p.setIntOption(v.map(_.toInt))
       override def nextValue(r: PositionedResult) = r.nextInt.toByte
       override def updateValue(v: Byte, r: PositionedResult) = r.updateInt(v)
+    }
+
+    /* Reading null from a nullable LONGBINARY column does not cause wasNull
+       to be set, so we check for nulls directly. */
+    class ByteArrayJdbcType extends super.ByteArrayJdbcType {
+      override def nextOption(r: PositionedResult): Option[Array[Byte]] = Option(nextValue(r))
     }
 
     class LongJdbcType extends super.LongJdbcType {

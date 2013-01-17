@@ -19,6 +19,9 @@ It includes the following features:
 * Simple execution of raw SQL queries
 * Session management based on JDBC Connections
 
+Slick requires Scala 2.10. ScalaQuery_, the predecessor of Slick, is available
+for Scala 2.9.
+
 .. _supported-dbs:
 
 Supported database systems
@@ -27,12 +30,14 @@ Supported database systems
 The following database systems are directly supported for type-safe queries
 (with lifted and direct embedding):
 
+* DB2 (via :doc:`slick-extensions <extensions>`)
 * Derby/JavaDB
 * H2
 * HSQLDB/HyperSQL
 * Microsoft Access
 * Microsoft SQL Server
 * MySQL
+* Oracle (via :doc:`slick-extensions <extensions>`)
 * PostgreSQL
 * SQLite
 

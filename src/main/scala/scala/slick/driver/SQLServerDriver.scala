@@ -65,6 +65,19 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
       expr(n)
       if(o.direction.desc) b" desc"
     }
+
+    override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
+      // Cast bind variables of type TIME to TIME (otherwise they're treated as TIMESTAMP)
+      case c @ BindColumn(v) if typeInfoFor(c.tpe) == columnTypes.timeJdbcType =>
+        b"cast("
+        super.expr(n, skipParens)
+        b" as ${columnTypes.timeJdbcType.sqlTypeName})"
+      case pc @ ParameterColumn(extractor) if typeInfoFor(pc.tpe) == columnTypes.timeJdbcType =>
+        b"cast("
+        super.expr(n, skipParens)
+        b" as ${columnTypes.timeJdbcType.sqlTypeName})"
+      case n => super.expr(n, skipParens)
+    }
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {

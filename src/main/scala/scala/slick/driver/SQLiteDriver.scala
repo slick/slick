@@ -29,6 +29,8 @@ import scala.slick.profile.{SqlProfile, Capability}
  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeBigDecimal]]:
+ *     SQLite does not support a decimal type.</li>
  *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeBlob]]: Blobs are
  *     not supported by the SQLite JDBC driver (but binary data in the form of
  *     <code>Array[Byte]</code> is).</li>
@@ -51,6 +53,7 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     - JdbcProfile.capabilities.mutable
     - SqlProfile.capabilities.sequence
     - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.typeBigDecimal
     - SqlProfile.capabilities.typeBlob
     - SqlProfile.capabilities.zip
   )

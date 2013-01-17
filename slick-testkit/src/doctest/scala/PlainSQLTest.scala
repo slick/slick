@@ -1,5 +1,5 @@
-package scala.slick.examples.test
+package com.typesafe.slick.examples.test
 
 class PlainSQLTest extends RecordedDoctest {
-  def run = scala.slick.examples.jdbc.PlainSQL.main(null)
+  def run = com.typesafe.slick.examples.jdbc.PlainSQL.main(null)
 }

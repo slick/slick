@@ -10,7 +10,7 @@ object SlickBuild extends Build {
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   val publishedScalaSettings = Seq(
-    scalaVersion := "2.10.0-RC3",
+    scalaVersion := "2.10.0",
     scalaBinaryVersion <<= scalaVersion,
     //crossScalaVersions ++= "2.10.0-M4" :: Nil,
     libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
@@ -40,7 +40,7 @@ object SlickBuild extends Build {
   lazy val sharedSettings = Seq(
     version := "1.1.0-SNAPSHOT",
     organizationName := "Typesafe",
-    organization := "com.typesafe",
+    organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
     scalacOptions ++= List("-deprecation", "-feature"),
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",

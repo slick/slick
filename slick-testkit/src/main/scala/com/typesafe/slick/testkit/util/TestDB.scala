@@ -17,6 +17,8 @@ object TestDB {
 
   /** Marks a driver which is specially supported by the test kit for plain SQL queries */
   val plainSql = new Capability("test.plainSql")
+  /** Marks a driver which is specially supported by the test kit for plain SQL wide result set queries */
+  val plainSqlWide = new Capability("test.plainSqlWide")
 
   val testDBDir = dbProps.getProperty("testDir", "test-dbs")
   def testDBPath = {

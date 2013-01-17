@@ -159,8 +159,11 @@ class FuseComprehensions extends Phase {
     * - It has a Pure generator.
     * - It does not have any generators.
     * - The Comprehension has a 'select' clause which consists only of Paths,
-    *   constant values and client-side type conversions. */
-  def isFuseableInner(c: Comprehension): Boolean = {
+    *   constant values and client-side type conversions.
+    * - It refers to a symbol introduced in a previous FROM clause of an outer
+    *   Comprehension. */
+  def isFuseableInner(sym: Symbol, c: Comprehension, prevSyms: scala.collection.Set[Symbol]): Boolean = {
+    logger.debug("Checking for fuseable inner "+sym+" with previous generators: "+prevSyms.mkString(", "))
     def isFuseableColumn(n: Node): Boolean = n match {
       case Path(_) => true
       case _: LiteralNode => true
@@ -176,7 +179,7 @@ class FuseComprehensions extends Phase {
         case Some(Pure(ProductNode(ch))) =>
           ch.map(isFuseableColumn).forall(identity)
         case _ => false
-      })
+      }) || hasRefToOneOf(c, prevSyms)
     }
   }
 
@@ -208,14 +211,17 @@ class FuseComprehensions extends Phase {
         structs.get(syms.head).map{ base =>
           logger.debug("  found struct "+base)
           val repl = select(syms.tail, base)(0)
-          inline(repl)
+          val ret = inline(repl)
+          logger.debug("  inlined to "+ret)
+          ret
         }.getOrElse(p)
       case n => n.nodeMapChildren(inline)
     }
 
     logger.debug("Checking for fuseable inner comprehensions at "+c.from.map(_._1).mkString(", "))
+    val prevSyms = c.from.map(_._1).toSet // Add all syms up front, all refs have to up backwards anyway
     c.from.foreach {
-      case t @ (sym, from: Comprehension) if isFuseableInner(from) =>
+      case t @ (sym, from: Comprehension) if isFuseableInner(sym, from, prevSyms) =>
         logger.debug(sym+" is fuseable inner")
         val from2 = createSelect(from)
         if(isFuseable(c, from2)) {
@@ -226,12 +232,13 @@ class FuseComprehensions extends Phase {
           for(n <- from2.groupBy) newGroupBy += inline(n)
           structs += sym -> narrowStructure(from2)
           fuse = true
-        } else newFrom += t
+        } else newFrom += ((t._1, inline(t._2)))
       case t =>
-        newFrom += t
+        newFrom += ((t._1, inline(t._2)))
     }
     if(fuse) {
-      logger.debug("Fusing Comprehension:", c)
+      if(logger.isDebugEnabled)
+        logger.debug("Fusing Comprehension with new generators "+newFrom.map(_._1).mkString(", ")+":", c)
       val c2 = Comprehension(
         newFrom,
         newWhere ++ c.where.map(inline),

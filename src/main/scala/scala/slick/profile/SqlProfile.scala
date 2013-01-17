@@ -48,6 +48,10 @@ object SqlProfile {
     val sequenceMax = Capability("sql.sequenceMax")
     /** Supports min value for sequences */
     val sequenceMin = Capability("sql.sequenceMin")
+    /** Can set an Option[ Array[Byte] ] column to None */
+    val setByteArrayNull = Capability("sql.setByteArrayNull")
+    /** Supports the BigDecimal data type */
+    val typeBigDecimal = Capability("sql.typeBigDecimal")
     /** Supports the Blob data type */
     val typeBlob = Capability("sql.typeBlob")
     /** Supports the Long data type */
@@ -59,10 +63,11 @@ object SqlProfile {
     val other = Capability("sql.other")
 
     /** All SQL capabilities */
-    val all = Set(other, columnDefaults, foreignKeyActions, joinFull,
-      joinRight, likeEscape, pagingDrop, pagingNested, pagingPreciseTake,
-      sequence, sequenceCurr, sequenceCycle, sequenceLimited, sequenceMax,
-      sequenceMin, typeBlob, typeLong, zip)
+    val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
+      functionUser, joinFull, joinRight, likeEscape, pagingDrop, pagingNested,
+      pagingPreciseTake, sequence, sequenceCurr, sequenceCycle,
+      sequenceLimited, sequenceMax, sequenceMin, setByteArrayNull,
+      typeBigDecimal, typeBlob, typeLong, zip)
   }
 }
 

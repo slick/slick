@@ -1,4 +1,4 @@
-package scala.slick.examples.test
+package com.typesafe.slick.examples.test
 
 import scala.slick.testutil.RecordedTest
 

@@ -1,10 +1,10 @@
 package scala.slick.jdbc
 
 import scala.language.higherKinds
+import scala.collection.generic.CanBuildFrom
 import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
 import java.io.Closeable
 import scala.slick.util.CloseableIterator
-import collection.generic.CanBuildFrom
 
 /**
  * A database result positioned at a row and column.
@@ -208,5 +208,5 @@ abstract class PositionedResultIterator[+T](_rs: ResultSet, maxRows: Int) extend
   protected def extractValue(): T
   protected def closeUnderlying(): Unit
 
-  final override def foreach[U](f: T =>  U) { while(nextRow) f(extractValue()) }
+  final override def foreach[U](f: T =>  U) { while(hasNext) f(extractValue()) }
 }

@@ -405,4 +405,32 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     (SuppliersStd.ddl ++ CoffeesStd.ddl).drop
     (SuppliersStd.ddl ++ CoffeesStd.ddl).dropStatements.foreach(s => println("drop: "+s))
   }
+
+  def testAdvancedFusion {
+    object TableA extends Table[Int]("TableA") {
+      def id = column[Int]("id")
+      def * = id
+    }
+
+    object TableB extends Table[(Int, Int)]("TableB") {
+      def id = column[Int]("id")
+      def start = column[Int]("start")
+      def * = id ~ start
+    }
+
+    object TableC extends Table[Int]("TableC") {
+      def start = column[Int]("start")
+      def * = start
+    }
+
+    val queryErr2 = for {
+      a <- TableA
+      b <- TableB if b.id === a.id
+      start = a.id + 1
+      c <- TableC if c.start <= start
+    } yield (b, c)
+
+    (TableA.ddl ++ TableB.ddl ++ TableC.ddl).create
+    queryErr2.run
+  }
 }

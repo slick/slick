@@ -1,4 +1,4 @@
-package scala.slick.examples.jdbc
+package com.typesafe.slick.examples.jdbc
 
 //#imports
 import scala.slick.driver.JdbcDriver.backend.Database

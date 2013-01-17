@@ -25,6 +25,7 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
 
   def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR(254)"
+    case java.sql.Types.DECIMAL => "DECIMAL(21,2)"
     case t => JdbcType.typeNames.getOrElse(t,
       throw new SlickException("No SQL type name found in java.sql.Types for code "+t))
   }

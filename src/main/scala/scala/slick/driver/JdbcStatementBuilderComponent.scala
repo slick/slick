@@ -263,8 +263,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
         b")"
-      case l @ LiteralNode(v) => b += typeInfoFor(l.tpe).valueToSQLLiteral(v)
       case c @ BindColumn(v) => b +?= { (p, param) => typeInfoFor(c.tpe).setValue(v, p) }
+      case l @ LiteralNode(v) => b += typeInfoFor(l.tpe).valueToSQLLiteral(v)
       case pc @ ParameterColumn(extractor) => b +?= { (p, param) =>
         typeInfoFor(pc.tpe).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
       }
