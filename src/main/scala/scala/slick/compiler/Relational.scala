@@ -6,6 +6,7 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
 import ExtraUtil._
+import TypeUtil._
 
 /** Rewrite zip joins into a form suitable for SQL (using inner joins and
   * RowNumber columns.
@@ -136,14 +137,14 @@ class FuseComprehensions extends Phase {
 
   def apply(state: CompilerState) = state.map(fuse)
 
-  def fuse(n: Node): Node = n.nodeMapChildren(fuse) match {
+  def fuse(n: Node): Node = n.nodeMapChildrenKeepType(fuse) match {
     case c: Comprehension =>
       logger.debug("Checking:",c)
       val fused = createSelect(c) match {
         case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
-      liftAggregates(fused)
+      liftAggregates(fused).nodeWithComputedType(SymbolScope.empty, false)
     case n => n
   }
 
@@ -268,15 +269,10 @@ class FuseComprehensions extends Phase {
             case Library.CountAll =>
               c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed[Long](LiteralNode(1)))))))
             case s =>
-              val c3 = ensureStruct(c2)
+              val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false)
               // All standard aggregate functions operate on a single column
-              val Some(Pure(StructNode(Seq((f2, expr))))) = c3.select
-              val elType = c3.nodeType match {
-                case CollectionType(_, el) => el
-                case NoType => NoType
-                case UnassignedType => NoType
-                case t => throw new SlickException("Source of aggregation must have a collection type (found type "+t+" in "+c3+")")
-              }
+              val Some(Pure(StructNode(Seq((_, expr))))) = c3.select
+              val elType = c3.nodeType.asCollectionType.elementType
               c3.copy(select = Some(Pure(ProductNode(Seq(Apply(s, Seq(expr))(elType))))))
           }
         } else {
@@ -286,7 +282,7 @@ class FuseComprehensions extends Phase {
           Select(Ref(a), f)
         }
       case c: Comprehension => c // don't recurse into sub-queries
-      case n => n.nodeMapChildren(tr)
+      case n => n.nodeMapChildrenKeepType(tr)
     }
     val c2 = c.nodeMapScopedChildren {
       case (Some(gen), ch) =>
@@ -302,16 +298,11 @@ class FuseComprehensions extends Phase {
           case Library.CountAll =>
             (c2, Library.Count.typed[Long](LiteralNode(1)))
           case s =>
-            val c3 = ensureStruct(c2)
+            val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false)
             // All standard aggregate functions operate on a single column
             val Some(Pure(StructNode(Seq((f2, _))))) = c3.select
-              val elType = c3.nodeType match {
-                case CollectionType(_, el) => el
-                case NoType => NoType
-                case UnassignedType => NoType
-                case t => throw new SlickException("Source of aggregation must have a collection type (found type "+t+" in "+c3+")")
-              }
-              (c3, Apply(s, Seq(Select(Ref(a2), f2)))(elType))
+            val elType = c3.nodeType.asCollectionType.elementType
+            (c3, Apply(s, Seq(Select(Ref(a2), f2)))(elType))
         }
         a -> Comprehension(from = Seq(a2 -> c2b),
           select = Some(Pure(StructNode(IndexedSeq(f -> call)))))
@@ -368,7 +359,7 @@ class FuseComprehensions extends Phase {
         val copyStruct = StructNode(struct.map { case (field, _) =>
           (field, Select(r, field))
         })
-        c.copy(select = Some(Pure(copyStruct)))
+        c.copy(select = Some(Pure(copyStruct))).nodeWithComputedType(SymbolScope.empty, false)
       /*case (sym, Pure(StructNode(struct))) =>
         val r = Ref(sym)
         val copyStruct = StructNode(struct.map { case (field, _) =>

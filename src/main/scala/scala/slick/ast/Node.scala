@@ -98,9 +98,10 @@ trait Node extends NodeGenerator {
 
   def nodeRebuildWithType(tpe: Type): Self = nodeRebuild(nodeChildren.toIndexedSeq).nodeTyped(tpe)
 
-  /** Rebuild this node and all children with their computed type.
-    * Child nodes which already have a type are only rebuilt if ``retype`` is
-    * set to true. */
+  /** Rebuild this node and all children with their computed type. If this
+    * node already has a type, it is only recomputed if ``retype`` is set to
+    * true. The types of all children are computed recursively (if this node's
+    * type is actually computed) using the same ``retype`` setting. */
   def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self
 }
 
@@ -136,7 +137,7 @@ trait ProductNode extends Node { self =>
   override def toString = "ProductNode"
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = new ProductNode {
     val nodeChildren = ch
-  }.nodeTyped(nodeType)
+  }
   override def nodeChildNames: Iterable[String] = Stream.from(1).map(_.toString)
   override def hashCode() = nodeChildren.hashCode()
   override def equals(o: Any) = o match {
@@ -169,7 +170,7 @@ final case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends Produc
   override def nodeChildNames = elements.map(_._1.toString)
   val nodeChildren = elements.map(_._2)
   override protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
-    new StructNode(elements.zip(ch).map{ case ((s,_),n) => (s,n) }).nodeTyped(nodeType)
+    new StructNode(elements.zip(ch).map{ case ((s,_),n) => (s,n) })
   override def hashCode() = elements.hashCode()
   override def equals(o: Any) = o match {
     case s: StructNode => elements == s.elements
@@ -178,7 +179,7 @@ final case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends Produc
   def nodeGenerators = elements
   override def nodePostGeneratorChildren = Seq.empty // for efficiency
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node =
-    copy(elements = (elements, gen).zipped.map((e, s) => (s, e._2))).nodeTyped(nodeType)
+    copy(elements = (elements, gen).zipped.map((e, s) => (s, e._2)))
   override def withComputedTypeNoRec: StructNode = nodeBuildTypedNode(this, buildType)
   override protected def buildType: Type = StructType(elements.map { case (s, n) =>
     val t = n.nodeType
