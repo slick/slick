@@ -71,45 +71,59 @@ class ConvertToComprehensions extends Phase {
   def apply(state: CompilerState) = state.map(convert.repeat)
 
   val convert = new Transformer {
+    override val keepType = true
+
     def mkFrom(s: Symbol, n: Node): Seq[(Symbol, Node)] = n match {
       case Pure(ProductNode(Seq())) => Seq.empty
       case n => Seq((s, n))
     }
+
     def replace = {
       // GroupBy to Comprehension
-      case Bind(gen, GroupBy(fromGen, _, from, by), Pure(sel)) =>
-        convertSimpleGrouping(gen, fromGen, from, by, sel)
+      case b @ Bind(gen, gr @ GroupBy(fromGen, _, from, by), Pure(sel)) =>
+        convertSimpleGrouping(gen, gr.nodeType.asCollectionType.elementType,
+          fromGen, from, by, sel).nodeTyped(b.nodeType)
       case g: GroupBy =>
         throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
       // Bind to Comprehension
-      case Bind(gen, from, select) => Comprehension(from = mkFrom(gen, from), select = Some(select))
+      case b @ Bind(gen, from, select) =>
+        Comprehension(from = mkFrom(gen, from), select = Some(select)).nodeTyped(b.nodeType)
       // Filter to Comprehension
-      case Filter(gen, from, where) => Comprehension(from = mkFrom(gen, from), where = Seq(where))
+      case f @ Filter(gen, from, where) =>
+        Comprehension(from = mkFrom(gen, from), where = Seq(where)).nodeTyped(f.nodeType)
       // SortBy to Comprehension
-      case SortBy(gen, from, by) => Comprehension(from = mkFrom(gen, from), orderBy = by)
+      case s @ SortBy(gen, from, by) =>
+        Comprehension(from = mkFrom(gen, from), orderBy = by).nodeTyped(s.nodeType)
       // Take and Drop to Comprehension
-      case TakeDrop(from, take, drop, gen) =>
+      case td @ TakeDrop(from, take, drop, gen) =>
         val drop2 = if(drop == Some(0)) None else drop
-        if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(LiteralNode(false)))
-        else Comprehension(from = mkFrom(gen, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
+        val c =
+          if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(LiteralNode(false)))
+          else Comprehension(from = mkFrom(gen, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
+        c.nodeTyped(td.nodeType)
       // Merge Comprehension which selects another Comprehension
-      case Comprehension(from1, where1, None, orderBy1, Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)), fetch, offset) =>
-        c2.copy(from = from1 ++ from2, where = where1 ++ where2, orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset)
+      case c1 @ Comprehension(from1, where1, None, orderBy1,
+          Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)),
+          fetch, offset) =>
+        c2.copy(from = from1 ++ from2, where = where1 ++ where2,
+          orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset
+        ).nodeTyped(c1.nodeType)
     }
   }
 
   /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
-  def convertSimpleGrouping(gen: Symbol, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
-    val newBy = by.replace { case Ref(f) if f == fromGen => Ref(gen) }
-    val newSel = sel.replace {
-      case Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
-        if (s2 == s1) && (gen2 == gen) => Select(Ref(gen), field)
+  def convertSimpleGrouping(gen: Symbol, genType: Type, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
+    val newBy = by.replaceKeepType { case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }
+    val newSel = sel.replaceKeepType {
+      case b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
+        if (s2 == s1) && (gen2 == gen) => Select(Ref(gen).nodeTyped(genType), field).nodeTyped(b.nodeType)
       case Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
         Library.Count.typed[Long](LiteralNode(1))
-      case Select(Ref(gen2), ElementSymbol(2)) if gen2 == gen => Ref(gen2)
+      case Select(r @ Ref(gen2), ElementSymbol(2)) if gen2 == gen => r
       case Select(Ref(gen2), ElementSymbol(1)) if gen2 == gen => newBy
     }
-    Comprehension(Seq(gen -> from), groupBy = Some(newBy), select = Some(Pure(newSel)))
+    Comprehension(Seq(gen -> from), groupBy = Some(newBy),
+      select = Some(Pure(newSel).withComputedTypeNoRec))
   }
 
   /** An extractor for nested Take and Drop nodes */

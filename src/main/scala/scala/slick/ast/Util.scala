@@ -52,6 +52,8 @@ final class NodeOps(val tree: Node) extends AnyVal {
 
   def replace(f: PartialFunction[Node, Node]): Node = NodeOps.replace(tree, f)
 
+  def replaceKeepType(f: PartialFunction[Node, Node]): Node = NodeOps.replaceKeepType(tree, f)
+
   def foreach[U](f: (Node => U)) {
     def g(n: Node) {
       f(n)
@@ -94,6 +96,9 @@ object NodeOps {
 
   def replace(tree: Node, f: PartialFunction[Node, Node]): Node =
     f.applyOrElse(tree, ({ case n: Node => n.nodeMapChildren(_.replace(f)) }): PartialFunction[Node, Node])
+
+  def replaceKeepType(tree: Node, f: PartialFunction[Node, Node]): Node =
+    f.applyOrElse(tree, ({ case n: Node => n.nodeMapChildrenKeepType(_.replace(f)) }): PartialFunction[Node, Node])
 }
 
 /** Some less general but still useful methods for the code generators. */

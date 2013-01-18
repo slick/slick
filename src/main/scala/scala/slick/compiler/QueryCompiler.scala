@@ -80,8 +80,8 @@ object QueryCompiler {
 
   val relationalPhases = Vector(
     Phase.resolveZipJoins,
-    Phase.convertToComprehensions,
     Phase.assignTypes,
+    Phase.convertToComprehensions,
     Phase.fuseComprehensions,
     Phase.fixRowNumberOrdering,
     Phase.hoistClientOps
