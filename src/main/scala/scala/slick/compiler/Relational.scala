@@ -223,14 +223,13 @@ class FuseComprehensions extends Phase {
     c.from.foreach {
       case t @ (sym, from: Comprehension) if isFuseableInner(sym, from, prevSyms) =>
         logger.debug(sym+" is fuseable inner")
-        val from2 = createSelect(from)
-        if(isFuseable(c, from2)) {
-          logger.debug("Found fuseable generator "+sym+": "+from2)
-          from2.from.foreach { case (s, n) => newFrom += s -> inline(n) }
-          for(n <- from2.where) newWhere += inline(n)
-          for((n, o) <- from2.orderBy) newOrderBy += inline(n) -> o
-          for(n <- from2.groupBy) newGroupBy += inline(n)
-          structs += sym -> narrowStructure(from2)
+        if(isFuseable(c, from)) {
+          logger.debug("Found fuseable generator "+sym+": "+from)
+          from.from.foreach { case (s, n) => newFrom += s -> inline(n) }
+          for(n <- from.where) newWhere += inline(n)
+          for((n, o) <- from.orderBy) newOrderBy += inline(n) -> o
+          for(n <- from.groupBy) newGroupBy += inline(n)
+          structs += sym -> narrowStructure(from)
           fuse = true
         } else newFrom += ((t._1, inline(t._2)))
       case t =>
