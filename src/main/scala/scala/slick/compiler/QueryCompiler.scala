@@ -130,15 +130,15 @@ object Phase {
 
 /** The current state of a compiler run, consisting of immutable state of
   * individual phases. Mutability is confined to the SymbolNamer. */
-class CompilerState private (val compiler: QueryCompiler, val tree: Node, state: HashMap[String, Any]) {
-  def this(compiler: QueryCompiler, tree: Node) = this(compiler, tree, new HashMap)
-
-  val symbolNamer = new SymbolNamer("s")
+class CompilerState private (val compiler: QueryCompiler, val symbolNamer: SymbolNamer,
+                             val tree: Node, state: HashMap[String, Any]) {
+  def this(compiler: QueryCompiler, tree: Node) =
+    this(compiler, new SymbolNamer("s"), tree, new HashMap)
 
   def get[P <: Phase](p: P): Option[p.State] = state.get(p.name).asInstanceOf[Option[p.State]]
   def + [S, P <: Phase { type State = S }](t: (P, S)) =
-    new CompilerState(compiler, tree, state + (t._1.name -> t._2))
+    new CompilerState(compiler, symbolNamer, tree, state + (t._1.name -> t._2))
 
-  def withNode(n: Node) = new CompilerState(compiler, n, state)
+  def withNode(n: Node) = new CompilerState(compiler, symbolNamer, n, state)
   def map(f: Node => Node) = withNode(f(tree))
 }
