@@ -1,18 +1,21 @@
 package scala.slick.ast
 
 import scala.language.implicitConversions
-import scala.collection.mutable.{HashSet, ArrayBuffer}
+import scala.collection.mutable.{HashMap, HashSet, ArrayBuffer}
 
 /**
  * Utility methods for AST manipulation.
  */
 object Util {
 
-  def memoized[A, B](f: (A => B) => A => B): (A => B) = {
-    val memo = new collection.mutable.HashMap[A, B]
-    lazy val g = f(r)
-    lazy val r: (A => B) = { a => memo.getOrElseUpdate(a, g(a)) }
-    r
+  abstract class Memoizer[A, B] extends (A => B) {
+    def state: scala.collection.Map[A, B]
+  }
+
+  def memoized[A, B](f: (A => B) => A => B): Memoizer[A, B] = new Memoizer[A, B] {
+    private[this] lazy val g = f(this)
+    def apply(a: A) = state.getOrElseUpdate(a, g(a))
+    val state = new HashMap[A, B]
   }
 
   def mapOrNone[A <: AnyRef](c: Traversable[A])(f: A => A): Option[IndexedSeq[A]] = {
