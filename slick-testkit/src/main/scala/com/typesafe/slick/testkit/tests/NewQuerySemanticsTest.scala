@@ -8,10 +8,11 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
+  val doRun = true
+
   override val reuseInstance = true
 
   def testNewComposition {
-    val doRun = true
 
     object SuppliersStd extends Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
