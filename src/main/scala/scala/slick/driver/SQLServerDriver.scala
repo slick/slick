@@ -4,8 +4,9 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.jdbc.{PositionedResult, JdbcType}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import java.sql.{Timestamp, Date, Time}
 import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.CompilerState
+import java.sql.{Timestamp, Date, Time}
 
 /**
  * Slick driver for Microsoft SQL Server.
@@ -24,7 +25,7 @@ import scala.slick.profile.{SqlProfile, Capability}
  *
  * @author szeiger
  */
-trait SQLServerDriver extends ExtendedDriver { driver =>
+trait SQLServerDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.returnInsertOther
@@ -32,7 +33,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
   )
 
   override val columnTypes = new JdbcTypes
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
@@ -44,7 +45,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) with RowNumberPagination {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) with RowNumberPagination {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
     override protected val useIntForBoolean = true

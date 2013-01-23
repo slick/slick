@@ -6,20 +6,21 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class JoinTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  object Categories extends Table[(Int, String)]("categories") {
-    def id = column[Int]("id")
-    def name = column[String]("name")
-    def * = id ~ name
-  }
+  override val reuseInstance = true
 
-  object Posts extends Table[(Int, String, Int)]("posts") {
-    def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
-    def title = column[String]("title")
-    def category = column[Int]("category")
-    def * = id ~ title ~ category
-  }
+  def testJoin {
+    object Categories extends Table[(Int, String)]("cat_j") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = id ~ name
+    }
 
-  def test {
+    object Posts extends Table[(Int, String, Int)]("posts_j") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def title = column[String]("title")
+      def category = column[Int]("category")
+      def * = id ~ title ~ category
+    }
 
     (Categories.ddl ++ Posts.ddl).create
 
@@ -79,5 +80,50 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
       q4.foreach(x => println("  "+x))
       assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => p._1 ~ p._2).list)
     }
+  }
+
+  def testZip = ifCap(scap.zip) {
+    object Categories extends Table[(Int, String)]("cat_z") {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = id ~ name
+    }
+
+    object Posts extends Table[(Int, String, Int)]("posts_z") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def title = column[String]("title")
+      def category = column[Int]("category")
+      def * = id ~ title ~ category
+    }
+
+    (Categories.ddl ++ Posts.ddl).create
+
+    Categories insertAll (
+      (1, "Scala"),
+      (3, "Windows"),
+      (2, "ScalaQuery"),
+      (4, "Software")
+    )
+    Posts.title ~ Posts.category insertAll (
+      ("Test Post", -1),
+      ("Formal Language Processing in Scala, Part 5", 1),
+      ("Efficient Parameterized Queries in ScalaQuery", 2),
+      ("Removing Libraries and HomeGroup icons from the Windows 7 desktop", 3),
+      ("A ScalaQuery Update", 2)
+    )
+
+    val q1 = for {
+      (c, i) <- Categories.sortBy(_.id).zipWithIndex
+    } yield (c.id, i)
+    println("ZipWithIndex: "+q1.selectStatement)
+    q1.foreach(x => println("  "+x))
+    assertEquals(List((1,0), (2,1), (3,2), (4,3)), q1.list)
+
+    val q2 = for {
+      (c, p) <- Categories.sortBy(_.id) zip Posts.sortBy(_.category)
+    } yield (c.id, p.category)
+    println("Zip: "+q2.selectStatement)
+    q2.foreach(x => println("  "+x))
+    assertEquals(List((1,-1), (2,1), (3,2), (4,2)), q2.list)
   }
 }

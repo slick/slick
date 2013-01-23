@@ -8,7 +8,7 @@ import scala.slick.ast._
 class AssignUniqueSymbols extends Phase {
   val name = "assignUniqueSymbols"
 
-  def apply(tree: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { tree =>
     val seen = new HashSet[AnonSymbol]
     def tr(n: Node, replace: Map[AnonSymbol, AnonSymbol]): Node = n match {
       case r @ Ref(a: AnonSymbol) => replace.get(a) match {

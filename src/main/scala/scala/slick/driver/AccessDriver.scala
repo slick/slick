@@ -1,15 +1,16 @@
 package scala.slick.driver
 
 import scala.language.implicitConversions
-import scala.slick.lifted._
-import scala.slick.ast._
-import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.SlickException
+import scala.slick.ast._
+import scala.slick.compiler.{QueryCompiler, CompilerState, Phase}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
+import scala.slick.lifted._
+import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.util.ValueLinearizer
+import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
-import scala.slick.profile.{SqlProfile, Capability}
-import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
 
 /**
  * Slick driver for Microsoft Access via JdbcOdbcDriver.
@@ -62,7 +63,7 @@ import scala.slick.compiler.{QueryCompiler, CompilationState, Phase}
  *
  * @author szeiger
  */
-trait AccessDriver extends ExtendedDriver { driver =>
+trait AccessDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.columnDefaults
@@ -95,13 +96,13 @@ trait AccessDriver extends ExtendedDriver { driver =>
     QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
   class Implicits extends super.Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[T, U] = new QueryInvoker(q)
+    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(selectStatementCompiler.run(Node(q)).tree, q)
   }
 
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
 
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -115,7 +116,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("&")
     override protected val hasPiFunction = false
@@ -291,7 +292,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     override val uuidJdbcType = new UUIDJdbcType with Retry[UUID]
   }
 
-  class QueryInvoker[Q, R](q: Query[Q, _ <: R]) extends super.QueryInvoker[Q, R](q) {
+  class QueryInvoker[R](tree: Node, linearizer: ValueLinearizer[_]) extends super.QueryInvoker[R](tree, linearizer) {
     /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
     override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
     /* Access goes forward instead of backward after deleting the current row in a mutable result set */
@@ -305,7 +306,7 @@ trait AccessDriver extends ExtendedDriver { driver =>
     val name = "access:existsToCount"
     import StaticType._
 
-    def apply(n: Node, state: CompilationState) = tr(n, false)
+    def apply(state: CompilerState) = state.map(n => tr(n, false))
 
     protected def tr(n: Node, inSelect: Boolean): Node = n match {
       case b @ Bind(_, _, sel) => b.nodeMapChildren { n => tr(n, n eq sel) }

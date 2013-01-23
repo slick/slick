@@ -117,16 +117,12 @@ trait SymbolScope {
   def withDefault(f: (Symbol => Type)): SymbolScope
 }
 
+object SymbolScope {
+  val empty = new DefaultSymbolScope(Map.empty)
+}
+
 class DefaultSymbolScope(val m: Map[Symbol, Type]) extends SymbolScope {
   def + (entry: (Symbol, Type)) = new DefaultSymbolScope(m + entry)
   def get(sym: Symbol): Option[Type] = m.get(sym)
   def withDefault(f: (Symbol => Type)) = new DefaultSymbolScope(m.withDefault(f))
-}
-
-object NoScope extends SymbolScope {
-  def + (entry: (Symbol, Type)) = this
-  def get(sym: Symbol): Option[Type] =
-    throw new SlickException("Internal error: NoScope.get called")
-  def withDefault(f: (Symbol => Type)) =
-    throw new SlickException("Internal error: NoScope.withDefault called")
 }

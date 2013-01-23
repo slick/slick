@@ -5,18 +5,19 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 import scala.slick.ast.ExtraUtil._
+import scala.slick.compiler.{CodeGen, Phase, CompilerState}
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
-import scala.collection.mutable.{ArrayBuffer, HashMap}
-import scala.slick.compiler.{Phase, CompilationState}
 import scala.slick.profile.SqlProfile
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
-  def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] = new JdbcQueryTemplate[P,R](q, this)
-  def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] =
+    new JdbcQueryTemplate[P,R](selectStatementCompiler.run(Node(q)).tree, q, this)
+  def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -29,7 +30,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   case object OtherPart extends StatementPart
 
   /** Builder for SELECT and UPDATE statements. */
-  class QueryBuilder(val input: QueryBuilderInput) { queryBuilder =>
+  class QueryBuilder(val tree: Node, val state: CompilerState) { queryBuilder =>
 
     // Immutable config options (to be overridden by subclasses)
     protected val scalarFrom: Option[String] = None
@@ -44,14 +45,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
-    protected val symbolName = new QuotingSymbolNamer(Some(input.state.symbolNamer))
+    protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new HashMap[Symbol, Join]
 
     def sqlBuilder = b
 
-    final def buildSelect(): QueryBuilderResult = {
-      buildComprehension(toComprehension(input.ast, true))
-      QueryBuilderResult(b.build, input.linearizer)
+    final def buildSelect(): SQLBuilder.Result = {
+      buildComprehension(toComprehension(tree, true))
+      b.build
     }
 
     protected final def newSym = new AnonSymbol
@@ -186,8 +187,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case OptionApply(ch) => expr(ch, skipParens)
-      case GetOrElse(ch, _) => expr(ch, skipParens)
       case LiteralNode(true) if useIntForBoolean => b"\(1=1\)"
       case LiteralNode(false) if useIntForBoolean => b"\(1=0\)"
       case LiteralNode(null) => b"null"
@@ -299,8 +298,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       else if(o.nulls.last) b" nulls last"
     }
 
-    def buildUpdate: QueryBuilderResult = {
-      val (gen, from, where, select) = input.ast match {
+    def buildUpdate: SQLBuilder.Result = {
+      val (gen, from, where, select) = tree match {
         case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select)), None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
@@ -318,11 +317,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
-      QueryBuilderResult(b.build, input.linearizer)
+      b.build
     }
 
-    def buildDelete: QueryBuilderResult = {
-      val (gen, from, where) = input.ast match {
+    def buildDelete: SQLBuilder.Result = {
+      val (gen, from, where) = tree match {
         case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select)), None, None) => (sym, from, where)
         case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
@@ -333,16 +332,17 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
-      QueryBuilderResult(b.build, input.linearizer)
+      b.build
     }
   }
 
   /** QueryBuilder mix-in for pagination based on RowNumber. */
   trait RowNumberPagination extends QueryBuilder {
-    case class StarAnd(child: Node) extends UnaryNode {
-      protected[this] def nodeRebuild(child: Node): Node = StarAnd(child)
-      def nodeWithComputedType(scope: SymbolScope): Node = {
-        val ch2 = child.nodeWithComputedType(scope)
+    final case class StarAnd(child: Node) extends UnaryNode {
+      type Self = StarAnd
+      protected[this] def nodeRebuild(child: Node) = StarAnd(child)
+      def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+        val ch2 = child.nodeWithComputedType(scope, retype)
         if((child eq ch2) && nodeType != NoType) this else copy(ch2).nodeTyped(NoType)
       }
     }
@@ -439,10 +439,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
       val pr = buildParts(node)
-      val qb = driver.createQueryBuilder(query)
-      qb.sqlBuilder += s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) "
-      val qbr = qb.buildSelect()
-      InsertBuilderResult(pr.table, qbr.sql, qbr.setter)
+      val (_, sbr: SQLBuilder.Result) =
+        CodeGen.findResult(driver.selectStatementCompiler.run((Node(query))).tree)
+      InsertBuilderResult(pr.table, s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) ${sbr.sql}", sbr.setter)
     }
 
     def buildReturnColumns(node: Node, table: String): IndexedSeq[FieldSymbol] = {
@@ -625,15 +624,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       DDL(b.toString, "drop sequence " + quoteIdentifier(seq.name))
     }
   }
-}
-
-case class QueryBuilderInput(state: CompilationState, linearizer: ValueLinearizer[_]) {
-  def ast = state.tree
-}
-
-case class QueryBuilderResult(sbr: SQLBuilder.Result, linearizer: ValueLinearizer[_]) {
-  def sql = sbr.sql
-  def setter = sbr.setter
 }
 
 case class InsertBuilderResult(table: String, sql: String, setter: SQLBuilder.Setter = SQLBuilder.EmptySetter)

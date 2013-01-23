@@ -29,7 +29,6 @@ object Testkit {
     classOf[tk.MutateTest] ::
     classOf[tk.NestingTest] ::
     classOf[tk.NewQuerySemanticsTest] ::
-    classOf[tk.OldTest] ::
     classOf[tk.PagingTest] ::
     classOf[tk.PlainSQLTest] ::
     classOf[tk.PrimaryKeyTest] ::
@@ -38,7 +37,6 @@ object Testkit {
     classOf[tk.TemplateTest] ::
     classOf[tk.TransactionTest] ::
     classOf[tk.UnionTest] ::
-    classOf[tk.ZipTest] ::
     (Nil: List[Class[_ <: TestkitTest]])
 }
 
