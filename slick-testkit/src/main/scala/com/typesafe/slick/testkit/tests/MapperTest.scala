@@ -213,6 +213,35 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(oData, i2.first)
   }
 
+  def testMappedJoin {
+    case class A(id: Int, value: Int)
+    case class B(id: Int, value: Option[String])
+
+    object As extends Table[A]("t4_a") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def data = column[Int]("data")
+      def * = id ~ data <> (A, A.unapply _)
+    }
+    object Bs extends Table[B]("t5_b") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def data = column[String]("data")
+      def * = id ~ data.? <> (B, B.unapply _)
+    }
+
+    (As.ddl ++ Bs.ddl).create
+    As.data.insertAll(1, 2)
+    Bs.data.insertAll("a", "b")
+
+    val q = for {
+      a <- As if a.data === 2
+      b <- Bs if b.id === a.id
+    } yield (a, b)
+
+    val r = q.run.toList
+    val r2: List[(A, B)] = r
+    assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
+  }
+
   /*
   def testGetOr {
     object T extends Table[Option[Int]]("t4") {

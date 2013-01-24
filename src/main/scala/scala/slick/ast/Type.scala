@@ -50,6 +50,7 @@ trait MappedScalaType extends Type {
   def baseType: Type
   def toMapped(v: Any): Any
   def toBase(v: Any): Any
+  override def toString = s"Mapped($baseType)"
 }
 
 case object NoType extends Type

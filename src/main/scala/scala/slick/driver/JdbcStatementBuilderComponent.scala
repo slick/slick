@@ -466,6 +466,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           if(table eq null) table = t.tableName
           else if(table != t.tableName) throw new SlickException("Inserts must all be to the same table")
           cols += field
+        case t: TypeMapping => f(t.child)
         case _ => throw new SlickException("Cannot use column "+c+" in INSERT statement")
       }
       f(node)

@@ -1,6 +1,6 @@
 package scala.slick.compiler
 
-import slick.ast.{CompiledStatement, ResultSetMapping, Node}
+import slick.ast.{ClientSideOp, CompiledStatement, ResultSetMapping, Node, First}
 import org.slf4j.LoggerFactory
 import slick.util.SlickLogger
 
@@ -14,8 +14,8 @@ abstract class CodeGen[Extra] extends Phase {
   def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
 
   def apply(node: Node, state: CompilerState): Node = node match {
-    case r @ ResultSetMapping(_, from, _) =>
-      r.copy(from = apply(from, state)).nodeTyped(r.nodeType)
+    case c: ClientSideOp =>
+      ClientSideOp.mapServerSide(c)(ch => apply(ch, state))
     case n =>
       val (st, ex) = buildStatement(n, state)
       CompiledStatement(st, ex, n.nodeType)
@@ -32,6 +32,7 @@ object CodeGen {
 
   def findResult(n: Node): (String, Any) = n match {
     case r @ ResultSetMapping(_, from, _) => findResult(from)
+    case f @ First(from) => findResult(from)
     case CompiledStatement(st, ex, _) => (st, ex)
   }
 }

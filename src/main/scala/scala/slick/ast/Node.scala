@@ -1,5 +1,6 @@
 package scala.slick.ast
 
+import scala.language.existentials
 import scala.slick.SlickException
 import slick.lifted.ShapedValue
 import slick.util.{Logging, SimpleTypeName}
@@ -129,6 +130,7 @@ trait TypedNode extends Node with Typed {
   def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
     if(nodeHasType && !retype) this
     else nodeMapChildren(_.nodeWithComputedType(scope, retype))
+  override def nodeHasType = tpe ne UnassignedType
 }
 
 /** An expression that represents a conjunction of expressions. */
@@ -655,4 +657,16 @@ final case class CompiledStatement(statement: String, extra: Any, tpe: Type) ext
   type Self = CompiledStatement
   def nodeRebuild = copy()
   override def toString = "CompiledStatement \"" + statement + "\""
+}
+
+/** A client-side type mapping */
+final case class TypeMapping(val child: Node, val baseType: Type, val toBase: Any => Any, val toMapped: Any => Any) extends UnaryNode with TypedNode { self =>
+  type Self = TypeMapping
+  def nodeRebuild(ch: Node) = copy(child = ch)
+  lazy val tpe: MappedScalaType = new MappedScalaType {
+    val baseType =  self.baseType
+    def toBase(v: Any): Any = self.toBase(v)
+    def toMapped(v: Any): Any = self.toMapped(v)
+  }
+  override def toString = s"TypeMapping"
 }

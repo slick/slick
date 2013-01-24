@@ -19,7 +19,7 @@ class ResolveZipJoins extends Phase {
   val name = "resolveZipJoins"
 
   def apply(state: CompilerState) = {
-    val n2 = resolveZipJoins(state.tree)
+    val n2 = ClientSideOp.mapServerSide(state.tree)(resolveZipJoins)
     state + (this -> new State(n2 ne state.tree)) withNode n2
   }
 
@@ -68,7 +68,9 @@ class ResolveZipJoinsState(val hasRowNumber: Boolean)
 class ConvertToComprehensions extends Phase {
   val name = "convertToComprehensions"
 
-  def apply(state: CompilerState) = state.map(convert.repeat)
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(convert.repeat)
+  }
 
   val convert = new Transformer {
     override val keepType = true
@@ -149,7 +151,9 @@ class ConvertToComprehensions extends Phase {
 class FuseComprehensions extends Phase {
   val name = "fuseComprehensions"
 
-  def apply(state: CompilerState) = state.map(fuse)
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(fuse)
+  }
 
   def fuse(n: Node): Node = n.nodeMapChildrenKeepType(fuse) match {
     case c: Comprehension =>
@@ -398,7 +402,7 @@ class FixRowNumberOrdering extends Phase {
 
   def apply(state: CompilerState) = state.map { n =>
     if(state.get(Phase.resolveZipJoins).map(_.hasRowNumber).getOrElse(true))
-      fixRowNumberOrdering(n)
+      ClientSideOp.mapServerSide(n)(ch => fixRowNumberOrdering(ch))
     else {
       logger.debug("No row numbers to fix")
       n

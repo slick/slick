@@ -61,18 +61,19 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 
 object QueryCompiler {
   val standardPhases = Vector(
-    // Optimizer
+    // Clean up trees from the lifted embedding
     Phase.localizeRefs,
     Phase.reconstructProducts,
     Phase.inline,
     Phase.letDynamicEliminated,
     Phase.assignUniqueSymbols,
-    // Columnizer
-    Phase.forceOuterBinds,
+    // Distribute and normalize
     Phase.expandTables,
+    Phase.createResultSetMapping,
+    Phase.forceOuterBinds,
+    // Convert to column form
     Phase.expandRefs,
     Phase.replaceFieldSymbols,
-    // PathRewriter
     Phase.rewritePaths,
     Phase.relabelUnions,
     Phase.pruneFields
@@ -106,22 +107,23 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
   def apply(state: CompilerState): CompilerState
 }
 
-/** The standard phases of the query compiler */
 object Phase {
+  /** The standard phases of the query compiler */
   val localizeRefs = new LocalizeRefs
   val reconstructProducts = new ReconstructProducts
   val inline = new Inline
   val letDynamicEliminated = new LetDynamicEliminated
   val assignUniqueSymbols = new AssignUniqueSymbols
-  val assignTypes = new AssignTypes
-  val forceOuterBinds = new ForceOuterBinds
   val expandTables = new ExpandTables
+  val createResultSetMapping = new CreateResultSetMapping
+  val forceOuterBinds = new ForceOuterBinds
   val expandRefs = new ExpandRefs
   val replaceFieldSymbols = new ReplaceFieldSymbols
   val rewritePaths = new RewritePaths
   val relabelUnions = new RelabelUnions
   val pruneFields = new PruneFields
   val resolveZipJoins = new ResolveZipJoins
+  val assignTypes = new AssignTypes
   val convertToComprehensions = new ConvertToComprehensions
   val fuseComprehensions = new FuseComprehensions
   val fixRowNumberOrdering = new FixRowNumberOrdering

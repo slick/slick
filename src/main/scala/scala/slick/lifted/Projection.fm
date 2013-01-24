@@ -44,10 +44,11 @@ object Projection {
 </#list>
 }
 
-final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with UnaryNode with TypedNode {
+final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with NodeGenerator {
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
-  override def nodeDelegate = if(op eq null) Node(child) else op.nodeDelegate
+  private lazy val typeMapping = TypeMapping(Node(child), proj.tpe, (v => Some(g(v.asInstanceOf[T]))), (v => f(v.asInstanceOf[P])))
+  override def nodeDelegate = if(op eq null) typeMapping else op.nodeDelegate
   def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
 
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit =
@@ -63,11 +64,7 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
     case m: MappedProjection[_,_] => child == m.child && f == m.f && g == m.g
     case _ => false
   }
-  lazy val tpe: MappedScalaType = new MappedScalaType {
-    val baseType =  proj.tpe
-    def toBase(v: Any): Any = Some(g(v.asInstanceOf[T]))
-    def toMapped(v: Any): Any = f(v.asInstanceOf[P])
-  }
+  def tpe = typeMapping.tpe
 }
 
 object ~ {

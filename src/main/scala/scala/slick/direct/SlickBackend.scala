@@ -160,7 +160,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         sq.CollectionTypeConstructor.default,
         sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ))
       )
-      override def nodeWithComputedType(scope: sq.SymbolScope, retype: Boolean) = nodeRebuild
+      override def nodeWithComputedType(scope: sq.SymbolScope, retype: Boolean) =
+        super[TypedNode].nodeWithComputedType(scope, retype)
     }
     new Query( table, Scope() )
   }

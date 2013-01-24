@@ -14,6 +14,10 @@ class RewritePaths extends Phase {
   val name = "rewritePaths"
 
   def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(applyServerSide)
+  }
+
+  def applyServerSide(n: Node) = {
     def flattenToStruct(n: Node): (Node, Vector[(Symbol, Node)]) = n match {
       case ProductNode(ch) =>
         val chf = ch.map(flattenToStruct)
@@ -158,7 +162,9 @@ class RewritePaths extends Phase {
 class RelabelUnions extends Phase {
   val name = "relabelUnions"
 
-  def apply(state: CompilerState) = state.map(relabelUnions)
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(relabelUnions)
+  }
 
   def relabelUnions(n: Node): Node = n match {
     case u @ Union(BindTarget(Pure(StructNode(ls))), rb @ BindTarget(Pure(StructNode(rs))), _, _, _)
@@ -187,7 +193,9 @@ class RelabelUnions extends Phase {
 class PruneFields extends Phase {
   val name = "pruneFields"
 
-  def apply(state: CompilerState) = state.map(prune.repeat)
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(prune.repeat)
+  }
 
   def prune = new Transformer {
     val refs = new HashSet[Symbol]()
