@@ -15,8 +15,7 @@ object SlickBuild extends Build {
     resolvers += Resolver.sonatypeRepo("snapshots"),
     scalacOptions ++= List("-deprecation", "-feature"),
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",
-    // Add scala-compiler dependency for scala.reflect.internal
-    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
+    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional"),
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     //publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)))),
@@ -27,7 +26,7 @@ object SlickBuild extends Build {
     publishMavenStyle := true,
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },
-    makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime))) },
+    makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime, Optional))) },
     homepage := Some(url("http://slick.typesafe.com")),
     startYear := Some(2008),
     licenses += ("Two-clause BSD-style license", url("http://github.com/slick/slick/blob/master/LICENSE.txt")),
@@ -84,6 +83,7 @@ object SlickBuild extends Build {
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       //scalacOptions in Compile += "-Yreify-copypaste",
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test"),
       libraryDependencies ++= Seq(
         // TestKit needs JUnit for its Runner
         "junit" % "junit-dep" % "4.10",
