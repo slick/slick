@@ -2,10 +2,10 @@ package scala.slick.driver
 
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
-import scala.slick.ast.Node
+import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
 import scala.slick.compiler.CodeGen
 import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
-import scala.slick.jdbc.{UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedResultReader, UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
 import scala.slick.util.{SQLBuilder, ValueLinearizer, RecordLinearizer}
 
 trait JdbcInvokerComponent { driver: JdbcDriver =>
@@ -18,11 +18,15 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   /** Invoker for executing queries. */
   class QueryInvoker[R](protected val tree: Node, protected val linearizer: ValueLinearizer[_])
     extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
+
+    val ResultSetMapping(_,
+      CompiledStatement(_, sres: SQLBuilder.Result, _),
+      PositionedResultReader(_, read, _)) = tree
+
     override protected val delegate = this
-    protected val (_, sres: SQLBuilder.Result) = CodeGen.findResult(tree)
     protected def getStatement = sres.sql
     protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
-    protected def extractValue(rs: PositionedResult): R = linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].getResult(driver, rs)
+    protected def extractValue(rs: PositionedResult): R = read(rs).asInstanceOf[R]
     protected def updateRowValues(rs: PositionedResult, value: R) = linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].updateResult(driver, rs, value)
     def invoker: this.type = this
   }

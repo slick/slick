@@ -63,7 +63,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
     val q3a = (for {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)
     } yield p.id ~ c.id ~ c.name ~ p.title).sortBy(_._1.nullsFirst)
-    assertFail(q3a.list) // reads NULL from non-nullable column
+    assertFail(println("q3a result: " + q3a.list)) // reads NULL from non-nullable column
 
     val q3b = (for {
       (c,p) <- Categories leftJoin Posts on (_.id is _.category)

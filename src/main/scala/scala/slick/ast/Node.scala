@@ -623,12 +623,20 @@ final case class IfThen(val left: Node, val right: Node) extends BinaryNode {
 final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: Node) extends Node {
   type Self = ConditionalExpr
   val nodeChildren = elseClause +: clauses
+  override def nodeChildNames = "else" +: (1 to clauses.length).map(_.toString)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self =
     copy(clauses = ch.tail, elseClause = ch.head)
   def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
     val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
-    nodeBuildTypedNode(this2, this2.clauses.head.nodeType)
+    val tpe = {
+      val isNullable = this2.nodeChildren.exists(ch =>
+        ch.nodeType.isInstanceOf[OptionType] || ch.nodeType == StaticType.Null)
+      val base = this2.clauses.head.nodeType
+      if(isNullable && !base.isInstanceOf[OptionType]) OptionType(base) else base
+    }
+    nodeBuildTypedNode(this2, tpe)
   }
+  override def toString = "ConditionalExpr"
 }
 
 final case class OptionApply(val child: Node) extends UnaryNode {

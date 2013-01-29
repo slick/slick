@@ -1,10 +1,10 @@
 package scala.slick.driver
 
 import scala.language.implicitConversions
-import scala.slick.ast.{Node, TypedType, BaseTypedType}
+import scala.slick.ast.{CompiledStatement, ClientSideOp, Node, TypedType, BaseTypedType}
 import scala.slick.compiler.{CompilerState, CodeGen, QueryCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{JdbcBackend, JdbcType, MappedJdbcType}
+import scala.slick.jdbc.{JdbcCodeGen, JdbcBackend, JdbcType, MappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.util.SQLBuilder
 
@@ -26,6 +26,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   lazy final val updateStatementCompiler = statementCompiler(_.buildUpdate)
   lazy final val deleteStatementCompiler = statementCompiler(_.buildDelete)
 
+  lazy final val newSelectStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildSelect)
+
   protected final def statementCompiler(f: QueryBuilder => SQLBuilder.Result) = compiler + CodeGen(() => (n: Node, c: CompilerState) => {
     val sbr = f(createQueryBuilder(n, c))
     (sbr.sql, sbr)
@@ -41,7 +43,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
-    implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(selectStatementCompiler.run(Node(q)).tree, q)
+    implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree, q)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = new DeleteInvoker(deleteStatementCompiler.run(Node(q)).tree)
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createCountingInsertInvoker(ShapedValue.createShapedValue(c))
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createCountingInsertInvoker(u)

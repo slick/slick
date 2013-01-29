@@ -2,10 +2,9 @@ package scala.slick.driver
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import scala.slick.SlickException
-import scala.slick.ast.{NumericTypedType, BaseTypedType}
+import scala.slick.ast.{OptionType, NumericTypedType, BaseTypedType, StaticType, Type}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
 import java.util.UUID
-import scala.slick.ast.{StaticType, Type}
 
 trait JdbcTypesComponent { driver: JdbcDriver =>
 
@@ -20,6 +19,7 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     case StaticType.Null => columnTypes.nullJdbcType
     case StaticType.String => columnTypes.stringJdbcType
     case StaticType.Unit => columnTypes.unitJdbcType
+    case o: OptionType => typeInfoFor(o.elementType).optionType
     case t => throw new SlickException("JdbcProfile has no TypeInfo for type "+t)
   }): JdbcType[_]).asInstanceOf[JdbcType[Any]]
 

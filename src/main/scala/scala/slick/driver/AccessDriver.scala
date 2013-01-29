@@ -96,7 +96,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
   class Implicits extends super.Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(selectStatementCompiler.run(Node(q)).tree, q)
+    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree, q)
   }
 
   val retryCount = 10
