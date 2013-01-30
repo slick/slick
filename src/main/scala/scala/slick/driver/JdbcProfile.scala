@@ -24,7 +24,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   lazy final val selectStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildSelect)
   lazy final val updateStatementCompiler = statementCompiler(_.buildUpdate)
-  lazy final val deleteStatementCompiler = statementCompiler(_.buildDelete)
+  lazy final val deleteStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildDelete)
 
   protected final def statementCompiler(f: QueryBuilder => SQLBuilder.Result) = compiler + CodeGen(() => (n: Node, c: CompilerState) => {
     val sbr = f(createQueryBuilder(n, c))

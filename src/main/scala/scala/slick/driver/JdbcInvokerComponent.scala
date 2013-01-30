@@ -20,7 +20,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   class QueryInvoker[R](protected val tree: Node)
     extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
 
-    val ResultSetMapping(_,
+    protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(converter, _)) = tree
 
@@ -51,7 +51,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
 
   /** Pseudo-invoker for running DELETE calls. */
   class DeleteInvoker(protected val tree: Node) {
-    protected val (_, sres: SQLBuilder.Result) = CodeGen.findResult(tree)
+    protected[this] val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
 
     def deleteStatement = sres.sql
 
