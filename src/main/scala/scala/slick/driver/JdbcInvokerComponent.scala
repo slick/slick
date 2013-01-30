@@ -5,7 +5,7 @@ import scala.slick.SlickException
 import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
 import scala.slick.compiler.CodeGen
 import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
-import scala.slick.jdbc.{PositionedResultReader, UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{CompiledMapping, UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
 import scala.slick.util.{SQLBuilder, ValueLinearizer, RecordLinearizer}
 
 trait JdbcInvokerComponent { driver: JdbcDriver =>
@@ -16,18 +16,18 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   def createMappedKeysInsertInvoker[U, RU, R](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU], tr: (U, RU) => R) = new MappedKeysInsertInvoker(unpackable, keys, tr)
 
   /** Invoker for executing queries. */
-  class QueryInvoker[R](protected val tree: Node, protected val linearizer: ValueLinearizer[_])
+  class QueryInvoker[R](protected val tree: Node)
     extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
 
     val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
-      PositionedResultReader(_, read, _)) = tree
+      CompiledMapping(converter, _)) = tree
 
     override protected val delegate = this
     protected def getStatement = sres.sql
     protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
-    protected def extractValue(rs: PositionedResult): R = read(rs).asInstanceOf[R]
-    protected def updateRowValues(rs: PositionedResult, value: R) = linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[R]].updateResult(driver, rs, value)
+    protected def extractValue(pr: PositionedResult): R = converter.read(pr).asInstanceOf[R]
+    protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr)
     def invoker: this.type = this
   }
 

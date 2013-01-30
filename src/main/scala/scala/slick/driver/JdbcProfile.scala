@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import scala.language.implicitConversions
-import scala.slick.ast.{CompiledStatement, ClientSideOp, Node, TypedType, BaseTypedType}
+import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.{CompilerState, CodeGen, QueryCompiler}
 import scala.slick.lifted._
 import scala.slick.jdbc.{JdbcCodeGen, JdbcBackend, JdbcType, MappedJdbcType}
@@ -43,7 +43,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
-    implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree, q)
+    implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = new DeleteInvoker(deleteStatementCompiler.run(Node(q)).tree)
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createCountingInsertInvoker(ShapedValue.createShapedValue(c))
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createCountingInsertInvoker(u)

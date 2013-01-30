@@ -96,7 +96,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
   class Implicits extends super.Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree, q)
+    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree)
   }
 
   val retryCount = 10
@@ -292,7 +292,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     override val uuidJdbcType = new UUIDJdbcType with Retry[UUID]
   }
 
-  class QueryInvoker[R](tree: Node, linearizer: ValueLinearizer[_]) extends super.QueryInvoker[R](tree, linearizer) {
+  class QueryInvoker[R](tree: Node) extends super.QueryInvoker[R](tree) {
     /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
     override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
     /* Access goes forward instead of backward after deleting the current row in a mutable result set */
