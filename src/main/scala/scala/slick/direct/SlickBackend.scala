@@ -430,7 +430,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         }
         def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
     }
-    new driver.QueryExecutor[Vector[R]](cstate.tree, linearizer).run(session)
+    new driver.QueryExecutor[Vector[R]](cstate.tree).run(session)
   }
   protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )

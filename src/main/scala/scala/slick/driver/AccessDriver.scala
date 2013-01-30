@@ -95,10 +95,6 @@ trait AccessDriver extends JdbcDriver { driver =>
   override val compiler =
     QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
-  class Implicits extends super.Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree)
-  }
-
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
 
@@ -106,6 +102,7 @@ trait AccessDriver extends JdbcDriver { driver =>
   override def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createQueryInvoker[R](tree: Node) = new QueryInvoker(tree)
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"

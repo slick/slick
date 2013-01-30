@@ -14,6 +14,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   def createCountingInsertInvoker[T, U](u: ShapedValue[T, U]) = new CountingInsertInvoker(u)
   def createKeysInsertInvoker[U, RU](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU]) = new KeysInsertInvoker(unpackable, keys)
   def createMappedKeysInsertInvoker[U, RU, R](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU], tr: (U, RU) => R) = new MappedKeysInsertInvoker(unpackable, keys, tr)
+  def createQueryInvoker[R](tree: Node) = new QueryInvoker[R](tree)
 
   /** Invoker for executing queries. */
   class QueryInvoker[R](protected val tree: Node)

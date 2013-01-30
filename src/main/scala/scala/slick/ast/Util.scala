@@ -80,6 +80,14 @@ final class NodeOps(val tree: Node) extends AnyVal {
       }
     case n => n.nodeMapChildren(ch => f(None, ch, scope))
   }
+
+  def findNode(p: Node => Boolean): Option[Node] = {
+    if(p(tree)) Some(tree)
+    else {
+      val it = tree.nodeChildren.iterator.map(_.findNode(p)).dropWhile(_.isEmpty)
+      if(it.hasNext) it.next() else None
+    }
+  }
 }
 
 object NodeOps {
