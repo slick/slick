@@ -3,10 +3,9 @@ package scala.slick.driver
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
-import scala.slick.compiler.CodeGen
 import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
 import scala.slick.jdbc.{CompiledMapping, UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
-import scala.slick.util.{SQLBuilder, ValueLinearizer, RecordLinearizer}
+import scala.slick.util.{SQLBuilder, RecordLinearizer}
 
 trait JdbcInvokerComponent { driver: JdbcDriver =>
 
@@ -15,6 +14,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   def createKeysInsertInvoker[U, RU](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU]) = new KeysInsertInvoker(unpackable, keys)
   def createMappedKeysInsertInvoker[U, RU, R](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU], tr: (U, RU) => R) = new MappedKeysInsertInvoker(unpackable, keys, tr)
   def createQueryInvoker[R](tree: Node) = new QueryInvoker[R](tree)
+  def createUpdateInvoker[T](tree: Node) = new UpdateInvoker[T](tree)
 
   /** Invoker for executing queries. */
   class QueryInvoker[R](protected val tree: Node)
@@ -233,8 +233,10 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running UPDATE calls. */
-  class UpdateInvoker[T](protected val tree: Node, protected val linearizer: ValueLinearizer[_]) {
-    protected val (_, sres: SQLBuilder.Result) = CodeGen.findResult(tree)
+  class UpdateInvoker[T](protected val tree: Node) {
+    protected[this] val ResultSetMapping(_,
+      CompiledStatement(_, sres: SQLBuilder.Result, _),
+      CompiledMapping(converter, _)) = tree
 
     def updateStatement = getStatement
 
@@ -243,7 +245,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
     def update(value: T)(implicit session: Backend#Session): Int = session.withPreparedStatement(updateStatement) { st =>
       st.clearParameters
       val pp = new PositionedParameters(st)
-      linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[T]].setParameter(driver, pp, Some(value))
+      converter.set(value, pp)
       sres.setter(pp, null)
       st.executeUpdate
     }

@@ -2,11 +2,10 @@ package scala.slick.driver
 
 import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
-import scala.slick.compiler.{CompilerState, CodeGen, QueryCompiler}
+import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
 import scala.slick.jdbc.{JdbcCodeGen, JdbcBackend, JdbcType, MappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
-import scala.slick.util.SQLBuilder
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -23,13 +22,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
   lazy final val selectStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildSelect)
-  lazy final val updateStatementCompiler = statementCompiler(_.buildUpdate)
+  lazy final val updateStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildUpdate)
   lazy final val deleteStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildDelete)
-
-  protected final def statementCompiler(f: QueryBuilder => SQLBuilder.Result) = compiler + CodeGen(() => (n: Node, c: CompilerState) => {
-    val sbr = f(createQueryBuilder(n, c))
-    (sbr.sql, sbr)
-  })
 
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
@@ -57,11 +51,11 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     // work for queries on implicitly lifted tables. This conversion is needed
     // for mapped tables.
     implicit def tableQueryToUpdateInvoker[T](q: Query[_ <: Table[T], NothingContainer#TableNothing]): UpdateInvoker[T] =
-      new UpdateInvoker(updateStatementCompiler.run(Node(q)).tree, q)
+      createUpdateInvoker(updateStatementCompiler.run(Node(q)).tree)
 
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T](q: Query[_ <: ColumnBase[T], T]): UpdateInvoker[T] =
-      new UpdateInvoker(updateStatementCompiler.run(Node(q)).tree, q)
+      createUpdateInvoker(updateStatementCompiler.run(Node(q)).tree)
 
     // Work-around for SI-3346
     @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)

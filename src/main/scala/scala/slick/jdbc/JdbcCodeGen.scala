@@ -55,6 +55,7 @@ trait ResultConverter {
    * this way. */
   def read(pr: PositionedResult): Any
   def update(value: Any, pr: PositionedResult): Unit
+  def set(value: Any, pp: PositionedParameters): Unit
 }
 
 final class ColumnResultConverter(ti: JdbcType[Any], path: Node) extends ResultConverter {
@@ -64,11 +65,13 @@ final class ColumnResultConverter(ti: JdbcType[Any], path: Node) extends ResultC
     pr
   )
   def update(value: Any, pr: PositionedResult) = ti.updateValue(value, pr)
+  def set(value: Any, pp: PositionedParameters) = ti.setValue(value, pp)
 }
 
 final class OptionApplyColumnResultConverter(ti: JdbcType[Any]) extends ResultConverter {
   def read(pr: PositionedResult) = ti.nextValue(pr)
   def update(value: Any, pr: PositionedResult) = ti.updateValue(value, pr)
+  def set(value: Any, pp: PositionedParameters) = ti.setValue(value, pp)
 }
 
 final class ProductResultConverter(children: IndexedSeq[ResultConverter]) extends ResultConverter {
@@ -77,14 +80,20 @@ final class ProductResultConverter(children: IndexedSeq[ResultConverter]) extend
     children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
       ch.update(v, pr)
     }
+  def set(value: Any, pp: PositionedParameters) =
+    children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
+      ch.set(v, pp)
+    }
 }
 
 final class GetOrElseResultConverter(child: ResultConverter, default: () => Any) extends ResultConverter {
   def read(pr: PositionedResult) = child.read(pr).asInstanceOf[Option[Any]].getOrElse(default())
   def update(value: Any, pr: PositionedResult) = child.update(Some(value), pr)
+  def set(value: Any, pp: PositionedParameters) = child.set(Some(value), pp)
 }
 
 final class TypeMappingResultConverter(child: ResultConverter, toBase: Any => Any, toMapped: Any => Any) extends ResultConverter {
   def read(pr: PositionedResult) = toMapped(child.read(pr))
   def update(value: Any, pr: PositionedResult) = child.update(toBase(value), pr)
+  def set(value: Any, pp: PositionedParameters) = child.set(toBase(value), pp)
 }

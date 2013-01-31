@@ -26,7 +26,7 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
   def getLinearizedNodes: IndexedSeq[Node] =
     (0 until productArity).map(i => Node(productElement(i).asInstanceOf[Column[Any]]))(collection.breakOut)
 
-  def <>[R](f: (T => R), g: (R => Option[T])) = MappedProjection[R, T](this, f, g)(this)
+  def <>[R](f: (T => R), g: (R => Option[T])) = MappedProjection[R, T](this, f, g.andThen(_.get))(this)
 
   override def toString = "Projection" + productArity
 
@@ -44,17 +44,17 @@ object Projection {
 </#list>
 }
 
-final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with NodeGenerator {
+final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => P))(proj: Projection[P]) extends ColumnBase[T] with NodeGenerator {
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
-  private lazy val typeMapping = TypeMapping(Node(child), proj.tpe, (v => Some(g(v.asInstanceOf[T]))), (v => f(v.asInstanceOf[P])))
+  private lazy val typeMapping = TypeMapping(Node(child), proj.tpe, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
   override def nodeDelegate = if(op eq null) typeMapping else op.nodeDelegate
   def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
 
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit =
-    proj.setParameter(driver, ps, value.flatMap(g))
+    proj.setParameter(driver, ps, value.map(g))
   def getResult(driver: JdbcDriver, rs: PositionedResult) = f(proj.getResult(driver, rs))
-  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = proj.updateResult(driver, rs, g(value).get)
+  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = proj.updateResult(driver, rs, g(value))
   def getLinearizedNodes = proj.getLinearizedNodes
 
   protected[this] def nodeRebuild(child: Node): Self = copy[T, P](child = child)(proj)
