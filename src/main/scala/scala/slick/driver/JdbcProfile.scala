@@ -4,7 +4,7 @@ import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
-import scala.slick.jdbc.{JdbcCodeGen, JdbcBackend, JdbcType, MappedJdbcType}
+import scala.slick.jdbc.{CompileInsert, JdbcCodeGen, JdbcBackend, JdbcType, MappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 
 /**
@@ -21,9 +21,10 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
-  lazy final val selectStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildSelect)
-  lazy final val updateStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildUpdate)
-  lazy final val deleteStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildDelete)
+  lazy val selectStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildSelect)
+  lazy val updateStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildUpdate)
+  lazy val deleteStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildDelete)
+  lazy val insertStatementCompiler = QueryCompiler(new CompileInsert(this))
 
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
@@ -37,8 +38,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
     implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = createQueryInvoker[U](selectStatementCompiler.run(Node(q)).tree)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = new DeleteInvoker(deleteStatementCompiler.run(Node(q)).tree)
-    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createCountingInsertInvoker(ShapedValue.createShapedValue(c))
-    implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createCountingInsertInvoker(u)
+    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createCountingInsertInvoker[T](insertStatementCompiler.run(Node(c)).tree)
+    implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createCountingInsertInvoker[U](insertStatementCompiler.run(u.packedNode).tree)
 
     implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = createQueryExecutor[Seq[U]](selectStatementCompiler.run(Node(q)).tree)
 

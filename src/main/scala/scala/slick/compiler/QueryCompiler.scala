@@ -93,6 +93,8 @@ object QueryCompiler {
 
   /** The default compiler with the additional conversion to relational trees */
   val relational = new QueryCompiler(standardPhases ++ relationalPhases)
+
+  def apply(phases: Phase*) = new QueryCompiler(phases.toVector)
 }
 
 /** A phase of the query compiler, identified by a unique name */
