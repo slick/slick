@@ -39,9 +39,9 @@ object ForeignKey {
       onDelete,
       originalSourceColumns,
       originalTargetColumns,
-      pShape.linearizer(originalSourceColumns).narrowedLinearizer.getLinearizedNodes,
-      pShape.linearizer(originalTargetColumns(targetTableShaped.value)).narrowedLinearizer.getLinearizedNodes,
-      pShape.linearizer(originalTargetColumns(originalTargetTable)).narrowedLinearizer.getLinearizedNodes,
+      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalSourceColumns))),
+      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(targetTableShaped.value)))),
+      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(originalTargetTable)))),
       targetTableShaped.value
     )
 }

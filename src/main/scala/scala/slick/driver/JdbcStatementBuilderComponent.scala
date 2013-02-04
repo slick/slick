@@ -16,8 +16,6 @@ import scala.slick.jdbc.{ResultConverter, CompiledMapping, Insert}
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
-  def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] =
-    new JdbcQueryTemplate[P,R](selectStatementCompiler.run(Node(q)).tree, q, this)
   def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)

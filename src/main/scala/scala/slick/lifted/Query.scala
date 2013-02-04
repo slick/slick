@@ -15,7 +15,6 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
 
   def unpackable: ShapedValue[_ <: E, U]
   final lazy val packed = unpackable.packedNode
-  final lazy val elementLinearizer = unpackable.linearizer
   final val canBuildFrom: CanBuildFrom[Nothing, U, Seq[U]] = implicitly
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {

@@ -11,16 +11,13 @@ import scala.slick.ast.Node
  * sequence of columns) form of values.
  */
 sealed trait ValueLinearizer[T] {
-  def narrowedLinearizer: RecordLinearizer[_]
 }
 
 /**
  * A linearizer for collection values.
  */
 trait CollectionLinearizer[F[+_], T] extends ValueLinearizer[F[T]] {
-  def elementLinearizer: ValueLinearizer[T]
   def canBuildFrom: CanBuildFrom[Nothing, T, F[T]]
-  final def narrowedLinearizer = elementLinearizer.narrowedLinearizer
 }
 
 /**
@@ -31,7 +28,6 @@ trait RecordLinearizer[T] extends ValueLinearizer[T] {
   def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T): Unit
   def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit
   def getLinearizedNodes: IndexedSeq[Node]
-  final def narrowedLinearizer = this
 }
 
 trait DelegateRecordLinearizer[T] extends RecordLinearizer[T] {

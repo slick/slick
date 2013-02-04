@@ -29,6 +29,9 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
+  def queryToQueryTemplate[P,R](q: Query[_, R]): QueryTemplate[P,R] =
+    createQueryTemplate[P,R](selectStatementCompiler.run(Node(q)).tree)
+
   class Implicits extends ImplicitJdbcTypes with ExtensionMethodConversions {
     implicit val slickDriver: driver.type = driver
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?

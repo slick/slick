@@ -15,21 +15,26 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   def createMappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R) = new MappedKeysInsertInvoker[U, RU, R](tree, keys, tr)
   def createQueryInvoker[R](tree: Node) = new QueryInvoker[R](tree)
   def createUpdateInvoker[T](tree: Node) = new UpdateInvoker[T](tree)
+  def createQueryTemplate[P,R](tree: Node): QueryTemplate[P,R] = new QueryTemplate[P,R](tree)
 
-  /** Invoker for executing queries. */
-  class QueryInvoker[R](protected val tree: Node)
-    extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
-
+  /** A parameterized query invoker. */
+  class QueryTemplate[P, R](protected val tree: Node) extends MutatingStatementInvoker[P, R] {
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(converter, _)) = tree
 
-    override protected val delegate = this
+    def selectStatement = getStatement
     protected def getStatement = sres.sql
-    protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
+    protected def setParam(param: P, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), param)
     protected def extractValue(pr: PositionedResult): R = converter.read(pr).asInstanceOf[R]
     protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr)
     def invoker: this.type = this
+  }
+
+  /** Invoker for executing queries. */
+  class QueryInvoker[R](tree: Node) extends QueryTemplate[Unit, R](tree)
+    with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
+    override protected val delegate = this
   }
 
   /** Pseudo-invoker for running DDL statements. */

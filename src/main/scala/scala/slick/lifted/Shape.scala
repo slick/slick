@@ -24,7 +24,6 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
   type Packed = Packed_
   def pack(from: Mixed): Packed
   def packedShape: Shape[Packed, Unpacked, Packed]
-  def linearizer(from: Mixed): ValueLinearizer[Unpacked]
 
   /** Build a packed representation from the shape and the TypedTypes alone.
    * This method is not available for shapes where Mixed and Unpacked are
@@ -44,12 +43,10 @@ object Shape extends ShapeLowPriority {
     selfLinearizingShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
 
   val selfLinearizingShape: Shape[ValueLinearizer[_], Any, ValueLinearizer[_]] = new IdentityShape[ValueLinearizer[_], Any] {
-    def linearizer(from: Mixed) = from.asInstanceOf[ValueLinearizer[Unpacked]]
     def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
   }
 
   val sharedTableShape: Shape[TableNode, Any, TableNode] = new IdentityShape[TableNode, Any] {
-    def linearizer(from: Mixed) = from.nodeShaped_*.value.asInstanceOf[ValueLinearizer[Unpacked]]
     def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
   }
 }
@@ -66,7 +63,6 @@ class ShapeLowPriority extends ShapeLowPriority2 {
   implicit final def unpackPrimitive[T](implicit tm: TypedType[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
     def pack(from: Mixed) = ConstColumn(from)
     def packedShape: Shape[Packed, Unpacked, Packed] = unpackColumnBase[T, Column[T]]
-    def linearizer(from: Mixed) = ConstColumn(from)
     def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
       f(tm, identity)
   }
@@ -77,8 +73,6 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
     TupleSupport.buildTuple(ps.iterator.zip(from.productIterator).map{case (p, f) => p.pack(f.asInstanceOf[p.Mixed])}.toIndexedSeq).asInstanceOf[Packed]
   def packedShape: Shape[Packed, Unpacked, Packed] =
     new TupleShape(ps.map(_.packedShape): _*)
-  def linearizer(from: Mixed) =
-    new ProductLinearizer(ps.iterator.zip(from.productIterator).map{case (p, f) => p.linearizer(f.asInstanceOf[p.Mixed]).asInstanceOf[RecordLinearizer[_]]}.toIndexedSeq)
   def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
     TupleSupport.buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
 
@@ -98,7 +92,6 @@ case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
   }
   def packedNode = Node(shape.pack(value))
   def packedValue[R](implicit ev: Shape[T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[R, U, _]])
-  def linearizer = shape.linearizer(value).asInstanceOf[ValueLinearizer[U]]
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
 }
 
