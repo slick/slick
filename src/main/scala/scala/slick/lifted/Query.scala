@@ -1,9 +1,7 @@
 package scala.slick.lifted
 
 import scala.annotation.implicitNotFound
-import scala.collection.generic.CanBuildFrom
 import scala.slick.ast.{Join => AJoin, _}
-import scala.slick.util.CollectionLinearizer
 import FunctionSymbolExtensionMethods._
 import StaticType._
 
@@ -11,11 +9,10 @@ import StaticType._
  * A query monad which contains the AST for a query's projection and the accumulated
  * restrictions and other modifiers.
  */
-abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U] with EncodeRef { self =>
+abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
 
   def unpackable: ShapedValue[_ <: E, U]
   final lazy val packed = unpackable.packedNode
-  final val canBuildFrom: CanBuildFrom[Nothing, U, Seq[U]] = implicitly
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
     val generator = new AnonSymbol
@@ -69,7 +66,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[K, T, G], vshape: Shape[E, _, P]): Query[(G, Query[P, U]), (T, Query[P, U])] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
-    val value = ShapedValue(pack, Shape.selfLinearizingShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
+    val value = ShapedValue(pack, Shape.impureShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
     val group = GroupBy(sym, new AnonSymbol, Node(unpackable.value), Node(key.value))
     new WrappingQuery(group, key.zip(value))
   }

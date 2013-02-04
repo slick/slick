@@ -30,24 +30,18 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
    * different types.
    */
   def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed
-
-  protected[this] def impureShape =
-    throw new SlickException("Shape does not have the same Mixed and Unpacked type")
 }
 
 object Shape extends ShapeLowPriority {
   @inline def tableShape[T <: TableNode]: Shape[T, NothingContainer#TableNothing, T] =
-    sharedTableShape.asInstanceOf[Shape[T, NothingContainer#TableNothing, T]]
+    impureShape.asInstanceOf[Shape[T, NothingContainer#TableNothing, T]]
 
   @inline implicit def columnShape[T]: Shape[Column[T], T, Column[T]] =
-    selfLinearizingShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
+    impureShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
 
-  val selfLinearizingShape: Shape[ValueLinearizer[_], Any, ValueLinearizer[_]] = new IdentityShape[ValueLinearizer[_], Any] {
-    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
-  }
-
-  val sharedTableShape: Shape[TableNode, Any, TableNode] = new IdentityShape[TableNode, Any] {
-    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) = impureShape
+  val impureShape: Shape[Any, Any, Any] = new IdentityShape[Any, Any] {
+    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) =
+      throw new SlickException("Shape does not have the same Mixed and Unpacked type")
   }
 }
 
@@ -58,7 +52,7 @@ abstract class IdentityShape[Packed, Unpacked] extends Shape[Packed, Unpacked, P
 
 class ShapeLowPriority extends ShapeLowPriority2 {
   @inline implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[C, T, C] =
-    Shape.selfLinearizingShape.asInstanceOf[Shape[C, T, C]]
+    Shape.impureShape.asInstanceOf[Shape[C, T, C]]
 
   implicit final def unpackPrimitive[T](implicit tm: TypedType[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
     def pack(from: Mixed) = ConstColumn(from)

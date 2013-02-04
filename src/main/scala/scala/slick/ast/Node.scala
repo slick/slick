@@ -1,9 +1,7 @@
 package scala.slick.ast
 
-import scala.language.existentials
 import scala.slick.SlickException
-import slick.lifted.ShapedValue
-import slick.util.{Logging, SimpleTypeName}
+import scala.slick.util.{Logging, SimpleTypeName}
 import TypeUtil.typeToTypeUtil
 import Util._
 
@@ -537,14 +535,14 @@ object Path {
   * implementations of this class. */
 abstract class TableNode extends NullaryNode { self =>
   type Self = TableNode
-  def nodeShaped_* : ShapedValue[_, _]
+  def nodeTableProjection: Node
   def schemaName: Option[String]
   def tableName: String
   def nodeTableSymbol: TableSymbol = TableSymbol(tableName)
   def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = this
   override def toString = "Table " + tableName
   def nodeRebuild: TableNode = new TableNode {
-    def nodeShaped_* = self.nodeShaped_*
+    def nodeTableProjection = self.nodeTableProjection
     def schemaName = self.schemaName
     def tableName = self.tableName
   }

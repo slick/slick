@@ -1,7 +1,7 @@
 package scala.slick.lifted
 
 import scala.slick.SlickException
-import scala.slick.driver.{JdbcDriver, JdbcProfile}
+import scala.slick.driver.JdbcProfile
 import scala.slick.util.NaturalTransformation2
 import scala.slick.ast.TypedType
 

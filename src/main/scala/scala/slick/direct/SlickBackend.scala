@@ -4,11 +4,9 @@ import language.existentials
 import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.driver._
-import scala.slick.lifted.{Shape, ShapedValue}
 import scala.slick.{ast => sq}
 import scala.slick.ast.{Library,FunctionSymbol}
 import scala.slick.ast.Dump
-import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.reflect.ClassTag
 import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
@@ -152,10 +150,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val table = new sq.TableNode with sq.WithOp with sq.TypedNode {
       val schemaName = None
       val tableName = mapper.typeToTable( typetag.tpe )
-      def nodeShaped_* = ShapedValue(
-        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym,sq.Node(this)) ) ),
-        Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]]
-      )
+      def nodeTableProjection = sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym,sq.Node(this)) ) )
       def tpe = sq.CollectionType(
         sq.CollectionTypeConstructor.default,
         sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ))
@@ -419,19 +414,9 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val res = result(tpe,query, session)
     res(0)
   }
-  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] = {
-    val linearizer = new CollectionLinearizer[Vector,R]{
-      def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
-          def getResult(driver: JdbcDriver, rs: PositionedResult): R
-            = resultByType( tpe, rs, session ).asInstanceOf[R]
-          def updateResult(driver: JdbcDriver, rs: PositionedResult, value: R): Unit = ???
-          def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[R]): Unit = ???
-          def getLinearizedNodes: IndexedSeq[Node] = ???
-        }
-        def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
-    }
+  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] =
     new driver.QueryExecutor[Vector[R]](cstate.tree).run(session)
-  }
+
   protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
     val builder = driver.createQueryBuilder(cstate.tree, cstate)

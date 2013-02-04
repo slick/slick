@@ -1,14 +1,12 @@
 package scala.slick.lifted
 
-import scala.slick.driver.JdbcDriver
-import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 
 abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with TypedNode with ColumnBase[T] with WithOp {
 
   def * : ColumnBase[T]
-  def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
+  def nodeTableProjection: Node = Node(*)
 
   def create_* : Iterable[FieldSymbol] = {
     Node(*).collect {
@@ -49,11 +47,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index])
-
-  def getLinearizedNodes = *.getLinearizedNodes
-  def getResult(driver: JdbcDriver, rs: PositionedResult) = *.getResult(driver, rs)
-  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = *.updateResult(driver, rs, value)
-  def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) = *.setParameter(driver, ps, value)
 
   override def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
     super[TypedNode].nodeWithComputedType(scope, retype)

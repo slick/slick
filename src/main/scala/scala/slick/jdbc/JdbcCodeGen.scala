@@ -118,7 +118,7 @@ class CompileInsert(val driver: JdbcDriver) extends Phase with MappingCompiler {
 
     def tr(n: Node): Node = n match {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildrenKeepType(tr)
-      case t:TableNode => tr(Node(t.nodeShaped_*.value))
+      case t:TableNode => tr(Node(t.nodeTableProjection))
       case sel @ Select(Ref(IntrinsicSymbol(t: TableNode)), fs: FieldSymbol) =>
         if(table eq null) table = t
         else if(table ne t) throw new SlickException("Inserts must all be to the same table")
