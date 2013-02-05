@@ -1,1 +1,1 @@
-scalacOptions += "-deprecation"addSbtPlugin("com.jsuereth" % "sbt-site-plugin" % "0.4.0")
+scalacOptions += "-deprecation"addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "0.6.2")

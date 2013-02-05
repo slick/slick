@@ -1,8 +1,8 @@
 import sbt._
 import Keys._
 import Tests._
-import com.jsuereth.sbtsite.SphinxSupport.Sphinx
-import com.jsuereth.sbtsite.SitePlugin.site
+import com.typesafe.sbt.site.SphinxSupport.Sphinx
+import com.typesafe.sbt.SbtSite.site
 
 object SlickBuild extends Build {
 
@@ -49,7 +49,6 @@ object SlickBuild extends Build {
           <url>git@github.com:slick/slick.git</url>
           <connection>scm:git:git@github.com:slick/slick.git</connection>
         </scm>,
-    includeFilter in Sphinx := ("*.html" | "*.png" | "*.js" | "*.css" | "*.gif" | "*.txt"),
     // Work around scaladoc problem
     unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
   )
