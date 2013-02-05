@@ -1,7 +1,6 @@
 package scala.slick.compiler
 
 import scala.slick.ast._
-import scala.slick.lifted.Column
 import Util._
 
 /** Create a ResultSetMapping root node, ensure that the top-level server-side
@@ -11,11 +10,14 @@ class CreateResultSetMapping extends Phase {
   val name = "createResultSetMapping"
 
   def apply(state: CompilerState) = state.map { n =>
-  // Get the type at the outer layer with TypeMappings in place
+    // Get the type at the outer layer with TypeMappings in place
     val tpe = n.nodeWithComputedType(new DefaultSymbolScope(Map.empty), false).nodeType
     logger.debug("Client-side result type: "+tpe)
-    val n2 = toCollection(removeTypeMapping(n))
-    ClientSideOp.mapServerSide(n2) { ch =>
+    val n2 = removeTypeMapping(n)
+    logger.debug("Removed type mapping:", n2)
+    val n3 = toCollection(n2)
+    logger.debug("Converted to collection:", n3)
+    ClientSideOp.mapServerSide(n3) { ch =>
       val gen = new AnonSymbol
       ResultSetMapping(gen, ch, createResult(gen, tpe match {
         case CollectionType(_, el) => el
@@ -34,9 +36,13 @@ class CreateResultSetMapping extends Phase {
       if(tpe2 eq tpe) n2 else n2.nodeTypedOrCopy(tpe2)
   }
 
-  /** Force collection return type */
+  /** Force collection return type. This might get more complicated in the
+    * future. For now, all primitive types should be set (but collection-typed
+    * nodes and product nodes may have UnassignedType) and ProductNodes cannot
+    * contain nested collections. */
   def toCollection(n: Node): Node = n match {
-    case _: Column[_] | _: Apply | _: ProductNode => First(Pure(n))
+    case _: Apply | _: ProductNode => First(Pure(n))
+    case n if n.nodeType != UnassignedType && !n.nodeType.isInstanceOf[CollectionType] => First(Pure(n))
     case n => n
   }
 

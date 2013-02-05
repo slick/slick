@@ -186,9 +186,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case LiteralNode(true) if useIntForBoolean => b"\(1=1\)"
-      case LiteralNode(false) if useIntForBoolean => b"\(1=0\)"
-      case LiteralNode(null) => b"null"
+      case n @ LiteralNode(v) =>
+        if(n.volatileHint) b +?= { (p, param) => typeInfoFor(n.tpe).setValue(v, p) }
+        else if((true == v) && useIntForBoolean) b"\(1=1\)"
+        else if((false == v) && useIntForBoolean) b"\(1=0\)"
+        else b += typeInfoFor(n.tpe).valueToSQLLiteral(v)
+      case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
+        typeInfoFor(tpe).setValue(extractor(param), p)
+      }
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"
       case Library.==(l, LiteralNode(null)) =>
@@ -261,11 +266,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
         b")"
-      case c @ BindColumn(v) => b +?= { (p, param) => typeInfoFor(c.tpe).setValue(v, p) }
-      case l @ LiteralNode(v) => b += typeInfoFor(l.tpe).valueToSQLLiteral(v)
-      case pc @ ParameterColumn(extractor) => b +?= { (p, param) =>
-        typeInfoFor(pc.tpe).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
-      }
       case c: ConditionalExpr =>
         b"(case"
         c.clauses.reverseIterator.foreach { case IfThen(l, r) => b" when $l then $r" }

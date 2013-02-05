@@ -1,30 +1,17 @@
 package scala.slick.lifted
 
-import scala.language.existentials
-import scala.slick.SlickException
 import scala.slick.ast._
-import scala.slick.util._
 
-/** Common base trait for all lifted values.
-  */
+/** Common base trait for all lifted values. */
 trait Rep[T] extends NodeGenerator with WithOp
 
 /** Common base trait for record values
-  * (anything that is isomorphic to a tuple of scalar values).
-  */
+  * (anything that is isomorphic to a tuple of scalar values). */
 trait ColumnBase[T] extends Rep[T] with Typed
 
-/** Base classs for columns.
-  */
+/** Base class for columns. */
 abstract class Column[T : TypedType] extends ColumnBase[T] { self =>
   final val tpe = implicitly[TypedType[T]]
-  def ? : Column[Option[T]] = Column.forNode(OptionApply(Node(this)))(tpe.optionType)
-
-  final def getOrElse[U](default: => U)(implicit ev: Option[U] =:= T): Column[U] =
-    Column.forNode[U](GetOrElse(Node(self), () => default))(tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[U]])
-
-  final def get[U](implicit ev: Option[U] =:= T): Column[U] =
-    getOrElse[U] { throw new SlickException("Read NULL value for column "+this) }
 
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
@@ -38,27 +25,9 @@ object Column {
   }
 }
 
-/**
- * A column with a constant value which is inserted into an SQL statement as a literal.
- */
-final case class ConstColumn[T : TypedType](value: T) extends Column[T] with LiteralNode {
-  override def toString = "ConstColumn["+SimpleTypeName.forVal(value)+"] "+value
-  def bind = new BindColumn(value)
+/** A column with a constant value which is inserted into an SQL statement as a literal. */
+final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends Column[T] with LiteralNode {
+  def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
   def nodeRebuild = copy()
-}
-
-/**
- * A column with a constant value which gets turned into a bind variable.
- */
-final case class BindColumn[T : TypedType](value: T) extends Column[T] with NullaryNode with LiteralNode {
-  override def toString = "BindColumn["+SimpleTypeName.forVal(value)+"] "+value
-  def nodeRebuild = copy()
-}
-
-/**
- * A parameter from a QueryTemplate which gets turned into a bind variable.
- */
-final case class ParameterColumn[T : TypedType](extractor: (_ => T)) extends Column[T] with NullaryNode with TypedNode {
-  type Self = ParameterColumn[T]
-  def nodeRebuild = copy()
+  def volatileHint = false
 }
