@@ -36,6 +36,13 @@ object SlickBuild extends Build {
     }
   }
 
+  def extTarget(extName: String, t: Option[String]): Seq[Setting[File]] = {
+    sys.props("slick.build.target") match {
+      case null => t.map(f => Seq(target := file(f))).getOrElse(Seq.empty)
+      case path => Seq(target := file(path + "/" + extName))
+    }
+  }
+
   lazy val sharedSettings = Seq(
     version := "1.1.0-SNAPSHOT",
     organizationName := "Typesafe",
@@ -82,15 +89,14 @@ object SlickBuild extends Build {
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
-    settings = Project.defaultSettings ++ sharedSettings ++ Seq(
-      target := file("target/root"),
+    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
       test := (),
       testOnly <<= inputTask { argTask => (argTask) map { args => }}
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ Seq(
+    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ extTarget("slick", None) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
@@ -103,7 +109,7 @@ object SlickBuild extends Build {
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
     ))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ sharedSettings ++ Seq(
+    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
