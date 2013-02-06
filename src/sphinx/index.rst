@@ -7,7 +7,7 @@ Slick - Scala Language Integrated Connection Kit
    introduction
    gettingstarted
    lifted-embedding
-   direct-embedding
    sql
+   direct-embedding
    testkit
    extensions
