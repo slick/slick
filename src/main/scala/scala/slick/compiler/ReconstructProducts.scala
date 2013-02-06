@@ -116,5 +116,5 @@ class ReconstructProducts extends Phase {
     }
   }
 
-  def apply(tree: Node, state: CompilationState): Node = transformer.repeat(tree)
+  def apply(state: CompilerState) = state.map(transformer.repeat)
 }

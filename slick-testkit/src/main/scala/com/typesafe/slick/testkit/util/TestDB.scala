@@ -94,8 +94,8 @@ object TestDB {
  * features such as reading the configuration file, setting up a DB connection,
  * removing DB files left over by a test run, etc.
  */
-abstract class TestDB(final val confName: String, final val driver: ExtendedDriver) {
-  final val profile: ExtendedProfile = driver
+abstract class TestDB(final val confName: String, final val driver: JdbcDriver) {
+  final val profile: JdbcProfile = driver
   protected val Database = profile.backend.Database
 
   override def toString = url
@@ -140,7 +140,7 @@ abstract class TestDB(final val confName: String, final val driver: ExtendedDriv
   lazy val capabilities = driver.capabilities
 }
 
-class ExternalTestDB(confName: String, driver: ExtendedDriver) extends TestDB(confName, driver) {
+class ExternalTestDB(confName: String, driver: JdbcDriver) extends TestDB(confName, driver) {
   val jdbcDriver = TestDB.get(confName, "driver").orNull
   val urlTemplate = TestDB.get(confName, "url").getOrElse("")
   val dbPath = new File(TestDB.testDBDir).getAbsolutePath

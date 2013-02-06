@@ -46,11 +46,11 @@ trait DefNode extends Node {
     nodeChildren.drop(nodeGenerators.length)
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
 
-  final def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
+  final def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): Self with DefNode = {
     val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
       nodePostGeneratorChildren.iterator.map{ n => (None, n) }).toIndexedSeq
     val mapped = all.map(f.tupled)
-    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) nodeRebuild(mapped).asInstanceOf[DefNode]
+    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) nodeRebuild(mapped).asInstanceOf[Self with DefNode]
     else this
   }
   final def nodeMapGenerators(f: Symbol => Symbol): Node =

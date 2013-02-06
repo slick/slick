@@ -57,6 +57,7 @@ trait JdbcType[T] extends TypedType[T] { self =>
     def updateValue(v: Option[T], r: PositionedResult) = self.updateOption(v, r)
     override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
     override def nullable = true
+    override def toString = s"Option[$self]"
   }
 
   override def toString = {
