@@ -86,7 +86,8 @@ class LiftedEmbedding {
     def last = column[String]("last")
     def * = id.? ~ first ~ last <> (User, User.unapply _)
 //#mappedtable
-    def forInsert = first ~ last <> ({ t => User(None, t._1, t._2)}, { (u: User) => Some((u.first, u.last))})
+    def forInsert = first ~ last <>
+                    ({ t => User(None, t._1, t._2)}, { (u: User) => Some((u.first, u.last))})
 //#mappedtable
   }
 //#mappedtable
