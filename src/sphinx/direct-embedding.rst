@@ -8,6 +8,17 @@ which can make error messages easier to understand.
 
 The following descriptions are anolog to the description of the :doc:`lifted embedding <gettingstarted>`.
 
+Dependencies
+------------
+
+The direct embedding requires access to the Scala compiler at runtime for
+typechecking. Slick only declares an *optional* dependency on scala-compiler
+in order to avoid bringing it (along with all transitive dependencies) into
+your application if you don't need it. You must add it explicitly to your
+own project's ``build.sbt`` file if you want to use the direct embedding::
+
+  libraryDependencies <+= (scalaVersion)("org.scala-lang" % "scala-compiler" % _)
+
 Imports
 ------------
 

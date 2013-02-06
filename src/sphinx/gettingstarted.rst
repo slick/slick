@@ -14,8 +14,8 @@ databases to your project. If you are using sbt_, you do this in your
 main ``build.sbt`` file::
 
   libraryDependencies ++= List(
-    // use the right Scala and Slick versions here:
-    "com.typesafe" %% "slick" % "1.0.0",
+    // use the right Slick version here:
+    "com.typesafe.slick" %% "slick" % "1.0.0",
     "org.slf4j" % "slf4j-nop" % "1.6.4",
     "com.h2database" % "h2" % "1.3.166"
   )

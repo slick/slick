@@ -1,8 +1,8 @@
 import sbt._
 import Keys._
 import Tests._
-import com.jsuereth.sbtsite.SphinxSupport.Sphinx
-import com.jsuereth.sbtsite.SitePlugin.site
+import com.typesafe.sbt.site.SphinxSupport.Sphinx
+import com.typesafe.sbt.SbtSite.site
 
 object SlickBuild extends Build {
 
@@ -13,8 +13,7 @@ object SlickBuild extends Build {
     scalaVersion := "2.10.0",
     scalaBinaryVersion <<= scalaVersion,
     //crossScalaVersions ++= "2.10.0-M4" :: Nil,
-    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
-    libraryDependencies in config("macro") <+= scalaVersion("org.scala-lang" % "scala-compiler" % _)
+    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
   )
 
   def localScalaSettings(path: String): Seq[Setting[_]] = Seq(
@@ -54,7 +53,7 @@ object SlickBuild extends Build {
     publishMavenStyle := true,
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },
-    makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime))) },
+    makePomConfiguration ~= { _.copy(configurations = Some(Seq(Compile, Runtime, Optional))) },
     homepage := Some(url("http://slick.typesafe.com")),
     startYear := Some(2008),
     licenses += ("Two-clause BSD-style license", url("http://github.com/slick/slick/blob/master/LICENSE.txt")),
@@ -77,7 +76,6 @@ object SlickBuild extends Build {
           <url>git@github.com:slick/slick.git</url>
           <connection>scm:git:git@github.com:slick/slick.git</connection>
         </scm>,
-    includeFilter in Sphinx := ("*.html" | "*.png" | "*.js" | "*.css" | "*.gif" | "*.txt"),
     // Work around scaladoc problem
     unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
   ) ++ scalaSettings
@@ -99,6 +97,7 @@ object SlickBuild extends Build {
       test := (),
       testOnly <<= inputTask { argTask => (argTask) map { args => }},
       ivyConfigurations += config("macro").hide.extend(Compile),
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
@@ -110,6 +109,7 @@ object SlickBuild extends Build {
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       //scalacOptions in Compile += "-Yreify-copypaste",
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test"),
       libraryDependencies ++= Seq(
         // TestKit needs JUnit for its Runner
         "junit" % "junit-dep" % "4.10",

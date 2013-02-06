@@ -20,8 +20,8 @@ junit-interface, Logback and the PostgreSQL JDBC driver, and it sets some
 options for the test runs::
 
   libraryDependencies ++= Seq(
-    "com.typesafe" %% "slick" % "1.0.0-SNAPSHOT",
-    "com.typesafe" %% "slick-testkit" % "1.0.0-SNAPSHOT" % "test",
+    "com.typesafe.slick" %% "slick" % "1.0.0",
+    "com.typesafe.slick" %% "slick-testkit" % "1.0.0" % "test",
     "com.novocode" % "junit-interface" % "0.10-M1" % "test",
     "ch.qos.logback" % "logback-classic" % "0.9.28" % "test",
     "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"

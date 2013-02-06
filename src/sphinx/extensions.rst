@@ -12,6 +12,6 @@ repository (which contains the required artifacts) to your build definition
 like this::
 
   // Use the right Slick version here:
-  libraryDependencies += "com.typesafe" %% "slick-extensions" % "1.0.0"
+  libraryDependencies += "com.typesafe.slick" %% "slick-extensions" % "1.0.0"
 
   resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/maven-releases/"
