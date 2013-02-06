@@ -1,0 +1,64 @@
+@import url(agogo.css);
+div.header-wrapper {
+  border-bottom: 3px solid #2e3436;
+}
+h1, h2, h3, h4 {
+  font-family: "Lato", "Open Sans Condensed","Calibri","Arial Narrow","Lucida Sans Unicode",sans-serif;
+  color: #5e5e5e;
+}
+h3{
+  color: rgba(218, 56, 48, 0.9);
+  font-weight: bold;
+  margin:0;
+}
+div.header .headertitle {
+  margin-bottom: 0;
+}
+div.header .headertitle a {
+  color: #5e5e5e;
+  font-family: "Lato", "Open Sans Condensed","Calibri","Arial Narrow","Lucida Sans Unicode",sans-serif;
+}
+  
+div.header div.rel {
+  margin-top: 0;
+  float: right;
+}
+
+p.logo {
+  float: none;
+}
+.logo{
+  margin: -26px -15px -26px -10px;
+}
+div.document ul {
+  margin: 1em;
+}
+div.footer-wrapper {
+   min-height: 0;
+}
+div.footer .right {
+  float: none;
+}
+div.viewcode-block:target {
+  padding: 0.5em;
+}
+a em{
+  font-style: normal;
+}
+h1{  
+  color: rgba(218, 56, 48, 0.9);
+  font-weight: bold;
+}
+div.document div.highlight{
+  border: 0;
+  padding: 0;
+}
+pre {
+  background-color: #F8F8F8;
+  border: 1px solid #CCCCCC;
+  font-family: 'Consolas','Deja Vu Sans Mono','Bitstream Vera Sans Mono',monospace;
+  font-size: 0.95em;
+  letter-spacing: 0.015em;
+  line-height: 120%;
+  padding: 0.5em;
+}
