@@ -12,11 +12,16 @@ trait ColumnBase[T] extends Rep[T] with Typed
 /** Base class for columns. */
 abstract class Column[T : TypedType] extends ColumnBase[T] { self =>
   final val tpe = implicitly[TypedType[T]]
-
   final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
 
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
+
+  override def toString = {
+    val n = Node(this)
+    if(n eq this) super.toString
+    else s"Column($n)"
+  }
 }
 
 object Column {

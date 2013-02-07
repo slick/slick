@@ -40,8 +40,8 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     T.ddl.createStatements foreach println
     T.ddl.create;
     T insert (1, Some(Array[Byte](6,7)))
-    ifCap(scap.setByteArrayNull)(T.insert(2, None))
-    ifNotCap(scap.setByteArrayNull)(T.id.insert(2))
+    ifCap(rcap.setByteArrayNull)(T.insert(2, None))
+    ifNotCap(rcap.setByteArrayNull)(T.id.insert(2))
     assertEquals(
       Set((1,"67"), (2,"")),
       Query(T).list.map{ case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet
@@ -64,18 +64,18 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
 
     testStore[Int](-1, 0, 1, Int.MinValue, Int.MaxValue)
-    ifCap(scap.typeLong) { testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue) }
+    ifCap(rcap.typeLong) { testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue) }
     testStore[Short](-1, 0, 1, Short.MinValue, Short.MaxValue)
     testStore[Byte](-1, 0, 1, Byte.MinValue, Byte.MaxValue)
     testStore[Double](-1.0, 0.0, 1.0)
     testStore[Float](-1.0f, 0.0f, 1.0f)
-    ifCap(scap.typeBigDecimal) {
+    ifCap(rcap.typeBigDecimal) {
       testStore[BigDecimal](BigDecimal("-1"), BigDecimal("0"), BigDecimal("1"),
         BigDecimal(Long.MinValue), BigDecimal(Long.MaxValue))
     }
   }
 
-  def testBlob = ifCap(scap.typeBlob) {
+  def testBlob = ifCap(rcap.typeBlob) {
     object T extends Table[(Int, Blob)]("test3") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
@@ -92,7 +92,7 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  def testMappedBlob = ifCap(scap.typeBlob) {
+  def testMappedBlob = ifCap(rcap.typeBlob) {
     case class Serialized[T](value: T)
 
     implicit def serializedType[T] = MappedColumnType.base[Serialized[T], Blob]({ s =>

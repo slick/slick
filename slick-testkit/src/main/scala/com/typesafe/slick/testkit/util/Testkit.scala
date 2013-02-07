@@ -5,7 +5,7 @@ import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert._
-import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.driver.JdbcProfile
 import com.typesafe.slick.testkit.{tests => tk}
 import java.lang.reflect.Method
@@ -141,6 +141,7 @@ trait TestkitTest {
     if(!f.isDefinedAt(x)) fail("Expected shape not matched by: "+x)
   }
 
+  def rcap = RelationalProfile.capabilities
   def scap = SqlProfile.capabilities
   def jcap = JdbcProfile.capabilities
   def ifCap[T](caps: Capability*)(f: => T): Unit =

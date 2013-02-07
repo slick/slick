@@ -95,7 +95,7 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
     println("q2: " + q2.selectStatement)
     assertEquals(Set("foo", "foobar", "foo%"), q2.to[Set])
 
-    ifCap(scap.likeEscape) {
+    ifCap(rcap.likeEscape) {
       val q3 = for { t1 <- T1 if t1.a.like("foo^%", '^') } yield t1.a
       println("q3: " + q3.selectStatement)
       assertEquals(Set("foo%"), q3.to[Set])
