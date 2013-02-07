@@ -72,7 +72,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
     q3b.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => p._1 ~ p._2).list)
 
-    ifCap(scap.joinRight) {
+    ifCap(rcap.joinRight) {
       val q4 = (for {
         (c,p) <- Categories rightJoin Posts on (_.id is _.category)
       } yield p.id ~ c.id.?.getOrElse(0) ~ c.name.?.getOrElse("") ~ p.title).sortBy(_._1)
@@ -82,7 +82,7 @@ class JoinTest(val tdb: TestDB) extends TestkitTest {
     }
   }
 
-  def testZip = ifCap(scap.zip) {
+  def testZip = ifCap(rcap.zip) {
     object Categories extends Table[(Int, String)]("cat_z") {
       def id = column[Int]("id")
       def name = column[String]("name")

@@ -9,7 +9,7 @@ import scala.slick.compiler.{CodeGen, Phase, CompilerState}
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
-import scala.slick.profile.SqlProfile
+import scala.slick.profile.{RelationalProfile, SqlProfile}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.jdbc.{ResultConverter, CompiledMapping, Insert}
 
@@ -217,9 +217,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"exists(!${c.copy(select = None)})"
       case Library.Concat(l, r) if concatOperator.isDefined =>
         b"\($l${concatOperator.get}$r\)"
-      case Library.User() if !capabilities.contains(SqlProfile.capabilities.functionUser) =>
+      case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
         b += "''"
-      case Library.Database() if !capabilities.contains(SqlProfile.capabilities.functionDatabase) =>
+      case Library.Database() if !capabilities.contains(RelationalProfile.capabilities.functionDatabase) =>
         b += "''"
       case Library.Pi() if !hasPiFunction => b += pi
       case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}*$ch)"

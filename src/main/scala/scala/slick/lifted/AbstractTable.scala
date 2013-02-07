@@ -8,11 +8,12 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   def * : ColumnBase[T]
   def nodeTableProjection: Node = Node(*)
 
-  def create_* : Iterable[FieldSymbol] = {
-    Node(*).collect {
+  def create_* : Iterable[FieldSymbol] = collectFieldSymbols(Node(*))
+
+  protected[this] def collectFieldSymbols(n: Node): Iterable[FieldSymbol] =
+    n.collect {
       case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == this => f
     }.toSeq.distinct
-  }
 
   def foreignKey[P, PU, TT <: TableNode, U]
       (name: String, sourceColumns: P, targetTable: TT)
