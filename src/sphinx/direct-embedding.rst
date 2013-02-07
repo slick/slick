@@ -1,8 +1,10 @@
 Direct Embedding
 ================
 
-The direct embedding is a new, experimental front-end for writing queries. The API may change without deprecation during experimental status.
-Unlike the (stable) lifted embedding, the direct embedding uses macros instead of operator overloading and implicit conversions for its implementation.
+The direct embedding is a new, still incomplete, experimental Query API under development.
+It may change without deprecation period in any release during its experimental status.
+There is no plan to replace the stable lifted embedding Query API, which you can safely bet on for production use. The direct embedding co-exists.
+Unlike the lifted embedding, the direct embedding uses macros instead of operator overloading and implicit conversions for its implementation.
 For a user the difference in the code is small, but queries using the direct embedding work with ordinary Scala types,
 which can make error messages easier to understand. 
 
@@ -83,5 +85,5 @@ Queries may result in sequences of arbitrarily nested tuples, which may also con
 
 .. includecode:: code/DirectEmbedding.scala#nesting
 
-The direct embedding currently does not feature insertion of data. Instead we can use the :doc:`lifted embedding <lifted-embedding>` or :doc:`plain SQL queries <sql>`.
+The direct embedding currently does not feature insertion of data. Instead you can use the :doc:`lifted embedding <lifted-embedding>` or :doc:`plain SQL queries <sql>`.
 
