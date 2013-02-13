@@ -1,0 +1,34 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>*** \(%logger{30}\) %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="${log.root:-info}">
+        <appender-ref ref="STDOUT" />
+    </root>
+    <logger name="scala.slick.compiler"                           level="${log.qcomp:-info}" />
+    <logger name="scala.slick.compiler.QueryCompiler"             level="${log.qcomp.phases:-inherited}" />
+    <logger name="scala.slick.compiler.LocalizeRefs"              level="${log.qcomp.localizeRefs:-inherited}" />
+    <logger name="scala.slick.compiler.ReconstructProducts"       level="${log.qcomp.reconstructProducts:-inherited}" />
+    <logger name="scala.slick.compiler.Inline"                    level="${log.qcomp.inline:-inherited}" />
+    <logger name="scala.slick.compiler.RewriteOrderBy"            level="${log.qcomp.rewriteOrderBy:-inherited}" />
+    <logger name="scala.slick.compiler.LetDynamicEliminated"      level="${log.qcomp.letDynamicEliminated:-inherited}" />
+    <logger name="scala.slick.compiler.AssignUniqueSymbols"       level="${log.qcomp.assignUniqueSymbols:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandTables"              level="${log.qcomp.expandTables:-inherited}" />
+    <logger name="scala.slick.compiler.CreateResultSetMapping"    level="${log.qcomp.createResultSetMapping:-inherited}" />
+    <logger name="scala.slick.compiler.ForceOuterBinds"           level="${log.qcomp.forceOuterBinds:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandRefs"                level="${log.qcomp.expandRefs:-inherited}" />
+    <logger name="scala.slick.compiler.ReplaceFieldSymbols"       level="${log.qcomp.replaceFieldSymbols:-inherited}" />
+    <logger name="scala.slick.compiler.RewritePaths"              level="${log.qcomp.rewritePaths:-inherited}" />
+    <logger name="scala.slick.compiler.RelabelUnions"             level="${log.qcomp.relabelUnions:-inherited}" />
+    <logger name="scala.slick.compiler.PruneFields"               level="${log.qcomp.pruneFields:-inherited}" />
+    <logger name="scala.slick.compiler.ResolveZipJoins"           level="${log.qcomp.resolveZipJoins:-inherited}" />
+    <logger name="scala.slick.compiler.ConvertToComprehensions"   level="${log.qcomp.convertToComprehensions:-inherited}" />
+    <logger name="scala.slick.compiler.FuseComprehensions"        level="${log.qcomp.fuseComprehensions:-inherited}" />
+    <logger name="scala.slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
+    <logger name="scala.slick.compiler.HoistClientOps"            level="${log.qcomp.hoistClientOps:-inherited}" />
+    <logger name="scala.slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.session:-info}" />
+    <logger name="scala.slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
+</configuration>

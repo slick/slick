@@ -1,0 +1,10 @@
+package scala.slick.util
+
+/** Utility functions for working with tuples of different arities */
+object TupleSupport {
+  def buildTuple(s: IndexedSeq[Any]): Product = s.length match {
+<#list 1..22 as i>
+    case ${i} => new Tuple${i}(<#list 1..i as j>s(${j-1})<#if i != j>, </#if></#list>)
+</#list>
+  }
+}

@@ -1,0 +1,99 @@
+package scala.slick.lifted
+
+import scala.slick.driver.JdbcDriver
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
+import scala.slick.ast._
+
+sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product with TypedNode {
+  type V = T
+  lazy val nodeChildren = productIterator.map(Node(_)).toIndexedSeq
+
+  def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) {
+    for(i <- 0 until productArity) {
+      productElement(i).asInstanceOf[Column[Any]].setParameter(driver, ps, value.map(_.productElement(i)))
+    }
+  }
+
+  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) {
+    for(i <- 0 until productArity) {
+      productElement(i).asInstanceOf[Column[Any]].updateResult(driver, rs, value.productElement(i))
+    }
+  }
+
+  def getAllColumnTypedTypes = 0.until(productArity).flatMap[TypedType[_], Vector[TypedType[_]]](
+    i => productElement(i).asInstanceOf[Column[_]].getAllColumnTypedTypes)(collection.breakOut)
+
+  def getLinearizedNodes: IndexedSeq[Node] =
+    (0 until productArity).map(i => Node(productElement(i).asInstanceOf[Column[Any]]))(collection.breakOut)
+
+  def <>[R](f: (T => R), g: (R => Option[T])) = MappedProjection[R, T](this, f, g)(this)
+
+  override def toString = "Projection" + productArity
+
+  lazy val tpe = ProductType(productIterator.asInstanceOf[Iterator[Column[_]]].map(_.tpe).toIndexedSeq)
+
+  override def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
+    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
+    nodeBuildTypedNode(this2, tpe)
+  }
+}
+
+object Projection {
+<#list 2..22 as i>
+  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) = Some(p)
+</#list>
+}
+
+final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: (T => Option[P]))(proj: Projection[P]) extends ColumnBase[T] with NodeGenerator {
+  type Self = MappedProjection[_, _]
+  override def toString = "MappedProjection"
+  private lazy val typeMapping = TypeMapping(Node(child), proj.tpe, (v => Some(g(v.asInstanceOf[T]))), (v => f(v.asInstanceOf[P])))
+  override def nodeDelegate = if(op eq null) typeMapping else op.nodeDelegate
+  def getAllColumnTypedTypes = proj.getAllColumnTypedTypes
+
+  def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]): Unit =
+    proj.setParameter(driver, ps, value.flatMap(g))
+  def getResult(driver: JdbcDriver, rs: PositionedResult) = f(proj.getResult(driver, rs))
+  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = proj.updateResult(driver, rs, g(value).get)
+  def getLinearizedNodes = proj.getLinearizedNodes
+
+  protected[this] def nodeRebuild(child: Node): Self = copy[T, P](child = child)(proj)
+
+  override def hashCode() = child.hashCode() + f.hashCode() + g.hashCode()
+  override def equals(o: Any) = o match {
+    case m: MappedProjection[_,_] => child == m.child && f == m.f && g == m.g
+    case _ => false
+  }
+  def tpe = typeMapping.tpe
+}
+
+object ~ {
+  def unapply[T1,T2](p: Projection2[T1,T2]) =
+    Some(p)
+<#list 3..22 as i>
+  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
+    Some((new Projection${i-1}(<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i}))
+</#list>
+}
+
+<#list 2..22 as i>
+final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
+<#list 1..i as j>
+  override val _${j}: Column[T${j}]<#if i != j>,</#if>
+</#list>)
+extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
+  <#if i != 22>def ~[U](c: Column[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
+  <#if i != 22>def ~:[U](c: Column[U]) = new Projection${i+1}(c<#list 1..i as j>,_${j}</#list>)</#if>
+  def getResult(driver: JdbcDriver, rs: PositionedResult) = (
+<#list 1..i as j>
+    _${j}.getResult(driver, rs)<#if i != j>,</#if>
+</#list>  )
+  override def mapOp(f: (Node, List[Int]) => Node, positions: List[Int]): this.type = new Projection${i}(
+<#list 1..i as j>
+    _${j}.mapOp(f, ${j} :: positions)<#if i != j>,</#if>
+</#list>  ).asInstanceOf[this.type]
+  def <>[R](f: ((<#list 1..i as j>T${j}<#if i != j>,</#if></#list>) => R), g: (R => Option[V])): MappedProjection[R,V] =
+    <>(t => f(<#list 1..i as j>t._${j}<#if i != j>,</#if></#list>), g)
+}
+
+</#list>

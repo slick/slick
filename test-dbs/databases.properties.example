@@ -5,6 +5,13 @@
 # enable the external database systems for unit tests.
 ##############################################################################
 
+# Use only the following DBs (or use all if not set)
+#testDBs = h2mem, h2disk, hsqldbmem, hsqldbdisk, sqlitemem, sqlitedisk, derbymem, derbydisk, postgres, mysql, sqlserver, access
+
+# Store database files in this path instead of the test-dbs dir
+# (ignored by MySQL and in-memory databases)
+#testDir = r:/test-dbs
+
 # PostgreSQL quick setup:
 # - Install PostgreSQL server with default options
 # - Change password in postgres.password
@@ -14,9 +21,12 @@ postgres.url = jdbc:postgresql:[DB]
 postgres.user = postgres
 postgres.password = secret
 postgres.adminDB = postgres
-postgres.testDB = scala-query-test
-postgres.create = CREATE DATABASE "[DB]"
-postgres.drop = DROP DATABASE IF EXISTS "[DB]"
+postgres.testDB = slick-test
+postgres.create.1 = CREATE TABLESPACE slick_test LOCATION '[DBPATH]'
+postgres.create.2 = CREATE DATABASE "[DB]" TEMPLATE = template0 TABLESPACE slick_test
+postgres.postCreate = create extension lo
+postgres.drop.1 = DROP DATABASE IF EXISTS "[DB]"
+postgres.drop.2 = DROP TABLESPACE IF EXISTS slick_test
 postgres.driver = org.postgresql.Driver
 
 # MySQL quick setup:
@@ -32,3 +42,64 @@ mysql.testDB = scala_query_test
 mysql.create = CREATE DATABASE [DB]
 mysql.drop = DROP DATABASE IF EXISTS [DB]
 mysql.driver = com.mysql.jdbc.Driver
+
+# Access quick setup:
+# - Install Office 2010
+# - Make sure your account has permissions to the ODBC registry keys:
+#   http://support.microsoft.com/kb/295297
+# - Set access.enabled = true
+access.enabled = false
+access.testDB = scala-query-test
+access.emptyDBFile = test-dbs/empty_4.x.mdb.gz
+access.testDBFile = [DBPATH]/[DB].mdb
+access.driver = sun.jdbc.odbc.JdbcOdbcDriver
+access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=[DBPATH]/[DB].mdb
+#access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb)};DBQ=[DBPATH]/[DB].mdb
+
+# SQL Server quick setup:
+# - Install SQL Server Express 2008 R2:
+#   http://www.microsoft.com/express/Database/InstallOptions.aspx
+# - In the SQL Server Configuration Manager, under "SQL Server Network
+#   Configuration", enable Named Pipes and change the path from
+#   \\.\pipe\MSSQL$SQLEXPRESS\sql\query to \\.\pipe\sql\query
+# - If your machine is on a Windows domain, you may need to set the right
+#   domain in sqlserver.url
+# - Set sqlserver.enabled = true
+sqlserver.enabled = false
+sqlserver.url = jdbc:jtds:sqlserver://localhost/[DB];progName=Slick_TestKit;namedPipe=true;domain=local
+sqlserver.user = dbo
+sqlserver.password =
+sqlserver.adminDB = master
+sqlserver.testDB = slick-test
+sqlserver.defaultSchema = dbo
+sqlserver.create = CREATE DATABASE "[DB]" ON (NAME = '[DB]_dat', FILENAME = '[DBPATH]\\[DB].mdf') LOG ON (NAME = '[DB]_log', FILENAME = "[DBPATH]\\[DB].ldf")
+#sqlserver.create = CREATE DATABASE "[DB]"
+sqlserver.drop = IF EXISTS(SELECT name FROM sys.databases WHERE name = '[DB]') DROP DATABASE "[DB]"
+sqlserver.driver = net.sourceforge.jtds.jdbc.Driver
+
+# SQL Server via sqljdbc quick setup:
+# - Install SQL Server Express 2008 R2:
+#   http://www.microsoft.com/express/Database/InstallOptions.aspx
+# - Install sqljdbc:
+#   http://www.microsoft.com/en-us/download/details.aspx?id=11774
+# - Enter the correct path to sqljdbc4.jar in sqlserver-jdbc.driverJar
+# - Enter the password for the "sa" user in sqlserver-jdbc.password
+#   (use SQL Server Management Studio to set a password if necessary)
+# - Ensure that the TCP transport on port 1433 is enabled (-> SQL Server
+#   Configuration Manager)
+#   Ensure that the "sa" user is allowed to log in, and that SQL Server
+#   accepts SQL Server authentication (not just Windows authentication)
+#   (-> SQL Server Management Studio)
+# - Set sqlserver-jdbc.enabled = true
+sqlserver-jdbc.enabled = false
+sqlserver-jdbc.url = jdbc:sqlserver://localhost;database=[DB];applicationName=Slick_TestKit
+sqlserver-jdbc.user = sa
+sqlserver-jdbc.password = secret
+sqlserver-jdbc.adminDB = master
+sqlserver-jdbc.testDB = slick-test
+sqlserver-jdbc.defaultSchema = dbo
+sqlserver-jdbc.create = CREATE DATABASE "[DB]" ON (NAME = '[DB]_dat', FILENAME = '[DBPATH]\\[DB].mdf') LOG ON (NAME = '[DB]_log', FILENAME = "[DBPATH]\\[DB].ldf")
+#sqlserver-jdbc.create = CREATE DATABASE "[DB]"
+sqlserver-jdbc.drop = IF EXISTS(SELECT name FROM sys.databases WHERE name = '[DB]') DROP DATABASE "[DB]"
+sqlserver-jdbc.driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
+sqlserver-jdbc.driverJar = file:///C:/StandaloneApps/sqljdbc_4.0/enu/sqljdbc4.jar
