@@ -85,7 +85,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
     }
     def fail : Unit = fail()
     def success{ print(".") }
-    def assertEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
+    def assertEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( rhs.groupBy(x=>x), lhs.groupBy(x=>x) )
     def assertMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEqualMultiSet( backend.result(queryable,threadLocalSession), expected)
     def assertNotEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
     def assertNoMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = try{
