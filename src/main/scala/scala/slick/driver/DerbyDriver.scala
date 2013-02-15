@@ -94,7 +94,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         b"coalesce(cast($l as ${typeInfoFor(c.nodeType).sqlTypeName}),!$r)"
-      case c @ BindColumn(v) if currentPart == SelectPart =>
+      case c @ LiteralNode(v) if c.volatileHint && currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an

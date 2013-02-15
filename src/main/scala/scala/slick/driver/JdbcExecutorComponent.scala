@@ -1,35 +1,30 @@
 package scala.slick.driver
 
-import scala.slick.ast.Node
-import scala.slick.compiler.CodeGen
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, StatementInvoker}
+import scala.slick.ast.{CompiledStatement, First, ResultSetMapping, Node}
+import scala.slick.ast.Util._
+import scala.slick.ast.TypeUtil._
 import scala.slick.lifted.Shape
-import scala.slick.util.{SQLBuilder, ValueLinearizer, CollectionLinearizer, RecordLinearizer}
-import java.sql.PreparedStatement
+import scala.slick.util.SQLBuilder
 
 trait JdbcExecutorComponent { driver: JdbcDriver =>
 
-  class QueryExecutor[R](tree: Node, linearizer: ValueLinearizer[_]) {
+  // Create an executor -- this method should be overridden by drivers as needed
+  def createQueryExecutor[R](tree: Node) = new QueryExecutor[R](tree)
 
-    def selectStatement = sres.sql
+  class QueryExecutor[R](tree: Node) {
 
-    protected val (_, sres: SQLBuilder.Result) = CodeGen.findResult(tree)
+    lazy val selectStatement =
+      tree.findNode(_.isInstanceOf[CompiledStatement]).get
+        .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
 
-    def run(implicit session: Backend#Session): R = {
-      val i = new StatementInvoker[Unit, Any] {
-        protected def getStatement = sres.sql
-        protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
-        protected def extractValue(rs: PositionedResult) = linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[Any]].getResult(driver, rs)
-      }
-      val res = linearizer match {
-        case _: RecordLinearizer[_] => i.first()
-        case c =>
-          val builder = c.asInstanceOf[CollectionLinearizer[Any, Any]].canBuildFrom()
-          i.foreach((), builder += _)
-          builder.result()
-      }
-      res.asInstanceOf[R]
-    }
+    def run(implicit session: Backend#Session): R = (tree match {
+      case rsm: ResultSetMapping =>
+        createQueryInvoker[Any](rsm).to(session, rsm.nodeType.asCollectionType.cons.canBuildFrom)
+      case First(rsm: ResultSetMapping) =>
+        createQueryInvoker[Any](rsm).first
+    }).asInstanceOf[R]
+
+    def executor: this.type = this
   }
 
   // Work-around for SI-3346

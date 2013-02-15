@@ -2,6 +2,7 @@ package scala.slick.ast
 
 import scala.language.implicitConversions
 import scala.slick.SlickException
+import scala.collection.generic.CanBuildFrom
 
 /** Super-trait for all types */
 trait Type
@@ -39,6 +40,7 @@ case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) ex
 }
 
 case class CollectionTypeConstructor(dummy: String = "") {
+  def canBuildFrom = implicitly[CanBuildFrom[Vector[Any], Any, Vector[Any]]]
   override def toString = "Coll"
 }
 

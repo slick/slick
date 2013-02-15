@@ -36,7 +36,7 @@ trait JdbcTableComponent { driver: JdbcDriver =>
       }) + "." + n
     }
 
-    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): JdbcQueryTemplate[P,T] = {
+    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): QueryTemplate[P,T] = {
       import driver.Implicit._
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {

@@ -11,12 +11,11 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
 import scala.slick.profile.SqlProfile
 import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.slick.jdbc.{ResultConverter, CompiledMapping, Insert}
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
-  def createQueryTemplate[P,R](q: Query[_, R]): JdbcQueryTemplate[P,R] =
-    new JdbcQueryTemplate[P,R](selectStatementCompiler.run(Node(q)).tree, q, this)
   def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -151,7 +150,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
-      case Typed(t: TypedType[_]) if useIntForBoolean && (typeInfoFor(t) == driver.columnTypes.booleanJdbcType) =>
+      case Typed(t: TypedType[_]) if useIntForBoolean && (typeInfoFor(t) == columnTypes.booleanJdbcType) =>
         b"case when $n then 1 else 0 end"
       case n =>
         expr(n, true)
@@ -187,9 +186,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case LiteralNode(true) if useIntForBoolean => b"\(1=1\)"
-      case LiteralNode(false) if useIntForBoolean => b"\(1=0\)"
-      case LiteralNode(null) => b"null"
+      case n @ LiteralNode(v) =>
+        if(n.volatileHint) b +?= { (p, param) => typeInfoFor(n.tpe).setValue(v, p) }
+        else if((true == v) && useIntForBoolean) b"\(1=1\)"
+        else if((false == v) && useIntForBoolean) b"\(1=0\)"
+        else b += typeInfoFor(n.tpe).valueToSQLLiteral(v)
+      case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
+        typeInfoFor(tpe).setValue(extractor(param), p)
+      }
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"
       case Library.==(l, LiteralNode(null)) =>
@@ -262,11 +266,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
         b")"
-      case c @ BindColumn(v) => b +?= { (p, param) => typeInfoFor(c.tpe).setValue(v, p) }
-      case l @ LiteralNode(v) => b += typeInfoFor(l.tpe).valueToSQLLiteral(v)
-      case pc @ ParameterColumn(extractor) => b +?= { (p, param) =>
-        typeInfoFor(pc.tpe).setValue(extractor.asInstanceOf[(Any => Any)](param), p)
-      }
       case c: ConditionalExpr =>
         b"(case"
         c.clauses.reverseIterator.foreach { case IfThen(l, r) => b" when $l then $r" }
@@ -426,52 +425,33 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   /** Builder for INSERT statements. */
   class InsertBuilder(val node: Node) {
 
-    class PartsResult(val table: String, val fields: IndexedSeq[FieldSymbol]) {
-      def qtable = quoteIdentifier(table)
-      def qcolumns = fields.map(s => quoteIdentifier(s.name)).mkString(",")
-      def qvalues = IndexedSeq.fill(fields.size)("?").mkString(",")
-    }
+    protected[this] val Insert(_, table: TableNode, _, ProductNode(columns)) = node
+    protected[this] def qtable = quoteIdentifier(table.tableName)
+    protected[this] def qcolumns = columns.map { case Select(_, fs: FieldSymbol) => quoteIdentifier(fs.name) }.mkString(",")
+    protected[this] def qvalues = columns.map(_ => "?").mkString(",")
 
     def buildInsert: InsertBuilderResult = {
-      val pr = buildParts(node)
-      InsertBuilderResult(pr.table, s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) VALUES (${pr.qvalues})")
+      InsertBuilderResult(table.tableName, s"INSERT INTO $qtable ($qcolumns) VALUES ($qvalues)")
     }
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
-      val pr = buildParts(node)
       val (_, sbr: SQLBuilder.Result) =
-        CodeGen.findResult(driver.selectStatementCompiler.run((Node(query))).tree)
-      InsertBuilderResult(pr.table, s"INSERT INTO ${pr.qtable} (${pr.qcolumns}) ${sbr.sql}", sbr.setter)
+        CodeGen.findResult(selectStatementCompiler.run((Node(query))).tree)
+      InsertBuilderResult(table.tableName, s"INSERT INTO $qtable ($qcolumns) ${sbr.sql}", sbr.setter)
     }
 
-    def buildReturnColumns(node: Node, table: String): IndexedSeq[FieldSymbol] = {
-      val r = buildParts(node)
-      if(r.table != table)
+    def buildReturnColumns(node: Node, table: String): (IndexedSeq[String], ResultConverter) = {
+      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
+        throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
+      val ResultSetMapping(_, Insert(_, ktable: TableNode, _, ProductNode(kpaths)), CompiledMapping(rconv, _)) =
+        insertStatementCompiler.run(node).tree
+      if(ktable.tableName != table)
         throw new SlickException("Returned key columns must be from same table as inserted columns ("+
-          r.table+" != "+table+")")
-      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && (r.fields.size > 1 || !r.fields.head.options.contains(ColumnOption.AutoInc)))
+          ktable+" != "+table+")")
+      val kfields = kpaths.map { case Select(_, fs: FieldSymbol) => fs }.toIndexedSeq
+      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && (kfields.size > 1 || !kfields.head.options.contains(ColumnOption.AutoInc)))
         throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
-      r.fields
-    }
-
-    protected def buildParts(node: Node): PartsResult = {
-      val cols = new ArrayBuffer[FieldSymbol]
-      var table: String = null
-      def f(c: Any): Unit = c match {
-        case OptionApply(ch) => f(ch)
-        case GetOrElse(ch, _) => f(ch)
-        case ProductNode(ch) => ch.foreach(f)
-        case t:TableNode => f(Node(t.nodeShaped_*.value))
-        case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
-          if(table eq null) table = t.tableName
-          else if(table != t.tableName) throw new SlickException("Inserts must all be to the same table")
-          cols += field
-        case t: TypeMapping => f(t.child)
-        case _ => throw new SlickException("Cannot use column "+c+" in INSERT statement")
-      }
-      f(node)
-      if(table eq null) throw new SlickException("No table to insert into")
-      new PartsResult(table, cols)
+      (kfields.map(_.name), rconv)
     }
   }
 

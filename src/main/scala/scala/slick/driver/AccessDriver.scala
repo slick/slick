@@ -7,7 +7,6 @@ import scala.slick.compiler.{QueryCompiler, CompilerState, Phase}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
 import scala.slick.lifted._
 import scala.slick.profile.{SqlProfile, Capability}
-import scala.slick.util.ValueLinearizer
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.util.UUID
 import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
@@ -95,17 +94,13 @@ trait AccessDriver extends JdbcDriver { driver =>
   override val compiler =
     QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
-  class Implicits extends super.Implicits {
-    override implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = new QueryInvoker(newSelectStatementCompiler.run(Node(q)).tree)
-  }
-
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createQueryInvoker[R](tree: Node) = new QueryInvoker(tree)
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
@@ -174,11 +169,6 @@ trait AccessDriver extends JdbcDriver { driver =>
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = ()
-  }
-
-  class InsertBuilder(node: Node) extends super.InsertBuilder(node) {
-    override def buildReturnColumns(node: Node, table: String): IndexedSeq[FieldSymbol] =
-      throw new SlickException("Returning columns from INSERT statements is not supported by Access")
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {

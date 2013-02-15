@@ -1,14 +1,12 @@
 package scala.slick.lifted
 
-import scala.slick.driver.JdbcDriver
-import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 
 abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with TypedNode with ColumnBase[T] with WithOp {
 
   def * : ColumnBase[T]
-  def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
+  def nodeTableProjection: Node = Node(*)
 
   def create_* : Iterable[FieldSymbol] = {
     Node(*).collect {
@@ -29,7 +27,7 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
     new ForeignKeyQuery[TT, U](Filter(generator, Node(q), fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
-  def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).narrowedLinearizer.getLinearizedNodes)
+  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(Node(shape.pack(sourceColumns))))
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
@@ -43,17 +41,12 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
 
-  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, shape.linearizer(on).narrowedLinearizer.getLinearizedNodes, unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(Node(shape.pack(on))), unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index])
-
-  def getLinearizedNodes = *.getLinearizedNodes
-  def getResult(driver: JdbcDriver, rs: PositionedResult) = *.getResult(driver, rs)
-  def updateResult(driver: JdbcDriver, rs: PositionedResult, value: T) = *.updateResult(driver, rs, value)
-  def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[T]) = *.setParameter(driver, ps, value)
 
   override def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self =
     super[TypedNode].nodeWithComputedType(scope, retype)
