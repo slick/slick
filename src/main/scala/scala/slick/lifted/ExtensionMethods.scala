@@ -4,6 +4,7 @@ import scala.language.implicitConversions
 import scala.slick.ast._
 import FunctionSymbolExtensionMethods._
 import StaticType._
+import scala.slick.SlickException
 
 trait ExtensionMethods[B1, P1] extends Any {
   def c: Column[P1]
@@ -28,7 +29,9 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 }
 
 /** Extension methods for all Columns */
-final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[B1, P1] {
+trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
+  val c: Column[P1]
+
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
 
@@ -62,12 +65,23 @@ final class ColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal wit
     else Library.In.column(n, ProductNode(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) }.toSeq)))
   def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
     if(seq.isEmpty) ConstColumn(false)
-    else Library.In.column(n, ProductNode(seq.map(v => BindColumn[B1](v)).toSeq)))
+    else Library.In.column(n, ProductNode(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)).toSeq)))
 
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
     om(Library.Between.column(n, Node(start), Node(end)))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Column[P2] =
     Library.IfNull.column[P2](n, Node(e))(e.tpe)
+}
+
+final class PlainColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal with ColumnExtensionMethods[P1, P1] {
+  def ? : Column[Option[P1]] = Column.forNode(OptionApply(Node(c)))(c.tpe.optionType)
+}
+
+final class OptionColumnExtensionMethods[B1](val c: Column[Option[B1]]) extends AnyVal with ColumnExtensionMethods[B1, Option[B1]] {
+  def getOrElse(default: => B1): Column[B1] =
+    Column.forNode[B1](GetOrElse(Node(c), () => default))(c.tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
+  def get: Column[B1] =
+    getOrElse { throw new SlickException("Read NULL value for column "+this) }
 }
 
 /** Extension methods for numeric Columns */
@@ -134,8 +148,8 @@ trait ExtensionMethodConversions {
   implicit def anyOptionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new AnyExtensionMethods(Node(c))
   implicit def anyValueExtensionMethods[B1 : BaseTypedType](v: B1) = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[B1]], v))
   implicit def anyOptionValueExtensionMethods[B1 : TypedType](v: Option[B1]) = new AnyExtensionMethods(LiteralNode(implicitly[TypedType[Option[B1]]], v))
-  implicit def columnExtensionMethods[B1 : BaseTypedType](c: Column[B1]) = new ColumnExtensionMethods[B1, B1](c)
-  implicit def optionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new ColumnExtensionMethods[B1, Option[B1]](c)
+  implicit def columnExtensionMethods[B1 : BaseTypedType](c: Column[B1]) = new PlainColumnExtensionMethods[B1](c)
+  implicit def optionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new OptionColumnExtensionMethods[B1](c)
   implicit def numericColumnExtensionMethods[B1](c: Column[B1])(implicit tm: BaseTypedType[B1] with NumericTypedType) = new NumericColumnExtensionMethods[B1, B1](c)
   implicit def numericOptionColumnExtensionMethods[B1](c: Column[Option[B1]])(implicit tm: BaseTypedType[B1] with NumericTypedType) = new NumericColumnExtensionMethods[B1, Option[B1]](c)
   implicit def stringColumnExtensionMethods(c: Column[String]) = new StringColumnExtensionMethods[String](c)

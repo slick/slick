@@ -3,32 +3,38 @@ package scala.slick.driver
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
-import scala.slick.compiler.CodeGen
 import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
-import scala.slick.jdbc.{CompiledMapping, UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
-import scala.slick.util.{SQLBuilder, ValueLinearizer, RecordLinearizer}
+import scala.slick.jdbc.{Insert, CompiledMapping, UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
+import scala.slick.util.SQLBuilder
 
 trait JdbcInvokerComponent { driver: JdbcDriver =>
 
   // Create the different invokers -- these methods should be overridden by drivers as needed
-  def createCountingInsertInvoker[T, U](u: ShapedValue[T, U]) = new CountingInsertInvoker(u)
-  def createKeysInsertInvoker[U, RU](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU]) = new KeysInsertInvoker(unpackable, keys)
-  def createMappedKeysInsertInvoker[U, RU, R](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU], tr: (U, RU) => R) = new MappedKeysInsertInvoker(unpackable, keys, tr)
+  def createCountingInsertInvoker[U](tree: Node) = new CountingInsertInvoker[U](tree)
+  def createKeysInsertInvoker[U, RU](tree: Node, keys: Node) = new KeysInsertInvoker[U, RU](tree, keys)
+  def createMappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R) = new MappedKeysInsertInvoker[U, RU, R](tree, keys, tr)
+  def createQueryInvoker[R](tree: Node) = new QueryInvoker[R](tree)
+  def createUpdateInvoker[T](tree: Node) = new UpdateInvoker[T](tree)
+  def createQueryTemplate[P,R](tree: Node): QueryTemplate[P,R] = new QueryTemplate[P,R](tree)
 
-  /** Invoker for executing queries. */
-  class QueryInvoker[R](protected val tree: Node)
-    extends MutatingStatementInvoker[Unit, R] with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
-
-    val ResultSetMapping(_,
+  /** A parameterized query invoker. */
+  class QueryTemplate[P, R](protected val tree: Node) extends MutatingStatementInvoker[P, R] {
+    protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(converter, _)) = tree
 
-    override protected val delegate = this
+    def selectStatement = getStatement
     protected def getStatement = sres.sql
-    protected def setParam(param: Unit, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), null)
+    protected def setParam(param: P, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), param)
     protected def extractValue(pr: PositionedResult): R = converter.read(pr).asInstanceOf[R]
     protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr)
     def invoker: this.type = this
+  }
+
+  /** Invoker for executing queries. */
+  class QueryInvoker[R](tree: Node) extends QueryTemplate[Unit, R](tree)
+    with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
+    override protected val delegate = this
   }
 
   /** Pseudo-invoker for running DDL statements. */
@@ -50,7 +56,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
 
   /** Pseudo-invoker for running DELETE calls. */
   class DeleteInvoker(protected val tree: Node) {
-    protected val (_, sres: SQLBuilder.Result) = CodeGen.findResult(tree)
+    protected[this] val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
 
     def deleteStatement = sres.sql
 
@@ -63,8 +69,10 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running INSERT calls. */
-  abstract class InsertInvoker[U](unpackable: ShapedValue[_, U]) {
-    protected lazy val builder = createInsertBuilder(Node(unpackable.value))
+  abstract class InsertInvoker[U](tree: Node) {
+
+    protected[this] val ResultSetMapping(_, insertNode: Insert, CompiledMapping(converter, _)) = tree
+    protected[this] lazy val builder = createInsertBuilder(insertNode)
 
     type RetOne
     type RetMany
@@ -86,7 +94,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
     /** Insert a single row. */
     def insert(value: U)(implicit session: Backend#Session): RetOne = prepared(insertStatement) { st =>
       st.clearParameters()
-      unpackable.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[U]].setParameter(driver, new PositionedParameters(st), Some(value))
+      converter.set(value, new PositionedParameters(st))
       val count = st.executeUpdate()
       retOne(st, value, count)
     }
@@ -102,7 +110,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
         prepared(insertStatement) { st =>
           st.clearParameters()
           for(value <- values) {
-            unpackable.linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[U]].setParameter(driver, new PositionedParameters(st), Some(value))
+            converter.set(value, new PositionedParameters(st))
             st.addBatch()
           }
           var unknown = false
@@ -136,8 +144,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running INSERT calls and returning affected row counts. */
-  class CountingInsertInvoker[U](unpackable: ShapedValue[_, U])
-    extends InsertInvoker[U](unpackable) with FullInsertInvoker[U] {
+  class CountingInsertInvoker[U](tree: Node) extends InsertInvoker[U](tree) with FullInsertInvoker[U] {
 
     type RetOne = Int
     type RetMany = Option[Int]
@@ -162,31 +169,29 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
 
     def returning[RT, RU](value: RT)(implicit shape: Shape[RT, RU, _]) =
-      createKeysInsertInvoker[U, RU](unpackable, new ShapedValue[RT, RU](value, shape))
+      createKeysInsertInvoker[U, RU](tree, new ShapedValue[RT, RU](value, shape).packedNode)
   }
 
   /** Base class with common functionality for KeysInsertInvoker and MappedKeysInsertInvoker. */
-  abstract class AbstractKeysInsertInvoker[U, RU](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU])
-    extends InsertInvoker[U](unpackable) {
+  abstract class AbstractKeysInsertInvoker[U, RU](tree: Node, keys: Node)
+    extends InsertInvoker[U](tree) {
 
-    protected def buildKeysResult(st: Statement): UnitInvoker[RU] = {
-      val lin = keys.linearizer.asInstanceOf[RecordLinearizer[RU]]
-      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => lin.getResult(driver, pr))
-    }
+    protected def buildKeysResult(st: Statement): UnitInvoker[RU] =
+      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr).asInstanceOf[RU])
 
     // Returning keys from batch inserts is generally not supported
     override def useBatchUpdates(implicit session: Backend#Session) = false
 
-    protected lazy val keyColumns =
-      builder.buildReturnColumns(keys.packedNode, insertResult.table).map(_.name).toArray
+    protected lazy val (keyColumns, keyConverter) =
+      builder.buildReturnColumns(keys, insertResult.table)
 
     override protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
-      session.withPreparedInsertStatement(sql, keyColumns)(f)
+      session.withPreparedInsertStatement(sql, keyColumns.toArray)(f)
   }
 
   /** Pseudo-invoker for running INSERT calls and returning generated keys. */
-  class KeysInsertInvoker[U, RU](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU])
-    extends AbstractKeysInsertInvoker[U, RU](unpackable, keys) with FullInsertInvoker[U] {
+  class KeysInsertInvoker[U, RU](tree: Node, keys: Node)
+    extends AbstractKeysInsertInvoker[U, RU](tree, keys) with FullInsertInvoker[U] {
 
     type RetOne = RU
     type RetMany = Seq[RU]
@@ -207,12 +212,12 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
       buildKeysResult(st).to[Vector]
     }
 
-    def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](unpackable, keys, f)
+    def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](tree, keys, f)
   }
 
   /** Pseudo-invoker for running INSERT calls and returning generated keys combined with the values. */
-  class MappedKeysInsertInvoker[U, RU, R](unpackable: ShapedValue[_, U], keys: ShapedValue[_, RU],
-    tr: (U, RU) => R) extends AbstractKeysInsertInvoker[U, RU](unpackable, keys) {
+  class MappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R)
+    extends AbstractKeysInsertInvoker[U, RU](tree, keys) {
 
     type RetOne = R
     type RetMany = Seq[R]
@@ -232,8 +237,10 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running UPDATE calls. */
-  class UpdateInvoker[T](protected val tree: Node, protected val linearizer: ValueLinearizer[_]) {
-    protected val (_, sres: SQLBuilder.Result) = CodeGen.findResult(tree)
+  class UpdateInvoker[T](protected val tree: Node) {
+    protected[this] val ResultSetMapping(_,
+      CompiledStatement(_, sres: SQLBuilder.Result, _),
+      CompiledMapping(converter, _)) = tree
 
     def updateStatement = getStatement
 
@@ -242,7 +249,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
     def update(value: T)(implicit session: Backend#Session): Int = session.withPreparedStatement(updateStatement) { st =>
       st.clearParameters
       val pp = new PositionedParameters(st)
-      linearizer.narrowedLinearizer.asInstanceOf[RecordLinearizer[T]].setParameter(driver, pp, Some(value))
+      converter.set(value, pp)
       sres.setter(pp, null)
       st.executeUpdate
     }

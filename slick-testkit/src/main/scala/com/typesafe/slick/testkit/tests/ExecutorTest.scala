@@ -26,6 +26,8 @@ class ExecutorTest(val tdb: TestDB) extends TestkitTest {
     val r2t: Seq[Int] = r2
     assertEquals(List(1, 2, 3, 4, 5), r2t)
 
+    assertTrue(q.executor.selectStatement.length > 0)
+
     val r3 = q.length.run
     val r3t: Int = r3
     assertEquals(5, r3t)

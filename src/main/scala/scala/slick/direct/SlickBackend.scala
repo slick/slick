@@ -4,11 +4,9 @@ import language.existentials
 import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.driver._
-import scala.slick.lifted.{Shape, ShapedValue}
 import scala.slick.{ast => sq}
 import scala.slick.ast.{Library,FunctionSymbol}
 import scala.slick.ast.Dump
-import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
 import scala.reflect.ClassTag
 import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
@@ -122,7 +120,14 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     }
 
   def columnName( sym:Symbol ) = mapper.fieldToColumn( sym )
-  def columnType( tpe:Type ) = columnTypes(typeName(underlyingType(tpe)))
+  def columnType( tpe:Type ) = {
+    val underlying = columnTypes(typeName(underlyingType(tpe)))
+    if( tpe.typeSymbol == typeOf[Option[_]].typeSymbol ){
+      underlying.optionType
+    } else {
+      underlying
+    }
+  }
   private def columnField( sym:Symbol ) = 
     sq.FieldSymbol( columnName(sym) )(
       if(isNullable(sym)) List(ColumnOption.Nullable) else List()
@@ -152,13 +157,23 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val table = new sq.TableNode with sq.WithOp with sq.TypedNode {
       val schemaName = None
       val tableName = mapper.typeToTable( typetag.tpe )
-      def nodeShaped_* = ShapedValue(
-        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym,sq.Node(this)) ) ),
-        Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]]
+      val rowType = sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ).toIndexedSeq)
+      def nodeTableProjection = sq.TypeMapping(
+        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym,sq.Node(this)) )),
+        sq.ProductType( _fields.map( fieldSym => /*columnField(fieldSym) ->*/ columnType(fieldSym.typeSignature) ).toIndexedSeq ),
+        v => throw new Exception("not implemented yet"),
+        v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
+               .reflectConstructor(
+                 typetag.tpe.member( nme.CONSTRUCTOR ).asMethod
+               )( (v match {
+                 case v:Vector[_] => v
+                 case v:Product => v.productIterator.toVector
+               }):_* )
       )
+
       def tpe = sq.CollectionType(
         sq.CollectionTypeConstructor.default,
-        sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ))
+        nodeTableProjection.tpe
       )
       override def nodeWithComputedType(scope: sq.SymbolScope, retype: Boolean) =
         super[TypedNode].nodeWithComputedType(scope, retype)
@@ -382,34 +397,6 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val (tpe,query) = this.toQuery(queryablevalue.value.tree)
     (tpe,driver.selectStatementCompiler.run(query.node))
   }
-
-  protected def resultByType( expectedType : Type, rs: PositionedResult, session:driver.Backend#Session) : Any = {
-    def createInstance( args:Seq[Any] ) = {
-      val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethod
-      val cls = cm.reflectClass( cm.classSymbol(cm.runtimeClass(expectedType)) )
-      cls.reflectConstructor( constructor )( args:_* )
-    }
-    import TupleTypes.tupleTypes
-    (expectedType match {
-      case t if canBeMapped(expectedType) => {
-        val res = driver.typeInfoFor(columnType(expectedType)).nextValue(rs)
-        if(isNullable(expectedType)) (if(res==null) None else Some(res)) else res
-      }
-      case t if tupleTypes.exists( expectedType <:< _ ) =>
-        val typeArgs = expectedType match { case TypeRef(_,_,args_) => args_ } 
-        val args = typeArgs.map{
-          tpe => resultByType( tpe, rs, session )
-        }
-        createInstance( args )
-      case t if t.typeSymbol.asClass.isCaseClass =>
-        val args = expectedType.member( nme.CONSTRUCTOR ).typeSignature match {
-          case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
-            param =>  resultByType( param.typeSignature, rs, session )
-          }
-        }
-        createInstance( args )
-    })
-  }
   def result[R]( queryable:BaseQueryable[R], session:driver.Backend#Session) : Vector[R] = {
     val (tpe,query) = queryable2cstate( queryable, session )
     result(tpe,query, session)
@@ -419,19 +406,9 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val res = result(tpe,query, session)
     res(0)
   }
-  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] = {
-    val linearizer = new CollectionLinearizer[Vector,R]{
-      def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
-          def getResult(driver: JdbcDriver, rs: PositionedResult): R
-            = resultByType( tpe, rs, session ).asInstanceOf[R]
-          def updateResult(driver: JdbcDriver, rs: PositionedResult, value: R): Unit = ???
-          def setParameter(driver: JdbcDriver, ps: PositionedParameters, value: Option[R]): Unit = ???
-          def getLinearizedNodes: IndexedSeq[Node] = ???
-        }
-        def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
-    }
-    new driver.QueryExecutor[Vector[R]](cstate.tree, linearizer).run(session)
-  }
+  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] =
+    new driver.QueryExecutor[Vector[R]](cstate.tree).run(session)
+
   protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
     val builder = driver.createQueryBuilder(cstate.tree, cstate)

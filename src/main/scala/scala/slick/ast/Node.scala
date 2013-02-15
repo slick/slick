@@ -1,9 +1,7 @@
 package scala.slick.ast
 
-import scala.language.existentials
 import scala.slick.SlickException
-import slick.lifted.ShapedValue
-import slick.util.{Logging, SimpleTypeName}
+import scala.slick.util.{Logging, SimpleTypeName}
 import TypeUtil.typeToTypeUtil
 import Util._
 
@@ -194,14 +192,21 @@ final case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends Produc
 trait LiteralNode extends NullaryNode with TypedNode {
   type Self = LiteralNode
   def value: Any
+
+  /** Indicates whether this value should be considered volatile, i.e. it
+    * contains user-generated data or may change in future executions of what
+    * is otherwise the same query. A database back-end should usually turn
+    * volatile constants into bind variables. */
+  def volatileHint: Boolean
 }
 
 object LiteralNode {
-  def apply(tp: Type, v: Any): LiteralNode = new LiteralNode {
+  def apply(tp: Type, v: Any, vol: Boolean = false): LiteralNode = new LiteralNode {
     val value = v
     val tpe = tp
     def nodeRebuild = apply(tp, v)
-    override def toString = "LiteralNode " + value
+    def volatileHint = vol
+    override def toString = s"LiteralNode $value (volatileHint=$volatileHint)"
   }
   def apply[T](v: T)(implicit tp: StaticType[T]): LiteralNode = apply(tp, v)
   def unapply(n: LiteralNode): Option[Any] = Some(n.value)
@@ -537,14 +542,14 @@ object Path {
   * implementations of this class. */
 abstract class TableNode extends NullaryNode { self =>
   type Self = TableNode
-  def nodeShaped_* : ShapedValue[_, _]
+  def nodeTableProjection: Node
   def schemaName: Option[String]
   def tableName: String
   def nodeTableSymbol: TableSymbol = TableSymbol(tableName)
   def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = this
   override def toString = "Table " + tableName
   def nodeRebuild: TableNode = new TableNode {
-    def nodeShaped_* = self.nodeShaped_*
+    def nodeTableProjection = self.nodeTableProjection
     def schemaName = self.schemaName
     def tableName = self.tableName
   }
@@ -676,5 +681,12 @@ final case class TypeMapping(val child: Node, val baseType: Type, val toBase: An
     def toBase(v: Any): Any = self.toBase(v)
     def toMapped(v: Any): Any = self.toMapped(v)
   }
-  override def toString = s"TypeMapping"
+  override def toString = "TypeMapping"
+}
+
+/** A parameter from a QueryTemplate which gets turned into a bind variable. */
+final case class QueryParameter(extractor: (Any => Any), val tpe: Type) extends NullaryNode with TypedNode {
+  type Self = QueryParameter
+  def nodeRebuild = copy()
+  override def toString = "QueryParameter"
 }
