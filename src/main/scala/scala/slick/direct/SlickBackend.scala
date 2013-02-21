@@ -291,7 +291,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
               val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
               val sq_rhs = s2sq(body, new_scope).node
               new Query( term.decoded match {
-                case "filter"     => sq.Filter( sq_symbol, sq_lhs, sq_rhs )
+                case "filter"     => sq.Filter.ifRefutable( sq_symbol, sq_lhs, sq_rhs )
                 case "sortBy"     => sq.SortBy( sq_symbol, sq_lhs, flattenAndPrepareForSortBy(sq_rhs) )
                 case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(sq_rhs) )
                 case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, sq_rhs )

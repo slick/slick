@@ -291,10 +291,13 @@ final case class Filter(generator: Symbol, from: Node, where: Node) extends Filt
   def right = where
   override def nodeChildNames = Seq("from "+generator, "where")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, where = right)
-  override def nodeDelegate =
-    if(where match { case LiteralNode(true) => true; case _ => false }) left
-    else super.nodeDelegate
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
+}
+
+object Filter {
+  def ifRefutable(generator: Symbol, from: Node, where: Node): Node =
+    if(where match { case LiteralNode(true) => true; case _ => false }) from
+    else Filter(generator, from, where)
 }
 
 /** A .sortBy call of type
