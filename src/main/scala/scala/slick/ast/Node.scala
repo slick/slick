@@ -195,6 +195,12 @@ final case class Filter(generator: Symbol, from: Node, where: Node) extends Filt
   def nodePostGeneratorChildren = Seq(where)
 }
 
+object Filter {
+  def ifRefutable(generator: Symbol, from: Node, where: Node): Node =
+    if(where match { case LiteralNode(true) => true; case _ => false }) from
+    else Filter(generator, from, where)
+}
+
 /** A .sortBy call of type
   * (CollectionType(c, t), _) => CollectionType(c, t). */
 final case class SortBy(generator: Symbol, from: Node, by: Seq[(Node, Ordering)]) extends FilteredQuery with SimpleNode with SimpleDefNode {

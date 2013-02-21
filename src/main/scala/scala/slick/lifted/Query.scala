@@ -35,7 +35,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with CollectionLinearizer[Seq, U
     val generator = new AnonSymbol
     val aliased = unpackable.encodeRef(generator)
     val fv = f(aliased.value)
-    new WrappingQuery[E, U](Filter(generator, Node(this), Node(wt(fv))), unpackable)
+    new WrappingQuery[E, U](Filter.ifRefutable(generator, Node(this), Node(wt(fv))), unpackable)
   }
 
   def withFilter[T : CanBeQueryCondition](f: E => T) = filter(f)

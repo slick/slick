@@ -72,7 +72,7 @@ class DumpContext(val out: PrintWriter) {
       case _ =>
         out.println(prefix + name + tree)
         for((chg, n) <- tree.nodeChildren.zip(tree.nodeChildNames))
-          dump(Node(chg), prefix + "  ", n+": ")
+          dump(chg, prefix + "  ", n+": ")
     }
   }
 }

@@ -176,7 +176,7 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
           val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
           val rhs = s2sq(body, new_scope)
           new Query( term.decoded match {
-            case "filter"     => sq.Filter( sq_symbol, sq_lhs, rhs.node )
+            case "filter"     => sq.Filter.ifRefutable( sq_symbol, sq_lhs, rhs.node )
             case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(rhs.node) )
             case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, rhs.node )
             case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )

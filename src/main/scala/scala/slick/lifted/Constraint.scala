@@ -75,7 +75,7 @@ class ForeignKeyQuery[E <: TableNode, U](
     val conditions =
       newFKs.map(fk => Library.==(Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
         reduceLeft[Node]((a, b) => Library.And(a, b))
-    val newDelegate = Filter(generator, Node(targetBaseQuery), conditions)
+    val newDelegate = Filter.ifRefutable(generator, Node(targetBaseQuery), conditions)
     new ForeignKeyQuery[E, U](newDelegate, base, newFKs, targetBaseQuery, generator, aliasedValue)
   }
 }
