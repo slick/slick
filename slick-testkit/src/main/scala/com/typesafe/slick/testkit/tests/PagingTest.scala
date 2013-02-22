@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class PagingTest(val tdb: TestDB) extends TestkitTest {
+class PagingTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   object IDs extends Table[Int]("ids") {

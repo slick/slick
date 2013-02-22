@@ -106,7 +106,7 @@ trait JdbcDriver extends SqlDriver
   with JdbcStatementBuilderComponent
   with JdbcTypesComponent { driver =>
 
-  val profile: JdbcProfile = this
+  override val profile: JdbcProfile = this
 
   def quote[T](v: T)(implicit tm: TypedType[T]): String = typeInfoFor(tm).valueToSQLLiteral(v)
 }

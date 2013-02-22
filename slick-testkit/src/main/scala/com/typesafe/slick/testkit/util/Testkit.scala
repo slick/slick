@@ -9,10 +9,12 @@ import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.driver.JdbcProfile
 import com.typesafe.slick.testkit.{tests => tk}
 import java.lang.reflect.Method
+import scala.slick.SlickException
+import scala.reflect.ClassTag
 
 /** Lists all tests of the Slick driver test kit */
 object Testkit {
-  val tests: List[Class[_ <: TestkitTest]] =
+  val tests: List[Class[_ <: TestkitTest[_ >: Null <: TestDB]]] =
     classOf[tk.AggregateTest] ::
     classOf[tk.ColumnDefaultTest] ::
     classOf[tk.CountTest] ::
@@ -37,7 +39,7 @@ object Testkit {
     classOf[tk.TemplateTest] ::
     classOf[tk.TransactionTest] ::
     classOf[tk.UnionTest] ::
-    (Nil: List[Class[_ <: TestkitTest]])
+    (Nil: List[Class[_ <: TestkitTest[_ >: Null <: TestDB]]])
 }
 
 /** JUnit runner for the Slick driver test kit. */
@@ -63,21 +65,22 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
   override def runChildren(notifier: RunNotifier) = if(!children.isEmpty) {
     tdb.cleanUpBefore()
     try {
-      val is = children.iterator.zipWithIndex.toIndexedSeq
+      val is = children.iterator.map(ch => (ch, ch.cl.newInstance()))
+        .filter{ case (_, to) => to.setTestDB(tdb) }.zipWithIndex.toIndexedSeq
       val last = is.length - 1
-      var previousTestObject: TestkitTest = null
-      for((ch, idx) <- is) {
+      var previousTestObject: TestkitTest[_ >: Null <: TestDB] = null
+      for(((ch, preparedTestObject), idx) <- is) {
         val desc = describeChild(ch)
         notifier.fireTestStarted(desc)
         try {
           val testObject =
             if(previousTestObject ne null) previousTestObject
-            else ch.cl.getConstructor(classOf[TestDB]).newInstance(tdb)
+            else preparedTestObject
           previousTestObject = null
           try {
             ch.method.invoke(testObject)
           } finally {
-            val skipCleanup = idx == last || (testObject.reuseInstance && (ch.cl eq is(idx+1)._1.cl))
+            val skipCleanup = idx == last || (testObject.reuseInstance && (ch.cl eq is(idx+1)._1._1.cl))
             if(skipCleanup) {
               if(idx == last) testObject.closeKeepAlive()
               else previousTestObject = testObject
@@ -96,10 +99,22 @@ abstract class DriverTest(val tdbSpec: TestDB.TestDBSpec) {
   def tests = Testkit.tests
 }
 
-case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: TestkitTest])
+case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: TestkitTest[_ >: Null <: TestDB]])
 
-trait TestkitTest {
-  val tdb: TestDB
+abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) {
+  protected[this] var _tdb: TDB = null
+  private[testkit] def setTestDB(tdb: TestDB): Boolean = {
+    tdb match {
+      case TdbClass(o) =>
+        _tdb = o
+        true
+      case _ =>
+        false
+    }
+  }
+  //lazy val tdb: JdbcTestDB = _tdb.asInstanceOf[JdbcTestDB]
+  lazy val tdb: TDB = _tdb
+
   private[this] var keepAliveSession: tdb.profile.Backend#Session = null
 
   protected implicit def sharedSession: tdb.profile.Backend#Session = {
@@ -113,7 +128,7 @@ trait TestkitTest {
     val db = tdb.createDB()
     keepAliveSession = db.createSession()
     if(!tdb.isPersistent && tdb.isShared)
-      keepAliveSession.conn // keep the database in memory with an extra connection
+      keepAliveSession.force() // keep the database in memory with an extra connection
     db
   }
 

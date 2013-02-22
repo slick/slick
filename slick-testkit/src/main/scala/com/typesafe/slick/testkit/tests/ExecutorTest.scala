@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class ExecutorTest(val tdb: TestDB) extends TestkitTest {
+class ExecutorTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   def test {

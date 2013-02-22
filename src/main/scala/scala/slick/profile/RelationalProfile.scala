@@ -60,7 +60,9 @@ object RelationalProfile {
   }
 }
 
-trait RelationalDriver extends BasicDriver with RelationalProfile
+trait RelationalDriver extends BasicDriver with RelationalProfile {
+  override val profile: RelationalProfile = this
+}
 
 trait RelationalTableComponent { driver: RelationalDriver =>
 

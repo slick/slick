@@ -2,9 +2,9 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import java.sql.{Time, Date, Timestamp}
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class ScalarFunctionTest(val tdb: TestDB) extends TestkitTest {
+class ScalarFunctionTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   def test {

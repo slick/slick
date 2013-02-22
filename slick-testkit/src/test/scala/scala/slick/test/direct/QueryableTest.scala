@@ -12,9 +12,8 @@ import scala.slick.testutil._
 import slick.jdbc.StaticQuery.interpolation
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.ClassTag
-import com.typesafe.slick.testkit.util.TestDB
 import scala.slick.SlickException
-
+import com.typesafe.slick.testkit.util.JdbcTestDB
 
 object QueryableTest extends DBTestObject(TestDBs.H2Mem)
 
@@ -42,7 +41,7 @@ object Singleton{
   }
 }
 
-class QueryableTest(val tdb: TestDB) extends DBTest {
+class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.driver.backend.Database.threadLocalSession
 
   object backend extends SlickBackend(tdb.driver,AnnotationMapper)

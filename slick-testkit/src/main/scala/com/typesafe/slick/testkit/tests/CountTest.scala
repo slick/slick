@@ -2,9 +2,9 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.ast.Dump
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class CountTest(val tdb: TestDB) extends TestkitTest {
+class CountTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   def test {

@@ -1,14 +1,14 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.slick.ast.NumericTypedType
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
 import java.util.UUID
 import javax.sql.rowset.serial.SerialBlob
 import org.junit.Assert._
 
-class DataTypeTest(val tdb: TestDB) extends TestkitTest {
+class DataTypeTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true

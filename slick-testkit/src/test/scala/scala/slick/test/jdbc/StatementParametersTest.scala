@@ -4,12 +4,12 @@ import org.junit.Test
 import org.junit.Assert._
 import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.TestDB
+import com.typesafe.slick.testkit.util.JdbcTestDB
 import scala.slick.jdbc.{ResultSetType, ResultSetHoldability, ResultSetConcurrency}
 
 object StatementParametersTest extends DBTestObject(H2Mem)
 
-class StatementParametersTest(val tdb: TestDB) extends DBTest {
+class StatementParametersTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
 
   @Test def testExplicit() {

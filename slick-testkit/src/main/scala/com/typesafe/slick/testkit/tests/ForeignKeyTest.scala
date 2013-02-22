@@ -3,9 +3,9 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.ast.Dump
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class ForeignKeyTest(val tdb: TestDB) extends TestkitTest {
+class ForeignKeyTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.Table
   import tdb.profile.Implicit._
 

@@ -20,6 +20,7 @@ trait BasicProfile { driver: BasicDriver =>
 }
 
 trait BasicDriver extends BasicProfile {
+  val profile: BasicProfile = this
 
   /** The driver-specific representation of types */
   type TypeInfo
