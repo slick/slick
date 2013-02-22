@@ -2,9 +2,9 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.util.iter._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class IterateeTest(val tdb: TestDB) extends TestkitTest {
+class IterateeTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   object A extends Table[(String, Int)]("a") {

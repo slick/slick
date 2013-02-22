@@ -35,7 +35,9 @@ object SqlProfile {
   }
 }
 
-trait SqlDriver extends RelationalDriver with SqlProfile with SqlUtilsComponent
+trait SqlDriver extends RelationalDriver with SqlProfile with SqlUtilsComponent {
+  override val profile: SqlProfile = this
+}
 
 trait SqlUtilsComponent { driver: SqlDriver =>
 

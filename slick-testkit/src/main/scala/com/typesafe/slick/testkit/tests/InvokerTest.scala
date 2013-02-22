@@ -3,9 +3,9 @@ package com.typesafe.slick.testkit.tests
 import scala.collection.mutable.ArrayBuffer
 import org.junit.Assert._
 import scala.slick.util.CloseableIterator
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class InvokerTest(val tdb: TestDB) extends TestkitTest {
+class InvokerTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
