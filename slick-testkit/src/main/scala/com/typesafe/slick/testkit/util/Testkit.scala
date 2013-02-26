@@ -14,6 +14,7 @@ import java.lang.reflect.Method
 object Testkit {
   val tests: List[Class[_ <: TestkitTest]] =
     classOf[tk.AggregateTest] ::
+    classOf[tk.BooleanConditionTest] ::
     classOf[tk.ColumnDefaultTest] ::
     classOf[tk.CountTest] ::
     classOf[tk.DataTypeTest] ::

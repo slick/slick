@@ -4,6 +4,8 @@ import scala.annotation.implicitNotFound
 import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import StaticType._
+import scala.language.implicitConversions
+import scala.language.experimental.macros
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
@@ -36,7 +38,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
     new WrappingQuery[E, U](Filter.ifRefutable(generator, Node(this), Node(wt(fv))), unpackable)
   }
 
-  def withFilter[T : CanBeQueryCondition](f: E => T) = filter(f)
+  def withFilter[T](f: E => T) = macro Query.withFilterMacro[E,T]
 
   def where[T <: Column[_] : CanBeQueryCondition](f: E => T) = filter(f)
 
@@ -111,6 +113,44 @@ object Query extends Query[Column[Unit], Unit] {
   def pure[E, U, R](value: E)(implicit unpack: Shape[E, U, R]): Query[R, U] = {
     val unpackable = ShapedValue(value, unpack).packedValue
     new WrappingQuery[R, U](Pure(unpackable.packedNode), unpackable)
+  }
+
+  def withFilterMacro[E:c.WeakTypeTag,T:c.WeakTypeTag]
+    (c: scala.reflect.macros.Context)
+    (f: c.Expr[E => T]) = {
+      import c.universe._
+      val col = implicitly[c.WeakTypeTag[T]].tpe.toString match {
+        case "Boolean" => {
+          f.tree match {
+            case tree@Function(
+                List(ValDef( _, _, _, _)),
+                Match(_,casedefs)
+              )
+              if (casedefs.last match{
+                case CaseDef(_,_,Literal(Constant(false))) => true
+                case _ => false
+              })
+              =>
+              //casedefs.map(f => println(showRaw(f)))
+              //c.abort(c.enclosingPosition,"foo")
+              reify( (x:E) => new ConstColumn(f.splice(x).asInstanceOf[Boolean]) )
+            case Function(
+                args,
+                expr
+              ) =>
+                c.abort( expr.pos, s"Type ${implicitly[c.WeakTypeTag[T]].tpe} cannot be a query condition (only Column[Boolean] and Column[Option[Boolean]] are allowed" )
+            // TODO: is the following case needed?
+            case _ => c.abort( c.enclosingPosition, s"!Type ${implicitly[c.WeakTypeTag[T]].tpe} cannot be a query condition (only Column[Boolean] and Column[Option[Boolean]] are allowed" )
+          }
+        }
+        case _ => f
+      }
+      c.Expr[Any](
+        Apply(
+          Select(c.prefix.tree, newTermName("filter")),
+          List( reify( col.splice.asInstanceOf[E => Column[Boolean]] ).tree )
+        )
+      )
   }
 }
 

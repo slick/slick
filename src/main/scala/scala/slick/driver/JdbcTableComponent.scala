@@ -41,7 +41,7 @@ trait JdbcTableComponent { driver: JdbcDriver =>
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {
         param <- Parameters[P]
-        table <- thisQ if Library.==.column[Boolean](Node(f(table)), Node(param))
+        table <- thisQ.filter( table => Library.==.column[Boolean](Node(f(table)), Node(param)) )
       } yield table
     }
 
