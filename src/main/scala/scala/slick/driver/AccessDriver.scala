@@ -100,7 +100,6 @@ trait AccessDriver extends JdbcDriver { driver =>
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
-  override def createQueryInvoker[R](tree: Node) = new QueryInvoker(tree)
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
@@ -110,6 +109,11 @@ trait AccessDriver extends JdbcDriver { driver =>
     case java.sql.Types.TINYINT => "BYTE"
     case _ => super.defaultSqlTypeName(tmd)
   }
+
+  /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
+  override val invokerMutateType: ResultSetType = ResultSetType.ScrollInsensitive
+  /* Access goes forward instead of backward after deleting the current row in a mutable result set */
+  override val invokerPreviousAfterDelete = true
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
@@ -280,13 +284,6 @@ trait AccessDriver extends JdbcDriver { driver =>
     override val timestampJdbcType = new TimestampJdbcType with Retry[Timestamp]
     override val nullJdbcType = new NullJdbcType with Retry[Null]
     override val uuidJdbcType = new UUIDJdbcType with Retry[UUID]
-  }
-
-  class QueryInvoker[R](tree: Node) extends super.QueryInvoker[R](tree) {
-    /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
-    override protected val mutateType: ResultSetType = ResultSetType.ScrollInsensitive
-    /* Access goes forward instead of backward after deleting the current row in a mutable result set */
-    override protected val previousAfterDelete = true
   }
 
   /** Query compiler phase that rewrites Exists calls in projections to

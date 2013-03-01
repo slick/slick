@@ -18,7 +18,7 @@ trait JdbcTableComponent extends RelationalTableComponent { driver: JdbcDriver =
   abstract class Table[T](_schemaName: Option[String], _tableName: String) extends super.Table[T](_schemaName, _tableName) {
     def this(_tableName: String) = this(None, _tableName)
 
-    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): QueryTemplate[P,T] = {
+    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P,T] = {
       import driver.Implicit._
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {

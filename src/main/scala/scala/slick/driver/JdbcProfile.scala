@@ -4,15 +4,15 @@ import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
-import scala.slick.jdbc.{CompileInsert, JdbcCodeGen, JdbcBackend, JdbcType, MappedJdbcType}
-import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
+import scala.slick.jdbc.{MutatingUnitInvoker, MappedJdbcType, JdbcType, CompileInsert, JdbcCodeGen, JdbcBackend}
+import scala.slick.profile.{StandardParameterizedQueries, SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
 
 /**
  * A profile for accessing SQL databases via JDBC.
  */
 trait JdbcProfile extends SqlProfile with JdbcTableComponent
-  with JdbcInvokerComponent with JdbcExecutorComponent { driver: JdbcDriver =>
+  with JdbcInvokerComponent with JdbcExecutorComponent with StandardParameterizedQueries { driver: JdbcDriver =>
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
@@ -30,8 +30,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
-  def queryToQueryTemplate[P,R](q: Query[_, R]): QueryTemplate[P,R] =
-    createQueryTemplate[P,R](selectStatementCompiler.run(Node(q)).tree)
+  def compileParameterizedQuery[P,R](q: Query[_, R]) =
+    new ParameterizedQueryDef[P, R](selectStatementCompiler.run(Node(q)).tree)
 
   class Implicits extends ImplicitJdbcTypes with ExtensionMethodConversions {
     implicit val slickDriver: driver.type = driver
@@ -43,15 +43,17 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     }
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
-    implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = createQueryInvoker[U](selectStatementCompiler.run(Node(q)).tree)
+    implicit def queryToAppliedQueryInvoker[T, U](q: Query[T, _ <: U]): UnitQueryInvoker[U] = createUnitQueryInvoker[U](selectStatementCompiler.run(Node(q)).tree)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = new DeleteInvoker(deleteStatementCompiler.run(Node(q)).tree)
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createCountingInsertInvoker[T](insertStatementCompiler.run(Node(c)).tree)
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createCountingInsertInvoker[U](insertStatementCompiler.run(u.packedNode).tree)
-
-    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = createQueryExecutor[Seq[U]](selectStatementCompiler.run(Node(q)).tree)
+    implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = createQueryExecutor[Seq[U]](selectStatementCompiler.run(Node(q)).tree, ())
+    implicit def parameterizedQueryToQueryInvoker[P, R](q: ParameterizedQuery[P, R]): QueryInvoker[P, R] = createQueryInvoker[P, R](q.tree)
+    implicit def appliedQueryToAppliedQueryInvoker[R](q: AppliedQuery[R]): MutatingUnitInvoker[R] = createQueryInvoker[Any, R](q.tree)(q.param)
+    implicit def appliedQueryToQueryExecutor[R](q: AppliedQuery[R]): QueryExecutor[R] = createQueryExecutor[R](q.tree, q.param)
 
     // We can't use this direct way due to SI-3346
-    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = createQueryExecutor[R](selectStatementCompiler.run(Node(q)).tree)
+    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = createQueryExecutor[R](selectStatementCompiler.run(Node(q)).tree, ())
     implicit final def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutor[M](q)
     implicit final def anyToToQueryExecutor[T](value: T) = new ToQueryExecutor[T](value)
 
