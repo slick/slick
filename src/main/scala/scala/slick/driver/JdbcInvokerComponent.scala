@@ -4,8 +4,16 @@ import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
 import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
-import scala.slick.jdbc.{Insert, CompiledMapping, UnitInvoker, UnitInvokerMixin, MutatingStatementInvoker, MutatingUnitInvoker, ResultSetInvoker, PositionedParameters, PositionedResult}
+import slick.jdbc._
 import scala.slick.util.SQLBuilder
+import slick.ast.CompiledStatement
+import scala.Some
+import slick.ast.ResultSetMapping
+import slick.ast.CompiledStatement
+import scala.Some
+import slick.jdbc.CompiledMapping
+import slick.ast.ResultSetMapping
+import slick.jdbc.Insert
 
 trait JdbcInvokerComponent { driver: JdbcDriver =>
 
@@ -13,12 +21,21 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   def createCountingInsertInvoker[U](tree: Node) = new CountingInsertInvoker[U](tree)
   def createKeysInsertInvoker[U, RU](tree: Node, keys: Node) = new KeysInsertInvoker[U, RU](tree, keys)
   def createMappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R) = new MappedKeysInsertInvoker[U, RU, R](tree, keys, tr)
-  def createQueryInvoker[R](tree: Node) = new QueryInvoker[R](tree)
+  def createUnitQueryInvoker[R](tree: Node) = new UnitQueryInvoker[R](tree)
   def createUpdateInvoker[T](tree: Node) = new UpdateInvoker[T](tree)
-  def createQueryTemplate[P,R](tree: Node): QueryTemplate[P,R] = new QueryTemplate[P,R](tree)
+  def createQueryInvoker[P,R](tree: Node): QueryInvoker[P,R] = new QueryInvoker[P, R](tree)
+
+  // Parameters for invokers -- can be overridden by drivers as needed
+  val invokerMutateConcurrency: ResultSetConcurrency = ResultSetConcurrency.Updatable
+  val invokerMutateType: ResultSetType = ResultSetType.Auto
+  val invokerPreviousAfterDelete = false
 
   /** A parameterized query invoker. */
-  class QueryTemplate[P, R](protected val tree: Node) extends MutatingStatementInvoker[P, R] {
+  class QueryInvoker[P, R](protected val tree: Node) extends MutatingStatementInvoker[P, R] {
+    override protected val mutateConcurrency = invokerMutateConcurrency
+    override protected val mutateType = invokerMutateType
+    override protected val previousAfterDelete = invokerPreviousAfterDelete
+
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(converter, _)) = tree
@@ -32,7 +49,7 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
   }
 
   /** Invoker for executing queries. */
-  class QueryInvoker[R](tree: Node) extends QueryTemplate[Unit, R](tree)
+  class UnitQueryInvoker[R](tree: Node) extends QueryInvoker[Unit, R](tree)
     with UnitInvokerMixin[R] with MutatingUnitInvoker[R] {
     override protected val delegate = this
   }

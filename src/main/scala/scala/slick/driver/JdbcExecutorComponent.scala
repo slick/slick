@@ -9,9 +9,9 @@ import scala.slick.util.SQLBuilder
 trait JdbcExecutorComponent { driver: JdbcDriver =>
 
   // Create an executor -- this method should be overridden by drivers as needed
-  def createQueryExecutor[R](tree: Node) = new QueryExecutor[R](tree)
+  def createQueryExecutor[R](tree: Node, param: Any) = new QueryExecutor[R](tree, param)
 
-  class QueryExecutor[R](tree: Node) {
+  class QueryExecutor[R](tree: Node, param: Any) {
 
     lazy val selectStatement =
       tree.findNode(_.isInstanceOf[CompiledStatement]).get
@@ -19,9 +19,9 @@ trait JdbcExecutorComponent { driver: JdbcDriver =>
 
     def run(implicit session: Backend#Session): R = (tree match {
       case rsm: ResultSetMapping =>
-        createQueryInvoker[Any](rsm).to(session, rsm.nodeType.asCollectionType.cons.canBuildFrom)
+        createQueryInvoker[Any, Any](rsm).to(param, session, rsm.nodeType.asCollectionType.cons.canBuildFrom)
       case First(rsm: ResultSetMapping) =>
-        createQueryInvoker[Any](rsm).first
+        createQueryInvoker[Any, Any](rsm).first(param)
     }).asInstanceOf[R]
 
     def executor: this.type = this
