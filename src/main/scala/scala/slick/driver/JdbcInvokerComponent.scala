@@ -3,17 +3,9 @@ package scala.slick.driver
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
-import scala.slick.lifted.{DDL, Query, Shape, ShapedValue}
-import slick.jdbc._
+import scala.slick.lifted.{Query, Shape, ShapedValue}
+import scala.slick.jdbc._
 import scala.slick.util.SQLBuilder
-import slick.ast.CompiledStatement
-import scala.Some
-import slick.ast.ResultSetMapping
-import slick.ast.CompiledStatement
-import scala.Some
-import slick.jdbc.CompiledMapping
-import slick.ast.ResultSetMapping
-import slick.jdbc.Insert
 
 trait JdbcInvokerComponent { driver: JdbcDriver =>
 

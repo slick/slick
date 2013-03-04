@@ -1,15 +1,47 @@
 package scala.slick.profile
 
-import scala.slick.ast.{CollectionTypeConstructor, CollectionType, Node, Select, TypedType, ColumnOption, Ref, FieldSymbol}
-import scala.slick.lifted.{Column, AbstractTable}
+import scala.language.implicitConversions
+import scala.slick.ast._
+import scala.slick.lifted._
+import FunctionSymbolExtensionMethods._
 
 /**
  * A profile for relational databases that does not assume the existence
  * of SQL (or some other text-based language for executing statements).
  */
-trait RelationalProfile extends BasicProfile with RelationalTableComponent { driver: RelationalDriver =>
+trait RelationalProfile extends BasicProfile with RelationalTableComponent
+  with RelationalSequenceComponent { driver: RelationalDriver =>
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalProfile.capabilities.all
+
+  val Implicit: Implicits
+
+  /** A collection of values for using the query language with a single import
+    * statement. This provides the driver's implicits, the Database and
+    * Session objects for DB connections, and commonly used query language
+    * types and objects. */
+  val simple: SimpleQL
+
+  trait Implicits extends ExtensionMethodConversions {
+    implicit val slickDriver: driver.type = driver
+    implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
+    implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
+    implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
+    implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
+
+    // Work-around for SI-3346
+    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
+  }
+
+  trait SimpleQL extends Implicits with scala.slick.lifted.Aliases {
+    type Table[T] = driver.Table[T]
+    type Sequence[T] = driver.Sequence[T]
+    val Sequence = driver.Sequence
+    type Database = Backend#Database
+    val Database = backend.Database
+    type Session = Backend#Session
+    type SlickException = scala.slick.SlickException
+  }
 }
 
 object RelationalProfile {
@@ -66,6 +98,8 @@ trait RelationalDriver extends BasicDriver with RelationalProfile {
 
 trait RelationalTableComponent { driver: RelationalDriver =>
 
+  def buildTableSchemaDescription(table: Table[_]): SchemaDescription
+
   trait ColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = ColumnOption.Default[T](defaultValue)
@@ -91,6 +125,50 @@ trait RelationalTableComponent { driver: RelationalDriver =>
       }) + "." + n
     }
 
+    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P,T] = {
+      import FunctionSymbolExtensionMethods._
+      import driver.Implicit._
+      import StaticType._
+      val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
+      for {
+        param <- Parameters[P]
+        table <- thisQ if Library.==.column[Boolean](Node(f(table)), Node(param))
+      } yield table
+    }
+
+    def ddl: SchemaDescription = buildTableSchemaDescription(this)
+
     def tpe = CollectionType(CollectionTypeConstructor.default, *.tpe)
+  }
+}
+
+trait RelationalSequenceComponent { driver: RelationalDriver =>
+
+  def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription
+
+  class Sequence[T] private[Sequence] (val name: String,
+                                       val _minValue: Option[T],
+                                       val _maxValue: Option[T],
+                                       val _increment: Option[T],
+                                       val _start: Option[T],
+                                       val _cycle: Boolean)(implicit val tpe: TypedType[T], val integral: Integral[T])
+    extends NodeGenerator with Typed { seq =>
+
+    def min(v: T) = new Sequence[T](name, Some(v), _maxValue, _increment, _start, _cycle)
+    def max(v: T) = new Sequence[T](name, _minValue, Some(v), _increment, _start, _cycle)
+    def inc(v: T) = new Sequence[T](name, _minValue, _maxValue, Some(v), _start, _cycle)
+    def start(v: T) = new Sequence[T](name, _minValue, _maxValue, _increment, Some(v), _cycle)
+    def cycle = new Sequence[T](name, _minValue, _maxValue, _increment, _start, true)
+
+    final def next = Library.NextValue.column[T](Node(this))
+    final def curr = Library.CurrentValue.column[T](Node(this))
+
+    def nodeDelegate = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
+
+    def ddl: SchemaDescription = buildSequenceSchemaDescription(this)
+  }
+
+  object Sequence {
+    def apply[T : TypedType : Integral](name: String) = new Sequence[T](name, None, None, None, None, false)
   }
 }

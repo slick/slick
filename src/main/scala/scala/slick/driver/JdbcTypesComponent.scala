@@ -280,7 +280,7 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
   }
 
-  class ImplicitJdbcTypes {
+  trait ImplicitJdbcTypes {
     implicit def booleanJdbcType = columnTypes.booleanJdbcType
     implicit def blobJdbcType = columnTypes.blobJdbcType
     implicit def byteJdbcType = columnTypes.byteJdbcType

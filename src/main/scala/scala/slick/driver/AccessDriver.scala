@@ -89,8 +89,6 @@ trait AccessDriver extends JdbcDriver { driver =>
     java.sql.Types.TINYINT
   )
 
-  override val Implicit: Implicits = new Implicits
-  override val simple: SimpleQL = new Implicits with SimpleQL
   override val compiler =
     QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
