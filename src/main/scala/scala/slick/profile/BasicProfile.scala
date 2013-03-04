@@ -20,13 +20,24 @@ trait BasicProfile { driver: BasicDriver =>
   final val capabilities: Set[Capability] = computeCapabilities
   protected def computeCapabilities: Set[Capability] = Set.empty
 
-  /* The type of a pre-compiled parameterized query */
+  /** The type of a pre-compiled parameterized query */
   type ParameterizedQuery[P, R] <: (P => AppliedQuery[R])
 
-  /* The type of a pre-compiled applied query */
+  /** The type of a pre-compiled applied query */
   type AppliedQuery[R]
 
   def compileParameterizedQuery[P, R](q: Query[_, R]): ParameterizedQuery[P, R]
+
+  /** The type of a schema description (DDL) */
+  type SchemaDescription <: SchemaDescriptionDef
+
+  /** A schema description contains the SQL statements for creating and
+    * dropping database entities. Schema descriptions can be combined for
+    * creating or dropping multiple entities together, even if they have
+    * circular dependencies. */
+  trait SchemaDescriptionDef {
+    def ++(other: SchemaDescription): SchemaDescription
+  }
 }
 
 trait BasicDriver extends BasicProfile {

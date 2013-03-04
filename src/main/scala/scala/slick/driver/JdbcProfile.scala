@@ -17,7 +17,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
   val compiler = QueryCompiler.relational
-  val Implicit = new Implicits
+  val Implicit: Implicits = new Implicits {}
+  val simple: SimpleQL = new SimpleQL {}
   val columnTypes = new JdbcTypes
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
@@ -27,21 +28,13 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   lazy val deleteStatementCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildDelete)
   lazy val insertStatementCompiler = QueryCompiler(new CompileInsert(this))
 
-  final def buildTableDDL(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
-  final def buildSequenceDDL(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
+  final def buildTableSchemaDescription(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
+  final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
   def compileParameterizedQuery[P,R](q: Query[_, R]) =
     new ParameterizedQueryDef[P, R](selectStatementCompiler.run(Node(q)).tree)
 
-  class Implicits extends ImplicitJdbcTypes with ExtensionMethodConversions {
-    implicit val slickDriver: driver.type = driver
-    implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
-    implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
-    implicit def tableToQuery[T <: AbstractTable[_]](t: T) = {
-      if(t.op ne null) throw new SlickException("Trying to implicitly lift a single table row to a Query. If this is really what you want, use an explicit Query(...) call instead")
-      Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
-    }
-    implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
+  trait Implicits extends super.Implicits with ImplicitJdbcTypes {
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
     implicit def queryToAppliedQueryInvoker[T, U](q: Query[T, _ <: U]): UnitQueryInvoker[U] = createUnitQueryInvoker[U](selectStatementCompiler.run(Node(q)).tree)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = new DeleteInvoker(deleteStatementCompiler.run(Node(q)).tree)
@@ -66,28 +59,14 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T](q: Query[_ <: ColumnBase[T], T]): UpdateInvoker[T] =
       createUpdateInvoker(updateStatementCompiler.run(Node(q)).tree)
-
-    // Work-around for SI-3346
-    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
   }
 
-  trait SimpleQL extends Implicits with scala.slick.lifted.Aliases {
-    type Table[T] = driver.Table[T]
-    type Database = Backend#Database
-    val Database = backend.Database
-    type Session = Backend#Session
-    type SlickException = scala.slick.SlickException
+  trait SimpleQL extends super.SimpleQL with Implicits {
     type ColumnType[T] = JdbcType[T]
     type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
     type MappedColumnType[T, U] = MappedJdbcType[T, U]
     val MappedColumnType = MappedJdbcType
   }
-
-  /** A collection of values for using the query language with a single import
-    * statement. This provides the driver's implicits, the Database and
-    * Session objects for DB connections, and commonly used query language
-    * types and objects. */
-  val simple: SimpleQL = new SimpleQL {}
 }
 
 object JdbcProfile {
