@@ -9,8 +9,8 @@ import scala.slick.compiler.{CodeGen, Phase, CompilerState}
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
-import scala.slick.profile.{RelationalProfile, SqlProfile}
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.slick.profile.RelationalProfile
+import scala.collection.mutable.HashMap
 import scala.slick.jdbc.{ResultConverter, CompiledMapping, Insert}
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
@@ -436,7 +436,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
       val (_, sbr: SQLBuilder.Result) =
-        CodeGen.findResult(selectStatementCompiler.run((Node(query))).tree)
+        CodeGen.findResult(queryCompiler.run((Node(query))).tree)
       InsertBuilderResult(table.tableName, s"INSERT INTO $qtable ($qcolumns) ${sbr.sql}", sbr.setter)
     }
 
@@ -444,7 +444,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, Insert(_, ktable: TableNode, _, ProductNode(kpaths)), CompiledMapping(rconv, _)) =
-        insertStatementCompiler.run(node).tree
+        insertCompiler.run(node).tree
       if(ktable.tableName != table)
         throw new SlickException("Returned key columns must be from same table as inserted columns ("+
           ktable+" != "+table+")")
