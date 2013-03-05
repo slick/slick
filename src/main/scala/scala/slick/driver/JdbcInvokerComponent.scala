@@ -6,8 +6,9 @@ import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
 import scala.slick.lifted.{Query, Shape, ShapedValue}
 import scala.slick.jdbc._
 import scala.slick.util.SQLBuilder
+import scala.slick.profile.BasicInvokerComponent
 
-trait JdbcInvokerComponent { driver: JdbcDriver =>
+trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
   // Create the different invokers -- these methods should be overridden by drivers as needed
   def createCountingInsertInvoker[U](tree: Node) = new CountingInsertInvoker[U](tree)
@@ -46,21 +47,16 @@ trait JdbcInvokerComponent { driver: JdbcDriver =>
     override protected val delegate = this
   }
 
-  /** Pseudo-invoker for running DDL statements. */
-  class DDLInvoker(ddl: DDL) {
-    /** Create the entities described by this DDL object */
+  class DDLInvoker(ddl: DDL) extends super.DDLInvoker(ddl) {
     def create(implicit session: Backend#Session): Unit = session.withTransaction {
       for(s <- ddl.createStatements)
         session.withPreparedStatement(s)(_.execute)
     }
 
-    /** Drop the entities described by this DDL object */
     def drop(implicit session: Backend#Session): Unit = session.withTransaction {
       for(s <- ddl.dropStatements)
         session.withPreparedStatement(s)(_.execute)
     }
-
-    def ddlInvoker: this.type = this
   }
 
   /** Pseudo-invoker for running DELETE calls. */

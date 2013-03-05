@@ -422,12 +422,12 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
 
   private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryable)
-    (tpe,driver.selectStatementCompiler.run(query.node))
+    (tpe,driver.queryCompiler.run(query.node))
   }
   
   private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryablevalue.value.tree)
-    (tpe,driver.selectStatementCompiler.run(query.node))
+    (tpe,driver.queryCompiler.run(query.node))
   }
   def result[R]( queryable:BaseQueryable[R], session:driver.Backend#Session) : Vector[R] = {
     val (tpe,query) = queryable2cstate( queryable, session )

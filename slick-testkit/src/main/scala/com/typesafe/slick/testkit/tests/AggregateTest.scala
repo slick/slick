@@ -18,8 +18,8 @@ class AggregateTest extends TestkitTest[JdbcTestDB] {
     T.insertAll((1, Some(1)), (1, Some(2)), (1, Some(3)))
     def q1(i: Int) = for { t <- T if t.a === i } yield t
     def q2(i: Int) = (q1(i).length, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
-    val q2_0 = q2(0).toQueryExecutor
-    val q2_1 = q2(1).toQueryExecutor
+    val q2_0 = q2(0).shaped
+    val q2_1 = q2(1).shaped
     println("q2_0: "+q2_0.selectStatement)
     println("q2_1: "+q2_1.selectStatement)
     println(q2_0.run)

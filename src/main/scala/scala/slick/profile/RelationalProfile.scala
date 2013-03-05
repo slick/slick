@@ -1,6 +1,6 @@
 package scala.slick.profile
 
-import scala.language.implicitConversions
+import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast._
 import scala.slick.lifted._
 import FunctionSymbolExtensionMethods._
@@ -8,23 +8,17 @@ import scala.slick.SlickException
 
 /**
  * A profile for relational databases that does not assume the existence
- * of SQL (or some other text-based language for executing statements).
+ * of SQL (or any other text-based language for executing statements).
  */
 trait RelationalProfile extends BasicProfile with RelationalTableComponent
-  with RelationalSequenceComponent { driver: RelationalDriver =>
+  with RelationalSequenceComponent with RelationalTypesComponent { driver: RelationalDriver =>
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalProfile.capabilities.all
 
   val Implicit: Implicits
-
-  /** A collection of values for using the query language with a single import
-    * statement. This provides the driver's implicits, the Database and
-    * Session objects for DB connections, and commonly used query language
-    * types and objects. */
   val simple: SimpleQL
 
-  trait Implicits extends ExtensionMethodConversions {
-    implicit val slickDriver: driver.type = driver
+  trait Implicits extends super.Implicits with ImplicitColumnTypes {
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = {
@@ -32,19 +26,12 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
       Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
     }
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
-
-    // Work-around for SI-3346
-    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
   }
 
-  trait SimpleQL extends Implicits with scala.slick.lifted.Aliases {
+  trait SimpleQL extends super.SimpleQL with Implicits {
     type Table[T] = driver.Table[T]
     type Sequence[T] = driver.Sequence[T]
     val Sequence = driver.Sequence
-    type Database = Backend#Database
-    val Database = backend.Database
-    type Session = Backend#Session
-    type SlickException = scala.slick.SlickException
   }
 }
 
@@ -132,7 +119,6 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P,T] = {
       import FunctionSymbolExtensionMethods._
       import driver.Implicit._
-      import StaticType._
       val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
       for {
         param <- Parameters[P]
@@ -174,5 +160,23 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
 
   object Sequence {
     def apply[T : TypedType : Integral](name: String) = new Sequence[T](name, None, None, None, None, false)
+  }
+}
+
+trait RelationalTypesComponent { driver: BasicDriver =>
+  type ColumnType[T] <: TypedType[T]
+  type BaseColumnType[T] <: TypedType[T] with BaseTypedType[T]
+
+  trait ImplicitColumnTypes {
+    implicit def booleanColumnType: BaseColumnType[Boolean]
+    implicit def byteColumnType: BaseColumnType[Byte] with NumericTypedType
+    implicit def charColumnType: BaseColumnType[Char]
+    implicit def doubleColumnType: BaseColumnType[Double] with NumericTypedType
+    implicit def floatColumnType: BaseColumnType[Float] with NumericTypedType
+    implicit def intColumnType: BaseColumnType[Int] with NumericTypedType
+    implicit def longColumnType: BaseColumnType[Long] with NumericTypedType
+    implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
+    implicit def stringColumnType: BaseColumnType[String]
+    implicit def unitColumnType: BaseColumnType[Unit]
   }
 }

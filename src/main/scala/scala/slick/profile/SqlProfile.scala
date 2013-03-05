@@ -1,12 +1,13 @@
 package scala.slick.profile
 
-import scala.slick.ast.{TableNode, Symbol, SymbolNamer}
+import scala.language.higherKinds
+import scala.slick.ast.{TableNode, Symbol, SymbolNamer, Node}
 import scala.slick.lifted.AbstractTable
 
 /**
  * Basic profile for SQL-based drivers.
  */
-trait SqlProfile extends RelationalProfile { driver: SqlDriver =>
+trait SqlProfile extends RelationalProfile with SqlExecutorComponent { driver: SqlDriver =>
 
   override protected def computeCapabilities = super.computeCapabilities ++ SqlProfile.capabilities.all
 
@@ -107,5 +108,16 @@ trait SqlUtilsComponent { driver: SqlDriver =>
 
   class QuotingSymbolNamer(parent: Option[SymbolNamer]) extends SymbolNamer("x", parent) {
     override def namedSymbolName(s: Symbol) = quoteIdentifier(s.name)
+  }
+}
+
+trait SqlExecutorComponent extends BasicExecutorComponent { driver: SqlDriver =>
+
+  type QueryExecutor[T] <: QueryExecutorDef[T]
+
+  def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
+
+  abstract class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R](tree, param) {
+    def selectStatement: String
   }
 }
