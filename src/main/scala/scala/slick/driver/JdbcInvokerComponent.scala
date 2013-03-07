@@ -10,6 +10,10 @@ import scala.slick.profile.BasicInvokerComponent
 
 trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
+  type InsertInvoker[T] = CountingInsertInvoker[T]
+
+  def createInsertInvoker[U](tree: Node) = createCountingInsertInvoker(tree)
+
   // Create the different invokers -- these methods should be overridden by drivers as needed
   def createCountingInsertInvoker[U](tree: Node) = new CountingInsertInvoker[U](tree)
   def createKeysInsertInvoker[U, RU](tree: Node, keys: Node) = new KeysInsertInvoker[U, RU](tree, keys)
@@ -47,7 +51,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     override protected val delegate = this
   }
 
-  class DDLInvoker(ddl: DDL) extends super.DDLInvoker(ddl) {
+  class DDLInvoker(ddl: DDL) extends super.DDLInvoker {
     def create(implicit session: Backend#Session): Unit = session.withTransaction {
       for(s <- ddl.createStatements)
         session.withPreparedStatement(s)(_.execute)
@@ -74,7 +78,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running INSERT calls. */
-  abstract class InsertInvoker[U](tree: Node) {
+  abstract class BaseInsertInvoker[U](tree: Node) extends InsertInvokerDef[U] {
 
     protected[this] val ResultSetMapping(_, insertNode: Insert, CompiledMapping(converter, _)) = tree
     protected[this] lazy val builder = createInsertBuilder(insertNode)
@@ -125,11 +129,12 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       }
     }
 
-    def insertInvoker: this.type = this
+    def += (value: U)(implicit session: Backend#Session): Unit = insert(value)
+    def ++= (values: Iterable[U])(implicit session: Backend#Session): Unit = insertAll(values.toSeq: _*)
   }
 
   /** An InsertInvoker that can also insert from another query. */
-  trait FullInsertInvoker[U] { this: InsertInvoker[U] =>
+  trait FullInsertInvoker[U] { this: BaseInsertInvoker[U] =>
     type RetQuery
 
     protected def retQuery(st: Statement, updateCount: Int): RetQuery
@@ -149,7 +154,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running INSERT calls and returning affected row counts. */
-  class CountingInsertInvoker[U](tree: Node) extends InsertInvoker[U](tree) with FullInsertInvoker[U] {
+  class CountingInsertInvoker[U](tree: Node) extends BaseInsertInvoker[U](tree) with FullInsertInvoker[U] {
 
     type RetOne = Int
     type RetMany = Option[Int]
@@ -179,7 +184,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
   /** Base class with common functionality for KeysInsertInvoker and MappedKeysInsertInvoker. */
   abstract class AbstractKeysInsertInvoker[U, RU](tree: Node, keys: Node)
-    extends InsertInvoker[U](tree) {
+    extends BaseInsertInvoker[U](tree) {
 
     protected def buildKeysResult(st: Statement): UnitInvoker[RU] =
       ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr).asInstanceOf[RU])

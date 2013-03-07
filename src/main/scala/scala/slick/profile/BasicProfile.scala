@@ -15,8 +15,6 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
   type Backend <: DatabaseComponent
   val backend: Backend
 
-  val compiler: QueryCompiler
-
   final val capabilities: Set[Capability] = computeCapabilities
   protected def computeCapabilities: Set[Capability] = Set.empty
 
@@ -63,6 +61,9 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
     def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(Node(q)).tree, ())
     implicit final def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutor[M](q)
 
+    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createInsertInvoker[T](insertCompiler.run(Node(c)).tree)
+    implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createInsertInvoker[U](insertCompiler.run(u.packedNode).tree)
+
     // Work-around for SI-3346
     @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
   }
@@ -104,7 +105,7 @@ trait StandardParameterizedQueries { driver: BasicDriver =>
 trait BasicInvokerComponent { driver: BasicDriver =>
 
   /** Pseudo-invoker for running DDL statements. */
-  abstract class DDLInvoker(ddl: SchemaDescription) {
+  trait DDLInvoker {
     /** Create the entities described by this DDL object */
     def create(implicit session: Backend#Session): Unit
 
@@ -113,6 +114,22 @@ trait BasicInvokerComponent { driver: BasicDriver =>
 
     def ddlInvoker: this.type = this
   }
+
+  /** The type of insert invokers returned by the driver */
+  type InsertInvoker[T] <: InsertInvokerDef[T]
+
+  /** Create an InsertInvoker -- this method should be implemented by drivers as needed */
+  def createInsertInvoker[T](tree: Node): InsertInvoker[T]
+
+  trait InsertInvokerDef[T] {
+    /** Insert a single value */
+    def += (value: T)(implicit session: Backend#Session): Unit
+
+    /** Insert a collection of values */
+    def ++= (values: Iterable[T])(implicit session: Backend#Session): Unit
+
+    def insertInvoker: this.type = this
+  }
 }
 
 trait BasicExecutorComponent { driver: BasicDriver =>
@@ -120,10 +137,10 @@ trait BasicExecutorComponent { driver: BasicDriver =>
   /** The type of query executors returned by the driver */
   type QueryExecutor[T] <: QueryExecutorDef[T]
 
-  // Create an executor -- this method should be implemented by drivers as needed
+  /** Create an executor -- this method should be implemented by drivers as needed */
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
 
-  abstract class QueryExecutorDef[R](tree: Node, param: Any) {
+  trait QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R
     def executor: this.type = this
   }

@@ -12,7 +12,7 @@ trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
 
-  class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R](tree, param) {
+  class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
 
     lazy val selectStatement =
       tree.findNode(_.isInstanceOf[CompiledStatement]).get

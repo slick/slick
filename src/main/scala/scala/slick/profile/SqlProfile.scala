@@ -117,7 +117,7 @@ trait SqlExecutorComponent extends BasicExecutorComponent { driver: SqlDriver =>
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
 
-  abstract class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R](tree, param) {
+  trait QueryExecutorDef[R] extends super.QueryExecutorDef[R] {
     def selectStatement: String
   }
 }
