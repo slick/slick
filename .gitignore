@@ -10,3 +10,9 @@ target/
 /\.project
 /\.classpath
 /\.settings/
+.DS_Store
+.classpath
+.project
+.settings
+lib/
+.swp
