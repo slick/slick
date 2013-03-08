@@ -103,7 +103,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
   }
   def initialStringOptionOrdering = implicitly[Ordering[Option[String]]]
   
-  @Test def test() {
+  /*@Test*/ def test() {
     implicit var stringOptionOrdering : scala.math.Ordering[Option[String]] = initialStringOptionOrdering
 
     import TestingTools._
@@ -419,7 +419,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
       )
     }
   }
-  @Test def sortingTest(){
+  /*@Test*/ def sortingTest(){
 //    def assertEquals[T]( a:T, b:T ) = assert( a == b)
     val cA0 = Coffee("A",0,None)
     val cA1 = Coffee("A",1,None)

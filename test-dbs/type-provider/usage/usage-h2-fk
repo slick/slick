@@ -1,0 +1,15 @@
+import scala.slick.typeProviders._
+object Db2 extends TypeProvider.Db("supp", "type-providers-h2")
+import Db2.driver.simple._
+import Database.threadLocalSession
+Db2.database.withSession {
+   Query(Db2.Suppliers) foreach println
+   Query(Db2.Coffees) foreach println
+}
+Db2.database.withSession {
+  val q = for {
+    c <- Db2.Coffees
+    s <- c.fkSuppliers
+  } yield (c, s)
+  println(q.list)
+}

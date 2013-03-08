@@ -1,0 +1,13 @@
+import scala.slick.typeProviders._
+object Db1 extends TypeProvider.Db("coffees", "type-providers-h2-sa")
+import Db1.driver.simple._
+import Database.threadLocalSession
+Db1.database.withSession {
+   Query(Db1.Coffees) foreach println
+}
+object Db2 extends TypeProvider.Db("supp", "type-providers-h2")
+import Db2.driver.simple._
+import Database.threadLocalSession
+Db2.database.withSession {
+   Query(Db2.Suppliers) foreach println
+}
