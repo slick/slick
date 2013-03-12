@@ -12,29 +12,56 @@ import com.typesafe.slick.testkit.util.TestDB
 import scala.slick.typeproviders.TypeProvider
 
 class TypeProviderTest {
-  @Test def h2Test() {
-    object Db1 extends TypeProvider.Db("", "type-providers-test")
+  @Test def h2memTest() {
+    object Db1 extends TypeProvider.Db("", "type-providers-h2mem")
     import Db1.driver.simple._
     import Database.threadLocalSession
-    Db1.database.withSession {
-      val q1 = Query(Db1.Suppliers.length)
+    import Db1._
+    database.withSession {
+      val q1 = Query(Suppliers.length)
       assertEquals("Size of Suppliers before change",
         q1.first, 3)
-      Db1.Suppliers.insert(Db1.Supplier(1, "1", "2", "3", "4", "5"))
-      val q2 = Query(Db1.Suppliers.length)
+      Suppliers.insert(Supplier(1, "1", "2", "3", "4", "5"))
+      val q2 = Query(Suppliers.length)
       assertEquals("Size of Suppliers after change",
         q2.first, 4)
-      val q3 = Query(Db1.Coffees.length)
+      val q3 = Query(Coffees.length)
       assertEquals("Size of Coffees",
         q3.first, 1)
-      val r = Query(Db1.Coffees).list.head
-      val c: Db1.Coffee = r
-      assertEquals("First element of Coffees", c, Db1.Coffee("coffee", 1, 2.3, 4, 5))
+      val r = Query(Coffees).list.head
+      val c: Coffee = r
+      assertEquals("First element of Coffees", c, Coffee("coffee", 1, 2.3, 4, 5))
     }
   }
 
-  @Test def hsqlTest() {
-    object Db1 extends TypeProvider.Db("supp;shutdown=true", "type-providers-hsql")
+  @Test def hsqlSimpleTest() {
+    object Db1 extends TypeProvider.Db("", "type-providers-hsql")
+    import Db1.driver.simple._
+    import Database.threadLocalSession
+    import Db1._
+    database.withSession {
+      val q1 = Query(Suppliers.length)
+      assertEquals("Size of Suppliers before change",
+        q1.first, 3)
+    }
+  }
+
+  @Test def hsqlComplexTest() {
+    object Db1 extends TypeProvider.Db("", "type-providers-hsql")
+    import Db1.driver.simple._
+    import Database.threadLocalSession
+    import Db1._
+    database.withSession {
+      val supps = Query(Suppliers).list
+      val correctSupps = List(Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+        Supplier(101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+        Supplier(150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+      assertTrue("Checking each element of suppliers", supps.sameElements(correctSupps))
+    }
+  }
+
+  @Test def sqliteSimpleTest() {
+    object Db1 extends TypeProvider.Db("", "type-providers-sqlite")
     import Db1.driver.simple._
     import Database.threadLocalSession
     Db1.database.withSession {
@@ -44,19 +71,22 @@ class TypeProviderTest {
     }
   }
 
-  @Test def sqliteTest() {
-    object Db1 extends TypeProvider.Db("sqlite-supp.db", "type-providers-sqlite")
+  @Test def sqliteComplexTest() {
+    object Db1 extends TypeProvider.Db("", "type-providers-sqlite")
     import Db1.driver.simple._
     import Database.threadLocalSession
-    Db1.database.withSession {
-      val q1 = Query(Db1.Suppliers.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+    import Db1._
+    database.withSession {
+      val supps = Query(Suppliers).list
+      val correctSupps = List(Supplier(101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+        Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+        Supplier(150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+      assertTrue("Checking each element of suppliers", supps.sameElements(correctSupps))
     }
   }
 
   @Test def fkTest1() {
-    object Db1 extends TypeProvider.Db("", "type-providers-test-fk-1")
+    object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-1")
     import Db1.driver.simple._
     import Database.threadLocalSession
     Db1.database.withSession {
@@ -71,7 +101,7 @@ class TypeProviderTest {
   }
 
   @Test def fkTest2() {
-    object Db1 extends TypeProvider.Db("", "type-providers-test-fk-2")
+    object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-2")
     import Db1.driver.simple._
     import Database.threadLocalSession
     Db1.database.withSession {

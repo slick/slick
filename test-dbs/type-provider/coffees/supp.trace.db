@@ -1,3 +1,0 @@
-02-27 16:14:01 jdbc[2]: exception
-org.h2.jdbc.JdbcSQLException: Table "suppliers" not found; SQL statement:
-select x2."sup_id", x2."sup_name", x2."street", x2."city", x2."state", x2."zip" from "suppliers" x2 [42102-170]

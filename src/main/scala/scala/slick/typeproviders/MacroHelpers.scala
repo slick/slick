@@ -44,7 +44,6 @@ trait MacroHelpers {
   def tupleObject(arity: Int): Tree = createObject("Tuple" + arity, List("scala"))
   def scalaProductClass: Tree = createClass("Product", List("scala"))
   def scalaSerializableClass: Tree = createClass("Serializable", List("scala"))
-  //  def foreignKeyActionObject: Tree = context.parse("scala.slick.lifted.ForeignKeyAction")
   def foreignKeyActionObject: Tree = createObject("ForeignKeyAction", List("scala", "slick", "lifted"))
 
   // helper for creating a case class
@@ -77,6 +76,7 @@ trait MacroHelpers {
       Apply(tilde, List(current))
     })
     val SYNTHETIC = scala.reflect.internal.Flags.SYNTHETIC.asInstanceOf[Long].asInstanceOf[FlagSet]
+
     DefDef(NoMods,
       TermName("$times"),
       List(),
@@ -86,9 +86,12 @@ trait MacroHelpers {
         Select(allFields, TermName("$less$greater")),
         List(
           Ident(caseClassName),
-          Function(
-            List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName("x$0"), TypeTree(), EmptyTree)),
-            Apply(Select(Ident(caseClassName), TermName("unapply")), List(Ident(TermName("x$0"))))))))
+          {
+            val xVar = context.freshName("x")
+            Function(
+              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
+              Apply(Select(Ident(caseClassName), TermName("unapply")), List(Ident(TermName(xVar)))))
+          })))
   }
 
   def primaryKeyDef(tableName: String)(columns: List[Column]): DefDef = {
