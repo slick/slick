@@ -2,7 +2,7 @@ package scala.slick.schema
 
 import scala.collection.mutable.ArrayBuffer
 
-case class Table(table: String, columns: List[Column]) {
+case class Table(table: String, columns: List[Column], constraints: List[Constraint]) {
   val scalaName = Naming.tableSQLToModule(table)
 
   val caseClassName = Naming.moduleToCaseClass(scalaName)
@@ -12,16 +12,4 @@ case class Table(table: String, columns: List[Column]) {
   def foreignKeys: List[ForeignKey] = constraints.collect { case fk: ForeignKey => fk }
 
   def indices: List[Index] = constraints.collect { case idx: Index => idx }
-
-  def constraints: List[Constraint] = _constraints.toList
-
-  private var _constraints: ArrayBuffer[Constraint] = new ArrayBuffer
-
-  def +=(c: Constraint) {
-    _constraints += c
-  }
-
-  def ++=(t: TraversableOnce[Constraint]) {
-    _constraints ++= t
-  }
 }
