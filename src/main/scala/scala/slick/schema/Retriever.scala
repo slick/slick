@@ -28,11 +28,13 @@ object Retriever {
         case (t, schema) =>
           {
             def getColumn: String => Option[Column] = getColumnOfSchema(schema) _
+            // handles primary key
             val primaryKeys = t.getPrimaryKeys.list flatMap (p => getColumn(p.column))
             val pkConstraint = PrimaryKey(primaryKeys)
             schema += pkConstraint
+            // handles foreign keys
             val fks = t.getImportedKeys.list
-            val grouped = fks.groupBy(x =>
+            val fksGrouped = fks.groupBy(x =>
               (getSchema(x.pkTable.name), getSchema(x.fkTable.name))).mapValues(v => {
               val fields =
                 v.map(x => {
@@ -44,13 +46,16 @@ object Retriever {
               val (updateRule, deleteRule) = (head.updateRule, head.deleteRule)
               (fields, updateRule, deleteRule)
             })
-            val fkConstraints = grouped.map(fk => ForeignKey(fk._1._1, fk._1._2, fk._2._1, fk._2._2, fk._2._3)).toList
+            val fkConstraints = fksGrouped.map(fk => ForeignKey(fk._1._1, fk._1._2, fk._2._1, fk._2._2, fk._2._3)).toList
             schema ++= fkConstraints
+            // handles indices
+            val indices = t.getIndexInfo(true, false).list
+            val idxGrouped = indices.groupBy(_.indexName).mapValues(_.map(idx => getColumn(idx.columnName.get).get))
+            val idxConstraints = idxGrouped.map(idx => Index(idx._2)).toList
+            schema ++= idxConstraints
           }
-
       }
       tables.map(_._2)
     }
   }
 }
-

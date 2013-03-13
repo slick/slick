@@ -11,6 +11,8 @@ case class Table(table: String, columns: List[Column]) {
 
   def foreignKeys: List[ForeignKey] = constraints.collect { case fk: ForeignKey => fk }
 
+  def indices: List[Index] = constraints.collect { case idx: Index => idx }
+
   def constraints: List[Constraint] = _constraints.toList
 
   private var _constraints: ArrayBuffer[Constraint] = new ArrayBuffer

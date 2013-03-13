@@ -17,4 +17,12 @@ object Naming {
   def columnSQLToField(columnSQL: String): String = {
     CodeGen.mkScalaName(columnSQL, false)
   }
+
+  def indexName(idx: Index): String = {
+    indexName(idx.fields.map(_.scalaName))
+  }
+
+  def indexName(columnNames: List[String]): String = {
+    "idx_" + columnNames.mkString("_")
+  }
 }

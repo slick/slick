@@ -4,6 +4,8 @@ import scala.reflect.macros.Context
 import scala.slick.schema.Table
 import scala.slick.schema.Column
 import scala.slick.schema.ForeignKey
+import scala.slick.schema.Index
+import scala.slick.schema.Naming
 
 trait MacroHelpers {
   val context: Context
@@ -69,9 +71,10 @@ trait MacroHelpers {
   }
 
   // helper methods for creating the module for each table
+  def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.scalaName))
+
   def starDef(tableName: String)(columns: List[Column], caseClassName: TermName): DefDef = {
-    def getField(column: Column) = Select(This(TypeName(tableName)), TermName(column.scalaName))
-    val allFields = columns.map(getField).reduceLeft[Tree]((prev, current) => {
+    val allFields = columns.map(getColumnOfTable(tableName)).reduceLeft[Tree]((prev, current) => {
       val tilde = Select(prev, TermName("$tilde"))
       Apply(tilde, List(current))
     })
@@ -95,24 +98,31 @@ trait MacroHelpers {
   }
 
   def primaryKeyDef(tableName: String)(columns: List[Column]): DefDef = {
-    def getColumn(c: Column) = Select(This(TypeName(tableName)), TermName(c.scalaName))
-    val pks = createTupleOrSingleton(columns map getColumn)
+    val pks = createTupleOrSingleton(columns map getColumnOfTable(tableName))
     DefDef(NoMods, TermName("primaryKey" + tableName), List(), List(), TypeTree(), Apply(Select(This(TypeName(tableName)), TermName("primaryKey")), List(Literal(Constant("CONSTRAINT_PK_" + tableName.toUpperCase)), pks)))
   }
 
   def foreignKeyDef(tableName: String)(fk: ForeignKey): DefDef = {
-    def getColumn(c: Column) = Select(This(TypeName(tableName)), TermName(c.scalaName))
     def getColumnOfName(n: String)(c: Column) = Select(Ident(TermName(n)), TermName(c.scalaName))
+    val methodName = "fk" + fk.pkTable.scalaName
     val fkName = Literal(Constant(fk.pkTable.table + "_fk"))
     val fkFkColumns = fk.fields.map(_._2)
-    val fkSourceColumns = createTupleOrSingleton(fkFkColumns map getColumn)
+    val fkSourceColumns = createTupleOrSingleton(fkFkColumns map getColumnOfTable(tableName))
     val fkTargetTable = Ident(TermName(fk.pkTable.scalaName))
     val fkPkColumns = fk.fields.map(_._1)
     val SYNTHETIC = scala.reflect.internal.Flags.SYNTHETIC.asInstanceOf[Long].asInstanceOf[FlagSet]
     val fkTargetColumns = Function(List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName("x"), TypeTree(), EmptyTree)), createTupleOrSingleton(fkPkColumns map (getColumnOfName("x"))))
     val fkUpdateRule = Select(foreignKeyActionObject, TermName(fk.updateRule.toString))
     val fkDeleteRule = Select(foreignKeyActionObject, TermName(fk.deleteRule.toString))
-    DefDef(NoMods, TermName("fk" + fk.pkTable.scalaName), List(), List(), TypeTree(), Apply(Apply(Select(This(TypeName(tableName)), TermName("foreignKey")), List(fkName, fkSourceColumns, fkTargetTable)), List(Block(List(), fkTargetColumns), fkUpdateRule, fkDeleteRule)))
+    DefDef(NoMods, TermName(methodName), List(), List(), TypeTree(), Apply(Apply(Select(This(TypeName(tableName)), TermName("foreignKey")), List(fkName, fkSourceColumns, fkTargetTable)), List(fkTargetColumns, fkUpdateRule, fkDeleteRule)))
+  }
+
+  def indexDef(tableName: String)(idx: Index): DefDef = {
+    val methodName = Naming.indexName(idx)
+    val idxName = Literal(Constant(methodName))
+    val idxOn = createTupleOrSingleton(idx.fields map getColumnOfTable(tableName))
+    val idxUnique = Literal(Constant(true))
+    DefDef(NoMods, TermName(methodName), List(), List(), TypeTree(), Apply(Select(This(TypeName(tableName)), TermName("index")), List(idxName, idxOn, idxUnique)))
   }
 
   // creates case class for each table
@@ -142,7 +152,8 @@ trait MacroHelpers {
     val star = starDef(tableName)(columns, caseClass.name.toTermName)
     val pk = if (table.primaryKeys.isEmpty) None else Some(primaryKeyDef(tableName)(table.primaryKeys))
     val fks = table.foreignKeys map foreignKeyDef(tableName)
-    val methods = constructor :: (fields ++ (star :: (pk.toList ::: fks)))
+    val idx = table.indices map indexDef(tableName)
+    val methods = constructor :: (fields ++ (star :: (pk.toList ::: fks ::: idx)))
     ModuleDef(NoMods, TermName(tableName), Template(List(tableSuper), emptyValDef, methods))
   }
 

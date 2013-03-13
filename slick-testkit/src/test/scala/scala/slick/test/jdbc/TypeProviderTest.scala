@@ -10,6 +10,9 @@ import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
 import com.typesafe.slick.testkit.util.TestDB
 import scala.slick.typeproviders.TypeProvider
+import scala.slick.schema.Naming
+import scala.slick.ast.Select
+import scala.slick.ast.Node
 
 class TypeProviderTest {
   @Test def h2memTest() {
@@ -85,36 +88,70 @@ class TypeProviderTest {
     }
   }
 
-  @Test def fkTest1() {
+  @Test def fkSimpleTest() {
+    def convertColumnsToString(columns: List[Node]): List[String] =
+      columns.map(convertColumnNodeToString)
     object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-1")
     import Db1.driver.simple._
     import Database.threadLocalSession
+    import Db1._
     Db1.database.withSession {
       val tables = MTable.getTables(Some(""), Some(""), None, None).list
       val a = tables.find(_.name.name equals "a").get
       val b = tables.find(_.name.name equals "b").get
       assertEquals("# of FKs of 'a' should be 1",
-        a.getImportedKeys.list.length, 1)
+        1, A.foreignKeys.size)
       assertEquals("# of FKs of 'b' should be 0",
-        b.getImportedKeys.list.length, 0)
+        0, B.foreignKeys.size)
+      val aFk = A.foreignKeys.head
+      val srcColumns = convertColumnsToString(aFk.linearizedSourceColumns.toList)
+      val trgColumns = convertColumnsToString(aFk.linearizedTargetColumns.toList)
+      assertEquals("FKs should have the same source column", srcColumns, List("k1"))
+      assertEquals("FKs should have the same target column", trgColumns, List("f1"))
+      assertTrue("FKs should be from 'a' to 'b'", aFk.sourceTable.isInstanceOf[A.type] && aFk.targetTable.isInstanceOf[B.type])
     }
   }
 
-  @Test def fkTest2() {
+  @Test def fkCompoundTest() {
+    def convertColumnsToString(columns: List[Node]): List[String] =
+      columns.map(convertColumnNodeToString)
     object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-2")
     import Db1.driver.simple._
     import Database.threadLocalSession
+    import Db1._
     Db1.database.withSession {
-      val tables = MTable.getTables(Some(""), Some(""), None, None).list
-      val a = tables.find(_.name.name equals "a").get
-      val b = tables.find(_.name.name equals "b").get
-      assertEquals("# of FKs of 'a' should be 2",
-        a.getImportedKeys.list.length, 2)
+      assertEquals("# of FKs of 'a' should be 1",
+        1, A.foreignKeys.size)
       assertEquals("# of FKs of 'b' should be 0",
-        b.getImportedKeys.list.length, 0)
-      val aFks = a.getImportedKeys.list
-      assertTrue("FKs should match", aFks.map(fk => (fk.pkColumn, fk.fkColumn)) equals List(("f1", "k1"), ("f2", "k2")))
-      assertTrue("FKs should be from 'a' to 'b'", aFks.map(fk => (fk.pkTable.name, fk.fkTable.name)) equals List(("b", "a"), ("b", "a")))
+        0, B.foreignKeys.size)
+      val aFk = A.foreignKeys.head
+      val srcColumns = convertColumnsToString(aFk.linearizedSourceColumns.toList)
+      val trgColumns = convertColumnsToString(aFk.linearizedTargetColumns.toList)
+      assertEquals("FKs should have the same source column", srcColumns, List("k1", "k2"))
+      assertEquals("FKs should have the same target column", trgColumns, List("f1", "f2"))
+      assertTrue("FKs should be from 'a' to 'b'", aFk.sourceTable.isInstanceOf[A.type] && aFk.targetTable.isInstanceOf[B.type])
     }
   }
+
+  @Test def indexTest() {
+    object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-2")
+    import Db1.driver.simple._
+    import Database.threadLocalSession
+    import Db1._
+    Db1.database.withSession {
+      assertEquals("# of unique indices of 'a' should be 0",
+        0, A.indexes.size)
+      assertEquals("# of unique indices of 'b' should be 1",
+        1, B.indexes.size)
+      val bIdx = B.indexes.head
+      val bIdxFieldsName = bIdx.on map (convertColumnNodeToString)
+      val columnNames = List("f1", "f2")
+      assertTrue("Indices should refer to correct field", bIdxFieldsName sameElements columnNames)
+      val indexName = Naming.indexName(columnNames)
+      assertTrue("Indices should have the correct name", bIdx.name equals indexName)
+    }
+  }
+
+  def convertColumnNodeToString(node: Node): String =
+    node.asInstanceOf[Select].field.name
 }
