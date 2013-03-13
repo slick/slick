@@ -12,7 +12,7 @@ import com.typesafe.config.ConfigException
 import scala.slick.schema.Retriever
 
 object Macros {
-  def DbImpl(c: Context)(url: c.Expr[String], configurationFileName: c.Expr[String]) = {
+  def DbImpl(c: Context)(configurationFileName: c.Expr[String]) = {
     import c.universe._
     import Flag._
 
@@ -50,8 +50,7 @@ object Macros {
     }
 
     val connectionString: String = {
-      val Expr(Literal(Constant(sUrl: String))) = url
-      urlConfig + sUrl
+      urlConfig
     }
 
     def createConnection(): Connection = {

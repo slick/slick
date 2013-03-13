@@ -16,7 +16,7 @@ import scala.slick.ast.Node
 
 class TypeProviderTest {
   @Test def h2memTest() {
-    object Db1 extends TypeProvider.Db("", "type-providers-h2mem")
+    object Db1 extends TypeProvider.Db("type-providers-h2mem")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -38,7 +38,7 @@ class TypeProviderTest {
   }
 
   @Test def hsqlSimpleTest() {
-    object Db1 extends TypeProvider.Db("", "type-providers-hsql")
+    object Db1 extends TypeProvider.Db("type-providers-hsql")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -50,7 +50,7 @@ class TypeProviderTest {
   }
 
   @Test def hsqlComplexTest() {
-    object Db1 extends TypeProvider.Db("", "type-providers-hsql")
+    object Db1 extends TypeProvider.Db("type-providers-hsql")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -64,7 +64,7 @@ class TypeProviderTest {
   }
 
   @Test def sqliteSimpleTest() {
-    object Db1 extends TypeProvider.Db("", "type-providers-sqlite")
+    object Db1 extends TypeProvider.Db("type-providers-sqlite")
     import Db1.driver.simple._
     import Database.threadLocalSession
     Db1.database.withSession {
@@ -75,7 +75,7 @@ class TypeProviderTest {
   }
 
   @Test def sqliteComplexTest() {
-    object Db1 extends TypeProvider.Db("", "type-providers-sqlite")
+    object Db1 extends TypeProvider.Db("type-providers-sqlite")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -91,7 +91,7 @@ class TypeProviderTest {
   @Test def fkSimpleTest() {
     def convertColumnsToString(columns: List[Node]): List[String] =
       columns.map(convertColumnNodeToString)
-    object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-1")
+    object Db1 extends TypeProvider.Db("type-providers-h2mem-fk-1")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -115,7 +115,7 @@ class TypeProviderTest {
   @Test def fkCompoundTest() {
     def convertColumnsToString(columns: List[Node]): List[String] =
       columns.map(convertColumnNodeToString)
-    object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-2")
+    object Db1 extends TypeProvider.Db("type-providers-h2mem-fk-2")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -134,7 +134,7 @@ class TypeProviderTest {
   }
 
   @Test def indexTest() {
-    object Db1 extends TypeProvider.Db("", "type-providers-h2mem-fk-2")
+    object Db1 extends TypeProvider.Db("type-providers-h2mem-fk-2")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
