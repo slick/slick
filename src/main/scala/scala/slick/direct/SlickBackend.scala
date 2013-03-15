@@ -343,10 +343,12 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         
         // Tuples
         case Apply(
-            Select(Select(Ident(package_), class_), method_),
+            tupleApply,
             components
         )
-        if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
+        if definitions.TupleClass
+                      .map( _.companionSymbol.typeSignature.member(TermName("apply")) )
+                      .contains( tupleApply.symbol )
         =>
             sq.ProductNode( components.map(s2sq(_).node) )
 
