@@ -1,6 +1,8 @@
 package scala.slick.schema
 
-case class Column(name: String, tpe: scala.reflect.runtime.universe.Type) {
-  val scalaName = Naming.columnSQLToField(name)
+import scala.slick.schema.naming.Naming
+
+case class Column(tableName: String, name: String, tpe: scala.reflect.runtime.universe.Type, naming: Naming) {
+  val scalaName = naming.columnSQLToCaseField(tableName)(name)
   override def toString = s"$name: $tpe"
 }

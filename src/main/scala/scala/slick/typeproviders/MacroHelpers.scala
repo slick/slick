@@ -5,9 +5,9 @@ import scala.slick.schema.Table
 import scala.slick.schema.Column
 import scala.slick.schema.ForeignKey
 import scala.slick.schema.Index
-import scala.slick.schema.Naming
+import scala.slick.schema.naming.Naming
 
-trait MacroHelpers {
+abstract class MacroHelpers(val naming: Naming) {
   val context: Context
   import context.universe._
   import Flag._
@@ -118,7 +118,7 @@ trait MacroHelpers {
   }
 
   def indexDef(tableName: String)(idx: Index): DefDef = {
-    val methodName = Naming.indexName(idx)
+    val methodName = naming.indexName(idx)
     val idxName = Literal(Constant(methodName))
     val idxOn = createTupleOrSingleton(idx.fields map getColumnOfTable(tableName))
     val idxUnique = Literal(Constant(true))
