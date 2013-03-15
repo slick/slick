@@ -10,16 +10,14 @@ import com.typesafe.config.ConfigFactory
 import scala.slick.SlickException
 import com.typesafe.config.ConfigException
 import scala.slick.schema.Retriever
+import scala.slick.schema.naming.NamingConfigured
 
 object Macros {
   def DbImpl(c: Context)(configurationFileName: c.Expr[String]) = {
     import c.universe._
     import Flag._
 
-    val macroHelper = new { val context: c.type = c } with MacroHelpers
-    val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(Macros.this.getClass.getClassLoader)
-
-    val (jdbcClass, urlConfig, slickDriverObject, userForConnection, passForConnection) = {
+    val (jdbcClass, urlConfig, slickDriverObject, userForConnection, passForConnection, naming) = {
       val testDbs = "test-dbs/type-provider/conf/"
       val confFile = {
         try {
@@ -46,12 +44,18 @@ object Macros {
         case e: ConfigException.Missing => ""
         case e: ConfigException.WrongType => throw new SlickException(s"The value for $key should be String", e)
       }
-      (c("jdbc-driver"), c("url"), c("slick-object"), c("username"), c("password"))
+      val naming = new NamingConfigured(conf)
+      (c("jdbc-driver"), c("url"), c("slick-object"), c("username"), c("password"), naming)
     }
 
     val connectionString: String = {
       urlConfig
     }
+
+    val macroHelper = new {
+      val context: c.type = c
+    } with MacroHelpers(naming)
+    val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(Macros.this.getClass.getClassLoader)
 
     def createConnection(): Connection = {
       val conString = connectionString
@@ -71,7 +75,7 @@ object Macros {
       val driver = createDriver()
       val db = driver.simple.Database.forURL(connectionString, driver = jdbcClass,
         user = userForConnection, password = passForConnection)
-      val tables = Retriever.tables(driver, db)
+      val tables = Retriever.tables(driver, db)(naming)
       tables.flatMap(table => {
         // generate the dto case class
         val caseClass = macroHelper.tableToCaseClass(table)

@@ -4,15 +4,17 @@ import scala.Option.option2Iterable
 import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.JdbcBackend
 import scala.collection.mutable.ArrayBuffer
+import scala.slick.schema.naming.Naming
 
 object Retriever {
-  def tables(driver: JdbcDriver, db: JdbcBackend#DatabaseDef): List[Table] = {
+  def tables(driver: JdbcDriver, db: JdbcBackend#DatabaseDef)(naming: Naming): List[Table] = {
     import driver.simple.Database.threadLocalSession
     db withSession {
       import Column._
       val tables = (driver.getTables.list map (t => {
-        val columns = t.getColumns.list map (c => Column(c.column, driver.scalaTypeForColumn(c)))
-        (t, Table(t.name.name, columns, Nil))
+        val tableName = t.name.name
+        val columns = t.getColumns.list map (c => Column(tableName, c.column, driver.scalaTypeForColumn(c), naming))
+        (t, Table(tableName, columns, Nil, naming))
       }))
       def getTable(tableName: String): Option[Table] =
         tables.find {

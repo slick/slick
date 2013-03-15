@@ -10,9 +10,9 @@ import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
 import com.typesafe.slick.testkit.util.TestDB
 import scala.slick.typeproviders.TypeProvider
-import scala.slick.schema.Naming
 import scala.slick.ast.Select
 import scala.slick.ast.Node
+import scala.slick.schema.naming.NamingDefault
 
 class TypeProviderTest {
   @Test def h2memTest() {
@@ -147,7 +147,7 @@ class TypeProviderTest {
       val bIdxFieldsName = bIdx.on map (convertColumnNodeToString)
       val columnNames = List("f1", "f2")
       assertTrue("Indices should refer to correct field", bIdxFieldsName sameElements columnNames)
-      val indexName = Naming.indexName(columnNames)
+      val indexName = NamingDefault.indexName(columnNames)
       assertTrue("Indices should have the correct name", bIdx.name equals indexName)
     }
   }
