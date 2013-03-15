@@ -13,13 +13,15 @@ object Retriever {
       import Column._
       val tables = (driver.getTables.list map (t => {
         val tableName = t.name.name
-        val columns = t.getColumns.list map (c => Column(tableName, c.column, driver.scalaTypeForColumn(c), naming))
-        (t, Table(tableName, columns, Nil, naming))
+        val caseFieldName = naming.columnSQLToCaseField(tableName) _
+        val moduleFieldName = naming.columnSQLToModuleField(tableName) _
+        val columns = t.getColumns.list map (c => Column(c.column, driver.scalaTypeForColumn(c), moduleFieldName(c.column), caseFieldName(c.column)))
+        (t, Table(tableName, columns, Nil, naming.tableSQLToModule(tableName), naming.tableSQLToCase(tableName)))
       }))
       def getTable(tableName: String): Option[Table] =
         tables.find {
           case (t, s) =>
-            s.table equals tableName
+            s.name equals tableName
         }.map(_._2)
       def getSchema(tableName: String): Table =
         getTable(tableName).get
@@ -34,12 +36,16 @@ object Retriever {
             val constraints: ArrayBuffer[Constraint] = new ArrayBuffer
             // handles primary key
             val primaryKeys = t.getPrimaryKeys.list flatMap (p => getColumn(p.column))
-            val pkConstraint = PrimaryKey(primaryKeys)
-            constraints += pkConstraint
+            val pkConstraint =
+              primaryKeys match {
+                case Nil => None
+                case list => Some(PrimaryKey(list))
+              }
+            constraints ++= pkConstraint
             // handles foreign keys
             val fks = t.getImportedKeys.list
             val fksGrouped = fks.groupBy(x =>
-              (getSchema(x.pkTable.name), getSchema(x.fkTable.name))).mapValues(v => {
+              (x.pkTable.name, x.fkTable.name)).mapValues(v => {
               val fields =
                 v.map(x => {
                   val pkColumn = getColumnOfTable(x.pkTable.name)(x.pkColumn).get
