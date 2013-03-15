@@ -3,12 +3,8 @@ package scala.slick.schema
 import scala.collection.mutable.ArrayBuffer
 import scala.slick.schema.naming.Naming
 
-case class Table(table: String, columns: List[Column], constraints: List[Constraint], naming: Naming) {
-  val scalaName = naming.tableSQLToModule(table)
-
-  val caseClassName = naming.tableSQLToCase(table)
-
-  def primaryKeys: List[Column] = constraints.collectFirst { case pk: PrimaryKey => pk.fields }.getOrElse(Nil)
+case class Table(name: String, columns: List[Column], constraints: List[Constraint], moduleName: String, caseClassName: String) {
+  def primaryKey: Option[PrimaryKey] = constraints.collectFirst { case pk: PrimaryKey => pk }
 
   def foreignKeys: List[ForeignKey] = constraints.collect { case fk: ForeignKey => fk }
 
