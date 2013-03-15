@@ -19,7 +19,8 @@ import scala.slick.ast.{WithOp, TableNode, Node, Symbol, TypedType}
  */
 @implicitNotFound(msg = "Don't know how to unpack ${Mixed_} to ${Unpacked_} and pack to ${Packed_}")
 abstract class Shape[-Mixed_, Unpacked_, Packed_] {
-  type Mixed = Mixed_
+  // Type aliasing does not work for variant types any more
+  type Mixed = Mixed_ @annotation.unchecked.uncheckedVariance 
   type Unpacked = Unpacked_
   type Packed = Packed_
   def pack(from: Mixed): Packed
