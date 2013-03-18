@@ -8,11 +8,11 @@ import scala.slick.jdbc.meta._
 import scala.slick.jdbc.{StaticQuery => Q}
 import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.TestDB
+import com.typesafe.slick.testkit.util.JdbcTestDB
 
 object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerJTDS)
 
-class MetaTest(val tdb: TestDB) extends DBTest {
+class MetaTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
   import Database.threadLocalSession
 

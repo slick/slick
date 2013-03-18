@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class ColumnDefaultTest(val tdb: TestDB) extends TestkitTest {
+class ColumnDefaultTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   case class User(id: Int, first: String, last: String)
@@ -15,7 +15,7 @@ class ColumnDefaultTest(val tdb: TestDB) extends TestkitTest {
     def * = id ~ a ~ b
   }
 
-  def test = ifCap(scap.columnDefaults) {
+  def test = ifCap(rcap.columnDefaults) {
     A.ddl.createStatements foreach println
     A.ddl.create
     A.id insert 42

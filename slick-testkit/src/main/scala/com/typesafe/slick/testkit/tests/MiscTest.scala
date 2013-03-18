@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class MiscTest(val tdb: TestDB) extends TestkitTest {
+class MiscTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
@@ -95,7 +95,7 @@ class MiscTest(val tdb: TestDB) extends TestkitTest {
     println("q2: " + q2.selectStatement)
     assertEquals(Set("foo", "foobar", "foo%"), q2.to[Set])
 
-    ifCap(scap.likeEscape) {
+    ifCap(rcap.likeEscape) {
       val q3 = for { t1 <- T1 if t1.a.like("foo^%", '^') } yield t1.a
       println("q3: " + q3.selectStatement)
       assertEquals(Set("foo%"), q3.to[Set])

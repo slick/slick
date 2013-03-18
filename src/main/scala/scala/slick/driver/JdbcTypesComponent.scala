@@ -1,12 +1,13 @@
 package scala.slick.driver
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
+import java.util.UUID
 import scala.slick.SlickException
 import scala.slick.ast.{OptionType, NumericTypedType, BaseTypedType, StaticType, Type}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
-import java.util.UUID
+import scala.slick.profile.RelationalTypesComponent
 
-trait JdbcTypesComponent { driver: JdbcDriver =>
+trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =>
 
   type TypeInfo = JdbcType[Any /* it's really _ but we'd have to cast it to Any anyway */]
 
@@ -280,24 +281,24 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
   }
 
-  class ImplicitJdbcTypes {
-    implicit def booleanJdbcType = columnTypes.booleanJdbcType
-    implicit def blobJdbcType = columnTypes.blobJdbcType
-    implicit def byteJdbcType = columnTypes.byteJdbcType
-    implicit def byteArrayJdbcType = columnTypes.byteArrayJdbcType
-    implicit def charJdbcType = columnTypes.charJdbcType
-    implicit def clobJdbcType = columnTypes.clobJdbcType
-    implicit def dateJdbcType = columnTypes.dateJdbcType
-    implicit def doubleJdbcType = columnTypes.doubleJdbcType
-    implicit def floatJdbcType = columnTypes.floatJdbcType
-    implicit def intJdbcType = columnTypes.intJdbcType
-    implicit def longJdbcType = columnTypes.longJdbcType
-    implicit def shortJdbcType = columnTypes.shortJdbcType
-    implicit def stringJdbcType = columnTypes.stringJdbcType
-    implicit def timeJdbcType = columnTypes.timeJdbcType
-    implicit def timestampJdbcType = columnTypes.timestampJdbcType
-    implicit def unitJdbcType = columnTypes.unitJdbcType
-    implicit def uuidJdbcType = columnTypes.uuidJdbcType
-    implicit def bigDecimalJdbcType = columnTypes.bigDecimalJdbcType
+  trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
+    implicit def booleanColumnType = columnTypes.booleanJdbcType
+    implicit def blobColumnType = columnTypes.blobJdbcType
+    implicit def byteColumnType = columnTypes.byteJdbcType
+    implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
+    implicit def charColumnType = columnTypes.charJdbcType
+    implicit def clobColumnType = columnTypes.clobJdbcType
+    implicit def dateColumnType = columnTypes.dateJdbcType
+    implicit def doubleColumnType = columnTypes.doubleJdbcType
+    implicit def floatColumnType = columnTypes.floatJdbcType
+    implicit def intColumnType = columnTypes.intJdbcType
+    implicit def longColumnType = columnTypes.longJdbcType
+    implicit def shortColumnType = columnTypes.shortJdbcType
+    implicit def stringColumnType = columnTypes.stringJdbcType
+    implicit def timeColumnType = columnTypes.timeJdbcType
+    implicit def timestampColumnType = columnTypes.timestampJdbcType
+    implicit def unitColumnType = columnTypes.unitJdbcType
+    implicit def uuidColumnType = columnTypes.uuidJdbcType
+    implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
   }
 }

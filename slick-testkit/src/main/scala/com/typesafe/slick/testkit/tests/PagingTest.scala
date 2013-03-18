@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class PagingTest(val tdb: TestDB) extends TestkitTest {
+class PagingTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   object IDs extends Table[Int]("ids") {
@@ -26,7 +26,7 @@ class PagingTest(val tdb: TestDB) extends TestkitTest {
     println("    "+q2.list)
     assertEquals((1 to 5).toList, q2.list)
 
-    ifCap(scap.pagingDrop) {
+    ifCap(rcap.pagingDrop) {
       val q3 = q1 drop 5
       println("q3: "+q3.selectStatement)
       println("    "+q3.list)

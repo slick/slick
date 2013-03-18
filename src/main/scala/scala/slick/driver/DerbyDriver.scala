@@ -5,7 +5,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import slick.compiler.CompilerState
 
 /**
@@ -15,10 +15,10 @@ import slick.compiler.CompilerState
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.functionDatabase]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]]:
  *     <code>Functions.database</code> is not available in Derby. Slick
  *     will return an empty string instead.</li>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.pagingNested]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.pagingNested]]:
  *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
  *     target="_parent">DERBY-5911</a>.</li>
  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
@@ -32,7 +32,7 @@ import slick.compiler.CompilerState
  *     Sequence cycling is supported but does not conform to SQL:2008
  *     semantics. Derby cycles back to the START value instead of MINVALUE or
  *     MAXVALUE.</li>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.zip]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.zip]]:
  *     Ordered sub-queries and window functions with orderings are currently
  *     not supported by Derby. These are required by <code>zip</code> and
  *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
@@ -48,13 +48,13 @@ import slick.compiler.CompilerState
 trait DerbyDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - SqlProfile.capabilities.functionDatabase
-    - SqlProfile.capabilities.pagingNested
+    - RelationalProfile.capabilities.functionDatabase
+    - RelationalProfile.capabilities.pagingNested
     - JdbcProfile.capabilities.returnInsertOther
     - SqlProfile.capabilities.sequenceCurr
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
     - SqlProfile.capabilities.sequenceCycle
-    - SqlProfile.capabilities.zip
+    - RelationalProfile.capabilities.zip
   )
 
   override val columnTypes = new JdbcTypes

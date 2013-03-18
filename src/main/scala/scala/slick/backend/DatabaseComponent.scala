@@ -90,5 +90,12 @@ trait DatabaseComponent { self =>
      * Use this Session as the threadLocalSession for running the supplied thunk.
      */
     def asThreadLocal[T](f: => T): T = withThreadLocalSession[T](this.asInstanceOf[Session])(f)
+
+    /**
+     * Force an actual database session to be opened. Slick sessions are lazy,
+     * so you do not get a real database connection until you need it or you
+     * call force() on the session.
+     */
+    def force(): Unit
   }
 }

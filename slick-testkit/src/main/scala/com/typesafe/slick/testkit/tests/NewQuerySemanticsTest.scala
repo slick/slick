@@ -3,9 +3,9 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import scala.slick.jdbc.StaticQuery._
 import scala.slick.ast._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
+class NewQuerySemanticsTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   val doRun = true
@@ -169,7 +169,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(r1e, r1)
     }
 
-    ifCap(scap.pagingNested) {
+    ifCap(rcap.pagingNested) {
       val q1b_0 = Coffees.sortBy(_.price).take(3) join Suppliers on (_.supID === _.id)
       val q1b = for {
         (c, s) <- q1b_0.sortBy(_._1.price).take(2).filter(_._1.name =!= "Colombian")
@@ -240,7 +240,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(r3be, r3b)
     }
 
-    ifCap(scap.pagingNested) {
+    ifCap(rcap.pagingNested) {
       val q4 = for {
         c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 800)
       } yield c._1 ~ c._3

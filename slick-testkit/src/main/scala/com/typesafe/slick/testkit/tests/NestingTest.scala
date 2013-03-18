@@ -2,9 +2,9 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 import scala.slick.ast.Dump
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class NestingTest(val tdb: TestDB) extends TestkitTest {
+class NestingTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   def testNestedTuples {

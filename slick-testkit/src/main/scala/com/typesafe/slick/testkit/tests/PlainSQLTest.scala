@@ -4,9 +4,9 @@ import org.junit.Assert
 import org.junit.Assert._
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 import Q.interpolation
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestDB, TestkitTest}
 
-class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
+class PlainSQLTest extends TestkitTest[JdbcTestDB] {
 
   implicit val getUserResult = GetResult(r => new User(r.<<, r.<<))
 

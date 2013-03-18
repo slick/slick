@@ -188,6 +188,8 @@ trait JdbcBackend extends DatabaseComponent {
      */
     def rollback(): Unit
 
+    def force() { conn }
+
     /**
      * Run the supplied function within a transaction. If the function throws an Exception
      * or the session's rollback() method is called, the transaction is rolled back,

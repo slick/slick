@@ -16,8 +16,6 @@ trait Aliases {
   val Functions = lifted.Functions
   type Parameters[PU, PP] = lifted.Parameters[PU, PP]
   val Parameters = lifted.Parameters
-  type Sequence[T] = lifted.Sequence[T]
-  val Sequence = lifted.Sequence
   type SimpleFunction = lifted.SimpleFunction
   val SimpleFunction = lifted.SimpleFunction
   type SimpleBinaryOperator = lifted.SimpleBinaryOperator

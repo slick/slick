@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class AggregateTest(val tdb: TestDB) extends TestkitTest {
+class AggregateTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
@@ -18,8 +18,8 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     T.insertAll((1, Some(1)), (1, Some(2)), (1, Some(3)))
     def q1(i: Int) = for { t <- T if t.a === i } yield t
     def q2(i: Int) = (q1(i).length, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
-    val q2_0 = q2(0).toQueryExecutor
-    val q2_1 = q2(1).toQueryExecutor
+    val q2_0 = q2(0).shaped
+    val q2_1 = q2(1).shaped
     println("q2_0: "+q2_0.selectStatement)
     println("q2_1: "+q2_1.selectStatement)
     println(q2_0.run)
