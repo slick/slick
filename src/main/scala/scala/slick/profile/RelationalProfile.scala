@@ -198,8 +198,8 @@ trait RelationalMappingCompilerComponent {
   trait MappingCompiler {
 
     def compileMapping(n: Node): ResultConverter = n match {
-      case Path(_) => createColumnConverter(n, false)
-      case OptionApply(Path(_)) => createColumnConverter(n, true)
+      case p @ Path(_) => createColumnConverter(n, p, false)
+      case OptionApply(p @ Path(_)) => createColumnConverter(n, p, true)
       case ProductNode(ch) =>
         new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
       case GetOrElse(ch, default) =>
@@ -210,7 +210,7 @@ trait RelationalMappingCompilerComponent {
         throw new SlickException("Unexpected node in ResultSetMapping: "+n)
     }
 
-    def createColumnConverter(n: Node, option: Boolean): ResultConverter
+    def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter
   }
 
   /** A node that wraps a ResultConverter */

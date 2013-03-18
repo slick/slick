@@ -70,7 +70,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     val r2 = q2.run
     val r2t = r2: Seq[(Int, Int, Option[Int], Option[Int])]
     println(r2)
-    assertEquals(List((1, 3, Some(3), Some(6)), (2, 3, Some(6), Some(8)), (3, 2, Some(6), Some(10))), r2)
+    assertEquals(Set((1, 3, Some(3), Some(6)), (2, 3, Some(6), Some(8)), (3, 2, Some(6), Some(10))), r2.toSet)
 
     println("=========================================================== q3")
     val q3 = (for {

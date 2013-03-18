@@ -14,7 +14,7 @@ trait JdbcMappingCompilerComponent extends RelationalMappingCompilerComponent { 
   type RowUpdater = PositionedResult
 
   trait MappingCompiler extends super.MappingCompiler {
-    def createColumnConverter(n: Node, option: Boolean): ResultConverter = {
+    def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = {
       val ti = driver.typeInfoFor(n.nodeType)
       new ResultConverter {
         def read(pr: RowReader) =

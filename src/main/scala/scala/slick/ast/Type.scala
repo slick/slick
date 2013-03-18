@@ -18,6 +18,8 @@ object Type {
 
 case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
+  lazy val symbolToIndex: Map[Symbol, Int] =
+    elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
 }
 
 trait OptionType extends Type {

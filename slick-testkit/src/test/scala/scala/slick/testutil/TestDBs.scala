@@ -4,10 +4,11 @@ import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
 import scala.slick.driver._
+import scala.slick.memory.MemoryDriver
 import scala.slick.jdbc.{ResultSetInvoker, StaticQuery => Q}
 import scala.slick.jdbc.GetResult._
 import scala.slick.jdbc.meta.MTable
-import com.typesafe.slick.testkit.util.{ExternalJdbcTestDB, JdbcTestDB, ExternalTestDB, TestDB}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, ExternalJdbcTestDB, JdbcTestDB, ExternalTestDB, TestDB}
 
 object TestDBs {
   def H2Mem(cname: String) = new JdbcTestDB("h2mem") {
@@ -128,6 +129,17 @@ object TestDBs {
   def SQLServerSQLJDBC(cname: String) = new SQLServerDB("sqlserver-jdbc")
 
   def MSAccess(cname: String) = new AccessDB("access")
+
+  def Heap(cname: String) = new RelationalTestDB {
+    type Driver = MemoryDriver
+    val driver: Driver = MemoryDriver
+    val confName: String = "heap"
+    def createDB: profile.Backend#Database = profile.backend.Database()
+    def dropUserArtifacts(implicit session: profile.Backend#Session) {
+      val db = session.database
+      db.getTables.foreach(t => db.dropTable(t.name))
+    }
+  }
 }
 
 class SQLiteTestDB(dburl: String, confName: String) extends JdbcTestDB(confName) {
