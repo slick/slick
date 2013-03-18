@@ -152,6 +152,23 @@ class TypeProviderTest {
     }
   }
 
+  @Test def autoIncTest() {
+    def optionsOfColumn(c: scala.slick.lifted.Column[_]) =
+      c.nodeDelegate.asInstanceOf[Select].field.asInstanceOf[scala.slick.ast.FieldSymbol].options.toList
+
+    object Db1 extends TypeProvider.Db("type-providers-h2mem-ainc")
+    import Db1._
+    val k1Options = optionsOfColumn(A.k1)
+    val k2Options = optionsOfColumn(A.k2)
+    val sOptions = optionsOfColumn(A.s)
+    assertTrue("k1 should be AutoInc",
+      k1Options.exists(option => (option equals A.O.AutoInc)))
+    assertTrue("k2 should not be AutoInc",
+      k2Options.forall(option => !(option equals A.O.AutoInc)))
+    assertTrue("s should not be AutoInc",
+      sOptions.forall(option => !(option equals A.O.AutoInc)))
+  }
+
   def convertColumnNodeToString(node: Node): String =
     node.asInstanceOf[Select].field.name
 }

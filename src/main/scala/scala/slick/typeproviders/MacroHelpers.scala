@@ -70,8 +70,15 @@ abstract class MacroHelpers(val naming: Naming) {
   // helper methods for creating the module for each table
   def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.moduleFieldName))
 
-  def columnToMethodDef(tableName: String)(column: Column): DefDef = {
-    DefDef(NoMods, TermName(column.moduleFieldName), List(), List(), TypeTree(), Apply(TypeApply(Select(This(TypeName(tableName)), TermName("column")), List(columnToType(column))), List(Literal(Constant(column.name)))))
+  def columnToMethodDef(tableName: String)(column: Column)(isAutoInc: Boolean): DefDef = {
+    val nameParam = Literal(Constant(column.name))
+    val autoIncParam =
+      if (isAutoInc)
+        Some(Select(Select(This(TypeName(tableName)), TermName("O")), TermName("AutoInc")))
+      else
+        None
+    val params = nameParam :: autoIncParam.toList
+    DefDef(NoMods, TermName(column.moduleFieldName), List(), List(), TypeTree(), Apply(TypeApply(Select(This(TypeName(tableName)), TermName("column")), List(columnToType(column))), params))
   }
 
   def starDef(tableName: String)(columns: List[Column], caseClassName: TermName): DefDef = {
@@ -150,7 +157,10 @@ abstract class MacroHelpers(val naming: Naming) {
     val tableSuper = AppliedTypeTree(tableType, List(Ident(caseClass.name)))
     val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.name))))
     val constructor = DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(superCall), Literal(Constant(()))))
-    val fields = columns map columnToMethodDef(tableName)
+    val autoIncField = table.autoInc.map(_.field)
+    val fields = columns map { c =>
+      columnToMethodDef(tableName)(c)(autoIncField.exists(f => f equals c))
+    }
     val star = starDef(tableName)(columns, caseClass.name.toTermName)
     val pk = table.primaryKey map primaryKeyDef(tableName)
     val fks = table.foreignKeys map foreignKeyDef(tableName)

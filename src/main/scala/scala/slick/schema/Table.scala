@@ -9,4 +9,6 @@ case class Table(name: String, columns: List[Column], constraints: List[Constrai
   def foreignKeys: List[ForeignKey] = constraints.collect { case fk: ForeignKey => fk }
 
   def indices: List[Index] = constraints.collect { case idx: Index => idx }
+
+  def autoInc: Option[AutoIncrement] = constraints.collectFirst { case ainc: AutoIncrement => ainc }
 }
