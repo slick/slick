@@ -1,6 +1,7 @@
 package scala.slick.driver
 
 import scala.language.{existentials, implicitConversions}
+import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
@@ -10,8 +11,6 @@ import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
 import scala.slick.profile.RelationalProfile
-import scala.collection.mutable.HashMap
-import scala.slick.jdbc.{ResultConverter, CompiledMapping, Insert}
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 

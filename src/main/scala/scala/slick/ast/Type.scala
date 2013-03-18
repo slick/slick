@@ -69,13 +69,15 @@ object Typed {
 }
 
 /* A Type that carries a Scala type argument */
-trait TypedType[T] extends Type {
-  def optionType: OptionTypedType[T] = new OptionTypedType[T](this)
+trait TypedType[T] extends Type { self =>
+  def optionType: OptionTypedType[T] = new OptionTypedType[T] { val elementType = self }
 }
 
 trait BaseTypedType[T] extends TypedType[T]
 
-class OptionTypedType[T](val elementType: TypedType[T]) extends TypedType[Option[T]] with OptionType
+trait OptionTypedType[T] extends TypedType[Option[T]] with OptionType {
+  val elementType: TypedType[T]
+}
 
 /** Mark a TypedType as eligible for numeric operators. */
 trait NumericTypedType

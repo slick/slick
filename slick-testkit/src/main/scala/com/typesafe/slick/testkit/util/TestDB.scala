@@ -1,16 +1,16 @@
 package com.typesafe.slick.testkit.util
 
-import java.util.Properties
-import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
-import scala.slick.jdbc.GetResult._
-import java.util.zip.GZIPInputStream
 import java.io._
-import org.junit.Assert
-import scala.slick.driver._
 import java.net.{URL, URLClassLoader}
 import java.sql.Driver
+import java.util.Properties
+import java.util.zip.GZIPInputStream
 import scala.collection.mutable
-import scala.slick.profile.{SqlDriver, RelationalDriver, BasicDriver, BasicProfile, Capability}
+import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
+import scala.slick.jdbc.GetResult._
+import scala.slick.driver._
+import scala.slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
+import org.junit.Assert
 
 object TestDB {
   type TestDBSpec = (String => TestDB)

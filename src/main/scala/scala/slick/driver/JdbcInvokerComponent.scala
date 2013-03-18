@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
-import scala.slick.ast.{CompiledStatement, ResultSetMapping, Node}
+import scala.slick.ast.{Insert, CompiledStatement, ResultSetMapping, Node}
 import scala.slick.lifted.{Query, Shape, ShapedValue}
 import scala.slick.jdbc._
 import scala.slick.util.SQLBuilder

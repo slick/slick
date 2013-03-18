@@ -3,6 +3,8 @@ package scala.slick.profile
 import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast._
 import scala.slick.lifted._
+import scala.slick.util.TupleSupport
+import scala.slick.SlickException
 import FunctionSymbolExtensionMethods._
 import scala.slick.SlickException
 
@@ -178,5 +180,73 @@ trait RelationalTypesComponent { driver: BasicDriver =>
     implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
     implicit def unitColumnType: BaseColumnType[Unit]
+  }
+}
+
+/** This optional driver component provides a way to compose client-side
+  * accessors for parameters and result sets. */
+trait RelationalMappingCompilerComponent {
+  /* TODO: PositionedResult isn't the right interface -- it assumes that
+   * all columns will be read and updated in order. We should not limit it in
+   * this way. */
+  type RowReader
+  type RowWriter
+  type RowUpdater
+
+  /** Create a CompiledMapping for parameters and result sets. Subclasses have
+    * to provide profile-specific createColumnConverter implementations. */
+  trait MappingCompiler {
+
+    def compileMapping(n: Node): ResultConverter = n match {
+      case Path(_) => createColumnConverter(n, false)
+      case OptionApply(Path(_)) => createColumnConverter(n, true)
+      case ProductNode(ch) =>
+        new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
+      case GetOrElse(ch, default) =>
+        new GetOrElseResultConverter(compileMapping(ch), default)
+      case TypeMapping(ch, _, toBase, toMapped) =>
+        new TypeMappingResultConverter(compileMapping(ch), toBase, toMapped)
+      case n =>
+        throw new SlickException("Unexpected node in ResultSetMapping: "+n)
+    }
+
+    def createColumnConverter(n: Node, option: Boolean): ResultConverter
+  }
+
+  /** A node that wraps a ResultConverter */
+  final case class CompiledMapping(converter: ResultConverter, tpe: Type) extends NullaryNode with TypedNode {
+    type Self = CompiledMapping
+    def nodeRebuild = copy()
+    override def toString = "CompiledMapping"
+  }
+
+  trait ResultConverter {
+    def read(pr: RowReader): Any
+    def update(value: Any, pr: RowUpdater): Unit
+    def set(value: Any, pp: RowWriter): Unit
+  }
+
+  final class ProductResultConverter(children: IndexedSeq[ResultConverter]) extends ResultConverter {
+    def read(pr: RowReader) = TupleSupport.buildTuple(children.map(_.read(pr)))
+    def update(value: Any, pr: RowUpdater) =
+      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
+        ch.update(v, pr)
+      }
+    def set(value: Any, pp: RowWriter) =
+      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
+        ch.set(v, pp)
+      }
+  }
+
+  final class GetOrElseResultConverter(child: ResultConverter, default: () => Any) extends ResultConverter {
+    def read(pr: RowReader) = child.read(pr).asInstanceOf[Option[Any]].getOrElse(default())
+    def update(value: Any, pr: RowUpdater) = child.update(Some(value), pr)
+    def set(value: Any, pp: RowWriter) = child.set(Some(value), pp)
+  }
+
+  final class TypeMappingResultConverter(child: ResultConverter, toBase: Any => Any, toMapped: Any => Any) extends ResultConverter {
+    def read(pr: RowReader) = toMapped(child.read(pr))
+    def update(value: Any, pr: RowUpdater) = child.update(toBase(value), pr)
+    def set(value: Any, pp: RowWriter) = child.set(toBase(value), pp)
   }
 }

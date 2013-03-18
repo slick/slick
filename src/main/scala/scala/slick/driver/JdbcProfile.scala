@@ -4,7 +4,7 @@ import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
-import scala.slick.jdbc.{MutatingUnitInvoker, MappedJdbcType, JdbcType, CompileInsert, JdbcCodeGen, JdbcBackend}
+import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend}
 import scala.slick.profile.{StandardParameterizedQueries, SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
 
@@ -25,10 +25,10 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
-  lazy val queryCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildSelect)
-  lazy val updateCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildUpdate)
-  lazy val deleteCompiler = compiler + new JdbcCodeGen[this.type](this)(_.buildDelete)
-  lazy val insertCompiler = QueryCompiler(new CompileInsert(this))
+  lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
+  lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
+  lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
+  lazy val insertCompiler = QueryCompiler(new JdbcInsertCompiler)
 
   final def buildTableSchemaDescription(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
@@ -85,6 +85,7 @@ object JdbcProfile {
 trait JdbcDriver extends SqlDriver
   with JdbcProfile
   with JdbcStatementBuilderComponent
+  with JdbcMappingCompilerComponent
   with JdbcTypesComponent { driver =>
 
   override val profile: JdbcProfile = this
