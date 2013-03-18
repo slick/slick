@@ -9,7 +9,7 @@ nicer Scala-based API.
 Scaffolding
 -----------
 
-:ex:`jdbc/PlainSQL` demonstrates some features of the *Plain SQL* support. The
+:example-src:`jdbc/PlainSQL.scala` demonstrates some features of the *Plain SQL* support. The
 imports are different from what you're used to for the
 :doc:`lifted embedding <lifted-embedding>` or
 :doc:`direct embedding <direct-embedding>`:
