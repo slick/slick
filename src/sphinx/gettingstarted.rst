@@ -28,7 +28,7 @@ log output.
 Imports
 -------
 
-:ex:`lifted/FirstExample` contains a self-contained application that you can run.
+:example-src:`lifted/FirstExample.scala` contains a self-contained application that you can run.
 It starts off with some imports:
 
 .. includecode:: code/FirstExample.scala#imports
@@ -36,7 +36,7 @@ It starts off with some imports:
 Since we are using H2_ as our database system, we need to import features
 from Slick's ``H2Driver``. A driver's ``simple`` object contains all commonly
 needed imports from the driver and other parts of Slick such as
-:doc:`session handling <session>`. The only extra import we use is the
+:doc:`session handling <connection>`. The only extra import we use is the
 ``threadLocalSession``. This simplifies the session handling by attaching a
 session to the current thread so you do not have to pass it around on your own
 (or at least assign it to an implicit variable).
