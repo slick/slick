@@ -15,8 +15,11 @@ object Retriever {
         val tableName = t.name.name
         val caseFieldName = naming.columnSQLToCaseField(tableName) _
         val moduleFieldName = naming.columnSQLToModuleField(tableName) _
-        val columns = t.getColumns.list map (c => Column(c.column, driver.scalaTypeForColumn(c), moduleFieldName(c.column), caseFieldName(c.column)))
-        (t, Table(tableName, columns, Nil, naming.tableSQLToModule(tableName), naming.tableSQLToCase(tableName)))
+        val mColumns = t.getColumns.list
+        val columns = mColumns map (c => Column(c.column, driver.scalaTypeForColumn(c), moduleFieldName(c.column), caseFieldName(c.column)))
+        val autoInc = mColumns.zip(columns).collectFirst { case (m, c) if m.isAutoInc.getOrElse(false) => AutoIncrement(c) }
+        val constraints = autoInc.toList
+        (t, Table(tableName, columns, constraints, naming.tableSQLToModule(tableName), naming.tableSQLToCase(tableName)))
       }))
       def getTable(tableName: String): Option[Table] =
         tables.find {
@@ -34,6 +37,8 @@ object Retriever {
           {
             def getColumn: String => Option[Column] = getColumnOfSchema(schema) _
             val constraints: ArrayBuffer[Constraint] = new ArrayBuffer
+            // initialize constraints
+            constraints ++= schema.constraints
             // handles primary key
             val primaryKeys = t.getPrimaryKeys.list flatMap (p => getColumn(p.column))
             val pkConstraint =
