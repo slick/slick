@@ -3,6 +3,9 @@ import Keys._
 import Tests._
 import com.typesafe.sbt.site.SphinxSupport.Sphinx
 import com.typesafe.sbt.SbtSite.site
+import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
+import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
+import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 
 object SlickBuild extends Build {
 
@@ -63,12 +66,17 @@ object SlickBuild extends Build {
       testOnly <<= inputTask { argTask => (argTask) map { args => }}
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ inConfig(config("macro"))(Defaults.configSettings) ++ Seq(
+    settings = Project.defaultSettings ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (),
       testOnly <<= inputTask { argTask => (argTask) map { args => }},
+      previousArtifact := Some("com.typesafe.slick" % "slick_2.10" % "1.0.0"),
+      binaryIssueFilters ++= Seq(
+        ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
+      ),
       ivyConfigurations += config("macro").hide.extend(Compile),
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
