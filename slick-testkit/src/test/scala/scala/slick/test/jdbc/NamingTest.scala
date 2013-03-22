@@ -8,6 +8,8 @@ import scala.slick.schema.naming.NamingDefault
 import scala.collection.immutable.Map
 import scala.slick.schema.naming.NamingConfigured
 import com.typesafe.config.ConfigFactory
+import scala.slick.schema.QualifiedName
+import scala.slick.jdbc.meta.MQName
 
 class NamingTest {
   type Input = Map[String, List[String]]
@@ -98,10 +100,15 @@ naming {
   }
 
   def checker(naming: Naming, input: Input, correctMap: Result) {
-    @inline def tableResult(table: String): (String, String) =
-      (naming.tableSQLToModule(table), naming.tableSQLToCase(table))
-    @inline def columnResult(table: String)(column: String): (String, String) =
-      (naming.columnSQLToModuleField(table)(column), naming.columnSQLToCaseField(table)(column))
+    @inline def qnameForTable(table: String): QualifiedName = QualifiedName(MQName(None, None, table))
+    @inline def tableResult(table: String): (String, String) = {
+      val name = qnameForTable(table)
+      (naming.tableSQLToModule(name), naming.tableSQLToCase(name))
+    }
+    @inline def columnResult(table: String)(column: String): (String, String) = {
+      val name = QualifiedName.columnName(qnameForTable(table), column)
+      (naming.columnSQLToModuleField(name), naming.columnSQLToCaseField(name))
+    }
     val keys = input.keysIterator.zip(correctMap.keysIterator)
     keys.foreach {
       case (table, result) => {

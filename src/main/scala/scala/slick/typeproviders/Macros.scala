@@ -11,6 +11,7 @@ import scala.slick.SlickException
 import com.typesafe.config.ConfigException
 import scala.slick.schema.Retriever
 import scala.slick.schema.naming.NamingConfigured
+import scala.slick.schema.naming.MappingConfiguration
 
 object Macros {
   def DbImpl(c: Context)(configurationFileName: c.Expr[String]) = {
@@ -44,7 +45,8 @@ object Macros {
         case e: ConfigException.Missing => ""
         case e: ConfigException.WrongType => throw new SlickException(s"The value for $key should be String", e)
       }
-      val naming = new NamingConfigured(conf)
+      val naming =
+        new NamingConfigured(MappingConfiguration(conf))
       (c("jdbc-driver"), c("url"), c("slick-object"), c("username"), c("password"), naming)
     }
 
@@ -56,12 +58,6 @@ object Macros {
       val context: c.type = c
     } with MacroHelpers(naming)
     val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(Macros.this.getClass.getClassLoader)
-
-    def createConnection(): Connection = {
-      val conString = connectionString
-      Class.forName(jdbcClass)
-      DriverManager.getConnection(connectionString, userForConnection, passForConnection)
-    }
 
     def createDriver(): JdbcDriver = {
       val conString = connectionString

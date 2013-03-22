@@ -6,12 +6,13 @@ import scala.slick.schema.Index
 import com.typesafe.config.Config
 import scala.slick.schema.ForeignKey
 import scala.slick.schema.PrimaryKey
+import scala.slick.schema.QualifiedName
 
 trait Naming {
-  def tableSQLToModule(table: String): String
-  def tableSQLToCase(table: String): String
-  def columnSQLToCaseField(table: String)(column: String): String
-  def columnSQLToModuleField(table: String)(column: String): String
+  def tableSQLToModule(name: QualifiedName): String
+  def tableSQLToCase(name: QualifiedName): String
+  def columnSQLToCaseField(name: QualifiedName): String
+  def columnSQLToModuleField(name: QualifiedName): String
 
   def indexName(idx: Index): String = {
     indexName(idx.fields.map(_.moduleFieldName))
@@ -22,7 +23,7 @@ trait Naming {
   }
 
   def foreignKeyName(fk: ForeignKey): String = {
-    "fk" + fk.pkTableName
+    "fk" + fk.pkTableName.lastPart
   }
 
   def primaryKeyName(pk: PrimaryKey): String = {
