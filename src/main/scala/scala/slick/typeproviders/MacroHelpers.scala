@@ -71,7 +71,7 @@ abstract class MacroHelpers(val naming: Naming) {
   def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.moduleFieldName))
 
   def columnToMethodDef(tableName: String)(column: Column)(isAutoInc: Boolean): DefDef = {
-    val nameParam = Literal(Constant(column.name))
+    val nameParam = Literal(Constant(column.name.lastPart))
     val autoIncParam =
       if (isAutoInc)
         Some(Select(Select(This(TypeName(tableName)), TermName("O")), TermName("AutoInc")))
@@ -155,7 +155,7 @@ abstract class MacroHelpers(val naming: Naming) {
     val tableName = table.moduleName
     val tableType = createClass("Table", Nil)
     val tableSuper = AppliedTypeTree(tableType, List(Ident(caseClass.name)))
-    val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.name))))
+    val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.name.lastPart))))
     val constructor = DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(superCall), Literal(Constant(()))))
     val autoIncField = table.autoInc.map(_.field)
     val fields = columns map { c =>

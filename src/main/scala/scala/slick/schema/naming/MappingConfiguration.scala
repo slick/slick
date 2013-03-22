@@ -13,41 +13,56 @@ class MappingConfiguration(val namingConf: Config) {
     }
   }
 
-  def getRule(config: Config)(key: String): Rule = {
+  def getMapping(config: Config)(kind: String)(key: String): String = {
     import scala.collection.JavaConversions.collectionAsScalaIterable
-    val v = config.getValue(key)
+    val v = config.getValue(kind)
     import ConfigValueType._
     v.valueType() match {
-      case STRING => ConstantRule(config.getString(key))
-      case LIST => CompositeRule(collectionAsScalaIterable(config.getStringList(key)).toList)
-      case t @ _ => throw new SlickException(s"Type for '$key' is ${t.toString} but String or List was expected!")
+      case STRING => config.getString(kind)
+      case LIST => CompositeRule(collectionAsScalaIterable(config.getStringList(kind)).toList)(key)
+      case t @ _ => throw new SlickException(s"Type for '$kind' is ${t.toString} but String or List was expected!")
     }
   }
 
-  def getRuleForTable(key: String)(table: String): Rule = {
+  def getMappingForTable(key: String)(table: String): String = {
     val tableConfig = mergeWithFallback(namingConf, s"custom.$table")
-    getRule(tableConfig)(key)
+    getMapping(tableConfig)(key)(table)
   }
 
-  def getRuleForTableModule(table: String): Rule = {
-    getRuleForTable("table-module")(table)
+  def getMappingForTableModule(table: String): String = {
+    getMappingForTable("table-module")(table)
   }
 
-  def getRuleForCaseClass(table: String): Rule = {
-    getRuleForTable("case-class")(table)
+  def getMappingForCaseClass(table: String): String = {
+    getMappingForTable("case-class")(table)
   }
 
-  def getRuleForField(key: String)(table: String)(column: String): Rule = {
+  def getMappingForField(key: String)(table: String)(column: String): String = {
     val tableConfig = mergeWithFallback(namingConf, s"custom.$table")
     val columnConfig = mergeWithFallback(tableConfig, s"custom.$table.custom.$column")
-    getRule(columnConfig)(key)
+    getMapping(columnConfig)(key)(column)
   }
 
-  def getRuleForCaseField(table: String)(column: String): Rule = {
-    getRuleForField("case-field")(table)(column)
+  def getMappingForCaseField(table: String)(column: String): String = {
+    getMappingForField("case-field")(table)(column)
   }
 
-  def getRuleForModuleField(table: String)(column: String): Rule = {
-    getRuleForField("module-field")(table)(column)
+  def getMappingForModuleField(table: String)(column: String): String = {
+    getMappingForField("module-field")(table)(column)
   }
+}
+
+object MappingConfiguration {
+
+  def apply(config: Config): MappingConfiguration = {
+    import NamingConfigured._
+    val namingConf = try {
+      config.getConfig("naming")
+    } catch {
+      case e: ConfigException.Missing => ConfigFactory.empty
+      case _: ConfigException => throw new SlickException("Invalid naming configuration")
+    }
+    new MappingConfiguration(namingConf.withFallback(defaultConfiguration))
+  }
+
 }
