@@ -101,14 +101,19 @@ class ConvertToComprehensions extends Phase {
 
   /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
   def convertSimpleGrouping(gen: Symbol, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
+    object FwdPath {
+      def unapply(n: Node): Option[List[Symbol]] =
+        Path.unapply(n).map(_.reverse)
+      def toString(path: Seq[Symbol]): String = path.mkString("Path ", ".", "")
+    }
     val newBy = by.replace { case Ref(f) if f == fromGen => Ref(gen) }
     val newSel = sel.replace {
       case Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
         if (s2 == s1) && (gen2 == gen) => Select(Ref(gen), field)
       case Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
         Library.Count(ConstColumn(1))
-      case Select(Ref(gen2), ElementSymbol(2)) if gen2 == gen => Ref(gen2)
-      case Select(Ref(gen2), ElementSymbol(1)) if gen2 == gen => newBy
+      case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
+        Phase.fuseComprehensions.select(rest, if(idx == 2) Ref(gen) else newBy)(0)
     }
     Comprehension(Seq(gen -> from), groupBy = Some(newBy), select = Some(Pure(newSel)))
   }
@@ -328,7 +333,7 @@ class FuseComprehensions extends Phase {
       //case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)
       case ((s: AnonSymbol) :: t, StructNode(ch)) => select(t, ch.find{ case (s2,_) => s == s2 }.get._2)
-      //case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
+      case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1))
       case _ => throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
     }
   }
