@@ -10,9 +10,9 @@ import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
 import com.typesafe.slick.testkit.util.TestDB
 import scala.slick.typeproviders.TypeProvider
-import scala.slick.schema.Naming
 import scala.slick.ast.Select
 import scala.slick.ast.Node
+import scala.slick.schema.naming.NamingDefault
 
 class TypeProviderTest {
   @Test def h2memTest() {
@@ -147,11 +147,50 @@ class TypeProviderTest {
       val bIdxFieldsName = bIdx.on map (convertColumnNodeToString)
       val columnNames = List("f1", "f2")
       assertTrue("Indices should refer to correct field", bIdxFieldsName sameElements columnNames)
-      val indexName = Naming.indexName(columnNames)
+      val indexName = NamingDefault.indexName(columnNames)
       assertTrue("Indices should have the correct name", bIdx.name equals indexName)
     }
   }
 
+  @Test def autoIncTest() {
+    def optionsOfColumn(c: scala.slick.lifted.Column[_]) =
+      c.nodeDelegate.asInstanceOf[Select].field.asInstanceOf[scala.slick.ast.FieldSymbol].options.toList
+
+    object Db1 extends TypeProvider.Db("type-providers-h2mem-ainc")
+    import Db1._
+    val k1Options = optionsOfColumn(A.k1)
+    val k2Options = optionsOfColumn(A.k2)
+    val sOptions = optionsOfColumn(A.s)
+    assertTrue("k1 should be AutoInc",
+      k1Options.exists(option => (option equals A.O.AutoInc)))
+    assertTrue("k2 should not be AutoInc",
+      k2Options.forall(option => !(option equals A.O.AutoInc)))
+    assertTrue("s should not be AutoInc",
+      sOptions.forall(option => !(option equals A.O.AutoInc)))
+  }
+  
+  @Test def customNamingTest() {
+    object Db1 extends TypeProvider.Db("type-providers-h2mem-custom-naming")
+    import Db1.driver.simple._
+    import Database.threadLocalSession
+    import Db1._
+    database.withSession {
+      val q1 = Query(Supps.length)
+      assertEquals("Size of Suppliers before change",
+        q1.first, 3)
+      Supps.insert(Supplier(1, "1", "2", "3", "4", "5"))
+      val q2 = Query(Supps.length)
+      assertEquals("Size of Suppliers after change",
+        q2.first, 4)
+      val q3 = Query(Coffs.length)
+      assertEquals("Size of Coffees",
+        q3.first, 1)
+      val r = Query(Coffs).list.head
+      val c: Coff = r
+      assertEquals("First element of Coffees", c, Coff("coffee", 1, 2.3, 4, 5))
+    }
+  }
+  
   def convertColumnNodeToString(node: Node): String =
     node.asInstanceOf[Select].field.name
 }

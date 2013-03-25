@@ -17,9 +17,6 @@ object SlickBuild extends Build {
   )
 
   val paradiseSettings = Defaults.defaultSettings ++ Seq(
-    organization := "org.scalamacros",
-    version := "1.0.0",
-    scalacOptions ++= Seq(),
     scalaVersion := "2.11.0-SNAPSHOT",
     scalaOrganization := "org.scala-lang.macro-paradise",
     resolvers += Resolver.sonatypeRepo("snapshots"),
@@ -157,7 +154,12 @@ object SlickBuild extends Build {
     //test <<= Seq(test in Test, test in DocTest).dependOn,
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
-  ) dependsOn(slickProject)
+  ) dependsOn(slickTestkitConfigProject, slickProject)
+
+  lazy val slickTestkitConfigProject = Project(id = "testkit-config", base = file("slick-testkit/config"),
+    settings = Project.defaultSettings ++ sharedSettings ++ Seq(
+      publish := {}
+      )).dependsOn(slickProject)
 
   /* Test Configuration for running tests on doc sources */
   lazy val DocTest = config("doctest") extend(Test)

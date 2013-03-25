@@ -5,9 +5,10 @@ import scala.slick.schema.Table
 import scala.slick.schema.Column
 import scala.slick.schema.ForeignKey
 import scala.slick.schema.Index
-import scala.slick.schema.Naming
+import scala.slick.schema.naming.Naming
+import scala.slick.schema.PrimaryKey
 
-trait MacroHelpers {
+abstract class MacroHelpers(val naming: Naming) {
   val context: Context
   import context.universe._
   import Flag._
@@ -66,12 +67,19 @@ trait MacroHelpers {
   // helper methods for creating case class for each table
   def columnToType(column: Column): Ident = Ident(TypeName(column.tpe.toString))
 
-  def columnToMethodDef(tableName: String)(column: Column): DefDef = {
-    DefDef(NoMods, TermName(column.scalaName), List(), List(), TypeTree(), Apply(TypeApply(Select(This(TypeName(tableName)), TermName("column")), List(columnToType(column))), List(Literal(Constant(column.name)))))
-  }
-
   // helper methods for creating the module for each table
-  def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.scalaName))
+  def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.moduleFieldName))
+
+  def columnToMethodDef(tableName: String)(column: Column)(isAutoInc: Boolean): DefDef = {
+    val nameParam = Literal(Constant(column.name.lastPart))
+    val autoIncParam =
+      if (isAutoInc)
+        Some(Select(Select(This(TypeName(tableName)), TermName("O")), TermName("AutoInc")))
+      else
+        None
+    val params = nameParam :: autoIncParam.toList
+    DefDef(NoMods, TermName(column.moduleFieldName), List(), List(), TypeTree(), Apply(TypeApply(Select(This(TypeName(tableName)), TermName("column")), List(columnToType(column))), params))
+  }
 
   def starDef(tableName: String)(columns: List[Column], caseClassName: TermName): DefDef = {
     val allFields = columns.map(getColumnOfTable(tableName)).reduceLeft[Tree]((prev, current) => {
@@ -97,18 +105,19 @@ trait MacroHelpers {
           })))
   }
 
-  def primaryKeyDef(tableName: String)(columns: List[Column]): DefDef = {
-    val pks = createTupleOrSingleton(columns map getColumnOfTable(tableName))
-    DefDef(NoMods, TermName("primaryKey" + tableName), List(), List(), TypeTree(), Apply(Select(This(TypeName(tableName)), TermName("primaryKey")), List(Literal(Constant("CONSTRAINT_PK_" + tableName.toUpperCase)), pks)))
+  def primaryKeyDef(tableName: String)(pk: PrimaryKey): DefDef = {
+    val methodName = naming.primaryKeyName(pk)
+    val pks = createTupleOrSingleton(pk.fields map getColumnOfTable(tableName))
+    DefDef(NoMods, TermName(methodName), List(), List(), TypeTree(), Apply(Select(This(TypeName(tableName)), TermName("primaryKey")), List(Literal(Constant("CONSTRAINT_PK_" + tableName.toUpperCase)), pks)))
   }
 
   def foreignKeyDef(tableName: String)(fk: ForeignKey): DefDef = {
-    def getColumnOfName(n: String)(c: Column) = Select(Ident(TermName(n)), TermName(c.scalaName))
-    val methodName = "fk" + fk.pkTable.scalaName
-    val fkName = Literal(Constant(fk.pkTable.table + "_fk"))
+    def getColumnOfName(n: String)(c: Column) = Select(Ident(TermName(n)), TermName(c.moduleFieldName))
+    val methodName = naming.foreignKeyName(fk)
+    val fkName = Literal(Constant(methodName))
     val fkFkColumns = fk.fields.map(_._2)
     val fkSourceColumns = createTupleOrSingleton(fkFkColumns map getColumnOfTable(tableName))
-    val fkTargetTable = Ident(TermName(fk.pkTable.scalaName))
+    val fkTargetTable = Ident(TermName(naming.tableSQLToModule(fk.pkTableName)))
     val fkPkColumns = fk.fields.map(_._1)
     val SYNTHETIC = scala.reflect.internal.Flags.SYNTHETIC.asInstanceOf[Long].asInstanceOf[FlagSet]
     val fkTargetColumns = Function(List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName("x"), TypeTree(), EmptyTree)), createTupleOrSingleton(fkPkColumns map (getColumnOfName("x"))))
@@ -118,7 +127,7 @@ trait MacroHelpers {
   }
 
   def indexDef(tableName: String)(idx: Index): DefDef = {
-    val methodName = Naming.indexName(idx)
+    val methodName = naming.indexName(idx)
     val idxName = Literal(Constant(methodName))
     val idxOn = createTupleOrSingleton(idx.fields map getColumnOfTable(tableName))
     val idxUnique = Literal(Constant(true))
@@ -128,7 +137,7 @@ trait MacroHelpers {
   // creates case class for each table
   def tableToCaseClass(table: Table): ClassDef = {
     val columns = table.columns
-    val schema = columns map (column => (column.scalaName, columnToType(column)))
+    val schema = columns map (column => (column.caseFieldName, columnToType(column)))
     val caseClassName = table.caseClassName
 
     import CaseClassCreator._
@@ -143,14 +152,17 @@ trait MacroHelpers {
   // creates module for each table
   def tableToModule(table: Table, caseClass: ClassDef): ModuleDef = {
     val columns = table.columns
-    val tableName = table.scalaName
+    val tableName = table.moduleName
     val tableType = createClass("Table", Nil)
     val tableSuper = AppliedTypeTree(tableType, List(Ident(caseClass.name)))
-    val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.table))))
+    val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.name.lastPart))))
     val constructor = DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(superCall), Literal(Constant(()))))
-    val fields = columns map columnToMethodDef(tableName)
+    val autoIncField = table.autoInc.map(_.field)
+    val fields = columns map { c =>
+      columnToMethodDef(tableName)(c)(autoIncField.exists(f => f equals c))
+    }
     val star = starDef(tableName)(columns, caseClass.name.toTermName)
-    val pk = if (table.primaryKeys.isEmpty) None else Some(primaryKeyDef(tableName)(table.primaryKeys))
+    val pk = table.primaryKey map primaryKeyDef(tableName)
     val fks = table.foreignKeys map foreignKeyDef(tableName)
     val idx = table.indices map indexDef(tableName)
     val methods = constructor :: (fields ++ (star :: (pk.toList ::: fks ::: idx)))

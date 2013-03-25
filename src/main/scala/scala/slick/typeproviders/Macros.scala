@@ -10,16 +10,16 @@ import com.typesafe.config.ConfigFactory
 import scala.slick.SlickException
 import com.typesafe.config.ConfigException
 import scala.slick.schema.Retriever
+import scala.slick.schema.naming.NamingConfigured
+import scala.slick.schema.naming.MappingConfiguration
 
 object Macros {
+  val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(this.getClass.getClassLoader)
+
   def DbImpl(c: Context)(configurationFileName: c.Expr[String]) = {
     import c.universe._
-    import Flag._
 
-    val macroHelper = new { val context: c.type = c } with MacroHelpers
-    val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(Macros.this.getClass.getClassLoader)
-
-    val (jdbcClass, urlConfig, slickDriverObject, userForConnection, passForConnection) = {
+    val (jdbcClass, urlConfig, slickDriverObject, userForConnection, passForConnection, naming) = {
       val testDbs = "test-dbs/type-provider/conf/"
       val confFile = {
         try {
@@ -46,18 +46,32 @@ object Macros {
         case e: ConfigException.Missing => ""
         case e: ConfigException.WrongType => throw new SlickException(s"The value for $key should be String", e)
       }
-      (c("jdbc-driver"), c("url"), c("slick-object"), c("username"), c("password"))
+      val namingSourceKey = "naming.scala-source"
+      val mapping = MappingConfiguration(conf)
+      val naming = {
+        try {
+          val className = conf.getString(namingSourceKey)
+          val classSymbol = runtimeMirror.staticClass(className)
+          val classMirror = runtimeMirror.reflectClass(classSymbol)
+          val ctor = classSymbol.typeSignature.declaration(scala.reflect.runtime.universe.nme.CONSTRUCTOR).asMethod
+          val ctorMirror = classMirror.reflectConstructor(ctor)
+          ctorMirror(mapping).asInstanceOf[NamingConfigured]
+        } catch {
+          case e: ConfigException.Missing => new NamingConfigured(mapping)
+          case e: ConfigException.WrongType => throw new SlickException(s"The value for $namingSourceKey should be String", e)
+        }
+
+      }
+      (c("jdbc-driver"), c("url"), c("slick-object"), c("username"), c("password"), naming)
     }
 
     val connectionString: String = {
       urlConfig
     }
 
-    def createConnection(): Connection = {
-      val conString = connectionString
-      Class.forName(jdbcClass)
-      DriverManager.getConnection(connectionString, userForConnection, passForConnection)
-    }
+    val macroHelper = new {
+      val context: c.type = c
+    } with MacroHelpers(naming)
 
     def createDriver(): JdbcDriver = {
       val conString = connectionString
@@ -71,7 +85,7 @@ object Macros {
       val driver = createDriver()
       val db = driver.simple.Database.forURL(connectionString, driver = jdbcClass,
         user = userForConnection, password = passForConnection)
-      val tables = Retriever.tables(driver, db)
+      val tables = Retriever.tables(driver, db)(naming)
       tables.flatMap(table => {
         // generate the dto case class
         val caseClass = macroHelper.tableToCaseClass(table)
