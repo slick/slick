@@ -10,8 +10,6 @@ import scala.slick.schema.ColumnName
 import scala.slick.schema.TableName
 
 class NamingConfigured(val mapping: MappingConfiguration) extends Naming {
-  def this(conf: Config) = this(MappingConfiguration(conf))
-
   @inline def getColumnName(name: QualifiedName): String = {
     name.getPartName(ColumnName)
   }

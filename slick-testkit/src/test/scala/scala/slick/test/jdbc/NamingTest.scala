@@ -10,6 +10,9 @@ import scala.slick.schema.naming.NamingConfigured
 import com.typesafe.config.ConfigFactory
 import scala.slick.schema.QualifiedName
 import scala.slick.jdbc.meta.MQName
+import com.typesafe.config.Config
+import scala.slick.schema.naming.MappingConfiguration
+import language.implicitConversions
 
 class NamingTest {
   type Input = Map[String, List[String]]
@@ -30,6 +33,9 @@ class NamingTest {
     assertEquals("pluralize should change convert 'Xs' to 'Xses'", Pluralize("BuS"), "BuSes")
     assertEquals("pluralize should change convert 'X' to 'Xs'", Pluralize("CoFfEE"), "CoFfEEs")
   }
+
+  implicit def namingToMapper(namingConf: Config): MappingConfiguration =
+    MappingConfiguration(namingConf)
 
   @Test def defaultNamingTest() {
     val naming = NamingDefault

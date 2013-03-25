@@ -168,7 +168,29 @@ class TypeProviderTest {
     assertTrue("s should not be AutoInc",
       sOptions.forall(option => !(option equals A.O.AutoInc)))
   }
-
+  
+  @Test def customNamingTest() {
+    object Db1 extends TypeProvider.Db("type-providers-h2mem-custom-naming")
+    import Db1.driver.simple._
+    import Database.threadLocalSession
+    import Db1._
+    database.withSession {
+      val q1 = Query(Supps.length)
+      assertEquals("Size of Suppliers before change",
+        q1.first, 3)
+      Supps.insert(Supplier(1, "1", "2", "3", "4", "5"))
+      val q2 = Query(Supps.length)
+      assertEquals("Size of Suppliers after change",
+        q2.first, 4)
+      val q3 = Query(Coffs.length)
+      assertEquals("Size of Coffees",
+        q3.first, 1)
+      val r = Query(Coffs).list.head
+      val c: Coff = r
+      assertEquals("First element of Coffees", c, Coff("coffee", 1, 2.3, 4, 5))
+    }
+  }
+  
   def convertColumnNodeToString(node: Node): String =
     node.asInstanceOf[Select].field.name
 }
