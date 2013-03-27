@@ -87,4 +87,18 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     println(r3)
     assertEquals(List((11, Some(6)), (12, Some(8)), (13, Some(10))), r3)
   }
+
+  def testIntLength {
+    object A extends Table[Int]("A_testIntLength") {
+      def id = column[Int]("ID")
+      def * = id
+    }
+    A.ddl.create
+    A.insert(1)
+
+    val q1 = Query(A).groupBy(_.id).map {
+      case (_, q) => (q.map(_.id).min, q.length)
+    }
+    q1 foreach { case (a, b) => () }
+  }
 }
