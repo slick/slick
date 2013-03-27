@@ -106,5 +106,17 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     val r3t = r3: List[(Int, Option[Int])]
     println(r3)
     assertEquals(List((11, Some(6)), (12, Some(8)), (13, Some(10))), r3)
+
+    println("=========================================================== q4")
+    val q4 = (for {
+      (x, q) <- T.groupBy(t => (t.a, t.b))
+    } yield (x, q.length)).sortBy(_._1)
+    println(q4.selectStatement)
+    val r4 = q4.list
+    val r4t = r4: List[((Int, Option[Int]), Int)]
+    println(r4)
+    assertEquals(List( ((1,Some(1)),1), ((1,Some(2)),1), ((1,Some(3)),1),
+      ((2,Some(1)),1), ((2,Some(2)),1), ((2,Some(5)),1),
+      ((3,Some(1)),1), ((3,Some(9)),1)), r4)
   }
 }
