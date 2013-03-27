@@ -6,6 +6,7 @@ import scala.slick.compiler.QueryCompiler
 import scala.slick.lifted._
 import scala.slick.jdbc.{CompileInsert, JdbcCodeGen, JdbcBackend, JdbcType, MappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
+import scala.slick.SlickException
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -36,7 +37,10 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     implicit val slickDriver: driver.type = driver
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
-    implicit def tableToQuery[T <: AbstractTable[_]](t: T) = Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
+    implicit def tableToQuery[T <: AbstractTable[_]](t: T) = {
+      if(t.op ne null) throw new SlickException("Trying to implicitly lift a single table row to a Query. If this is really what you want, use an explicit Query(...) call instead")
+      Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
+    }
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
     implicit def queryToQueryInvoker[T, U](q: Query[T, _ <: U]): QueryInvoker[U] = createQueryInvoker[U](selectStatementCompiler.run(Node(q)).tree)
