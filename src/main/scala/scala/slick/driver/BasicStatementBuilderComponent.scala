@@ -151,6 +151,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildSelectPart(n: Node): Unit = n match {
       case Typed(t: TypeMapper[_]) if useIntForBoolean && (t(profile) == driver.typeMapperDelegates.booleanTypeMapperDelegate) =>
         b"case when $n then 1 else 0 end"
+      case c: Comprehension =>
+        b"("
+        buildComprehension(c)
+        b")"
       case n =>
         expr(n, true)
     }
