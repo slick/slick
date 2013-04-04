@@ -1,10 +1,7 @@
 package scala.slick.schema.naming
 
-import scala.slick.jdbc.meta.CodeGen
-import scala.slick.SlickException
-import scala.slick.schema.Index
-import com.typesafe.config.Config
 import scala.slick.schema.ForeignKey
+import scala.slick.schema.Index
 import scala.slick.schema.PrimaryKey
 import scala.slick.schema.QualifiedName
 

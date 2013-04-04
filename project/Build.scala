@@ -19,6 +19,7 @@ object SlickBuild extends Build {
   val paradiseSettings = Defaults.defaultSettings ++ Seq(
     scalaVersion := "2.11.0-SNAPSHOT",
     scalaOrganization := "org.scala-lang.macro-paradise",
+//    scalacOptions ++= List("-Ymacro-debug-lite"),
     resolvers += Resolver.sonatypeRepo("snapshots"),
     libraryDependencies <+= (scalaVersion)("org.scala-lang.macro-paradise" % "scala-reflect" % _),
     libraryDependencies <+= (scalaVersion)("org.scala-lang.macro-paradise" % "scala-compiler" % _ % "optional")

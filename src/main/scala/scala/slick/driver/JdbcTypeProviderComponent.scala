@@ -3,13 +3,12 @@ package scala.slick.driver
 import scala.slick.jdbc.UnitInvoker
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.meta.MColumn
+import scala.reflect.api.Universe
 
 /**
  * Type Provider Component for each Jdbc Driver
  */
 trait JdbcTypeProviderComponent { driver: JdbcDriver =>
-  import scala.reflect.runtime.universe._
-
   /**
    * retrieves tables in database
    */
@@ -18,14 +17,15 @@ trait JdbcTypeProviderComponent { driver: JdbcDriver =>
   /**
    * returns the type associated to a column
    */
-  def scalaTypeForColumn(column: MColumn): Type =
+  def scalaTypeForColumn(universe: Universe)(column: MColumn): universe.Type =
     if (column.nullable.getOrElse(true))
-      appliedType(typeOf[Option[_]], List(scalaTypeForSqlType(column.sqlType)))
+      universe.appliedType(universe.typeOf[Option[_]], List(scalaTypeForSqlType(universe)(column.sqlType)))
     else
-      scalaTypeForSqlType(column.sqlType)
+      scalaTypeForSqlType(universe)(column.sqlType)
 
-  def scalaTypeForSqlType(sqlType: Int): Type = {
+  def scalaTypeForSqlType(universe: Universe)(sqlType: Int): universe.Type = {
     import java.sql.Types._
+    import universe.typeOf
     sqlType match {
       case BIT | BOOLEAN => typeOf[Boolean]
       case TINYINT => typeOf[Byte]

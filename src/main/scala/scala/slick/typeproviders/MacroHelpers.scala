@@ -7,9 +7,11 @@ import scala.slick.schema.ForeignKey
 import scala.slick.schema.Index
 import scala.slick.schema.naming.Naming
 import scala.slick.schema.PrimaryKey
+import scala.slick.SlickException
 
 abstract class MacroHelpers(val naming: Naming) {
   val context: Context
+  val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(this.getClass.getClassLoader)
   import context.universe._
   import Flag._
 
@@ -20,7 +22,10 @@ abstract class MacroHelpers(val naming: Naming) {
     if (packagesType.isEmpty)
       Ident(classType)
     else {
-      val firstPackage = Ident(packagesType.head)
+      val firstPackage = packages.head match {
+        case "_root_" => Ident(nme.ROOTPKG)
+        case _ => Ident(packagesType.head)
+      }
       val others = (packagesType.tail :+ classType)
       others.foldLeft[Tree](firstPackage)((prev, elem) => {
         Select(prev, elem)
@@ -34,6 +39,22 @@ abstract class MacroHelpers(val naming: Naming) {
   def createObject(objectName: String, packages: scala.List[String]): Tree =
     createObjectOrClass(x => TermName(x))(objectName, packages)
 
+  def createObjectOrClassFromString(generator: String => Name)(string: String): Tree = {
+    val tokens = string.split('.').toList
+    tokens match {
+      case Nil => throw new SlickException("No class/object name defined")
+      case _ => createObjectOrClass(generator)(tokens.last, tokens.dropRight(1))
+    }
+  }
+
+  def createClassFromString(classString: String): Tree = {
+    createObjectOrClassFromString(x => TypeName(x))(classString)
+  }
+
+  def createObjectFromString(objectString: String): Tree = {
+    createObjectOrClassFromString(x => TermName(x))(objectString)
+  }
+
   def createTuple[T <: Tree](elems: List[T]): Tree =
     Apply(Select(tupleObject(elems.length), TermName("apply")), elems)
 
@@ -41,6 +62,22 @@ abstract class MacroHelpers(val naming: Naming) {
     elems match {
       case List(elem) => elem
       case other => createTuple(other)
+    }
+
+  def createImport(expr: Tree, selects: List[String], renamer: String => String = (str => str)): Import = {
+    val selectors = {
+      selects match {
+        case Nil => List((nme.WILDCARD, null))
+        case l => l.map(n => (TermName(n), TermName(renamer(n))))
+      }
+    }.map { case (name, rename) => ImportSelector(name, -1, rename, -1) }
+    Import(expr, selectors)
+  }
+
+  def typeToTree(tpe: Type): Tree =
+    tpe.asInstanceOf[TypeRef].args match {
+      case Nil => Ident(tpe.typeSymbol)
+      case args => AppliedTypeTree(Ident(tpe.typeSymbol), args.map(t => typeToTree(t)))
     }
 
   // some useful classes and objects
@@ -65,7 +102,10 @@ abstract class MacroHelpers(val naming: Naming) {
   }
 
   // helper methods for creating case class for each table
-  def columnToType(column: Column): Ident = Ident(TypeName(column.tpe.toString))
+  //  def columnToType(column: Column): Ident = Ident(TypeName(column.tpe.toString))
+  def columnToType(column: Column): Tree = typeToTree(column.tpe.asInstanceOf[Type])
+  //  def columnToType2(column: Column): TypeTree = TypeTree(column.tpe.asInstanceOf[context.universe.Type]) // FIXME this one should be used
+  //  def columnToType3(column: Column): Ident = Ident(column.tpe.asInstanceOf[context.universe.Type].typeSymbol) // FIXME the above one should be used
 
   // helper methods for creating the module for each table
   def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.moduleFieldName))
@@ -97,10 +137,18 @@ abstract class MacroHelpers(val naming: Naming) {
         Select(allFields, TermName("$less$greater")),
         List(
           Ident(caseClassName),
+          //          {
+          //            val xVar = context.freshName("x")
+          //            Function(
+          //              //              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
+          //              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
+          //              Apply(Select(Ident(caseClassName), TermName("apply")), List(Ident(TermName(xVar)))))
+          //          },
           {
             val xVar = context.freshName("x")
             Function(
               List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
+              //              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), Ident(caseClassName.toTypeName), EmptyTree)),
               Apply(Select(Ident(caseClassName), TermName("unapply")), List(Ident(TermName(xVar)))))
           })))
   }
@@ -142,26 +190,79 @@ abstract class MacroHelpers(val naming: Naming) {
 
     import CaseClassCreator._
 
-    val fields: List[ValDef] = schema map (fieldCreate _).tupled
-    val ctorParams: List[ValDef] = schema map (ctorParamCreate _).tupled
+    val fields: List[ValDef] = schema map { case (name, tpe) => fieldCreate(name, tpe) }
+    val ctorParams: List[ValDef] = schema map { case (name, tpe) => ctorParamCreate(name, tpe) }
     val ctor: DefDef = ctorCreate(ctorParams)
 
     caseClassCreate(caseClassName, fields, ctor)
   }
 
+  // creates type for each table
+  def tableToType(table: Table)(tpe: Type): TypeDef = {
+    val typeName = table.caseClassName
+    val typeType = TypeTree(tpe.asInstanceOf[context.universe.Type])
+    TypeDef(NoMods, TypeName(typeName + "______"), List(), typeType) // FIXME
+    //    TypeDef(NoMods, TypeName(typeName), List(), typeType)
+    //    TypeDef(NoMods, TypeName(typeName), List(), TypeTree(typeOf[Tuple2[Int, String]]))
+  }
+
+  def tableToTypeVal[Elem, TupleElem](table: Table)(obj: Type, typeParamName: TypeName): ValDef = {
+    //  def tableToTypeVal[Elem, TupleElem](table: Table)(obj: TypeExtractor, typeParamName: TypeName): ValDef = {
+    //  def tableToTypeVal[Elem, TupleElem](table: Table)(obj: TypeExtractor[Elem, TupleElem]): ValDef = {
+    //	def tableToTypeVal(table: Table)(obj: AnyRef): ValDef = {
+    val termName = table.caseClassName
+    /// STRATEGY 2
+    /*    val Expr(Block(List(ValDef(mods, _, tpt, rhs)), Literal(Constant(())))) =
+      reify {
+        val TEMP_NAME = obj
+      }
+    //    val rhsType = appliedType(typeOf[TypeExtractorTyped[_, _]], List(scalaTypeForSqlType(column.sqlType)))
+    val tableType = Ident(typeParamName)
+    val rhsType = AppliedTypeTree(createClass("TypeExtractorTyped", List("scala", "slick", "typeproviders", "types")), List(tableType, tableType))
+    //    val rhsType = TypeTree(runtimeMirror.reflect(obj).symbol.typeSignature.asInstanceOf[context.universe.Type])
+    println(rhsType)
+    val nrhs = TypeApply(Select(rhs, TermName("asInstanceOf")), List(rhsType))
+
+    ValDef(mods, TermName(termName), rhsType, nrhs)
+    */
+    /// STRATEGY 1
+    //    ValDef(mods, TermName(termName), tpt, rhs)
+    /// STRATEGY 3
+    val tpe = obj.asInstanceOf[Type]
+    val typeTree = typeToTree(tpe)
+    //    val typeTree = TypeTree(tpe)
+    val rhs = Apply(Select(New(typeTree), nme.CONSTRUCTOR), List())
+    //    ValDef(NoMods, TermName(termName), TypeTree(tpe), rhs)
+    ValDef(NoMods, TermName(termName), TypeTree(), rhs)
+
+    //    val valDef = context.parse(s"val $termName: $obj = new $obj()").asInstanceOf[ValDef]
+    //    val valDef = context.parse(s"""
+    //  val $termName = Tuple6
+    //    				""").asInstanceOf[ValDef]
+    //    val valDef = context.parse(s"""
+    //      val $termName = new scala.slick.typeproviders.TypeExtractor[SimpleA, SimpleA] {
+    //        override def unapply(s: SimpleA): Option[SimpleA] = Some(s)
+    //        def apply(s: SimpleA): SimpleA = s
+    //      }
+    //            """).asInstanceOf[ValDef]
+    //    println(valDef)
+    //    valDef
+  }
+
   // creates module for each table
-  def tableToModule(table: Table, caseClass: ClassDef): ModuleDef = {
+  def tableToModule(table: Table): ModuleDef = {
+    val typeParamName = TypeName(table.caseClassName)
     val columns = table.columns
     val tableName = table.moduleName
     val tableType = createClass("Table", Nil)
-    val tableSuper = AppliedTypeTree(tableType, List(Ident(caseClass.name)))
+    val tableSuper = AppliedTypeTree(tableType, List(Ident(typeParamName)))
     val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.name.lastPart))))
     val constructor = DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(superCall), Literal(Constant(()))))
     val autoIncField = table.autoInc.map(_.field)
     val fields = columns map { c =>
       columnToMethodDef(tableName)(c)(autoIncField.exists(f => f equals c))
     }
-    val star = starDef(tableName)(columns, caseClass.name.toTermName)
+    val star = starDef(tableName)(columns, typeParamName.toTermName)
     val pk = table.primaryKey map primaryKeyDef(tableName)
     val fks = table.foreignKeys map foreignKeyDef(tableName)
     val idx = table.indices map indexDef(tableName)
