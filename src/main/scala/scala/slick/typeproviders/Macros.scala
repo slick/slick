@@ -14,12 +14,13 @@ import scala.slick.schema.naming.NamingConfigured
 import scala.slick.schema.naming.MappingConfiguration
 
 object Macros {
+  import scala.reflect.runtime.{ universe => runtimeUniverse }
   val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(this.getClass.getClassLoader)
 
   def DbImpl(c: Context)(configurationFileName: c.Expr[String]) = {
     import c.universe._
 
-    val (jdbcClass, urlConfig, slickDriverObject, userForConnection, passForConnection, naming) = {
+    val (jdbcClass, urlConfig, slickDriverObject, userForConnection, passForConnection, naming, typeMapper) = {
       val testDbs = "test-dbs/type-provider/conf/"
       val confFile = {
         try {
@@ -62,7 +63,21 @@ object Macros {
         }
 
       }
-      (c("jdbc-driver"), c("url"), c("slick-object"), c("username"), c("password"), naming)
+
+      val typingSourceKey = "naming.type-source"
+      val typeMapper = {
+        try {
+          val objectName = conf.getString(typingSourceKey)
+          val module = runtimeMirror.staticModule(objectName)
+          val reflectedModule = runtimeMirror.reflectModule(module)
+          (reflectedModule.instance.asInstanceOf[TypeMapper], Some(objectName, module.moduleClass))
+        } catch {
+          case e: ConfigException.Missing => (new TypeMapper {}, None)
+          case e: ConfigException.WrongType => throw new SlickException(s"The value for $typingSourceKey should be String", e)
+        }
+
+      }
+      (c("jdbc-driver"), c("url"), c("slick-object"), c("username"), c("password"), naming, typeMapper)
     }
 
     val connectionString: String = {
@@ -73,7 +88,7 @@ object Macros {
       val context: c.type = c
     } with MacroHelpers(naming)
 
-    def createDriver(): JdbcDriver = {
+    lazy val driver: JdbcDriver = {
       val conString = connectionString
       val module = runtimeMirror.staticModule(slickDriverObject)
       val reflectedModule = runtimeMirror.reflectModule(module)
@@ -82,30 +97,68 @@ object Macros {
     }
 
     def generateCodeForTables(): List[Tree] = {
-      val driver = createDriver()
       val db = driver.simple.Database.forURL(connectionString, driver = jdbcClass,
         user = userForConnection, password = passForConnection)
-      val tables = Retriever.tables(driver, db)(naming)
+      val tables = Retriever.tables(driver, db, c.universe)(naming)
       tables.flatMap(table => {
         // generate the dto case class
-        val caseClass = macroHelper.tableToCaseClass(table)
+        val tableType = typeMapper._1.tableType(c.universe)(table.name) match {
+          case None => macroHelper.tableToCaseClass(table)
+          case Some(tpe) => macroHelper.tableToType(table)(tpe)
+        }
+        // extractor!
+        val tableTypeVal = typeMapper._1.tableExtractor(c.universe)(table.name) match {
+          case None => Nil
+          case Some(obj) => List(macroHelper.tableToTypeVal(table)(obj, tableType.name))
+          //          case Some(obj) => Nil
+        }
         // generate the table object
-        val tableModule = macroHelper.tableToModule(table, caseClass)
+        val tableModule = macroHelper.tableToModule(table)
+        //        val tableModule = macroHelper.tableToModule(table, tableType.name)
 
-        List(caseClass, tableModule)
+        tableTypeVal ++ List(tableType, tableModule)
       })
     }
 
-    val slickDriverTree = c.parse(slickDriverObject)
+    def typeMembersNameOfType(tpe: scala.reflect.runtime.universe.Type): List[String] = {
+      val members = tpe.members.toList
+      val typeMembers = members.filter(_.isType)
+      typeMembers.map(m => m.name.decoded.trim)
+    }
+
+    def implicitMembersNameOfType(tpe: scala.reflect.runtime.universe.Type): List[String] = {
+      val members = tpe.members.toList
+      val implicitMembers = members.filter(_.isImplicit)
+      implicitMembers.map(m => m.name.decoded.trim)
+    }
+
+    def implicitMembersName[T <: AnyRef](obj: T)(implicit ttag: TypeTag[obj.type]): List[String] = {
+      implicitMembersNameOfType(runtimeUniverse.typeOf[obj.type])
+    }
+
+    val slickDriverTree = macroHelper.createObjectFromString(slickDriverObject)
     val slickDriverExpr = c.Expr[JdbcDriver](slickDriverTree)
-    val databaseTree = c.parse(slickDriverObject + ".simple.Database")
+    val databaseTree = macroHelper.createObjectFromString(s"_root_.$slickDriverObject.simple.Database")
     val databaseExpr = c.Expr[JdbcBackend#DatabaseFactoryDef](databaseTree)
-    val importTree = c.parse(s"import _root_.$slickDriverObject.simple._")
-    val importExpr = c.Expr(importTree)
+    val importSimpleWild = macroHelper.createImport(macroHelper.createObjectFromString(s"_root_.$slickDriverObject.simple"), Nil)
+    val importTypeMapper = typeMapper match {
+      case (_, None) => Nil
+      case (typeMapperObject, Some((typeMapperName, typeMapperClass))) => {
+        val typeMapperImplicits = implicitMembersNameOfType(typeMapperClass.typeSignature)
+        def implicitNameConvertor(implicitName: String) = s"typeMapperObject_$implicitName"
+        val importTypeMapper = macroHelper.createImport(macroHelper.createObjectFromString(typeMapperName), typeMapperImplicits, implicitNameConvertor)
+        val valAss = typeMapperImplicits.map(imp => c.parse(s"val imp_$imp = ${implicitNameConvertor(imp)}")) // TODO to be removed! Just for testing...
+        val typeMembers = typeMembersNameOfType(typeMapperClass.typeSignature)
+        val importTypeMember = macroHelper.createImport(macroHelper.createObjectFromString(typeMapperName), typeMembers)
+        importTypeMember :: List(importTypeMapper) ++ valAss
+        //        List(importTypeMapper) ++ valAss
+      }
+    }
+    val imports = List(importSimpleWild) ++ importTypeMapper
 
     val completeExpr = reify {
       class CONTAINER {
-        importExpr.splice // import statement
+        // import statements will be spliced here
         val driver = slickDriverExpr.splice
         val database = databaseExpr.splice.forURL(c.literal(connectionString).splice, driver = c.literal(jdbcClass).splice,
           user = c.literal(userForConnection).splice, password = c.literal(passForConnection).splice)
@@ -117,6 +170,6 @@ object Macros {
     val packageName = c.enclosingPackage.pid.toString
     val className = c.freshName(c.enclosingImpl.name).toTypeName
 
-    c.introduceTopLevel(packageName, ClassDef(NoMods, className, Nil, Template(parents, self, body ++ generateCodeForTables())))
+    c.introduceTopLevel(packageName, ClassDef(NoMods, className, Nil, Template(parents, self, imports ++ body ++ generateCodeForTables())))
   }
 }
