@@ -197,10 +197,13 @@ class TypeProviderTest {
     import Database.threadLocalSession
     import Db1._
     database.withSession {
-      assertEquals("implicit_c",
-        imp_implicit_c, 24.1, 1.0)
-      assertEquals("implicit_z",
-        imp_implicit_z, 4)
+      val q1 = Query(SimpleAs.length)
+      assertEquals("Size of SimpleA before change",
+        q1.first, 0)
+      SimpleAs.insert(SimpleA(1, "1"))
+      val q2 = Query(SimpleAs.length)
+      assertEquals("Size of SimpleA after change",
+        q2.first, 1)
     }
   }
 
