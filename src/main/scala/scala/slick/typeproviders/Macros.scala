@@ -110,20 +110,12 @@ object Macros {
         val tableTypeVal = typeMapper._1.tableExtractor(c.universe)(table.name) match {
           case None => Nil
           case Some(obj) => List(macroHelper.tableToTypeVal(table)(obj, tableType.name))
-          //          case Some(obj) => Nil
         }
         // generate the table object
         val tableModule = macroHelper.tableToModule(table)
-        //        val tableModule = macroHelper.tableToModule(table, tableType.name)
 
         tableTypeVal ++ List(tableType, tableModule)
       })
-    }
-
-    def typeMembersNameOfType(tpe: scala.reflect.runtime.universe.Type): List[String] = {
-      val members = tpe.members.toList
-      val typeMembers = members.filter(_.isType)
-      typeMembers.map(m => m.name.decoded.trim)
     }
 
     def implicitMembersNameOfType(tpe: scala.reflect.runtime.universe.Type): List[String] = {
@@ -147,11 +139,7 @@ object Macros {
         val typeMapperImplicits = implicitMembersNameOfType(typeMapperClass.typeSignature)
         def implicitNameConvertor(implicitName: String) = s"typeMapperObject_$implicitName"
         val importTypeMapper = macroHelper.createImport(macroHelper.createObjectFromString(typeMapperName), typeMapperImplicits, implicitNameConvertor)
-        val valAss = typeMapperImplicits.map(imp => c.parse(s"val imp_$imp = ${implicitNameConvertor(imp)}")) // TODO to be removed! Just for testing...
-        val typeMembers = typeMembersNameOfType(typeMapperClass.typeSignature)
-        val importTypeMember = macroHelper.createImport(macroHelper.createObjectFromString(typeMapperName), typeMembers)
-        importTypeMember :: List(importTypeMapper) ++ valAss
-        //        List(importTypeMapper) ++ valAss
+        List(importTypeMapper)
       }
     }
     val imports = List(importSimpleWild) ++ importTypeMapper

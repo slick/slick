@@ -102,10 +102,7 @@ abstract class MacroHelpers(val naming: Naming) {
   }
 
   // helper methods for creating case class for each table
-  //  def columnToType(column: Column): Ident = Ident(TypeName(column.tpe.toString))
   def columnToType(column: Column): Tree = typeToTree(column.tpe.asInstanceOf[Type])
-  //  def columnToType2(column: Column): TypeTree = TypeTree(column.tpe.asInstanceOf[context.universe.Type]) // FIXME this one should be used
-  //  def columnToType3(column: Column): Ident = Ident(column.tpe.asInstanceOf[context.universe.Type].typeSymbol) // FIXME the above one should be used
 
   // helper methods for creating the module for each table
   def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.moduleFieldName))
@@ -137,13 +134,6 @@ abstract class MacroHelpers(val naming: Naming) {
         Select(allFields, TermName("$less$greater")),
         List(
           Ident(caseClassName),
-          //          {
-          //            val xVar = context.freshName("x")
-          //            Function(
-          //              //              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
-          //              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
-          //              Apply(Select(Ident(caseClassName), TermName("apply")), List(Ident(TermName(xVar)))))
-          //          },
           {
             val xVar = context.freshName("x")
             Function(
@@ -200,53 +190,16 @@ abstract class MacroHelpers(val naming: Naming) {
   // creates type for each table
   def tableToType(table: Table)(tpe: Type): TypeDef = {
     val typeName = table.caseClassName
-    val typeType = TypeTree(tpe.asInstanceOf[context.universe.Type])
-    TypeDef(NoMods, TypeName(typeName + "______"), List(), typeType) // FIXME
-    //    TypeDef(NoMods, TypeName(typeName), List(), typeType)
-    //    TypeDef(NoMods, TypeName(typeName), List(), TypeTree(typeOf[Tuple2[Int, String]]))
+    val typeType = typeToTree(tpe.normalize)
+    TypeDef(NoMods, TypeName(typeName), List(), typeType)
   }
 
   def tableToTypeVal[Elem, TupleElem](table: Table)(obj: Type, typeParamName: TypeName): ValDef = {
-    //  def tableToTypeVal[Elem, TupleElem](table: Table)(obj: TypeExtractor, typeParamName: TypeName): ValDef = {
-    //  def tableToTypeVal[Elem, TupleElem](table: Table)(obj: TypeExtractor[Elem, TupleElem]): ValDef = {
-    //	def tableToTypeVal(table: Table)(obj: AnyRef): ValDef = {
     val termName = table.caseClassName
-    /// STRATEGY 2
-    /*    val Expr(Block(List(ValDef(mods, _, tpt, rhs)), Literal(Constant(())))) =
-      reify {
-        val TEMP_NAME = obj
-      }
-    //    val rhsType = appliedType(typeOf[TypeExtractorTyped[_, _]], List(scalaTypeForSqlType(column.sqlType)))
-    val tableType = Ident(typeParamName)
-    val rhsType = AppliedTypeTree(createClass("TypeExtractorTyped", List("scala", "slick", "typeproviders", "types")), List(tableType, tableType))
-    //    val rhsType = TypeTree(runtimeMirror.reflect(obj).symbol.typeSignature.asInstanceOf[context.universe.Type])
-    println(rhsType)
-    val nrhs = TypeApply(Select(rhs, TermName("asInstanceOf")), List(rhsType))
-
-    ValDef(mods, TermName(termName), rhsType, nrhs)
-    */
-    /// STRATEGY 1
-    //    ValDef(mods, TermName(termName), tpt, rhs)
-    /// STRATEGY 3
     val tpe = obj.asInstanceOf[Type]
     val typeTree = typeToTree(tpe)
-    //    val typeTree = TypeTree(tpe)
     val rhs = Apply(Select(New(typeTree), nme.CONSTRUCTOR), List())
-    //    ValDef(NoMods, TermName(termName), TypeTree(tpe), rhs)
     ValDef(NoMods, TermName(termName), TypeTree(), rhs)
-
-    //    val valDef = context.parse(s"val $termName: $obj = new $obj()").asInstanceOf[ValDef]
-    //    val valDef = context.parse(s"""
-    //  val $termName = Tuple6
-    //    				""").asInstanceOf[ValDef]
-    //    val valDef = context.parse(s"""
-    //      val $termName = new scala.slick.typeproviders.TypeExtractor[SimpleA, SimpleA] {
-    //        override def unapply(s: SimpleA): Option[SimpleA] = Some(s)
-    //        def apply(s: SimpleA): SimpleA = s
-    //      }
-    //            """).asInstanceOf[ValDef]
-    //    println(valDef)
-    //    valDef
   }
 
   // creates module for each table
