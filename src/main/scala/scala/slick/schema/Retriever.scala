@@ -9,6 +9,7 @@ import scala.slick.jdbc.meta.MQName
 import scala.slick.jdbc.meta.MTable
 import scala.slick.backend.DatabaseComponent
 import scala.reflect.api.Universe
+import scala.slick.typeproviders.TypeMapper
 
 object Retriever {
 
@@ -20,7 +21,7 @@ object Retriever {
     tables
   }
 
-  def tablesWithColumns(driver: JdbcDriver, universe: Universe)(naming: Naming)(tablesWOColumns: List[Table])(implicit session: JdbcBackend#Session): List[Table] = {
+  def tablesWithColumns(driver: JdbcDriver, universe: Universe)(naming: Naming, typeMapper: TypeMapper)(tablesWOColumns: List[Table])(implicit session: JdbcBackend#Session): List[Table] = {
     tablesWOColumns map (t => {
       val mqName = mqNameForTable(t)
       val mTable = MTable.getTables(mqName.catalog, mqName.schema, Some(mqName.name), None).first
@@ -30,7 +31,11 @@ object Retriever {
       def columnName(column: String): QualifiedName = QualifiedName.columnName(t.name, column)
       val columns = mColumns map (c => {
         val qualifiedName = columnName(c.column)
-        Column(qualifiedName, driver.scalaTypeForColumn(universe)(c), moduleFieldName(qualifiedName), caseFieldName(qualifiedName))
+        val tpe = typeMapper.columnType(universe)(qualifiedName) match {
+          case Some(t) => t
+          case _ => driver.scalaTypeForColumn(universe)(c)
+        }
+        Column(qualifiedName, tpe, moduleFieldName(qualifiedName), caseFieldName(qualifiedName))
       })
       val autoInc = mColumns.zip(columns).collectFirst { case (m, c) if m.isAutoInc.getOrElse(false) => AutoIncrement(c) }
       val constraints = autoInc.toList
@@ -101,11 +106,11 @@ object Retriever {
     MQName(catalog, schema, name.lastPart)
   }
 
-  def tables(driver: JdbcDriver, db: JdbcBackend#DatabaseDef, universe: Universe)(naming: Naming): List[Table] = {
+  def tables(driver: JdbcDriver, db: JdbcBackend#DatabaseDef, universe: Universe)(naming: Naming, typeMapper: TypeMapper): List[Table] = {
     import driver.simple.Database.threadLocalSession
     db withSession {
       val tablesWOColumns = tablesWithoutColumn(driver)(naming)
-      val tablesWColumns = tablesWithColumns(driver, universe)(naming)(tablesWOColumns)
+      val tablesWColumns = tablesWithColumns(driver, universe)(naming, typeMapper)(tablesWOColumns)
       val tablesWConstraints = tablesWithConstraints(naming)(tablesWColumns)
       tablesWConstraints
     }
