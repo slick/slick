@@ -5,10 +5,13 @@ import scala.slick.schema.Table
 import scala.slick.schema.Column
 import scala.slick.schema.ForeignKey
 import scala.slick.schema.Index
-import scala.slick.schema.Naming
+import scala.slick.schema.naming.Naming
+import scala.slick.schema.PrimaryKey
+import scala.slick.SlickException
 
-trait MacroHelpers {
+abstract class MacroHelpers(val naming: Naming) {
   val context: Context
+  val runtimeMirror = scala.reflect.runtime.universe.runtimeMirror(this.getClass.getClassLoader)
   import context.universe._
   import Flag._
 
@@ -19,7 +22,10 @@ trait MacroHelpers {
     if (packagesType.isEmpty)
       Ident(classType)
     else {
-      val firstPackage = Ident(packagesType.head)
+      val firstPackage = packages.head match {
+        case "_root_" => Ident(nme.ROOTPKG)
+        case _ => Ident(packagesType.head)
+      }
       val others = (packagesType.tail :+ classType)
       others.foldLeft[Tree](firstPackage)((prev, elem) => {
         Select(prev, elem)
@@ -33,6 +39,22 @@ trait MacroHelpers {
   def createObject(objectName: String, packages: scala.List[String]): Tree =
     createObjectOrClass(x => TermName(x))(objectName, packages)
 
+  def createObjectOrClassFromString(generator: String => Name)(string: String): Tree = {
+    val tokens = string.split('.').toList
+    tokens match {
+      case Nil => throw new SlickException("No class/object name defined")
+      case _ => createObjectOrClass(generator)(tokens.last, tokens.dropRight(1))
+    }
+  }
+
+  def createClassFromString(classString: String): Tree = {
+    createObjectOrClassFromString(x => TypeName(x))(classString)
+  }
+
+  def createObjectFromString(objectString: String): Tree = {
+    createObjectOrClassFromString(x => TermName(x))(objectString)
+  }
+
   def createTuple[T <: Tree](elems: List[T]): Tree =
     Apply(Select(tupleObject(elems.length), TermName("apply")), elems)
 
@@ -40,6 +62,22 @@ trait MacroHelpers {
     elems match {
       case List(elem) => elem
       case other => createTuple(other)
+    }
+
+  def createImport(expr: Tree, selects: List[String], renamer: String => String = (str => str)): Import = {
+    val selectors = {
+      selects match {
+        case Nil => List((nme.WILDCARD, null))
+        case l => l.map(n => (TermName(n), TermName(renamer(n))))
+      }
+    }.map { case (name, rename) => ImportSelector(name, -1, rename, -1) }
+    Import(expr, selectors)
+  }
+
+  def typeToTree(tpe: Type): Tree =
+    tpe.asInstanceOf[TypeRef].args match {
+      case Nil => Ident(tpe.typeSymbol)
+      case args => AppliedTypeTree(Ident(tpe.typeSymbol), args.map(t => typeToTree(t)))
     }
 
   // some useful classes and objects
@@ -64,14 +102,21 @@ trait MacroHelpers {
   }
 
   // helper methods for creating case class for each table
-  def columnToType(column: Column): Ident = Ident(TypeName(column.tpe.toString))
-
-  def columnToMethodDef(tableName: String)(column: Column): DefDef = {
-    DefDef(NoMods, TermName(column.scalaName), List(), List(), TypeTree(), Apply(TypeApply(Select(This(TypeName(tableName)), TermName("column")), List(columnToType(column))), List(Literal(Constant(column.name)))))
-  }
+  def columnToType(column: Column): Tree = typeToTree(column.tpe.asInstanceOf[Type])
 
   // helper methods for creating the module for each table
-  def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.scalaName))
+  def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.moduleFieldName))
+
+  def columnToMethodDef(tableName: String)(column: Column)(isAutoInc: Boolean): DefDef = {
+    val nameParam = Literal(Constant(column.name.lastPart))
+    val autoIncParam =
+      if (isAutoInc)
+        Some(Select(Select(This(TypeName(tableName)), TermName("O")), TermName("AutoInc")))
+      else
+        None
+    val params = nameParam :: autoIncParam.toList
+    DefDef(NoMods, TermName(column.moduleFieldName), List(), List(), TypeTree(), Apply(TypeApply(Select(This(TypeName(tableName)), TermName("column")), List(columnToType(column))), params))
+  }
 
   def starDef(tableName: String)(columns: List[Column], caseClassName: TermName): DefDef = {
     val allFields = columns.map(getColumnOfTable(tableName)).reduceLeft[Tree]((prev, current) => {
@@ -93,22 +138,24 @@ trait MacroHelpers {
             val xVar = context.freshName("x")
             Function(
               List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
+              //              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), Ident(caseClassName.toTypeName), EmptyTree)),
               Apply(Select(Ident(caseClassName), TermName("unapply")), List(Ident(TermName(xVar)))))
           })))
   }
 
-  def primaryKeyDef(tableName: String)(columns: List[Column]): DefDef = {
-    val pks = createTupleOrSingleton(columns map getColumnOfTable(tableName))
-    DefDef(NoMods, TermName("primaryKey" + tableName), List(), List(), TypeTree(), Apply(Select(This(TypeName(tableName)), TermName("primaryKey")), List(Literal(Constant("CONSTRAINT_PK_" + tableName.toUpperCase)), pks)))
+  def primaryKeyDef(tableName: String)(pk: PrimaryKey): DefDef = {
+    val methodName = naming.primaryKeyName(pk)
+    val pks = createTupleOrSingleton(pk.fields map getColumnOfTable(tableName))
+    DefDef(NoMods, TermName(methodName), List(), List(), TypeTree(), Apply(Select(This(TypeName(tableName)), TermName("primaryKey")), List(Literal(Constant("CONSTRAINT_PK_" + tableName.toUpperCase)), pks)))
   }
 
   def foreignKeyDef(tableName: String)(fk: ForeignKey): DefDef = {
-    def getColumnOfName(n: String)(c: Column) = Select(Ident(TermName(n)), TermName(c.scalaName))
-    val methodName = "fk" + fk.pkTable.scalaName
-    val fkName = Literal(Constant(fk.pkTable.table + "_fk"))
+    def getColumnOfName(n: String)(c: Column) = Select(Ident(TermName(n)), TermName(c.moduleFieldName))
+    val methodName = naming.foreignKeyName(fk)
+    val fkName = Literal(Constant(methodName))
     val fkFkColumns = fk.fields.map(_._2)
     val fkSourceColumns = createTupleOrSingleton(fkFkColumns map getColumnOfTable(tableName))
-    val fkTargetTable = Ident(TermName(fk.pkTable.scalaName))
+    val fkTargetTable = Ident(TermName(naming.tableSQLToModule(fk.pkTableName)))
     val fkPkColumns = fk.fields.map(_._1)
     val SYNTHETIC = scala.reflect.internal.Flags.SYNTHETIC.asInstanceOf[Long].asInstanceOf[FlagSet]
     val fkTargetColumns = Function(List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName("x"), TypeTree(), EmptyTree)), createTupleOrSingleton(fkPkColumns map (getColumnOfName("x"))))
@@ -118,7 +165,7 @@ trait MacroHelpers {
   }
 
   def indexDef(tableName: String)(idx: Index): DefDef = {
-    val methodName = Naming.indexName(idx)
+    val methodName = naming.indexName(idx)
     val idxName = Literal(Constant(methodName))
     val idxOn = createTupleOrSingleton(idx.fields map getColumnOfTable(tableName))
     val idxUnique = Literal(Constant(true))
@@ -128,29 +175,48 @@ trait MacroHelpers {
   // creates case class for each table
   def tableToCaseClass(table: Table): ClassDef = {
     val columns = table.columns
-    val schema = columns map (column => (column.scalaName, columnToType(column)))
+    val schema = columns map (column => (column.caseFieldName, columnToType(column)))
     val caseClassName = table.caseClassName
 
     import CaseClassCreator._
 
-    val fields: List[ValDef] = schema map (fieldCreate _).tupled
-    val ctorParams: List[ValDef] = schema map (ctorParamCreate _).tupled
+    val fields: List[ValDef] = schema map { case (name, tpe) => fieldCreate(name, tpe) }
+    val ctorParams: List[ValDef] = schema map { case (name, tpe) => ctorParamCreate(name, tpe) }
     val ctor: DefDef = ctorCreate(ctorParams)
 
     caseClassCreate(caseClassName, fields, ctor)
   }
 
+  // creates type for each table
+  def tableToType(table: Table)(tpe: Type): TypeDef = {
+    val typeName = table.caseClassName
+    val typeType = typeToTree(tpe.normalize)
+    TypeDef(NoMods, TypeName(typeName), List(), typeType)
+  }
+
+  def tableToTypeVal[Elem, TupleElem](table: Table)(obj: Type, typeParamName: TypeName): ValDef = {
+    val termName = table.caseClassName
+    val tpe = obj.asInstanceOf[Type]
+    val typeTree = typeToTree(tpe)
+    val rhs = Apply(Select(New(typeTree), nme.CONSTRUCTOR), List())
+    ValDef(NoMods, TermName(termName), TypeTree(), rhs)
+  }
+
   // creates module for each table
-  def tableToModule(table: Table, caseClass: ClassDef): ModuleDef = {
+  def tableToModule(table: Table): ModuleDef = {
+    val typeParamName = TypeName(table.caseClassName)
     val columns = table.columns
-    val tableName = table.scalaName
+    val tableName = table.moduleName
     val tableType = createClass("Table", Nil)
-    val tableSuper = AppliedTypeTree(tableType, List(Ident(caseClass.name)))
-    val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.table))))
+    val tableSuper = AppliedTypeTree(tableType, List(Ident(typeParamName)))
+    val superCall = Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List(Literal(Constant(table.name.lastPart))))
     val constructor = DefDef(NoMods, nme.CONSTRUCTOR, List(), List(List()), TypeTree(), Block(List(superCall), Literal(Constant(()))))
-    val fields = columns map columnToMethodDef(tableName)
-    val star = starDef(tableName)(columns, caseClass.name.toTermName)
-    val pk = if (table.primaryKeys.isEmpty) None else Some(primaryKeyDef(tableName)(table.primaryKeys))
+    val autoIncField = table.autoInc.map(_.field)
+    val fields = columns map { c =>
+      columnToMethodDef(tableName)(c)(autoIncField.exists(f => f equals c))
+    }
+    val star = starDef(tableName)(columns, typeParamName.toTermName)
+    val pk = table.primaryKey map primaryKeyDef(tableName)
     val fks = table.foreignKeys map foreignKeyDef(tableName)
     val idx = table.indices map indexDef(tableName)
     val methods = constructor :: (fields ++ (star :: (pk.toList ::: fks ::: idx)))
