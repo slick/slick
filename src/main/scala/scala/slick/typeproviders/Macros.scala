@@ -99,7 +99,7 @@ object Macros {
     def generateCodeForTables(): List[Tree] = {
       val db = driver.simple.Database.forURL(connectionString, driver = jdbcClass,
         user = userForConnection, password = passForConnection)
-      val tables = Retriever.tables(driver, db, c.universe)(naming)
+      val tables = Retriever.tables(driver, db, c.universe)(naming, typeMapper._1)
       tables.flatMap(table => {
         // generate the dto case class
         val tableType = typeMapper._1.tableType(c.universe)(table.name) match {

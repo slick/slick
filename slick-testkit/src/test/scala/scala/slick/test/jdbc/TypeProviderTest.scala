@@ -196,14 +196,19 @@ class TypeProviderTest {
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
+    import scala.slick.config.CustomTyping
+    //    import CustomTyping.boolTypeMapper
     database.withSession {
       val q1 = Query(SimpleAs.length)
       assertEquals("Size of SimpleA before change",
         q1.first, 0)
-      SimpleAs.insert(SimpleA(1, "1"))
+      SimpleAs.insert(SimpleA(CustomTyping.True, "1"))
       val q2 = Query(SimpleAs.length)
       assertEquals("Size of SimpleA after change",
         q2.first, 1)
+      val r = Query(SimpleAs).list.head
+      val s: SimpleA = r
+      assertEquals("First element of SimpleAs", s, SimpleA(CustomTyping.True, "1"))
     }
   }
 
