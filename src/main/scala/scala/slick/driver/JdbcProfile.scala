@@ -58,8 +58,6 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   }
 
   trait SimpleQL extends super.SimpleQL with Implicits {
-    type ColumnType[T] = driver.ColumnType[T]
-    type BaseColumnType[T] = driver.BaseColumnType[T]
     type MappedColumnType[T, U] = MappedJdbcType[T, U]
     val MappedColumnType = MappedJdbcType
   }

@@ -44,6 +44,7 @@ class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option
 
 object ScalaType {
   val booleanType = new ScalaBaseType[Boolean](false)
+  val bigDecimalType = new ScalaNumericType[BigDecimal]
   val byteType = new ScalaNumericType[Byte]
   val charType = new ScalaBaseType[Char](' ')
   val doubleType = new ScalaNumericType[Double]

@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import scala.slick.ast.NumericTypedType
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
@@ -8,7 +7,8 @@ import java.util.UUID
 import javax.sql.rowset.serial.SerialBlob
 import org.junit.Assert._
 
-class DataTypeTest extends TestkitTest[JdbcTestDB] {
+/** Data type related tests which are specific to JdbcProfile */
+class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
@@ -46,33 +46,6 @@ class DataTypeTest extends TestkitTest[JdbcTestDB] {
       Set((1,"67"), (2,"")),
       Query(T).list.map{ case (id, data) => (id, data.map(_.mkString).getOrElse("")) }.toSet
     )
-  }
-
-  def testNumeric {
-    def testStore[T](values: T*)(implicit tm: BaseColumnType[T] with NumericTypedType) {
-      object Tbl extends Table[(Int, T)]("test_numeric") {
-        def id = column[Int]("id")
-        def data = column[T]("data")
-        def * = id ~ data
-      }
-      Tbl.ddl.create;
-      val data = values.zipWithIndex.map { case (d, i) => (i+1, d) }
-      Tbl.insertAll(data: _*)
-      val q = Tbl.sortBy(_.id)
-      assertEquals(data, q.list)
-      Tbl.ddl.drop
-    }
-
-    testStore[Int](-1, 0, 1, Int.MinValue, Int.MaxValue)
-    ifCap(rcap.typeLong) { testStore[Long](-1L, 0L, 1L, Long.MinValue, Long.MaxValue) }
-    testStore[Short](-1, 0, 1, Short.MinValue, Short.MaxValue)
-    testStore[Byte](-1, 0, 1, Byte.MinValue, Byte.MaxValue)
-    testStore[Double](-1.0, 0.0, 1.0)
-    testStore[Float](-1.0f, 0.0f, 1.0f)
-    ifCap(rcap.typeBigDecimal) {
-      testStore[BigDecimal](BigDecimal("-1"), BigDecimal("0"), BigDecimal("1"),
-        BigDecimal(Long.MinValue), BigDecimal(Long.MaxValue))
-    }
   }
 
   def testBlob = ifCap(rcap.typeBlob) {

@@ -18,7 +18,8 @@ object Testkit {
     classOf[tk.AggregateTest] ::
     classOf[tk.ColumnDefaultTest] ::
     classOf[tk.CountTest] ::
-    classOf[tk.DataTypeTest] ::
+    classOf[tk.RelationalTypeTest] ::
+    classOf[tk.JdbcTypeTest] ::
     classOf[tk.ExecutorTest] ::
     classOf[tk.ForeignKeyTest] ::
     classOf[tk.InsertTest] ::

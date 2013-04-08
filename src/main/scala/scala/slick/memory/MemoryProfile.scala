@@ -46,6 +46,7 @@ trait MemoryProfile extends RelationalProfile with StandardParameterizedQueries 
 
   trait ImplicitColumnTypes {
     implicit def booleanColumnType = ScalaType.booleanType
+    implicit def bigDecimalColumnType = ScalaType.bigDecimalType
     implicit def byteColumnType = ScalaType.byteType
     implicit def charColumnType = ScalaType.charType
     implicit def doubleColumnType = ScalaType.doubleType
