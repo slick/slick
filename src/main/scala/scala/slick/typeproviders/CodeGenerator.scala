@@ -14,19 +14,39 @@ class CodeGenerator(val configFileName: String) extends TemplateComponent
     val universe: runtimeUniverse.type = runtimeUniverse
   } with MacroHelpers(DefaultContextUtils, configFileName)
 
+  private var indentLevel = 0
+
+  def incIndent {
+    indentLevel += 1
+  }
+
+  def decIndent {
+    indentLevel -= 1
+  }
+
+  def genIndent: String = {
+    val result = new StringBuffer
+    for (i <- 1 to indentLevel) {
+      result append "  "
+    }
+    result.toString
+  }
+
   val tableTrees = macroHelper.generateTreeForTables
   val imports = macroHelper.getImports
   val connectionString = macroHelper.urlForConnection
   import macroHelper.{ userForConnection, passForConnection, slickDriverObject, jdbcClass }
 
   def generateCode(className: String = "GeneratedDb"): String = {
+    incIndent
     val tableCode = tableTrees map generateCodeForTable
     val importsCode = imports map generateCodeForImport
+    decIndent
     s"""
 object $className {
-  ${importsCode.mkString("\n")}
+${importsCode.mkString("\n")}
 
-  ${tableCode.mkString("\n")}
+${tableCode.mkString("\n")}
 }   
 """
   }
@@ -45,7 +65,7 @@ object $className {
   }
 
   def generateCodeForImport(imp: Import): String = {
-    imp.toString
+    s"$genIndent$imp"
   }
 }
 

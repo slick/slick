@@ -16,9 +16,9 @@ trait TemplateComponent { self: CodeGenerator =>
     // fields. Also we don't consider the methods which are implemented for
     // that case class
     val fields = fieldsCtor collect {
-      case v: ValDef => generateCodeForValDef(v)
+      case ValDef(_, TermName(fieldName), tpe, _) => s"$fieldName: ${generateCodeForTypeTree(tpe)}"
     }
-    s"case class $name(${fields.mkString(", ")})"
+    s"${genIndent}case class $name(${fields.mkString(", ")})"
   }
 
   def generateCodeForModule(moduleDef: ModuleDef): String = {
@@ -30,14 +30,16 @@ trait TemplateComponent { self: CodeGenerator =>
         ctorArgs.map(generateCodeForTree).mkString("(", ", ", ")")
       }
     } getOrElse ""
+    incIndent
     val methodsCode = methods collect {
       case method @ DefDef(_, methodName, _, _, _, rhs) if methodName != nme.CONSTRUCTOR => {
         generateCodeForDefDef(method)
       }
     }
-    s"""object $name extends $tableSuperCode $constructor{
-  ${methodsCode.mkString("\n")}
-}"""
+    decIndent
+    s"""${genIndent}object $name extends $tableSuperCode $constructor{
+${methodsCode.mkString("\n")}
+${genIndent}}"""
   }
 
 }

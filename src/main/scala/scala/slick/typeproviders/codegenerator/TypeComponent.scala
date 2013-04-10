@@ -9,6 +9,6 @@ trait TypeComponent { self: CodeGenerator =>
 
   def generateCodeForTypeDef(typeDef: TypeDef): String = {
     val TypeDef(_, TypeName(typeName), List(), typeType) = typeDef
-    s"type $typeName = ${generateCodeForTypeTree(typeType)}"
+    s"${genIndent}type $typeName = ${generateCodeForTypeTree(typeType)}"
   }
 }

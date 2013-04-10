@@ -8,7 +8,7 @@ trait DefComponent { self: CodeGenerator =>
     val ValDef(_, TermName(fieldName), tpe, rhs) = valDef
     val typeCode = generateCodeForTypeTree(tpe)
     val fieldNameCode = generateCodeForName(fieldName)
-    s"val $fieldNameCode: $typeCode" + {
+    s"${genIndent}val $fieldNameCode: $typeCode" + {
       if (rhs.isEmpty) ""
       else " = " + generateCodeForTree(rhs)
     }
@@ -17,7 +17,7 @@ trait DefComponent { self: CodeGenerator =>
   def generateCodeForDefDef(defDef: DefDef): String = {
     val DefDef(_, TermName(methodName), _, _, _, rhs) = defDef
     val methodNameCode = generateCodeForName(methodName)
-    s"def $methodNameCode" + {
+    s"${genIndent}def $methodNameCode" + {
       if (rhs.isEmpty) ""
       else " = " + generateCodeForTree(rhs)
     }
