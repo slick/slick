@@ -4,28 +4,30 @@ import scala.slick.typeproviders.CodeGenerator
 import scala.reflect.runtime.universe._
 
 trait ExpressionComponent { self: CodeGenerator =>
-  def generateCodeForTree(tree: Tree): String = {
-    @inline def rec(t: Tree): String = generateCodeForTree(t)
+  def generateCodeForTree(tree: Tree): String =
+    generateCodeForTree(tree, None)
+
+  def generateCodeForTree(tree: Tree, parent: Option[Tree]): String = {
+    @inline def rec(t: Tree): String = generateCodeForTree(t, Some(tree))
     tree match {
-      case Apply(Select(qualifier, name), args) => {
-        val operand = rec(qualifier)
+      case Apply(Select(qualifier, name), args) if parent.collect { case a @ Apply(_, _) => a }.isEmpty => {
+        val operand = generateCodeForTree(qualifier)
         val op = generateCodeForName(name)
         val arg = args match {
-          case List(elem) => generateCodeForTree(elem)
-          case list => list.map(generateCodeForTree).mkString("(", ", ", ")")
+          case List(elem) => rec(elem)
+          case list => list.map(rec).mkString("(", ", ", ")")
         }
         s"$operand $op $arg"
       }
       case Apply(fun, args) =>
-        // TODO consider the case of (a op b)
         s"${rec(fun)}(${args.map(rec).mkString(", ")})"
       case Select(qualifier, name) =>
         s"${rec(qualifier)}.${generateCodeForName(name)}"
       case Ident(ident) =>
         generateCodeForName(ident)
-      case Function(_, Apply(fun, _)) =>
+      case Function(List(ValDef(_, TermName(variable), _, _)), body) =>
         // not complete. doesn't the case of having more than input
-        s"${rec(fun)} _"
+        s"$variable => (${rec(body)})"
       case _ =>
         tree.toString
     }
