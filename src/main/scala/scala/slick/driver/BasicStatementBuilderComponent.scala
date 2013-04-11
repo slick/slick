@@ -162,8 +162,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
-        case t @ TableNode(name) =>
-          b += quoteIdentifier(name)
+        case t: TableNode =>
+          b += quoteTableName(t)
           if(alias != Some(t.nodeTableSymbol)) addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
@@ -308,7 +308,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case o => throw new SlickException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
 
-      val qtn = quoteIdentifier(from.tableName)
+      val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because UPDATE does not support aliases
       b"update $qtn set "
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
@@ -324,7 +324,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
         case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select)), None, None) => (sym, from, where)
         case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
-      val qtn = quoteIdentifier(from.tableName)
+      val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
       b"delete from $qtn"
       if(!where.isEmpty) {
@@ -487,7 +487,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
 
     protected def createTable: String = {
-      val b = new StringBuilder append "create table " append quoteIdentifier(table.tableName) append " ("
+      val b = new StringBuilder append "create table " append quoteTableName(table) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -500,19 +500,19 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
 
     protected def addTableOptions(b: StringBuilder) {}
 
-    protected def dropTable: String = "drop table "+quoteIdentifier(table.tableName)
+    protected def dropTable: String = "drop table "+quoteTableName(table)
 
     protected def createIndex(idx: Index): String = {
       val b = new StringBuilder append "create "
       if(idx.unique) b append "unique "
-      b append "index " append quoteIdentifier(idx.name) append " on " append quoteIdentifier(table.tableName) append " ("
+      b append "index " append quoteIdentifier(idx.name) append " on " append quoteTableName(table) append " ("
       addIndexColumnList(idx.on, b, idx.table.tableName)
       b append ")"
       b.toString
     }
 
     protected def createForeignKey(fk: ForeignKey[_ <: TableNode, _]): String = {
-      val sb = new StringBuilder append "alter table " append quoteIdentifier(table.tableName) append " add "
+      val sb = new StringBuilder append "alter table " append quoteTableName(table) append " add "
       addForeignKey(fk, sb)
       sb.toString
     }
@@ -520,14 +520,14 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
-      sb append ") references " append quoteIdentifier(fk.targetTable.tableName) append "("
+      sb append ") references " append quoteTableName(fk.targetTable) append "("
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
       sb append ") on update " append fk.onUpdate.action
       sb append " on delete " append fk.onDelete.action
     }
 
     protected def createPrimaryKey(pk: PrimaryKey): String = {
-      val sb = new StringBuilder append "alter table " append quoteIdentifier(table.tableName) append " add "
+      val sb = new StringBuilder append "alter table " append quoteTableName(table) append " add "
       addPrimaryKey(pk, sb)
       sb.toString
     }
@@ -539,10 +539,10 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     }
 
     protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]): String =
-      "alter table " + quoteIdentifier(table.tableName) + " drop constraint " + quoteIdentifier(fk.name)
+      "alter table " + quoteTableName(table) + " drop constraint " + quoteIdentifier(fk.name)
 
     protected def dropPrimaryKey(pk: PrimaryKey): String =
-      "alter table " + quoteIdentifier(table.tableName) + " drop constraint " + quoteIdentifier(pk.name)
+      "alter table " + quoteTableName(table) + " drop constraint " + quoteIdentifier(pk.name)
 
     protected def addIndexColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "index")
@@ -616,6 +616,17 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
       seq._start.foreach { b append " start " append _ }
       if(seq._cycle) b append " cycle"
       DDL(b.toString, "drop sequence " + quoteIdentifier(seq.name))
+    }
+  }
+
+  private final def quoteTableName(t: TableNode): String = {
+    t match {
+      case a: AbstractTable[_] =>
+        a.schemaName match {
+          case Some(s) => quoteIdentifier(s) + "." + quoteIdentifier(t.tableName)
+          case None => quoteIdentifier(t.tableName)
+        }
+      case t => quoteIdentifier(t.tableName)
     }
   }
 }

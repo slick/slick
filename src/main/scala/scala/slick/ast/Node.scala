@@ -393,6 +393,7 @@ object Path {
 abstract class TableNode extends Node {
   def nodeShaped_* : ShapedValue[_, _]
   def tableName: String
+  //def schemaName: Option[String]
   def nodeTableSymbol: TableSymbol = TableSymbol(tableName)
   override def toString = "Table " + tableName
 }
