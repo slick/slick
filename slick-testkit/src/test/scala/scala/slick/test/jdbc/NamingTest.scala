@@ -25,13 +25,13 @@ class NamingTest {
 
   @Test def predefinedFunctionsTest() {
     import scala.slick.schema.naming.Rule._
-    assertEquals("capitalize should work", Capitalize("coffeEs"), "CoffeEs")
-    assertEquals("camelize should work", Camelize("coffee_id_sOmething"), "coffeeIdSOmething")
-    assertEquals("lowercase should work", LowerCase("COFFEE_Id_Something"), "coffee_id_something")
-    assertEquals("singularize should change plural to singular form", Singularize("CoFFEES"), "CoFFEE")
-    assertEquals("singularize should append 'C' to singular", Singularize("COFfEE"), "CCOFfEE")
-    assertEquals("pluralize should change convert 'Xs' to 'Xses'", Pluralize("BuS"), "BuSes")
-    assertEquals("pluralize should change convert 'X' to 'Xs'", Pluralize("CoFfEE"), "CoFfEEs")
+    assertEquals("capitalize should work", "CoffeEs", Capitalize("coffeEs"))
+    assertEquals("camelize should work", "coffeeIdSOmething", Camelize("coffee_id_sOmething"))
+    assertEquals("lowercase should work", "coffee_id_something", LowerCase("COFFEE_Id_Something"))
+    assertEquals("singularize should change plural to singular form", "CoFFEE", Singularize("CoFFEES"))
+    assertEquals("singularize should append 'C' to singular", "CCOFfEE", Singularize("COFfEE"))
+    assertEquals("pluralize should change convert 'Xs' to 'Xses'", "BuSes", Pluralize("BuS"))
+    assertEquals("pluralize should change convert 'X' to 'Xs'", "CoFfEEs", Pluralize("CoFfEE"))
   }
 
   implicit def namingToMapper(namingConf: Config): MappingConfiguration =
@@ -118,13 +118,13 @@ naming {
     val keys = input.keysIterator.zip(correctMap.keysIterator)
     keys.foreach {
       case (table, result) => {
-        assertEquals("Table naming should work", tableResult(table), result)
+        assertEquals("Table naming should work", result, tableResult(table))
         val columns = input(table)
         val resultColumns = correctMap(result)
         val values = columns.zip(resultColumns)
         values.foreach {
           case (column, resultColumn) => {
-            assertEquals("Column naming should work", columnResult(table)(column), resultColumn)
+            assertEquals("Column naming should work", resultColumn, columnResult(table)(column))
           }
         }
       }

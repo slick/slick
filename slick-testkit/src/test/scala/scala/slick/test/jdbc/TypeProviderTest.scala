@@ -22,18 +22,18 @@ class TypeProviderTest {
     import Db1._
     database.withSession {
       val q1 = Query(Suppliers.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
       Suppliers.insert(Supplier(1, "1", "2", "3", "4", "5"))
       val q2 = Query(Suppliers.length)
-      assertEquals("Size of Suppliers after change",
-        q2.first, 4)
+      assertEquals("Size of Suppliers after change", 4,
+        q2.first)
       val q3 = Query(Coffees.length)
-      assertEquals("Size of Coffees",
-        q3.first, 1)
+      assertEquals("Size of Coffees", 1,
+        q3.first)
       val r = Query(Coffees).list.head
       val c: Coffee = r
-      assertEquals("First element of Coffees", c, Coffee("coffee", 1, 2.3, 4, 5))
+      assertEquals("First element of Coffees", Coffee("coffee", 1, 2.3, 4, 5), c)
     }
   }
 
@@ -44,8 +44,8 @@ class TypeProviderTest {
     import Db1._
     database.withSession {
       val q1 = Query(Suppliers.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
     }
   }
 
@@ -69,8 +69,8 @@ class TypeProviderTest {
     import Database.threadLocalSession
     Db1.database.withSession {
       val q1 = Query(Db1.Suppliers.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
     }
   }
 
@@ -106,8 +106,8 @@ class TypeProviderTest {
       val aFk = A.foreignKeys.head
       val srcColumns = convertColumnsToString(aFk.linearizedSourceColumns.toList)
       val trgColumns = convertColumnsToString(aFk.linearizedTargetColumns.toList)
-      assertEquals("FKs should have the same source column", srcColumns, List("k1"))
-      assertEquals("FKs should have the same target column", trgColumns, List("f1"))
+      assertEquals("FKs should have the same source column", List("k1"), srcColumns)
+      assertEquals("FKs should have the same target column", List("f1"), trgColumns)
       assertTrue("FKs should be from 'a' to 'b'", aFk.sourceTable.isInstanceOf[A.type] && aFk.targetTable.isInstanceOf[B.type])
     }
   }
@@ -127,8 +127,8 @@ class TypeProviderTest {
       val aFk = A.foreignKeys.head
       val srcColumns = convertColumnsToString(aFk.linearizedSourceColumns.toList)
       val trgColumns = convertColumnsToString(aFk.linearizedTargetColumns.toList)
-      assertEquals("FKs should have the same source column", srcColumns, List("k1", "k2"))
-      assertEquals("FKs should have the same target column", trgColumns, List("f1", "f2"))
+      assertEquals("FKs should have the same source column", List("k1", "k2"), srcColumns)
+      assertEquals("FKs should have the same target column", List("f1", "f2"), trgColumns)
       assertTrue("FKs should be from 'a' to 'b'", aFk.sourceTable.isInstanceOf[A.type] && aFk.targetTable.isInstanceOf[B.type])
     }
   }
@@ -176,18 +176,18 @@ class TypeProviderTest {
     import Db1._
     database.withSession {
       val q1 = Query(Supps.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
       Supps.insert(Supplier(1, "1", "2", "3", "4", "5"))
       val q2 = Query(Supps.length)
-      assertEquals("Size of Suppliers after change",
-        q2.first, 4)
+      assertEquals("Size of Suppliers after change", 4,
+        q2.first)
       val q3 = Query(Coffs.length)
-      assertEquals("Size of Coffees",
-        q3.first, 1)
+      assertEquals("Size of Coffees", 1,
+        q3.first)
       val r = Query(Coffs).list.head
       val c: Coff = r
-      assertEquals("First element of Coffees", c, Coff("coffee", 1, 2.3, 4, 5))
+      assertEquals("First element of Coffees", Coff("coffee", 1, 2.3, 4, 5), c)
     }
   }
 
@@ -200,15 +200,15 @@ class TypeProviderTest {
     //    import CustomTyping.boolTypeMapper
     database.withSession {
       val q1 = Query(SimpleAs.length)
-      assertEquals("Size of SimpleA before change",
-        q1.first, 0)
+      assertEquals("Size of SimpleA before change", 0,
+        q1.first)
       SimpleAs.insert(SimpleA(CustomTyping.True, "1"))
       val q2 = Query(SimpleAs.length)
-      assertEquals("Size of SimpleA after change",
-        q2.first, 1)
+      assertEquals("Size of SimpleA after change", 1,
+        q2.first)
       val r = Query(SimpleAs).list.head
       val s: SimpleA = r
-      assertEquals("First element of SimpleAs", s, SimpleA(CustomTyping.True, "1"))
+      assertEquals("First element of SimpleAs", SimpleA(CustomTyping.True, "1"), s)
     }
   }
 
