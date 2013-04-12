@@ -7,8 +7,9 @@ trait DefComponent { self: CodeGenerator =>
   def generateCodeForValDef(valDef: ValDef): String = {
     val ValDef(_, TermName(fieldName), tpe, rhs) = valDef
     val typeCode = generateCodeForTypeTree(tpe)
+    val typePart = if (tpe.isEmpty) "" else ": $typeCode"
     val fieldNameCode = generateCodeForName(fieldName)
-    s"${genIndent}val $fieldNameCode: $typeCode" + {
+    s"${genIndent}val $fieldNameCode$typePart" + {
       if (rhs.isEmpty) ""
       else " = " + generateCodeForTree(rhs)
     }

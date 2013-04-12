@@ -60,6 +60,8 @@ ${tableCode.mkString("\n")}
         generateCodeForModule(moduleDef)
       case typeDef: TypeDef =>
         generateCodeForTypeDef(typeDef)
+      case valDef: ValDef =>
+        generateCodeForValDef(valDef)
       case _ => tree.toString
     }
   }

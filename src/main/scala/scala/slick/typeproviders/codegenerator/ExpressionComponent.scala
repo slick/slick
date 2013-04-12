@@ -43,6 +43,9 @@ trait ExpressionComponent { self: CodeGenerator =>
   }
 
   def generateCodeForName(name: Name): String = {
-    generateCodeForName(name.toString)
+    if (name equals nme.CONSTRUCTOR)
+      ""
+    else
+      generateCodeForName(name.toString)
   }
 }

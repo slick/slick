@@ -74,11 +74,14 @@ trait TreeGeneratorUtils { self: MacroHelpers =>
     Import(expr, selectors)
   }
 
-  def typeToTree(tpe: Type): Tree =
+  def typeToTree(tpe: Type): Tree = {
+    def erasedTypeToTree(etpe: Type): Tree =
+      createClassFromString(etpe.typeSymbol.fullName)
     tpe.asInstanceOf[TypeRef].args match {
-      case Nil => Ident(tpe.typeSymbol)
-      case args => AppliedTypeTree(Ident(tpe.typeSymbol), args.map(t => typeToTree(t)))
+      case Nil => erasedTypeToTree(tpe.erasure)
+      case args => AppliedTypeTree(erasedTypeToTree(tpe.erasure), args.map(t => typeToTree(t)))
     }
+  }
 
   // some useful classes and objects
   def tupleObject(arity: Int): Tree = createObject("Tuple" + arity, List("scala"))

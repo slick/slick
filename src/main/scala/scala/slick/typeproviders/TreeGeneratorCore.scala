@@ -72,7 +72,8 @@ trait TreeGeneratorCore { self: MacroHelpers =>
     val fkTargetTable = Ident(TermName(naming.tableSQLToModule(fk.pkTableName)))
     val fkPkColumns = fk.fields.map(_._1)
     val SYNTHETIC = scala.reflect.internal.Flags.SYNTHETIC.asInstanceOf[Long].asInstanceOf[FlagSet]
-    val fkTargetColumns = Function(List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName("x"), TypeTree(), EmptyTree)), createTupleOrSingleton(fkPkColumns map (getColumnOfName("x"))))
+    val xVar = contextUtils.freshName("x")
+    val fkTargetColumns = Function(List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)), createTupleOrSingleton(fkPkColumns map (getColumnOfName(xVar))))
     val fkUpdateRule = Select(foreignKeyActionObject, TermName(fk.updateRule.toString))
     val fkDeleteRule = Select(foreignKeyActionObject, TermName(fk.deleteRule.toString))
     DefDef(NoMods, TermName(methodName), List(), List(), TypeTree(), Apply(Apply(Select(This(TypeName(tableName)), TermName("foreignKey")), List(fkName, fkSourceColumns, fkTargetTable)), List(fkTargetColumns, fkUpdateRule, fkDeleteRule)))
@@ -143,12 +144,12 @@ trait TreeGeneratorCore { self: MacroHelpers =>
     val tables = Retriever.tables(driver, db, universe)(naming, typeMapper._1)
     tables.flatMap(table => {
       // generate the dto case class
-      val tableType = typeMapper._1.tableType(universe)(table.name) match {
+      val tableType = typeMapper._1.tableType(table.name)(universe) match {
         case None => tableToCaseClass(table)
         case Some(tpe) => tableToType(table)(tpe)
       }
       // extractor!
-      val tableTypeVal = typeMapper._1.tableExtractor(universe)(table.name) match {
+      val tableTypeVal = typeMapper._1.tableExtractor(table.name)(universe) match {
         case None => Nil
         case Some(obj) => List(tableToTypeVal(table)(obj, tableType.name))
       }

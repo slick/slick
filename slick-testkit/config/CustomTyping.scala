@@ -30,19 +30,19 @@ object CustomTyping extends TypeMapper {
     def apply(s: SimpleA): SimpleA = s
   }
 
-  override def tableType(universe: Universe)(name: QualifiedName): Option[universe.Type] = name.lastPart match {
-    case "SIMPLE_AS" => Some(universe.typeOf[SimpleA])
-    case _ => super.tableType(universe)(name)
+  override def tableType(name: QualifiedName)(implicit universe: Universe): Option[universe.Type] = name.lastPart match {
+    case "SIMPLE_AS" => Some(getType[SimpleA])
+    case _ => super.tableType(name)(universe)
   }
 
-  override def tableExtractor(universe: Universe)(name: QualifiedName): Option[universe.Type] = name.lastPart match {
-    case "SIMPLE_AS" => Some(universe.typeOf[SimpleAExtractor])
-    case _ => super.tableExtractor(universe)(name)
+  override def tableExtractor(name: QualifiedName)(implicit universe: Universe): Option[universe.Type] = name.lastPart match {
+    case "SIMPLE_AS" => Some(getType[SimpleAExtractor])
+    case _ => super.tableExtractor(name)(universe)
   }
 
-  override def columnType(universe: Universe)(name: QualifiedName): Option[universe.Type] = name.lastPart match {
-    case "A1" => Some(universe.typeOf[Bool])
-    case _ => super.columnType(universe)(name)
+  override def columnType(name: QualifiedName)(implicit universe: Universe): Option[universe.Type] = name.lastPart match {
+    case "A1" => Some(getType[Bool])
+    case _ => super.columnType(name)(universe)
   }
 
 }

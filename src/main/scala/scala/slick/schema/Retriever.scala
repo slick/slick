@@ -31,7 +31,7 @@ object Retriever {
       def columnName(column: String): QualifiedName = QualifiedName.columnName(t.name, column)
       val columns = mColumns map (c => {
         val qualifiedName = columnName(c.column)
-        val tpe = typeMapper.columnType(universe)(qualifiedName) match {
+        val tpe = typeMapper.columnType(qualifiedName)(universe) match {
           case Some(t) => t
           case _ => driver.scalaTypeForColumn(universe)(c)
         }
