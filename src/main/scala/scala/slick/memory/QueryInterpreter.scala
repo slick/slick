@@ -23,10 +23,16 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
   import QueryInterpreter._
 
   val scope = new HashMap[Symbol, Any]
+  var indent = 0
   type Coll = Iterable[Any]
 
+  def logDebug(msg: String) {
+    logger.debug(Iterator.fill(indent)("  ").mkString("", "", msg))
+  }
+
   def run(n: Node): Any = {
-    logger.debug("Evaluating "+n)
+    if(logger.isDebugEnabled) logDebug("Evaluating "+n)
+    indent += 1
     val res = n match {
       case Ref(sym) =>
         scope.getOrElse(sym, throw new SlickException(s"Symbol $sym not found in scope"))
@@ -54,14 +60,60 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
         }
         scope.remove(gen)
         b.result()
+      case Join(_, _, left, RangeFrom(0), JoinType.Zip, LiteralNode(true)) =>
+        val leftV = run(left).asInstanceOf[Coll]
+        leftV.zipWithIndex.map { case (l, r) => new ProductValue(Vector(l, r)) }
+      case Join(_, _, left, right, JoinType.Zip, LiteralNode(true)) =>
+        val leftV = run(left).asInstanceOf[Coll]
+        val rightV = run(right).asInstanceOf[Coll]
+        (leftV, rightV).zipped.map { (l, r) => new ProductValue(Vector(l, r)) }
+      case Join(leftGen, rightGen, left, right, JoinType.Inner, by) =>
+        val res = run(left).asInstanceOf[Coll].flatMap { l =>
+          scope(leftGen) = l
+          run(right).asInstanceOf[Coll].filter { r =>
+            scope(rightGen) = r
+            asBoolean(run(by))
+          }.map { r =>
+            new ProductValue(Vector(l, r))
+          }
+        }
+        scope.remove(leftGen)
+        scope.remove(rightGen)
+        res
+      case Join(leftGen, rightGen, left, right, JoinType.Left, by) =>
+        val res = run(left).asInstanceOf[Coll].flatMap { l =>
+          scope(leftGen) = l
+          val inner: IndexedSeq[Any] = run(right).asInstanceOf[Coll].filter { r =>
+            scope(rightGen) = r
+            asBoolean(run(by))
+          }.map { r =>
+            new ProductValue(Vector(l, r))
+          }(collection.breakOut)
+          if(inner.isEmpty) Vector(new ProductValue(Vector(l, createNullRow(right.nodeType.asCollectionType.elementType))))
+          else inner
+        }
+        scope.remove(leftGen)
+        scope.remove(rightGen)
+        res
+      case Join(leftGen, rightGen, left, right, JoinType.Right, by) =>
+        val res = run(right).asInstanceOf[Coll].flatMap { r =>
+          scope(rightGen) = r
+          val inner: IndexedSeq[Any] = run(left).asInstanceOf[Coll].filter { l =>
+            scope(leftGen) = l
+            asBoolean(run(by))
+          }.map { l =>
+            new ProductValue(Vector(l, r))
+          }(collection.breakOut)
+          if(inner.isEmpty) Vector(new ProductValue(Vector(createNullRow(left.nodeType.asCollectionType.elementType), r)))
+          else inner
+        }
+        scope.remove(leftGen)
+        scope.remove(rightGen)
+        res
       case Filter(gen, from, where) =>
         val res = run(from).asInstanceOf[Coll].filter { v =>
           scope(gen) = v
-          run(where) match {
-            case b: Boolean => b
-            case Some(b: Boolean) => b
-            case None => false
-          }
+          asBoolean(run(where))
         }
         scope.remove(gen)
         res
@@ -110,6 +162,10 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.drop(num)
         b.result()
+      case GetOrElse(ch, default) =>
+        run(ch).asInstanceOf[Option[Any]].getOrElse(default())
+      case OptionApply(ch) =>
+        Option(run(ch))
       case Library.Sum(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
@@ -153,7 +209,8 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
       //case Library.CountAll(ch) => run(ch).asInstanceOf[Coll].size
       case l: LiteralNode => l.value
     }
-    logger.debug(s"  Result: $res")
+    indent -= 1
+    if(logger.isDebugEnabled) logDebug("Result: "+res)
     res
   }
 
@@ -175,6 +232,22 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
       for(z <- z; b <- b.asInstanceOf[Option[Any]]) yield f(z, b)
     }
     else Some(it.foldLeft(zero) { (z, b) => f(z, b) })
+  }
+
+  def createNullRow(tpe: Type): Any = tpe match {
+    case t: ScalaType[_] => if(t.nullable) None else null
+    case StructType(el) =>
+      new StructValue(el.map{ case (_, tpe) => createNullRow(tpe) }(collection.breakOut),
+        el.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[Symbol, Int])
+    case ProductType(el) =>
+      new ProductValue(el.map(tpe => createNullRow(tpe))(collection.breakOut))
+  }
+
+  def asBoolean(v: Any) = v match {
+    case b: Boolean => b
+    case Some(b: Boolean) => b
+    case None => false
+    case null => false
   }
 }
 

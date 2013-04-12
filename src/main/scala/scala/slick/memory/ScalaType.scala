@@ -18,8 +18,18 @@ trait ScalaType[T] extends TypedType[T] {
 class ScalaBaseType[T](val zero: T)(implicit val tag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
   override def toString = "ScalaType[" + tag.runtimeClass.getName + "]"
   def nullable = false
-  def scalaOrderingFor(ord: Ordering) =
-    if(ord.direction == Ordering.Desc) ordering.reverse else ordering
+  def scalaOrderingFor(ord: Ordering) = {
+    val base = if(ord.direction == Ordering.Desc) ordering.reverse else ordering
+    val nullsFirst = if(ord.nulls == Ordering.NullsFirst) -1 else 1
+    new scala.math.Ordering[T] {
+      def compare(x: T, y: T): Int = {
+        if((x.asInstanceOf[AnyRef] eq null) && (y.asInstanceOf[AnyRef] eq null)) 0
+        else if(x.asInstanceOf[AnyRef] eq null) nullsFirst
+        else if(y.asInstanceOf[AnyRef] eq null) -nullsFirst
+        else base.compare(x, y)
+      }
+    }
+  }
 }
 
 class ScalaNumericType[T](implicit tag: ClassTag[T], val numeric: Numeric[T])

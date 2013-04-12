@@ -99,13 +99,9 @@ trait MemoryProfile extends RelationalProfile with StandardParameterizedQueries 
   }
 
   class TableDDL(table: Table[_]) extends DDL {
-    def create(implicit session: Backend#Session): Unit = {
-      val cols = table.create_*.map { fs =>
-        val default = fs.options.collectFirst { case ColumnOption.Default(v) => v }
-        new HeapBackend.Column(fs, default.getOrElse(typeInfoFor(fs.tpe).zero))
-      }.toIndexedSeq
-      session.database.createTable(table.tableName, cols)
-    }
+    def create(implicit session: Backend#Session): Unit =
+      session.database.createTable(table.tableName,
+        table.create_*.map { fs => new HeapBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq)
     def drop(implicit session: Backend#Session): Unit =
       session.database.dropTable(table.tableName)
   }
@@ -164,8 +160,13 @@ trait MemoryDriver extends RelationalDriver with MemoryProfile with RelationalMa
 
     def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = {
       val Select(_, ElementSymbol(ridx)) = path
+      val nullable = typeInfoFor(n.nodeType).nullable
       new ResultConverter {
-        def read(pr: RowReader) = pr(ridx-1)
+        def read(pr: RowReader) = {
+          val v = pr(ridx-1)
+          if(!nullable && (v.asInstanceOf[AnyRef] eq null)) throw new SlickException("Read null value for non-nullable column")
+          v
+        }
         def update(value: Any, pr: RowUpdater) = ???
         def set(value: Any, pp: RowWriter) = ???
       }

@@ -2,9 +2,10 @@ package scala.slick.memory
 
 import scala.slick.backend.DatabaseComponent
 import scala.slick.SlickException
-import scala.slick.ast.FieldSymbol
+import scala.slick.ast.{ColumnOption, FieldSymbol}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.util.Logging
+import java.util.concurrent.atomic.AtomicLong
 
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends DatabaseComponent with Logging {
@@ -56,18 +57,28 @@ trait HeapBackend extends DatabaseComponent with Logging {
   type Row = IndexedSeq[Any]
 
   class HeapTable(val name: String, val columns: IndexedSeq[HeapBackend.Column]) {
-    private[this] val defaults = columns.map(_.default)
     protected val data: ArrayBuffer[Row] = new ArrayBuffer[Row]
     def rows: Iterable[Row] = data
     def append(row: Row): Unit = {
       data.append(row)
       logger.debug("Inserted ("+row.mkString(", ")+") into "+this)
     }
-    def createInsertRow: ArrayBuffer[Any] = ArrayBuffer(defaults: _*)
+    def createInsertRow: ArrayBuffer[Any] = columns.map(_.createDefault)(collection.breakOut)
     override def toString = name + "(" + columns.map(_.sym.name).mkString(", ") + ")"
   }
 }
 
 object HeapBackend extends HeapBackend {
-  class Column(val sym: FieldSymbol, val default: Any)
+  class Column(val sym: FieldSymbol, val tpe: ScalaType[Any]) {
+    private[this] val default = sym.options.collectFirst { case ColumnOption.Default(v) => v }
+    private[this] val autoInc = sym.options.collectFirst { case ColumnOption.AutoInc => new AtomicLong() }
+    def createDefault: Any = autoInc match {
+      case Some(a) =>
+        val i = a.incrementAndGet()
+        if(tpe == ScalaType.longType) i
+        else if(tpe == ScalaType.intType) i.toInt
+        else throw new SlickException("Only Long and Int types are allowed for AutoInc columns")
+      case None => default.getOrElse(tpe.zero)
+    }
+  }
 }

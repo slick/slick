@@ -27,7 +27,7 @@ class ResolveZipJoins extends Phase {
     // zip with index
     case Bind(oldBindSym, Join(_, _,
         l @ Bind(lsym, lfrom, Pure(StructNode(lstruct))),
-        Bind(_, Pure(StructNode(Seq())), Pure(StructNode(Seq((rangeSym, RangeFrom(offset)))))),
+        RangeFrom(offset),
         JoinType.Zip, LiteralNode(true)), Pure(sel)) =>
       val idxSym = new AnonSymbol
       val idxExpr =
@@ -38,8 +38,7 @@ class ResolveZipJoins extends Phase {
       val OldBindRef = Ref(oldBindSym)
       val newOuterSel = sel.replace {
         case Select(OldBindRef, ElementSymbol(1)) => Ref(bindSym)
-        case Select(Select(OldBindRef, ElementSymbol(2)), s) if s == rangeSym =>
-          Select(Ref(bindSym), idxSym)
+        case Select(OldBindRef, ElementSymbol(2)) => Select(Ref(bindSym), idxSym)
       }
       Bind(bindSym, innerBind, Pure(newOuterSel))
 
