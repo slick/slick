@@ -119,8 +119,8 @@ class ConvertToComprehensions extends Phase {
     val newSel = sel.replaceKeepType {
       case b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
         if (s2 == s1) && (gen2 == gen) => Select(Ref(gen).nodeTyped(genType), field).nodeTyped(b.nodeType)
-      case Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
-        Library.Count.typed[Long](LiteralNode(1))
+      case ca @ Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
+        Library.Count.typed(ca.nodeType, LiteralNode(1))
       case Select(r @ Ref(gen2), ElementSymbol(2)) if gen2 == gen => r
       case Select(Ref(gen2), ElementSymbol(1)) if gen2 == gen => newBy
     }
@@ -284,7 +284,7 @@ class FuseComprehensions extends Phase {
           // sub-query somewhere in 'from' position. Not much we can do about this though.
           s match {
             case Library.CountAll =>
-              c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed[Long](LiteralNode(1)))))))
+              c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed(ap.nodeType, LiteralNode(1)))))))
             case s =>
               val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false)
               // All standard aggregate functions operate on a single column
@@ -313,7 +313,7 @@ class FuseComprehensions extends Phase {
         val a2 = new AnonSymbol
         val (c2b, call) = s match {
           case Library.CountAll =>
-            (c2, Library.Count.typed[Long](LiteralNode(1)))
+            (c2, Library.Count.typed(c2.nodeType.asCollectionType.elementType, LiteralNode(1)))
           case s =>
             val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false)
             // All standard aggregate functions operate on a single column
