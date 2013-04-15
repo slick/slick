@@ -28,7 +28,7 @@ object TestDB {
   }
   private lazy val dbProps = {
     val p = new Properties
-    val f = new File("test-dbs", "databases.properties")
+    val f = new File(sys.props.getOrElse("slick.testkit.dbprops", "test-dbs/databases.properties"))
     if(f.isFile) {
       val in = new FileInputStream(f)
       try { p.load(in) } finally { in.close() }
