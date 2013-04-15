@@ -195,6 +195,7 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
         foldOptionIt(it, opt, num.zero, (a, b) => if(num.lt(b, a)) b else a)
       case Apply(sym, ch) =>
         val chV = ch.map(n => (n.nodeType, run(n)))
+        logDebug("[chV: "+chV.mkString(", ")+"]")
         // Use ternary logic for function calls
         if(n.nodeType.isInstanceOf[OptionType]) {
           if(chV.exists { case (t, v) => t.isInstanceOf[OptionType] && (v == None) }) None
@@ -203,6 +204,7 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
               case (t: OptionType, v) => (t.elementType, v.asInstanceOf[Option[Any]].get)
               case other => other
             }
+            logDebug("[chPlainV: "+chPlainV.mkString(", ")+"]")
             Some(evalFunction(sym, chPlainV))
           }
         } else evalFunction(sym, chV)
@@ -215,9 +217,14 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
   }
 
   def evalFunction(sym: Symbol, args: Seq[(Type, Any)]) = sym match {
-    case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
-    case Library.< => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lt(args(0)._2, args(1)._2)
     case Library.== => args(0)._2 == args(1)._2
+    case Library.< => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lt(args(0)._2, args(1)._2)
+    case Library.<= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lteq(args(0)._2, args(1)._2)
+    case Library.> => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.gt(args(0)._2, args(1)._2)
+    case Library.>= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.gteq(args(0)._2, args(1)._2)
+    case Library.And => args(0)._2.asInstanceOf[Boolean] && args(1)._2.asInstanceOf[Boolean]
+    case Library.Or => args(0)._2.asInstanceOf[Boolean] || args(1)._2.asInstanceOf[Boolean]
+    case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
     case Library.+ => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.plus(args(0)._2, args(1)._2)
   }
 
@@ -253,10 +260,14 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
 
 object QueryInterpreter {
   /** The representation for ProductType values in the interpreter */
-  class ProductValue(data: IndexedSeq[Any]) extends (Int => Any) {
+  class ProductValue(private val data: IndexedSeq[Any]) extends (Int => Any) {
     def length: Int = data.length
     def apply(idx: Int): Any = data(idx)
     override def toString = "ProductValue("+data.mkString(", ")+")"
+    override def equals(other: Any) = other match {
+      case p: ProductValue => data == p.data
+      case _ => false
+    }
   }
 
   /** The representation for StructType values in the interpreter */

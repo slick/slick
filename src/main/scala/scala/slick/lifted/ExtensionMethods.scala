@@ -36,39 +36,37 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
 
   def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.==.column(n, Node(e)))
+    om.column(Library.==, n, Node(e))
   def === [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.==.column(n, Node(e)))
+    om.column(Library.==, n, Node(e))
   def isNot[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.Not.column(Library.==.typed[Boolean](n, Node(e))))
+    om.column(Library.Not, Library.==.typed(om.liftedType, n, Node(e)))
   @deprecated("Use =!= instead", "0.9.0")
-  def != [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.Not.column(Library.==.typed[Boolean](n, Node(e))))
-  def =!= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.Not.column(Library.==.typed[Boolean](n, Node(e))))
+  def != [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) = isNot[P2, R](e)
+  def =!= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) = isNot[P2, R](e)
 
   def < [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.<.column(n, Node(e)))
+    om.column(Library.<, n, Node(e))
   def <= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.<=.column(n, Node(e)))
+    om.column(Library.<=, n, Node(e))
   def > [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.>.column(n, Node(e)))
+    om.column(Library.>, n, Node(e))
   def >= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.>=.column(n, Node(e)))
+    om.column(Library.>=, n, Node(e))
 
   def in[P2, R](e: Query[Column[P2], _])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.In.column(n, Node(e)))
+    om.column(Library.In, n, Node(e))
   def notIn[P2, R](e: Query[Column[P2], _])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om(Library.Not.column(Library.In.typed[Boolean](n, Node(e))))
-  def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
-    if(seq.isEmpty) ConstColumn(false)
-    else Library.In.column(n, ProductNode(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) }.toSeq)))
-  def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) = om(
-    if(seq.isEmpty) ConstColumn(false)
-    else Library.In.column(n, ProductNode(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)).toSeq)))
+    om.column(Library.Not, Library.In.typed(om.liftedType, n, Node(e)))
+  def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
+    if(seq.isEmpty) om(ConstColumn(false))
+    else om.column(Library.In, n, ProductNode(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) }.toSeq))
+  def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
+    if(seq.isEmpty) om(ConstColumn(false))
+    else om.column(Library.In, n, ProductNode(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)).toSeq))
 
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
-    om(Library.Between.column(n, Node(start), Node(end)))
+    om.column(Library.Between, n, Node(start), Node(end))
   def ifNull[B2, P2, R](e: Column[P2])(implicit om: o#arg[B2, P2]#to[Boolean, R]): Column[P2] =
     Library.IfNull.column[P2](n, Node(e))(e.tpe)
 }
@@ -87,20 +85,20 @@ final class OptionColumnExtensionMethods[B1](val c: Column[Option[B1]]) extends 
 /** Extension methods for numeric Columns */
 final class NumericColumnExtensionMethods[B1, P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[B1, P1] {
   def + [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R]) =
-    om(Library.+.column[B1](n, Node(e)))
+    om.column(Library.+, n, Node(e))
   def - [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R]) =
-    om(Library.-.column[B1](n, Node(e)))
+    om.column(Library.-, n, Node(e))
   def * [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R]) =
-    om(Library.*.column[B1](n, Node(e)))
+    om.column(Library.*, n, Node(e))
   def / [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R]) =
-    om(Library./.column[B1](n, Node(e)))
+    om.column(Library./, n, Node(e))
   def % [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[B1, R]) =
-    om(Library.%.column[B1](n, Node(e)))
+    om.column(Library.%, n, Node(e))
   def abs = Library.Abs.column[P1](n)
   def ceil = Library.Ceiling.column[P1](n)
   def floor = Library.Floor.column[P1](n)
   def sign[R](implicit om: o#to[Int, R]) =
-    om(Library.Sign.column[Int](n))
+    om.column(Library.Sign, n)
   def toDegrees = Library.Degrees.column[P1](n)
   def toRadians = Library.Radians.column[P1](n)
 }
@@ -108,25 +106,25 @@ final class NumericColumnExtensionMethods[B1, P1](val c: Column[P1]) extends Any
 /** Extension methods for Column[Boolean] and Column[Option[Boolean]] */
 final class BooleanColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[Boolean, P1] {
   def &&[P2, R](b: Column[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
-    om(Library.And.column(n, Node(b)))
+    om.column(Library.And, n, Node(b))
   def ||[P2, R](b: Column[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
-    om(Library.Or.column(n, Node(b)))
+    om.column(Library.Or, n, Node(b))
   def unary_! = Library.Not.column[Boolean](n)
 }
 
 /** Extension methods for Column[String] and Column[Option[String]] */
 final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[String, P1] {
   def length[R](implicit om: o#to[Int, R]) =
-    om(Library.Length.column[Int](n))
-  def like[P2, R](e: Column[P2], esc: Char = '\0')(implicit om: o#arg[String, P2]#to[Boolean, R]) = om(
-    if(esc == '\0') Library.Like.column(n, Node(e))
-    else Library.Like.column(n, Node(e), LiteralNode(esc)))
+    om.column(Library.Length, n)
+  def like[P2, R](e: Column[P2], esc: Char = '\0')(implicit om: o#arg[String, P2]#to[Boolean, R]) =
+    if(esc == '\0') om.column(Library.Like, n, Node(e))
+    else om.column(Library.Like, n, Node(e), LiteralNode(esc))
   def ++[P2, R](e: Column[P2])(implicit om: o#arg[String, P2]#to[String, R]) =
-    om(Library.Concat.column[String](n, Node(e)))
+    om.column(Library.Concat, n, Node(e))
   def startsWith[R](s: String)(implicit om: o#to[Boolean, R]) =
-    om(Library.StartsWith.column(n, LiteralNode(s)))
+    om.column(Library.StartsWith, n, LiteralNode(s))
   def endsWith[R](s: String)(implicit om: o#to[Boolean, R]) =
-    om(Library.EndsWith.column(n, LiteralNode(s)))
+    om.column(Library.EndsWith, n, LiteralNode(s))
   def toUpperCase = Library.UCase.column[P1](n)
   def toLowerCase = Library.LCase.column[P1](n)
   def ltrim = Library.LTrim.column[P1](n)

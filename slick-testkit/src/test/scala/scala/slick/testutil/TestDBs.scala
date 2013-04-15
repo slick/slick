@@ -9,6 +9,7 @@ import scala.slick.jdbc.{ResultSetInvoker, StaticQuery => Q}
 import scala.slick.jdbc.GetResult._
 import scala.slick.jdbc.meta.MTable
 import com.typesafe.slick.testkit.util.{RelationalTestDB, ExternalJdbcTestDB, JdbcTestDB, ExternalTestDB, TestDB}
+import org.junit.Assert
 
 object TestDBs {
   def H2Mem(cname: String) = new JdbcTestDB("h2mem") {
@@ -138,6 +139,18 @@ object TestDBs {
     def dropUserArtifacts(implicit session: profile.Backend#Session) {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))
+    }
+    def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
+      val all = session.database.getTables.map(_.name).toSet
+      for(t <- tables) {
+        if(!all.contains(t)) Assert.fail("Table "+t+" should exist")
+      }
+    }
+    def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
+      val all = session.database.getTables.map(_.name).toSet
+      for(t <- tables) {
+        if(all.contains(t)) Assert.fail("Table "+t+" should not exist")
+      }
     }
   }
 }

@@ -1,15 +1,31 @@
 package scala.slick.lifted
 
 import annotation.implicitNotFound
-import scala.slick.ast.BaseTypedType
+import scala.slick.ast.{FunctionSymbol, BaseTypedType, Node, TypedType}
+
+trait OptionMapper[BR, R] extends (Column[BR] => Column[R]) {
+  def lift: Boolean
+
+  def column(fs: FunctionSymbol, ch: Node*)(implicit bt: TypedType[BR]): Column[R] = {
+    implicit val tt = liftedType
+    Column.forNode[R](fs.typed(tt, ch: _*))
+  }
+
+  def liftedType(implicit bt: TypedType[BR]): TypedType[R] =
+    (if(lift) bt.optionType else bt).asInstanceOf[TypedType[R]]
+}
 
 @implicitNotFound("Cannot perform option-mapped operation\n      with type: (${P1}, ${P2}) => ${R}\n  for base type: (${B1}, ${B2}) => ${BR}")
-sealed trait OptionMapper2[B1, B2, BR, P1, P2, R] extends (Column[BR] => Column[R])
+sealed trait OptionMapper2[B1, B2, BR, P1, P2, R] extends OptionMapper[BR, R]
 
 object OptionMapper2 {
-  val plain = new OptionMapper2[Any,Any,Any,Any,Any,Any] { def apply(n: Column[Any]): Column[Any] = n }
+  val plain = new OptionMapper2[Any,Any,Any,Any,Any,Any] {
+    def apply(n: Column[Any]): Column[Any] = n
+    def lift = false
+  }
   val option = new OptionMapper2[Any,Any,Any,Any,Any,Option[Any]] {
     def apply(n: Column[Any]): Column[Option[Any]] = new PlainColumnExtensionMethods[Any](n).?
+    def lift = true
   }
 
   @inline implicit def getOptionMapper2TT[B1, B2 : BaseTypedType, BR] = OptionMapper2.plain .asInstanceOf[OptionMapper2[B1, B2, BR, B1,         B2,         BR]]
@@ -19,12 +35,16 @@ object OptionMapper2 {
 }
 
 @implicitNotFound("Cannot perform option-mapped operation\n      with type: (${P1}, ${P2}, ${P3}) => ${R}\n  for base type: (${B1}, ${B2}, ${B3}) => ${BR}")
-sealed trait OptionMapper3[B1, B2, B3, BR, P1, P2, P3, R] extends (Column[BR] => Column[R])
+sealed trait OptionMapper3[B1, B2, B3, BR, P1, P2, P3, R] extends OptionMapper[BR, R]
 
 object OptionMapper3 {
-  val plain = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Any] { def apply(n: Column[Any]): Column[Any] = n }
+  val plain = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Any] {
+    def apply(n: Column[Any]): Column[Any] = n
+    def lift = false
+  }
   val option = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Option[Any]] {
     def apply(n: Column[Any]): Column[Option[Any]] = new PlainColumnExtensionMethods[Any](n).?
+    def lift = true
   }
 
   @inline implicit def getOptionMapper3TTT[B1, B2 : BaseTypedType, B3 : BaseTypedType, BR] = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         B2,         B3,         BR]]

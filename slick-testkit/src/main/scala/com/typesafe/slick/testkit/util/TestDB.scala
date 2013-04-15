@@ -136,7 +136,12 @@ trait TestDB {
   def capabilities: Set[Capability] = profile.capabilities
 }
 
-trait RelationalTestDB extends TestDB { type Driver <: RelationalDriver }
+trait RelationalTestDB extends TestDB {
+  type Driver <: RelationalDriver
+
+  def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session): Unit
+  def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session): Unit
+}
 
 trait SqlTestDB extends RelationalTestDB { type Driver <: SqlDriver }
 
