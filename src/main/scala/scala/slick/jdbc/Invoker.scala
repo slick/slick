@@ -10,7 +10,7 @@ import scala.slick.util.iter._
 /**
  * Base trait for all statement invokers, using parameter type P and result type R.
  */
-trait Invoker[-P, +R] { self =>
+trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
 
   /**
    * Execute the statement and return a CloseableIterator of the converted results.
@@ -117,7 +117,7 @@ trait Invoker[-P, +R] { self =>
   /**
    * Apply the parameter for this Invoker, creating a parameterless UnitInvoker.
    */
-  def apply(parameter: P): UnitInvoker[R] = new AppliedInvoker[P,R] {
+  override def apply(parameter: P): UnitInvoker[R] = new AppliedInvoker[P,R] {
     protected val appliedParameter = parameter
     protected val delegate = self
   }

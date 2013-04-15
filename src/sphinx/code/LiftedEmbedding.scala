@@ -274,7 +274,7 @@ class LiftedEmbedding {
 
     //#simplefunction2
     def dayOfWeek2(c: Column[Date]) =
-      SimpleFunction("day_of_week")(TypeMapper.IntTypeMapper)(Seq(c))
+      SimpleFunction[Int]("day_of_week").apply(Seq(c))
     //#simplefunction2
   }
 
@@ -285,8 +285,8 @@ class LiftedEmbedding {
     case object True extends Bool
     case object False extends Bool
 
-    // And a TypeMapper that maps it to Int values 1 and 0
-    implicit val boolTypeMapper = MappedTypeMapper.base[Bool, Int](
+    // And a ColumnType that maps it to Int values 1 and 0
+    implicit val boolColumnType = MappedColumnType.base[Bool, Int](
       { b => if(b == True) 1 else 0 },    // map Bool to Int
       { i => if(i == 1) True else False } // map Int to Bool
     )
