@@ -28,7 +28,8 @@ object Testkit {
     classOf[tk.JoinTest] ::
     classOf[tk.MainTest] ::
     classOf[tk.MapperTest] ::
-    classOf[tk.MiscTest] ::
+    classOf[tk.RelationalMiscTest] ::
+    classOf[tk.JdbcMiscTest] ::
     classOf[tk.MutateTest] ::
     classOf[tk.NestingTest] ::
     classOf[tk.NewQuerySemanticsTest] ::

@@ -131,7 +131,7 @@ trait AccessDriver extends JdbcDriver { driver =>
       case c: ConditionalExpr => {
         b"switch("
         var first = true
-        c.clauses.reverseIterator.foreach { case IfThen(l, r) =>
+        c.clauses.foreach { case IfThen(l, r) =>
           if(first) first = false
           else b","
           b"$l,$r"

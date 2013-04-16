@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.SlickException
 import scala.slick.util.{SlickLogger, Logging}
 import TypeUtil.typeToTypeUtil
+import java.util.regex.Pattern
 
 /** A query interpreter for the MemoryDriver and for client-side operations
   * that need to be run as part of distributed queries against multiple
@@ -166,6 +167,19 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
         run(ch).asInstanceOf[Option[Any]].getOrElse(default())
       case OptionApply(ch) =>
         Option(run(ch))
+      case ConditionalExpr(clauses, elseClause) =>
+        val opt = n.nodeType.asInstanceOf[ScalaType[_]].nullable
+        val take = clauses.find { case IfThen(pred, _) => asBoolean(run(pred)) }
+        take match {
+          case Some(IfThen(_, r)) =>
+            val res = run(r)
+            if(opt && !r.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
+            else res
+          case _ =>
+            val res = run(elseClause)
+            if(opt && !elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
+            else res
+        }
       case Library.Sum(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
@@ -205,9 +219,9 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
               case other => other
             }
             logDebug("[chPlainV: "+chPlainV.mkString(", ")+"]")
-            Some(evalFunction(sym, chPlainV))
+            Some(evalFunction(sym, chPlainV, n.nodeType.asOptionType.elementType))
           }
-        } else evalFunction(sym, chV)
+        } else evalFunction(sym, chV, n.nodeType)
       //case Library.CountAll(ch) => run(ch).asInstanceOf[Coll].size
       case l: LiteralNode => l.value
     }
@@ -216,7 +230,7 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
     res
   }
 
-  def evalFunction(sym: Symbol, args: Seq[(Type, Any)]) = sym match {
+  def evalFunction(sym: Symbol, args: Seq[(Type, Any)], retType: Type) = sym match {
     case Library.== => args(0)._2 == args(1)._2
     case Library.< => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lt(args(0)._2, args(1)._2)
     case Library.<= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lteq(args(0)._2, args(1)._2)
@@ -226,6 +240,19 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
     case Library.Or => args(0)._2.asInstanceOf[Boolean] || args(1)._2.asInstanceOf[Boolean]
     case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
     case Library.+ => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.plus(args(0)._2, args(1)._2)
+    case Library.Cast =>
+      val v = args(0)._2
+      (args(0)._1, retType) match {
+        case (a, b) if a == b => v
+        case (_, ScalaType.stringType) => v.toString
+        case (_, ScalaType.intType) => v.toString.toInt
+        case (_, ScalaType.longType) => v.toString.toLong
+      }
+    case Library.Concat => args.iterator.map(_._2.toString).mkString
+    case Library.Like =>
+      val pat = compileLikePattern(args(1)._2.toString, if(args.length > 2) Some(args(2)._2.toString.charAt(0)) else None)
+      val mat = pat.matcher(args(0)._2.toString())
+      mat.matches()
   }
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
@@ -255,6 +282,24 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
     case Some(b: Boolean) => b
     case None => false
     case null => false
+  }
+
+  def compileLikePattern(s: String, escape: Option[Char]): Pattern = {
+    val b = new StringBuilder append '^'
+    val len = s.length
+    val esc = escape.getOrElse('\0')
+    var i = 0
+    while(i < len) {
+      s.charAt(i) match {
+        case e if e == esc =>
+          i += 1
+          b.append(Pattern.quote(String.valueOf(s.charAt(i))))
+        case '%' => b.append(".*")
+        case c => b.append(Pattern.quote(String.valueOf(c)))
+      }
+      i += 1
+    }
+    Pattern.compile(b.append('$').toString)
   }
 }
 

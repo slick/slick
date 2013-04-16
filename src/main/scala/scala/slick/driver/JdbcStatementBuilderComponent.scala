@@ -271,7 +271,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b")"
       case c: ConditionalExpr =>
         b"(case"
-        c.clauses.reverseIterator.foreach { case IfThen(l, r) => b" when $l then $r" }
+        c.clauses.foreach { case IfThen(l, r) => b" when $l then $r" }
         c.elseClause match {
           case LiteralNode(null) =>
           case n => b" else $n"
