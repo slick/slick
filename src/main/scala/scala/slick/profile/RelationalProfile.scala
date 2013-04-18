@@ -169,7 +169,7 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
 
 trait RelationalTypesComponent { driver: BasicDriver =>
   type ColumnType[T] <: TypedType[T]
-  type BaseColumnType[T] <: TypedType[T] with BaseTypedType[T]
+  type BaseColumnType[T] <: ColumnType[T] with BaseTypedType[T]
 
   trait ImplicitColumnTypes {
     implicit def booleanColumnType: BaseColumnType[Boolean]

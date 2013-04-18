@@ -32,8 +32,11 @@ class ScalaBaseType[T](val zero: T)(implicit val tag: ClassTag[T], val ordering:
   }
 }
 
-class ScalaNumericType[T](implicit tag: ClassTag[T], val numeric: Numeric[T])
-  extends ScalaBaseType[T](numeric.zero)(tag, numeric) with NumericTypedType
+abstract class ScalaNumericType[T](implicit tag: ClassTag[T], val numeric: Numeric[T])
+  extends ScalaBaseType[T](numeric.zero)(tag, numeric) with NumericTypedType {
+  def fromDouble(v: Double): T
+  def toDouble(v: T) = numeric.toDouble(v)
+}
 
 class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option[T]] with OptionTypedType[T] {
   override def toString = "ScalaOptionType[" + elementType + "]"
@@ -54,15 +57,29 @@ class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option
 
 object ScalaType {
   val booleanType = new ScalaBaseType[Boolean](false)
-  val bigDecimalType = new ScalaNumericType[BigDecimal]
-  val byteType = new ScalaNumericType[Byte]
+  val bigDecimalType: ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal] {
+    def fromDouble(v: Double) = BigDecimal(v)
+  }
+  val byteType: ScalaNumericType[Byte] = new ScalaNumericType[Byte] {
+    def fromDouble(v: Double) = v.toByte
+  }
   val charType = new ScalaBaseType[Char](' ')
-  val doubleType = new ScalaNumericType[Double]
-  val floatType = new ScalaNumericType[Float]
-  val intType = new ScalaNumericType[Int]
-  val longType = new ScalaNumericType[Long]
+  val doubleType: ScalaNumericType[Double] = new ScalaNumericType[Double] {
+    def fromDouble(v: Double) = v
+  }
+  val floatType: ScalaNumericType[Float] = new ScalaNumericType[Float] {
+    def fromDouble(v: Double) = v.toFloat
+  }
+  val intType: ScalaNumericType[Int] = new ScalaNumericType[Int] {
+    def fromDouble(v: Double) = v.toInt
+  }
+  val longType: ScalaNumericType[Long] = new ScalaNumericType[Long] {
+    def fromDouble(v: Double) = v.toLong
+  }
   val nullType = new ScalaBaseType[Null](null)
-  val shortType = new ScalaNumericType[Short]
+  val shortType: ScalaNumericType[Short] = new ScalaNumericType[Short] {
+    def fromDouble(v: Double) = v.toShort
+  }
   val stringType = new ScalaBaseType[String]("")
   val unitType = new ScalaBaseType[Unit](())
 }

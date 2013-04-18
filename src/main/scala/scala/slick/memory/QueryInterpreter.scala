@@ -188,6 +188,14 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
             if(opt && !elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
             else res
         }
+      case Library.IfNull(cond, default) =>
+        val condV = run(cond)
+        if((condV.asInstanceOf[AnyRef] eq null) || condV == None) {
+          val defaultV = run(default)
+          if(n.nodeType.isInstanceOf[OptionType] && !default.nodeType.isInstanceOf[OptionType]) Some(defaultV)
+          else defaultV
+        } else if(n.nodeType.isInstanceOf[OptionType] && !cond.nodeType.isInstanceOf[OptionType]) Some(condV)
+        else condV
       case Library.Sum(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
@@ -244,12 +252,12 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
     case Library.<= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lteq(args(0)._2, args(1)._2)
     case Library.> => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.gt(args(0)._2, args(1)._2)
     case Library.>= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.gteq(args(0)._2, args(1)._2)
-    case Library.And => args(0)._2.asInstanceOf[Boolean] && args(1)._2.asInstanceOf[Boolean]
-    case Library.Or => args(0)._2.asInstanceOf[Boolean] || args(1)._2.asInstanceOf[Boolean]
-    case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
     case Library.+ => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.plus(args(0)._2, args(1)._2)
+    case Library.- => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.minus(args(0)._2, args(1)._2)
     case Library.* => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.times(args(0)._2, args(1)._2)
-    case Library.Not => !args(0)._2.asInstanceOf[Boolean]
+    case Library.% => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.asInstanceOf[Integral[Any]].rem(args(0)._2, args(1)._2)
+    case Library.Abs => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.abs(args(0)._2)
+    case Library.And => args(0)._2.asInstanceOf[Boolean] && args(1)._2.asInstanceOf[Boolean]
     case Library.Cast =>
       val v = args(0)._2
       (args(0)._1, retType) match {
@@ -258,11 +266,45 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
         case (_, ScalaType.intType) => v.toString.toInt
         case (_, ScalaType.longType) => v.toString.toLong
       }
+    case Library.Ceiling =>
+      val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]
+      t.fromDouble(scala.math.ceil(t.toDouble(args(0)._2)))
     case Library.Concat => args.iterator.map(_._2.toString).mkString
+    case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
+    case Library.Database => ""
+    case Library.Degrees =>
+      val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]
+      t.fromDouble(scala.math.toDegrees(t.toDouble(args(0)._2)))
+    case Library.Floor =>
+      val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]
+      t.fromDouble(scala.math.floor(t.toDouble(args(0)._2)))
+    case Library.LCase => args(0)._2.asInstanceOf[String].toLowerCase
+    case Library.Length => args(0)._2.asInstanceOf[String].length
     case Library.Like =>
       val pat = compileLikePattern(args(1)._2.toString, if(args.length > 2) Some(args(2)._2.toString.charAt(0)) else None)
       val mat = pat.matcher(args(0)._2.toString())
       mat.matches()
+    case Library.LTrim =>
+      val s = args(0)._2.asInstanceOf[String]
+      val len = s.length
+      var start = 0
+      while(start < len && s.charAt(start) == ' ') start += 1
+      if(start == 0) s else s.substring(start)
+    case Library.Not => !args(0)._2.asInstanceOf[Boolean]
+    case Library.Or => args(0)._2.asInstanceOf[Boolean] || args(1)._2.asInstanceOf[Boolean]
+    case Library.Pi => scala.math.Pi
+    case Library.Radians =>
+      val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]
+      t.fromDouble(scala.math.toRadians(t.toDouble(args(0)._2)))
+    case Library.RTrim =>
+      val s = args(0)._2.asInstanceOf[String]
+      var len = s.length
+      while(len > 0 && s.charAt(len-1) == ' ') len -= 1
+      if(len == s.length) s else s.substring(0, len)
+    case Library.Sign => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.signum(args(0)._2)
+    case Library.Trim => args(0)._2.asInstanceOf[String].trim
+    case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
+    case Library.User => ""
   }
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {

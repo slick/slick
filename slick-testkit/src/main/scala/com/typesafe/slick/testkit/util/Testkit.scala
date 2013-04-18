@@ -36,7 +36,8 @@ object Testkit {
     classOf[tk.PagingTest] ::
     classOf[tk.PlainSQLTest] ::
     classOf[tk.PrimaryKeyTest] ::
-    classOf[tk.ScalarFunctionTest] ::
+    classOf[tk.RelationalScalarFunctionTest] ::
+    classOf[tk.JdbcScalarFunctionTest] ::
     classOf[tk.SequenceTest] ::
     classOf[tk.TemplateTest] ::
     classOf[tk.TransactionTest] ::
