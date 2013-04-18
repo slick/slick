@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
-class PrimaryKeyTest extends TestkitTest[JdbcTestDB] {
+class PrimaryKeyTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
 
   def test {
@@ -19,16 +19,15 @@ class PrimaryKeyTest extends TestkitTest[JdbcTestDB] {
     A.primaryKeys.foreach(println)
     assertEquals(Set("pk_a"), A.primaryKeys.map(_.name).toSet)
 
-    A.ddl.createStatements foreach println
     A.ddl.create
 
-    A insertAll (
+    A ++= Seq(
       (1, 1, "a11"),
       (1, 2, "a12"),
       (2, 1, "a21"),
       (2, 2, "a22")
     )
 
-    assertFail { A.insert(1, 1, "a11-conflict") }
+    assertFail { A += (1, 1, "a11-conflict") }
   }
 }

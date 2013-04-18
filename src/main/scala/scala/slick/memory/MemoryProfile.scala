@@ -101,7 +101,8 @@ trait MemoryProfile extends RelationalProfile with StandardParameterizedQueries 
   class TableDDL(table: Table[_]) extends DDL {
     def create(implicit session: Backend#Session): Unit =
       session.database.createTable(table.tableName,
-        table.create_*.map { fs => new HeapBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq)
+        table.create_*.map { fs => new HeapBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq,
+        table.indexes.toIndexedSeq, table.tableConstraints.toIndexedSeq)
     def drop(implicit session: Backend#Session): Unit =
       session.database.dropTable(table.tableName)
   }
