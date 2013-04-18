@@ -2,7 +2,7 @@ package scala.slick.memory
 
 import scala.slick.backend.DatabaseComponent
 import scala.slick.SlickException
-import scala.slick.ast.{ColumnOption, FieldSymbol}
+import scala.slick.ast.{ColumnOption, FieldSymbol, Symbol}
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.util.Logging
 import java.util.concurrent.atomic.AtomicLong
@@ -65,6 +65,7 @@ trait HeapBackend extends DatabaseComponent with Logging {
     }
     def createInsertRow: ArrayBuffer[Any] = columns.map(_.createDefault)(collection.breakOut)
     override def toString = name + "(" + columns.map(_.sym.name).mkString(", ") + ")"
+    lazy val columnIndexes: Map[Symbol, Int] = columns.map(_.sym).zipWithIndex.toMap
   }
 }
 

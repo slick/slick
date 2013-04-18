@@ -55,7 +55,7 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
     implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker
 
     implicit def queryToQueryExecutor[E, U](q: Query[E, U]): QueryExecutor[Seq[U]] = createQueryExecutor[Seq[U]](queryCompiler.run(Node(q)).tree, ())
-    implicit def appliedQueryToQueryExecutor[R](q: AppliedQuery[R]): QueryExecutor[R] = createQueryExecutor[R](q.tree, q.param)
+    implicit def appliedQueryToQueryExecutor[R](q: AppliedQuery[R]): QueryExecutor[Seq[R]] = createQueryExecutor[Seq[R]](q.tree, q.param)
     implicit def shapedValueToQueryExecutor[T, U](u: ShapedValue[T, U]): QueryExecutor[Seq[U]] = createQueryExecutor[Seq[U]](queryCompiler.run(u.packedNode).tree, ())
     // We can't use this direct way due to SI-3346
     def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(Node(q)).tree, ())

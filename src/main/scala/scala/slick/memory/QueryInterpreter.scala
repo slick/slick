@@ -50,7 +50,7 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
       case Pure(n) => Vector(run(n))
       case t: TableNode =>
         val dbt = db.getTable(t.tableName)
-        val acc = t.nodeType.asCollectionType.elementType.asInstanceOf[StructType].symbolToIndex
+        val acc = dbt.columnIndexes
         dbt.rows.view.map { row => new StructValue(row, acc) }
       case Bind(gen, from, sel) =>
         val fromV = run(from).asInstanceOf[Coll]
@@ -163,6 +163,14 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.drop(num)
         b.result()
+      case Union(left, right, all, _, _) =>
+        val leftV = run(left).asInstanceOf[Coll]
+        val rightV = run(right).asInstanceOf[Coll]
+        if(all) leftV ++ rightV
+        else leftV ++ {
+          val s = leftV.toSet
+          rightV.filter(e => !s.contains(e))
+        }
       case GetOrElse(ch, default) =>
         run(ch).asInstanceOf[Option[Any]].getOrElse(default())
       case OptionApply(ch) =>
@@ -240,6 +248,8 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
     case Library.Or => args(0)._2.asInstanceOf[Boolean] || args(1)._2.asInstanceOf[Boolean]
     case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
     case Library.+ => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.plus(args(0)._2, args(1)._2)
+    case Library.* => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.times(args(0)._2, args(1)._2)
+    case Library.Not => !args(0)._2.asInstanceOf[Boolean]
     case Library.Cast =>
       val v = args(0)._2
       (args(0)._1, retType) match {
