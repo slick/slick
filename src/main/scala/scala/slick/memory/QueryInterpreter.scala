@@ -18,8 +18,9 @@ import java.util.regex.Pattern
   * and assigning ScalaTypes everywhere.
   *
   * @param db The in-memory database which is used for resolving Tables
+  * @param params The query parameters
   */
-class QueryInterpreter(db: HeapBackend#Database) extends Logging {
+class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
   import QueryInterpreter._
 
@@ -188,6 +189,10 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
             if(opt && !elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
             else res
         }
+      case QueryParameter(extractor, _) =>
+        extractor(params)
+      case Library.Exists(coll) =>
+        !run(coll).asInstanceOf[Coll].isEmpty
       case Library.IfNull(cond, default) =>
         val condV = run(cond)
         if((condV.asInstanceOf[AnyRef] eq null) || condV == None) {
@@ -196,6 +201,34 @@ class QueryInterpreter(db: HeapBackend#Database) extends Logging {
           else defaultV
         } else if(n.nodeType.isInstanceOf[OptionType] && !cond.nodeType.isInstanceOf[OptionType]) Some(condV)
         else condV
+      case Library.In(what, where) =>
+        val whatV = run(what)
+        val whereV = run(where)
+        val whatOpt = what.nodeType.isInstanceOf[OptionType]
+        if(whatOpt && (whatV.asInstanceOf[AnyRef].eq(null) || whatV == None)) None
+        else {
+          val whatBase = if(whatOpt) whatV.asInstanceOf[Option[Any]].get else whatV
+          where.nodeType match {
+            case ProductType(elTypes) =>
+              val p = whereV.asInstanceOf[ProductValue]
+              0.until(elTypes.length).iterator.map { i =>
+                if(elTypes(i).isInstanceOf[OptionType]) {
+                  p(i).asInstanceOf[Option[Any]] match {
+                    case Some(v) => whatBase == v
+                    case None => false
+                  }
+                } else whatBase == p(i)
+              } contains true
+            case ct: CollectionType =>
+              val (els, singleType) = unwrapSingleColumn(whereV.asInstanceOf[Coll], ct)
+              (if(singleType.isInstanceOf[OptionType])
+                els.map(_.asInstanceOf[Option[Any]] match {
+                  case Some(v) => whatBase == v
+                  case None => false
+                })
+              else els.map(whatBase.==)) contains true
+          }
+        }
       case Library.Sum(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)

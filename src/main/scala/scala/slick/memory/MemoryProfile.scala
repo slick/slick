@@ -60,7 +60,7 @@ trait MemoryProfile extends RelationalProfile with StandardParameterizedQueries 
 
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R = {
-      val inter = new QueryInterpreter(session.database) {
+      val inter = new QueryInterpreter(session.database, param) {
         override def run(n: Node) = n match {
           case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
             val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
