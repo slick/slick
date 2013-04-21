@@ -47,18 +47,15 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
 
-  val columnTypes = Map( // FIXME use symbols instead of strings for type names here
-     "Int"              /*typeOf[Int]*/    -> driver.columnTypes.intJdbcType
-    ,"Double"           /*typeOf[Double]*/ -> driver.columnTypes.doubleJdbcType
-    ,"String"           /*typeOf[String]*/ -> driver.columnTypes.stringJdbcType
-    ,"scala.Int"        /*typeOf[Int]*/    -> driver.columnTypes.intJdbcType
-    ,"scala.Double"     /*typeOf[Double]*/ -> driver.columnTypes.doubleJdbcType
-    ,"scala.String"     /*typeOf[String]*/ -> driver.columnTypes.stringJdbcType
-    ,"java.lang.String" /*typeOf[String]*/ -> driver.columnTypes.stringJdbcType // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
-    ,"Boolean"          /*typeBof[Boolean]*/ -> driver.columnTypes.booleanJdbcType
-    ,"scala.Boolean"    /*typeBof[Boolean]*/ -> driver.columnTypes.booleanJdbcType
-  )
-
+  val columnTypes = {
+    import driver.columnTypes._
+    Map( // FIXME use symbols instead of strings for type names here
+       typeOf[Int].typeSymbol     -> intJdbcType
+      ,typeOf[Double].typeSymbol  -> doubleJdbcType
+      ,typeOf[String].typeSymbol  -> stringJdbcType
+      ,typeOf[Boolean].typeSymbol -> booleanJdbcType
+    )
+  }
   //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTerm.resolveOverloaded(actuals = rhs.toList)
 
   val operatorMap : Vector[ (Map[String, FunctionSymbol], List[List[Type]]) ] = {
@@ -121,8 +118,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
 
   def columnName( sym:Symbol ) = mapper.fieldToColumn( sym )
   def columnType( tpe:Type ) = {
-    val underlying = columnTypes(typeName(underlyingType(tpe)))
-    if( tpe.typeSymbol == typeOf[Option[_]].typeSymbol ){
+    val underlying = columnTypes(underlyingTypeSymbol(tpe))
+    if( isNullable(tpe) ){
       underlying.optionType
     } else {
       underlying
@@ -130,21 +127,24 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   }
   private def columnField( sym:Symbol ) = 
     sq.FieldSymbol( columnName(sym) )(
-      if(isNullable(sym)) List(ColumnOption.Nullable) else List()
+      if( isNullable(sym) )
+        List(ColumnOption.Nullable)
+      else
+        List()
       , columnType(sym.typeSignature)
     )
   private def typeName( sym:Symbol ) : String = sym.name.decoded
   private def typeName( tpe:Type ) : String = typeName( tpe.typeSymbol )
-  private def isNullable( sym:Symbol ) = typeName(sym) == "Option" 
+  private def isNullable( sym:Symbol ) = sym == typeOf[Option[_]].typeSymbol 
   private def isNullable( tpe:Type ) : Boolean = isNullable(tpe.typeSymbol) 
-  private def underlyingType( tpe:Type ) =
+  private def underlyingTypeSymbol( tpe:Type ) : Symbol =
     if( isNullable(tpe) )
       tpe match {
-        case TypeRef(_,_,args) => args(0)
+        case TypeRef(_,_,args) => args(0).typeSymbol
         case t => throw new Exception("failed to compute underlying type of "+tpe)
       }
-    else tpe
-  private def canBeMapped( tpe:Type ) : Boolean = columnTypes.isDefinedAt( typeName(underlyingType(tpe)) )
+    else tpe.typeSymbol
+  private def canBeMapped( tpe:Type ) : Boolean = columnTypes.isDefinedAt(underlyingTypeSymbol(tpe))
   private def columnSelect( sym:Symbol, sq_symbol:sq.Node ) =
     sq.Select(
       sq.Ref(sq_symbol.nodeIntrinsicSymbol),
@@ -223,14 +223,14 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       val sig = lhs.tpe +"."+term.decoded+(if(args.length > 0)"("+ args.map(_.tpe).mkString(",") +")" else "")
       if( term.decoded == "!=" ){
         Library.Not.typed(
-         columnTypes("Boolean"),
+         columnTypes(typeOf[Boolean].typeSymbol),
          applyOp( lhs, newTermName("=="), args, resultType )
        )
       } else {
         val matchingOps_ = matchingOps(term,actualTypes)
         matchingOps_.size match{
           case 0 => throw new SlickException("Operator not supported: "+ sig)
-          case 1 => matchingOps_.head.typed(columnTypes(resultType.toString), (s2sq( lhs ).node :: args.map( s2sq(_).node )) : _* )
+          case 1 => matchingOps_.head.typed(columnTypes(resultType.typeSymbol), (s2sq( lhs ).node :: args.map( s2sq(_).node )) : _* )
           case _ => throw new SlickException("Internal Slick error: resolution of "+ sig +" was ambigious")
         }
       }
