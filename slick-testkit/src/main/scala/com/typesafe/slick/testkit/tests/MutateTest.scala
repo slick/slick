@@ -6,7 +6,9 @@ import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
 class MutateTest(val tdb: TestDB) extends TestkitTest {
   import tdb.profile.simple._
 
-  def test = ifCap(jcap.mutable) {
+  override val reuseInstance = true
+
+  def testMutate = ifCap(jcap.mutable) {
 
     object Users extends Table[(Int,String,String)]("USERS") {
       def id = column[Int]("ID", O.PrimaryKey)
@@ -41,5 +43,22 @@ class MutateTest(val tdb: TestDB) extends TestkitTest {
       Set("Marge Simpson", "Bart Simpson", "Lisa Simpson", "Carl Carlson"),
       (for(u <- Users) yield u.first ++ " " ++ u.last).list.toSet
     )
+  }
+
+  def testDeleteMutate = ifCap(jcap.mutable) {
+    object T extends Table[(Int, Int)]("T_DELMUTABLE") {
+      def a = column[Int]("A")
+      def b = column[Int]("B", O.PrimaryKey)
+      def * = a ~ b
+      def findByA = createFinderBy(_.a)
+    }
+
+    T.ddl.create
+    T.insertAll((1,1), (1,2), (1,3), (1,4))
+    T.insertAll((2,5), (2,6), (2,7), (2,8))
+
+    T.findByA(1).mutate(_.delete)
+
+    assertEquals(Set((2,5), (2,6), (2,7), (2,8)), Query(T).to[Set])
   }
 }
