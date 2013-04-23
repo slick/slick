@@ -270,7 +270,8 @@ class FuseComprehensions extends Phase {
           // sub-query somewhere in 'from' position. Not much we can do about this though.
           s match {
             case Library.CountAll =>
-              c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count(ConstColumn(1)))))))
+              if(c2.from.isEmpty) ConstColumn(1)
+              else c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count(ConstColumn(1)))))))
             case s =>
               val c3 = ensureStruct(c2)
               // All standard aggregate functions operate on a single column
@@ -291,7 +292,7 @@ class FuseComprehensions extends Phase {
         seenGens += gen -> ch
         ch
       case (None, ch) => tr(ch)
-    }.asInstanceOf[Comprehension]
+    }
     if(lift.isEmpty) c2
     else {
       val newFrom = lift.map { case (a, f, s, c2) =>
