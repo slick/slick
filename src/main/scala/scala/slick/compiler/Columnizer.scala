@@ -125,7 +125,7 @@ class ExpandRefs extends Phase with ColumnizerUtils {
 
   def expandRefs(n: Node, scope: Scope = Scope.empty, keepRef: Boolean = false): Node = n match {
     case p @ Path(psyms) =>
-      logger.debug("Checking path "+Path.toString(psyms))
+      logger.debug("Checking path "+Path.toString(psyms)+" (keepRef="+keepRef+")")
       psyms.head match {
         case f: FieldSymbol => p
         case _ if keepRef => p
@@ -149,7 +149,15 @@ class ExpandRefs extends Phase with ColumnizerUtils {
       n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc, true)), scope)
     case n =>
       // Don't expand children in 'from' positions
-      n.mapChildrenWithScope(((symO, ch, chsc) => expandRefs(ch, chsc, symO.isDefined)), scope)
+      n.mapChildrenWithScope({ (symO, ch, chsc) =>
+        val kr =  (symO, n) match {
+          case (None, _) => false
+          //TODO GroupBy should not need a "by" symbol at all -- without that, this special case would not be necessary
+          case (Some(sym), GroupBy(_, by, _, _)) => sym != by
+          case _ => true
+        }
+        expandRefs(ch, chsc, kr)},
+      scope)
   }
 
   /** Expand a base path into a given target */
