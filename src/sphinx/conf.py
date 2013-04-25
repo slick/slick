@@ -264,10 +264,9 @@ apilinks = {
 }
 
 rst_epilog = '''
-.. include:: %(links)s
+.. include:: /links.txt
 .. _Slick Examples: https://github.com/slick/slick-examples/tree/%(examples-version)s
 .. _Slick TestKit Example: https://github.com/slick/slick-testkit-example/tree/%(examples-version)s
 ''' % {
-  'links': os.path.abspath('links.txt'),
   'examples-version': slick_examples_version
 }
