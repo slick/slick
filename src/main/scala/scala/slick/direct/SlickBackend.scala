@@ -11,6 +11,46 @@ import scala.reflect.ClassTag
 import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
 import scala.slick.ast.ColumnOption
+import scala.annotation.StaticAnnotation
+import scala.reflect.runtime.universe._
+import scala.reflect.runtime.{currentMirror=>cm}
+
+/** maps a Scala method to a Slick FunctionSymbol */
+final case class ->(to:FunctionSymbol) extends StaticAnnotation
+/** denotes the Scala type the mapped interface refers to */
+final class scalaType[+T](t:Type) extends StaticAnnotation
+trait OperationMapping{
+  // Supported operators by Slick
+  // Slick also supports == for all supported types
+  @scalaType[Int](typeOf[Int])
+  trait IntOps{
+    @ ->(Library.+) def +(i:Int)    : Int
+    @ ->(Library.+) def +(i:Double) : Double
+    @ ->(Library.<) def <(i:Int)    : Boolean
+    @ ->(Library.<) def <(i:Double) : Boolean
+    @ ->(Library.>) def >(i:Int)    : Boolean
+    @ ->(Library.>) def >(i:Double) : Boolean
+  }
+  @scalaType[Double](typeOf[Double])
+  trait DoubleOps{
+    @ ->(Library.+) def +(i:Int)    : Double
+    @ ->(Library.+) def +(i:Double) : Double
+    @ ->(Library.<) def <(i:Int)    : Boolean
+    @ ->(Library.<) def <(i:Double) : Boolean
+    @ ->(Library.>) def >(i:Int)    : Boolean
+    @ ->(Library.>) def >(i:Double) : Boolean
+  }
+  @scalaType[Boolean](typeOf[Boolean])
+  trait BooleanOps{
+    @ ->(Library.Not) def unary_! : Boolean
+    @ ->(Library.Or)  def ||( b:Boolean ) : Boolean
+    @ ->(Library.And) def &&( b:Boolean ) : Boolean
+  }
+  //@scalaType[String](typeOf[String]) // <- scalac crash
+  trait StringOps{
+    @ ->(Library.Concat) def +(i:String) : String
+  }
+}
 
 trait QueryableBackend
 
@@ -44,9 +84,6 @@ import CustomNodes._
 
 class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
   type Session = JdbcDriver#Backend#Session
-  import scala.reflect.runtime.universe._
-  import scala.reflect.runtime.{currentMirror=>cm}
-
   import slick.ast.StaticType
   val columnTypes = {
     import driver.columnTypes._
@@ -57,40 +94,57 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       ,typeOf[Boolean].typeSymbol -> StaticType.Boolean
     )
   }
-  //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTerm.resolveOverloaded(actuals = rhs.toList)
-
-  val operatorMap : Vector[ (Map[String, FunctionSymbol], List[List[Type]]) ] = {
-    import Library._
-    Vector(
-      Map( "unary_!" -> Library.Not )
-      ->
-      List(List(typeOf[Any])),
-      Map( "==" -> Library.==, "!=" -> Library.== )
-      ->
-      List(
-        List(typeOf[Any]),
-        List(typeOf[Any])
-      ),
-      Map( "+" -> Library.+, "<" -> <, ">" -> > )
-      ->
-      List(
-        List(typeOf[Int],typeOf[Double]),
-        List(typeOf[Int],typeOf[Double])
-      ),
-      Map( "+" -> Concat )
-      ->
-      List(
-        List(typeOf[String],typeOf[java.lang.String]),
-        List(typeOf[String],typeOf[java.lang.String])
-      ),
-      Map( "||" -> <, "&&" -> > )
-      ->
-      List(
-        List(typeOf[Boolean]),
-        List(typeOf[Boolean])
+  /** generates a map from Scala symbols to Slick FunctionSymbols from description in OperatorMapping */
+  val operatorSymbolMap : Map[Symbol,FunctionSymbol] = {
+    def annotations[T:TypeTag]( m:Symbol ) = m.annotations.filter{
+       case Annotation(tpe,_,_) => tpe <:< typeOf[T]
+    }
+    typeOf[OperationMapping]
+      .members
+      // only take annotated members
+      .filter(annotations[scalaType[_]](_).size > 0)
+      .flatMap(
+        _.typeSignature
+         .members
+         .filter(annotations[->](_).size > 0)
       )
-    )
+      .map{
+        specOp =>
+        val scalaType = 
+          annotations[scalaType[_]](specOp.owner).head.tpe match{
+            case TypeRef(tpe,sym,args) => args.head
+          }
+        val specOpName = specOp.name
+        def argTypeSyms( s:Symbol ) = s.asMethod.paramss.map(_.map(_.typeSignature.typeSymbol))
+        // resolve overloaded methods
+        scalaType.member(specOpName) 
+                 .asTerm
+                 .alternatives
+                 .find(
+                    scalaOp =>{
+                      argTypeSyms( scalaOp ) == argTypeSyms( specOp )
+                    }
+                  )
+                  .getOrElse{
+                    throw new SlickException("Could not find Scala method: "+scalaType+"."+specOpName+argTypeSyms( specOp ))
+                  }
+        .->( annotations[->](specOp).head
+              match { case Annotation(_,args,_) =>
+                          // look up FunctionSymbol from annotation
+                          // FIXME: make this simpler
+                          val op = args.head.symbol
+                          val mod = op.owner.companionSymbol.asModule
+                          val i = cm.reflectModule(mod).instance
+                          cm.reflect(i).reflectMethod(
+                            op.owner.companionSymbol.typeSignature.member(op.name).asMethod
+                          )().asInstanceOf[FunctionSymbol]
+              }
+          )
+      }
+      .toMap
   }
+
+  def isMapped( sym:Symbol ) = operatorSymbolMap.contains(sym) || sym.name.decoded == "==" || sym.name.decoded == "!="
 
   object removeTypeAnnotations extends Transformer {
     def apply( tree:Tree ) = transform(tree)
@@ -206,34 +260,29 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     case o:This => throw new SlickException( "Cannot handle reference to a query in non-static symbol "+o.symbol )
     case _ => throw new SlickException("Cannot eval: " + showRaw(tree))
   }
-  def matchingOps(term:Name,actualTypes:List[Type]) = {
-    operatorMap.collect{
-      case (str2sym, types)
-            if str2sym.isDefinedAt( term.decoded )
-              && types.zipWithIndex.forall{
-                   case (expectedTypes, index) => expectedTypes.exists( actualTypes(index) <:< _ ) 
-                 }
-      => str2sym( term.decoded )
-    }
-  }
   
   private def scala2scalaquery_typed( tree:Tree, scope : Scope ) : Query = {
     def s2sq( tree:Tree, scope:Scope=scope ) : Query = scala2scalaquery_typed( tree, scope )
-    def applyOp( lhs:Tree, term:Name, args:List[Tree], resultType : Type ) : sq.Node = {
+    def applyOp( op:Tree, args:List[Tree], resultType : Type ) : sq.Node = {
+      val Select(lhs:Tree, term:Name) = op
       val actualTypes = lhs.tpe :: args.map(_.tpe)
-      val sig = lhs.tpe +"."+term.decoded+(if(args.length > 0)"("+ args.map(_.tpe).mkString(",") +")" else "")
       if( term.decoded == "!=" ){
         Library.Not.typed(
          columnTypes(typeOf[Boolean].typeSymbol),
-         applyOp( lhs, newTermName("=="), args, resultType )
+         applyOp( Select(lhs, newTermName("==")), args, resultType )
        )
       } else {
-        val matchingOps_ = matchingOps(term,actualTypes)
-        matchingOps_.size match{
-          case 0 => throw new SlickException("Operator not supported: "+ sig)
-          case 1 => matchingOps_.head.typed(columnTypes(resultType.typeSymbol), (s2sq( lhs ).node :: args.map( s2sq(_).node )) : _* )
-          case _ => throw new SlickException("Internal Slick error: resolution of "+ sig +" was ambigious")
-        }
+        val slickOp = 
+          if(term.decoded == "=="){
+            Library.==
+          } else {
+            val sym = op.symbol.asMethod
+            if( !operatorSymbolMap.keys.toList.contains(sym) ){
+              throw new SlickException("Direct embedding does not support method "+sym.owner.name+"."+sym.name.decoded+sym.paramss.map(_.map(_.typeSignature.normalize)).mkString("").toString.replace("List","")+":"+sym.returnType)
+            }
+            operatorSymbolMap( sym )
+          }
+        slickOp.typed(columnTypes(resultType.typeSymbol), (s2sq( lhs ).node :: args.map( s2sq(_).node )) : _* )
       }
     }
     implicit def node2Query(node:sq.Node) = new Query( node, scope )
@@ -339,8 +388,10 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
             case "+" => Library.Concat.typed[String](s2sq( lhs ).node, s2sq( rhs ).node )
           }
 
-        case a@Apply(op@Select(lhs,term),args) if matchingOps(term,lhs.tpe :: args.map(_.tpe)).size > 0 => applyOp(lhs,term,args,a.tpe)
-        case op@Select(lhs,term) if matchingOps(term,lhs.tpe :: Nil).size > 0 => applyOp(lhs,term,List(),op.tpe)
+        case a@Apply(op@Select(lhs,term),args) if isMapped( op.symbol )
+          => applyOp(op,args,a.tpe)
+        case op@Select(lhs,term) if isMapped( op.symbol )
+          => applyOp(op,List(),op.tpe)
         
         // Tuples
         case Apply(
