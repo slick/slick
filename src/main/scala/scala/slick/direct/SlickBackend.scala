@@ -47,13 +47,14 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   import scala.reflect.runtime.universe._
   import scala.reflect.runtime.{currentMirror=>cm}
 
+  import slick.ast.StaticType
   val columnTypes = {
     import driver.columnTypes._
     Map( // FIXME use symbols instead of strings for type names here
-       typeOf[Int].typeSymbol     -> intJdbcType
+       typeOf[Int].typeSymbol     -> StaticType.Int
       ,typeOf[Double].typeSymbol  -> doubleJdbcType
-      ,typeOf[String].typeSymbol  -> stringJdbcType
-      ,typeOf[Boolean].typeSymbol -> booleanJdbcType
+      ,typeOf[String].typeSymbol  -> StaticType.String
+      ,typeOf[Boolean].typeSymbol -> StaticType.Boolean
     )
   }
   //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTerm.resolveOverloaded(actuals = rhs.toList)
