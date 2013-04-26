@@ -46,7 +46,7 @@ trait OperationMapping{
     @ ->(Library.Or)  def ||( b:Boolean ) : Boolean
     @ ->(Library.And) def &&( b:Boolean ) : Boolean
   }
-  //@scalaType[String](typeOf[String]) // <- scalac crash
+  //@scalaType[String](typeOf[String]) // <- scalac crash SI-7426
   trait StringOps{
     @ ->(Library.Concat) def +(i:String) : String
   }
@@ -142,6 +142,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           )
       }
       .toMap
+      .+ ( typeOf[String].member(newTermName("+").encodedName) -> Library.Concat) // workaround for SI-7426
   }
 
   def isMapped( sym:Symbol ) = operatorSymbolMap.contains(sym) || sym.name.decoded == "==" || sym.name.decoded == "!="
@@ -299,7 +300,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           }
         case ident@Ident(name) => scope(ident.symbol)
 
-        case Select( t, term ) if t.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure && term.decoded == "queryable" => s2sq(t)
+        case op@Select( t, _ ) if op.symbol == typeOf[BaseQueryable[_]].member(newTermName("queryable")) => s2sq(t)
 
         // match columns
         case Select(from,name) if mapper.isMapped( from.tpe.widen )
@@ -315,15 +316,25 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
             case x => s2sq( Literal(Constant(x)) )
           }
 */
-          
-        case Apply( Select( queryOps, term ), queryable::Nil )
-          if queryOps.tpe <:< typeOf[QueryOps.type] && queryable.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure && term.decoded == "query"
-        => s2sq( queryable ).node
+        case a@Apply(op@Select(lhs,term),args) if isMapped( op.symbol )
+          => mapOp(op,args)
+
+        case op@Select(lhs,term) if isMapped( op.symbol )
+          => mapOp(op,List())
+                  
+        case Apply( op, queryable::Nil )
+          if op.symbol == typeOf[QueryOps.type].member(newTermName("query"))
+            => s2sq( queryable ).node
         
         // match queryable methods
-        case Apply(Select(scala_lhs,term),rhs::Nil)
-          if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure
+        case op@Select(scala_lhs, term) if typeOf[QueryOps[_]].members.toList.contains(op.symbol) =>
+          term.decoded match {
+            case "length" | "size" => sq.Pure( Library.CountAll.typed[Int](s2sq(scala_lhs).node ) )
+          }
+
+        case Apply(op@Select(scala_lhs,term),args) if typeOf[QueryOps[_]].members.toList.contains(op.symbol)
         =>
+          val (rhs::Nil) = args
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
           def flattenAndPrepareForSortBy( node:sq.Node ) : Seq[(sq.Node,sq.Ordering)] = node match {
@@ -367,64 +378,34 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
             )
           }
 
-        // FIXME: this case is required because of a bug, but should be covered by the next case
-        case d@Apply(Select(lhs,term),rhs::Nil)
-          if {
-            /*println("_a__")
-            println(showRaw(d))
-            println(showRaw(lhs))
-            println(rhs.symbol.asInstanceOf[scala.reflect.internal.Symbols#FreeTerm].value)
-            println(rhs.tpe)
-            println("_b__")*/
-            (
-              (string_types contains lhs.tpe.widen.toString) //(lhs.tpe <:< typeOf[String])
-                && (string_types contains rhs.tpe.widen.toString) // (rhs.tpe <:< typeOf[String] )
-                && (List("+").contains( term.decoded ))
-              )
-          }
-        =>
-          term.decoded match {
-            case "+" => Library.Concat.typed[String](s2sq( lhs ).node, s2sq( rhs ).node )
-          }
-
-        case a@Apply(op@Select(lhs,term),args) if isMapped( op.symbol )
-          => mapOp(op,args)
-        case op@Select(lhs,term) if isMapped( op.symbol )
-          => mapOp(op,List())
-        
         // Tuples
         case Apply(
-            Select(Select(Ident(package_), class_), method_),
+            op,
             components
         )
-        if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
+        if definitions
+            .TupleClass
+            .filter(_ != NoSymbol)
+            .map( _.companionSymbol.typeSignature.member( newTermName("apply") ) )
+            .contains( op.symbol )
         =>
             sq.ProductNode( components.map(s2sq(_).node) )
 
-        case Select(scala_lhs, term) 
-          if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure && (term.decoded == "length" || term.decoded == "size")
-          => sq.Pure( Library.CountAll.typed[Int](s2sq(scala_lhs).node ) )
+        case Apply( op, scala_rhs::Nil )
+          if typeOf[NullAndReverseOrder].member(newTermName("nonesLast")).asTerm.alternatives.contains(op.symbol)
+            => Nullsorting( s2sq(scala_rhs).node, Nullsorting.Last )
 
-        case Apply(
-            Select(_, term),
-            scala_rhs::Nil
-        ) if term.decoded == "nonesLast" =>
-          Nullsorting( s2sq(scala_rhs).node, Nullsorting.Last )
+        case Apply( op, scala_rhs::Nil )
+          if typeOf[NullAndReverseOrder].member(newTermName("nonesFirst")).asTerm.alternatives.contains(op.symbol)
+            => Nullsorting( s2sq(scala_rhs).node, Nullsorting.First )
 
-        case Apply(
-            Select(_, term),
-            scala_rhs::Nil
-        ) if term.decoded == "nonesFirst" =>
-          Nullsorting( s2sq(scala_rhs).node, Nullsorting.First )
+        case Apply( op, scala_rhs::Nil )
+          if typeOf[NullAndReverseOrder].member(newTermName("reversed")).asTerm.alternatives.contains(op.symbol)
+            => Reverse( s2sq(scala_rhs).node )
 
         case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
             => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query
 
-        case Apply(
-            Select(_, term),
-            scala_rhs::Nil
-        ) if term.decoded == "reversed" =>
-          Reverse( s2sq(scala_rhs).node )
         case tree => throw new Exception( "You probably used currently not supported scala code in a query. No match for:\n" + showRaw(tree) )
       }
     } catch{

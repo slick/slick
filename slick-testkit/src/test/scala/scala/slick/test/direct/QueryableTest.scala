@@ -206,7 +206,7 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
         inMem.filter( c => c.sales > 5 || "Chris" == c.name )
       )
 
-      // TODO: test && and ||
+      // TODO: test && and || and .size
   
       // type annotations FIXME canBuildFrom
       assertMatch(
