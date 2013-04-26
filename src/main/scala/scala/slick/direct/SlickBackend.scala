@@ -263,26 +263,25 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   
   private def scala2scalaquery_typed( tree:Tree, scope : Scope ) : Query = {
     def s2sq( tree:Tree, scope:Scope=scope ) : Query = scala2scalaquery_typed( tree, scope )
-    def applyOp( op:Tree, args:List[Tree], resultType : Type ) : sq.Node = {
+    def mapOp( op:Tree, args:List[Tree] ) : sq.Node = {
       val Select(lhs:Tree, term:Name) = op
-      val actualTypes = lhs.tpe :: args.map(_.tpe)
       if( term.decoded == "!=" ){
         Library.Not.typed(
          columnTypes(typeOf[Boolean].typeSymbol),
-         applyOp( Select(lhs, newTermName("==")), args, resultType )
+         mapOp( Select(lhs, newTermName("==")), args )
        )
       } else {
-        val slickOp = 
+        val (slickOp,slickType) = 
           if(term.decoded == "=="){
-            Library.==
+            Library.== -> columnTypes(typeOf[Boolean].typeSymbol)
           } else {
             val sym = op.symbol.asMethod
             if( !operatorSymbolMap.keys.toList.contains(sym) ){
               throw new SlickException("Direct embedding does not support method "+sym.owner.name+"."+sym.name.decoded+sym.paramss.map(_.map(_.typeSignature.normalize)).mkString("").toString.replace("List","")+":"+sym.returnType)
             }
-            operatorSymbolMap( sym )
+            operatorSymbolMap( sym ) -> columnTypes(sym.returnType.typeSymbol)
           }
-        slickOp.typed(columnTypes(resultType.typeSymbol), (s2sq( lhs ).node :: args.map( s2sq(_).node )) : _* )
+        slickOp.typed( slickType, (lhs::args).map(s2sq(_).node) : _* )
       }
     }
     implicit def node2Query(node:sq.Node) = new Query( node, scope )
@@ -389,9 +388,9 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
           }
 
         case a@Apply(op@Select(lhs,term),args) if isMapped( op.symbol )
-          => applyOp(op,args,a.tpe)
+          => mapOp(op,args)
         case op@Select(lhs,term) if isMapped( op.symbol )
-          => applyOp(op,List(),op.tpe)
+          => mapOp(op,List())
         
         // Tuples
         case Apply(
