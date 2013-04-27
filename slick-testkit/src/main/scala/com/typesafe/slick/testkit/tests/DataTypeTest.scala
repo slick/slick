@@ -145,8 +145,17 @@ class DataTypeTest(val tdb: TestDB) extends TestkitTest {
   def testTime =
     roundtrip("time_t1", Time.valueOf("17:53:48"))
 
-  def testTimestamp =
+  def testTimestamp = {
     roundtrip[Timestamp]("timestamp_t1", Timestamp.valueOf("2012-12-24 17:53:48.0"))
+
+    object T2 extends Table[Option[Timestamp]]("timestamp_t2") {
+      def t = column[Option[Timestamp]]("t")
+      def * = t
+    }
+    T2.ddl.create
+    T2.insert(None)
+    assertEquals(None, Query(T2).first)
+  }
 
   def testUUID =
     roundtrip[UUID]("uuid_t1", UUID.randomUUID(), literal = false)
