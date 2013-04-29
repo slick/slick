@@ -118,5 +118,15 @@ class AggregateTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(List( ((1,Some(1)),1), ((1,Some(2)),1), ((1,Some(3)),1),
       ((2,Some(1)),1), ((2,Some(2)),1), ((2,Some(5)),1),
       ((3,Some(1)),1), ((3,Some(9)),1)), r4)
+
+    U.insert(4)
+
+    println("=========================================================== q5")
+    val q5 = (for {
+      (u, t) <- U leftJoin T on (_.id === _.a)
+    } yield (u, t)).groupBy(_._1.id).map {
+      case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length)
+    }
+    assertEquals(Set((1, 3, 3, 3), (2, 3, 3, 3), (3, 2, 2, 2), (4, 1, 1, 0)), q5.run.toSet)
   }
 }

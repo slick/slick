@@ -102,14 +102,24 @@ class ConvertToComprehensions extends Phase {
   /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
   def convertSimpleGrouping(gen: Symbol, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
     object FwdPath {
+      def apply(ch: List[Symbol]) = Path(ch.reverse)
       def unapply(n: Node): Option[List[Symbol]] =
         Path.unapply(n).map(_.reverse)
-      def toString(path: Seq[Symbol]): String = path.mkString("Path ", ".", "")
+    }
+    object ProductOfCommonPaths {
+      def unapply(n: ProductNode): Option[(Symbol, Vector[List[Symbol]])] = if(n.nodeChildren.isEmpty) None else
+        n.nodeChildren.foldLeft(null: Option[(Symbol, Vector[List[Symbol]])]) {
+          case (None, _) => None
+          case (null, FwdPath(sym :: rest)) => Some((sym, Vector(rest)))
+          case (Some((sym0, v)), FwdPath(sym :: rest)) if sym == sym0 => Some((sym, v :+ rest))
+          case _ => None
+        }
     }
     val newBy = by.replace { case Ref(f) if f == fromGen => Ref(gen) }
     val newSel = sel.replace {
-      case Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
-        if (s2 == s1) && (gen2 == gen) => Select(Ref(gen), field)
+      case Apply(fs, Seq(Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductOfCommonPaths(s2, rests)))))
+        if (s2 == s1) && (gen2 == gen) =>
+        Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rests.head)))
       case Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
         Library.Count(ConstColumn(1))
       case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
