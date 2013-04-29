@@ -5,11 +5,14 @@ import scala.slick.schema.Index
 import scala.slick.schema.PrimaryKey
 import scala.slick.schema.QualifiedName
 
+/**
+ * The interface which specifies the associated names for all meta-models
+ */
 trait Naming {
   def tableSQLToModule(name: QualifiedName): String
-  def tableSQLToCase(name: QualifiedName): String
-  def columnSQLToCaseField(name: QualifiedName): String
+  def tableSQLToEntity(name: QualifiedName): String
   def columnSQLToModuleField(name: QualifiedName): String
+  def columnSQLToEntityField(name: QualifiedName): String
 
   def indexName(idx: Index): String = {
     indexName(idx.fields.map(_.moduleFieldName))

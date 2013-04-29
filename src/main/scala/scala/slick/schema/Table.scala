@@ -3,6 +3,9 @@ package scala.slick.schema
 import scala.collection.mutable.ArrayBuffer
 import scala.slick.schema.naming.Naming
 
+/**
+ * A meta-model for each relation
+ */
 case class Table(name: QualifiedName, columns: List[Column], constraints: List[Constraint], moduleName: String, caseClassName: String) {
   def primaryKey: Option[PrimaryKey] = constraints.collectFirst { case pk: PrimaryKey => pk }
 

@@ -18,19 +18,13 @@ trait ConfigHandler { self: MacroHelpers =>
   val runtimeMirror = runtimeUniverse.runtimeMirror(self.getClass.getClassLoader)
 
   private val conf = {
-    val testDbs = "test-dbs/type-provider/conf/"
     val confFile = {
       val confFileName = if (configFileName.endsWith(".conf")) configFileName else configFileName + ".conf"
       val file = new File(confFileName)
       if (file.isFile() && file.exists())
         file
-      else {
-        val newFile = new File(testDbs + confFileName)
-        if (newFile.isFile() && newFile.exists())
-          newFile
-        else
-          throw new SlickException("Configuration file you provided does not exist")
-      }
+      else
+        throw new SlickException("Configuration file you provided does not exist")
     }
     ConfigFactory.parseFile(confFile)
   }

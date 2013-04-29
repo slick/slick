@@ -2,6 +2,9 @@ package scala.slick.schema.naming
 
 import scala.slick.SlickException
 
+/**
+ * Specifies a rule which is composite of some rules.
+ */
 case class CompositeRule(keys: List[String]) extends Rule {
   val rules: List[Rule] = keys map (Rule.getRule)
   val rule: Rule = rules.reduce(_ andThen _)

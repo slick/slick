@@ -10,14 +10,14 @@ class CustomNaming(mapping: MappingConfiguration) extends NamingConfigured(mappi
       case _ => super.tableSQLToModule(name)
     }
 
-  override def tableSQLToCase(name: QualifiedName): String =
+  override def tableSQLToEntity(name: QualifiedName): String =
     name.lastPart match {
       case "COFFEES" => "Coff"
-      case _ => super.tableSQLToCase(name)
+      case _ => super.tableSQLToEntity(name)
     }
 
-  override def columnSQLToCaseField(name: QualifiedName): String =
-    super.columnSQLToCaseField(name)
+  override def columnSQLToEntityField(name: QualifiedName): String =
+    super.columnSQLToEntityField(name)
 
   override def columnSQLToModuleField(name: QualifiedName): String =
     super.columnSQLToModuleField(name)

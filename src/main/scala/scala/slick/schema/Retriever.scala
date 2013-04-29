@@ -11,12 +11,15 @@ import scala.slick.backend.DatabaseComponent
 import scala.reflect.api.Universe
 import scala.slick.typeproviders.TypeMapper
 
+/**
+ * This module retrieves the meta model for a given database
+ */
 object Retriever {
 
   def tablesWithoutColumn(driver: JdbcDriver)(naming: Naming)(implicit session: JdbcBackend#Session): List[Table] = {
     val tables = (driver.getTables.list map (t => {
       val qualifiedName = QualifiedName(t.name)
-      Table(qualifiedName, Nil, Nil, naming.tableSQLToModule(qualifiedName), naming.tableSQLToCase(qualifiedName))
+      Table(qualifiedName, Nil, Nil, naming.tableSQLToModule(qualifiedName), naming.tableSQLToEntity(qualifiedName))
     }))
     tables
   }
@@ -25,7 +28,7 @@ object Retriever {
     tablesWOColumns map (t => {
       val mqName = mqNameForTable(t)
       val mTable = MTable.getTables(mqName.catalog, mqName.schema, Some(mqName.name), None).first
-      val caseFieldName = naming.columnSQLToCaseField _
+      val caseFieldName = naming.columnSQLToEntityField _
       val moduleFieldName = naming.columnSQLToModuleField _
       val mColumns = mTable.getColumns.list
       def columnName(column: String): QualifiedName = QualifiedName.columnName(t.name, column)

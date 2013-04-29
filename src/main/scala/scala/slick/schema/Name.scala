@@ -4,20 +4,32 @@ import scala.slick.jdbc.meta.MQName
 import scala.collection.mutable.ArrayBuffer
 import scala.slick.SlickException
 
+/**
+ * A meta-model for representing name of column, table, schema and catalog
+ */
 trait Name {
   val name: String
   val kind: NameType
   override def toString(): String = name
 }
 
+/**
+ * Represents each part of a name
+ */
 case class NamePart(override val name: String, override val kind: NameType) extends Name
 
+/**
+ * Type for each part of a name
+ */
 sealed trait NameType
 case object TableName extends NameType
 case object ColumnName extends NameType
 case object SchemaName extends NameType
 case object CatalogName extends NameType
 
+/**
+ * Qualified name for a meta-model of database
+ */
 case class QualifiedName(parts: List[NamePart]) extends Name {
   override val name = parts.mkString(".")
   override val kind = parts.last.kind

@@ -3,6 +3,9 @@ package scala.slick.schema.naming
 import com.typesafe.config._
 import scala.slick.SlickException
 
+/**
+ * A class for dealing with naming part of configuration files
+ */
 class MappingConfiguration(val namingConf: Config) {
   def mergeWithFallback(config: Config, path: String): Config = {
     try {
@@ -60,7 +63,7 @@ object MappingConfiguration {
       config.getConfig("naming")
     } catch {
       case e: ConfigException.Missing => ConfigFactory.empty
-      case _: ConfigException => throw new SlickException("Invalid naming configuration")
+      case e: ConfigException => throw new SlickException("Invalid naming configuration", e)
     }
     new MappingConfiguration(namingConf.withFallback(defaultConfiguration))
   }

@@ -46,8 +46,7 @@ class NamingTest {
   }
 
   @Test def configuredNamingTest() {
-    val namingConf = ConfigFactory.parseString("""
-naming {
+    val namingConf = ConfigFactory.parseString("""naming {
   table-module = [lowercase, capitalize, camelize, pluralize]
   case-class = [lowercase, capitalize, camelize]
   module-field = [lowercase]
@@ -61,8 +60,7 @@ naming {
   }
 
   @Test def customTableNamingTest() {
-    val namingConf = ConfigFactory.parseString("""
-naming {
+    val namingConf = ConfigFactory.parseString("""naming {
   table-module = [lowercase, capitalize, camelize, pluralize]
   custom {
     COFFEES {
@@ -80,8 +78,7 @@ naming {
   }
 
   @Test def customColumnNamingTest() {
-    val namingConf = ConfigFactory.parseString("""
-naming {
+    val namingConf = ConfigFactory.parseString("""naming {
   module-field = [lowercase]
   custom {
     COFFEES {
@@ -109,11 +106,11 @@ naming {
     @inline def qnameForTable(table: String): QualifiedName = QualifiedName(MQName(None, None, table))
     @inline def tableResult(table: String): (String, String) = {
       val name = qnameForTable(table)
-      (naming.tableSQLToModule(name), naming.tableSQLToCase(name))
+      (naming.tableSQLToModule(name), naming.tableSQLToEntity(name))
     }
     @inline def columnResult(table: String)(column: String): (String, String) = {
       val name = QualifiedName.columnName(qnameForTable(table), column)
-      (naming.columnSQLToModuleField(name), naming.columnSQLToCaseField(name))
+      (naming.columnSQLToModuleField(name), naming.columnSQLToEntityField(name))
     }
     val keys = input.keysIterator.zip(correctMap.keysIterator)
     keys.foreach {

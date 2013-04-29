@@ -16,11 +16,20 @@ trait TreeGeneratorCore { self: MacroHelpers =>
   import Flag._
 
   // helper methods for creating case class for each table
+  /**
+   * Converts Column to its type tree
+   */
   def columnToType(column: Column): Tree = typeToTree(column.tpe.asInstanceOf[Type])
 
   // helper methods for creating the module for each table
+  /**
+   * Gets tree representation of a column when it is accessed
+   */
   def getColumnOfTable(tableName: String)(c: Column) = Select(This(TypeName(tableName)), TermName(c.moduleFieldName))
 
+  /**
+   * Gets method definition of a column in Lifted Embedding
+   */
   def columnToMethodDef(tableName: String)(column: Column)(isAutoInc: Boolean): DefDef = {
     val nameParam = Literal(Constant(column.name.lastPart))
     val autoIncParam =
@@ -32,6 +41,9 @@ trait TreeGeneratorCore { self: MacroHelpers =>
     DefDef(NoMods, TermName(column.moduleFieldName), List(), List(), TypeTree(), Apply(TypeApply(Select(This(TypeName(tableName)), TermName("column")), List(columnToType(column))), params))
   }
 
+  /**
+   * Gets method definition for `*` of a Table in Lifted Embedding
+   */
   def starDef(tableName: String)(columns: List[Column], caseClassName: TermName): DefDef = {
     val allFields = columns.map(getColumnOfTable(tableName)).reduceLeft[Tree]((prev, current) => {
       val tilde = Select(prev, TermName("$tilde"))
@@ -57,12 +69,18 @@ trait TreeGeneratorCore { self: MacroHelpers =>
           })))
   }
 
+  /**
+   * Gets method definition for a primary key in Lifted Embedding
+   */
   def primaryKeyDef(tableName: String)(pk: PrimaryKey): DefDef = {
     val methodName = naming.primaryKeyName(pk)
     val pks = createTupleOrSingleton(pk.fields map getColumnOfTable(tableName))
     DefDef(NoMods, TermName(methodName), List(), List(), TypeTree(), Apply(Select(This(TypeName(tableName)), TermName("primaryKey")), List(Literal(Constant("CONSTRAINT_PK_" + tableName.toUpperCase)), pks)))
   }
 
+  /**
+   * Gets method definition for a foreign key in Lifted Embedding
+   */
   def foreignKeyDef(tableName: String)(fk: ForeignKey): DefDef = {
     def getColumnOfName(n: String)(c: Column) = Select(Ident(TermName(n)), TermName(c.moduleFieldName))
     val methodName = naming.foreignKeyName(fk)
@@ -79,6 +97,9 @@ trait TreeGeneratorCore { self: MacroHelpers =>
     DefDef(NoMods, TermName(methodName), List(), List(), TypeTree(), Apply(Apply(Select(This(TypeName(tableName)), TermName("foreignKey")), List(fkName, fkSourceColumns, fkTargetTable)), List(fkTargetColumns, fkUpdateRule, fkDeleteRule)))
   }
 
+  /**
+   * Gets method definition for an index in Lifted Embedding
+   */
   def indexDef(tableName: String)(idx: Index): DefDef = {
     val methodName = naming.indexName(idx)
     val idxName = Literal(Constant(methodName))
@@ -88,6 +109,9 @@ trait TreeGeneratorCore { self: MacroHelpers =>
   }
 
   // creates case class for each table
+  /**
+   * Converts a table meta-model into its case class definition
+   */
   def tableToCaseClass(table: Table): ClassDef = {
     val columns = table.columns
     val schema = columns map (column => (column.caseFieldName, columnToType(column)))
@@ -103,12 +127,18 @@ trait TreeGeneratorCore { self: MacroHelpers =>
   }
 
   // creates type for each table
+  /**
+   * Converts a table meta-model to its type alias
+   */
   def tableToType(table: Table)(tpe: Type): TypeDef = {
     val typeName = table.caseClassName
     val typeType = typeToTree(tpe.normalize)
     TypeDef(NoMods, TypeName(typeName), List(), typeType)
   }
 
+  /**
+   * Converts a table meta-model to its extractor (Its apply and unapply are used for <> of * in Lifted Embedding)
+   */
   def tableToTypeVal[Elem, TupleElem](table: Table)(obj: Type, typeParamName: TypeName): ValDef = {
     val termName = table.caseClassName
     val tpe = obj.asInstanceOf[Type]
@@ -118,6 +148,9 @@ trait TreeGeneratorCore { self: MacroHelpers =>
   }
 
   // creates module for each table
+  /**
+   * Converts a table meta-model to its Table class definition in Lifted Embedding
+   */
   def tableToModule(table: Table): ModuleDef = {
     val typeParamName = TypeName(table.caseClassName)
     val columns = table.columns
@@ -138,6 +171,9 @@ trait TreeGeneratorCore { self: MacroHelpers =>
     ModuleDef(NoMods, TermName(tableName), Template(List(tableSuper), emptyValDef, methods))
   }
 
+  /**
+   * The main method for getting tree representation for all tables.
+   */
   def generateTreeForTables: List[Tree] = {
     val db = driver.simple.Database.forURL(urlForConnection, driver = jdbcClass,
       user = userForConnection, password = passForConnection)
@@ -160,6 +196,9 @@ trait TreeGeneratorCore { self: MacroHelpers =>
     })
   }
 
+  /**
+   * Returns import statements for generated tree
+   */
   def getImports: List[Import] = {
     val importSimpleWild = self.createImport(self.createObjectFromString(s"_root_.$slickDriverObject.simple"), Nil)
     val importTypeMapper = typeMapper match {
