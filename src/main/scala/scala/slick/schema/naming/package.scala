@@ -7,4 +7,3 @@ package object naming {
    */
   type Rule = (String => String)
 }
-
