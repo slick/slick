@@ -1,15 +1,17 @@
 package scala.slick.schema
 
 import scala.collection.mutable.ArrayBuffer
+import scala.slick.schema.naming.Naming
 
-case class Table(table: String, columns: List[Column], constraints: List[Constraint]) {
-  val scalaName = Naming.tableSQLToModule(table)
-
-  val caseClassName = Naming.moduleToCaseClass(scalaName)
-
-  def primaryKeys: List[Column] = constraints.collectFirst { case pk: PrimaryKey => pk.fields }.getOrElse(Nil)
+/**
+ * A meta-model for each relation
+ */
+case class Table(name: QualifiedName, columns: List[Column], constraints: List[Constraint], moduleName: String, caseClassName: String) {
+  def primaryKey: Option[PrimaryKey] = constraints.collectFirst { case pk: PrimaryKey => pk }
 
   def foreignKeys: List[ForeignKey] = constraints.collect { case fk: ForeignKey => fk }
 
   def indices: List[Index] = constraints.collect { case idx: Index => idx }
+
+  def autoInc: Option[AutoIncrement] = constraints.collectFirst { case ainc: AutoIncrement => ainc }
 }

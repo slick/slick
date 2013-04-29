@@ -10,47 +10,47 @@ import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
 import com.typesafe.slick.testkit.util.TestDB
 import scala.slick.typeproviders.TypeProvider
-import scala.slick.schema.Naming
 import scala.slick.ast.Select
 import scala.slick.ast.Node
+import scala.slick.schema.naming.NamingDefault
 
 class TypeProviderTest {
   @Test def h2memTest() {
-    object Db1 extends TypeProvider.Db("type-providers-h2mem")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-h2mem")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
     database.withSession {
       val q1 = Query(Suppliers.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
       Suppliers.insert(Supplier(1, "1", "2", "3", "4", "5"))
       val q2 = Query(Suppliers.length)
-      assertEquals("Size of Suppliers after change",
-        q2.first, 4)
+      assertEquals("Size of Suppliers after change", 4,
+        q2.first)
       val q3 = Query(Coffees.length)
-      assertEquals("Size of Coffees",
-        q3.first, 1)
+      assertEquals("Size of Coffees", 1,
+        q3.first)
       val r = Query(Coffees).list.head
       val c: Coffee = r
-      assertEquals("First element of Coffees", c, Coffee("coffee", 1, 2.3, 4, 5))
+      assertEquals("First element of Coffees", Coffee("coffee", 1, 2.3, 4, 5), c)
     }
   }
 
   @Test def hsqlSimpleTest() {
-    object Db1 extends TypeProvider.Db("type-providers-hsql")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-hsql")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
     database.withSession {
       val q1 = Query(Suppliers.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
     }
   }
 
   @Test def hsqlComplexTest() {
-    object Db1 extends TypeProvider.Db("type-providers-hsql")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-hsql")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -64,18 +64,18 @@ class TypeProviderTest {
   }
 
   @Test def sqliteSimpleTest() {
-    object Db1 extends TypeProvider.Db("type-providers-sqlite")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-sqlite")
     import Db1.driver.simple._
     import Database.threadLocalSession
     Db1.database.withSession {
       val q1 = Query(Db1.Suppliers.length)
-      assertEquals("Size of Suppliers before change",
-        q1.first, 3)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
     }
   }
 
   @Test def sqliteComplexTest() {
-    object Db1 extends TypeProvider.Db("type-providers-sqlite")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-sqlite")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -91,7 +91,7 @@ class TypeProviderTest {
   @Test def fkSimpleTest() {
     def convertColumnsToString(columns: List[Node]): List[String] =
       columns.map(convertColumnNodeToString)
-    object Db1 extends TypeProvider.Db("type-providers-h2mem-fk-1")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-h2mem-fk-1")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -106,8 +106,8 @@ class TypeProviderTest {
       val aFk = A.foreignKeys.head
       val srcColumns = convertColumnsToString(aFk.linearizedSourceColumns.toList)
       val trgColumns = convertColumnsToString(aFk.linearizedTargetColumns.toList)
-      assertEquals("FKs should have the same source column", srcColumns, List("k1"))
-      assertEquals("FKs should have the same target column", trgColumns, List("f1"))
+      assertEquals("FKs should have the same source column", List("k1"), srcColumns)
+      assertEquals("FKs should have the same target column", List("f1"), trgColumns)
       assertTrue("FKs should be from 'a' to 'b'", aFk.sourceTable.isInstanceOf[A.type] && aFk.targetTable.isInstanceOf[B.type])
     }
   }
@@ -115,7 +115,7 @@ class TypeProviderTest {
   @Test def fkCompoundTest() {
     def convertColumnsToString(columns: List[Node]): List[String] =
       columns.map(convertColumnNodeToString)
-    object Db1 extends TypeProvider.Db("type-providers-h2mem-fk-2")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-h2mem-fk-2")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -127,14 +127,14 @@ class TypeProviderTest {
       val aFk = A.foreignKeys.head
       val srcColumns = convertColumnsToString(aFk.linearizedSourceColumns.toList)
       val trgColumns = convertColumnsToString(aFk.linearizedTargetColumns.toList)
-      assertEquals("FKs should have the same source column", srcColumns, List("k1", "k2"))
-      assertEquals("FKs should have the same target column", trgColumns, List("f1", "f2"))
+      assertEquals("FKs should have the same source column", List("k1", "k2"), srcColumns)
+      assertEquals("FKs should have the same target column", List("f1", "f2"), trgColumns)
       assertTrue("FKs should be from 'a' to 'b'", aFk.sourceTable.isInstanceOf[A.type] && aFk.targetTable.isInstanceOf[B.type])
     }
   }
 
   @Test def indexTest() {
-    object Db1 extends TypeProvider.Db("type-providers-h2mem-fk-2")
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-h2mem-fk-2")
     import Db1.driver.simple._
     import Database.threadLocalSession
     import Db1._
@@ -147,8 +147,68 @@ class TypeProviderTest {
       val bIdxFieldsName = bIdx.on map (convertColumnNodeToString)
       val columnNames = List("f1", "f2")
       assertTrue("Indices should refer to correct field", bIdxFieldsName sameElements columnNames)
-      val indexName = Naming.indexName(columnNames)
+      val indexName = NamingDefault.indexName(columnNames)
       assertTrue("Indices should have the correct name", bIdx.name equals indexName)
+    }
+  }
+
+  @Test def autoIncTest() {
+    def optionsOfColumn(c: scala.slick.lifted.Column[_]) =
+      c.nodeDelegate.asInstanceOf[Select].field.asInstanceOf[scala.slick.ast.FieldSymbol].options.toList
+
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-h2mem-ainc")
+    import Db1._
+    val k1Options = optionsOfColumn(A.k1)
+    val k2Options = optionsOfColumn(A.k2)
+    val sOptions = optionsOfColumn(A.s)
+    assertTrue("k1 should be AutoInc",
+      k1Options.exists(option => (option equals A.O.AutoInc)))
+    assertTrue("k2 should not be AutoInc",
+      k2Options.forall(option => !(option equals A.O.AutoInc)))
+    assertTrue("s should not be AutoInc",
+      sOptions.forall(option => !(option equals A.O.AutoInc)))
+  }
+
+  @Test def customNamingTest() {
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-h2mem-custom-naming")
+    import Db1.driver.simple._
+    import Database.threadLocalSession
+    import Db1._
+    database.withSession {
+      val q1 = Query(Supps.length)
+      assertEquals("Size of Suppliers before change", 3,
+        q1.first)
+      Supps.insert(Supplier(1, "1", "2", "3", "4", "5"))
+      val q2 = Query(Supps.length)
+      assertEquals("Size of Suppliers after change", 4,
+        q2.first)
+      val q3 = Query(Coffs.length)
+      assertEquals("Size of Coffees", 1,
+        q3.first)
+      val r = Query(Coffs).list.head
+      val c: Coff = r
+      assertEquals("First element of Coffees", Coff("coffee", 1, 2.3, 4, 5), c)
+    }
+  }
+
+  @Test def customTypingTest() {
+    object Db1 extends TypeProvider.Db("test-dbs/type-provider/conf/type-providers-h2mem-custom-typing")
+    import Db1.driver.simple._
+    import Database.threadLocalSession
+    import Db1._
+    import scala.slick.config.CustomTyping
+    //    import CustomTyping.boolTypeMapper
+    database.withSession {
+      val q1 = Query(SimpleAs.length)
+      assertEquals("Size of SimpleA before change", 0,
+        q1.first)
+      SimpleAs.insert(SimpleA(CustomTyping.True, "1"))
+      val q2 = Query(SimpleAs.length)
+      assertEquals("Size of SimpleA after change", 1,
+        q2.first)
+      val r = Query(SimpleAs).list.head
+      val s: SimpleA = r
+      assertEquals("First element of SimpleAs", SimpleA(CustomTyping.True, "1"), s)
     }
   }
 
