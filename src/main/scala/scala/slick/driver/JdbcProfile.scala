@@ -81,7 +81,8 @@ trait JdbcDriver extends SqlDriver
   with JdbcProfile
   with JdbcStatementBuilderComponent
   with JdbcMappingCompilerComponent
-  with JdbcTypesComponent { driver =>
+  with JdbcTypesComponent
+  with JdbcTypeProviderComponent { driver =>
 
   override val profile: JdbcProfile = this
 

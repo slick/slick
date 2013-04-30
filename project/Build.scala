@@ -105,6 +105,7 @@ object SlickBuild extends Build {
       test := (), // suppress test status output
       testOnly :=  (),
       ivyConfigurations += config("macro").hide.extend(Compile),
+      libraryDependencies ++= Seq("com.typesafe" % "config" % "1.0.0"),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
