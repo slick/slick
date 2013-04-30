@@ -3,9 +3,10 @@ package scala.slick.driver
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import java.util.UUID
 import scala.slick.SlickException
-import scala.slick.ast.{OptionType, NumericTypedType, BaseTypedType, StaticType, Type}
+import scala.slick.ast.{ScalaBaseType, OptionType, NumericTypedType, BaseTypedType, Type}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
 import scala.slick.profile.RelationalTypesComponent
+import scala.reflect.ClassTag
 
 trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =>
 
@@ -13,13 +14,18 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
 
   def typeInfoFor(t: Type): TypeInfo = ((t match {
     case tmd: JdbcType[_] => tmd
-    case StaticType.Boolean => columnTypes.booleanJdbcType
-    case StaticType.Char => columnTypes.charJdbcType
-    case StaticType.Int => columnTypes.intJdbcType
-    case StaticType.Long => columnTypes.longJdbcType
-    case StaticType.Null => columnTypes.nullJdbcType
-    case StaticType.String => columnTypes.stringJdbcType
-    case StaticType.Unit => columnTypes.unitJdbcType
+    case ScalaBaseType.booleanType => columnTypes.booleanJdbcType
+    case ScalaBaseType.bigDecimalType => columnTypes.bigDecimalJdbcType
+    case ScalaBaseType.byteType => columnTypes.byteJdbcType
+    case ScalaBaseType.charType => columnTypes.charJdbcType
+    case ScalaBaseType.doubleType => columnTypes.doubleJdbcType
+    case ScalaBaseType.floatType => columnTypes.floatJdbcType
+    case ScalaBaseType.intType => columnTypes.intJdbcType
+    case ScalaBaseType.longType => columnTypes.longJdbcType
+    case ScalaBaseType.nullType => columnTypes.nullJdbcType
+    case ScalaBaseType.shortType => columnTypes.shortJdbcType
+    case ScalaBaseType.stringType => columnTypes.stringJdbcType
+    case ScalaBaseType.unitType => columnTypes.unitJdbcType
     case o: OptionType => typeInfoFor(o.elementType).optionType
     case t => throw new SlickException("JdbcProfile has no TypeInfo for type "+t)
   }): JdbcType[_]).asInstanceOf[JdbcType[Any]]
@@ -31,7 +37,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       throw new SlickException("No SQL type name found in java.sql.Types for code "+t))
   }
 
-  trait DriverJdbcType[T] extends JdbcType[T] with BaseTypedType[T] {
+  abstract class DriverJdbcType[T : ClassTag] extends JdbcType[T] with BaseTypedType[T] {
+    def scalaType = ScalaBaseType[T]
     def sqlTypeName: String = driver.defaultSqlTypeName(this)
   }
 
@@ -83,7 +90,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     }
 
     class ByteArrayJdbcType extends DriverJdbcType[Array[Byte]] {
-      val sqlType = java.sql.Types.BLOB
+      def sqlType = java.sql.Types.BLOB
       def setValue(v: Array[Byte], p: PositionedParameters) = p.setBytes(v)
       def setOption(v: Option[Array[Byte]], p: PositionedParameters) = p.setBytesOption(v)
       def nextValue(r: PositionedResult) = r.nextBytes
@@ -100,9 +107,9 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def updateValue(v: Clob, r: PositionedResult) = r.updateClob(v)
     }
 
-    class CharJdbcType extends JdbcType[Char] with BaseTypedType[Char] {
+    class CharJdbcType extends DriverJdbcType[Char] {
       def sqlType = java.sql.Types.CHAR
-      def sqlTypeName = "CHAR(1)"
+      override def sqlTypeName = "CHAR(1)"
       def setValue(v: Char, p: PositionedParameters) = stringJdbcType.setValue(String.valueOf(v), p)
       def setOption(v: Option[Char], p: PositionedParameters) = stringJdbcType.setOption(v.map(String.valueOf), p)
       def nextValue(r: PositionedResult) = {

@@ -75,7 +75,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
 /** The row_number window function */
 final case class RowNumber(by: Seq[(Node, Ordering)] = Seq.empty) extends TypedNode {
   type Self = RowNumber
-  def tpe = StaticType.Long
+  def tpe = ScalaBaseType.longType
   lazy val nodeChildren = by.map(_._1)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
     copy(by = by.zip(ch).map{ case ((_, o), n) => (n, o) })

@@ -208,7 +208,7 @@ object LiteralNode {
     def volatileHint = vol
     override def toString = s"LiteralNode $value (volatileHint=$volatileHint)"
   }
-  def apply[T](v: T)(implicit tp: StaticType[T]): LiteralNode = apply(tp, v)
+  def apply[T](v: T)(implicit tp: ScalaBaseType[T]): LiteralNode = apply(tp, v)
   def unapply(n: LiteralNode): Option[Any] = Some(n.value)
 }
 
@@ -607,7 +607,7 @@ final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends DefNode
 /** A node that represents an SQL sequence. */
 final case class SequenceNode(name: String)(val increment: Long) extends NullaryNode with TypedNode {
   type Self = SequenceNode
-  def tpe = StaticType.Long
+  def tpe = ScalaBaseType.longType
   def nodeRebuild = copy()(increment)
 }
 
@@ -617,7 +617,7 @@ final case class SequenceNode(name: String)(val increment: Long) extends Nullary
   * cannot be represented in SQL outside of a 'zip' operation. */
 final case class RangeFrom(start: Long = 1L) extends NullaryNode with TypedNode {
   type Self = RangeFrom
-  def tpe = CollectionType(CollectionTypeConstructor.default, StaticType.Long)
+  def tpe = CollectionType(CollectionTypeConstructor.default, ScalaBaseType.longType)
   def nodeRebuild = copy()
 }
 
@@ -644,7 +644,7 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
     val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
     val tpe = {
       val isNullable = this2.nodeChildren.exists(ch =>
-        ch.nodeType.isInstanceOf[OptionType] || ch.nodeType == StaticType.Null)
+        ch.nodeType.isInstanceOf[OptionType] || ch.nodeType == ScalaBaseType.nullType)
       val base = this2.clauses.head.nodeType
       if(isNullable && !base.isInstanceOf[OptionType]) OptionType(base) else base
     }

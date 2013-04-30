@@ -3,7 +3,7 @@ package scala.slick.lifted
 import scala.annotation.implicitNotFound
 import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
-import StaticType._
+import ScalaBaseType._
 
 /**
  * A query monad which contains the AST for a query's projection and the accumulated
