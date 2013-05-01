@@ -202,10 +202,15 @@ class QueryableTest(val tdb: TestDB) extends DBTest {
   
       // filter with more complex condition
       assertMatch(
-        query.filter( c => c.sales > 5 || "Chris" == c.name ),
-        inMem.filter( c => c.sales > 5 || "Chris" == c.name )
+        query.filter( c => c.sales > 2 || "Colombian_Decaf" == c.name ),
+        inMem.filter( c => c.sales > 2 || "Colombian_Decaf" == c.name )
       )
-  
+
+      assertMatch(
+        query.filter( c => c.sales > 2 && "Colombian_Decaf" == c.name ),
+        inMem.filter( c => c.sales > 2 && "Colombian_Decaf" == c.name )
+      )
+
       // type annotations FIXME canBuildFrom
       assertMatch(
         query.map[String]( (_:Coffee).name : String ),
