@@ -329,7 +329,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         // match queryable methods
         case op@Select(scala_lhs, term) if typeOf[QueryOps[_]].members.toList.contains(op.symbol) =>
           term.decoded match {
-            case "length" | "size" => sq.Pure( Library.CountAll.typed[Int](s2sq(scala_lhs).node ) )
+            case "length" => sq.Pure( Library.CountAll.typed[Int](s2sq(scala_lhs).node ) )
           }
 
         case Apply(op@Select(scala_lhs,term),args) if typeOf[QueryOps[_]].members.toList.contains(op.symbol)
