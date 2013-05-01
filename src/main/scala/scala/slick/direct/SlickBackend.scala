@@ -16,7 +16,7 @@ import scala.reflect.runtime.universe._
 import scala.reflect.runtime.{currentMirror=>cm}
 
 /** maps a Scala method to a Slick FunctionSymbol */
-final case class ->(to:FunctionSymbol) extends StaticAnnotation
+final case class slickOp(to:FunctionSymbol) extends StaticAnnotation
 /** denotes the Scala type the mapped interface refers to */
 final class scalaType[+T](t:Type) extends StaticAnnotation
 trait OperationMapping{
@@ -24,31 +24,31 @@ trait OperationMapping{
   // Slick also supports == for all supported types
   @scalaType[Int](typeOf[Int])
   trait IntOps{
-    @ ->(Library.+) def +(i:Int)    : Int
-    @ ->(Library.+) def +(i:Double) : Double
-    @ ->(Library.<) def <(i:Int)    : Boolean
-    @ ->(Library.<) def <(i:Double) : Boolean
-    @ ->(Library.>) def >(i:Int)    : Boolean
-    @ ->(Library.>) def >(i:Double) : Boolean
+    @ slickOp(Library.+) def +(i:Int)    : Int
+    @ slickOp(Library.+) def +(i:Double) : Double
+    @ slickOp(Library.<) def <(i:Int)    : Boolean
+    @ slickOp(Library.<) def <(i:Double) : Boolean
+    @ slickOp(Library.>) def >(i:Int)    : Boolean
+    @ slickOp(Library.>) def >(i:Double) : Boolean
   }
   @scalaType[Double](typeOf[Double])
   trait DoubleOps{
-    @ ->(Library.+) def +(i:Int)    : Double
-    @ ->(Library.+) def +(i:Double) : Double
-    @ ->(Library.<) def <(i:Int)    : Boolean
-    @ ->(Library.<) def <(i:Double) : Boolean
-    @ ->(Library.>) def >(i:Int)    : Boolean
-    @ ->(Library.>) def >(i:Double) : Boolean
+    @ slickOp(Library.+) def +(i:Int)    : Double
+    @ slickOp(Library.+) def +(i:Double) : Double
+    @ slickOp(Library.<) def <(i:Int)    : Boolean
+    @ slickOp(Library.<) def <(i:Double) : Boolean
+    @ slickOp(Library.>) def >(i:Int)    : Boolean
+    @ slickOp(Library.>) def >(i:Double) : Boolean
   }
   @scalaType[Boolean](typeOf[Boolean])
   trait BooleanOps{
-    @ ->(Library.Not) def unary_! : Boolean
-    @ ->(Library.Or)  def ||( b:Boolean ) : Boolean
-    @ ->(Library.And) def &&( b:Boolean ) : Boolean
+    @ slickOp(Library.Not) def unary_! : Boolean
+    @ slickOp(Library.Or)  def ||( b:Boolean ) : Boolean
+    @ slickOp(Library.And) def &&( b:Boolean ) : Boolean
   }
   //@scalaType[String](typeOf[String]) // <- scalac crash SI-7426
   trait StringOps{
-    @ ->(Library.Concat) def +(i:String) : String
+    @ slickOp(Library.Concat) def +(i:String) : String
   }
 }
 
@@ -106,7 +106,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       .flatMap(
         _.typeSignature
          .members
-         .filter(annotations[->](_).size > 0)
+         .filter(annotations[slickOp](_).size > 0)
       )
       .map{
         specOp =>
@@ -128,7 +128,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
                   .getOrElse{
                     throw new SlickException("Could not find Scala method: "+scalaType+"."+specOpName+argTypeSyms( specOp ))
                   }
-        .->( annotations[->](specOp).head
+        .->( annotations[slickOp](specOp).head
               match { case Annotation(_,args,_) =>
                           // look up FunctionSymbol from annotation
                           // FIXME: make this simpler
