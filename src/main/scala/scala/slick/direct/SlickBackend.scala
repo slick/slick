@@ -223,10 +223,14 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
         
         // Tuples
         case Apply(
-            Select(Select(Ident(package_), class_), method_),
+            op,
             components
         )
-        if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
+        if definitions
+            .TupleClass
+            .filter(_ != NoSymbol)
+            .map( _.companionSymbol.typeSignature.member( newTermName("apply") ) )
+            .contains( op.symbol )
         =>
             sq.ProductNode( components.map(s2sq(_).node) )
 
