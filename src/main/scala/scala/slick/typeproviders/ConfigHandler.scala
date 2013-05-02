@@ -17,7 +17,7 @@ trait ConfigHandler { self: MacroHelpers =>
   import scala.reflect.runtime.{ universe => runtimeUniverse }
   val runtimeMirror = runtimeUniverse.runtimeMirror(self.getClass.getClassLoader)
 
-  private val conf = {
+  private lazy val conf = {
     val confFile = {
       val confFileName = if (configFileName.endsWith(".conf")) configFileName else configFileName + ".conf"
       val file = new File(confFileName)
@@ -29,7 +29,7 @@ trait ConfigHandler { self: MacroHelpers =>
     ConfigFactory.parseFile(confFile)
   }
 
-  val naming = {
+  lazy val naming = {
     val namingSourceKey = "naming.scala-source"
     val mapping = MappingConfiguration(conf)
     try {
@@ -45,7 +45,7 @@ trait ConfigHandler { self: MacroHelpers =>
     }
   }
 
-  val typeMapper = {
+  lazy val typeMapper = {
     val typingSourceKey = "naming.type-source"
     try {
       val objectName = conf.getString(typingSourceKey)
@@ -59,11 +59,11 @@ trait ConfigHandler { self: MacroHelpers =>
 
   }
 
-  val jdbcClass = getFromConfig("jdbc-driver")
-  val urlForConnection = getFromConfig("url")
-  val slickDriverObject = getFromConfig("slick-object")
-  val userForConnection = getFromConfig("username")
-  val passForConnection = getFromConfig("password")
+  lazy val jdbcClass = getFromConfig("jdbc-driver")
+  lazy val urlForConnection = getFromConfig("url")
+  lazy val slickDriverObject = getFromConfig("slick-object")
+  lazy val userForConnection = getFromConfig("username")
+  lazy val passForConnection = getFromConfig("password")
 
   @inline def getFromConfig(key: String): String = try {
     conf.getString(key)

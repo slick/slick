@@ -60,6 +60,10 @@ object QualifiedName {
     QualifiedName(parts.toList)
   }
 
+  def tableName(tableName: String): QualifiedName = {
+    QualifiedName(List(NamePart(tableName, TableName)))
+  }
+
   def columnName(tableName: QualifiedName, columnName: String): QualifiedName = {
     val parts = tableName.parts :+ NamePart(columnName, ColumnName)
     QualifiedName(parts)
