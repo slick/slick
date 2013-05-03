@@ -19,7 +19,7 @@ class ResolveZipJoins extends Phase {
   val name = "resolveZipJoins"
 
   def apply(state: CompilerState) = {
-    val n2 = ClientSideOp.mapServerSide(state.tree)(resolveZipJoins)
+    val n2 = ClientSideOp.mapServerSide(state.tree, true)(resolveZipJoins)
     state + (this -> new State(n2 ne state.tree)) withNode n2
   }
 
@@ -40,7 +40,7 @@ class ResolveZipJoins extends Phase {
         case Select(OldBindRef, ElementSymbol(1)) => Ref(bindSym)
         case Select(OldBindRef, ElementSymbol(2)) => Select(Ref(bindSym), idxSym)
       }
-      Bind(bindSym, innerBind, Pure(newOuterSel))
+      Bind(bindSym, innerBind, Pure(newOuterSel)).nodeWithComputedType(SymbolScope.empty, false)
 
     // zip with another query
     case b @ Bind(_, Join(jlsym, jrsym,
@@ -53,10 +53,10 @@ class ResolveZipJoins extends Phase {
       val join = Join(jlsym, jrsym, lInnerBind, rInnerBind, JoinType.Inner,
         Library.==.typed[Boolean](Select(Ref(jlsym), lIdxSym), Select(Ref(jrsym), rIdxSym))
       )
-      b.copy(from = join)
+      b.copy(from = join).nodeWithComputedType(SymbolScope.empty, false)
 
     case n => n
-  }).nodeMapChildren(resolveZipJoins)
+  }).nodeMapChildrenKeepType(resolveZipJoins)
 }
 
 class ResolveZipJoinsState(val hasRowNumber: Boolean)

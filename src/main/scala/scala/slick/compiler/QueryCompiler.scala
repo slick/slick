@@ -76,12 +76,12 @@ object QueryCompiler {
     Phase.replaceFieldSymbols,
     Phase.rewritePaths,
     Phase.relabelUnions,
-    Phase.pruneFields
+    Phase.pruneFields,
+    Phase.assignTypes
   )
 
   val relationalPhases = Vector(
     Phase.resolveZipJoins,
-    Phase.assignTypes,
     Phase.convertToComprehensions,
     Phase.fuseComprehensions,
     Phase.fixRowNumberOrdering,

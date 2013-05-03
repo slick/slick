@@ -18,7 +18,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   val backend: Backend = HeapBackend
   val simple: SimpleQL = new SimpleQL {}
 
-  val compiler = QueryCompiler.standard + Phase.assignTypes
+  val compiler = QueryCompiler.standard
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
