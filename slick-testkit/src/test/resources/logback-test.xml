@@ -13,7 +13,6 @@
     <logger name="scala.slick.compiler.ReconstructProducts"       level="${log.qcomp.reconstructProducts:-inherited}" />
     <logger name="scala.slick.compiler.Inline"                    level="${log.qcomp.inline:-inherited}" />
     <logger name="scala.slick.compiler.RewriteOrderBy"            level="${log.qcomp.rewriteOrderBy:-inherited}" />
-    <logger name="scala.slick.compiler.LetDynamicEliminated"      level="${log.qcomp.letDynamicEliminated:-inherited}" />
     <logger name="scala.slick.compiler.AssignUniqueSymbols"       level="${log.qcomp.assignUniqueSymbols:-inherited}" />
     <logger name="scala.slick.compiler.ExpandTables"              level="${log.qcomp.expandTables:-inherited}" />
     <logger name="scala.slick.compiler.CreateResultSetMapping"    level="${log.qcomp.createResultSetMapping:-inherited}" />

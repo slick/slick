@@ -10,21 +10,15 @@ class LocalizeRefs extends Phase {
 
   def apply(state: CompilerState) = state.map { tree =>
     val map = new HashMap[AnonSymbol, Node]
-    val newNodes = new HashMap[AnonSymbol, Node]
-    val symbolFor = memoized[IntrinsicSymbol, AnonSymbol] { _ => n => new AnonSymbol }
+    lazy val symbolFor = memoized[IntrinsicSymbol, AnonSymbol] { _ => i =>
+      val s = new AnonSymbol
+      map += s -> i.target.replace(tr)
+      s
+    }
     lazy val tr: PartialFunction[Node, Node] = {
-      case r @ RefNode(i @ IntrinsicSymbol(target)) =>
-        val s = symbolFor(i)
-        map += s -> target
-        newNodes += s -> target
-        r.nodeBuildTypedNode(r.nodeWithReference(s), r.nodeType).nodeMapChildren(_.replace(tr))
+      case r @ Ref(i: IntrinsicSymbol) => Ref(symbolFor(i)).nodeTyped(r.nodeType)
     }
     val tree2 = tree.replace(tr)
-    while(!newNodes.isEmpty) {
-      val m = newNodes.toMap
-      newNodes.clear()
-      m.foreach { case (sym, n) => map += sym -> n.replace(tr) }
-    }
     if(map.isEmpty) tree2 else LetDynamic(map.toSeq, tree2)
   }
 }

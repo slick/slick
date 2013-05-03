@@ -65,7 +65,6 @@ object QueryCompiler {
     Phase.localizeRefs,
     Phase.reconstructProducts,
     Phase.inline,
-    Phase.letDynamicEliminated,
     Phase.assignUniqueSymbols,
     // Distribute and normalize
     Phase.expandTables,
@@ -114,7 +113,6 @@ object Phase {
   val localizeRefs = new LocalizeRefs
   val reconstructProducts = new ReconstructProducts
   val inline = new Inline
-  val letDynamicEliminated = new LetDynamicEliminated
   val assignUniqueSymbols = new AssignUniqueSymbols
   val expandTables = new ExpandTables
   val createResultSetMapping = new CreateResultSetMapping
