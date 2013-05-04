@@ -1,6 +1,6 @@
-version in ThisBuild := "1.0.1-SNAPSHOT"
+version in ThisBuild := "1.0.1-RC1"
 
-scalaVersion in ThisBuild := "2.10.0"
+scalaVersion in ThisBuild := "2.10.1"
 
 //scalaBinaryVersion in ThisBuild := "2.10.0"
 
