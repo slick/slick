@@ -10,7 +10,7 @@ import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
 import scala.slick.profile.SqlProfile
-import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.collection.mutable.HashMap
 import scala.slick.jdbc.{ResultConverter, CompiledMapping, Insert}
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
@@ -152,6 +152,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildSelectPart(n: Node): Unit = n match {
       case Typed(t: TypedType[_]) if useIntForBoolean && (typeInfoFor(t) == columnTypes.booleanJdbcType) =>
         b"case when $n then 1 else 0 end"
+      case c: Comprehension =>
+        b"("
+        buildComprehension(c)
+        b")"
       case n =>
         expr(n, true)
     }
@@ -159,8 +163,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
-        case t @ TableNode(name) =>
-          b += quoteIdentifier(name)
+        case t: TableNode =>
+          b += quoteTableName(t)
           if(alias != Some(t.nodeTableSymbol)) addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
@@ -308,7 +312,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         case o => throw new SlickException("A query for an UPDATE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
 
-      val qtn = quoteIdentifier(from.tableName)
+      val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because UPDATE does not support aliases
       b"update $qtn set "
       b.sep(select, ", ")(field => b += symbolName(field) += " = ?")
@@ -324,7 +328,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select)), None, None) => (sym, from, where)
         case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
-      val qtn = quoteIdentifier(from.tableName)
+      val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases
       b"delete from $qtn"
       if(!where.isEmpty) {
@@ -475,7 +479,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
 
     protected def createTable: String = {
-      val b = new StringBuilder append "create table " append quoteIdentifier(table.tableName) append " ("
+      val b = new StringBuilder append "create table " append quoteTableName(table) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -488,19 +492,19 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def addTableOptions(b: StringBuilder) {}
 
-    protected def dropTable: String = "drop table "+quoteIdentifier(table.tableName)
+    protected def dropTable: String = "drop table "+quoteTableName(table)
 
     protected def createIndex(idx: Index): String = {
       val b = new StringBuilder append "create "
       if(idx.unique) b append "unique "
-      b append "index " append quoteIdentifier(idx.name) append " on " append quoteIdentifier(table.tableName) append " ("
+      b append "index " append quoteIdentifier(idx.name) append " on " append quoteTableName(table) append " ("
       addIndexColumnList(idx.on, b, idx.table.tableName)
       b append ")"
       b.toString
     }
 
     protected def createForeignKey(fk: ForeignKey[_ <: TableNode, _]): String = {
-      val sb = new StringBuilder append "alter table " append quoteIdentifier(table.tableName) append " add "
+      val sb = new StringBuilder append "alter table " append quoteTableName(table) append " add "
       addForeignKey(fk, sb)
       sb.toString
     }
@@ -508,14 +512,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
-      sb append ") references " append quoteIdentifier(fk.targetTable.tableName) append "("
+      sb append ") references " append quoteTableName(fk.targetTable) append "("
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
       sb append ") on update " append fk.onUpdate.action
       sb append " on delete " append fk.onDelete.action
     }
 
     protected def createPrimaryKey(pk: PrimaryKey): String = {
-      val sb = new StringBuilder append "alter table " append quoteIdentifier(table.tableName) append " add "
+      val sb = new StringBuilder append "alter table " append quoteTableName(table) append " add "
       addPrimaryKey(pk, sb)
       sb.toString
     }
@@ -527,10 +531,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]): String =
-      "alter table " + quoteIdentifier(table.tableName) + " drop constraint " + quoteIdentifier(fk.name)
+      "alter table " + quoteTableName(table) + " drop constraint " + quoteIdentifier(fk.name)
 
     protected def dropPrimaryKey(pk: PrimaryKey): String =
-      "alter table " + quoteIdentifier(table.tableName) + " drop constraint " + quoteIdentifier(pk.name)
+      "alter table " + quoteTableName(table) + " drop constraint " + quoteIdentifier(pk.name)
 
     protected def addIndexColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "index")

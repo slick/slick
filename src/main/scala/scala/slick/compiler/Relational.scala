@@ -113,16 +113,27 @@ class ConvertToComprehensions extends Phase {
     }
   }
 
+  object ProductOfCommonPaths {
+    def unapply(n: ProductNode): Option[(Symbol, Vector[List[Symbol]])] = if(n.nodeChildren.isEmpty) None else
+      n.nodeChildren.foldLeft(null: Option[(Symbol, Vector[List[Symbol]])]) {
+        case (None, _) => None
+        case (null, FwdPath(sym :: rest)) => Some((sym, Vector(rest)))
+        case (Some((sym0, v)), FwdPath(sym :: rest)) if sym == sym0 => Some((sym, v :+ rest))
+        case _ => None
+      }
+  }
+
   /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
   def convertSimpleGrouping(gen: Symbol, genType: Type, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
     val newBy = by.replaceKeepType { case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }
     val newSel = sel.replaceKeepType {
-      case b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductNode(Seq(Select(Ref(s2), field)))))
-        if (s2 == s1) && (gen2 == gen) => Select(Ref(gen).nodeTyped(genType), field).nodeTyped(b.nodeType)
+      case a @ Apply(fs, Seq(b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductOfCommonPaths(s2, rests)))))
+        if (s2 == s1) && (gen2 == gen) =>
+        Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rests.head).nodeTyped(b.nodeType)))(a.nodeType)
       case ca @ Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
         Library.Count.typed(ca.nodeType, LiteralNode(1))
-      case Select(r @ Ref(gen2), ElementSymbol(2)) if gen2 == gen => r
-      case Select(Ref(gen2), ElementSymbol(1)) if gen2 == gen => newBy
+      case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
+        Phase.fuseComprehensions.select(rest, if(idx == 2) Ref(gen) else newBy)(0)
     }
     Comprehension(Seq(gen -> from), groupBy = Some(newBy),
       select = Some(Pure(newSel).withComputedTypeNoRec))
@@ -284,7 +295,8 @@ class FuseComprehensions extends Phase {
           // sub-query somewhere in 'from' position. Not much we can do about this though.
           s match {
             case Library.CountAll =>
-              c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed(ap.nodeType, LiteralNode(1)))))))
+              if(c2.from.isEmpty) Library.Cast.typed(ap.nodeType, LiteralNode(1))
+              else c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed(ap.nodeType, LiteralNode(1)))))))
             case s =>
               val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false)
               // All standard aggregate functions operate on a single column
@@ -354,7 +366,7 @@ class FuseComprehensions extends Phase {
       //case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)
       case ((s: AnonSymbol) :: t, StructNode(ch)) => select(t, ch.find{ case (s2,_) => s == s2 }.get._2)
-      //case ((s: ElementSymbol) :: t, ProductNode(ch @ _*)) => select(t, ch(s.idx-1))
+      case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1))
       case _ => throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
     }
   }

@@ -1,6 +1,7 @@
 package scala.slick.profile
 
-import scala.slick.ast.{Symbol, SymbolNamer}
+import scala.slick.ast.{TableNode, Symbol, SymbolNamer}
+import scala.slick.lifted.AbstractTable
 
 /**
  * Basic profile for SQL-based drivers.
@@ -79,6 +80,11 @@ trait SqlUtilsComponent { driver: SqlDriver =>
     val s = new StringBuilder(id.length + 4) append '"'
     for(c <- id) if(c == '"') s append "\"\"" else s append c
     (s append '"').toString
+  }
+
+  def quoteTableName(t: TableNode): String = t.schemaName match {
+    case Some(s) => quoteIdentifier(s) + "." + quoteIdentifier(t.tableName)
+    case None => quoteIdentifier(t.tableName)
   }
 
   def likeEncode(s: String) = {

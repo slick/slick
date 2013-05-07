@@ -481,4 +481,23 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     (TableA.ddl ++ TableB.ddl ++ TableC.ddl).create
     queryErr2.run
   }
+
+  def testSubquery {
+    object A extends Table[Int]("A_subquery") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    A.ddl.create
+    A.insert(42)
+
+    val q0 = Query(A).filter(_.id === 42.bind).length
+    val r0 = q0.run
+    assertEquals(1, r0)
+
+    val q1 = Parameters[Int].flatMap { n =>
+      Query(A).filter(_.id is n).map(a => Query(a).length)
+    }
+    val r1 = q1(42).list
+    assertEquals(List(1), r1)
+  }
 }

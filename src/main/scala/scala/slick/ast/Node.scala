@@ -541,6 +541,12 @@ object Path {
   }
 }
 
+object FwdPath {
+  def apply(ch: List[Symbol]) = Path(ch.reverse)
+  def unapply(n: Node): Option[List[Symbol]] = Path.unapply(n).map(_.reverse)
+  def toString(path: Seq[Symbol]): String = path.mkString("Path ", ".", "")
+}
+
 /** Base class for table nodes. Direct and lifted embedding have different
   * implementations of this class. */
 abstract class TableNode extends NullaryNode { self =>

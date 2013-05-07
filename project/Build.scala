@@ -10,7 +10,7 @@ object SlickBuild extends Build {
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   val publishedScalaSettings = Seq(
-    scalaVersion := "2.10.0",
+    scalaVersion := "2.10.1",
     scalaBinaryVersion <<= scalaVersion,
     //crossScalaVersions ++= "2.10.0-M4" :: Nil,
     libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
@@ -120,14 +120,14 @@ object SlickBuild extends Build {
         // TestKit needs JUnit for its Runner
         "junit" % "junit-dep" % "4.10",
         // The Slick core tests need junit-interface, logback and the DB drivers
-        "com.novocode" % "junit-interface" % "0.10-M1" % "test",
+        "com.novocode" % "junit-interface" % "0.10-M4" % "test",
         "ch.qos.logback" % "logback-classic" % "0.9.28" % "test",
         "com.h2database" % "h2" % "1.3.170" % "test",
         "org.xerial" % "sqlite-jdbc" % "3.7.2" % "test",
         "org.apache.derby" % "derby" % "10.9.1.0" % "test",
         "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
-        "mysql" % "mysql-connector-java" % "5.1.13" % "test",
+        "mysql" % "mysql-connector-java" % "5.1.23" % "test",
         "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test"
       ),
       // Run the Queryable tests (which need macros) on a forked JVM

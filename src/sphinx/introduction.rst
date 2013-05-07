@@ -1,34 +1,62 @@
+:tocdepth: 2
+
 Introduction
 ############
 
 What is Slick?
 --------------
 
-Slick is a modern database query and access library for Scala. It allows you
+Slick is `Typesafe <http://www.typesafe.com>`_'s modern database query and access library for Scala. It allows you
 to work with stored data almost as if you were using Scala collections while
 at the same time giving you full control over when a database access happens
-and which data is transferred. You can write your database queries in Scala
-instead of SQL, thus profiting from the static checking, compile-time safety
-and compositionality of Scala. Slick features an extensible query compiler
-which can generate code for different backends.
+and which data is transferred. You can also use SQL directly.
 
-It includes the following features:
+.. includecode:: code/GettingStartedOverview.scala#what-is-slick-micro-example
 
-* Lifted query embedding (fully featured, composable, uses lifted types, evolved from ScalaQuery)
-* Direct query embedding (experimental, limited features, uses ordinary Scala types, based on macros)
-* Simple execution of raw SQL queries
-* Session management based on JDBC Connections
+When using Scala instead of SQL for your queries you profit from the compile-time safety
+and compositionality. Slick can generate queries for different backends including
+your own, using its extensible query compiler.
 
-Slick requires Scala 2.10. ScalaQuery_, the predecessor of Slick, is available
-for Scala 2.9.
+Why Slick? / Features
+----------------------------
+
+Slick offers a unique combination of features:
+
+Easy
+^^^^^
+* Access stored data just like Scala collections
+* Unified session management based on JDBC Connections
+* Supports SQL if you need it
+* Simple setup
+
+Concise
+^^^^^^^^
+* Scala syntax
+* Fetch results without pain (no ResultSet.getX)
+
+Scales naturally
+^^^^^^^^^^^^^^^^
+* Stateless (like the web)
+* Explicit control of execution time and transferred data
+
+Safe
+^^^^^^^^
+* No SQL-injections
+* Compile-time safety (types, names, no typos, etc.)
+* Type-safe support of stored procedures
+
+Composable
+^^^^^^^^^^^^^^^^
+* It‘s Scala code: abstract and re-use with ease
+
+
+Slick requires Scala 2.10. (For Scala 2.9 please use ScalaQuery_, the predecessor of Slick).
 
 .. _supported-dbs:
 
+
 Supported database systems
 --------------------------
-
-The following database systems are directly supported for type-safe queries
-(with lifted and direct embedding):
 
 * DB2 (via :doc:`slick-extensions <extensions>`)
 * Derby/JavaDB
@@ -41,7 +69,10 @@ The following database systems are directly supported for type-safe queries
 * PostgreSQL
 * SQLite
 
-Accessing other databases is possible, with a reduced feature set.
+Other SQL databases can be accessed right away with a reduced feature set.
+Writing a fully featured plugin for your own SQL-based backend can be achieved
+with a reasonable amount of work. Support for other backends (like NoSQL) is
+under development but not yet available.
 
 Quick Overview
 --------------
@@ -62,3 +93,7 @@ Accessing databases using Slick's lifted embedding requires the following steps.
    .. includecode:: code/GettingStartedOverview.scala#quick-query
 
 The :doc:`next chapter <gettingstarted>` explains these steps and further aspects in more detail.
+
+License
+-------
+Slick is released under a BSD-Style free and open source software :slick:`license <LICENSE.txt>`.
