@@ -1,6 +1,7 @@
 package scala.slick.driver
 
 import scala.language.{existentials, implicitConversions}
+import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
@@ -9,9 +10,7 @@ import scala.slick.compiler.{CodeGen, Phase, CompilerState}
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
-import scala.slick.profile.SqlProfile
-import scala.collection.mutable.HashMap
-import scala.slick.jdbc.{ResultConverter, CompiledMapping, Insert}
+import scala.slick.profile.RelationalProfile
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
@@ -221,9 +220,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"exists(!${c.copy(select = None)})"
       case Library.Concat(l, r) if concatOperator.isDefined =>
         b"\($l${concatOperator.get}$r\)"
-      case Library.User() if !capabilities.contains(SqlProfile.capabilities.functionUser) =>
+      case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
         b += "''"
-      case Library.Database() if !capabilities.contains(SqlProfile.capabilities.functionDatabase) =>
+      case Library.Database() if !capabilities.contains(RelationalProfile.capabilities.functionDatabase) =>
         b += "''"
       case Library.Pi() if !hasPiFunction => b += pi
       case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}*$ch)"
@@ -272,7 +271,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b")"
       case c: ConditionalExpr =>
         b"(case"
-        c.clauses.reverseIterator.foreach { case IfThen(l, r) => b" when $l then $r" }
+        c.clauses.foreach { case IfThen(l, r) => b" when $l then $r" }
         c.elseClause match {
           case LiteralNode(null) =>
           case n => b" else $n"
@@ -440,7 +439,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
       val (_, sbr: SQLBuilder.Result) =
-        CodeGen.findResult(selectStatementCompiler.run((Node(query))).tree)
+        CodeGen.findResult(queryCompiler.run((Node(query))).tree)
       InsertBuilderResult(table.tableName, s"INSERT INTO $qtable ($qcolumns) ${sbr.sql}", sbr.setter)
     }
 
@@ -448,7 +447,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, Insert(_, ktable: TableNode, _, ProductNode(kpaths)), CompiledMapping(rconv, _)) =
-        insertStatementCompiler.run(node).tree
+        insertCompiler.run(node).tree
       if(ktable.tableName != table)
         throw new SlickException("Returned key columns must be from same table as inserted columns ("+
           ktable+" != "+table+")")

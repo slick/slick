@@ -27,7 +27,7 @@ object Case {
   }
 
   final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: IndexedSeq[Node]) {
-    def Then(res: Column[T]) = new TypedCase[B,T](new IfThen(cond, Node(res)) +: parentClauses)
+    def Then(res: Column[T]) = new TypedCase[B,T](parentClauses :+ new IfThen(cond, Node(res)))
   }
 
   final class TypedCaseWithElse[T : TypedType](clauses: IndexedSeq[Node], elseClause: Node) extends Column[T] {
