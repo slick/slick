@@ -66,11 +66,15 @@ class DistributedQueryingTest {
       assertEquals(uData.toSet, Query(U).run.toSet)
     }
 
-    /*{
+    {
       import dProfile.simple._
       implicit val session = sDist
       assertEquals(tData.toSet, Query(T).run.toSet)
       assertEquals(uData.toSet, Query(U).run.toSet)
-    }*/
+      assertEquals(
+        tData.flatMap(t => uData.map(u => (t, u))).toSet,
+        Query(T).flatMap(t => Query(U).map(u => (t, u))).run.toSet
+      )
+    }
   }
 }

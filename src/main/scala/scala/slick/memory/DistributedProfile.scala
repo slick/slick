@@ -1,11 +1,12 @@
 package scala.slick.memory
 
 import scala.language.{implicitConversions, existentials}
+import scala.collection.mutable.HashMap
+import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.compiler._
 import scala.slick.profile.{RelationalDriver, RelationalProfile}
 import TypeUtil.typeToTypeUtil
-import scala.slick.SlickException
 
 /** A profile and driver for distributed queries. */
 trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriver =>
@@ -25,6 +26,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = ???
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = ???
+  def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
 
   val emptyHeapDB = HeapBackend.createEmptyDatabase
 
@@ -35,23 +37,44 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   }
 
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
-    def run(implicit session: Backend#Session): R = {
-      val inter = new QueryInterpreter(emptyHeapDB, param) {
-        override def run(n: Node) = n match {
-          case DriverComputation(compiled, driver, _) =>
-            val idx = drivers.indexOf(driver)
-            if(idx < 0) throw new SlickException("No session found for driver "+driver)
-            val driverSession = session.sessions(idx).asInstanceOf[driver.Backend#Session]
-            driver.createQueryExecutor[R](compiled, param).run(driverSession)
-          case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
-            val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
-            val b = n.nodeType.asCollectionType.cons.canBuildFrom()
-            b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
-            b.result()
-          case n => super.run(n)
-        }
-      }
-      inter.run(tree).asInstanceOf[R]
+    def run(implicit session: Backend#Session): R =
+      createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
+  }
+
+  class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {
+    import QueryInterpreter._
+
+    override def run(n: Node) = n match {
+      case DriverComputation(compiled, driver, _) =>
+        if(logger.isDebugEnabled) logDebug("Evaluating "+n)
+        val idx = drivers.indexOf(driver)
+        if(idx < 0) throw new SlickException("No session found for driver "+driver)
+        val driverSession = session.sessions(idx).asInstanceOf[driver.Backend#Session]
+        val dv = driver.createQueryExecutor[Any](compiled, param).run(driverSession)
+        val wr = wrapScalaValue(dv, n.nodeType)
+        if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)
+        wr
+      case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
+        if(logger.isDebugEnabled) logDebug("Evaluating "+n)
+        val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
+        val b = n.nodeType.asCollectionType.cons.canBuildFrom()
+        b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b.result()
+      case n => super.run(n)
+    }
+
+    def wrapScalaValue(value: Any, tpe: Type): Any = tpe match {
+      case ProductType(ts) =>
+        val p = value.asInstanceOf[Product]
+        new ProductValue((0 until p.productArity).map(i =>
+          wrapScalaValue(p.productElement(i), ts(i))
+        )(collection.breakOut))
+      case CollectionType(_, elType) =>
+        val v = value.asInstanceOf[Traversable[_]]
+        val b = v.companion.newBuilder[Any]
+        v.foreach(v => b += wrapScalaValue(v, elType))
+        b.result()
+      case _ => value
     }
   }
 }
@@ -65,13 +88,45 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
     val name = "distribute"
 
     def apply(state: CompilerState) = state.map { tree =>
-      val tables = tree.collect { case t: RelationalDriver#Table[_] => t }
-      val drivers: Set[RelationalDriver] = tables.map(_.tableProvider)(collection.breakOut)
-      if(drivers.size == 1) {
-        // Targeting exactly one foreign driver -> Ship the whole thing off
-        val compiled = drivers.head.queryCompiler.run(tree).tree
-        DriverComputation(compiled, drivers.head, compiled.nodeType)
-      } else tree //--
+      // Collect the required drivers and tainting drivers for all subtrees
+      val needed = new HashMap[IntrinsicSymbol, Set[RelationalDriver]]
+      val taints = new HashMap[IntrinsicSymbol, Set[RelationalDriver]]
+      def collect(n: Node, scope: Scope): (Set[RelationalDriver], Set[RelationalDriver]) = {
+        val (dr: Set[RelationalDriver], tt: Set[RelationalDriver]) = (n match {
+          case t: RelationalDriver#Table[_] => (Set(t.tableProvider), Set.empty)
+          case Ref(sym) =>
+            scope.get(sym) match {
+              case Some(nn) =>
+                val target = nn._1.nodeIntrinsicSymbol
+                (Set.empty, needed(target) ++ taints(target))
+              case None =>
+                (Set.empty, Set.empty)
+            }
+          case n =>
+            var nnd = Set.empty[RelationalDriver]
+            var ntt = Set.empty[RelationalDriver]
+            n.mapChildrenWithScope({ (_, n, sc) =>
+              val (nd, tt) = collect(n, sc)
+              nnd ++= nd
+              ntt ++= tt
+              n
+            }, scope)
+            (nnd, ntt)
+        })
+        needed += n.nodeIntrinsicSymbol -> dr
+        taints += n.nodeIntrinsicSymbol -> tt
+        (dr, tt)
+      }
+      collect(tree, Scope.empty)
+      def transform(n: Node): Node = {
+        val dr = needed(n.nodeIntrinsicSymbol)
+        val tt = taints(n.nodeIntrinsicSymbol)
+        if(dr.size == 1 && (tt -- dr).isEmpty) {
+          val compiled = dr.head.queryCompiler.run(n).tree
+          DriverComputation(compiled, dr.head, compiled.nodeType)
+        } else n.nodeMapChildren(transform)
+      }
+      transform(tree)
     }
   }
 }

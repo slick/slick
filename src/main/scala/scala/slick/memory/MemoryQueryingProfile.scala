@@ -41,6 +41,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
   type TypeInfo = ScalaType[Any]
   def typeInfoFor(t: Type): TypeInfo = ((t match {
     case t: ScalaType[_] => t
+    case t: TypedType[_] => t.scalaType
     case o: OptionType => typeInfoFor(o.elementType).asInstanceOf[ScalaBaseType[_]].optionType
     case t => throw new SlickException("No ScalaType found for type "+t)
   }): ScalaType[_]).asInstanceOf[ScalaType[Any]]
