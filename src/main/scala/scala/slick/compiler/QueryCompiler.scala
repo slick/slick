@@ -62,8 +62,6 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 object QueryCompiler {
   val standardPhases = Vector(
     // Clean up trees from the lifted embedding
-    Phase.localizeRefs,
-    Phase.reconstructProducts,
     Phase.inline,
     Phase.assignUniqueSymbols,
     // Distribute and normalize
@@ -110,8 +108,6 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
 
 object Phase {
   /** The standard phases of the query compiler */
-  val localizeRefs = new LocalizeRefs
-  val reconstructProducts = new ReconstructProducts
   val inline = new Inline
   val assignUniqueSymbols = new AssignUniqueSymbols
   val expandTables = new ExpandTables

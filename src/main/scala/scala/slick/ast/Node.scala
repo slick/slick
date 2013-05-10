@@ -568,42 +568,6 @@ object TableNode {
   def unapply(t: TableNode) = Some(t.tableName)
 }
 
-/** A dynamically scoped Let expression where the resulting expression and
-  * all definitions may refer to other definitions independent of the order
-  * in which they appear in the Let. Circular dependencies are not allowed. */
-final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends DefNode {
-  type Self = LetDynamic
-  val nodeChildren = defs.map(_._2) :+ in
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
-    copy(defs = defs.zip(ch.init).map{ case ((s, _), n) => (s, n) }, in = ch.last)
-  override def nodeChildNames = defs.map("let " + _._1.toString) :+ "in"
-  def nodeGenerators = defs
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node =
-    copy(defs = (defs, gen).zipped.map((e, s) => (s, e._2)))
-  override def toString = "LetDynamic"
-  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
-    var defsMap = defs.toMap.mapValues(n => (n, false))
-    var updated = false
-    lazy val dynScope: SymbolScope = scope.withDefault { sym =>
-      defsMap.get(sym) match {
-        case Some((n, false)) =>
-          val n2 = n.nodeWithComputedType(dynScope, retype)
-          if(n2 ne n) updated = true
-          defsMap += (sym -> (n2, true))
-          n2.nodeType
-        case Some((n, true)) => n.nodeType
-        case None => throw new SlickException("Symbol "+sym+" not found")
-      }
-    }
-    val i2 = in.nodeWithComputedType(dynScope, retype)
-    if((i2 eq in) && !updated && i2.nodeType == nodeType) this
-    else {
-      val d2 = defs.map { case (s, _) => (s, defsMap(s)._1) }
-      copy(defs = d2, in = i2).nodeTyped(i2.nodeType)
-    }
-  }
-}
-
 /** A node that represents an SQL sequence. */
 final case class SequenceNode(name: String)(val increment: Long) extends NullaryNode with TypedNode {
   type Self = SequenceNode

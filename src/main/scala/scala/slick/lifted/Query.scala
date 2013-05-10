@@ -21,7 +21,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
       WithOp.encodeRef(uv, generator)
     }
     val fv = f(aliased)
-    new WrappingQuery[F, T](new Bind(generator, Node(unpackable.value), Node(fv)), fv.unpackable)
+    new WrappingQuery[F, T](new Bind(generator, Node(this), Node(fv)), fv.unpackable)
   }
 
   def map[F, G, T](f: E => F)(implicit shape: Shape[F, T, G]): Query[G, T] =
@@ -44,7 +44,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = unpackable.encodeRef(leftGen)
     val aliased2 = q2.unpackable.encodeRef(rightGen)
-    new BaseJoinQuery[E, E2, U, U2](leftGen, rightGen, Node(unpackable.value), Node(q2.unpackable.value), jt, aliased1.zip(aliased2))
+    new BaseJoinQuery[E, E2, U, U2](leftGen, rightGen, Node(this), Node(q2), jt, aliased1.zip(aliased2))
   }
   def innerJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Inner)
   def leftJoin[E2, U2](q2: Query[E2, U2]) = join(q2, JoinType.Left)
@@ -57,7 +57,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = unpackable.encodeRef(leftGen)
     val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Shape.columnShape[Long])
-    new BaseJoinQuery[E, Column[Long], U, Long](leftGen, rightGen, Node(unpackable.value), RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
+    new BaseJoinQuery[E, Column[Long], U, Long](leftGen, rightGen, Node(this), RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
   }
 
   def sortBy[T <% Ordered](f: E => T): Query[E, U] = {
@@ -72,7 +72,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
     val sym = new AnonSymbol
     val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
     val value = ShapedValue(pack, Shape.impureShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
-    val group = GroupBy(sym, new AnonSymbol, Node(unpackable.value), Node(key.value))
+    val group = GroupBy(sym, new AnonSymbol, Node(this), Node(key.value))
     new WrappingQuery(group, key.zip(value))
   }
 
@@ -83,14 +83,14 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
   }
 
   def union[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](Union(Node(unpackable.value), Node(other.unpackable.value), false), unpackable)
+    new WrappingQuery[O, U](Union(Node(this), Node(other), false), unpackable)
 
   def unionAll[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](Union(Node(unpackable.value), Node(other.unpackable.value), true), unpackable)
+    new WrappingQuery[O, U](Union(Node(this), Node(other), true), unpackable)
 
-  def length: Column[Int] = Library.CountAll.column(Node(unpackable.value))
-  def countDistinct: Column[Int] = Library.CountDistinct.column(Node(unpackable.value))
-  def exists = Library.Exists.column[Boolean](Node(unpackable.value))
+  def length: Column[Int] = Library.CountAll.column(Node(this))
+  def countDistinct: Column[Int] = Library.CountDistinct.column(Node(this))
+  def exists = Library.Exists.column[Boolean](Node(this))
 
   def pack[R](implicit packing: Shape[E, _, R]): Query[R, U] =
     new Query[R, U] {
