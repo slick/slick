@@ -554,7 +554,6 @@ abstract class TableNode extends NullaryNode { self =>
   def nodeTableProjection: Node
   def schemaName: Option[String]
   def tableName: String
-  def nodeTableSymbol: TableSymbol = TableSymbol(tableName)
   def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = this
   override def toString = "Table " + tableName
   def nodeRebuild: TableNode = new TableNode {

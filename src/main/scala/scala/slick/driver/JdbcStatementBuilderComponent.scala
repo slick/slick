@@ -67,7 +67,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case p: Pure =>
         Comprehension(select = Some(p))
       case t: TableNode =>
-        Comprehension(from = Seq(t.nodeTableSymbol -> t))
+        Comprehension(from = Seq(newSym -> t))
       case u: Union =>
         Comprehension(from = Seq(newSym -> u))
       case n =>
@@ -164,7 +164,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       n match {
         case t: TableNode =>
           b += quoteTableName(t)
-          if(alias != Some(t.nodeTableSymbol)) addAlias
+          addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
           b" ${jt.sqlName} join "
