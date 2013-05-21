@@ -107,6 +107,17 @@ sealed abstract class PositionedResult(val rs: ResultSet) extends Closeable { ou
   def close(): Unit
 
   /**
+  * Return a Map composed with "Column name"->value
+  */
+  def toMap:Map[String,Any] = {
+    val m = collection.mutable.MutableList[(String, Any)]()
+    while (hasMoreColumns)
+      m.+=(rs.getMetaData.getColumnName(currentPos+1) -> nextObject())
+    restart
+    m.toMap
+  }
+
+  /**
    * Create an embedded PositionedResult which extends from the given dataPos
    * column until the end of this PositionedResult, starts at the current row
    * and ends when the discriminator predicate (which can read columns starting
