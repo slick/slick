@@ -21,7 +21,7 @@ abstract class Transformer { self =>
       initTree(n)
       val n2 = memoized[Node, Node](r => { n =>
         val rn = repl(n)
-        if(keepType) rn.nodeMapChildrenKeepType(r) else rn.nodeMapChildren(r)
+        rn.nodeMapChildren(r, keepType)
       })(n)
       if(once || (n2 eq n)) n2 else scanAndTr(n2)
     }

@@ -1,6 +1,6 @@
 package scala.slick.jdbc
 
-import scala.slick.ast.{ScalaBaseType, MappedScalaType, ScalaType, ScalaOptionType, OptionTypedType, BaseTypedType, TypedType}
+import scala.slick.ast._
 import scala.reflect.ClassTag
 
 /**
@@ -55,6 +55,11 @@ trait JdbcType[T] extends TypedType[T] { self =>
     override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
     override def nullable = true
     override def toString = s"Option[$self]"
+    def mapChildren(f: Type => Type): OptionTypedType[T] with JdbcType[Option[T]] = {
+      val e2 = f(elementType)
+      if(e2 eq elementType) this
+      else e2.asInstanceOf[JdbcType[T]].optionType
+    }
   }
 
   override def toString = {

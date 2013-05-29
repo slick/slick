@@ -10,7 +10,9 @@ class ForceOuterBinds extends Phase {
   val name = "forceOuterBinds"
 
   def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n)(wrap)
+    ClientSideOp.mapServerSide(n) { ch =>
+      wrap(ch).nodeWithComputedType(SymbolScope.empty, typeChildren = true, retype = false)
+    }
   }
 
   def idBind(n: Node): Bind = {
@@ -23,7 +25,7 @@ class ForceOuterBinds extends Phase {
   }
 
   def wrap(n: Node): Node = n match {
-    case b: Bind => b.nodeMapChildren { ch =>
+    case b @ Bind(_, _, Pure(_)) => b.nodeMapChildren { ch =>
       if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch) else maybewrap(ch)
     }
     case n => idBind(nowrap(n))
@@ -38,6 +40,7 @@ class ForceOuterBinds extends Phase {
       if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)
       else maybewrap(ch)
     }
+    case r: Ref => r.nodeUntypedOrCopy
     case n => n.nodeMapChildren(maybewrap)
   }
 

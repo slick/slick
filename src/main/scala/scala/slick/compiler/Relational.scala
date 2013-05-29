@@ -40,7 +40,7 @@ class ResolveZipJoins extends Phase {
         case Select(OldBindRef, ElementSymbol(1)) => Ref(bindSym)
         case Select(OldBindRef, ElementSymbol(2)) => Select(Ref(bindSym), idxSym)
       }
-      Bind(bindSym, innerBind, Pure(newOuterSel)).nodeWithComputedType(SymbolScope.empty, false)
+      Bind(bindSym, innerBind, Pure(newOuterSel)).nodeWithComputedType(SymbolScope.empty, false, true)
 
     // zip with another query
     case b @ Bind(_, Join(jlsym, jrsym,
@@ -53,10 +53,10 @@ class ResolveZipJoins extends Phase {
       val join = Join(jlsym, jrsym, lInnerBind, rInnerBind, JoinType.Inner,
         Library.==.typed[Boolean](Select(Ref(jlsym), lIdxSym), Select(Ref(jrsym), rIdxSym))
       )
-      b.copy(from = join).nodeWithComputedType(SymbolScope.empty, false)
+      b.copy(from = join).nodeWithComputedType(SymbolScope.empty, false, true)
 
     case n => n
-  }).nodeMapChildrenKeepType(resolveZipJoins)
+  }).nodeMapChildren(resolveZipJoins, keepType = true)
 }
 
 class ResolveZipJoinsState(val hasRowNumber: Boolean)
@@ -124,8 +124,8 @@ class ConvertToComprehensions extends Phase {
 
   /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
   def convertSimpleGrouping(gen: Symbol, genType: Type, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
-    val newBy = by.replaceKeepType { case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }
-    val newSel = sel.replaceKeepType {
+    val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)
+    val newSel = sel.replace({
       case a @ Apply(fs, Seq(b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductOfCommonPaths(s2, rests)))))
         if (s2 == s1) && (gen2 == gen) =>
         Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rests.head).nodeTyped(b.nodeType)))(a.nodeType)
@@ -133,7 +133,7 @@ class ConvertToComprehensions extends Phase {
         Library.Count.typed(ca.nodeType, LiteralNode(1))
       case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
         Phase.fuseComprehensions.select(rest, if(idx == 2) Ref(gen) else newBy)(0)
-    }
+    }, keepType = true)
     Comprehension(Seq(gen -> from), groupBy = Some(newBy),
       select = Some(Pure(newSel).withComputedTypeNoRec))
   }
@@ -165,14 +165,14 @@ class FuseComprehensions extends Phase {
     ClientSideOp.mapServerSide(n)(fuse)
   }
 
-  def fuse(n: Node): Node = n.nodeMapChildrenKeepType(fuse) match {
+  def fuse(n: Node): Node = n.nodeMapChildren(fuse, keepType = true) match {
     case c: Comprehension =>
       logger.debug("Checking:",c)
       val fused = createSelect(c) match {
         case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
-      liftAggregates(fused).nodeWithComputedType(SymbolScope.empty, false)
+      liftAggregates(fused).nodeWithComputedType(SymbolScope.empty, false, true)
     case n => n
   }
 
@@ -233,9 +233,8 @@ class FuseComprehensions extends Phase {
     var fuse = false
 
     def inline(n: Node): Node = n match {
-      case p @ Path(psyms) =>
-        logger.debug("Inlining "+Path.toString(psyms)+" with structs "+structs.keySet)
-        val syms = psyms.reverse
+      case p @ FwdPath(syms) =>
+        logger.debug("Inlining "+FwdPath.toString(syms)+" with structs "+structs.keySet)
         structs.get(syms.head).map{ base =>
           logger.debug("  found struct "+base)
           val repl = select(syms.tail, base)(0)
@@ -297,7 +296,7 @@ class FuseComprehensions extends Phase {
               if(c2.from.isEmpty) Library.Cast.typed(ap.nodeType, LiteralNode(1))
               else c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed(ap.nodeType, LiteralNode(1)))))))
             case s =>
-              val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false)
+              val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
               // All standard aggregate functions operate on a single column
               val Some(Pure(StructNode(Seq((_, expr))))) = c3.select
               val elType = c3.nodeType.asCollectionType.elementType
@@ -310,7 +309,7 @@ class FuseComprehensions extends Phase {
           Select(Ref(a), f)
         }
       case c: Comprehension => c // don't recurse into sub-queries
-      case n => n.nodeMapChildrenKeepType(tr)
+      case n => n.nodeMapChildren(tr, keepType = true)
     }
     val c2 = c.nodeMapScopedChildren {
       case (Some(gen), ch) =>
@@ -326,7 +325,7 @@ class FuseComprehensions extends Phase {
           case Library.CountAll =>
             (c2, Library.Count.typed(c2.nodeType.asCollectionType.elementType, LiteralNode(1)))
           case s =>
-            val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false)
+            val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
             // All standard aggregate functions operate on a single column
             val Some(Pure(StructNode(Seq((f2, _))))) = c3.select
             val elType = c3.nodeType.asCollectionType.elementType
@@ -360,7 +359,7 @@ class FuseComprehensions extends Phase {
   }
 
   def select(selects: List[Symbol], base: Node): Vector[Node] = {
-    logger.debug("select("+selects+", "+base+")")
+    logger.debug("select("+FwdPath.toString(selects)+", "+base+")")
     (selects, base) match {
       //case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)
@@ -387,7 +386,7 @@ class FuseComprehensions extends Phase {
         val copyStruct = StructNode(struct.map { case (field, _) =>
           (field, Select(r, field))
         })
-        c.copy(select = Some(Pure(copyStruct))).nodeWithComputedType(SymbolScope.empty, false)
+        c.copy(select = Some(Pure(copyStruct))).nodeWithComputedType(SymbolScope.empty, false, true)
       /*case (sym, Pure(StructNode(struct))) =>
         val r = Ref(sym)
         val copyStruct = StructNode(struct.map { case (field, _) =>
@@ -428,6 +427,6 @@ class FixRowNumberOrdering extends Phase {
       case (Some(gen), ch) => fixRowNumberOrdering(ch, None)
       case (None, ch) => fixRowNumberOrdering(ch, Some(c))
     }
-    case (n, _) => n.nodeMapChildrenKeepType(ch => fixRowNumberOrdering(ch, parent))
+    case (n, _) => n.nodeMapChildren(ch => fixRowNumberOrdering(ch, parent), keepType = true)
   }
 }

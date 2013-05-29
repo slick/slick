@@ -35,41 +35,45 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
   override def toString = "Comprehension(fetch = "+fetch+", offset = "+offset+")"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(from = (from, gen).zipped.map { case ((_, n), s) => (s, n) })
-  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
-    // Assign types to all "from" Nodes and compute the resulting scope
-    val (genScope, f2) = from.foldLeft((scope, Vector.empty[Node])) { case ((sc, n2s), (s, n)) =>
-      val n2 = n.nodeWithComputedType(sc, retype)
-      val sc2 = sc + (s -> n2.nodeType.asCollectionType.elementType)
-      (sc2, n2s :+ n2)
+  def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
+    if(nodeHasType && !typeChildren) this else {
+      // Assign types to all "from" Nodes and compute the resulting scope
+      val (genScope, f2) = from.foldLeft((scope, Vector.empty[Node])) { case ((sc, n2s), (s, n)) =>
+        val n2 = n.nodeWithComputedType(sc, typeChildren, retype)
+        val sc2 = sc + (s -> n2.nodeType.asCollectionType.elementType)
+        (sc2, n2s :+ n2)
+      }
+      // Assign types to "where", "groupBy", "orderBy" and "select" Nodes
+      val w2 = mapOrNone(where)(_.nodeWithComputedType(genScope, typeChildren, retype))
+      val g2 = mapOrNone(groupBy)(_.nodeWithComputedType(genScope, typeChildren, retype))
+      val o = orderBy.map(_._1)
+      val o2 = mapOrNone(o)(_.nodeWithComputedType(genScope, typeChildren, retype))
+      val s2 = mapOrNone(select)(_.nodeWithComputedType(genScope, typeChildren, retype))
+      // Check if the nodes changed
+      val same = (from, f2).zipped.map(_._2 eq _).forall(identity) &&
+        w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty
+      val newSel = s2.map(_.headOption).getOrElse(select)
+      val newType =
+        if(!nodeHasType || retype) {
+          newSel match {
+            case Some(sel) => sel.nodeType
+            case None =>
+              val el = f2.last.nodeType.asCollectionType.elementType
+              val tc = f2.head.nodeType.asCollectionType.cons
+              CollectionType(tc, el)
+          }
+        } else nodeType
+      if(same && newType == nodeType) this else {
+        // Compute result type
+        copy(
+          from = (from, f2).zipped.map { case ((s, _), n) => (s, n) },
+          where = w2.getOrElse(where),
+          groupBy = g2.map(_.headOption).getOrElse(groupBy),
+          orderBy = o2.map(o2 => (orderBy, o2).zipped.map { case ((_, o), n) => (n, o) }).getOrElse(orderBy),
+          select = s2.map(_.headOption).getOrElse(select)
+        ).nodeTyped(newType)
+      }
     }
-    // Assign types to "where", "groupBy", "orderBy" and "select" Nodes
-    val w2 = mapOrNone(where)(_.nodeWithComputedType(genScope, retype))
-    val g2 = mapOrNone(groupBy)(_.nodeWithComputedType(genScope, retype))
-    val o = orderBy.map(_._1)
-    val o2 = mapOrNone(o)(_.nodeWithComputedType(genScope, retype))
-    val s2 = mapOrNone(select)(_.nodeWithComputedType(genScope, retype))
-    // Check if the nodes changed
-    val same = (from, f2).zipped.map(_._2 eq _).forall(identity) &&
-      w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty
-    val newSel = s2.map(_.headOption).getOrElse(select)
-    val newType = (newSel match {
-      case Some(sel) => sel.nodeType
-      case None =>
-        val el = f2.last.nodeType.asCollectionType.elementType
-        val tc = f2.head.nodeType.asCollectionType.cons
-        CollectionType(tc, el)
-    })
-    if(same && newType == nodeType) this else {
-      // Compute result type
-      copy(
-        from = (from, f2).zipped.map { case ((s, _), n) => (s, n) },
-        where = w2.getOrElse(where),
-        groupBy = g2.map(_.headOption).getOrElse(groupBy),
-        orderBy = o2.map(o2 => (orderBy, o2).zipped.map { case ((_, o), n) => (n, o) }).getOrElse(orderBy),
-        select = s2.map(_.headOption).getOrElse(select)
-      ).nodeTyped(newType)
-    }
-  }
 }
 
 /** The row_number window function */

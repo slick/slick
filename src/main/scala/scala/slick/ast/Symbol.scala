@@ -18,6 +18,25 @@ case class ElementSymbol(idx: Int) extends Symbol {
   def name = "_" + idx
 }
 
+/** The symbol of a nominal type */
+trait TypeSymbol extends Symbol
+
+/** A TypeSymbol which uniquely identifies a table type */
+trait TableIdentitySymbol extends TypeSymbol
+
+/** Default implementation of TableIdentitySymbol */
+case class SimpleTableIdentitySymbol(constituents: AnyRef*) extends TableIdentitySymbol {
+  def name = constituents.mkString("@(", ".", ")")
+}
+
+/** An anonymous symbol defined in the AST. */
+class AnonTypeSymbol extends TypeSymbol {
+  def name = "$@"+System.identityHashCode(this)
+}
+
+object AnonTypeSymbol {
+  def unapply(a: AnonTypeSymbol) = Some(a.name)
+}
 
 /** An anonymous symbol defined in the AST. */
 class AnonSymbol extends Symbol {

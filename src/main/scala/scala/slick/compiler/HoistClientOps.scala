@@ -35,8 +35,8 @@ class HoistClientOps extends Phase {
           (newFrom.copy(select = Some(Pure(ProductNode(str.map(_._2)).withComputedTypeNoRec).withComputedTypeNoRec)),
             newProj.replace { case Select(in, f) if symMap.contains(f) => Select(in, symMap(f)) })
         }
-      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).nodeWithComputedType(SymbolScope.empty, false)
-      fuseResultSetMappings(rsm.copy(from = rsm2)).nodeWithComputedType(SymbolScope.empty, false)
+      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).nodeWithComputedType(SymbolScope.empty, false, true)
+      fuseResultSetMappings(rsm.copy(from = rsm2)).nodeWithComputedType(SymbolScope.empty, false, true)
     }
   }
 
@@ -93,7 +93,7 @@ class HoistClientOps extends Phase {
             "This cannot be done lazily when the value is needed on the database side", ex)
       }
       Library.IfNull.typed(tpe, ch2, LiteralNode.apply(tpe, d))
-    case n => n.nodeMapChildrenKeepType(rewriteDBSide)
+    case n => n.nodeMapChildren(rewriteDBSide, keepType = true)
   }
 
   def unwrap(n: Node): (Node, (Node => Node)) = n match {

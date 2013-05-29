@@ -74,11 +74,11 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
       }
 
     def retype(n: Node): Node = {
-      val n2 = n.nodeMapChildrenKeepType(retype)
+      val n2 = n.nodeMapChildren(retype, keepType = true)
       n2.nodeRebuildWithType(trType(n2.nodeType))
     }
 
-    def trType(t: Type): Type = t match {
+    def trType(t: Type): Type = t.structural match {
       case StructType(el) => StructType(el.map { case (s, t) => (s, trType(t)) })
       case ProductType(el) => ProductType(el.map(trType))
       case CollectionType(cons, el) => CollectionType(cons, trType(el))
