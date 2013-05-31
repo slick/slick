@@ -304,6 +304,18 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       t.fromDouble(scala.math.ceil(t.toDouble(args(0)._2)))
     case Library.Concat => args.iterator.map(_._2.toString).mkString
     case Library.CountAll => args(0)._2.asInstanceOf[Coll].size
+    case Library.Count =>
+      val CollectionType(_, elType) = args(0)._1
+      val coll = args(0)._2.asInstanceOf[Coll]
+      (elType match {
+        case ProductType(_) =>
+          coll.iterator.filter { p =>
+            val v = p.asInstanceOf[ProductValue].apply(0)
+            v != null && v != None
+          }
+        case _ =>
+          coll.iterator.filter(v => v != null && v != None)
+      }).size
     case Library.Database => ""
     case Library.Degrees =>
       val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]

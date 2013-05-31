@@ -112,16 +112,6 @@ class ConvertToComprehensions extends Phase {
     }
   }
 
-  object ProductOfCommonPaths {
-    def unapply(n: ProductNode): Option[(Symbol, Vector[List[Symbol]])] = if(n.nodeChildren.isEmpty) None else
-      n.nodeChildren.foldLeft(null: Option[(Symbol, Vector[List[Symbol]])]) {
-        case (None, _) => None
-        case (null, FwdPath(sym :: rest)) => Some((sym, Vector(rest)))
-        case (Some((sym0, v)), FwdPath(sym :: rest)) if sym == sym0 => Some((sym, v :+ rest))
-        case _ => None
-      }
-  }
-
   /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
   def convertSimpleGrouping(gen: Symbol, genType: Type, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
     val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)

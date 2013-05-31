@@ -145,3 +145,13 @@ object ExtraUtil {
     sels
   }
 }
+
+object ProductOfCommonPaths {
+  def unapply(n: ProductNode): Option[(Symbol, Vector[List[Symbol]])] = if(n.nodeChildren.isEmpty) None else
+    n.nodeChildren.foldLeft(null: Option[(Symbol, Vector[List[Symbol]])]) {
+      case (None, _) => None
+      case (null, FwdPath(sym :: rest)) => Some((sym, Vector(rest)))
+      case (Some((sym0, v)), FwdPath(sym :: rest)) if sym == sym0 => Some((sym, v :+ rest))
+      case _ => None
+    }
+}

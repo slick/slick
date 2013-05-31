@@ -74,8 +74,22 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
       }
 
     def retype(n: Node): Node = {
-      val n2 = n.nodeMapChildren(retype, keepType = true)
-      n2.nodeRebuildWithType(trType(n2.nodeType))
+      val n2 = transformSimpleGrouping(n)
+      val n3 = n2.nodeMapChildren(retype, keepType = true)
+      n3.nodeRebuildWithType(trType(n3.nodeType))
+    }
+
+    def transformSimpleGrouping(n: Node) = n match {
+      case Bind(gen, g: GroupBy, p @ Pure(_: ProductNode)) =>
+        val p2 = transformCountAll(gen, p)
+        if(p2 eq p) n else Bind(gen, g, p2).nodeWithComputedType(typeChildren = true)
+      case n => n
+    }
+
+    def transformCountAll(gen: Symbol, n: Node): Node = n match {
+      case Apply(Library.CountAll, ch @ Seq(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _))))) if s == gen && s2 == gen2 =>
+        Apply(Library.Count, ch)(n.nodeType)
+      case n => n.nodeMapChildren(ch => transformCountAll(gen, ch), keepType = true)
     }
 
     def trType(t: Type): Type = t.structural match {
