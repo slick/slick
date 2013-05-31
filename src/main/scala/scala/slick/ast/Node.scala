@@ -348,14 +348,14 @@ object Ordering {
 }
 
 /** A .groupBy call. */
-final case class GroupBy(fromGen: Symbol, byGen: Symbol, from: Node, by: Node) extends BinaryNode with DefNode {
+final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNode with DefNode {
   type Self = GroupBy
   def left = from
   def right = by
-  override def nodeChildNames = Seq("from "+fromGen, "by "+byGen)
+  override def nodeChildNames = Seq("from "+fromGen, "by")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, by = right)
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(fromGen = gen(0), byGen = gen(1))
-  def nodeGenerators = Seq((fromGen, from), (byGen, by))
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(fromGen = gen(0))
+  def nodeGenerators = Seq((fromGen, from))
   override def toString = "GroupBy"
   def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
     if(nodeHasType && !typeChildren) this else {

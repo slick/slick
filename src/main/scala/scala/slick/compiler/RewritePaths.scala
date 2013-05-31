@@ -51,7 +51,6 @@ class RewritePaths extends Phase {
           case Some(g: GroupBy) =>
             logger.debug("  found GroupBy for "+nh+" (from "+h+")")
             t match {
-              case (e @ ElementSymbol(1)) :: tt => findFlattened(g.byGen :: tt, e :: base)
               case (e @ ElementSymbol(2)) :: tt => findFlattened(g.fromGen :: tt, e :: base)
               case _ => None
             }

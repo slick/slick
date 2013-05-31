@@ -81,7 +81,7 @@ class ConvertToComprehensions extends Phase {
 
     def replace = {
       // GroupBy to Comprehension
-      case b @ Bind(gen, gr @ GroupBy(fromGen, _, from, by), Pure(sel)) =>
+      case b @ Bind(gen, gr @ GroupBy(fromGen, from, by), Pure(sel)) =>
         convertSimpleGrouping(gen, gr.nodeType.asCollectionType.elementType,
           fromGen, from, by, sel).nodeTyped(b.nodeType)
       case g: GroupBy =>
