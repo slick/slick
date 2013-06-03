@@ -113,7 +113,7 @@ object SlickBuild extends Build {
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
     )))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
+    settings = Project.defaultSettings ++ inConfig(config("test-config"))(Defaults.configSettings) ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
@@ -132,6 +132,11 @@ object SlickBuild extends Build {
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
         "mysql" % "mysql-connector-java" % "5.1.23" % "test"
       ),
+      ivyConfigurations += config("test-config").hide.extend(Compile),
+      unmanagedClasspath in config("test-config") <++= fullClasspath in (slickProject, Compile),
+      unmanagedClasspath in Test <++= fullClasspath in config("test-config"),
+      mappings in (Test, packageSrc) <++= mappings in (config("test-config"), packageSrc),
+      mappings in (Test, packageBin) <++= mappings in (config("test-config"), packageBin),
       // Run the Queryable tests (which need macros) on a forked JVM
       // to avoid classloader problems with reification
       testGrouping <<= definedTests in Test map partitionTests,
@@ -155,12 +160,7 @@ object SlickBuild extends Build {
     //test <<= Seq(test in Test, test in DocTest).dependOn,
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
-  ) dependsOn(slickTestkitConfigProject, slickProject)
-
-  lazy val slickTestkitConfigProject = Project(id = "testkit-config", base = file("slick-testkit/config"),
-    settings = Project.defaultSettings ++ sharedSettings ++ Seq(
-      publish := {}
-      )).dependsOn(slickProject)
+  ) dependsOn(slickProject)
 
 
   /* Test Configuration for running tests on doc sources */
