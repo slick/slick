@@ -111,6 +111,11 @@ object SlickBuild extends Build {
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (),
+      fullRunInputTask(
+        InputKey[Unit]("code-generate"),
+        Compile,
+        "scala.slick.typeproviders.CodeGeneratorMain"
+      ),
       testOnly <<= inputTask { argTask => (argTask) map { args => }},
       ivyConfigurations += config("macro").hide.extend(Compile),
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
