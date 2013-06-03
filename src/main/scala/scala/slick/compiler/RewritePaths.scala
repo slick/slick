@@ -147,7 +147,7 @@ class RewritePaths extends Phase {
 
   def removeExpansion(n: Node) = n match {
     case TableExpansion(gen, t, cols) =>
-      val tableRefs = cols.collect[Select] { case s @ Select(Ref(gen), _) => s }
+      val tableRefs = cols.collect[Select] { case s @ Select(Ref(gen2), _) if gen2 == gen => s }.toSet
       val structType = StructType(tableRefs.map{ case sel @ Select(_, sym) => (sym, sel.nodeType) }(collection.breakOut))
       val cons = t.nodeType.asCollectionType.cons
       Bind(gen, t.nodeRebuildWithType(CollectionType(cons, structType)), Pure(cols))

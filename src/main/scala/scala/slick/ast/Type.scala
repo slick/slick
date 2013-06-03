@@ -18,6 +18,8 @@ object Type {
 
 case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
+  lazy val symbolToIndex: Map[Symbol, Int] =
+    elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
 }
 
 trait OptionType extends Type {
@@ -69,13 +71,15 @@ object Typed {
 }
 
 /* A Type that carries a Scala type argument */
-trait TypedType[T] extends Type {
-  def optionType: OptionTypedType[T] = new OptionTypedType[T](this)
+trait TypedType[T] extends Type { self =>
+  def optionType: OptionTypedType[T] = new OptionTypedType[T] { val elementType = self }
 }
 
 trait BaseTypedType[T] extends TypedType[T]
 
-class OptionTypedType[T](val elementType: TypedType[T]) extends TypedType[Option[T]] with OptionType
+trait OptionTypedType[T] extends TypedType[Option[T]] with OptionType {
+  val elementType: TypedType[T]
+}
 
 /** Mark a TypedType as eligible for numeric operators. */
 trait NumericTypedType

@@ -617,7 +617,7 @@ final case class SequenceNode(name: String)(val increment: Long) extends Nullary
   * cannot be represented in SQL outside of a 'zip' operation. */
 final case class RangeFrom(start: Long = 1L) extends NullaryNode with TypedNode {
   type Self = RangeFrom
-  def tpe = StaticType.Long
+  def tpe = CollectionType(CollectionTypeConstructor.default, StaticType.Long)
   def nodeRebuild = copy()
 }
 

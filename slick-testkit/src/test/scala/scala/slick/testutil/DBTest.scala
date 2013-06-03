@@ -5,11 +5,11 @@ import org.junit.{Before, After}
 import org.junit.runner.{JUnitCore, RunWith}
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import com.typesafe.slick.testkit.util.TestDB
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestDB}
 
 @RunWith(classOf[Parameterized])
 abstract class DBTest {
-  val tdb: TestDB
+  val tdb: JdbcTestDB
 
   lazy val db = tdb.createDB()
 

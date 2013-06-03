@@ -1,12 +1,13 @@
 package scala.slick.driver
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
+import java.util.UUID
 import scala.slick.SlickException
 import scala.slick.ast.{OptionType, NumericTypedType, BaseTypedType, StaticType, Type}
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
-import java.util.UUID
+import scala.slick.profile.RelationalTypesComponent
 
-trait JdbcTypesComponent { driver: JdbcDriver =>
+trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =>
 
   type TypeInfo = JdbcType[Any /* it's really _ but we'd have to cast it to Any anyway */]
 
@@ -56,7 +57,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     val nullJdbcType = new NullJdbcType
 
     class BooleanJdbcType extends DriverJdbcType[Boolean] {
-      def zero = false
       def sqlType = java.sql.Types.BOOLEAN
       def setValue(v: Boolean, p: PositionedParameters) = p.setBoolean(v)
       def setOption(v: Option[Boolean], p: PositionedParameters) = p.setBooleanOption(v)
@@ -65,7 +65,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class BlobJdbcType extends DriverJdbcType[Blob] {
-      def zero = null
       def sqlType = java.sql.Types.BLOB
       def setValue(v: Blob, p: PositionedParameters) = p.setBlob(v)
       def setOption(v: Option[Blob], p: PositionedParameters) = p.setBlobOption(v)
@@ -76,7 +75,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class ByteJdbcType extends DriverJdbcType[Byte] with NumericTypedType {
-      def zero = 0
       def sqlType = java.sql.Types.TINYINT
       def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
       def setOption(v: Option[Byte], p: PositionedParameters) = p.setByteOption(v)
@@ -85,7 +83,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class ByteArrayJdbcType extends DriverJdbcType[Array[Byte]] {
-      val zero = new Array[Byte](0)
       val sqlType = java.sql.Types.BLOB
       def setValue(v: Array[Byte], p: PositionedParameters) = p.setBytes(v)
       def setOption(v: Option[Array[Byte]], p: PositionedParameters) = p.setBytesOption(v)
@@ -96,7 +93,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class ClobJdbcType extends DriverJdbcType[Clob] {
-      def zero = null
       def sqlType = java.sql.Types.CLOB
       def setValue(v: Clob, p: PositionedParameters) = p.setClob(v)
       def setOption(v: Option[Clob], p: PositionedParameters) = p.setClobOption(v)
@@ -105,21 +101,19 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class CharJdbcType extends JdbcType[Char] with BaseTypedType[Char] {
-      def zero = ' '
       def sqlType = java.sql.Types.CHAR
       def sqlTypeName = "CHAR(1)"
       def setValue(v: Char, p: PositionedParameters) = stringJdbcType.setValue(String.valueOf(v), p)
       def setOption(v: Option[Char], p: PositionedParameters) = stringJdbcType.setOption(v.map(String.valueOf), p)
       def nextValue(r: PositionedResult) = {
         val s = stringJdbcType.nextValue(r)
-        if(s.isEmpty) zero else s.charAt(0)
+        if(s.isEmpty) ' ' else s.charAt(0)
       }
       def updateValue(v: Char, r: PositionedResult) = stringJdbcType.updateValue(String.valueOf(v), r)
       override def valueToSQLLiteral(v: Char) = stringJdbcType.valueToSQLLiteral(String.valueOf(v))
     }
 
     class DateJdbcType extends DriverJdbcType[Date] {
-      def zero = new Date(0L)
       def sqlType = java.sql.Types.DATE
       def setValue(v: Date, p: PositionedParameters) = p.setDate(v)
       def setOption(v: Option[Date], p: PositionedParameters) = p.setDateOption(v)
@@ -129,7 +123,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
-      def zero = 0
       def sqlType = java.sql.Types.DOUBLE
       def setValue(v: Double, p: PositionedParameters) = p.setDouble(v)
       def setOption(v: Option[Double], p: PositionedParameters) = p.setDoubleOption(v)
@@ -138,7 +131,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class FloatJdbcType extends DriverJdbcType[Float] with NumericTypedType {
-      def zero = 0
       def sqlType = java.sql.Types.FLOAT
       def setValue(v: Float, p: PositionedParameters) = p.setFloat(v)
       def setOption(v: Option[Float], p: PositionedParameters) = p.setFloatOption(v)
@@ -147,7 +139,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class IntJdbcType extends DriverJdbcType[Int] with NumericTypedType {
-      def zero = 0
       def sqlType = java.sql.Types.INTEGER
       def setValue(v: Int, p: PositionedParameters) = p.setInt(v)
       def setOption(v: Option[Int], p: PositionedParameters) = p.setIntOption(v)
@@ -156,7 +147,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class LongJdbcType extends DriverJdbcType[Long] with NumericTypedType {
-      def zero = 0
       def sqlType = java.sql.Types.BIGINT
       def setValue(v: Long, p: PositionedParameters) = p.setLong(v)
       def setOption(v: Option[Long], p: PositionedParameters) = p.setLongOption(v)
@@ -165,7 +155,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class ShortJdbcType extends DriverJdbcType[Short] with NumericTypedType {
-      def zero = 0
       def sqlType = java.sql.Types.SMALLINT
       def setValue(v: Short, p: PositionedParameters) = p.setShort(v)
       def setOption(v: Option[Short], p: PositionedParameters) = p.setShortOption(v)
@@ -174,7 +163,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class StringJdbcType extends DriverJdbcType[String] {
-      def zero = ""
       def sqlType = java.sql.Types.VARCHAR
       def setValue(v: String, p: PositionedParameters) = p.setString(v)
       def setOption(v: Option[String], p: PositionedParameters) = p.setStringOption(v)
@@ -193,7 +181,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class TimeJdbcType extends DriverJdbcType[Time] {
-      def zero = new Time(0L)
       def sqlType = java.sql.Types.TIME
       def setValue(v: Time, p: PositionedParameters) = p.setTime(v)
       def setOption(v: Option[Time], p: PositionedParameters) = p.setTimeOption(v)
@@ -203,7 +190,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class TimestampJdbcType extends DriverJdbcType[Timestamp] {
-      def zero = new Timestamp(0L)
       def sqlType = java.sql.Types.TIMESTAMP
       def setValue(v: Timestamp, p: PositionedParameters) = p.setTimestamp(v)
       def setOption(v: Option[Timestamp], p: PositionedParameters) = p.setTimestampOption(v)
@@ -213,7 +199,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class UnitJdbcType extends DriverJdbcType[Unit] {
-      def zero = ()
       def sqlType = java.sql.Types.INTEGER
       def setValue(v: Unit, p: PositionedParameters) = p.setInt(1)
       def setOption(v: Option[Unit], p: PositionedParameters) = p.setIntOption(v.map(_ => 1))
@@ -223,7 +208,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class UUIDJdbcType extends DriverJdbcType[UUID] {
-      def zero = new UUID(0, 0)
       def sqlType = java.sql.Types.OTHER
       def setValue(v: UUID, p: PositionedParameters) = p.setBytes(toBytes(v))
       def setOption(v: Option[UUID], p: PositionedParameters) =
@@ -261,7 +245,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class BigDecimalJdbcType extends DriverJdbcType[BigDecimal] with NumericTypedType {
-      def zero = BigDecimal(0)
       def sqlType = java.sql.Types.DECIMAL
       def setValue(v: BigDecimal, p: PositionedParameters) = p.setBigDecimal(v)
       def setOption(v: Option[BigDecimal], p: PositionedParameters) = p.setBigDecimalOption(v)
@@ -270,7 +253,6 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
 
     class NullJdbcType extends DriverJdbcType[Null] {
-      def zero = null
       def sqlType = java.sql.Types.NULL
       def setValue(v: Null, p: PositionedParameters) = p.setString(null)
       def setOption(v: Option[Null], p: PositionedParameters) = p.setString(null)
@@ -280,24 +262,24 @@ trait JdbcTypesComponent { driver: JdbcDriver =>
     }
   }
 
-  class ImplicitJdbcTypes {
-    implicit def booleanJdbcType = columnTypes.booleanJdbcType
-    implicit def blobJdbcType = columnTypes.blobJdbcType
-    implicit def byteJdbcType = columnTypes.byteJdbcType
-    implicit def byteArrayJdbcType = columnTypes.byteArrayJdbcType
-    implicit def charJdbcType = columnTypes.charJdbcType
-    implicit def clobJdbcType = columnTypes.clobJdbcType
-    implicit def dateJdbcType = columnTypes.dateJdbcType
-    implicit def doubleJdbcType = columnTypes.doubleJdbcType
-    implicit def floatJdbcType = columnTypes.floatJdbcType
-    implicit def intJdbcType = columnTypes.intJdbcType
-    implicit def longJdbcType = columnTypes.longJdbcType
-    implicit def shortJdbcType = columnTypes.shortJdbcType
-    implicit def stringJdbcType = columnTypes.stringJdbcType
-    implicit def timeJdbcType = columnTypes.timeJdbcType
-    implicit def timestampJdbcType = columnTypes.timestampJdbcType
-    implicit def unitJdbcType = columnTypes.unitJdbcType
-    implicit def uuidJdbcType = columnTypes.uuidJdbcType
-    implicit def bigDecimalJdbcType = columnTypes.bigDecimalJdbcType
+  trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
+    implicit def booleanColumnType = columnTypes.booleanJdbcType
+    implicit def blobColumnType = columnTypes.blobJdbcType
+    implicit def byteColumnType = columnTypes.byteJdbcType
+    implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
+    implicit def charColumnType = columnTypes.charJdbcType
+    implicit def clobColumnType = columnTypes.clobJdbcType
+    implicit def dateColumnType = columnTypes.dateJdbcType
+    implicit def doubleColumnType = columnTypes.doubleJdbcType
+    implicit def floatColumnType = columnTypes.floatJdbcType
+    implicit def intColumnType = columnTypes.intJdbcType
+    implicit def longColumnType = columnTypes.longJdbcType
+    implicit def shortColumnType = columnTypes.shortJdbcType
+    implicit def stringColumnType = columnTypes.stringJdbcType
+    implicit def timeColumnType = columnTypes.timeJdbcType
+    implicit def timestampColumnType = columnTypes.timestampJdbcType
+    implicit def unitColumnType = columnTypes.unitJdbcType
+    implicit def uuidColumnType = columnTypes.uuidJdbcType
+    implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
   }
 }

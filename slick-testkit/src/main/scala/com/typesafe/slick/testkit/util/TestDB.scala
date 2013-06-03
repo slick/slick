@@ -1,16 +1,16 @@
 package com.typesafe.slick.testkit.util
 
-import java.util.Properties
-import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
-import scala.slick.jdbc.GetResult._
-import java.util.zip.GZIPInputStream
 import java.io._
-import org.junit.Assert
-import scala.slick.driver._
 import java.net.{URL, URLClassLoader}
 import java.sql.Driver
+import java.util.Properties
+import java.util.zip.GZIPInputStream
 import scala.collection.mutable
-import scala.slick.profile.Capability
+import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
+import scala.slick.jdbc.GetResult._
+import scala.slick.driver._
+import scala.slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
+import org.junit.Assert
 
 object TestDB {
   type TestDBSpec = (String => TestDB)
@@ -94,19 +94,64 @@ object TestDB {
  * features such as reading the configuration file, setting up a DB connection,
  * removing DB files left over by a test run, etc.
  */
-abstract class TestDB(final val confName: String, final val driver: JdbcDriver) {
-  final val profile: JdbcProfile = driver
-  protected val Database = profile.backend.Database
+trait TestDB {
+  type Driver <: BasicDriver
 
-  override def toString = url
-  val url: String
-  val jdbcDriver: String
-  def createDB() = Database.forURL(url, driver = jdbcDriver)
-  def cleanUpBefore() {}
-  def cleanUpAfter() = cleanUpBefore()
+  /** The test database name */
+  val confName: String
+
+  /** Check if this test database is enabled */
   def isEnabled = TestDB.isInternalEnabled(confName)
+
+  /** This method is called to clean up before running all tests. */
+  def cleanUpBefore() {}
+
+  /** This method is called to clean up after running all tests. It
+    * defaults to cleanUpBefore(). */
+  def cleanUpAfter() = cleanUpBefore()
+
+  /** The Slick driver for the database */
+  val driver: Driver
+
+  /** The Slick driver for the database */
+  lazy val profile: driver.profile.type = driver.asInstanceOf[driver.profile.type]
+
+  /** Indicates whether the database persists after closing the last connection */
   def isPersistent = true
+
+  /** This method is called between individual test methods to remove all
+    * database artifacts that were created by the test. */
+  def dropUserArtifacts(implicit session: profile.Backend#Session): Unit
+
+  /** Create the Database object for this test database configuration */
+  def createDB(): profile.Backend#Database
+
+  /** Indicates whether the database's sessions have shared state. When a
+    * database is shared but not persistent, Testkit keeps a session open
+    * to make it persistent. */
   def isShared = true
+
+  /** The capabilities of the Slick driver, possibly modified for this
+    * test configuration. */
+  def capabilities: Set[Capability] = profile.capabilities
+}
+
+trait RelationalTestDB extends TestDB {
+  type Driver <: RelationalDriver
+
+  def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session): Unit
+  def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session): Unit
+}
+
+trait SqlTestDB extends RelationalTestDB { type Driver <: SqlDriver }
+
+abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
+  type Driver <: JdbcDriver
+  lazy val database = profile.backend.Database
+  val url: String
+  override def toString = url
+  val jdbcDriver: String
+  def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver)
   def getLocalTables(implicit session: profile.Backend#Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
@@ -137,10 +182,9 @@ abstract class TestDB(final val confName: String, final val driver: JdbcDriver) 
     }
   }
   def canGetLocalTables = true
-  lazy val capabilities = driver.capabilities
 }
 
-class ExternalTestDB(confName: String, driver: JdbcDriver) extends TestDB(confName, driver) {
+abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) {
   val jdbcDriver = TestDB.get(confName, "driver").orNull
   val urlTemplate = TestDB.get(confName, "url").getOrElse("")
   val dbPath = new File(TestDB.testDBDir).getAbsolutePath
@@ -164,8 +208,8 @@ class ExternalTestDB(confName: String, driver: JdbcDriver) extends TestDB(confNa
   override def isEnabled = TestDB.isExternalEnabled(confName)
 
   def databaseFor(url: String, user: String, password: String, prop: Map[String, String] = null) = loadCustomDriver() match {
-    case Some(dr) => Database.forDriver(dr, url, user = user, password = password, prop = TestDB.mapToProps(prop))
-    case None => Database.forURL(url, user = user, password = password, driver = jdbcDriver, prop = TestDB.mapToProps(prop))
+    case Some(dr) => database.forDriver(dr, url, user = user, password = password, prop = TestDB.mapToProps(prop))
+    case None => database.forURL(url, user = user, password = password, driver = jdbcDriver, prop = TestDB.mapToProps(prop))
   }
 
   override def createDB() = databaseFor(url, user, password)

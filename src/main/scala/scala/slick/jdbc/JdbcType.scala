@@ -9,11 +9,6 @@ import scala.slick.ast.{OptionTypedType, BaseTypedType, TypedType}
  */
 trait JdbcType[T] extends TypedType[T] { self =>
   /**
-   * A zero value for the type. This is used as a default instead of NULL when
-   * used as a non-nullable column.
-   */
-  def zero: T
-  /**
    * The constant from java.sql.Types that is used for setting parameters of
    * the type to NULL.
    */
@@ -47,8 +42,8 @@ trait JdbcType[T] extends TypedType[T] { self =>
   def valueToSQLLiteral(value: T): String = value.toString
   def nullable = false
 
-  override def optionType: OptionTypedType[T] with JdbcType[Option[T]] = new OptionTypedType[T](this) with JdbcType[Option[T]] {
-    def zero = None
+  override def optionType: OptionTypedType[T] with JdbcType[Option[T]] = new OptionTypedType[T] with JdbcType[Option[T]] {
+    val elementType = self
     def sqlType = self.sqlType
     override def sqlTypeName = self.sqlTypeName
     def setValue(v: Option[T], p: PositionedParameters) = self.setOption(v, p)
@@ -84,7 +79,6 @@ abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U]) extends JdbcType[
   def newValueToSQLLiteral(value: T): Option[String] = None
   def newNullable: Option[Boolean] = None
 
-  def zero = comap(tmd.zero)
   def sqlType = newSqlType.getOrElse(tmd.sqlType)
   override def sqlTypeName = newSqlTypeName.getOrElse(tmd.sqlTypeName)
   def setValue(v: T, p: PositionedParameters) = tmd.setValue(map(v), p)

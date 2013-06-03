@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class MainTest(val tdb: TestDB) extends TestkitTest {
+class MainTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   case class User(id: Int, first: String, last: String)
