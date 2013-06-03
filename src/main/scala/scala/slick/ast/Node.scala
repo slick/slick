@@ -502,15 +502,13 @@ final case class TableExpansion(generator: Symbol, table: Node, columns: Node) e
 
 /** Similar to a TableExpansion but used to replace a Ref pointing to a
   * Table(Expansion) (or another TableRefExpansion) instead of a plain Table. */
-final case class TableRefExpansion(marker: Symbol, ref: Node, columns: Node) extends BinaryNode with DefNode {
+final case class TableRefExpansion(marker: Symbol, ref: Node, columns: Node) extends BinaryNode {
   type Self = TableRefExpansion
   def left = ref
   def right = columns
   override def nodeChildNames = Seq("ref", "columns")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(ref = left, columns = right)
-  def nodeGenerators = Seq((marker, ref))
   override def toString = "TableRefExpansion "+marker
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(marker = gen(0))
   def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
     if(nodeHasType && !typeChildren) this else {
       val r2 = ref.nodeWithComputedType(scope, typeChildren, retype)

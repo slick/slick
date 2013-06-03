@@ -69,14 +69,6 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       ("French_Roast_Decaf", 49, 999, 5, 0)
     )
 
-    /*def q(s: String) = tdb.driver.quoteIdentifier(s)
-    val l1 = queryNA[String]("select c."+q("COF_NAME")+" from "+q("COFFEES")+" c").list
-    println("l1: "+l1)
-    assertEquals(5, l1.length)
-    val l2 = queryNA[String]("select c."+q("COF_NAME")+" from "+q("COFFEES")+" c, "+q("SUPPLIERS")+" s").list
-    println("l2: "+l2)
-    assertEquals(15, l2.length)*/
-
     def show(name: String, g: Query[_,_]) =
       println("=========================================== "+name)
 

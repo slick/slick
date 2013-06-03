@@ -1,6 +1,7 @@
 package scala.slick.util
 
 import java.io.Closeable
+import scala.util.control.NonFatal
 
 /**
  * An Iterator with a `close` method to close the underlying data source.
@@ -71,8 +72,8 @@ object CloseableIterator {
   final class Close[C <: Closeable](makeC: => C) {
     def after[T](f: C => CloseableIterator[T]) = {
       val c = makeC
-      (try f(c) catch { case e =>
-        try c.close() catch { case _ => }
+      (try f(c) catch { case NonFatal(e) =>
+        try c.close() catch { case NonFatal(_) => }
         throw e
       }) thenClose c
     }
