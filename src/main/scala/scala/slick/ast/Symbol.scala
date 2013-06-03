@@ -18,8 +18,6 @@ case class ElementSymbol(idx: Int) extends Symbol {
   def name = "_" + idx
 }
 
-/** A named symbol which refers to a proper database table. */
-case class TableSymbol(name: String) extends Symbol
 
 /** An anonymous symbol defined in the AST. */
 class AnonSymbol extends Symbol {

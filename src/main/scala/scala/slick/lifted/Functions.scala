@@ -3,7 +3,7 @@ package scala.slick.lifted
 import java.sql.{Date, Time}
 import scala.slick.ast.{TypedType, Library}
 import FunctionSymbolExtensionMethods._
-import scala.slick.ast.StaticType._
+import scala.slick.ast.ScalaBaseType._
 
 object Functions {
 

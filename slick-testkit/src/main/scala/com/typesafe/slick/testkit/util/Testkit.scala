@@ -49,7 +49,7 @@ object Testkit {
 class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
 
   val driverTest = clazz.newInstance
-  var tdb: TestDB = driverTest.tdbSpec(clazz.getName)
+  var tdb: TestDB = driverTest.tdb
 
   def describeChild(ch: TestMethod) = ch.desc
 
@@ -98,7 +98,7 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
   }
 }
 
-abstract class DriverTest(val tdbSpec: TestDB.TestDBSpec) {
+abstract class DriverTest(val tdb: TestDB) {
   def tests = Testkit.tests
 }
 

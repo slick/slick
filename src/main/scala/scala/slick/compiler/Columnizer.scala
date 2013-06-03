@@ -4,6 +4,7 @@ import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
+import scala.slick.memory.DriverComputation
 
 /** Replace references to FieldSymbols in TableExpansions by the
   * appropriate ElementSymbol */
@@ -125,7 +126,7 @@ class ExpandTables extends Phase {
 
 /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
   * Paths and TableRefExpansions of Paths, so that all Paths point to
-  * individual columns by index */
+  * individual columns by index. */
 class ExpandRefs extends Phase with ColumnizerUtils {
   val name = "expandRefs"
 
@@ -149,6 +150,7 @@ class ExpandRefs extends Phase with ColumnizerUtils {
                 case t: TableExpansion => burstPath(Path(syms.reverse), t)
                 case t: TableRefExpansion => burstPath(Path(syms.reverse), t)
                 case pr: ProductNode => burstPath(Path(syms.reverse), pr)
+                case d: DriverComputation => burstPath(Path(syms.reverse), d)
                 case n => p
               }
             case None => p
@@ -184,6 +186,12 @@ class ExpandRefs extends Phase with ColumnizerUtils {
       TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), n)
       }))
+    case d: DriverComputation =>
+      import TypeUtil._
+      val ts = d.nodeType.asCollectionType.elementType.asInstanceOf[ProductType].elements
+      ProductNode(ts.zipWithIndex.map { case (_, idx) =>
+        Select(base, ElementSymbol(idx+1))
+      })
     case _ => base
   }
 }

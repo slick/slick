@@ -52,12 +52,12 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
     final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
       type Self = RowNum
-      def tpe = StaticType.Long
+      def tpe = ScalaBaseType.longType
       def nodeRebuild = copy()
     }
     final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
       type Self = RowNumGen
-      def tpe = StaticType.Long
+      def tpe = ScalaBaseType.longType
       def nodeRebuild = copy()
     }
 

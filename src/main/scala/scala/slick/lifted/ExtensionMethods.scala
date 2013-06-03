@@ -3,7 +3,7 @@ package scala.slick.lifted
 import scala.language.implicitConversions
 import scala.slick.ast._
 import FunctionSymbolExtensionMethods._
-import StaticType._
+import ScalaBaseType._
 import scala.slick.SlickException
 
 trait ExtensionMethods[B1, P1] extends Any {

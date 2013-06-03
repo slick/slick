@@ -62,10 +62,7 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 object QueryCompiler {
   val standardPhases = Vector(
     // Clean up trees from the lifted embedding
-    Phase.localizeRefs,
-    Phase.reconstructProducts,
     Phase.inline,
-    Phase.letDynamicEliminated,
     Phase.assignUniqueSymbols,
     // Distribute and normalize
     Phase.expandTables,
@@ -76,12 +73,12 @@ object QueryCompiler {
     Phase.replaceFieldSymbols,
     Phase.rewritePaths,
     Phase.relabelUnions,
-    Phase.pruneFields
+    Phase.pruneFields,
+    Phase.assignTypes
   )
 
   val relationalPhases = Vector(
     Phase.resolveZipJoins,
-    Phase.assignTypes,
     Phase.convertToComprehensions,
     Phase.fuseComprehensions,
     Phase.fixRowNumberOrdering,
@@ -111,10 +108,7 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
 
 object Phase {
   /** The standard phases of the query compiler */
-  val localizeRefs = new LocalizeRefs
-  val reconstructProducts = new ReconstructProducts
   val inline = new Inline
-  val letDynamicEliminated = new LetDynamicEliminated
   val assignUniqueSymbols = new AssignUniqueSymbols
   val expandTables = new ExpandTables
   val createResultSetMapping = new CreateResultSetMapping

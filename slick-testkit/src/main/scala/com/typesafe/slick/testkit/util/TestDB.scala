@@ -13,8 +13,6 @@ import scala.slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability
 import org.junit.Assert
 
 object TestDB {
-  type TestDBSpec = (String => TestDB)
-
   /** Marks a driver which is specially supported by the test kit for plain SQL queries */
   val plainSql = new Capability("test.plainSql")
   /** Marks a driver which is specially supported by the test kit for plain SQL wide result set queries */

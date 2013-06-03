@@ -289,7 +289,6 @@ trait AccessDriver extends JdbcDriver { driver =>
     * sub-queries in the fuseComprehensions phase. */
   class ExistsToCount extends Phase {
     val name = "access:existsToCount"
-    import StaticType._
 
     def apply(state: CompilerState) = state.map(n => tr(n, false))
 

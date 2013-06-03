@@ -15,8 +15,6 @@ class AssignUniqueSymbols extends Phase {
         case Some(s) => if(s eq a) r else Ref(s)
         case None => r
       }
-      case l: LetDynamic =>
-        throw new SlickException("Dynamic scopes should be eliminated before assigning unique symbols")
       case d: DefNode =>
         var defs = replace
         d.nodeMapScopedChildren { (symO, ch) =>

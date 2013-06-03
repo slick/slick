@@ -67,7 +67,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case p: Pure =>
         Comprehension(select = Some(p))
       case t: TableNode =>
-        Comprehension(from = Seq(t.nodeTableSymbol -> t))
+        Comprehension(from = Seq(newSym -> t))
       case u: Union =>
         Comprehension(from = Seq(newSym -> u))
       case n =>
@@ -164,7 +164,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       n match {
         case t: TableNode =>
           b += quoteTableName(t)
-          if(alias != Some(t.nodeTableSymbol)) addAlias
+          addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
           b" ${jt.sqlName} join "
@@ -243,9 +243,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
         b"\($l like $r escape '$esc'\)"
       case Library.StartsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote(likeEncode(s)+'%')(StaticType.String)} escape '^'\)"
+        b"\($n like ${quote(likeEncode(s)+'%')(ScalaBaseType.stringType)} escape '^'\)"
       case Library.EndsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote("%"+likeEncode(s))(StaticType.String)} escape '^'\)"
+        b"\($n like ${quote("%"+likeEncode(s))(ScalaBaseType.stringType)} escape '^'\)"
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
       case a @ Library.Cast(ch @ _*) =>

@@ -84,14 +84,13 @@ import CustomNodes._
 
 class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
   type Session = JdbcDriver#Backend#Session
-  import slick.ast.StaticType
+  import slick.ast.ScalaBaseType
   val columnTypes = {
-    import driver.columnTypes._
     Map( // FIXME use symbols instead of strings for type names here
-       typeOf[Int].typeSymbol     -> StaticType.Int
-      ,typeOf[Double].typeSymbol  -> doubleJdbcType
-      ,typeOf[String].typeSymbol  -> StaticType.String
-      ,typeOf[Boolean].typeSymbol -> StaticType.Boolean
+       typeOf[Int].typeSymbol     -> ScalaBaseType.intType
+      ,typeOf[Double].typeSymbol  -> ScalaBaseType.doubleType
+      ,typeOf[String].typeSymbol  -> ScalaBaseType.stringType
+      ,typeOf[Boolean].typeSymbol -> ScalaBaseType.booleanType
     )
   }
   /** generates a map from Scala symbols to Slick FunctionSymbols from description in OperatorMapping */

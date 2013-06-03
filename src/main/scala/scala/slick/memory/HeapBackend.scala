@@ -1,7 +1,7 @@
 package scala.slick.memory
 
 import scala.slick.SlickException
-import scala.slick.ast.{Select, ColumnOption, FieldSymbol, Symbol}
+import scala.slick.ast.{ScalaBaseType, ScalaType, Select, ColumnOption, FieldSymbol, Symbol}
 import scala.slick.backend.DatabaseComponent
 import scala.slick.lifted.{PrimaryKey, Constraint, Index}
 import scala.slick.util.Logging
@@ -38,6 +38,12 @@ trait HeapBackend extends DatabaseComponent with Logging {
     def getTables: IndexedSeq[HeapTable] = synchronized {
       tables.values.toVector
     }
+  }
+
+  def createEmptyDatabase: Database = new DatabaseDef {
+    override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
+                    indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]) =
+      throw new SlickException("Cannot modify empty heap database")
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {
@@ -144,8 +150,8 @@ object HeapBackend extends HeapBackend {
     def createDefault: Any = autoInc match {
       case Some(a) =>
         val i = a.incrementAndGet()
-        if(tpe == ScalaType.longType) i
-        else if(tpe == ScalaType.intType) i.toInt
+        if(tpe == ScalaBaseType.longType) i
+        else if(tpe == ScalaBaseType.intType) i.toInt
         else throw new SlickException("Only Long and Int types are allowed for AutoInc columns")
       case None => default.getOrElse(tpe.zero)
     }
