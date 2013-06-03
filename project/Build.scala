@@ -104,6 +104,11 @@ object SlickBuild extends Build {
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (), // suppress test status output
       testOnly :=  (),
+      fullRunInputTask(
+        InputKey[Unit]("code-generate"),
+        Compile,
+        "scala.slick.typeproviders.CodeGeneratorMain"
+      ),
       ivyConfigurations += config("macro").hide.extend(Compile),
       libraryDependencies ++= Seq("com.typesafe" % "config" % "1.0.0"),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
