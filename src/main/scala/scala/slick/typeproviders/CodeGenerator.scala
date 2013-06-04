@@ -46,14 +46,20 @@ class CodeGenerator(val configFileName: String) extends TemplateComponent
   val connectionString = macroHelper.urlForConnection
   import macroHelper.{ userForConnection, passForConnection, slickDriverObject, jdbcClass }
 
-  def generateCode(className: String = "GeneratedDb"): String = {
+  def generateCode(className: String = "GeneratedDb", packageName: Option[String] = None): String = {
     incIndent
     val tableCode = tableTrees map generateCodeForTable
     val importsCode = imports map generateCodeForImport
+    val threeQ = "\"\"\""
     decIndent
     s"""
+${if (packageName.isEmpty) "" else s"package ${packageName.get}"}
 object $className {
 ${importsCode.mkString("\n")}
+    
+  val driver = $slickDriverObject
+  val database = driver.simple.Database.forURL($threeQ$connectionString$threeQ, driver = "$jdbcClass",
+                                               user = "$userForConnection", password = "$passForConnection")
 
 ${tableCode.mkString("\n")}
 }   

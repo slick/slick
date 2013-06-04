@@ -139,7 +139,15 @@ object SlickBuild extends Build {
       ),
       ivyConfigurations += config("test-config").hide.extend(Compile),
       unmanagedClasspath in config("test-config") <++= fullClasspath in (slickProject, Compile),
+      (test in Test) <<= (test in Test) dependsOn (compile in config("test-config")),
       unmanagedClasspath in Test <++= fullClasspath in config("test-config"),
+      sourceGenerators in Test <+= (sourceManaged in Test, sourceDirectory in config("test-config"), fullClasspath in config("test-config"), runner in config("test-config"), streams) map { (dir, srcDir, cp, r, s) =>
+        val cgDir = dir / "generated-classes"
+        IO.delete(cgDir ** "*.scala" get)
+        toError(r.run("scala.slick.typeproviders.test.GeneratedClasses", cp.files, Array(cgDir.getPath), s.log))
+        val files = (cgDir) ** "*.scala"
+        files.get
+      },
       mappings in (Test, packageSrc) <++= mappings in (config("test-config"), packageSrc),
       mappings in (Test, packageBin) <++= mappings in (config("test-config"), packageBin),
       // Run the Queryable tests (which need macros) on a forked JVM
@@ -179,7 +187,7 @@ object SlickBuild extends Build {
       new Group("inProcess", notFork, InProcess)
     )
   }
-
+  
   /* FMPP Task */
   lazy val fmpp = TaskKey[Seq[File]]("fmpp")
   lazy val fmppConfig = config("fmpp") hide
