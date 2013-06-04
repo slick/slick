@@ -61,3 +61,10 @@ extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projec
 }
 
 </#list>
+
+trait LiftTuples {
+<#list 2..22 as i>
+  implicit def tuple${i}OfColumnToProjection${i}[<#list 1..i as j>T${j}: TypedType<#if i != j>,</#if></#list>](t: (<#list 1..i as j>Column[T${j}]<#if i != j>,</#if></#list>)): Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =
+    new Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](<#list 1..i as j>t._${j}<#if i != j>,</#if></#list>)
+</#list>
+}

@@ -22,13 +22,13 @@ object Benchmark {
     def id = column[Int]("id")
     def first = column[String]("first")
     def last = column[String]("last")
-    def * = id ~ first ~ last
+    def * = (id, first, last)
   }
 
   object Orders extends Table[(Int, Int)]("orders") {
     def userID = column[Int]("userID")
     def orderID = column[Int]("orderID")
-    def * = userID ~ orderID
+    def * = (userID, orderID)
   }
 
   def test1(print: Boolean) {
@@ -36,10 +36,10 @@ object Benchmark {
     val q2 = for {
       u <- Users
       o <- Orders where { o => (u.id is o.userID) && (u.first.isNotNull) }
-    } yield u.first ~ u.last ~ o.orderID
-    val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
+    } yield (u.first, u.last, o.orderID)
+    val q3 = for(u <- Users where(_.id is 42)) yield (u.first, u.last)
     val q4 =
-      (Users innerJoin Orders on (_.id is _.userID)).sortBy(_._1.last.asc).map(uo => uo._1.first ~ uo._2.orderID)
+      (Users innerJoin Orders on (_.id is _.userID)).sortBy(_._1.last.asc).map(uo => (uo._1.first, uo._2.orderID))
     val q5 = for (
       o <- Orders
         where { o => o.orderID === (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID).max }

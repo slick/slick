@@ -62,7 +62,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     object Ts extends Table[Data]("T") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = a ~ b <> (Data, Data.unapply _)
+      def * = (a, b) <> (Data, Data.unapply _)
     }
 
     Ts.ddl.create
@@ -103,7 +103,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def c = column[Option[Bool]]("c")
-      def * = id ~ b ~ c
+      def * = (id, b, c)
     }
 
     T.ddl.create
@@ -132,7 +132,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Bool]("b")
       def c = column[Option[Bool]]("c")
-      def * = id ~ b ~ c
+      def * = (id, b, c)
     }
 
     T.ddl.create

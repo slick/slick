@@ -11,14 +11,14 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     def id = column[Int]("id")
     def name = column[String]("name")
     def department = column[String]("department")
-    def * = id ~ name ~ department
+    def * = (id, name, department)
   }
 
   object Employees extends Table[(Int, String, Int)]("employees") {
     def id = column[Int]("id")
     def name = column[String]("name2")
     def manager = column[Int]("manager")
-    def * = id ~ name ~ manager
+    def * = (id, name, manager)
 
     // A convenience method for selecting employees by department
     def departmentIs(dept: String) = manager in Managers.where(_.department is dept).map(_.id)
@@ -77,7 +77,7 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     abstract class Drinks(tableName: String) extends Table[(Long, Long)](tableName) {
       def pk = column[Long]("pk")
       def pkCup = column[Long]("pkCup")
-      def * = pk ~ pkCup
+      def * = (pk, pkCup)
     }
     object Coffees extends Drinks("Coffee")
     object Teas extends Drinks("Tea")
@@ -97,11 +97,11 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     val q1 = for {
       coffee <- Coffees
       tea <- Teas if coffee.pkCup === tea.pkCup
-    } yield coffee.pk ~ coffee.pkCup
+    } yield (coffee.pk, coffee.pkCup)
     val q2 = for {
       coffee <- Coffees
       tea <- Teas if coffee.pkCup === tea.pkCup
-    } yield tea.pk ~ tea.pkCup
+    } yield (tea.pk, tea.pkCup)
     val q3 = q1 union q2
 
     val r1 = q1.run.toSet

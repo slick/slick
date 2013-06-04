@@ -12,8 +12,7 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
-    def * = id ~ first ~ last
-
+    def * = (id, first, last)
     def orders = Orders where { _.userID is id }
   }
 
@@ -23,7 +22,7 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped")
     def rebate = column[Option[Boolean]]("rebate")
-    def * = userID ~ orderID ~ product ~ shipped ~ rebate
+    def * = (userID, orderID, product, shipped, rebate)
   }
 
   def test {
@@ -31,7 +30,7 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     val ddl = Users.ddl ++ Orders.ddl
     ddl.createStatements.foreach(println)
     ddl.create
-    println((Users.first ~ Users.last).insertStatement)
+    println((Users.first, Users.last).shaped.insertStatement)
     val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
     val ins2 = (Users.first ~ Users.last).insertAll(
       ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )

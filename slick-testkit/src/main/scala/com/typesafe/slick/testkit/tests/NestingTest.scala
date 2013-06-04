@@ -12,7 +12,7 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
       def a = column[Int]("A")
       def b = column[String]("B")
       def c = column[String]("C")
-      def * = a ~ b ~ c
+      def * = (a, b, c)
     }
 
     T.ddl.create

@@ -19,7 +19,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def city = column[String]("CITY")
       def state = column[String]("STATE")
       def zip = column[String]("ZIP")
-      def * = id ~ name ~ street ~ city ~ state ~ zip
+      def * = (id, name, street, city, state, zip)
     }
 
     object CoffeesStd extends Table[(String, Int, Int, Int, Int)]("COFFEES") {
@@ -28,7 +28,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def price = column[Int]("PRICE")
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
-      def * = name ~ supID ~ price ~ sales ~ total
+      def * = (name, supID, price, sales, total)
       def supplier = foreignKey("SUP_FK", supID, SuppliersStd)(_.id)
     }
 
@@ -39,8 +39,8 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def city = column[String]("CITY")
       def state = column[String]("STATE")
       def zip = column[String]("ZIP")
-      def * = id ~ name ~ street
-      def forInsert = id ~ name ~ street ~ city ~ state ~ zip
+      def * = (id, name, street)
+      def forInsert = (id, name, street, city, state, zip).shaped
     }
 
     object Coffees extends Table[(String, Int, Int, Int, Int)]("COFFEES") {
@@ -49,8 +49,8 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def price = column[Int]("PRICE")
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
-      def * = name ~ supID ~ price ~ sales ~ (total * 10)
-      def forInsert = name ~ supID ~ price ~ sales ~ total
+      def * = (name, supID, price, sales, (total * 10))
+      def forInsert = (name, supID, price, sales, total).shaped
       def totalComputed = sales * price
       def supplier = foreignKey("SUP_FK", supID, Suppliers)(_.id)
     }
@@ -132,7 +132,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     val q1 = for {
       c <- Coffees.sortBy(c => (c.name, c.price.desc)).take(2)
       s <- Suppliers
-    } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
+    } yield ((c.name, (s.city ++ ":")), c, s, c.totalComputed)
     show("q1: Plain implicit join", q1)
     if(doRun) {
       val r1 = q1.run.toSet
@@ -153,7 +153,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       val q1b = for {
         (c, s) <- q1b_0.sortBy(_._1.price).take(2).filter(_._1.name =!= "Colombian")
         (c2, s2) <- q1b_0
-      } yield c.name ~ s.city ~ c2.name
+      } yield (c.name, s.city, c2.name)
       show("q1b: Explicit join with condition", q1b)
       if(doRun) {
         val r1b = q1b.run.toSet
@@ -170,7 +170,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     val q2 = for {
       c <- Coffees.filter(_.price < 900).map(_.*)
       s <- Suppliers if s.id === c._2
-    } yield c._1 ~ s.name
+    } yield (c._1, s.name)
     show("q2: More elaborate query", q2)
     if(doRun) {
       val r2 = q2.run.toSet
@@ -187,7 +187,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       val cf = Query(c).where(_.price === 849)
       cf.flatMap { cf =>
         Suppliers.where(_.id === c.supID).map { s =>
-          c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed
+          (c.name, s.name, cf.name, cf.total, cf.totalComputed)
         }
       }
     }
@@ -203,7 +203,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       val cf = Query((c, 42)).where(_._1.price < 900)
       cf.flatMap { case (cf, num) =>
         Suppliers.where(_.id === c.supID).map { s =>
-          c.name ~ s.name ~ cf.name ~ cf.total ~ cf.totalComputed ~ num
+          (c.name, s.name, cf.name, cf.total, cf.totalComputed, num)
         }
       }
     }
@@ -222,7 +222,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     ifCap(rcap.pagingNested) {
       val q4 = for {
         c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 800)
-      } yield c._1 ~ c._3
+      } yield (c._1, c._3)
       show("q4: Map to tuple, then filter", q4)
       if(doRun) {
         val r4 = q4.run.toSet
@@ -297,7 +297,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
 
     val q7a = for {
       c <- Coffees.filter(_.price < 800) union Coffees.filter(_.price > 950)
-    } yield c.name ~ c.supID ~ c.total
+    } yield (c.name, c.supID, c.total)
     show("q7a: Simple union", q7a)
     if(doRun) {
       val r7a = q7a.run.toSet
@@ -313,7 +313,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
 
     val q7 = for {
       c <- Coffees.filter(_.price < 800).map((_, 1)) union Coffees.filter(_.price > 950).map((_, 2))
-    } yield c._1.name ~ c._1.supID ~ c._2
+    } yield (c._1.name, c._1.supID, c._2)
     show("q7: Union", q7)
     if(doRun) {
       val r7 = q7.run.toSet
@@ -329,7 +329,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
 
     val q71 = for {
       c <- Coffees.filter(_.price < 800).map((_, 1))
-    } yield c._1.name ~ c._1.supID ~ c._2
+    } yield (c._1.name, c._1.supID, c._2)
     show("q71: Transitive push-down without union", q71)
     if(doRun) {
       val r71 = q71.run.toSet
