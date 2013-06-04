@@ -30,7 +30,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
   }
 
-  trait SimpleQL extends super.SimpleQL with Implicits {
+  trait SimpleQL extends super.SimpleQL with TupleMethods with Implicits {
     type Table[T] = driver.Table[T]
     type Sequence[T] = driver.Sequence[T]
     val Sequence = driver.Sequence

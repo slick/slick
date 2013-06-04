@@ -25,7 +25,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     }
 
     Users.ddl.create
-    Users.baseProjection.insert("Homer", "Simpson")
+    Users.baseProjection.shaped.insert("Homer", "Simpson")
     /* Using Users.forInsert so that we don't put a NULL value into the ID
      * column. H2 and SQLite allow this but PostgreSQL doesn't. */
     Users.forInsert.insertAll(
@@ -107,7 +107,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     }
 
     T.ddl.create
-    (T.b ~ T.c).insertAll((False, None), (True, Some(True)))
+    (T.b ~ T.c).shaped.insertAll((False, None), (True, Some(True)))
     assertEquals(Query(T).list.toSet, Set((1, False, None), (2, True, Some(True))))
     assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
     assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))
@@ -136,7 +136,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     }
 
     T.ddl.create
-    (T.b ~ T.c).insertAll((False, None), (True, Some(True)))
+    (T.b ~ T.c).shaped.insertAll((False, None), (True, Some(True)))
     assertEquals(Query(T).list.toSet, Set((1, False, None), (2, True, Some(True))))
     assertEquals(T.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
     assertEquals(T.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))

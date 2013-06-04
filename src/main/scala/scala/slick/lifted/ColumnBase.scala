@@ -10,10 +10,7 @@ trait Rep[T] extends NodeGenerator with WithOp
 trait ColumnBase[T] extends Rep[T] with Typed
 
 /** Base class for columns. */
-abstract class Column[T : TypedType] extends ColumnBase[T] { self =>
-  final val tpe = implicitly[TypedType[T]]
-  final def ~[U](b: Column[U]) = new Projection2[T, U](this, b)
-
+abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 

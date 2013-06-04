@@ -1,5 +1,6 @@
 package scala.slick.lifted
 
+import scala.language.implicitConversions
 import scala.slick.ast._
 
 sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
@@ -35,23 +36,12 @@ final case class MappedProjection[T, P <: Product](child: Node, f: (P => T), g: 
   def tpe = typeMapping.tpe
 }
 
-object ~ {
-  def unapply[T1,T2](p: Projection2[T1,T2]) =
-    Some(p)
-<#list 3..22 as i>
-  def unapply[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](p: Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>]) =
-    Some((new Projection${i-1}(<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i}))
-</#list>
-}
-
 <#list 2..22 as i>
 final class Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](
 <#list 1..i as j>
   override val _${j}: Column[T${j}]<#if i != j>,</#if>
 </#list>)
 extends Tuple${i}(<#list 1..i as j>_${j}<#if i != j>,</#if></#list>) with Projection[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)] {
-  <#if i != 22>def ~[U](c: Column[U]) = new Projection${i+1}(<#list 1..i as j>_${j},</#list>c)</#if>
-  <#if i != 22>def ~:[U](c: Column[U]) = new Projection${i+1}(c<#list 1..i as j>,_${j}</#list>)</#if>
   override def mapOp(f: (Node, List[Int]) => Node, positions: List[Int]): this.type = new Projection${i}(
 <#list 1..i as j>
     _${j}.mapOp(f, ${j} :: positions)<#if i != j>,</#if>
@@ -67,4 +57,36 @@ trait LiftTuples {
   implicit def tuple${i}OfColumnToProjection${i}[<#list 1..i as j>T${j}: TypedType<#if i != j>,</#if></#list>](t: (<#list 1..i as j>Column[T${j}]<#if i != j>,</#if></#list>)): Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>] =
     new Projection${i}[<#list 1..i as j>T${j}<#if i != j>,</#if></#list>](<#list 1..i as j>t._${j}<#if i != j>,</#if></#list>)
 </#list>
+}
+
+/** Extension methods for prepending and appending values to tuples */
+object TupleMethods {
+  implicit class ColumnTupleExtensionMethods[T](val c: Column[T]) extends AnyVal {
+    def ~ [U](c2: Column[U]): (Column[T], Column[U]) = (c, c2)
+  }
+
+<#list 2..21 as i>
+  implicit class Tuple${i}ExtensionMethods[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](val t: (<#list 1..i as j>Column[T${j}]<#if i != j>, </#if></#list>)) extends AnyVal {
+    def ~ [U](c: Column[U]): (<#list 1..i as j>Column[T${j}], </#list>Column[U]) = (<#list 1..i as j>t._${j}, </#list>c)
+    def ~: [U](c: Column[U]): (Column[U]<#list 1..i as j>, Column[T${j}]</#list>) = (c<#list 1..i as j>, t._${j}</#list>)
+  }
+</#list>
+
+  /* A chained extractor for tuples */
+  object ~ {
+    def unapply[T1 <: Column[_], T2 <: Column[_]](p: (T1,T2)) =
+      Some(p)
+<#list 3..22 as i>
+    def unapply[<#list 1..i as j>T${j} <: Column[_]<#if i != j>,</#if></#list>](p: (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)) =
+      Some((<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i})
+</#list>
+  }
+}
+
+trait TupleMethods {
+  implicit def ColumnTupleExtensionMethods[T](c: Column[T]) = TupleMethods.ColumnTupleExtensionMethods[T](c)
+<#list 2..21 as i>
+  implicit def Tuple${i}ExtensionMethods[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](t: (<#list 1..i as j>Column[T${j}]<#if i != j>, </#if></#list>)) = TupleMethods.Tuple${i}ExtensionMethods[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](t)
+</#list>
+  val ~ = TupleMethods.~
 }
