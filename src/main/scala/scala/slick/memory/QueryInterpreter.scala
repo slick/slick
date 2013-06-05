@@ -295,9 +295,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       val v = args(0)._2
       (args(0)._1, retType) match {
         case (a, b) if a == b => v
-        case (_, ScalaType.stringType) => v.toString
-        case (_, ScalaType.intType) => v.toString.toInt
-        case (_, ScalaType.longType) => v.toString.toLong
+        case (_, ScalaBaseType.stringType) => v.toString
+        case (_, ScalaBaseType.intType) => v.toString.toInt
+        case (_, ScalaBaseType.longType) => v.toString.toLong
       }
     case Library.Ceiling =>
       val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]

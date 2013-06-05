@@ -208,7 +208,7 @@ object LiteralNode {
     def volatileHint = vol
     override def toString = s"LiteralNode $value (volatileHint=$volatileHint)"
   }
-  def apply[T](v: T)(implicit tp: StaticType[T]): LiteralNode = apply(tp, v)
+  def apply[T](v: T)(implicit tp: ScalaBaseType[T]): LiteralNode = apply(tp, v)
   def unapply(n: LiteralNode): Option[Any] = Some(n.value)
 }
 
@@ -554,7 +554,6 @@ abstract class TableNode extends NullaryNode { self =>
   def nodeTableProjection: Node
   def schemaName: Option[String]
   def tableName: String
-  def nodeTableSymbol: TableSymbol = TableSymbol(tableName)
   def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = this
   override def toString = "Table " + tableName
   def nodeRebuild: TableNode = new TableNode {
@@ -568,46 +567,10 @@ object TableNode {
   def unapply(t: TableNode) = Some(t.tableName)
 }
 
-/** A dynamically scoped Let expression where the resulting expression and
-  * all definitions may refer to other definitions independent of the order
-  * in which they appear in the Let. Circular dependencies are not allowed. */
-final case class LetDynamic(defs: Seq[(Symbol, Node)], in: Node) extends DefNode {
-  type Self = LetDynamic
-  val nodeChildren = defs.map(_._2) :+ in
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) =
-    copy(defs = defs.zip(ch.init).map{ case ((s, _), n) => (s, n) }, in = ch.last)
-  override def nodeChildNames = defs.map("let " + _._1.toString) :+ "in"
-  def nodeGenerators = defs
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node =
-    copy(defs = (defs, gen).zipped.map((e, s) => (s, e._2)))
-  override def toString = "LetDynamic"
-  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
-    var defsMap = defs.toMap.mapValues(n => (n, false))
-    var updated = false
-    lazy val dynScope: SymbolScope = scope.withDefault { sym =>
-      defsMap.get(sym) match {
-        case Some((n, false)) =>
-          val n2 = n.nodeWithComputedType(dynScope, retype)
-          if(n2 ne n) updated = true
-          defsMap += (sym -> (n2, true))
-          n2.nodeType
-        case Some((n, true)) => n.nodeType
-        case None => throw new SlickException("Symbol "+sym+" not found")
-      }
-    }
-    val i2 = in.nodeWithComputedType(dynScope, retype)
-    if((i2 eq in) && !updated && i2.nodeType == nodeType) this
-    else {
-      val d2 = defs.map { case (s, _) => (s, defsMap(s)._1) }
-      copy(defs = d2, in = i2).nodeTyped(i2.nodeType)
-    }
-  }
-}
-
 /** A node that represents an SQL sequence. */
 final case class SequenceNode(name: String)(val increment: Long) extends NullaryNode with TypedNode {
   type Self = SequenceNode
-  def tpe = StaticType.Long
+  def tpe = ScalaBaseType.longType
   def nodeRebuild = copy()(increment)
 }
 
@@ -617,7 +580,7 @@ final case class SequenceNode(name: String)(val increment: Long) extends Nullary
   * cannot be represented in SQL outside of a 'zip' operation. */
 final case class RangeFrom(start: Long = 1L) extends NullaryNode with TypedNode {
   type Self = RangeFrom
-  def tpe = CollectionType(CollectionTypeConstructor.default, StaticType.Long)
+  def tpe = CollectionType(CollectionTypeConstructor.default, ScalaBaseType.longType)
   def nodeRebuild = copy()
 }
 
@@ -644,7 +607,7 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
     val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
     val tpe = {
       val isNullable = this2.nodeChildren.exists(ch =>
-        ch.nodeType.isInstanceOf[OptionType] || ch.nodeType == StaticType.Null)
+        ch.nodeType.isInstanceOf[OptionType] || ch.nodeType == ScalaBaseType.nullType)
       val base = this2.clauses.head.nodeType
       if(isNullable && !base.isInstanceOf[OptionType]) OptionType(base) else base
     }

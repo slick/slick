@@ -12,7 +12,7 @@ import com.typesafe.slick.testkit.util.{RelationalTestDB, ExternalJdbcTestDB, Jd
 import org.junit.Assert
 
 object TestDBs {
-  def H2Mem(cname: String) = new JdbcTestDB("h2mem") {
+  def H2Mem = new JdbcTestDB("h2mem") {
     type Driver = H2Driver.type
     val driver = H2Driver
     val url = "jdbc:h2:mem:test1"
@@ -21,10 +21,10 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def H2Disk(cname: String) = new JdbcTestDB("h2disk") {
+  def H2Disk = new JdbcTestDB("h2disk") {
     type Driver = H2Driver.type
     val driver = H2Driver
-    val dbName = "h2-"+cname
+    val dbName = "h2-"+confName
     val url = "jdbc:h2:"+TestDB.testDBPath+"/"+dbName
     val jdbcDriver = "org.h2.Driver"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -36,14 +36,14 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def HsqldbMem(cname: String) = new HsqlDB("hsqldbmem") {
+  def HsqldbMem = new HsqlDB("hsqldbmem") {
     val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
     override def isPersistent = false
   }
 
-  def HsqldbDisk(cname: String) = new HsqlDB("hsqldbdisk") {
-    val dbName = "hsqldb-"+cname
+  def HsqldbDisk = new HsqlDB("hsqldbdisk") {
+    val dbName = "hsqldb-"+confName
     val url = "jdbc:hsqldb:file:"+TestDB.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
@@ -53,19 +53,20 @@ object TestDBs {
     }
   }
 
-  def SQLiteMem(cname: String) = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
+  def SQLiteMem = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
     override def isPersistent = false
     override def isShared = false
   }
 
-  def SQLiteDisk(cname: String) = {
-    val prefix = "sqlite-"+cname
-    new SQLiteTestDB("jdbc:sqlite:"+TestDB.testDBPath+"/"+prefix+".db", "sqlitedisk") {
+  def SQLiteDisk = {
+    val confName = "sqlitedisk"
+    val prefix = "sqlite-"+confName
+    new SQLiteTestDB("jdbc:sqlite:"+TestDB.testDBPath+"/"+prefix+".db", confName) {
       override def cleanUpBefore() = TestDB.deleteDBFiles(prefix)
     }
   }
 
-  def DerbyMem(cname: String) = new DerbyDB("derbymem") {
+  def DerbyMem = new DerbyDB("derbymem") {
     val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
@@ -75,8 +76,8 @@ object TestDBs {
     }
   }
 
-  def DerbyDisk(cname: String) = new DerbyDB("derbydisk") {
-    val dbName = "derby-"+cname
+  def DerbyDisk = new DerbyDB("derbydisk") {
+    val dbName = "derby-"+confName
     val url = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";shutdown=true"
@@ -86,7 +87,7 @@ object TestDBs {
     }
   }
 
-  def Postgres(cname: String) = new ExternalJdbcTestDB("postgres") {
+  def Postgres = new ExternalJdbcTestDB("postgres") {
     type Driver = PostgresDriver.type
     val driver = PostgresDriver
     override def getLocalTables(implicit session: profile.Backend#Session) = {
@@ -100,7 +101,7 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def MySQL(cname: String) = new ExternalJdbcTestDB("mysql") {
+  def MySQL = new ExternalJdbcTestDB("mysql") {
     type Driver = MySQLDriver.type
     val driver = MySQLDriver
     // Recreating the DB is faster than dropping everything individually
@@ -125,13 +126,13 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def SQLServerJTDS(cname: String) = new SQLServerDB("sqlserver")
+  def SQLServerJTDS = new SQLServerDB("sqlserver")
 
-  def SQLServerSQLJDBC(cname: String) = new SQLServerDB("sqlserver-jdbc")
+  def SQLServerSQLJDBC = new SQLServerDB("sqlserver-jdbc")
 
-  def MSAccess(cname: String) = new AccessDB("access")
+  def MSAccess = new AccessDB("access")
 
-  def Heap(cname: String) = new RelationalTestDB {
+  def Heap = new RelationalTestDB {
     type Driver = MemoryDriver
     val driver: Driver = MemoryDriver
     val confName: String = "heap"

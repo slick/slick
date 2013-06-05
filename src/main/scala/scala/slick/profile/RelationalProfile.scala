@@ -106,6 +106,8 @@ trait RelationalTableComponent { driver: RelationalDriver =>
   abstract class Table[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) { table =>
     def this(_tableName: String) = this(None, _tableName)
 
+    def tableProvider: RelationalDriver = driver
+
     val O: driver.columnOptions.type = columnOptions
 
     def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
