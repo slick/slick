@@ -5,7 +5,7 @@ import scala.slick.ast.Util.nodeToNodeOps
 
 abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with TypedNode with ColumnBase[T] with WithOp {
 
-  def * : ColumnBase[T]
+  def * : ProvenShape[T]
   def nodeTableProjection: Node = Node(*)
 
   def create_* : Iterable[FieldSymbol] = collectFieldSymbols(Node(*))

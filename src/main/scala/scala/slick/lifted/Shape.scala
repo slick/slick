@@ -1,10 +1,10 @@
 package scala.slick.lifted
 
-import scala.language.existentials
+import scala.language.{existentials, implicitConversions}
 import scala.annotation.implicitNotFound
 import scala.slick.SlickException
 import scala.slick.util._
-import scala.slick.ast.{WithOp, TableNode, Node, Symbol, TypedType}
+import scala.slick.ast.{NodeGenerator, WithOp, TableNode, Node, Symbol, TypedType}
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
  * `Query[Mixed]` to its result element type `Unpacked` and the packing to a
@@ -41,6 +41,17 @@ object Shape extends ShapeLowPriority {
 
   val impureShape: Shape[Any, Any, Any] = new IdentityShape[Any, Any] {
     def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) =
+      throw new SlickException("Shape does not have the same Mixed and Unpacked type")
+  }
+
+  @inline implicit def provenShape[T, P](implicit shape: Shape[T, _, P]): Shape[ProvenShape[T], T, P] = new Shape[ProvenShape[T], T, P] {
+    def pack(from: Mixed): Packed = {
+      val sh = from.shape
+      sh.pack(from.value.asInstanceOf[sh.Mixed]).asInstanceOf[Packed]
+    }
+    def packedShape: Shape[Packed, Unpacked, Packed] =
+      shape.packedShape.asInstanceOf[Shape[Packed, Unpacked, Packed]]
+    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
   }
 }
@@ -97,4 +108,25 @@ object ShapedValue {
 // Work-around for SI-3346
 final class ToShapedValue[T](val value: T) extends AnyVal {
   @inline def shaped[U](implicit shape: Shape[T, U, _]) = new ShapedValue[T, U](value, shape)
+}
+
+/** A limited version of ShapedValue which can be constructed for every type
+  * that has a valid shape. We use it to enforce that a table's * projection
+  * has a valid shape. A ProvenShape has itself a Shape so it can be used in
+  * place of the value that it wraps for purposes of packing and unpacking. */
+trait ProvenShape[U] extends NodeGenerator {
+  def value: Any
+  def shape: Shape[_, U, _]
+  def packedValue[R](implicit ev: Shape[_, U, R]): ShapedValue[R, U]
+  def nodeDelegate = packedValue.packedNode
+}
+
+object ProvenShape {
+  /** Convert an appropriately shaped value to a ProvenShape */
+  implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[T, U, _]): ProvenShape[U] =
+    new ProvenShape[U] {
+      def value = v
+      def shape: Shape[_, U, _] = sh
+      def packedValue[R](implicit ev: Shape[_, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[R, U, _]])
+    }
 }
