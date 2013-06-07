@@ -17,10 +17,10 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def first = column[String]("first")
       def last = column[String]("last")
-      def * = id.? ~: baseProjection <> (User, User.unapply _)
+      def * = id.? ~: baseProjection <> (User.tupled, User.unapply _)
       def baseProjection = first ~ last
-      def forInsert = baseProjection <>
-        ({ (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
+      def forInsert = baseProjection.shaped <>
+        ({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
       val findByID = createFinderBy(_.id)
     }
 
@@ -54,6 +54,13 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       User(Some(3), "Carl", "Carlson"),
       Users.findByID.first(3)
     )
+
+    val q1 = for {
+      u <- Users
+      u2 <- Users
+    } yield u2
+    val r1 = q1.run.head
+    assertTrue("Element class: "+r1.getClass, r1.isInstanceOf[User])
   }
 
   def testUpdate {
@@ -62,7 +69,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     object Ts extends Table[Data]("T") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b) <> (Data, Data.unapply _)
+      def * = (a, b) <> (Data.tupled, Data.unapply _)
     }
 
     Ts.ddl.create
@@ -220,12 +227,12 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     object As extends Table[A]("t4_a") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def data = column[Int]("data")
-      def * = id ~ data <> (A, A.unapply _)
+      def * = id ~ data <> (A.tupled, A.unapply _)
     }
     object Bs extends Table[B]("t5_b") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def data = column[String]("data")
-      def * = id ~ data.? <> (B, B.unapply _)
+      def * = id ~ data.? <> (B.tupled, B.unapply _)
     }
 
     (As.ddl ++ Bs.ddl).create

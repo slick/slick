@@ -50,7 +50,7 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
     * types and objects. */
   val simple: SimpleQL
 
-  trait Implicits extends ExtensionMethodConversions with LiftTuples {
+  trait Implicits extends ExtensionMethodConversions {
     implicit val slickDriver: driver.type = driver
     implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker
 

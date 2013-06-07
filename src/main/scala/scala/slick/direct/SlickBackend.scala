@@ -229,7 +229,6 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       val rowType = sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ).toIndexedSeq)
       def nodeTableProjection = sq.TypeMapping(
         sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym,sq.Node(this)) )),
-        sq.ProductType( _fields.map( fieldSym => /*columnField(fieldSym) ->*/ columnType(fieldSym.typeSignature) ).toIndexedSeq ),
         v => throw new Exception("not implemented yet"),
         v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
                .reflectConstructor(
@@ -240,10 +239,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
                }):_* )
       )
 
-      def tpe = sq.CollectionType(
-        sq.CollectionTypeConstructor.default,
-        nodeTableProjection.tpe
-      )
+      def tpe = sq.CollectionType(sq.CollectionTypeConstructor.default, sq.NominalType(tableIdentitySymbol)(sq.NoType))
       override def nodeWithComputedType(scope: sq.SymbolScope, typeChildren: Boolean, retype: Boolean) =
         super[TypedNode].nodeWithComputedType(scope, typeChildren, retype)
     }

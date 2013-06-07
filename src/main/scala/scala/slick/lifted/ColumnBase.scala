@@ -7,7 +7,7 @@ trait Rep[T] extends NodeGenerator with WithOp
 
 /** Common base trait for record values
   * (anything that is isomorphic to a tuple of scalar values). */
-trait ColumnBase[T] extends Rep[T] with Typed
+trait ColumnBase[T] extends Rep[T]
 
 /** Base class for columns. */
 abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>

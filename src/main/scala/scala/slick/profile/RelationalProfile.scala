@@ -3,7 +3,7 @@ package scala.slick.profile
 import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast._
 import scala.slick.lifted._
-import scala.slick.util.TupleSupport
+import scala.slick.util.{TupleMethods, TupleSupport}
 import scala.slick.SlickException
 import FunctionSymbolExtensionMethods._
 import scala.slick.SlickException
@@ -210,7 +210,7 @@ trait RelationalMappingCompilerComponent {
         new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
       case GetOrElse(ch, default) =>
         new GetOrElseResultConverter(compileMapping(ch), default)
-      case TypeMapping(ch, _, toBase, toMapped) =>
+      case TypeMapping(ch, toBase, toMapped) =>
         new TypeMappingResultConverter(compileMapping(ch), toBase, toMapped)
       case n =>
         throw new SlickException("Unexpected node in ResultSetMapping: "+n)
