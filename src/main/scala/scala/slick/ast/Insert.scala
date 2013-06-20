@@ -10,17 +10,9 @@ final case class Insert(generator: Symbol, table: Node, map: Node, linear: Node)
   def nodeGenerators = Vector((generator, table))
   def nodeRebuild(ch: IndexedSeq[Node]) = copy(table = ch(0), map = ch(1), linear = ch(2))
   def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
-    if(nodeHasType && !typeChildren) this else {
-      val t2 = table.nodeWithComputedType(scope, typeChildren, retype)
-      val m2 = map.nodeWithComputedType(scope + (generator -> t2.nodeType), typeChildren, retype)
-      if(!nodeHasType || retype) {
-        val newType = m2.nodeType
-        if((t2 eq table) && (m2 eq map) && newType == nodeType) this
-        else copy(table = t2, map = m2).nodeTyped(newType)
-      } else {
-        if((t2 eq table) && (m2 eq map)) this
-        else copy(table = t2, map = m2).nodeTyped(nodeType)
-      }
-    }
+  def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+    val table2 = table.nodeWithComputedType(scope, typeChildren, retype)
+    val map2 = map.nodeWithComputedType(scope + (generator -> table2.nodeType), typeChildren, retype)
+    nodeRebuildOrThis(Vector(table2, map2, linear)).nodeTypedOrCopy(if(!nodeHasType || retype) map2.nodeType else nodeType)
+  }
 }

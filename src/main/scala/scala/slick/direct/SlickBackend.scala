@@ -54,39 +54,19 @@ trait QueryableBackend
 /** a node for marking reversed columns in sortBy (only used temporarily in this backend) */
 object CustomNodes{
   import scala.slick.ast._
-  final case class Reverse(value: Node) extends UnaryNode {
+  final case class Reverse(value: Node) extends UnaryNode with SimplyTypedNode {
     type Self = Reverse
     def child = value
     override def nodeChildNames = Seq("value")
-    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
-    def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
-      if(nodeHasType && !typeChildren) this else {
-        val ch2 = child.nodeWithComputedType(scope, typeChildren, retype)
-        if(!nodeHasType || retype) {
-          if((ch2 eq child) && ch2.nodeType == nodeType) this
-          else copy(value = ch2).nodeTyped(ch2.nodeType)
-        } else {
-          if(ch2 eq child) this
-          else copy(value = ch2).nodeTyped(nodeType)
-        }
-      }
+    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure?
+    protected def buildType = child.nodeType
   }
-  final case class Nullsorting(value: Node,sorting:Nullsorting.Sorting) extends UnaryNode {
+  final case class Nullsorting(value: Node,sorting:Nullsorting.Sorting) extends UnaryNode with SimplyTypedNode {
     type Self = Nullsorting
     def child = value
     override def nodeChildNames = Seq("value")
     protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
-    def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
-      if(nodeHasType && !typeChildren) this else {
-        val ch2 = child.nodeWithComputedType(scope, typeChildren, retype)
-        if(!nodeHasType || retype) {
-          if((ch2 eq child) && ch2.nodeType == nodeType) this
-          else copy(value = ch2).nodeTyped(ch2.nodeType)
-        } else {
-          if(ch2 eq child) this
-          else copy(value = ch2).nodeTyped(nodeType)
-        }
-      }
+    protected def buildType = child.nodeType
   }
   object Nullsorting extends Enumeration{
     type Sorting = Value
@@ -244,8 +224,6 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
         sq.CollectionTypeConstructor.default,
         nodeTableProjection.tpe
       )
-      override def nodeWithComputedType(scope: sq.SymbolScope, typeChildren: Boolean, retype: Boolean) =
-        super[TypedNode].nodeWithComputedType(scope, typeChildren, retype)
     }
     new Query( table, Scope() )
   }

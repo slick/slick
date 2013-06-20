@@ -48,9 +48,6 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index])
-
-  override def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
-    super[TypedNode].nodeWithComputedType(scope, typeChildren, retype)
 }
 
 trait NothingContainer {

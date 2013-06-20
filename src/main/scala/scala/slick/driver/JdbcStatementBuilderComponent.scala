@@ -340,18 +340,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   /** QueryBuilder mix-in for pagination based on RowNumber. */
   trait RowNumberPagination extends QueryBuilder {
-    final case class StarAnd(child: Node) extends UnaryNode {
+    final case class StarAnd(child: Node) extends UnaryNode with SimplyTypedNode {
       type Self = StarAnd
       protected[this] def nodeRebuild(child: Node) = StarAnd(child)
-      def nodeWithComputedType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
-        if(nodeHasType && !typeChildren) this else {
-          val ch2 = child.nodeWithComputedType(scope, typeChildren, retype)
-          if(!nodeHasType || retype) {
-            if((child eq ch2) && nodeType != NoType) this else copy(ch2).nodeTyped(NoType)
-          } else {
-            if(child eq ch2) this else copy(ch2).nodeTyped(nodeType)
-          }
-        }
+      protected def buildType = NoType
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
