@@ -104,6 +104,9 @@ trait StandardParameterizedQueries { driver: BasicDriver =>
 
 trait BasicInvokerComponent { driver: BasicDriver =>
 
+  /** Create a DDLInvoker -- this method should be implemented by drivers as needed */
+  def createDDLInvoker(ddl: SchemaDescription): DDLInvoker
+
   /** Pseudo-invoker for running DDL statements. */
   trait DDLInvoker {
     /** Create the entities described by this DDL object */
