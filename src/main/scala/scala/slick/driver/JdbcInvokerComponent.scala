@@ -22,6 +22,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   def createUpdateInvoker[T](tree: Node, param: Any) = new UpdateInvoker[T](tree, param)
   def createDeleteInvoker(tree: Node, param: Any) = new DeleteInvoker(tree, param)
   def createQueryInvoker[P,R](tree: Node): QueryInvoker[P,R] = new QueryInvoker[P, R](tree)
+  def createDDLInvoker(ddl: SchemaDescription) = new DDLInvoker(ddl)
 
   // Parameters for invokers -- can be overridden by drivers as needed
   val invokerMutateConcurrency: ResultSetConcurrency = ResultSetConcurrency.Updatable

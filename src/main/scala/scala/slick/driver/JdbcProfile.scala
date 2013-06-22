@@ -39,7 +39,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   }
 
   trait Implicits extends LowPriorityImplicits with super.Implicits with ImplicitColumnTypes {
-    implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = new DDLInvoker(d)
+    implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = createDDLInvoker(d)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = createDeleteInvoker(deleteCompiler.run(q.toNode).tree, ())
     implicit def runnableCompiledToAppliedQueryInvoker[RU](c: RunnableCompiled[_ <: Query[_, _], Seq[RU]]): MutatingUnitInvoker[RU] = createQueryInvoker[Any, RU](c.compiledQuery)(c.param)
     implicit def runnableCompiledToUpdateInvoker[RU](c: RunnableCompiled[_ <: Query[_, _], Seq[RU]]): UpdateInvoker[RU] =

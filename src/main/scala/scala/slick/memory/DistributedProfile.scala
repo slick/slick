@@ -29,6 +29,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = ???
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
+  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
 
   val emptyHeapDB = HeapBackend.createEmptyDatabase
 
