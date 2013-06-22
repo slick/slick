@@ -28,6 +28,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
+  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new TableDDL(table)
 
