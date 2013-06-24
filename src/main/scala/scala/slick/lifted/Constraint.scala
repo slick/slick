@@ -9,20 +9,20 @@ import scala.slick.ast.Filter
  */
 trait Constraint
 
-final class ForeignKey[TT <: TableNode, P]( //TODO Simplify this mess!
+final class ForeignKey( //TODO Simplify this mess!
     val name: String,
     val sourceTable: Node,
     val onUpdate: ForeignKeyAction,
     val onDelete: ForeignKeyAction,
-    val sourceColumns: P,
-    val targetColumns: TT => P,
+    val sourceColumns: Any,
+    val targetColumns: Any => Any,
     val linearizedSourceColumns: IndexedSeq[Node],
     val linearizedTargetColumns: IndexedSeq[Node],
     val linearizedTargetColumnsForOriginalTargetTable: IndexedSeq[Node],
-    val targetTable: TT)
+    val targetTable: TableNode)
 
 object ForeignKey {
-  def apply[TT <: TableNode, P](
+  def apply[TT <: AbstractTable[_], P](
       name: String,
       sourceTable: Node,
       targetTableShaped: ShapedValue[TT, _],
@@ -32,17 +32,17 @@ object ForeignKey {
       originalTargetColumns: TT => P,
       onUpdate: ForeignKeyAction,
       onDelete: ForeignKeyAction
-    ): ForeignKey[TT, P] = new ForeignKey[TT, P](
+    ): ForeignKey = new ForeignKey(
       name,
       sourceTable,
       onUpdate,
       onDelete,
       originalSourceColumns,
-      originalTargetColumns,
+      originalTargetColumns.asInstanceOf[Any => Any],
       ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalSourceColumns))),
       ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(targetTableShaped.value)))),
       ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(originalTargetTable)))),
-      targetTableShaped.value
+      targetTableShaped.value.tableNode
     )
 }
 
@@ -56,10 +56,10 @@ object ForeignKeyAction {
   case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
-class ForeignKeyQuery[E <: TableNode, U](
+class ForeignKeyQuery[E <: AbstractTable[_], U](
     nodeDelegate: Node,
     base: ShapedValue[_ <: E, U],
-    val fks: IndexedSeq[ForeignKey[E, _]],
+    val fks: IndexedSeq[ForeignKey],
     targetBaseQuery: Query[E, U],
     generator: AnonSymbol,
     aliasedValue: E
@@ -85,4 +85,4 @@ case class PrimaryKey(name: String, columns: IndexedSeq[Node]) extends Constrain
 /**
  * An index (or foreign key constraint with an implicit index).
  */
-class Index(val name: String, val table: TableNode, val on: IndexedSeq[Node], val unique: Boolean)
+class Index(val name: String, val table: AbstractTable[_], val on: IndexedSeq[Node], val unique: Boolean)

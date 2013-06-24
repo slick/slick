@@ -134,8 +134,6 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     }
 
     def ddl: SchemaDescription = buildTableSchemaDescription(this)
-
-    def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(tableIdentitySymbol)(NoType))
   }
 }
 

@@ -552,26 +552,12 @@ object FwdPath {
   def toString(path: Seq[Symbol]): String = path.mkString("Path ", ".", "")
 }
 
-/** Base class for table nodes. Direct and lifted embedding have different
-  * implementations of this class. */
-abstract class TableNode extends NullaryNode { self =>
+/** A Node representing a database table. */
+final case class TableNode(schemaName: Option[String], tableName: String, tableIdentitySymbol: TableIdentitySymbol, expandOn: Node => Node) extends NullaryNode with TypedNode {
   type Self = TableNode
-  def tableIdentitySymbol: TableIdentitySymbol
-  def nodeTableProjection(tableRef: Node): Node
-  def schemaName: Option[String]
-  def tableName: String
+  def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(tableIdentitySymbol)(NoType))
+  def nodeRebuild = copy()
   override def toString = "Table " + tableName
-  def nodeRebuild: TableNode = new TableNode {
-    def nodeTableProjection(tableRef: Node) = self.nodeTableProjection(tableRef)
-    def schemaName = self.schemaName
-    def tableName = self.tableName
-    def tableIdentitySymbol = self.tableIdentitySymbol
-    def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = this
-  }
-}
-
-object TableNode {
-  def unapply(t: TableNode) = Some(t.tableName)
 }
 
 /** A node that represents an SQL sequence. */

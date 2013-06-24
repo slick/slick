@@ -174,7 +174,7 @@ trait AccessDriver extends JdbcDriver { driver =>
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
-    override protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
+    override protected def addForeignKey(fk: ForeignKey, sb: StringBuilder) {
       sb append "CONSTRAINT " append quoteIdentifier(fk.name) append " FOREIGN KEY("
       addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
       sb append ") REFERENCES " append quoteIdentifier(fk.targetTable.tableName) append "("

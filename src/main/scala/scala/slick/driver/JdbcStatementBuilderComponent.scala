@@ -457,14 +457,15 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   /** Builder for various DDL statements. */
   class TableDDLBuilder(val table: Table[_]) { self =>
+    protected val tableNode = Node(table).asInstanceOf[TableNode]
     protected val columns: Iterable[ColumnDDLBuilder] = table.create_*.map(fs => createColumnDDLBuilder(fs, table))
     protected val indexes: Iterable[Index] = table.indexes
-    protected val foreignKeys: Iterable[ForeignKey[_ <: TableNode, _]] = table.foreignKeys
+    protected val foreignKeys: Iterable[ForeignKey] = table.foreignKeys
     protected val primaryKeys: Iterable[PrimaryKey] = table.primaryKeys
 
     def buildDDL: DDL = {
       if(primaryKeys.size > 1)
-        throw new SlickException("Table "+table.tableName+" defines multiple primary keys ("
+        throw new SlickException("Table "+tableNode.tableName+" defines multiple primary keys ("
           + primaryKeys.map(_.name).mkString(", ") + ")")
       DDL(createPhase1, createPhase2, dropPhase1, dropPhase2)
     }
@@ -475,7 +476,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
 
     protected def createTable: String = {
-      val b = new StringBuilder append "create table " append quoteTableName(table) append " ("
+      val b = new StringBuilder append "create table " append quoteTableName(tableNode) append " ("
       var first = true
       for(c <- columns) {
         if(first) first = false else b append ","
@@ -488,26 +489,26 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def addTableOptions(b: StringBuilder) {}
 
-    protected def dropTable: String = "drop table "+quoteTableName(table)
+    protected def dropTable: String = "drop table "+quoteTableName(tableNode)
 
     protected def createIndex(idx: Index): String = {
       val b = new StringBuilder append "create "
       if(idx.unique) b append "unique "
-      b append "index " append quoteIdentifier(idx.name) append " on " append quoteTableName(table) append " ("
+      b append "index " append quoteIdentifier(idx.name) append " on " append quoteTableName(tableNode) append " ("
       addIndexColumnList(idx.on, b, idx.table.tableName)
       b append ")"
       b.toString
     }
 
-    protected def createForeignKey(fk: ForeignKey[_ <: TableNode, _]): String = {
-      val sb = new StringBuilder append "alter table " append quoteTableName(table) append " add "
+    protected def createForeignKey(fk: ForeignKey): String = {
+      val sb = new StringBuilder append "alter table " append quoteTableName(tableNode) append " add "
       addForeignKey(fk, sb)
       sb.toString
     }
 
-    protected def addForeignKey(fk: ForeignKey[_ <: TableNode, _], sb: StringBuilder) {
+    protected def addForeignKey(fk: ForeignKey, sb: StringBuilder) {
       sb append "constraint " append quoteIdentifier(fk.name) append " foreign key("
-      addForeignKeyColumnList(fk.linearizedSourceColumns, sb, table.tableName)
+      addForeignKeyColumnList(fk.linearizedSourceColumns, sb, tableNode.tableName)
       sb append ") references " append quoteTableName(fk.targetTable) append "("
       addForeignKeyColumnList(fk.linearizedTargetColumnsForOriginalTargetTable, sb, fk.targetTable.tableName)
       sb append ") on update " append fk.onUpdate.action
@@ -515,22 +516,22 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def createPrimaryKey(pk: PrimaryKey): String = {
-      val sb = new StringBuilder append "alter table " append quoteTableName(table) append " add "
+      val sb = new StringBuilder append "alter table " append quoteTableName(tableNode) append " add "
       addPrimaryKey(pk, sb)
       sb.toString
     }
 
     protected def addPrimaryKey(pk: PrimaryKey, sb: StringBuilder) {
       sb append "constraint " append quoteIdentifier(pk.name) append " primary key("
-      addPrimaryKeyColumnList(pk.columns, sb, table.tableName)
+      addPrimaryKeyColumnList(pk.columns, sb, tableNode.tableName)
       sb append ")"
     }
 
-    protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]): String =
-      "alter table " + quoteTableName(table) + " drop constraint " + quoteIdentifier(fk.name)
+    protected def dropForeignKey(fk: ForeignKey): String =
+      "alter table " + quoteTableName(tableNode) + " drop constraint " + quoteIdentifier(fk.name)
 
     protected def dropPrimaryKey(pk: PrimaryKey): String =
-      "alter table " + quoteTableName(table) + " drop constraint " + quoteIdentifier(pk.name)
+      "alter table " + quoteTableName(tableNode) + " drop constraint " + quoteIdentifier(pk.name)
 
     protected def addIndexColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String) =
       addColumnList(columns, sb, requiredTableName, "index")

@@ -187,10 +187,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
         (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6),
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
       )
-      override def create_* =
-        all.shaped.packedNode.collect {
-          case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == this => f
-        }.toSeq.distinct
+      override def create_* = collectFieldSymbols(all.shaped.packedNode)
     }
 
     val data = (

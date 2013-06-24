@@ -112,7 +112,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
-    override protected def dropForeignKey(fk: ForeignKey[_ <: TableNode, _]) = {
+    override protected def dropForeignKey(fk: ForeignKey) = {
       "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
     }
   }

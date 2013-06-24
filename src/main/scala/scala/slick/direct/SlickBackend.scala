@@ -201,13 +201,9 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
 
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     def _fields = getConstructorArgs(typetag.tpe)
-
-    val table = new sq.TableNode with sq.TypedNode {
-      val schemaName = None
-      val tableName = mapper.typeToTable( typetag.tpe )
-      val tableIdentitySymbol = sq.SimpleTableIdentitySymbol(driver, schemaName.getOrElse("_"), tableName)
-      val rowType = sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ).toIndexedSeq)
-      def nodeTableProjection(tableRef: sq.Node) = sq.TypeMapping(
+    val tableName = mapper.typeToTable( typetag.tpe )
+    val table = sq.TableNode(None, tableName, sq.SimpleTableIdentitySymbol(driver, "_", tableName),
+      expandOn = { tableRef: sq.Node => sq.TypeMapping(
         sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, tableRef) )),
         v => throw new Exception("not implemented yet"),
         v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
@@ -217,10 +213,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
                  case v:Vector[_] => v
                  case v:Product => v.productIterator.toVector
                }):_* )
-      )
-
-      def tpe = sq.CollectionType(sq.CollectionTypeConstructor.default, sq.NominalType(tableIdentitySymbol)(sq.NoType))
-    }
+      )}
+    )
     new Query( table, Scope() )
   }
 
