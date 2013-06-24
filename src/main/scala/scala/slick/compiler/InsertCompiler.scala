@@ -23,7 +23,7 @@ trait InsertCompiler extends Phase {
 
     def tr(n: Node): Node = n match {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildren(tr, keepType = true)
-      case t:TableNode => tr(Node(t.nodeTableProjection))
+      case t: TableNode => tr(t.nodeTableProjection(t))
       case sel @ Select(Ref(IntrinsicSymbol(t: TableNode)), fs: FieldSymbol) =>
         if(table eq null) table = t
         else if(table ne t) throw new SlickException("Cannot insert into more than one table at once")

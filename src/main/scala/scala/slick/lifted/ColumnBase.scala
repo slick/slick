@@ -3,14 +3,14 @@ package scala.slick.lifted
 import scala.slick.ast._
 
 /** Common base trait for all lifted values. */
-trait Rep[T] extends NodeGenerator with WithOp
+trait Rep[T] extends NodeGenerator
 
 /** Common base trait for record values
   * (anything that is isomorphic to a tuple of scalar values). */
 trait ColumnBase[T] extends Rep[T]
 
 /** Base class for columns. */
-abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>
+abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] with EncodeRef { self =>
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 
@@ -19,11 +19,13 @@ abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBas
     if(n eq this) super.toString
     else s"Column($n)"
   }
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Column[T] =
+    Column.forNode(Path(positions.map(ElementSymbol) :+ sym))
 }
 
 object Column {
   def forNode[T : TypedType](n: Node): Column[T] = new Column[T] {
-    def nodeDelegate = if(op eq null) n else op.nodeDelegate
+    def nodeDelegate = n
   }
 }
 

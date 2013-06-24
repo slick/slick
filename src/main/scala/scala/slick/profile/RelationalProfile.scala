@@ -24,7 +24,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
     implicit def tableToQuery[T <: AbstractTable[_]](t: T) = {
-      if(t.op ne null) throw new SlickException("Trying to implicitly lift a single table row to a Query. If this is really what you want, use an explicit Query(...) call instead")
+      if(!t.tableIsRaw) throw new SlickException("Trying to implicitly lift a single table row to a Query. If this is really what you want, use an explicit Query(...) call instead")
       Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
     }
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc

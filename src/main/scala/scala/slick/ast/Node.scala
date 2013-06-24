@@ -132,9 +132,7 @@ trait SimplyTypedNode extends Node {
 
 object Node extends Logging {
   def apply(o: Any): Node =
-    if(o == null) LiteralNode(null)
-    else if(o.isInstanceOf[WithOp] && (o.asInstanceOf[WithOp].op ne null)) Node(o.asInstanceOf[WithOp].op)
-    else if(o.isInstanceOf[NodeGenerator]) {
+    if(o.isInstanceOf[NodeGenerator]) {
       val gen = o.asInstanceOf[NodeGenerator]
       if(gen.nodeDelegate eq gen) gen.nodeDelegate else Node(gen.nodeDelegate)
     }
@@ -559,12 +557,12 @@ object FwdPath {
 abstract class TableNode extends NullaryNode { self =>
   type Self = TableNode
   def tableIdentitySymbol: TableIdentitySymbol
-  def nodeTableProjection: Node
+  def nodeTableProjection(tableRef: Node): Node
   def schemaName: Option[String]
   def tableName: String
   override def toString = "Table " + tableName
   def nodeRebuild: TableNode = new TableNode {
-    def nodeTableProjection = self.nodeTableProjection
+    def nodeTableProjection(tableRef: Node) = self.nodeTableProjection(tableRef)
     def schemaName = self.schemaName
     def tableName = self.tableName
     def tableIdentitySymbol = self.tableIdentitySymbol

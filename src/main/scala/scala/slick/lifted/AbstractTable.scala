@@ -3,10 +3,35 @@ package scala.slick.lifted
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 
-abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with TypedNode with ColumnBase[T] with WithOp {
+abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with TypedNode with ColumnBase[T] with Cloneable with EncodeRef {
+
+  private[this] def mapOp(f: (Node, List[Int]) => Node, positions: List[Int] = Nil): this.type = {
+    val tv = Node(this)
+    val fv = f(tv, positions)
+    if(fv eq tv) this
+    else {
+      val t = clone.asInstanceOf[this.type]
+      t._op = fv
+      t
+    }
+  }
+
+  private[AbstractTable] var _op: Node = _
+
+  def tableIsRaw = _op eq null
+
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): this.type = {
+    def f(n: Node, positions: List[Int]): Node = Path(positions.map(ElementSymbol) :+ sym)
+    mapOp(f, positions)
+  }
 
   def * : ProvenShape[T]
-  def nodeTableProjection: Node = Node(*)
+  def nodeTableProjection(tableRef: Node): Node = {
+    val base = if(tableRef eq this) this else mapOp((_, _) => tableRef)
+    Node(base.*)
+  }
+
+  override def nodeDelegate = if(_op eq null) this else _op
 
   def create_* : Iterable[FieldSymbol] = collectFieldSymbols(Node(*))
 

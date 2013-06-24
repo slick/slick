@@ -92,7 +92,7 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
   */
 case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
   def encodeRef(s: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
-    val fv = WithOp.encodeRef(value, s, positions)
+    val fv = EncodeRef(value, s, positions)
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def packedNode = Node(shape.pack(value))
@@ -134,9 +134,12 @@ object ProvenShape {
     }
 }
 
-final class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends ColumnBase[T] with NodeGenerator {
+class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends ColumnBase[T] with NodeGenerator with EncodeRef {
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
   private def typeMapping = TypeMapping(Node(child), (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
-  override def nodeDelegate = if(op eq null) typeMapping else op.nodeDelegate
+  override def nodeDelegate: Node = typeMapping
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
+    override def nodeDelegate = Path(positions.map(ElementSymbol) :+ sym)
+  }
 }

@@ -18,7 +18,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
     val generator = new AnonSymbol
     val aliased = {
       val uv = unpackable.value
-      WithOp.encodeRef(uv, generator)
+      EncodeRef(uv, generator)
     }
     val fv = f(aliased)
     new WrappingQuery[F, T](new Bind(generator, Node(this), Node(fv)), fv.unpackable)
@@ -104,7 +104,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
 
 object Query extends Query[Column[Unit], Unit] {
   def nodeDelegate = packed
-  def unpackable = ShapedValue(ConstColumn(()).mapOp((n, _) => Pure(n)), Shape.unpackColumnBase[Unit, Column[Unit]])
+  def unpackable = ShapedValue(Column.forNode[Unit](Pure(ConstColumn(()))), Shape.unpackColumnBase[Unit, Column[Unit]])
 
   def apply[E, U, R](value: E)(implicit unpack: Shape[E, U, R]): Query[R, U] = {
     val unpackable = ShapedValue(value, unpack).packedValue
