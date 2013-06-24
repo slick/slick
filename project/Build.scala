@@ -48,6 +48,7 @@ object SlickBuild extends Build {
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
+    resolvers += Resolver.sonatypeRepo("releases"),
     scalacOptions ++= List("-deprecation", "-feature"),
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",
     logBuffered := false,
@@ -104,6 +105,9 @@ object SlickBuild extends Build {
       testOnly <<= inputTask { argTask => (argTask) map { args => }},
       ivyConfigurations += config("macro").hide.extend(Compile),
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
+      libraryDependencies ++= Seq(
+        "org.mongodb" % "casbah_2.10" % "2.6.1" % "optional" 
+      ),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
