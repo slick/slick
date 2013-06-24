@@ -104,7 +104,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
 
 object Query extends Query[Column[Unit], Unit] {
   def nodeDelegate = packed
-  def unpackable = ShapedValue(Column.forNode[Unit](Pure(ConstColumn(()))), Shape.unpackColumnBase[Unit, Column[Unit]])
+  def unpackable = ShapedValue(Column.forNode[Unit](Pure(LiteralNode[Unit](()))), Shape.unpackColumnBase[Unit, Column[Unit]])
 
   def apply[E, U, R](value: E)(implicit unpack: Shape[E, U, R]): Query[R, U] = {
     val unpackable = ShapedValue(value, unpack).packedValue

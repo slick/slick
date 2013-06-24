@@ -30,8 +30,7 @@ object Column {
 }
 
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
-final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends Column[T] with LiteralNode {
+final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends Column[T] {
   def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
-  def nodeRebuild = copy()
-  def volatileHint = false
+  def nodeDelegate = LiteralNode(tt, value)
 }
