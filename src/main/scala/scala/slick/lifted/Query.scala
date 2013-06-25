@@ -145,3 +145,13 @@ final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, l
   def on[T <: Column[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]) =
     new WrappingQuery[(E1, E2), (U1, U2)](AJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)
 }
+
+final class TableQuery[+E <: AbstractTable[_], U](shaped: ShapedValue[_ <: E, U])
+  extends NonWrappingQuery[E, U](shaped.packedNode, shaped)
+
+object TableQuery {
+  def apply[E, U, R <: AbstractTable[_]](value: E)(implicit shape: Shape[E, U, R]): TableQuery[R, U] = {
+    val packed = ShapedValue(value, shape).packedValue
+    new TableQuery[R, U](packed)
+  }
+}

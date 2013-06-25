@@ -28,6 +28,8 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
       Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
     }
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
+    implicit def tableQueryToDDLExtensionMethods[T <: Table[_]](q: TableQuery[T, _]): DDLExtensionMethods[T] =
+      new DDLExtensionMethods[T](q)
   }
 
   trait SimpleQL extends super.SimpleQL with TupleMethods with Implicits {
@@ -134,6 +136,10 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     }
 
     def ddl: SchemaDescription = buildTableSchemaDescription(this)
+  }
+
+  class DDLExtensionMethods[T <: Table[_]](val q: TableQuery[T, _]) {
+    def ddl: SchemaDescription = buildTableSchemaDescription(q.unpackable.value)
   }
 }
 

@@ -45,6 +45,38 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     assertEquals(Set((1,"A"), (2,"B"), (42,"X"), (43,"Y")), Query(Dst2).list.toSet)
   }
 
+  def testQueryBasedModel {
+
+    class TestTable(tname: String) extends Table[(Int, String)](tname) {
+      def id = column[Int]("id")
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+    }
+
+    val src1 = TableQuery(new TestTable("src1_q"))
+    val dst1 = TableQuery(new TestTable("dst1_q"))
+    val dst2 = TableQuery(new TestTable("dst2_q"))
+
+    (src1.ddl ++ dst1.ddl ++ dst2.ddl).create
+
+    src1.insert(1, "A")
+    src1.map(_.ins).insertAll((2, "B"), (3, "C"))
+
+    dst1.insert(src1)
+    assertEquals(Set((1,"A"), (2,"B"), (3,"C")), dst1.list.toSet)
+
+    val q2 = for(s <- src1 if s.id <= 2) yield s
+    println("Insert 2: "+dst2.insertStatementFor(q2))
+    dst2.insert(q2)
+    assertEquals(Set((1,"A"), (2,"B")), dst2.list.toSet)
+
+    val q3 = (42, "X".bind)
+    println("Insert 3: "+dst2.insertStatementFor(q3))
+    dst2.insertExpr(q3)
+    assertEquals(Set((1,"A"), (2,"B"), (42,"X")), dst2.list.toSet)
+  }
+
   def testReturning {
 
     object A extends Table[(Int, String, String)]("A") {
