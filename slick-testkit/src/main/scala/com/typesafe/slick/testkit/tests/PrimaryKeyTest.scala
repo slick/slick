@@ -8,26 +8,27 @@ class PrimaryKeyTest extends TestkitTest[RelationalTestDB] {
 
   def test {
 
-    object A extends Table[(Int, Int, String)]("a") {
+    class A(tag: Tag) extends Table[(Int, Int, String)](tag, "a") {
       def k1 = column[Int]("k1")
       def k2 = column[Int]("k2")
       def s = column[String]("s")
       def * = (k1, k2, s)
       def pk = primaryKey("pk_a", (k1, k2))
     }
+    val as = TableQuery(new A(_))
 
-    A.primaryKeys.foreach(println)
-    assertEquals(Set("pk_a"), A.primaryKeys.map(_.name).toSet)
+    as.baseTableRow.primaryKeys.foreach(println)
+    assertEquals(Set("pk_a"), as.baseTableRow.primaryKeys.map(_.name).toSet)
 
-    A.ddl.create
+    as.ddl.create
 
-    A ++= Seq(
+    as ++= Seq(
       (1, 1, "a11"),
       (1, 2, "a12"),
       (2, 1, "a21"),
       (2, 2, "a22")
     )
 
-    assertFail { A += (1, 1, "a11-conflict") }
+    assertFail { as += (1, 1, "a11-conflict") }
   }
 }

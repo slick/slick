@@ -27,4 +27,5 @@ trait Aliases {
   type SimpleLiteral = lifted.SimpleLiteral
   val SimpleLiteral = lifted.SimpleLiteral
   val TupleMethods = util.TupleMethods
+  type Tag = lifted.Tag
 }

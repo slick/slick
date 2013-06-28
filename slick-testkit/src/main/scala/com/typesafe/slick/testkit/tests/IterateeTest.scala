@@ -7,17 +7,18 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 class IterateeTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
-  object A extends Table[(String, Int)]("a") {
+  class A(tag: Tag) extends Table[(String, Int)](tag, "a") {
     def s = column[String]("s", O.PrimaryKey)
     def i = column[Int]("i")
     def * = (s, i)
   }
+  lazy val as = TableQuery(new A(_))
 
   def test {
-    A.ddl.create
-    A.insertAll(("a", 1), ("b", 2), ("c", 3), ("d", 4))
+    as.ddl.create
+    as.insertAll(("a", 1), ("b", 2), ("c", 3), ("d", 4))
 
-    val q1 = Query(A).sortBy(_.s)
+    val q1 = as.sortBy(_.s)
 
     /* Sum i values until > 5 with foldLeft().
      * There is no way to stop early when the limit has been reached */

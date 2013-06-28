@@ -93,7 +93,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
       val taints = new HashMap[IntrinsicSymbol, Set[RelationalDriver]]
       def collect(n: Node, scope: Scope): (Set[RelationalDriver], Set[RelationalDriver]) = {
         val (dr: Set[RelationalDriver], tt: Set[RelationalDriver]) = (n match {
-          case t: RelationalDriver#Table[_] => (Set(t.tableProvider), Set.empty)
+          case t: TableNode => (Set(t.driverTable.asInstanceOf[RelationalDriver#Table[_]].tableProvider), Set.empty)
           case Ref(sym) =>
             scope.get(sym) match {
               case Some(nn) =>

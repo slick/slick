@@ -213,7 +213,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
                  case v:Vector[_] => v
                  case v:Product => v.productIterator.toVector
                }):_* )
-      )}
+      )},
+      driverTable = null
     )
     new Query( table, Scope() )
   }

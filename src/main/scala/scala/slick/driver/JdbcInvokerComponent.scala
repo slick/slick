@@ -178,8 +178,8 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
 
-    def returning[RT, RU](value: RT)(implicit shape: Shape[RT, RU, _]) =
-      createKeysInsertInvoker[U, RU](tree, new ShapedValue[RT, RU](value, shape).packedNode)
+    def returning[RT, RU](value: Query[RT, RU]) =
+      createKeysInsertInvoker[U, RU](tree, Node(value))
   }
 
   /** Base class with common functionality for KeysInsertInvoker and MappedKeysInsertInvoker. */

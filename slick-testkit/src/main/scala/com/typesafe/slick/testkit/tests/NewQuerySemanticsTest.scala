@@ -12,7 +12,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
 
   def testNewComposition {
 
-    object SuppliersStd extends Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
+    class SuppliersStd(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
       def name = column[String]("SUP_NAME")
       def street = column[String]("STREET")
@@ -21,18 +21,20 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def zip = column[String]("ZIP")
       def * = (id, name, street, city, state, zip)
     }
+    val suppliersStd = TableQuery(new SuppliersStd(_))
 
-    object CoffeesStd extends Table[(String, Int, Int, Int, Int)]("COFFEES") {
+    class CoffeesStd(tag: Tag) extends Table[(String, Int, Int, Int, Int)](tag, "COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
       def supID = column[Int]("SUP_ID")
       def price = column[Int]("PRICE")
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
       def * = (name, supID, price, sales, total)
-      def supplier = foreignKey("SUP_FK", supID, SuppliersStd)(_.id)
+      def supplier = foreignKey("SUP_FK", supID, suppliersStd)(_.id)
     }
+    val coffeesStd = TableQuery(new CoffeesStd(_))
 
-    object Suppliers extends Table[(Int, String, String)]("SUPPLIERS") {
+    class Suppliers(tag: Tag) extends Table[(Int, String, String)](tag, "SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
       def name = column[String]("SUP_NAME")
       def street = column[String]("STREET")
@@ -42,8 +44,9 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def * = (id, name, street)
       def forInsert = (id, name, street, city, state, zip).shaped
     }
+    val suppliers = TableQuery(new Suppliers(_))
 
-    object Coffees extends Table[(String, Int, Int, Int, Int)]("COFFEES") {
+    class Coffees(tag: Tag) extends Table[(String, Int, Int, Int, Int)](tag, "COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
       def supID = column[Int]("SUP_ID")
       def price = column[Int]("PRICE")
@@ -52,16 +55,17 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def * = (name, supID, price, sales, (total * 10))
       def forInsert = (name, supID, price, sales, total).shaped
       def totalComputed = sales * price
-      def supplier = foreignKey("SUP_FK", supID, Suppliers)(_.id)
+      def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
     }
+    val coffees = TableQuery(new Coffees(_))
 
-    (SuppliersStd.ddl ++ CoffeesStd.ddl).create
+    (suppliersStd.ddl ++ coffeesStd.ddl).create
 
-    SuppliersStd += (101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
-    SuppliersStd += ( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
-    SuppliersStd += (150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
+    suppliersStd += (101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
+    suppliersStd += ( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
+    suppliersStd += (150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
 
-    CoffeesStd ++= Seq(
+    coffeesStd ++= Seq(
       ("Colombian",         101, 799, 1, 0),
       ("French_Roast",       49, 799, 2, 0),
       ("Espresso",          150, 999, 3, 0),
@@ -73,7 +77,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       println("=========================================== "+name)
 
     val qa = for {
-      c <- Coffees.take(3)
+      c <- coffees.take(3)
     } yield (c.supID, (c.name, 42))
     show("qa", qa)
     if(doRun) {
@@ -114,7 +118,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       assertAllMatch(rc){ case (i: String, 42) => () }
     }
 
-    val q0 = Query(Coffees)
+    val q0 = coffees
     show("q0: Plain table", q0)
     if(doRun) {
       val r0 = q0.run.toSet
@@ -130,8 +134,8 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q1 = for {
-      c <- Coffees.sortBy(c => (c.name, c.price.desc)).take(2)
-      s <- Suppliers
+      c <- coffees.sortBy(c => (c.name, c.price.desc)).take(2)
+      s <- suppliers
     } yield ((c.name, (s.city ++ ":")), c, s, c.totalComputed)
     show("q1: Plain implicit join", q1)
     if(doRun) {
@@ -149,7 +153,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     ifCap(rcap.pagingNested) {
-      val q1b_0 = Coffees.sortBy(_.price).take(3) join Suppliers on (_.supID === _.id)
+      val q1b_0 = coffees.sortBy(_.price).take(3) join suppliers on (_.supID === _.id)
       val q1b = for {
         (c, s) <- q1b_0.sortBy(_._1.price).take(2).filter(_._1.name =!= "Colombian")
         (c2, s2) <- q1b_0
@@ -168,8 +172,8 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q2 = for {
-      c <- Coffees.filter(_.price < 900).map(_.*)
-      s <- Suppliers if s.id === c._2
+      c <- coffees.filter(_.price < 900).map(_.*)
+      s <- suppliers if s.id === c._2
     } yield (c._1, s.name)
     show("q2: More elaborate query", q2)
     if(doRun) {
@@ -183,10 +187,10 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       assertEquals(r2e, r2)
     }
 
-    val q3 = Coffees.flatMap { c =>
+    val q3 = coffees.flatMap { c =>
       val cf = Query(c).where(_.price === 849)
       cf.flatMap { cf =>
-        Suppliers.where(_.id === c.supID).map { s =>
+        suppliers.where(_.id === c.supID).map { s =>
           (c.name, s.name, cf.name, cf.total, cf.totalComputed)
         }
       }
@@ -199,10 +203,10 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       assertEquals(r3e, r3)
     }
 
-    val q3b = Coffees.flatMap { c =>
+    val q3b = coffees.flatMap { c =>
       val cf = Query((c, 42)).where(_._1.price < 900)
       cf.flatMap { case (cf, num) =>
-        Suppliers.where(_.id === c.supID).map { s =>
+        suppliers.where(_.id === c.supID).map { s =>
           (c.name, s.name, cf.name, cf.total, cf.totalComputed, num)
         }
       }
@@ -221,7 +225,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
 
     ifCap(rcap.pagingNested) {
       val q4 = for {
-        c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 800)
+        c <- coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 800)
       } yield (c._1, c._3)
       show("q4: Map to tuple, then filter", q4)
       if(doRun) {
@@ -232,7 +236,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       }
     }
 
-    val q4b_0 = Coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 800)
+    val q4b_0 = coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 800)
     val q4b = for {
       c <- q4b_0
       d <- q4b_0
@@ -250,7 +254,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       assertEquals(r4be, r4b)
     }
 
-    val q5_0 = Query(Coffees).sortBy(_.price).take(2)
+    val q5_0 = coffees.sortBy(_.price).take(2)
     val q5 = for {
       c1 <- q5_0
       c2 <- q5_0
@@ -282,7 +286,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       assertEquals(r5be, r5b)
     }
 
-    val q6 = Coffees.flatMap(c => Query(Suppliers))
+    val q6 = coffees.flatMap(c => suppliers)
     show("q6: Unused outer query result, unbound TableQuery", q6)
     if(doRun) {
       val r6 = q6.run.toSet
@@ -296,7 +300,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q7a = for {
-      c <- Coffees.filter(_.price < 800) union Coffees.filter(_.price > 950)
+      c <- coffees.filter(_.price < 800) union coffees.filter(_.price > 950)
     } yield (c.name, c.supID, c.total)
     show("q7a: Simple union", q7a)
     if(doRun) {
@@ -312,7 +316,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q7 = for {
-      c <- Coffees.filter(_.price < 800).map((_, 1)) union Coffees.filter(_.price > 950).map((_, 2))
+      c <- coffees.filter(_.price < 800).map((_, 1)) union coffees.filter(_.price > 950).map((_, 2))
     } yield (c._1.name, c._1.supID, c._2)
     show("q7: Union", q7)
     if(doRun) {
@@ -328,7 +332,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q71 = for {
-      c <- Coffees.filter(_.price < 800).map((_, 1))
+      c <- coffees.filter(_.price < 800).map((_, 1))
     } yield (c._1.name, c._1.supID, c._2)
     show("q71: Transitive push-down without union", q71)
     if(doRun) {
@@ -355,7 +359,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q8 = for {
-      (c1, c2) <- Coffees.where(_.price < 900) leftJoin Coffees.where(_.price < 800) on (_.name === _.name)
+      (c1, c2) <- coffees.where(_.price < 900) leftJoin coffees.where(_.price < 800) on (_.name === _.name)
     } yield (c1.name, c2.name.?)
     show("q8: Outer join", q8)
     if(doRun) {
@@ -370,7 +374,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q8b = for {
-      t <- Coffees.sortBy(_.sales).take(1) leftJoin Coffees.sortBy(_.sales).take(2) on (_.name === _.name) leftJoin Coffees.sortBy(_.sales).take(4) on (_._1.supID === _.supID)
+      t <- coffees.sortBy(_.sales).take(1) leftJoin coffees.sortBy(_.sales).take(2) on (_.name === _.name) leftJoin coffees.sortBy(_.sales).take(4) on (_._1.supID === _.supID)
     } yield (t._1, t._2)
     show("q8b: Nested outer joins", q8b)
     if(doRun) {
@@ -383,97 +387,103 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       assertEquals(r8be, r8b)
     }
 
-    (SuppliersStd.ddl ++ CoffeesStd.ddl).drop
+    (suppliersStd.ddl ++ coffeesStd.ddl).drop
   }
 
   def testOldComposition {
-    object Users extends Table[(Int, String, String)]("users") {
+    class Users(tag: Tag) extends Table[(Int, String, String)](tag, "users") {
       def id = column[Int]("id")
       def first = column[String]("first")
       def last = column[String]("last")
       def * = id ~ first ~ last
     }
+    val users = TableQuery(new Users(_))
 
-    object Orders extends Table[(Int, Int)]("orders") {
+    class Orders(tag: Tag) extends Table[(Int, Int)](tag, "orders") {
       def userID = column[Int]("userID")
       def orderID = column[Int]("orderID")
       def * = userID ~ orderID
     }
+    val orders = TableQuery(new Orders(_))
 
     val q2 = for {
-      u <- Users.sortBy(u => (u.first, u.last.desc))
-      o <- Orders where {
+      u <- users.sortBy(u => (u.first, u.last.desc))
+      o <- orders where {
         o => (u.id is o.userID) && (u.first.isNotNull)
       }
     } yield u.first ~ u.last ~ o.orderID
 
-    (Users.ddl ++ Orders.ddl).create
+    (users.ddl ++ orders.ddl).create
 
-    val q3 = for (u <- Users where (_.id is 42)) yield u.first ~ u.last
+    val q3 = for (u <- users where (_.id is 42)) yield u.first ~ u.last
     q3.run
 
     val q4 = (for {
-      (u, o) <- Users innerJoin Orders on (_.id is _.userID)
+      (u, o) <- users innerJoin orders on (_.id is _.userID)
     } yield (u.last, u.first ~ o.orderID)).sortBy(_._1).map(_._2)
     q4.run
 
     val q6a =
-      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
+      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
     q6a.run
 
     val q6b =
-      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
+      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
     q6b.run
 
     val q6c =
-      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
+      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
     q6c.run
 
-    (Users.ddl ++ Orders.ddl).drop
+    (users.ddl ++ orders.ddl).drop
   }
 
   def testAdvancedFusion {
-    object TableA extends Table[Int]("TableA") {
+    class TableA(tag: Tag) extends Table[Int](tag, "TableA") {
       def id = column[Int]("id")
       def * = id
     }
+    val tableA = TableQuery(new TableA(_))
 
-    object TableB extends Table[(Int, Int)]("TableB") {
+    class TableB(tag: Tag) extends Table[(Int, Int)](tag, "TableB") {
       def id = column[Int]("id")
       def start = column[Int]("start")
       def * = id ~ start
     }
+    val tableB = TableQuery(new TableB(_))
 
-    object TableC extends Table[Int]("TableC") {
+    class TableC(tag: Tag) extends Table[Int](tag, "TableC") {
       def start = column[Int]("start")
       def * = start
     }
+    val tableC = TableQuery(new TableC(_))
 
     val queryErr2 = for {
-      a <- TableA
-      b <- TableB if b.id === a.id
+      a <- tableA
+      b <- tableB if b.id === a.id
       start = a.id + 1
-      c <- TableC if c.start <= start
+      c <- tableC if c.start <= start
     } yield (b, c)
 
-    (TableA.ddl ++ TableB.ddl ++ TableC.ddl).create
+    (tableA.ddl ++ tableB.ddl ++ tableC.ddl).create
     queryErr2.run
   }
 
   def testSubquery {
-    object A extends Table[Int]("A_subquery") {
+    class A(tag: Tag) extends Table[Int](tag, "A_subquery") {
       def id = column[Int]("id")
       def * = id
     }
-    A.ddl.create
-    A += 42
+    val as = TableQuery(new A(_))
+    as.ddl.create
+    as += 42
 
-    val q0 = Query(A).filter(_.id === 42.bind).length
+    val q0 = as.filter(_.id === 42.bind).length
     val r0 = q0.run
     assertEquals(1, r0)
 
     val q1 = Parameters[Int].flatMap { n =>
-      Query(A).filter(_.id is n).map(a => Query(a).length)
+      as.filter(_.id is n).map(a => as.length)
     }
     val r1 = q1(42).run
     assertEquals(List(1), r1)

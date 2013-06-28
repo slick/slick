@@ -11,24 +11,25 @@ class DistributedQueryingTest {
   val tdb2 = TestDBs.DerbyMem
   val dProfile = new DistributedDriver(tdb1.driver, tdb2.driver).profile
 
-  val T = {
+  val ts = {
     import tdb1.profile.simple._
-    class T extends Table[(Int, Int, String)]("tdb1_T") {
+    class T(tag: Tag) extends Table[(Int, Int, String)](tag, "tdb1_T") {
       def id = column[Int]("id", O.PrimaryKey)
       def a = column[Int]("a")
       def b = column[String]("b")
       def * = id ~ a ~ b
     }
-    new T
+    TableQuery(new T(_))
   }
 
-  object U extends tdb2.profile.Table[(Int, Int, String)]("tdb2_U") {
+  class U(tag: scala.slick.lifted.Tag) extends tdb2.profile.Table[(Int, Int, String)](tag, "tdb2_U") {
     import tdb2.profile.simple._
     def id = column[Int]("id", O.PrimaryKey)
     def a = column[Int]("a")
     def b = column[String]("b")
     def * = id ~ a ~ b
   }
+  val us = scala.slick.lifted.TableQuery(new U(_))
 
   val tData = Seq((1, 1, "a"), (2, 1, "b"), (3, 2, "c"), (4, 2, "d"), (5, 3, "e"), (6, 3, "f"))
   val uData = Seq((1, 1, "A"), (2, 1, "B"), (3, 2, "C"), (4, 2, "D"), (5, 3, "E"), (6, 3, "F"))
@@ -53,27 +54,27 @@ class DistributedQueryingTest {
     {
       import tdb1.profile.simple._
       implicit val session = s1
-      T.ddl.create
-      T ++= tData
-      assertEquals(tData.toSet, Query(T).run.toSet)
+      ts.ddl.create
+      ts ++= tData
+      assertEquals(tData.toSet, ts.run.toSet)
     }
 
     {
       import tdb2.profile.simple._
       implicit val session = s2
-      U.ddl.create
-      U ++= uData
-      assertEquals(uData.toSet, Query(U).run.toSet)
+      us.ddl.create
+      us ++= uData
+      assertEquals(uData.toSet, us.run.toSet)
     }
 
     {
       import dProfile.simple._
       implicit val session = sDist
-      assertEquals(tData.toSet, Query(T).run.toSet)
-      assertEquals(uData.toSet, Query(U).run.toSet)
+      assertEquals(tData.toSet, ts.run.toSet)
+      assertEquals(uData.toSet, us.run.toSet)
       assertEquals(
         tData.flatMap(t => uData.map(u => (t, u))).toSet,
-        Query(T).flatMap(t => Query(U).map(u => (t, u))).run.toSet
+        ts.flatMap(t => us.map(u => (t, u))).run.toSet
       )
     }
   }

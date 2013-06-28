@@ -12,19 +12,20 @@ class SequenceTest extends TestkitTest[JdbcTestDB] {
   def test1 = ifCap(scap.sequence) {
     case class User(id: Int, first: String, last: String)
 
-    object Users extends Table[Int]("users") {
+    class Users(tag: Tag) extends Table[Int](tag, "users") {
       def id = column[Int]("id", O PrimaryKey)
       def * = id
     }
+    val users = TableQuery(new Users(_))
 
     val mySequence = Sequence[Int]("mysequence") start 200 inc 10
 
-    val ddl = Users.ddl ++ mySequence.ddl
+    val ddl = users.ddl ++ mySequence.ddl
     ddl.createStatements.foreach(println)
     ddl.create
-    Users.insertAll(1, 2, 3)
+    users.insertAll(1, 2, 3)
 
-    val q1 = for(u <- Users) yield (mySequence.next, u.id)
+    val q1 = for(u <- users) yield (mySequence.next, u.id)
     println("q1: " + q1.selectStatement)
     assertEquals(Set((200, 1), (210, 2), (220, 3)), q1.list.toSet)
 

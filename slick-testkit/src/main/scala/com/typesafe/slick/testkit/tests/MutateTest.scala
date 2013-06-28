@@ -10,15 +10,16 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
 
   def testMutate = ifCap(jcap.mutable) {
 
-    object Users extends Table[(Int,String,String)]("USERS") {
+    class Users(tag: Tag) extends Table[(Int,String,String)](tag, "USERS") {
       def id = column[Int]("ID", O.PrimaryKey)
       def first = column[String]("FIRST")
       def last = column[String]("LAST")
       def * = (id, first, last)
     }
+    val users = TableQuery(new Users(_))
 
-    Users.ddl.create
-    Users insertAll(
+    users.ddl.create
+    users insertAll(
       (1, "Marge", "Bouvier"),
       (2, "Homer", "Simpson"),
       (3, "Bart", "Simpson"),
@@ -26,9 +27,9 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
     )
 
     println("Before mutating:")
-    Query(Users).foreach(u => println("  "+u))
+    users.foreach(u => println("  "+u))
 
-    val q1 = for(u <- Users if u.last === "Simpson" || u.last === "Bouvier") yield u
+    val q1 = for(u <- users if u.last === "Simpson" || u.last === "Bouvier") yield u
     q1.mutate { m =>
       println("***** Row: "+m.row)
       if(m.row._3 == "Bouvier") m.row = m.row.copy(_3 = "Simpson")
@@ -37,28 +38,29 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
     }
 
     println("After mutating:")
-    Query(Users).foreach(u => println("  "+u))
+    users.foreach(u => println("  "+u))
 
     assertEquals(
       Set("Marge Simpson", "Bart Simpson", "Lisa Simpson", "Carl Carlson"),
-      (for(u <- Users) yield u.first ++ " " ++ u.last).list.toSet
+      (for(u <- users) yield u.first ++ " " ++ u.last).list.toSet
     )
   }
 
   def testDeleteMutate = ifCap(jcap.mutable) {
-    object T extends Table[(Int, Int)]("T_DELMUTABLE") {
+    class T(tag: Tag) extends Table[(Int, Int)](tag, "T_DELMUTABLE") {
       def a = column[Int]("A")
       def b = column[Int]("B", O.PrimaryKey)
       def * = a ~ b
-      def findByA = createFinderBy(_.a)
     }
+    val ts = TableQuery(new T(_))
+    def tsByA = ts.findBy(_.a)
 
-    T.ddl.create
-    T.insertAll((1,1), (1,2), (1,3), (1,4))
-    T.insertAll((2,5), (2,6), (2,7), (2,8))
+    ts.ddl.create
+    ts.insertAll((1,1), (1,2), (1,3), (1,4))
+    ts.insertAll((2,5), (2,6), (2,7), (2,8))
 
-    T.findByA(1).mutate(_.delete)
+    tsByA(1).mutate(_.delete)
 
-    assertEquals(Set((2,5), (2,6), (2,7), (2,8)), Query(T).to[Set])
+    assertEquals(Set((2,5), (2,6), (2,7), (2,8)), ts.to[Set])
   }
 }

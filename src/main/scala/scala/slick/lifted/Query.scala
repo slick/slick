@@ -5,10 +5,10 @@ import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
 
-/**
- * A query monad which contains the AST for a query's projection and the accumulated
- * restrictions and other modifiers.
- */
+/** An instance of Query represents a query or view, i.e. a computation of a
+  * collection type (Rep[Seq[T]]). It is parameterized with both, the mixed
+  * type (the type of values you see e.g. when you call map()) and the unpacked
+  * type (the type of values that you get back when you run the query).  */
 abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
 
   def unpackable: ShapedValue[_ <: E, U]
@@ -146,12 +146,26 @@ final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, l
     new WrappingQuery[(E1, E2), (U1, U2)](AJoin(leftGen, rightGen, left, right, jt, Node(wt(pred(base.value._1, base.value._2)))), base)
 }
 
+/** Represents a database table. Profiles add extension methods to TableQuery
+  * for operations that can be performed on tables but not on arbitrary
+  * queries, e.g. getting the table DDL. */
 final class TableQuery[+E <: AbstractTable[_], U](shaped: ShapedValue[_ <: E, U])
-  extends NonWrappingQuery[E, U](shaped.packedNode, shaped)
+  extends NonWrappingQuery[E, U](shaped.packedNode, shaped) {
+
+  /** Get the "raw" table row that represents the table itself, as opposed to
+    * a Path for a variable of the table's type. This method should generally
+    * not be called from user code. */
+  def baseTableRow: E = unpackable.value
+}
 
 object TableQuery {
-  def apply[E, U, R <: AbstractTable[_]](value: E)(implicit shape: Shape[E, U, R]): TableQuery[R, U] = {
-    val packed = ShapedValue(value, shape).packedValue
-    new TableQuery[R, U](packed)
+  def apply[E <: AbstractTable[_], U](cons: Tag => E with AbstractTable[U]): TableQuery[E, U] = {
+    val baseTable = cons(new BaseTag { base =>
+      def taggedAs(tableRef: Node): AbstractTable[_] = cons(new RefTag {
+        def nodeDelegate: Node = tableRef
+        def taggedAs(tableRef: Node) = base.taggedAs(tableRef)
+      })
+    })
+    new TableQuery[E, U](ShapedValue(baseTable, Shape.impureShape.asInstanceOf[Shape[E, U, E]]))
   }
 }

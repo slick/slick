@@ -33,9 +33,6 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
 }
 
 object Shape extends ShapeLowPriority {
-  @inline def tableShape[T <: AbstractTable[_]]: Shape[T, NothingContainer#TableNothing, T] =
-    impureShape.asInstanceOf[Shape[T, NothingContainer#TableNothing, T]]
-
   @inline implicit def columnShape[T]: Shape[Column[T], T, Column[T]] =
     impureShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
 
