@@ -14,7 +14,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       def b = column[String]("b")
       def * = a ~ b
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts ++= Seq(("1", "a"), ("2", "a"), ("3", "b"))
@@ -37,7 +37,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       def a = column[String]("a")
       def * = a
     }
-    val t1s = TableQuery(new T1(_))
+    val t1s = TableQuery[T1]
 
     t1s.ddl.create
     t1s ++= Seq("foo", "bar", "foobar", "foo%")
@@ -61,7 +61,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       def c = column[String]("c")
       def * = a ~ b ~ c
     }
-    val t1s = TableQuery(new T1(_))
+    val t1s = TableQuery[T1]
 
     t1s.ddl.create
     t1s ++= Seq(("a2", "b2", "c2"), ("a1", "b1", "c1"))
@@ -84,7 +84,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       def a = column[Int]("a")
       def * = a
     }
-    val t1s = TableQuery(new T1(_))
+    val t1s = TableQuery[T1]
 
     t1s.ddl.create
     t1s ++= Seq(1, 2, 3, 4)
@@ -105,7 +105,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       def b = column[Int]("b")
       def * = a ~ b
     }
-    val t1s = TableQuery(new T1(_))
+    val t1s = TableQuery[T1]
 
     t1s.ddl.create
     t1s ++= Seq(("foo", 1), ("bar", 2))
@@ -121,7 +121,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       def b = column[Option[Int]]("b")
       def * = a ~ b
     }
-    val t1s = TableQuery(new T1(_))
+    val t1s = TableQuery[T1]
 
     t1s.ddl.create
     t1s ++= Seq((1, Some(10)), (2, None))

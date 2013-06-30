@@ -21,7 +21,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def forInsert = baseProjection.shaped <>
         ({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
     }
-    val users = TableQuery(new Users(_))
+    val users = TableQuery[Users]
     val usersByID = users.findBy(_.id)
 
     users.ddl.create
@@ -71,7 +71,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def b = column[Int]("B")
       def * = (a, b) <> (Data.tupled, Data.unapply _)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
@@ -109,7 +109,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def c = column[Option[Bool]]("c")
       def * = (id, b, c)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts.map(t => (t.b, t.c)).insertAll((False, None), (True, Some(True)))
@@ -139,7 +139,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def c = column[Option[Bool]]("c")
       def * = (id, b, c)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts.map(t => (t.b, t.c)).insertAll((False, None), (True, Some(True)))
@@ -188,7 +188,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       )
       override def create_* = collectFieldSymbols(all.shaped.packedNode)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     val data = (
       0,
@@ -226,14 +226,14 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def data = column[Int]("data")
       def * = id ~ data <> (A.tupled, A.unapply _)
     }
-    val as = TableQuery(new ARow(_))
+    val as = TableQuery[ARow]
 
     class BRow(tag: Tag) extends Table[B](tag, "t5_b") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def data = column[String]("data")
       def * = id ~ data.? <> (B.tupled, B.unapply _)
     }
-    val bs = TableQuery(new BRow(_))
+    val bs = TableQuery[BRow]
 
     (as.ddl ++ bs.ddl).create
     as.map(_.data).insertAll(1, 2)

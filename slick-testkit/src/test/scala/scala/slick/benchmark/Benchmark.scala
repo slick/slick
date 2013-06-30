@@ -21,14 +21,14 @@ object Benchmark {
     def last = column[String]("last")
     def * = (id, first, last)
   }
-  val users = TableQuery(new Users(_))
+  val users = TableQuery[Users]
 
   class Orders(tag: Tag) extends Table[(Int, Int)](tag, "orders") {
     def userID = column[Int]("userID")
     def orderID = column[Int]("orderID")
     def * = (userID, orderID)
   }
-  val orders = TableQuery(new Orders(_))
+  val orders = TableQuery[Orders]
 
   def test1(print: Boolean) {
     val q1 = for(u <- users) yield u

@@ -53,7 +53,7 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
       def s2 = column[String]("S2")
       def * = (id, s1, s2)
     }
-    val as = TableQuery(new A(_))
+    val as = TableQuery[A]
     def ins1 = as.map(a => (a.s1, a.s2)) returning as.map(_.id)
     def ins2 = as.map(a => (a.s1, a.s2)) returning as.map(a => (a.id, a.s1))
     def ins3 = as.map(a => (a.s1, a.s2)) returning as.map(_.id) into ((v, i) => (i, v._1, v._2))

@@ -13,7 +13,7 @@ class SchemaSupportTest {
       def id = column[Int]("id")
       def * = id
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     val s1 = ts.filter(_.id < 5).selectStatement
     println(s1)

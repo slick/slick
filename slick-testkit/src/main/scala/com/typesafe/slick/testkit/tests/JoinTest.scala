@@ -14,7 +14,7 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       def name = column[String]("name")
       def * = id ~ name
     }
-    val categories = TableQuery(new Categories(_))
+    val categories = TableQuery[Categories]
 
     class Posts(tag: Tag) extends Table[(Int, String, Int)](tag, "posts_j") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -22,7 +22,7 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       def category = column[Int]("category")
       def * = id ~ title ~ category
     }
-    val posts = TableQuery(new Posts(_))
+    val posts = TableQuery[Posts]
 
     (categories.ddl ++ posts.ddl).create
 
@@ -90,7 +90,7 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       def name = column[String]("name")
       def * = id ~ name
     }
-    val categories = TableQuery(new Categories(_))
+    val categories = TableQuery[Categories]
 
     class Posts(tag: Tag) extends Table[(Int, String, Int)](tag, "posts_z") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -98,7 +98,7 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       def category = column[Int]("category")
       def * = id ~ title ~ category
     }
-    val posts = TableQuery(new Posts(_))
+    val posts = TableQuery[Posts]
 
     (categories.ddl ++ posts.ddl).create
 

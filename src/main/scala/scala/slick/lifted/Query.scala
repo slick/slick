@@ -1,6 +1,8 @@
 package scala.slick.lifted
 
+import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
+import scala.reflect.macros.Context
 import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
@@ -159,13 +161,31 @@ final class TableQuery[+E <: AbstractTable[_], U](shaped: ShapedValue[_ <: E, U]
 }
 
 object TableQuery {
-  def apply[E <: AbstractTable[_], U](cons: Tag => E with AbstractTable[U]): TableQuery[E, U] = {
+  def apply[E <: AbstractTable[_]](cons: Tag => E): TableQuery[E, E#TableElementType] = {
     val baseTable = cons(new BaseTag { base =>
       def taggedAs(tableRef: Node): AbstractTable[_] = cons(new RefTag {
         def nodeDelegate: Node = tableRef
         def taggedAs(tableRef: Node) = base.taggedAs(tableRef)
       })
     })
-    new TableQuery[E, U](ShapedValue(baseTable, Shape.impureShape.asInstanceOf[Shape[E, U, E]]))
+    new TableQuery[E, E#TableElementType](ShapedValue(baseTable, Shape.impureShape.asInstanceOf[Shape[E, E#TableElementType, E]]))
+  }
+
+  def apply[E <: AbstractTable[_]]: TableQuery[E, E#TableElementType] =
+    macro TableQueryMacroImpl.apply[E]
+}
+
+object TableQueryMacroImpl {
+
+  def apply[E <: AbstractTable[_]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E, E#TableElementType]] = {
+    import c.universe._
+    val cons = c.Expr[Tag => E](Function(
+      List(ValDef(Modifiers(Flag.PARAM), newTermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),
+      Apply(
+        Select(New(TypeTree(e.tpe)), nme.CONSTRUCTOR),
+        List(Ident(newTermName("tag")))
+      )
+    ))
+    reify { TableQuery.apply[E](cons.splice) }
   }
 }

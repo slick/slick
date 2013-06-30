@@ -12,7 +12,7 @@ class IterateeTest extends TestkitTest[JdbcTestDB] {
     def i = column[Int]("i")
     def * = (s, i)
   }
-  lazy val as = TableQuery(new A(_))
+  lazy val as = TableQuery[A]
 
   def test {
     as.ddl.create

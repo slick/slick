@@ -15,7 +15,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     def * = (id, first, last)
     def orders = mainTest.orders where { _.userID is id }
   }
-  lazy val users = TableQuery(new Users(_))
+  lazy val users = TableQuery[Users]
 
   class Orders(tag: Tag) extends Table[(Int, Int, String, Boolean, Option[Boolean])](tag, "orders") {
     def userID = column[Int]("userID")
@@ -25,7 +25,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     def rebate = column[Option[Boolean]]("rebate")
     def * = (userID, orderID, product, shipped, rebate)
   }
-  lazy val orders = TableQuery(new Orders(_))
+  lazy val orders = TableQuery[Orders]
 
   def test {
 

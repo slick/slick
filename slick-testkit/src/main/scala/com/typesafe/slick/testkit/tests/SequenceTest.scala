@@ -16,7 +16,7 @@ class SequenceTest extends TestkitTest[JdbcTestDB] {
       def id = column[Int]("id", O PrimaryKey)
       def * = id
     }
-    val users = TableQuery(new Users(_))
+    val users = TableQuery[Users]
 
     val mySequence = Sequence[Int]("mysequence") start 200 inc 10
 

@@ -13,7 +13,7 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     def department = column[String]("department")
     def * = (id, name, department)
   }
-  lazy val managers = TableQuery(new Managers(_))
+  lazy val managers = TableQuery[Managers]
 
   class Employees(tag: Tag) extends Table[(Int, String, Int)](tag, "employees") {
     def id = column[Int]("id")
@@ -24,7 +24,7 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     // A convenience method for selecting employees by department
     def departmentIs(dept: String) = manager in managers.where(_.department is dept).map(_.id)
   }
-  lazy val employees = TableQuery(new Employees(_))
+  lazy val employees = TableQuery[Employees]
 
   def testBasic {
     (managers.ddl ++ employees.ddl).create

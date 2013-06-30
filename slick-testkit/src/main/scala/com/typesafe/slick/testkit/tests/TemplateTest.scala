@@ -11,7 +11,7 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
     def first = column[String]("first")
     def * = (id, first)
   }
-  lazy val users = TableQuery(new Users(_))
+  lazy val users = TableQuery[Users]
 
   class Orders(tag: Tag) extends Table[(Int, Int, String)](tag, "orders") {
     def userID = column[Int]("userID")
@@ -19,7 +19,7 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
     def product = column[String]("product")
     def * = (userID, orderID, product)
   }
-  lazy val orders = TableQuery(new Orders(_))
+  lazy val orders = TableQuery[Orders]
 
   def test {
 

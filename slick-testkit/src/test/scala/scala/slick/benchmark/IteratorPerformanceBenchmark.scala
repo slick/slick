@@ -11,7 +11,7 @@ object IteratorPerformanceBenchmark {
       def value = column[String]("value")
       def * = (key, value)
     }
-    val props = TableQuery(new Props(_))
+    val props = TableQuery[Props]
 
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
       props.ddl.create

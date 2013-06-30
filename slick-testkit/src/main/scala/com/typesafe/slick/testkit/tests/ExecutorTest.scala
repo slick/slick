@@ -12,7 +12,7 @@ class ExecutorTest extends TestkitTest[JdbcTestDB] {
       def a = column[Int]("a")
       def * = a
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts.insertAll(2, 3, 1, 5, 4)

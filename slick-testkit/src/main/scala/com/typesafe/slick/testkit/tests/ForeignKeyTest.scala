@@ -17,7 +17,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def name = column[String]("name")
       def * = (id, name)
     }
-    val categories = TableQuery(new Categories(_))
+    val categories = TableQuery[Categories]
 
     class Posts(tag: Tag) extends Table[(Int, String, Option[Int])](tag, "posts") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -27,7 +27,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def categoryFK = foreignKey("category_fk", category, categories)(_.id)
       def categoryJoin = categories.where(_.id === category)
     }
-    val posts = TableQuery(new Posts(_))
+    val posts = TableQuery[Posts]
 
     tdb.assertNotTablesExist("categories", "posts")
     val ddl = posts.ddl ++ categories.ddl
@@ -76,7 +76,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def * = (k1, k2, s)
       def bFK = foreignKey("b_fk", (k1, k2), bs)(b => (b.f1, b.f2), onDelete = ForeignKeyAction.Cascade)
     }
-    lazy val as = TableQuery(new A(_))
+    lazy val as = TableQuery[A]
 
     class B(tag: Tag) extends Table[(Int, Int, String)](tag, "b") {
       def f1 = column[Int]("f1")
@@ -85,7 +85,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def * = (f1, f2, s)
       def bIdx1 = index("b_idx1", (f1, f2), unique = true)
     }
-    lazy val bs = TableQuery(new B(_))
+    lazy val bs = TableQuery[B]
 
     as.baseTableRow.foreignKeys.foreach(println)
     assertEquals(Set("b_fk"), as.baseTableRow.foreignKeys.map(_.name).toSet)
@@ -116,7 +116,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def s = column[String]("s")
       def * = (id, s)
     }
-    val as = TableQuery(new A(_))
+    val as = TableQuery[A]
 
     class Dep(tag: Tag, n: String) extends Table[(Int, Int)](tag, n) {
       def id = column[Int]("id", O.PrimaryKey)
@@ -161,7 +161,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def * = (id, s)
       def bs = aToB.filter(_.aId === id).flatMap(_.bFK)
     }
-    lazy val as = TableQuery(new A(_))
+    lazy val as = TableQuery[A]
 
     class B(tag: Tag) extends Table[(Int, String)](tag, "b3") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -169,7 +169,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def * = (id, s)
       def as = aToB.filter(_.bId === id).flatMap(_.aFK)
     }
-    lazy val bs = TableQuery(new B(_))
+    lazy val bs = TableQuery[B]
 
     class AToB(tag: Tag) extends Table[(Int, Int)](tag, "a3_to_b3") {
       def aId = column[Int]("a")
@@ -178,7 +178,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def aFK = foreignKey("a3_fk", aId, as)(a => a.id)
       def bFK = foreignKey("b3_fk", bId, bs)(b => b.id)
     }
-    lazy val aToB = TableQuery(new AToB(_))
+    lazy val aToB = TableQuery[AToB]
 
     (as.ddl ++ bs.ddl ++ aToB.ddl).create
     as ++= Seq(1 -> "a", 2 -> "b", 3 -> "c")

@@ -15,7 +15,7 @@ class PrimaryKeyTest extends TestkitTest[RelationalTestDB] {
       def * = (k1, k2, s)
       def pk = primaryKey("pk_a", (k1, k2))
     }
-    val as = TableQuery(new A(_))
+    val as = TableQuery[A]
 
     as.baseTableRow.primaryKeys.foreach(println)
     assertEquals(Set("pk_a"), as.baseTableRow.primaryKeys.map(_.name).toSet)

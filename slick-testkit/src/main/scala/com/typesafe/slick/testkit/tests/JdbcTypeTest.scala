@@ -19,7 +19,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       def data = column[Array[Byte]]("data")
       def * = id ~ data
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.createStatements foreach println
     ts.ddl.create;
@@ -37,7 +37,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       def data = column[Option[Array[Byte]]]("data")
       def * = id ~ data
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.createStatements foreach println
     ts.ddl.create;
@@ -56,7 +56,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       def data = column[Blob]("data")
       def * = id ~ data
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     sharedSession.withTransaction {
       ts.ddl.create;
@@ -87,7 +87,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       def b = column[Serialized[List[Int]]]("b")
       def * = id ~ b
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     sharedSession.withTransaction {
       ts.ddl.create
@@ -102,7 +102,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       def data = column[T]("data")
       def * = id ~ data
     }
-    val t1 = TableQuery(new T1(_))
+    val t1 = TableQuery[T1]
 
     t1.ddl.create
     t1.insert((1, v))
@@ -130,7 +130,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       def t = column[Option[Timestamp]]("t")
       def * = t
     }
-    val t2 = TableQuery(new T2(_))
+    val t2 = TableQuery[T2]
     t2.ddl.create
     t2.insert(None)
     assertEquals(None, t2.first)

@@ -12,7 +12,7 @@ class ColumnDefaultTest extends TestkitTest[RelationalTestDB] {
     def b = column[Option[Boolean]]("b", O Default Some(true))
     def * = (id, a, b)
   }
-  lazy val as = TableQuery(new A(_))
+  lazy val as = TableQuery[A]
 
   def test = ifCap(rcap.columnDefaults) {
     as.ddl.create

@@ -10,7 +10,7 @@ class PagingTest extends TestkitTest[RelationalTestDB] {
     def id = column[Int]("id", O.PrimaryKey)
     def * = id
   }
-  lazy val ids = TableQuery(new IDs(_))
+  lazy val ids = TableQuery[IDs]
 
   def test {
 

@@ -21,7 +21,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def zip = column[String]("ZIP")
       def * = (id, name, street, city, state, zip)
     }
-    val suppliersStd = TableQuery(new SuppliersStd(_))
+    val suppliersStd = TableQuery[SuppliersStd]
 
     class CoffeesStd(tag: Tag) extends Table[(String, Int, Int, Int, Int)](tag, "COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
@@ -32,7 +32,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def * = (name, supID, price, sales, total)
       def supplier = foreignKey("SUP_FK", supID, suppliersStd)(_.id)
     }
-    val coffeesStd = TableQuery(new CoffeesStd(_))
+    val coffeesStd = TableQuery[CoffeesStd]
 
     class Suppliers(tag: Tag) extends Table[(Int, String, String)](tag, "SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
@@ -44,7 +44,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def * = (id, name, street)
       def forInsert = (id, name, street, city, state, zip).shaped
     }
-    val suppliers = TableQuery(new Suppliers(_))
+    val suppliers = TableQuery[Suppliers]
 
     class Coffees(tag: Tag) extends Table[(String, Int, Int, Int, Int)](tag, "COFFEES") {
       def name = column[String]("COF_NAME", O.PrimaryKey)
@@ -57,7 +57,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def totalComputed = sales * price
       def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
     }
-    val coffees = TableQuery(new Coffees(_))
+    val coffees = TableQuery[Coffees]
 
     (suppliersStd.ddl ++ coffeesStd.ddl).create
 
@@ -397,14 +397,14 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def last = column[String]("last")
       def * = id ~ first ~ last
     }
-    val users = TableQuery(new Users(_))
+    val users = TableQuery[Users]
 
     class Orders(tag: Tag) extends Table[(Int, Int)](tag, "orders") {
       def userID = column[Int]("userID")
       def orderID = column[Int]("orderID")
       def * = userID ~ orderID
     }
-    val orders = TableQuery(new Orders(_))
+    val orders = TableQuery[Orders]
 
     val q2 = for {
       u <- users.sortBy(u => (u.first, u.last.desc))
@@ -443,20 +443,20 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def id = column[Int]("id")
       def * = id
     }
-    val tableA = TableQuery(new TableA(_))
+    val tableA = TableQuery[TableA]
 
     class TableB(tag: Tag) extends Table[(Int, Int)](tag, "TableB") {
       def id = column[Int]("id")
       def start = column[Int]("start")
       def * = id ~ start
     }
-    val tableB = TableQuery(new TableB(_))
+    val tableB = TableQuery[TableB]
 
     class TableC(tag: Tag) extends Table[Int](tag, "TableC") {
       def start = column[Int]("start")
       def * = start
     }
-    val tableC = TableQuery(new TableC(_))
+    val tableC = TableQuery[TableC]
 
     val queryErr2 = for {
       a <- tableA
@@ -474,7 +474,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def id = column[Int]("id")
       def * = id
     }
-    val as = TableQuery(new A(_))
+    val as = TableQuery[A]
     as.ddl.create
     as += 42
 

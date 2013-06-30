@@ -15,7 +15,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
       def a = column[Int]("a")
       def * = a
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts.insertAll(2, 3, 1, 5, 4)
@@ -59,7 +59,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
       def v = column[String]("v")
       def * = (k, v)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts.insertAll(2 -> "b", 3 -> "c", 1 -> "a")
@@ -74,7 +74,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
       def a = column[Int]("a")
       def * = a
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     val q = ts.sortBy(_.a)
 

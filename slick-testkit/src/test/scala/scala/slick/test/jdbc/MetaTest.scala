@@ -22,7 +22,7 @@ class MetaTest(val tdb: JdbcTestDB) extends DBTest {
     def last = column[Option[String]]("last")
     def * = (id, first, last)
   }
-  lazy val users = TableQuery(new Users(_))
+  lazy val users = TableQuery[Users]
 
   class Orders(tag: Tag) extends Table[(Int, Int, String, Boolean, Option[Boolean])](tag, "orders") {
     def userID = column[Int]("userID")
@@ -33,7 +33,7 @@ class MetaTest(val tdb: JdbcTestDB) extends DBTest {
     def * = (userID, orderID, product, shipped, rebate)
     def userFK = foreignKey("user_fk", userID, users)(_.id)
   }
-  lazy val orders = TableQuery(new Orders(_))
+  lazy val orders = TableQuery[Orders]
 
   @Test def test() {
 

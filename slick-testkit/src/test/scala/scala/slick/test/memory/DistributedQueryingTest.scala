@@ -19,7 +19,7 @@ class DistributedQueryingTest {
       def b = column[String]("b")
       def * = id ~ a ~ b
     }
-    TableQuery(new T(_))
+    TableQuery[T]
   }
 
   class U(tag: scala.slick.lifted.Tag) extends tdb2.profile.Table[(Int, Int, String)](tag, "tdb2_U") {
@@ -29,7 +29,7 @@ class DistributedQueryingTest {
     def b = column[String]("b")
     def * = id ~ a ~ b
   }
-  val us = scala.slick.lifted.TableQuery(new U(_))
+  val us = scala.slick.lifted.TableQuery[U]
 
   val tData = Seq((1, 1, "a"), (2, 1, "b"), (3, 2, "c"), (4, 2, "d"), (5, 3, "e"), (6, 3, "f"))
   val uData = Seq((1, 1, "A"), (2, 1, "B"), (3, 2, "C"), (4, 2, "D"), (5, 3, "E"), (6, 3, "F"))

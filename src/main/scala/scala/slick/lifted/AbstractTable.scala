@@ -19,6 +19,7 @@ trait RefTag extends Tag with NodeGenerator {
 trait BaseTag extends Tag
 
 abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends ColumnBase[T] with EncodeRef {
+  type TableElementType
 
   def tableIdentitySymbol: TableIdentitySymbol
 

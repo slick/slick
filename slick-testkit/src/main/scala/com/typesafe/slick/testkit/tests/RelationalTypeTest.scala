@@ -17,7 +17,7 @@ class RelationalTypeTest extends TestkitTest[RelationalTestDB] {
         def data = column[T]("data")
         def * = id ~ data
       }
-      val tbl = TableQuery(new Tbl(_))
+      val tbl = TableQuery[Tbl]
       tbl.ddl.create;
       val data = values.zipWithIndex.map { case (d, i) => (i+1, d) }
       tbl ++= data

@@ -14,7 +14,7 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
       def c = column[String]("C")
       def * = (a, b, c)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
 
     ts.ddl.create
     ts ++= Seq((1, "1", "a"), (2, "2", "b"), (3, "3", "c"))

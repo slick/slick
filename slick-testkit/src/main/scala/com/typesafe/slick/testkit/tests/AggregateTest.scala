@@ -14,7 +14,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       def b = column[Option[Int]]("b")
       def * = (a, b)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
     ts.ddl.create
     ts ++= Seq((1, Some(1)), (1, Some(2)), (1, Some(3)))
     def q1(i: Int) = for { t <- ts if t.a === i } yield t
@@ -33,7 +33,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       def b = column[Option[Int]]("b")
       def * = (a, b)
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
     ts.ddl.create
     ts ++= Seq((1, Some(1)), (1, Some(2)), (1, Some(3)))
     ts ++= Seq((2, Some(1)), (2, Some(2)), (2, Some(5)))
@@ -59,7 +59,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       def id = column[Int]("id")
       def * = id
     }
-    val us = TableQuery(new U(_))
+    val us = TableQuery[U]
     us.ddl.create
     us ++= Seq(1, 2, 3)
 
@@ -119,7 +119,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       def id = column[Int]("ID")
       def * = id
     }
-    val as = TableQuery(new A(_))
+    val as = TableQuery[A]
     as.ddl.create
     as += 1
 

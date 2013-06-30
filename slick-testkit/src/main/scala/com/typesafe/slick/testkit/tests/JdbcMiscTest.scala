@@ -13,25 +13,25 @@ class JdbcMiscTest extends TestkitTest[JdbcTestDB] {
       def a = column[String]("a")
       def * = a
     }
-    val t1 = TableQuery(new T1(_))
+    val t1 = TableQuery[T1]
 
     class T2(tag: Tag) extends Table[String](tag, "t2") {
       def a = column[String]("a", O.Nullable)
       def * = a
     }
-    val t2 = TableQuery(new T2(_))
+    val t2 = TableQuery[T2]
 
     class T3(tag: Tag) extends Table[Option[String]](tag, "t3") {
       def a = column[Option[String]]("a")
       def * = a
     }
-    val t3 = TableQuery(new T3(_))
+    val t3 = TableQuery[T3]
 
     class T4(tag: Tag) extends Table[Option[String]](tag, "t4") {
       def a = column[Option[String]]("a", O.NotNull)
       def * = a
     }
-    val t4 = TableQuery(new T4(_))
+    val t4 = TableQuery[T4]
 
     (t1.ddl ++ t2.ddl ++ t3.ddl ++ t4.ddl).create
 

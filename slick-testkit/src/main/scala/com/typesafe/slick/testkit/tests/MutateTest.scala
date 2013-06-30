@@ -16,7 +16,7 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
       def last = column[String]("LAST")
       def * = (id, first, last)
     }
-    val users = TableQuery(new Users(_))
+    val users = TableQuery[Users]
 
     users.ddl.create
     users insertAll(
@@ -52,7 +52,7 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
       def b = column[Int]("B", O.PrimaryKey)
       def * = a ~ b
     }
-    val ts = TableQuery(new T(_))
+    val ts = TableQuery[T]
     def tsByA = ts.findBy(_.a)
 
     ts.ddl.create
