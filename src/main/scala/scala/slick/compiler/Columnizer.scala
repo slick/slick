@@ -161,15 +161,7 @@ class ExpandRefs extends Phase with ColumnizerUtils {
       n.mapChildrenWithScope(((_, ch, chsc) => expandRefs(ch, chsc, true)), scope)
     case n =>
       // Don't expand children in 'from' positions
-      n.mapChildrenWithScope({ (symO, ch, chsc) =>
-        val kr =  (symO, n) match {
-          case (None, _) => false
-          //TODO GroupBy should not need a "by" symbol at all -- without that, this special case would not be necessary
-          case (Some(sym), GroupBy(_, by, _, _)) => sym != by
-          case _ => true
-        }
-        expandRefs(ch, chsc, kr)},
-      scope)
+      n.mapChildrenWithScope(((symO, ch, chsc) => expandRefs(ch, chsc, symO.isDefined)), scope)
   }
 
   /** Expand a base path into a given target */
@@ -225,7 +217,7 @@ trait ColumnizerUtils { _: Phase =>
   def narrowStructure(n: Node): Node = n match {
     case Pure(n) => n
     case Join(_, _, l, r, _, _) => ProductNode(Seq(narrowStructure(l), narrowStructure(r)))
-    case GroupBy(_, _, from, by) => ProductNode(Seq(narrowStructure(by), narrowStructure(from)))
+    case GroupBy(_, from, by) => ProductNode(Seq(narrowStructure(by), narrowStructure(from)))
     case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
     case FilteredQuery(_, from) => narrowStructure(from)
     case Bind(_, _, select) => narrowStructure(select)

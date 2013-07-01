@@ -3,11 +3,18 @@ package scala.slick.ast
 import java.io.{OutputStreamWriter, StringWriter, PrintWriter}
 import scala.collection.mutable.HashSet
 import Util.nodeToNodeOps
+import scala.sys.BooleanProp
 
 /**
  * Create a readable printout of an AST
  */
 object Dump {
+  private[ast] val (normal, green, yellow, blue) = {
+    if(BooleanProp.valueIsTrue("scala.slick.ansiDump")) ("\u001B[0m", "\u001B[32m", "\u001B[33m", "\u001B[34m")
+    else ("", "", "", "")
+  }
+  private[ast] val dumpPaths: Boolean = BooleanProp.valueIsTrue("scala.slick.dumpPaths")
+
   def get(n: NodeGenerator, name: String = "", prefix: String = "") = {
     val buf = new StringWriter
     apply(n, name, prefix, new PrintWriter(buf))
@@ -17,8 +24,8 @@ object Dump {
   def apply(n: NodeGenerator, name: String = "", prefix: String = "", to: PrintWriter = null, typed: Boolean = true) {
     val out = if(to eq null) new PrintWriter(new OutputStreamWriter(System.out)) else to
     val dc = new DumpContext(out, typed)
-    dc.dump(Node(n), prefix, name)
-    for(i <- dc.orphans) dc.dump(i.target, prefix, "/"+i.name+": ")
+    dc.dump(Node(n), prefix, name, true)
+    for(i <- dc.orphans) dc.dump(i.target, prefix, "/"+i.name+": ", true)
     out.flush()
   }
 }
@@ -52,26 +59,25 @@ class DumpContext(val out: PrintWriter, val typed: Boolean = true) {
     (refs -- defs).toSet
   }
 
-  def dump(tree: Node, prefix: String, name: String) {
+  def dump(tree: Node, prefix: String, name: String, topLevel: Boolean) {
+    import Dump._
     tree match {
       case n: DefNode => n.nodeGenerators.foreach(t => addDef(t._1))
       case RefNode(s) => addRef(s)
       case _ =>
     }
-    val tpe = tree match {
-      case t: Typed => t.tpe
-      case t => t.nodeType
-    }
-    val typeInfo = if(typed && tpe != UnassignedType) " : " + tpe.toString else ""
+    val tpe = tree.nodeType
+    val typeInfo = if(typed && tpe != UnassignedType) blue + " : " + tpe.toString + normal else ""
+    val start = yellow + prefix + name + normal
+    def tl(s: Any) = if(topLevel) green + s + normal else s
+    out.println(start + tl(tree) + typeInfo)
     tree match {
-      case Path(l @ (_ :: _ :: _)) =>
-        // Print paths on a single line
-        out.println(prefix + name + Path.toString(l) + typeInfo)
+      case Path(l @ (_ :: _ :: _)) if !dumpPaths =>
+        // Omit path details unless dumpPaths is set
         tree.foreach { case RefNode(s) => addRef(s) }
       case _ =>
-        out.println(prefix + name + tree + typeInfo)
         for((chg, n) <- tree.nodeChildren.zip(tree.nodeChildNames))
-          dump(chg, prefix + "  ", n+": ")
+          dump(chg, prefix + "  ", n+": ", false)
     }
   }
 }

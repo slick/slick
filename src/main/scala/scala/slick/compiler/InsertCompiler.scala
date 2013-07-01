@@ -22,7 +22,7 @@ trait InsertCompiler extends Phase {
     val cols = new ArrayBuffer[Select]
 
     def tr(n: Node): Node = n match {
-      case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildrenKeepType(tr)
+      case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildren(tr, keepType = true)
       case t:TableNode => tr(Node(t.nodeTableProjection))
       case sel @ Select(Ref(IntrinsicSymbol(t: TableNode)), fs: FieldSymbol) =>
         if(table eq null) table = t
@@ -33,7 +33,7 @@ trait InsertCompiler extends Phase {
     }
     val tree2 = tr(tree)
     if(table eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(gen, table, tree2, ProductNode(cols)).nodeWithComputedType(SymbolScope.empty, retype = false)
+    val ins = Insert(gen, table, tree2, ProductNode(cols)).nodeWithComputedType(SymbolScope.empty, typeChildren = false, retype = true)
     logger.debug("Insert node:", ins)
 
     ResultSetMapping(rgen, ins, createMapping(ins)).nodeTyped(

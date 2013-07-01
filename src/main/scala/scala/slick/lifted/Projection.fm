@@ -2,7 +2,7 @@ package scala.slick.lifted
 
 import scala.slick.ast._
 
-sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product with TypedNode {
+sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode with Product {
   type V = T
   lazy val nodeChildren = productIterator.map(Node(_)).toIndexedSeq
 
@@ -11,11 +11,6 @@ sealed trait Projection[T <: Product] extends ColumnBase[T] with ProductNode wit
   override def toString = "Projection" + productArity
 
   lazy val tpe = ProductType(productIterator.asInstanceOf[Iterator[Column[_]]].map(_.tpe).toIndexedSeq)
-
-  override def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
-    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
-    nodeBuildTypedNode(this2, tpe)
-  }
 }
 
 object Projection {

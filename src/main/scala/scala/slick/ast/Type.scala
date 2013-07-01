@@ -4,23 +4,36 @@ import scala.language.implicitConversions
 import scala.slick.SlickException
 import scala.collection.generic.CanBuildFrom
 import scala.reflect.ClassTag
+import Util._
 
 /** Super-trait for all types */
-trait Type
-
-object Type {
-  def select(tpe: Type, sym: Symbol): Type = (tpe, sym) match {
-    case (StructType(es), _) => es.find(x => x._1 == sym).map(_._2).
-      getOrElse(throw new SlickException("No type for symbol "+sym+" found in "+tpe))
-    case (ProductType(es), ElementSymbol(i)) if i <= es.length => es(i-1)
-    case _ => throw new SlickException("No type for symbol "+sym+" found in "+tpe)
-  }
+trait Type {
+  /** Apply a transformation to all type children and reconstruct this
+    * type with the new children, or return the original object if no
+    * child is changed. */
+  def mapChildren(f: Type => Type): Type
+  def select(sym: Symbol): Type =
+    throw new SlickException("No type for symbol "+sym+" found in "+this)
+  /** The structural view of this type */
+  def structural: Type = this
 }
 
-case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
+/** An atomic type (i.e. a type which does not contain other types) */
+trait AtomicType extends Type {
+  final def mapChildren(f: Type => Type): this.type = this
+}
+
+final case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[Symbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
+  def mapChildren(f: Type => Type): StructType =
+    mapOrNone(elements.map(_._2))(f) match {
+      case Some(types2) => StructType((elements, types2).zipped.map((e, t) => (e._1, t)))
+      case None => this
+    }
+  override def select(sym: Symbol) =
+    elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
 }
 
 trait OptionType extends Type {
@@ -31,15 +44,34 @@ trait OptionType extends Type {
 object OptionType {
   def apply(tpe: Type): OptionType = new OptionType {
     def elementType = tpe
+    def mapChildren(f: Type => Type): OptionType = {
+      val e2 = f(elementType)
+      if(e2 eq elementType) this
+      else OptionType(e2)
+    }
   }
 }
 
-case class ProductType(elements: IndexedSeq[Type]) extends Type {
+final case class ProductType(elements: IndexedSeq[Type]) extends Type {
   override def toString = "(" + elements.mkString(", ") + ")"
+  def mapChildren(f: Type => Type): ProductType =
+    mapOrNone(elements)(f) match {
+      case Some(e2) => ProductType(e2)
+      case None => this
+    }
+  override def select(sym: Symbol) = sym match {
+    case ElementSymbol(i) if i <= elements.length => elements(i-1)
+    case _ => super.select(sym)
+  }
 }
 
-case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
+final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
   override def toString = cons + "[" + elementType + "]"
+  def mapChildren(f: Type => Type): CollectionType = {
+    val e2 = f(elementType)
+    if(e2 eq elementType) this
+    else CollectionType(cons, e2)
+  }
 }
 
 case class CollectionTypeConstructor(dummy: String = "") {
@@ -51,16 +83,40 @@ object CollectionTypeConstructor {
   def default = new CollectionTypeConstructor
 }
 
-trait MappedScalaType extends Type {
-  def baseType: Type
-  def toMapped(v: Any): Any
-  def toBase(v: Any): Any
+final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: Any => Any) extends Type {
+  def toBase(v: Any): Any = _toBase(v)
+  def toMapped(v: Any): Any = _toMapped(v)
   override def toString = s"Mapped[$baseType]"
+  def mapChildren(f: Type => Type): MappedScalaType = {
+    val e2 = f(baseType)
+    if(e2 eq baseType) this
+    else new MappedScalaType(e2, _toBase, _toMapped)
+  }
 }
 
-case object NoType extends Type
+final case object NoType extends AtomicType
 
-case object UnassignedType extends Type
+final case object UnassignedType extends AtomicType
+
+/* A type with a name, as used by tables.
+ *
+ * Compiler phases which change types may keep their own representation
+ * of the structural view but must update the AST at the end of the phase
+ * so that all NominalTypes with the same symbol have the same structural
+ * view. */
+final case class NominalType(sym: TypeSymbol)(val structuralView: Type) extends Type {
+  def toShortString = s"NominalType($sym)"
+  override def toString = s"$toShortString($structuralView)"
+  def withStructuralView(t: Type): NominalType =
+    if(t == structuralView) this else copy()(t)
+  override def structural: Type = structuralView.structural
+  override def select(sym: Symbol): Type = structuralView.select(sym)
+  def mapChildren(f: Type => Type): NominalType = {
+    val struct2 = f(structuralView)
+    if(struct2 eq structuralView) this
+    else new NominalType(sym)(struct2)
+  }
+}
 
 /** Something that has a type */
 trait Typed {
@@ -76,11 +132,16 @@ trait TypedType[T] extends Type { self =>
   def optionType: OptionTypedType[T] = new OptionTypedType[T] {
     val elementType = self
     def scalaType = new ScalaOptionType[T](self.scalaType)
+    def mapChildren(f: Type => Type): OptionTypedType[T] = {
+      val e2 = f(elementType)
+      if(e2 eq elementType) this
+      else e2.asInstanceOf[TypedType[T]].optionType
+    }
   }
   def scalaType: ScalaType[T]
 }
 
-trait BaseTypedType[T] extends TypedType[T]
+trait BaseTypedType[T] extends TypedType[T] with AtomicType
 
 trait OptionTypedType[T] extends TypedType[Option[T]] with OptionType {
   val elementType: TypedType[T]
@@ -102,10 +163,23 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     case o: OptionType => o
     case _ => throw new SlickException("Expected an option type, found "+tpe)
   }
+  def replace(f: PartialFunction[Type, Type]): Type = TypeUtilOps.replace(tpe, f)
 }
 
 object TypeUtil {
   implicit def typeToTypeUtil(tpe: Type) = new TypeUtil(tpe)
+
+  /* An extractor for node types */
+  object :@ {
+    def unapply(n: Node) = Some((n, n.nodeType))
+  }
+}
+
+object TypeUtilOps {
+  import TypeUtil.typeToTypeUtil
+
+  def replace(tpe: Type, f: PartialFunction[Type, Type]): Type =
+    f.applyOrElse(tpe, ({ case t: Type => t.mapChildren(_.replace(f)) }): PartialFunction[Type, Type])
 }
 
 trait SymbolScope {
@@ -224,5 +298,10 @@ class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option
         else base.compare(x.get, y.get)
       }
     }
+  }
+  def mapChildren(f: Type => Type): ScalaOptionType[T] = {
+    val e2 = f(elementType)
+    if(e2 eq elementType) this
+    else e2.asInstanceOf[ScalaType[T]].optionType
   }
 }

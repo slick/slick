@@ -88,6 +88,13 @@ trait BasicDriver extends BasicProfile {
   /** The driver-specific representation of types */
   type TypeInfo
   def typeInfoFor(t: Type): TypeInfo
+
+  override def toString = {
+    val cl = getClass.getName
+    if(cl.startsWith("scala.slick.driver.") && cl.endsWith("$"))
+      cl.substring(19, cl.length-1)
+    else super.toString
+  }
 }
 
 /** Standard implementations of parameterized queries */

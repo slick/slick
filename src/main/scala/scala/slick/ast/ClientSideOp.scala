@@ -26,19 +26,11 @@ object ClientSideOp {
 }
 
 /** Get the first element of a collection. For client-side operations only. */
-final case class First(val child: Node) extends UnaryNode with ClientSideOp {
+final case class First(val child: Node) extends UnaryNode with SimplyTypedNode with ClientSideOp {
   type Self = First
   protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
-  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
-    val this2 = nodeMapChildren(_.nodeWithComputedType(scope, retype))
-    val tp = this2.nodeChildren.head.nodeType.asCollectionType.elementType
-    nodeBuildTypedNode(this2, tp)
-  }
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = {
-    val g = (ch: Node) => r(ch)
-    if(keepType) nodeMapChildrenKeepType(g)
-    else nodeMapChildren(g)
-  }
+  protected def buildType = nodeChildren.head.nodeType.asCollectionType.elementType
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = nodeMapChildren(r, keepType)
 }
 
 /** A client-side projection of type
@@ -56,18 +48,17 @@ final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) exte
   def nodeGenerators = Seq((generator, from))
   override def toString = "ResultSetMapping"
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodeWithComputedType(scope: SymbolScope, retype: Boolean): Self = if(nodeHasType && !retype) this else {
-    val f2 = from.nodeWithComputedType(scope, retype)
-    val (s2, newType) = f2.nodeType match {
+  def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+    val from2 = from.nodeWithComputedType(scope, typeChildren, retype)
+    val (map2, newType) = from2.nodeType match {
       case CollectionType(cons, elem) =>
-        val s2 = map.nodeWithComputedType(scope + (generator -> elem), retype)
-        (s2, CollectionType(cons, s2.nodeType))
+        val map2 = map.nodeWithComputedType(scope + (generator -> elem), typeChildren, retype)
+        (map2, CollectionType(cons, map2.nodeType))
       case t =>
-        val s2 = map.nodeWithComputedType(scope + (generator -> t), retype)
-        (s2, s2.nodeType)
+        val map2 = map.nodeWithComputedType(scope + (generator -> t), typeChildren, retype)
+        (map2, map2.nodeType)
     }
-    if((f2 eq from) && (s2 eq map) && newType == nodeType) this
-    else copy(from = f2, map = s2).nodeTyped(newType)
+    nodeRebuildOrThis(Vector(from2, map2)).nodeTypedOrCopy(if(!nodeHasType || retype) newType else nodeType)
   }
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = {
     val this2 = nodeMapScopedChildren {
