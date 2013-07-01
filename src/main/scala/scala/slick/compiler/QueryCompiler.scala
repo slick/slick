@@ -66,6 +66,7 @@ object QueryCompiler {
     Phase.assignUniqueSymbols,
     // Distribute and normalize
     Phase.expandTables,
+    Phase.inferTypes,
     Phase.createResultSetMapping,
     Phase.forceOuterBinds,
     // Convert to column form
@@ -111,6 +112,7 @@ object Phase {
   val inline = new Inline
   val assignUniqueSymbols = new AssignUniqueSymbols
   val expandTables = new ExpandTables
+  val inferTypes = new InferTypes
   val createResultSetMapping = new CreateResultSetMapping
   val forceOuterBinds = new ForceOuterBinds
   val expandRefs = new ExpandRefs

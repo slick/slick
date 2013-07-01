@@ -108,6 +108,8 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
     def tableProvider: RelationalDriver = driver
 
+    def tableIdentitySymbol: TableIdentitySymbol = SimpleTableIdentitySymbol(driver, schemaName.getOrElse("_"), tableName)
+
     val O: driver.columnOptions.type = columnOptions
 
     def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
@@ -125,16 +127,15 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P,T] = {
       import FunctionSymbolExtensionMethods._
       import driver.Implicit._
-      val thisQ = tableToQuery(this).asInstanceOf[Query[this.type, this.type]]
-      for {
-        param <- Parameters[P]
-        table <- thisQ if Library.==.column[Boolean](Node(f(table)), Node(param))
-      } yield table
+      val thisQ = tableToQuery(this).asInstanceOf[Query[Table.this.type, T]]
+      Parameters[P].flatMap { param =>
+        thisQ.filter(table => Library.==.column[Boolean](Node(f(table)), Node(param)))
+      }
     }
 
     def ddl: SchemaDescription = buildTableSchemaDescription(this)
 
-    def tpe = CollectionType(CollectionTypeConstructor.default, *.tpe)
+    def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(tableIdentitySymbol)(NoType))
   }
 }
 

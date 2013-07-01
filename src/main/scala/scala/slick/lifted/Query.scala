@@ -72,7 +72,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
     val sym = new AnonSymbol
     val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
     val value = ShapedValue(pack, Shape.impureShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
-    val group = GroupBy(sym, new AnonSymbol, Node(this), Node(key.value))
+    val group = GroupBy(sym, Node(this), Node(key.value))
     new WrappingQuery(group, key.zip(value))
   }
 

@@ -7,6 +7,6 @@ import Util.nodeToNodeOps
 class AssignTypes extends Phase {
   val name = "assignTypes"
 
-  def apply(state: CompilerState) =
-    state.map(_.nodeWithComputedType(new DefaultSymbolScope(Map.empty), true))
+  def apply(state: CompilerState) = state.map(_.nodeWithComputedType(
+    new DefaultSymbolScope(Map.empty), typeChildren = true, retype = true))
 }
