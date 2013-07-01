@@ -36,7 +36,7 @@ class TablesInObjectTest {
     val q1 = for {
       p <- Posts
       c <- categoryJoin(p.asInstanceOf[Posts.type])
-    } yield p.category ~ c.id
+    } yield (p.category, c.id)
     //q1.dump("Local function")
     val sel1 = q1.selectStatement
     println("Local function:  "+sel1)
@@ -44,7 +44,7 @@ class TablesInObjectTest {
     val q2 = for {
       p <- Posts
       c <- p.categoryJoin
-    } yield p.category ~ c.id
+    } yield (p.category, c.id)
     //q1.dump("Method on table")
     val sel2 = q2.selectStatement
     println("Method on table: "+sel2)

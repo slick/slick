@@ -38,6 +38,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   trait LowPriorityImplicits {
     implicit def queryToAppliedQueryInvoker[T, U](q: Query[T, _ <: U]): UnitQueryInvoker[U] = createUnitQueryInvoker[U](queryCompiler.run(Node(q)).tree)
+    implicit def queryToUpdateInvoker[E, U](q: Query[E, U]): UpdateInvoker[U] = createUpdateInvoker(updateCompiler.run(Node(q)).tree)
   }
 
   trait Implicits extends LowPriorityImplicits with super.Implicits with ImplicitColumnTypes {

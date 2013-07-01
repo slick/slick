@@ -12,7 +12,7 @@ class ColumnDefaultTest extends TestkitTest[RelationalTestDB] {
     def id = column[Int]("id")
     def a = column[String]("a", O Default "foo")
     def b = column[Option[Boolean]]("b", O Default Some(true))
-    def * = id ~ a ~ b
+    def * = (id, a, b)
   }
 
   def test = ifCap(rcap.columnDefaults) {

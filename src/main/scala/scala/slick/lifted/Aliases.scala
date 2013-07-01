@@ -24,5 +24,5 @@ trait Aliases {
   val SimpleExpression = lifted.SimpleExpression
   type SimpleLiteral = lifted.SimpleLiteral
   val SimpleLiteral = lifted.SimpleLiteral
-  val ~ = lifted.~
+  val TupleMethods = util.TupleMethods
 }

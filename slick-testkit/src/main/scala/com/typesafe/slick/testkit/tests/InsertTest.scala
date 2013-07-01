@@ -10,10 +10,11 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
 
   def testSimple {
 
-    class TestTable(name: String) extends Table[(Int, String)](name) {
+    class TestTable(tname: String) extends Table[(Int, String)](tname) {
       def id = column[Int]("id")
       def name = column[String]("name")
-      def * = id ~ name
+      def * = (id, name)
+      def ins = (id, name).shaped
     }
 
     object Src1 extends TestTable("src1")
@@ -23,7 +24,7 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     (Src1.ddl ++ Dst1.ddl ++ Dst2.ddl).create
 
     Src1.insert(1, "A")
-    Src1.insertAll((2, "B"), (3, "C"))
+    Src1.ins.insertAll((2, "B"), (3, "C"))
 
     Dst1.insertExpr(Src1)
     assertEquals(Set((1,"A"), (2,"B"), (3,"C")), Query(Dst1).list.toSet)
@@ -33,12 +34,12 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     Dst2.insert(q2)
     assertEquals(Set((1,"A"), (2,"B")), Query(Dst2).list.toSet)
 
-    val q3 = 42 ~ "X".bind
+    val q3 = (42, "X".bind)
     println("Insert 3: "+Dst2.insertStatementFor(q3))
     Dst2.insertExpr(q3)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X")), Query(Dst2).list.toSet)
 
-    val q4 = 43 ~ "Y".bind
+    val q4 = (43, "Y".bind)
     println("Insert 4: "+Dst2.shaped.insertStatementFor(q4))
     Dst2.shaped.insertExpr(q4)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X"), (43,"Y")), Query(Dst2).list.toSet)
@@ -50,10 +51,10 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
       def s1 = column[String]("S1")
       def s2 = column[String]("S2")
-      def * = id ~ s1 ~ s2
-      def ins1 = s1 ~ s2 returning id
+      def * = (id, s1, s2)
+      def ins1 = (s1, s2).shaped returning id
       def ins2 = (s1, s2).shaped returning (id, s1)
-      def ins3 = s1 ~ s2 returning id into ((v, i) => (i, v._1, v._2))
+      def ins3 = (s1, s2).shaped returning id into ((v, i) => (i, v._1, v._2))
     }
 
     A.ddl.create

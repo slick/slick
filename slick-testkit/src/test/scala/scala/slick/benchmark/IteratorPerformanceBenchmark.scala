@@ -11,7 +11,7 @@ object IteratorPerformanceBenchmark {
 
       def value = column[String]("value")
 
-      def * = key ~ value
+      def * = (key, value)
     }
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
       Props.ddl.create

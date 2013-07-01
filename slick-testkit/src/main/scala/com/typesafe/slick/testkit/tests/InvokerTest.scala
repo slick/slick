@@ -56,7 +56,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
     val T = new Table[(Int, String)]("t2") {
       def k = column[Int]("k")
       def v = column[String]("v")
-      def * = k ~ v
+      def * = (k, v)
     }
 
     T.ddl.create

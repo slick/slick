@@ -12,8 +12,7 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
-    def * = id ~ first ~ last
-
+    def * = (id, first, last)
     def orders = Orders where { _.userID is id }
   }
 
@@ -23,7 +22,7 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped")
     def rebate = column[Option[Boolean]]("rebate")
-    def * = userID ~ orderID ~ product ~ shipped ~ rebate
+    def * = (userID, orderID, product, shipped, rebate)
   }
 
   def test {
@@ -31,9 +30,9 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     val ddl = Users.ddl ++ Orders.ddl
     ddl.createStatements.foreach(println)
     ddl.create
-    println((Users.first ~ Users.last).insertStatement)
-    val ins1 = (Users.first ~ Users.last).insert("Homer", Some("Simpson"))
-    val ins2 = (Users.first ~ Users.last).insertAll(
+    println((Users.first, Users.last).shaped.insertStatement)
+    val ins1 = (Users.first, Users.last).shaped.insert("Homer", Some("Simpson"))
+    val ins2 = (Users.first, Users.last).shaped.insertAll(
       ("Marge", Some("Simpson")), ("Apu", Some("Nahasapeemapetilon")), ("Carl", Some("Carlson")), ("Lenny", Some("Leonard")) )
     val ins3 = Users.first.insertAll("Santa's Little Helper", "Snowball")
     val total = for(i2 <- ins2; i3 <- ins3) yield ins1 + i2 + i3
@@ -76,7 +75,7 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     //TODO verifyable non-random test
     for(u <- allUsers
         if u.first != "Apu" && u.first != "Snowball"; i <- 1 to 2)
-      (Orders.userID ~ Orders.product ~ Orders.shipped ~ Orders.rebate).insert(
+      (Orders.userID ~ Orders.product ~ Orders.shipped ~ Orders.rebate).shaped.insert(
         u.id, "Gizmo "+((scala.math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
 
     val q3 = for (
@@ -182,7 +181,7 @@ class MainTest extends TestkitTest[JdbcTestDB] {
     println("Updated "+updated1+" row(s)")
     assertEquals(1, updated1)
 
-    val q8 = for(u <- Users if u.last.isNull) yield u.first ~ u.last
+    val q8 = for(u <- Users if u.last.isNull) yield (u.first, u.last)
     println("q8: " + q8.updateStatement)
     val updated2 = q8.update("n/a", Some("n/a"))
     println("Updated "+updated2+" row(s)")

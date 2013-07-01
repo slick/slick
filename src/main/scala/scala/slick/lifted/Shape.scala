@@ -1,10 +1,10 @@
 package scala.slick.lifted
 
-import scala.language.existentials
+import scala.language.{existentials, implicitConversions}
 import scala.annotation.implicitNotFound
 import scala.slick.SlickException
 import scala.slick.util._
-import scala.slick.ast.{WithOp, TableNode, Node, Symbol, TypedType}
+import scala.slick.ast._
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
  * `Query[Mixed]` to its result element type `Unpacked` and the packing to a
@@ -41,6 +41,17 @@ object Shape extends ShapeLowPriority {
 
   val impureShape: Shape[Any, Any, Any] = new IdentityShape[Any, Any] {
     def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) =
+      throw new SlickException("Shape does not have the same Mixed and Unpacked type")
+  }
+
+  @inline implicit def provenShape[T, P](implicit shape: Shape[T, _, P]): Shape[ProvenShape[T], T, P] = new Shape[ProvenShape[T], T, P] {
+    def pack(from: Mixed): Packed = {
+      val sh = from.shape
+      sh.pack(from.value.asInstanceOf[sh.Mixed]).asInstanceOf[Packed]
+    }
+    def packedShape: Shape[Packed, Unpacked, Packed] =
+      shape.packedShape.asInstanceOf[Shape[Packed, Unpacked, Packed]]
+    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
   }
 }
@@ -87,6 +98,7 @@ case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
   def packedNode = Node(shape.pack(value))
   def packedValue[R](implicit ev: Shape[T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
+  @inline def <>[R](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](Node(value), f, g.andThen(_.get))
 }
 
 object ShapedValue {
@@ -97,4 +109,34 @@ object ShapedValue {
 // Work-around for SI-3346
 final class ToShapedValue[T](val value: T) extends AnyVal {
   @inline def shaped[U](implicit shape: Shape[T, U, _]) = new ShapedValue[T, U](value, shape)
+  @inline def <>[R, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[T, U, _]) = new MappedProjection[R, U](Node(value), f, g.andThen(_.get))
+}
+
+/** A limited version of ShapedValue which can be constructed for every type
+  * that has a valid shape. We use it to enforce that a table's * projection
+  * has a valid shape. A ProvenShape has itself a Shape so it can be used in
+  * place of the value that it wraps for purposes of packing and unpacking. */
+trait ProvenShape[U] extends NodeGenerator {
+  def value: Any
+  def shape: Shape[_, U, _]
+  def packedValue[R](implicit ev: Shape[_, U, R]): ShapedValue[R, U]
+  def nodeDelegate = packedValue.packedNode
+  //def bimap[R](f: (U => R))(g: (R => Option[U])) = new MappedProjection[R, U](Node(value), f, g.andThen(_.get))
+}
+
+object ProvenShape {
+  /** Convert an appropriately shaped value to a ProvenShape */
+  implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[T, U, _]): ProvenShape[U] =
+    new ProvenShape[U] {
+      def value = v
+      def shape: Shape[_, U, _] = sh
+      def packedValue[R](implicit ev: Shape[_, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[R, U, _]])
+    }
+}
+
+final class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends ColumnBase[T] with NodeGenerator {
+  type Self = MappedProjection[_, _]
+  override def toString = "MappedProjection"
+  private def typeMapping = TypeMapping(Node(child), (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
+  override def nodeDelegate = if(op eq null) typeMapping else op.nodeDelegate
 }

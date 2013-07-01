@@ -12,7 +12,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     object T extends Table[(Int, Option[Int])]("t2") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
-      def * = a ~ b
+      def * = (a, b)
     }
     T.ddl.create
     T ++= Seq((1, Some(1)), (1, Some(2)), (1, Some(3)))
@@ -30,7 +30,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     object T extends Table[(Int, Option[Int])]("t3") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
-      def * = a ~ b
+      def * = (a, b)
     }
     T.ddl.create
     T ++= Seq((1, Some(1)), (1, Some(2)), (1, Some(3)))

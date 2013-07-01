@@ -30,7 +30,7 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       (3, "Windows"),
       (4, "Software")
     )
-    Posts.title ~ Posts.category ++= Seq(
+    (Posts.title, Posts.category).shaped ++= Seq(
       ("Test Post", -1),
       ("Formal Language Processing in Scala, Part 5", 1),
       ("Efficient Parameterized Queries in ScalaQuery", 2),
@@ -104,7 +104,7 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
       (2, "ScalaQuery"),
       (4, "Software")
     )
-    Posts.title ~ Posts.category ++= Seq(
+    (Posts.title, Posts.category).shaped ++= Seq(
       ("Test Post", -1),
       ("Formal Language Processing in Scala, Part 5", 1),
       ("Efficient Parameterized Queries in ScalaQuery", 2),

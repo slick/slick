@@ -12,7 +12,7 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
       def a = column[Int]("A")
       def b = column[String]("B")
       def c = column[String]("C")
-      def * = a ~ b ~ c
+      def * = (a, b, c)
     }
 
     T.ddl.create
@@ -26,19 +26,13 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
     val res1b = res1.map { case (a, b, c, d) => ((a, b), (c, d)) }
 
     val q1a = (for {
-      a ~ b <- T.map(t => t.a ~ t.b)
+      (a, b) <- T.map(t => (t.a, t.b))
       c <- T.map(t => t.c)
     } yield a ~ b ~ c ~ 5).sortBy(t => t._3 ~ t._1)
     assertEquals(res1, q1a.run)
 
-    val q1b = (for {
-      (a, b) <- T.map(t => (t.a, t.b))
-      c <- T.map(t => t.c)
-    } yield a ~ b ~ c ~ 5).sortBy(t => t._3 ~ t._1)
-    assertEquals(res1, q1b.run)
-
     val q1c = (for {
-      (a, b) <- T.map(t => (t.a, t.b))
+      a ~ b <- T.map(t => (t.a, t.b))
       c <- T.map(t => t.c)
     } yield (a, b, c, ConstColumn(5))).sortBy(t => t._3 ~ t._1)
     assertEquals(res1, q1c.run)
