@@ -2,12 +2,14 @@ package scala.slick
 package lifted
 
 /**
- * Aliases for QL features. This trait can be mixed into aliasing objects
- * which simplify the use of the Query Language.
+ * Aliases for lifted embedding features. This trait can be mixed into aliasing objects
+ * which simplify the use of the lifted embedding.
  */
 trait Aliases {
   type Query[+E, U] = lifted.Query[E, U]
   val Query = lifted.Query
+  type TableQuery[+E <: AbstractTable[_], U] = lifted.TableQuery[E, U]
+  val TableQuery = lifted.TableQuery
   type Column[T] = lifted.Column[T]
   type ConstColumn[T] = lifted.ConstColumn[T]
   val ConstColumn = lifted.ConstColumn
@@ -24,5 +26,6 @@ trait Aliases {
   val SimpleExpression = lifted.SimpleExpression
   type SimpleLiteral = lifted.SimpleLiteral
   val SimpleLiteral = lifted.SimpleLiteral
-  val ~ = lifted.~
+  val TupleMethods = util.TupleMethods
+  type Tag = lifted.Tag
 }

@@ -22,7 +22,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
-  lazy val insertCompiler = QueryCompiler(new MemoryInsertCompiler)
+  lazy val insertCompiler = QueryCompiler(Phase.inline, Phase.assignUniqueSymbols, new MemoryInsertCompiler)
 
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
 
@@ -102,11 +102,10 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
   override val profile: MemoryProfile = this
 
   type RowWriter = ArrayBuffer[Any]
-  type RowUpdater = ArrayBuffer[Any]
 
   class InsertMappingCompiler(insert: Insert) extends super.MappingCompiler {
-    val Insert(_, table: Table[_], _, ProductNode(cols)) = insert
-    val tableColumnIdxs = table.create_*.zipWithIndex.toMap
+    val Insert(_, table: TableNode, _, ProductNode(cols)) = insert
+    val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
     def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = {
       val Select(_, ElementSymbol(ridx)) = path

@@ -6,17 +6,18 @@ import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 class PagingTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
 
-  object IDs extends Table[Int]("ids") {
+  class IDs(tag: Tag) extends Table[Int](tag, "ids") {
     def id = column[Int]("id", O.PrimaryKey)
     def * = id
   }
+  lazy val ids = TableQuery[IDs]
 
   def test {
 
-    IDs.ddl.create;
-    IDs ++= (1 to 10)
+    ids.ddl.create;
+    ids ++= (1 to 10)
 
-    val q1 = Query(IDs).sortBy(_.id)
+    val q1 = ids.sortBy(_.id)
     println("    "+q1.run)
     assertEquals((1 to 10).toList, q1.run)
 

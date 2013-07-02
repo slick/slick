@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
-import scala.slick.compiler.QueryCompiler
+import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
 import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend}
 import scala.slick.profile.{StandardParameterizedQueries, SqlDriver, SqlProfile, Capability}
@@ -28,7 +28,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
-  lazy val insertCompiler = QueryCompiler(new JdbcInsertCompiler)
+  lazy val insertCompiler = QueryCompiler(Phase.inline, Phase.assignUniqueSymbols, new JdbcInsertCompiler)
 
   final def buildTableSchemaDescription(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
@@ -38,6 +38,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   trait LowPriorityImplicits {
     implicit def queryToAppliedQueryInvoker[T, U](q: Query[T, _ <: U]): UnitQueryInvoker[U] = createUnitQueryInvoker[U](queryCompiler.run(Node(q)).tree)
+    implicit def queryToUpdateInvoker[E, U](q: Query[E, U]): UpdateInvoker[U] = createUpdateInvoker(updateCompiler.run(Node(q)).tree)
   }
 
   trait Implicits extends LowPriorityImplicits with super.Implicits with ImplicitColumnTypes {
@@ -45,12 +46,6 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = new DeleteInvoker(deleteCompiler.run(Node(q)).tree)
     implicit def parameterizedQueryToQueryInvoker[P, R](q: ParameterizedQuery[P, R]): QueryInvoker[P, R] = createQueryInvoker[P, R](q.tree)
     implicit def appliedQueryToAppliedQueryInvoker[R](q: AppliedQuery[R]): MutatingUnitInvoker[R] = createQueryInvoker[Any, R](q.tree)(q.param)
-
-    // We should really constrain the 2nd type parameter of Query but that won't
-    // work for queries on implicitly lifted tables. This conversion is needed
-    // for mapped tables.
-    implicit def tableQueryToUpdateInvoker[T](q: Query[_ <: Table[T], NothingContainer#TableNothing]): UpdateInvoker[T] =
-      createUpdateInvoker(updateCompiler.run(Node(q)).tree)
 
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T](q: Query[_ <: ColumnBase[T], T]): UpdateInvoker[T] =

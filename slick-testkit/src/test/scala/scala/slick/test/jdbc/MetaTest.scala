@@ -16,28 +16,30 @@ class MetaTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
   import Database.threadLocalSession
 
-  object Users extends Table[(Int, String, Option[String])]("users") {
+  class Users(tag: Tag) extends Table[(Int, String, Option[String])](tag, "users") {
     def id = column[Int]("id", O.PrimaryKey)
     def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
-    def * = id ~ first ~ last
+    def * = (id, first, last)
   }
+  lazy val users = TableQuery[Users]
 
-  object Orders extends Table[(Int, Int, String, Boolean, Option[Boolean])]("orders") {
+  class Orders(tag: Tag) extends Table[(Int, Int, String, Boolean, Option[Boolean])](tag, "orders") {
     def userID = column[Int]("userID")
     def orderID = column[Int]("orderID", O.PrimaryKey)
     def product = column[String]("product")
     def shipped = column[Boolean]("shipped", O Default false)
     def rebate = column[Option[Boolean]]("rebate", O Default Some(false))
-    def * = userID ~ orderID ~ product ~ shipped ~ rebate
-    def userFK = foreignKey("user_fk", userID, Users)(_.id)
+    def * = (userID, orderID, product, shipped, rebate)
+    def userFK = foreignKey("user_fk", userID, users)(_.id)
   }
+  lazy val orders = TableQuery[Orders]
 
   @Test def test() {
 
     db withSession {
 
-      val ddl = (Users.ddl ++ Orders.ddl)
+      val ddl = (users.ddl ++ orders.ddl)
       println("DDL used to create tables:")
       for(s <- ddl.createStatements) println("  "+s)
       ddl.create
