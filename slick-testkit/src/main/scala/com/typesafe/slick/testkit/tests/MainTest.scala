@@ -43,7 +43,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
      * None would also be an acceptable result here. */
     assertTrue("returned row count should be 7 or unknown", total == Some(7) || total == None)
 
-    val q1 = for(u <- users) yield u.id ~ u.first ~ u.last
+    val q1 = for(u <- users) yield (u.id, u.first, u.last)
     println("q1: " + q1.selectStatement)
     for(t <- q1) println("User tuple: "+t)
     val allUsers = q1.mapResult{ case (id,f,l) => User(id,f,l.orNull) }.list
@@ -60,8 +60,8 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     assertEquals(expectedUserTuples, q1.list)
     assertEquals(expectedUserTuples.map{ case (id,f,l) => User(id,f,l.orNull) }, allUsers)
 
-    val q1b = for(u <- users) yield u.id ~ u.first.? ~ u.last ~
-      (Case If u.id < 3 Then "low" If u.id < 6 Then "medium" Else "high")
+    val q1b = for(u <- users) yield (u.id, u.first.?, u.last,
+      (Case If u.id < 3 Then "low" If u.id < 6 Then "medium" Else "high"))
     println("q1b: " + q1b.selectStatement)
     for(t <- q1b) println("With options and sequence: "+t)
 
@@ -69,7 +69,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       case (id,f,l) => (id, Some(f), l, if(id < 3) "low" else if(id < 6) "medium" else "high")
     }, q1b.list)
 
-    val q2 = for(u <- users if u.first is "Apu".bind) yield u.last ~ u.id
+    val q2 = for(u <- users if u.first is "Apu".bind) yield (u.last, u.id)
     println("q2: " + q2.selectStatement)
     println("Apu's last name and ID are: " + q2.first)
     assertEquals((Some("Nahasapeemapetilon"),3), q2.first)
@@ -83,7 +83,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     val q3 = for (
       u <- users.sortBy(_.first) if u.last.isNotNull;
       o <- u.orders
-    ) yield u.first ~ u.last ~ o.orderID ~ o.product ~ o.shipped ~ o.rebate
+    ) yield (u.first, u.last, o.orderID, o.product, o.shipped, o.rebate)
     println("q3: " + q3.selectStatement)
     println("All Orders by Users with a last name by first name:")
     q3.foreach(o => println("  "+o))
@@ -92,7 +92,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       u <- users
       o <- u.orders
         if (o.orderID === (for { o2 <- orders where(o.userID is _.userID) } yield o2.orderID).max)
-    } yield u.first ~ o.orderID
+    } yield (u.first, o.orderID)
     println("q4: " + q4.selectStatement)
     println("Latest Order per User:")
     q4.foreach(o => println("  "+o))
@@ -107,7 +107,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       u <- users;
       o <- maxOfPer(orders)(_.orderID, _.userID)
         if o.userID is u.id
-    ) yield u.first ~ o.orderID
+    ) yield (u.first, o.orderID)
     println("q4b: " + q4b.selectStatement)
     println("Latest Order per User, using maxOfPer:")
     q4b.foreach(o => println("  "+o))
@@ -122,7 +122,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       _ <- Query /*TODO groupBy u.id
                  having { _ => o.orderID.max > 5 }
                  orderBy o.orderID.max*/
-    ) yield u.first.min.get ~ o.orderID.max
+    ) yield (u.first.min.get, o.orderID.max)
     println("q4c: " + q4c.selectStatement)
     println("Latest Order per User, using GroupBy, with orderID > 5:")
     q4c.foreach(o => println("  "+o))
@@ -134,7 +134,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     val q4d = for (
       u <- users if u.first inSetBind List("Homer", "Marge");
       o <- orders if o.userID is u.id
-    ) yield u.first ~ (ConstColumn(1) + o.orderID - 1) ~ o.product
+    ) yield (u.first, (ConstColumn(1) + o.orderID, 1), o.product)
     println("q4d: " + q4d.selectStatement)
     println("Orders for Homer and Marge:")
     q4d.foreach(o => println("  "+o))

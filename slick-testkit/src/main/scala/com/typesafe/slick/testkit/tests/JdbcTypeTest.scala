@@ -17,7 +17,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[(Int, Array[Byte])](tag, "test_ba") {
       def id = column[Int]("id")
       def data = column[Array[Byte]]("data")
-      def * = id ~ data
+      def * = (id, data)
     }
     val ts = TableQuery[T]
 
@@ -35,7 +35,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[(Int, Option[Array[Byte]])](tag, "test_baopt") {
       def id = column[Int]("id")
       def data = column[Option[Array[Byte]]]("data")
-      def * = id ~ data
+      def * = (id, data)
     }
     val ts = TableQuery[T]
 
@@ -54,7 +54,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[(Int, Blob)](tag, "test3") {
       def id = column[Int]("id")
       def data = column[Blob]("data")
-      def * = id ~ data
+      def * = (id, data)
     }
     val ts = TableQuery[T]
 
@@ -85,7 +85,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[(Int, Serialized[List[Int]])](tag, "t") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def b = column[Serialized[List[Int]]]("b")
-      def * = id ~ b
+      def * = (id, b)
     }
     val ts = TableQuery[T]
 
@@ -100,7 +100,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     class T1(tag: Tag) extends Table[(Int, T)](tag, tn) {
       def id = column[Int]("id")
       def data = column[T]("data")
-      def * = id ~ data
+      def * = (id, data)
     }
     val t1 = TableQuery[T1]
 

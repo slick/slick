@@ -12,7 +12,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     class T(tag: Tag) extends Table[(String, String)](tag, "users") {
       def a = column[String]("a")
       def b = column[String]("b")
-      def * = a ~ b
+      def * = (a, b)
     }
     val ts = TableQuery[T]
 
@@ -59,7 +59,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       def a = column[String]("a")
       def b = column[String]("b")
       def c = column[String]("c")
-      def * = a ~ b ~ c
+      def * = (a, b, c)
     }
     val t1s = TableQuery[T1]
 
@@ -103,7 +103,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     class T1(tag: Tag) extends Table[(String, Int)](tag, "t1_4") {
       def a = column[String]("a")
       def b = column[Int]("b")
-      def * = a ~ b
+      def * = (a, b)
     }
     val t1s = TableQuery[T1]
 
@@ -119,7 +119,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     class T1(tag: Tag) extends Table[(Int, Option[Int])](tag, "t1_optconv") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
-      def * = a ~ b
+      def * = (a, b)
     }
     val t1s = TableQuery[T1]
 

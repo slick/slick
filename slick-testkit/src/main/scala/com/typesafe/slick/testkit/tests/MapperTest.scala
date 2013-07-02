@@ -10,6 +10,8 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
   override val reuseInstance = true
 
   def testMappedEntity {
+    import TupleMethods._
+
     case class User(id: Option[Int], first: String, last: String)
 
     class Users(tag: Tag) extends Table[User](tag, "users") {
@@ -224,14 +226,14 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     class ARow(tag: Tag) extends Table[A](tag, "t4_a") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def data = column[Int]("data")
-      def * = id ~ data <> (A.tupled, A.unapply _)
+      def * = (id, data) <> (A.tupled, A.unapply _)
     }
     val as = TableQuery[ARow]
 
     class BRow(tag: Tag) extends Table[B](tag, "t5_b") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def data = column[String]("data")
-      def * = id ~ data.? <> (B.tupled, B.unapply _)
+      def * = (id, data.?) <> (B.tupled, B.unapply _)
     }
     val bs = TableQuery[BRow]
 

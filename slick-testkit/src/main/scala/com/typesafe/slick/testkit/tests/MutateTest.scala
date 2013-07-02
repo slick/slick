@@ -50,7 +50,7 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[(Int, Int)](tag, "T_DELMUTABLE") {
       def a = column[Int]("A")
       def b = column[Int]("B", O.PrimaryKey)
-      def * = a ~ b
+      def * = (a, b)
     }
     val ts = TableQuery[T]
     def tsByA = ts.findBy(_.a)

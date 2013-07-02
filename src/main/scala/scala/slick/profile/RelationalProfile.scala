@@ -27,7 +27,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
       new TableQueryExtensionMethods[T, U](q)
   }
 
-  trait SimpleQL extends super.SimpleQL with TupleMethods with Implicits {
+  trait SimpleQL extends super.SimpleQL with Implicits {
     type Table[T] = driver.Table[T]
     type Sequence[T] = driver.Sequence[T]
     val Sequence = driver.Sequence

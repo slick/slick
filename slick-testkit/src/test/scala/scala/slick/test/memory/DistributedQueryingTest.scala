@@ -17,7 +17,7 @@ class DistributedQueryingTest {
       def id = column[Int]("id", O.PrimaryKey)
       def a = column[Int]("a")
       def b = column[String]("b")
-      def * = id ~ a ~ b
+      def * = (id, a, b)
     }
     TableQuery[T]
   }
@@ -27,7 +27,7 @@ class DistributedQueryingTest {
     def id = column[Int]("id", O.PrimaryKey)
     def a = column[Int]("a")
     def b = column[String]("b")
-    def * = id ~ a ~ b
+    def * = (id, a, b)
   }
   val us = scala.slick.lifted.TableQuery[U]
 

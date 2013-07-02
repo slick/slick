@@ -15,7 +15,7 @@ class RelationalTypeTest extends TestkitTest[RelationalTestDB] {
       class Tbl(tag: Tag) extends Table[(Int, T)](tag, "test_numeric") {
         def id = column[Int]("id")
         def data = column[T]("data")
-        def * = id ~ data
+        def * = (id, data)
       }
       val tbl = TableQuery[Tbl]
       tbl.ddl.create;

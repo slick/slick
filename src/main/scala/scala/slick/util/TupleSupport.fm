@@ -36,11 +36,3 @@ object TupleMethods {
 </#list>
   }
 }
-
-trait TupleMethods {
-  implicit def ColumnTupleExtensionMethods[T](c: Column[T]) = TupleMethods.ColumnTupleExtensionMethods[T](c)
-<#list 2..21 as i>
-  implicit def Tuple${i}ExtensionMethods[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](t: (<#list 1..i as j>Column[T${j}]<#if i != j>, </#if></#list>)) = TupleMethods.Tuple${i}ExtensionMethods[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](t)
-</#list>
-  val ~ = TupleMethods.~
-}

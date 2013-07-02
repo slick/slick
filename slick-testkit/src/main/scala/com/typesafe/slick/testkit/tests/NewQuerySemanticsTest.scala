@@ -391,6 +391,8 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
   }
 
   def testOldComposition {
+    import TupleMethods._
+
     class Users(tag: Tag) extends Table[(Int, String, String)](tag, "users") {
       def id = column[Int]("id")
       def first = column[String]("first")
@@ -448,7 +450,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     class TableB(tag: Tag) extends Table[(Int, Int)](tag, "TableB") {
       def id = column[Int]("id")
       def start = column[Int]("start")
-      def * = id ~ start
+      def * = (id, start)
     }
     val tableB = TableQuery[TableB]
 

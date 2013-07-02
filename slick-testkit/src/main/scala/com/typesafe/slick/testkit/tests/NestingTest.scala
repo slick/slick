@@ -7,6 +7,7 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
 
   def testNestedTuples {
+    import TupleMethods._
 
     class T(tag: Tag) extends Table[(Int, String, String)](tag, "T") {
       def a = column[Int]("A")
