@@ -9,9 +9,9 @@ import com.typesafe.slick.testkit.util.JdbcTestDB
 object EmbeddingTest extends DBTestObject(H2Mem)
 
 class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
-  import tdb.profile.backend.Database.threadLocalSession
+  import tdb.profile.backend.Database.dynamicSession
 
-  @Test def testRaw(): Unit = db withSession {
+  @Test def testRaw(): Unit = db withDynSession {
     import scala.slick.jdbc.{StaticQuery => Q, GetResult}
 
     (Q.u + "create table USERS(ID int not null primary key, NAME varchar(255))").execute

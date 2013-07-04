@@ -215,13 +215,13 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   override def cleanUpBefore() {
     if(!drop.isEmpty || !create.isEmpty) {
       println("[Creating test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: profile.Backend#Session =>
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session =>
         for(s <- drop) (Q.u + s).execute
         for(s <- create) (Q.u + s).execute
       }
     }
     if(!postCreate.isEmpty) {
-      createDB() withSession { implicit session: profile.Backend#Session =>
+      createDB() withSession { implicit session  =>
         for(s <- postCreate) (Q.u + s).execute
       }
     }
@@ -230,7 +230,7 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   override def cleanUpAfter() {
     if(!drop.isEmpty) {
       println("[Dropping test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session: profile.Backend#Session =>
+      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session =>
         for(s <- drop) (Q.u + s).execute
       }
     }
