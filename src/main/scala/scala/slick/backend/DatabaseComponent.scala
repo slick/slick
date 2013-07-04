@@ -31,38 +31,38 @@ trait DatabaseComponent { self =>
       try { f(s) } finally s.close()
     }
 
-    /**
-     * Run the supplied thunk with a new session and automatically close the session at the end.
-     * The session is stored in a thread-local variable which can be accessed with the implicit
-     * function in Database.Implicit.
-     */
-    def withSession[T](f: => T): T = withSession { s: Session => withThreadLocalSession(s)(f) }
+    /** Run the supplied thunk with a new session and automatically close the
+      * session at the end.
+      * The session is stored in a dynamic (inheritable thread-local) variable
+      * which can be accessed with the implicit function in
+      * Database.dynamicSession. */
+    def withDynSession[T](f: => T): T = withSession { s: Session => withDynamicSession(s)(f) }
 
     /**
      * Run the supplied function with a new session in a transaction and automatically close the session at the end.
      */
     def withTransaction[T](f: Session => T): T = withSession { s => s.withTransaction(f(s)) }
 
-    /**
-     * Run the supplied thunk with a new session in a transaction and automatically close the session at the end.
-     * The session is stored in a thread-local variable which can be accessed with the implicit
-     * function in Database.Implicit.
-     */
-    def withTransaction[T](f: => T): T = withSession { Database.threadLocalSession.withTransaction(f) }
+    /** Run the supplied thunk with a new session in a transaction and
+      * automatically close the session at the end.
+      * The session is stored in a dynamic (inheritable thread-local) variable
+      * which can be accessed with the implicit function in
+      * Database.dynamicSession. */
+    def withDynTransaction[T](f: => T): T = withSession { Database.dynamicSession.withTransaction(_ => f) }
   }
 
   private[this] val dyn = new DynamicVariable[Session](null)
 
-  protected def withThreadLocalSession[T](s: Session)(f: => T): T = dyn.withValue(s)(f)
+  protected def withDynamicSession[T](s: Session)(f: => T): T = dyn.withValue(s)(f)
 
   trait DatabaseFactoryDef {
     /**
      * An implicit function that returns the thread-local session in a withSession block
      */
-    implicit def threadLocalSession: Session = {
+    implicit def dynamicSession: Session = {
       val s = dyn.value
       if(s eq null)
-        throw new SlickException("No implicit session available; threadLocalSession can only be used within a withSession block")
+        throw new SlickException("No implicit session available; dynamicSession can only be used within a withDynSession block")
       else s
     }
   }
@@ -87,9 +87,9 @@ trait DatabaseComponent { self =>
     def withTransaction[T](f: => T): T
 
     /**
-     * Use this Session as the threadLocalSession for running the supplied thunk.
+     * Use this Session as the dynamicSession for running the supplied thunk.
      */
-    def asThreadLocal[T](f: => T): T = withThreadLocalSession[T](this.asInstanceOf[Session])(f)
+    def asDynamicSession[T](f: => T): T = withDynamicSession[T](this.asInstanceOf[Session])(f)
 
     /**
      * Force an actual database session to be opened. Slick sessions are lazy,

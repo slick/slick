@@ -42,7 +42,7 @@ object Singleton{
 }
 
 class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
-  import tdb.driver.backend.Database.threadLocalSession
+  import tdb.driver.backend.Database.dynamicSession
 
   object backend extends SlickBackend(tdb.driver,AnnotationMapper)
 
@@ -50,8 +50,8 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
     def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
       def assertQuery( matcher : ast.Node => Unit ) = {
         //backend.dump(q)
-        println( backend.toSql(q,threadLocalSession) )
-        println( backend.result(q,threadLocalSession) )
+        println( backend.toSql(q,dynamicSession) )
+        println( backend.result(q,dynamicSession) )
         try{
           matcher( backend.toQuery( q )._2.node : @unchecked ) : @unchecked
           print(".")
@@ -85,15 +85,15 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
     def fail : Unit = fail()
     def success{ print(".") }
     def assertEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( rhs.groupBy(x=>x), lhs.groupBy(x=>x) )
-    def assertMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEqualMultiSet( backend.result(queryable,threadLocalSession), expected)
+    def assertMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEqualMultiSet( backend.result(queryable,dynamicSession), expected)
     def assertNotEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
     def assertNoMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = try{
-      assertEqualMultiSet( backend.result(queryable,threadLocalSession), expected)
+      assertEqualMultiSet( backend.result(queryable,dynamicSession), expected)
     } catch {
       case e:AssertionError => 
       case e:Throwable => throw e
     }
-    def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEquals( expected, backend.result(queryable,threadLocalSession) )
+    def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEquals( expected, backend.result(queryable,dynamicSession) )
   }
 
   object SingletonInClass{
@@ -118,7 +118,7 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
       ("French_Roast_Decaf", 5, None)
     )
     
-    db withSession {
+    db withDynSession {
       // create test table
       sqlu"create table COFFEES(COF_NAME varchar(255), SALES int, FLAVOR varchar(255) NULL)".execute
       (for {
@@ -310,9 +310,9 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
         inMem.map( c=> (c.name,c.sales,c) )
       )
       // length
-      assertEquals( backend.result(query.length,threadLocalSession), inMem.length )
+      assertEquals( backend.result(query.length,dynamicSession), inMem.length )
 
-      val iquery = ImplicitQueryable( query, backend, threadLocalSession )
+      val iquery = ImplicitQueryable( query, backend, dynamicSession )
       assertEquals( iquery.length, inMem.length )
       
       // iquery.filter( _.sales > 10.0 ).map( _.name ) // currently crashed compiler

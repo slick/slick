@@ -14,7 +14,7 @@ class StatementParametersTest(val tdb: JdbcTestDB) extends DBTest {
 
   @Test def testExplicit() {
     println("*** Explicit ***")
-    db withSession { s1:Session =>
+    db withSession { s1 =>
       pr("start")(s1)
       ResultSetType.ScrollInsensitive(s1) { s2 =>
         pr("in ScrollInsensitive block")(s2)
@@ -32,8 +32,9 @@ class StatementParametersTest(val tdb: JdbcTestDB) extends DBTest {
 
   @Test def testImplicit() {
     println("*** Implicit ***")
-    import Database.threadLocalSession
-    db withSession {
+    import Database.dynamicSession
+
+    db withDynSession {
       pr("start")
       check(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)
       ResultSetType.ScrollInsensitive {

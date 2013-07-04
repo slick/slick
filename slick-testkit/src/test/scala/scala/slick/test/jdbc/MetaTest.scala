@@ -14,7 +14,6 @@ object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem
 
 class MetaTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
-  import Database.threadLocalSession
 
   object Users extends Table[(Int, String, Option[String])]("users") {
     def id = column[Int]("id", O.PrimaryKey)
@@ -35,7 +34,7 @@ class MetaTest(val tdb: JdbcTestDB) extends DBTest {
 
   @Test def test() {
 
-    db withSession {
+    db withSession { implicit session =>
 
       val ddl = (Users.ddl ++ Orders.ddl)
       println("DDL used to create tables:")
