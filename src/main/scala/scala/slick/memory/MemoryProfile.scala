@@ -56,6 +56,9 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   class InsertInvokerDef[T](tree: Node) extends super.InsertInvokerDef[T] {
     protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, projection, _), CompiledMapping(converter, _)) = tree
 
+    type SingleInsertResult = Unit
+    type MultiInsertResult = Unit
+
     def += (value: T)(implicit session: Backend#Session) {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow

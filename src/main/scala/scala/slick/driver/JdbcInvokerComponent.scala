@@ -83,12 +83,9 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected[this] val ResultSetMapping(_, insertNode: Insert, CompiledMapping(converter, _)) = tree
     protected[this] lazy val builder = createInsertBuilder(insertNode)
 
-    type RetOne
-    type RetMany
-
-    protected def retOne(st: Statement, value: U, updateCount: Int): RetOne
-    protected def retMany(values: Seq[U], individual: Seq[RetOne]): RetMany
-    protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]): RetMany
+    protected def retOne(st: Statement, value: U, updateCount: Int): SingleInsertResult
+    protected def retMany(values: Seq[U], individual: Seq[SingleInsertResult]): MultiInsertResult
+    protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]): MultiInsertResult
 
     protected lazy val insertResult = builder.buildInsert
     lazy val insertStatement = insertResult.sql
@@ -101,7 +98,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       session.withPreparedStatement(sql)(f)
 
     /** Insert a single row. */
-    def insert(value: U)(implicit session: Backend#Session): RetOne = prepared(insertStatement) { st =>
+    def insert(value: U)(implicit session: Backend#Session): SingleInsertResult = prepared(insertStatement) { st =>
       st.clearParameters()
       converter.set(value, new PositionedParameters(st))
       val count = st.executeUpdate()
@@ -112,7 +109,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       * the JDBC driver. Returns Some(rowsAffected), or None if the database
       * returned no row count for some part of the batch. If any part of the
       * batch fails, an exception is thrown. */
-    def insertAll(values: U*)(implicit session: Backend#Session): RetMany = session.withTransaction {
+    def insertAll(values: U*)(implicit session: Backend#Session): MultiInsertResult = session.withTransaction {
       if(!useBatchUpdates || (values.isInstanceOf[IndexedSeq[_]] && values.length < 2)) {
         retMany(values, values.map(insert))
       } else {
@@ -122,27 +119,26 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
             converter.set(value, new PositionedParameters(st))
             st.addBatch()
           }
-          var unknown = false
           val counts = st.executeBatch()
           retManyBatch(st, values, counts)
         }
       }
     }
 
-    def += (value: U)(implicit session: Backend#Session): Unit = insert(value)
-    def ++= (values: Iterable[U])(implicit session: Backend#Session): Unit = insertAll(values.toSeq: _*)
+    def += (value: U)(implicit session: Backend#Session): SingleInsertResult = insert(value)
+    def ++= (values: Iterable[U])(implicit session: Backend#Session): MultiInsertResult = insertAll(values.toSeq: _*)
   }
 
   /** An InsertInvoker that can also insert from another query. */
   trait FullInsertInvoker[U] { this: BaseInsertInvoker[U] =>
-    type RetQuery
+    type QueryInsertResult
 
-    protected def retQuery(st: Statement, updateCount: Int): RetQuery
+    protected def retQuery(st: Statement, updateCount: Int): QueryInsertResult
 
-    def insertExpr[TT](c: TT)(implicit shape: Shape[TT, U, _], session: Backend#Session): RetQuery =
+    def insertExpr[TT](c: TT)(implicit shape: Shape[TT, U, _], session: Backend#Session): QueryInsertResult =
       insert(Query(c)(shape))(session)
 
-    def insert[TT](query: Query[TT, U])(implicit session: Backend#Session): RetQuery = {
+    def insert[TT](query: Query[TT, U])(implicit session: Backend#Session): QueryInsertResult = {
       val sbr = builder.buildInsert(query)
       prepared(insertStatementFor(query)) { st =>
         st.clearParameters()
@@ -155,14 +151,13 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
   /** Pseudo-invoker for running INSERT calls and returning affected row counts. */
   class CountingInsertInvoker[U](tree: Node) extends BaseInsertInvoker[U](tree) with FullInsertInvoker[U] {
-
-    type RetOne = Int
-    type RetMany = Option[Int]
-    type RetQuery = Int
+    type SingleInsertResult = Int
+    type MultiInsertResult = Option[Int]
+    type QueryInsertResult = Int
 
     protected def retOne(st: Statement, value: U, updateCount: Int) = updateCount
 
-    protected def retMany(values: Seq[U], individual: Seq[RetOne]) = Some(individual.sum)
+    protected def retMany(values: Seq[U], individual: Seq[SingleInsertResult]) = Some(individual.sum)
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
       var unknown = false
@@ -203,14 +198,14 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   class KeysInsertInvoker[U, RU](tree: Node, keys: Node)
     extends AbstractKeysInsertInvoker[U, RU](tree, keys) with FullInsertInvoker[U] {
 
-    type RetOne = RU
-    type RetMany = Seq[RU]
-    type RetQuery = RetMany
+    type SingleInsertResult = RU
+    type MultiInsertResult = Seq[RU]
+    type QueryInsertResult = MultiInsertResult
 
     protected def retOne(st: Statement, value: U, updateCount: Int) =
       buildKeysResult(st).first()(null)
 
-    protected def retMany(values: Seq[U], individual: Seq[RetOne]) = individual
+    protected def retMany(values: Seq[U], individual: Seq[SingleInsertResult]) = individual
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
       implicit val session: Backend#Session = null
@@ -229,15 +224,15 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   class MappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R)
     extends AbstractKeysInsertInvoker[U, RU](tree, keys) {
 
-    type RetOne = R
-    type RetMany = Seq[R]
+    type SingleInsertResult = R
+    type MultiInsertResult = Seq[R]
 
     protected def retOne(st: Statement, value: U, updateCount: Int) = {
       val ru = buildKeysResult(st).first()(null)
       tr(value, ru)
     }
 
-    protected def retMany(values: Seq[U], individual: Seq[RetOne]) = individual
+    protected def retMany(values: Seq[U], individual: Seq[SingleInsertResult]) = individual
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
       implicit val session: Backend#Session = null

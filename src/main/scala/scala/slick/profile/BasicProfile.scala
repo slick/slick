@@ -129,11 +129,14 @@ trait BasicInvokerComponent { driver: BasicDriver =>
   def createInsertInvoker[T](tree: Node): InsertInvoker[T]
 
   trait InsertInvokerDef[T] {
+    type SingleInsertResult
+    type MultiInsertResult
+
     /** Insert a single value */
-    def += (value: T)(implicit session: Backend#Session): Unit
+    def += (value: T)(implicit session: Backend#Session): SingleInsertResult
 
     /** Insert a collection of values */
-    def ++= (values: Iterable[T])(implicit session: Backend#Session): Unit
+    def ++= (values: Iterable[T])(implicit session: Backend#Session): MultiInsertResult
 
     def insertInvoker: this.type = this
   }
