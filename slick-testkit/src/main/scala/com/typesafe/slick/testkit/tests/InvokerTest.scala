@@ -96,7 +96,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
     val it = f()
     it.use { assertEquals((1 to 1000).toList, it.toStream.toList) }
     assertFail(g())
-    db.withSession { s: Session => T.ddl.drop(s) }
+    db.withSession(T.ddl.drop(_))
     val it2 = f()
     it2.use { assertEquals((1 to 1000).toList, it2.toStream.toList) }
   }

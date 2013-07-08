@@ -71,7 +71,7 @@ object TestDBs {
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
-      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:profile.Backend#Session => s.conn } }
+      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession(_.conn) }
       catch { case e: SQLException => }
     }
   }
@@ -81,7 +81,7 @@ object TestDBs {
     val url = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:"+TestDB.testDBPath+"/"+dbName+";shutdown=true"
-      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession { s:profile.Backend#Session => s.conn } }
+      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession(_.conn) }
       catch { case e: SQLException => }
       TestDB.deleteDBFiles(dbName)
     }

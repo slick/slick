@@ -41,7 +41,7 @@ class DistributedQueryingTest {
       try {
         val db2 = tdb2.createDB()
         val db = DistributedBackend.Database(db1, db2)
-        db.withSession { s: DistributedBackend#Session =>
+        db.withSession { s =>
           f(s.sessions(0).asInstanceOf[tdb1.profile.Backend#Session], s.sessions(1).asInstanceOf[tdb2.profile.Backend#Session], s)
         }
       } finally tdb2.cleanUpAfter()
