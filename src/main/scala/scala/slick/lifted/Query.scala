@@ -88,6 +88,8 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
   def unionAll[O >: E, R](other: Query[O, U]) =
     new WrappingQuery[O, U](Union(Node(this), Node(other), true), unpackable)
 
+  def ++[O >: E, R](other: Query[O, U]) = unionAll(other)
+
   def length: Column[Int] = Library.CountAll.column(Node(this))
   def countDistinct: Column[Int] = Library.CountDistinct.column(Node(this))
   def exists = Library.Exists.column[Boolean](Node(this))
