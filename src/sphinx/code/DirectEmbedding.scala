@@ -3,7 +3,7 @@ package com.typesafe.slick.examples.direct
 //#imports
 import scala.slick.driver.H2Driver
 import H2Driver.simple.Database
-import Database.{threadLocalSession => session}
+import Database.{dynamicSession => session}
 import scala.slick.direct._
 import scala.slick.direct.AnnotationMapper._
 //#imports
@@ -22,7 +22,7 @@ import scala.slick.direct.AnnotationMapper._
 object DirectEmbedding extends App {
     //#result
   val db = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
-  db withSession {
+  db withDynSession {
     //#result
     //#inserts
       // fill database with test data (using plain SQL)

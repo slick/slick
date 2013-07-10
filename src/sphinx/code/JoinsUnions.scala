@@ -1,7 +1,7 @@
 package com.typesafe.slick.docsnippets
 
 import scala.slick.driver.H2Driver.simple._
-import Database.threadLocalSession
+import Database.dynamicSession
 
 class JoinsUnions {
 
@@ -26,7 +26,7 @@ class JoinsUnions {
   }
 
   val db: Database = null
-  db withSession {
+  db withDynSession {
     //#implicitCross
     val implicitCrossJoin = for {
       c <- Coffees

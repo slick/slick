@@ -4,8 +4,8 @@ package com.typesafe.slick.examples.lifted
 // Use H2Driver to connect to an H2 database
 import scala.slick.driver.H2Driver.simple._
 
-// Use the implicit threadLocalSession
-import Database.threadLocalSession
+// Use the implicit dynamicSession
+import Database.dynamicSession
 //#imports
 
 /**
@@ -43,9 +43,9 @@ object FirstExample extends App {
 
   // Connect to the database and execute the following block within a session
 //#setup
-  Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withDynSession {
     // The session is never named explicitly. It is bound to the current
-    // thread as the threadLocalSession that we imported
+    // thread as the dynamicSession that we imported
 //#setup
 
 //#create
