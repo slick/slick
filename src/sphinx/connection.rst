@@ -101,21 +101,21 @@ You can write re-useable functions to help with Slick queries. They mostly do no
 
 .. includecode:: code/Connection.scala#helpers
 
-Dynamically scoped thread local sessions
+Dynamically scoped sessions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You usually do not want to keep sessions open for very long but open and close them quickly when needed. You can do this by wrapping your code in :ref:`session scope <session-scope>` or :ref:`transaction scope <transactions>` with an implicit session argument every time you need to execute some queries. 
+You usually do not want to keep sessions open for very long but open and close them quickly when needed. As shown above you may use a :ref:`session scope <session-scope>` or :ref:`transaction scope <transactions>` with an implicit session argument every time you need to execute some queries. 
 
-Instead you may be able to save a bit of boilerplate code by putting
+Alternatively you can save a bit of boilerplate code by putting
 
-.. includecode:: code/Connection.scala#threadLocalSession-import
+.. includecode:: code/Connection.scala#dynamicSession-import
 
 at the top of your file and then using a session scope or transaction scope without a session argument.
 
 .. includecode:: code/Connection.scala#withSession-empty
 
-:api:`threadLocalSession <scala.slick.session.Database$@threadLocalSession:Session>` is an implicit def that returns a valid :api:`scala.slick.session.Session` if a :api:`withSession <scala.slick.session.Database@withSession[T](⇒T):T>` or :api:`withTransaction <scala.slick.session.Database@withTransaction[T](⇒T):T>` scope is open somewhere on the current call stack.
+:api:`dynamicSession <scala.slick.session.Database$@dynamicSession:Session>` is an implicit def that returns a valid :api:`scala.slick.session.Session` if a :api:`withDynSession <scala.slick.session.Database@withDynSession[T](⇒T):T>` or :api:`withDynTransaction <scala.slick.session.Database@withDynTransaction[T](⇒T):T>` scope is open somewhere on the current call stack.
 
-Be careful, if you import :api:`threadLocalSession <scala.slick.session.Database$@threadLocalSession:Session>` and try to execute a query outside of a :api:`withSession <scala.slick.session.Database@withSession[T](⇒T):T>` or :api:`withTransaction <scala.slick.session.Database@withTransaction[T](⇒T):T>` scope, you will get a runtime exception. So you sacrifice some static safety for less boilerplate. :api:`threadLocalSession <scala.slick.session.Database$@threadLocalSession:Session>` internally uses :scalaapi:`scala.util.DynamicVariable`, which implements dynamically scoped variables and in turn uses Java's :javaapi:`InheritableThreadLocal <java/lang/InheritableThreadLocal>`. Be aware of the consequences regarding static safety and thread safety.
+Be careful, if you import :api:`dynamicSession <scala.slick.session.Database$@dynamicSession:Session>` and try to execute a query outside of a :api:`withDynSession <scala.slick.session.Database@withDynSession[T](⇒T):T>` or :api:`withDynTransaction <scala.slick.session.Database@withDynTransaction[T](⇒T):T>` scope, you will get a runtime exception. So you sacrifice some static safety for less boilerplate. :api:`dynamicSession <scala.slick.session.Database$@dynamicSession:Session>` internally uses :scalaapi:`scala.util.DynamicVariable`, which implements dynamically scoped variables and in turn uses Java's :javaapi:`InheritableThreadLocal <java/lang/InheritableThreadLocal>`. Be aware of the consequences regarding static safety and thread safety.
 
 .. TODO: explain how session relates to connection

@@ -33,7 +33,7 @@ object Connection extends App {
     //#withSession
     val query = for( c <- Coffees ) yield c.name
     val result = db.withSession {
-      session : Session =>
+      session =>
       query.list()( session )
     }
     //#withSession
@@ -41,7 +41,7 @@ object Connection extends App {
     //#withSession-implicit
     val query = for( c <- Coffees ) yield c.name
     val result = db.withSession {
-      implicit session : Session =>
+      implicit session =>
       query.list // <- takes session implicitly
     }
     // query.list // <- would not compile, no implicit value of type Session
@@ -49,7 +49,7 @@ object Connection extends App {
   }
   //#independentTransaction
   db.withTransaction{
-    implicit session : Session =>
+    implicit session =>
     // your queries go here
   }
   class SomeException(s:String) extends Exception(s)
@@ -84,7 +84,7 @@ object Connection extends App {
     }
     val query = for( c <- Coffees ) yield c.name
     db.withSession {
-      implicit session : Session =>
+      implicit session =>
       (new Helpers).execute(query)
     }
     // (new Helpers).execute(query) // <- Would not compile here (no implicit session)
@@ -92,25 +92,25 @@ object Connection extends App {
   }
   ;{
     //Coffees.ddl.create(session)
-    //#threadLocalSession
-    //#threadLocalSession-import
-    import Database.threadLocalSession // <- implicit def threadLocalSession : Session
-    //#threadLocalSession-import
+    //#dynamicSession
+    //#dynamicSession-import
+    import Database.dynamicSession // <- implicit def dynamicSession : Session
+    //#dynamicSession-import
     object helpers{
-      def execute[T]( query:Query[T,_] ) = query.list // uses threadLocalSession to try to get the Session
+      def execute[T]( query:Query[T,_] ) = query.list // uses dynamicSession to try to get the Session
     }
     val query = for( c <- Coffees ) yield c.name
-    db.withSession { // <- creates a Session and stores it as thread local
+    db.withDynSession { // <- creates a Session and stores it as dynamicSession
       helpers.execute(query)
     }
     try{
       helpers.execute(query) // <- leads to an exception, because execute requires an available session
     }catch{case e:SlickException => }
-    //#threadLocalSession
+    //#dynamicSession
   }
   ;{
     //#withSession-empty
-    db.withSession {
+    db.withDynSession {
       // your queries go here
     }
     //#withSession-empty
