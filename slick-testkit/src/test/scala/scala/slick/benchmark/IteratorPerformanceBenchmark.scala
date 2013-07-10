@@ -1,11 +1,7 @@
 package scala.slick.benchmark
 
 import collection.mutable.ArrayBuffer
-import scala.slick.session._
-import scala.slick.session.Database.threadLocalSession
-import scala.slick.lifted._
-import scala.slick.driver.H2Driver.Table
-import scala.slick.driver.H2Driver.Implicit._
+import scala.slick.driver.H2Driver.simple._
 
 object IteratorPerformanceBenchmark {
   def main(args: Array[String]) {
@@ -16,7 +12,7 @@ object IteratorPerformanceBenchmark {
 
       def * = key ~ value
     }
-    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+    Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession { implicit session =>
       Props.ddl.create
       val count = 10000
       val size = 1000

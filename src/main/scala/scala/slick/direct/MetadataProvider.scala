@@ -26,7 +26,8 @@ object AnnotationMapper extends Mapper{
       case a => throw new Exception("Type argument passed to Queryable.apply needs database mapping annotations. None found on: " + tpe.toString )
     }
   }
-  def fieldToColumn( sym:Symbol ) = (sym.annotations.collect{
+  def fieldToColumn( sym:Symbol ) = {
+    val annotations = sym.annotations.collect{
     case Annotation( tpe, args, _ ) if tpe <:< typeOf[column]
       =>
         args(0) match {
@@ -34,7 +35,11 @@ object AnnotationMapper extends Mapper{
           case Select(_,term) if term.decoded == "<init>$default$1" => sym.name.decoded.toUpperCase // FIXME: make match more precise and don't hard code term name
           case _ => throw new Exception( "invalid argument to column annotation" )
         }
-  }).head
+    }
+    if( annotations.length == 0 )
+      throw new Exception("You need to annotate member '"+sym.name.decoded+"' in order to use it in a query.")
+    annotations.head
+  }
   def isMapped( tpe:Type ) = {
     val annotations = tpe.typeSymbol.annotations
     annotations.length > 0 && (annotations match {

@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class InsertTest(val tdb: TestDB) extends TestkitTest {
+class InsertTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
@@ -58,15 +58,15 @@ class InsertTest(val tdb: TestDB) extends TestkitTest {
 
     A.ddl.create
 
-    ifCap(bcap.returnInsertKey) {
+    ifCap(jcap.returnInsertKey) {
       val id1: Int = A.ins1.insert("a", "b")
       assertEquals(1, id1)
 
-      ifCap(bcap.returnInsertOther) {
+      ifCap(jcap.returnInsertOther) {
         val id2: (Int, String) = A.ins2.insert("c", "d")
         assertEquals((2, "c"), id2)
       }
-      ifNotCap(bcap.returnInsertOther) {
+      ifNotCap(jcap.returnInsertOther) {
         val id2: Int = A.ins1.insert("c", "d")
         assertEquals(2, id2)
       }

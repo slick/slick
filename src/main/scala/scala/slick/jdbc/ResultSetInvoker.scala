@@ -1,7 +1,6 @@
 package scala.slick.jdbc
 
 import java.sql.ResultSet
-import scala.slick.session._
 import scala.slick.util.CloseableIterator
 
 /**
@@ -14,9 +13,9 @@ import scala.slick.util.CloseableIterator
  */
 abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
 
-  protected def createResultSet(session: Session): ResultSet
+  protected def createResultSet(session: JdbcBackend#Session): ResultSet
 
-  def elementsTo(param: Unit, maxRows: Int)(implicit session: Session): CloseableIterator[R] = {
+  def elementsTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = {
     val rs = createResultSet(session)
     if(rs eq null) CloseableIterator.empty
     else new PositionedResultIterator[R](rs, maxRows) {
@@ -29,8 +28,8 @@ abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
 }
 
 object ResultSetInvoker {
-  def apply[R](f: Session => ResultSet)(implicit conv: PositionedResult => R): UnitInvoker[R] = new ResultSetInvoker[R] {
-    def createResultSet(session: Session) = f(session)
+  def apply[R](f: JdbcBackend#Session => ResultSet)(implicit conv: PositionedResult => R): UnitInvoker[R] = new ResultSetInvoker[R] {
+    def createResultSet(session: JdbcBackend#Session) = f(session)
     def extractValue(pr: PositionedResult) = conv (pr)
   }
 }

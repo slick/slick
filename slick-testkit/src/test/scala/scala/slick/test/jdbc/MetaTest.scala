@@ -3,20 +3,17 @@ package scala.slick.test.jdbc
 import java.io.PrintWriter
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.lifted.TypeMapper._
 import scala.slick.driver.{H2Driver, PostgresDriver}
 import scala.slick.jdbc.meta._
-import scala.slick.session.Database.threadLocalSession
 import scala.slick.jdbc.{StaticQuery => Q}
 import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.TestDB
+import com.typesafe.slick.testkit.util.JdbcTestDB
 
 object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerJTDS)
 
-class MetaTest(val tdb: TestDB) extends DBTest {
-  import tdb.profile.Table
-  import tdb.profile.Implicit._
+class MetaTest(val tdb: JdbcTestDB) extends DBTest {
+  import tdb.profile.simple._
 
   object Users extends Table[(Int, String, Option[String])]("users") {
     def id = column[Int]("id", O.PrimaryKey)
@@ -37,7 +34,7 @@ class MetaTest(val tdb: TestDB) extends DBTest {
 
   @Test def test() {
 
-    db withSession {
+    db withSession { implicit session =>
 
       val ddl = (Users.ddl ++ Orders.ddl)
       println("DDL used to create tables:")
@@ -47,10 +44,8 @@ class MetaTest(val tdb: TestDB) extends DBTest {
       println("Type info from DatabaseMetaData:")
       for(t <- MTypeInfo.getTypeInfo) println("  "+t)
 
-      if(tdb.driver != PostgresDriver) {
-        /* Not supported by PostgreSQL and H2 but calling it on H2 is safe
-         * because it throws an AbstractMethodError which is handled
-         * automatically by Slick and turned into an empty result set. */
+      if(tdb.driver != PostgresDriver && tdb.driver != H2Driver) {
+        /* Not supported by PostgreSQL and H2. */
         println("Functions from DatabaseMetaData:")
         for(f <- MFunction.getFunctions(MQName.local("%"))) {
           println("  "+f)

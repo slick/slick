@@ -1,14 +1,14 @@
 package scala.slick.jdbc.meta
 
 import java.io.PrintWriter
-import scala.slick.session.Session
+import scala.slick.jdbc.JdbcBackend
 
 /**
  * Generate Scala code from database meta-data.
  */
 object CodeGen {
 
-  def output(table: MTable, out: PrintWriter)(implicit session: Session) {
+  def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend#Session) {
     val columns = table.getColumns.list
     val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
     if(!columns.isEmpty) {
@@ -22,7 +22,7 @@ object CodeGen {
     }
   }
 
-  def output(c: MColumn, pkey: Option[MPrimaryKey], out: PrintWriter)(implicit session: Session) {
+  def output(c: MColumn, pkey: Option[MPrimaryKey], out: PrintWriter)(implicit session: JdbcBackend#Session) {
     out.print("  def "+mkScalaName(c.column, false)+" = column["+scalaTypeFor(c)+"](\""+c.column+"\"")
     for(n <- c.sqlTypeName) {
       out.print(", O DBType \""+n+"")

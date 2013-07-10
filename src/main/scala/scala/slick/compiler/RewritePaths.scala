@@ -4,6 +4,7 @@ import scala.collection.mutable.{HashSet, HashMap}
 import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
+import TypeUtil._
 
 /**
  * Remove TableExpansions and TableRefExpansions, and flatten ProductNodes
@@ -12,7 +13,11 @@ import Util._
 class RewritePaths extends Phase {
   val name = "rewritePaths"
 
-  def apply(n: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(applyServerSide)
+  }
+
+  def applyServerSide(n: Node) = {
     def flattenToStruct(n: Node): (Node, Vector[(Symbol, Node)]) = n match {
       case ProductNode(ch) =>
         val chf = ch.map(flattenToStruct)
@@ -46,7 +51,6 @@ class RewritePaths extends Phase {
           case Some(g: GroupBy) =>
             logger.debug("  found GroupBy for "+nh+" (from "+h+")")
             t match {
-              case (e @ ElementSymbol(1)) :: tt => findFlattened(g.byGen :: tt, e :: base)
               case (e @ ElementSymbol(2)) :: tt => findFlattened(g.fromGen :: tt, e :: base)
               case _ => None
             }
@@ -141,7 +145,11 @@ class RewritePaths extends Phase {
   }
 
   def removeExpansion(n: Node) = n match {
-    case TableExpansion(gen, t, cols) => Bind(gen, t, Pure(cols))
+    case TableExpansion(gen, t, cols) =>
+      val tableRefs = cols.collect[Select] { case s @ Select(Ref(gen2), _) if gen2 == gen => s }.toSet
+      val structType = StructType(tableRefs.map{ case sel @ Select(_, sym) => (sym, sel.nodeType) }(collection.breakOut))
+      val cons = t.nodeType.asCollectionType.cons
+      Bind(gen, t.nodeRebuildWithType(CollectionType(cons, structType)), Pure(cols))
     case TableRefExpansion(_, ref, cols) => cols
     case n => n
   }
@@ -153,7 +161,9 @@ class RewritePaths extends Phase {
 class RelabelUnions extends Phase {
   val name = "relabelUnions"
 
-  def apply(n: Node, state: CompilationState) = relabelUnions(n)
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(relabelUnions)
+  }
 
   def relabelUnions(n: Node): Node = n match {
     case u @ Union(BindTarget(Pure(StructNode(ls))), rb @ BindTarget(Pure(StructNode(rs))), _, _, _)
@@ -182,7 +192,9 @@ class RelabelUnions extends Phase {
 class PruneFields extends Phase {
   val name = "pruneFields"
 
-  def apply(n: Node, state: CompilationState) = prune.repeat(n)
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(prune.repeat)
+  }
 
   def prune = new Transformer {
     val refs = new HashSet[Symbol]()

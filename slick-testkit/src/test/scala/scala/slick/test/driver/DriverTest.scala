@@ -42,3 +42,6 @@ class SQLServerSQLJDBCTest extends DriverTest(TestDBs.SQLServerSQLJDBC)
 
 @RunWith(classOf[Testkit])
 class MSAccessTest extends DriverTest(TestDBs.MSAccess)
+
+@RunWith(classOf[Testkit])
+class HeapTest extends DriverTest(TestDBs.Heap)

@@ -61,7 +61,7 @@ to ``false``. This behaviour may change in a future major release of Slick.
 
 After the column name, you can add optional column options to a ``column``
 definition. The applicable options are available through the table's ``O``
-object. The following ones are defined for ``BasicProfile``:
+object. The following ones are defined for ``JdbcProfile``:
 
 ``NotNull``, ``Nullable``
    Explicitly mark the column a nullable or non-nullable when creating the
@@ -163,7 +163,7 @@ Expressions
 -----------
 
 Primitive (non-compound, non-collection) values are representend by type
-``Column[T]`` (a sub-type of ``Rep[T]``) where a ``TypeMapper[T]`` must
+``Column[T]`` (a sub-type of ``Rep[T]``) where a ``TypedType[T]`` must
 exist. Only some special methods for internal use and those that deal with
 conversions between nullable and non-nullable columns are defined directly in
 the ``Column`` class.

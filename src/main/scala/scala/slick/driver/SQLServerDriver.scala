@@ -2,8 +2,10 @@ package scala.slick.driver
 
 import scala.slick.lifted._
 import scala.slick.ast._
-import scala.slick.session.PositionedResult
+import scala.slick.jdbc.{PositionedResult, JdbcType}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.CompilerState
 import java.sql.{Timestamp, Date, Time}
 
 /**
@@ -13,28 +15,28 @@ import java.sql.{Timestamp, Date, Time}
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
  *     Sequences are not supported because SQLServer does not have this
  *     feature.</li>
  * </ul>
  *
  * @author szeiger
  */
-trait SQLServerDriver extends ExtendedDriver { driver =>
+trait SQLServerDriver extends JdbcDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.sequence
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.sequence
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override val columnTypes = new JdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "BIT"
     case java.sql.Types.BLOB => "IMAGE"
     case java.sql.Types.CLOB => "TEXT"
@@ -43,7 +45,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) with RowNumberPagination {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) with RowNumberPagination {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("+")
     override protected val useIntForBoolean = true
@@ -67,16 +69,14 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       // Cast bind variables of type TIME to TIME (otherwise they're treated as TIMESTAMP)
-      case c @ BindColumn(v) if c.typeMapper == TypeMapper.TimeTypeMapper =>
-        val tmd = c.typeMapper(driver)
+      case c @ LiteralNode(v) if c.volatileHint && typeInfoFor(c.tpe) == columnTypes.timeJdbcType =>
         b"cast("
         super.expr(n, skipParens)
-        b" as ${tmd.sqlTypeName})"
-      case pc @ ParameterColumn(_, extractor) if pc.typeMapper == TypeMapper.TimeTypeMapper =>
-        val tmd = pc.typeMapper(driver)
+        b" as ${columnTypes.timeJdbcType.sqlTypeName})"
+      case QueryParameter(extractor, tpe) if typeInfoFor(tpe) == columnTypes.timeJdbcType =>
         b"cast("
         super.expr(n, skipParens)
-        b" as ${tmd.sqlTypeName})"
+        b" as ${columnTypes.timeJdbcType.sqlTypeName})"
       case n => super.expr(n, skipParens)
     }
   }
@@ -90,28 +90,28 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
-    override val byteTypeMapperDelegate = new ByteTypeMapperDelegate
-    override val dateTypeMapperDelegate = new DateTypeMapperDelegate
-    override val timeTypeMapperDelegate = new TimeTypeMapperDelegate
-    override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
+  class JdbcTypes extends super.JdbcTypes {
+    override val booleanJdbcType = new BooleanJdbcType
+    override val byteJdbcType = new ByteJdbcType
+    override val dateJdbcType = new DateJdbcType
+    override val timeJdbcType = new TimeJdbcType
+    override val timestampJdbcType = new TimestampJdbcType
+    override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName = "UNIQUEIDENTIFIER"
     }
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanTypeMapperDelegate extends super.BooleanTypeMapperDelegate {
+    class BooleanJdbcType extends super.BooleanJdbcType {
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* Selecting a straight Date or Timestamp literal fails with a NPE (probably
      * because the type information gets lost along the way), so we cast all Date
      * and Timestamp values to the proper type. This work-around does not seem to
      * be required for Time values. */
-    class DateTypeMapperDelegate extends super.DateTypeMapperDelegate {
+    class DateJdbcType extends super.DateJdbcType {
       override def valueToSQLLiteral(value: Date) = "(convert(date, {d '" + value + "'}))"
     }
-    class TimeTypeMapperDelegate extends super.TimeTypeMapperDelegate {
+    class TimeJdbcType extends super.TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = "(convert(time, {t '" + value + "'}))"
       override def nextValue(r: PositionedResult) = {
         val s = r.nextString()
@@ -125,7 +125,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
         }
       }
     }
-    class TimestampTypeMapperDelegate extends super.TimestampTypeMapperDelegate {
+    class TimestampJdbcType extends super.TimestampJdbcType {
       /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
        * want here is DATETIME. */
       override def sqlTypeName = "DATETIME"
@@ -134,7 +134,7 @@ trait SQLServerDriver extends ExtendedDriver { driver =>
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result
      * sets, so we read as Short and then convert to Byte. */
-    class ByteTypeMapperDelegate extends super.ByteTypeMapperDelegate {
+    class ByteJdbcType extends super.ByteJdbcType {
       override def sqlTypeName = "SMALLINT"
       //def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
       //def setOption(v: Option[Byte], p: PositionedParameters) = p.setByteOption(v)

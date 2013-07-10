@@ -2,11 +2,11 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert
 import org.junit.Assert._
-import scala.slick.jdbc.{GetResult, StaticQuery => Q, DynamicQuery}
+import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 import Q.interpolation
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestDB, TestkitTest}
 
-class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
+class PlainSQLTest extends TestkitTest[JdbcTestDB] {
 
   implicit val getUserResult = GetResult(r => new User(r.<<, r.<<))
 
@@ -117,39 +117,6 @@ class PlainSQLTest(val tdb: TestDB) extends TestkitTest {
 
     assertEquals(User(2,"guest"), userForIdAndName(2, "guest").first)
     assertEquals(None, userForIdAndName(2, "foo").firstOption)
-  }
-
-  @deprecated("DynamicQuery replaced by better StaticQuery", "0.10")
-  def testDynamic = ifCap(TestDB.plainSql) {
-    case class GetUsers(id: Option[Int]) extends DynamicQuery[User] {
-      select ~ "id, name from users"
-      id foreach { this ~ "where id =" ~? _ }
-    }
-
-    case class GetUsers2(id: Option[Int]) extends DynamicQuery[User] {
-      select ~ "id, name from users"
-      wrap("where id =", "") { id foreach(v => this ~? v) }
-    }
-
-    def InsertUser(id: Int, name: String) = DynamicQuery[Int] ~
-      "insert into USERS values (" ~? id ~ "," ~? name ~ ")"
-
-    val createTable = Q.updateNA("create table USERS(ID int not null primary key, NAME varchar(255))")
-    val populateUsers = List(InsertUser(1, "szeiger"), InsertUser(0, "admin"), InsertUser(2, "guest"), InsertUser(3, "foo"))
-
-    sharedSession.withTransaction {
-      println("Creating user table: "+createTable.first)
-      println("Inserting users:")
-      for(i <- populateUsers) println("  "+i.first)
-    }
-
-    println("All users with foreach:")
-    var s4 = Set[User]()
-    GetUsers(None) foreach { s =>
-      println("  "+s)
-      s4 += s
-    }
-    assertEquals(Set(User(1,"szeiger"), User(2,"guest"), User(0,"admin"), User(3,"foo")), s4)
   }
 
   def assertUnquotedTablesExist(tables: String*) {

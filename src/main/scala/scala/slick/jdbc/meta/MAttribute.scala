@@ -1,8 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker}
-import scala.slick.lifted.TypeMapperDelegate
+import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker, JdbcType}
 
 /**
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getAttributes().
@@ -12,8 +11,8 @@ case class MAttribute(typeName: MQName, attrName: String, sqlType: Int, attrType
   remarks: Option[String], attrDef: Option[String], charOctetLength: Option[Int],
   ordinalPosition: Int, isNullable: Option[Boolean], scope: Option[MQName], sourceSqlType: Option[Int]) {
 
-  def sqlTypeName = TypeMapperDelegate.typeNames.get(sqlType)
-  def sourceSqlTypeName = sourceSqlType.map(TypeMapperDelegate.typeNames.get _)
+  def sqlTypeName = JdbcType.typeNames.get(sqlType)
+  def sourceSqlTypeName = sourceSqlType.map(JdbcType.typeNames.get _)
 }
 
 object MAttribute {

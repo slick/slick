@@ -1,12 +1,10 @@
 package scala.slick.benchmark
 
 import scala.slick.lifted.Query
-import scala.slick.driver.BasicDriver
-import scala.slick.driver.BasicDriver.Implicit._
-import scala.slick.driver.BasicDriver.Table
-import scala.slick.lifted.TypeMapper._
+import scala.slick.driver.JdbcDriver
+import scala.slick.driver.JdbcDriver.Implicit._
+import scala.slick.driver.JdbcDriver.Table
 
-@deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
 object Benchmark {
 
   val COUNT = 2000
@@ -40,21 +38,18 @@ object Benchmark {
       o <- Orders where { o => (u.id is o.userID) && (u.first.isNotNull) }
     } yield u.first ~ u.last ~ o.orderID
     val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
-    val q4 = for {
-      uo <- Users innerJoin Orders on (_.id is _.userID)
-      (u,o) = uo
-      _ <- Query.orderBy(u.last.asc)
-    } yield u.first ~ o.orderID
+    val q4 =
+      (Users innerJoin Orders on (_.id is _.userID)).sortBy(_._1.last.asc).map(uo => uo._1.first ~ uo._2.orderID)
     val q5 = for (
       o <- Orders
         where { o => o.orderID === (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID).max }
     ) yield o.orderID
 
-    val s1 = BasicDriver.buildSelectStatement(q1)
-    val s2 = BasicDriver.buildSelectStatement(q2)
-    val s3 = BasicDriver.buildSelectStatement(q3)
-    val s4 = BasicDriver.buildSelectStatement(q4)
-    val s5 = BasicDriver.buildSelectStatement(q5)
+    val s1 = q1.selectStatement
+    val s2 = q2.selectStatement
+    val s3 = q3.selectStatement
+    val s4 = q4.selectStatement
+    val s5 = q5.selectStatement
 
     if(print) {
       println("q1: " + s1)

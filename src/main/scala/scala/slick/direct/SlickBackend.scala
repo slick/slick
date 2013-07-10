@@ -1,67 +1,143 @@
 package scala.slick.direct
 
+import language.existentials
 import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.driver._
-import scala.slick.driver.BasicDriver.Table
-import scala.slick.lifted._
 import scala.slick.{ast => sq}
-import scala.slick.ast.{Library,FunctionSymbol}
-import scala.slick.ast.Dump
-import scala.slick.util.{CollectionLinearizer,RecordLinearizer,ValueLinearizer}
-import scala.slick.session.{Session}
-import scala.reflect.ClassTag
-import scala.slick.compiler.CompilationState
+import scala.slick.ast.{Library, FunctionSymbol, Dump, ColumnOption}
+import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
+import scala.annotation.StaticAnnotation
+import scala.reflect.runtime.universe._
+import scala.reflect.runtime.{currentMirror=>cm}
+
+/** maps a Scala method to a Slick FunctionSymbol */
+final case class slickOp(to:FunctionSymbol) extends StaticAnnotation
+/** denotes the Scala type the mapped interface refers to */
+final class scalaType[+T](t:Type) extends StaticAnnotation
+trait OperationMapping{
+  // Supported operators by Slick
+  // Slick also supports == for all supported types
+  @scalaType[Int](typeOf[Int])
+  trait IntOps{
+    @ slickOp(Library.+) def +(i:Int)    : Int
+    @ slickOp(Library.+) def +(i:Double) : Double
+    @ slickOp(Library.<) def <(i:Int)    : Boolean
+    @ slickOp(Library.<) def <(i:Double) : Boolean
+    @ slickOp(Library.>) def >(i:Int)    : Boolean
+    @ slickOp(Library.>) def >(i:Double) : Boolean
+  }
+  @scalaType[Double](typeOf[Double])
+  trait DoubleOps{
+    @ slickOp(Library.+) def +(i:Int)    : Double
+    @ slickOp(Library.+) def +(i:Double) : Double
+    @ slickOp(Library.<) def <(i:Int)    : Boolean
+    @ slickOp(Library.<) def <(i:Double) : Boolean
+    @ slickOp(Library.>) def >(i:Int)    : Boolean
+    @ slickOp(Library.>) def >(i:Double) : Boolean
+  }
+  @scalaType[Boolean](typeOf[Boolean])
+  trait BooleanOps{
+    @ slickOp(Library.Not) def unary_! : Boolean
+    @ slickOp(Library.Or)  def ||( b:Boolean ) : Boolean
+    @ slickOp(Library.And) def &&( b:Boolean ) : Boolean
+  }
+  //@scalaType[String](typeOf[String]) // <- scalac crash SI-7426
+  trait StringOps{
+    @ slickOp(Library.Concat) def +(i:String) : String
+  }
+}
 
 trait QueryableBackend
 
-class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend{
-  import scala.reflect.runtime.universe._
-  import scala.reflect.runtime.{currentMirror=>cm}
+/** a node for marking reversed columns in sortBy (only used temporarily in this backend) */
+object CustomNodes{
+  import scala.slick.ast._
+  final case class Reverse(value: Node) extends UnaryNode with SimplyTypedNode {
+    type Self = Reverse
+    def child = value
+    override def nodeChildNames = Seq("value")
+    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure?
+    protected def buildType = child.nodeType
+  }
+  final case class Nullsorting(value: Node,sorting:Nullsorting.Sorting) extends UnaryNode with SimplyTypedNode {
+    type Self = Nullsorting
+    def child = value
+    override def nodeChildNames = Seq("value")
+    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
+    protected def buildType = child.nodeType
+  }
+  object Nullsorting extends Enumeration{
+    type Sorting = Value
+    val First, Last = Value
+  }
+}
+import CustomNodes._
 
-  val typeMappers = Map( // FIXME use symbols instead of strings for type names here
-     "Int"              /*typeOf[Int]*/    -> TypeMapper.IntTypeMapper
-    ,"Double"           /*typeOf[Double]*/ -> TypeMapper.DoubleTypeMapper
-    ,"String"           /*typeOf[String]*/ -> TypeMapper.StringTypeMapper
-    ,"scala.Int"        /*typeOf[Int]*/    -> TypeMapper.IntTypeMapper
-    ,"scala.Double"     /*typeOf[Double]*/ -> TypeMapper.DoubleTypeMapper
-    ,"scala.String"     /*typeOf[String]*/ -> TypeMapper.StringTypeMapper
-    ,"java.lang.String" /*typeOf[String]*/ -> TypeMapper.StringTypeMapper // FIXME: typeOf[String] leads to java.lang.String, but param.typeSignature to String
-  )
-
-  //def resolveSym( lhs:Type, name:String, rhs:Type* ) = lhs.member(newTermName(name).encodedName).asTerm.resolveOverloaded(actuals = rhs.toList)
-
-  val operatorMap : Vector[ (Map[String, FunctionSymbol], List[List[Type]]) ] = {
-    import Library._
-    Vector(
-      Map( "==" -> Library.== )
-      ->
-      List(
-        List(typeOf[Any]),
-        List(typeOf[Any])
-      ),
-      Map( "+" -> Library.+, "<" -> <, ">" -> > )
-      ->
-      List(
-        List(typeOf[Int],typeOf[Double]),
-        List(typeOf[Int],typeOf[Double])
-      ),
-      Map( "+" -> Concat )
-      ->
-      List(
-        List(typeOf[String],typeOf[java.lang.String]),
-        List(typeOf[String],typeOf[java.lang.String])
-      ),
-      Map( "||" -> <, "&&" -> > )
-      ->
-      List(
-        List(typeOf[Boolean]),
-        List(typeOf[Boolean])
-      )
+class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
+  type Session = JdbcDriver#Backend#Session
+  import slick.ast.ScalaBaseType
+  val columnTypes = {
+    Map( // FIXME use symbols instead of strings for type names here
+       typeOf[Int].typeSymbol     -> ScalaBaseType.intType
+      ,typeOf[Double].typeSymbol  -> ScalaBaseType.doubleType
+      ,typeOf[String].typeSymbol  -> ScalaBaseType.stringType
+      ,typeOf[Boolean].typeSymbol -> ScalaBaseType.booleanType
     )
   }
+  /** generates a map from Scala symbols to Slick FunctionSymbols from description in OperatorMapping */
+  val operatorSymbolMap : Map[Symbol,FunctionSymbol] = {
+    def annotations[T:TypeTag]( m:Symbol ) = m.annotations.filter{
+       case Annotation(tpe,_,_) => tpe <:< typeOf[T]
+    }
+    typeOf[OperationMapping]
+      .members
+      // only take annotated members
+      .filter(annotations[scalaType[_]](_).size > 0)
+      .flatMap(
+        _.typeSignature
+         .members
+         .filter(annotations[slickOp](_).size > 0)
+      )
+      .map{
+        specOp =>
+        val scalaType = 
+          annotations[scalaType[_]](specOp.owner).head.tpe match{
+            case TypeRef(tpe,sym,args) => args.head
+          }
+        val specOpName = specOp.name
+        def argTypeSyms( s:Symbol ) = s.asMethod.paramss.map(_.map(_.typeSignature.typeSymbol))
+        // resolve overloaded methods
+        scalaType.member(specOpName) 
+                 .asTerm
+                 .alternatives
+                 .find(
+                    scalaOp =>{
+                      argTypeSyms( scalaOp ) == argTypeSyms( specOp )
+                    }
+                  )
+                  .getOrElse{
+                    throw new SlickException("Could not find Scala method: "+scalaType+"."+specOpName+argTypeSyms( specOp ))
+                  }
+        .->( annotations[slickOp](specOp).head
+              match { case Annotation(_,args,_) =>
+                          // look up FunctionSymbol from annotation
+                          // FIXME: make this simpler
+                          val op = args.head.symbol
+                          val mod = op.owner.companionSymbol.asModule
+                          val i = cm.reflectModule(mod).instance
+                          cm.reflect(i).reflectMethod(
+                            op.owner.companionSymbol.typeSignature.member(op.name).asMethod
+                          )().asInstanceOf[FunctionSymbol]
+              }
+          )
+      }
+      .toMap
+      .+ ( typeOf[String].member(newTermName("+").encodedName) -> Library.Concat) // workaround for SI-7426
+  }
 
+  def isMapped( sym:Symbol ) = operatorSymbolMap.contains(sym) || sym.name.decoded == "==" || sym.name.decoded == "!="
 
   object removeTypeAnnotations extends Transformer {
     def apply( tree:Tree ) = transform(tree)
@@ -87,18 +163,67 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
     tpe.member( nme.CONSTRUCTOR ).typeSignature match {
       case MethodType( params, resultType ) => params // TODO check that the field order is correct
     }
-  
-  def extractColumn( sym:Symbol, sq_symbol:sq.Node ) = {
-    val column_name = mapper.fieldToColumn( sym )
-    sq.Select(sq_symbol, sq.FieldSymbol(column_name)(List(),null))
+
+  def columnName( sym:Symbol ) = mapper.fieldToColumn( sym )
+  def columnType( tpe:Type ) = {
+    val underlying = columnTypes(underlyingTypeSymbol(tpe))
+    if( isNullable(tpe) ){
+      underlying.optionType
+    } else {
+      underlying
+    }
   }
+  private def columnField( sym:Symbol ) = 
+    sq.FieldSymbol( columnName(sym) )(
+      if( isNullable(sym) )
+        List(ColumnOption.Nullable)
+      else
+        List()
+      , columnType(sym.typeSignature)
+    )
+  private def typeName( sym:Symbol ) : String = sym.name.decoded
+  private def typeName( tpe:Type ) : String = typeName( tpe.typeSymbol )
+  private def isNullable( sym:Symbol ) = sym == typeOf[Option[_]].typeSymbol 
+  private def isNullable( tpe:Type ) : Boolean = isNullable(tpe.typeSymbol) 
+  private def underlyingTypeSymbol( tpe:Type ) : Symbol =
+    if( isNullable(tpe) )
+      tpe match {
+        case TypeRef(_,_,args) => args(0).typeSymbol
+        case t => throw new Exception("failed to compute underlying type of "+tpe)
+      }
+    else tpe.typeSymbol
+  private def canBeMapped( tpe:Type ) : Boolean = columnTypes.isDefinedAt(underlyingTypeSymbol(tpe))
+  private def columnSelect( sym:Symbol, sq_symbol:sq.Node ) =
+    sq.Select(
+      sq.Ref(sq_symbol.nodeIntrinsicSymbol),
+      columnField(sym)
+    ).nodeTyped( columnType(sym.typeSignature) )
 
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
-    val table = new sq.TableNode with sq.NullaryNode with sq.WithOp {
-      val tableName = mapper.typeToTable( typetag.tpe )
-      def columns = getConstructorArgs( typetag.tpe ).map{extractColumn(_,sq.Node(this))} // use def here, not val, so expansion is still correct after cloning
+    def _fields = getConstructorArgs(typetag.tpe)
 
-      def nodeShaped_* = ShapedValue(sq.ProductNode(columns), Shape.selfLinearizingShape.asInstanceOf[Shape[sq.ProductNode, Any, _]])
+    val table = new sq.TableNode with sq.WithOp with sq.TypedNode {
+      val schemaName = None
+      val tableName = mapper.typeToTable( typetag.tpe )
+      val tableIdentitySymbol = sq.SimpleTableIdentitySymbol(driver, schemaName.getOrElse("_"), tableName)
+      val rowType = sq.StructType(_fields.map( sym => columnField(sym) -> columnType(sym.typeSignature) ).toIndexedSeq)
+      def nodeTableProjection = sq.TypeMapping(
+        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym,sq.Node(this)) )),
+        sq.ProductType( _fields.map( fieldSym => /*columnField(fieldSym) ->*/ columnType(fieldSym.typeSignature) ).toIndexedSeq ),
+        v => throw new Exception("not implemented yet"),
+        v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
+               .reflectConstructor(
+                 typetag.tpe.member( nme.CONSTRUCTOR ).asMethod
+               )( (v match {
+                 case v:Vector[_] => v
+                 case v:Product => v.productIterator.toVector
+               }):_* )
+      )
+
+      def tpe = sq.CollectionType(
+        sq.CollectionTypeConstructor.default,
+        nodeTableProjection.tpe
+      )
     }
     new Query( table, Scope() )
   }
@@ -114,31 +239,51 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
     }
     ( typed_tree.tpe, scala2scalaquery_typed( removeTypeAnnotations(typed_tree), scope ) )
   }
-  private def eval( tree:Tree ) :Any = {
-    tree match {
-      case Select(from,name) => {
-        val i = cm.reflect( eval(from) )
-        val m = i.symbol.typeSignature.member( name ).asMethod
-        val mm = i.reflectMethod( m )
-        mm()
-      }
-      case ident:Ident => ident.symbol.asFreeTerm.value
-      case o:This if o.symbol.isStatic => cm.reflectModule(o.symbol.companionSymbol.asModule).instance
-      case o:This => throw new SlickException( "Cannot handle reference to a query in non-static symbol "+o.symbol )
-      case _ => throw new SlickException("Cannot eval: " + showRaw(tree))
+  private def eval( tree:Tree ) :Any = tree match {
+    case Literal(Constant(x)) => x
+    case ident:Ident => ident.symbol.asFreeTerm.value
+    case Select(from,name) => {
+      val i = cm.reflect( eval(from) )
+      val m = i.symbol.typeSignature.member( name ).asMethod
+      val mm = i.reflectMethod( m )
+      mm()
     }
+    case o:This if o.symbol.isStatic => cm.reflectModule(o.symbol.companionSymbol.asModule).instance
+    case o:This => throw new SlickException( "Cannot handle reference to a query in non-static symbol "+o.symbol )
+    case _ => throw new SlickException("Cannot eval: " + showRaw(tree))
   }
   
   private def scala2scalaquery_typed( tree:Tree, scope : Scope ) : Query = {
     def s2sq( tree:Tree, scope:Scope=scope ) : Query = scala2scalaquery_typed( tree, scope )
+    def mapOp( op:Tree, args:List[Tree] ) : sq.Node = {
+      val Select(lhs:Tree, term:Name) = op
+      if( term.decoded == "!=" ){
+        Library.Not.typed(
+         columnTypes(typeOf[Boolean].typeSymbol),
+         mapOp( Select(lhs, newTermName("==")), args )
+       )
+      } else {
+        val (slickOp,slickType) = 
+          if(term.decoded == "=="){
+            Library.== -> columnTypes(typeOf[Boolean].typeSymbol)
+          } else {
+            val sym = op.symbol.asMethod
+            if( !operatorSymbolMap.keys.toList.contains(sym) ){
+              throw new SlickException("Direct embedding does not support method "+sym.owner.name+"."+sym.name.decoded+sym.paramss.map(_.map(_.typeSignature.normalize)).mkString("").toString.replace("List","")+":"+sym.returnType)
+            }
+            operatorSymbolMap( sym ) -> columnTypes(sym.returnType.typeSymbol)
+          }
+        slickOp.typed( slickType, (lhs::args).map(s2sq(_).node) : _* )
+      }
+    }
     implicit def node2Query(node:sq.Node) = new Query( node, scope )
     try{
       val string_types = List("String","java.lang.String")
       tree match {
         // explicitly state types here until SQ removes type parameters and type mapper from ConstColumn
-        case Literal(Constant(x:Int))    => ConstColumn[Int](x)
-        case Literal(Constant(x:String)) => ConstColumn[String](x)
-        case Literal(Constant(x:Double)) => ConstColumn[Double](x)
+        case Literal(Constant(x:Int))    => sq.LiteralNode(driver.columnTypes.intJdbcType, x)
+        case Literal(Constant(x:String)) => sq.LiteralNode(driver.columnTypes.stringJdbcType, x)
+        case Literal(Constant(x:Double)) => sq.LiteralNode(driver.columnTypes.doubleJdbcType, x)
         case ident@Ident(name) if !scope.contains(ident.symbol) => // TODO: move this into a separate inlining step in queryable
           ident.symbol.asFreeTerm.value match {
             case q:BaseQueryable[_] => val (tpe,query) = toQuery( q ); query
@@ -146,12 +291,12 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
           }
         case ident@Ident(name) => scope(ident.symbol)
 
-        case Select( t, term ) if t.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure && term.decoded == "queryable" => s2sq(t)
+        case op@Select( t, _ ) if op.symbol == typeOf[BaseQueryable[_]].member(newTermName("queryable")) => s2sq(t)
 
         // match columns
         case Select(from,name) if mapper.isMapped( from.tpe.widen )
         =>
-          extractColumn( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
+          columnSelect( getConstructorArgs( from.tpe.widen ).filter(_.name==name).head, scope(from.symbol) )
 /*
         // TODO: Where is this needed?
         case Select(a:This,b) =>
@@ -162,77 +307,92 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
             case x => s2sq( Literal(Constant(x)) )
           }
 */
-          
-        case Apply( Select( queryOps, term ), queryable::Nil )
-          if queryOps.tpe <:< typeOf[QueryOps.type] && queryable.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure && term.decoded == "query"
-        => s2sq( queryable ).node
+        case a@Apply(op@Select(lhs,term),args) if isMapped( op.symbol )
+          => mapOp(op,args)
+
+        case op@Select(lhs,term) if isMapped( op.symbol )
+          => mapOp(op,List())
+                  
+        case Apply( op, queryable::Nil )
+          if op.symbol == typeOf[QueryOps.type].member(newTermName("query"))
+            => s2sq( queryable ).node
         
         // match queryable methods
-        case Apply(Select(scala_lhs,term),Function( arg::Nil, body )::Nil)
-          if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure
+        case op@Select(scala_lhs, term) if typeOf[QueryOps[_]].members.toList.contains(op.symbol) =>
+          term.decoded match {
+            case "length" => sq.Pure( Library.CountAll.typed[Int](s2sq(scala_lhs).node ) )
+          }
+
+        case Apply(op@Select(scala_lhs,term),args) if typeOf[QueryOps[_]].members.toList.contains(op.symbol)
         =>
+          val (rhs::Nil) = args
           val sq_lhs = s2sq( scala_lhs ).node
           val sq_symbol = new sq.AnonSymbol
-          val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
-          val rhs = s2sq(body, new_scope)
-          new Query( term.decoded match {
-            case "filter"     => sq.Filter( sq_symbol, sq_lhs, rhs.node )
-            case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(rhs.node) )
-            case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, rhs.node )
-            case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
-          },
-            new_scope
-          )
+          def flattenAndPrepareForSortBy( node:sq.Node ) : Seq[(sq.Node,sq.Ordering)] = node match {
+            case sq.ProductNode(nodes) => nodes.flatMap(flattenAndPrepareForSortBy _)
+            case Reverse(node)                                => Seq( (node,sq.Ordering(sq.Ordering.Desc)) )
+            case Nullsorting(Reverse(node),Nullsorting.First) => Seq( (node,sq.Ordering(sq.Ordering.Desc,sq.Ordering.NullsFirst)) )
+            case Nullsorting(node,Nullsorting.First)          => Seq( (node,sq.Ordering(sq.Ordering.Asc ,sq.Ordering.NullsFirst)) )
+            case Nullsorting(Reverse(node),Nullsorting.Last)  => Seq( (node,sq.Ordering(sq.Ordering.Desc,sq.Ordering.NullsLast)) )
+            case Nullsorting(node,Nullsorting.Last)           => Seq( (node,sq.Ordering(sq.Ordering.Asc ,sq.Ordering.NullsLast)) )
+            case node => Seq( (node,sq.Ordering(sq.Ordering.Asc)) )
+          }
+          rhs match {
+            case Function( arg::Nil, body ) =>
+              val new_scope = scope+(arg.symbol -> sq.Ref(sq_symbol))
+              val sq_rhs = s2sq(body, new_scope).node
+              new Query( term.decoded match {
+                case "filter"     => sq.Filter.ifRefutable( sq_symbol, sq_lhs, sq_rhs )
+                case "sortBy"     => sq.SortBy( sq_symbol, sq_lhs, flattenAndPrepareForSortBy(sq_rhs) )
+                case "map"        => sq.Bind( sq_symbol, sq_lhs, sq.Pure(sq_rhs) )
+                case "flatMap"    => sq.Bind( sq_symbol, sq_lhs, sq_rhs )
+                case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
+              },
+              new_scope
+            )
+            case _ => new Query( term.decoded match {
+                case "drop"       =>
+                  val i = eval(rhs)
+                  if( !i.isInstanceOf[Int] ){
+                    throw new Exception("drop expects Int, found "+i.getClass)
+                  }
+                  sq.Drop( sq_lhs, i.asInstanceOf[Int] ) 
+                case "take"       =>
+                  val i = eval(rhs)
+                  if( !i.isInstanceOf[Int] ){
+                    throw new Exception("take expects Int, found "+i.getClass)
+                  }
+                  sq.Take( sq_lhs, i.asInstanceOf[Int] ) 
+                case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
+              },
+              scope
+            )
+          }
 
-        // FIXME: this case is required because of a bug, but should be covered by the next case
-        case d@Apply(Select(lhs,term),rhs::Nil)
-          if {
-            /*println("_a__")
-            println(showRaw(d))
-            println(showRaw(lhs))
-            println(rhs.symbol.asInstanceOf[scala.reflect.internal.Symbols#FreeTerm].value)
-            println(rhs.tpe)
-            println("_b__")*/
-            (
-              (string_types contains lhs.tpe.widen.toString) //(lhs.tpe <:< typeOf[String])
-                && (string_types contains rhs.tpe.widen.toString) // (rhs.tpe <:< typeOf[String] )
-                && (List("+").contains( term.decoded ))
-              )
-          }
-        =>
-          term.decoded match {
-            case "+" => Library.Concat(s2sq( lhs ).node, s2sq( rhs ).node )
-          }
-
-        case Apply(op@Select(lhs,term),rhs::Nil) => {
-          val actualTypes = lhs.tpe :: rhs.tpe :: Nil //.map(_.tpe).toList
-          val matching_ops = ( operatorMap.collect{
-              case (str2sym, types)
-                    if str2sym.isDefinedAt( term.decoded )
-                      && types.zipWithIndex.forall{
-                           case (expectedTypes, index) => expectedTypes.exists( actualTypes(index) <:< _ ) 
-                         }
-              => str2sym( term.decoded )
-          })
-          matching_ops.size match{
-            case 0 => throw new SlickException("Operator not supported: "+ lhs.tpe +"."+term.decoded+"("+ rhs.tpe +")")
-            case 1 => matching_ops.head( s2sq( lhs ).node, s2sq( rhs ).node )
-            case _ => throw new SlickException("Internal Slick error: resolution of "+ lhs.tpe +" "+term.decoded+" "+ rhs.tpe +" was ambigious")
-          }
-        }
-        
         // Tuples
         case Apply(
-            Select(Select(Ident(package_), class_), method_),
+            op,
             components
         )
-        if package_.decoded == "scala" && class_.decoded.startsWith("Tuple") && method_.decoded == "apply" // FIXME: match smarter than matching strings
+        if definitions
+            .TupleClass
+            .filter(_ != NoSymbol)
+            .map( _.companionSymbol.typeSignature.member( newTermName("apply") ) )
+            .contains( op.symbol )
         =>
             sq.ProductNode( components.map(s2sq(_).node) )
 
-        case Select(scala_lhs, term) 
-          if scala_lhs.tpe.erasure <:< typeOf[QueryOps[_]].erasure && (term.decoded == "length" || term.decoded == "size")
-          => sq.Pure( Library.CountAll( s2sq(scala_lhs).node ) )
+        case Apply( op, scala_rhs::Nil )
+          if typeOf[NullAndReverseOrder].member(newTermName("nonesLast")).asTerm.alternatives.contains(op.symbol)
+            => Nullsorting( s2sq(scala_rhs).node, Nullsorting.Last )
+
+        case Apply( op, scala_rhs::Nil )
+          if typeOf[NullAndReverseOrder].member(newTermName("nonesFirst")).asTerm.alternatives.contains(op.symbol)
+            => Nullsorting( s2sq(scala_rhs).node, Nullsorting.First )
+
+        case Apply( op, scala_rhs::Nil )
+          if typeOf[NullAndReverseOrder].member(newTermName("reversed")).asTerm.alternatives.contains(op.symbol)
+            => Reverse( s2sq(scala_rhs).node )
 
         case tree if tree.tpe.erasure <:< typeOf[BaseQueryable[_]].erasure
             => val (tpe,query) = toQuery( eval(tree).asInstanceOf[BaseQueryable[_]] ); query
@@ -248,69 +408,33 @@ class SlickBackend( driver:BasicDriver, mapper:Mapper ) extends QueryableBackend
     Dump(query.node)
   }
   import scala.collection.generic.CanBuildFrom
-  import scala.slick.session.{PositionedParameters, PositionedResult}
+  import scala.slick.jdbc.{PositionedParameters, PositionedResult}
   import scala.slick.ast.Node
-  import scala.slick.lifted.TypeMapper
 
-  private def queryable2cstate[R]( queryable:BaseQueryable[R], session:Session ) : (Type,CompilationState) = {
+  private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryable)
-    (tpe,driver.compiler.run(query.node))
+    (tpe,driver.queryCompiler.run(query.node))
   }
   
-  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:Session ) : (Type,CompilationState) = {
+  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilerState) = {
     val (tpe,query) = this.toQuery(queryablevalue.value.tree)
-    (tpe,driver.compiler.run(query.node))
+    (tpe,driver.queryCompiler.run(query.node))
   }
-
-  protected def resultByType( expectedType : Type, rs: PositionedResult, session:Session) : Any = {
-    def createInstance( args:Seq[Any] ) = {
-      val constructor = expectedType.member( nme.CONSTRUCTOR ).asMethod
-      val cls = cm.reflectClass( cm.classSymbol(cm.runtimeClass(expectedType)) )
-      cls.reflectConstructor( constructor )( args:_* )
-    }
-    import TupleTypes.tupleTypes
-    (expectedType match {
-      case t if typeMappers.isDefinedAt(expectedType.toString) => typeMappers( expectedType.toString )(driver).nextValue(rs)
-      case t if tupleTypes.exists( expectedType <:< _ ) =>
-        val typeArgs = expectedType match { case TypeRef(_,_,args_) => args_ } 
-        val args = typeArgs.map{
-          tpe => resultByType( tpe, rs, session )
-        }
-        createInstance( args )
-      case t if t.typeSymbol.asClass.isCaseClass =>
-        val args = expectedType.member( nme.CONSTRUCTOR ).typeSignature match {
-          case MethodType( params, resultType ) => params.map{ // TODO check that the field order is correct
-            param =>  resultByType( param.typeSignature, rs, session )
-          }
-        }
-        createInstance( args )
-    })
-  }
-  def result[R]( queryable:BaseQueryable[R], session:Session) : Vector[R] = {
+  def result[R]( queryable:BaseQueryable[R], session:driver.Backend#Session) : Vector[R] = {
     val (tpe,query) = queryable2cstate( queryable, session )
     result(tpe,query, session)
   }
-  def result[R]( queryablevalue:QueryableValue[R], session:Session) : R = {
+  def result[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session) : R = {
     val (tpe,query) = queryablevalue2cstate( queryablevalue, session )
     val res = result(tpe,query, session)
     res(0)
   }
-  def result[R]( tpe:Type, cstate:CompilationState, session:Session) : Vector[R] = {
-    val linearizer = new CollectionLinearizer[Vector,R]{
-      def elementLinearizer: ValueLinearizer[R] = new RecordLinearizer[R]{
-          def getResult(profile: BasicProfile, rs: PositionedResult): R
-            = resultByType( tpe, rs, session ).asInstanceOf[R]
-          def updateResult(profile: BasicProfile, rs: PositionedResult, value: R): Unit = ???
-          def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[R]): Unit = ???
-          def getLinearizedNodes: IndexedSeq[Node] = ???
-        }
-        def canBuildFrom: CanBuildFrom[Nothing, R, Vector[R]] = implicitly[CanBuildFrom[Nothing, R, Vector[R]]]
-    }
-    new driver.QueryExecutor[Vector[R]](new QueryBuilderInput(cstate, linearizer)).run(session)
-  }
-  protected[slick] def toSql( queryable:BaseQueryable[_], session:Session ) = {
+  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] =
+    new driver.QueryExecutor[Vector[R]](cstate.tree, ()).run(session)
+
+  protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
     val (_,cstate) = queryable2cstate( queryable, session )
-    val builder = driver.createQueryBuilder(new QueryBuilderInput(cstate, null))
+    val builder = driver.createQueryBuilder(cstate.tree, cstate)
     builder.buildSelect.sql
   }
   protected[slick] def toQuery(queryable:BaseQueryable[_]) : (Type,this.Query) = queryable.expr_or_typetag match {

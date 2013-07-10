@@ -2,9 +2,10 @@ package scala.slick.driver
 
 import java.util.UUID
 import scala.slick.lifted._
-import scala.slick.session.{PositionedResult, PositionedParameters}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.compiler.CompilerState
 
 /**
  * Slick driver for PostgreSQL.
@@ -15,7 +16,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * Notes:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.typeBlob]]:
  *   The default implementation of the <code>Blob</code> type uses the
  *   database type <code>lo</code> and the stored procedure
  *   <code>lo_manage</code>, both of which are provided by the "lo"
@@ -24,14 +25,14 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  *
  * @author szeiger
  */
-trait PostgresDriver extends ExtendedDriver { driver =>
+trait PostgresDriver extends JdbcDriver { driver =>
 
-  override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override val columnTypes = new JdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BLOB => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
@@ -39,7 +40,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
@@ -95,11 +96,11 @@ trait PostgresDriver extends ExtendedDriver { driver =>
       ) else None
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
+  class JdbcTypes extends super.JdbcTypes {
+    override val byteArrayJdbcType = new ByteArrayJdbcType
+    override val uuidJdbcType = new UUIDJdbcType
 
-    class ByteArrayTypeMapperDelegate extends super.ByteArrayTypeMapperDelegate {
+    class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
       override val sqlTypeName = "BYTEA"
       override def setOption(v: Option[Array[Byte]], p: PositionedParameters) = v match {
@@ -108,7 +109,7 @@ trait PostgresDriver extends ExtendedDriver { driver =>
       }
     }
 
-    class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+    class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlTypeName = "UUID"
       override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
       override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)

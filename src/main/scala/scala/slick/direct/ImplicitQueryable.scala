@@ -7,16 +7,16 @@ import scala.slick.SlickException
 
 import scala.reflect.runtime.{universe => ru}
 import scala.reflect.ClassTag
-import scala.slick.session.Session
 import ru.TypeTag
+
 
 object ImplicitQueryable extends BaseQueryableFactory{
   object implicitExecution{
     import language.implicitConversions
     implicit def implicitQueryableToSeq[T]( iq: ImplicitQueryable[T] ) : Seq[T] = iq.toSeq 
   }
-  def apply[T]( q:BaseQueryable[T], backend:SlickBackend, session:Session ) = new ImplicitQueryable[T]( q, backend, session )
-  def factory[S]( projection:ru.Expr[BaseQueryable[S]], backend:SlickBackend, session : Session ) : ImplicitQueryable[S] = {
+  def apply[T]( q:BaseQueryable[T], backend:SlickBackend, session:SlickBackend#Session ) = new ImplicitQueryable[T]( q, backend, session )
+  def factory[S]( projection:ru.Expr[BaseQueryable[S]], backend:SlickBackend, session : SlickBackend#Session ) : ImplicitQueryable[S] = {
     ImplicitQueryable( Queryable.factory[S]( projection ), backend, session )
   }
 }
@@ -24,7 +24,7 @@ class ImplicitQueryableUtils[C <: Context]( context_ :C ) extends QueryableUtils
   import context.universe._
   import context._
   val backend = context.Expr[SlickBackend]( Select( prefix.tree, newTermName("backend") ) )
-  val session = context.Expr[Session]( Select( prefix.tree, newTermName("session") ) )
+  val session = context.Expr[SlickBackend#Session]( Select( prefix.tree, newTermName("session") ) )
   val queryable = Select( prefix.tree, newTermName("queryable") )
 }
 
@@ -61,7 +61,7 @@ object ImplicitQueryableMacros{
     (projection: c.Expr[T => Boolean]): c.Expr[ImplicitQueryable[T]] = _helper[c.type,T,T]( c )( "filter", projection )
 }
 
-class ImplicitQueryable[T]( val queryable_ : BaseQueryable[T], val backend: SlickBackend, val session : Session ) extends BaseQueryable[T]( queryable_.expr_or_typetag ){
+class ImplicitQueryable[T]( val queryable_ : BaseQueryable[T], val backend: SlickBackend, val session : SlickBackend#Session ) extends BaseQueryable[T]( queryable_.expr_or_typetag ){
   import scala.collection._
   import scala.collection.generic._
   def toSeq : Seq[T] = backend.result( queryable, session )

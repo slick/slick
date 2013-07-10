@@ -1,7 +1,6 @@
 package scala.slick.ast
 
 import Util._
-import scala.slick.lifted.{TypeMapper, ColumnOption}
 import scala.collection.mutable.HashMap
 import scala.util.DynamicVariable
 
@@ -12,15 +11,32 @@ trait Symbol {
 }
 
 /** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val typeMapper: TypeMapper[_]) extends Symbol
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends Symbol with Typed
 
-/** An element of a ProductNode */
+/** An element of a ProductNode (using a 1-based index) */
 case class ElementSymbol(idx: Int) extends Symbol {
   def name = "_" + idx
 }
 
-/** A named symbol which refers to a proper database table. */
-case class TableSymbol(name: String) extends Symbol
+/** The symbol of a nominal type */
+trait TypeSymbol extends Symbol
+
+/** A TypeSymbol which uniquely identifies a table type */
+trait TableIdentitySymbol extends TypeSymbol
+
+/** Default implementation of TableIdentitySymbol */
+case class SimpleTableIdentitySymbol(constituents: AnyRef*) extends TableIdentitySymbol {
+  def name = constituents.mkString("@(", ".", ")")
+}
+
+/** An anonymous symbol defined in the AST. */
+class AnonTypeSymbol extends TypeSymbol {
+  def name = "$@"+System.identityHashCode(this)
+}
+
+object AnonTypeSymbol {
+  def unapply(a: AnonTypeSymbol) = Some(a.name)
+}
 
 /** An anonymous symbol defined in the AST. */
 class AnonSymbol extends Symbol {
@@ -40,44 +56,34 @@ case class IntrinsicSymbol(val target: Node) extends Symbol {
   }
 }
 
-/** A reference to a Symbol */
-case class Ref(sym: Symbol) extends NullaryNode with SimpleRefNode {
-  def nodeReferences = Seq(sym)
-  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
-}
-
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]
-  def nodePostGeneratorChildren: Seq[Node]
-  def nodeMapGenerators(f: Symbol => Symbol): Node
-  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): DefNode
-}
+  def nodePostGeneratorChildren: Seq[Node] =
+    nodeChildren.drop(nodeGenerators.length)
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
 
-trait SimpleDefNode extends DefNode { this: SimpleNode =>
-  def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node) = {
+  final def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): Self with DefNode = {
     val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
       nodePostGeneratorChildren.iterator.map{ n => (None, n) }).toIndexedSeq
     val mapped = all.map(f.tupled)
-    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false))
-      nodeRebuild(mapped).asInstanceOf[DefNode]
+    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) nodeRebuild(mapped).asInstanceOf[Self with DefNode]
     else this
   }
-  def nodeMapGenerators(f: Symbol => Symbol): Node =
-    mapOrNone(nodeGenerators.map(_._1), f).fold[Node](this)(s => nodeRebuildWithGenerators(s.toIndexedSeq))
-  def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
+  final def nodeMapGenerators(f: Symbol => Symbol): Node =
+    mapOrNone(nodeGenerators.map(_._1))(f).fold[Node](this) { s => nodeRebuildWithGenerators(s.toIndexedSeq) }
 }
 
-/** A Node which references Symbols. */
+/** A Node which references a Symbol. */
 trait RefNode extends Node {
-  def nodeReferences: Seq[Symbol]
-  def nodeMapReferences(f: Symbol => Symbol): Node
+  def nodeReference: Symbol
+  final def nodeWithReference(s: Symbol): RefNode =
+    if(s eq nodeReference) this else nodeRebuildWithReference(s)
+  protected[this] def nodeRebuildWithReference(s: Symbol): RefNode
 }
 
-trait SimpleRefNode extends RefNode {
-  def nodeMapReferences(f: Symbol => Symbol): Node =
-    mapOrNone(nodeReferences, f).fold[Node](this)(s => nodeRebuildWithReferences(s.toIndexedSeq))
-  def nodeRebuildWithReferences(gen: IndexedSeq[Symbol]): Node
+object RefNode {
+  def unapply(r: RefNode) = Some(r.nodeReference)
 }
 
 /** Provides names for symbols */

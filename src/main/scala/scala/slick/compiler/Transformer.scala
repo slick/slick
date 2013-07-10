@@ -1,7 +1,7 @@
 package scala.slick.compiler
 
 import scala.slick.ast._
-import collection.mutable.HashMap
+import scala.collection.mutable.HashMap
 import Util._
 
 /**
@@ -10,6 +10,7 @@ import Util._
  */
 abstract class Transformer { self =>
 
+  val keepType = false
   def replace: PartialFunction[Node, Node]
 
   def initTree(n: Node) = ()
@@ -18,7 +19,10 @@ abstract class Transformer { self =>
     val repl = replace.orElse[Node, Node] { case n => n }
     def scanAndTr(n: Node): Node = {
       initTree(n)
-      val n2 = memoized[Node, Node](r => { n => repl(n).nodeMapChildren(r) })(n)
+      val n2 = memoized[Node, Node](r => { n =>
+        val rn = repl(n)
+        rn.nodeMapChildren(r, keepType)
+      })(n)
       if(once || (n2 eq n)) n2 else scanAndTr(n2)
     }
     scanAndTr(tree)

@@ -48,7 +48,7 @@ case class El[+E](e: E) extends Input[E] {
 }
 
 case object Empty extends Input[Nothing] {
-  def fold[R](el: Nothing => R, empty: => R, eof: => R): R = eof
+  def fold[R](el: Nothing => R, empty: => R, eof: => R): R = empty
 }
 
 case object EOF extends Input[Nothing] {

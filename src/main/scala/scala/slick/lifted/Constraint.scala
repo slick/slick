@@ -39,9 +39,9 @@ object ForeignKey {
       onDelete,
       originalSourceColumns,
       originalTargetColumns,
-      pShape.linearizer(originalSourceColumns).narrowedLinearizer.getLinearizedNodes,
-      pShape.linearizer(originalTargetColumns(targetTableShaped.value)).narrowedLinearizer.getLinearizedNodes,
-      pShape.linearizer(originalTargetColumns(originalTargetTable)).narrowedLinearizer.getLinearizedNodes,
+      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalSourceColumns))),
+      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(targetTableShaped.value)))),
+      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(originalTargetTable)))),
       targetTableShaped.value
     )
 }
@@ -73,9 +73,9 @@ class ForeignKeyQuery[E <: TableNode, U](
   def & (other: ForeignKeyQuery[E, U]): ForeignKeyQuery[E, U] = {
     val newFKs = fks ++ other.fks
     val conditions =
-      newFKs.map(fk => Library.==(Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
-        reduceLeft[Node]((a, b) => Library.And(a, b))
-    val newDelegate = Filter(generator, Node(targetBaseQuery), conditions)
+      newFKs.map(fk => Library.==.typed[Boolean](Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
+        reduceLeft[Node]((a, b) => Library.And.typed[Boolean](a, b))
+    val newDelegate = Filter.ifRefutable(generator, Node(targetBaseQuery), conditions)
     new ForeignKeyQuery[E, U](newDelegate, base, newFKs, targetBaseQuery, generator, aliasedValue)
   }
 }

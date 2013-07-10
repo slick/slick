@@ -6,13 +6,13 @@
 ##############################################################################
 
 # Use only the following DBs (or use all if not set)
-#testDBs = h2mem, h2disk, hsqldbmem, hsqldbdisk, sqlitemem, sqlitedisk, derbymem, derbydisk, postgres, mysql, sqlserver, access
+#testDBs = h2mem, h2disk, hsqldbmem, hsqldbdisk, sqlitemem, sqlitedisk, derbymem, derbydisk, postgres, mysql, sqlserver, access, heap
 
 # Store database files in this path instead of the test-dbs dir
 # (ignored by MySQL and in-memory databases)
 #testDir = r:/test-dbs
 
-# PostgreSQL quick setup:
+# PostgreSQL quick setup (tested with 9.2.4-1):
 # - Install PostgreSQL server with default options
 # - Change password in postgres.password
 # - Set postgres.enabled = true
@@ -29,8 +29,8 @@ postgres.drop.1 = DROP DATABASE IF EXISTS "[DB]"
 postgres.drop.2 = DROP TABLESPACE IF EXISTS slick_test
 postgres.driver = org.postgresql.Driver
 
-# MySQL quick setup:
-# - Install MySQL Essentials with default options
+# MySQL quick setup (tested with 5.6.11.0):
+# - Install MySQL community server with default options
 # - Change password in mysql.password
 # - Set mysql.enabled = true
 mysql.enabled = false
@@ -58,7 +58,7 @@ access.url = jdbc:odbc:Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=[DB
 
 # SQL Server quick setup:
 # - Install SQL Server Express 2008 R2:
-#   http://www.microsoft.com/express/Database/InstallOptions.aspx
+#   http://www.microsoft.com/en-us/download/details.aspx?id=30438
 # - In the SQL Server Configuration Manager, under "SQL Server Network
 #   Configuration", enable Named Pipes and change the path from
 #   \\.\pipe\MSSQL$SQLEXPRESS\sql\query to \\.\pipe\sql\query

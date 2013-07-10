@@ -1,9 +1,8 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker}
+import scala.slick.jdbc.{JdbcBackend, ResultSetInvoker, UnitInvoker}
 import scala.slick.lifted.ForeignKeyAction
-import scala.slick.session._
 
 /**
  * A wrapper for a row in the ResultSet returned by
@@ -27,7 +26,7 @@ object MForeignKey {
       parentTable.catalog_?, parentTable.schema_?, parentTable.name,
       foreignTable.catalog_?, foreignTable.schema_?, foreignTable.name))
 
-  private[this] def createInvoker(f: Session => ResultSet) = ResultSetInvoker[MForeignKey](f) { r =>
+  private[this] def createInvoker(f: JdbcBackend#Session => ResultSet) = ResultSetInvoker[MForeignKey](f) { r =>
     MForeignKey(MQName.from(r), r.<<, MQName.from(r), r.<<, r.<<, fkActionFor(r.<<), fkActionFor(r.<<), r.<<, r.<<, r.<<)
   }
 

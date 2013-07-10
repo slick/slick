@@ -5,6 +5,8 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Time, Date}
+import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
+import scala.slick.compiler.CompilerState
 
 /**
  * Slick driver for SQLite.
@@ -13,27 +15,27 @@ import java.sql.{Timestamp, Time, Date}
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]],
- *     [[scala.slick.driver.BasicProfile.capabilities.functionUser]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]],
+ *     [[scala.slick.profile.RelationalProfile.capabilities.functionUser]]:
  *     <code>Functions.user</code> and <code>Functions.database</code> are
  *     not available in SQLite. Slick will return empty strings for both.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.joinFull]],
- *     [[scala.slick.driver.BasicProfile.capabilities.joinRight]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]],
+ *     [[scala.slick.profile.RelationalProfile.capabilities.joinRight]]:
  *     Right and full outer joins are not supported by SQLite.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.mutable]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.mutable]]:
  *     SQLite does not allow mutation of result sets. All cursors are
  *     read-only.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequence]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
  *     Sequences are not supported by SQLite.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBigDecimal]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBigDecimal]]:
  *     SQLite does not support a decimal type.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.typeBlob]]: Blobs are
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBlob]]: Blobs are
  *     not supported by the SQLite JDBC driver (but binary data in the form of
  *     <code>Array[Byte]</code> is).</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.zip]]:
  *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
  *     code which uses this feature throws a SlickException.</li>
@@ -42,27 +44,27 @@ import java.sql.{Timestamp, Time, Date}
  * @author Paul Snively
  * @author Stefan Zeiger
  */
-trait SQLiteDriver extends ExtendedDriver { driver =>
+trait SQLiteDriver extends JdbcDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.functionDatabase
-    - BasicProfile.capabilities.functionUser
-    - BasicProfile.capabilities.joinFull
-    - BasicProfile.capabilities.joinRight
-    - BasicProfile.capabilities.mutable
-    - BasicProfile.capabilities.sequence
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.typeBigDecimal
-    - BasicProfile.capabilities.typeBlob
-    - BasicProfile.capabilities.zip
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - RelationalProfile.capabilities.functionDatabase
+    - RelationalProfile.capabilities.functionUser
+    - RelationalProfile.capabilities.joinFull
+    - RelationalProfile.capabilities.joinRight
+    - JdbcProfile.capabilities.mutable
+    - SqlProfile.capabilities.sequence
+    - JdbcProfile.capabilities.returnInsertOther
+    - RelationalProfile.capabilities.typeBigDecimal
+    - RelationalProfile.capabilities.typeBlob
+    - RelationalProfile.capabilities.zip
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override val columnTypes = new JdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
 
@@ -132,32 +134,32 @@ trait SQLiteDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
-    override val dateTypeMapperDelegate = new DateTypeMapperDelegate
-    override val timeTypeMapperDelegate = new TimeTypeMapperDelegate
-    override val timestampTypeMapperDelegate = new TimestampTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
+  class JdbcTypes extends super.JdbcTypes {
+    override val booleanJdbcType = new BooleanJdbcType
+    override val dateJdbcType = new DateJdbcType
+    override val timeJdbcType = new TimeJdbcType
+    override val timestampJdbcType = new TimestampJdbcType
+    override val uuidJdbcType = new UUIDJdbcType
 
     /* SQLite does not have a proper BOOLEAN type. The suggested workaround is
      * INTEGER with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanTypeMapperDelegate extends super.BooleanTypeMapperDelegate {
+    class BooleanJdbcType extends super.BooleanJdbcType {
       override def sqlTypeName = "INTEGER"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* The SQLite JDBC driver does not support the JDBC escape syntax for
      * date/time/timestamp literals. SQLite expects these values as milliseconds
      * since epoch. */
-    class DateTypeMapperDelegate extends super.DateTypeMapperDelegate {
+    class DateJdbcType extends super.DateJdbcType {
       override def valueToSQLLiteral(value: Date) = value.getTime.toString
     }
-    class TimeTypeMapperDelegate extends super.TimeTypeMapperDelegate {
+    class TimeJdbcType extends super.TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = value.getTime.toString
     }
-    class TimestampTypeMapperDelegate extends super.TimestampTypeMapperDelegate {
+    class TimestampJdbcType extends super.TimestampJdbcType {
       override def valueToSQLLiteral(value: Timestamp) = value.getTime.toString
     }
-    class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+    class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB
     }
   }

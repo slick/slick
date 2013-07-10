@@ -1,7 +1,7 @@
 package com.typesafe.slick.docsnippets
 
 import scala.slick.driver.H2Driver.simple._
-import Database.threadLocalSession
+import Database.dynamicSession
 import java.sql.Date
 
 class LiftedEmbedding {
@@ -112,7 +112,7 @@ class LiftedEmbedding {
   val db: Database = null
 //#ddl
   val ddl = Coffees.ddl ++ Suppliers.ddl
-  db withSession {
+  db withDynSession {
     ddl.create
     //...
     ddl.drop
@@ -124,7 +124,7 @@ class LiftedEmbedding {
   ddl.dropStatements.foreach(println)
 //#ddl2
 
-  db withSession {
+  db withDynSession {
     //#filtering
     val q = Query(Coffees)
     val q1 = q.filter(_.supID === 101)
@@ -133,7 +133,7 @@ class LiftedEmbedding {
     //#filtering
   }
 
-  db withSession {
+  db withDynSession {
     //#aggregation1
     val q = Coffees.map(_.price)
     val q1 = q.min
@@ -143,7 +143,7 @@ class LiftedEmbedding {
     //#aggregation1
   }
 
-  db withSession {
+  db withDynSession {
     //#aggregation2
     val q = Query(Coffees)
     val q1 = q.length
@@ -167,14 +167,14 @@ class LiftedEmbedding {
     }
 
     {
-      val session = threadLocalSession
+      val session = dynamicSession
       //#invoker_explicit
       val l = q.list(session)
       //#invoker_explicit
     }
   }
 
-  db withSession {
+  db withDynSession {
     //#aggregation3
     val q = (for {
       c <- Coffees
@@ -187,7 +187,7 @@ class LiftedEmbedding {
     //#aggregation3
   }
 
-  db withSession {
+  db withDynSession {
     //#insert1
     Coffees.insert("Colombian", 101, 7.99, 0, 0)
 
@@ -228,7 +228,7 @@ class LiftedEmbedding {
     //#insert4
   }
 
-  db withSession {
+  db withDynSession {
     //#update1
     val q = for { c <- Coffees if c.name === "Espresso" } yield c.price
     q.update(10.49)
@@ -238,7 +238,7 @@ class LiftedEmbedding {
     //#update1
   }
 
-  db withSession {
+  db withDynSession {
     //#template1
     val userNameByID = for {
       id <- Parameters[Int]
@@ -256,7 +256,7 @@ class LiftedEmbedding {
     //#template1
   }
 
-  db withSession {
+  db withDynSession {
     object SalesPerDay extends Table[(Date, Int)]("SALES_PER_DAY") {
       def day = column[Date]("DAY", O.PrimaryKey)
       def count = column[Int]("COUNT")
@@ -275,19 +275,19 @@ class LiftedEmbedding {
 
     //#simplefunction2
     def dayOfWeek2(c: Column[Date]) =
-      SimpleFunction("day_of_week")(TypeMapper.IntTypeMapper)(Seq(c))
+      SimpleFunction[Int]("day_of_week").apply(Seq(c))
     //#simplefunction2
   }
 
-  db withSession {
+  db withDynSession {
     //#mappedtype1
     // An algebraic data type for booleans
     sealed trait Bool
     case object True extends Bool
     case object False extends Bool
 
-    // And a TypeMapper that maps it to Int values 1 and 0
-    implicit val boolTypeMapper = MappedTypeMapper.base[Bool, Int](
+    // And a ColumnType that maps it to Int values 1 and 0
+    implicit val boolColumnType = MappedColumnType.base[Bool, Int](
       { b => if(b == True) 1 else 0 },    // map Bool to Int
       { i => if(i == 1) True else False } // map Int to Bool
     )

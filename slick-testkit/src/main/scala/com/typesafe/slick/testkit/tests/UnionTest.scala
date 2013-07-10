@@ -1,10 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.ast.Dump
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
-class UnionTest(val tdb: TestDB) extends TestkitTest {
+class UnionTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
   override val reuseInstance = true
 
@@ -28,13 +27,13 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
   def testBasic {
     (Managers.ddl ++ Employees.ddl).create
 
-    Managers.insertAll(
+    Managers ++= Seq(
       (1, "Peter", "HR"),
       (2, "Amy", "IT"),
       (3, "Steve", "IT")
     )
 
-    Employees.insertAll(
+    Employees ++= Seq(
       (4, "Jennifer", 1),
       (5, "Tom", 1),
       (6, "Leonard", 2),
@@ -43,27 +42,25 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     )
 
     val q1 = for(m <- Managers where { _.department is "IT" }) yield (m.id, m.name)
-    println("Managers in IT: "+ q1.selectStatement)
-    q1.foreach(o => println("  "+o))
+    println("Managers in IT")
+    q1.run.foreach(o => println("  "+o))
 
     val q2 = for(e <- Employees where { _.departmentIs("IT") }) yield (e.id, e.name)
-    println("Employees in IT: " + q2.selectStatement)
-    q2.foreach(o => println("  "+o))
+    println("Employees in IT")
+    q2.run.foreach(o => println("  "+o))
 
     val q3 = (q1 union q2).sortBy(_._2.asc)
-    Dump(q3, "q3: ")
-    println()
-    println("Combined and sorted: " + q3.selectStatement)
-    q3.foreach(o => println("  "+o))
+    println("Combined and sorted")
+    q3.run.foreach(o => println("  "+o))
 
-    assertEquals(q3.list, List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")))
+    assertEquals(List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")), q3.run)
 
     (Managers.ddl ++ Employees.ddl).drop
   }
 
   def testUnionWithoutProjection {
     Managers.ddl.create
-    Managers.insertAll(
+    Managers ++= Seq(
       (1, "Peter", "HR"),
       (2, "Amy", "IT"),
       (3, "Steve", "IT")
@@ -71,9 +68,7 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
 
     def f (s: String) = Managers where { _.name === s}
     val q = f("Peter") union f("Amy")
-    Dump(q, "q: ")
-    println(q.selectStatement)
-    assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.list.toSet)
+    assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.run.toSet)
 
     Managers.ddl.drop
   }
@@ -88,12 +83,12 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     object Teas extends Drinks("Tea")
 
     (Coffees.ddl ++ Teas.ddl).create
-    Coffees.insertAll(
+    Coffees ++= Seq(
       (10L, 1L),
       (20L, 2L),
       (30L, 3L)
     )
-    Teas.insertAll(
+    Teas ++= Seq(
       (100L, 1L),
       (200L, 2L),
       (300L, 3L)
@@ -109,15 +104,11 @@ class UnionTest(val tdb: TestDB) extends TestkitTest {
     } yield tea.pk ~ tea.pkCup
     val q3 = q1 union q2
 
-    println("q1: "+q1.selectStatement)
-    println("q2: "+q2.selectStatement)
-    println("q3: "+q3.selectStatement)
-
-    val r1 = q1.to[Set]
+    val r1 = q1.run.toSet
     assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L)), r1)
-    val r2 = q2.to[Set]
+    val r2 = q2.run.toSet
     assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r2)
-    val r3 = q3.to[Set]
+    val r3 = q3.run.toSet
     assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)), r3)
   }
 }

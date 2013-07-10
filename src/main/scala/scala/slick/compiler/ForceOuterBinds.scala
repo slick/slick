@@ -1,6 +1,5 @@
 package scala.slick.compiler
 
-import scala.slick.lifted.Column
 import scala.slick.ast._
 
 /** Ensure that all collection operations are wrapped in a Bind so that we
@@ -10,48 +9,43 @@ import scala.slick.ast._
 class ForceOuterBinds extends Phase {
   val name = "forceOuterBinds"
 
-  def apply(n: Node, state: CompilationState): Node = {
-    def idBind(n: Node): Bind = n match {
-      case c: Column[_] =>
-        idBind(Pure(c))
-      case a: Apply =>
-        idBind(Pure(a))
-      case p: ProductNode =>
-        idBind(Pure(p))
-      case p: Pure =>
-        val gen = new AnonSymbol
-        logger.debug("Introducing new Bind "+gen+" for Pure")
-        Bind(gen, Pure(ProductNode(Seq())), p)
-      case _ =>
-        val gen = new AnonSymbol
-        logger.debug("Introducing new Bind "+gen)
-        Bind(gen, n, Pure(Ref(gen)))
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n) { ch =>
+      wrap(ch).nodeWithComputedType(SymbolScope.empty, typeChildren = true, retype = false)
     }
-    def wrap(n: Node): Node = n match {
-      case b: Bind => b.nodeMapChildren { ch =>
-        if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)
-        else maybewrap(ch)
-      }
-      case n => idBind(nowrap(n))
+  }
+
+  def idBind(n: Node): Bind = {
+    val gen = new AnonSymbol
+    logger.debug("Introducing new Bind "+gen+" for "+n)
+    n match {
+      case p: Pure => Bind(gen, Pure(ProductNode(Seq())), p)
+      case _ => Bind(gen, n, Pure(Ref(gen)))
     }
-    def nowrap(n: Node): Node = n match {
-      case u: Union => u.nodeMapChildren(wrap)
-      case f: FilteredQuery => f.nodeMapChildren { ch =>
-        if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
-      }
-      case b: Bind => b.nodeMapChildren { ch =>
-        if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)
-        else maybewrap(ch)
-      }
-      case n => n.nodeMapChildren(maybewrap)
+  }
+
+  def wrap(n: Node): Node = n match {
+    case b @ Bind(_, _, Pure(_)) => b.nodeMapChildren { ch =>
+      if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch) else maybewrap(ch)
     }
-    def maybewrap(n: Node): Node = n match {
-      case _: Join => wrap(n)
-      case _: Pure => wrap(n)
-      case _: Union => wrap(n)
-      case _: FilteredQuery => wrap(n)
-      case _ => nowrap(n)
+    case n => idBind(nowrap(n))
+  }
+
+  def nowrap(n: Node): Node = n match {
+    case u: Union => u.nodeMapChildren(wrap)
+    case f: FilteredQuery => f.nodeMapChildren { ch =>
+      if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
     }
-    wrap(n)
+    case b: Bind => b.nodeMapChildren { ch =>
+      if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)
+      else maybewrap(ch)
+    }
+    case r: Ref => r.nodeUntypedOrCopy
+    case n => n.nodeMapChildren(maybewrap)
+  }
+
+  def maybewrap(n: Node): Node = n match {
+    case _: Join | _: Pure | _: Union | _: FilteredQuery => wrap(n)
+    case _ => nowrap(n)
   }
 }

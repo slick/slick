@@ -4,24 +4,29 @@ import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
+import scala.slick.memory.DriverComputation
 
 /** Replace references to FieldSymbols in TableExpansions by the
   * appropriate ElementSymbol */
 class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
   val name = "replaceFieldSymbols"
 
-  def apply(n: Node, state: CompilationState): Node = {
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(applyServerSide)
+  }
+
+  def applyServerSide(n: Node) = {
     val updatedTables = new HashMap[Symbol, ProductNode]
     val seenDefs = new HashMap[Symbol, Node]
 
-    def rewrite(target: Node, p: Node, field: FieldSymbol, syms: List[Symbol]): Option[Select] = {
+    def rewrite(target: Node, p: Node, field: FieldSymbol, syms: List[Symbol], tpe: Type): Option[Select] = {
       val ntarget = narrowStructure(target)
       logger.debug("Narrowed to structure "+ntarget+" with tail "+Path.toString(syms.tail.reverse))
       select(syms.tail, ntarget, seenDefs.get _).map {
         case t: TableExpansion =>
           logger.debug("Narrowed to element "+t)
           val columns: ProductNode = updatedTables.get(t.generator).getOrElse(t.columns.asInstanceOf[ProductNode])
-          val needed = Select(Ref(t.generator), field)
+          val needed = Select(Ref(t.generator), field).nodeTyped(tpe)
           Some(columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
             case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
             case None =>
@@ -35,10 +40,10 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
             logger.debug("Looking for seen def "+syms.head)
             seenDefs.get(syms.head).flatMap { n =>
               logger.debug("Trying to rewrite recursive match "+t.ref+" ."+field)
-              rewrite(n, t.ref, field, syms).map { recSel =>
+              rewrite(n, t.ref, field, syms, tpe).map { recSel =>
                 logger.debug("Found recursive replacement "+recSel.in+" ."+recSel.field)
                 val columns: ProductNode = updatedTables.get(t.marker).getOrElse(t.columns.asInstanceOf[ProductNode])
-                val needed = Select(t.ref, recSel.field)
+                val needed = Select(t.ref, recSel.field).nodeTyped(tpe)
                 columns.nodeChildren.zipWithIndex.find(needed == _._1) match {
                   case Some((_, idx)) => Select(p, ElementSymbol(idx+1))
                   case None =>
@@ -55,7 +60,7 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
           val syms = psyms.reverse
           seenDefs.get(syms.head).flatMap { n =>
             logger.debug("Trying to rewrite target "+p+" ."+field)
-            rewrite(n, p, field, syms)
+            rewrite(n, p, field, syms, tpe)
           }
         case n =>
           throw new SlickException("Unexpected target node "+n+" (from "+Path.toString(syms.reverse)+")")
@@ -74,8 +79,8 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
       case sel @ Select(p @ Path(psyms), field: FieldSymbol) =>
         val syms = psyms.reverse
         scope.get(syms.head).flatMap { case (n, _) =>
-          logger.debug("Trying to rewrite "+p+" ."+field)
-          val newSelO = rewrite(n, p, field, syms)
+          logger.debug(s"Trying to rewrite $p .$field : ${sel.nodeType}")
+          val newSelO = rewrite(n, p, field, syms, sel.nodeType)
           newSelO.foreach(newSel => logger.debug("Replaced "+Path.toString(sel)+" by "+Path.toString(newSel)))
           newSelO
         }.getOrElse(sel)
@@ -104,12 +109,16 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
 class ExpandTables extends Phase {
   val name = "expandTables"
 
-  def apply(n: Node, state: CompilationState): Node = n match {
+  def apply(state: CompilerState): CompilerState = state.map { n =>
+    ClientSideOp.mapServerSide(n)(ch => apply(ch, state))
+  }
+
+  def apply(n: Node, state: CompilerState): Node = n match {
     case t: TableExpansion => t
     case t: TableNode =>
       val sym = new AnonSymbol
-      val expanded = WithOp.encodeRef(t, sym).nodeShaped_*.packedNode
-      val processed = apply(state.compiler.runBefore(Phase.forceOuterBinds, expanded, state), state)
+      val expanded = WithOp.encodeRef(t, sym).nodeTableProjection
+      val processed = apply(state.compiler.runBefore(this, state.withNode(expanded)).tree, state)
       TableExpansion(sym, t, ProductNode(processed.flattenProduct))
     case n => n.nodeMapChildren(ch => apply(ch, state))
   }
@@ -117,15 +126,17 @@ class ExpandTables extends Phase {
 
 /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
   * Paths and TableRefExpansions of Paths, so that all Paths point to
-  * individual columns by index */
+  * individual columns by index. */
 class ExpandRefs extends Phase with ColumnizerUtils {
   val name = "expandRefs"
 
-  def apply(n: Node, state: CompilationState) = expandRefs(n)
+  def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(ch => expandRefs(ch))
+  }
 
   def expandRefs(n: Node, scope: Scope = Scope.empty, keepRef: Boolean = false): Node = n match {
     case p @ Path(psyms) =>
-      logger.debug("Checking path "+Path.toString(psyms))
+      logger.debug("Checking path "+Path.toString(psyms)+" (keepRef="+keepRef+")")
       psyms.head match {
         case f: FieldSymbol => p
         case _ if keepRef => p
@@ -139,6 +150,7 @@ class ExpandRefs extends Phase with ColumnizerUtils {
                 case t: TableExpansion => burstPath(Path(syms.reverse), t)
                 case t: TableRefExpansion => burstPath(Path(syms.reverse), t)
                 case pr: ProductNode => burstPath(Path(syms.reverse), pr)
+                case d: DriverComputation => burstPath(Path(syms.reverse), d)
                 case n => p
               }
             case None => p
@@ -166,6 +178,12 @@ class ExpandRefs extends Phase with ColumnizerUtils {
       TableRefExpansion(new AnonSymbol, base, ProductNode(cols.nodeChildren.zipWithIndex.map { case (n, idx) =>
         burstPath(Select(base, ElementSymbol(idx+1)), n)
       }))
+    case d: DriverComputation =>
+      import TypeUtil._
+      val ts = d.nodeType.asCollectionType.elementType.asInstanceOf[ProductType].elements
+      ProductNode(ts.zipWithIndex.map { case (_, idx) =>
+        Select(base, ElementSymbol(idx+1))
+      })
     case _ => base
   }
 }
@@ -199,7 +217,7 @@ trait ColumnizerUtils { _: Phase =>
   def narrowStructure(n: Node): Node = n match {
     case Pure(n) => n
     case Join(_, _, l, r, _, _) => ProductNode(Seq(narrowStructure(l), narrowStructure(r)))
-    case GroupBy(_, _, from, by) => ProductNode(Seq(narrowStructure(by), narrowStructure(from)))
+    case GroupBy(_, from, by) => ProductNode(Seq(narrowStructure(by), narrowStructure(from)))
     case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
     case FilteredQuery(_, from) => narrowStructure(from)
     case Bind(_, _, select) => narrowStructure(select)

@@ -1,7 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.ResultSetInvoker
-import scala.slick.lifted.TypeMapperDelegate
+import scala.slick.jdbc.{ResultSetInvoker, JdbcType}
 
 /**
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getUDTs().
@@ -9,7 +8,7 @@ import scala.slick.lifted.TypeMapperDelegate
 case class MUDT(
   typeName: MQName, className: String, sqlType: Int, remarks: String, baseType: Option[Short]) {
 
-  def sqlTypeName = TypeMapperDelegate.typeNames.get(sqlType)
+  def sqlTypeName = JdbcType.typeNames.get(sqlType)
   def getAttributes(attributeNamePattern: String = "%") =
     MAttribute.getAttributes(typeName, attributeNamePattern)
 }

@@ -16,8 +16,6 @@ trait Aliases {
   val Functions = lifted.Functions
   type Parameters[PU, PP] = lifted.Parameters[PU, PP]
   val Parameters = lifted.Parameters
-  type Sequence[T] = lifted.Sequence[T]
-  val Sequence = lifted.Sequence
   type SimpleFunction = lifted.SimpleFunction
   val SimpleFunction = lifted.SimpleFunction
   type SimpleBinaryOperator = lifted.SimpleBinaryOperator
@@ -26,11 +24,5 @@ trait Aliases {
   val SimpleExpression = lifted.SimpleExpression
   type SimpleLiteral = lifted.SimpleLiteral
   val SimpleLiteral = lifted.SimpleLiteral
-  type TypeMapper[T] = lifted.TypeMapper[T]
-  val TypeMapper = lifted.TypeMapper
-  type TypeMapperDelegate[T] = lifted.TypeMapperDelegate[T]
-  val TypeMapperDelegate = lifted.TypeMapperDelegate
-  type MappedTypeMapper[T, U] = lifted.MappedTypeMapper[T, U]
-  val MappedTypeMapper = lifted.MappedTypeMapper
   val ~ = lifted.~
 }

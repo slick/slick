@@ -5,6 +5,8 @@ import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.CompilerState
 
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -14,7 +16,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCurr]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
  *     <code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported by Hsqldb. Trying to generate SQL code which uses this
  *     feature throws a SlickException.</li>
@@ -22,23 +24,23 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * 
  * @author szeiger
  */
-trait HsqldbDriver extends ExtendedDriver { driver =>
+trait HsqldbDriver extends JdbcDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.sequenceCurr
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - SqlProfile.capabilities.sequenceCurr
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override val columnTypes = new JdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) with OracleStyleRowNum {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) with OracleStyleRowNum {
     override protected val scalarFrom = Some("(VALUES (0))")
     override protected val concatOperator = Some("||")
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case c @ ConstColumn(v: String) if (v ne null) && c.typeMapper(driver).sqlType != Types.CHAR =>
+      case l @ LiteralNode(v: String) if (v ne null) && typeInfoFor(l.tpe).sqlType != Types.CHAR =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
          * spaces in some expressions, so we cast all string literals to
          * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave
@@ -62,11 +64,11 @@ trait HsqldbDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val byteArrayTypeMapperDelegate = new ByteArrayTypeMapperDelegate {
+  class JdbcTypes extends super.JdbcTypes {
+    override val byteArrayJdbcType = new ByteArrayJdbcType {
       override val sqlTypeName = "LONGVARBINARY"
     }
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
+    override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName = "BINARY(16)"
     }

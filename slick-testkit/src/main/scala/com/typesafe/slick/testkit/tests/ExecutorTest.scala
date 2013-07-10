@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class ExecutorTest(val tdb: TestDB) extends TestkitTest {
+class ExecutorTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   def test {
@@ -25,6 +25,8 @@ class ExecutorTest(val tdb: TestDB) extends TestkitTest {
     val r2 = q.run
     val r2t: Seq[Int] = r2
     assertEquals(List(1, 2, 3, 4, 5), r2t)
+
+    assertTrue(q.executor.selectStatement.length > 0)
 
     val r3 = q.length.run
     val r3t: Int = r3

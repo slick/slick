@@ -1,20 +1,19 @@
 package scala.slick.lifted
 
-import scala.slick.driver.BasicProfile
-import scala.slick.session.{PositionedResult, PositionedParameters}
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 
-abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with ColumnBase[T] with NullaryNode with WithOp {
+abstract class AbstractTable[T](val schemaName: Option[String], val tableName: String) extends TableNode with TypedNode with ColumnBase[T] with WithOp {
 
   def * : ColumnBase[T]
-  def nodeShaped_* : ShapedValue[_, _] = ShapedValue(*, implicitly[Shape[ColumnBase[T], _, _]])
+  def nodeTableProjection: Node = Node(*)
 
-  def create_* : Iterable[FieldSymbol] = {
-    Node(*).collect {
+  def create_* : Iterable[FieldSymbol] = collectFieldSymbols(Node(*))
+
+  protected[this] def collectFieldSymbols(n: Node): Iterable[FieldSymbol] =
+    n.collect {
       case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == this => f
     }.toSeq.distinct
-  }
 
   def foreignKey[P, PU, TT <: TableNode, U]
       (name: String, sourceColumns: P, targetTable: TT)
@@ -23,13 +22,13 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
     val q = Query[TT, U, TT](targetTable)(Shape.tableShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
     val aliased = q.unpackable.encodeRef(generator)
-    val fv = Library.==(Node(targetColumns(aliased.value)), Node(sourceColumns))
+    val fv = Library.==.typed[Boolean](Node(targetColumns(aliased.value)), Node(sourceColumns))
     val fk = ForeignKey(name, this, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
-    new ForeignKeyQuery[TT, U](Filter(generator, Node(q), fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
+    new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, Node(q), fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
-  def primaryKey[T](name: String, sourceColumns: T)(implicit unpack: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, unpack.linearizer(sourceColumns).narrowedLinearizer.getLinearizedNodes)
+  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(Node(shape.pack(sourceColumns))))
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
@@ -43,34 +42,12 @@ abstract class AbstractTable[T](val schemaName: Option[String], val tableName: S
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
 
-  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, shape.linearizer(on).narrowedLinearizer.getLinearizedNodes, unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(Node(shape.pack(on))), unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index])
-
-  def getLinearizedNodes = *.getLinearizedNodes
-  def getResult(profile: BasicProfile, rs: PositionedResult) = *.getResult(profile, rs)
-  def updateResult(profile: BasicProfile, rs: PositionedResult, value: T) = *.updateResult(profile, rs, value)
-  def setParameter(profile: BasicProfile, ps: PositionedParameters, value: Option[T]) = *.setParameter(profile, ps, value)
-}
-
-object Join {
-  @deprecated("Use a tuple extractor instead", "0.10.0-M2")
-  def unapply[T1, T2](t: (T1, T2)) = Some(t)
-
-  @deprecated("Use JoinType.Inner instead", "0.10.0-M2")
-  val Inner = JoinType.Inner
-
-  @deprecated("Use JoinType.Left instead", "0.10.0-M2")
-  val Left = JoinType.Left
-
-  @deprecated("Use JoinType.Right instead", "0.10.0-M2")
-  val Right = JoinType.Right
-
-  @deprecated("Use JoinType.Outer instead", "0.10.0-M2")
-  val Outer = JoinType.Outer
 }
 
 trait NothingContainer {

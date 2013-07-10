@@ -9,13 +9,47 @@ object SlickBuild extends Build {
   /* Custom Settings */
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
+  val publishedScalaSettings = Seq(
+    scalaVersion := "2.10.1",
+    scalaBinaryVersion <<= scalaVersion,
+    //crossScalaVersions ++= "2.10.0-M4" :: Nil,
+    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
+  )
+
+  def localScalaSettings(path: String): Seq[Setting[_]] = Seq(
+    scalaVersion := "2.10.0-unknown",
+    scalaBinaryVersion := "2.10.0-unknown",
+    crossVersion := CrossVersion.Disabled,
+    scalaHome := Some(file(path)),
+    autoScalaLibrary := false,
+    unmanagedJars <<= scalaInstance.map( _.jars.classpath),
+    unmanagedJars in config("test") <<= scalaInstance.map( _.jars.classpath),
+    unmanagedJars in config("macro") <<= scalaInstance.map( _.jars.classpath)
+  )
+
+  val scalaSettings = {
+    sys.props("scala.home.local") match {
+      case null => publishedScalaSettings
+      case path =>
+        scala.Console.err.println("Using local scala at " + path)
+        localScalaSettings(path)
+    }
+  }
+
+  def extTarget(extName: String, t: Option[String]): Seq[Setting[File]] = {
+    sys.props("slick.build.target") match {
+      case null => t.map(f => Seq(target := file(f))).getOrElse(Seq.empty)
+      case path => Seq(target := file(path + "/" + extName))
+    }
+  }
+
   lazy val sharedSettings = Seq(
+    version := "2.0.0-M1",
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
     scalacOptions ++= List("-deprecation", "-feature"),
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",
-    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional"),
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     //publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)))),
@@ -51,22 +85,21 @@ object SlickBuild extends Build {
         </scm>,
     // Work around scaladoc problem
     unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
-  )
+  ) ++ scalaSettings
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
-    settings = Project.defaultSettings ++ sharedSettings ++ Seq(
-      target := file("target/root"),
+    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
       test := (),
       testOnly <<= inputTask { argTask => (argTask) map { args => }}
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ inConfig(config("macro"))(Defaults.configSettings) ++ Seq(
+    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ extTarget("slick", None) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
-      scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
+      scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (),
       testOnly <<= inputTask { argTask => (argTask) map { args => }},
       ivyConfigurations += config("macro").hide.extend(Compile),
@@ -76,10 +109,10 @@ object SlickBuild extends Build {
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
     ))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ sharedSettings ++ Seq(
+    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
-      scalacOptions in doc <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
+      scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test"),
@@ -87,14 +120,14 @@ object SlickBuild extends Build {
         // TestKit needs JUnit for its Runner
         "junit" % "junit-dep" % "4.10",
         // The Slick core tests need junit-interface, logback and the DB drivers
-        "com.novocode" % "junit-interface" % "0.10-M1" % "test",
+        "com.novocode" % "junit-interface" % "0.10-M4" % "test",
         "ch.qos.logback" % "logback-classic" % "0.9.28" % "test",
-        "com.h2database" % "h2" % "1.3.166" % "test",
+        "com.h2database" % "h2" % "1.3.170" % "test",
         "org.xerial" % "sqlite-jdbc" % "3.7.2" % "test",
         "org.apache.derby" % "derby" % "10.9.1.0" % "test",
         "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
-        "mysql" % "mysql-connector-java" % "5.1.13" % "test",
+        "mysql" % "mysql-connector-java" % "5.1.23" % "test",
         "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test"
       ),
       // Run the Queryable tests (which need macros) on a forked JVM

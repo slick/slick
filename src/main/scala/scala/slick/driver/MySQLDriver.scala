@@ -6,6 +6,8 @@ import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.CompilerState
 
 /**
  * Slick driver for MySQL.
@@ -14,10 +16,10 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceLimited]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceLimited]]:
  *     Non-cyclic sequence may not have an upper limit.</li>
  * </ul>
  *
@@ -28,28 +30,36 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 
  * @author szeiger
  */
-trait MySQLDriver extends ExtendedDriver { driver =>
+trait MySQLDriver extends JdbcDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.sequenceLimited
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.sequenceLimited
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
+  override val columnTypes = new JdbcTypes
 
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
 
-    case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode
-    case class RowNumGen(sym: AnonSymbol) extends NullaryNode
+    final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
+      type Self = RowNum
+      def tpe = ScalaBaseType.longType
+      def nodeRebuild = copy()
+    }
+    final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
+      type Self = RowNumGen
+      def tpe = ScalaBaseType.longType
+      def nodeRebuild = copy()
+    }
 
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
@@ -73,8 +83,8 @@ trait MySQLDriver extends ExtendedDriver { driver =>
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case a @ Library.Cast(ch) =>
-        val tm = a.asInstanceOf[Typed].tpe.asInstanceOf[TypeMapper[_]].apply(driver)
-        val tn = if(tm == typeMapperDelegates.stringTypeMapperDelegate) "VARCHAR" else tm.sqlTypeName
+        val ti = typeInfoFor(a.asInstanceOf[Typed].tpe)
+        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName
         b"{fn convert(!${ch},$tn)}"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
@@ -111,6 +121,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     override protected def appendOptions(sb: StringBuilder) {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(notNull) sb append " NOT NULL"
+      else if(sqlType.toUpperCase == "TIMESTAMP") sb append " NULL"
       if(autoIncrement) sb append " AUTO_INCREMENT"
       if(primaryKey) sb append " PRIMARY KEY"
     }
@@ -119,7 +130,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
   class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       import seq.integral._
-      val sqlType = seq.typeMapper(driver).sqlTypeName
+      val sqlType = driver.typeInfoFor(seq.tpe).sqlTypeName
       val t = sqlType + " not null"
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero
@@ -151,8 +162,8 @@ trait MySQLDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val stringTypeMapperDelegate = new StringTypeMapperDelegate {
+  class JdbcTypes extends super.JdbcTypes {
+    override val stringJdbcType = new StringJdbcType {
       override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
         val sb = new StringBuilder
         sb append '\''
@@ -173,7 +184,7 @@ trait MySQLDriver extends ExtendedDriver { driver =>
       }
     }
 
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate {
+    override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName = "BINARY(16)"
     }

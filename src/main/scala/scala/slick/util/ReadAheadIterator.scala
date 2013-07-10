@@ -23,9 +23,6 @@ trait ReadAheadIterator[+T] extends BufferedIterator[T] {
     else throw new NoSuchElementException("head on empty iterator")
   }
 
-  @deprecated("Use headOption instead of peek()", "0.10.0-M2")
-  def peek(): Option[T] = headOption
-
   def headOption: Option[T] = {
     update()
     if(state == 1) Some(cached)

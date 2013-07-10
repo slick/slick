@@ -3,9 +3,9 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import scala.slick.ast._
 import scala.slick.ast.Util._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class MapperTest(val tdb: TestDB) extends TestkitTest {
+class MapperTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
@@ -89,7 +89,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     case object True extends Bool
     case object False extends Bool
 
-    implicit val boolTypeMapper = MappedTypeMapper.base[Bool, Int](
+    implicit val boolTypeMapper = MappedColumnType.base[Bool, Int](
       { b =>
         assertNotNull(b)
         if(b == True) 1 else 0
@@ -118,7 +118,7 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
     case object True extends Bool
     case object False extends Bool
 
-    implicit val boolTypeMapper = MappedTypeMapper.base[Bool, String](
+    implicit val boolTypeMapper = MappedColumnType.base[Bool, String](
       { b =>
         assertNotNull(b)
         if(b == True) "y" else "n"
@@ -211,6 +211,35 @@ class MapperTest(val tdb: TestDB) extends TestkitTest {
       Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
     }
     assertEquals(oData, i2.first)
+  }
+
+  def testMappedJoin {
+    case class A(id: Int, value: Int)
+    case class B(id: Int, value: Option[String])
+
+    object As extends Table[A]("t4_a") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def data = column[Int]("data")
+      def * = id ~ data <> (A, A.unapply _)
+    }
+    object Bs extends Table[B]("t5_b") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def data = column[String]("data")
+      def * = id ~ data.? <> (B, B.unapply _)
+    }
+
+    (As.ddl ++ Bs.ddl).create
+    As.data.insertAll(1, 2)
+    Bs.data.insertAll("a", "b")
+
+    val q = for {
+      a <- As if a.data === 2
+      b <- Bs if b.id === a.id
+    } yield (a, b)
+
+    val r = q.run.toList
+    val r2: List[(A, B)] = r
+    assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
   }
 
   /*

@@ -1,16 +1,16 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.jdbc.StaticQuery._
-import scala.slick.ast._
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
-class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
+class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
 
   val doRun = true
 
-  def test {
+  override val reuseInstance = true
+
+  def testNewComposition {
 
     object SuppliersStd extends Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
       def id = column[Int]("SUP_ID", O.PrimaryKey) // This is the primary key column
@@ -57,11 +57,11 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
 
     (SuppliersStd.ddl ++ CoffeesStd.ddl).create
 
-    SuppliersStd.insert(101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
-    SuppliersStd.insert( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
-    SuppliersStd.insert(150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
+    SuppliersStd += (101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
+    SuppliersStd += ( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
+    SuppliersStd += (150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
 
-    CoffeesStd.insertAll(
+    CoffeesStd ++= Seq(
       ("Colombian",         101, 799, 1, 0),
       ("French_Roast",       49, 799, 2, 0),
       ("Espresso",          150, 999, 3, 0),
@@ -69,34 +69,15 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       ("French_Roast_Decaf", 49, 999, 5, 0)
     )
 
-    def q(s: String) = tdb.driver.quoteIdentifier(s)
-    val l1 = queryNA[String]("select c."+q("COF_NAME")+" from "+q("COFFEES")+" c").list
-    println("l1: "+l1)
-    assertEquals(5, l1.length)
-    val l2 = queryNA[String]("select c."+q("COF_NAME")+" from "+q("COFFEES")+" c, "+q("SUPPLIERS")+" s").list
-    println("l2: "+l2)
-    assertEquals(15, l2.length)
-
-    def show(name: String, g: Query[_,_]) {
-      val n = Node(g)
+    def show(name: String, g: Query[_,_]) =
       println("=========================================== "+name)
-      //n.dump("source: ")
-      //println
-      //val n2 = Optimizer(n)
-      //n2.dump("optimized: ")
-      //println
-      //val n3 = Relational(n2)
-      //n3.dump("relational: ")
-      //println
-      //println("SQL: "+g.selectStatement)
-    }
 
     val qa = for {
       c <- Coffees.take(3)
     } yield (c.supID, (c.name, 42))
     show("qa", qa)
     if(doRun) {
-      val ra = qa.to[Set]
+      val ra = qa.run.toSet
       println("ra: "+ra)
       assertEquals(3, ra.size)
       // No sorting, so result contents can vary
@@ -106,7 +87,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     val qb = qa.take(2).map(_._2)
     show("qb", qb)
     if(doRun) {
-      val rb = qb.to[Set]
+      val rb = qb.run.toSet
       println("rb: "+rb)
       assertEquals(2, rb.size)
       // No sorting, so result contents can vary
@@ -116,7 +97,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     val qb2 = qa.map(n => n).take(2).map(_._2)
     show("qb2", qb2)
     if(doRun) {
-      val rb2 = qb2.to[Set]
+      val rb2 = qb2.run.toSet
       println("rb2: "+rb2)
       assertEquals(2, rb2.size)
       // No sorting, so result contents can vary
@@ -126,7 +107,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     val qc = qa.map(_._2).take(2)
     show("qc", qc)
     if(doRun) {
-      val rc = qc.to[Set]
+      val rc = qc.run.toSet
       println("rc: "+rc)
       assertEquals(2, rc.size)
       // No sorting, so result contents can vary
@@ -136,7 +117,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     val q0 = Query(Coffees)
     show("q0: Plain table", q0)
     if(doRun) {
-      val r0 = q0.to[Set]
+      val r0 = q0.run.toSet
       println("r0: "+r0)
       val r0e = Set(
         ("Colombian",         101, 799, 1, 0),
@@ -154,7 +135,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield (c.name ~ (s.city ++ ":"), c, s, c.totalComputed)
     show("q1: Plain implicit join", q1)
     if(doRun) {
-      val r1 = q1.to[Set]
+      val r1 = q1.run.toSet
       println("r1: "+r1)
       val r1e = Set(
         (("Colombian","Groundsville:"),("Colombian",101,799,1,0),(101,"Acme, Inc.","99 Market Street"),799),
@@ -167,7 +148,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(r1e, r1)
     }
 
-    ifCap(bcap.pagingNested) {
+    ifCap(rcap.pagingNested) {
       val q1b_0 = Coffees.sortBy(_.price).take(3) join Suppliers on (_.supID === _.id)
       val q1b = for {
         (c, s) <- q1b_0.sortBy(_._1.price).take(2).filter(_._1.name =!= "Colombian")
@@ -175,7 +156,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       } yield c.name ~ s.city ~ c2.name
       show("q1b: Explicit join with condition", q1b)
       if(doRun) {
-        val r1b = q1b.to[Set]
+        val r1b = q1b.run.toSet
         println("r1b: "+r1b)
         val r1be = Set(
           ("French_Roast","Mendocino","Colombian"),
@@ -192,7 +173,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield c._1 ~ s.name
     show("q2: More elaborate query", q2)
     if(doRun) {
-      val r2 = q2.to[Set]
+      val r2 = q2.run.toSet
       println("r2: "+r2)
       val r2e = Set(
         ("Colombian","Acme, Inc."),
@@ -212,7 +193,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
     show("q3: Lifting scalar values", q3)
     if(doRun) {
-      val r3 = q3.to[Set]
+      val r3 = q3.run.toSet
       println("r3: "+r3)
       val r3e = Set(("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396))
       assertEquals(r3e, r3)
@@ -228,7 +209,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
     show("q3b: Lifting scalar values, with extra tuple", q3b)
     if(doRun) {
-      val r3b = q3b.to[Set]
+      val r3b = q3b.run.toSet
       println("r3b: "+r3b)
       val r3be = Set(
         ("Colombian","Acme, Inc.","Colombian",0,799,42),
@@ -238,13 +219,13 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
       assertEquals(r3be, r3b)
     }
 
-    ifCap(bcap.pagingNested) {
+    ifCap(rcap.pagingNested) {
       val q4 = for {
         c <- Coffees.map(c => (c.name, c.price, 42)).sortBy(_._1).take(2).filter(_._2 < 800)
       } yield c._1 ~ c._3
       show("q4: Map to tuple, then filter", q4)
       if(doRun) {
-        val r4 = q4.to[Set]
+        val r4 = q4.run.toSet
         println("r4: "+r4)
         val r4e = Set(("Colombian",42))
         assertEquals(r4e, r4)
@@ -258,7 +239,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield (c,d)
     show("q4b: Map to tuple, then filter, with self-join", q4b)
     if(doRun) {
-      val r4b = q4b.to[Set]
+      val r4b = q4b.run.toSet
       println("r4b: "+r4b)
       val r4be = Set(
         (("Colombian",799,42),("Colombian",799,42)),
@@ -276,7 +257,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield (c1, c2)
     show("q5: Implicit self-join", q5)
     if(doRun) {
-      val r5 = q5.to[Set]
+      val r5 = q5.run.toSet
       println("r5: "+r5)
       val r5e = Set(
         (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
@@ -292,7 +273,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield (t._1, t._2)
     show("q5b: Explicit self-join with condition", q5b)
     if(doRun) {
-      val r5b = q5b.to[Set]
+      val r5b = q5b.run.toSet
       println("r5b: "+r5b)
       val r5be = Set(
         (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
@@ -304,7 +285,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     val q6 = Coffees.flatMap(c => Query(Suppliers))
     show("q6: Unused outer query result, unbound TableQuery", q6)
     if(doRun) {
-      val r6 = q6.to[Set]
+      val r6 = q6.run.toSet
       println("r6: "+r6)
       val r6e = Set(
         (101,"Acme, Inc.","99 Market Street"),
@@ -319,7 +300,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield c.name ~ c.supID ~ c.total
     show("q7a: Simple union", q7a)
     if(doRun) {
-      val r7a = q7a.to[Set]
+      val r7a = q7a.run.toSet
       println("r7a: "+r7a)
       val r7ae = Set(
         ("Colombian",101,0),
@@ -335,7 +316,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield c._1.name ~ c._1.supID ~ c._2
     show("q7: Union", q7)
     if(doRun) {
-      val r7 = q7.to[Set]
+      val r7 = q7.run.toSet
       println("r7: "+r7)
       val r7e = Set(
         ("Colombian",101,1),
@@ -351,7 +332,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield c._1.name ~ c._1.supID ~ c._2
     show("q71: Transitive push-down without union", q71)
     if(doRun) {
-      val r71 = q71.to[Set]
+      val r71 = q71.run.toSet
       println("r71: "+r71)
       val r71e = Set(
         ("Colombian",101,1),
@@ -363,7 +344,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     val q7b = q7 where (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)
     if(doRun) {
-      val r7b = q7b.to[Set]
+      val r7b = q7b.run.toSet
       println("r7b: "+r7b)
       val r7be = Set(
         ("French_Roast",49,1),
@@ -378,7 +359,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield (c1.name, c2.name.?)
     show("q8: Outer join", q8)
     if(doRun) {
-      val r8 = q8.to[Set]
+      val r8 = q8.run.toSet
       println("r8: "+r8)
       val r8e = Set(
         ("Colombian",Some("Colombian")),
@@ -393,7 +374,7 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     } yield (t._1, t._2)
     show("q8b: Nested outer joins", q8b)
     if(doRun) {
-      val r8b = q8b.to[Set]
+      val r8b = q8b.run.toSet
       println("r8b: "+r8b)
       val r8be = Set(
         ((("Colombian",101,799,1,0),("Colombian",101,799,1,0)),("Colombian",101,799,1,0)),
@@ -403,7 +384,52 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
     }
 
     (SuppliersStd.ddl ++ CoffeesStd.ddl).drop
-    (SuppliersStd.ddl ++ CoffeesStd.ddl).dropStatements.foreach(s => println("drop: "+s))
+  }
+
+  def testOldComposition {
+    object Users extends Table[(Int, String, String)]("users") {
+      def id = column[Int]("id")
+      def first = column[String]("first")
+      def last = column[String]("last")
+      def * = id ~ first ~ last
+    }
+
+    object Orders extends Table[(Int, Int)]("orders") {
+      def userID = column[Int]("userID")
+      def orderID = column[Int]("orderID")
+      def * = userID ~ orderID
+    }
+
+    val q2 = for {
+      u <- Users.sortBy(u => (u.first, u.last.desc))
+      o <- Orders where {
+        o => (u.id is o.userID) && (u.first.isNotNull)
+      }
+    } yield u.first ~ u.last ~ o.orderID
+
+    (Users.ddl ++ Orders.ddl).create
+
+    val q3 = for (u <- Users where (_.id is 42)) yield u.first ~ u.last
+    q3.run
+
+    val q4 = (for {
+      (u, o) <- Users innerJoin Orders on (_.id is _.userID)
+    } yield (u.last, u.first ~ o.orderID)).sortBy(_._1).map(_._2)
+    q4.run
+
+    val q6a =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
+    q6a.run
+
+    val q6b =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
+    q6b.run
+
+    val q6c =
+      (for (o <- Orders if o.orderID === (for {o2 <- Orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
+    q6c.run
+
+    (Users.ddl ++ Orders.ddl).drop
   }
 
   def testAdvancedFusion {
@@ -432,5 +458,24 @@ class NewQuerySemanticsTest(val tdb: TestDB) extends TestkitTest {
 
     (TableA.ddl ++ TableB.ddl ++ TableC.ddl).create
     queryErr2.run
+  }
+
+  def testSubquery {
+    object A extends Table[Int]("A_subquery") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    A.ddl.create
+    A += 42
+
+    val q0 = Query(A).filter(_.id === 42.bind).length
+    val r0 = q0.run
+    assertEquals(1, r0)
+
+    val q1 = Parameters[Int].flatMap { n =>
+      Query(A).filter(_.id is n).map(a => Query(a).length)
+    }
+    val r1 = q1(42).run
+    assertEquals(List(1), r1)
   }
 }

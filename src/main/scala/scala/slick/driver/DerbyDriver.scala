@@ -3,7 +3,10 @@ package scala.slick.driver
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
+import slick.compiler.CompilerState
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -12,24 +15,24 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  * ''without'' the following capabilities:
  *
  * <ul>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.functionDatabase]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]]:
  *     <code>Functions.database</code> is not available in Derby. Slick
  *     will return an empty string instead.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.pagingNested]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.pagingNested]]:
  *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
  *     target="_parent">DERBY-5911</a>.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.returnInsertOther]]:
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCurr]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
  *     <code>Sequence.curr</code> to get the current value of a sequence is
  *     not supported by Derby. Trying to generate SQL code which uses this
  *     feature throws a SlickException.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.sequenceCycle]]:
+ *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
  *     Sequence cycling is supported but does not conform to SQL:2008
  *     semantics. Derby cycles back to the START value instead of MINVALUE or
  *     MAXVALUE.</li>
- *   <li>[[scala.slick.driver.BasicProfile.capabilities.zip]]:
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.zip]]:
  *     Ordered sub-queries and window functions with orderings are currently
  *     not supported by Derby. These are required by <code>zip</code> and
  *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
@@ -42,51 +45,61 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
  *
  * @author szeiger
  */
-trait DerbyDriver extends ExtendedDriver { driver =>
+trait DerbyDriver extends JdbcDriver { driver =>
 
-  override val capabilities: Set[Capability] = (BasicProfile.capabilities.all
-    - BasicProfile.capabilities.functionDatabase
-    - BasicProfile.capabilities.pagingNested
-    - BasicProfile.capabilities.returnInsertOther
-    - BasicProfile.capabilities.sequenceCurr
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - RelationalProfile.capabilities.functionDatabase
+    - RelationalProfile.capabilities.pagingNested
+    - JdbcProfile.capabilities.returnInsertOther
+    - SqlProfile.capabilities.sequenceCurr
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
-    - BasicProfile.capabilities.sequenceCycle
-    - BasicProfile.capabilities.zip
+    - SqlProfile.capabilities.sequenceCycle
+    - RelationalProfile.capabilities.zip
   )
 
-  override val typeMapperDelegates = new TypeMapperDelegates
-  override def createQueryBuilder(input: QueryBuilderInput): QueryBuilder = new QueryBuilder(input)
+  override val columnTypes = new JdbcTypes
+  override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  override def defaultSqlTypeName(tmd: TypeMapperDelegate[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "SMALLINT"
     /* Derby does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  class QueryBuilder(input: QueryBuilderInput) extends super.QueryBuilder(input) {
-
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
     override protected val useIntForBoolean = true
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case Library.IfNull(l, r) => r match {
+      case a @ Library.Cast(ch @ _*) =>
+        /* Work around DERBY-2072 by casting numeric values first to CHAR and
+         * then to VARCHAR. */
+        val (toVarchar, tn) = {
+          val tn =
+            (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
+            else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName).toLowerCase
+          if(tn == "varchar") (true, columnTypes.stringJdbcType.sqlTypeName)
+          else if(tn.startsWith("varchar")) (true, tn)
+          else (false, tn)
+        }
+        if(toVarchar && typeInfoFor(ch(0).nodeType).isInstanceOf[NumericTypedType])
+          b"trim(cast(cast(${ch(0)} as char(30)) as $tn))"
+        else b"cast(${ch(0)} as $tn)"
+      case Library.IfNull(l, r) =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
-        case c: Column[_] =>
-          b"coalesce(cast($l as ${c.typeMapper(driver).sqlTypeName}),!$r)"
-        case _ => throw new SlickException("Cannot determine type of right-hand side for ifNull")
-      }
-      case c @ BindColumn(v) if currentPart == SelectPart =>
+        b"coalesce(cast($l as ${typeInfoFor(c.nodeType).sqlTypeName}),!$r)"
+      case c @ LiteralNode(v) if c.volatileHint && currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
          * explicit type annotation (in the form of a CAST expression). */
-        val tmd = c.typeMapper(profile)
+        val tmd = typeInfoFor(c.tpe)
         b"cast("
         b +?= { (p, param) => tmd.setValue(v, p) }
         b" as ${tmd.sqlTypeName})"
@@ -141,17 +154,17 @@ trait DerbyDriver extends ExtendedDriver { driver =>
     }
   }
 
-  class TypeMapperDelegates extends super.TypeMapperDelegates {
-    override val booleanTypeMapperDelegate = new BooleanTypeMapperDelegate
-    override val uuidTypeMapperDelegate = new UUIDTypeMapperDelegate
+  class JdbcTypes extends super.JdbcTypes {
+    override val booleanJdbcType = new BooleanJdbcType
+    override val uuidJdbcType = new UUIDJdbcType
 
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */
-    class BooleanTypeMapperDelegate extends super.BooleanTypeMapperDelegate {
+    class BooleanJdbcType extends super.BooleanJdbcType {
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
 
-    class UUIDTypeMapperDelegate extends super.UUIDTypeMapperDelegate {
+    class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName = "CHAR(16) FOR BIT DATA"
     }

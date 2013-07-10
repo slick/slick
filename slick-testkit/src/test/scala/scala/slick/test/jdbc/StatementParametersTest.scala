@@ -2,19 +2,19 @@ package scala.slick.test.jdbc
 
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.session._
 import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.TestDB
+import com.typesafe.slick.testkit.util.JdbcTestDB
+import scala.slick.jdbc.{ResultSetType, ResultSetHoldability, ResultSetConcurrency}
 
 object StatementParametersTest extends DBTestObject(H2Mem)
 
-class StatementParametersTest(val tdb: TestDB) extends DBTest {
-  import tdb.profile.Implicit._
+class StatementParametersTest(val tdb: JdbcTestDB) extends DBTest {
+  import tdb.profile.simple._
 
   @Test def testExplicit() {
     println("*** Explicit ***")
-    db withSession { s1:Session =>
+    db withSession { s1 =>
       pr("start")(s1)
       ResultSetType.ScrollInsensitive(s1) { s2 =>
         pr("in ScrollInsensitive block")(s2)
@@ -32,8 +32,9 @@ class StatementParametersTest(val tdb: TestDB) extends DBTest {
 
   @Test def testImplicit() {
     println("*** Implicit ***")
-    import Database.threadLocalSession
-    db withSession {
+    import Database.dynamicSession
+
+    db withDynSession {
       pr("start")
       check(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)
       ResultSetType.ScrollInsensitive {

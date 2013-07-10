@@ -1,18 +1,17 @@
 package scala.slick.jdbc
 
 import scala.slick.SlickException
-import scala.slick.session._
 
 trait MutatingInvoker[-P,R] extends Invoker[P,R] { self =>
   /**
    * Transform a query's results with an updatable result set.
    */
-  def mutate(param: P, f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: Session): Unit
+  def mutate(param: P, f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: JdbcBackend#Session): Unit
 
   /**
    * Transform a query's results with an updatable result set.
    */
-  final def mutate(param: P)(f: ResultSetMutator[R] => Unit)(implicit session: Session): Unit = mutate(param, f, null)(session)
+  final def mutate(param: P)(f: ResultSetMutator[R] => Unit)(implicit session: JdbcBackend#Session): Unit = mutate(param, f, null)(session)
 
   override def apply(parameter: P): MutatingUnitInvoker[R] = new AppliedInvoker[P,R] with MutatingUnitInvoker[R] {
     protected val appliedParameter = parameter
@@ -23,10 +22,10 @@ trait MutatingInvoker[-P,R] extends Invoker[P,R] { self =>
 trait MutatingUnitInvoker[R] extends UnitInvoker[R] {
   override protected val delegate: MutatingInvoker[Param, R]
 
-  def mutate(f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: Session): Unit =
+  def mutate(f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: JdbcBackend#Session): Unit =
     delegate.mutate(appliedParameter, f, end)(session)
 
-  final def mutate(f: ResultSetMutator[R] => Unit)(implicit session: Session): Unit = mutate(f, null)(session)
+  final def mutate(f: ResultSetMutator[R] => Unit)(implicit session: JdbcBackend#Session): Unit = mutate(f, null)(session)
 }
 
 trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with MutatingInvoker[P,R] {
@@ -36,7 +35,7 @@ trait MutatingStatementInvoker[-P,R] extends StatementInvoker[P,R] with Mutating
   protected val mutateType: ResultSetType = ResultSetType.Auto
   protected val previousAfterDelete = false
 
-  def mutate(param: P, f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: Session): Unit =
+  def mutate(param: P, f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: JdbcBackend#Session): Unit =
     session.withTransaction {
       /* Hsqldb forces ResultSets to be read-only in auto-commit mode, so we
        * use an explicit transaction. It shouldn't hurt other databases. */

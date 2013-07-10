@@ -3,14 +3,13 @@ package com.typesafe.slick.testkit.tests
 import scala.collection.mutable.ArrayBuffer
 import org.junit.Assert._
 import scala.slick.util.CloseableIterator
-import com.typesafe.slick.testkit.util.{TestkitTest, TestDB}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class InvokerTest(val tdb: TestDB) extends TestkitTest {
+class InvokerTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def testCollections {
     object T extends Table[Int]("t") {
       def a = column[Int]("a")
@@ -20,10 +19,7 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
     T.ddl.create
     T.insertAll(2, 3, 1, 5, 4)
 
-    val q = for {
-      t <- T
-      _ <- Query orderBy t.a
-    } yield t.a
+    val q = T.map(_.a).sorted
 
     val r1 = q.list
     val r1t: List[Int] = r1
@@ -73,17 +69,13 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
     assertEquals(Map(1 -> "a", 2 -> "b", 3 -> "c"), r1)
   }
 
-  @deprecated("Testing deprecated method Query.orderBy", "0.10.0-M2")
   def testLazy = if(tdb.isShared) {
     object T extends Table[Int]("t3") {
       def a = column[Int]("a")
       def * = a
     }
 
-    val q = for {
-      t <- T
-      _ <- Query orderBy t.a
-    } yield t
+    val q = Query(T).sortBy(_.a)
 
     def setUp(session: Session) {
       T.ddl.create(session)
@@ -104,7 +96,7 @@ class InvokerTest(val tdb: TestDB) extends TestkitTest {
     val it = f()
     it.use { assertEquals((1 to 1000).toList, it.toStream.toList) }
     assertFail(g())
-    db.withSession { s: Session => T.ddl.drop(s) }
+    db.withSession(T.ddl.drop(_))
     val it2 = f()
     it2.use { assertEquals((1 to 1000).toList, it2.toStream.toList) }
   }
