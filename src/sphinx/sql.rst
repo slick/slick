@@ -19,7 +19,7 @@ imports are different from what you're used to for the
 First of all, there is no *Slick driver* being imported. The JDBC-based APIs
 in Slick depend only on JDBC itself and do not implement any database-specific
 abstractions. All we need for the database connection is ``Database``, plus
-the ``threadLocalSession`` to simplify session handling.
+the ``dynamicSession`` to simplify session handling.
 
 The most important class for *Plain SQL* queries is
 ``scala.slick.jdbc.StaticQuery`` which gets imported as ``Q`` for more
