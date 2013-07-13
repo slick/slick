@@ -8,15 +8,16 @@ class ExecutorTest extends TestkitTest[JdbcTestDB] {
 
   def test {
 
-    object T extends Table[Int]("t") {
+    class T(tag: Tag) extends Table[Int](tag, "t") {
       def a = column[Int]("a")
       def * = a
     }
+    val ts = TableQuery[T]
 
-    T.ddl.create
-    T.insertAll(2, 3, 1, 5, 4)
+    ts.ddl.create
+    ts.insertAll(2, 3, 1, 5, 4)
 
-    val q = T.sortBy(_.a).map(_.a)
+    val q = ts.sortBy(_.a).map(_.a)
 
     val r1 = q.list
     val r1t: List[Int] = r1

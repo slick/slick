@@ -132,9 +132,7 @@ trait SimplyTypedNode extends Node {
 
 object Node extends Logging {
   def apply(o: Any): Node =
-    if(o == null) LiteralNode(null)
-    else if(o.isInstanceOf[WithOp] && (o.asInstanceOf[WithOp].op ne null)) Node(o.asInstanceOf[WithOp].op)
-    else if(o.isInstanceOf[NodeGenerator]) {
+    if(o.isInstanceOf[NodeGenerator]) {
       val gen = o.asInstanceOf[NodeGenerator]
       if(gen.nodeDelegate eq gen) gen.nodeDelegate else Node(gen.nodeDelegate)
     }
@@ -488,10 +486,6 @@ final case class TableRefExpansion(marker: Symbol, ref: Node, columns: Node) ext
 
 /** An expression that selects a field in another expression. */
 final case class Select(in: Node, field: Symbol) extends UnaryNode with RefNode with SimplyTypedNode {
-  if(in.isInstanceOf[TableNode])
-    throw new SlickException("Select(TableNode, \""+field+"\") found. This is "+
-      "typically caused by an attempt to use a \"raw\" table object directly "+
-      "in a query without introducing it through a generator.")
   type Self = Select
   def child = in
   override def nodeChildNames = Seq("in")
@@ -554,26 +548,12 @@ object FwdPath {
   def toString(path: Seq[Symbol]): String = path.mkString("Path ", ".", "")
 }
 
-/** Base class for table nodes. Direct and lifted embedding have different
-  * implementations of this class. */
-abstract class TableNode extends NullaryNode { self =>
+/** A Node representing a database table. */
+final case class TableNode(schemaName: Option[String], tableName: String, tableIdentitySymbol: TableIdentitySymbol, expandOn: Node => Node, driverTable: Any) extends NullaryNode with TypedNode {
   type Self = TableNode
-  def tableIdentitySymbol: TableIdentitySymbol
-  def nodeTableProjection: Node
-  def schemaName: Option[String]
-  def tableName: String
+  def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(tableIdentitySymbol)(NoType))
+  def nodeRebuild = copy()
   override def toString = "Table " + tableName
-  def nodeRebuild: TableNode = new TableNode {
-    def nodeTableProjection = self.nodeTableProjection
-    def schemaName = self.schemaName
-    def tableName = self.tableName
-    def tableIdentitySymbol = self.tableIdentitySymbol
-    def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = this
-  }
-}
-
-object TableNode {
-  def unapply(t: TableNode) = Some(t.tableName)
 }
 
 /** A node that represents an SQL sequence. */
@@ -637,11 +617,11 @@ final case class CompiledStatement(statement: String, extra: Any, tpe: Type) ext
 }
 
 /** A client-side type mapping */
-final case class TypeMapping(val child: Node, val baseType: Type, val toBase: Any => Any, val toMapped: Any => Any) extends UnaryNode with TypedNode { self =>
+final case class TypeMapping(val child: Node, val toBase: Any => Any, val toMapped: Any => Any) extends UnaryNode with SimplyTypedNode { self =>
   type Self = TypeMapping
   def nodeRebuild(ch: Node) = copy(child = ch)
-  lazy val tpe: MappedScalaType = new MappedScalaType(baseType, toBase, toMapped)
   override def toString = "TypeMapping"
+  protected def buildType = new MappedScalaType(child.nodeType, toBase, toMapped)
 }
 
 /** A parameter from a QueryTemplate which gets turned into a bind variable. */

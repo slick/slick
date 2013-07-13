@@ -63,6 +63,7 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
 
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createInsertInvoker[T](insertCompiler.run(Node(c)).tree)
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createInsertInvoker[U](insertCompiler.run(u.packedNode).tree)
+    implicit def queryToInsertInvoker[U](q: Query[_, U]) = createInsertInvoker[U](insertCompiler.run(Node(q)).tree)
 
     // Work-around for SI-3346
     @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)

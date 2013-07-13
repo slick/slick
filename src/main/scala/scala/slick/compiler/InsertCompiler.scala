@@ -5,6 +5,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.slick.SlickException
 import scala.slick.util.SlickLogger
 import org.slf4j.LoggerFactory
+import Util._
 
 /** A custom compiler for INSERT statements. We could reuse the standard
   * phases with a minor modification instead, but this is much faster. */
@@ -23,12 +24,14 @@ trait InsertCompiler extends Phase {
 
     def tr(n: Node): Node = n match {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildren(tr, keepType = true)
-      case t:TableNode => tr(Node(t.nodeTableProjection))
+      case t: TableNode => tr(t.expandOn(t))
       case sel @ Select(Ref(IntrinsicSymbol(t: TableNode)), fs: FieldSymbol) =>
         if(table eq null) table = t
         else if(table ne t) throw new SlickException("Cannot insert into more than one table at once")
         cols += Select(tref, fs).nodeTyped(sel.nodeType)
         Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType)
+      case Bind(gen, t: TableNode, Pure(sel)) =>
+        tr(sel.replace({ case Ref(s) if s == gen => Ref(t.nodeIntrinsicSymbol) }, keepType = true))
       case _ => throw new SlickException("Cannot use node "+n+" for inserting data")
     }
     val tree2 = tr(tree)

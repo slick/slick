@@ -74,10 +74,10 @@ class CreateResultSetMapping extends Phase {
         case StructType(ch) =>
           if(ch.length == 1) f(ch(0)._2) else ProductNode(ch.map { case (_, t) => f(t) })
         case t: MappedScalaType =>
-          TypeMapping(f(t.baseType), t.baseType, t.toBase, t.toMapped)
-        case NominalType(ts) => tables.get(ts) match {
+          TypeMapping(f(t.baseType), t.toBase, t.toMapped)
+        case n @ NominalType(ts) => tables.get(ts) match {
           case Some(n) => f(n.nodeType)
-          case None => f(tpe.structural)
+          case None => f(n.structuralView)
         }
         case t =>
           curIdx += 1

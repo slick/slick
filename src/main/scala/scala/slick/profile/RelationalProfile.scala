@@ -3,8 +3,7 @@ package scala.slick.profile
 import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast._
 import scala.slick.lifted._
-import scala.slick.util.TupleSupport
-import scala.slick.SlickException
+import scala.slick.util.{TupleMethods, TupleSupport}
 import FunctionSymbolExtensionMethods._
 import scala.slick.SlickException
 
@@ -23,11 +22,9 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   trait Implicits extends super.Implicits with ImplicitColumnTypes {
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
-    implicit def tableToQuery[T <: AbstractTable[_]](t: T) = {
-      if(t.op ne null) throw new SlickException("Trying to implicitly lift a single table row to a Query. If this is really what you want, use an explicit Query(...) call instead")
-      Query[T, NothingContainer#TableNothing, T](t)(Shape.tableShape)
-    }
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
+    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: TableQuery[T, U]) =
+      new TableQueryExtensionMethods[T, U](q)
   }
 
   trait SimpleQL extends super.SimpleQL with Implicits {
@@ -36,6 +33,17 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     val Sequence = driver.Sequence
     type ColumnType[T] = driver.ColumnType[T]
     type BaseColumnType[T] = driver.BaseColumnType[T]
+  }
+
+  class TableQueryExtensionMethods[T <: Table[_], U](val q: TableQuery[T, U]) {
+    def ddl: SchemaDescription = buildTableSchemaDescription(q.unpackable.value)
+
+    /** Create a ParameterizedQuery which selects all rows where the specified
+      * key matches the parameter value. */
+    def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P, U] = {
+      import driver.Implicit._
+      Parameters[P].flatMap { p => q.filter(table => Library.==.column[Boolean](Node(f(table)), Node(p))) }
+    }
   }
 }
 
@@ -103,8 +111,10 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
   val columnOptions: ColumnOptions = new AnyRef with ColumnOptions
 
-  abstract class Table[T](_schemaName: Option[String], _tableName: String) extends AbstractTable[T](_schemaName, _tableName) { table =>
-    def this(_tableName: String) = this(None, _tableName)
+  abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTable[T](_tableTag, _schemaName, _tableName) { table =>
+    final type TableElementType = T
+
+    def this(_tableTag: Tag, _tableName: String) = this(_tableTag, None, _tableName)
 
     def tableProvider: RelationalDriver = driver
 
@@ -123,19 +133,6 @@ trait RelationalTableComponent { driver: RelationalDriver =>
         case _ => _tableName
       }) + "." + n
     }
-
-    def createFinderBy[P](f: (this.type => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P,T] = {
-      import FunctionSymbolExtensionMethods._
-      import driver.Implicit._
-      val thisQ = tableToQuery(this).asInstanceOf[Query[Table.this.type, T]]
-      Parameters[P].flatMap { param =>
-        thisQ.filter(table => Library.==.column[Boolean](Node(f(table)), Node(param)))
-      }
-    }
-
-    def ddl: SchemaDescription = buildTableSchemaDescription(this)
-
-    def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(tableIdentitySymbol)(NoType))
   }
 }
 
@@ -210,7 +207,7 @@ trait RelationalMappingCompilerComponent {
         new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
       case GetOrElse(ch, default) =>
         new GetOrElseResultConverter(compileMapping(ch), default)
-      case TypeMapping(ch, _, toBase, toMapped) =>
+      case TypeMapping(ch, toBase, toMapped) =>
         new TypeMappingResultConverter(compileMapping(ch), toBase, toMapped)
       case n =>
         throw new SlickException("Unexpected node in ResultSetMapping: "+n)

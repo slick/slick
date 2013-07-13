@@ -11,15 +11,16 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
   override val reuseInstance = true
 
   def testCollections {
-    object T extends Table[Int]("t") {
+    class T(tag: Tag) extends Table[Int](tag, "t") {
       def a = column[Int]("a")
       def * = a
     }
+    val ts = TableQuery[T]
 
-    T.ddl.create
-    T.insertAll(2, 3, 1, 5, 4)
+    ts.ddl.create
+    ts.insertAll(2, 3, 1, 5, 4)
 
-    val q = T.map(_.a).sorted
+    val q = ts.map(_.a).sorted
 
     val r1 = q.list
     val r1t: List[Int] = r1
@@ -53,34 +54,34 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
   }
 
   def testMap {
-    val T = new Table[(Int, String)]("t2") {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t2") {
       def k = column[Int]("k")
       def v = column[String]("v")
-      def * = k ~ v
+      def * = (k, v)
     }
+    val ts = TableQuery[T]
 
-    T.ddl.create
-    T.insertAll(2 -> "b", 3 -> "c", 1 -> "a")
+    ts.ddl.create
+    ts.insertAll(2 -> "b", 3 -> "c", 1 -> "a")
 
-    val q = Query(T)
-
-    val r1 = q.toMap
+    val r1 = ts.toMap
     val r1t: Map[Int, String] = r1
     assertEquals(Map(1 -> "a", 2 -> "b", 3 -> "c"), r1)
   }
 
   def testLazy = if(tdb.isShared) {
-    object T extends Table[Int]("t3") {
+    class T(tag: Tag) extends Table[Int](tag, "t3") {
       def a = column[Int]("a")
       def * = a
     }
+    val ts = TableQuery[T]
 
-    val q = Query(T).sortBy(_.a)
+    val q = ts.sortBy(_.a)
 
     def setUp(session: Session) {
-      T.ddl.create(session)
+      ts.ddl.create(session)
       for(g <- 1 to 1000 grouped 100)
-        T.insertAll(g:_*)(session)
+        ts.insertAll(g:_*)(session)
     }
 
     def f() = CloseableIterator close db.createSession after { session =>
@@ -96,7 +97,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
     val it = f()
     it.use { assertEquals((1 to 1000).toList, it.toStream.toList) }
     assertFail(g())
-    db.withSession(T.ddl.drop(_))
+    db.withSession(ts.ddl.drop(_))
     val it2 = f()
     it2.use { assertEquals((1 to 1000).toList, it2.toStream.toList) }
   }

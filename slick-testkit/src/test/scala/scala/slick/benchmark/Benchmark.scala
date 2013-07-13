@@ -1,9 +1,6 @@
 package scala.slick.benchmark
 
-import scala.slick.lifted.Query
-import scala.slick.driver.JdbcDriver
-import scala.slick.driver.JdbcDriver.Implicit._
-import scala.slick.driver.JdbcDriver.Table
+import scala.slick.driver.JdbcDriver.simple._
 
 object Benchmark {
 
@@ -18,31 +15,33 @@ object Benchmark {
     println(COUNT+" runs tooks "+total+" ms ("+(total*1000.0/COUNT)+" µs per run)")
   }
 
-  object Users extends Table[(Int, String, String)]("users") {
+  class Users(tag: Tag) extends Table[(Int, String, String)](tag, "users") {
     def id = column[Int]("id")
     def first = column[String]("first")
     def last = column[String]("last")
-    def * = id ~ first ~ last
+    def * = (id, first, last)
   }
+  val users = TableQuery[Users]
 
-  object Orders extends Table[(Int, Int)]("orders") {
+  class Orders(tag: Tag) extends Table[(Int, Int)](tag, "orders") {
     def userID = column[Int]("userID")
     def orderID = column[Int]("orderID")
-    def * = userID ~ orderID
+    def * = (userID, orderID)
   }
+  val orders = TableQuery[Orders]
 
   def test1(print: Boolean) {
-    val q1 = for(u <- Users) yield u
+    val q1 = for(u <- users) yield u
     val q2 = for {
-      u <- Users
-      o <- Orders where { o => (u.id is o.userID) && (u.first.isNotNull) }
-    } yield u.first ~ u.last ~ o.orderID
-    val q3 = for(u <- Users where(_.id is 42)) yield u.first ~ u.last
+      u <- users
+      o <- orders where { o => (u.id is o.userID) && (u.first.isNotNull) }
+    } yield (u.first, u.last, o.orderID)
+    val q3 = for(u <- users where(_.id is 42)) yield (u.first, u.last)
     val q4 =
-      (Users innerJoin Orders on (_.id is _.userID)).sortBy(_._1.last.asc).map(uo => uo._1.first ~ uo._2.orderID)
+      (users innerJoin orders on (_.id is _.userID)).sortBy(_._1.last.asc).map(uo => (uo._1.first, uo._2.orderID))
     val q5 = for (
-      o <- Orders
-        where { o => o.orderID === (for { o2 <- Orders where(o.userID is _.userID) } yield o2.orderID).max }
+      o <- orders
+        where { o => o.orderID === (for { o2 <- orders where(o.userID is _.userID) } yield o2.orderID).max }
     ) yield o.orderID
 
     val s1 = q1.selectStatement

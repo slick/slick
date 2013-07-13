@@ -9,37 +9,41 @@ class JdbcMiscTest extends TestkitTest[JdbcTestDB] {
   override val reuseInstance = true
 
   def testNullability {
-    object T1 extends Table[String]("t1") {
+    class T1(tag: Tag) extends Table[String](tag, "t1") {
       def a = column[String]("a")
       def * = a
     }
+    val t1 = TableQuery[T1]
 
-    object T2 extends Table[String]("t2") {
+    class T2(tag: Tag) extends Table[String](tag, "t2") {
       def a = column[String]("a", O.Nullable)
       def * = a
     }
+    val t2 = TableQuery[T2]
 
-    object T3 extends Table[Option[String]]("t3") {
+    class T3(tag: Tag) extends Table[Option[String]](tag, "t3") {
       def a = column[Option[String]]("a")
       def * = a
     }
+    val t3 = TableQuery[T3]
 
-    object T4 extends Table[Option[String]]("t4") {
+    class T4(tag: Tag) extends Table[Option[String]](tag, "t4") {
       def a = column[Option[String]]("a", O.NotNull)
       def * = a
     }
+    val t4 = TableQuery[T4]
 
-    (T1.ddl ++ T2.ddl ++ T3.ddl ++ T4.ddl).create
+    (t1.ddl ++ t2.ddl ++ t3.ddl ++ t4.ddl).create
 
-    T1.insert("a")
-    T2.insert("a")
-    T3.insert(Some("a"))
-    T4.insert(Some("a"))
+    t1.insert("a")
+    t2.insert("a")
+    t3.insert(Some("a"))
+    t4.insert(Some("a"))
 
-    T2.insert(null.asInstanceOf[String])
-    T3.insert(None)
+    t2.insert(null.asInstanceOf[String])
+    t3.insert(None)
 
-    assertFail { T1.insert(null.asInstanceOf[String]) }
-    assertFail { T4.insert(None) }
+    assertFail { t1.insert(null.asInstanceOf[String]) }
+    assertFail { t4.insert(None) }
   }
 }

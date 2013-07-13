@@ -12,17 +12,18 @@ class RelationalTypeTest extends TestkitTest[RelationalTestDB] {
 
   def testNumeric {
     def testStore[T](values: T*)(implicit tm: BaseColumnType[T] with NumericTypedType) {
-      object Tbl extends Table[(Int, T)]("test_numeric") {
+      class Tbl(tag: Tag) extends Table[(Int, T)](tag, "test_numeric") {
         def id = column[Int]("id")
         def data = column[T]("data")
-        def * = id ~ data
+        def * = (id, data)
       }
-      Tbl.ddl.create;
+      val tbl = TableQuery[Tbl]
+      tbl.ddl.create;
       val data = values.zipWithIndex.map { case (d, i) => (i+1, d) }
-      Tbl ++= data
-      val q = Tbl.sortBy(_.id)
+      tbl ++= data
+      val q = tbl.sortBy(_.id)
       assertEquals(data, q.run)
-      Tbl.ddl.drop
+      tbl.ddl.drop
     }
 
     testStore[Int](-1, 0, 1, Int.MinValue, Int.MaxValue)
