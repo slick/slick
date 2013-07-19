@@ -295,11 +295,10 @@ trait JdbcBackend extends DatabaseComponent {
   }
 
   class BaseSession(val database: Database) extends SessionDef {
-    protected var open = false
     protected var doRollback = false
     protected var inTransaction = false
 
-    lazy val conn = { open = true; database.createConnection() }
+    val conn = database.createConnection()
     lazy val metaData = conn.getMetaData()
 
     def capabilities = {
@@ -313,7 +312,7 @@ trait JdbcBackend extends DatabaseComponent {
     }
 
     def close() {
-      if(open) conn.close()
+      conn.close()
     }
 
     def rollback() {
