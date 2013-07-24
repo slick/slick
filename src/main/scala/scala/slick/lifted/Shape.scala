@@ -25,11 +25,12 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
   def pack(from: Mixed): Packed
   def packedShape: Shape[Packed, Unpacked, Packed]
 
-  /** Build a packed representation from the shape and the TypedTypes alone.
-   * This method is not available for shapes where Mixed and Unpacked are
-   * different types.
-   */
-  def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed
+  /** Build a packed representation containing QueryParameters that can extract
+    * data from the unpacked representation later.
+    * This method is not available for shapes where Mixed and Unpacked are
+    * different types.
+    */
+  def buildParams(extract: Any => Unpacked): Packed
 }
 
 object Shape extends ShapeLowPriority {
@@ -37,19 +38,17 @@ object Shape extends ShapeLowPriority {
     impureShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
 
   val impureShape: Shape[Any, Any, Any] = new IdentityShape[Any, Any] {
-    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]) =
+    def buildParams(extract: Any => Unpacked): Packed =
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
   }
 
   @inline implicit def provenShape[T, P](implicit shape: Shape[T, _, P]): Shape[ProvenShape[T], T, P] = new Shape[ProvenShape[T], T, P] {
-    def pack(from: Mixed): Packed = {
-      val sh = from.shape
-      sh.pack(from.value.asInstanceOf[sh.Mixed]).asInstanceOf[Packed]
-    }
+    def pack(from: Mixed): Packed =
+      from.shape.pack(from.value.asInstanceOf[from.shape.Mixed]).asInstanceOf[Packed]
     def packedShape: Shape[Packed, Unpacked, Packed] =
       shape.packedShape.asInstanceOf[Shape[Packed, Unpacked, Packed]]
-    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
-      throw new SlickException("Shape does not have the same Mixed and Unpacked type")
+    def buildParams(extract: Any => Unpacked): Packed =
+      shape.buildParams(extract.asInstanceOf[Any => shape.Unpacked])
   }
 }
 
@@ -65,24 +64,23 @@ class ShapeLowPriority extends ShapeLowPriority2 {
   implicit final def unpackPrimitive[T](implicit tm: TypedType[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
     def pack(from: Mixed) = ConstColumn(from)
     def packedShape: Shape[Packed, Unpacked, Packed] = unpackColumnBase[T, Column[T]]
-    def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
-      f(tm, identity)
+    def buildParams(extract: Any => Unpacked): Packed = Column.forNode[T](new QueryParameter(extract, tm))(tm)
   }
 }
 
 final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _, _]*) extends Shape[M, U, P] {
-  def pack(from: Mixed) =
-    TupleSupport.buildTuple(ps.iterator.zip(from.productIterator).map{case (p, f) => p.pack(f.asInstanceOf[p.Mixed])}.toIndexedSeq).asInstanceOf[Packed]
-  def packedShape: Shape[Packed, Unpacked, Packed] =
-    new TupleShape(ps.map(_.packedShape): _*)
-  def buildPacked(f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): Packed =
-    TupleSupport.buildTuple(ps.iterator.zipWithIndex.map{ case (p, i) => p.buildPacked(productTf(i, f)) }.toIndexedSeq).asInstanceOf[Packed]
-
-  private[this] def productTf[Unpacked <: Product, U](idx: Int,
-      f: NaturalTransformation2[TypedType, ({ type L[X] = Unpacked => X })#L, Column]): NaturalTransformation2[TypedType, ({ type L[X] = U => X })#L, Column] =
-    new NaturalTransformation2[TypedType, ({ type L[X] = U => X })#L, Column] {
-      def apply[T](p1: TypedType[T], p2: (U => T)) = f.apply[T](p1, (u => p2(u.productElement(idx).asInstanceOf[U])))
+  def pack(from: Mixed) = {
+    val elems = ps.iterator.zip(from.productIterator).map{ case (p, f) => p.pack(f.asInstanceOf[p.Mixed]) }
+    TupleSupport.buildTuple(elems.toIndexedSeq).asInstanceOf[Packed]
+  }
+  def packedShape: Shape[Packed, Unpacked, Packed] = new TupleShape(ps.map(_.packedShape): _*)
+  def buildParams(extract: Any => Unpacked): Packed = {
+    val elems = ps.iterator.zipWithIndex.map { case (p, idx) =>
+      def chExtract(u: Unpacked): p.Unpacked = u.productElement(idx).asInstanceOf[p.Unpacked]
+      p.buildParams(extract.andThen(chExtract))
     }
+    TupleSupport.buildTuple(elems.toIndexedSeq).asInstanceOf[Packed]
+  }
 }
 
 /** A value together with its Shape
@@ -115,10 +113,9 @@ final class ToShapedValue[T](val value: T) extends AnyVal {
   * place of the value that it wraps for purposes of packing and unpacking. */
 trait ProvenShape[U] extends NodeGenerator {
   def value: Any
-  def shape: Shape[_, U, _]
+  val shape: Shape[_, U, _]
   def packedValue[R](implicit ev: Shape[_, U, R]): ShapedValue[R, U]
   def nodeDelegate = packedValue.packedNode
-  //def bimap[R](f: (U => R))(g: (R => Option[U])) = new MappedProjection[R, U](Node(value), f, g.andThen(_.get))
 }
 
 object ProvenShape {
@@ -126,7 +123,7 @@ object ProvenShape {
   implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[T, U, _]): ProvenShape[U] =
     new ProvenShape[U] {
       def value = v
-      def shape: Shape[_, U, _] = sh
+      val shape: Shape[_, U, _] = sh
       def packedValue[R](implicit ev: Shape[_, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[R, U, _]])
     }
 }
