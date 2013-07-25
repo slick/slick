@@ -53,13 +53,13 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     val q = Query[TT, U, TT](targetTable)(Shape.encodeRefShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
     val aliased = q.unpackable.encodeRef(generator)
-    val fv = Library.==.typed[Boolean](Node(targetColumns(aliased.value)), Node(sourceColumns))
+    val fv = Library.==.typed[Boolean](unpackp.toNode(targetColumns(aliased.value)), unpackp.toNode(sourceColumns))
     val fk = ForeignKey(name, Node(this), q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
     new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, Node(q), fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
-  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(Node(shape.pack(sourceColumns))))
+  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(shape.toNode(sourceColumns)))
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
@@ -73,7 +73,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
 
-  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(Node(shape.pack(on))), unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view

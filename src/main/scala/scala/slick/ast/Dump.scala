@@ -15,16 +15,16 @@ object Dump {
   }
   private[ast] val dumpPaths: Boolean = BooleanProp.valueIsTrue("scala.slick.dumpPaths")
 
-  def get(n: NodeGenerator, name: String = "", prefix: String = "") = {
+  def get(n: Node, name: String = "", prefix: String = "") = {
     val buf = new StringWriter
     apply(n, name, prefix, new PrintWriter(buf))
     buf.getBuffer.toString
   }
 
-  def apply(n: NodeGenerator, name: String = "", prefix: String = "", to: PrintWriter = null, typed: Boolean = true) {
+  def apply(n: Node, name: String = "", prefix: String = "", to: PrintWriter = null, typed: Boolean = true) {
     val out = if(to eq null) new PrintWriter(new OutputStreamWriter(System.out)) else to
     val dc = new DumpContext(out, typed)
-    dc.dump(Node(n), prefix, name, true)
+    dc.dump(n, prefix, name, true)
     for(i <- dc.orphans) dc.dump(i.target, prefix, "/"+i.name+": ", true)
     out.flush()
   }

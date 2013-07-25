@@ -22,7 +22,11 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
   type Mixed = Mixed_
   type Unpacked = Unpacked_
   type Packed = Packed_
-  def pack(from: Mixed): Packed
+
+  /** Convert a value of this Shape's (mixed) type to the fully packed type */
+  def pack(value: Mixed): Packed
+
+  /** Return the fully packed Shape */
   def packedShape: Shape[Packed, Unpacked, Packed]
 
   /** Build a packed representation containing QueryParameters that can extract
@@ -35,49 +39,56 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
     * This method may not be available for shapes where Mixed and Packed are
     * different types. */
   def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil): Any
+
+  /** Return an AST Node representing a mixed value. */
+  def toNode(value: Mixed): Node
 }
 
 object Shape extends ShapeLowPriority {
   @inline implicit def columnShape[T]: Shape[Column[T], T, Column[T]] =
     encodeRefShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
 
-  val encodeRefShape: Shape[EncodeRef, Any, EncodeRef] = new Shape[EncodeRef, Any, EncodeRef] {
-    def pack(from: Mixed): Packed = from
+  val encodeRefShape: Shape[EncodeRef with NodeGenerator, Any, EncodeRef with NodeGenerator] = new Shape[EncodeRef with NodeGenerator, Any, EncodeRef with NodeGenerator] {
+    def pack(value: Mixed): Packed = value
     def packedShape: Shape[Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked): Packed =
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
     def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
       value.encodeRef(sym, positions)
+    def toNode(value: Mixed): Node = Node(value)
   }
 
   @inline implicit def provenShape[T, P](implicit shape: Shape[T, _, P]): Shape[ProvenShape[T], T, P] = new Shape[ProvenShape[T], T, P] {
-    def pack(from: Mixed): Packed =
-      from.shape.pack(from.value.asInstanceOf[from.shape.Mixed]).asInstanceOf[Packed]
+    def pack(value: Mixed): Packed =
+      value.shape.pack(value.value.asInstanceOf[value.shape.Mixed]).asInstanceOf[Packed]
     def packedShape: Shape[Packed, Unpacked, Packed] =
       shape.packedShape.asInstanceOf[Shape[Packed, Unpacked, Packed]]
     def buildParams(extract: Any => Unpacked): Packed =
       shape.buildParams(extract.asInstanceOf[Any => shape.Unpacked])
     def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
       value.shape.encodeRef(value.value.asInstanceOf[value.shape.Mixed], sym, positions)
+    def toNode(value: Mixed): Node =
+      value.shape.toNode(value.value.asInstanceOf[value.shape.Mixed])
   }
 }
 
 class ShapeLowPriority extends ShapeLowPriority2 {
-  @inline implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[C, T, C] =
+  @inline implicit final def columnBaseShape[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[C, T, C] =
     Shape.encodeRefShape.asInstanceOf[Shape[C, T, C]]
 
-  implicit final def unpackPrimitive[T](implicit tm: TypedType[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
-    def pack(from: Mixed) = ConstColumn(from)
-    def packedShape: Shape[Packed, Unpacked, Packed] = unpackColumnBase[T, Column[T]]
+  implicit final def primitiveShape[T](implicit tm: TypedType[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
+    def pack(value: Mixed) = ConstColumn(value)
+    def packedShape: Shape[Packed, Unpacked, Packed] = columnBaseShape[T, Column[T]]
     def buildParams(extract: Any => Unpacked): Packed = Column.forNode[T](new QueryParameter(extract, tm))(tm)
     def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
       throw new SlickException("Shape does not have the same Mixed and Packed type")
+    def toNode(value: Mixed): Node = Node(pack(value))
   }
 }
 
 final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _, _]*) extends Shape[M, U, P] {
-  def pack(from: Mixed) = {
-    val elems = ps.iterator.zip(from.productIterator).map{ case (p, f) => p.pack(f.asInstanceOf[p.Mixed]) }
+  def pack(value: Mixed) = {
+    val elems = ps.iterator.zip(value.productIterator).map{ case (p, f) => p.pack(f.asInstanceOf[p.Mixed]) }
     TupleSupport.buildTuple(elems.toIndexedSeq).asInstanceOf[Packed]
   }
   def packedShape: Shape[Packed, Unpacked, Packed] = new TupleShape(ps.map(_.packedShape): _*)
@@ -94,6 +105,10 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
     }
     TupleSupport.buildTuple(elems.toIndexedSeq)
   }
+  def toNode(value: Mixed) = {
+    val elems = ps.iterator.zip(value.productIterator).map{ case (p, f) => p.toNode(f.asInstanceOf[p.Mixed]) }
+    ProductNode(elems.toSeq)
+  }
 }
 
 /** A value together with its Shape
@@ -103,10 +118,10 @@ case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
     val fv = shape.encodeRef(value, sym, positions).asInstanceOf[T]
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
-  def packedNode = Node(shape.pack(value))
+  def packedNode = shape.toNode(value)
   def packedValue[R](implicit ev: Shape[T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
-  @inline def <>[R](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](Node(value), f, g.andThen(_.get))
+  @inline def <>[R](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
 }
 
 object ShapedValue {
@@ -117,7 +132,7 @@ object ShapedValue {
 // Work-around for SI-3346
 final class ToShapedValue[T](val value: T) extends AnyVal {
   @inline def shaped[U](implicit shape: Shape[T, U, _]) = new ShapedValue[T, U](value, shape)
-  @inline def <>[R, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[T, U, _]) = new MappedProjection[R, U](Node(value), f, g.andThen(_.get))
+  @inline def <>[R, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
 }
 
 /** A limited version of ShapedValue which can be constructed for every type
@@ -144,7 +159,7 @@ object ProvenShape {
 class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends ColumnBase[T] with NodeGenerator with EncodeRef {
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
-  private def typeMapping = TypeMapping(Node(child), (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
+  private def typeMapping = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
   override def nodeDelegate: Node = typeMapping
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
     override def nodeDelegate = Path(positions.map(ElementSymbol) :+ sym)

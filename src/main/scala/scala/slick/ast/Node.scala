@@ -15,7 +15,7 @@ trait NodeGenerator {
  *
  * Every Node has a number of child nodes and an optional type annotation.
  */
-trait Node extends NodeGenerator {
+trait Node {
   type Self >: this.type <: Node
   private[this] var seenType: Boolean = false
 
@@ -48,8 +48,6 @@ trait Node extends NodeGenerator {
     if(_nodeType == UnassignedType || !keepType) this2
     else nodeBuildTypedNode(this2, _nodeType)
   }
-
-  def nodeDelegate: Node = this
 
   override def toString = this match {
     case p: Product =>
@@ -131,14 +129,7 @@ trait SimplyTypedNode extends Node {
 }
 
 object Node extends Logging {
-  def apply(o: Any): Node =
-    if(o.isInstanceOf[NodeGenerator]) {
-      val gen = o.asInstanceOf[NodeGenerator]
-      if(gen.nodeDelegate eq gen) gen.nodeDelegate else Node(gen.nodeDelegate)
-    }
-    else if(o.isInstanceOf[Product])
-      ProductNode(o.asInstanceOf[Product].productIterator.map(apply).toSeq)
-    else throw new SlickException("Cannot narrow "+o+" of type "+SimpleTypeName.forVal(o)+" to a Node")
+  def apply(o: NodeGenerator): Node = o.nodeDelegate
 
   private def logType(n: Node): Unit =
     logger.debug("Assigned type "+n.nodeType+" to node "+n)
