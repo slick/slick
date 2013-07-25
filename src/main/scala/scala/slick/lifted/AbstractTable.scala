@@ -50,7 +50,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[TT, U, _], unpackp: Shape[P, PU, _]): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.unpackable.value
-    val q = Query[TT, U, TT](targetTable)(Shape.impureShape.asInstanceOf[Shape[TT, U, TT]])
+    val q = Query[TT, U, TT](targetTable)(Shape.encodeRefShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
     val aliased = q.unpackable.encodeRef(generator)
     val fv = Library.==.typed[Boolean](Node(targetColumns(aliased.value)), Node(sourceColumns))

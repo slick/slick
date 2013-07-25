@@ -18,10 +18,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
 
   def flatMap[F, T](f: E => Query[F, T]): Query[F, T] = {
     val generator = new AnonSymbol
-    val aliased = {
-      val uv = unpackable.value
-      EncodeRef(uv, generator)
-    }
+    val aliased = unpackable.encodeRef(generator).value
     val fv = f(aliased)
     new WrappingQuery[F, T](new Bind(generator, Node(this), Node(fv)), fv.unpackable)
   }
@@ -73,7 +70,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[K, T, G], vshape: Shape[E, _, P]): Query[(G, Query[P, U]), (T, Query[P, U])] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
-    val value = ShapedValue(pack, Shape.impureShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
+    val value = ShapedValue(pack, Shape.encodeRefShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
     val group = GroupBy(sym, Node(this), Node(key.value))
     new WrappingQuery(group, key.zip(value))
   }
@@ -170,7 +167,7 @@ object TableQuery {
         def taggedAs(tableRef: Node) = base.taggedAs(tableRef)
       })
     })
-    new TableQuery[E, E#TableElementType](ShapedValue(baseTable, Shape.impureShape.asInstanceOf[Shape[E, E#TableElementType, E]]))
+    new TableQuery[E, E#TableElementType](ShapedValue(baseTable, Shape.encodeRefShape.asInstanceOf[Shape[E, E#TableElementType, E]]))
   }
 
   def apply[E <: AbstractTable[_]]: TableQuery[E, E#TableElementType] =

@@ -3,7 +3,7 @@ package scala.slick.lifted
 import scala.language.{existentials, implicitConversions}
 import scala.annotation.implicitNotFound
 import scala.slick.SlickException
-import scala.slick.util._
+import scala.slick.util.TupleSupport
 import scala.slick.ast._
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
@@ -28,18 +28,26 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
   /** Build a packed representation containing QueryParameters that can extract
     * data from the unpacked representation later.
     * This method is not available for shapes where Mixed and Unpacked are
-    * different types.
-    */
+    * different types. */
   def buildParams(extract: Any => Unpacked): Packed
+
+  /** Encode a reference into a value of this Shape.
+    * This method may not be available for shapes where Mixed and Packed are
+    * different types. */
+  def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil): Any
 }
 
 object Shape extends ShapeLowPriority {
   @inline implicit def columnShape[T]: Shape[Column[T], T, Column[T]] =
-    impureShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
+    encodeRefShape.asInstanceOf[Shape[Column[T], T, Column[T]]]
 
-  val impureShape: Shape[Any, Any, Any] = new IdentityShape[Any, Any] {
+  val encodeRefShape: Shape[EncodeRef, Any, EncodeRef] = new Shape[EncodeRef, Any, EncodeRef] {
+    def pack(from: Mixed): Packed = from
+    def packedShape: Shape[Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked): Packed =
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
+    def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
+      value.encodeRef(sym, positions)
   }
 
   @inline implicit def provenShape[T, P](implicit shape: Shape[T, _, P]): Shape[ProvenShape[T], T, P] = new Shape[ProvenShape[T], T, P] {
@@ -49,22 +57,21 @@ object Shape extends ShapeLowPriority {
       shape.packedShape.asInstanceOf[Shape[Packed, Unpacked, Packed]]
     def buildParams(extract: Any => Unpacked): Packed =
       shape.buildParams(extract.asInstanceOf[Any => shape.Unpacked])
+    def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
+      value.shape.encodeRef(value.value.asInstanceOf[value.shape.Mixed], sym, positions)
   }
-}
-
-abstract class IdentityShape[Packed, Unpacked] extends Shape[Packed, Unpacked, Packed] {
-  def pack(from: Mixed): Packed = from
-  def packedShape: Shape[Packed, Unpacked, Packed] = this
 }
 
 class ShapeLowPriority extends ShapeLowPriority2 {
   @inline implicit final def unpackColumnBase[T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[C, T, C] =
-    Shape.impureShape.asInstanceOf[Shape[C, T, C]]
+    Shape.encodeRefShape.asInstanceOf[Shape[C, T, C]]
 
   implicit final def unpackPrimitive[T](implicit tm: TypedType[T]): Shape[T, T, Column[T]] = new Shape[T, T, Column[T]] {
     def pack(from: Mixed) = ConstColumn(from)
     def packedShape: Shape[Packed, Unpacked, Packed] = unpackColumnBase[T, Column[T]]
     def buildParams(extract: Any => Unpacked): Packed = Column.forNode[T](new QueryParameter(extract, tm))(tm)
+    def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
+      throw new SlickException("Shape does not have the same Mixed and Packed type")
   }
 }
 
@@ -81,13 +88,19 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
     }
     TupleSupport.buildTuple(elems.toIndexedSeq).asInstanceOf[Packed]
   }
+  def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) = {
+    val elems = ps.iterator.zip(value.productIterator).zipWithIndex.map {
+      case ((p, x), pos) => p.encodeRef(x.asInstanceOf[p.Mixed], sym, (pos + 1) :: positions)
+    }
+    TupleSupport.buildTuple(elems.toIndexedSeq)
+  }
 }
 
 /** A value together with its Shape
   */
 case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
-  def encodeRef(s: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
-    val fv = EncodeRef(value, s, positions)
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
+    val fv = shape.encodeRef(value, sym, positions).asInstanceOf[T]
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def packedNode = Node(shape.pack(value))
@@ -136,4 +149,10 @@ class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends Colu
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
     override def nodeDelegate = Path(positions.map(ElementSymbol) :+ sym)
   }
+}
+
+/** A trait for encoding refs directly into a value. This needs to be
+  * implemented by values that should use Shape.encodeRefShape. */
+trait EncodeRef {
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Any
 }
