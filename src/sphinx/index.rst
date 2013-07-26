@@ -5,7 +5,7 @@ Slick - Scala Language Integrated Connection Kit
    :maxdepth: 4
 
    introduction
-   gettingstarted
+   understanding-the-api
    lifted-embedding
    sql
    direct-embedding
