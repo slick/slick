@@ -14,7 +14,7 @@ trait MemoryQueryingProfile extends RelationalProfile with StandardParameterized
   type BaseColumnType[T] = ScalaType[T] with BaseTypedType[T]
 
   def compileParameterizedQuery[P,R](q: Query[_, R]) =
-    new ParameterizedQuery[P, R](queryCompiler.run(Node(q)).tree)
+    new ParameterizedQuery[P, R](queryCompiler.run(q.toNode).tree)
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes
 

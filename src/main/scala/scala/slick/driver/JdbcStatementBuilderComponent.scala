@@ -436,7 +436,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
       val (_, sbr: SQLBuilder.Result) =
-        CodeGen.findResult(queryCompiler.run((Node(query))).tree)
+        CodeGen.findResult(queryCompiler.run((query.toNode)).tree)
       InsertBuilderResult(table.tableName, s"INSERT INTO $qtable ($qcolumns) ${sbr.sql}", sbr.setter)
     }
 
@@ -457,7 +457,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   /** Builder for various DDL statements. */
   class TableDDLBuilder(val table: Table[_]) { self =>
-    protected val tableNode = Node(table).asInstanceOf[TableNode]
+    protected val tableNode = table.toNode.asInstanceOf[TableNode]
     protected val columns: Iterable[ColumnDDLBuilder] = table.create_*.map(fs => createColumnDDLBuilder(fs, table))
     protected val indexes: Iterable[Index] = table.indexes
     protected val foreignKeys: Iterable[ForeignKey] = table.foreignKeys

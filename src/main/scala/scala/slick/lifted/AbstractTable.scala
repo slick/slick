@@ -12,7 +12,7 @@ sealed trait Tag {
 /** A Tag for table instances that represent a path */
 trait RefTag extends Tag with NodeGenerator {
   /** The path represented by the instance of the AbstractTable carrying this Tag */
-  def nodeDelegate: Node
+  def toNode: Node
 }
 
 /** A Tag marking the base table instance itself */
@@ -24,21 +24,21 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   def tableIdentitySymbol: TableIdentitySymbol
 
   lazy val tableNode: TableNode =
-    TableNode(schemaName, tableName, tableIdentitySymbol, { t => Node(tableTag.taggedAs(t).*) }, this)
+    TableNode(schemaName, tableName, tableIdentitySymbol, { t => tableTag.taggedAs(t).*.toNode }, this)
 
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): this.type = {
     def f(n: Node, positions: List[Int]): Node = Path(positions.map(ElementSymbol) :+ sym)
-    tableTag.taggedAs(f(Node(this), positions)).asInstanceOf[this.type]
+    tableTag.taggedAs(f(toNode, positions)).asInstanceOf[this.type]
   }
 
   def * : ProvenShape[T]
 
-  override def nodeDelegate = tableTag match {
+  override def toNode = tableTag match {
     case _: BaseTag => tableNode
-    case t: RefTag => t.nodeDelegate
+    case t: RefTag => t.toNode
   }
 
-  def create_* : Iterable[FieldSymbol] = collectFieldSymbols(Node(*))
+  def create_* : Iterable[FieldSymbol] = collectFieldSymbols(*.toNode)
 
   protected[this] def collectFieldSymbols(n: Node): Iterable[FieldSymbol] =
     n.collect {
@@ -54,9 +54,9 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     val generator = new AnonSymbol
     val aliased = q.unpackable.encodeRef(generator)
     val fv = Library.==.typed[Boolean](unpackp.toNode(targetColumns(aliased.value)), unpackp.toNode(sourceColumns))
-    val fk = ForeignKey(name, Node(this), q.unpackable.asInstanceOf[ShapedValue[TT, _]],
+    val fk = ForeignKey(name, toNode, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
-    new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, Node(q), fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
+    new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, q.toNode, fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
   def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(shape.toNode(sourceColumns)))

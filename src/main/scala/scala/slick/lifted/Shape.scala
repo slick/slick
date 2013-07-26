@@ -55,7 +55,7 @@ object Shape extends ShapeLowPriority {
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
     def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
       value.encodeRef(sym, positions)
-    def toNode(value: Mixed): Node = Node(value)
+    def toNode(value: Mixed): Node = value.toNode
   }
 
   @inline implicit def provenShape[T, P](implicit shape: Shape[T, _, P]): Shape[ProvenShape[T], T, P] = new Shape[ProvenShape[T], T, P] {
@@ -82,7 +82,7 @@ class ShapeLowPriority extends ShapeLowPriority2 {
     def buildParams(extract: Any => Unpacked): Packed = Column.forNode[T](new QueryParameter(extract, tm))(tm)
     def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
       throw new SlickException("Shape does not have the same Mixed and Packed type")
-    def toNode(value: Mixed): Node = Node(pack(value))
+    def toNode(value: Mixed): Node = pack(value).toNode
   }
 }
 
@@ -113,12 +113,12 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _,
 
 /** A value together with its Shape
   */
-case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
+case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) extends NodeGenerator {
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
     val fv = shape.encodeRef(value, sym, positions).asInstanceOf[T]
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
-  def packedNode = shape.toNode(value)
+  def toNode = shape.toNode(value)
   def packedValue[R](implicit ev: Shape[T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
   @inline def <>[R](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
@@ -143,7 +143,7 @@ trait ProvenShape[U] extends NodeGenerator {
   def value: Any
   val shape: Shape[_, U, _]
   def packedValue[R](implicit ev: Shape[_, U, R]): ShapedValue[R, U]
-  def nodeDelegate = packedValue.packedNode
+  def toNode = packedValue.toNode
 }
 
 object ProvenShape {
@@ -160,9 +160,9 @@ class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends Colu
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
   private def typeMapping = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
-  override def nodeDelegate: Node = typeMapping
+  override def toNode: Node = typeMapping
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
-    override def nodeDelegate = Path(positions.map(ElementSymbol) :+ sym)
+    override def toNode = Path(positions.map(ElementSymbol) :+ sym)
   }
 }
 
@@ -170,4 +170,9 @@ class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends Colu
   * implemented by values that should use Shape.encodeRefShape. */
 trait EncodeRef {
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): Any
+}
+
+/** An object that can produce a Node. */
+trait NodeGenerator {
+  def toNode: Node
 }

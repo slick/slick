@@ -14,23 +14,18 @@ abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBas
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 
-  override def toString = {
-    val n = Node(this)
-    if(n eq this) super.toString
-    else s"Column($n)"
-  }
+  override def toString = s"Column($toNode)"
+
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): Column[T] =
     Column.forNode(Path(positions.map(ElementSymbol) :+ sym))
 }
 
 object Column {
-  def forNode[T : TypedType](n: Node): Column[T] = new Column[T] {
-    def nodeDelegate = n
-  }
+  def forNode[T : TypedType](n: Node): Column[T] = new Column[T] { def toNode = n }
 }
 
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
 final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends Column[T] {
   def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
-  def nodeDelegate = LiteralNode(tt, value)
+  def toNode = LiteralNode(tt, value)
 }

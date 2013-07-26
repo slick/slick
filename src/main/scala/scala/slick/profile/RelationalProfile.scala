@@ -42,7 +42,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
       * key matches the parameter value. */
     def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P, U] = {
       import driver.Implicit._
-      Parameters[P].flatMap { p => q.filter(table => Library.==.column[Boolean](Node(f(table)), Node(p))) }
+      Parameters[P].flatMap { p => q.filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
     }
   }
 }
@@ -123,12 +123,12 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     val O: driver.columnOptions.type = columnOptions
 
     def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
-      override def nodeDelegate =
-        Select(Node(table) match {
+      override def toNode =
+        Select(table.toNode match {
           case r: Ref => r
-          case _ => Ref(Node(table).nodeIntrinsicSymbol)
+          case _ => Ref(table.toNode.nodeIntrinsicSymbol)
         }, FieldSymbol(n)(options, tm)).nodeTyped(tm)
-      override def toString = (Node(table) match {
+      override def toString = (table.toNode match {
         case r: Ref => "(" + _tableName + " " + r.sym.name + ")"
         case _ => _tableName
       }) + "." + n
@@ -154,10 +154,10 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
     def start(v: T) = new Sequence[T](name, _minValue, _maxValue, _increment, Some(v), _cycle)
     def cycle = new Sequence[T](name, _minValue, _maxValue, _increment, _start, true)
 
-    final def next = Library.NextValue.column[T](Node(this))
-    final def curr = Library.CurrentValue.column[T](Node(this))
+    final def next = Library.NextValue.column[T](toNode)
+    final def curr = Library.CurrentValue.column[T](toNode)
 
-    def nodeDelegate = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
+    def toNode = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
 
     def ddl: SchemaDescription = buildSequenceSchemaDescription(this)
   }

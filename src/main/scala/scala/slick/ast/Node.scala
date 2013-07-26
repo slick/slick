@@ -5,11 +5,6 @@ import scala.slick.util.{Logging, SimpleTypeName}
 import TypeUtil.typeToTypeUtil
 import Util._
 
-/** An object that can produce a Node. */
-trait NodeGenerator {
-  def nodeDelegate: Node
-}
-
 /**
  * A node in the query AST.
  *
@@ -129,8 +124,6 @@ trait SimplyTypedNode extends Node {
 }
 
 object Node extends Logging {
-  def apply(o: NodeGenerator): Node = o.nodeDelegate
-
   private def logType(n: Node): Unit =
     logger.debug("Assigned type "+n.nodeType+" to node "+n)
 }

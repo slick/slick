@@ -27,7 +27,7 @@ object SimpleFunction {
       def nodeChildren = params
       protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = build(ch)
     }
-    { paramsC: Seq[Column[_] ] => Column.forNode(build(paramsC.map(Node(_))(collection.breakOut))) }
+    { paramsC: Seq[Column[_] ] => Column.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }
   def nullary[R : TypedType](fname: String, fn: Boolean = false): Column[R] =
     apply(fname, fn).apply(Seq())
@@ -57,7 +57,7 @@ object SimpleBinaryOperator {
       val right = rightN
       protected[this] def nodeRebuild(left: Node, right: Node): Self = build(left, right)
     }
-    { (leftC: Column[_], rightC: Column[_]) => Column.forNode[T](build(Node(leftC), Node(rightC))) }
+    { (leftC: Column[_], rightC: Column[_]) => Column.forNode[T](build(leftC.toNode, rightC.toNode)) }
   }
 }
 
@@ -77,7 +77,7 @@ object SimpleExpression {
       def nodeChildren = params
       protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = build(ch)
     }
-    { paramsC: Seq[Column[_] ] => Column.forNode(build(paramsC.map(Node(_))(collection.breakOut))) }
+    { paramsC: Seq[Column[_] ] => Column.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }
 
   def nullary[R : TypedType](f: JdbcStatementBuilderComponent#QueryBuilder => Unit): Column[R] = {
