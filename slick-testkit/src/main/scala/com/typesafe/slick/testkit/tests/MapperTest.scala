@@ -251,19 +251,101 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
   }
 
-  /*
-  def testGetOr {
-    object T extends Table[Option[Int]]("t4") {
-      def year = column[Option[Int]]("YEAR")
-      def * = year
+  def testCustomShape {
+    import scala.annotation.unchecked.uncheckedVariance
+    import scala.slick.lifted.{Shape, MappedProductShape}
+
+    // A simple HList implementation
+    sealed trait HList {
+      type Self <: HList
+      def self: Self
+      def :: [H](value: H) = new HCons[H, Self](value, self)
+      def toList: List[Any]
+      def apply(idx: Int): Any
+      override def equals(that: Any) = that match {
+        case that: HList => toList == that.toList
+        case _ => false
+      }
+    }
+    case object HNil extends HList {
+      type Self = HNil.type
+      val self = this
+      def toList = Nil
+      def apply(idx: Int) = throw new IllegalArgumentException
+    }
+    type HNil = HNil.type
+    class HCons[+H, +T <: HList](val head: H, val tail: T) extends HList {
+      type Self = HCons[H @uncheckedVariance, T @uncheckedVariance]
+      val self = this
+      def toList: List[Any] = head :: tail.toList
+      def apply(idx: Int): Any = if(idx == 0) head else tail(idx-1)
+      override def toString = s"$head :: $tail"
+    }
+    type :: [+H, +T <: HList] = HCons[H, T]
+    object :: {
+      def unapply[H, T <: HList](l: HCons[H, T]) = Some((l.head, l.tail))
     }
 
-    T.ddl.create
-    T.insertAll(Some(2000), None)
+    val l1 = 42 :: true :: "foo" :: HNil
+    val t1 = l1 match {
+      case i :: b :: s :: HNil => (i, b, s)
+    }
+    val t1t: (Int, Boolean, String) = t1
+    assertEquals((42, true, "foo"), t1t)
 
-    val q = T.map(t => (t.year.getOr(2000), (t.year.getOr(2000)-0)))
-    println(q.selectStatement)
-    q.foreach(println)
+    // A Shape for our HList, mapping it to a flat ProductNode
+    final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _]]) extends MappedProductShape[M, U, P](shapes) {
+      def mixedElements(value: Mixed): Iterator[_] = value.toList.iterator
+      def unpackedElement(value: Unpacked, idx: Int) = value(idx)
+      def buildValue(elems: IndexedSeq[Any]) = elems.foldRight[HList](HNil) { (e, z) => e :: z }
+      def buildShape(shapes: Seq[Shape[_, _, _]]) = new HListShape(shapes)
+    }
+    implicit val hnilShape = new HListShape[HNil, HNil, HNil](Nil)
+    implicit def hconsShape[M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit u1: Shape[M1, U1, P1], u2: HListShape[M2, U2, P2]) =
+      new HListShape[M1 :: M2, U1 :: U2, P1:: P2](u1 +: u2.shapes)
+
+    // See if we can get the proper Shape
+    val sh1 = implicitly[Shape[Int :: Boolean :: String :: HNil, _, _]]
+
+    // Use the shape in queries but not yet for transferring data
+    class A(tag: Tag) extends Table[(Int, Boolean, String)](tag, "shape_a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def b = column[Boolean]("b")
+      def s = column[String]("s")
+      def * = (id, b, s)
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+    as += (1, true, "a")
+    as += (2, false, "c")
+    as += (3, false, "b")
+    val q1 = as
+      .map { case a => a.id :: a.b :: (a.s ++ a.s) :: HNil }
+      .filter { case _ :: b :: _ :: HNil => !b }
+      .sortBy { case _ :: _ :: ss :: HNil => ss }
+      .map { case id :: b :: ss :: HNil => (id, ss) }
+    assertEquals(Vector((3, "bb"), (2, "cc")), q1.run)
+
+    // Use it in a table definition
+    class B(tag: Tag) extends Table[Int :: Boolean :: String :: HNil](tag, "shape_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def b = column[Boolean]("b")
+      def s = column[String]("s")
+      def * = id :: b :: s :: HNil
+    }
+    val bs = TableQuery[B]
+    bs.ddl.create
+
+    // Insert data with the custom shape
+    bs += (1 :: true :: "a" :: HNil)
+    bs += (2 :: false :: "c" :: HNil)
+    bs += (3 :: false :: "b" :: HNil)
+
+    val q2 = bs
+      .map { case b => b.id :: b.b :: (b.s ++ b.s) :: HNil }
+      .filter { case _ :: b :: _ :: HNil => !b }
+      .sortBy { case _ :: _ :: ss :: HNil => ss }
+      .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
+    assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)
   }
-  */
 }

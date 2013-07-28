@@ -197,6 +197,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
         typeInfoFor(tpe).setValue(extractor(param), p)
       }
+      case Library.Not(p @ Path(_)) if useIntForBoolean =>
+        b"\($p = 0\)"
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"
       case Library.==(l, LiteralNode(null)) =>

@@ -3,7 +3,7 @@ package scala.slick.lifted
 import scala.language.{existentials, implicitConversions}
 import scala.annotation.implicitNotFound
 import scala.slick.SlickException
-import scala.slick.util.TupleSupport
+import scala.slick.util.{ProductWrapper, TupleSupport}
 import scala.slick.ast._
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
@@ -86,33 +86,61 @@ class ShapeLowPriority extends ShapeLowPriority2 {
   }
 }
 
-final class TupleShape[M <: Product, U <: Product, P <: Product](ps: Shape[_, _, _]*) extends Shape[M, U, P] {
+/** Base class for Shapes that are represented by ProductNodes in the AST. */
+abstract class ProductNodeShape[M, U, P](val elements: Seq[Shape[_, _, _]]) extends Shape[M, U, P] {
+  def buildValue(elems: IndexedSeq[Any]): Any
+  def buildShape(shapes: Seq[Shape[_, _, _]]): Shape[_, _, _]
+  def mixedElements(value: Mixed): Iterator[_]
+  def unpackedElement(value: Unpacked, idx: Int): Any
+
   def pack(value: Mixed) = {
-    val elems = ps.iterator.zip(value.productIterator).map{ case (p, f) => p.pack(f.asInstanceOf[p.Mixed]) }
-    TupleSupport.buildTuple(elems.toIndexedSeq).asInstanceOf[Packed]
+    val elems = elements.iterator.zip(mixedElements(value)).map{ case (p, f) => p.pack(f.asInstanceOf[p.Mixed]) }
+    buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
-  def packedShape: Shape[Packed, Unpacked, Packed] = new TupleShape(ps.map(_.packedShape): _*)
+  def packedShape: Shape[Packed, Unpacked, Packed] =
+    buildShape(elements.map(_.packedShape)).asInstanceOf[Shape[Packed, Unpacked, Packed]]
   def buildParams(extract: Any => Unpacked): Packed = {
-    val elems = ps.iterator.zipWithIndex.map { case (p, idx) =>
-      def chExtract(u: Unpacked): p.Unpacked = u.productElement(idx).asInstanceOf[p.Unpacked]
+    val elems = elements.iterator.zipWithIndex.map { case (p, idx) =>
+      def chExtract(u: Unpacked): p.Unpacked = unpackedElement(u, idx).asInstanceOf[p.Unpacked]
       p.buildParams(extract.andThen(chExtract))
     }
-    TupleSupport.buildTuple(elems.toIndexedSeq).asInstanceOf[Packed]
+    buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
   def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) = {
-    val elems = ps.iterator.zip(value.productIterator).zipWithIndex.map {
+    val elems = elements.iterator.zip(mixedElements(value)).zipWithIndex.map {
       case ((p, x), pos) => p.encodeRef(x.asInstanceOf[p.Mixed], sym, (pos + 1) :: positions)
     }
-    TupleSupport.buildTuple(elems.toIndexedSeq)
+    buildValue(elems.toIndexedSeq)
   }
-  def toNode(value: Mixed) = {
-    val elems = ps.iterator.zip(value.productIterator).map{ case (p, f) => p.toNode(f.asInstanceOf[p.Mixed]) }
-    ProductNode(elems.toSeq)
-  }
+  def toNode(value: Mixed): Node = ProductNode(elements.iterator.zip(mixedElements(value)).map {
+    case (p, f) => p.toNode(f.asInstanceOf[p.Mixed])
+  }.toSeq)
 }
 
-/** A value together with its Shape
-  */
+/** Base class for ProductNodeShapes with a type mapping */
+abstract class MappedProductShape[M, U, P](shapes: Seq[Shape[_, _, _]]) extends ProductNodeShape[M, U, P](shapes) {
+  override def toNode(value: Mixed) = {
+    val (toB, toM) =
+      if(shapes.length == 1) (((v: Unpacked) => toBase(v).productElement(0)), ((v: Any) => toMapped(new ProductWrapper(Vector(v)))))
+      else ((toBase _), (toMapped _))
+    TypeMapping(super.toNode(value), toB.asInstanceOf[Any => Any], toM.asInstanceOf[Any => Any])
+  }
+  def toBase(value: Unpacked): Product = new ProductWrapper(mixedElements(value.asInstanceOf[Mixed]).toIndexedSeq)
+  def toMapped(value: Product): Unpacked = buildValue(TupleSupport.buildIndexedSeq(value)).asInstanceOf[Unpacked]
+}
+
+/** Base class for ProductNodeShapes for an actual scala.Product type */
+abstract class ProductShape[M <: Product, U <: Product, P <: Product](shapes: Seq[Shape[_, _, _]]) extends ProductNodeShape[M, U, P](shapes) {
+  def mixedElements(value: Mixed): Iterator[_] = value.productIterator
+  def unpackedElement(value: Unpacked, idx: Int) = value.productElement(idx)
+}
+
+final class TupleShape[M <: Product, U <: Product, P <: Product](shapes: Shape[_, _, _]*) extends ProductShape[M, U, P](shapes) {
+  def buildValue(elems: IndexedSeq[Any]) = TupleSupport.buildTuple(elems)
+  def buildShape(shapes: Seq[Shape[_, _, _]])  = new TupleShape(shapes: _*)
+}
+
+/** A value together with its Shape */
 case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) extends NodeGenerator {
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
     val fv = shape.encodeRef(value, sym, positions).asInstanceOf[T]
@@ -159,8 +187,7 @@ object ProvenShape {
 class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends ColumnBase[T] with NodeGenerator with EncodeRef {
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
-  private def typeMapping = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
-  override def toNode: Node = typeMapping
+  override def toNode: Node = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
     override def toNode = Path(positions.map(ElementSymbol) :+ sym)
   }
