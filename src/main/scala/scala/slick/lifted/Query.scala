@@ -11,7 +11,7 @@ import ScalaBaseType._
   * collection type (Rep[Seq[T]]). It is parameterized with both, the mixed
   * type (the type of values you see e.g. when you call map()) and the unpacked
   * type (the type of values that you get back when you run the query).  */
-abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
+abstract class Query[+E, U] extends Rep[Seq[U]] { self =>
 
   def unpackable: ShapedValue[_ <: E, U]
   final lazy val packed = unpackable.toNode
@@ -70,7 +70,7 @@ abstract class Query[+E, U] extends Rep[Seq[U]] with EncodeRef { self =>
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[K, T, G], vshape: Shape[E, _, P]): Query[(G, Query[P, U]), (T, Query[P, U])] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(unpackable.encodeRef(sym).value), kshape).packedValue
-    val value = ShapedValue(pack, Shape.encodeRefShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
+    val value = ShapedValue(pack, Shape.repShape.asInstanceOf[Shape[Query[P, U], Query[P, U], Query[P, U]]])
     val group = GroupBy(sym, toNode, key.toNode)
     new WrappingQuery(group, key.zip(value))
   }
@@ -167,7 +167,7 @@ object TableQuery {
         def taggedAs(tableRef: Node) = base.taggedAs(tableRef)
       })
     })
-    new TableQuery[E, E#TableElementType](ShapedValue(baseTable, Shape.encodeRefShape.asInstanceOf[Shape[E, E#TableElementType, E]]))
+    new TableQuery[E, E#TableElementType](ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[E, E#TableElementType, E]]))
   }
 
   def apply[E <: AbstractTable[_]]: TableQuery[E, E#TableElementType] =

@@ -3,14 +3,20 @@ package scala.slick.lifted
 import scala.slick.ast._
 
 /** Common base trait for all lifted values. */
-trait Rep[T] extends NodeGenerator
+trait Rep[T] {
+  /** Encode a reference into this Rep */
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Rep[T]
+
+  /** Get the Node for this Rep */
+  def toNode: Node
+}
 
 /** Common base trait for record values
   * (anything that is isomorphic to a tuple of scalar values). */
 trait ColumnBase[T] extends Rep[T]
 
 /** Base class for columns. */
-abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] with EncodeRef { self =>
+abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 

@@ -146,7 +146,7 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
                                        val _increment: Option[T],
                                        val _start: Option[T],
                                        val _cycle: Boolean)(implicit val tpe: TypedType[T], val integral: Integral[T])
-    extends NodeGenerator with Typed { seq =>
+    extends Typed { seq =>
 
     def min(v: T) = new Sequence[T](name, Some(v), _maxValue, _increment, _start, _cycle)
     def max(v: T) = new Sequence[T](name, _minValue, Some(v), _increment, _start, _cycle)
