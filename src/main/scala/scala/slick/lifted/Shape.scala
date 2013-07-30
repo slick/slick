@@ -38,7 +38,7 @@ abstract class Shape[-Mixed_, Unpacked_, Packed_] {
   /** Encode a reference into a value of this Shape.
     * This method may not be available for shapes where Mixed and Packed are
     * different types. */
-  def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil): Any
+  def encodeRef(value: Mixed, path: List[Symbol]): Any
 
   /** Return an AST Node representing a mixed value. */
   def toNode(value: Mixed): Node
@@ -54,8 +54,7 @@ object Shape extends ShapeLowPriority {
     def packedShape: Shape[Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked): Packed =
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
-    def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
-      value.encodeRef(sym, positions)
+    def encodeRef(value: Mixed, path: List[Symbol]) = value.encodeRef(path)
     def toNode(value: Mixed): Node = value.toNode
   }
 
@@ -66,8 +65,8 @@ object Shape extends ShapeLowPriority {
       shape.packedShape.asInstanceOf[Shape[Packed, Unpacked, Packed]]
     def buildParams(extract: Any => Unpacked): Packed =
       shape.buildParams(extract.asInstanceOf[Any => shape.Unpacked])
-    def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
-      value.shape.encodeRef(value.value.asInstanceOf[value.shape.Mixed], sym, positions)
+    def encodeRef(value: Mixed, path: List[Symbol]) =
+      value.shape.encodeRef(value.value.asInstanceOf[value.shape.Mixed], path)
     def toNode(value: Mixed): Node =
       value.shape.toNode(value.value.asInstanceOf[value.shape.Mixed])
   }
@@ -81,7 +80,7 @@ class ShapeLowPriority extends ShapeLowPriority2 {
     def pack(value: Mixed) = ConstColumn(value)
     def packedShape: Shape[Packed, Unpacked, Packed] = columnBaseShape[T, Column[T]]
     def buildParams(extract: Any => Unpacked): Packed = Column.forNode[T](new QueryParameter(extract, tm))(tm)
-    def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) =
+    def encodeRef(value: Mixed, path: List[Symbol]) =
       throw new SlickException("Shape does not have the same Mixed and Packed type")
     def toNode(value: Mixed): Node = pack(value).toNode
   }
@@ -108,9 +107,9 @@ abstract class ProductNodeShape[C, M <: C, U <: C, P <: C] extends Shape[M, U, P
     }
     buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
-  def encodeRef(value: Mixed, sym: Symbol, positions: List[Int] = Nil) = {
+  def encodeRef(value: Mixed, path: List[Symbol]) = {
     val elems = shapes.iterator.zip(getIterator(value)).zipWithIndex.map {
-      case ((p, x), pos) => p.encodeRef(x.asInstanceOf[p.Mixed], sym, (pos + 1) :: positions)
+      case ((p, x), pos) => p.encodeRef(x.asInstanceOf[p.Mixed], ElementSymbol(pos + 1) :: path)
     }
     buildValue(elems.toIndexedSeq)
   }
@@ -142,8 +141,8 @@ final class TupleShape[M <: Product, U <: Product, P <: Product](val shapes: Sha
 
 /** A value together with its Shape */
 case class ShapedValue[T, U](value: T, shape: Shape[T, U, _]) {
-  def encodeRef(sym: Symbol, positions: List[Int] = Nil): ShapedValue[T, U] = {
-    val fv = shape.encodeRef(value, sym, positions).asInstanceOf[T]
+  def encodeRef(path: List[Symbol]): ShapedValue[T, U] = {
+    val fv = shape.encodeRef(value, path).asInstanceOf[T]
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def toNode = shape.toNode(value)
@@ -183,7 +182,7 @@ class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends Colu
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
   override def toNode: Node = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
-  def encodeRef(sym: Symbol, positions: List[Int] = Nil): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
-    override def toNode = Path(positions.map(ElementSymbol) :+ sym)
+  def encodeRef(path: List[Symbol]): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
+    override def toNode = Path(path)
   }
 }

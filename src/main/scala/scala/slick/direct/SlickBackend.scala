@@ -203,8 +203,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     def _fields = getConstructorArgs(typetag.tpe)
     val tableName = mapper.typeToTable( typetag.tpe )
     val table = sq.TableNode(None, tableName, sq.SimpleTableIdentitySymbol(driver, "_", tableName),
-      expandOn = { tableRef: sq.Node => sq.TypeMapping(
-        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, tableRef) )),
+      expandOn = { tableRef: sq.Symbol => sq.TypeMapping(
+        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, sq.Ref(tableRef)) )),
         v => throw new Exception("not implemented yet"),
         v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
                .reflectConstructor(

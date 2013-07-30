@@ -6,14 +6,11 @@ import scala.slick.ast.Util.nodeToNodeOps
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
   /** Return a new instance of the AbstractTable carrying this Tag, with a new path */
-  def taggedAs(tableRef: Node): AbstractTable[_]
+  def taggedAs(path: List[Symbol]): AbstractTable[_]
 }
 
 /** A Tag for table instances that represent a path */
-trait RefTag extends Tag {
-  /** The path represented by the instance of the AbstractTable carrying this Tag */
-  def toNode: Node
-}
+abstract class RefTag(val path: List[Symbol]) extends Tag
 
 /** A Tag marking the base table instance itself */
 trait BaseTag extends Tag
@@ -24,18 +21,15 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   def tableIdentitySymbol: TableIdentitySymbol
 
   lazy val tableNode: TableNode =
-    TableNode(schemaName, tableName, tableIdentitySymbol, { t => tableTag.taggedAs(t).*.toNode }, this)
+    TableNode(schemaName, tableName, tableIdentitySymbol, { t => tableTag.taggedAs(List(t)).*.toNode }, this)
 
-  def encodeRef(sym: Symbol, positions: List[Int] = Nil): this.type = {
-    def f(n: Node, positions: List[Int]): Node = Path(positions.map(ElementSymbol) :+ sym)
-    tableTag.taggedAs(f(toNode, positions)).asInstanceOf[this.type]
-  }
+  def encodeRef(path: List[Symbol]) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
   def * : ProvenShape[T]
 
   override def toNode = tableTag match {
     case _: BaseTag => tableNode
-    case t: RefTag => t.toNode
+    case t: RefTag => Path(t.path)
   }
 
   def create_* : Iterable[FieldSymbol] = collectFieldSymbols(*.toNode)
@@ -52,7 +46,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     val targetTable: TT = targetTableQuery.unpackable.value
     val q = Query[TT, U, TT](targetTable)(Shape.repShape.asInstanceOf[Shape[TT, U, TT]])
     val generator = new AnonSymbol
-    val aliased = q.unpackable.encodeRef(generator)
+    val aliased = q.unpackable.encodeRef(generator :: Nil)
     val fv = Library.==.typed[Boolean](unpackp.toNode(targetColumns(aliased.value)), unpackp.toNode(sourceColumns))
     val fk = ForeignKey(name, toNode, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)

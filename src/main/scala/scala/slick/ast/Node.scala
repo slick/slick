@@ -533,7 +533,7 @@ object FwdPath {
 }
 
 /** A Node representing a database table. */
-final case class TableNode(schemaName: Option[String], tableName: String, tableIdentitySymbol: TableIdentitySymbol, expandOn: Node => Node, driverTable: Any) extends NullaryNode with TypedNode {
+final case class TableNode(schemaName: Option[String], tableName: String, tableIdentitySymbol: TableIdentitySymbol, expandOn: Symbol => Node, driverTable: Any) extends NullaryNode with TypedNode {
   type Self = TableNode
   def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(tableIdentitySymbol)(NoType))
   def nodeRebuild = copy()
