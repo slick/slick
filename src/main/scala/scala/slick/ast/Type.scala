@@ -117,6 +117,10 @@ final case class NominalType(sym: TypeSymbol)(val structuralView: Type) extends 
     if(struct2 eq structuralView) this
     else new NominalType(sym)(struct2)
   }
+  def sourceNominalType: NominalType = structuralView match {
+    case n: NominalType => n.sourceNominalType
+    case _ => this
+  }
 }
 
 /** Something that has a type */
