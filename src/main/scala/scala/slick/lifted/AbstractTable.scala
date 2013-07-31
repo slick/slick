@@ -20,15 +20,16 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   def tableIdentitySymbol: TableIdentitySymbol
 
-  lazy val tableNode: TableNode =
-    TableNode(schemaName, tableName, tableIdentitySymbol, { t => tableTag.taggedAs(List(t)).*.toNode }, this)
+  lazy val tableNode = TableNode(schemaName, tableName, tableIdentitySymbol, this)
 
   def encodeRef(path: List[Symbol]) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
   def * : ProvenShape[T]
 
   override def toNode = tableTag match {
-    case _: BaseTag => tableNode
+    case _: BaseTag =>
+      val sym = new AnonSymbol
+      TableExpansion(sym, tableNode, ProductNode(tableTag.taggedAs(List(sym)).*.toNode.flattenProduct))
     case t: RefTag => Path(t.path)
   }
 

@@ -104,26 +104,6 @@ class ReplaceFieldSymbols extends Phase with ColumnizerUtils {
   }
 }
 
-/** Replace all TableNodes with TableExpansions which contain both the
-  * expansion and the original table. */
-class ExpandTables extends Phase {
-  val name = "expandTables"
-
-  def apply(state: CompilerState): CompilerState = state.map { n =>
-    ClientSideOp.mapServerSide(n)(ch => apply(ch, state))
-  }
-
-  def apply(n: Node, state: CompilerState): Node = n match {
-    case t: TableExpansion => t
-    case t: TableNode =>
-      val sym = new AnonSymbol
-      val expanded = t.expandOn(sym)
-      val processed = apply(state.compiler.runBefore(this, state.withNode(expanded)).tree, state)
-      TableExpansion(sym, t, ProductNode(processed.flattenProduct))
-    case n => n.nodeMapChildren(ch => apply(ch, state))
-  }
-}
-
 /** Expand Paths to ProductNodes and TableExpansions into ProductNodes of
   * Paths and TableRefExpansions of Paths, so that all Paths point to
   * individual columns by index. */

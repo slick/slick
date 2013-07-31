@@ -108,7 +108,7 @@ object Query extends Query[Column[Unit], Unit] {
 
   def apply[E, U, R](value: E)(implicit unpack: Shape[E, U, R]): Query[R, U] = {
     val unpackable = ShapedValue(value, unpack).packedValue
-    if(unpackable.toNode.isInstanceOf[TableNode])
+    if(unpackable.toNode.isInstanceOf[TableExpansion])
       new NonWrappingQuery[R, U](unpackable.toNode, unpackable)
     else new WrappingQuery[R, U](Pure(unpackable.toNode), unpackable)
   }

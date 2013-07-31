@@ -65,7 +65,6 @@ object QueryCompiler {
     Phase.inline,
     Phase.assignUniqueSymbols,
     // Distribute and normalize
-    Phase.expandTables,
     Phase.inferTypes,
     Phase.createResultSetMapping,
     Phase.forceOuterBinds,
@@ -111,7 +110,6 @@ object Phase {
   /** The standard phases of the query compiler */
   val inline = new Inline
   val assignUniqueSymbols = new AssignUniqueSymbols
-  val expandTables = new ExpandTables
   val inferTypes = new InferTypes
   val createResultSetMapping = new CreateResultSetMapping
   val forceOuterBinds = new ForceOuterBinds

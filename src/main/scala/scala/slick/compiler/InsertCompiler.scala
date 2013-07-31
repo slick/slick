@@ -20,18 +20,31 @@ trait InsertCompiler extends Phase {
     val rref = Ref(rgen)
 
     var table: TableNode = null
+    var expansionRef: Symbol = null
     val cols = new ArrayBuffer[Select]
+    def setTable(te: TableExpansion) {
+      val t = te.table.asInstanceOf[TableNode]
+      if(table eq null) {
+        table = t
+        expansionRef = te.generator
+      }
+      else if(table ne t) throw new SlickException("Cannot insert into more than one table at once")
+    }
 
     def tr(n: Node): Node = n match {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildren(tr, keepType = true)
-      case t: TableNode => tr(t.expandOn(t.nodeIntrinsicSymbol))
-      case sel @ Select(Ref(IntrinsicSymbol(t: TableNode)), fs: FieldSymbol) =>
-        if(table eq null) table = t
-        else if(table ne t) throw new SlickException("Cannot insert into more than one table at once")
+      case te @ TableExpansion(_, _, expansion) =>
+        setTable(te)
+        tr(expansion match {
+          case ProductNode(Seq(ch)) => ch
+          case n => n
+        })
+      case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
         cols += Select(tref, fs).nodeTyped(sel.nodeType)
         Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType)
-      case Bind(gen, t: TableNode, Pure(sel)) =>
-        tr(sel.replace({ case Ref(s) if s == gen => Ref(t.nodeIntrinsicSymbol) }, keepType = true))
+      case Bind(gen, te @ TableExpansion(_, t: TableNode, _), Pure(sel)) =>
+        setTable(te)
+        tr(sel.replace({ case Ref(s) if s == gen => Ref(expansionRef) }, keepType = true))
       case _ => throw new SlickException("Cannot use node "+n+" for inserting data")
     }
     val tree2 = tr(tree)

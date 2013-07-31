@@ -459,7 +459,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   /** Builder for various DDL statements. */
   class TableDDLBuilder(val table: Table[_]) { self =>
-    protected val tableNode = table.toNode.asInstanceOf[TableNode]
+    protected val tableNode = table.toNode.asInstanceOf[TableExpansion].table.asInstanceOf[TableNode]
     protected val columns: Iterable[ColumnDDLBuilder] = table.create_*.map(fs => createColumnDDLBuilder(fs, table))
     protected val indexes: Iterable[Index] = table.indexes
     protected val foreignKeys: Iterable[ForeignKey] = table.foreignKeys
