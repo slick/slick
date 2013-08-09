@@ -2,7 +2,7 @@ package com.typesafe.slick.examples.jdbc
 
 //#imports
 import scala.slick.driver.JdbcDriver.backend.Database
-import Database.threadLocalSession
+import Database.dynamicSession
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 //#imports
 //#imports.interpolation
@@ -30,7 +30,7 @@ object PlainSQL extends App {
 //#GetResult
 
   //#setup
-  Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
+  Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withDynSession {
 
 //#setup
 //#updateNA
