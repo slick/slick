@@ -373,6 +373,7 @@ final case class Drop(from: Node, num: Int, generator: Symbol = new AnonSymbol) 
 }
 
 /** A join expression of type
+  case Filter(gen, from, where) =>
   * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (t, u)). */
 final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends DefNode {
   type Self = Join

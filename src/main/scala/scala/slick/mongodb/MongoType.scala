@@ -5,6 +5,8 @@ import scala.reflect.ClassTag
 import com.mongodb.casbah.Imports._
 import scala.slick.profile.RelationalTypesComponent
 import java.util.UUID
+import scala.slick.mongodb.MongoProfile
+import scala.slick.SlickException
 
 /**
  * A MongoType object represents a Scala type that can be
@@ -71,7 +73,19 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
 
   type TypeInfo = MongoType[Any /* it's really _ but we'd have to cast it to Any anyway */]
 
-  def typeInfoFor(t: Type): TypeInfo = ??? // JdbcTypesComponent:15
+  def typeInfoFor(t: Type): TypeInfo = ((t match {
+    case tmd: MongoType[_] => tmd
+    case ScalaBaseType.booleanType => columnTypes.booleanMongoType
+    case ScalaBaseType.doubleType => columnTypes.doubleMongoType
+    case ScalaBaseType.floatType => columnTypes.floatMongoType
+    case ScalaBaseType.intType => columnTypes.intMongoType
+    case ScalaBaseType.longType => columnTypes.longMongoType
+    case ScalaBaseType.nullType => columnTypes.nullMongoType
+    case ScalaBaseType.stringType => columnTypes.stringMongoType
+    /*case ScalaBaseType.unitType => */
+    case o: OptionType => typeInfoFor(o.elementType).optionType
+    case t => throw new SlickException(s"MongoProfile has no TypeInfo for type '$t'")
+  }): MongoType[_]).asInstanceOf[MongoType[Any]]
 
   abstract class DriverMongoType[T: ClassTag] extends MongoType[T] with BaseTypedType[T] {
     def scalaType = ScalaBaseType[T]
@@ -114,14 +128,15 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
 
     val booleanMongoType = new BooleanMongoType
     val byteArrayMongoType = new ByteArrayMongoType
-    val dateMongoType = new DateMongoType
+    val sqlDateMongoType = new SqlDateMongoType
+    val jdkDateMongoType = new JdkDateMongoType
     // TODO - Add a time type that stores as a mongo date w/ just the time since Jan 1, 1970?
     val doubleMongoType = new DoubleMongoType
     val floatMongoType = new FloatMongoType /** Mongo only technically supports Doubles - 64 bit ieee-754 floating point */
     val intMongoType = new IntMongoType
     val longMongoType = new LongMongoType
     val stringMongoType = new StringMongoType
-    val timestampMongoType = new TimestampMongoType
+    val sqlTimestampMongoType = new SqlTimestampMongoType
     val uuidMongoType = new UUIDMongoType
     val nullMongoType = new NullMongoType
 
@@ -135,27 +150,32 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
       def mongoTypeName: String = "Binary"
     }
 
-    class DateMongoType extends DriverMongoType[java.sql.Date] {
+    class SqlDateMongoType extends DriverMongoType[java.sql.Date] {
       def mongoType: Byte = BSON.DATE
-      def mongoTypeName: String = "Date"
+      def mongoTypeName: String = "Date [as java.sql.Date]"
     }
 
-    class DoubleMongoType extends DriverMongoType[Double] {
+    class JdkDateMongoType extends DriverMongoType[java.util.Date] {
+      def mongoType: Byte = BSON.DATE
+      def mongoTypeName: String = "Date [as java.util.Date]"
+    }
+
+    class DoubleMongoType extends DriverMongoType[Double] with NumericTypedType {
       def mongoType: Byte = BSON.NUMBER
       def mongoTypeName: String = "Number (64-bit IEEE-754 FP aka 'Double')"
     }
 
-    class FloatMongoType extends DriverMongoType[Double] {
+    class FloatMongoType extends DriverMongoType[Double] with NumericTypedType {
       def mongoType: Byte = BSON.NUMBER
       def mongoTypeName: String = "Number (64-bit IEEE-754 FP aka 'Double' [as Float])"
     }
 
-    class IntMongoType extends DriverMongoType[Int] {
+    class IntMongoType extends DriverMongoType[Int] with NumericTypedType {
       def mongoType: Byte = BSON.NUMBER_INT
       def mongoTypeName: String = "Int"
     }
 
-    class LongMongoType extends DriverMongoType[Long] {
+    class LongMongoType extends DriverMongoType[Long] with NumericTypedType {
       def mongoType: Byte = BSON.NUMBER_LONG
       def mongoTypeName: String = "Long"
     }
@@ -166,9 +186,9 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
     }
 
     // TODO - I don't think we can properly store the nanoseconds permitted in java.sql.Timestamp...
-    class TimestampMongoType extends DriverMongoType[java.sql.Timestamp] {
+    class SqlTimestampMongoType extends DriverMongoType[java.sql.Timestamp] {
       def mongoType: Byte = BSON.DATE
-      def mongoTypeName: String = "Date [as Timestamp]"
+      def mongoTypeName: String = "Date [as java.sql.Timestamp]"
     }
 
     class UUIDMongoType extends DriverMongoType[UUID] {
@@ -181,6 +201,22 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
       def mongoType: Byte = BSON.NULL
       def mongoTypeName: String = "Null"
     }
+  }
+
+  trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
+    implicit def booleanColumnType = columnTypes.booleanMongoType
+    implicit def byteArrayColumnType = columnTypes.byteArrayMongoType
+    implicit def sqlDateColumnType = columnTypes.sqlDateMongoType
+    implicit def jdkDateColumnType = columnTypes.jdkDateMongoType
+    implicit def doubleMongoType = columnTypes.doubleMongoType
+    implicit def floatMongoType = columnTypes.floatMongoType
+    implicit def intMongoType = columnTypes.intMongoType
+    implicit def longMongoType = columnTypes.longMongoType
+    implicit def stringMongoType = columnTypes.stringMongoType
+    implicit def sqlTimestampMongoType = columnTypes.sqlTimestampMongoType
+    implicit def uuidMongoType = columnTypes.uuidMongoType
+    implicit def nullMongoType = columnTypes.nullMongoType
+
   }
 
 }
