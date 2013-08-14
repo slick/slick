@@ -20,15 +20,16 @@ import com.mongodb.casbah.Imports._
 
 class QueryInterpreter(db: MongoBackend#Database, params: Any) extends Logging {
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
+  def logDebug(msg: String) {
+    if (logger.isDebugEnabled) logger.debug(Iterator.fill(indent)(" ").mkString("", "", msg))
+  }
   import QueryInterpreter._
 
   val scope = new HashMap[Symbol, Any]
   var indent = 0
   type Coll = Iterable[Any]
 
-  def logDebug(msg: String) {
-    if (logger.isDebugEnabled) logger.debug(Iterator.fill(indent)(" ").mkString("", "", msg))
-  }
+
 
 
   def run(n: Node): Any = {

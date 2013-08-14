@@ -18,9 +18,7 @@ trait MongoBackend extends DatabaseComponent {
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
 
-  type RowReader = MongoResult
-  type RowWriter = MongoInserter
-  type RowUpdater = MongoUpdater
+
 
   val Database = new DatabaseFactoryDef {}
 
@@ -158,10 +156,7 @@ trait MongoBackend extends DatabaseComponent {
     // todo - populate me with some cool stuff
   }
 
-  class MongoInsertCompiler extends InsertCompiler {
-    def createMapping(ins: Insert) =
 
-  }
 
 }
 

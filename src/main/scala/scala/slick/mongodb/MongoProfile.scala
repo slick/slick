@@ -3,13 +3,18 @@ package scala.slick.mongodb
 import com.mongodb.casbah.Imports._
 import scala.slick.profile.{RelationalMappingCompilerComponent, RelationalDriver, RelationalProfile, Capability}
 import scala.slick.ast._
-import scala.slick.compiler.{CompilerState, CodeGen, QueryCompiler}
+import scala.slick.compiler.{InsertCompiler, CompilerState, CodeGen, QueryCompiler}
 import scala.slick.ast.ElementSymbol
 import scala.slick.SlickException
 import scala.slick.mongodb.MongoProfile.options.MongoCollectionOption
+import org.slf4j.LoggerFactory
+import scala.slick.util.SlickLogger
+import scala.slick.lifted.Query
 
 
 trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
+  protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[MongoProfile]))
+
   type Backend = MongoBackend
   val backend: Backend = MongoBackend
 
@@ -32,8 +37,12 @@ trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
   lazy val deleteCompiler = compiler
   lazy val insertCompiler = QueryCompiler(new MongoInsertCompiler)
 
+  trait SimpleQL extends super.SimpleQL with Implicits
+
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutorDef[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
+  def compileParameterizedQuery[P,R](q: Query[_, R]) = new ParameterizedQuery[P, R](queryCompiler.run(Node(q)).tree)
+
   // TODO - Update Invoker?
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   // TODO - this will be important later as we add support for Capped Collections. Otherwise CreateCollection is mostly a NOOP
@@ -85,6 +94,9 @@ trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
     def drop(implicit session: Backend#Session): Unit =
       session.database.dropTable(table.tableName)
   }
+
+
+
 }
 
 object MongoProfile {
@@ -150,75 +162,4 @@ object MongoProfile {
 
 
 
-/**
- * Slick driver for MongoDB
- *
- * Based on Casbah, Fully synchronous. A rough sketch of the ultimate plan for a full fledged
- * MongoDB mapping
- *
- * @author bwmcadams
- */
-class MongoDriver extends RelationalDriver
-                  with MongoProfile
-                  with MongoTypesComponent
-                  with RelationalMappingCompilerComponent { driver =>
 
-  //type RowReader = QueryInterpreter.ProductValue
-
-  // TODO - Detect Mongo JS Engine and access to aggregation at connection time
-  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
-    - RelationalProfile.capabilities.foreignKeyActions /** we might be able to gerryMander this around DBRefs, later */
-    - RelationalProfile.capabilities.functionDatabase /** I think we need to be able to do this in an exact SQL Way...? */
-    - RelationalProfile.capabilities.functionUser
-    - RelationalProfile.capabilities.joinFull
-    - RelationalProfile.capabilities.joinRight
-    - RelationalProfile.capabilities.likeEscape
-    - RelationalProfile.capabilities.pagingDrop
-    - RelationalProfile.capabilities.pagingNested
-    - RelationalProfile.capabilities.pagingPreciseTake
-    - RelationalProfile.capabilities.typeBigDecimal /** MongoDB has no safe type mapping for BigDecimal */
-    - RelationalProfile.capabilities.zip /** TODO - talk to Stefan about what zip capabilities means/need */
-  )
-
-  trait QueryMappingCompiler extends super.MappingCompiler {
-    def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = { // todo - fill me in
-      val Select(_, ElementSymbol(ridx)) = path
-      val nullable = typeInfoFor(n.nodeType).nullable
-      new ResultConverter {
-        def read(pr: RowReader) = {
-          val v = pr(ridx-1)
-          if (!nullable && (v.asInstanceOf[AnyRef] eq null)) throw new SlickException("Read null value for non-nullable column")
-          v
-        }
-        def update(value: Any, pr: RowUpdater) = ???
-        def set(value: Any, pp: RowWriter) = ???
-      }
-    }
-  }
-
-  class MongoCodeGen extends CodeGen with QueryMappingCompiler {
-    def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
-
-    def apply(node: Node, state: CompilerState): Node = // todo - evaluate. Should still be CSO?
-      ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
-        val nmap = CompiledMapping(compileMapping(rsm.map), rsm.map.nodeType)
-        rsm.copy(map = nmap).nodeTyped(rsm.nodeType)
-      }
-
-    def retype(n: Node): Node = {
-      val n2 = n.nodeMapChildrenKeepType(retype)
-      n2.nodeRebuildWithType(trType(n2.nodeType))
-    }
-
-    def trType(t: Type): Type = t match {
-      case StructType(el) => StructType(el.map { case (s, t) => (s, trType(t)) })
-      case ProductType(el) => ProductType(el.map(trType))
-      case CollectionType(cons, el) => CollectionType(cons, trType(el))
-      case t => typeInfoFor(t)
-    }
-
-
-  }
-
-
-}
