@@ -19,7 +19,6 @@ trait MongoBackend extends DatabaseComponent {
   type DatabaseFactory = DatabaseFactoryDef
 
 
-
   val Database = new DatabaseFactoryDef {}
 
   val backend: MongoBackend = this
@@ -41,6 +40,8 @@ trait MongoBackend extends DatabaseComponent {
       *  so there is a strictness issue we have to find a way to consider
       **/
     def getTable(name: String): MongoCollection = createConnection()(name)
+
+    def tableExists(name: String): Boolean = createConnection().collectionExists(name)
 
     def createTable(name: String, options: Seq[MongoCollectionOption], indexes: IndexedSeq[Index],
                     /* todo - can we support constraints? */ constraints: IndexedSeq[Constraint]): MongoCollection = {

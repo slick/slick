@@ -33,6 +33,9 @@ class MongoDriver extends RelationalDriver
   type RowWriter = ArrayBuffer[Any] // MongoInserter
   type RowUpdater = ArrayBuffer[Any] // MongoUpdater
 
+  override val profile: MongoProfile = this
+
+
   // TODO - Detect Mongo JS Engine and access to aggregation at connection time
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
@@ -111,3 +114,5 @@ class MongoDriver extends RelationalDriver
     def createMapping(ins: Insert) = CompiledMapping(new InsertMappingCompiler(ins).compileMapping(ins.map), ins.map.nodeType)
   }
 }
+
+object MongoDriver extends MongoDriver
