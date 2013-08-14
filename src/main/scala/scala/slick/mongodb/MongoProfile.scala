@@ -67,21 +67,23 @@ trait MongoProfile extends RelationalProfile with MongoTypesComponent { driver: 
     // TODO -this needs to basically always/only be a DBObject...
     def +=(value: T)(implicit session: Backend#Session) {
       val tbl = session.database.getTable(table.tableName)
+      logger.debug(s"Insert value '$value', table '$table', projection '$projection', converter '$converter'")
       value match {
         case doc: DBObject =>
           tbl.insert(doc)
         case other =>
-          throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB")
+          throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB (" + other.toString + ")")
       }
     }
 
     def ++=(values: Iterable[T])(implicit session: Backend#Session) {
       val tbl = session.database.getTable(table.tableName)
+      logger.debug(s"Insert values '$values', table '$table', projection '$projection', converter '$converter'")
       for (value <- values) value match {
         case doc: DBObject =>
           tbl.insert(doc)
         case other =>
-          throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB")
+          throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB (" + other.toString + ")")
       }
     }
   }
