@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory
 import scala.slick.backend.DatabaseComponent
 import com.mongodb.casbah.MongoClientURI
 import scala.slick.lifted.{Constraint, Index}
-import scala.slick.SlickException
+import scala.slick.{mongodb, SlickException}
 import scala.slick.mongodb.MongoProfile.options.MongoCollectionOption
 import scala.slick.compiler.InsertCompiler
 import scala.slick.ast.Insert
@@ -49,7 +49,7 @@ trait MongoBackend extends DatabaseComponent {
       val opts = {
         import MongoProfile.options._
         val b = MongoDBObject.newBuilder
-        options match {
+        for (option <- options)  option match {
           case CollectionCapped =>
             b += "capped" -> true
           case CollectionAutoIndexID(value) =>
@@ -67,9 +67,9 @@ trait MongoBackend extends DatabaseComponent {
 
     def dropTable(name: String): Unit = getTable(name).dropCollection()
 
-    def getTables: Seq[MongoCollection] = {
+    def getTables: Set[MongoCollection] = {
       val conn = createConnection()
-      for (c <- conn.collectionNames) yield conn(c)
+      (for (c <- conn.collectionNames) yield conn(c)).toSet
     }
 
     def createSession(): Session = new Session(this)
@@ -112,14 +112,10 @@ trait MongoBackend extends DatabaseComponent {
     }
   }
 
-  trait SessionDef extends super.SessionDef { self =>
+  class SessionDef(val database: Database) extends super.SessionDef { self =>
+    protected var open = false
 
-    def database: Database
-    def conn: MongoDB
-
-    // todo - just aping these from the JDBC backend for now, investigate what we need to do.
-
-    def close(): Unit
+    lazy val conn: MongoDB = { open = true; database.createConnection() }
 
     /**
      * MongoDB Does not support transactions, and will throw an exception if invoked.
@@ -129,12 +125,7 @@ trait MongoBackend extends DatabaseComponent {
     def withTransaction[T](f: => T): T = throw new UnsupportedOperationException("MongoDB Does Not Support Transactional Operations!")
 
     def force() { conn }
-  }
 
-  class Session(val database: Database) extends SessionDef {
-    protected var open = false
-
-    lazy val conn = { open = true; database.createConnection() }
 
     // TODO - server detected capabilities
     // def capabilities

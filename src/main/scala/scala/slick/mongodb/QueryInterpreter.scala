@@ -195,10 +195,10 @@ class QueryInterpreter(db: MongoBackend#Database, params: Any) extends Logging {
     val rT = args(1)._1
     sym match {
       case Library.== => MongoDBObject(lF -> rV)
-      case Library.< => lF $lt rV
-      case Library.<= => lF $lte rV
-      case Library.> => lF $gt rV
-      case Library.>= => lF $gte rV
+      case Library.< => ??? // lF $lt rV
+      case Library.<= => ??? // lF $lte rV
+      case Library.> => ??? //lF $gt rV
+      case Library.>= => ??? //lF $gte rV
       case Library.And =>
         // This is a SQL and so like WHERE foo = "bar" and x = "y"... Accrue a single MongoDBObject
         // TODO - Fill me in. Not sure how to extract field names from both sides of this. my brain hurts.

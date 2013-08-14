@@ -12,14 +12,16 @@ import scala.slick.util.SlickLogger
 import scala.slick.lifted.Query
 
 
-trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
+trait MongoProfile extends RelationalProfile with MongoTypesComponent { driver: MongoDriver =>
   protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[MongoProfile]))
 
   type Backend = MongoBackend
   val backend: Backend = MongoBackend
 
+  val simple: SimpleQL = new SimpleQL {}
+
   val Implicit: Implicits = new Implicits {  }
-  trait Implicits extends LowPriorityImplicits with super.Implicits with ImplicitColumnTypes {
+  trait Implicits extends super.Implicits with ImplicitColumnTypes {
     implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker = d.asInstanceOf[DDLInvoker]
   }
 
@@ -41,7 +43,7 @@ trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutorDef[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
-  def compileParameterizedQuery[P,R](q: Query[_, R]) = new ParameterizedQuery[P, R](queryCompiler.run(Node(q)).tree)
+  def compileParameterizedQuery[P,R](q: Query[_, R]) = ??? // new ParameterizedQuery[P, R](queryCompiler.run(Node(q)).tree)
 
   // TODO - Update Invoker?
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
@@ -65,12 +67,22 @@ trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
     // TODO -this needs to basically always/only be a DBObject...
     def +=(value: T)(implicit session: Backend#Session) {
       val tbl = session.database.getTable(table.tableName)
-      tbl.insert(value)
+      value match {
+        case doc: DBObject =>
+          tbl.insert(doc)
+        case other =>
+          throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB")
+      }
     }
 
     def ++=(values: Iterable[T])(implicit session: Backend#Session) {
       val tbl = session.database.getTable(table.tableName)
-      tbl.insert(values) // TODO - _* conversion
+      for (value <- values) value match {
+        case doc: DBObject =>
+          tbl.insert(doc)
+        case other =>
+          throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB")
+      }
     }
   }
 

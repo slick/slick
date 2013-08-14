@@ -5,7 +5,6 @@ import scala.reflect.ClassTag
 import com.mongodb.casbah.Imports._
 import scala.slick.profile.RelationalTypesComponent
 import java.util.UUID
-import scala.slick.mongodb.MongoProfile
 import scala.slick.SlickException
 
 /**
@@ -58,8 +57,8 @@ trait MongoType[T] extends TypedType[T] { self =>
     def mongoType = self.mongoType
     override def mongoTypeName = self.mongoTypeName
     def scalaType = new ScalaOptionType[T](self.scalaType)
-    def setValue(k: String, v: Option[T])(doc: DBObject) = self.setOption(k, v)(doc)
-    def setOption(k: String, v: Option[Option[T]])(doc: DBObject) = self.setOption(k, v.getOrElse(None))(doc)
+    override def setValue(k: String, v: Option[T])(doc: DBObject) = self.setOption(k, v)(doc)
+    override def setOption(k: String, v: Option[Option[T]])(doc: DBObject) = self.setOption(k, v.getOrElse(None))(doc)
     override def nullable = true
     override def toString = s"Option[$self]"
   }
@@ -139,6 +138,10 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
     val sqlTimestampMongoType = new SqlTimestampMongoType
     val uuidMongoType = new UUIDMongoType
     val nullMongoType = new NullMongoType
+    val unitMongoType = new UnitMongoType
+    val shortMongoType = new ShortMongoType
+    val charMongoType = new CharMongoType
+    val byteMongoType = new ByteMongoType
 
     class BooleanMongoType extends DriverMongoType[Boolean] {
       def mongoType: Byte = BSON.BOOLEAN
@@ -165,7 +168,7 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
       def mongoTypeName: String = "Number (64-bit IEEE-754 FP aka 'Double')"
     }
 
-    class FloatMongoType extends DriverMongoType[Double] with NumericTypedType {
+    class FloatMongoType extends DriverMongoType[Float] with NumericTypedType {
       def mongoType: Byte = BSON.NUMBER
       def mongoTypeName: String = "Number (64-bit IEEE-754 FP aka 'Double' [as Float])"
     }
@@ -174,6 +177,8 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
       def mongoType: Byte = BSON.NUMBER_INT
       def mongoTypeName: String = "Int"
     }
+
+
 
     class LongMongoType extends DriverMongoType[Long] with NumericTypedType {
       def mongoType: Byte = BSON.NUMBER_LONG
@@ -201,6 +206,45 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
       def mongoType: Byte = BSON.NULL
       def mongoTypeName: String = "Null"
     }
+
+    class UnitMongoType extends DriverMongoType[Unit] {
+      def mongoType: Byte = -1
+      def mongoTypeName: String = "Unit"
+      override def setValue(k: String, v: Unit)(doc: DBObject): Unit = {
+        // NOOP
+      }
+    }
+
+    class ShortMongoType extends DriverMongoType[Short] with NumericTypedType {
+      def mongoType: Byte = BSON.NUMBER_INT
+      def mongoTypeName: String = "Short [Emulated in an Int field]"
+
+      @deprecated("Shorts are not properly supported by MongoDB and will be emulated via an Int.", "Always")
+      override def setValue(k: String, v: Short)(doc: DBObject): Unit = {
+        super.setValue(k, v)(doc)
+      }
+    }
+
+    class CharMongoType extends DriverMongoType[Char] {
+      def mongoType: Byte = BSON.STRING
+      def mongoTypeName: String = "Char [Emulated in a String field]"
+
+      @deprecated("Chars are not properly supported by MongoDB and will be emulated via a String.", "Always")
+      override def setValue(k: String, v: Char)(doc: DBObject): Unit = {
+        super.setValue(k, v)(doc)
+      }
+    }
+
+    class ByteMongoType extends DriverMongoType[Byte] with NumericTypedType {
+      def mongoType: Byte = BSON.NUMBER_INT
+      def mongoTypeName: String = "Byte [Emulated in an Int field]"
+
+      @deprecated("Bytes are not properly supported by MongoDB and will be emulated via an Int.", "Always")
+      override def setValue(k: String, v: Byte)(doc: DBObject): Unit = {
+        super.setValue(k, v)(doc)
+      }
+    }
+
   }
 
   trait ImplicitColumnTypes extends super.ImplicitColumnTypes {
@@ -208,15 +252,20 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
     implicit def byteArrayColumnType = columnTypes.byteArrayMongoType
     implicit def sqlDateColumnType = columnTypes.sqlDateMongoType
     implicit def jdkDateColumnType = columnTypes.jdkDateMongoType
-    implicit def doubleMongoType = columnTypes.doubleMongoType
-    implicit def floatMongoType = columnTypes.floatMongoType
-    implicit def intMongoType = columnTypes.intMongoType
-    implicit def longMongoType = columnTypes.longMongoType
-    implicit def stringMongoType = columnTypes.stringMongoType
-    implicit def sqlTimestampMongoType = columnTypes.sqlTimestampMongoType
-    implicit def uuidMongoType = columnTypes.uuidMongoType
-    implicit def nullMongoType = columnTypes.nullMongoType
+    implicit def doubleColumnType = columnTypes.doubleMongoType
+    implicit def floatColumnType = columnTypes.floatMongoType
+    implicit def intColumnType = columnTypes.intMongoType
+    implicit def longColumnType = columnTypes.longMongoType
+    implicit def stringColumnType = columnTypes.stringMongoType
+    implicit def sqlTimestampColumnType = columnTypes.sqlTimestampMongoType
+    implicit def uuidColumnType = columnTypes.uuidMongoType
+    implicit def nullColumnType = columnTypes.nullMongoType
 
+    implicit def unitColumnType = columnTypes.unitMongoType
+    implicit def shortColumnType = columnTypes.shortMongoType
+    implicit def charColumnType = columnTypes.charMongoType
+    implicit def byteColumnType = columnTypes.byteMongoType
+    implicit def bigDecimalColumnType = throw new SlickException("MongoDB is incapable of safely supporting BigDecimal storage.")
   }
 
 }
