@@ -22,13 +22,15 @@ trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
   type BaseColumnType[T] = MongoType[T] with BaseTypedType[T]
   val columnTypes = new MongoTypes
 
+  type SchemaDescription = SchemaDescriptionDef
+  type InsertInvoker[T] = InsertInvokerDef[T]
+  type QueryExecutor[R] = QueryExecutorDef[R]
+
   val compiler = QueryCompiler.standard // todo - do we need a special compiler? do we need relational to do the join with DBRef?
   lazy val queryCompiler = compiler + new MongoCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
   lazy val insertCompiler = QueryCompiler(new MongoInsertCompiler)
-  type ColumnType[T] = MongoType[T]
-  type BaseColumnType[T] = MongoType[T] with BaseTypedType[T]
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutorDef[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
@@ -36,6 +38,32 @@ trait MongoProfile extends RelationalProfile { driver: MongoDriver =>
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   // TODO - this will be important later as we add support for Capped Collections. Otherwise CreateCollection is mostly a NOOP
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new TableDDL(table)
+
+  class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
+    def run(implicit session: Backend#Session): R = {
+      val inter = new QueryInterpreter(session.database, param) {
+        override def run(n: Node) = n match {
+          case n => super.run(n)
+        }
+      }
+      inter.run(tree).asInstanceOf[R]
+    }
+  }
+
+  class InsertInvokerDef[T](tree: Node) extends super.InsertInvokerDef[T] {
+    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, projection, _), CompiledMapping(converter, _)) = tree
+
+    // TODO -this needs to basically always/only be a DBObject...
+    def +=(value: T)(implicit session: Backend#Session) {
+      val tbl = session.database.getTable(table.tableName)
+      tbl.insert(value)
+    }
+
+    def ++=(values: Iterable[T])(implicit session: Backend#Session) {
+      val tbl = session.database.getTable(table.tableName)
+      tbl.insert(values) // TODO - _* conversion
+    }
+  }
 
   abstract class DDL extends SchemaDescriptionDef with DDLInvoker { self =>
     // todo - should we really support ++ In mongo DDLs?
