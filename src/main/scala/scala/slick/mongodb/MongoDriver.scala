@@ -14,6 +14,7 @@ import scala.slick.ast.Insert
 import scala.collection.mutable.ArrayBuffer
 import scala.slick.util.SlickLogger
 import org.slf4j.LoggerFactory
+import com.mongodb.casbah.Imports._
 
 /**
  * Slick driver for MongoDB
@@ -30,7 +31,7 @@ class MongoDriver extends RelationalDriver
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[MongoDriver]))
 
   type RowReader = ArrayBuffer[Any]  // MongoResult
-  type RowWriter = ArrayBuffer[Any] // MongoInserter
+  type RowWriter = DBObject // MongoInserter
   type RowUpdater = ArrayBuffer[Any] // MongoUpdater
 
   override val profile: MongoProfile = this
@@ -95,17 +96,15 @@ class MongoDriver extends RelationalDriver
 
   class InsertMappingCompiler(insert: Insert) extends super.MappingCompiler {
     val Insert(_, table: Table[_], _, ProductNode(cols)) = insert
-    val tableColumnIdxs = table.create_*.zipWithIndex.toMap // TODO - Choosing queries based on indexes is going to be massively important
 
     def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = {
       logger.debug(s"Creating Column Converter for Node: '$n', Path: '$path', Option: '$option'")
       val Select(_, ElementSymbol(ridx)) = path
       val Select(_, fs: FieldSymbol) = cols(ridx - 1)
-      val tidx = tableColumnIdxs(fs)
       new ResultConverter {
         def read(pr: RowReader) = ???
         def update(value: Any, pr: RowUpdater) = ???
-        def set(value: Any, pp: RowWriter) = pp(tidx) = value
+        def set(value: Any, pp: RowWriter) = pp.put(fs.name, value)
       }
     }
   }

@@ -1,7 +1,7 @@
 package scala.slick.mongodb
 
 import com.mongodb.casbah.Imports._
-import scala.slick.util.SlickLogger
+import scala.slick.util.{Logging, SlickLogger}
 import org.slf4j.LoggerFactory
 import scala.slick.backend.DatabaseComponent
 import com.mongodb.casbah.MongoClientURI
@@ -9,7 +9,9 @@ import scala.slick.lifted.{Constraint, Index}
 import scala.slick.{mongodb, SlickException}
 import scala.slick.mongodb.MongoProfile.options.MongoCollectionOption
 import scala.slick.compiler.InsertCompiler
-import scala.slick.ast.Insert
+import scala.slick.ast.{ColumnOption, FieldSymbol, Insert}
+import java.util.concurrent.atomic.AtomicLong
+import scala.collection.mutable
 
 trait MongoBackend extends DatabaseComponent {
   protected[this] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[MongoBackend].getName+".statement"))
@@ -21,6 +23,7 @@ trait MongoBackend extends DatabaseComponent {
 
   val Database = new DatabaseFactoryDef {}
 
+  type Row = DBObject
   val backend: MongoBackend = this
 
   trait DatabaseDef extends super.DatabaseDef {
@@ -34,19 +37,24 @@ trait MongoBackend extends DatabaseComponent {
      */
     @volatile
     protected[MongoBackend] var capabilities: DatabaseCapabilities = null
+
+    protected val tables = new mutable.HashMap[String, MongoTable]
     /**  For consistency, although in Mongo they like to call 'em collections
       *  ( I admit to usually using the term 'tables' anyway... )
       *  NOTE: Mongo will implicitly create collections that don't exist, if data is inserted...
       *  so there is a strictness issue we have to find a way to consider
       **/
-    def getTable(name: String): MongoCollection = createConnection()(name)
+    def getTable(name: String): MongoTable = {
+      tables.get(name).getOrElse(throw new SlickException(s"Table $name does not exist!"))
+    }
 
     def tableExists(name: String): Boolean = createConnection().collectionExists(name)
 
-    def createTable(name: String, options: Seq[MongoCollectionOption], indexes: IndexedSeq[Index],
-                    /* todo - can we support constraints? */ constraints: IndexedSeq[Constraint]): MongoCollection = {
+    def createTable(name: String, columns: Seq[MongoBackend.Column], options: Seq[MongoCollectionOption], indexes: IndexedSeq[Index],
+                    /* todo - can we support constraints? */ constraints: IndexedSeq[Constraint]): MongoTable = {
       val conn = createConnection()
-      if (conn.collectionExists(name)) throw new SlickException("MongoDB Collection $name already exists.")
+      // todo - this is messy, and if something changes underneath us could break... caching, basically, blindly
+      if (tables.contains(name) || conn.collectionExists(name)) throw new SlickException("MongoDB Collection $name already exists.")
       val opts = {
         import MongoProfile.options._
         val b = MongoDBObject.newBuilder
@@ -62,15 +70,26 @@ trait MongoBackend extends DatabaseComponent {
         }
         b.result()
       }
-      conn.createCollection(name, opts).asScala
+      val coll = conn.createCollection(name, opts).asScala
+      val t = new MongoTable(coll, options, columns, indexes, constraints)
       // TODO - CREATE INDEXES AND CONSTRAINTS
+      tables += ((name, t))
+      t
     }
 
-    def dropTable(name: String): Unit = getTable(name).dropCollection()
+    def dropTable(name: String): Unit = {
+      tables.remove(name) match {
+        case Some(table) =>
+          table.collection.dropCollection()
+        case None =>
+          throw new SlickException(s"Table $name does not exist!")
+      }
+    }
 
-    def getTables: Set[MongoCollection] = {
-      val conn = createConnection()
-      (for (c <- conn.collectionNames) yield conn(c)).toSet
+    def getTables: IndexedSeq[MongoTable] = {
+      /*val conn = createConnection()
+      (for (c <- conn.collectionNames) yield conn(c)).toSet*/
+      tables.values.toVector
     }
 
     def createSession(): Session = new Session(this)
@@ -148,8 +167,54 @@ trait MongoBackend extends DatabaseComponent {
     // todo - populate me with some cool stuff
   }
 
+  class MongoTable(private[mongodb] val collection: MongoCollection, val options: Seq[MongoCollectionOption],
+                   val columns: Seq[MongoBackend.Column], val indexes: Seq[Index], val constraints: Seq[Constraint]) extends Logging {
+
+    def name = collection.name
+
+    /**
+     * A MongoCollection is an Iterable[Row] - iterating it does the equiv of find()
+     */
+    def rows: Iterable[Row] = collection
+
+    def append(row: Row): Unit = {
+      collection.insert(row)
+      logger.debug("Inserted (" + row.mkString(", ")+") into " + this)
+    }
+
+
+    def createInsertableDocument: DBObject = {
+      val b = MongoDBObject.newBuilder
+      for (col <- columns; value <- col.createDefault) b += col.name -> value
+      val doc = b.result()
+      logger.debug("Created Default Insertable Document '" + doc + "'")
+      doc
+    }
+
+    //def insert(value: Any, converter: MongoProfile#ResultConverter) = {
+
+    lazy val columnIndexes = columns.map(_.sym).zipWithIndex.toMap
+
+
+    override def toString = name + "(" + columns.map(_.sym.name).mkString(", ") + ")"
+  }
 
 
 }
 
-object MongoBackend extends MongoBackend {}
+object MongoBackend extends MongoBackend {
+  class Column(val sym: FieldSymbol, val tpe: MongoType[Any]) {
+    def name = sym.name
+    private[this] val default = sym.options.collectFirst { case ColumnOption.Default(v) => v }
+    private[this] val autoInc = sym.options.collectFirst { case ColumnOption.AutoInc =>
+      throw new SlickException("MongoDB does not support Auto Increment columns. For similar functionality, please use an ObjectID type.")
+    }
+
+    // todo - are we looking for UNIQUENESS or primary key?!
+    val isUnique = sym.options.collectFirst { case ColumnOption.PrimaryKey => true }.getOrElse(false)
+
+    def createDefault: Option[Any] = default // TODO - Find a more elegant way to handle this than a deliberate blowup-if-not
+
+
+  }
+}

@@ -52,6 +52,10 @@ trait MongoType[T] extends TypedType[T] { self =>
    */
   def nullable: Boolean = false
 
+
+  /** Any "base" value to avoid null */
+  //def zero: T
+
   override def optionType: OptionTypedType[T] with MongoType[Option[T]] = new OptionTypedType[T] with MongoType[Option[T]] {
     val elementType = self
     def mongoType = self.mongoType
@@ -146,11 +150,13 @@ trait MongoTypesComponent extends RelationalTypesComponent { driver: MongoDriver
     class BooleanMongoType extends DriverMongoType[Boolean] {
       def mongoType: Byte = BSON.BOOLEAN
       def mongoTypeName: String = "Boolean"
+      def zero = false
     }
 
     class ByteArrayMongoType extends DriverMongoType[Array[Byte]] {
       def mongoType: Byte = BSON.BINARY
       def mongoTypeName: String = "Binary"
+      def zero = Array.empty[Byte]
     }
 
     class SqlDateMongoType extends DriverMongoType[java.sql.Date] {

@@ -29,6 +29,7 @@ trait MongoProfile extends RelationalProfile with MongoTypesComponent { driver: 
   type BaseColumnType[T] = MongoType[T] with BaseTypedType[T]
   val columnTypes = new MongoTypes
 
+
   type SchemaDescription = SchemaDescriptionDef
   type InsertInvoker[T] = InsertInvokerDef[T]
   type QueryExecutor[R] = QueryExecutorDef[R]
@@ -68,23 +69,28 @@ trait MongoProfile extends RelationalProfile with MongoTypesComponent { driver: 
     def +=(value: T)(implicit session: Backend#Session) {
       val tbl = session.database.getTable(table.tableName)
       logger.debug(s"Insert value '$value', table '$table', projection '$projection', converter '$converter'")
-      value match {
+      val doc = tbl.createInsertableDocument
+      logger.debug(s"Created insertable document '$doc' for converter '$converter' of type " + converter.getClass)
+      converter.set(value, doc)
+      tbl.collection.insert(doc)
+      /*value match {
         case doc: DBObject =>
           tbl.insert(doc)
         case other =>
           throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB (" + other.toString + ")")
-      }
+      }*/
     }
 
     def ++=(values: Iterable[T])(implicit session: Backend#Session) {
       val tbl = session.database.getTable(table.tableName)
       logger.debug(s"Insert values '$values', table '$table', projection '$projection', converter '$converter'")
-      for (value <- values) value match {
+      for (value <- values) +=(value)
+      /*value match {
         case doc: DBObject =>
           tbl.insert(doc)
         case other =>
           throw new SlickException("Don't know how to insert an instance of '" + other.getClass + "' to MongoDB (" + other.toString + ")")
-      }
+      }*/
     }
   }
 
@@ -102,12 +108,15 @@ trait MongoProfile extends RelationalProfile with MongoTypesComponent { driver: 
   class TableDDL(table: Table[_]) extends DDL {
     def create(implicit session: Backend#Session): Unit = {
       session.database.createTable(table.tableName,
+        table.create_*.map { fs => new MongoBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq,
         Seq.empty[MongoCollectionOption] /** TODO - Figure out how ot extract Collection Options! */,
         table.indexes.toIndexedSeq, table.tableConstraints.toIndexedSeq)
     }
     def drop(implicit session: Backend#Session): Unit =
       session.database.dropTable(table.tableName)
   }
+
+
 
 
 
