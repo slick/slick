@@ -92,6 +92,7 @@ final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: 
     if(e2 eq baseType) this
     else new MappedScalaType(e2, _toBase, _toMapped)
   }
+  override def select(sym: Symbol) = baseType.select(sym)
 }
 
 final case object NoType extends AtomicType

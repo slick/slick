@@ -1,12 +1,12 @@
 package scala.slick.util
 
 import org.slf4j.{ Logger => Slf4jLogger, LoggerFactory }
-import scala.slick.ast.NodeGenerator
+import scala.slick.ast.Node
 import scala.slick.ast.Dump
 
 final class SlickLogger(val slf4jLogger: Slf4jLogger) {
   @inline
-  def debug(msg: => String, ng: => NodeGenerator): Unit = debug(msg+"\n"+Dump.get(ng, prefix = "  "))
+  def debug(msg: => String, n: => Node): Unit = debug(msg+"\n"+Dump.get(n, prefix = "  "))
 
   @inline
   def isDebugEnabled = slf4jLogger.isDebugEnabled()
