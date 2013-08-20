@@ -89,14 +89,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b"select "
       buildSelectModifiers(c)
       c.select match {
-        case Some(Pure(StructNode(ch))) =>
+        case Some(Pure(StructNode(ch), _)) =>
           b.sep(ch, ", ") { case (sym, n) =>
             buildSelectPart(n)
             b" as `$sym"
           }
-        case Some(Pure(ProductNode(ch))) =>
+        case Some(Pure(ProductNode(ch), _)) =>
           b.sep(ch, ", ")(buildSelectPart)
-        case Some(Pure(n)) => buildSelectPart(n)
+        case Some(Pure(n, _)) => buildSelectPart(n)
         case None =>
           if(c.from.length <= 1) b"*"
           else b"`${c.from.last._1}.*"
@@ -304,7 +304,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select)), None, None) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -326,7 +326,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildDelete: SQLBuilder.Result = {
       val (gen, from, where) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select)), None, None) => (sym, from, where)
+        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None) => (sym, from, where)
         case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
       val qtn = quoteTableName(from)
@@ -363,7 +363,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"select "
         buildSelectModifiers(c)
         c3.select match {
-          case Some(Pure(StructNode(ch))) =>
+          case Some(Pure(StructNode(ch), _)) =>
             b.sep(ch.filter { case (_, RowNumber(_)) => false; case _ => true }, ", ") {
               case (sym, StarAnd(RowNumber(_))) => b"*"
               case (sym, _) => b += symbolName(sym)
@@ -389,11 +389,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       * clause of the resulting Comprehension always has the shape
       * Some(Pure(StructNode(_))). */
     protected def makeSelectPageable(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
-      case Some(Pure(StructNode(ch))) =>
+      case Some(Pure(StructNode(ch), _)) =>
         c.copy(select = Some(Pure(StructNode(ch :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(ProductNode(ch))) =>
+      case Some(Pure(ProductNode(ch), _)) =>
         c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(n)) =>
+      case Some(Pure(n, _)) =>
         c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> RowNumber())))), fetch = None, offset = None)
       case None =>
         // should not happen at the outermost layer, so copying an extra row does not matter

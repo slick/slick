@@ -42,7 +42,7 @@ trait InsertCompiler extends Phase {
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
         cols += Select(tref, fs).nodeTyped(sel.nodeType)
         Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType)
-      case Bind(gen, te @ TableExpansion(_, t: TableNode, _), Pure(sel)) =>
+      case Bind(gen, te @ TableExpansion(_, t: TableNode, _), Pure(sel, _)) =>
         setTable(te)
         tr(sel.replace({ case Ref(s) if s == gen => Ref(expansionRef) }, keepType = true))
       case _ => throw new SlickException("Cannot use node "+n+" for inserting data")

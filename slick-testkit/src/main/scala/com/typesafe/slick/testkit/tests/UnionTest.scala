@@ -46,15 +46,16 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     val q1 = for(m <- managers where { _.department is "IT" }) yield (m.id, m.name)
     println("Managers in IT")
     q1.run.foreach(o => println("  "+o))
+    assertEquals(Set((2,"Amy"), (3,"Steve")), q1.run.toSet)
 
     val q2 = for(e <- employees where { _.departmentIs("IT") }) yield (e.id, e.name)
     println("Employees in IT")
     q2.run.foreach(o => println("  "+o))
+    assertEquals(Set((7,"Ben"), (8,"Greg"), (6,"Leonard")), q2.run.toSet)
 
     val q3 = (q1 union q2).sortBy(_._2.asc)
     println("Combined and sorted")
     q3.run.foreach(o => println("  "+o))
-
     assertEquals(List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")), q3.run)
 
     (managers.ddl ++ employees.ddl).drop

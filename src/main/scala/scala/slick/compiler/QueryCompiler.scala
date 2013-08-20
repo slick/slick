@@ -69,9 +69,9 @@ object QueryCompiler {
     Phase.createResultSetMapping,
     Phase.forceOuterBinds,
     // Convert to column form
-    Phase.expandRefs,
-    Phase.replaceFieldSymbols,
-    Phase.rewritePaths,
+    Phase.expandTables,
+    Phase.expandRecords,
+    Phase.flattenProjections,
     Phase.relabelUnions,
     Phase.pruneFields,
     Phase.assignTypes
@@ -113,9 +113,9 @@ object Phase {
   val inferTypes = new InferTypes
   val createResultSetMapping = new CreateResultSetMapping
   val forceOuterBinds = new ForceOuterBinds
-  val expandRefs = new ExpandRefs
-  val replaceFieldSymbols = new ReplaceFieldSymbols
-  val rewritePaths = new RewritePaths
+  val expandTables = new ExpandTables
+  val expandRecords = new ExpandRecords
+  val flattenProjections = new FlattenProjections
   val relabelUnions = new RelabelUnions
   val pruneFields = new PruneFields
   val resolveZipJoins = new ResolveZipJoins
@@ -131,7 +131,7 @@ object Phase {
 class CompilerState private (val compiler: QueryCompiler, val symbolNamer: SymbolNamer,
                              val tree: Node, state: HashMap[String, Any]) {
   def this(compiler: QueryCompiler, tree: Node) =
-    this(compiler, new SymbolNamer("s"), tree, new HashMap)
+    this(compiler, new SymbolNamer("s", "t"), tree, new HashMap)
 
   def get[P <: Phase](p: P): Option[p.State] = state.get(p.name).asInstanceOf[Option[p.State]]
   def + [S, P <: Phase { type State = S }](t: (P, S)) =

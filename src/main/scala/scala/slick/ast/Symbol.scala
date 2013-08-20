@@ -34,17 +34,14 @@ class AnonTypeSymbol extends TypeSymbol {
   def name = "$@"+System.identityHashCode(this)
 }
 
-object AnonTypeSymbol {
-  def unapply(a: AnonTypeSymbol) = Some(a.name)
+/** An anonymous TableIdentitySymbol. */
+class AnonTableIdentitySymbol extends AnonTypeSymbol with TableIdentitySymbol {
+  override def toString = "@("+SymbolNamer(this)+")"
 }
 
 /** An anonymous symbol defined in the AST. */
 class AnonSymbol extends Symbol {
   def name = "@"+System.identityHashCode(this)
-}
-
-object AnonSymbol {
-  def unapply(a: AnonSymbol) = Some(a.name)
 }
 
 case class IntrinsicSymbol(val target: Node) extends Symbol {
@@ -77,9 +74,6 @@ trait DefNode extends Node {
 /** A Node which references a Symbol. */
 trait RefNode extends Node {
   def nodeReference: Symbol
-  final def nodeWithReference(s: Symbol): RefNode =
-    if(s eq nodeReference) this else nodeRebuildWithReference(s)
-  protected[this] def nodeRebuildWithReference(s: Symbol): RefNode
 }
 
 object RefNode {
@@ -87,13 +81,13 @@ object RefNode {
 }
 
 /** Provides names for symbols */
-class SymbolNamer(symbolPrefix: String, parent: Option[SymbolNamer] = None) {
+class SymbolNamer(treeSymbolPrefix: String, typeSymbolPrefix: String, parent: Option[SymbolNamer] = None) {
   private var curSymbolId = 1
   private val map = new HashMap[Symbol, String]
 
-  def create = {
+  def create(prefix: String) = {
     curSymbolId += 1
-    symbolPrefix + curSymbolId
+    prefix + curSymbolId
   }
 
   def get(s: Symbol): Option[String] =
@@ -101,7 +95,11 @@ class SymbolNamer(symbolPrefix: String, parent: Option[SymbolNamer] = None) {
 
   def apply(s: Symbol): String = get(s).getOrElse(s match {
     case a: AnonSymbol =>
-      val n = create
+      val n = create(treeSymbolPrefix)
+      update(a, n)
+      n
+    case a: AnonTypeSymbol =>
+      val n = create(typeSymbolPrefix)
       update(a, n)
       n
     case s => namedSymbolName(s)
