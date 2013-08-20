@@ -19,7 +19,8 @@ final class ForeignKey( //TODO Simplify this mess!
     val linearizedSourceColumns: IndexedSeq[Node],
     val linearizedTargetColumns: IndexedSeq[Node],
     val linearizedTargetColumnsForOriginalTargetTable: IndexedSeq[Node],
-    val targetTable: TableNode)
+    val targetTable: TableNode,
+    val columnsShape: Shape[_, _, _])
 
 object ForeignKey {
   def apply[TT <: AbstractTable[_], P](
@@ -39,10 +40,11 @@ object ForeignKey {
       onDelete,
       originalSourceColumns,
       originalTargetColumns.asInstanceOf[Any => Any],
-      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalSourceColumns))),
-      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(targetTableShaped.value)))),
-      ExtraUtil.linearizeFieldRefs(Node(pShape.pack(originalTargetColumns(originalTargetTable)))),
-      targetTableShaped.value.tableNode
+      ExtraUtil.linearizeFieldRefs(pShape.toNode(originalSourceColumns)),
+      ExtraUtil.linearizeFieldRefs(pShape.toNode(originalTargetColumns(targetTableShaped.value))),
+      ExtraUtil.linearizeFieldRefs(pShape.toNode(originalTargetColumns(originalTargetTable))),
+      targetTableShaped.value.tableNode,
+      pShape
     )
 }
 
@@ -72,10 +74,11 @@ class ForeignKeyQuery[E <: AbstractTable[_], U](
    */
   def & (other: ForeignKeyQuery[E, U]): ForeignKeyQuery[E, U] = {
     val newFKs = fks ++ other.fks
-    val conditions =
-      newFKs.map(fk => Library.==.typed[Boolean](Node(fk.targetColumns(aliasedValue)), Node(fk.sourceColumns))).
-        reduceLeft[Node]((a, b) => Library.And.typed[Boolean](a, b))
-    val newDelegate = Filter.ifRefutable(generator, Node(targetBaseQuery), conditions)
+    val conditions = newFKs.map { fk =>
+      val sh = fk.columnsShape.asInstanceOf[Shape[Any, Any, Any]]
+      Library.==.typed[Boolean](sh.toNode(fk.targetColumns(aliasedValue)), sh.toNode(fk.sourceColumns))
+    }.reduceLeft[Node]((a, b) => Library.And.typed[Boolean](a, b))
+    val newDelegate = Filter.ifRefutable(generator, targetBaseQuery.toNode, conditions)
     new ForeignKeyQuery[E, U](newDelegate, base, newFKs, targetBaseQuery, generator, aliasedValue)
   }
 }

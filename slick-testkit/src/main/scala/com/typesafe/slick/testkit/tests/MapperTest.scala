@@ -154,7 +154,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
     case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
 
-    class T(tag: Tag) extends Table[Int](tag, "t_wide") {
+    class T(tag: Tag) extends Table[Whole](tag, "t_wide") {
       def id = column[Int]("id", O.PrimaryKey)
       def p1i1 = column[Int]("p1i1")
       def p1i2 = column[Int]("p1i2")
@@ -180,25 +180,21 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def p4i4 = column[Int]("p4i4")
       def p4i5 = column[Int]("p4i5")
       def p4i6 = column[Int]("p4i6")
-      def * = id
-      def all = (
+      def * = (
         id,
         (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6),
         (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6),
         (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6),
         (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
-      )
-      override def create_* = collectFieldSymbols(all.shaped.packedNode)
+      ).shaped <> ({ case (id, p1, p2, p3, p4) =>
+        // We could do this without .shaped but then we'd have to write a type annotation for the parameters
+        Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
+      }, { w: Whole =>
+        def f(p: Part) = Part.unapply(p).get
+        Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
+      })
     }
     val ts = TableQuery[T]
-
-    val data = (
-      0,
-      (11, 12, 13, 14, 15, 16),
-      (21, 22, 23, 24, 25, 26),
-      (31, 32, 33, 34, 35, 36),
-      (41, 42, 43, 44, 45, 46)
-    )
 
     val oData = Whole(0,
       Part(11, 12, 13, 14, 15, 16),
@@ -208,15 +204,9 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     )
 
     ts.ddl.create
-    ts.map(_.all).insert(data)
+    ts.insert(oData)
 
-    val q1 = ts.map(_.all)
-    assertEquals(data, q1.first)
-
-    val i2 = q1.mapResult { case (id, p1, p2, p3, p4) =>
-      Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
-    }
-    assertEquals(oData, i2.first)
+    assertEquals(oData, ts.first)
   }
 
   def testMappedJoin {
@@ -251,19 +241,99 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
   }
 
-  /*
-  def testGetOr {
-    object T extends Table[Option[Int]]("t4") {
-      def year = column[Option[Int]]("YEAR")
-      def * = year
+  def testCustomShape {
+    import scala.annotation.unchecked.uncheckedVariance
+    import scala.slick.lifted.{Shape, MappedProductShape}
+
+    // A simple HList implementation
+    sealed trait HList {
+      type Self <: HList
+      def :: [H](value: H) = new HCons[H, Self](value, this.asInstanceOf[Self])
+      def toList: List[Any]
+      def apply(idx: Int): Any
+      override def equals(that: Any) = that match {
+        case that: HList => toList == that.toList
+        case _ => false
+      }
+    }
+    case object HNil extends HList {
+      type Self = HNil.type
+      def toList = Nil
+      def apply(idx: Int) = throw new IllegalArgumentException
+    }
+    type HNil = HNil.type
+    class HCons[+H, +T <: HList](val head: H, val tail: T) extends HList {
+      type Self = HCons[H @uncheckedVariance, T @uncheckedVariance]
+      def toList: List[Any] = head :: tail.toList
+      def apply(idx: Int): Any = if(idx == 0) head else tail(idx-1)
+      override def toString = s"$head :: $tail"
+    }
+    type :: [+H, +T <: HList] = HCons[H, T]
+    object :: {
+      def unapply[H, T <: HList](l: HCons[H, T]) = Some((l.head, l.tail))
     }
 
-    T.ddl.create
-    T.insertAll(Some(2000), None)
+    val l1 = 42 :: true :: "foo" :: HNil
+    val t1 = l1 match {
+      case i :: b :: s :: HNil => (i, b, s)
+    }
+    val t1t: (Int, Boolean, String) = t1
+    assertEquals((42, true, "foo"), t1t)
 
-    val q = T.map(t => (t.year.getOr(2000), (t.year.getOr(2000)-0)))
-    println(q.selectStatement)
-    q.foreach(println)
+    // A Shape for our HList, mapping it to a flat ProductNode
+    final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _]]) extends MappedProductShape[HList, M, U, P] {
+      def getIterator(value: HList) = value.toList.iterator
+      def getElement(value: HList, idx: Int) = value(idx)
+      def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
+      def copy(shapes: Seq[Shape[_, _, _]]) = new HListShape(shapes)
+    }
+    implicit val hnilShape = new HListShape[HNil, HNil, HNil](Nil)
+    implicit def hconsShape[M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[M1, U1, P1], s2: HListShape[M2, U2, P2]) =
+      new HListShape[M1 :: M2, U1 :: U2, P1:: P2](s1 +: s2.shapes)
+
+    // See if we can get the proper Shape
+    val sh1 = implicitly[Shape[Int :: Boolean :: String :: HNil, _, _]]
+
+    // Use the shape in queries but not yet for transferring data
+    class A(tag: Tag) extends Table[(Int, Boolean, String)](tag, "shape_a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def b = column[Boolean]("b")
+      def s = column[String]("s")
+      def * = (id, b, s)
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+    as += (1, true, "a")
+    as += (2, false, "c")
+    as += (3, false, "b")
+    val q1 = as
+      .map { case a => a.id :: a.b :: (a.s ++ a.s) :: HNil }
+      .filter { case _ :: b :: _ :: HNil => !b }
+      .sortBy { case _ :: _ :: ss :: HNil => ss }
+      .map { case id :: b :: ss :: HNil => (id, ss) }
+    assertEquals(Vector((3, "bb"), (2, "cc")), q1.run)
+
+    // Use it in a table definition
+    class B(tag: Tag) extends Table[Int :: Boolean :: String :: HNil](tag, "shape_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def b = column[Boolean]("b")
+      def s = column[String]("s")
+      def * = id :: b :: s :: HNil
+    }
+    val bs = TableQuery[B]
+    bs.ddl.create
+
+    // Insert data with the custom shape
+    bs += (1 :: true :: "a" :: HNil)
+    bs += (2 :: false :: "c" :: HNil)
+    bs += (3 :: false :: "b" :: HNil)
+
+    // Use it for returning data from a query
+    val q2 = bs
+      .map { case b => b.id :: b.b :: (b.s ++ b.s) :: HNil }
+      .filter { case _ :: b :: _ :: HNil => !b }
+      .sortBy { case _ :: _ :: ss :: HNil => ss }
+      .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
+    assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)
   }
-  */
 }

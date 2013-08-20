@@ -1,7 +1,6 @@
 package scala.slick.lifted
 
 import scala.slick.SlickException
-import scala.slick.util.NaturalTransformation2
 import scala.slick.ast.{QueryParameter, TypedType}
 import scala.slick.profile.BasicProfile
 
@@ -20,10 +19,6 @@ final class Parameters[PU, PP](c: PP) {
 }
 
 object Parameters {
-  def apply[U](implicit shape: Shape[U, U, _]): Parameters[U, shape.Packed] = {
-    val params: shape.Packed = shape.buildPacked(new NaturalTransformation2[TypedType, ({ type L[X] = U => X })#L, Column] {
-      def apply[T](tm: TypedType[T], f: U => T) = Column.forNode[T](new QueryParameter(f.asInstanceOf[Any => Any], tm))(tm)
-    })
-    new Parameters[U, shape.Packed](params)
-  }
+  def apply[U](implicit shape: Shape[U, U, _]): Parameters[U, shape.Packed] =
+    new Parameters[U, shape.Packed](shape.buildParams(_.asInstanceOf[U]))
 }

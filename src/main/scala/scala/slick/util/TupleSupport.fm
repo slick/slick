@@ -6,10 +6,18 @@ import scala.slick.lifted._
 
 /** Utility functions for working with tuples of different arities */
 object TupleSupport {
+  /** Build a Tuple for the supported arities, otherwise a ProductWrapper. */
   def buildTuple(s: IndexedSeq[Any]): Product = s.length match {
 <#list 1..22 as i>
     case ${i} => new Tuple${i}(<#list 1..i as j>s(${j-1})<#if i != j>, </#if></#list>)
 </#list>
+    case _ => new ProductWrapper(s)
+  }
+
+  /** Build an IndexedSeq from a Product */
+  def buildIndexedSeq(p: Product): IndexedSeq[Any] = p match {
+    case p: ProductWrapper => p.seq
+    case p => p.productIterator.toIndexedSeq
   }
 }
 
@@ -35,4 +43,19 @@ object TupleMethods {
       Some((<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i})
 </#list>
   }
+}
+
+/** A Product to represent larger arities than Tuple22 */
+final class ProductWrapper(val seq: IndexedSeq[Any]) extends Product {
+  def productArity = seq.length
+  def productElement(idx: Int) = seq(idx)
+  override def productIterator = seq.iterator
+  def canEqual(that: Any) = that.isInstanceOf[ProductWrapper]
+  override def equals(that: Any) = that match {
+    case p: ProductWrapper => productArity == p.productArity &&
+      (0 until productArity).forall(i => productElement(i) == p.productElement(i))
+    case _ => false
+  }
+  override def hashCode = seq.hashCode
+  override def toString = seq.mkString("ProductWrapper(", ",", ")")
 }

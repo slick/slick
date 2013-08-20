@@ -3,34 +3,35 @@ package scala.slick.lifted
 import scala.slick.ast._
 
 /** Common base trait for all lifted values. */
-trait Rep[T] extends NodeGenerator
+trait Rep[T] {
+  /** Encode a reference into this Rep */
+  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Rep[T]
+
+  /** Get the Node for this Rep */
+  def toNode: Node
+}
 
 /** Common base trait for record values
   * (anything that is isomorphic to a tuple of scalar values). */
 trait ColumnBase[T] extends Rep[T]
 
 /** Base class for columns. */
-abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] with EncodeRef { self =>
+abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
 
-  override def toString = {
-    val n = Node(this)
-    if(n eq this) super.toString
-    else s"Column($n)"
-  }
+  override def toString = s"Column($toNode)"
+
   def encodeRef(sym: Symbol, positions: List[Int] = Nil): Column[T] =
     Column.forNode(Path(positions.map(ElementSymbol) :+ sym))
 }
 
 object Column {
-  def forNode[T : TypedType](n: Node): Column[T] = new Column[T] {
-    def nodeDelegate = n
-  }
+  def forNode[T : TypedType](n: Node): Column[T] = new Column[T] { def toNode = n }
 }
 
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
 final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends Column[T] {
   def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
-  def nodeDelegate = LiteralNode(tt, value)
+  def toNode = LiteralNode(tt, value)
 }
