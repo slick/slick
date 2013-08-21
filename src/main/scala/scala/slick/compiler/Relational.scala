@@ -113,11 +113,11 @@ class ConvertToComprehensions extends Phase {
     case s @ SortBy(gen, from, by) =>
       Comprehension(from = mkFrom(gen, from), orderBy = by).nodeTyped(s.nodeType)
     // Take and Drop to Comprehension
-    case td @ TakeDrop(from, take, drop, gen) =>
+    case td @ TakeDrop(from, take, drop) =>
       val drop2 = if(drop == Some(0)) None else drop
       val c =
-        if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(LiteralNode(false)))
-        else Comprehension(from = mkFrom(gen, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
+        if(take == Some(0)) Comprehension(from = mkFrom(new AnonSymbol, from), where = Seq(LiteralNode(false)))
+        else Comprehension(from = mkFrom(new AnonSymbol, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
       c.nodeTyped(td.nodeType)
     case n => n
   }) match {
@@ -132,17 +132,17 @@ class ConvertToComprehensions extends Phase {
 
   /** An extractor for nested Take and Drop nodes */
   object TakeDrop {
-    def unapply(n: Node): Option[(Node, Option[Int], Option[Int], Symbol)] = n match {
-      case Take(from, num, sym) => unapply(from) match {
-        case Some((f, Some(t), d, _)) => Some((f, Some(min(t, num)), d, sym))
-        case Some((f, None, d, _)) => Some((f, Some(num), d, sym))
-        case _ => Some((from, Some(num), None, sym))
+    def unapply(n: Node): Option[(Node, Option[Int], Option[Int])] = n match {
+      case Take(from, num) => unapply(from) match {
+        case Some((f, Some(t), d)) => Some((f, Some(min(t, num)), d))
+        case Some((f, None, d)) => Some((f, Some(num), d))
+        case _ => Some((from, Some(num), None))
       }
-      case Drop(from, num, sym) => unapply(from) match {
-        case Some((f, Some(t), None, _)) => Some((f, Some(max(0, t-num)), Some(num), sym))
-        case Some((f, None, Some(d), _)) => Some((f, None, Some(d+num), sym))
-        case Some((f, Some(t), Some(d), _)) => Some((f, Some(max(0, t-num)), Some(d+num), sym))
-        case _ => Some((from, None, Some(num), sym))
+      case Drop(from, num) => unapply(from) match {
+        case Some((f, Some(t), None)) => Some((f, Some(max(0, t-num)), Some(num)))
+        case Some((f, None, Some(d))) => Some((f, None, Some(d+num)))
+        case Some((f, Some(t), Some(d))) => Some((f, Some(max(0, t-num)), Some(d+num)))
+        case _ => Some((from, None, Some(num)))
       }
       case _ => None
     }
@@ -353,7 +353,7 @@ class FuseComprehensions extends Phase {
   }
 
   def hasRefToOneOf(n: Node, s: scala.collection.Set[Symbol]): Boolean = n match {
-    case r: RefNode => s.contains(r.nodeReference) || n.nodeChildren.exists(ch => hasRefToOneOf(ch, s))
+    case Ref(sym) => s.contains(sym)
     case n => n.nodeChildren.exists(ch => hasRefToOneOf(ch, s))
   }
 

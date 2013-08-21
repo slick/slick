@@ -154,12 +154,12 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           b += new ProductValue(Vector(k, vs))
         }
         b.result()
-      case Take(from, num, _) =>
+      case Take(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.take(num)
         b.result()
-      case Drop(from, num, _) =>
+      case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.drop(num)
