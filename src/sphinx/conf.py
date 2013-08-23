@@ -83,15 +83,14 @@ pygments_style = 'sphinx'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinxdoc'
+html_theme = "theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-#html_theme_options = {}
-
+html_theme_options = { 'github' : 'https://github.com/slick/slick/edit/master/src/sphinx/' }
 # Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = []
+html_theme_path = ['.']
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -102,7 +101,7 @@ html_theme = 'sphinxdoc'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-#html_logo = None
+html_logo = 'static/slick-logo.png'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
@@ -139,7 +138,7 @@ html_static_path = ['static']
 #html_split_index = False
 
 # If true, links to the reST sources are added to the pages.
-#html_show_sourcelink = True
+html_show_sourcelink = False
 
 # If true, "Created using Sphinx" is shown in the HTML footer. Default is True.
 #html_show_sphinx = True
@@ -246,17 +245,22 @@ epub_copyright = u'2011-2013 Typesafe, Inc.'
 # -- Custom set-up -------------------------------------------------------------
 
 slick_examples_version = version
+scala_version = '2.10.0'
 
 # e.g. :issue:`36` :ticket:`8`
 extlinks = {
-  'slick': ('https://github.com/slick/slick/blob/'+slick_examples_version+'/%s', ''),
+  'slick': ('https://github.com/slick/slick/blob/'+version+'/%s', ''),
   'issue': ('https://github.com/slick/slick/issues/%s', 'issue #'),
   'ticket': ('https://www.assembla.com/spaces/typesafe-slick/tickets/%s', 'ticket #'),
-  'ex': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/com/typesafe/slick/examples/%s.scala', 'Slick example ')
+  'example-src': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/com/typesafe/slick/examples/%s', ''),
+  'example': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/%s', ''),
+  'wikipedia' : ('http://en.wikipedia.org/wiki/%s',''),
+  'javaapi' : ('http://docs.oracle.com/javase/7/docs/api/%s.html', '')
 }
 
 apilinks = {
-  'api': 'http://slick.typesafe.com/doc/'+version+'/api/#%s'
+  'api': 'http://slick.typesafe.com/doc/'+version+'/api/#%s',
+  'scalaapi': 'http://www.scala-lang.org/api/'+scala_version+'/#%s'
 }
 
 rst_epilog = '''

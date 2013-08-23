@@ -18,8 +18,8 @@ object PlainSQL extends App {
 
   // Case classes for our data
 //#setup
-  case class Supplier(id: Int, name: String, street: String, city: String, state: String, zip: String)
-  case class Coffee(name: String, supID: Int, price: Double, sales: Int, total: Int)
+  case class Supplier(id:Int, name:String, street:String, city:String, state:String, zip:String)
+  case class Coffee(name:String, supID:Int, price:Double, sales:Int, total:Int)
 
 //#setup
 //#GetResult
