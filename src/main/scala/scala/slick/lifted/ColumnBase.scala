@@ -5,7 +5,7 @@ import scala.slick.ast._
 /** Common base trait for all lifted values. */
 trait Rep[T] {
   /** Encode a reference into this Rep */
-  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Rep[T]
+  def encodeRef(path: List[Symbol]): Rep[T]
 
   /** Get the Node for this Rep */
   def toNode: Node
@@ -19,11 +19,8 @@ trait ColumnBase[T] extends Rep[T]
 abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>
   def asc = ColumnOrdered[T](this, Ordering())
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
-
   override def toString = s"Column($toNode)"
-
-  def encodeRef(sym: Symbol, positions: List[Int] = Nil): Column[T] =
-    Column.forNode(Path(positions.map(ElementSymbol) :+ sym))
+  def encodeRef(path: List[Symbol]): Column[T] = Column.forNode(Path(path))
 }
 
 object Column {

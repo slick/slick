@@ -49,7 +49,7 @@ class DumpContext(val out: PrintWriter, val typed: Boolean = true) {
       val toScan = newRefs.toSet
       newRefs.clear()
       toScan.foreach { _.target.foreach {
-        case r @ RefNode(g: IntrinsicSymbol) if !refs.contains(g) =>
+        case Ref(g: IntrinsicSymbol) if !refs.contains(g) =>
           refs += g
           newRefs += g
         case _ =>
@@ -63,7 +63,7 @@ class DumpContext(val out: PrintWriter, val typed: Boolean = true) {
     import Dump._
     tree match {
       case n: DefNode => n.nodeGenerators.foreach(t => addDef(t._1))
-      case RefNode(s) => addRef(s)
+      case Ref(s) => addRef(s)
       case _ =>
     }
     val tpe = tree.nodeType
@@ -72,9 +72,9 @@ class DumpContext(val out: PrintWriter, val typed: Boolean = true) {
     def tl(s: Any) = if(topLevel) green + s + normal else s
     out.println(start + tl(tree) + typeInfo)
     tree match {
+      // Omit path details unless dumpPaths is set
       case Path(l @ (_ :: _ :: _)) if !dumpPaths =>
-        // Omit path details unless dumpPaths is set
-        tree.foreach { case RefNode(s) => addRef(s) }
+        tree.foreach { case Ref(s) => addRef(s) }
       case _ =>
         for((chg, n) <- tree.nodeChildren.zip(tree.nodeChildNames))
           dump(chg, prefix + "  ", n+": ", false)

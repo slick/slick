@@ -48,7 +48,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         new StructValue(n.nodeChildren.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
       case ProductNode(ch) =>
         new ProductValue(ch.map(run).toIndexedSeq)
-      case Pure(n) => Vector(run(n))
+      case Pure(n, _) => Vector(run(n))
       case t: TableNode =>
         val dbt = db.getTable(t.tableName)
         val acc = dbt.columnIndexes
@@ -85,13 +85,13 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Join(leftGen, rightGen, left, right, JoinType.Left, by) =>
         val res = run(left).asInstanceOf[Coll].flatMap { l =>
           scope(leftGen) = l
-          val inner: IndexedSeq[Any] = run(right).asInstanceOf[Coll].filter { r =>
+          val inner = run(right).asInstanceOf[Coll].filter { r =>
             scope(rightGen) = r
             asBoolean(run(by))
           }.map { r =>
             new ProductValue(Vector(l, r))
-          }(collection.breakOut)
-          if(inner.isEmpty) Vector(new ProductValue(Vector(l, createNullRow(right.nodeType.asCollectionType.elementType))))
+          }
+          if(inner.headOption.isEmpty) Vector(new ProductValue(Vector(l, createNullRow(right.nodeType.asCollectionType.elementType))))
           else inner
         }
         scope.remove(leftGen)
@@ -100,13 +100,13 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Join(leftGen, rightGen, left, right, JoinType.Right, by) =>
         val res = run(right).asInstanceOf[Coll].flatMap { r =>
           scope(rightGen) = r
-          val inner: IndexedSeq[Any] = run(left).asInstanceOf[Coll].filter { l =>
+          val inner = run(left).asInstanceOf[Coll].filter { l =>
             scope(leftGen) = l
             asBoolean(run(by))
           }.map { l =>
             new ProductValue(Vector(l, r))
-          }(collection.breakOut)
-          if(inner.isEmpty) Vector(new ProductValue(Vector(createNullRow(left.nodeType.asCollectionType.elementType), r)))
+          }
+          if(inner.headOption.isEmpty) Vector(new ProductValue(Vector(createNullRow(left.nodeType.asCollectionType.elementType), r)))
           else inner
         }
         scope.remove(leftGen)
@@ -154,12 +154,12 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           b += new ProductValue(Vector(k, vs))
         }
         b.result()
-      case Take(from, num, _) =>
+      case Take(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.take(num)
         b.result()
-      case Drop(from, num, _) =>
+      case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.drop(num)

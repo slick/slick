@@ -26,9 +26,9 @@ class ResolveZipJoins extends Phase {
   def resolveZipJoins(n: Node): Node = (n match {
     // zip with index
     case Bind(oldBindSym, Join(_, _,
-        l @ Bind(lsym, lfrom, Pure(StructNode(lstruct))),
+        l @ Bind(lsym, lfrom, Pure(StructNode(lstruct), _)),
         RangeFrom(offset),
-        JoinType.Zip, LiteralNode(true)), Pure(sel)) =>
+        JoinType.Zip, LiteralNode(true)), Pure(sel, _)) =>
       val idxSym = new AnonSymbol
       val idxExpr =
         if(offset == 1L) RowNumber()
@@ -44,8 +44,8 @@ class ResolveZipJoins extends Phase {
 
     // zip with another query
     case b @ Bind(_, Join(jlsym, jrsym,
-        l @ Bind(lsym, lfrom, Pure(StructNode(lstruct))),
-        r @ Bind(rsym, rfrom, Pure(StructNode(rstruct))),
+        l @ Bind(lsym, lfrom, Pure(StructNode(lstruct), _)),
+        r @ Bind(rsym, rfrom, Pure(StructNode(rstruct), _)),
         JoinType.Zip, LiteralNode(true)), _) =>
       val lIdxSym, rIdxSym = new AnonSymbol
       val lInnerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (lIdxSym, RowNumber()))))
@@ -67,80 +67,82 @@ class ResolveZipJoinsState(val hasRowNumber: Boolean)
 class ConvertToComprehensions extends Phase {
   val name = "convertToComprehensions"
 
-  def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n)(convert.repeat)
+  def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n)(convert) }
+
+  def mkFrom(s: Symbol, n: Node): Seq[(Symbol, Node)] = n match {
+    case Pure(ProductNode(Seq()), _) => Seq.empty
+    case n => Seq((s, n))
   }
 
-  val convert = new Transformer {
-    override val keepType = true
-
-    def mkFrom(s: Symbol, n: Node): Seq[(Symbol, Node)] = n match {
-      case Pure(ProductNode(Seq())) => Seq.empty
-      case n => Seq((s, n))
-    }
-
-    def replace = {
-      // GroupBy to Comprehension
-      case b @ Bind(gen, gr @ GroupBy(fromGen, from, by), Pure(sel)) =>
-        convertSimpleGrouping(gen, gr.nodeType.asCollectionType.elementType,
-          fromGen, from, by, sel).nodeTyped(b.nodeType)
-      case g: GroupBy =>
-        throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
-      // Bind to Comprehension
-      case b @ Bind(gen, from, select) =>
-        Comprehension(from = mkFrom(gen, from), select = Some(select)).nodeTyped(b.nodeType)
-      // Filter to Comprehension
-      case f @ Filter(gen, from, where) =>
-        Comprehension(from = mkFrom(gen, from), where = Seq(where)).nodeTyped(f.nodeType)
-      // SortBy to Comprehension
-      case s @ SortBy(gen, from, by) =>
-        Comprehension(from = mkFrom(gen, from), orderBy = by).nodeTyped(s.nodeType)
-      // Take and Drop to Comprehension
-      case td @ TakeDrop(from, take, drop, gen) =>
-        val drop2 = if(drop == Some(0)) None else drop
-        val c =
-          if(take == Some(0)) Comprehension(from = mkFrom(gen, from), where = Seq(LiteralNode(false)))
-          else Comprehension(from = mkFrom(gen, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
-        c.nodeTyped(td.nodeType)
-      // Merge Comprehension which selects another Comprehension
-      case c1 @ Comprehension(from1, where1, None, orderBy1,
-          Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)),
-          fetch, offset) =>
-        c2.copy(from = from1 ++ from2, where = where1 ++ where2,
-          orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset
-        ).nodeTyped(c1.nodeType)
-    }
-  }
-
-  /** Convert a GroupBy followed by an aggregating map operation to a Comprehension */
-  def convertSimpleGrouping(gen: Symbol, genType: Type, fromGen: Symbol, from: Node, by: Node, sel: Node): Node = {
-    val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)
-    val newSel = sel.replace({
-      case a @ Apply(fs, Seq(b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductOfCommonPaths(s2, rests)))))
-        if (s2 == s1) && (gen2 == gen) =>
-        Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rests.head).nodeTyped(b.nodeType)))(a.nodeType)
-      case ca @ Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
-        Library.Count.typed(ca.nodeType, LiteralNode(1))
-      case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
-        Phase.fuseComprehensions.select(rest, if(idx == 2) Ref(gen) else newBy)(0)
-    }, keepType = true)
-    Comprehension(Seq(gen -> from), groupBy = Some(newBy),
-      select = Some(Pure(newSel).withComputedTypeNoRec))
+  def convert(n: Node): Node = (n.nodeMapChildren(convert, keepType = true) match {
+    // Table to Comprehension
+    case t: TableNode =>
+      val gen = new AnonSymbol
+      val ref = Ref(gen)
+      val rowType = t.nodeType.structural.asCollectionType.elementType.structural.asInstanceOf[StructType]
+      Comprehension(from = Seq(gen -> t),
+        select = Some(Pure(StructNode(rowType.elements.map { case (s, _) => (s, Select(ref, s) ) }.toVector)))
+      ).nodeWithComputedType()
+    // Simple GroupBy followed by aggregating map operation to Comprehension
+    case b @ Bind(gen, gr @ GroupBy(fromGen, from, by), Pure(sel, _)) =>
+      val genType = gr.nodeType.asCollectionType.elementType
+      val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)
+      logger.debug("Replacing simple groupBy selection in:", sel)
+      val newSel = sel.replace({
+        //case a @ Apply(fs, Seq(b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductOfCommonPaths(s2, rests), _))))
+        case a @ Apply(fs, Seq(b @ Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(ProductOfCommonPaths(s2, rests), _)), None, None)))
+          if (s2 == s1) && (gen2 == gen) =>
+          Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rests.head).nodeTyped(b.nodeType)))(a.nodeType)
+        case a @ Apply(fs, Seq(b @ Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(FwdPath(s2 :: rest), _)), None, None)))
+          if (s2 == s1) && (gen2 == gen) =>
+          Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rest).nodeTyped(b.nodeType)))(a.nodeType)
+        case ca @ Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
+          Library.Count.typed(ca.nodeType, LiteralNode(1))
+        case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
+          Phase.fuseComprehensions.select(rest, if(idx == 2) Ref(gen) else newBy)(0)
+      }, keepType = true)
+      Comprehension(Seq(gen -> from), groupBy = Some(newBy),
+        select = Some(Pure(newSel).withComputedTypeNoRec)).nodeTyped(b.nodeType)
+    // Bind to Comprehension
+    case b @ Bind(gen, from, select) =>
+      Comprehension(from = mkFrom(gen, from), select = Some(select)).nodeTyped(b.nodeType)
+    // Filter to Comprehension
+    case f @ Filter(gen, from, where) =>
+      Comprehension(from = mkFrom(gen, from), where = Seq(where)).nodeTyped(f.nodeType)
+    // SortBy to Comprehension
+    case s @ SortBy(gen, from, by) =>
+      Comprehension(from = mkFrom(gen, from), orderBy = by).nodeTyped(s.nodeType)
+    // Take and Drop to Comprehension
+    case td @ TakeDrop(from, take, drop) =>
+      val drop2 = if(drop == Some(0)) None else drop
+      val c =
+        if(take == Some(0)) Comprehension(from = mkFrom(new AnonSymbol, from), where = Seq(LiteralNode(false)))
+        else Comprehension(from = mkFrom(new AnonSymbol, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
+      c.nodeTyped(td.nodeType)
+    case n => n
+  }) match {
+    case c1 @ Comprehension(from1, where1, None, orderBy1,
+        Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)),
+        fetch, offset) =>
+      c2.copy(from = from1 ++ from2, where = where1 ++ where2,
+        orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset
+      ).nodeTyped(c1.nodeType)
+    case n => n
   }
 
   /** An extractor for nested Take and Drop nodes */
   object TakeDrop {
-    def unapply(n: Node): Option[(Node, Option[Int], Option[Int], Symbol)] = n match {
-      case Take(from, num, sym) => unapply(from) match {
-        case Some((f, Some(t), d, _)) => Some((f, Some(min(t, num)), d, sym))
-        case Some((f, None, d, _)) => Some((f, Some(num), d, sym))
-        case _ => Some((from, Some(num), None, sym))
+    def unapply(n: Node): Option[(Node, Option[Int], Option[Int])] = n match {
+      case Take(from, num) => unapply(from) match {
+        case Some((f, Some(t), d)) => Some((f, Some(min(t, num)), d))
+        case Some((f, None, d)) => Some((f, Some(num), d))
+        case _ => Some((from, Some(num), None))
       }
-      case Drop(from, num, sym) => unapply(from) match {
-        case Some((f, Some(t), None, _)) => Some((f, Some(max(0, t-num)), Some(num), sym))
-        case Some((f, None, Some(d), _)) => Some((f, None, Some(d+num), sym))
-        case Some((f, Some(t), Some(d), _)) => Some((f, Some(max(0, t-num)), Some(d+num), sym))
-        case _ => Some((from, None, Some(num), sym))
+      case Drop(from, num) => unapply(from) match {
+        case Some((f, Some(t), None)) => Some((f, Some(max(0, t-num)), Some(num)))
+        case Some((f, None, Some(d))) => Some((f, None, Some(d+num)))
+        case Some((f, Some(t), Some(d))) => Some((f, Some(max(0, t-num)), Some(d+num)))
+        case _ => Some((from, None, Some(num)))
       }
       case _ => None
     }
@@ -163,6 +165,8 @@ class FuseComprehensions extends Phase {
         case c2 => c2
       }
       liftAggregates(fused).nodeWithComputedType(SymbolScope.empty, false, true)
+    case g: GroupBy =>
+      throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
     case n => n
   }
 
@@ -191,10 +195,10 @@ class FuseComprehensions extends Phase {
     }
     c.fetch.isEmpty && c.offset.isEmpty && {
       c.from.isEmpty || c.from.exists {
-        case (sym, Pure(_)) => true
+        case (sym, Pure(_, _)) => true
         case _ => false
       } || (c.select match {
-        case Some(Pure(ProductNode(ch))) =>
+        case Some(Pure(ProductNode(ch), _)) =>
           ch.map(isFuseableColumn).forall(identity)
         case _ => false
       }) || hasRefToOneOf(c, prevSyms)
@@ -288,7 +292,7 @@ class FuseComprehensions extends Phase {
             case s =>
               val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
               // All standard aggregate functions operate on a single column
-              val Some(Pure(StructNode(Seq((_, expr))))) = c3.select
+              val Some(Pure(StructNode(Seq((_, expr))), _)) = c3.select
               val elType = c3.nodeType.asCollectionType.elementType
               c3.copy(select = Some(Pure(ProductNode(Seq(Apply(s, Seq(expr))(elType))))))
           }
@@ -317,7 +321,7 @@ class FuseComprehensions extends Phase {
           case s =>
             val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
             // All standard aggregate functions operate on a single column
-            val Some(Pure(StructNode(Seq((f2, _))))) = c3.select
+            val Some(Pure(StructNode(Seq((f2, _))), _)) = c3.select
             val elType = c3.nodeType.asCollectionType.elementType
             (c3, Apply(s, Seq(Select(Ref(a2), f2)))(elType))
         }
@@ -333,19 +337,24 @@ class FuseComprehensions extends Phase {
   def ensureStruct(c: Comprehension): Comprehension = {
     val c2 = createSelect(c)
     c2.select match {
-      case Some(Pure(_: StructNode)) => c2
-      case Some(Pure(ProductNode(ch))) =>
+      case Some(Pure(_: StructNode, _)) => c2
+      case Some(Pure(ProductNode(ch), _)) =>
         val selStr = {
           val n = StructNode(ch.iterator.map(n => (new AnonSymbol) -> n).toIndexedSeq)
           if(n.nodeChildren.exists(_.nodeType == UnassignedType)) n
           else n.withComputedTypeNoRec
         }
         c2.copy(select = Some(Pure(selStr)))
-      case Some(Pure(n)) =>
+      case Some(Pure(n, _)) =>
         c2.copy(select = Some(Pure(StructNode(IndexedSeq((new AnonSymbol) -> n)))))
       case _ =>
         throw new SlickException("Unexpected Comprehension shape in "+c2)
     }
+  }
+
+  def hasRefToOneOf(n: Node, s: scala.collection.Set[Symbol]): Boolean = n match {
+    case Ref(sym) => s.contains(sym)
+    case n => n.nodeChildren.exists(ch => hasRefToOneOf(ch, s))
   }
 
   def select(selects: List[Symbol], base: Node): Vector[Node] = {
@@ -354,13 +363,14 @@ class FuseComprehensions extends Phase {
       //case (s, Union(l, r, _, _, _)) => select(s, l) ++ select(s, r)
       case (Nil, n) => Vector(n)
       case ((s: AnonSymbol) :: t, StructNode(ch)) => select(t, ch.find{ case (s2,_) => s == s2 }.get._2)
+      case ((s: FieldSymbol) :: t, StructNode(ch)) => select(t, ch.find{ case (s2,_) => s == s2 }.get._2)
       case ((s: ElementSymbol) :: t, ProductNode(ch)) => select(t, ch(s.idx-1))
       case _ => throw new SlickException("Cannot select "+Path.toString(selects.reverse)+" in "+base)
     }
   }
 
   def narrowStructure(n: Node): Node = n match {
-    case Pure(n) => n
+    case Pure(n, _) => n
     //case Join(_, _, l, r, _, _) => ProductNode(narrowStructure(l), narrowStructure(r))
     //case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
     case Comprehension(from, _, _, _, None, _, _) => narrowStructure(from.head._2)
@@ -371,7 +381,7 @@ class FuseComprehensions extends Phase {
   /** Create a select for a Comprehension without one. */
   def createSelect(c: Comprehension): Comprehension = if(c.select.isDefined) c else {
     c.from.last match {
-      case (sym, UnionLeft(Comprehension(_, _, _, _, Some(Pure(StructNode(struct))), _, _))) =>
+      case (sym, UnionLeft(Comprehension(_, _, _, _, Some(Pure(StructNode(struct), _)), _, _))) =>
         val r = Ref(sym)
         val copyStruct = StructNode(struct.map { case (field, _) =>
           (field, Select(r, field))

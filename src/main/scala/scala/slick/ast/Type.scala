@@ -5,9 +5,12 @@ import scala.slick.SlickException
 import scala.collection.generic.CanBuildFrom
 import scala.reflect.ClassTag
 import Util._
+import scala.collection.mutable.ArrayBuffer
 
 /** Super-trait for all types */
 trait Type {
+  /** All children of this Type. */
+  def children: Seq[Type]
   /** Apply a transformation to all type children and reconstruct this
     * type with the new children, or return the original object if no
     * child is changed. */
@@ -21,24 +24,29 @@ trait Type {
 /** An atomic type (i.e. a type which does not contain other types) */
 trait AtomicType extends Type {
   final def mapChildren(f: Type => Type): this.type = this
+  def children: Seq[Type] = Seq.empty
 }
 
 final case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[Symbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
+  def children: Seq[Type] = elements.map(_._2)
   def mapChildren(f: Type => Type): StructType =
     mapOrNone(elements.map(_._2))(f) match {
       case Some(types2) => StructType((elements, types2).zipped.map((e, t) => (e._1, t)))
       case None => this
     }
-  override def select(sym: Symbol) =
-    elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
+  override def select(sym: Symbol) = sym match {
+    case ElementSymbol(idx) => elements(idx-1)._2
+    case _ => elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
+  }
 }
 
 trait OptionType extends Type {
   override def toString = "Option[" + elementType + "]"
   def elementType: Type
+  def children: Seq[Type] = Seq(elementType)
 }
 
 object OptionType {
@@ -63,6 +71,9 @@ final case class ProductType(elements: IndexedSeq[Type]) extends Type {
     case ElementSymbol(i) if i <= elements.length => elements(i-1)
     case _ => super.select(sym)
   }
+  def children: Seq[Type] = elements
+  def numberedElements: Iterator[(ElementSymbol, Type)] =
+    elements.iterator.zipWithIndex.map { case (t, i) => (new ElementSymbol(i+1), t) }
 }
 
 final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
@@ -72,6 +83,7 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
     if(e2 eq elementType) this
     else CollectionType(cons, e2)
   }
+  def children: Seq[Type] = Seq(elementType)
 }
 
 case class CollectionTypeConstructor(dummy: String = "") {
@@ -92,6 +104,7 @@ final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: 
     if(e2 eq baseType) this
     else new MappedScalaType(e2, _toBase, _toMapped)
   }
+  def children: Seq[Type] = Seq(baseType)
   override def select(sym: Symbol) = baseType.select(sym)
 }
 
@@ -116,6 +129,11 @@ final case class NominalType(sym: TypeSymbol)(val structuralView: Type) extends 
     val struct2 = f(structuralView)
     if(struct2 eq structuralView) this
     else new NominalType(sym)(struct2)
+  }
+  def children: Seq[Type] = Seq(structuralView)
+  def sourceNominalType: NominalType = structuralView match {
+    case n: NominalType => n.sourceNominalType
+    case _ => this
   }
 }
 
@@ -164,7 +182,18 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     case o: OptionType => o
     case _ => throw new SlickException("Expected an option type, found "+tpe)
   }
-  def replace(f: PartialFunction[Type, Type]): Type = TypeUtilOps.replace(tpe, f)
+
+  def foreach[U](f: (Type => U)) {
+    def g(n: Type) {
+      f(n)
+      n.children.foreach(g)
+    }
+    g(tpe)
+  }
+
+  @inline def replace(f: PartialFunction[Type, Type]): Type = TypeUtilOps.replace(tpe, f)
+  @inline def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = TypeUtilOps.collect(tpe, pf)
+  @inline def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
 }
 
 object TypeUtil {
@@ -181,6 +210,12 @@ object TypeUtilOps {
 
   def replace(tpe: Type, f: PartialFunction[Type, Type]): Type =
     f.applyOrElse(tpe, ({ case t: Type => t.mapChildren(_.replace(f)) }): PartialFunction[Type, Type])
+
+  def collect[T](tpe: Type, pf: PartialFunction[Type, T]): Iterable[T] = {
+    val b = new ArrayBuffer[T]
+    tpe.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () })
+    b
+  }
 }
 
 trait SymbolScope {
