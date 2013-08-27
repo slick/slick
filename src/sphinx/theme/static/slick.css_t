@@ -71,3 +71,6 @@ pre {
   line-height: 120%;
   padding: 0.5em;
 }
+div.sidebar input[type="text"] {
+  width: 155px;
+}

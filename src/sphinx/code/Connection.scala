@@ -11,27 +11,27 @@ object Connection extends App {
     def name = column[String]("COF_NAME", O.PrimaryKey)
     def * = name
   }
-  if(false){
+  if (false){
     val dataSource = null.asInstanceOf[javax.sql.DataSource]
     //#forDataSource
-    val db = Database.forDataSource( dataSource : javax.sql.DataSource )
+    val db = Database.forDataSource(dataSource: javax.sql.DataSource)
     //#forDataSource
   }
-  if(false){ 
-    val JNDIName = ""
+  if (false){ 
+    val jndiName = ""
     //#forName
-    val db = Database.forName( JNDIName : String )
+    val db = Database.forName(jndiName: String)
     //#forName
   }
   ;{
     //#forURL
-    val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver = "org.h2.Driver")
+    val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
     //#forURL
   }
-  val db = Database.forURL("jdbc:h2:mem:test2;INIT="+Coffees.ddl.createStatements.mkString("\\;"), driver = "org.h2.Driver")
+  val db = Database.forURL("jdbc:h2:mem:test2;INIT="+Coffees.ddl.createStatements.mkString("\\;"), driver="org.h2.Driver")
   ;{
     //#withSession
-    val query = for( c <- Coffees ) yield c.name
+    val query = for (c <- Coffees) yield c.name
     val result = db.withSession {
       session =>
       query.list()( session )
@@ -39,7 +39,7 @@ object Connection extends App {
     //#withSession
   };{
     //#withSession-implicit
-    val query = for( c <- Coffees ) yield c.name
+    val query = for (c <- Coffees) yield c.name
     val result = db.withSession {
       implicit session =>
       query.list // <- takes session implicitly
@@ -52,25 +52,24 @@ object Connection extends App {
     implicit session =>
     // your queries go here
   }
-  class SomeException(s:String) extends Exception(s)
+  class SomeException(s: String) extends Exception(s)
   //#independentTransaction
   db.withSession {
     session : Session =>
     //#transaction
     session.withTransaction {
-      try{
-        // your queries go here
-      } catch{
-        case e:SomeException =>
-          session.rollback // signals to rollback when leaving scope
-          // handle exception here
+      // your queries go here
+
+      if (/* some failure */ false){
+        session.rollback // signals Slick to rollback later
       }
-    }
+
+    } // <- rollback happens here, if an exception was thrown or session.rollback was called
     //#transaction
   }
   ;{
     //#manual-session
-    val query = for( c <- Coffees ) yield c.name
+    val query = for (c <- Coffees) yield c.name
     val session : Session = db.createSession
     val result  = query.list()( session )
     session.close
@@ -78,14 +77,16 @@ object Connection extends App {
   }
   ;{
     //#helpers
-    class Helpers( implicit session:Session ){
-      def execute[T]( query:Query[T,_] ) = query.list
+    class Helpers(implicit session: Session){
+      def execute[T](query: Query[T,_]) = query.list
       // ... place futher helpers methods here
     }
-    val query = for( c <- Coffees ) yield c.name
+    val query = for (c <- Coffees) yield c.name
     db.withSession {
       implicit session =>
-      (new Helpers).execute(query)
+      val helper = (new Helpers)
+      import helpers._
+      execute(query)
     }
     // (new Helpers).execute(query) // <- Would not compile here (no implicit session)
     //#helpers
@@ -97,15 +98,17 @@ object Connection extends App {
     import Database.dynamicSession // <- implicit def dynamicSession : Session
     //#dynamicSession-import
     object helpers{
-      def execute[T]( query:Query[T,_] ) = query.list // uses dynamicSession to try to get the Session
+      def execute[T](query: Query[T,_]) = query.list // uses dynamicSession to try to get the Session
     }
-    val query = for( c <- Coffees ) yield c.name
+    val query = for (c <- Coffees) yield c.name
     db.withDynSession { // <- creates a Session and stores it as dynamicSession
       helpers.execute(query)
     }
     try{
       helpers.execute(query) // <- leads to an exception, because execute requires an available session
-    }catch{case e:SlickException => }
+    }catch{
+      case e:SlickException =>
+    }
     //#dynamicSession
   }
   ;{
