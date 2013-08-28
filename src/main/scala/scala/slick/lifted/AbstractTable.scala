@@ -31,7 +31,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     * there is a `Shape` available for translating between the `Column`-based
     * type in * and the client-side type without `Column` in the table's type
     * parameter. */
-  def * : ProvenShape[T]
+  def * : ProvenShape[ShapeLevel.Flat, T]
 
   override def toNode = tableTag match {
     case _: BaseTag =>
@@ -62,13 +62,13 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT, _])
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[TT, U, _], unpackp: Shape[P, PU, _]): ForeignKeyQuery[TT, U] = {
+       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[ShapeLevel.Flat, TT, U, _], unpackp: Shape[ShapeLevel.Flat, P, PU, _]): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.unpackable.value
-    val q = Query[TT, U, TT](targetTable)(Shape.repShape.asInstanceOf[Shape[TT, U, TT]])
+    val q = Query[TT, U, TT](targetTable)(Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, TT, U, TT]])
     val generator = new AnonSymbol
     val aliased = q.unpackable.encodeRef(generator :: Nil)
     val fv = Library.==.typed[Boolean](unpackp.toNode(targetColumns(aliased.value)), unpackp.toNode(sourceColumns))
-    val fk = ForeignKey(name, toNode, q.unpackable.asInstanceOf[ShapedValue[TT, _]],
+    val fk = ForeignKey(name, toNode, q.unpackable.asInstanceOf[ShapedValue[ShapeLevel.Flat, TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
     new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, q.toNode, fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
@@ -78,7 +78,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     * key column but this method allows you to define compound primary keys
     * or give them user-defined names (when defining the database schema
     * with Slick). */
-  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(shape.toNode(sourceColumns)))
+  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[ShapeLevel.Flat, T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(shape.toNode(sourceColumns)))
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
@@ -93,7 +93,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
 
   /** Define an index or a unique constraint. */
-  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[ShapeLevel.Flat, T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view

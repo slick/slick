@@ -8,7 +8,7 @@ final class Parameters[PU, PP](c: PP) {
   def flatMap[QU](f: PP => Query[_, QU])(implicit profile: BasicProfile): profile.ParameterizedQuery[PU, QU] =
     profile.compileParameterizedQuery[PU, QU](f(c))
 
-  def map[QM, QU](f: PP => QM)(implicit profile: BasicProfile, shape: Shape[QM, QU, _]): profile.ParameterizedQuery[PU, QU] =
+  def map[QM, QU](f: PP => QM)(implicit profile: BasicProfile, shape: Shape[ShapeLevel.Flat, QM, QU, _]): profile.ParameterizedQuery[PU, QU] =
     profile.compileParameterizedQuery[PU, QU](Query(f(c)))
 
   def filter(f: PP => Boolean): Parameters[PU, PP] =
@@ -19,6 +19,6 @@ final class Parameters[PU, PP](c: PP) {
 }
 
 object Parameters {
-  def apply[U](implicit shape: Shape[U, U, _]): Parameters[U, shape.Packed] =
+  def apply[U](implicit shape: Shape[ShapeLevel.Flat, U, U, _]): Parameters[U, shape.Packed] =
     new Parameters[U, shape.Packed](shape.buildParams(_.asInstanceOf[U]))
 }

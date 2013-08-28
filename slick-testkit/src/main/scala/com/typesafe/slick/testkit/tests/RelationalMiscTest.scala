@@ -55,6 +55,8 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
   }
 
   def testSorting {
+    import scala.slick.lifted.{Shape, ShapeLevel, Ordered}
+
     class T1(tag: Tag) extends Table[(String, String, String)](tag, "t1_3") {
       def a = column[String]("a")
       def b = column[String]("b")
@@ -67,8 +69,8 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     t1s ++= Seq(("a2", "b2", "c2"), ("a1", "b1", "c1"))
 
     implicit class TupledQueryExtensionMethods[E1, E2, U1, U2](q: Query[(E1, E2), (U1, U2)]) {
-      def sortedValues(implicit ordered: (E1 => scala.slick.lifted.Ordered),
-                       shape: scala.slick.lifted.Shape[E2, U2, E2]): Query[E2, U2] =
+      def sortedValues(implicit ordered: (E1 => Ordered),
+                       shape: Shape[ShapeLevel.Flat, E2, U2, E2]): Query[E2, U2] =
           q.sortBy(_._1).map(_._2)
     }
 

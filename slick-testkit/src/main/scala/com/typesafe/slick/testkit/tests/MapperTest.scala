@@ -243,7 +243,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
 
   def testCustomShape {
     import scala.annotation.unchecked.uncheckedVariance
-    import scala.slick.lifted.{Shape, MappedProductShape}
+    import scala.slick.lifted.{Shape, MappedProductShape, ShapeLevel}
 
     // A simple HList implementation
     sealed trait HList {
@@ -281,18 +281,18 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals((42, true, "foo"), t1t)
 
     // A Shape for our HList, mapping it to a flat ProductNode
-    final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _]]) extends MappedProductShape[HList, M, U, P] {
+    final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[ShapeLevel.Flat, _, _, _]]) extends MappedProductShape[ShapeLevel.Flat, HList, M, U, P] {
       def getIterator(value: HList) = value.toList.iterator
       def getElement(value: HList, idx: Int) = value(idx)
       def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
-      def copy(shapes: Seq[Shape[_, _, _]]) = new HListShape(shapes)
+      def copy(shapes: Seq[Shape[_, _, _, _]]) = new HListShape(shapes.asInstanceOf[Seq[Shape[ShapeLevel.Flat, _, _, _]]])
     }
     implicit val hnilShape = new HListShape[HNil, HNil, HNil](Nil)
-    implicit def hconsShape[M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[M1, U1, P1], s2: HListShape[M2, U2, P2]) =
+    implicit def hconsShape[M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[ShapeLevel.Flat, M1, U1, P1], s2: HListShape[M2, U2, P2]) =
       new HListShape[M1 :: M2, U1 :: U2, P1:: P2](s1 +: s2.shapes)
 
     // See if we can get the proper Shape
-    val sh1 = implicitly[Shape[Int :: Boolean :: String :: HNil, _, _]]
+    val sh1 = implicitly[Shape[ShapeLevel.Flat, Int :: Boolean :: String :: HNil, _, _]]
 
     // Use the shape in queries but not yet for transferring data
     class A(tag: Tag) extends Table[(Int, Boolean, String)](tag, "shape_a") {

@@ -3,7 +3,7 @@ package scala.slick.lifted
 class ShapeLowPriority2 {
 <#list 2..22 as i>
   @inline
-  implicit final def tuple${i}Shape[<#list 1..i as j>M${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>P${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Shape[M${j}, U${j}, P${j}]<#if i != j>, </#if></#list>): Shape[(<#list 1..i as j>M${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>P${j}<#if i != j>,</#if></#list>)] =
+  implicit final def tuple${i}Shape[Level <: ShapeLevel, <#list 1..i as j>M${j}<#if i != j>,</#if></#list>, <#list 1..i as j>U${j}<#if i != j>,</#if></#list>, <#list 1..i as j>P${j}<#if i != j>,</#if></#list>](implicit <#list 1..i as j>u${j}: Shape[Level, M${j}, U${j}, P${j}]<#if i != j>, </#if></#list>): Shape[Level, (<#list 1..i as j>M${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>U${j}<#if i != j>,</#if></#list>), (<#list 1..i as j>P${j}<#if i != j>,</#if></#list>)] =
     new TupleShape(<#list 1..i as j>u${j}<#if i != j>,</#if></#list>)
 </#list>
 }
