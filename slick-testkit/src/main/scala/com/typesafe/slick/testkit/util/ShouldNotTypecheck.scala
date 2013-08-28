@@ -21,7 +21,7 @@ object ShouldNotTypecheck {
     val (expPat, expMsg) = expected match {
       case null => (null, "Expected some error.")
       case Expr(Literal(Constant(s: String))) =>
-        (Pattern.compile(s, Pattern.CASE_INSENSITIVE), "Expected error matching: "+s)
+        (Pattern.compile(s, Pattern.CASE_INSENSITIVE | Pattern.DOTALL), "Expected error matching: "+s)
     }
 
     try ctx.typeCheck(ctx.parse("{ "+codeStr+" }")) catch { case e: TypecheckException =>

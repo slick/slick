@@ -18,7 +18,7 @@ import scala.slick.ast._
  * - Packed: (Column[Int], Column[(Int, String)], (Column[Int], Column[Option[Double]]))
  * - Linearized: (Int, Int, String, Int, Option[Double])
  */
-@implicitNotFound(msg = "No Shape of level ${Level} found for unpacking ${Mixed_} to ${Unpacked_} and packing it to ${Packed_}")
+@implicitNotFound(msg = "No matching Shape found.\n  Required level: ${Level}\n     Source type: ${Mixed_}\n   Unpacked type: ${Unpacked_}\n     Packed type: ${Packed_}")
 abstract class Shape[+Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
   type Mixed = Mixed_ @uncheckedVariance
   type Unpacked = Unpacked_
@@ -71,6 +71,9 @@ object Shape extends ShapeLowPriority {
     def toNode(value: Mixed): Node =
       value.shape.toNode(value.value.asInstanceOf[value.shape.Mixed])
   }
+
+  @inline implicit def queryShape[M, U]: Shape[ShapeLevel.Nested, Query[M, U], Seq[U], Query[M, U]] =
+    repShape.asInstanceOf[Shape[ShapeLevel.Nested, Query[M, U], Seq[U], Query[M, U]]]
 }
 
 class ShapeLowPriority extends ShapeLowPriority2 {
