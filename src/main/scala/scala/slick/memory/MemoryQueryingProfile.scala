@@ -50,7 +50,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
 
     def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = {
       val Select(_, ElementSymbol(ridx)) = path
-      val nullable = typeInfoFor(n.nodeType).nullable
+      val nullable = typeInfoFor(n.nodeType.structural).nullable
       new ResultConverter {
         def read(pr: RowReader) = {
           val v = pr(ridx-1)
@@ -80,14 +80,14 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
     }
 
     def transformSimpleGrouping(n: Node) = n match {
-      case Bind(gen, g: GroupBy, p @ Pure(_: ProductNode)) =>
+      case Bind(gen, g: GroupBy, p @ Pure(_: ProductNode, _)) =>
         val p2 = transformCountAll(gen, p)
         if(p2 eq p) n else Bind(gen, g, p2).nodeWithComputedType(typeChildren = true)
       case n => n
     }
 
     def transformCountAll(gen: Symbol, n: Node): Node = n match {
-      case Apply(Library.CountAll, ch @ Seq(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _))))) if s == gen && s2 == gen2 =>
+      case Apply(Library.CountAll, ch @ Seq(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _)))) if s == gen && s2 == gen2 =>
         Apply(Library.Count, ch)(n.nodeType)
       case n => n.nodeMapChildren(ch => transformCountAll(gen, ch), keepType = true)
     }

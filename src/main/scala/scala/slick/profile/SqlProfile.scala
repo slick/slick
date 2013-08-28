@@ -106,7 +106,7 @@ trait SqlUtilsComponent { driver: SqlDriver =>
     b.toString
   }
 
-  class QuotingSymbolNamer(parent: Option[SymbolNamer]) extends SymbolNamer("x", parent) {
+  class QuotingSymbolNamer(parent: Option[SymbolNamer]) extends SymbolNamer("x", "y", parent) {
     override def namedSymbolName(s: Symbol) = quoteIdentifier(s.name)
   }
 }

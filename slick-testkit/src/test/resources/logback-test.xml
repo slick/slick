@@ -11,13 +11,12 @@
     <logger name="scala.slick.compiler.QueryCompiler"             level="${log.qcomp.phases:-inherited}" />
     <logger name="scala.slick.compiler.Inline"                    level="${log.qcomp.inline:-inherited}" />
     <logger name="scala.slick.compiler.AssignUniqueSymbols"       level="${log.qcomp.assignUniqueSymbols:-inherited}" />
-    <logger name="scala.slick.compiler.ExpandTables"              level="${log.qcomp.expandTables:-inherited}" />
     <logger name="scala.slick.compiler.InferTypes"                level="${log.qcomp.inferTypes:-inherited}" />
     <logger name="scala.slick.compiler.CreateResultSetMapping"    level="${log.qcomp.createResultSetMapping:-inherited}" />
     <logger name="scala.slick.compiler.ForceOuterBinds"           level="${log.qcomp.forceOuterBinds:-inherited}" />
-    <logger name="scala.slick.compiler.ExpandRefs"                level="${log.qcomp.expandRefs:-inherited}" />
-    <logger name="scala.slick.compiler.ReplaceFieldSymbols"       level="${log.qcomp.replaceFieldSymbols:-inherited}" />
-    <logger name="scala.slick.compiler.RewritePaths"              level="${log.qcomp.rewritePaths:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandTables"              level="${log.qcomp.expandTables:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandRecords"             level="${log.qcomp.expandRecords:-inherited}" />
+    <logger name="scala.slick.compiler.FlattenProjections"        level="${log.qcomp.flattenProjections:-inherited}" />
     <logger name="scala.slick.compiler.RelabelUnions"             level="${log.qcomp.relabelUnions:-inherited}" />
     <logger name="scala.slick.compiler.PruneFields"               level="${log.qcomp.pruneFields:-inherited}" />
     <logger name="scala.slick.compiler.ResolveZipJoins"           level="${log.qcomp.resolveZipJoins:-inherited}" />

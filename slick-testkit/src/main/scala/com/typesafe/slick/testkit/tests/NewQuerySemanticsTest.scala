@@ -490,4 +490,34 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     val r1 = q1(42).run
     assertEquals(List(1), r1)
   }
+
+  def testExpansion {
+    class A(tag: Tag) extends Table[(Int, String)](tag, "A_refexp") {
+      def id = column[Int]("id")
+      def a = column[String]("a")
+      def b = column[String]("b")
+      def * = (id, a)
+      override def create_* = collectFieldSymbols((id, a, b).shaped.toNode)
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+    as.map(a => (a.id, a.a, a.b)) ++= Seq(
+      (1, "a1", "b1"),
+      (2, "a2", "b2"),
+      (3, "a3", "b3")
+    )
+
+    val q1 = as.map(identity).filter(_.b === "b3")
+    val r1 = q1.run
+    assertEquals(Set((3, "a3")), r1.toSet)
+
+    val q2a = as.sortBy(_.a) join as on (_.b === _.b)
+    val q2 = for {
+      (c, s) <- q2a
+      c2 <- as
+    } yield (c.id, c2.a)
+    val r2 = q2.run.toSet
+    val r2e = Set((1, "a1"), (1, "a2"), (1, "a3"), (2, "a1"), (2, "a2"), (2, "a3"), (3, "a1"), (3, "a2"), (3, "a3"))
+    assertEquals(r2e, r2)
+  }
 }

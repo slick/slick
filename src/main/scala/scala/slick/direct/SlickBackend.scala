@@ -202,21 +202,20 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     def _fields = getConstructorArgs(typetag.tpe)
     val tableName = mapper.typeToTable( typetag.tpe )
-    val table = sq.TableNode(None, tableName, sq.SimpleTableIdentitySymbol(driver, "_", tableName),
-      expandOn = { tableRef: sq.Node => sq.TypeMapping(
-        sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, tableRef) )),
-        v => throw new Exception("not implemented yet"),
-        v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
-               .reflectConstructor(
-                 typetag.tpe.member( nme.CONSTRUCTOR ).asMethod
-               )( (v match {
-                 case v:Vector[_] => v
-                 case v:Product => v.productIterator.toVector
-               }):_* )
-      )},
-      driverTable = null
-    )
-    new Query( table, Scope() )
+    val table = sq.TableNode(None, tableName, sq.SimpleTableIdentitySymbol(driver, "_", tableName), null)
+    val tableRef = new sq.AnonSymbol
+    val tableExp = sq.TableExpansion(tableRef, table, sq.TypeMapping(
+      sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, sq.Ref(tableRef)) )),
+      v => throw new Exception("not implemented yet"),
+      v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
+        .reflectConstructor(
+        typetag.tpe.member( nme.CONSTRUCTOR ).asMethod
+      )( (v match {
+        case v:Vector[_] => v
+        case v:Product => v.productIterator.toVector
+      }):_* )
+    ))
+    new Query( tableExp, Scope() )
   }
 
   def toQuery( tree:Tree, scope : Scope = Scope() ) : (Type,Query) = {
