@@ -173,7 +173,7 @@ embedding are added through implicit conversions defined in
 ``ExtensionMethodConversions``. The actual methods can be found in
 the classes ``AnyExtensionMethods``, ``ColumnExtensionMethods``,
 ``NumericColumnExtensionMethods``, ``BooleanColumnExtensionMethods`` and
-``StringColumnExtensionMethods``.
+``StringColumnExtensionMethods``. Also see :slick:`ExtensionMethods <src/main/scala/scala/slick/lifted/ExtensionMethods.scala>`.
 
 Collection values are represented by the ``Query`` class (a ``Rep[Seq[T]]``)
 which contains many standard collection methods like ``flatMap``,

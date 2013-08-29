@@ -43,7 +43,7 @@ Safe
 ^^^^^^^^
 * No SQL-injections
 * Compile-time safety (types, names, no typos, etc.)
-* Type-safe support of stored procedures
+* Type-safe support for custom database functions
 
 Composable
 ^^^^^^^^^^^^^^^^
@@ -80,7 +80,7 @@ Quick Overview
 Accessing databases using Slick's lifted embedding requires the following steps.
 
 #. Add the Slick jar and its dependencies to your project
-#. Pick a driver for a particular db and create a session (or simply pick threadLocalSession)
+#. Pick a driver for a particular db
 
    .. includecode:: code/GettingStartedOverview.scala#quick-imports
 
