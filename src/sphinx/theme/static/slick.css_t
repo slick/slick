@@ -1,0 +1,76 @@
+@import url(agogo.css);
+body{
+  font-family: 'Lucida Grande','Lucida Sans Unicode',sans-serif;
+  font-size:11pt;
+}
+div.header-wrapper {
+  border-bottom: 3px solid #2e3436;
+}
+h1, h2, h3, h4 {
+  font-family: sans-serif;
+  font-size: 14pt;
+  font-weight: bold;
+  color: rgba(218, 56, 48, 0.9);
+}
+h1{  
+  color: #5e5e5e;
+  font-size: 18pt;
+  text-transform: uppercase;
+}
+h3{
+  color: rgba(218, 56, 48, 0.9);
+  margin:0;
+}
+div.sidebar h3{
+  font-size: 120%;
+}
+div.header .headertitle {
+  margin-bottom: 0;
+}
+div.header .headertitle a {
+  color: #5e5e5e;
+  font-family: sans-serif;
+}
+  
+div.header div.rel {
+  margin-top: 0;
+  float: right;
+}
+
+p.logo {
+  float: none;
+}
+.logo{
+  margin: -26px -15px -26px -10px;
+}
+div.document ul {
+  margin: 1em;
+}
+div.footer-wrapper {
+   min-height: 0;
+}
+div.footer .right {
+  float: none;
+}
+div.viewcode-block:target {
+  padding: 0.5em;
+}
+a em{
+  font-style: normal;
+}
+div.document div.highlight{
+  border: 0;
+  padding: 0;
+}
+pre {
+  background-color: #F8F8F8;
+  border: 1px solid #CCCCCC;
+  font-family: Menlo,Consolas,monospace;
+  font-size: 0.95em;
+  letter-spacing: 0.015em;
+  line-height: 120%;
+  padding: 0.5em;
+}
+div.sidebar input[type="text"] {
+  width: 155px;
+}

@@ -1,4 +1,0 @@
-Session Handling
-================
-
-tbd
