@@ -52,7 +52,6 @@ object Connection extends App {
     implicit session =>
     // your queries go here
   }
-  class SomeException(s: String) extends Exception(s)
   //#independentTransaction
   db.withSession {
     session : Session =>
@@ -79,7 +78,7 @@ object Connection extends App {
     //#helpers
     class Helpers(implicit session: Session){
       def execute[T](query: Query[T,_]) = query.list
-      // ... place futher helpers methods here
+      // ... place further helpers methods here
     }
     val query = for (c <- Coffees) yield c.name
     db.withSession {

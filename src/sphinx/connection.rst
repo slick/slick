@@ -25,7 +25,7 @@ Using a JDBC URL
 ^^^^^^^^^^^^^^^^^^^^
 
 You can provide a JDBC URL to
-:api:`forUrl <scala.slick.session.Database$@forURL(String,String,String,Properties,String):Database>`.
+:api:`forURL <scala.slick.session.Database$@forURL(String,String,String,Properties,String):Database>`.
 (see your database's JDBC driver's documentation for the correct URL syntax).
 
 .. includecode:: code/Connection.scala#forURL
@@ -103,7 +103,7 @@ To bundle several statements use :ref:`transactions`.
 :api:`withSession <scala.slick.session.Database@withSession[T]((Session)⇒T):T>`
 scope, it has already been closed and is invalid. It can escape in several ways,
 which should be avoided, e.g. as state of a closure (if you use a
-:scalaapi:`future <scala.concurrent.package@future[T](⇒T)(ExecutionContext):Future[T]>`
+:scalaapi:`Future <scala.concurrent.package@Future[T](⇒T)(ExecutionContext):Future[T]>`
 inside a :api:`withSession <scala.slick.session.Database@withSession[T]((Session)⇒T):T>`
 scope for example), by assigning the session to a var, by returning the session
 as the return value of the withSession scope or else.
