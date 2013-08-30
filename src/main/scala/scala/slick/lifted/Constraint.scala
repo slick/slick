@@ -20,15 +20,15 @@ final class ForeignKey( //TODO Simplify this mess!
     val linearizedTargetColumns: IndexedSeq[Node],
     val linearizedTargetColumnsForOriginalTargetTable: IndexedSeq[Node],
     val targetTable: TableNode,
-    val columnsShape: Shape[ShapeLevel.Flat, _, _, _])
+    val columnsShape: Shape[_ <: ShapeLevel.Flat, _, _, _])
 
 object ForeignKey {
   def apply[TT <: AbstractTable[_], P](
       name: String,
       sourceTable: Node,
-      targetTableShaped: ShapedValue[ShapeLevel.Flat, TT, _],
+      targetTableShaped: ShapedValue[TT, _],
       originalTargetTable: TT,
-      pShape: Shape[ShapeLevel.Flat, P, _, _],
+      pShape: Shape[_ <: ShapeLevel.Flat, P, _, _],
       originalSourceColumns: P,
       originalTargetColumns: TT => P,
       onUpdate: ForeignKeyAction,
@@ -60,7 +60,7 @@ object ForeignKeyAction {
 
 class ForeignKeyQuery[E <: AbstractTable[_], U](
     nodeDelegate: Node,
-    base: ShapedValue[ShapeLevel.Flat, _ <: E, U],
+    base: ShapedValue[_ <: E, U],
     val fks: IndexedSeq[ForeignKey],
     targetBaseQuery: Query[E, U],
     generator: AnonSymbol,
