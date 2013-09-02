@@ -64,6 +64,8 @@ trait Node {
     _nodeType
   }
 
+  def nodePeekType: Type = _nodeType
+
   def nodeHasType: Boolean = _nodeType != UnassignedType
 
   /** Return this Node with a Type assigned. This may only be called on
@@ -94,7 +96,7 @@ trait Node {
 
   def nodeBuildTypedNode[T >: this.type <: Node](newNode: T, newType: Type): T =
     if(newNode ne this) newNode.nodeTyped(newType)
-    else if(newType == nodeType) this
+    else if(newType == _nodeType) this
     else nodeRebuildWithType(newType).asInstanceOf[T]
 
   def nodeRebuildWithType(tpe: Type): Self = nodeRebuild(nodeChildren.toIndexedSeq).nodeTyped(tpe)
@@ -136,6 +138,10 @@ trait TypedNode extends Node with Typed {
   def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
     nodeMapChildren(_.nodeWithComputedType(scope, typeChildren, retype), !retype)
   override def nodeHasType = (tpe ne UnassignedType) || super.nodeHasType
+  override def nodePeekType: Type = super.nodePeekType match {
+    case UnassignedType => tpe
+    case t => t
+  }
 }
 
 /** An expression that represents a conjunction of expressions. */
