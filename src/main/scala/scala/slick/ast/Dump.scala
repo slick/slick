@@ -66,7 +66,7 @@ class DumpContext(val out: PrintWriter, val typed: Boolean = true) {
       case Ref(s) => addRef(s)
       case _ =>
     }
-    val tpe = tree.nodeType
+    val tpe = tree.nodePeekType
     val typeInfo = if(typed && tpe != UnassignedType) blue + " : " + tpe.toString + normal else ""
     val start = yellow + prefix + name + normal
     def tl(s: Any) = if(topLevel) green + s + normal else s
@@ -74,7 +74,10 @@ class DumpContext(val out: PrintWriter, val typed: Boolean = true) {
     tree match {
       // Omit path details unless dumpPaths is set
       case Path(l @ (_ :: _ :: _)) if !dumpPaths =>
-        tree.foreach { case Ref(s) => addRef(s) }
+        tree.foreach {
+          case Ref(s) => addRef(s)
+          case _ =>
+        }
       case _ =>
         for((chg, n) <- tree.nodeChildren.zip(tree.nodeChildNames))
           dump(chg, prefix + "  ", n+": ", false)
