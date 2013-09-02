@@ -23,6 +23,7 @@ object SlickBuild extends Build {
     scalaHome := Some(file(path)),
     autoScalaLibrary := false,
     unmanagedJars <<= scalaInstance.map( _.jars.classpath),
+    unmanagedJars in config("compile") <<= scalaInstance.map( _.jars.classpath),
     unmanagedJars in config("test") <<= scalaInstance.map( _.jars.classpath),
     unmanagedJars in config("macro") <<= scalaInstance.map( _.jars.classpath)
   )
@@ -35,6 +36,9 @@ object SlickBuild extends Build {
         localScalaSettings(path)
     }
   }
+
+  def ifPublished(s: Seq[Setting[_]]): Seq[Setting[_]] =
+    if(scalaSettings eq publishedScalaSettings) s else Nil
 
   def extTarget(extName: String, t: Option[String]): Seq[Setting[File]] = {
     sys.props("slick.build.target") match {
@@ -103,11 +107,12 @@ object SlickBuild extends Build {
       test := (),
       testOnly <<= inputTask { argTask => (argTask) map { args => }},
       ivyConfigurations += config("macro").hide.extend(Compile),
-      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
-    ))
+    ) ++ ifPublished(Seq(
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
+    )))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
     settings = Project.defaultSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
@@ -115,7 +120,6 @@ object SlickBuild extends Build {
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       //scalacOptions in Compile += "-Yreify-copypaste",
-      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test"),
       libraryDependencies ++= Seq(
         // TestKit needs JUnit for its Runner
         "junit" % "junit-dep" % "4.10",
@@ -137,7 +141,9 @@ object SlickBuild extends Build {
       // the wrong tests are run
       testGrouping in DocTest <<= definedTests in DocTest map partitionTests,
       parallelExecution in Test := false
-    )
+    ) ++ ifPublished(Seq(
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test")
+    ))
   ).configs(DocTest).settings(inConfig(DocTest)(Defaults.testSettings): _*).settings(
     unmanagedSourceDirectories in DocTest <+= (baseDirectory in slickProject) { _ / "src/sphinx/code" }
     //resourceDirectory in DocTest <<= baseDirectory { _ / "src/test/resources" }

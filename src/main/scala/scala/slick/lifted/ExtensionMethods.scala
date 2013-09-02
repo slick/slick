@@ -116,8 +116,8 @@ final class BooleanColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal 
 final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[String, P1] {
   def length[R](implicit om: o#to[Int, R]) =
     om.column(Library.Length, n)
-  def like[P2, R](e: Column[P2], esc: Char = '\0')(implicit om: o#arg[String, P2]#to[Boolean, R]) =
-    if(esc == '\0') om.column(Library.Like, n, e.toNode)
+  def like[P2, R](e: Column[P2], esc: Char = '\u0000')(implicit om: o#arg[String, P2]#to[Boolean, R]) =
+    if(esc == '\u0000') om.column(Library.Like, n, e.toNode)
     else om.column(Library.Like, n, e.toNode, LiteralNode(esc))
   def ++[P2, R](e: Column[P2])(implicit om: o#arg[String, P2]#to[String, R]) =
     om.column(Library.Concat, n, e.toNode)
