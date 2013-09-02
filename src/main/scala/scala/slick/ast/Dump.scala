@@ -66,7 +66,7 @@ class DumpContext(val out: PrintWriter, val typed: Boolean = true) {
       case Ref(s) => addRef(s)
       case _ =>
     }
-    val tpe = tree.nodeType
+    val tpe = tree.nodePeekType
     val typeInfo = if(typed && tpe != UnassignedType) blue + " : " + tpe.toString + normal else ""
     val start = yellow + prefix + name + normal
     def tl(s: Any) = if(topLevel) green + s + normal else s
