@@ -29,7 +29,6 @@ trait MemoryQueryingProfile extends RelationalProfile with StandardParameterized
     implicit def longColumnType = ScalaBaseType.longType
     implicit def shortColumnType = ScalaBaseType.shortType
     implicit def stringColumnType = ScalaBaseType.stringType
-    implicit def unitColumnType = ScalaBaseType.unitType
   }
 }
 

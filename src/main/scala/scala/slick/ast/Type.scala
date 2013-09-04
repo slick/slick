@@ -241,7 +241,7 @@ class DefaultSymbolScope(val m: Map[Symbol, Type]) extends SymbolScope {
   *
   * All drivers should support the following types which are used internally
   * by the lifted embedding and the query compiler: Boolean, Char, Int, Long,
-  * Null, String, Unit. */
+  * Null, String. */
 trait ScalaType[T] extends TypedType[T] {
   override def optionType: ScalaOptionType[T] = new ScalaOptionType[T](this)
   def nullable: Boolean
@@ -301,12 +301,10 @@ object ScalaBaseType {
     def fromDouble(v: Double) = v.toShort
   }
   implicit val stringType = new ScalaBaseType[String]("")
-  implicit val unitType = new ScalaBaseType[Unit](())
 
   private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
-      floatType, intType, longType, nullType, shortType, stringType,
-      unitType).map(s => (s.tag, s)).toMap
+      floatType, intType, longType, nullType, shortType, stringType).map(s => (s.tag, s)).toMap
 
   def apply[T](implicit tag: ClassTag[T], ord: scala.math.Ordering[T] = null): ScalaBaseType[T] =
     all.getOrElse(tag, new ScalaBaseType[T](null.asInstanceOf[T])).asInstanceOf[ScalaBaseType[T]]

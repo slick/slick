@@ -182,7 +182,6 @@ trait RelationalTypesComponent { driver: BasicDriver =>
     implicit def longColumnType: BaseColumnType[Long] with NumericTypedType
     implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
-    implicit def unitColumnType: BaseColumnType[Unit]
   }
 }
 

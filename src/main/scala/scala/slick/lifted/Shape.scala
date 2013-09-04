@@ -98,6 +98,17 @@ class ShapeLowPriority1 extends ShapeLowPriority2 {
       throw new SlickException("Shape does not have the same Mixed and Packed type")
     def toNode(value: Mixed): Node = pack(value).toNode
   }
+
+  @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
+    unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
+
+  val unitShapePrototype: Shape[ShapeLevel.Flat, Unit, Unit, Unit] = new Shape[ShapeLevel.Flat, Unit, Unit, Unit] {
+    def pack(value: Mixed) = ()
+    def packedShape: Shape[ShapeLevel.Flat, Packed, Unpacked, Packed] = this
+    def buildParams(extract: Any => Unpacked) = ()
+    def encodeRef(value: Mixed, path: List[Symbol]) = ()
+    def toNode(value: Mixed) = ProductNode(Nil)
+  }
 }
 
 /** Base class for Shapes that are represented by ProductNodes in the AST. */
