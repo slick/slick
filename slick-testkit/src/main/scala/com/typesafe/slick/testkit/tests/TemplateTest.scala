@@ -55,7 +55,7 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
     assertEquals(List("Marge","Apu"), q4.run)
 
     def userNameByIDOrAll(id: Option[Int]) = for(
-      u <- users if id.map(u.id is _.bind).getOrElse(ConstColumn(true))
+      u <- users if id.map(u.id is _.bind).getOrElse(LiteralColumn(true))
     ) yield u.first
     val q5a = userNameByIDOrAll(Some(3))
     assertEquals(List("Apu"), q5a.run)

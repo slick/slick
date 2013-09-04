@@ -10,7 +10,7 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
 
   def test {
     def check[T](q: ColumnBase[T], exp: T) = assertEquals(exp, q.run)
-    def checkLit[T : ColumnType](v: T) = check(ConstColumn(v), v)
+    def checkLit[T : ColumnType](v: T) = check(LiteralColumn(v), v)
 
     checkLit(Date.valueOf("2011-07-15"))
     checkLit(Time.valueOf("15:53:21"))

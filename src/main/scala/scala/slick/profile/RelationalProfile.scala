@@ -21,7 +21,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes {
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
-    implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
+    implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: TableQuery[T, U]) =
       new TableQueryExtensionMethods[T, U](q)

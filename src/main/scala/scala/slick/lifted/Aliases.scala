@@ -13,6 +13,8 @@ trait Aliases {
   type Column[T] = lifted.Column[T]
   type ConstColumn[T] = lifted.ConstColumn[T]
   val ConstColumn = lifted.ConstColumn
+  type LiteralColumn[T] = lifted.LiteralColumn[T]
+  val LiteralColumn = lifted.LiteralColumn
   val Case = lifted.Case
   type Rep[T] = lifted.Rep[T]
   val Functions = lifted.Functions

@@ -46,6 +46,16 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
 }
 
 object Shape extends ShapeLowPriority {
+  /** A Shape for ConstColumns. It is identical to `columnShape` but it
+    * ensures that a `ConstColumn[T]` packs to itself, not just to
+    * `Column[T]`. This allows ConstColumns to be used as fully packed
+    * types when compiling query functions. */
+  @inline implicit def constColumnShape[T, Level <: ShapeLevel]: Shape[Level, ConstColumn[T], T, ConstColumn[T]] =
+    repShape.asInstanceOf[Shape[Level, ConstColumn[T], T, ConstColumn[T]]]
+}
+
+trait ShapeLowPriority extends ShapeLowPriority1 {
+  /** A Shape for Columns. */
   @inline implicit def columnShape[T, Level <: ShapeLevel]: Shape[Level, Column[T], T, Column[T]] =
     repShape.asInstanceOf[Shape[Level, Column[T], T, Column[T]]]
 
@@ -76,14 +86,14 @@ object Shape extends ShapeLowPriority {
     repShape.asInstanceOf[Shape[Level, Query[M, U], Seq[U], Query[M, U]]]
 }
 
-class ShapeLowPriority extends ShapeLowPriority2 {
+class ShapeLowPriority1 extends ShapeLowPriority2 {
   @inline implicit final def columnBaseShape[Level >: ShapeLevel.Flat <: ShapeLevel, T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[Level, C, T, C] =
     Shape.repShape.asInstanceOf[Shape[Level, C, T, C]]
 
   implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]): Shape[Level, T, T, Column[T]] = new Shape[Level, T, T, Column[T]] {
-    def pack(value: Mixed) = ConstColumn(value)
+    def pack(value: Mixed) = LiteralColumn(value)
     def packedShape = Shape.repShape.asInstanceOf[Shape[Level, Packed, Unpacked, Packed]]
-    def buildParams(extract: Any => Unpacked): Packed = Column.forNode[T](new QueryParameter(extract, tm))(tm)
+    def buildParams(extract: Any => Unpacked): Packed = new ParameterColumn[T](new QueryParameter(extract, tm))(tm)
     def encodeRef(value: Mixed, path: List[Symbol]) =
       throw new SlickException("Shape does not have the same Mixed and Packed type")
     def toNode(value: Mixed): Node = pack(value).toNode

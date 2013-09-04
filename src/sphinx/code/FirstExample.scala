@@ -82,10 +82,10 @@ object FirstExample extends App {
     println("Coffees (concatenated by DB):")
 //#projection
     val q1 = for(c <- coffees)
-      yield ConstColumn("  ") ++ c.name ++ "\t" ++ c.supID.asColumnOf[String] ++
+      yield LiteralColumn("  ") ++ c.name ++ "\t" ++ c.supID.asColumnOf[String] ++
         "\t" ++ c.price.asColumnOf[String] ++ "\t" ++ c.sales.asColumnOf[String] ++
         "\t" ++ c.total.asColumnOf[String]
-    // The first string constant needs to be lifted manually to a ConstColumn
+    // The first string constant needs to be lifted manually to a LiteralColumn
     // so that the proper ++ operator is found
     q1 foreach println
 //#projection

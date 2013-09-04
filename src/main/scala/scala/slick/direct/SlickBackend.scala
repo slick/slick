@@ -270,7 +270,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     try{
       val string_types = List("String","java.lang.String")
       tree match {
-        // explicitly state types here until SQ removes type parameters and type mapper from ConstColumn
+        // explicitly state types here until SQ removes type parameters and type mapper from LiteralColumn
         case Literal(Constant(x:Int))    => sq.LiteralNode(driver.columnTypes.intJdbcType, x)
         case Literal(Constant(x:String)) => sq.LiteralNode(driver.columnTypes.stringJdbcType, x)
         case Literal(Constant(x:Double)) => sq.LiteralNode(driver.columnTypes.doubleJdbcType, x)

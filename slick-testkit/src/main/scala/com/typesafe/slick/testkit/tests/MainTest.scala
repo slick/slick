@@ -134,7 +134,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     val q4d = for (
       u <- users if u.first inSetBind List("Homer", "Marge");
       o <- orders if o.userID is u.id
-    ) yield (u.first, (ConstColumn(1) + o.orderID, 1), o.product)
+    ) yield (u.first, (LiteralColumn(1) + o.orderID, 1), o.product)
     println("q4d: " + q4d.selectStatement)
     println("Orders for Homer and Marge:")
     q4d.foreach(o => println("  "+o))
