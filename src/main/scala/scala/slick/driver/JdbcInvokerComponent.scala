@@ -19,7 +19,8 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   def createKeysInsertInvoker[U, RU](tree: Node, keys: Node) = new KeysInsertInvoker[U, RU](tree, keys)
   def createMappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R) = new MappedKeysInsertInvoker[U, RU, R](tree, keys, tr)
   def createUnitQueryInvoker[R](tree: Node) = new UnitQueryInvoker[R](tree)
-  def createUpdateInvoker[T](tree: Node) = new UpdateInvoker[T](tree)
+  def createUpdateInvoker[T](tree: Node, param: Any) = new UpdateInvoker[T](tree, param)
+  def createDeleteInvoker(tree: Node, param: Any) = new DeleteInvoker(tree, param)
   def createQueryInvoker[P,R](tree: Node): QueryInvoker[P,R] = new QueryInvoker[P, R](tree)
 
   // Parameters for invokers -- can be overridden by drivers as needed
@@ -64,13 +65,13 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running DELETE calls. */
-  class DeleteInvoker(protected val tree: Node) {
+  class DeleteInvoker(protected val tree: Node, param: Any) {
     protected[this] val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
 
     def deleteStatement = sres.sql
 
     def delete(implicit session: Backend#Session): Int = session.withPreparedStatement(deleteStatement) { st =>
-      sres.setter(new PositionedParameters(st), null)
+      sres.setter(new PositionedParameters(st), param)
       st.executeUpdate
     }
 
@@ -242,7 +243,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running UPDATE calls. */
-  class UpdateInvoker[T](protected val tree: Node) {
+  class UpdateInvoker[T](protected val tree: Node, param: Any) {
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(converter, _)) = tree
@@ -255,7 +256,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       st.clearParameters
       val pp = new PositionedParameters(st)
       converter.set(value, pp)
-      sres.setter(pp, null)
+      sres.setter(pp, param)
       st.executeUpdate
     }
 

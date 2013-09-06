@@ -4,17 +4,14 @@ import scala.language.{implicitConversions, existentials}
 import scala.slick.ast._
 import scala.slick.compiler._
 import scala.slick.lifted._
-import scala.slick.profile.{RelationalMappingCompilerComponent, RelationalDriver, StandardParameterizedQueries, RelationalProfile}
+import scala.slick.profile.{RelationalMappingCompilerComponent, RelationalDriver, RelationalProfile}
 import scala.slick.SlickException
 
 /** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
-trait MemoryQueryingProfile extends RelationalProfile with StandardParameterizedQueries { driver: MemoryQueryingDriver =>
+trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDriver =>
 
   type ColumnType[T] = ScalaType[T]
   type BaseColumnType[T] = ScalaType[T] with BaseTypedType[T]
-
-  def compileParameterizedQuery[P,R](q: Query[_, R]) =
-    new ParameterizedQuery[P, R](queryCompiler.run(q.toNode).tree)
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes
 

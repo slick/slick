@@ -46,7 +46,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     assertTrue(Query(users.where(_.id === 1).exists).first)
 
     users.where(_.id between(1, 2)).foreach(println)
-    println("ID 3 -> " + usersByID.first(3))
+    println("ID 3 -> " + usersByID(3).first)
 
     assertEquals(
       Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")),
@@ -54,7 +54,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     )
     assertEquals(
       User(Some(3), "Carl", "Carlson"),
-      usersByID.first(3)
+      usersByID(3).first
     )
 
     val q1 = for {
