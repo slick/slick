@@ -87,13 +87,32 @@ class ShapeLowPriority extends ShapeLowPriority2 {
   }
 }
 
-/** Base class for Shapes that are represented by ProductNodes in the AST. */
+/** Base class for Shapes of record values which are represented by
+  * ProductNodes in the AST.
+  *
+  * @tparam C The supertype for the record values.
+  * @tparam M The mixed type of the Shape (a subtype of C).
+  * @tparam U The unpacked type of the Shape (a subtype of C).
+  * @tparam P The fully packed type of the Shape (a subtype of C).
+  */
 abstract class ProductNodeShape[C, M <: C, U <: C, P <: C] extends Shape[M, U, P] {
+  /** The Shapes for the product elements. */
   val shapes: Seq[Shape[_, _, _]]
+
+  /** Build a record value represented by this Shape from its element values. */
   def buildValue(elems: IndexedSeq[Any]): Any
+
+  /** Create a copy of this Shape with new element Shapes. This is used for
+    * packing Shapes recursively. */
   def copy(shapes: Seq[Shape[_, _, _]]): Shape[_, _, _]
-  def getIterator(value: C): Iterator[Any]
+
+  /** Get the element value from a record value at the specified index. */
   def getElement(value: C, idx: Int): Any
+
+  /** Get an Iterator of a record value's element values. The default
+    * implementation repeatedly calls `getElement`. */
+  def getIterator(value: C): Iterator[Any] =
+    shapes.iterator.zipWithIndex.map(t => getElement(value, t._2))
 
   def pack(value: Mixed) = {
     val elems = shapes.iterator.zip(getIterator(value)).map{ case (p, f) => p.pack(f.asInstanceOf[p.Mixed]) }
@@ -134,7 +153,7 @@ abstract class MappedProductShape[C, M <: C, U <: C, P <: C] extends ProductNode
 
 /** Shape for Scala tuples of all arities */
 final class TupleShape[M <: Product, U <: Product, P <: Product](val shapes: Shape[_, _, _]*) extends ProductNodeShape[Product, M, U, P] {
-  def getIterator(value: Product) = value.productIterator
+  override def getIterator(value: Product) = value.productIterator
   def getElement(value: Product, idx: Int) = value.productElement(idx)
   def buildValue(elems: IndexedSeq[Any]) = TupleSupport.buildTuple(elems)
   def copy(shapes: Seq[Shape[_, _, _]])  = new TupleShape(shapes: _*)

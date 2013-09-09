@@ -243,7 +243,6 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
 
   def testCustomShape {
     import scala.annotation.unchecked.uncheckedVariance
-    import scala.slick.lifted.{Shape, MappedProductShape}
 
     // A simple HList implementation
     sealed trait HList {
@@ -282,7 +281,6 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
 
     // A Shape for our HList, mapping it to a flat ProductNode
     final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _]]) extends MappedProductShape[HList, M, U, P] {
-      def getIterator(value: HList) = value.toList.iterator
       def getElement(value: HList, idx: Int) = value(idx)
       def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
       def copy(shapes: Seq[Shape[_, _, _]]) = new HListShape(shapes)
