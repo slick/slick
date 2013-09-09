@@ -282,7 +282,6 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
 
     // A Shape for our HList, mapping it to a flat ProductNode
     final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[ShapeLevel.Flat, _, _, _]]) extends MappedProductShape[ShapeLevel.Flat, HList, M, U, P] {
-      def getIterator(value: HList) = value.toList.iterator
       def getElement(value: HList, idx: Int) = value(idx)
       def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
       def copy(shapes: Seq[Shape[_, _, _, _]]) = new HListShape(shapes.asInstanceOf[Seq[Shape[ShapeLevel.Flat, _, _, _]]])

@@ -32,4 +32,6 @@ trait Aliases {
   val SimpleLiteral = lifted.SimpleLiteral
   val TupleMethods = util.TupleMethods
   type Tag = lifted.Tag
+  type Shape[Level <: ShapeLevel, -M, U, P] = lifted.Shape[Level, M, U, P]
+  type MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] = lifted.MappedProductShape[Level, C, M, U, P]
 }
