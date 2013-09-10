@@ -334,4 +334,36 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
     assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)
   }
+
+  def testHList {
+    import scala.slick.collection.heterogenous._
+    import scala.slick.collection.heterogenous.syntax._
+
+    class B(tag: Tag) extends Table[Int :: Boolean :|: String](tag, "hlist_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def b = column[Boolean]("b")
+      def s = column[String]("s")
+      def * = id :: b :|: s
+    }
+    val bs = TableQuery[B]
+    bs.ddl.create
+
+    bs += (1 :: true :|: "a")
+    bs += (2 :: false :|: "c")
+    bs += (3 :: false :|: "b")
+
+    val q1 = (for {
+      id :: b :|: s <- (for { b <- bs } yield b.id :: b.b :|: b.s) if !b
+    } yield id :: b :|: (s ++ s)).sortBy(h => h(2)).map {
+      case id :: b :|: ss => id :: ss :|: (42 :: HNil)
+    }
+    assertEquals(Vector(3 :: "bb" :|: (42 :: HNil), 2 :: "cc" :|: (42 :: HNil)), q1.run)
+
+    val q2 = bs
+      .map { case b => b.id :: b.b :|: (b.s ++ b.s) }
+      .filter { h => !h(1) }
+      .sortBy { case _ :: _ :|: ss => ss }
+      .map { case id :: b :|: ss => id :: ss :|: (42 :: HNil) }
+    assertEquals(Vector(3 :: "bb" :|: (42 :: HNil), 2 :: "cc" :|: (42 :: HNil)), q2.run)
+  }
 }

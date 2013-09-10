@@ -151,6 +151,12 @@ abstract class MappedProductShape[C, M <: C, U <: C, P <: C] extends ProductNode
   )
 }
 
+/** Base class for ProductNodeShapes with a type mapping to a type that extends scala.Product */
+abstract class ScalaProductShape[C <: Product, M <: C, U <: C, P <: C] extends MappedProductShape[C, M, U, P] {
+  override def getIterator(value: C) = value.productIterator
+  def getElement(value: C, idx: Int) = value.productElement(idx)
+}
+
 /** Shape for Scala tuples of all arities */
 final class TupleShape[M <: Product, U <: Product, P <: Product](val shapes: Shape[_, _, _]*) extends ProductNodeShape[Product, M, U, P] {
   override def getIterator(value: Product) = value.productIterator
