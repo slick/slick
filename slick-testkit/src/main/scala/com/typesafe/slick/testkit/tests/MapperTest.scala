@@ -242,78 +242,45 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
   }
 
   def testCustomShape {
-    import scala.annotation.unchecked.uncheckedVariance
-    import scala.slick.lifted.{Shape, MappedProductShape, ShapeLevel}
+    // A custom record class
+    case class Pair[A, B](a: A, b: B)
 
-    // A simple HList implementation
-    sealed trait HList {
-      type Self <: HList
-      def :: [H](value: H) = new HCons[H, Self](value, this.asInstanceOf[Self])
-      def toList: List[Any]
-      def apply(idx: Int): Any
-      override def equals(that: Any) = that match {
-        case that: HList => toList == that.toList
-        case _ => false
-      }
+    // A Shape that maps Pair to a ProductNode
+    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
+      def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
+      def copy(shapes: Seq[Shape[_, _, _, _]]) = new PairShape(shapes)
     }
-    case object HNil extends HList {
-      type Self = HNil.type
-      def toList = Nil
-      def apply(idx: Int) = throw new IllegalArgumentException
-    }
-    type HNil = HNil.type
-    class HCons[+H, +T <: HList](val head: H, val tail: T) extends HList {
-      type Self = HCons[H @uncheckedVariance, T @uncheckedVariance]
-      def toList: List[Any] = head :: tail.toList
-      def apply(idx: Int): Any = if(idx == 0) head else tail(idx-1)
-      override def toString = s"$head :: $tail"
-    }
-    type :: [+H, +T <: HList] = HCons[H, T]
-    object :: {
-      def unapply[H, T <: HList](l: HCons[H, T]) = Some((l.head, l.tail))
-    }
+    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]) =
+      new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
 
-    val l1 = 42 :: true :: "foo" :: HNil
-    val t1 = l1 match {
-      case i :: b :: s :: HNil => (i, b, s)
-    }
-    val t1t: (Int, Boolean, String) = t1
-    assertEquals((42, true, "foo"), t1t)
-
-    // A Shape for our HList, mapping it to a flat ProductNode
-    final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[ShapeLevel.Flat, _, _, _]]) extends MappedProductShape[ShapeLevel.Flat, HList, M, U, P] {
-      def getElement(value: HList, idx: Int) = value(idx)
-      def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
-      def copy(shapes: Seq[Shape[_, _, _, _]]) = new HListShape(shapes.asInstanceOf[Seq[Shape[ShapeLevel.Flat, _, _, _]]])
-    }
-    implicit val hnilShape = new HListShape[HNil, HNil, HNil](Nil)
-    implicit def hconsShape[M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[ShapeLevel.Flat, M1, U1, P1], s2: HListShape[M2, U2, P2]) =
-      new HListShape[M1 :: M2, U1 :: U2, P1:: P2](s1 +: s2.shapes)
-
-    // See if we can get the proper Shape
-    val sh1 = implicitly[Shape[ShapeLevel.Flat, Int :: Boolean :: String :: HNil, _, _]]
-
-    // Use the shape in queries but not yet for transferring data
-    class A(tag: Tag) extends Table[(Int, Boolean, String)](tag, "shape_a") {
+    // Use it in a table definition
+    class A(tag: Tag) extends Table[Pair[Int, String]](tag, "shape_a") {
       def id = column[Int]("id", O.PrimaryKey)
-      def b = column[Boolean]("b")
       def s = column[String]("s")
-      def * = (id, b, s)
+      def * = Pair(id, s)
     }
     val as = TableQuery[A]
     as.ddl.create
-    as += (1, true, "a")
-    as += (2, false, "c")
-    as += (3, false, "b")
-    val q1 = as
-      .map { case a => a.id :: a.b :: (a.s ++ a.s) :: HNil }
-      .filter { case _ :: b :: _ :: HNil => !b }
-      .sortBy { case _ :: _ :: ss :: HNil => ss }
-      .map { case id :: b :: ss :: HNil => (id, ss) }
-    assertEquals(Vector((3, "bb"), (2, "cc")), q1.run)
 
-    // Use it in a table definition
-    class B(tag: Tag) extends Table[Int :: Boolean :: String :: HNil](tag, "shape_b") {
+    // Insert data with the custom shape
+    as += Pair(1, "a")
+    as += Pair(2, "c")
+    as += Pair(3, "b")
+
+    // Use it for returning data from a query
+    val q2 = as
+      .map { case a => Pair(a.id, (a.s ++ a.s)) }
+      .filter { case Pair(id, _) => id =!= 1 }
+      .sortBy { case Pair(_, ss) => ss }
+      .map { case Pair(id, ss) => Pair(id, Pair(42 , ss)) }
+    assertEquals(Vector(Pair(3, Pair(42, "bb")), Pair(2, Pair(42, "cc"))), q2.run)
+  }
+
+  def testHList {
+    import scala.slick.collection.heterogenous._
+    import scala.slick.collection.heterogenous.syntax._
+
+    class B(tag: Tag) extends Table[Int :: Boolean :: String :: HNil](tag, "hlist_b") {
       def id = column[Int]("id", O.PrimaryKey)
       def b = column[Boolean]("b")
       def s = column[String]("s")
@@ -322,15 +289,20 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     val bs = TableQuery[B]
     bs.ddl.create
 
-    // Insert data with the custom shape
     bs += (1 :: true :: "a" :: HNil)
     bs += (2 :: false :: "c" :: HNil)
     bs += (3 :: false :: "b" :: HNil)
 
-    // Use it for returning data from a query
+    val q1 = (for {
+      id :: b :: s :: HNil <- (for { b <- bs } yield b.id :: b.b :: b.s :: HNil) if !b
+    } yield id :: b :: (s ++ s) :: HNil).sortBy(h => h(2)).map {
+      case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil
+    }
+    assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q1.run)
+
     val q2 = bs
       .map { case b => b.id :: b.b :: (b.s ++ b.s) :: HNil }
-      .filter { case _ :: b :: _ :: HNil => !b }
+      .filter { h => !h(1) }
       .sortBy { case _ :: _ :: ss :: HNil => ss }
       .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
     assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)

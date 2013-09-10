@@ -175,6 +175,12 @@ abstract class MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C
   )
 }
 
+/** Base class for ProductNodeShapes with a type mapping to a type that extends scala.Product */
+abstract class MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C, U <: C, P <: C] extends MappedProductShape[Level, C, M, U, P] {
+  override def getIterator(value: C) = value.productIterator
+  def getElement(value: C, idx: Int) = value.productElement(idx)
+}
+
 /** Shape for Scala tuples of all arities */
 final class TupleShape[Level <: ShapeLevel, M <: Product, U <: Product, P <: Product](val shapes: Shape[_, _, _, _]*) extends ProductNodeShape[Level, Product, M, U, P] {
   override def getIterator(value: Product) = value.productIterator

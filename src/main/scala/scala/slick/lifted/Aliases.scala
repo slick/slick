@@ -34,4 +34,7 @@ trait Aliases {
   type Tag = lifted.Tag
   type Shape[Level <: ShapeLevel, -M, U, P] = lifted.Shape[Level, M, U, P]
   type MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] = lifted.MappedProductShape[Level, C, M, U, P]
+  type MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C, U <: C, P <: C] = lifted.MappedScalaProductShape[Level, C, M, U, P]
+  type ShapeLevel = lifted.ShapeLevel
+  val ShapeLevel = lifted.ShapeLevel
 }
