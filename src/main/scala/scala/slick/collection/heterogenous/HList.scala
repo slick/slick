@@ -4,7 +4,7 @@ import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.annotation.unchecked.{uncheckedVariance => uv}
 import scala.reflect.macros.Context
-import scala.slick.lifted.{ScalaProductShape, Shape}
+import scala.slick.lifted.{MappedScalaProductShape, Shape}
 
 /** A heterogenous list where each element has its own type. */
 sealed abstract class HList extends Product {
@@ -120,7 +120,7 @@ sealed abstract class HList extends Product {
 final object HList {
   import syntax._
 
-  final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _]]) extends ScalaProductShape[HList, M, U, P] {
+  final class HListShape[M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _]]) extends MappedScalaProductShape[HList, M, U, P] {
     def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
     def copy(shapes: Seq[Shape[_, _, _]]) = new HListShape(shapes)
   }
