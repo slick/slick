@@ -5,3 +5,6 @@
 .. _JDBC: http://en.wikipedia.org/wiki/Java_Database_Connectivity
 .. _Typesafe Subscription Agreement: http://typesafe.com/public/legal/TypesafeSubscriptionAgreement-v1.pdf
 .. _ScalaQuery: http://scalaquery.org
+.. _DBCP: http://commons.apache.org/proper/commons-dbcp/
+.. _c3p0: http://sourceforge.net/projects/c3p0/
+.. _BoneCP: http://jolbox.com/
