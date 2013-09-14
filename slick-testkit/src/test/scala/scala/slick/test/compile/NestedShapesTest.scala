@@ -27,47 +27,47 @@ class NestedShapesTest {
     implicitly[Shape[ShapeLevel.Nested, (Column[Int], (Int, Column[String])), (Int, (Int, String)), (Column[Int], (Column[Int], Column[String]))]]
 
     // Only Nested, only Mixed specified
-    implicitly[Shape[ShapeLevel.Nested, Query[Column[Int], Int], _, _]] // 1
-    implicitly[Shape[ShapeLevel.Nested, Query[(Column[Int], Column[String]), (Int, String)], _, _]] // 2
-    implicitly[Shape[ShapeLevel.Nested, (Column[Int], Query[(Column[Int], Column[String]), (Int, String)]), _, _]] // 3
-    implicitly[Shape[ShapeLevel.Nested, (Int, Query[(Column[Int], Column[String]), (Int, String)]), _, _]] // 4
+    implicitly[Shape[ShapeLevel.Nested, Query[Column[Int], Int, Seq], _, _]] // 1
+    implicitly[Shape[ShapeLevel.Nested, Query[(Column[Int], Column[String]), (Int, String), Seq], _, _]] // 2
+    implicitly[Shape[ShapeLevel.Nested, (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq]), _, _]] // 3
+    implicitly[Shape[ShapeLevel.Nested, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), _, _]] // 4
 
     // Only Nested, fully specified
-    implicitly[Shape[ShapeLevel.Nested, Query[Column[Int], Int], Seq[Int], Query[Column[Int], Int]]] // 5
-    implicitly[Shape[ShapeLevel.Nested, Query[(Column[Int], Column[String]), (Int, String)], Seq[(Int, String)], Query[(Column[Int], Column[String]), (Int, String)]]] // 6
-    implicitly[Shape[ShapeLevel.Nested, (Column[Int], Query[(Column[Int], Column[String]), (Int, String)]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String)])]] // 7
-    implicitly[Shape[ShapeLevel.Nested, (Int, Query[(Column[Int], Column[String]), (Int, String)]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String)])]] // 8
+    implicitly[Shape[ShapeLevel.Nested, Query[Column[Int], Int, Seq], Seq[Int], Query[Column[Int], Int, Seq]]] // 5
+    implicitly[Shape[ShapeLevel.Nested, Query[(Column[Int], Column[String]), (Int, String), Seq], Seq[(Int, String)], Query[(Column[Int], Column[String]), (Int, String), Seq]]] // 6
+    implicitly[Shape[ShapeLevel.Nested, (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 7
+    implicitly[Shape[ShapeLevel.Nested, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 8
   }
 
   def illegal1 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, Query[Column[Int], Int], _, _]] // 1
+      implicitly[Shape[ShapeLevel.Flat, Query[Column[Int], Int, Seq], _, _]] // 1
     """, "No matching Shape.*")
 
   def illegal2 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, Query[(Column[Int], Column[String]), (Int, String)], _, _]] // 2
+      implicitly[Shape[ShapeLevel.Flat, Query[(Column[Int], Column[String]), (Int, String), Seq], _, _]] // 2
     """, "No matching Shape.*")
 
   def illegal3 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, (Column[Int], Query[(Column[Int], Column[String]), (Int, String)]), _, _]] // 3
+      implicitly[Shape[ShapeLevel.Flat, (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq]), _, _]] // 3
     """, "No matching Shape.*")
 
   def illegal4 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, (Int, Query[(Column[Int], Column[String]), (Int, String)]), _, _]] // 4
+      implicitly[Shape[ShapeLevel.Flat, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), _, _]] // 4
     """, "No matching Shape.*")
 
   def illegal5 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, Query[Column[Int], Int], Seq[Int], Query[Column[Int], Int]]] // 5
+      implicitly[Shape[ShapeLevel.Flat, Query[Column[Int], Int, Seq], Seq[Int], Query[Column[Int], Int, Seq]]] // 5
     """, "No matching Shape.*")
 
   def illegal6 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, Query[(Column[Int], Column[String]), (Int, String)], Seq[(Int, String)], Query[(Column[Int], Column[String]), (Int, String)]]] // 6
+      implicitly[Shape[ShapeLevel.Flat, Query[(Column[Int], Column[String]), (Int, String), Seq], Seq[(Int, String)], Query[(Column[Int], Column[String]), (Int, String), Seq]]] // 6
     """, "No matching Shape.*")
 
   def illegal7 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, (Column[Int], Query[(Column[Int], Column[String]), (Int, String)]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String)])]] // 7
+      implicitly[Shape[ShapeLevel.Flat, (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 7
     """, "No matching Shape.*")
 
   def illegal8 = ShouldNotTypecheck("""
-      implicitly[Shape[ShapeLevel.Flat, (Int, Query[(Column[Int], Column[String]), (Int, String)]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String)])]] // 8
+      implicitly[Shape[ShapeLevel.Flat, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 8
     """, "No matching Shape.*")
 }

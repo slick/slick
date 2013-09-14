@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import scala.language.higherKinds
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
@@ -100,7 +101,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       Set(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)),
       q4.list.toSet)
 
-    def maxOfPer[T <: Table[_]](c: Query[T, _])(m: (T => Column[Int]), p: (T => Column[Int])) =
+    def maxOfPer[T <: Table[_], C[_]](c: Query[T, _, C])(m: (T => Column[Int]), p: (T => Column[Int])) =
       c where { o => m(o) is (for { o2 <- c if p(o) is p(o2) } yield m(o2)).max }
 
     val q4b = for (

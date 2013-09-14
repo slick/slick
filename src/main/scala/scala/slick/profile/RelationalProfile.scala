@@ -24,7 +24,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
-    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U] with TableQuery[T]) =
+    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
       new TableQueryExtensionMethods[T, U](q)
   }
 
@@ -37,14 +37,14 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     val MappedColumnType = driver.MappedColumnType
   }
 
-  class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U] with TableQuery[T]) {
+  class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
     def ddl: SchemaDescription = buildTableSchemaDescription(q.baseTableRow)
 
     /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
-    def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): CompiledFunction[Column[P] => Query[T, U], Column[P], P, Query[T, U], Seq[U]] = {
+    def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): CompiledFunction[Column[P] => Query[T, U, Seq], Column[P], P, Query[T, U, Seq], Seq[U]] = {
       import driver.Implicit._
-      Compiled { (p: Column[P]) => (q: Query[T, U]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
+      Compiled { (p: Column[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
     }
   }
 }

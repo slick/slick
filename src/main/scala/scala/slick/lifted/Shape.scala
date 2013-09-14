@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.language.{existentials, implicitConversions}
+import scala.language.{existentials, implicitConversions, higherKinds}
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 import scala.slick.SlickException
@@ -82,8 +82,8 @@ trait ShapeLowPriority extends ShapeLowPriority1 {
       value.shape.toNode(value.value.asInstanceOf[value.shape.Mixed])
   }
 
-  @inline implicit def queryShape[Level >: ShapeLevel.Nested <: ShapeLevel, M, U]: Shape[Level, Query[M, U], Seq[U], Query[M, U]] =
-    repShape.asInstanceOf[Shape[Level, Query[M, U], Seq[U], Query[M, U]]]
+  @inline implicit def queryShape[Level >: ShapeLevel.Nested <: ShapeLevel, M, U, C[_]]: Shape[Level, Query[M, U, C], Seq[U], Query[M, U, C]] =
+    repShape.asInstanceOf[Shape[Level, Query[M, U, C], Seq[U], Query[M, U, C]]]
 }
 
 class ShapeLowPriority1 extends ShapeLowPriority2 {

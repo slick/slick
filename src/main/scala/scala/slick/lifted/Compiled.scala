@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.language.implicitConversions
+import scala.language.{implicitConversions, higherKinds}
 import scala.annotation.implicitNotFound
 import scala.slick.ast.Node
 import scala.slick.profile.BasicProfile
@@ -89,7 +89,7 @@ class CompiledExecutable[R <: Rep[_], RU](val extract: R, val driver: BasicProfi
 trait Executable[T, TU]
 
 object Executable {
-  @inline implicit def queryIsExecutable[B, BU]: Executable[Query[B, BU], Seq[BU]] = null
+  @inline implicit def queryIsExecutable[B, BU, C[_]]: Executable[Query[B, BU, C], C[BU]] = null
   @inline implicit def scalarIsExecutable[A, AU](implicit shape: Shape[ShapeLevel.Flat, A, AU, A]): Executable[A, AU] = null
 }
 

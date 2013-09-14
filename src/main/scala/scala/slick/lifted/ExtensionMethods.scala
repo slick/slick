@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.language.implicitConversions
+import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast._
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
@@ -52,7 +52,7 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
   def >= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.>=, n, e.toNode)
 
-  def in[P2, R](e: Query[Column[P2], _])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
+  def in[P2, R, C[_]](e: Query[Column[P2], _, C])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.In, n, e.toNode)
   def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(LiteralColumn(false))
@@ -129,7 +129,7 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
 }
 
 /** Extension methods for Queries of a single Column */
-final class SingleColumnQueryExtensionMethods[B1, P1](val q: Query[Column[P1], _]) extends AnyVal {
+final class SingleColumnQueryExtensionMethods[B1, P1, C[_]](val q: Query[Column[P1], _, C]) extends AnyVal {
   type OptionTM =  TypedType[Option[B1]]
   def min(implicit tm: OptionTM) = Library.Min.column[Option[B1]](q.toNode)
   def max(implicit tm: OptionTM) = Library.Max.column[Option[B1]](q.toNode)
@@ -151,6 +151,6 @@ trait ExtensionMethodConversions {
   implicit def booleanColumnExtensionMethods(c: Column[Boolean]) = new BooleanColumnExtensionMethods[Boolean](c)
   implicit def booleanOptionColumnExtensionMethods(c: Column[Option[Boolean]]) = new BooleanColumnExtensionMethods[Option[Boolean]](c)
 
-  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType](q: Query[Column[B1], _]) = new SingleColumnQueryExtensionMethods[B1, B1](q)
-  implicit def singleOptionColumnQueryExtensionMethods[B1](q: Query[Column[Option[B1]], _]) = new SingleColumnQueryExtensionMethods[B1, Option[B1]](q)
+  implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Column[B1], _, C]) = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
+  implicit def singleOptionColumnQueryExtensionMethods[B1, C[_]](q: Query[Column[Option[B1]], _, C]) = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
 }

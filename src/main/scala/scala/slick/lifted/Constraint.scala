@@ -52,10 +52,10 @@ class ForeignKeyQuery[E <: AbstractTable[_], U](
     nodeDelegate: Node,
     base: ShapedValue[_ <: E, U],
     val fks: IndexedSeq[ForeignKey],
-    targetBaseQuery: Query[E, U],
+    targetBaseQuery: Query[E, U, Seq],
     generator: AnonSymbol,
     aliasedValue: E
-  ) extends WrappingQuery[E, U](nodeDelegate, base) with Constraint {
+  ) extends WrappingQuery[E, U, Seq](nodeDelegate, base) with Constraint {
 
   /**
    * Combine the constraints of this ForeignKeyQuery with another one with the
