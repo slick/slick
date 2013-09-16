@@ -38,7 +38,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   }
 
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
-    def ddl: SchemaDescription = buildTableSchemaDescription(q.baseTableRow)
+    def ddl: SchemaDescription = buildTableSchemaDescription(q.shaped.value)
 
     /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
