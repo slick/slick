@@ -384,7 +384,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   def compileLikePattern(s: String, escape: Option[Char]): Pattern = {
     val b = new StringBuilder append '^'
     val len = s.length
-    val esc = escape.getOrElse('\0')
+    val esc = escape.getOrElse('\u0000')
     var i = 0
     while(i < len) {
       s.charAt(i) match {

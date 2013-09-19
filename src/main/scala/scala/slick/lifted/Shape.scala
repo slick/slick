@@ -2,6 +2,7 @@ package scala.slick.lifted
 
 import scala.language.{existentials, implicitConversions}
 import scala.annotation.implicitNotFound
+import scala.annotation.unchecked.uncheckedVariance
 import scala.slick.SlickException
 import scala.slick.util.{ProductWrapper, TupleSupport}
 import scala.slick.ast._
@@ -19,7 +20,7 @@ import scala.slick.ast._
  */
 @implicitNotFound(msg = "No Shape found for unpacking ${Mixed_} to ${Unpacked_} and packing it to ${Packed_}")
 abstract class Shape[-Mixed_, Unpacked_, Packed_] {
-  type Mixed = Mixed_
+  type Mixed = Mixed_ @uncheckedVariance
   type Unpacked = Unpacked_
   type Packed = Packed_
 
