@@ -17,7 +17,7 @@ Scala collections example
 
 .. includecode:: code/LiftedEmbedding.scala#reptypes
 
-All plain types are lifted into ``Rep``. The same is true for the record
+All plain types are lifted into ``Rep``. The same is true for the table row
 type ``Coffees`` which is a subtype of ``Rep[(String, Int, Double, Int, Int)]``.
 Even the literal ``8.0`` is automatically lifted to a ``Rep[Double]`` by an
 implicit conversion because that is what the ``>`` operator on
@@ -26,24 +26,16 @@ implicit conversion because that is what the ``>`` operator on
 Tables
 ------
 
-In order to use the lifted embedding, you need to define ``Table`` objects
-for your database tables:
+In order to use the lifted embedding, you need to define ``Table`` row classes
+and corresponding ``TableQuery`` values for your database tables:
 
 .. includecode:: code/LiftedEmbedding.scala#tabledef
 
-Note that Slick clones your table objects under the covers, so you should not
-add any extra state to them (extra methods are fine though). Also make sure
-that an actual ``object`` for a table is not defined in a *static* location
-(i.e. at the top level or nested only inside other objects) because this can
-cause problems in certain situations due to an overeager optimization performed
-by scalac. Using a ``val`` for your table (with an anonymous structural type
-or a separate ``class`` definition) is fine everywhere.
-
-All columns are defined through the ``column`` method. Note that they need to
-be defined with ``def`` and not ``val`` due to the cloning. Each column has a
+All columns are defined through the ``column`` method. Each column has a
 Scala type and a column name for the database (usually in upper-case). The
-following primitive types are supported out of the box (with certain
-limitations imposed by the individual database drivers):
+following primitive types are supported out of the box for JDBC-based
+databases in ``JdbcProfile`` (with certain limitations imposed by the
+individual database drivers):
 
 - *Numeric types*: Byte, Short, Int, Long, BigDecimal, Float, Double
 - *LOB types*: java.sql.Blob, java.sql.Clob, Array[Byte]
@@ -57,23 +49,18 @@ Nullable columns are represented by ``Option[T]`` where ``T`` is one of the
 supported primitive types. Note that all operations on Option values are
 currently using the database's null propagation semantics which may differ
 from Scala's Option semantics. In particular, ``None === None`` evaluates
-to ``false``. This behaviour may change in a future major release of Slick.
+to ``None``. This behaviour may change in a future major release of Slick.
 
 After the column name, you can add optional column options to a ``column``
 definition. The applicable options are available through the table's ``O``
 object. The following ones are defined for ``JdbcProfile``:
-
-``NotNull``, ``Nullable``
-   Explicitly mark the column a nullable or non-nullable when creating the
-   DDL statements for the table. Nullability is otherwise determined from the
-   type (Option or non-Option).
 
 ``PrimaryKey``
    Mark the column as a (non-compound) primary key when creating the DDL
    statements.
 
 ``Default[T](defaultValue: T)``
-   Specify a default value for inserting data the table without this column.
+   Specify a default value for inserting data into the table without this column.
    This information is only used for creating DDL statements so that the
    database can fill in the missing information.
 
@@ -89,9 +76,15 @@ object. The following ones are defined for ``JdbcProfile``:
    Slick will check if the return column is properly marked as AutoInc where
    needed.
 
+``NotNull``, ``Nullable``
+   Explicitly mark the column as nullable or non-nullable when creating the
+   DDL statements for the table. Nullability is otherwise determined from the
+   type (Option or non-Option). There is usually no reason to specify these
+   options.
+
 Every table requires a ``*`` method contatining a default projection.
 This describes what you get back when you return rows (in the form of a
-table object) from a query. Slick's ``*`` projection does not have to match
+table row object) from a query. Slick's ``*`` projection does not have to match
 the one in the database. You can add new columns (e.g. with computed values)
 or omit some columns as you like. The non-lifted type corresponding to the
 ``*`` projection is given as a type parameter to ``Table``. For simple,
@@ -107,8 +100,11 @@ projection by adding a bi-directional mapping with the ``<>`` operator:
 .. includecode:: code/LiftedEmbedding.scala#mappedtable
 
 It is optimized for case classes (with a simple ``apply`` method and an
-``unapply`` method that wraps its result in an ``Option``) but there is also
-an overload that operates directly on the mapped types.
+``unapply`` method that wraps its result in an ``Option``) but it can also
+be used with arbitrary mapping functions. In these cases it can be useful
+to call ``.shaped`` on a tuple on the left-hand side in order to get its
+type inferred properly. Otherwise you may have to add full type annotations
+to the mapping functions.
 
 Constraints
 -----------
@@ -146,7 +142,8 @@ can be customized by overriding the ``tableConstraints`` method.
 Data Definition Language
 ------------------------
 
-DDL statements for a table can be created with its ``ddl`` method. Multiple
+DDL statements for a table can be created with its ``TableQuery``"s ``ddl``
+method. Multiple
 ``DDL`` objects can be concatenated with ``++`` to get a compound ``DDL``
 object which can create and drop all entities in the correct order, even in
 the presence of cyclic dependencies between tables. The statements are
@@ -162,10 +159,9 @@ the SQL code:
 Expressions
 -----------
 
-Primitive (non-compound, non-collection) values are representend by type
+Scalar (non-record, non-collection) values are representend by type
 ``Column[T]`` (a sub-type of ``Rep[T]``) where a ``TypedType[T]`` must
-exist. Only some special methods for internal use and those that deal with
-conversions between nullable and non-nullable columns are defined directly in
+exist. Only some special methods for internal use are defined directly in
 the ``Column`` class.
 
 The operators and other methods which are commonly used in the lifted
@@ -173,7 +169,8 @@ embedding are added through implicit conversions defined in
 ``ExtensionMethodConversions``. The actual methods can be found in
 the classes ``AnyExtensionMethods``, ``ColumnExtensionMethods``,
 ``NumericColumnExtensionMethods``, ``BooleanColumnExtensionMethods`` and
-``StringColumnExtensionMethods``. Also see :slick:`ExtensionMethods <src/main/scala/scala/slick/lifted/ExtensionMethods.scala>`.
+``StringColumnExtensionMethods``
+(cf. :slick:`ExtensionMethods <src/main/scala/scala/slick/lifted/ExtensionMethods.scala>`).
 
 Collection values are represented by the ``Query`` class (a ``Rep[Seq[T]]``)
 which contains many standard collection methods like ``flatMap``,
@@ -182,7 +179,7 @@ types of a ``Query`` (lifted and plain), the signatures for these methods are
 very complex but the semantics are essentially the same as for Scala
 collections.
 
-Additional methods for queries of non-compound values are added via an
+Additional methods for queries of scalar values are added via an
 implicit conversion to ``SingleColumnQueryExtensionMethods``.
 
 Sorting and Filtering
@@ -235,8 +232,8 @@ as for Scala collections, using the ``zip`` and ``zipWith`` methods:
 
 A particular kind of zip join is provided by ``zipWithIndex``. It zips a query
 result with an infinite sequence starting at 0. Such a sequence cannot be
-represented by an SQL database and Slick does not currently support it, either
-(but this is expected to change in the future). The resulting zipped query,
+represented by an SQL database and Slick does not currently support it, either.
+The resulting zipped query,
 however, can be represented in SQL with the use of a *row number* function,
 so ``zipWithIndex`` is supported as a primitive operator:
 
@@ -245,12 +242,12 @@ so ``zipWithIndex`` is supported as a primitive operator:
 Unions
 ------
 
-Two queries can be concatenated with the ``union`` and ``unionAll`` operators
-if they have compatible types:
+Two queries can be concatenated with the ``++`` (or ``unionAll``) and ``union``
+operators if they have compatible types:
 
 .. includecode:: code/JoinsUnions.scala#union
 
-Unlike ``union`` which filters out duplicate values, ``unionAll`` simply
+Unlike ``union`` which filters out duplicate values, ``++`` simply
 concatenates the queries, which is usually more efficient.
 
 Aggregation
@@ -273,7 +270,8 @@ Scala collections:
 Note that the intermediate query ``q`` contains nested values of type ``Query``.
 These would turn into nested collections when executing the query, which is
 not supported at the moment. Therefore it is necessary to flatten the nested
-queries by aggregating their values (or individual columns) as done in ``q2``.
+queries immediately by aggregating their values (or individual columns)
+as done in ``q2``.
 
 Querying
 --------
@@ -332,18 +330,18 @@ While some database systems allow inserting proper values into AutoInc columns
 or inserting ``None`` to get a created value, most databases forbid this
 behaviour, so you have to make sure to omit these columns. Slick does not yet
 have a feature to do this automatically but it is planned for a future
-release. For now, you have to use a projection which does not include the
-AutoInc column, like ``forInsert`` in the following example:
+release. For now, you have to use a query with a custom projection which does not
+include the AutoInc column, like ``usersForInsert`` in the following example:
 
 .. includecode:: code/LiftedEmbedding.scala#insert2
 
 In these cases you frequently want to get back the auto-generated primary key
-column. By default, ``insert`` gives you a count of the number of affected
-rows (which will usually be 1) and ``insertAll`` gives you an accumulated
+column. By default, ``+=`` gives you a count of the number of affected
+rows (which will usually be 1) and ``++=`` gives you an accumulated
 count in an ``Option`` (which can be ``None`` if the database system does not
 provide counts for all rows). This can be changed with the ``returning``
 method where you specify the columns to be returned (as a single value or
-tuple from ``insert`` and a ``Seq`` of such values from ``insertAll``):
+tuple from ``+=`` and a ``Seq`` of such values from ``++=``):
 
 .. includecode:: code/LiftedEmbedding.scala#insert3
 
@@ -390,8 +388,8 @@ to write a single *for comprehension* for a template.
 
 .. includecode:: code/LiftedEmbedding.scala#template1
 
-User-Defined Functions and Types
---------------------------------
+User-Defined Functions
+----------------------
 
 If your database system supports a scalar function that is not available as
 a method in Slick you can define it as a
@@ -412,6 +410,9 @@ write your own wrapper function with the proper type-checking:
 :api:`scala.slick.lifted.SimpleLiteral` work in a similar way. For even more
 flexibility (e.g. function-like expressions with unusual syntax), you can
 use :api:`scala.slick.lifted.SimpleExpression`.
+
+User-Defined Scalar Types
+-------------------------
 
 If you need a custom column type you can implement
 :api:`scala.slick.lifted.TypeMapper` and

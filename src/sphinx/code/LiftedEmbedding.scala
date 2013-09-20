@@ -7,7 +7,7 @@ import java.sql.Date
 class LiftedEmbedding {
 
 //#foreignkey
-  object Suppliers extends Table[(Int, String, String, String, String, String)]("SUPPLIERS") {
+  class Suppliers(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
     def id = column[Int]("SUP_ID", O.PrimaryKey)
     //...
 //#foreignkey
@@ -17,15 +17,16 @@ class LiftedEmbedding {
     def state = column[String]("STATE")
     def zip = column[String]("ZIP")
     // Every table needs a * projection with the same type as the table's type parameter
-    def * = id ~ name ~ street ~ city ~ state ~ zip
+    def * = (id, name, street, city, state, zip)
 //#foreignkey
   }
+  val suppliers = TableQuery[Suppliers]
 
 //#foreignkey
 //#tabledef
 //#reptypes
 //#foreignkey
-  object Coffees extends Table[(String, Int, Double, Int, Int)]("COFFEES") {
+  class Coffees(tag: Tag) extends Table[(String, Int, Double, Int, Int)](tag, "COFFEES") {
 //#foreignkey
     def name = column[String]("COF_NAME", O.PrimaryKey)
 //#reptypes
@@ -42,18 +43,19 @@ class LiftedEmbedding {
 //#reptypes
     def sales = column[Int]("SALES")
     def total = column[Int]("TOTAL")
-    def * = name ~ supID ~ price ~ sales ~ total
+    def * = (name, supID, price, sales, total)
 //#tabledef
 //#foreignkeynav
 //#foreignkey
-    def supplier = foreignKey("SUP_FK", supID, Suppliers)(_.id)
+    def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
 //#foreignkey
-    def supplier2 = Suppliers.where(_.id === supID)
+    def supplier2 = suppliers.filter(_.id === supID)
 //#foreignkeynav
 //#foreignkey
 //#tabledef
 //#reptypes
   }
+  val coffees = TableQuery[Coffees]
 //#foreignkey
 //#reptypes
 //#tabledef
@@ -70,35 +72,33 @@ class LiftedEmbedding {
 //#plaintypes
 
 //#reptypes
-  val q = Query(Coffees)
-  val q2 = q.filter(_.price > 8.0).map(_.name)
-  //                  ^       ^          ^
-  //          Rep[Double]  Rep[Double]  Rep[String]
+  val q = coffees.filter(_.price > 8.0).map(_.name)
+  //                       ^       ^          ^
+  //               Rep[Double]  Rep[Double]  Rep[String]
 //#reptypes
 
 //#mappedtable
 //#insert2
   case class User(id: Option[Int], first: String, last: String)
 
-  object Users extends Table[User]("users") {
+  class Users(tag: Tag) extends Table[User](tag, "users") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
     def first = column[String]("first")
     def last = column[String]("last")
-    def * = id.? ~ first ~ last <> (User, User.unapply _)
-//#mappedtable
-    def forInsert = first ~ last <>
-                    ({ t => User(None, t._1, t._2)}, { (u: User) => Some((u.first, u.last))})
-//#mappedtable
+    def * = (id.?, first, last) <> (User.tupled, User.unapply)
   }
-//#mappedtable
+  val users = TableQuery[Users]
+  //#mappedtable
+  def usersForInsert = users.map(u => (u.first, u.last).shaped <>
+    ({ t => User(None, t._1, t._2)}, { (u: User) => Some((u.first, u.last))}))
 //#insert2
 
 //#index
 //#primarykey
-  object A extends Table[(Int, Int)]("a") {
+  class A(tag: Tag) extends Table[(Int, Int)](tag, "a") {
     def k1 = column[Int]("k1")
     def k2 = column[Int]("k2")
-    def * = k1 ~ k2
+    def * = (k1, k2)
 //#index
     def pk = primaryKey("pk_a", (k1, k2))
 //#primarykey
@@ -111,7 +111,7 @@ class LiftedEmbedding {
 
   val db: Database = null
 //#ddl
-  val ddl = Coffees.ddl ++ Suppliers.ddl
+  val ddl = coffees.ddl ++ suppliers.ddl
   db withDynSession {
     ddl.create
     //...
@@ -126,16 +126,15 @@ class LiftedEmbedding {
 
   db withDynSession {
     //#filtering
-    val q = Query(Coffees)
-    val q1 = q.filter(_.supID === 101)
-    val q2 = q.drop(10).take(5)
-    val q3 = q.sortBy(_.name.desc.nullsFirst)
+    val q1 = coffees.filter(_.supID === 101)
+    val q2 = coffees.drop(10).take(5)
+    val q3 = coffees.sortBy(_.name.desc.nullsFirst)
     //#filtering
   }
 
   db withDynSession {
     //#aggregation1
-    val q = Coffees.map(_.price)
+    val q = coffees.map(_.price)
     val q1 = q.min
     val q2 = q.max
     val q3 = q.sum
@@ -145,9 +144,8 @@ class LiftedEmbedding {
 
   db withDynSession {
     //#aggregation2
-    val q = Query(Coffees)
-    val q1 = q.length
-    val q2 = q.exists
+    val q1 = coffees.length
+    val q2 = coffees.exists
     //#aggregation2
 
     {
@@ -159,6 +157,7 @@ class LiftedEmbedding {
       //#invoker
     }
     {
+      val q = coffees
       //#delete
       val affectedRowsCount = q.delete
       val invoker = q.deleteInvoker
@@ -171,13 +170,14 @@ class LiftedEmbedding {
       //#invoker_explicit
       val l = q.list(session)
       //#invoker_explicit
+      ()
     }
   }
 
   db withDynSession {
     //#aggregation3
     val q = (for {
-      c <- Coffees
+      c <- coffees
       s <- c.supplier
     } yield (c, s)).groupBy(_._1.supID)
 
@@ -189,48 +189,49 @@ class LiftedEmbedding {
 
   db withDynSession {
     //#insert1
-    Coffees.insert("Colombian", 101, 7.99, 0, 0)
+    coffees += ("Colombian", 101, 7.99, 0, 0)
 
-    Coffees.insertAll(
+    coffees ++= Seq(
       ("French_Roast", 49, 8.99, 0, 0),
       ("Espresso",    150, 9.99, 0, 0)
     )
 
     // "sales" and "total" will use the default value 0:
-    (Coffees.name ~ Coffees.supID ~ Coffees.price).insert("Colombian_Decaf", 101, 8.99)
+    coffees.map(c => (c.name, c.supID, c.price)) += ("Colombian_Decaf", 101, 8.99)
 
-    val statement = Coffees.insertStatement
-    val invoker = Coffees.insertInvoker
+    val statement = coffees.insertStatement
+    val invoker = coffees.insertInvoker
     //#insert1
 
   //#insert2
 
-  Users.forInsert insert User(None, "Christopher", "Vogt")
+  usersForInsert += User(None, "Christopher", "Vogt")
   //#insert2
 
     //#insert3
     val userId =
-      Users.forInsert returning Users.id insert User(None, "Stefan", "Zeiger")
+      (usersForInsert returning users.map(_.id)) += User(None, "Stefan", "Zeiger")
     //#insert3
 
     //#insert4
-    object Users2 extends Table[(Int, String)]("users2") {
+    class Users2(tag: Tag) extends Table[(Int, String)](tag, "users2") {
       def id = column[Int]("id", O.PrimaryKey)
       def name = column[String]("name")
-      def * = id ~ name
+      def * = (id, name)
     }
+    val users2 = TableQuery[Users2]
 
-    Users2.ddl.create
+    users2.ddl.create
 
-    Users2 insert (Users.map { u => (u.id, u.first ++ " " ++ u.last) })
+    users2 insert (users.map { u => (u.id, u.first ++ " " ++ u.last) })
 
-    Users2 insertExpr (Query(Users).length + 1, "admin")
+    users2 insertExpr (users.length + 1, "admin")
     //#insert4
   }
 
   db withDynSession {
     //#update1
-    val q = for { c <- Coffees if c.name === "Espresso" } yield c.price
+    val q = for { c <- coffees if c.name === "Espresso" } yield c.price
     q.update(10.49)
 
     val statement = q.updateStatement
@@ -242,14 +243,14 @@ class LiftedEmbedding {
     //#template1
     val userNameByID = for {
       id <- Parameters[Int]
-      u <- Users if u.id is id
+      u <- users if u.id is id
     } yield u.first
 
     val name = userNameByID(2).first
 
     val userNameByIDRange = for {
       (min, max) <- Parameters[(Int, Int)]
-      u <- Users if u.id >= min && u.id < max
+      u <- users if u.id >= min && u.id < max
     } yield u.first
 
     val names = userNameByIDRange(2, 5).list
@@ -257,11 +258,12 @@ class LiftedEmbedding {
   }
 
   db withDynSession {
-    object SalesPerDay extends Table[(Date, Int)]("SALES_PER_DAY") {
+    class SalesPerDay(tag: Tag) extends Table[(Date, Int)](tag, "SALES_PER_DAY") {
       def day = column[Date]("DAY", O.PrimaryKey)
       def count = column[Int]("COUNT")
-      def * = day ~ count
+      def * = (day, count)
     }
+    val salesPerDay = TableQuery[SalesPerDay]
 
     //#simplefunction1
     // H2 has a day_of_week() function which extracts the day of week from a timestamp
@@ -269,7 +271,7 @@ class LiftedEmbedding {
 
     // Use the lifted function in a query to group by day of week
     val q1 = for {
-      (dow, q) <- SalesPerDay.map(s => (dayOfWeek(s.day), s.count)).groupBy(_._1)
+      (dow, q) <- salesPerDay.map(s => (dayOfWeek(s.day), s.count)).groupBy(_._1)
     } yield (dow, q.map(_._2).sum)
     //#simplefunction1
 

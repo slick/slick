@@ -15,9 +15,9 @@ main ``build.sbt`` file::
 
   libraryDependencies ++= List(
     // use the right Slick version here:
-    "com.typesafe.slick" %% "slick" % "1.0.0",
+    "com.typesafe.slick" %% "slick" % "2.0.0",
     "org.slf4j" % "slf4j-nop" % "1.6.4",
-    "com.h2database" % "h2" % "1.3.166"
+    "com.h2database" % "h2" % "1.3.170"
   )
 
 Slick uses SLF4J_ for its own debug logging so you also need to add an SLF4J
@@ -61,20 +61,21 @@ Schema
 ------
 
 We are using the :doc:`lifted embedding <lifted-embedding>` in this
-application, so we have to write ``Table`` objects for our database tables:
+application, so we have to write ``Table`` row classes and ``TableQuery``
+values for our database tables:
 
 .. includecode:: code/FirstExample.scala#tables
 
 All columns get a name (usually in camel case for Scala and upper case with
 underscores for SQL) and a Scala type (from which the SQL type can be derived
-automatically). Make sure to define them with ``def`` and not with ``val``.
+automatically).
 The table object also needs a Scala name, SQL name and type. The type argument
 of the table must match the type of the special ``*`` projection. In simple
 cases this is a tuple of all columns but more complex mappings are possible.
 
-The ``foreignKey`` definition in the ``Coffees`` table ensures that the
+The ``foreignKey`` definition in the ``coffees`` table ensures that the
 ``supID`` field can only contain values for which a corresponding ``id``
-exists in the ``Suppliers`` table, thus creating an *n to one* relationship:
+exists in the ``suppliers`` table, thus creating an *n to one* relationship:
 A ``Coffees`` row points to exactly one ``Suppliers`` row but any number
 of coffees can point to the same supplier. This constraint is enforced at the
 database level.
@@ -84,24 +85,25 @@ Populating the Database
 
 The connection to the embedded H2 database engine provides us with an empty
 database. Before we can execute queries, we need to create the database schema
-(consisting of the ``Coffees`` and ``Suppliers`` tables) and insert some test
+(consisting of the ``coffees`` and ``suppliers`` tables) and insert some test
 data:
 
 .. includecode:: code/FirstExample.scala#create
 
-The tables' ``ddl`` methods create ``DDL`` (data definition language) objects
+The ``TableQuery``'s ``ddl`` method creates ``DDL`` (data definition language) objects
 with the database-specific code for creating and dropping tables and other
 database entities. Multiple ``DDL`` values can be combined with ``++`` to
 allow all entities to be created and dropped in the correct order, even when
 they have circular dependencies on each other.
 
-Inserting the tuples of data is done with the ``insert`` and ``insertAll``
-methods. Note that by default a database ``Session`` is in *auto-commit* mode.
-Each call to the database like ``insert`` or ``insertAll`` executes atomically
+Inserting the tuples of data is done with the ``+=`` and ``++=`` methods,
+similar to how you add data to mutable Scala collections. Note that by default
+a database ``Session`` is in *auto-commit* mode.
+Each call to the database like ``+=`` or ``++=`` executes atomically
 in its own transaction (i.e. it succeeds or fails completely but can never
 leave the database in an inconsistent state somewhere in between). In this
-mode we we have to populate the ``Suppliers`` table first because the
-``Coffees`` data can only refer to valid supplier IDs.
+mode we we have to populate the ``suppliers`` table first because the
+``coffees`` data can only refer to valid supplier IDs.
 
 We could also use an explicit transaction bracket encompassing all these
 statements. Then the order would not matter because the constraints are only
@@ -143,7 +145,7 @@ equality. Similarly, the lifted embedding uses ``=!=`` instead of ``!=`` for
 inequality. (The other comparison operators are the same as in Scala:
 ``<``, ``<=``, ``>=``, ``>``.)
 
-The generator expression ``Suppliers if s.id === c.supID`` follows the
+The generator expression ``suppliers if s.id === c.supID`` follows the
 relationship established by the foreign key ``Coffees.supplier``. Instead of
 repeating the join condition here we can use the foreign key directly:
 
