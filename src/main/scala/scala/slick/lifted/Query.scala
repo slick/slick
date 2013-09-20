@@ -3,6 +3,8 @@ package scala.slick.lifted
 import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
+import scala.collection.generic.CanBuild
+import scala.reflect.ClassTag
 import scala.reflect.macros.Context
 import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
@@ -106,7 +108,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: ShapeLevel.Flat, K, T, G], vshape: Shape[_ <: ShapeLevel.Flat, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(shaped.encodeRef(sym :: Nil).value), kshape).packedValue
-    val value = ShapedValue(pack.as[Seq], Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, Query[P, U, Seq], Query[P, U, Seq], Query[P, U, Seq]]])
+    val value = ShapedValue(pack.to[Seq], Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, Query[P, U, Seq], Query[P, U, Seq], Query[P, U, Seq]]])
     val group = GroupBy(sym, toNode, key.toNode)
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
@@ -150,9 +152,9 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   /** Select all elements except the first `num` ones. */
   def drop(num: Int): Query[E, U, C] = new WrappingQuery[E, U, C](Drop(toNode, num), shaped)
 
-  def as[D[_]]: Query[E, U, D] = new Query[E, U, D] {
+  def to[D[X] <: Iterable[X]](implicit cbf: CanBuild[Any, D[Any]], tag: ClassTag[D[_]]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped
-    def toNode = self.toNode
+    def toNode = CollectionCast(self.toNode, CollectionTypeConstructor.forColl[D])
   }
 }
 

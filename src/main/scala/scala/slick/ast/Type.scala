@@ -1,8 +1,8 @@
 package scala.slick.ast
 
-import scala.language.implicitConversions
+import scala.language.{implicitConversions, higherKinds}
 import scala.slick.SlickException
-import scala.collection.generic.CanBuildFrom
+import scala.collection.generic.CanBuild
 import scala.reflect.ClassTag
 import Util._
 import scala.collection.mutable.ArrayBuffer
@@ -86,13 +86,17 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
   def children: Seq[Type] = Seq(elementType)
 }
 
-case class CollectionTypeConstructor(dummy: String = "") {
-  def canBuildFrom = implicitly[CanBuildFrom[Vector[Any], Any, Vector[Any]]]
-  override def toString = "Coll"
+class CollectionTypeConstructor(val canBuildFrom: CanBuild[Any, Any], clazz: Class[_]) { //TODO remove val
+  override def toString = s"Coll[$canBuildFrom]"
+  def isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(clazz)
+  def isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(clazz)
+  def createErasedBuilder = canBuildFrom()
 }
 
 object CollectionTypeConstructor {
-  def default = new CollectionTypeConstructor
+  def seq = forColl[Vector]
+  def forColl[C[_]](implicit cbf: CanBuild[Any, C[Any]], tag: ClassTag[C[_]]) =
+    new CollectionTypeConstructor(cbf.asInstanceOf[CanBuild[Any, Any]], tag.runtimeClass)
 }
 
 final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: Any => Any) extends Type {
