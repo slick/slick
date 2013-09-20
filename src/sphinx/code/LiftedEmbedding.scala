@@ -297,4 +297,48 @@ class LiftedEmbedding {
     // You can now use Bool like any built-in column type (in tables, queries, etc.)
     //#mappedtype1
   }
+
+  db withDynSession {
+    //#recordtypepair
+    // A custom record class
+    case class Pair[A, B](a: A, b: B)
+    //#recordtypepair
+
+    //#recordtype1
+    // A Shape implementation for Pair
+    final class PairShape[M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](
+      val shapes: Seq[Shape[_, _, _]])
+    extends MappedScalaProductShape[Pair[_,_], M, U, P] {
+      def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
+      def copy(shapes: Seq[Shape[_, _, _]]) = new PairShape(shapes)
+    }
+
+    implicit def pairShape[M1, M2, U1, U2, P1, P2](implicit s1: Shape[M1, U1, P1],
+                                                            s2: Shape[M2, U2, P2]) =
+      new PairShape[Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
+    //#recordtype1
+
+    //#recordtype2
+    // Use it in a table definition
+    class A(tag: Tag) extends Table[Pair[Int, String]](tag, "shape_a") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = Pair(id, s)
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+
+    // Insert data with the custom shape
+    as += Pair(1, "a")
+    as += Pair(2, "c")
+    as += Pair(3, "b")
+
+    // Use it for returning data from a query
+    val q2 = as
+      .map { case a => Pair(a.id, (a.s ++ a.s)) }
+      .filter { case Pair(id, _) => id =!= 1 }
+      .sortBy { case Pair(_, ss) => ss }
+      .map { case Pair(id, ss) => Pair(id, Pair(42 , ss)) }
+    //#recordtype2
+  }
 }

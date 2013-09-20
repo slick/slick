@@ -425,3 +425,36 @@ boilerplate:
 .. includecode:: code/LiftedEmbedding.scala#mappedtype1
 
 You can also subclass ``MappedTypeMapper`` for a bit more flexibility.
+
+User-Defined Record Types
+-------------------------
+
+Out of the box, Slick supports Scala tuples (up to arity 22) and Slick's own
+experimental :api:`scala.slick.collection.heterogenous.HList` implementation
+(without any size limit) for record types, i.e. data structures containing a
+fixed number of elements with individually defined types. These record types
+can be nested and mixed arbitrarily.
+
+If you need more flexibility, you can add implicit :api:`scala.slick.lifted.Shape`
+definitions for other types like ``Pair`` in this example:
+
+.. includecode:: code/LiftedEmbedding.scala#recordtypepair
+
+``Shape`` implementations for record types extend
+:api:`scala.slick.lifted.MappedScalaProductShape`. They are are generally very
+simple but they require some boilerplate for all the types involved. A
+``MappedScalaProductShape`` takes a sequence of Shapes for its elements and
+provides the operations ``buildValue`` (for creating an instance of the record
+type given its elements) and ``copy`` (for creating a copy of this ``Shape``
+with new element Shapes):
+
+.. includecode:: code/LiftedEmbedding.scala#recordtype1
+
+The implicit method ``pairShape`` in this example provides a Shape for a
+``Pair`` of two element types whenever Shapes for the inidividual element
+types are available.
+
+With these definitions in place, we can use the ``Pair`` record type in every
+location in Slick where a tuple or ``HList`` would be acceptable:
+
+.. includecode:: code/LiftedEmbedding.scala#recordtype2
