@@ -35,4 +35,21 @@ class UnmanagedSession(val conn: Connection) extends JdbcBackend.SessionDef {
       res
     } finally inTransaction = false
   }
+
+  override def withSavepoint[R](f: => R) = {
+    if (inTransaction) {
+      val savepoint = conn.setSavepoint()
+      try {
+        val r = f
+        conn.releaseSavepoint(savepoint)
+        r
+      } catch {
+        case e: Exception =>
+          conn.rollback(savepoint)
+          throw e
+      }
+    } else {
+      withTransaction(f)
+    }
+  }
 }

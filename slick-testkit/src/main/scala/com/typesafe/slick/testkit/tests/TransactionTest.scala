@@ -29,6 +29,21 @@ class TransactionTest extends TestkitTest[JdbcTestDB] {
       assertEquals(None, ts.firstOption)
       sharedSession.rollback()
     }
+
     assertEquals(Some(1), ts.firstOption)
+
+    sharedSession withTransaction {
+      ts.delete
+      try {
+        sharedSession withSavepoint {
+          ts.insert(2)
+          throw new Exception
+        }
+      } catch {
+        case e: Exception =>
+      }
+    }
+
+    assertEquals(None, ts.firstOption)
   }
 }

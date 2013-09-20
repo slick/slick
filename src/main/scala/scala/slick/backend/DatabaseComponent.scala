@@ -87,6 +87,14 @@ trait DatabaseComponent { self =>
     def withTransaction[T](f: => T): T
 
     /**
+     * Run the supplied function within a new savepoint using the
+     * current transaction or starts a new transaction if not in
+     * transaction. If the function throws an Exception the
+     * transaction is rolled back to the savepoint.
+     */
+    def withSavepoint[T](f: => T): T
+
+    /**
      * Use this Session as the dynamicSession for running the supplied thunk.
      */
     def asDynamicSession[T](f: => T): T = withDynamicSession[T](this.asInstanceOf[Session])(f)
