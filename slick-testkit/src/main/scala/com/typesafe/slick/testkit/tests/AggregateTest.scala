@@ -128,4 +128,31 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     }
     q1.run
   }
+
+  def testGroup3 {
+    case class Tab(col1: String, col2: String, col3: String, col4: Int)
+
+    class Tabs(tag: Tag) extends Table[Tab](tag, "TAB_group3") {
+      def col1 = column[String]("COL1")
+      def col2 = column[String]("COL2")
+      def col3 = column[String]("COL3")
+      def col4 = column[Int]("COL4")
+
+      def * = (col1, col2, col3, col4) <> (Tab.tupled, Tab.unapply)
+    }
+    val Tabs = TableQuery[Tabs]
+
+    Tabs.ddl.create
+    Tabs ++= Seq(
+      Tab("foo", "bar",  "bat", 1),
+      Tab("foo", "bar",  "bat", 2),
+      Tab("foo", "quux", "bat", 3),
+      Tab("baz", "quux", "bat", 4)
+    )
+
+    val q1 = Tabs.groupBy(t => (t.col1, t.col2, t.col3)).map {
+      case (grp, t) => (grp._1, grp._2, t.map(_.col4).sum)
+    }
+    assertEquals(Set(("baz","quux",Some(4)), ("foo","quux",Some(3)), ("foo","bar",Some(3))), q1.run.toSet)
+  }
 }
