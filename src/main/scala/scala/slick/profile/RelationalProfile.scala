@@ -107,6 +107,7 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
+    def RawDefault(defaultValue:String) = ColumnOption.RawDefault(defaultValue)
   }
 
   val columnOptions: ColumnOptions = new AnyRef with ColumnOptions

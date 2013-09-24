@@ -580,6 +580,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.PrimaryKey => primaryKey = true
       case ColumnOption.Default(v) => defaultLiteral = typeInfoFor(column.tpe).valueToSQLLiteral(v)
+      case ColumnOption.RawDefault(v) => defaultLiteral = v
     }
 
     def appendColumn(sb: StringBuilder) {

@@ -8,5 +8,6 @@ object ColumnOption {
   case object PrimaryKey extends ColumnOption[Nothing]
   case class Default[T](val defaultValue: T) extends ColumnOption[T]
   case class DBType(val dbType: String) extends ColumnOption[Nothing]
+  case class RawDefault(val defaultValue:String) extends ColumnOption[Nothing]
   case object AutoInc extends ColumnOption[Nothing]
 }
