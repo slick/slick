@@ -6,6 +6,7 @@ import scala.slick.ast._
 import scala.slick.compiler._
 import scala.slick.profile.Capability
 import TypeUtil.typeToTypeUtil
+import scala.slick.profile.RelationalProfile
 
 /** A profile and driver for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
@@ -24,7 +25,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   lazy val deleteCompiler = compiler
   lazy val insertCompiler = QueryCompiler(Phase.inline, Phase.assignUniqueSymbols, new MemoryInsertCompiler)
 
-  override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
+  override protected def computeCapabilities:Set[Capability] = super.computeCapabilities ++ MemoryProfile.capabilities.all
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)

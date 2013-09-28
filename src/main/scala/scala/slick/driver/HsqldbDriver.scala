@@ -7,6 +7,7 @@ import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
+import scala.slick.profile.RelationalProfile
 
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -28,13 +29,13 @@ trait HsqldbDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.sequenceCurr
+    - JdbcProfile.capabilities.columnFunctionDefaults
   )
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
-  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
-  override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)  
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) with OracleStyleRowNum {
     override protected val scalarFrom = Some("(VALUES (0))")
@@ -89,10 +90,6 @@ trait HsqldbDriver extends JdbcDriver { driver =>
         sb.toString
       } else super.createIndex(idx)
     }
-  }
-  
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {    
-	  override protected val defaultFunctionSupport = false
   }
 
   class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {

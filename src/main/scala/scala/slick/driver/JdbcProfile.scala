@@ -69,9 +69,12 @@ object JdbcProfile {
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
+    
+    /** Supports default values that point to functions in column definitions */
+    val columnFunctionDefaults = Capability("jdbc.columnFunctionDefaults")
 
     /** All JDBC capabilities */
-    val all = Set(other, mutable, returnInsertKey, returnInsertOther)
+    val all = Set(other, mutable, returnInsertKey, returnInsertOther, columnFunctionDefaults)
   }
 }
 

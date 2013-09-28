@@ -50,6 +50,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - RelationalProfile.capabilities.functionDatabase
     - RelationalProfile.capabilities.pagingNested
+    - JdbcProfile.capabilities.columnFunctionDefaults
     - JdbcProfile.capabilities.returnInsertOther
     - SqlProfile.capabilities.sequenceCurr
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
@@ -126,9 +127,6 @@ trait DerbyDriver extends JdbcDriver { driver =>
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
-    
-    override protected val defaultFunctionSupport = false
-    override protected val useIntForBoolean = true
     
     override protected def appendOptions(sb: StringBuilder) {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral

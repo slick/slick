@@ -566,8 +566,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected var autoIncrement = false
     protected var primaryKey = false
     protected var defaultLiteral: String = null
-    protected val useIntForBoolean = false    
-    protected val defaultFunctionSupport = true
+    protected val useIntForBoolean = false   
+    
     protected val b = new SQLBuilder
         
 	def sqlBuilder = b    
@@ -586,7 +586,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 	        else if((false == v) && useIntForBoolean) "0"
 	        else typeInfoFor(column.tpe).valueToSQLLiteral(v))          
 	      }
-	      case _:SimpleFunction if !defaultFunctionSupport => 
+	      case _:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => 
 	        throw new SlickException("This database does not support default values as functions.")
 	      case s:SimpleFunction if !s.scalar => {
 	        
