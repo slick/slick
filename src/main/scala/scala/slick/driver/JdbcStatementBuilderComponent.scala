@@ -587,7 +587,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 	        else typeInfoFor(column.tpe).valueToSQLLiteral(v))          
 	      }
 	      case _:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => 
-	        throw new SlickException("This database does not support functions as default values.i")
+	        throw new SlickException("This database does not support functions as default values.")
 	      case s:SimpleFunction if !s.scalar => {
 	        
 	        b"${s.name}("
