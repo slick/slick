@@ -567,36 +567,36 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected var primaryKey = false
     protected var defaultLiteral: String = null
     protected val useIntForBoolean = false   
-    
+
     protected val b = new SQLBuilder
-        
-    def sqlBuilder = b    
-    
+
+    def sqlBuilder = b
+
     init()
 
     protected def init() {
       for(o <- column.options) handleColumnOption(o)
       if(sqlType eq null) sqlType = tmDelegate.sqlTypeName
     }
-    
+
     protected def expr(s:Node):Unit = {
       s match {
-	      case LiteralNode(v) => {
-	        b += (if((true == v) && useIntForBoolean) "1"
-	        else if((false == v) && useIntForBoolean) "0"
-	        else typeInfoFor(column.tpe).valueToSQLLiteral(v))          
-	      }
-	      case _:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
-	    	throw new SlickException("This database does not support functions as default values.")	                
-	      }
-	      case s:SimpleFunction if capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
-	        b"${s.name}("
-	        b.sep(s.nodeChildren, ",")(expr)
-	        b")"	        
-	      }
-	      case SimpleLiteral(w) => b += w	      
-	      case _ => throw new SlickException("A Default value must either be a ConstColumn or a SimpleFunction")
-	    }
+        case LiteralNode(v) => {
+          b += (if((true == v) && useIntForBoolean) "1"
+                else if((false == v) && useIntForBoolean) "0"
+                else typeInfoFor(column.tpe).valueToSQLLiteral(v))
+        }
+        case _:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
+          throw new SlickException("This database does not support functions as default values.")
+        }
+        case s:SimpleFunction if capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
+          b"${s.name}("
+          b.sep(s.nodeChildren, ",")(expr)
+          b")"
+        }
+          case SimpleLiteral(w) => b += w
+          case _ => throw new SlickException("A Default value must either be a ConstColumn or a SimpleFunction")
+      }
     }
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
