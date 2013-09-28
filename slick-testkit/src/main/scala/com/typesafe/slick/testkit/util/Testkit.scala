@@ -16,7 +16,6 @@ import scala.reflect.ClassTag
 object Testkit {
   val tests: List[Class[_ <: TestkitTest[_ >: Null <: TestDB]]] =
     classOf[tk.AggregateTest] ::
-    //classOf[tk.ColumnRawDefaultTest] ::
     classOf[tk.ColumnDefaultTest] ::
     classOf[tk.CountTest] ::
     classOf[tk.RelationalTypeTest] ::
