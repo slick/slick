@@ -570,7 +570,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     
     protected val b = new SQLBuilder
         
-	def sqlBuilder = b    
+    def sqlBuilder = b    
     
     init()
 
@@ -587,7 +587,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 	        else typeInfoFor(column.tpe).valueToSQLLiteral(v))          
 	      }
 	      case _:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => 
-	        throw new SlickException("This database does not support default values as functions.")
+	        throw new SlickException("This database does not support functions as default values.i")
 	      case s:SimpleFunction if !s.scalar => {
 	        
 	        b"${s.name}("
@@ -609,10 +609,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
-      case ColumnOption.PrimaryKey => primaryKey = true      
-      case ColumnOption.Default(v) => {        
-        expr(v.toNode)        
-        defaultLiteral = b.build.sql        
+      case ColumnOption.PrimaryKey => primaryKey = true
+      case ColumnOption.Default(v) => {
+        expr(v.toNode)
+        defaultLiteral = b.build.sql
       }
     }
 

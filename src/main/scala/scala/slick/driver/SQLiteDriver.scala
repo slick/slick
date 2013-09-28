@@ -125,7 +125,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {    
+  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override protected def appendOptions(sb: StringBuilder) {
       // if defaultLiteral is a function it needs to be wrapped in parentheses,
       // doesn't effect the outcome if defaultLiteral is a literal

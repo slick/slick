@@ -18,7 +18,7 @@ trait HeapBackend extends DatabaseComponent with Logging {
 
   val Database = new DatabaseFactoryDef
   val backend: HeapBackend = this
-  
+
   class DatabaseDef extends super.DatabaseDef {
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new SessionDef(this)
@@ -148,7 +148,7 @@ object HeapBackend extends HeapBackend {
     private[this] val default = sym.options.collectFirst { case ColumnOption.Default(v) => {
       v.toNode match {
         case n:LiteralNode => n.value
-        case _ => throw new SlickException("This database only supports literal values as defaults.")
+        case _ => throw new SlickException("The heap backend only supports literal values as defaults.")
       }
     } }
     private[this] val autoInc = sym.options.collectFirst { case ColumnOption.AutoInc => new AtomicLong() }

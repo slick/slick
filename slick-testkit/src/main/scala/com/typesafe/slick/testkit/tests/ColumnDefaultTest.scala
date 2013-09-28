@@ -24,16 +24,15 @@ class ColumnDefaultTest extends TestkitTest[RelationalTestDB] {
   lazy val bs = TableQuery[B]
 
   def test = ifCap(rcap.columnDefaults) {
-
     as.ddl.create
     as.map(_.id) += 42
     assertEquals(List((42, "foo", Some(true))), as.run)
       
-	ifCap(jcap.columnFunctionDefaults) {
-		bs.ddl.create
+    ifCap(jcap.columnFunctionDefaults) {
+		  bs.ddl.create
 	    bs.map(_.id) += 42
-	    assertEquals(List((42, "foo", Some(true), "TEST")), bs.run)
-	}
+      assertEquals(List((42, "foo", Some(true), "TEST")), bs.run)
+	  }
   }
 }
 
