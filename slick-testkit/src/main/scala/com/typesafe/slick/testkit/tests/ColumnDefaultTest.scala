@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{ RelationalTestDB, TestkitTest }
+import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
 class ColumnDefaultTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
