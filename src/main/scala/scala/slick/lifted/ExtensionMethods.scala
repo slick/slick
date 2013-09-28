@@ -61,9 +61,15 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
   def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(ConstColumn(false))
     else om.column(Library.In, n, ProductNode(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) }.toSeq))
+  def notInSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
+    if(seq.isEmpty) om(ConstColumn(false))
+    else om.column(Library.Not, n, ProductNode(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) }.toSeq))
   def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(ConstColumn(false))
     else om.column(Library.In, n, ProductNode(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)).toSeq))
+  def notInSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
+    if(seq.isEmpty) om(ConstColumn(false))
+    else om.column(Library.Not, n, ProductNode(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)).toSeq))
 
   def between[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
     om.column(Library.Between, n, start.toNode, end.toNode)
