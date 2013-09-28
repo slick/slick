@@ -586,7 +586,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 	        else if((false == v) && useIntForBoolean) "0"
 	        else typeInfoFor(column.tpe).valueToSQLLiteral(v))          
 	      }
-	      case s:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
+	      case _:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
+	    	throw new SlickException("This database does not support functions as default values.")	                
+	      }
+	      case s:SimpleFunction if capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
 	        b"${s.name}("
 	        b.sep(s.nodeChildren, ",")(expr)
 	        b")"	        
