@@ -125,9 +125,9 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
+  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {    
     override protected def appendOptions(sb: StringBuilder) {
-      if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
+      if(defaultLiteral ne null) sb append " DEFAULT (" append defaultLiteral append ")"
       if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
       else if(notNull) sb append " NOT NULL"
       else if(primaryKey) sb append " PRIMARY KEY"

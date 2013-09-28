@@ -566,11 +566,42 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected var autoIncrement = false
     protected var primaryKey = false
     protected var defaultLiteral: String = null
+    protected val useIntForBoolean = false    
+    protected val defaultFunctionSupport = true
+    protected val b = new SQLBuilder
+        
+	def sqlBuilder = b    
+    
     init()
 
     protected def init() {
       for(o <- column.options) handleColumnOption(o)
       if(sqlType eq null) sqlType = tmDelegate.sqlTypeName
+    }
+    
+    protected def expr(s:Node):Unit = {
+      s match {
+	      case LiteralNode(v) => {
+	        b += (if((true == v) && useIntForBoolean) "1"
+	        else if((false == v) && useIntForBoolean) "0"
+	        else typeInfoFor(column.tpe).valueToSQLLiteral(v))          
+	      }
+	      case _:SimpleFunction if !defaultFunctionSupport => 
+	        throw new SlickException("This database does not support default values as functions.")
+	      case s:SimpleFunction if !s.scalar => {
+	        
+	        b"${s.name}("
+	        b.sep(s.nodeChildren, ",")(expr)
+	        b")"
+	        
+	      }
+	      
+	      case s: SimpleFunction if s.scalar => throw new SlickException("A Default value cannot be a scalar function.")
+	      
+	      case SimpleLiteral(w) => b += w
+	      
+	      case _ => throw new SlickException("A Default value must either be a ConstColumn or a SimpleFunction")
+	    }
     }
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
@@ -578,9 +609,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
-      case ColumnOption.PrimaryKey => primaryKey = true
-      case ColumnOption.Default(v) => defaultLiteral = typeInfoFor(column.tpe).valueToSQLLiteral(v)
-      case ColumnOption.RawDefault(v) => defaultLiteral = v
+      case ColumnOption.PrimaryKey => primaryKey = true      
+      case ColumnOption.Default(v) => {        
+        expr(v.toNode)        
+        defaultLiteral = b.build.sql        
+      }
     }
 
     def appendColumn(sb: StringBuilder) {

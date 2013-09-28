@@ -7,6 +7,7 @@ import scala.slick.lifted.{PrimaryKey, Constraint, Index}
 import scala.slick.util.Logging
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import java.util.concurrent.atomic.AtomicLong
+import scala.slick.ast.LiteralNode
 
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends DatabaseComponent with Logging {
@@ -144,7 +145,7 @@ trait HeapBackend extends DatabaseComponent with Logging {
 
 object HeapBackend extends HeapBackend {
   class Column(val sym: FieldSymbol, val tpe: ScalaType[Any]) {
-    private[this] val default = sym.options.collectFirst { case ColumnOption.Default(v) => v }
+    private[this] val default = sym.options.collectFirst { case ColumnOption.Default(v) => v.toNode.asInstanceOf[LiteralNode].value }
     private[this] val autoInc = sym.options.collectFirst { case ColumnOption.AutoInc => new AtomicLong() }
     val isUnique =  sym.options.collectFirst { case ColumnOption.PrimaryKey => true }.getOrElse(false)
     def createDefault: Any = autoInc match {
