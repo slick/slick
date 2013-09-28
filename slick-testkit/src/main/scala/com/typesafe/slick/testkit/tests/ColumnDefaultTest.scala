@@ -9,8 +9,8 @@ class ColumnDefaultTest extends TestkitTest[RelationalTestDB] {
   class A(tag: Tag) extends Table[(Int, String, Option[Boolean])](tag, "a") {
     def id = column[Int]("id")
     def a = column[String]("a", O.Default("foo"))
-    def b = column[Boolean]("b", O.Default(true))
-    def * = (id, a, b.?)
+    def b = column[Option[Boolean]]("b", O.Default(Option(true)))
+    def * = (id, a, b)
   }
   lazy val as = TableQuery[A]
 

@@ -586,20 +586,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 	        else if((false == v) && useIntForBoolean) "0"
 	        else typeInfoFor(column.tpe).valueToSQLLiteral(v))          
 	      }
-	      case _:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => 
-	        throw new SlickException("This database does not support functions as default values.")
-	      case s:SimpleFunction if !s.scalar => {
-	        
+	      case s:SimpleFunction if !capabilities.contains(JdbcProfile.capabilities.columnFunctionDefaults) => {
 	        b"${s.name}("
 	        b.sep(s.nodeChildren, ",")(expr)
-	        b")"
-	        
+	        b")"	        
 	      }
-	      
-	      case s: SimpleFunction if s.scalar => throw new SlickException("A Default value cannot be a scalar function.")
-	      
-	      case SimpleLiteral(w) => b += w
-	      
+	      case SimpleLiteral(w) => b += w	      
 	      case _ => throw new SlickException("A Default value must either be a ConstColumn or a SimpleFunction")
 	    }
     }
