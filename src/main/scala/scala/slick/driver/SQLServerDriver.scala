@@ -81,7 +81,7 @@ trait SQLServerDriver extends JdbcDriver { driver =>
     }
   }
 
-  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) { 
+  class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override protected val useIntForBoolean = true
     
     override protected def appendOptions(sb: StringBuilder) {
