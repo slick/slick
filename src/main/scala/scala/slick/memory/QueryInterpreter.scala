@@ -1,7 +1,7 @@
 package scala.slick.memory
 
 import org.slf4j.LoggerFactory
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.ast._
 import scala.slick.SlickException
 import scala.slick.util.{SlickLogger, Logging}
@@ -144,15 +144,14 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         b.result()
       case GroupBy(gen, from, by) =>
         val fromV = run(from).asInstanceOf[Coll]
-        val grouped = fromV.toSeq.groupBy { v =>
+        val grouped = new HashMap[Any, ArrayBuffer[Any]]()
+        fromV.foreach { v =>
           scope(gen) = v
-          run(by)
+          grouped.getOrElseUpdate(run(by), new ArrayBuffer[Any]()) += v
         }
         scope.remove(gen)
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
-        grouped.foreach { case (k, vs) =>
-          b += new ProductValue(Vector(k, vs))
-        }
+        grouped.foreach { case (k, vs) => b += new ProductValue(Vector(k, vs)) }
         b.result()
       case Take(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
@@ -410,6 +409,7 @@ object QueryInterpreter {
       case p: ProductValue => data == p.data
       case _ => false
     }
+    override def hashCode = data.hashCode()
   }
 
   /** The representation for StructType values in the interpreter */
