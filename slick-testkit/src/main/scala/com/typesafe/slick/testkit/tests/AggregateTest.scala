@@ -155,4 +155,63 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     }
     assertEquals(Set(("baz","quux",Some(4)), ("foo","quux",Some(3)), ("foo","bar",Some(3))), q1.run.toSet)
   }
+
+  def testMultiMapAggregates {
+    class B(tag: Tag) extends Table[(Long, String, String)](tag, "b_multimap") {
+      def id = column[Long]("id", O.PrimaryKey)
+      def b = column[String]("b")
+      def d = column[String]("d")
+
+      def * = (id, b, d)
+    }
+    val bs = TableQuery[B]
+    class A(tag: Tag) extends Table[(Long, String, Long, Long)](tag, "a_multimap") {
+      def id = column[Long]("id", O.PrimaryKey)
+      def a = column[String]("a")
+      def c = column[Long]("c")
+      def fkId = column[Long]("fkId")
+      def * = (id, a, c, fkId)
+    }
+    val as = TableQuery[A]
+    (as.ddl ++ bs.ddl).create
+
+    val q1 = as.groupBy(_.id).map(_._2.map(x => x).map(x => x.a).min)
+    assert(q1.run.toList.isEmpty)
+
+    val q2 =
+      (as leftJoin bs on (_.id === _.id)).map { case (c, s) =>
+        val name = s.b
+        (c, s, name)
+      }.groupBy { prop =>
+        val c = prop._1
+        val s = prop._2
+        val name = prop._3
+        s.id
+      }.map { prop =>
+        val supId = prop._1
+        val c = prop._2.map(x => x._1)
+        val s = prop._2.map(x => x._2)
+        val name = prop._2.map(x => x._3)
+        (name.min, s.map(_.b).min, supId, c.length)
+      }
+    assert(q2.run.isEmpty)
+
+    val q4 = as.flatMap { t1 =>
+      bs.withFilter { t2 =>
+        t1.fkId === t2.id && t2.d === ""
+      }.map(t2 => (t1, t2))
+    }.groupBy { prop =>
+      val t1 = prop._1
+      val t2 = prop._2
+      (t1.a, t2.b)
+    }.map { prop =>
+      val a = prop._1._1
+      val b = prop._1._2
+      val t1 = prop._2.map(_._1)
+      val t2 = prop._2.map(_._2)
+      val c3 = t1.map(_.c).max
+      scala.Tuple3(a, b, c3)
+    }
+    assert(q4.run.isEmpty)
+  }
 }
