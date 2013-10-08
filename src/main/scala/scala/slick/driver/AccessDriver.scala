@@ -187,11 +187,9 @@ trait AccessDriver extends JdbcDriver { driver =>
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
-      if(autoIncrement) {
-        sb append "AUTOINCREMENT"
-        autoIncrement = false
-      }
+      if(autoIncrement && !customSqlType) sb append "AUTOINCREMENT"
       else sb append sqlType
+      autoIncrement = false
       appendOptions(sb)
     }
 

@@ -138,4 +138,13 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
 
   def testUUID =
     roundtrip[UUID]("uuid_t1", UUID.randomUUID(), literal = false)
+
+  def testOverrideIdentityType {
+    class T1(tag: Tag) extends Table[Int](tag, "t1") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc, O.DBType("_FOO_BAR_"))
+      def * = id
+    }
+    val t1 = TableQuery[T1]
+    assertTrue(t1.ddl.createStatements.mkString.contains("_FOO_BAR_"))
+  }
 }
