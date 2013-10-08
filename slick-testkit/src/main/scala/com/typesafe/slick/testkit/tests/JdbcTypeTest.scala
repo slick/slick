@@ -96,7 +96,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     }
   }
 
-  private def roundtrip[T : BaseColumnType](tn: String, v: T, literal: Boolean = true, bind: Boolean = true) {
+  private def roundtrip[T : BaseColumnType](tn: String, v: T) {
     class T1(tag: Tag) extends Table[(Int, T)](tag, tn) {
       def id = column[Int]("id")
       def data = column[T]("data")
@@ -107,14 +107,10 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     t1.ddl.create
     t1.insert((1, v))
     assertEquals(v, t1.map(_.data).first)
-    if(literal) {
-      assertEquals(Some(1), t1.filter(_.data === v).map(_.id).firstOption)
-      assertEquals(None, t1.filter(_.data =!= v).map(_.id).firstOption)
-    }
-    if(bind) {
-      assertEquals(Some(1), t1.filter(_.data === v.bind).map(_.id).firstOption)
-      assertEquals(None, t1.filter(_.data =!= v.bind).map(_.id).firstOption)
-    }
+    assertEquals(Some(1), t1.filter(_.data === v).map(_.id).firstOption)
+    assertEquals(None, t1.filter(_.data =!= v).map(_.id).firstOption)
+    assertEquals(Some(1), t1.filter(_.data === v.bind).map(_.id).firstOption)
+    assertEquals(None, t1.filter(_.data =!= v.bind).map(_.id).firstOption)
   }
 
   def testDate =
@@ -137,7 +133,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
   }
 
   def testUUID =
-    roundtrip[UUID]("uuid_t1", UUID.randomUUID(), literal = false)
+    roundtrip[UUID]("uuid_t1", UUID.randomUUID())
 
   def testOverrideIdentityType {
     class T1(tag: Tag) extends Table[Int](tag, "t1") {
