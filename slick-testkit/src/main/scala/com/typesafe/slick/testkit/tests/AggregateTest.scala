@@ -154,5 +154,10 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       case (grp, t) => (grp._1, grp._2, t.map(_.col4).sum)
     }
     assertEquals(Set(("baz","quux",Some(4)), ("foo","quux",Some(3)), ("foo","bar",Some(3))), q1.run.toSet)
+
+    val q2 = Tabs.groupBy(t => ((t.col1, t.col2), t.col3)).map {
+      case (grp, t) => (grp._1._1, grp._1._2, t.map(_.col4).sum)
+    }
+    assertEquals(Set(("baz","quux",Some(4)), ("foo","quux",Some(3)), ("foo","bar",Some(3))), q2.run.toSet)
   }
 }
