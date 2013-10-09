@@ -15,7 +15,7 @@ abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
 
   protected def createResultSet(session: JdbcBackend#Session): ResultSet
 
-  def elementsTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = {
+  def iteratorTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = {
     val rs = createResultSet(session)
     if(rs eq null) CloseableIterator.empty
     else new PositionedResultIterator[R](rs, maxRows) {

@@ -16,7 +16,9 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    * Execute the statement and return a CloseableIterator of the converted results.
    * The iterator must either be fully read or closed explicitly.
    */
-  final def elements(param: P)(implicit session: JdbcBackend#Session) = elementsTo(param, 0)
+  final def iterator(param: P)(implicit session: JdbcBackend#Session) = iteratorTo(param, 0)
+  @deprecated("Use .iterator instead of .elements", "2.0.0-M3")
+  final def elements(param: P)(implicit session: JdbcBackend#Session) = iterator(param)(session)
 
   /**
    * Execute the statement and return a CloseableIterator of the converted results.
@@ -24,12 +26,14 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    *
    * @param maxRows Maximum number of rows to read from the result (0 for unlimited).
    */
-  def elementsTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R]
+  def iteratorTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R]
+  @deprecated("Use .iteratorTo instead of .elementsTo", "2.0.0-M3")
+  def elementsTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session) = iteratorTo(param, maxRows)(session)
 
   /**
    * Execute the statement and ignore the results.
    */
-  final def execute(param: P)(implicit session: JdbcBackend#Session): Unit = elements(param)(session).close()
+  final def execute(param: P)(implicit session: JdbcBackend#Session): Unit = iterator(param)(session).close()
 
   /**
    * Execute the statement and return the first row of the result set wrapped in
@@ -76,7 +80,7 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    * Execute the statement and call f for each converted row of the result set.
    */
   final def foreach(param: P, f: R => Unit)(implicit session: JdbcBackend#Session) {
-    val it = elements(param)
+    val it = iterator(param)
     try { it.foreach(f) } finally { it.close() }
   }
 
@@ -86,7 +90,7 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    * @param maxRows Maximum number of rows to read from the result (0 for unlimited).
    */
   final def foreach(param: P, f: R => Unit, maxRows: Int)(implicit session: JdbcBackend#Session) {
-    val it = elementsTo(param, maxRows)
+    val it = iteratorTo(param, maxRows)
     try { it.foreach(f) } finally { it.close() }
   }
 
@@ -104,7 +108,7 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    */
   final def enumerate[B, RR >: R](param: P, iter: IterV[RR,B])(implicit session: JdbcBackend#Session): IterV[RR, B] = {
     var _iter = iter
-    val it = elements(param)(session)
+    val it = iterator(param)(session)
     try {
       while(it.hasNext && !_iter.isInstanceOf[Done[_,_]]) {
         val cont = _iter.asInstanceOf[Cont[RR,B]]
@@ -152,8 +156,12 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   final def toMap[T, U](implicit session: JdbcBackend#Session, ev: R <:< (T, U)): Map[T, U] = delegate.toMap(appliedParameter)
   final def foreach(f: R => Unit)(implicit session: JdbcBackend#Session): Unit = delegate.foreach(appliedParameter, f)
   final def foreach(f: R => Unit, maxRows: Int)(implicit session: JdbcBackend#Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
-  final def elements()(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.elements(appliedParameter)
-  final def elementsTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.elementsTo(appliedParameter, maxRows)
+  final def iterator()(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iterator(appliedParameter)
+  @deprecated("Use .iterator instead of .elements", "2.0.0-M3")
+  final def elements()(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iterator(appliedParameter)
+  final def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iteratorTo(appliedParameter, maxRows)
+  @deprecated("Use .iteratorTo instead of .elementsTo", "2.0.0-M3")
+  final def elementsTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iteratorTo(appliedParameter, maxRows)
   final def execute()(implicit session: JdbcBackend#Session): Unit = delegate.execute(appliedParameter)
   final def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: JdbcBackend#Session): B = delegate.foldLeft(appliedParameter, z)(op)
   final def enumerate[B, RR >: R](iter: IterV[RR,B])(implicit session: JdbcBackend#Session): IterV[RR, B] = delegate.enumerate(appliedParameter, iter)
@@ -165,7 +173,7 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
 
 object UnitInvoker {
   val empty: UnitInvoker[Nothing] = new UnitInvokerMixin[Nothing] {
-    def elementsTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session) = CloseableIterator.empty
+    def iteratorTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session) = CloseableIterator.empty
   }
 }
 
@@ -180,13 +188,13 @@ trait UnitInvokerMixin[+R] extends UnitInvoker[R] {
  */
 trait AppliedInvoker[P, +R] extends UnitInvoker[R] {
   protected type Param = P
-  def elementsTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.elementsTo(appliedParameter, maxRows)
+  def iteratorTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iteratorTo(appliedParameter, maxRows)
 }
 
 /**
  * An Invoker which applies a mapping function to all results of another Invoker.
  */
 class MappedInvoker[-P, U, +R](parent: Invoker[P, U], mapper: (U => R)) extends Invoker[P, R] {
-  def elementsTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session) =
-    parent.elementsTo(param, maxRows).map(mapper)
+  def iteratorTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session) =
+    parent.iteratorTo(param, maxRows).map(mapper)
 }
