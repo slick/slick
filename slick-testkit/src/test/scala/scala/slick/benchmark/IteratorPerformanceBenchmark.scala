@@ -38,16 +38,16 @@ object IteratorPerformanceBenchmark {
             i => buf += i
           }, 0)
         }
-        measure("elements loop") {
-          val it = inv.elements()
+        measure("iterator loop") {
+          val it = inv.iterator()
           try {
             while (it.hasNext) buf += it.next
           } finally {
             it.close()
           }
         }
-        measure("elements.foreach") {
-          inv.elements().foreach(i => buf += i)
+        measure("iterator.foreach") {
+          inv.iterator().foreach(i => buf += i)
         }
         r += 1
       }

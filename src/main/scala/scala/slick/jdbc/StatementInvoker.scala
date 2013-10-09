@@ -12,7 +12,7 @@ abstract class StatementInvoker[-P, +R] extends Invoker[P, R] { self =>
 
   protected def setParam(param: P, st: PreparedStatement): Unit
 
-  def elementsTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] =
+  def iteratorTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] =
     results(param, maxRows).fold(r => new CloseableIterator.Single[R](r.asInstanceOf[R]), identity)
 
   /**
