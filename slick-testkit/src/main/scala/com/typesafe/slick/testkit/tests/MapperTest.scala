@@ -311,4 +311,22 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
     assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)
   }
+
+  def testAutoMapped {
+    class ID(val value: Int) extends AutoMappedColumnType[Int]
+
+    class T(tag: Tag) extends Table[(ID, Int)](tag, "t_automapped") {
+      def id = column[ID]("id", O.PrimaryKey)
+      def v = column[Int]("v")
+      def * = (id, v)
+    }
+    val ts = TableQuery[T]
+    ts.ddl.create
+    ts ++= Seq((new ID(1), 2), (new ID(3), 4))
+
+    /*ts.map(t => (t.b, t.c)).insertAll((False, None), (True, Some(True)))
+    assertEquals(ts.list.toSet, Set((1, False, None), (2, True, Some(True))))
+    assertEquals(ts.where(_.b === (True:Bool)).list.toSet, Set((2, True, Some(True))))
+    assertEquals(ts.where(_.b === (False:Bool)).list.toSet, Set((1, False, None)))*/
+  }
 }

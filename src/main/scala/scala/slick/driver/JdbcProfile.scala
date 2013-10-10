@@ -4,7 +4,7 @@ import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend}
+import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend, AutoMappedJdbcType}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
 
@@ -55,6 +55,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   trait SimpleQL extends super.SimpleQL with Implicits {
     type MappedColumnType[T, U] = MappedJdbcType[T, U]
     val MappedColumnType = MappedJdbcType
+    type AutoMappedColumnType[T] = AutoMappedJdbcType[T]
+    val AutoMappedColumnType = AutoMappedJdbcType
   }
 }
 

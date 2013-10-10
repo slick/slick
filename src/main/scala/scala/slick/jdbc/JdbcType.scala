@@ -1,7 +1,9 @@
 package scala.slick.jdbc
 
-import scala.slick.ast._
+import scala.language.experimental.macros
 import scala.reflect.ClassTag
+import scala.reflect.macros.Context
+import scala.slick.ast._
 
 /**
  * A JdbcType object represents a Scala type that can be
@@ -119,4 +121,48 @@ object MappedJdbcType {
       def map(t: T) = tmap(t)
       def comap(u: U) = tcomap(u)
     }
+}
+
+trait AutoMappedJdbcTypeBase extends Any {
+  type Underlying
+  def value: Underlying
+}
+
+trait AutoMappedJdbcType[T] extends Any with AutoMappedJdbcTypeBase {
+  type Underlying = T
+  def value: T
+}
+
+object AutoMappedJdbcType {
+  implicit def jdbcType[E <: AutoMappedJdbcTypeBase](implicit ct: ClassTag[E], jt: JdbcType[E#Underlying]): JdbcType[E] with BaseTypedType[E] =
+    macro AutoMappedJdbcType.applyMacroImpl[E, E#Underlying]
+
+  def applyMacroImpl[E <: AutoMappedJdbcTypeBase, U](c: Context)(ct: c.Expr[ClassTag[E]], jt: c.Expr[JdbcType[E#Underlying]])(implicit e: c.WeakTypeTag[E], eu: c.WeakTypeTag[U]): c.Expr[JdbcType[E] with BaseTypedType[E]] = {
+    import c.universe._
+    val cons = c.Expr[E#Underlying => E](Function(
+      List(ValDef(Modifiers(Flag.PARAM), newTermName("v"), Ident(eu.tpe.typeSymbol), EmptyTree)),
+      Apply(
+        Select(New(TypeTree(e.tpe)), nme.CONSTRUCTOR),
+        List(Ident(newTermName("v")))
+      )
+    ))
+    reify { MappedJdbcType.base[E, E#Underlying](_.value, cons.splice)(ct.splice, jt.splice) }
+  }
+
+  /*
+  implicit def jdbcType[E <: AutoMappedJdbcTypeBase](implicit ct: ClassTag[E], jt: JdbcType[E#Underlying]): JdbcType[E] with BaseTypedType[E] =
+    macro AutoMappedJdbcType.applyMacroImpl[E]
+
+  def applyMacroImpl[E <: AutoMappedJdbcTypeBase](c: Context)(ct: c.Expr[ClassTag[E]], jt: c.Expr[JdbcType[E#Underlying]])(implicit e: c.WeakTypeTag[E], eu: c.WeakTypeTag[E#Underlying]): c.Expr[JdbcType[E] with BaseTypedType[E]] = {
+    import c.universe._
+    val cons = c.Expr[E#Underlying => E](Function(
+      List(ValDef(Modifiers(Flag.PARAM), newTermName("v"), Ident(eu.tpe.typeSymbol), EmptyTree)),
+      Apply(
+        Select(New(TypeTree(e.tpe)), nme.CONSTRUCTOR),
+        List(Ident(newTermName("v")))
+      )
+    ))
+    reify { MappedJdbcType.base[E, E#Underlying](_.value, cons.splice)(ct.splice, jt.splice) }
+  }
+  */
 }
