@@ -173,6 +173,7 @@ final object Zero extends Nat {
 final class Succ[N <: Nat] private[heterogenous] (val value: Int) extends Nat {
   type Self = Succ[N]
   type -- = N
+  /** Implements (F^(N+1))(Z) or in other words replaces nested Succs by nested Fs */
   type Fold[U, F[_ <: U] <: U, Z <: U] = F[N#Fold[U, F, Z]]
   type + [X <: Nat] = Succ[N # + [X]]
   type * [X <: Nat] = (N # * [X]) # + [X]
