@@ -16,3 +16,10 @@ final case class Insert(generator: Symbol, table: Node, map: Node, linear: Node)
     nodeRebuildOrThis(Vector(table2, map2, linear)).nodeTypedOrCopy(if(!nodeHasType || retype) map2.nodeType else nodeType)
   }
 }
+
+/** A column in an Insert operation. */
+final case class InsertColumn(child: Node, fs: FieldSymbol) extends UnaryNode with SimplyTypedNode {
+  type Self = InsertColumn
+  def nodeRebuild(ch: Node) = copy(child = ch)
+  def buildType = child.nodeType
+}

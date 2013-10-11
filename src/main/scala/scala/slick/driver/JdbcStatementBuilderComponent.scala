@@ -427,19 +427,24 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   /** Builder for INSERT statements. */
   class InsertBuilder(val node: Node) {
 
-    protected[this] val Insert(_, table: TableNode, _, ProductNode(columns)) = node
-    protected[this] def qtable = quoteTableName(table)
-    protected[this] def qcolumns = columns.map { case Select(_, fs: FieldSymbol) => quoteIdentifier(fs.name) }.mkString(",")
-    protected[this] def qvalues = columns.map(_ => "?").mkString(",")
+    protected val Insert(_, table: TableNode, _, ProductNode(rawColumns)) = node
+    protected lazy val allColumns = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }
+    protected lazy val softColumns = allColumns.filterNot(_.options.contains(ColumnOption.AutoInc))
+    protected lazy val qTable = quoteTableName(table)
+    protected lazy val qAllColumns = allColumns.map(fs => quoteIdentifier(fs.name)).mkString(",")
+    protected lazy val qAllValues = allColumns.map(_ => "?").mkString(",")
+    protected lazy val qSoftColumns = softColumns.map(fs => quoteIdentifier(fs.name)).mkString(",")
+    protected lazy val qSoftValues = softColumns.map(_ => "?").mkString(",")
 
-    def buildInsert: InsertBuilderResult = {
-      InsertBuilderResult(table.tableName, s"INSERT INTO $qtable ($qcolumns) VALUES ($qvalues)")
+    def buildInsert(forced: Boolean): InsertBuilderResult = {
+      val (c, v) = if(forced) (qAllColumns, qAllValues) else (qSoftColumns, qSoftValues)
+      InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($c) VALUES ($v)")
     }
 
     def buildInsert(query: Query[_, _]): InsertBuilderResult = {
       val (_, sbr: SQLBuilder.Result) =
         CodeGen.findResult(queryCompiler.run((query.toNode)).tree)
-      InsertBuilderResult(table.tableName, s"INSERT INTO $qtable ($qcolumns) ${sbr.sql}", sbr.setter)
+      InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($qAllColumns) ${sbr.sql}", sbr.setter)
     }
 
     def buildReturnColumns(node: Node, table: String): (IndexedSeq[String], ResultConverter) = {

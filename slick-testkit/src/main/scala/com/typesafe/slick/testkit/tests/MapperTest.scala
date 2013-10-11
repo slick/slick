@@ -20,7 +20,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def last = column[String]("last")
       def * = id.? ~: baseProjection <> (User.tupled, User.unapply _)
       def baseProjection = first ~ last
-      def forInsert = baseProjection.shaped <>
+      def forUpdate = baseProjection.shaped <>
         ({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
     }
     val users = TableQuery[Users]
@@ -28,9 +28,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
 
     users.ddl.create
     users.map(_.baseProjection).insert("Homer", "Simpson")
-    /* Using Users.forInsert so that we don't put a NULL value into the ID
-     * column. H2 and SQLite allow this but PostgreSQL doesn't. */
-    users.map(_.forInsert).insertAll(
+    users.insertAll(
       User(None, "Marge", "Bouvier"),
       User(None, "Carl", "Carlson"),
       User(None, "Lenny", "Leonard")
@@ -39,7 +37,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     val lastNames = Set("Bouvier", "Ferdinand")
     assertEquals(1, users.where(_.last inSet lastNames).list.size)
 
-    val updateQ = users.where(_.id === 2.bind).map(_.forInsert)
+    val updateQ = users.where(_.id === 2.bind).map(_.forUpdate)
     println("Update: "+updateQ.updateStatement)
     updateQ.update(User(None, "Marge", "Simpson"))
 

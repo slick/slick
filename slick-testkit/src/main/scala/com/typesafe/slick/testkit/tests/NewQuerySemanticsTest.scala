@@ -42,7 +42,6 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def state = column[String]("STATE")
       def zip = column[String]("ZIP")
       def * = (id, name, street)
-      def forInsert = (id, name, street, city, state, zip).shaped
     }
     val suppliers = TableQuery[Suppliers]
 
@@ -53,7 +52,6 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       def sales = column[Int]("SALES")
       def total = column[Int]("TOTAL")
       def * = (name, supID, price, sales, (total * 10))
-      def forInsert = (name, supID, price, sales, total).shaped
       def totalComputed = sales * price
       def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
     }

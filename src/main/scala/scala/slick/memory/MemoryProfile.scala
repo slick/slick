@@ -62,7 +62,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
     def += (value: T)(implicit session: Backend#Session) {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
-      converter.set(value, buf)
+      converter.set(value, buf, false)
       htable.append(buf)
     }
 
@@ -110,14 +110,15 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
     val Insert(_, table: TableNode, _, ProductNode(cols)) = insert
     val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
-    def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = {
-      val Select(_, ElementSymbol(ridx)) = path
-      val Select(_, fs: FieldSymbol) = cols(ridx-1)
+    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter = {
+      val fs = column.get
       val tidx = tableColumnIdxs(fs)
+      val autoInc = fs.options.contains(ColumnOption.AutoInc)
       new ResultConverter {
         def read(pr: RowReader) = ???
         def update(value: Any, pr: RowUpdater) = ???
-        def set(value: Any, pp: RowWriter) = pp(tidx) = value
+        def set(value: Any, pp: RowWriter, forced: Boolean) =
+          if(forced || !autoInc) pp(tidx) = value
       }
     }
   }
