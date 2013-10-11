@@ -30,7 +30,7 @@ sealed abstract class HList extends Product {
   /** Drop the first N elements from this HList and return the resulting type */
   type Drop[N <: Nat] = N#Fold[HList, TailOf, Self]
   /** Get the type of the Nth element of this HList */
-  type Apply[N <: Nat] = HeadOf[Drop[N]] // Drop[N]#Head
+  type Apply[N <: Nat] = HeadOf[Drop[N]] // Drop[N]#Head, see SI-5294
   /** Get the Nat type of the length of this HList */
   type Length = Fold[Nat, IncrementForFold, Nat._0]
   /** The type of prepending an element of type E to this HList */
