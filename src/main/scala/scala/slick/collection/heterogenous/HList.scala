@@ -17,16 +17,26 @@ sealed abstract class HList extends Product {
   /** The type of a Fold operation on this HList */
   type Fold[U, F[_ <: HList, _ <: U] <: U, Z <: U] <: U
 
+  object utilityTypeFunctions{
+    type TailOf[T <: HList] = T#Tail
+    type HeadOf[T <: HList] = T#Head
+    type PrependHead[X <: HList, Z <: HList] = Z # :: [X#Head]
+    /** Ignores X and increments Z by one (for use to count with fold) */
+    type IncrementForFold[X, Z <: Nat] = Succ[Z]
+  }
+
+  import utilityTypeFunctions._
+
   /** Drop the first N elements from this HList and return the resulting type */
-  type Drop[N <: Nat] = N#Fold[HList, ({ type L[X <: HList] = X#Tail })#L, Self]
+  type Drop[N <: Nat] = N#Fold[HList, TailOf, Self]
   /** Get the type of the Nth element of this HList */
-  type Apply[N <: Nat] = ({ type L[X <: HList] = X#Head })#L[Drop[N]] // Drop[N]#Head
+  type Apply[N <: Nat] = HeadOf[Drop[N]] // Drop[N]#Head, see SI-5294
   /** Get the Nat type of the length of this HList */
-  type Length = Fold[Nat, ({ type L[X <: HList, Z <: Nat] = Succ[Z] })#L, Nat._0]
+  type Length = Fold[Nat, IncrementForFold, Nat._0]
   /** The type of prepending an element of type E to this HList */
   type :: [E] = HCons[E, Self]
   /** The type of concatenating another HList with this HList */
-  type ::: [L <: HList] = L#Fold[HList, ({ type L[X <: HList, Z <: HList] = Z # :: [X#Head] })#L, Self]
+  type ::: [L <: HList] = L#Fold[HList, PrependHead, Self]
 
   /** Get the first element, or throw a NoSuchElementException if this HList is empty. */
   def head: Head
@@ -61,8 +71,8 @@ sealed abstract class HList extends Product {
   /** Prepend an element to this HList, returning a new HList. */
   @inline final def :: [@specialized E](elem: E): :: [E] = new HCons[E, Self](elem, this.asInstanceOf[Self])
   /** Concatenate another HList to this HList, returning a new HList. */
-  final def ::: [L <: HList](l: L): ::: [L] = l.fold[HList, ({ type L[X <: HList, Z <: HList] = Z # :: [X#Head] })#L, Self](
-    new TypedFunction2[HList, HList, HList, ({ type L[X <: HList, Z <: HList] = Z # :: [X#Head] })#L] {
+  final def ::: [L <: HList](l: L): ::: [L] = l.fold[HList, PrependHead, Self](
+    new TypedFunction2[HList, HList, HList, PrependHead] {
       def apply[P1 <: HList, P2 <: HList](p1: P1, p2: P2) = p1.head :: p2
     }, self)
 
