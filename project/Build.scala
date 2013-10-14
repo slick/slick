@@ -130,10 +130,10 @@ object SlickBuild extends Build {
         // The Slick core tests need junit-interface, logback and the DB drivers
         "com.novocode" % "junit-interface" % "0.10-M4" % "test",
         "ch.qos.logback" % "logback-classic" % "0.9.28" % "test",
-        "com.h2database" % "h2" % "1.3.170" % "test",
-        "org.xerial" % "sqlite-jdbc" % "3.7.2" % "test",
+        "com.h2database" % "h2" % "1.3.170",
+        "org.xerial" % "sqlite-jdbc" % "3.7.2",
         "org.apache.derby" % "derby" % "10.9.1.0" % "test",
-        "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
+        "org.hsqldb" % "hsqldb" % "2.2.8",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
         "mysql" % "mysql-connector-java" % "5.1.23" % "test"
       ),
