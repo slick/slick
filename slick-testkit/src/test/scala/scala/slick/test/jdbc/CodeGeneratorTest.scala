@@ -19,9 +19,8 @@ class CodeGeneratorTest {
   @Test def h2memTest() {
     val Db1 = CG1
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    database.withSession {
+    database.withSession { implicit session:Session =>
       val q1 = Query(Suppliers.length)
       assertEquals("Size of Suppliers before change", 3,
         q1.first)
@@ -41,9 +40,8 @@ class CodeGeneratorTest {
   @Test def hsqlSimpleTest() {
     val Db1 = CG2
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    database.withSession {
+    database.withSession { implicit session:Session =>
       val q1 = Query(Suppliers.length)
       assertEquals("Size of Suppliers before change", 3,
         q1.first)
@@ -53,9 +51,8 @@ class CodeGeneratorTest {
   @Test def hsqlComplexTest() {
     val Db1 = CG2
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    database.withSession {
+    database.withSession { implicit session:Session =>
       val supps = Query(Suppliers).list
       val correctSupps = List(Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
         Supplier(101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
@@ -67,8 +64,7 @@ class CodeGeneratorTest {
   @Test def sqliteSimpleTest() {
     val Db1 = CG3
     import Db1.driver.simple._
-    import Database.threadLocalSession
-    Db1.database.withSession {
+    Db1.database.withSession { implicit session:Session =>
       val q1 = Query(Db1.Suppliers.length)
       assertEquals("Size of Suppliers before change", 3,
         q1.first)
@@ -78,9 +74,8 @@ class CodeGeneratorTest {
   @Test def sqliteComplexTest() {
     val Db1 = CG3
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    database.withSession {
+    database.withSession { implicit session:Session =>
       val supps = Query(Suppliers).list
       val correctSupps = List(Supplier(101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
         Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
@@ -94,9 +89,8 @@ class CodeGeneratorTest {
       columns.map(convertColumnNodeToString)
     val Db1 = CG4
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    Db1.database.withSession {
+    Db1.database.withSession { implicit session:Session =>
       val tables = MTable.getTables(Some(""), Some(""), None, None).list
       val a = tables.find(_.name.name equals "a").get
       val b = tables.find(_.name.name equals "b").get
@@ -118,9 +112,8 @@ class CodeGeneratorTest {
       columns.map(convertColumnNodeToString)
     val Db1 = CG5
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    Db1.database.withSession {
+    Db1.database.withSession { implicit session:Session =>
       assertEquals("# of FKs of 'a' should be 1",
         1, A.foreignKeys.size)
       assertEquals("# of FKs of 'b' should be 0",
@@ -137,9 +130,8 @@ class CodeGeneratorTest {
   @Test def indexTest() {
     val Db1 = CG5
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    Db1.database.withSession {
+    Db1.database.withSession { implicit session:Session =>
       assertEquals("# of unique indices of 'a' should be 0",
         0, A.indexes.size)
       assertEquals("# of unique indices of 'b' should be 1",
@@ -173,9 +165,8 @@ class CodeGeneratorTest {
   @Test def customNamingTest() {
     val Db1 = CG7
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
-    database.withSession {
+    database.withSession { implicit session:Session =>
       val q1 = Query(Supps.length)
       assertEquals("Size of Suppliers before change", 3,
         q1.first)
@@ -195,11 +186,10 @@ class CodeGeneratorTest {
   @Test def customTypingTest() {
     val Db1 = CG8
     import Db1.driver.simple._
-    import Database.threadLocalSession
     import Db1._
     import scala.slick.config.CustomTyping
     //    import CustomTyping.boolTypeMapper
-    database.withSession {
+    database.withSession { implicit session:Session =>
       val q1 = Query(SimpleAs.length)
       assertEquals("Size of SimpleA before change", 0,
         q1.first)

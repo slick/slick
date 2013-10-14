@@ -110,8 +110,7 @@ object Retriever {
   }
 
   def tables(driver: JdbcDriver, db: JdbcBackend#DatabaseDef, universe: Universe)(naming: Naming, typeMapper: TypeMapper): List[Table] = {
-    import driver.simple.Database.threadLocalSession
-    db withSession {
+    db withSession { implicit session:JdbcBackend#Session =>
       val tablesWOColumns = tablesWithoutColumn(driver)(naming)
       val tablesWColumns = tablesWithColumns(driver, universe)(naming, typeMapper)(tablesWOColumns)
       val tablesWConstraints = tablesWithConstraints(naming)(tablesWColumns)
