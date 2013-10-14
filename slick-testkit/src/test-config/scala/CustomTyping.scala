@@ -25,9 +25,11 @@ object CustomTyping extends TypeMapper {
       if (i == 1) True else False
     })
   type SimpleA = Tuple2[Bool, String]
-  class SimpleAExtractor extends TypeExtractor[SimpleA, SimpleA] {
+  class SimpleAExtractor extends TypeExtractor[SimpleA, SimpleA] with (SimpleA => SimpleA){
     override def unapply(s: SimpleA): Option[SimpleA] = Tuple2.unapply(s)
     def apply(s: SimpleA): SimpleA = s
+    /** workaround to handle single argument constructors uniformly with multiple argument ones */
+    def tupled(s: SimpleA): SimpleA = s
   }
 
   override def tableType(name: QualifiedName)(implicit universe: Universe): Option[universe.Type] = name.lastPart match {

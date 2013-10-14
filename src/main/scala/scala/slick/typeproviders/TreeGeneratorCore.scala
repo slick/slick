@@ -45,10 +45,9 @@ trait TreeGeneratorCore { self: MacroHelpers =>
    * Gets method definition for `*` of a Table in Lifted Embedding
    */
   def starDef(tableName: String)(columns: List[Column], caseClassName: TermName): DefDef = {
-    val allFields = columns.map(getColumnOfTable(tableName)).reduceLeft[Tree]((prev, current) => {
-      val tilde = Select(prev, TermName("$tilde"))
-      Apply(tilde, List(current))
-    })
+    val columnTrees = columns.map(getColumnOfTable(tableName))
+    val tupleConstructor = Ident(TermName("Tuple"+columnTrees.length))
+    val allFields = Apply(tupleConstructor, columnTrees)
     val SYNTHETIC = scala.reflect.internal.Flags.SYNTHETIC.asInstanceOf[Long].asInstanceOf[FlagSet]
 
     DefDef(NoMods,
@@ -57,16 +56,11 @@ trait TreeGeneratorCore { self: MacroHelpers =>
       List(),
       TypeTree(),
       Apply(
-        Select(allFields, TermName("$less$greater")),
+        Select(allFields, TermName("<>")),
         List(
-          Ident(caseClassName),
-          {
-            val xVar = contextUtils.freshName("x")
-            Function(
-              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), TypeTree(), EmptyTree)),
-              //              List(ValDef(Modifiers(PARAM | SYNTHETIC), TermName(xVar), Ident(caseClassName.toTypeName), EmptyTree)),
-              Apply(Select(Ident(caseClassName), TermName("unapply")), List(Ident(TermName(xVar)))))
-          })))
+          Select(Ident(caseClassName),newTermName("tupled")),
+          Select(Ident(caseClassName),newTermName("unapply"))
+    )))
   }
 
   /**

@@ -27,7 +27,7 @@ trait TemplateComponent { self: CodeGenerator =>
     // we don't need constructor of case class
     val constructor = methods collectFirst {
       case DefDef(_, methodName, _, _, _, Block(List(Apply(_, ctorArgs)), _)) if methodName == nme.CONSTRUCTOR => {
-        ctorArgs.map(generateCodeForTree).mkString("(", ", ", ")")
+        ctorArgs.map(generateCodeForTree).mkString("(tag, ", ", ", ")")
       }
     } getOrElse ""
     incIndent
@@ -37,9 +37,10 @@ trait TemplateComponent { self: CodeGenerator =>
       }
     }
     decIndent
-    s"""${genIndent}object $name extends $tableSuperCode $constructor{
+    s"""${genIndent}class $name(tag: Tag) extends $tableSuperCode $constructor{
 ${methodsCode.mkString("\n")}
-${genIndent}}"""
+${genIndent}}
+  val $name = TableQuery[$name]"""
   }
 
 }

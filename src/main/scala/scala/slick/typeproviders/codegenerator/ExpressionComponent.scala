@@ -14,10 +14,11 @@ trait ExpressionComponent { self: CodeGenerator =>
         val operand = generateCodeForTree(qualifier)
         val op = generateCodeForName(name)
         val arg = args match {
+          case List() => ""
           case List(elem) => rec(elem)
           case list => list.map(rec).mkString("(", ", ", ")")
         }
-        s"$operand $op $arg"
+        s"($operand $op $arg)"
       }
       case Apply(fun, args) =>
         s"${rec(fun)}(${args.map(rec).mkString(", ")})"
