@@ -27,8 +27,15 @@ object Column {
   def forNode[T : TypedType](n: Node): Column[T] = new Column[T] { def toNode = n }
 }
 
+/** A column that can be used to bind to default values in schema definition **/
+abstract class DefaultColumn[T](implicit tt: TypedType[T]) extends Column[T]
+
+object DefaultColumn {
+  def forNode[T : TypedType](n: Node): DefaultColumn[T] = new DefaultColumn[T] { def toNode = n }
+}
+
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
-final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends Column[T] {
+final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends DefaultColumn[T] {
   def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
   def toNode = LiteralNode(tt, value)
 }

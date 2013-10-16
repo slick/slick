@@ -593,8 +593,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           b"${s.name}("
           b.sep(s.nodeChildren, ",")(expr)
           b")"
-        }
-        case SimpleLiteral(w) => b += w
+        }        
         case _ => throw new SlickException("A Default value must either be a ConstColumn or a SimpleFunction")
       }
     }

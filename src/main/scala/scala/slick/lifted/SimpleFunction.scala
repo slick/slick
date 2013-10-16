@@ -20,26 +20,26 @@ trait SimpleFunction extends Node {
 }
 
 object SimpleFunction {
-  def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Column[_]] => Column[T]) = {
+  def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Column[_]] => DefaultColumn[T]) = {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleFunction {
       val name = fname
       override val scalar = fn
       def nodeChildren = params
       protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = build(ch)
     }
-    { paramsC: Seq[Column[_] ] => Column.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
+    { paramsC: Seq[Column[_] ] => DefaultColumn.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }
-  def nullary[R : TypedType](fname: String, fn: Boolean = false): Column[R] =
+  def nullary[R : TypedType](fname: String, fn: Boolean = false): DefaultColumn[R] =
     apply(fname, fn).apply(Seq())
-  def unary[T1, R : TypedType](fname: String, fn: Boolean = false): (Column[T1] => Column[R]) = {
+  def unary[T1, R : TypedType](fname: String, fn: Boolean = false): (Column[T1] => DefaultColumn[R]) = {
     val f = apply(fname, fn);
     { t1: Column[T1] => f(Seq(t1)) }
   }
-  def binary[T1, T2, R : TypedType](fname: String, fn: Boolean = false): ((Column[T1], Column[T2]) => Column[R]) = {
+  def binary[T1, T2, R : TypedType](fname: String, fn: Boolean = false): ((Column[T1], Column[T2]) => DefaultColumn[R]) = {
     val f = apply(fname, fn);
     { (t1: Column[T1], t2: Column[T2]) => f(Seq(t1, t2)) }
   }
-  def ternary[T1, T2, T3, R : TypedType](fname: String, fn: Boolean = false): ((Column[T1], Column[T2], Column[T3]) => Column[R]) = {
+  def ternary[T1, T2, T3, R : TypedType](fname: String, fn: Boolean = false): ((Column[T1], Column[T2], Column[T3]) => DefaultColumn[R]) = {
     val f = apply(fname, fn);
     { (t1: Column[T1], t2: Column[T2], t3: Column[T3]) => f(Seq(t1, t2, t3)) }
   }
