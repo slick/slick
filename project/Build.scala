@@ -168,7 +168,13 @@ object SlickBuild extends Build {
   lazy val fmpp = TaskKey[Seq[File]]("fmpp")
   lazy val fmppConfig = config("fmpp") hide
   lazy val fmppSettings = inConfig(Compile)(Seq(sourceGenerators <+= fmpp, fmpp <<= fmppTask)) ++ Seq(
-    libraryDependencies += "net.sourceforge.fmpp" % "fmpp" % "0.9.14" % fmppConfig.name,
+    libraryDependencies ++= Seq(
+      ("net.sourceforge.fmpp" % "fmpp" % "0.9.14" % fmppConfig.name).intransitive,
+      "org.freemarker" % "freemarker" % "2.3.20" % fmppConfig.name,
+      "oro" % "oro" % "2.0.8" % fmppConfig.name,
+      "org.beanshell" % "bsh" % "2.0b5" % fmppConfig.name,
+      "xml-resolver" % "xml-resolver" % "1.2" % fmppConfig.name
+    ),
     ivyConfigurations += fmppConfig,
     fullClasspath in fmppConfig <<= update map { _ select configurationFilter(fmppConfig.name) map Attributed.blank },
     //mappings in (Compile, packageSrc) <++= // Add generated sources to sources JAR
