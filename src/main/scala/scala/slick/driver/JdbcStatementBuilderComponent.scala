@@ -428,7 +428,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   class InsertBuilder(val node: Node) {
 
     protected[this] val Insert(_, table: TableNode, _, ProductNode(columns)) = node
-    protected[this] def qtable = quoteIdentifier(table.tableName)
+    protected[this] def qtable = quoteTableName(table)
     protected[this] def qcolumns = columns.map { case Select(_, fs: FieldSymbol) => quoteIdentifier(fs.name) }.mkString(",")
     protected[this] def qvalues = columns.map(_ => "?").mkString(",")
 
