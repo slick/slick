@@ -101,7 +101,9 @@ class ConvertToComprehensions extends Phase {
         case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
           Phase.fuseComprehensions.select(rest, if(idx == 2) Ref(gen) else newBy)(0)
       }, keepType = true)
-      Comprehension(Seq(gen -> from), groupBy = Some(newBy),
+      // Flatten the GROUP BY conditions (not all DBs support tuple syntax)
+      val newGroupBy = Some(ProductNode(Seq(newBy)).flatten.withComputedTypeNoRec)
+      Comprehension(Seq(gen -> from), groupBy = newGroupBy,
         select = Some(Pure(newSel).withComputedTypeNoRec)).nodeTyped(b.nodeType)
     // Bind to Comprehension
     case b @ Bind(gen, from, select) =>
