@@ -562,6 +562,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   class ColumnDDLBuilder(column: FieldSymbol) {
     protected val tmDelegate = typeInfoFor(column.tpe)
     protected var sqlType: String = null
+    protected var customSqlType: Boolean = false
     protected var notNull = !tmDelegate.nullable
     protected var autoIncrement = false
     protected var primaryKey = false
@@ -571,6 +572,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def init() {
       for(o <- column.options) handleColumnOption(o)
       if(sqlType eq null) sqlType = tmDelegate.sqlTypeName
+      else customSqlType = true
     }
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
