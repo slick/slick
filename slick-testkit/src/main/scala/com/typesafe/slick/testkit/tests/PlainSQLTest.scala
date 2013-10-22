@@ -76,9 +76,9 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     }
     assertEquals(Set(User(1,"szeiger"), User(2,"guest"), User(0,"admin"), User(3,"foo")), s4)
 
-    println("All users with elements.foreach:")
+    println("All users with iterator.foreach:")
     var s5 = Set[User]()
-    for(s <- getUsers(None).elements) {
+    for(s <- getUsers(None).iterator) {
       println("  "+s)
       s5 += s
     }

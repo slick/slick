@@ -46,7 +46,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
     val r6t: Array[Int] = r6
     assertEquals(Array(1, 2, 3, 4, 5).toList, r6.toList)
 
-    val it = q.elements
+    val it = q.iterator
     val sum = try {
       it.reduceLeft(_ + _)
     } finally it.close()
@@ -86,7 +86,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
 
     def f() = CloseableIterator close db.createSession after { session =>
       setUp(session)
-      q.elements()(session)
+      q.iterator()(session)
     }
 
     def g() = CloseableIterator close db.createSession after { session =>
