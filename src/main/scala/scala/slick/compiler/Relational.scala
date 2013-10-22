@@ -74,7 +74,30 @@ class ConvertToComprehensions extends Phase {
     case n => Seq((s, n))
   }
 
-  def convert(n: Node): Node = (n.nodeMapChildren(convert, keepType = true) match {
+  def convert(n: Node): Node = convert1(n.nodeMapChildren(convert, keepType = true)) match {
+    case c1 @ Comprehension(from1, where1, None, orderBy1,
+        Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)),
+        fetch, offset) =>
+      c2.copy(from = from1 ++ from2, where = where1 ++ where2,
+        orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset
+      ).nodeTyped(c1.nodeType)
+    case n => n
+  }
+
+  def convert1(n: Node): Node = n match {
+    // Fuse simple mappings. This enables the use of multiple mapping steps
+    // for extracting aggregated values from groups. We have to do it here
+    // because Comprehension fusion comes after the special rewriting that
+    // we have to do for GroupBy aggregation.
+    case Bind(ogen, Comprehension(Seq((igen, from)), Nil, None, Nil, Some(Pure(isel, _)), None, None), Pure(osel, oident)) =>
+      logger.debug("Fusing simple mapping:", n)
+      val sel = osel.replace({
+        case FwdPath(base :: rest) if base == ogen =>
+          rest.foldLeft(isel)(_ select _)
+      }, keepType = true)
+      val res = Bind(igen, from, Pure(sel, oident).nodeTyped(n.nodeType)).nodeTyped(n.nodeType)
+      logger.debug("Fused to:", res)
+      convert1(res)
     // Table to Comprehension
     case t: TableNode =>
       val gen = new AnonSymbol
@@ -121,14 +144,6 @@ class ConvertToComprehensions extends Phase {
         if(take == Some(0)) Comprehension(from = mkFrom(new AnonSymbol, from), where = Seq(LiteralNode(false)))
         else Comprehension(from = mkFrom(new AnonSymbol, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
       c.nodeTyped(td.nodeType)
-    case n => n
-  }) match {
-    case c1 @ Comprehension(from1, where1, None, orderBy1,
-        Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)),
-        fetch, offset) =>
-      c2.copy(from = from1 ++ from2, where = where1 ++ where2,
-        orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset
-      ).nodeTyped(c1.nodeType)
     case n => n
   }
 
