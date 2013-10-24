@@ -81,12 +81,26 @@ abstract class Query[+E, U] extends Rep[Seq[U]] { self =>
   }
 
   def union[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](Union(toNode, other.toNode, false), unpackable)
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.Union), unpackable)
 
   def unionAll[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](Union(toNode, other.toNode, true), unpackable)
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.UnionAll), unpackable)
+    
+  def intersect[O >: E, R](other: Query[O, U]) =
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.Intersect), unpackable)
+
+  def minus[O >: E, R](other: Query[O, U]) =
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.Except), unpackable)
+
+  def except[O >: E, R](other: Query[O, U]) = minus(other) 
 
   def ++[O >: E, R](other: Query[O, U]) = unionAll(other)
+  
+  def |[O >: E, R](other: Query[O, U]) = union(other) 
+  
+  def &[O >: E, R](other: Query[O, U]) = intersect(other)
+  
+  def &~[O >: E, R](other: Query[O, U]) = minus(other)
 
   def length: Column[Int] = Library.CountAll.column(toNode)
   def countDistinct: Column[Int] = Library.CountDistinct.column(toNode)
