@@ -3,7 +3,7 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
-class UnionTest extends TestkitTest[RelationalTestDB] {
+class SetBinaryOperatorTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
   override val reuseInstance = true
 
@@ -57,7 +57,14 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     println("Combined and sorted")
     q3.run.foreach(o => println("  "+o))
     assertEquals(List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")), q3.run)
+    
+    val q4 = ((q1 union q2) intersect q1).sortBy(_._2.asc)
+    assertEquals(List((2,"Amy"), (3,"Steve")), q4.run)
 
+    val q5 = ((q1 union q2) minus q1).sortBy(_._2.asc)
+    assertEquals(List((7,"Ben"), (8,"Greg"), (6,"Leonard")), q5.run)
+    
+    
     (managers.ddl ++ employees.ddl).drop
   }
 
@@ -69,10 +76,16 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
       (3, "Steve", "IT")
     )
 
-    def f (s: String) = managers where { _.name === s}
-    val q = f("Peter") union f("Amy")
-    assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.run.toSet)
+    def f1 (s: String) = managers where { _.name === s}
+    val q1 = f1("Peter") union f1("Amy")
+    assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q1.run.toSet)
+    
+    val q2 = managers intersect f1("Peter")
+    assertEquals(Set((1, "Peter", "HR")), q2.run.toSet)
 
+    val q3 = (managers minus f1("Peter"))
+    assertEquals(Set((2, "Amy", "IT"),(3, "Steve", "IT")), q3.run.toSet)
+    
     managers.ddl.drop
   }
 
@@ -113,5 +126,9 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r2)
     val r3 = q3.run.toSet
     assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)), r3)
+    val r4 = (q3 intersect q1).run.toSet
+    assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L)), r4)
+    val r5 = (q3 minus q1).run.toSet
+    assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r5)
   }
 }

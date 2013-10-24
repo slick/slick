@@ -163,13 +163,25 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.drop(num)
         b.result()
-      case Union(left, right, all, _, _) =>
+      case SetBinaryOperator(left, right, operator, _, _) =>
         val leftV = run(left).asInstanceOf[Coll]
         val rightV = run(right).asInstanceOf[Coll]
-        if(all) leftV ++ rightV
-        else leftV ++ {
-          val s = leftV.toSet
-          rightV.filter(e => !s.contains(e))
+        if(SetBinaryOperatorType.UnionAll == SetBinaryOperatorType(operator)) {
+          leftV ++ rightV
+        }
+        else if(SetBinaryOperatorType.Union == SetBinaryOperatorType(operator)) {
+          leftV ++ {
+            val s = leftV.toSet
+            rightV.filter(e => !s.contains(e))
+          }
+        } 
+        else if(SetBinaryOperatorType.Intersect == SetBinaryOperatorType(operator)) {
+          //FIXME JuBu: is conversion to sets ok? - probably not 
+          (leftV.toSet intersect rightV.toSet).toIterable
+        }
+        else if(SetBinaryOperatorType.Except == SetBinaryOperatorType(operator)) {
+           //FIXME JuBu: is conversion to sets ok? - probably not
+          (leftV.toSet diff rightV.toSet).toIterable
         }
       case GetOrElse(ch, default) =>
         run(ch).asInstanceOf[Option[Any]].getOrElse(default())
