@@ -4,7 +4,7 @@ import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend}
+import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend, HasLiteralForm}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
 
@@ -83,7 +83,7 @@ trait JdbcDriver extends SqlDriver
 
   override val profile: JdbcProfile = this
 
-  def quote[T](v: T)(implicit tm: TypedType[T]): String = typeInfoFor(tm).valueToSQLLiteral(v)
+  def quote[T](v: T)(implicit literal: HasLiteralForm[T]): String = literal.valueToSQLLiteral(v)
 }
 
 object JdbcDriver extends JdbcDriver

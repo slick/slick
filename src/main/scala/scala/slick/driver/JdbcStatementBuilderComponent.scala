@@ -11,6 +11,7 @@ import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
 import scala.slick.profile.RelationalProfile
+import scala.slick.jdbc.HasLiteralForm
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
@@ -191,10 +192,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case n @ LiteralNode(v) =>
         val ti = typeInfoFor(n.tpe)
-        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, param) => ti.setValue(v, p) }
+        if(n.volatileHint || !ti.isInstanceOf[HasLiteralForm[_]]) b +?= { (p, param) => ti.setValue(v, p) }
         else if((true == v) && useIntForBoolean) b"\(1=1\)"
         else if((false == v) && useIntForBoolean) b"\(1=0\)"
-        else b += ti.valueToSQLLiteral(v)
+        else b += ti.asInstanceOf[HasLiteralForm[Any]].valueToSQLLiteral(v)
       case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
         typeInfoFor(tpe).setValue(extractor(param), p)
       }
@@ -246,9 +247,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
         b"\($l like $r escape '$esc'\)"
       case Library.StartsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote(likeEncode(s)+'%')(ScalaBaseType.stringType)} escape '^'\)"
+        b"\($n like ${quote(likeEncode(s)+'%')(Implicit.stringColumnType)} escape '^'\)"
       case Library.EndsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote("%"+likeEncode(s))(ScalaBaseType.stringType)} escape '^'\)"
+        b"\($n like ${quote("%"+likeEncode(s))(Implicit.stringColumnType)} escape '^'\)"
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
       case a @ Library.Cast(ch @ _*) =>
@@ -582,7 +583,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.PrimaryKey => primaryKey = true
-      case ColumnOption.Default(v) => defaultLiteral = typeInfoFor(column.tpe).valueToSQLLiteral(v)
+      case ColumnOption.Default(v) => defaultLiteral = typeInfoFor(column.tpe) match {
+        case tmdWithLiteral : HasLiteralForm[Any]@unchecked => tmdWithLiteral.valueToSQLLiteral(v)
+        case tmd => throw new SlickException("Cannot use " + tmd.sqlTypeName + " as a default value because it does not have a literal representation (HasLiteralForm).")
+      }
     }
 
     def appendColumn(sb: StringBuilder) {

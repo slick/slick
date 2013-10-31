@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import java.util.UUID
 import scala.slick.lifted._
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType, HasLiteralForm}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
@@ -107,14 +107,13 @@ trait PostgresDriver extends JdbcDriver { driver =>
       }
     }
 
-    class UUIDJdbcType extends super.UUIDJdbcType {
+    class UUIDJdbcType extends super.UUIDJdbcType with HasLiteralForm[UUID]{
       override def sqlTypeName = "UUID"
       override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
       override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
       override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
       override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
-      override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
-      override def hasLiteralForm = true
+      def valueToSQLLiteral(value: UUID) = "'" + value + "'"
     }
   }
 }
