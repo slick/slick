@@ -15,7 +15,9 @@ abstract class RefTag(val path: List[Symbol]) extends Tag
 /** A Tag marking the base table instance itself */
 trait BaseTag extends Tag
 
+/** The driver-independent superclass of all table row objects. */
 abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends ColumnBase[T] {
+  /** The client-side type of the table as defined by its * projection */
   type TableElementType
 
   def tableIdentitySymbol: TableIdentitySymbol
@@ -24,6 +26,11 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   def encodeRef(path: List[Symbol]) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
+  /** The default projection of the table. This defines the type you get when
+    * you return a table row from a Query. The `ProvenShape` type ensures that
+    * there is a `Shape` available for translating between the `Column`-based
+    * type in * and the client-side type without `Column` in the table's type
+    * parameter. */
   def * : ProvenShape[T]
 
   override def toNode = tableTag match {
@@ -40,6 +47,18 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
       case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == tableNode => f
     }.toSeq.distinct
 
+  /** Define a foreign key relationship.
+    *
+    * @param name The name of the foreign key in the database (only used when
+    *             you define the database schema with Slick).
+    * @param sourceColumns A column or a projection of multiple columns from
+    *                      this table defining the source of the foreign key.
+    * @param targetTableQuery The `TableQuery` for the target table.
+    * @param targetColumns A function that maps from the target table to the
+    *                      column (or columns) to which the foreign key points.
+    * @param onUpdate A `ForeignKeyAction`, default being `NoAction`.
+    * @param onDelete A `ForeignKeyAction`, default being `NoAction`.
+    */
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT, _])
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
@@ -54,6 +73,11 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, q.toNode, fv), q.unpackable, IndexedSeq(fk), q, generator, aliased.value)
   }
 
+  /** Define the primary key for this table.
+    * It is usually simpler to use the `O.PrimaryKey` option on the primary
+    * key column but this method allows you to define compound primary keys
+    * or give them user-defined names (when defining the database schema
+    * with Slick). */
   def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(shape.toNode(sourceColumns)))
 
   def tableConstraints: Iterator[Constraint] = for {
@@ -68,6 +92,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
 
+  /** Define an index or a unique constraint. */
   def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)
 
   def indexes: Iterable[Index] = (for {

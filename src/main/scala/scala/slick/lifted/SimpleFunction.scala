@@ -9,10 +9,8 @@ private[lifted] abstract class SimpleFeatureNode[T](implicit val tpe: TypedType[
   type Self = SimpleFeatureNode[T]
 }
 
-/**
- * A SimpleFunction gets translated to a plain function call or JDBC/ODBC
- * scalar function {fn ...} call in SQL.
- */
+/** A SimpleFunction gets translated to a plain function call or JDBC/ODBC
+  * scalar function {fn ...} call in SQL. */
 trait SimpleFunction extends Node {
   val name: String
   val scalar = false
@@ -45,6 +43,7 @@ object SimpleFunction {
   }
 }
 
+/** A SimpleBinaryOperator gets translated to a binary operator call in SQL. */
 trait SimpleBinaryOperator extends BinaryNode {
   val name: String
 }
@@ -61,11 +60,15 @@ object SimpleBinaryOperator {
   }
 }
 
+/** A SimpleLiteral is inserted verbatim into a SQL query string. For the
+  * purpose of handling it in the query compiler it is assumed to be an
+  * expression of the specified type. */
 final case class SimpleLiteral(name: String)(val tpe: Type) extends NullaryNode with TypedNode {
   type Self = SimpleLiteral
   def nodeRebuild = copy()(tpe)
 }
 
+/** A SimpleExpression allows arbitrary SQL code to be generated. */
 trait SimpleExpression extends Node {
   def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder): Unit
 }

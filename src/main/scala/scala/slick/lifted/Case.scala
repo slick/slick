@@ -3,6 +3,15 @@ package scala.slick.lifted
 import scala.slick.ast.{LiteralNode, IfThen, Node, ConditionalExpr, BaseTypedType, OptionTypedType, TypedType}
 import scala.slick.SlickException
 
+/** `Case` provides a DSL for conditional statements in the query language.
+  * An arbitrary number of `If`...`Then` expressions can be chained, optionally
+  * followed by `Else`, e.g.:
+  * {{{
+  *   Case If u.id < 3 Then "low" If u.id < 6 Then "medium" Else "high"
+  * }}}
+  * All result expressions have to be of compatible type (modulo nullability).
+  * If at least one of them is an `Option` type or the `Else` branch is
+  * missing, the result is also an `Option`.  */
 object Case {
 
   def If[C <: Column[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(cond.toNode)
