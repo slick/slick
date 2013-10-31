@@ -68,8 +68,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         Comprehension(select = Some(p))
       case t: TableNode =>
         Comprehension(from = Seq(newSym -> t))
-      case u: Union =>
-        Comprehension(from = Seq(newSym -> u))
+      case s: SetBinaryOperator =>
+        Comprehension(from = Seq(newSym -> s))
       case n =>
         if(liftExpression) toComprehension(Pure(n))
         else throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
@@ -173,10 +173,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
             case LiteralNode(true) =>
             case _ => b" on !$on"
           }
-        case Union(left, right, all, _, _) =>
+        case SetBinaryOperator(left, right, operator, _, _) =>
           b"\("
           buildFrom(left, None, true)
-          if(all) b" union all " else b" union "
+          b+= (" " + SetBinaryOperatorType(operator) + " ")
           buildFrom(right, None, true)
           b"\)"
           addAlias

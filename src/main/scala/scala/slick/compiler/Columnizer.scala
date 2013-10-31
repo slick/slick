@@ -152,9 +152,9 @@ class RelabelUnions extends Phase {
   }
 
   def relabelUnions(n: Node): Node = n match {
-    case u @ Union(BindTarget(Pure(StructNode(ls), lts)), rb @ BindTarget(Pure(StructNode(rs), _)), _, _, _) =>
+    case sbo @ SetBinaryOperator(BindTarget(Pure(StructNode(ls), lts)), rb @ BindTarget(Pure(StructNode(rs), _)), _, _, _) =>
       val rs2 = (ls, rs).zipped.map { case ((s, _), (_, n)) => (s, n) }
-      val u2 = u.copy(right = BindTarget.replace(rb, Pure(StructNode(rs2), lts)))
+      val u2 = sbo.copy(right = BindTarget.replace(rb, Pure(StructNode(rs2), lts)))
       u2.nodeMapChildren(relabelUnions).nodeWithComputedType()
     case n => n.nodeMapChildren(relabelUnions, keepType = true)
   }
