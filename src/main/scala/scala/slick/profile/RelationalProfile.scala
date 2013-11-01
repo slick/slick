@@ -21,7 +21,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes {
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
-    implicit def valueToConstColumn[T : TypedType](v: T) = new ConstColumn[T](v)
+    implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
     implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: TableQuery[T, U]) =
       new TableQueryExtensionMethods[T, U](q)
@@ -38,11 +38,11 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   class TableQueryExtensionMethods[T <: Table[_], U](val q: TableQuery[T, U]) {
     def ddl: SchemaDescription = buildTableSchemaDescription(q.unpackable.value)
 
-    /** Create a ParameterizedQuery which selects all rows where the specified
+    /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
-    def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): ParameterizedQuery[P, U] = {
+    def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): CompiledFunction[Column[P] => Query[T, U], Column[P], P, Query[T, U], Seq[U]] = {
       import driver.Implicit._
-      Parameters[P].flatMap { p => q.filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
+      Compiled { (p: Column[P]) => q.filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
     }
   }
 }
@@ -182,7 +182,6 @@ trait RelationalTypesComponent { driver: BasicDriver =>
     implicit def longColumnType: BaseColumnType[Long] with NumericTypedType
     implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
-    implicit def unitColumnType: BaseColumnType[Unit]
   }
 }
 

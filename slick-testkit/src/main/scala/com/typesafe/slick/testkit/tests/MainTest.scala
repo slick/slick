@@ -134,7 +134,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     val q4d = for (
       u <- users if u.first inSetBind List("Homer", "Marge");
       o <- orders if o.userID is u.id
-    ) yield (u.first, (ConstColumn(1) + o.orderID, 1), o.product)
+    ) yield (u.first, (LiteralColumn(1) + o.orderID, 1), o.product)
     println("q4d: " + q4d.selectStatement)
     println("Orders for Homer and Marge:")
     q4d.foreach(o => println("  "+o))
@@ -176,11 +176,15 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("Users without Orders left: " + q6.first)
     assertEquals(0, q6.first)
 
-    val q7 = users.where(_.first is "Homer".bind).map(_.first)
-    println("q7: " + q7.updateStatement)
-    val updated1 = q7.update("Homer Jay")
+    val q7 = Compiled { (s: Column[String]) => users.where(_.first is s).map(_.first) }
+    println("q7: " + q7("Homer").updateStatement)
+    val updated1 = q7("Homer").update("Homer Jay")
     println("Updated "+updated1+" row(s)")
     assertEquals(1, updated1)
+
+    assertEquals(1, q7("Marge").map(_.length).run)
+    q7("Marge").delete
+    assertEquals(0, q7("Marge").map(_.length).run)
 
     val q8 = for(u <- users if u.last.isNull) yield (u.first, u.last)
     println("q8: " + q8.updateStatement)

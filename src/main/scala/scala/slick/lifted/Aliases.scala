@@ -10,9 +10,13 @@ trait Aliases {
   val Query = lifted.Query
   type TableQuery[+E <: AbstractTable[_], U] = lifted.TableQuery[E, U]
   val TableQuery = lifted.TableQuery
+  type Compiled[T] = lifted.Compiled[T]
+  val Compiled = lifted.Compiled
   type Column[T] = lifted.Column[T]
   type ConstColumn[T] = lifted.ConstColumn[T]
   val ConstColumn = lifted.ConstColumn
+  type LiteralColumn[T] = lifted.LiteralColumn[T]
+  val LiteralColumn = lifted.LiteralColumn
   val Case = lifted.Case
   type Rep[T] = lifted.Rep[T]
   val Functions = lifted.Functions

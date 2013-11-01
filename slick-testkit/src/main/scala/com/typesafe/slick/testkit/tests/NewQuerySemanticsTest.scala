@@ -484,7 +484,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     val r0 = q0.run
     assertEquals(1, r0)
 
-    val q1 = Parameters[Int].flatMap { n =>
+    val q1 = Compiled { (n: Column[Int]) =>
       as.filter(_.id is n).map(a => as.length)
     }
     val r1 = q1(42).run

@@ -36,7 +36,7 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
     val q1c = (for {
       a ~ b <- ts.map(t => (t.a, t.b))
       c <- ts.map(t => t.c)
-    } yield (a, b, c, ConstColumn(5))).sortBy(t => t._3 ~ t._1)
+    } yield (a, b, c, LiteralColumn(5))).sortBy(t => t._3 ~ t._1)
     assertEquals(res1, q1c.run)
 
     val q1d = (for {
@@ -53,7 +53,7 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
     assertEquals(res2, q2a.run.toSet)
 
     val q2b = for {
-      (a, b, c) <- ts.where(_.a === 1).map(t => (t.a, t.b, ConstColumn(4))) unionAll ts.where(_.a === 2).map(t => (t.a, t.b, ConstColumn(5)))
+      (a, b, c) <- ts.where(_.a === 1).map(t => (t.a, t.b, LiteralColumn(4))) unionAll ts.where(_.a === 2).map(t => (t.a, t.b, LiteralColumn(5)))
     } yield a ~ b ~ (c*2)
     assertEquals(res2, q2b.run.toSet)
 

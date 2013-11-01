@@ -27,8 +27,22 @@ object Column {
   def forNode[T : TypedType](n: Node): Column[T] = new Column[T] { def toNode = n }
 }
 
+/** A scalar value that is known at the client side at the time a query is executed. */
+abstract class ConstColumn[T](implicit tt: TypedType[T]) extends Column[T] {
+  override def encodeRef(path: List[Symbol]): ConstColumn[T] = new ConstColumn[T] { def toNode = Path(path) }
+}
+
+object ConstColumn {
+  @deprecated("Use LiteralColumn.apply instead of ConstColumn.apply", "2.0.0-M3")
+  def apply[T](value: T)(implicit tt: TypedType[T]): LiteralColumn[T] = LiteralColumn[T](value)
+}
+
+/** A scalar query parameter. This is a placeholder without a known value
+  * which has to be compiled to a bind variable. */
+class ParameterColumn[T](val toNode: Node)(implicit tt: TypedType[T]) extends ConstColumn[T]
+
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
-final case class ConstColumn[T](value: T)(implicit tt: TypedType[T]) extends Column[T] {
+final case class LiteralColumn[T](value: T)(implicit tt: TypedType[T]) extends ConstColumn[T] {
   def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
   def toNode = LiteralNode(tt, value)
 }

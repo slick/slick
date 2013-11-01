@@ -20,7 +20,7 @@ final class ForeignKey( //TODO Simplify this mess!
     val linearizedTargetColumns: IndexedSeq[Node],
     val linearizedTargetColumnsForOriginalTargetTable: IndexedSeq[Node],
     val targetTable: TableNode,
-    val columnsShape: Shape[_, _, _])
+    val columnsShape: Shape[_ <: ShapeLevel.Flat, _, _, _])
 
 object ForeignKey {
   def apply[TT <: AbstractTable[_], P](
@@ -28,7 +28,7 @@ object ForeignKey {
       sourceTable: Node,
       targetTableShaped: ShapedValue[TT, _],
       originalTargetTable: TT,
-      pShape: Shape[P, _, _],
+      pShape: Shape[_ <: ShapeLevel.Flat, P, _, _],
       originalSourceColumns: P,
       originalTargetColumns: TT => P,
       onUpdate: ForeignKeyAction,
@@ -75,7 +75,7 @@ class ForeignKeyQuery[E <: AbstractTable[_], U](
   def & (other: ForeignKeyQuery[E, U]): ForeignKeyQuery[E, U] = {
     val newFKs = fks ++ other.fks
     val conditions = newFKs.map { fk =>
-      val sh = fk.columnsShape.asInstanceOf[Shape[Any, Any, Any]]
+      val sh = fk.columnsShape.asInstanceOf[Shape[ShapeLevel.Flat, Any, Any, Any]]
       Library.==.typed[Boolean](sh.toNode(fk.targetColumns(aliasedValue)), sh.toNode(fk.sourceColumns))
     }.reduceLeft[Node]((a, b) => Library.And.typed[Boolean](a, b))
     val newDelegate = Filter.ifRefutable(generator, targetBaseQuery.toNode, conditions)

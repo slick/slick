@@ -25,7 +25,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     case ScalaBaseType.nullType => columnTypes.nullJdbcType
     case ScalaBaseType.shortType => columnTypes.shortJdbcType
     case ScalaBaseType.stringType => columnTypes.stringJdbcType
-    case ScalaBaseType.unitType => columnTypes.unitJdbcType
     case o: OptionType => typeInfoFor(o.elementType).optionType
     case t => throw new SlickException("JdbcProfile has no TypeInfo for type "+t)
   }): JdbcType[_]).asInstanceOf[JdbcType[Any]]
@@ -58,7 +57,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     val stringJdbcType = new StringJdbcType
     val timeJdbcType = new TimeJdbcType
     val timestampJdbcType = new TimestampJdbcType
-    val unitJdbcType = new UnitJdbcType
     val uuidJdbcType = new UUIDJdbcType
     val bigDecimalJdbcType = new BigDecimalJdbcType
     val nullJdbcType = new NullJdbcType
@@ -205,15 +203,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       override def valueToSQLLiteral(value: Timestamp) = "{ts '"+value.toString+"'}"
     }
 
-    class UnitJdbcType extends DriverJdbcType[Unit] {
-      def sqlType = java.sql.Types.INTEGER
-      def setValue(v: Unit, p: PositionedParameters) = p.setInt(1)
-      def setOption(v: Option[Unit], p: PositionedParameters) = p.setIntOption(v.map(_ => 1))
-      def nextValue(r: PositionedResult) = { r.nextInt; () }
-      def updateValue(v: Unit, r: PositionedResult) = r.updateInt(1)
-      override def valueToSQLLiteral(value: Unit) = "1"
-    }
-
     class UUIDJdbcType extends DriverJdbcType[UUID] {
       def sqlType = java.sql.Types.OTHER
       def setValue(v: UUID, p: PositionedParameters) = p.setBytes(toBytes(v))
@@ -285,7 +274,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     implicit def stringColumnType = columnTypes.stringJdbcType
     implicit def timeColumnType = columnTypes.timeJdbcType
     implicit def timestampColumnType = columnTypes.timestampJdbcType
-    implicit def unitColumnType = columnTypes.unitJdbcType
     implicit def uuidColumnType = columnTypes.uuidJdbcType
     implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
   }
