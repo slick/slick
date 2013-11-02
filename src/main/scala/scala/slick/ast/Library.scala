@@ -8,9 +8,17 @@ object Library {
   class JdbcFunction(name: String) extends FunctionSymbol(name)
   class SqlFunction(name: String) extends FunctionSymbol(name)
   class SqlOperator(name: String) extends FunctionSymbol(name)
+  class SetAlgebraOperator(name: String) extends FunctionSymbol(name)
   class AggregateFunction(name: String) extends FunctionSymbol(name) with AggregateFunctionSymbol
   class SqlAggregateFunction(name: String) extends SqlFunction(name) with AggregateFunctionSymbol
 
+  // set algebra operators
+  val Union = new SetAlgebraOperator("union")
+  val UnionAll = new SetAlgebraOperator("union all")
+  val Intersect = new SetAlgebraOperator("intersect")
+  val Except = new SetAlgebraOperator("except")
+  
+  
   // Boolean operators
   val And = new SqlOperator("and")
   val Or = new SqlOperator("or")

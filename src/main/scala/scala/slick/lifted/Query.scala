@@ -116,30 +116,35 @@ abstract class Query[+E, U] extends Rep[Seq[U]] { self =>
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are eliminated from the result. */
   def union[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.Union), unpackable)
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, Library.Union), unpackable)
 
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are preserved. */
   def unionAll[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.UnionAll), unpackable)
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, Library.UnionAll), unpackable)
     
   def intersect[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.Intersect), unpackable)
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, Library.Intersect), unpackable)
 
-  def minus[O >: E, R](other: Query[O, U]) =
-    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, SetBinaryOperatorType.Except), unpackable)
+  def diff[O >: E, R](other: Query[O, U]) =
+    new WrappingQuery[O, U](SetBinaryOperator(toNode, other.toNode, Library.Except), unpackable)
 
-  def except[O >: E, R](other: Query[O, U]) = minus(other) 
 
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are preserved. */
   def ++[O >: E, R](other: Query[O, U]) = unionAll(other)
-  
+
+  /** Return a new query containing the elements from both operands. Duplicate
+    * elements are eliminated. */
   def |[O >: E, R](other: Query[O, U]) = union(other) 
   
+  /** Return a new query containing the elements from intersection of both operands. Duplicate
+    * elements are eliminated. */
   def &[O >: E, R](other: Query[O, U]) = intersect(other)
-  
-  def &~[O >: E, R](other: Query[O, U]) = minus(other)
+
+  /** Return a new query containing the elements from expect (minus) of both operands. Duplicate
+    * elements are eliminated. */
+  def &~[O >: E, R](other: Query[O, U]) = diff(other)
 
   /** The total number of elements of the query. */
   def length: Column[Int] = Library.CountAll.column(toNode)

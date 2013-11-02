@@ -176,7 +176,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         case SetBinaryOperator(left, right, operator, _, _) =>
           b"\("
           buildFrom(left, None, true)
-          b+= (" " + SetBinaryOperatorType(operator) + " ")
+          b+= (" " + operator.name + " ")
           buildFrom(right, None, true)
           b"\)"
           addAlias
