@@ -61,7 +61,7 @@ class SetBinaryOperatorTest extends TestkitTest[RelationalTestDB] {
     val q4 = ((q1 union q2) intersect q1).sortBy(_._2.asc)
     assertEquals(List((2,"Amy"), (3,"Steve")), q4.run)
 
-    val q5 = ((q1 union q2) minus q1).sortBy(_._2.asc)
+    val q5 = ((q1 union q2) diff q1).sortBy(_._2.asc)
     assertEquals(List((7,"Ben"), (8,"Greg"), (6,"Leonard")), q5.run)
     
     
@@ -83,7 +83,7 @@ class SetBinaryOperatorTest extends TestkitTest[RelationalTestDB] {
     val q2 = managers intersect f1("Peter")
     assertEquals(Set((1, "Peter", "HR")), q2.run.toSet)
 
-    val q3 = (managers minus f1("Peter"))
+    val q3 = (managers diff f1("Peter"))
     assertEquals(Set((2, "Amy", "IT"),(3, "Steve", "IT")), q3.run.toSet)
     
     managers.ddl.drop
@@ -128,7 +128,7 @@ class SetBinaryOperatorTest extends TestkitTest[RelationalTestDB] {
     assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)), r3)
     val r4 = (q3 intersect q1).run.toSet
     assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L)), r4)
-    val r5 = (q3 minus q1).run.toSet
+    val r5 = (q3 diff q1).run.toSet
     assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r5)
   }
 }
