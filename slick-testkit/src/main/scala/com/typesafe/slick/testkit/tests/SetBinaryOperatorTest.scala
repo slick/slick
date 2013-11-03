@@ -58,12 +58,21 @@ class SetBinaryOperatorTest extends TestkitTest[RelationalTestDB] {
     q3.run.foreach(o => println("  "+o))
     assertEquals(List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")), q3.run)
     
+    // q*a - tests <=> in implementation of original function (union) with alias (|) 
+    val q3a = (q1 | q2).sortBy(_._2.asc)
+    assertEquals(q3a.run, q3.run)    
+    
     val q4 = ((q1 union q2) intersect q1).sortBy(_._2.asc)
     assertEquals(List((2,"Amy"), (3,"Steve")), q4.run)
 
+    val q4a = ((q1 | q2) & q1).sortBy(_._2.asc)
+    assertEquals(q4a.run, q4.run)    
+    
     val q5 = ((q1 union q2) diff q1).sortBy(_._2.asc)
     assertEquals(List((7,"Ben"), (8,"Greg"), (6,"Leonard")), q5.run)
     
+    val q5a = ((q1 | q2) &~ q1).sortBy(_._2.asc)
+    assertEquals(q5a.run, q5.run)    
     
     (managers.ddl ++ employees.ddl).drop
   }
@@ -80,11 +89,31 @@ class SetBinaryOperatorTest extends TestkitTest[RelationalTestDB] {
     val q1 = f1("Peter") union f1("Amy")
     assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q1.run.toSet)
     
+    // q*a - tests <=> in implementation of original function (union) with alias (|)
+    val q1a = f1("Peter") | f1("Amy")
+    assertEquals(q1a.run, q1.run)
+    
     val q2 = managers intersect f1("Peter")
     assertEquals(Set((1, "Peter", "HR")), q2.run.toSet)
 
+    val q2a = managers & f1("Peter")
+    assertEquals(q2a.run, q2.run)
+    
     val q3 = (managers diff f1("Peter"))
     assertEquals(Set((2, "Amy", "IT"),(3, "Steve", "IT")), q3.run.toSet)
+
+    val q3a = (managers &~ f1("Peter"))
+    assertEquals(q3a.run, q3.run)
+    
+    val q4h = managers
+    val q4 = (managers unionAll managers)
+    val res4 = q4.run
+    val res4h = q4h.run
+    assertEquals(res4.length, 2*res4h.length)
+    assertEquals(res4.toSet, res4h.toSet)
+    
+    val q4a = (managers ++ managers)
+    assertEquals(res4, q4a.run)
     
     managers.ddl.drop
   }
