@@ -13,6 +13,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     import TupleMethods._
 
     case class User(id: Option[Int], first: String, last: String)
+    case class Foo[T](value: T)
 
     class Users(tag: Tag) extends Table[User](tag, "users") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -22,6 +23,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def baseProjection = first ~ last
       def forInsert = baseProjection.shaped <>
         ({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
+      def asFoo = forInsert <> ((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
     val users = TableQuery[Users]
     val usersByID = users.findBy(_.id)
@@ -32,9 +34,9 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
      * column. H2 and SQLite allow this but PostgreSQL doesn't. */
     users.map(_.forInsert).insertAll(
       User(None, "Marge", "Bouvier"),
-      User(None, "Carl", "Carlson"),
-      User(None, "Lenny", "Leonard")
+      User(None, "Carl", "Carlson")
     )
+    users.map(_.asFoo) += Foo(User(None, "Lenny", "Leonard"))
 
     val lastNames = Set("Bouvier", "Ferdinand")
     assertEquals(1, users.where(_.last inSet lastNames).list.size)
@@ -51,6 +53,10 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals(
       Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")),
       users.where(_.id between(1, 2)).list.toSet
+    )
+    assertEquals(
+      Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson"))),
+      users.where(_.id between(1, 2)).map(_.asFoo).list.toSet
     )
     assertEquals(
       User(Some(3), "Carl", "Carlson"),
