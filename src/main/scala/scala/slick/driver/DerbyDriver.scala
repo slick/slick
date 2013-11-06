@@ -7,6 +7,7 @@ import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import slick.compiler.CompilerState
+import scala.slick.jdbc.HasLiteralForm
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -100,7 +101,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
          * explicit type annotation (in the form of a CAST expression). */
         val tmd = typeInfoFor(c.tpe)
-        if(c.volatileHint || !tmd.hasLiteralForm) {
+        if(c.volatileHint || !tmd.isInstanceOf[HasLiteralForm[_]]) {
           b"cast("
           b +?= { (p, param) => tmd.setValue(v, p) }
           b" as ${tmd.sqlTypeName})"

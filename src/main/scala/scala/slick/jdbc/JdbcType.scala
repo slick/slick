@@ -41,20 +41,9 @@ trait JdbcType[T] extends TypedType[T] { self =>
     case None => r.updateNull()
   }
 
-  /** Convert a value to a SQL literal.
-    * This should throw a `SlickException` if `hasLiteralForm` is false. */
-  def valueToSQLLiteral(value: T): String
-
   def nullable = false
 
-  /** Indicates whether values of this type have a literal representation in
-    * SQL statements.
-    * This must return false if `valueToSQLLiteral` throws a SlickException.
-    * QueryBuilder (and driver-specific subclasses thereof) uses this method
-    * to treat LiteralNodes as volatile (i.e. using bind variables) as needed. */
-  def hasLiteralForm: Boolean
-
-  override def optionType: OptionTypedType[T] with JdbcType[Option[T]] = new OptionTypedType[T] with JdbcType[Option[T]] {
+  trait OptionTypeDef extends JdbcType[Option[T]] with OptionTypedType[T]  {
     val elementType = self
     def sqlType = self.sqlType
     override def sqlTypeName = self.sqlTypeName
@@ -63,16 +52,16 @@ trait JdbcType[T] extends TypedType[T] { self =>
     def setOption(v: Option[Option[T]], p: PositionedParameters) = self.setOption(v.getOrElse(None), p)
     def nextValue(r: PositionedResult) = self.nextOption(r)
     def updateValue(v: Option[T], r: PositionedResult) = self.updateOption(v, r)
-    override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
     override def nullable = true
     override def toString = s"Option[$self]"
-    def hasLiteralForm = self.hasLiteralForm
     def mapChildren(f: Type => Type): OptionTypedType[T] with JdbcType[Option[T]] = {
       val e2 = f(elementType)
       if(e2 eq elementType) this
       else e2.asInstanceOf[JdbcType[T]].optionType
     }
   }
+  type OptionType = OptionTypeDef
+  override def optionType: OptionType = new OptionTypeDef{}
 
   override def toString = {
     def cln = getClass.getName
@@ -89,15 +78,22 @@ object JdbcType {
     yield f.get(null).asInstanceOf[Int] -> f.getName)
 }
 
-abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U], tag: ClassTag[T]) extends JdbcType[T] {
+/** Indicates that values of this type have a literal representation in
+  * SQL statements.
+  * QueryBuilder (and driver-specific subclasses thereof) uses this
+  * to treat LiteralNodes as volatile (i.e. using bind variables) as needed. */
+trait HasLiteralForm[T]{
+  /** Convert a value to a SQL literal. */
+  def valueToSQLLiteral(value: T): String
+}
+
+abstract class MappedJdbcType[T, U](implicit protected val tmd: JdbcType[U], tag: ClassTag[T]) extends JdbcType[T] {
   def map(t: T): U
   def comap(u: U): T
 
   def newSqlType: Option[Int] = None
   def newSqlTypeName: Option[String] = None
-  def newValueToSQLLiteral(value: T): Option[String] = None
   def newNullable: Option[Boolean] = None
-  def newHasLiteralForm: Option[Boolean] = None
 
   def sqlType = newSqlType.getOrElse(tmd.sqlType)
   override def sqlTypeName = newSqlTypeName.getOrElse(tmd.sqlTypeName)
@@ -107,16 +103,22 @@ abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U], tag: ClassTag[T])
   override def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = tmd.nextValue(r); if(r.rs.wasNull) d else comap(v) }
   override def nextOption(r: PositionedResult): Option[T] = { val v = tmd.nextValue(r); if(r.rs.wasNull) None else Some(comap(v)) }
   def updateValue(v: T, r: PositionedResult) = tmd.updateValue(map(v), r)
-  override def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
   override def nullable = newNullable.getOrElse(tmd.nullable)
-  def hasLiteralForm = newHasLiteralForm.getOrElse(tmd.hasLiteralForm)
   def scalaType = ScalaBaseType[T]
 }
 
+case class MappedBaseJdbcType[T : ClassTag, U : JdbcType](tmap: T => U, tcomap: U => T) extends MappedJdbcType[T,U] with BaseTypedType[T]{
+  def map(t: T) = tmap(t)
+  def comap(u: U) = tcomap(u)
+}
+
 object MappedJdbcType {
-  def base[T : ClassTag, U : JdbcType](tmap: T => U, tcomap: U => T): JdbcType[T] with BaseTypedType[T] =
-    new MappedJdbcType[T, U] with BaseTypedType[T] {
-      def map(t: T) = tmap(t)
-      def comap(u: U) = tcomap(u)
+  def baseWithLiteral[T : ClassTag, U : JdbcType](tmap: T => U, tcomap: U => T)(implicit literal: HasLiteralForm[U]) =
+    new MappedBaseJdbcType(tmap, tcomap) with HasLiteralForm[T]{
+      def valueToSQLLiteral(value: T) = literal.valueToSQLLiteral(map(value))
     }
+  def base[T, U](tmap: T => U, tcomap: U => T)(implicit ttag: ClassTag[T], utype: JdbcType[U]) = utype match{
+    case hasLiteral:HasLiteralForm[U]@unchecked => baseWithLiteral(tmap,tcomap)(ttag,utype,hasLiteral)
+    case _ => MappedBaseJdbcType(tmap, tcomap)
+  }
 }
