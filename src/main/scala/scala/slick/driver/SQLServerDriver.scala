@@ -21,13 +21,15 @@ import java.sql.{Timestamp, Date, Time}
  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
  *     Sequences are not supported because SQLServer does not have this
  *     feature.</li>
+ *   <li>[[scala.slick.driver.JdbcProfile.capabilities.forceInsert]]:
+ *     Inserting explicit values into AutoInc columns with ''forceInsert''
+ *     operations is not supported.</li>
  * </ul>
- *
- * @author szeiger
  */
 trait SQLServerDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - JdbcProfile.capabilities.forceInsert
     - JdbcProfile.capabilities.returnInsertOther
     - SqlProfile.capabilities.sequence
   )

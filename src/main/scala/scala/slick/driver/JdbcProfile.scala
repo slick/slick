@@ -60,6 +60,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
 object JdbcProfile {
   object capabilities {
+    /** Can insert into AutoInc columns. */
+    val forceInsert = Capability("jdbc.forceInsert")
     /** Supports mutable result sets */
     val mutable = Capability("jdbc.mutable")
     /** Can return primary key of inserted row */
@@ -71,7 +73,7 @@ object JdbcProfile {
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, mutable, returnInsertKey, returnInsertOther)
+    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther)
   }
 }
 

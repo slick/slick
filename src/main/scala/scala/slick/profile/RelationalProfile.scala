@@ -200,8 +200,10 @@ trait RelationalMappingCompilerComponent {
   trait MappingCompiler {
 
     def compileMapping(n: Node): ResultConverter = n match {
-      case p @ Path(_) => createColumnConverter(n, p, false)
-      case OptionApply(p @ Path(_)) => createColumnConverter(n, p, true)
+      case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, false, Some(fs))
+      case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, true, Some(fs))
+      case p @ Path(_) => createColumnConverter(n, p, false, None)
+      case OptionApply(p @ Path(_)) => createColumnConverter(n, p, true, None)
       case ProductNode(ch) =>
         new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
       case GetOrElse(ch, default) =>
@@ -212,7 +214,7 @@ trait RelationalMappingCompilerComponent {
         throw new SlickException("Unexpected node in ResultSetMapping: "+n)
     }
 
-    def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter
+    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter
   }
 
   /** A node that wraps a ResultConverter */
@@ -225,7 +227,7 @@ trait RelationalMappingCompilerComponent {
   trait ResultConverter {
     def read(pr: RowReader): Any
     def update(value: Any, pr: RowUpdater): Unit
-    def set(value: Any, pp: RowWriter): Unit
+    def set(value: Any, pp: RowWriter, forced: Boolean): Unit
   }
 
   final class ProductResultConverter(children: IndexedSeq[ResultConverter]) extends ResultConverter {
@@ -234,21 +236,21 @@ trait RelationalMappingCompilerComponent {
       children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
         ch.update(v, pr)
       }
-    def set(value: Any, pp: RowWriter) =
+    def set(value: Any, pp: RowWriter, forced: Boolean) =
       children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
-        ch.set(v, pp)
+        ch.set(v, pp, forced)
       }
   }
 
   final class GetOrElseResultConverter(child: ResultConverter, default: () => Any) extends ResultConverter {
     def read(pr: RowReader) = child.read(pr).asInstanceOf[Option[Any]].getOrElse(default())
     def update(value: Any, pr: RowUpdater) = child.update(Some(value), pr)
-    def set(value: Any, pp: RowWriter) = child.set(Some(value), pp)
+    def set(value: Any, pp: RowWriter, forced: Boolean) = child.set(Some(value), pp, forced)
   }
 
   final class TypeMappingResultConverter(child: ResultConverter, toBase: Any => Any, toMapped: Any => Any) extends ResultConverter {
     def read(pr: RowReader) = toMapped(child.read(pr))
     def update(value: Any, pr: RowUpdater) = child.update(toBase(value), pr)
-    def set(value: Any, pp: RowWriter) = child.set(toBase(value), pp)
+    def set(value: Any, pp: RowWriter, forced: Boolean) = child.set(toBase(value), pp, forced)
   }
 }

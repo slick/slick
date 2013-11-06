@@ -80,4 +80,26 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
       assertEquals((5, "i", "j"), id4)
     }
   }
+
+  def testForced = {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t_forced") {
+      def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    ts.ddl.create
+
+    ts.insert(101, "A")
+    ts.map(_.ins).insertAll((102, "B"), (103, "C"))
+    assertEquals(0, ts.filter(_.id > 100).length.run)
+
+    ifCap(jcap.forceInsert) {
+      ts.forceInsert(104, "A")
+      ts.map(_.ins).forceInsertAll((105, "B"), (106, "C"))
+      assertEquals(3, ts.filter(_.id > 100).length.run)
+    }
+  }
 }

@@ -44,7 +44,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
 
   trait QueryMappingCompiler extends super.MappingCompiler {
 
-    def createColumnConverter(n: Node, path: Node, option: Boolean): ResultConverter = {
+    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter = {
       val Select(_, ElementSymbol(ridx)) = path
       val nullable = typeInfoFor(n.nodeType.structural).nullable
       new ResultConverter {
@@ -54,7 +54,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
           v
         }
         def update(value: Any, pr: RowUpdater) = ???
-        def set(value: Any, pp: RowWriter) = ???
+        def set(value: Any, pp: RowWriter, forced: Boolean) = ???
       }
     }
   }

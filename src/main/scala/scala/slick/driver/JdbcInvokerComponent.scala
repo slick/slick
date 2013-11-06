@@ -89,8 +89,10 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def retMany(values: Seq[U], individual: Seq[SingleInsertResult]): MultiInsertResult
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]): MultiInsertResult
 
-    protected lazy val insertResult = builder.buildInsert
+    protected lazy val insertResult = builder.buildInsert(forced = false)
+    protected lazy val insertForcedResult = builder.buildInsert(forced = true)
     lazy val insertStatement = insertResult.sql
+    lazy val forceInsertStatement = insertForcedResult.sql
     def insertStatementFor[TT](query: Query[TT, U]): String = builder.buildInsert(query).sql
     def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: ShapeLevel.Flat, TT, U, _]): String = insertStatementFor(Query(c)(shape))
 
@@ -99,26 +101,46 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
       session.withPreparedStatement(sql)(f)
 
-    /** Insert a single row. */
-    def insert(value: U)(implicit session: Backend#Session): SingleInsertResult = prepared(insertStatement) { st =>
-      st.clearParameters()
-      converter.set(value, new PositionedParameters(st))
-      val count = st.executeUpdate()
-      retOne(st, value, count)
-    }
+    /** Insert a single row, skipping AutoInc columns. */
+    final def insert(value: U)(implicit session: Backend#Session): SingleInsertResult = internalInsert(false, value)
 
-    /** Insert multiple rows. Uses JDBC's batch update feature if supported by
-      * the JDBC driver. Returns Some(rowsAffected), or None if the database
-      * returned no row count for some part of the batch. If any part of the
-      * batch fails, an exception is thrown. */
-    def insertAll(values: U*)(implicit session: Backend#Session): MultiInsertResult = session.withTransaction {
+    /** Insert a single row, including AutoInc columns. This is not supported
+      * by all database engines (see
+      * [[scala.slick.driver.JdbcProfile.capabilities.forceInsert]]). */
+    final def forceInsert(value: U)(implicit session: Backend#Session): SingleInsertResult = internalInsert(true, value)
+
+    protected def internalInsert(forced: Boolean, value: U)(implicit session: Backend#Session): SingleInsertResult =
+      prepared(if(forced) forceInsertStatement else insertStatement) { st =>
+        st.clearParameters()
+        converter.set(value, new PositionedParameters(st), forced)
+        val count = st.executeUpdate()
+        retOne(st, value, count)
+      }
+
+    /** Insert multiple rows, skipping AutoInc columns.
+      * Uses JDBC's batch update feature if supported by the JDBC driver.
+      * Returns Some(rowsAffected), or None if the database returned no row
+      * count for some part of the batch. If any part of the batch fails, an
+      * exception is thrown. */
+    final def insertAll(values: U*)(implicit session: Backend#Session): MultiInsertResult = internalInsertAll(false, values: _*)
+
+    /** Insert multiple rows, including AutoInc columns.
+      * This is not supported by all database engines (see
+      * [[scala.slick.driver.JdbcProfile.capabilities.forceInsert]]).
+      * Uses JDBC's batch update feature if supported by the JDBC driver.
+      * Returns Some(rowsAffected), or None if the database returned no row
+      * count for some part of the batch. If any part of the batch fails, an
+      * exception is thrown. */
+    final def forceInsertAll(values: U*)(implicit session: Backend#Session): MultiInsertResult = internalInsertAll(true, values: _*)
+
+    protected def internalInsertAll(forced: Boolean, values: U*)(implicit session: Backend#Session): MultiInsertResult = session.withTransaction {
       if(!useBatchUpdates || (values.isInstanceOf[IndexedSeq[_]] && values.length < 2)) {
         retMany(values, values.map(insert))
       } else {
-        prepared(insertStatement) { st =>
+        prepared(if(forced) forceInsertStatement else insertStatement) { st =>
           st.clearParameters()
           for(value <- values) {
-            converter.set(value, new PositionedParameters(st))
+            converter.set(value, new PositionedParameters(st), forced)
             st.addBatch()
           }
           val counts = st.executeBatch()
@@ -256,7 +278,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     def update(value: T)(implicit session: Backend#Session): Int = session.withPreparedStatement(updateStatement) { st =>
       st.clearParameters
       val pp = new PositionedParameters(st)
-      converter.set(value, pp)
+      converter.set(value, pp, true)
       sres.setter(pp, param)
       st.executeUpdate
     }
