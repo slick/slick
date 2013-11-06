@@ -6,7 +6,7 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 import scala.slick.ast.ExtraUtil._
-import scala.slick.compiler.{CodeGen, Phase, CompilerState}
+import scala.slick.compiler.{RewriteBooleans, CodeGen, Phase, CompilerState}
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
@@ -35,7 +35,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val supportsTuples = true
     protected val supportsCast = true
     protected val concatOperator: Option[String] = None
-    protected val useIntForBoolean = false
     protected val hasPiFunction = true
     protected val hasRadDegConversion = true
     protected val pi = "3.1415926535897932384626433832795"
@@ -149,8 +148,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
-      case Typed(t: TypedType[_]) if useIntForBoolean && (typeInfoFor(t) == columnTypes.booleanJdbcType) =>
-        b"case when $n then 1 else 0 end"
       case c: Comprehension =>
         b"("
         buildComprehension(c)
@@ -192,14 +189,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case n @ LiteralNode(v) =>
         val ti = typeInfoFor(n.tpe)
         if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, param) => ti.setValue(v, p) }
-        else if((true == v) && useIntForBoolean) b"\(1=1\)"
-        else if((false == v) && useIntForBoolean) b"\(1=0\)"
         else b += ti.valueToSQLLiteral(v)
       case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
         typeInfoFor(tpe).setValue(extractor(param), p)
       }
-      case Library.Not(p @ Path(_)) if useIntForBoolean =>
-        b"\($p = 0\)"
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"
       case Library.==(l, LiteralNode(null)) =>
@@ -216,6 +209,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"\("
         b.sep(ch, ", ")(expr(_))
         b"\)"
+      case RewriteBooleans.ToFakeBoolean(ch) =>
+        expr(ConditionalExpr(Vector(IfThen(ch, LiteralNode(1))), LiteralNode(0)), skipParens)
+      case RewriteBooleans.ToRealBoolean(ch) =>
+        expr(Library.==.typed[Boolean](ch, LiteralNode(true)), skipParens)
       case Library.Exists(c: Comprehension) if(!supportsTuples) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite

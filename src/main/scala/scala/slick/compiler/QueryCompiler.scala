@@ -124,6 +124,9 @@ object Phase {
   val fuseComprehensions = new FuseComprehensions
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val hoistClientOps = new HoistClientOps
+
+  /** Extra phases that are not enabled by default */
+  val rewriteBooleans = new RewriteBooleans
 }
 
 /** The current state of a compiler run, consisting of immutable state of
