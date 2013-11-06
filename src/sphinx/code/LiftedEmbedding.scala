@@ -4,7 +4,7 @@ import scala.slick.driver.H2Driver.simple._
 import Database.dynamicSession
 import java.sql.Date
 
-class LiftedEmbedding {
+object LiftedEmbedding extends App{
 
 //#foreignkey
   class Suppliers(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
@@ -41,8 +41,8 @@ class LiftedEmbedding {
 //#tabledef
 //#foreignkey
 //#reptypes
-    def sales = column[Int]("SALES")
-    def total = column[Int]("TOTAL")
+    def sales = column[Int]("SALES", O.Default(0))
+    def total = column[Int]("TOTAL", O.Default(0))
     def * = (name, supID, price, sales, total)
 //#tabledef
 //#foreignkeynav
@@ -109,7 +109,7 @@ class LiftedEmbedding {
 //#primarykey
 //#index
 
-  val db: Database = null
+  val db: Database = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
 //#ddl
   val ddl = coffees.ddl ++ suppliers.ddl
   db withDynSession {
@@ -143,6 +143,7 @@ class LiftedEmbedding {
   }
 
   db withDynSession {
+    ddl.create
     //#aggregation2
     val q1 = coffees.length
     val q2 = coffees.exists
@@ -168,7 +169,7 @@ class LiftedEmbedding {
     {
       val session = dynamicSession
       //#invoker_explicit
-      val l = q.list(session)
+      val l = q.list()(session)
       //#invoker_explicit
       ()
     }
@@ -188,6 +189,13 @@ class LiftedEmbedding {
   }
 
   db withDynSession {
+    ddl.create
+    suppliers ++= Seq(
+      (101, "", "", "", "", ""),
+      (49, "", "", "", "", ""),
+      (150, "", "", "", "", "")
+    )
+
     //#insert1
     coffees += ("Colombian", 101, 7.99, 0, 0)
 
@@ -203,6 +211,7 @@ class LiftedEmbedding {
     val invoker = coffees.insertInvoker
     //#insert1
 
+    users.ddl.create
   //#insert2
 
   usersForInsert += User(None, "Christopher", "Vogt")
@@ -230,6 +239,10 @@ class LiftedEmbedding {
   }
 
   db withDynSession {
+    suppliers.ddl.create
+    coffees.ddl.create
+    suppliers += (101, "", "", "", "", "")
+    coffees += ("Espresso", 101, 0, 0, 0)
     //#update1
     val q = for { c <- coffees if c.name === "Espresso" } yield c.price
     q.update(10.49)
@@ -240,6 +253,11 @@ class LiftedEmbedding {
   }
 
   db withDynSession {
+    users.ddl.create
+    usersForInsert ++= Seq(
+      User(None,"",""),
+      User(None,"","")
+    )
     //#template1
     val userNameByID = for {
       id <- Parameters[Int]
@@ -306,16 +324,16 @@ class LiftedEmbedding {
 
     //#recordtype1
     // A Shape implementation for Pair
-    final class PairShape[M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](
-      val shapes: Seq[Shape[_, _, _]])
-    extends MappedScalaProductShape[Pair[_,_], M, U, P] {
+    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](
+      val shapes: Seq[Shape[_, _, _, _]])
+    extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
-      def copy(shapes: Seq[Shape[_, _, _]]) = new PairShape(shapes)
+      def copy(shapes: Seq[Shape[_, _, _, _]]) = new PairShape(shapes)
     }
 
-    implicit def pairShape[M1, M2, U1, U2, P1, P2](implicit s1: Shape[M1, U1, P1],
-                                                            s2: Shape[M2, U2, P2]) =
-      new PairShape[Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
+    implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](
+      implicit s1: Shape[_ <: Level, M1, U1, P1], s2: Shape[_ <: Level, M2, U2, P2]
+    ) = new PairShape[Level, Pair[M1, M2], Pair[U1, U2], Pair[P1, P2]](Seq(s1, s2))
     //#recordtype1
 
     //#recordtype2

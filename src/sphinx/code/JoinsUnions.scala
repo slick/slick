@@ -3,7 +3,7 @@ package com.typesafe.slick.docsnippets
 import scala.slick.driver.H2Driver.simple._
 import Database.dynamicSession
 
-class JoinsUnions {
+object JoinsUnions extends App{
 
   class Suppliers(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
     def id = column[Int]("SUP_ID", O.PrimaryKey)
@@ -27,7 +27,7 @@ class JoinsUnions {
   }
   val coffees = TableQuery[Coffees]
 
-  val db: Database = null
+  val db: Database = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
   db withDynSession {
     //#implicitCross
     val implicitCrossJoin = for {
