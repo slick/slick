@@ -313,7 +313,9 @@ trait JdbcBackend extends DatabaseComponent {
     }
 
     def close() {
-      if(open) conn.close()
+      if(open)
+        try conn.close()
+        catch { case e: SQLException => /* ignore */ }
     }
 
     def rollback() {
