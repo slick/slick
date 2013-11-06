@@ -184,9 +184,14 @@ trait MySQLDriver extends JdbcDriver { driver =>
       }
     }
 
+    import java.util.UUID
+
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
       override def sqlTypeName = "BINARY(16)"
+
+      override def valueToSQLLiteral(value: UUID): String =
+        "x'"+value.toString.replace("-", "")+"'"
     }
   }
 }
