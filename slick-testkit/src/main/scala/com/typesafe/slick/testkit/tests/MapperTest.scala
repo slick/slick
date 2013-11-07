@@ -23,7 +23,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
       def baseProjection = first ~ last
       def forUpdate = baseProjection.shaped <>
         ({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
-      def asFoo = forInsert <> ((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
+      def asFoo = forUpdate <> ((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
     val users = TableQuery[Users]
     val usersByID = users.findBy(_.id)
