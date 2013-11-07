@@ -94,15 +94,17 @@ trait DerbyDriver extends JdbcDriver { driver =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         b"coalesce(cast($l as ${typeInfoFor(c.nodeType).sqlTypeName}),!$r)"
-      case c @ LiteralNode(v) if c.volatileHint && currentPart == SelectPart =>
+      case c @ LiteralNode(v) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
          * explicit type annotation (in the form of a CAST expression). */
         val tmd = typeInfoFor(c.tpe)
-        b"cast("
-        b +?= { (p, param) => tmd.setValue(v, p) }
-        b" as ${tmd.sqlTypeName})"
+        if(c.volatileHint || !tmd.hasLiteralForm) {
+          b"cast("
+          b +?= { (p, param) => tmd.setValue(v, p) }
+          b" as ${tmd.sqlTypeName})"
+        } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
       case _ => super.expr(c, skipParens)

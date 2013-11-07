@@ -114,6 +114,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
       override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
       override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
+      override def hasLiteralForm = true
     }
   }
 }

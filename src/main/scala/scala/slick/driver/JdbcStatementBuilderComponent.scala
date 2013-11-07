@@ -190,10 +190,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case n @ LiteralNode(v) =>
-        if(n.volatileHint) b +?= { (p, param) => typeInfoFor(n.tpe).setValue(v, p) }
+        val ti = typeInfoFor(n.tpe)
+        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, param) => ti.setValue(v, p) }
         else if((true == v) && useIntForBoolean) b"\(1=1\)"
         else if((false == v) && useIntForBoolean) b"\(1=0\)"
-        else b += typeInfoFor(n.tpe).valueToSQLLiteral(v)
+        else b += ti.valueToSQLLiteral(v)
       case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
         typeInfoFor(tpe).setValue(extractor(param), p)
       }

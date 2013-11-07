@@ -39,6 +39,10 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
   abstract class DriverJdbcType[T : ClassTag] extends JdbcType[T] with BaseTypedType[T] {
     def scalaType = ScalaBaseType[T]
     def sqlTypeName: String = driver.defaultSqlTypeName(this)
+    def valueToSQLLiteral(value: T) =
+      if(hasLiteralForm) value.toString
+      else throw new SlickException(sqlTypeName + " does not have a literal representation")
+    def hasLiteralForm = true
   }
 
   class JdbcTypes {
@@ -75,8 +79,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def setOption(v: Option[Blob], p: PositionedParameters) = p.setBlobOption(v)
       def nextValue(r: PositionedResult) = r.nextBlob
       def updateValue(v: Blob, r: PositionedResult) = r.updateBlob(v)
-      override def valueToSQLLiteral(value: Blob) =
-        throw new SlickException("Blob does not have a literal representation")
+      override def hasLiteralForm = false
     }
 
     class ByteJdbcType extends DriverJdbcType[Byte] with NumericTypedType {
@@ -93,8 +96,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def setOption(v: Option[Array[Byte]], p: PositionedParameters) = p.setBytesOption(v)
       def nextValue(r: PositionedResult) = r.nextBytes
       def updateValue(v: Array[Byte], r: PositionedResult) = r.updateBytes(v)
-      override def valueToSQLLiteral(value: Array[Byte]) =
-        throw new SlickException("Array[Byte] does not have a literal representation")
+      override def hasLiteralForm = false
     }
 
     class ClobJdbcType extends DriverJdbcType[Clob] {
@@ -103,6 +105,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def setOption(v: Option[Clob], p: PositionedParameters) = p.setClobOption(v)
       def nextValue(r: PositionedResult) = r.nextClob
       def updateValue(v: Clob, r: PositionedResult) = r.updateClob(v)
+      override def hasLiteralForm = false
     }
 
     class CharJdbcType extends DriverJdbcType[Char] {
@@ -210,8 +213,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
         if(v == None) p.setNull(sqlType) else p.setBytes(toBytes(v.get))
       def nextValue(r: PositionedResult) = fromBytes(r.nextBytes())
       def updateValue(v: UUID, r: PositionedResult) = r.updateBytes(toBytes(v))
-      override def valueToSQLLiteral(value: UUID): String =
-        throw new SlickException("UUID does not support a literal representation")
+      override def hasLiteralForm = false
       def toBytes(uuid: UUID) = if(uuid eq null) null else {
         val msb = uuid.getMostSignificantBits
         val lsb = uuid.getLeastSignificantBits
