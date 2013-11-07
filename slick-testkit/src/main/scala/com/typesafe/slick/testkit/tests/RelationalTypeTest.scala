@@ -37,4 +37,26 @@ class RelationalTypeTest extends TestkitTest[RelationalTestDB] {
         BigDecimal(Long.MinValue), BigDecimal(Long.MaxValue))
     }
   }
+
+  private def roundtrip[T : BaseColumnType](tn: String, v: T) {
+    class T1(tag: Tag) extends Table[(Int, T)](tag, tn) {
+      def id = column[Int]("id")
+      def data = column[T]("data")
+      def * = (id, data)
+    }
+    val t1 = TableQuery[T1]
+
+    t1.ddl.create
+    t1 += (1, v)
+    assertEquals(v, t1.map(_.data).run.head)
+    assertEquals(Some(1), t1.filter(_.data === v).map(_.id).run.headOption)
+    assertEquals(None, t1.filter(_.data =!= v).map(_.id).run.headOption)
+    assertEquals(Some(1), t1.filter(_.data === v.bind).map(_.id).run.headOption)
+    assertEquals(None, t1.filter(_.data =!= v.bind).map(_.id).run.headOption)
+  }
+
+  def testBoolean {
+    roundtrip[Boolean]("boolean_true", true)
+    roundtrip[Boolean]("boolean_false", false)
+  }
 }

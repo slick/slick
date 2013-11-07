@@ -6,7 +6,7 @@ import scala.slick.ast._
 import scala.slick.jdbc.JdbcType
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
-import slick.compiler.CompilerState
+import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -57,6 +57,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.zip
   )
 
+  override val compiler = QueryCompiler.relational + Phase.rewriteBooleans
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -73,7 +74,6 @@ trait DerbyDriver extends JdbcDriver { driver =>
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
-    override protected val useIntForBoolean = true
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case a @ Library.Cast(ch @ _*) =>
