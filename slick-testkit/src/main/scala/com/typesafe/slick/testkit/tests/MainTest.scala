@@ -159,7 +159,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("b7: " + b7.selectStatement)
     println("b8: " + b8.selectStatement)
 
-    val q5 = users where { _.id notIn orders.map(_.userID) }
+    val q5 = users filterNot { _.id in orders.map(_.userID) }
     println("q5: " + q5.selectStatement)
     println("Users without Orders:")
     q5.foreach(o => println("  "+o))
