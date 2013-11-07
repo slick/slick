@@ -139,6 +139,7 @@ class ConvertToComprehensions extends Phase {
       Comprehension(from = mkFrom(gen, from), orderBy = by).nodeTyped(s.nodeType)
     // Take and Drop to Comprehension
     case td @ TakeDrop(from, take, drop) =>
+      logger.debug(s"Matched TakeDrop($take, $drop) on top of:", from)
       val drop2 = if(drop == Some(0)) None else drop
       val c =
         if(take == Some(0)) Comprehension(from = mkFrom(new AnonSymbol, from), where = Seq(LiteralNode(false)))
@@ -147,19 +148,30 @@ class ConvertToComprehensions extends Phase {
     case n => n
   }
 
-  /** An extractor for nested Take and Drop nodes */
+  /** An extractor for nested Take and Drop nodes (including already converted ones) */
   object TakeDrop {
-    def unapply(n: Node): Option[(Node, Option[Int], Option[Int])] = n match {
+    def unapply(n: Node): Option[(Node, Option[Long], Option[Long])] = n match {
       case Take(from, num) => unapply(from) match {
         case Some((f, Some(t), d)) => Some((f, Some(min(t, num)), d))
         case Some((f, None, d)) => Some((f, Some(num), d))
-        case _ => Some((from, Some(num), None))
+        case _ =>
+          from match {
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d) => Some((f, Some(min(t, num)), d))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, d) => Some((f, Some(num), d))
+            case _ => Some((from, Some(num), None))
+          }
       }
       case Drop(from, num) => unapply(from) match {
         case Some((f, Some(t), None)) => Some((f, Some(max(0, t-num)), Some(num)))
         case Some((f, None, Some(d))) => Some((f, None, Some(d+num)))
         case Some((f, Some(t), Some(d))) => Some((f, Some(max(0, t-num)), Some(d+num)))
-        case _ => Some((from, None, Some(num)))
+        case _ =>
+          from match {
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None) => Some((f, Some(max(0, t-num)), Some(num)))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d)) => Some((f, None, Some(d+num)))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d)) => Some((f, Some(max(0, t-num)), Some(d+num)))
+            case _ => Some((from, None, Some(num)))
+          }
       }
       case _ => None
     }
