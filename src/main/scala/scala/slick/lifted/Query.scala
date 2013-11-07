@@ -34,12 +34,17 @@ abstract class Query[+E, U] extends Rep[Seq[U]] { self =>
   def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
 
   /** Select all elements of this query which satisfy a predicate. */
-  def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] = {
+  private def filterHelper[T](f: E => T, wrapExpr: Node => Node)
+                             (implicit wt: CanBeQueryCondition[T]): Query[E, U] = {
     val generator = new AnonSymbol
     val aliased = unpackable.encodeRef(generator :: Nil)
     val fv = f(aliased.value)
-    new WrappingQuery[E, U](Filter.ifRefutable(generator, toNode, wt(fv).toNode), unpackable)
+    new WrappingQuery[E, U](Filter.ifRefutable(generator, toNode, wrapExpr(wt(fv).toNode)), unpackable)    
   }
+  def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] =
+    filterHelper(f, identity)
+  def filterNot[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U] =
+    filterHelper(f, node => Library.Not.typed(node.nodeType, node) )
 
   /** Select all elements of this query which satisfy a predicate. This method
     * is used when desugaring for-comprehensions over queries. There is no
@@ -173,15 +178,21 @@ object Query extends Query[Unit, Unit] {
 trait CanBeQueryCondition[-T] extends (T => Column[_])
 
 object CanBeQueryCondition {
-  implicit object BooleanColumnCanBeQueryCondition extends CanBeQueryCondition[Column[Boolean]] {
-    def apply(value: Column[Boolean]) = value
-  }
-  implicit object BooleanOptionColumnCanBeQueryCondition extends CanBeQueryCondition[Column[Option[Boolean]]] {
-    def apply(value: Column[Option[Boolean]]) = value
-  }
-  implicit object BooleanCanBeQueryCondition extends CanBeQueryCondition[Boolean] {
-    def apply(value: Boolean) = new LiteralColumn(value)
-  }
+  // Using implicits with explicit type annotation here (instead of previously implicit objects)
+  // because otherwise they would not be found in this file above this line. 
+  // See https://github.com/slick/slick/pull/217
+  implicit val BooleanColumnCanBeQueryCondition : CanBeQueryCondition[Column[Boolean]] =
+    new CanBeQueryCondition[Column[Boolean]] {
+      def apply(value: Column[Boolean]) = value
+    }
+  implicit val BooleanOptionColumnCanBeQueryCondition : CanBeQueryCondition[Column[Option[Boolean]]] =
+    new CanBeQueryCondition[Column[Option[Boolean]]] {
+      def apply(value: Column[Option[Boolean]]) = value
+    }
+  implicit val BooleanCanBeQueryCondition : CanBeQueryCondition[Boolean] =
+    new CanBeQueryCondition[Boolean] {
+      def apply(value: Boolean) = new LiteralColumn(value)
+    }
 }
 
 class WrappingQuery[+E, U](val toNode: Node, val base: ShapedValue[_ <: E, U]) extends Query[E, U] {
