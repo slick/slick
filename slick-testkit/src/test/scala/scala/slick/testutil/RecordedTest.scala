@@ -33,7 +33,8 @@ abstract class RecordedTest {
       val f = new File(basename+".check")
       if(f.isFile) Some(read(f))
       else {
-        Console.err.println("Warning: "+f+" not found")
+        // Disabled because now we have doctests without a check file:
+        // Console.err.println("Warning: "+f+" not found")
         None
       }
     }

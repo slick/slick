@@ -39,12 +39,13 @@ import scala.slick.driver.H2Driver.simple._
   import scala.slick.jdbc.StaticQuery.interpolation
   Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
     implicit session =>
+    coffees.ddl.create
     //#what-is-slick-micro-example
     val limit = 10.0
     // Your query could look like this:
     ( for( c <- coffees; if c.price < limit ) yield c.name ).list
     // or this:
-    sql"select name from coffees where price < $limit".as[String].list
+    sql"select COF_NAME from COFFEES where PRICE < $limit".as[String].list
     //#what-is-slick-micro-example
   }
 }
