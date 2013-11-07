@@ -10,7 +10,7 @@ object SlickBuild extends Build {
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   val publishedScalaSettings = Seq(
-    scalaVersion := "2.10.1",
+    scalaVersion := "2.10.3",
     //scalaBinaryVersion <<= scalaVersion,
     //crossScalaVersions ++= "2.10.0-M4" :: Nil,
     libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
@@ -96,16 +96,16 @@ object SlickBuild extends Build {
     settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
-      test := (),
-      testOnly <<= inputTask { argTask => (argTask) map { args => }}
+      test := (), // suppress test status output
+      testOnly :=  ()
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ extTarget("slick", None) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
-      test := (),
-      testOnly <<= inputTask { argTask => (argTask) map { args => }},
+      test := (), // suppress test status output
+      testOnly :=  (),
       ivyConfigurations += config("macro").hide.extend(Compile),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
@@ -166,7 +166,7 @@ object SlickBuild extends Build {
   def partitionTests(tests: Seq[TestDefinition]) = {
     val (fork, notFork) = tests partition (_.name contains ".queryable.")
     Seq(
-      new Group("fork", fork, SubProcess(Seq())),
+      new Group("fork", fork, SubProcess(ForkOptions())),
       new Group("inProcess", notFork, InProcess)
     )
   }
@@ -195,10 +195,10 @@ object SlickBuild extends Build {
       }
   )
   lazy val fmppTask =
-    (fullClasspath in fmppConfig, runner in fmpp, sourceManaged, streams, cacheDirectory, sourceDirectory) map { (cp, r, output, s, cache, srcDir) =>
+    (fullClasspath in fmppConfig, runner in fmpp, sourceManaged, streams, sourceDirectory) map { (cp, r, output, s, srcDir) =>
       val fmppSrc = srcDir / "scala"
       val inFiles = (fmppSrc ** "*.fm" get).toSet
-      val cachedFun = FileFunction.cached(cache / "fmpp", outStyle = FilesInfo.exists) { (in: Set[File]) =>
+      val cachedFun = FileFunction.cached(s.cacheDirectory / "fmpp", outStyle = FilesInfo.exists) { (in: Set[File]) =>
         IO.delete(output ** "*.scala" get)
         val args = "--expert" :: "-q" :: "-S" :: fmppSrc.getPath :: "-O" :: output.getPath ::
           "--replace-extensions=fm, scala" :: "-M" :: "execute(**/*.fm), ignore(**/*)" :: Nil
