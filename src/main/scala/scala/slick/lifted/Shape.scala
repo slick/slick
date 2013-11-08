@@ -128,7 +128,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
 
   /** Create a copy of this Shape with new element Shapes. This is used for
     * packing Shapes recursively. */
-  def copy(shapes: Seq[Shape[_, _, _, _]]): Shape[Level, _, _, _]
+  def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]): Shape[Level, _, _, _]
 
   /** Get the element value from a record value at the specified index. */
   def getElement(value: C, idx: Int): Any
@@ -143,7 +143,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
     buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
   def packedShape: Shape[Level, Packed, Unpacked, Packed] =
-    copy(shapes.map(_.packedShape)).asInstanceOf[Shape[Level, Packed, Unpacked, Packed]]
+    copy(shapes.map(_.packedShape.asInstanceOf[Shape[_ <: ShapeLevel, _, _, _]])).asInstanceOf[Shape[Level, Packed, Unpacked, Packed]]
   def buildParams(extract: Any => Unpacked): Packed = {
     val elems = shapes.iterator.zipWithIndex.map { case (p, idx) =>
       def chExtract(u: C): p.Unpacked = getElement(u, idx).asInstanceOf[p.Unpacked]
@@ -186,7 +186,7 @@ final class TupleShape[Level <: ShapeLevel, M <: Product, U <: Product, P <: Pro
   override def getIterator(value: Product) = value.productIterator
   def getElement(value: Product, idx: Int) = value.productElement(idx)
   def buildValue(elems: IndexedSeq[Any]) = TupleSupport.buildTuple(elems)
-  def copy(shapes: Seq[Shape[_, _, _, _]])  = new TupleShape(shapes: _*)
+  def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]])  = new TupleShape(shapes: _*)
 }
 
 /** The level of a Shape, i.e. what kind of types it allows.

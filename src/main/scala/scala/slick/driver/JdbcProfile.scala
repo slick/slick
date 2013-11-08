@@ -60,7 +60,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   /**
    * Jdbc meta data for all tables
    */
-  def getTables: UnitInvoker[MTable] = MTable.getTables()
+  def getTables: UnitInvoker[MTable] = MTable.getTables(())
 
   /** Gets the Slick data model describing this data source */
   def createModel(implicit session: Backend#Session): Model = jdbcCreateModel(getTables.list,this)
