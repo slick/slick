@@ -28,7 +28,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   }
 
   /** Build a new query by applying a function to all elements of this query. */
-  def map[F, G, T](f: E => F)(implicit shape: Shape[_ <: ShapeLevel.Flat, F, T, G]): Query[G, T, C] =
+  def map[F, G, T](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, G]): Query[G, T, C] =
     flatMap(v => Query[F, T, G](f(v)))
 
   /** Select all elements of this query which satisfy a predicate. */
@@ -79,13 +79,13 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def zip[E2, U2, D[_]](q2: Query[E2, U2, D]): Query[(E, E2), (U, U2), C] = join(q2, JoinType.Zip)
   /** Return a query formed from this query and another query by combining
     * corresponding elements with the specified function. */
-  def zipWith[E2, U2, F, G, T, D[_]](q2: Query[E2, U2, D], f: (E, E2) => F)(implicit shape: Shape[_ <: ShapeLevel.Flat, F, T, G]): Query[G, T, C] =
+  def zipWith[E2, U2, F, G, T, D[_]](q2: Query[E2, U2, D], f: (E, E2) => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, G]): Query[G, T, C] =
     join(q2, JoinType.Zip).map[F, G, T](x => f(x._1, x._2))
   /** Zip this query with its indices (starting at 0). */
   def zipWithIndex = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(leftGen :: Nil)
-    val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Shape.columnShape[Long, ShapeLevel.Flat])
+    val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Shape.columnShape[Long, FlatShapeLevel])
     new BaseJoinQuery[E, Column[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
   }
 
@@ -103,10 +103,10 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   /** Partition this query into a query of pairs of a key and a nested query
     * containing the elements for the key, according to some discriminator
     * function. */
-  def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: ShapeLevel.Flat, K, T, G], vshape: Shape[_ <: ShapeLevel.Flat, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
+  def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: FlatShapeLevel, K, T, G], vshape: Shape[_ <: FlatShapeLevel, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(shaped.encodeRef(sym :: Nil).value), kshape).packedValue
-    val value = ShapedValue(pack.to[Seq], Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, Query[P, U, Seq], Query[P, U, Seq], Query[P, U, Seq]]])
+    val value = ShapedValue(pack.to[Seq], Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq], Query[P, U, Seq]]])
     val group = GroupBy(sym, toNode, key.toNode)
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
@@ -139,7 +139,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   /** Test whether this query is non-empty. */
   def exists = Library.Exists.column[Boolean](toNode)
 
-  def pack[R](implicit packing: Shape[_ <: ShapeLevel.Flat, E, _, R]): Query[R, U, C] =
+  def pack[R](implicit packing: Shape[_ <: FlatShapeLevel, E, _, R]): Query[R, U, C] =
     new Query[R, U, C] {
       val shaped: ShapedValue[_ <: R, U] = self.shaped.packedValue(packing)
       def toNode = self.toNode
@@ -159,19 +159,19 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
 /** The companion object for Query contains factory methods for creating queries. */
 object Query {
   /** Lift a scalar value to a Query. */
-  def apply[E, U, R](value: E)(implicit unpack: Shape[_ <: ShapeLevel.Flat, E, U, R]): Query[R, U, Seq] = {
+  def apply[E, U, R](value: E)(implicit unpack: Shape[_ <: FlatShapeLevel, E, U, R]): Query[R, U, Seq] = {
     val shaped = ShapedValue(value, unpack).packedValue
     new WrappingQuery[R, U, Seq](Pure(shaped.toNode), shaped)
   }
 
   @deprecated("Use Query.apply instead of Query.pure", "2.1")
-  def pure[E, U, R](value: E)(implicit unpack: Shape[_ <: ShapeLevel.Flat, E, U, R]): Query[R, U, Seq] =
+  def pure[E, U, R](value: E)(implicit unpack: Shape[_ <: FlatShapeLevel, E, U, R]): Query[R, U, Seq] =
     apply[E, U, R](value)
 
   /** The empty Query. */
   def empty: Query[Unit, Unit, Seq] = new Query[Unit, Unit, Seq] {
     val toNode = shaped.toNode
-    def shaped = ShapedValue((), Shape.unitShape[ShapeLevel.Flat])
+    def shaped = ShapedValue((), Shape.unitShape[FlatShapeLevel])
   }
 }
 
@@ -218,7 +218,7 @@ class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#Table
         def taggedAs(path: List[Symbol]) = base.taggedAs(path)
       })
     })
-    ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, E, E#TableElementType, E]])
+    ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, E, E#TableElementType, E]])
   }
 
   val toNode = shaped.toNode

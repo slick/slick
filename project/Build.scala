@@ -15,9 +15,9 @@ object SlickBuild extends Build {
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   val publishedScalaSettings = Seq(
-    scalaVersion := "2.10.3",
+    scalaVersion := "2.10.4",
+    crossScalaVersions := Seq(scalaVersion.value, "2.11.0-RC3"),
     //scalaBinaryVersion <<= scalaVersion,
-    //crossScalaVersions ++= "2.10.0-M4" :: Nil,
     libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
   )
 
@@ -104,13 +104,23 @@ object SlickBuild extends Build {
         </scm>
   ) ++ scalaSettings
 
+  /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
+  def testAll = Command.command("testAll") { state =>
+    Project.runTask(test in (slickTestkitProject, Test), state) flatMap {
+      case (s, Inc(_)) => Some(s)
+      case (s, _) =>
+        Project.runTask(test in (slickTestkitProject, DocTest), state).map(_._1)
+    } getOrElse state
+  }
+
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
     settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
       test := (), // suppress test status output
-      testOnly :=  ()
+      testOnly :=  (),
+      commands += testAll
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ Seq(
