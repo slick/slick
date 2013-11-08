@@ -5,7 +5,7 @@ import scala.slick.ast.Util._
 import scala.slick.ast.TypeUtil._
 import scala.slick.util.SQLBuilder
 import scala.slick.profile.SqlExecutorComponent
-import scala.slick.lifted.{Shape, ShapeLevel}
+import scala.slick.lifted.{Shape, FlatShapeLevel}
 
 trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
 
@@ -30,7 +30,7 @@ trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
   }
 
   class UnshapedQueryExecutorDef[M](value: M) extends super.UnshapedQueryExecutorDef[M](value) {
-    @inline final def selectStatement[U](implicit shape: Shape[_ <: ShapeLevel.Flat, M, U, _], session: Backend#Session): String =
+    @inline final def selectStatement[U](implicit shape: Shape[_ <: FlatShapeLevel, M, U, _], session: Backend#Session): String =
       executor[U].selectStatement
   }
 }

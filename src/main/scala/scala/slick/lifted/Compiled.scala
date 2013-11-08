@@ -47,7 +47,7 @@ trait CompilersMixin { this: Compiled[_] =>
   lazy val compiledDelete = compile(driver.deleteCompiler)
 }
 
-class CompiledFunction[F, PT, PU, R <: Rep[_], RU](val extract: F, val tuple: F => PT => R, val pshape: Shape[ShapeLevel.Columns, PU, PU, PT], val driver: BasicProfile) extends Compiled[F] with CompilersMixin {
+class CompiledFunction[F, PT, PU, R <: Rep[_], RU](val extract: F, val tuple: F => PT => R, val pshape: Shape[ColumnsShapeLevel, PU, PU, PT], val driver: BasicProfile) extends Compiled[F] with CompilersMixin {
   /** Create an applied `Compiled` value for this compiled function. All applied
     * values share their compilation state with the original compiled function. */
   def apply(p: PU) = new AppliedCompiledFunction[PU, R, RU](p, this, driver)
@@ -90,7 +90,7 @@ trait Executable[T, TU]
 
 object Executable {
   @inline implicit def queryIsExecutable[B, BU]: Executable[Query[B, BU], Seq[BU]] = null
-  @inline implicit def scalarIsExecutable[A, AU](implicit shape: Shape[ShapeLevel.Flat, A, AU, A]): Executable[A, AU] = null
+  @inline implicit def scalarIsExecutable[A, AU](implicit shape: Shape[FlatShapeLevel, A, AU, A]): Executable[A, AU] = null
 }
 
 /** Typeclass for types that can be contained in a `Compiled` container. This
@@ -102,9 +102,9 @@ trait Compilable[T, C <: Compiled[T]] {
 }
 
 object Compilable extends CompilableFunctions {
-  implicit def function1IsCompilable[A , B <: Rep[_], P, U](implicit ashape: Shape[ShapeLevel.Columns, A, P, A], pshape: Shape[ShapeLevel.Columns, P, P, _], bexe: Executable[B, U]): Compilable[A => B, CompiledFunction[A => B, A , P, B, U]] = new Compilable[A => B, CompiledFunction[A => B, A, P, B, U]] {
+  implicit def function1IsCompilable[A , B <: Rep[_], P, U](implicit ashape: Shape[ColumnsShapeLevel, A, P, A], pshape: Shape[ColumnsShapeLevel, P, P, _], bexe: Executable[B, U]): Compilable[A => B, CompiledFunction[A => B, A , P, B, U]] = new Compilable[A => B, CompiledFunction[A => B, A, P, B, U]] {
     def compiled(raw: A => B, driver: BasicProfile) =
-      new CompiledFunction[A => B, A, P, B, U](raw, identity[A => B], pshape.asInstanceOf[Shape[ShapeLevel.Columns, P, P, A]], driver)
+      new CompiledFunction[A => B, A, P, B, U](raw, identity[A => B], pshape.asInstanceOf[Shape[ColumnsShapeLevel, P, P, A]], driver)
   }
 }
 
@@ -114,14 +114,14 @@ trait CompilableLowPriority {
   }
 }
 
-final class Parameters[PU, PP](pshape: Shape[ShapeLevel.Columns, PU, PU, _]) {
+final class Parameters[PU, PP](pshape: Shape[ColumnsShapeLevel, PU, PU, _]) {
   def flatMap[R <: Rep[_], RU](f: PP => R)(implicit rexe: Executable[R, RU], driver: BasicProfile): CompiledFunction[PP => R, PP, PU, R, RU] =
-    new CompiledFunction[PP => R, PP, PU, R, RU](f, identity[PP => R], pshape.asInstanceOf[Shape[ShapeLevel.Columns, PU, PU, PP]], driver)
+    new CompiledFunction[PP => R, PP, PU, R, RU](f, identity[PP => R], pshape.asInstanceOf[Shape[ColumnsShapeLevel, PU, PU, PP]], driver)
 
   @inline def withFilter(f: PP => Boolean): Parameters[PU, PP] = this
 }
 
 object Parameters {
-  @inline def apply[U](implicit pshape: Shape[ShapeLevel.Columns, U, U, _]): Parameters[U, pshape.Packed] =
+  @inline def apply[U](implicit pshape: Shape[ColumnsShapeLevel, U, U, _]): Parameters[U, pshape.Packed] =
     new Parameters[U, pshape.Packed](pshape)
 }

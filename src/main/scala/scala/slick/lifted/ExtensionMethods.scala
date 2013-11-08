@@ -30,7 +30,7 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 
 /** Extension methods for all Columns */
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
-  val c: Column[P1]
+  def c: Column[P1]
 
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))

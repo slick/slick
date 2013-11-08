@@ -60,20 +60,20 @@ trait ShapeLowPriority extends ShapeLowPriority1 {
     repShape.asInstanceOf[Shape[Level, Column[T], T, Column[T]]]
 
   /** Shape for Rep values (always fully packed) */
-  val repShape: Shape[ShapeLevel.Flat, Rep[_], Any, Rep[_]] = new Shape[ShapeLevel.Flat, Rep[_], Any, Rep[_]] {
+  val repShape: Shape[FlatShapeLevel, Rep[_], Any, Rep[_]] = new Shape[FlatShapeLevel, Rep[_], Any, Rep[_]] {
     def pack(value: Mixed): Packed = value
-    def packedShape: Shape[ShapeLevel.Flat, Packed, Unpacked, Packed] = this
+    def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked): Packed =
       throw new SlickException("Shape does not have the same Mixed and Unpacked type")
     def encodeRef(value: Mixed, path: List[Symbol]) = value.encodeRef(path)
     def toNode(value: Mixed): Node = value.toNode
   }
 
-  implicit def provenShape[T, P](implicit shape: Shape[_ <: ShapeLevel.Flat, T, _, P]): Shape[ShapeLevel.Flat, ProvenShape[T], T, P] = new Shape[ShapeLevel.Flat, ProvenShape[T], T, P] {
+  implicit def provenShape[T, P](implicit shape: Shape[_ <: FlatShapeLevel, T, _, P]): Shape[FlatShapeLevel, ProvenShape[T], T, P] = new Shape[FlatShapeLevel, ProvenShape[T], T, P] {
     def pack(value: Mixed): Packed =
       value.shape.pack(value.value.asInstanceOf[value.shape.Mixed]).asInstanceOf[Packed]
-    def packedShape: Shape[ShapeLevel.Flat, Packed, Unpacked, Packed] =
-      shape.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, Packed, Unpacked, Packed]]
+    def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] =
+      shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, Packed, Unpacked, Packed]]
     def buildParams(extract: Any => Unpacked): Packed =
       shape.buildParams(extract.asInstanceOf[Any => shape.Unpacked])
     def encodeRef(value: Mixed, path: List[Symbol]) =
@@ -82,12 +82,12 @@ trait ShapeLowPriority extends ShapeLowPriority1 {
       value.shape.toNode(value.value.asInstanceOf[value.shape.Mixed])
   }
 
-  @inline implicit def queryShape[Level >: ShapeLevel.Nested <: ShapeLevel, M, U]: Shape[Level, Query[M, U], Seq[U], Query[M, U]] =
+  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, M, U]: Shape[Level, Query[M, U], Seq[U], Query[M, U]] =
     repShape.asInstanceOf[Shape[Level, Query[M, U], Seq[U], Query[M, U]]]
 }
 
 class ShapeLowPriority1 extends ShapeLowPriority2 {
-  @inline implicit final def columnBaseShape[Level >: ShapeLevel.Flat <: ShapeLevel, T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[Level, C, T, C] =
+  @inline implicit final def columnBaseShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: ColumnBase[_]](implicit ev: C <:< ColumnBase[T]): Shape[Level, C, T, C] =
     Shape.repShape.asInstanceOf[Shape[Level, C, T, C]]
 
   implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]): Shape[Level, T, T, Column[T]] = new Shape[Level, T, T, Column[T]] {
@@ -102,9 +102,9 @@ class ShapeLowPriority1 extends ShapeLowPriority2 {
   @inline implicit final def unitShape[Level <: ShapeLevel]: Shape[Level, Unit, Unit, Unit] =
     unitShapePrototype.asInstanceOf[Shape[Level, Unit, Unit, Unit]]
 
-  val unitShapePrototype: Shape[ShapeLevel.Flat, Unit, Unit, Unit] = new Shape[ShapeLevel.Flat, Unit, Unit, Unit] {
+  val unitShapePrototype: Shape[FlatShapeLevel, Unit, Unit, Unit] = new Shape[FlatShapeLevel, Unit, Unit, Unit] {
     def pack(value: Mixed) = ()
-    def packedShape: Shape[ShapeLevel.Flat, Packed, Unpacked, Packed] = this
+    def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked) = ()
     def encodeRef(value: Mixed, path: List[Symbol]) = ()
     def toNode(value: Mixed) = ProductNode(Nil)
@@ -128,7 +128,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
 
   /** Create a copy of this Shape with new element Shapes. This is used for
     * packing Shapes recursively. */
-  def copy(shapes: Seq[Shape[_, _, _, _]]): Shape[Level, _, _, _]
+  def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]): Shape[Level, _, _, _]
 
   /** Get the element value from a record value at the specified index. */
   def getElement(value: C, idx: Int): Any
@@ -143,7 +143,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
     buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
   def packedShape: Shape[Level, Packed, Unpacked, Packed] =
-    copy(shapes.map(_.packedShape)).asInstanceOf[Shape[Level, Packed, Unpacked, Packed]]
+    copy(shapes.map(_.packedShape.asInstanceOf[Shape[_ <: ShapeLevel, _, _, _]])).asInstanceOf[Shape[Level, Packed, Unpacked, Packed]]
   def buildParams(extract: Any => Unpacked): Packed = {
     val elems = shapes.iterator.zipWithIndex.map { case (p, idx) =>
       def chExtract(u: C): p.Unpacked = getElement(u, idx).asInstanceOf[p.Unpacked]
@@ -180,40 +180,41 @@ final class TupleShape[Level <: ShapeLevel, M <: Product, U <: Product, P <: Pro
   override def getIterator(value: Product) = value.productIterator
   def getElement(value: Product, idx: Int) = value.productElement(idx)
   def buildValue(elems: IndexedSeq[Any]) = TupleSupport.buildTuple(elems)
-  def copy(shapes: Seq[Shape[_, _, _, _]])  = new TupleShape(shapes: _*)
+  def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]])  = new TupleShape(shapes: _*)
 }
 
 /** The level of a Shape, i.e. what kind of types it allows.
-  * This is used as a phantom type for Shape resolution. There are no
-  * instances of any ShapeLevel. */
+  * Subtypes of this trait are used as a phantom type for Shape resolution.
+  * There are no instances of any ShapeLevel. */
 trait ShapeLevel
-object ShapeLevel {
-  /** Allows nested collections but no computations. */
-  trait Nested extends ShapeLevel
-  /** Does not allow nested collections.
-    * This is the standard level for executable queries. */
-  trait Flat extends Nested
-  /** Only records of individual columns.
-    * This level is used for parameters of compiled queries. */
-  trait Columns extends Flat
-}
+
+/** ShapeLevel that allows nested collections. */
+trait NestedShapeLevel extends ShapeLevel
+
+/** ShapeLevel that does not allow nested collections.
+  * This is the standard level for executable queries. */
+trait FlatShapeLevel extends NestedShapeLevel
+
+/** ShapeLevel that only allows records of individual columns.
+  * This level is used for parameters of compiled queries. */
+trait ColumnsShapeLevel extends FlatShapeLevel
 
 /** A value together with its Shape */
-case class ShapedValue[T, U](value: T, shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) {
+case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _]) {
   def encodeRef(path: List[Symbol]): ShapedValue[T, U] = {
     val fv = shape.encodeRef(value, path).asInstanceOf[T]
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def toNode = shape.toNode(value)
-  def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, R, U, _]])
+  def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
   @inline def <>[R](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
 }
 
 // Work-around for SI-3346
 final class ToShapedValue[T](val value: T) extends AnyVal {
-  @inline def shaped[U](implicit shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) = new ShapedValue[T, U](value, shape)
-  @inline def <>[R, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
+  @inline def shaped[U](implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]) = new ShapedValue[T, U](value, shape)
+  @inline def <>[R, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
 }
 
 /** A limited version of ShapedValue which can be constructed for every type
@@ -222,18 +223,18 @@ final class ToShapedValue[T](val value: T) extends AnyVal {
   * place of the value that it wraps for purposes of packing and unpacking. */
 trait ProvenShape[U] {
   def value: Any
-  val shape: Shape[_ <: ShapeLevel.Flat, _, U, _]
-  def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, _, U, R]): ShapedValue[R, U]
+  val shape: Shape[_ <: FlatShapeLevel, _, U, _]
+  def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, _, U, R]): ShapedValue[R, U]
   def toNode = packedValue(shape).toNode
 }
 
 object ProvenShape {
   /** Convert an appropriately shaped value to a ProvenShape */
-  implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[_ <: ShapeLevel.Flat, T, U, _]): ProvenShape[U] =
+  implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[_ <: FlatShapeLevel, T, U, _]): ProvenShape[U] =
     new ProvenShape[U] {
       def value = v
-      val shape: Shape[_ <: ShapeLevel.Flat, _, U, _] = sh.asInstanceOf[Shape[ShapeLevel.Flat, _, U, _]]
-      def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, _, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, R, U, _]])
+      val shape: Shape[_ <: FlatShapeLevel, _, U, _] = sh.asInstanceOf[Shape[FlatShapeLevel, _, U, _]]
+      def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, _, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
     }
 }
 

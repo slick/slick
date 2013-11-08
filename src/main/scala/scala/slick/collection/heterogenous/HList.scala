@@ -128,7 +128,7 @@ final object HList {
 
   final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
     def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
-    def copy(shapes: Seq[Shape[_, _, _, _]]) = new HListShape(shapes)
+    def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new HListShape(shapes)
   }
   implicit def hnilShape[Level <: ShapeLevel] = new HListShape[Level, HNil.type, HNil.type, HNil.type](Nil)
   implicit def hconsShape[Level <: ShapeLevel, L1 <: Level, L2 <: Level, M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[L1, M1, U1, P1], s2: HListShape[L2, M2, U2, P2]) =

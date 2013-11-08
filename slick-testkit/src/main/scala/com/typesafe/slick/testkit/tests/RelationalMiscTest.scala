@@ -70,7 +70,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
 
     implicit class TupledQueryExtensionMethods[E1, E2, U1, U2](q: Query[(E1, E2), (U1, U2)]) {
       def sortedValues(implicit ordered: (E1 => Ordered),
-                       shape: Shape[ShapeLevel.Flat, E2, U2, E2]): Query[E2, U2] =
+                       shape: Shape[FlatShapeLevel, E2, U2, E2]): Query[E2, U2] =
           q.sortBy(_._1).map(_._2)
     }
 

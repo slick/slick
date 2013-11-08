@@ -35,7 +35,9 @@ trait Aliases {
   type MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] = lifted.MappedProductShape[Level, C, M, U, P]
   type MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C, U <: C, P <: C] = lifted.MappedScalaProductShape[Level, C, M, U, P]
   type ShapeLevel = lifted.ShapeLevel
-  val ShapeLevel = lifted.ShapeLevel
+  type NestedShapeLevel = lifted.NestedShapeLevel
+  type FlatShapeLevel = lifted.FlatShapeLevel
+  type ColumnsShapeLevel = lifted.ColumnsShapeLevel
   type Isomorphism[A, B] = lifted.Isomorphism[A, B]
   type MappedTo[T] = lifted.MappedTo[T]
 }

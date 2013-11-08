@@ -364,8 +364,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
             op,
             components
         )
-        if definitions
-            .TupleClass
+        if (2 to 22).map(definitions.TupleClass)
             .filter(_ != NoSymbol)
             .map( _.companionSymbol.typeSignature.member( newTermName("apply") ) )
             .contains( op.symbol )

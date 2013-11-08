@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{Insert, CompiledStatement, ResultSetMapping, Node}
-import scala.slick.lifted.{ShapeLevel, Query, Shape, ShapedValue}
+import scala.slick.lifted.{FlatShapeLevel, Query, Shape, ShapedValue}
 import scala.slick.jdbc._
 import scala.slick.util.SQLBuilder
 import scala.slick.profile.BasicInvokerComponent
@@ -93,7 +93,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     lazy val insertStatement = insertResult.sql
     lazy val forceInsertStatement = insertForcedResult.sql
     def insertStatementFor[TT](query: Query[TT, U]): String = builder.buildInsert(query).sql
-    def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: ShapeLevel.Flat, TT, U, _]): String = insertStatementFor(Query(c)(shape))
+    def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String = insertStatementFor(Query(c)(shape))
 
     def useBatchUpdates(implicit session: Backend#Session) = session.capabilities.supportsBatchUpdates
 
@@ -158,7 +158,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def retQuery(st: Statement, updateCount: Int): QueryInsertResult
 
-    def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: ShapeLevel.Flat, TT, U, _], session: Backend#Session): QueryInsertResult =
+    def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _], session: Backend#Session): QueryInsertResult =
       insert(Query(c)(shape))(session)
 
     def insert[TT](query: Query[TT, U])(implicit session: Backend#Session): QueryInsertResult = {
