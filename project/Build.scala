@@ -48,7 +48,7 @@ object SlickBuild extends Build {
   }
 
   lazy val sharedSettings = Seq(
-    version := "2.0.0-M2",
+    version := "2.0.0-M3",
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
@@ -86,9 +86,7 @@ object SlickBuild extends Build {
         <scm>
           <url>git@github.com:slick/slick.git</url>
           <connection>scm:git:git@github.com:slick/slick.git</connection>
-        </scm>,
-    // Work around scaladoc problem
-    unmanagedClasspath in Compile += Attributed.blank(new java.io.File("doesnotexist"))
+        </scm>
   ) ++ scalaSettings
 
   /* Project Definitions */
