@@ -47,7 +47,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {
     import QueryInterpreter._
 
-    override def run(n: Node) = n match {
+    override protected def runScoped(n: Node, scope: Scope ): Any = n match {
       case DriverComputation(compiled, driver, _) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val idx = drivers.indexOf(driver)
@@ -59,11 +59,11 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
         wr
       case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
-        val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
+        val fromV = runScoped(from, scope).asInstanceOf[TraversableOnce[Any]]
         val b = n.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
-      case n => super.run(n)
+      case n => super.runScoped(n, scope)
     }
 
     def wrapScalaValue(value: Any, tpe: Type): Any = tpe match {

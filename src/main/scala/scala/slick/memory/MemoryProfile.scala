@@ -41,13 +41,13 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R = {
       val inter = new QueryInterpreter(session.database, param) {
-        override def run(n: Node) = n match {
+        override protected def runScoped(n: Node, scope: Scope ) = n match {
           case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
-            val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
+            val fromV = runScoped(from,scope).asInstanceOf[TraversableOnce[Any]]
             val b = n.nodeType.asCollectionType.cons.canBuildFrom()
             b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
             b.result()
-          case n => super.run(n)
+          case n => super.runScoped(n,scope)
         }
       }
       inter.run(tree).asInstanceOf[R]
