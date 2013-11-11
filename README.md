@@ -15,14 +15,15 @@ The following database systems are directly supported for type-safe queries:
 - H2
 - HSQLDB/HyperSQL
 - Microsoft Access
-- Microsoft SQL Server
 - MySQL
 - PostgreSQL
 - SQLite
 
-Support for DB2 and Oracle is scheduled to be available for production use by
+Support for Oracle, IBM DB2 and Microsoft SQL Server is available for
+production use by
 [Typesafe subscribers](http://www.typesafe.com/products/typesafe-subscription)
-(free for evaluation and development) along with release 1.0 of Slick.
+(free for evaluation and development) in the Slick Extensions package.
+See the Slick [manual](http://slick.typesafe.com/docs/) for details.
 
 Accessing other database systems is possible, with a reduced feature set.
 

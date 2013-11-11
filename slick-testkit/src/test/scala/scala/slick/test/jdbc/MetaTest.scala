@@ -10,7 +10,7 @@ import scala.slick.testutil._
 import scala.slick.testutil.TestDBs._
 import com.typesafe.slick.testkit.util.JdbcTestDB
 
-object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem, SQLServerJTDS)
+object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
 class MetaTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._

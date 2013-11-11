@@ -63,7 +63,7 @@ Supported database systems
 * H2
 * HSQLDB/HyperSQL
 * Microsoft Access
-* Microsoft SQL Server
+* Microsoft SQL Server (via :doc:`slick-extensions <extensions>`)
 * MySQL
 * Oracle (via :doc:`slick-extensions <extensions>`)
 * PostgreSQL

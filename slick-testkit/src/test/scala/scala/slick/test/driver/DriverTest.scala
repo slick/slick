@@ -35,12 +35,6 @@ class PostgresTest extends DriverTest(TestDBs.Postgres)
 class MySQLTest extends DriverTest(TestDBs.MySQL)
 
 @RunWith(classOf[Testkit])
-class SQLServerJTDSTest extends DriverTest(TestDBs.SQLServerJTDS)
-
-@RunWith(classOf[Testkit])
-class SQLServerSQLJDBCTest extends DriverTest(TestDBs.SQLServerSQLJDBC)
-
-@RunWith(classOf[Testkit])
 class MSAccessTest extends DriverTest(TestDBs.MSAccess)
 
 @RunWith(classOf[Testkit])
