@@ -129,8 +129,7 @@ object SlickBuild extends Build {
         "org.apache.derby" % "derby" % "10.9.1.0" % "test",
         "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
-        "mysql" % "mysql-connector-java" % "5.1.23" % "test",
-        "net.sourceforge.jtds" % "jtds" % "1.2.4" % "test"
+        "mysql" % "mysql-connector-java" % "5.1.23" % "test"
       ),
       // Run the Queryable tests (which need macros) on a forked JVM
       // to avoid classloader problems with reification

@@ -10,7 +10,7 @@ import scala.slick.compiler.CompilerState
 /**
  * Slick driver for H2.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * This driver implements the [[scala.slick.driver.JdbcProfile]]
  * ''without'' the following capabilities:
  *
  * <ul>
