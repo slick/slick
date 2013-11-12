@@ -25,6 +25,6 @@ trait TypeExtractor[Elem, TupleElem] extends (TupleElem => Elem) {
   def unapply(elem: Elem): Option[TupleElem]
 }
 
-object TypeMapper extends JdbcDriver.ImplicitJdbcTypes {
+object TypeMapper extends JdbcDriver.ImplicitColumnTypes {
   val MappedColumnType = MappedJdbcType
 }
