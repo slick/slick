@@ -135,12 +135,18 @@ trait AutoMappedJdbcType[T] extends Any with AutoMappedJdbcTypeBase {
 
 object AutoMappedJdbcType {
   implicit def jdbcType[E <: AutoMappedJdbcTypeBase](implicit ct: ClassTag[E], jt: JdbcType[E#Underlying]): JdbcType[E] with BaseTypedType[E] =
-    macro AutoMappedJdbcType.applyMacroImpl[E, E#Underlying]
+    macro AutoMappedJdbcType.applyMacroImpl[E]
 
-  def applyMacroImpl[E <: AutoMappedJdbcTypeBase, U](c: Context)(ct: c.Expr[ClassTag[E]], jt: c.Expr[JdbcType[E#Underlying]])(implicit e: c.WeakTypeTag[E], eu: c.WeakTypeTag[U]): c.Expr[JdbcType[E] with BaseTypedType[E]] = {
+  def applyMacroImpl[E <: AutoMappedJdbcTypeBase](c: Context)(ct: c.Expr[ClassTag[E]], jt: c.Expr[JdbcType[E#Underlying]])(implicit e: c.WeakTypeTag[E]): c.Expr[JdbcType[E] with BaseTypedType[E]] = {
     import c.universe._
+    // BUG #1: can't just require an implicit of type c.WeakTypeTag[E#Underlying] in macro impl, because macro engine will crash
+    // BUG #2: passing E#Underlying via the macro def -> macro impl link won't work, probably because of #4
+    // BUG #3: weakTypeOf[E#Underlying] produces a free type for Underlying even though we have a type tag for E
+    // BUG #4: typeOf[AutoMappedJdbcTypeBase].member(newTypeName("Underlying").typeSignature(e.tpe) doesn't work, don't know why
+    // this `eutag` thing is the only workaround I could come up with
+    implicit val eutag = c.TypeTag[E#Underlying](e.tpe.member(newTypeName("Underlying")).typeSignatureIn(e.tpe))
     val cons = c.Expr[E#Underlying => E](Function(
-      List(ValDef(Modifiers(Flag.PARAM), newTermName("v"), Ident(eu.tpe.typeSymbol), EmptyTree)),
+      List(ValDef(Modifiers(Flag.PARAM), newTermName("v"), /*Ident(eu.tpe.typeSymbol)*/TypeTree(), EmptyTree)),
       Apply(
         Select(New(TypeTree(e.tpe)), nme.CONSTRUCTOR),
         List(Ident(newTermName("v")))
