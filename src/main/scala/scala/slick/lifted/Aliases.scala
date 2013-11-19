@@ -18,6 +18,8 @@ trait Aliases {
   type LiteralColumn[T] = lifted.LiteralColumn[T]
   val LiteralColumn = lifted.LiteralColumn
   val Case = lifted.Case
+  val Over = lifted.Over
+  val RowCursor = lifted.Over.RowCursor
   type Rep[T] = lifted.Rep[T]
   val Functions = lifted.Functions
   type Parameters[PU, PP] = lifted.Parameters[PU, PP]
