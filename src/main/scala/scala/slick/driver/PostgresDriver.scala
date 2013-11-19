@@ -1,11 +1,13 @@
 package scala.slick.driver
 
 import java.util.UUID
-import scala.slick.lifted._
 import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
-import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
+import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
+import scala.slick.ast.TableExpansion
+import scala.slick.ast.FieldSymbol
+import scala.slick.ast.SequenceNode
 
 /**
  * Slick driver for PostgreSQL.
@@ -28,6 +30,7 @@ import scala.slick.compiler.CompilerState
 trait PostgresDriver extends JdbcDriver { driver =>
 
   override val columnTypes = new JdbcTypes
+  override val simple: SimpleQL = new SimpleQL {}
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -38,6 +41,14 @@ trait PostgresDriver extends JdbcDriver { driver =>
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
     case _ => super.defaultSqlTypeName(tmd)
+  }
+
+  trait Inherits {
+    def inherited: IndexedSeq[Table[_]]
+  }
+
+  trait SimpleQL extends super.SimpleQL {
+    type Inherits = driver.Inherits
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -67,6 +78,19 @@ trait PostgresDriver extends JdbcDriver { driver =>
       }
       if(dropLobs.isEmpty) super.dropPhase1
       else Seq("delete from "+quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
+    }
+    override protected def createTable: String = {
+      val ddlStr = super.createTable
+      if (table.isInstanceOf[Inherits]) {
+        val tabNames: Seq[String] = for {
+          tab <- table.asInstanceOf[Inherits].inherited
+        } yield quoteTableName(tab.toNode.asInstanceOf[TableExpansion].table.asInstanceOf[TableNode])
+
+        val b = new StringBuilder
+        b append ddlStr append " inherits (" append tabNames.mkString(",") append ")"
+        b.toString
+
+      } else ddlStr
     }
   }
 
