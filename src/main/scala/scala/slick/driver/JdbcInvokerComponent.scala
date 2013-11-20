@@ -39,7 +39,6 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(converter, _)) = tree
 
-    def selectStatement = getStatement
     protected def getStatement = sres.sql
     protected def setParam(param: P, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), param)
     protected def extractValue(pr: PositionedResult): R = converter.read(pr).asInstanceOf[R]
