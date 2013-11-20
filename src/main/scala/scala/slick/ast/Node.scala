@@ -559,6 +559,23 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
   override def toString = "ConditionalExpr"
 }
 
+/** A window function node; clauses should be: [partition by ...] [order by ...] [rows between .. and ..] */
+final case class WindowFunc(agg: Node, partitionBy: Seq[Node], orderBy: Seq[(Node, Ordering)],
+                            rowsBetween: Option[(String, String)] = None) extends SimplyTypedNode {
+  type Self = WindowFunc
+  val nodeChildren = agg +: (partitionBy ++ orderBy.map(_._1))
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = {
+    val newAgg = ch(0)
+    val newPartitionBy = ch.slice(1, partitionBy.length)
+    val orderByOffset = 1 + partitionBy.length
+    val newOrderBy = ch.slice(orderByOffset, orderBy.length)
+    copy(agg = newAgg, partitionBy = newPartitionBy,
+      orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) })
+  }
+  protected def buildType = agg.nodeType
+  override def toString = "WindowFunc"
+}
+
 final case class OptionApply(val child: Node) extends UnaryNode with SimplyTypedNode {
   type Self = OptionApply
   protected[this] def nodeRebuild(ch: Node) = copy(child = ch)

@@ -41,6 +41,14 @@ class WindowFuncTest extends TestkitTest[JdbcTestDB] {
       })
       println(q.selectStatement)
       assertEquals(List(), q.run)
+
+      val q1 = Tabs.map(r => {
+        val avg4 = Avg.column[Int](r.col4.toNode)
+        val w = Over.partitionBy(r.col1).orderBy(r.col1, r.col4.desc).rowsBetween(RowCursor.Preceding, RowCursor.Current)
+        (r.col1, r.col2, avg4 :: w)
+      })
+      println(q1.selectStatement)
+      assertEquals(List(), q1.run)
     }
   }
 }

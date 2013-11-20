@@ -1,7 +1,6 @@
 package scala.slick.lifted
 
 import scala.slick.ast._
-import scala.collection.mutable.ArrayBuffer
 
 /** `Over` provides a DSL for `OVER clause` of window function in the query language.
   * An optional series of `partitionBy`/`OrderBy`/`rowsBetween` expressions can be
@@ -23,48 +22,30 @@ object Over {
   }
 
   ///
-  def apply(): OverClause = new OverClause(None)
+  def apply(): OverClause = new OverClause(IndexedSeq())
 
-  def partitionBy(expr: Column[_]*): OverWithPartitionBy = {
-    val partitionByNode = LiteralNode(" partition by ") +: sepNodes(expr.map(_.toNode), ",")
-    new OverWithPartitionBy(ProductNode(partitionByNode))
-  }
+  def partitionBy(columns: Column[_]*): OverWithPartitionBy = new OverWithPartitionBy(columns.map(_.toNode))
 
-  def orderBy(expr: Column[_]*)(prevNode: Option[Node] = None): OverWithOrderBy = {
-    val orderByNode = LiteralNode(" order by ") +: sepNodes(expr.map(_.toNode), ",")
-    prevNode.map(n => new OverWithOrderBy(ProductNode(n +: orderByNode)))
-      .getOrElse(new OverWithOrderBy(ProductNode(orderByNode)))
-  }
+  def orderBy(ordered: Ordered): OverWithOrderBy = new OverWithOrderBy(ordered.columns)
 
-  def rowsBetween(start: RowCursor, end: RowCursor)(prevNode: Option[Node] = None): OverWithRowsBetween = {
-    val rowsBetweenNode = LiteralNode(s" rows between ${start.name} and ${end.name} ")
-    prevNode.map(n => new OverWithRowsBetween(ProductNode(n +: rowsBetweenNode +: Nil)))
-      .getOrElse(new OverWithRowsBetween(rowsBetweenNode))
-  }
-
-  private def sepNodes(nodes: Seq[Node], sep: String): Seq[Node] = {
-    val result = ArrayBuffer[Node]()
-    var first = true
-    for(node <- nodes) {
-      if(first) first = false else result += LiteralNode(sep)
-      result += node
-    }
-    result.toSeq
-  }
+  def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween = new OverWithRowsBetween((start.name, end.name))
 
   //
-  sealed class OverClause(clause: Option[Node]) {
-    def ::[T: TypedType](agg: Column[T]): Column[T] = {
-      clause.map(n => Column.forNode[T](ProductNode(agg.toNode +: LiteralNode(" over(") +: n +: LiteralNode(") ") +: Nil)))
-        .getOrElse(Column.forNode[T](ProductNode(agg.toNode +: LiteralNode(" over() ") +: Nil)))
-    }
+  sealed class OverClause(partitionBy: Seq[Node] = Nil, orderBy: Seq[(Node, Ordering)] = Nil, rowsBetween: Option[(String, String)] = None) {
+    def ::[T: TypedType](agg: Column[T]): Column[T] = Column.forNode[T](WindowFunc(agg.toNode, partitionBy, orderBy, rowsBetween))
   }
-  final class OverWithPartitionBy(clause: Node) extends OverClause(Some(clause)) {
-    def orderBy(expr: Column[_]*): OverWithOrderBy = Over.orderBy(expr: _*)(Some(clause))
-    def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween = Over.rowsBetween(start, end)(Some(clause))
+
+  final class OverWithPartitionBy(partitionBy: Seq[Node]) extends OverClause(partitionBy) {
+    def orderBy(ordered: Ordered): OverWithOrderBy = new OverWithOrderBy(ordered.columns, partitionBy)
+    def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween =
+      new OverWithRowsBetween((start.name, end.name), partitionBy = partitionBy)
   }
-  final class OverWithOrderBy(clause: Node) extends OverClause(Some(clause)) {
-    def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween = Over.rowsBetween(start, end)(Some(clause))
+  final class OverWithOrderBy(orderBy: Seq[(Node, Ordering)],
+                              partitionBy: Seq[Node] = Nil) extends OverClause(partitionBy, orderBy) {
+    def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween =
+      new OverWithRowsBetween((start.name, end.name), orderBy, partitionBy)
   }
-  final class OverWithRowsBetween(clause: Node) extends OverClause(Some(clause))
+  final class OverWithRowsBetween(rowsBetween: (String, String),
+                                  orderBy: Seq[(Node, Ordering)] = Nil,
+                                  partitionBy: Seq[Node] = Nil) extends OverClause(partitionBy, orderBy, Some(rowsBetween))
 }
