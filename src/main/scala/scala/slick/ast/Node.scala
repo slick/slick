@@ -566,9 +566,10 @@ final case class WindowFunc(agg: Node, partitionBy: Seq[Node], orderBy: Seq[(Nod
   val nodeChildren = agg +: (partitionBy ++ orderBy.map(_._1))
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = {
     val newAgg = ch(0)
-    val newPartitionBy = ch.slice(1, partitionBy.length)
-    val orderByOffset = 1 + partitionBy.length
-    val newOrderBy = ch.slice(orderByOffset, orderBy.length)
+    val partitionByOffset = 1
+    val newPartitionBy = ch.slice(partitionByOffset, partitionByOffset + partitionBy.length)
+    val orderByOffset = partitionByOffset + partitionBy.length
+    val newOrderBy = ch.slice(orderByOffset, orderByOffset + orderBy.length)
     copy(agg = newAgg, partitionBy = newPartitionBy,
       orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) })
   }

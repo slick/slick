@@ -32,23 +32,37 @@ class WindowFuncTest extends TestkitTest[JdbcTestDB] {
         Tab("az", "quux", "bat", 5)
       )
 
-      println("===================== testing window functions ====================")
+      println("============== testing window functions =============")
       val Avg = new SqlFunction("avg")
+
       val q = Tabs.map(r => {
         val avg4 = Avg.column[Int](r.col4.toNode)
         val w = Over.partitionBy(r.col1).orderBy(r.col1, r.col4)
-        (r.col1, r.col2, avg4 :: w)
+        (r.col1, r.col2, r.col4, avg4 :: w)
       })
       println(q.selectStatement)
-      assertEquals(List(), q.run)
+      val expected = List(
+        ("az","quux",5,5),
+        ("baz","quux",4,4),
+        ("foo","bar",1,1),
+        ("foo","bar",2,1),
+        ("foo","quux",3,2)
+      )
+      assertEquals(expected, q.list)
 
-      val q1 = Tabs.map(r => {
+      val q1 = Tabs.filter(r => r.col4 < 5).map(r => {
         val avg4 = Avg.column[Int](r.col4.toNode)
         val w = Over.partitionBy(r.col1).orderBy(r.col1, r.col4.desc).rowsBetween(RowCursor.Preceding, RowCursor.Current)
-        (r.col1, r.col2, avg4 :: w)
+        (r.col1, r.col2, r.col4, avg4 :: w)
       })
       println(q1.selectStatement)
-      assertEquals(List(), q1.run)
+      val expected1 = List(
+        ("baz","quux",4,4),
+        ("foo","quux",3,3),
+        ("foo","bar",2,2),
+        ("foo","bar",1,2)
+      )
+      assertEquals(expected1, q1.list)
     }
   }
 }
