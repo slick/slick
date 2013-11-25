@@ -1,3 +1,4 @@
+[![Stories in Ready](https://badge.waffle.io/slick/slick.png?label=ready)](https://waffle.io/slick/slick)  
 Slick
 =====
 
