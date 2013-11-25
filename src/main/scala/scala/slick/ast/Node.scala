@@ -126,8 +126,8 @@ trait SimplyTypedNode extends Node {
 }
 
 object Node extends Logging {
-  private def logType(n: Node): Unit =
-    logger.debug("Assigned type "+n.nodeType+" to node "+n)
+  @inline
+  private def logType(n: Node): Unit = logger.debug("Assigned type "+n.nodePeekType+" to node "+n)
 }
 
 trait TypedNode extends Node with Typed {
@@ -399,12 +399,12 @@ final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node
   }
 }
 
-/** A union of type
+/** A UNION [ALL], INTERSECT, MINUS (EXPECT) of type
   * (CollectionType(c, t), CollectionType(_, t)) => CollectionType(c, t). */
-final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with DefNode with SimplyTypedNode {
-  type Self = Union
+final case class SetBinaryOperator(left: Node, right: Node, operator: Library.SetAlgebraOperator, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with DefNode with SimplyTypedNode {
+  type Self = SetBinaryOperator
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
-  override def toString = if(all) "Union all" else "Union"
+  override def toString():String = "Operator: " + operator
   override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
   def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(leftGen = gen(0), rightGen = gen(1))

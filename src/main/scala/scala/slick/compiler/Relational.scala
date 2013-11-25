@@ -427,9 +427,12 @@ class FuseComprehensions extends Phase {
   }
 }
 
+/**
+ * TODO: JuBu - rename this ?
+ */
 object UnionLeft {
   def unapply(n: Node): Option[Node] = n match {
-    case u: Union => unapply(u.left)
+    case s: SetBinaryOperator => unapply(s.left)
     case n => Some(n)
   }
 }

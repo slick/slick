@@ -163,13 +163,23 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val b = from.nodeType.asCollectionType.cons.canBuildFrom()
         b ++= fromV.toIterator.drop(num)
         b.result()
-      case Union(left, right, all, _, _) =>
+      case SetBinaryOperator(left, right, operator, _, _) =>
         val leftV = run(left).asInstanceOf[Coll]
         val rightV = run(right).asInstanceOf[Coll]
-        if(all) leftV ++ rightV
-        else leftV ++ {
-          val s = leftV.toSet
-          rightV.filter(e => !s.contains(e))
+        if(Library.UnionAll == operator) {
+          leftV ++ rightV
+        }
+        else if(Library.Union == operator) {
+          leftV ++ {
+            val s = leftV.toSet
+            rightV.filter(e => !s.contains(e))
+          }
+        } 
+        else if(Library.Intersect == operator) {
+          (leftV.toSet intersect rightV.toSet).toIterable
+        }
+        else if(Library.Except == operator) {
+          (leftV.toSet diff rightV.toSet).toIterable
         }
       case GetOrElse(ch, default) =>
         run(ch).asInstanceOf[Option[Any]].getOrElse(default())
