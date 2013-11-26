@@ -25,8 +25,9 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
         ({ case (f, l) => User(None, f, l) }, { u:User => Some((u.first, u.last)) })
       def asFoo = forUpdate <> ((u: User) => Foo(u), (f: Foo[User]) => Some(f.value))
     }
-    val users = TableQuery[Users]
-    val usersByID = users.findBy(_.id)
+    object users extends TableQuery(new Users(_)) {
+      val byID = this.findBy(_.id)
+    }
 
     users.ddl.create
     users.map(_.baseProjection).insert("Homer", "Simpson")
@@ -46,7 +47,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     assertTrue(Query(users.where(_.id === 1).exists).first)
 
     users.where(_.id between(1, 2)).foreach(println)
-    println("ID 3 -> " + usersByID(3).first)
+    println("ID 3 -> " + users.byID(3).first)
 
     assertEquals(
       Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")),
@@ -58,7 +59,7 @@ class MapperTest extends TestkitTest[JdbcTestDB] {
     )
     assertEquals(
       User(Some(3), "Carl", "Carlson"),
-      usersByID(3).first
+      users.byID(3).first
     )
 
     val q1 = for {
