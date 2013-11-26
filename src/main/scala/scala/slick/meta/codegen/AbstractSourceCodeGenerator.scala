@@ -48,7 +48,7 @@ class ${tableClassName}(tag: Tag) extends Table[${tpe}](tag,"${meta.name.table}"
 
     class ColumnDef(meta: m.Column) extends super.ColumnDef(meta){
       final def primaryKeyColumnOption = "O.PrimaryKey"
-      final def dbTypeColumnOption: String = s"""O.DBType("${dbTypeWithSize}")"""
+      final def dbTypeColumnOption: String = s"""O.DBType("${meta.dbType}")"""
       final def autoIncrementColumnOption = "O.AutoInc"
       final def defaultValueColumnOption = default.map("O.Default("+_+")")
 

@@ -24,30 +24,31 @@ package object meta{
       val StringValue = """^'(.+)'$""".r
       def column(tableName: m.QualifiedName, column: MColumn) = {
         val c = m.Column(
-          column.name,
-          tableName,
-          column.sqlType,
-          column.typeName,
-          if(
-            !profile.capabilities.contains(JdbcProfile.capabilities.columnSizeMetaData)
-            || (
-              // FIXME: place this somewhere more appropriate AND create a thorough list of which driver supports size for which types
-              // see
-              // http://db.apache.org/derby/docs/10.2/ref/
-              // http://www.hsqldb.org/doc/1.8/guide/ch09.html#datatypes-section
-              // http://hsqldb.org/doc/guide/sqlgeneral-chapt.html#sgc_types_ops
-              //(profile == scala.slick.driver.HsqldbDriver || profile == scala.slick.driver.DerbyDriver) && 
-              Seq("BOOLEAN","TINYINT","SMALLINT","INTEGER","BIGINT","NUMERIC","DECIMAL","DATE","TIME","DATETIME","TIMESTAMP","DOUBLE","FLOAT","BLOB")
-                .contains(column.typeName)
-            )
-          ){
-            None
-          } else {
-            column.columnSize
-          },
-          column.nullable.getOrElse(true),
-          column.isAutoInc.getOrElse(false),
-          column.columnDef.collect{
+          name=column.name,
+          table=tableName,
+          jdbcType=column.sqlType,
+          dbType=column.typeName + (
+            if(
+              !profile.capabilities.contains(JdbcProfile.capabilities.columnSizeMetaData)
+              || (
+                // FIXME: place this somewhere more appropriate AND create a thorough list of which driver supports size for which types
+                // see
+                // http://db.apache.org/derby/docs/10.2/ref/
+                // http://www.hsqldb.org/doc/1.8/guide/ch09.html#datatypes-section
+                // http://hsqldb.org/doc/guide/sqlgeneral-chapt.html#sgc_types_ops
+                //(profile == scala.slick.driver.HsqldbDriver || profile == scala.slick.driver.DerbyDriver) && 
+                Seq("BOOLEAN","TINYINT","SMALLINT","INTEGER","BIGINT","NUMERIC","DECIMAL","DATE","TIME","DATETIME","TIMESTAMP","DOUBLE","FLOAT","BLOB")
+                  .contains(column.typeName)
+              )
+            ){
+              None
+            } else {
+              column.columnSize
+            }
+          ).map("("+_+")").getOrElse(""),
+          nullable=column.nullable.getOrElse(true),
+          autoInc=column.isAutoInc.getOrElse(false),
+          default=column.columnDef.collect{
             case IntValue(value) => Some(value.toInt)
             case DoubleValue(value) => Some(value.toDouble)
             case StringValue(value) => Some(value)

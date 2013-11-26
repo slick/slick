@@ -150,7 +150,7 @@ abstract class AbstractGenerator[Code](model: m.Model)
        * Override tpe for taking control of Option.wrapping.
        * Override GeneratorHelpers#sqlTypeToClass for generic adjustments.
        */
-      def rawType: Code = sqlTypeToScala(meta.tpe)
+      def rawType: Code = sqlTypeToScala(meta.jdbcType)
       /** Possibly Option-wrapped Scala type of this column. @see rawType */
       def tpe: Code = if(meta.nullable) toOption(rawType) else rawType
 
@@ -172,14 +172,12 @@ abstract class AbstractGenerator[Code](model: m.Model)
       def default: Option[Code]
       /** Column option representing the db type. */
       def dbTypeColumnOption: Code
-      /** Db type with appended size (if one is specified). */
-      final def dbTypeWithSize: String = meta.typeName+meta.size.map("("+_+")").getOrElse("")
 
       /** Name for the column definition used in Scala code */
       def name: String = meta.name.toCamelCase.uncapitalize
       /** Scala doc comment for the column definition */
       def doc: Option[String] = Some({
-        def dbTypeComment = ": "+meta.typeName+meta.size.map("("+_+")").getOrElse("")
+        def dbTypeComment = ": "+meta.dbType
         s"""Database column ${meta.name}$dbTypeComment${if(meta.autoInc) ", AutoInc" else ""}"""
       })
       /** Scala code defining the column */

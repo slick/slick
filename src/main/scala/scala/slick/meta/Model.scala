@@ -31,9 +31,8 @@ import ColumnHelpers._
 case class Column(
   name: String,
   table: QualifiedName,
-  tpe: Int,
-  typeName: String,
-  size: Option[Int],
+  jdbcType: Int,
+  dbType: String,
   nullable: Boolean,
   autoInc: Boolean,
   default: Option[Option[Any]]
@@ -44,8 +43,7 @@ case class Column(
       name,
       table,
       tpe,
-      typeName = columnOptions.collect(extractTypeNameAndSize).head.get._1,
-      size = columnOptions.collect(extractTypeNameAndSize).head.get._2,
+      dbType = columnOptions.collect(extractTypeNameAndSize).head.get._1,
       nullable = columnOptions.contains(Nullable),
       autoInc = columnOptions.contains(AutoInc),
       default = columnOptions.collect(extractDefault).headOption
@@ -54,7 +52,7 @@ case class Column(
   def columnOptions: Set[ColumnOption[_]] = {
     Set(
       if(nullable) Nullable else NotNull,
-      DBType( typeName + size.map("("+_+")").getOrElse("") )
+      DBType( dbType )
     ) ++ (if(autoInc) Some(AutoInc) else None) ++ default.map(Default(_))
   }
 }
