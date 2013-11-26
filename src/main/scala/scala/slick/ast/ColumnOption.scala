@@ -1,6 +1,6 @@
 package scala.slick.ast
 
-sealed trait ColumnOption[+T]
+abstract class ColumnOption[+T]
 
 object ColumnOption {
   case object NotNull extends ColumnOption[Nothing]

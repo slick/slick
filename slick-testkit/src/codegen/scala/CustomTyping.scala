@@ -2,8 +2,7 @@ package scala.slick.test.meta.codegen
 import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.MappedJdbcType
 object CustomTyping {
-  val foo = new JdbcDriver.ImplicitColumnTypes{}
-  import foo._
+  import JdbcDriver.simple._
   val MappedColumnType = MappedJdbcType
   sealed trait Bool {
     def isTrue: Boolean
