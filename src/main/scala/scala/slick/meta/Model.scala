@@ -1,5 +1,4 @@
 package scala.slick.meta
-import scala.slick.lifted.ForeignKeyAction
 import scala.slick.ast.ColumnOption
 import scala.slick.ast.ColumnOption._
 
@@ -75,6 +74,16 @@ case class ForeignKey(
   onUpdate: ForeignKeyAction,
   onDelete: ForeignKeyAction
 )
+
+sealed abstract class ForeignKeyAction(val action: String)
+
+object ForeignKeyAction {
+  case object Cascade    extends ForeignKeyAction("CASCADE")
+  case object Restrict   extends ForeignKeyAction("RESTRICT")
+  case object NoAction   extends ForeignKeyAction("NO ACTION")
+  case object SetNull    extends ForeignKeyAction("SET NULL")
+  case object SetDefault extends ForeignKeyAction("SET DEFAULT")
+}
 
 case class Index(
   name: String,

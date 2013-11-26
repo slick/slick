@@ -1,7 +1,7 @@
 package scala.slick.meta.codegen
 
 import scala.slick.{meta => m}
-import scala.slick.lifted.ForeignKeyAction
+import scala.slick.meta.ForeignKeyAction
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)
@@ -13,7 +13,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
 
   /** Generates code for the complete model (not wrapped in a package yet) */
   def code = {
-    s"import scala.slick.lifted.ForeignKeyAction" +
+    s"import scala.slick.meta.ForeignKeyAction" +
       "\n" +
       tables.map(_.code.mkString("\n")).mkString("\n\n")
   }

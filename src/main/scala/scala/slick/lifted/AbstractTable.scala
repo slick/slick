@@ -2,6 +2,7 @@ package scala.slick.lifted
 
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
+import scala.slick.meta
 
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
@@ -61,8 +62,8 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     */
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT, _])
-      (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[_ <: ShapeLevel.Flat, TT, U, _], unpackp: Shape[_ <: ShapeLevel.Flat, P, PU, _]): ForeignKeyQuery[TT, U] = {
+      (targetColumns: TT => P, onUpdate: meta.ForeignKeyAction = meta.ForeignKeyAction.NoAction,
+       onDelete: meta.ForeignKeyAction = meta.ForeignKeyAction.NoAction)(implicit unpack: Shape[_ <: ShapeLevel.Flat, TT, U, _], unpackp: Shape[_ <: ShapeLevel.Flat, P, PU, _]): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.unpackable.value
     val q = Query[TT, U, TT](targetTable)(Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, TT, U, TT]])
     val generator = new AnonSymbol

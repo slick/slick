@@ -2,7 +2,7 @@ package scala.slick.lifted
 
 import scala.slick.ast._
 import scala.slick.ast.Filter
-
+import scala.slick.meta
 
 /**
  * Marker trait for foreign key and primary key constraints.
@@ -12,8 +12,8 @@ trait Constraint
 final class ForeignKey( //TODO Simplify this mess!
     val name: String,
     val sourceTable: Node,
-    val onUpdate: ForeignKeyAction,
-    val onDelete: ForeignKeyAction,
+    val onUpdate: meta.ForeignKeyAction,
+    val onDelete: meta.ForeignKeyAction,
     val sourceColumns: Any,
     val targetColumns: Any => Any,
     val linearizedSourceColumns: IndexedSeq[Node],
@@ -31,8 +31,8 @@ object ForeignKey {
       pShape: Shape[_ <: ShapeLevel.Flat, P, _, _],
       originalSourceColumns: P,
       originalTargetColumns: TT => P,
-      onUpdate: ForeignKeyAction,
-      onDelete: ForeignKeyAction
+      onUpdate: meta.ForeignKeyAction,
+      onDelete: meta.ForeignKeyAction
     ): ForeignKey = new ForeignKey(
       name,
       sourceTable,
@@ -46,16 +46,6 @@ object ForeignKey {
       targetTableShaped.value.tableNode,
       pShape
     )
-}
-
-sealed abstract class ForeignKeyAction(val action: String)
-
-object ForeignKeyAction {
-  case object Cascade extends ForeignKeyAction("CASCADE")
-  case object Restrict extends ForeignKeyAction("RESTRICT")
-  case object NoAction extends ForeignKeyAction("NO ACTION")
-  case object SetNull extends ForeignKeyAction("SET NULL")
-  case object SetDefault extends ForeignKeyAction("SET DEFAULT")
 }
 
 class ForeignKeyQuery[E <: AbstractTable[_], U](
