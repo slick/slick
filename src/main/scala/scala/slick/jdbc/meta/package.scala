@@ -2,6 +2,7 @@ package scala.slick.jdbc
 package object meta{
   import scala.slick.driver.JdbcProfile
   import scala.slick.jdbc.JdbcBackend
+  import scala.slick.ast.ColumnOption
   /**
    * Creates a Slick meta model from jdbc meta data.
    * Foreign keys pointing out of the given tables are not included.
@@ -13,47 +14,23 @@ package object meta{
     import scala.slick.{meta => m}
     import collection.immutable.ListMap
     lazy val mTablesByMQName: Map[MQName,MTable] = mTables.map(t => t.name -> t).toMap
+    lazy val mPrimaryKeysByMQName: Map[MQName,Seq[MPrimaryKey]] = mTables.map(t => t.name -> t.getPrimaryKeys.list).toMap
 
     val tableNameByMQName = mTables.map(_.name).map( name =>
       name -> m.QualifiedName(name.name, schema=name.schema, name.catalog)
     ).toMap
 
     val columnsByTableAndName: Map[MQName,Map[String,m.Column]] = {
-      val IntValue = "^([0-9]*)$".r
-      val DoubleValue = "^([0-9*]\\.[0-9]*)$".r
-      val StringValue = """^'(.+)'$""".r
       def column(tableName: m.QualifiedName, column: MColumn) = {
+        val mPrimaryKeys = mPrimaryKeysByMQName(column.table)
         val c = m.Column(
           name=column.name,
           table=tableName,
           jdbcType=column.sqlType,
-          dbType=column.typeName + (
-            if(
-              !profile.capabilities.contains(JdbcProfile.capabilities.columnSizeMetaData)
-              || (
-                // FIXME: place this somewhere more appropriate AND create a thorough list of which driver supports size for which types
-                // see
-                // http://db.apache.org/derby/docs/10.2/ref/
-                // http://www.hsqldb.org/doc/1.8/guide/ch09.html#datatypes-section
-                // http://hsqldb.org/doc/guide/sqlgeneral-chapt.html#sgc_types_ops
-                //(profile == scala.slick.driver.HsqldbDriver || profile == scala.slick.driver.DerbyDriver) && 
-                Seq("BOOLEAN","TINYINT","SMALLINT","INTEGER","BIGINT","NUMERIC","DECIMAL","DATE","TIME","DATETIME","TIMESTAMP","DOUBLE","FLOAT","BLOB")
-                  .contains(column.typeName)
-              )
-            ){
-              None
-            } else {
-              column.columnSize
-            }
-          ).map("("+_+")").getOrElse(""),
           nullable=column.nullable.getOrElse(true),
-          autoInc=column.isAutoInc.getOrElse(false),
-          default=column.columnDef.collect{
-            case IntValue(value) => Some(value.toInt)
-            case DoubleValue(value) => Some(value.toDouble)
-            case StringValue(value) => Some(value)
-            case "NULL" => None
-          }
+          options = profile.optionsFromColumn(column) ++ 
+            // Add ColumnOption if single column primary key
+            (if(mPrimaryKeys.size == 1) mPrimaryKeys.filter(_.column == column.name).map(_ => ColumnOption.PrimaryKey) else Set())
         )
         c
       }
@@ -67,7 +44,8 @@ package object meta{
       val columnsByName: Map[String,m.Column] = columns.map(c => c.name -> c).toMap
       
       def primaryKey(mPrimaryKeys:Seq[MPrimaryKey]) = {
-        if(mPrimaryKeys.isEmpty) None else Some(
+        // single column primary keys excluded in favor of PrimaryKey column option
+        if(mPrimaryKeys.size <= 1) None else Some(
           m.PrimaryKey(
             mPrimaryKeys.head.pkName.getOrElse(""),
             tableName,
@@ -118,12 +96,12 @@ package object meta{
           .toSeq
       }
 
-      val pk = primaryKey(mTable.getPrimaryKeys.list)
+      val mPrimaryKeys = mPrimaryKeysByMQName(mTable.name)
       val fks = foreignKeys(mTable.getImportedKeys.list)
       m.Table(
         tableName,
         columns,
-        pk,
+        primaryKey(mPrimaryKeys),
         fks,
         // indices not including primary key and table statistics
         indices(mTable.getIndexInfo().list)
@@ -131,7 +109,7 @@ package object meta{
             // filter out foreign key index
             case idx if !idx.unique => !fks.exists(_.referencingColumns.toSet == idx.columns.toSet)
             // filter out primary key index
-            case idx  => pk.isEmpty || pk.get.columns.toSet != idx.columns.toSet
+            case idx  => mPrimaryKeys.isEmpty || mPrimaryKeys.sortBy(_.keySeq).map(_.column).toSeq != idx.columns.map(_.name).toSeq
           }
       )
     }

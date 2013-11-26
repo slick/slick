@@ -8,6 +8,8 @@ import java.sql.{Timestamp, Time, Date}
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.meta.MColumn
+import scala.slick.ast.ColumnOption.DBType
 import scala.slick.meta.Model
 import scala.slick.jdbc.UnitInvoker
 import scala.slick.jdbc.meta.createMetaModel
@@ -61,7 +63,6 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBigDecimal
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.zip
-    - JdbcProfile.capabilities.columnSizeMetaData // size is encoded in the type name in SQLLite jdbc meta data
   )
 
   override def getTables: UnitInvoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
@@ -70,6 +71,12 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     getTables.list.filter(_.name.name.toLowerCase != "sqlite_sequence" ),
     this
   )
+
+  /** Generates the ColumnOptions for the given MColumn */
+  override def optionsFromColumn(column: MColumn) = {
+    // SQLite already encodes the size in the typeName
+    Set(DBType(column.typeName)) ++ super.optionsFromColumn(column).filterNot(_.isInstanceOf[DBType])
+  }
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

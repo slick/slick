@@ -3,6 +3,7 @@ package scala.slick.meta.codegen
 import scala.slick.{meta => m}
 import scala.slick.lifted.ForeignKeyAction
 import scala.slick.util.StringExtensionMethods
+import scala.slick.ast.ColumnOption
 
 /**
  * Slick code generator providing the base structure and facilities.
@@ -125,7 +126,7 @@ abstract class AbstractGenerator[Code](model: m.Model)
       Seq(star),
       columns    .map(x => docWithCode(x.doc,x.code)),
       // H2 apparently needs primary key and autoinc to be specified together, so we place single primary keys as column options
-      primaryKey.filter(_.columns.size > 1).map(x => docWithCode(x.doc,x.code)).toSeq,
+      primaryKey.map(x => docWithCode(x.doc,x.code)).toSeq,
       foreignKeys.map(x => docWithCode(x.doc,x.code)),
       indices    .map(x => docWithCode(x.doc,x.code))
     )
@@ -154,31 +155,14 @@ abstract class AbstractGenerator[Code](model: m.Model)
       /** Possibly Option-wrapped Scala type of this column. @see rawType */
       def tpe: Code = if(meta.nullable) toOption(rawType) else rawType
 
-      /** ColumnOptions */
-      final def options: Iterable[Code] = (
-        Seq(dbTypeColumnOption) ++
-          (if(meta.autoInc) Some(autoIncrementColumnOption) else None) ++
-          defaultValueColumnOption ++
-          // H2 apparently needs primary key and autoinc to be specified together, so we place single column primary keys as column options.
-          primaryKey.filter(_.columns.size==1/* && meta.autoInc*/).filter(_.columns.head.meta.name == meta.name).map(_ => primaryKeyColumnOption)
-      )
-      /** Generates code for a PrimaryKey column option. */
-      def primaryKeyColumnOption: Code
-      /** Generates code for an AutoInc column option. */
-      def autoIncrementColumnOption: Code
-      /** Generates code for a DefaultValue column option (if this table has a default value). */
-      def defaultValueColumnOption: Option[Code]
-      /** Generates literal Scala code representation of the default value (if this table has one). */
-      def default: Option[Code]
-      /** Column option representing the db type. */
-      def dbTypeColumnOption: Code
+      /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
+      def options: Iterable[Code]
 
       /** Name for the column definition used in Scala code */
       def name: String = meta.name.toCamelCase.uncapitalize
       /** Scala doc comment for the column definition */
       def doc: Option[String] = Some({
-        def dbTypeComment = ": "+meta.dbType
-        s"""Database column ${meta.name}$dbTypeComment${if(meta.autoInc) ", AutoInc" else ""}"""
+        s"""Database column ${meta.name} ${meta.options.map(_.toString).mkString(", ")}"""
       })
       /** Scala code defining the column */
       def code: Code

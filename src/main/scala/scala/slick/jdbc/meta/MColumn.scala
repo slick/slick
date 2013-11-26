@@ -8,12 +8,14 @@ import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker, JdbcType}
  */
 case class MColumn(
   table: MQName, name: String, sqlType: Int, typeName: String,
-  columnSize: Option[Int], decimalDigits: Option[Int], numPrecRadix: Int, nullable: Option[Boolean], remarks: Option[String],
+  size: Option[Int], decimalDigits: Option[Int], numPrecRadix: Int, nullable: Option[Boolean], remarks: Option[String],
   columnDef: Option[String], charOctetLength: Int, ordinalPos: Int, isNullable: Option[Boolean], scope: Option[MQName],
   sourceDataType: Option[Int], isAutoInc: Option[Boolean]) {
 
   @deprecated("Use name instead.","2.0.0")
   def column = name
+  @deprecated("Use size instead.","2.0.0")
+  def columnSize = size
 
   def sqlTypeName = JdbcType.typeNames.get(sqlType)
   def getColumnPrivileges = MColumnPrivilege.getColumnPrivileges(table, name)

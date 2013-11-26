@@ -8,6 +8,8 @@ import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType,
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
 import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.meta.MColumn
+import scala.slick.ast.ColumnOption
 import scala.slick.meta.Model
 import scala.slick.jdbc.UnitInvoker
 import scala.slick.jdbc.meta.createMetaModel
@@ -68,6 +70,22 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   /** Gets the Slick meta model describing this data source */
   def metaModel(implicit session: Backend#Session): Model = createMetaModel(getTables.list,this)
+
+  /** Generates the ColumnOptions for the given MColumn */
+  def optionsFromColumn(column: MColumn): Set[ColumnOption[_]] = {
+    val IntValue = "^([0-9]*)$".r
+    val DoubleValue = "^([0-9*]\\.[0-9]*)$".r
+    val StringValue = """^'(.+)'$""".r
+    import ColumnOption._
+    Set(DBType(column.typeName + column.size.map("("+_+")").getOrElse(""))) ++
+      (if(column.isAutoInc.getOrElse(false)) Some(AutoInc) else None) ++
+      (column.columnDef.collect{
+         case IntValue(value) => value.toInt
+         case DoubleValue(value) => value.toDouble
+         case StringValue(value) => value
+         case "NULL" => None
+       }.map(Default.apply))
+  }
 }
 
 object JdbcProfile {
@@ -80,14 +98,12 @@ object JdbcProfile {
     val returnInsertKey = Capability("jdbc.returnInsertKey")
     /** Can also return non-primary-key columns of inserted row */
     val returnInsertOther = Capability("jdbc.returnInsertOther")
-    /** Returns a meaningful column size in the appropriate field of the JDBC metadata (as opposed to a meaning-less, non-null one). */
-    val columnSizeMetaData = Capability("jdbc.columnSizeMetaData")
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther, columnSizeMetaData)
+    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther)
   }
 }
 

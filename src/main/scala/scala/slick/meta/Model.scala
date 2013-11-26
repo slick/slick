@@ -1,6 +1,5 @@
 package scala.slick.meta
 import scala.slick.ast.ColumnOption
-import scala.slick.ast.ColumnOption._
 
 /** Qualified name of a database table */
 case class QualifiedName(table: String, schema: Option[String]=None, catalog: Option[String]=None){
@@ -16,46 +15,13 @@ case class Table(
   indices: Seq[Index]
 )
 
-/** Workaround to have helper methods in Columns's secondary constructor */
-private object ColumnHelpers{
-  val Type =  "(a-zA-Z_)*(\\(0-9\\))?.*".r
-  val extractTypeNameAndSize: PartialFunction[ColumnOption[_],Option[(String,Option[Int])]] = {
-    case DBType(Type(typeName, size)) => Some((typeName, if(size != "") Some(size.toInt) else None))
-  }
-  val extractDefault: PartialFunction[ColumnOption[_],Option[Any]] = {
-    case Default(defaultValue) => Some(defaultValue)
-    case _ => None
-  }
-}
-import ColumnHelpers._
 case class Column(
   name: String,
   table: QualifiedName,
   jdbcType: Int,
-  dbType: String,
   nullable: Boolean,
-  autoInc: Boolean,
-  default: Option[Option[Any]]
-){
-  /** Alternative constructor consuming ColumnOptions (untested at this point). */
-  def this(name: String, table: QualifiedName, columnOptions: Seq[ColumnOption[_]], tpe: Int) = {
-    this(
-      name,
-      table,
-      tpe,
-      dbType = columnOptions.collect(extractTypeNameAndSize).head.get._1,
-      nullable = columnOptions.contains(Nullable),
-      autoInc = columnOptions.contains(AutoInc),
-      default = columnOptions.collect(extractDefault).headOption
-    )
-  }
-  def columnOptions: Set[ColumnOption[_]] = {
-    Set(
-      if(nullable) Nullable else NotNull,
-      DBType( dbType )
-    ) ++ (if(autoInc) Some(AutoInc) else None) ++ default.map(Default(_))
-  }
-}
+  options: Set[ColumnOption[_]]
+)
 
 case class PrimaryKey(
   name: String,

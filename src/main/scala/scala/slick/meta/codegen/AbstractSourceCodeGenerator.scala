@@ -2,6 +2,8 @@ package scala.slick.meta.codegen
 
 import scala.slick.{meta => m}
 import scala.slick.meta.ForeignKeyAction
+import scala.slick.ast.ColumnOption
+import scala.slick.SlickException
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)
@@ -47,19 +49,30 @@ class ${tableClassName}(tag: Tag) extends Table[${tpe}](tag,"${meta.name.table}"
     def tableValueCode = s"""lazy val ${tableValueName} = TableQuery[${tableClassName}]"""
 
     class ColumnDef(meta: m.Column) extends super.ColumnDef(meta){
-      final def primaryKeyColumnOption = "O.PrimaryKey"
-      final def dbTypeColumnOption: String = s"""O.DBType("${meta.dbType}")"""
-      final def autoIncrementColumnOption = "O.AutoInc"
-      final def defaultValueColumnOption = default.map("O.Default("+_+")")
-
-      def default : Option[String] = {
-        meta.default.collect{
-          case Some(s:String) => "\""+s+"\""
-          case Some(v:Int) => v
-          case Some(v:Double) => v
-          case None => "None"
-        }.map(_.toString)
+      def options: Iterable[String] = {
+        import ColumnOption._
+        (meta.options.map{
+          case PrimaryKey     => Some("O.PrimaryKey")
+          case Default(value) => Some("O.Default("+default.get+")") // .get is safe here
+          case DBType(dbType) => Some("O.DBType(\""+dbType+"\")")
+          case AutoInc        => Some("O.AutoInc")
+          case NotNull|Nullable => throw new SlickException( s"[Code generation] Please don't use Nullable or NotNull column options. Use an Option type, respectively the nullable flag in Slick's meta model Column." )
+          case o => throw new SlickException( s"[Code generation] Don't know how to render unexpected ColumnOption $o." )
+        }).flatten
       }
+      /** Generates literal represenation of the default value */
+      final def default: Option[String] = meta.options.collect{
+        case ColumnOption.Default(value) =>
+          val raw = (value match {
+            case s:String => "\""+s+"\""
+            case None     => "None"
+            case v:Int    => v
+            case v:Double => v
+            case _ => throw new SlickException( s"[Code generation] Dont' know how to render default value $value of ${value.getClass}" )
+          }).toString
+          if(meta.nullable && raw != "None") "Some("+raw+")"
+          else raw
+      }.headOption
 
       def code = s"""val ${name} = column[${tpe}]("${meta.name}"${options.map(", "+_).mkString("")})"""
     }
