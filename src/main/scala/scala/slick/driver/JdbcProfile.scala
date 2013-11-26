@@ -8,7 +8,9 @@ import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType,
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
 import scala.slick.jdbc.meta.MTable
+import scala.slick.meta.Model
 import scala.slick.jdbc.UnitInvoker
+import scala.slick.jdbc.meta.createMetaModel
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -63,6 +65,9 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
    * Jdbc meta data for all tables
    */
   def getTables: UnitInvoker[MTable] = MTable.getTables()
+
+  /** Gets the Slick meta model describing this data source */
+  def metaModel(implicit session: Backend#Session): Model = createMetaModel(getTables.list,this)
 }
 
 object JdbcProfile {

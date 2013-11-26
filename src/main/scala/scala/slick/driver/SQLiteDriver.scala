@@ -8,7 +8,9 @@ import java.sql.{Timestamp, Time, Date}
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
+import scala.slick.meta.Model
 import scala.slick.jdbc.UnitInvoker
+import scala.slick.jdbc.meta.createMetaModel
 
 /**
  * Slick driver for SQLite.
@@ -63,6 +65,11 @@ trait SQLiteDriver extends JdbcDriver { driver =>
   )
 
   override def getTables: UnitInvoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+
+  override def metaModel(implicit session: Backend#Session): Model = createMetaModel(
+    getTables.list.filter(_.name.name.toLowerCase != "sqlite_sequence" ),
+    this
+  )
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
