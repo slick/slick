@@ -7,6 +7,8 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Time, Date}
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
+import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.UnitInvoker
 
 /**
  * Slick driver for SQLite.
@@ -57,7 +59,10 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBigDecimal
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.zip
+    - JdbcProfile.capabilities.columnSizeMetaData // size is encoded in the type name in SQLLite jdbc meta data
   )
+
+  override def getTables: UnitInvoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
