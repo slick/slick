@@ -6,8 +6,9 @@ import scala.slick.jdbc.JdbcBackend
 /**
  * Generate Scala code from database meta-data.
  */
+@deprecated("Use scala.slick.meta.codegen.SourceCodeGenerator instead.","2.0.0")
 object CodeGen {
-
+  @deprecated("Use scala.slick.meta.codegen.SourceCodeGenerator instead.","2.0.0")
   def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend#Session) {
     val columns = table.getColumns.list
     val pkeys = table.getPrimaryKeys.mapResult(k => (k.column, k)).list.toMap
@@ -22,6 +23,7 @@ object CodeGen {
     }
   }
 
+  @deprecated("Use scala.slick.meta.codegen.SourceCodeGenerator instead.","2.0.0")
   def output(c: MColumn, pkey: Option[MPrimaryKey], out: PrintWriter)(implicit session: JdbcBackend#Session) {
     out.print("  def "+mkScalaName(c.column, false)+" = column["+scalaTypeFor(c)+"](\""+c.column+"\"")
     for(n <- c.sqlTypeName) {
@@ -34,6 +36,7 @@ object CodeGen {
     out.println(")")
   }
 
+  @deprecated("Use scala.slick.meta.codegen.SourceCodeGenerator instead.","2.0.0")
   def mkScalaName(s: String, capFirst:Boolean = true) = {
     val b = new StringBuilder
     var cap = capFirst
@@ -48,9 +51,11 @@ object CodeGen {
     b.toString
   }
 
+  @deprecated("Use scala.slick.meta.codegen.SourceCodeGenerator instead.","2.0.0")
   def scalaTypeFor(c: MColumn): String =
     if(c.nullable.getOrElse(true)) "Option[" + scalaTypeFor(c.sqlType) + "]" else scalaTypeFor(c.sqlType)
 
+  @deprecated("Use scala.slick.meta.codegen.SourceCodeGenerator instead.","2.0.0")
   def scalaTypeFor(sqlType: Int): String = {
     import java.sql.Types._
     sqlType match {
