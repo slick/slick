@@ -8,7 +8,7 @@ package lifted
 trait Aliases {
   type Query[+E, U] = lifted.Query[E, U]
   val Query = lifted.Query
-  type TableQuery[+E <: AbstractTable[_], U] = lifted.TableQuery[E, U]
+  type TableQuery[E <: AbstractTable[_]] = lifted.TableQuery[E]
   val TableQuery = lifted.TableQuery
   type Compiled[T] = lifted.Compiled[T]
   val Compiled = lifted.Compiled

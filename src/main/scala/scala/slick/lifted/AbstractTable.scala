@@ -60,7 +60,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     * @param onDelete A `ForeignKeyAction`, default being `NoAction`.
     */
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
-      (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT, _])
+      (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
       (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
        onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[_ <: ShapeLevel.Flat, TT, U, _], unpackp: Shape[_ <: ShapeLevel.Flat, P, PU, _]): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.unpackable.value
