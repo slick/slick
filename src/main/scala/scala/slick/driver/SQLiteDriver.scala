@@ -7,6 +7,10 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.sql.{Timestamp, Time, Date}
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
+import scala.slick.jdbc.meta.MTable
+import scala.slick.meta.Model
+import scala.slick.jdbc.UnitInvoker
+import scala.slick.jdbc.meta.createMetaModel
 
 /**
  * Slick driver for SQLite.
@@ -57,6 +61,14 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBigDecimal
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.zip
+    - JdbcProfile.capabilities.columnSizeMetaData // size is encoded in the type name in SQLLite jdbc meta data
+  )
+
+  override def getTables: UnitInvoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+
+  override def metaModel(implicit session: Backend#Session): Model = createMetaModel(
+    getTables.list.filter(_.name.name.toLowerCase != "sqlite_sequence" ),
+    this
   )
 
   override val columnTypes = new JdbcTypes
@@ -129,8 +141,8 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     override protected def appendOptions(sb: StringBuilder) {
       if(defaultLiteral ne null) sb append " DEFAULT " append defaultLiteral
       if(autoIncrement) sb append " PRIMARY KEY AUTOINCREMENT"
-      else if(notNull) sb append " NOT NULL"
       else if(primaryKey) sb append " PRIMARY KEY"
+      if(notNull) sb append " NOT NULL"
     }
   }
 

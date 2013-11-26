@@ -7,13 +7,16 @@ import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker, JdbcType}
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getColumns().
  */
 case class MColumn(
-  table: MQName, column: String, sqlType: Int, typeName: String,
+  table: MQName, name: String, sqlType: Int, typeName: String,
   columnSize: Option[Int], decimalDigits: Option[Int], numPrecRadix: Int, nullable: Option[Boolean], remarks: Option[String],
   columnDef: Option[String], charOctetLength: Int, ordinalPos: Int, isNullable: Option[Boolean], scope: Option[MQName],
   sourceDataType: Option[Int], isAutoInc: Option[Boolean]) {
 
+  @deprecated("Use name instead.","2.0.0")
+  def column = name
+
   def sqlTypeName = JdbcType.typeNames.get(sqlType)
-  def getColumnPrivileges = MColumnPrivilege.getColumnPrivileges(table, column)
+  def getColumnPrivileges = MColumnPrivilege.getColumnPrivileges(table, name)
 }
 
 object MColumn {

@@ -104,6 +104,11 @@ object SlickBuild extends Build {
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (), // suppress test status output
       testOnly :=  (),
+      fullRunInputTask(
+        InputKey[Unit]("code-generate"),
+        Compile,
+        "scala.slick.typeproviders.CodeGeneratorMain"
+      ),
       ivyConfigurations += config("macro").hide.extend(Compile),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
@@ -112,7 +117,7 @@ object SlickBuild extends Build {
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
     )))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
+    settings = Project.defaultSettings ++ slickCodeGenSettings ++ inConfig(config("codegen"))(Defaults.configSettings) ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
@@ -124,13 +129,20 @@ object SlickBuild extends Build {
         // The Slick core tests need junit-interface, logback and the DB drivers
         "com.novocode" % "junit-interface" % "0.10-M4" % "test",
         "ch.qos.logback" % "logback-classic" % "0.9.28" % "test",
-        "com.h2database" % "h2" % "1.3.170" % "test",
-        "org.xerial" % "sqlite-jdbc" % "3.7.2" % "test",
+        "com.h2database" % "h2" % "1.3.170",
+        "org.xerial" % "sqlite-jdbc" % "3.7.2",
         "org.apache.derby" % "derby" % "10.9.1.0" % "test",
-        "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
+        "org.hsqldb" % "hsqldb" % "2.2.8",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
         "mysql" % "mysql-connector-java" % "5.1.23" % "test"
       ),
+      sourceGenerators in Test <+= slickCodeGen,
+      ivyConfigurations += config("codegen").hide.extend(Compile),
+      unmanagedClasspath in config("codegen") <++= fullClasspath in (slickProject, Compile),
+      (test in Test) <<= (test in Test) dependsOn (compile in config("codegen")),
+      unmanagedClasspath in Test <++= fullClasspath in config("codegen"),
+      mappings in (Test, packageSrc) <++= mappings in (config("codegen"), packageSrc),
+      mappings in (Test, packageBin) <++= mappings in (config("codegen"), packageBin),
       // Run the Queryable tests (which need macros) on a forked JVM
       // to avoid classloader problems with reification
       testGrouping <<= definedTests in Test map partitionTests,
@@ -204,4 +216,28 @@ object SlickBuild extends Build {
       }
       cachedFun(inFiles).toSeq
     }
+  /** Slick TypeProvider task (should be moved into sbt plugin) */
+  val slickCodeGen = taskKey[Seq[File]]("Generates code from your database schema for working with Slick.")
+  val slickCodeGenRunner = settingKey[String]("Class that should be run.")
+  val slickCodeGenPackage = settingKey[String]("Scala package to place the generated code in.")
+  val slickCodeGenTargetDirectory = settingKey[File]("Target directory where to place the package directory structure.")
+  val slickCodeGenSettings = Seq(
+    slickCodeGenTargetDirectory := (sourceManaged in Compile).value / "generated-classes",
+    slickCodeGenRunner  := "scala.slick.test.meta.codegen.CodeGeneratorTest",
+    slickCodeGenPackage := "scala.slick.test.meta.codegen.generated",
+    slickCodeGen := {
+      val cp  = (fullClasspath in config("codegen")).value
+      val r = (runner in config("codegen")).value
+      val s      = streams.value
+      val pkg    = slickCodeGenPackage.value
+      val clazz  = slickCodeGenRunner.value
+      val cgDir  = slickCodeGenTargetDirectory.value
+      IO.delete(cgDir ** "*.scala" get)
+      toError(r.run(clazz, cp.files, Array(cgDir.getPath, pkg), s.log))
+      val files = (cgDir) ** "*.scala"
+      files.get
+    }
+  )
+
+  // TODO deprecation warnings in Test and verify with MetaTest, reason being that we want to test deprecated methods
 }

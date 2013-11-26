@@ -7,6 +7,10 @@ import scala.slick.lifted._
 import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
+import scala.slick.jdbc.meta.MTable
+import scala.slick.meta.Model
+import scala.slick.jdbc.UnitInvoker
+import scala.slick.jdbc.meta.createMetaModel
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -56,6 +60,14 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     type MappedColumnType[T, U] = MappedJdbcType[T, U]
     val MappedColumnType = MappedJdbcType
   }
+
+  /**
+   * Jdbc meta data for all tables
+   */
+  def getTables: UnitInvoker[MTable] = MTable.getTables()
+
+  /** Gets the Slick meta model describing this data source */
+  def metaModel(implicit session: Backend#Session): Model = createMetaModel(getTables.list,this)
 }
 
 object JdbcProfile {
@@ -68,12 +80,14 @@ object JdbcProfile {
     val returnInsertKey = Capability("jdbc.returnInsertKey")
     /** Can also return non-primary-key columns of inserted row */
     val returnInsertOther = Capability("jdbc.returnInsertOther")
+    /** Returns a meaningful column size in the appropriate field of the JDBC metadata (as opposed to a meaning-less, non-null one). */
+    val columnSizeMetaData = Capability("jdbc.columnSizeMetaData")
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther)
+    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther, columnSizeMetaData)
   }
 }
 

@@ -7,8 +7,12 @@ import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker}
  */
 case class MIndexInfo(table: MQName, nonUnique: Boolean, indexQualifier: Option[String],
   indexName: Option[String], indexType: Short, ordinalPosition: Short,
-  columnName: Option[String], ascending: Option[Boolean],
-  cardinality: Int, pages: Int, filterCondition: Option[String])
+  column: Option[String], ascending: Option[Boolean],
+  cardinality: Int, pages: Int, filterCondition: Option[String]){
+
+  @deprecated("Use column instead.","2.0.0")
+  def columnName = column
+}
 
 object MIndexInfo {
   def getIndexInfo(table: MQName, unique: Boolean = false, approximate: Boolean = false) = ResultSetInvoker[MIndexInfo](
