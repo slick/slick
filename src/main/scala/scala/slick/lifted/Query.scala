@@ -163,7 +163,7 @@ object Query extends Query[Unit, Unit] {
   def apply[E, U, R](value: E)(implicit unpack: Shape[_ <: ShapeLevel.Flat, E, U, R]): Query[R, U] = {
     val unpackable = ShapedValue(value, unpack).packedValue
     if(unpackable.toNode.isInstanceOf[TableExpansion])
-      new NonWrappingQuery[R, U](unpackable.toNode, unpackable)
+      new NonWrappingQuery[R, U](unpackable)
     else new WrappingQuery[R, U](Pure(unpackable.toNode), unpackable)
   }
 
@@ -199,7 +199,9 @@ class WrappingQuery[+E, U](val toNode: Node, val base: ShapedValue[_ <: E, U]) e
   lazy val unpackable = base.encodeRef(toNode.nodeIntrinsicSymbol :: Nil)
 }
 
-class NonWrappingQuery[+E, U](val toNode: Node, val unpackable: ShapedValue[_ <: E, U]) extends Query[E, U]
+class NonWrappingQuery[+E, U](val unpackable: ShapedValue[_ <: E, U]) extends Query[E, U] {
+  val toNode: Node = unpackable.toNode
+}
 
 final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)])
     extends WrappingQuery[(E1, E2), (U1,  U2)](AJoin(leftGen, rightGen, left, right, jt, LiteralNode(true)), base) {
@@ -211,9 +213,14 @@ final class BaseJoinQuery[+E1, +E2, U1, U2](leftGen: Symbol, rightGen: Symbol, l
 /** Represents a database table. Profiles add extension methods to TableQuery
   * for operations that can be performed on tables but not on arbitrary
   * queries, e.g. getting the table DDL. */
-final class TableQuery[+E <: AbstractTable[_], U](shaped: ShapedValue[_ <: E, U])
-  extends NonWrappingQuery[E, U](shaped.toNode, shaped) {
-
+class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends NonWrappingQuery[E, E#TableElementType]({
+  val baseTable = cons(new BaseTag { base =>
+    def taggedAs(path: List[Symbol]): AbstractTable[_] = cons(new RefTag(path) {
+      def taggedAs(path: List[Symbol]) = base.taggedAs(path)
+    })
+  })
+  ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, E, E#TableElementType, E]])
+}) {
   /** Get the "raw" table row that represents the table itself, as opposed to
     * a Path for a variable of the table's type. This method should generally
     * not be called from user code. */
@@ -222,23 +229,17 @@ final class TableQuery[+E <: AbstractTable[_], U](shaped: ShapedValue[_ <: E, U]
 
 object TableQuery {
   /** Create a TableQuery for a table row class using an arbitrary constructor function. */
-  def apply[E <: AbstractTable[_]](cons: Tag => E): TableQuery[E, E#TableElementType] = {
-    val baseTable = cons(new BaseTag { base =>
-      def taggedAs(path: List[Symbol]): AbstractTable[_] = cons(new RefTag(path) {
-        def taggedAs(path: List[Symbol]) = base.taggedAs(path)
-      })
-    })
-    new TableQuery[E, E#TableElementType](ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, E, E#TableElementType, E]]))
-  }
+  def apply[E <: AbstractTable[_]](cons: Tag => E): TableQuery[E] =
+    new TableQuery[E](cons)
 
   /** Create a TableQuery for a table row class which has a constructor of type (Tag). */
-  def apply[E <: AbstractTable[_]]: TableQuery[E, E#TableElementType] =
+  def apply[E <: AbstractTable[_]]: TableQuery[E] =
     macro TableQueryMacroImpl.apply[E]
 }
 
 object TableQueryMacroImpl {
 
-  def apply[E <: AbstractTable[_]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E, E#TableElementType]] = {
+  def apply[E <: AbstractTable[_]](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[TableQuery[E]] = {
     import c.universe._
     val cons = c.Expr[Tag => E](Function(
       List(ValDef(Modifiers(Flag.PARAM), newTermName("tag"), Ident(typeOf[Tag].typeSymbol), EmptyTree)),

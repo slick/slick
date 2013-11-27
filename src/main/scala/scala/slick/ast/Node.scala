@@ -127,7 +127,7 @@ trait SimplyTypedNode extends Node {
 
 object Node extends Logging {
   private def logType(n: Node): Unit =
-    logger.debug("Assigned type "+n.nodeType+" to node "+n)
+    logger.debug("Assigned type "+n.nodePeekType+" to node "+n)
 }
 
 trait TypedNode extends Node with Typed {
