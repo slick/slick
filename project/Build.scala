@@ -104,11 +104,6 @@ object SlickBuild extends Build {
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (), // suppress test status output
       testOnly :=  (),
-      fullRunInputTask(
-        InputKey[Unit]("code-generate"),
-        Compile,
-        "scala.slick.typeproviders.CodeGeneratorMain"
-      ),
       ivyConfigurations += config("macro").hide.extend(Compile),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
@@ -117,7 +112,7 @@ object SlickBuild extends Build {
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
     )))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ slickCodeGenSettings ++ inConfig(config("codegen"))(Defaults.configSettings) ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
+    settings = Project.defaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
@@ -136,17 +131,7 @@ object SlickBuild extends Build {
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
         "mysql" % "mysql-connector-java" % "5.1.23" % "test"
       ),
-      sourceGenerators in Compile <+= slickCodeGen,
-      ivyConfigurations += config("codegen").hide.extend(Compile),
-      
-      unmanagedClasspath in config("codegen") <++= fullClasspath in (slickProject, Compile),
-      (compile in Compile) <<= (compile in Compile) dependsOn (compile in config("codegen")),
-      unmanagedClasspath in Compile <++= fullClasspath in config("codegen"),
-      mappings in (Compile, packageSrc) <++= mappings in (config("codegen"), packageSrc),
-      mappings in (Compile, packageBin) <++= mappings in (config("codegen"), packageBin),
-      
-      unmanagedClasspath in config("codegen") <++= fullClasspath in (slickProject, Test),
-      (compile in Test) <<= (compile in Test) dependsOn (compile in config("codegen")),
+
       unmanagedClasspath in Test <++= fullClasspath in config("codegen"),
       mappings in (Test, packageSrc) <++= mappings in (config("codegen"), packageSrc),
       mappings in (Test, packageBin) <++= mappings in (config("codegen"), packageBin),
@@ -223,28 +208,41 @@ object SlickBuild extends Build {
       }
       cachedFun(inFiles).toSeq
     }
-  /** Slick TypeProvider task (should be moved into sbt plugin) */
-  val slickCodeGen = taskKey[Seq[File]]("Generates code from your database schema for working with Slick.")
-  val slickCodeGenRunner = settingKey[String]("Class that should be run.")
-  val slickCodeGenPackage = settingKey[String]("Scala package to place the generated code in.")
-  val slickCodeGenTargetDirectory = settingKey[File]("Target directory where to place the package directory structure.")
-  val slickCodeGenSettings = Seq(
-    slickCodeGenTargetDirectory := (sourceManaged in Compile).value / "generated-classes",
-    slickCodeGenRunner  := "scala.slick.test.meta.codegen.CodeGeneratorTest",
-    slickCodeGenPackage := "scala.slick.test.meta.codegen.generated",
-    slickCodeGen := {
-      val cp  = (fullClasspath in config("codegen")).value
-      val r = (runner in config("codegen")).value
-      val s      = streams.value
-      val pkg    = slickCodeGenPackage.value
-      val clazz  = slickCodeGenRunner.value
-      val cgDir  = slickCodeGenTargetDirectory.value
-      IO.delete(cgDir ** "*.scala" get)
-      toError(r.run(clazz, cp.files, Array(cgDir.getPath, pkg), s.log))
-      val files = (cgDir) ** "*.scala"
-      files.get
-    }
-  )
 
-  // TODO deprecation warnings in Test and verify with MetaTest, reason being that we want to test deprecated methods
+  /** Slick type provider code gen  */
+  lazy val typeProviders = TaskKey[Seq[File]]("Type provider code generation")
+  lazy val typeProvidersConfig = config("codegen").hide
+  lazy val typeProvidersSettings = {
+    inConfig(typeProvidersConfig)(Defaults.configSettings) ++
+    Seq(
+      sourceGenerators in Compile <+= typeProviders,
+      typeProviders <<= typeProvidersTask,
+      ivyConfigurations += typeProvidersConfig.extend(Compile),      
+
+      (compile in Compile) <<= (compile in Compile) dependsOn (compile in typeProvidersConfig),
+      (compile in Test) <<= (compile in Test) dependsOn (compile in typeProvidersConfig),
+
+      unmanagedClasspath in Compile <++= fullClasspath in typeProvidersConfig,
+      unmanagedClasspath in typeProvidersConfig <++= fullClasspath in (slickProject, Test),
+
+      mappings in (Compile, packageSrc) <++=
+        (sourceManaged in Compile, managedSources in Compile, sourceDirectory in Compile) map { (base, srcs, srcDir) =>
+          val src = srcDir / "codegen"
+          val inFiles = src ** "*.scala"
+          (srcs x (Path.relativeTo(base) | Path.flat)) ++ // Add generated sources to sources JAR
+            (inFiles x (Path.relativeTo(src) | Path.flat)) // Add *.fm files to sources JAR
+        }
+    )
+  }
+  lazy val typeProvidersTask =
+    (fullClasspath in typeProvidersConfig, runner in typeProviders, sourceManaged, streams, sourceDirectory) map { (cp, r, output, s, srcDir) =>
+      val src = srcDir / "codegen"
+      val inFiles = (src ** "*.scala" get).toSet
+      val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", outStyle = FilesInfo.exists) { (in: Set[File]) =>
+        IO.delete(output ** "*.scala" get)
+        toError(r.run("scala.slick.test.meta.codegen.CodeGeneratorTest", cp.files, Array(output.getPath, "scala.slick.test.meta.codegen.generated"), s.log))
+        (output ** "*.scala").get.toSet
+      }
+      cachedFun(inFiles).toSeq
+    }
 }
