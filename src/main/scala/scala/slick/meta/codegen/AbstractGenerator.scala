@@ -176,8 +176,10 @@ abstract class AbstractGenerator[Code](model: m.Model)
     abstract case class PrimaryKeyDef(val meta: m.PrimaryKey){
       /** Columns code generators in correct order */
       final lazy val columns: Seq[Column] = meta.columns.map(_.name).map(table.columnsByName)
+      /** Name used in the db or a default */
+      lazy val dbName = meta.name.getOrElse("PRIMARY_KEY_"+freshInteger)
       /** Name for the primary key definition used in Scala code */
-      def name = "pk"+meta.name.toCamelCase
+      def name = dbName.toCamelCase.uncapitalize
       /** Scala doc comment for the definition */
       def doc: Option[String] = Some(s"Primary key of ${table.tableValueName}")
       /** Scala code defining this primary key */
@@ -199,6 +201,8 @@ abstract class AbstractGenerator[Code](model: m.Model)
       def onUpdate: Code
       /** Generates the ForeignKeyAction code for the ON Delete behavior rule. */
       def onDelete: Code
+      /** Name used in the db or a default */
+      lazy val dbName = meta.name.getOrElse("PRIMARY_KEY_"+freshInteger)
       /** Name for the foreign key definition used in Scala code. (Default: if no name conflict, name of referenced table, else database name.) */
       def name: String = {
         val preferredName = referencedTable.tableValueName.uncapitalize
@@ -208,7 +212,7 @@ abstract class AbstractGenerator[Code](model: m.Model)
           // column name conflicts with referenced table name
           || table.columns.exists(_.name == preferredName)
         )
-          meta.name.toCamelCase.uncapitalize
+          dbName.toCamelCase.uncapitalize
         else
           preferredName
       }
@@ -225,8 +229,10 @@ abstract class AbstractGenerator[Code](model: m.Model)
     abstract case class IndexDef(val meta: m.Index){
       /** Columns code generators */
       final lazy val columns: Seq[Column] = meta.columns.map(_.name).map(table.columnsByName)
+      /** Name used in the db or a default */
+      lazy val dbName = meta.name.getOrElse("INDEX_"+freshInteger)
       /** The name used in Scala code */
-      def name = "index"+meta.name.toCamelCase
+      def name = meta.name.map("INDEX_"+_).getOrElse(dbName).toCamelCase.uncapitalize
       /** Name for the index definition used in Scala code */
       def doc: Option[String] = Some(
         (if(meta.unique)"Uniqueness " else "")+
@@ -240,6 +246,11 @@ abstract class AbstractGenerator[Code](model: m.Model)
 
 /** Helper methods for code generation */
 trait GeneratorHelpers[Code]{
+  private var _freshInteger = 0
+  def freshInteger = {
+    _freshInteger+=1
+    _freshInteger
+  }
   /** Assemble doc comment with scala code */
   def docWithCode(comment: Option[String], code:Code): Code
 

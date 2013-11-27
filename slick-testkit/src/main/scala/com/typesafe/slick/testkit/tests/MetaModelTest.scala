@@ -59,7 +59,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       assertEquals( categories.indices.toString, 1, categories.indices.size )
       assertEquals( None, categories.primaryKey )
       assertEquals( 0, categories.foreignKeys.size )
-      assertEquals( "IDX_NAME", categories.indices.head.name.toUpperCase )
+      assertEquals( "IDX_NAME", categories.indices.head.name.get.toUpperCase )
       assertEquals( List("id"), categories.columns.filter(_.options.exists(_ == ColumnOption.PrimaryKey)).map(_.name).toList )
     }
     ;{
@@ -69,7 +69,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       assertEquals( 2, posts.primaryKey.get.columns.size )
       assertEquals( 1, posts.foreignKeys.size )
       if(tdb.profile != slick.driver.SQLiteDriver){
-        assertEquals( "CATEGORY_FK", posts.foreignKeys.head.name.toUpperCase )
+        assertEquals( "CATEGORY_FK", posts.foreignKeys.head.name.get.toUpperCase )
       }
       assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
     }

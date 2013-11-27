@@ -24,13 +24,13 @@ case class Column(
 )
 
 case class PrimaryKey(
-  name: String,
+  name: Option[String],
   table: QualifiedName,
   columns: Seq[Column]
 )
 
 case class ForeignKey(
-  name: String,
+  name: Option[String],
   referencingTable: QualifiedName,
   referencingColumns: Seq[Column],
   referencedTable: QualifiedName,
@@ -50,7 +50,7 @@ object ForeignKeyAction {
 }
 
 case class Index(
-  name: String,
+  name: Option[String],
   table: QualifiedName,
   columns: Seq[Column],
   unique: Boolean

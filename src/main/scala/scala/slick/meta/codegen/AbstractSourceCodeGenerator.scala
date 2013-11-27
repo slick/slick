@@ -4,6 +4,7 @@ import scala.slick.{meta => m}
 import scala.slick.meta.ForeignKeyAction
 import scala.slick.ast.ColumnOption
 import scala.slick.SlickException
+import scala.slick.util.StringExtensionMethods
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)
@@ -78,7 +79,7 @@ class ${tableClassName}(tag: Tag) extends Table[${tpe}](tag,"${meta.name.table}"
     }
 
     class PrimaryKeyDef(meta: m.PrimaryKey) extends super.PrimaryKeyDef(meta){
-      def code = s"""val $name = primaryKey("${meta.name}", ${compound(columns.map(_.name))})"""
+      def code = s"""val $name = primaryKey("${dbName}", ${compound(columns.map(_.name))})"""
     }
 
     class ForeignKeyDef(meta: m.ForeignKey) extends super.ForeignKeyDef(meta){
@@ -92,11 +93,11 @@ class ${tableClassName}(tag: Tag) extends Table[${tpe}](tag,"${meta.name.table}"
       
       final def onUpdate: String = ruleString(meta.onUpdate)
       final def onDelete: String = ruleString(meta.onDelete)
-      def code = s"""val $name = foreignKey("${meta.name}", ${compound(referencingColumns.map(_.name))}, ${referencedTable.tableValueName})(t => ${compound(referencedColumns.map(_.name).map("t."+_))}, onUpdate=${onUpdate}, onDelete=${onDelete})"""
+      def code = s"""val $name = foreignKey("${dbName}", ${compound(referencingColumns.map(_.name))}, ${referencedTable.tableValueName})(t => ${compound(referencedColumns.map(_.name).map("t."+_))}, onUpdate=${onUpdate}, onDelete=${onDelete})"""
     }
 
     class IndexDef(meta: m.Index) extends super.IndexDef(meta){
-      def code = s"""val $name = index("${meta.name}", ${compound(columns.map(_.name))}${if(meta.unique) ", unique=true" else ""})"""
+      def code = s"""val $name = index("${dbName}", ${compound(columns.map(_.name))}${if(meta.unique) ", unique=true" else ""})"""
     }
   }
   // Default Scala tree generators

@@ -47,7 +47,7 @@ package object meta{
         // single column primary keys excluded in favor of PrimaryKey column option
         if(mPrimaryKeys.size <= 1) None else Some(
           m.PrimaryKey(
-            mPrimaryKeys.head.pkName.getOrElse(""),
+            mPrimaryKeys.head.pkName,
             tableName,
             mPrimaryKeys.sortBy(_.keySeq).map(_.column).map(columnsByName)
           )
@@ -67,7 +67,7 @@ package object meta{
             val pkColumns = fks.map(_.pkColumn).map( columnsByTableAndName(fk.pkTable) )
             assert(fkColumns.size == pkColumns.size)
             m.ForeignKey(
-              fk.fkName.getOrElse(""),
+              fk.fkName,
               tableName,
               fkColumns,
               tableNameByMQName(fk.pkTable),
@@ -87,7 +87,7 @@ package object meta{
           .map{ mIndices =>
             val idx = mIndices.head
             m.Index(
-              idx.indexName.getOrElse(""),
+              idx.indexName,
               tableName,
               mIndices.sortBy(_.ordinalPosition).map(_.column.get).map(columnsByName),
               !idx.nonUnique
