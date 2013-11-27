@@ -3,6 +3,7 @@ package scala.slick.test.meta.codegen
 import scala.slick.meta.codegen.SourceCodeGenerator
 import scala.slick.driver._
 import scala.slick.jdbc.JdbcBackend
+import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.meta.{MTable,createMetaModel}
 import scala.slick.meta.Model
 
@@ -16,6 +17,38 @@ object CodeGeneratorTest {
       db.withSession{ implicit session =>
         generator(config)(session).writeToFile(driver=slickDriver, folder=args(0), pkg="scala.slick.test.meta.codegen.generated", objectName, fileName=objectName+".scala" )
       }
+    }
+    ;{
+      // generates code for CodeGenRoundTripTest
+      // This is generated using Derby currently because Derby strips column size of some columns,
+      // which works with all backend. If the code was generated using meta data where the size is included it would fail in derby and hsqldb.
+      // The code is tested using all enabled drivers. We should also diversify generation as well at some point.
+      val driver = scala.slick.driver.DerbyDriver
+      val url = "jdbc:derby:memory:test1;create=true"
+      val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
+      object Tables extends Tables(driver)
+      import Tables._
+      import Tables.profile.simple._
+      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl
+      //println(ddl.createStatements.mkString("\n"))
+      val db = Database.forURL(url=url,driver=jdbcDriver)
+      val gen = db.withSession{ implicit session =>
+        ddl.create
+        (new SourceCodeGenerator(driver.metaModel(session)))
+      }
+      val pkg = "scala.slick.test.meta.codegen.roundtrip"
+      val packagedCode = s"""
+package ${pkg}
+/** AUTO-GENERATED FILE */
+import scala.slick.driver.JdbcProfile
+class Tables(val profile: JdbcProfile){
+import profile.simple._
+
+${gen.code}
+
+}
+      """.trim()
+      gen.writeStringToFile( packagedCode, args(0), pkg, "Tables.scala" )
     }
   }
 
@@ -118,3 +151,45 @@ val database = Database.forURL(url=""\"$url""\",driver="$jdbcDriver",user="",pas
     generator
   )
 }
+class Tables(val profile: JdbcProfile){
+  import profile.simple._
+  case class Category(id: Int, name: String)
+  class Categories(tag: Tag) extends Table[Category](tag, "categories") {
+    def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+    def name = column[String]("name")
+    def * = (id, name) <> (Category.tupled,Category.unapply)
+    def idx = index("IDX_NAME",name)
+  }
+  val categories = TableQuery[Categories]
+
+  class Posts(tag: Tag) extends Table[(Int, String, Option[Int])](tag, "posts") {
+    def id = column[Int]("id")
+    def title = column[String]("title")
+    def category = column[Option[Int]]("category")
+    def * = (id, title, category)
+    def categoryFK = foreignKey("category_fk", category, categories)(_.id)
+  }
+  val posts = TableQuery[Posts]
+
+  class TypeTest(tag: Tag) extends Table[(Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob)](tag, "TYPE_TEST") {
+    def Boolean = column[Boolean]("Boolean",O.Default(true))
+    def Byte = column[Byte]("Byte")
+    def Short = column[Short]("Short")
+    def Int = column[Int]("Int",O.Default(5))
+    def Long = column[Long]("Long",O.Default(5L))
+    //def java_math_BigInteger = column[java.math.BigInteger]("java_math_BigInteger")
+    def Float = column[Float]("Float",O.Default(9.999F))
+    def Double = column[Double]("Double",O.Default(9.999))
+    //def java_math_BigDecimal = column[java.math.BigDecimal]("java_math_BigDecimal")
+    def String = column[String]("String",O.Default("someDefaultString"))
+    def java_sql_Date = column[java.sql.Date]("java_sql_Date")
+    def java_sql_Time = column[java.sql.Time]("java_sql_Time")
+    def java_sql_Timestamp = column[java.sql.Timestamp]("java_sql_Timestamp")
+    def java_sql_Blob = column[java.sql.Blob]("java_sql_Blob")
+    def java_sql_Clob = column[java.sql.Clob]("java_sql_Clob")
+    def * = (Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob)
+    def pk = primaryKey("PK", (Int,Long))
+  }
+  val typeTest = TableQuery[TypeTest]
+}
+

@@ -13,7 +13,7 @@ trait OutputHelpers{
   def indent(code: String): String
 
   /** Writes given content to a file */
-  private def writeStringToFile(folder:String, content: String, pkg: String, fileName: String) {
+  def writeStringToFile(content: String, folder:String, pkg: String, fileName: String) {
     val folder2 : String = folder + "/" + (pkg.replace(".","/")) + "/"
     new File(folder2).mkdirs()
     val file = new File( folder2+fileName )
@@ -37,7 +37,7 @@ trait OutputHelpers{
    * @param fileName Name of the output file, to which the code will be written
    */
   def writeToFile(driver: String, folder:String, pkg: String, obj:String="Tables", fileName: String="Tables.scala") {
-    writeStringToFile(folder, packageCode(driver, pkg, obj), pkg, fileName)
+    writeStringToFile(packageCode(driver, pkg, obj), folder, pkg, fileName)
   }
 
   /**
