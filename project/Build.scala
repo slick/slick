@@ -104,7 +104,13 @@ object SlickBuild extends Build {
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
       test := (), // suppress test status output
       testOnly :=  (),
+      fullRunInputTask(
+        InputKey[Unit]("code-generate"),
+        Compile,
+        "scala.slick.typeproviders.CodeGeneratorMain"
+      ),
       ivyConfigurations += config("macro").hide.extend(Compile),
+      libraryDependencies ++= Seq("com.typesafe" % "config" % "1.0.0"),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
@@ -112,7 +118,7 @@ object SlickBuild extends Build {
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
     )))
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
+    settings = Project.defaultSettings ++ inConfig(config("test-config"))(Defaults.configSettings) ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
@@ -124,13 +130,26 @@ object SlickBuild extends Build {
         // The Slick core tests need junit-interface, logback and the DB drivers
         "com.novocode" % "junit-interface" % "0.10-M4" % "test",
         "ch.qos.logback" % "logback-classic" % "0.9.28" % "test",
-        "com.h2database" % "h2" % "1.3.170" % "test",
-        "org.xerial" % "sqlite-jdbc" % "3.7.2" % "test",
+        "com.h2database" % "h2" % "1.3.170",
+        "org.xerial" % "sqlite-jdbc" % "3.7.2",
         "org.apache.derby" % "derby" % "10.9.1.0" % "test",
-        "org.hsqldb" % "hsqldb" % "2.2.8" % "test",
+        "org.hsqldb" % "hsqldb" % "2.2.8",
         "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
         "mysql" % "mysql-connector-java" % "5.1.23" % "test"
       ),
+      ivyConfigurations += config("test-config").hide.extend(Compile),
+      unmanagedClasspath in config("test-config") <++= fullClasspath in (slickProject, Compile),
+      (test in Test) <<= (test in Test) dependsOn (compile in config("test-config")),
+      unmanagedClasspath in Test <++= fullClasspath in config("test-config"),
+      sourceGenerators in Test <+= (sourceManaged in Test, sourceDirectory in config("test-config"), fullClasspath in config("test-config"), runner in config("test-config"), streams) map { (dir, srcDir, cp, r, s) =>
+        val cgDir = dir / "generated-classes"
+        IO.delete(cgDir ** "*.scala" get)
+        toError(r.run("scala.slick.typeproviders.test.GeneratedClasses", cp.files, Array(cgDir.getPath), s.log))
+        val files = (cgDir) ** "*.scala"
+        files.get
+      },
+      mappings in (Test, packageSrc) <++= mappings in (config("test-config"), packageSrc),
+      mappings in (Test, packageBin) <++= mappings in (config("test-config"), packageBin),
       // Run the Queryable tests (which need macros) on a forked JVM
       // to avoid classloader problems with reification
       testGrouping <<= definedTests in Test map partitionTests,
@@ -156,6 +175,7 @@ object SlickBuild extends Build {
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
   ) dependsOn(slickProject)
 
+
   /* Test Configuration for running tests on doc sources */
   lazy val DocTest = config("doctest") extend(Test)
 
@@ -167,7 +187,7 @@ object SlickBuild extends Build {
       new Group("inProcess", notFork, InProcess)
     )
   }
-
+  
   /* FMPP Task */
   lazy val fmpp = TaskKey[Seq[File]]("fmpp")
   lazy val fmppConfig = config("fmpp") hide
