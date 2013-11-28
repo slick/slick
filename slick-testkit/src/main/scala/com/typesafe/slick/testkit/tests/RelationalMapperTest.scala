@@ -68,4 +68,21 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
     assertEquals(ts.where(_.b === (True:Bool)).run.toSet, Set((2, True, Some(True))))
     assertEquals(ts.where(_.b === (False:Bool)).run.toSet, Set((1, False, None)))
   }
+
+  def testAutoMapped {
+
+    class T(tag: Tag) extends Table[(MyMappedID, Int)](tag, "t_automapped") {
+      def id = column[MyMappedID]("id", O.PrimaryKey)
+      def v = column[Int]("v")
+      def * = (id, v)
+    }
+    val ts = TableQuery[T]
+    ts.ddl.create
+    ts ++= Seq((MyMappedID(1), 2), (MyMappedID(3), 4))
+
+    assertEquals(Set((MyMappedID(1), 2), (MyMappedID(3), 4)), ts.run.toSet)
+    assertEquals(Set((MyMappedID(1), 2)), ts.filter(_.id === MyMappedID(1)).run.toSet)
+  }
 }
+
+case class MyMappedID(value: Int) extends AnyVal with scala.slick.lifted.MappedTo[Int]

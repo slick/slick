@@ -180,6 +180,8 @@ trait RelationalTypesComponent { driver: BasicDriver =>
   }
 
   trait ImplicitColumnTypes {
+    implicit def isomorphicType[A, B](implicit iso: Isomorphism[A, B], ct: ClassTag[A], jt: BaseColumnType[B]): BaseColumnType[A] =
+      MappedColumnType.base[A, B](iso.map, iso.comap)
     implicit def booleanColumnType: BaseColumnType[Boolean]
     implicit def bigDecimalColumnType: BaseColumnType[BigDecimal] with NumericTypedType
     implicit def byteColumnType: BaseColumnType[Byte] with NumericTypedType
