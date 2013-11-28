@@ -6,6 +6,7 @@ import scala.slick.lifted._
 import scala.slick.util.{TupleMethods, TupleSupport}
 import FunctionSymbolExtensionMethods._
 import scala.slick.SlickException
+import scala.reflect.ClassTag
 
 /**
  * A profile for relational databases that does not assume the existence
@@ -33,6 +34,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     val Sequence = driver.Sequence
     type ColumnType[T] = driver.ColumnType[T]
     type BaseColumnType[T] = driver.BaseColumnType[T]
+    val MappedColumnType = driver.MappedColumnType
   }
 
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U] with TableQuery[T]) {
@@ -170,6 +172,12 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
 trait RelationalTypesComponent { driver: BasicDriver =>
   type ColumnType[T] <: TypedType[T]
   type BaseColumnType[T] <: ColumnType[T] with BaseTypedType[T]
+
+  val MappedColumnType: MappedColumnTypeFactory
+
+  trait MappedColumnTypeFactory {
+    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T]
+  }
 
   trait ImplicitColumnTypes {
     implicit def booleanColumnType: BaseColumnType[Boolean]
