@@ -23,14 +23,26 @@ package object meta{
     val columnsByTableAndName: Map[MQName,Map[String,m.Column]] = {
       def column(tableName: m.QualifiedName, column: MColumn) = {
         val mPrimaryKeys = mPrimaryKeysByMQName(column.table)
+        val IntValue = "^([0-9]*)$".r
+        val DoubleValue = "^([0-9*]\\.[0-9]*)$".r
+        val StringValue = """^'(.+)'$""".r
+        import ColumnOption._
         val c = m.Column(
           name=column.name,
           table=tableName,
           jdbcType=column.sqlType,
           nullable=column.nullable.getOrElse(true),
-          options = profile.optionsFromColumn(column) ++ 
+          // omitting the DBType as it is not portable between backends
+          options = Set() ++
+            (if(column.isAutoInc.getOrElse(false)) Some(AutoInc) else None) ++
+            (column.columnDef.collect{
+               case IntValue(value) => value.toInt
+               case DoubleValue(value) => value.toDouble
+               case StringValue(value) => value
+               case "NULL" => None
+             }.map(Default.apply)) ++
             // Add ColumnOption if single column primary key
-            (if(mPrimaryKeys.size == 1) mPrimaryKeys.filter(_.column == column.name).map(_ => ColumnOption.PrimaryKey) else Set())
+            (if(mPrimaryKeys.size == 1) mPrimaryKeys.filter(_.column == column.name).map(_ => PrimaryKey) else Set())
         )
         c
       }

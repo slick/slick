@@ -36,23 +36,6 @@ trait HsqldbDriver extends JdbcDriver { driver =>
 
   override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
-  /** Generates the ColumnOptions for the given MColumn */
-  override def optionsFromColumn(column: MColumn) = {
-    if(
-      // FIXME: the type list needs review and maybe consolidation with DerbyDriver
-      // see
-      // http://www.hsqldb.org/doc/1.8/guide/ch09.html#datatypes-section
-      // http://hsqldb.org/doc/guide/sqlgeneral-chapt.html#sgc_types_ops
-      Seq("BOOLEAN","TINYINT","SMALLINT","INTEGER","BIGINT","NUMERIC","DECIMAL","DATE","TIME","DATETIME","TIMESTAMP","DOUBLE","FLOAT","BLOB")
-        .contains(column.typeName)
-    ){
-      // some types allow no size ascription for this driver
-      Set(DBType(column.typeName)) ++ super.optionsFromColumn(column).filterNot(_.isInstanceOf[DBType])
-    } else {
-      super.optionsFromColumn(column)
-    }
-  }
-
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)

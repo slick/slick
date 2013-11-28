@@ -143,7 +143,7 @@ object SlickBuild extends Build {
       testGrouping in DocTest <<= definedTests in DocTest map partitionTests,
       parallelExecution in Test := false,
       compile in Test ~= { a =>
-        // Delete classes in "compile" packages after compiling.
+        // Delete classes in "compile" packages after compiling. (Currently only scala.slick.test.compile.NestedShapeTest)
         // These are used for compile-time tests and should be recompiled every time.
         val products = a.relations.allProducts.toSeq ** new SimpleFileFilter(_.getParentFile.getName == "compile")
         IO.delete(products.get)

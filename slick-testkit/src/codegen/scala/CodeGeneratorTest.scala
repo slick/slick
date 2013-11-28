@@ -23,9 +23,9 @@ object CodeGeneratorTest {
       // This is generated using Derby currently because Derby strips column size of some columns,
       // which works with all backend. If the code was generated using meta data where the size is included it would fail in derby and hsqldb.
       // The code is tested using all enabled drivers. We should also diversify generation as well at some point.
-      val driver = scala.slick.driver.DerbyDriver
-      val url = "jdbc:derby:memory:test1;create=true"
-      val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
+      val driver = scala.slick.driver.H2Driver
+      val url = "jdbc:h2:mem:test3"
+      val jdbcDriver = "org.h2.Driver"
       object Tables extends Tables(driver)
       import Tables._
       import Tables.profile.simple._

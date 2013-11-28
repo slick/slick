@@ -70,22 +70,6 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   /** Gets the Slick meta model describing this data source */
   def metaModel(implicit session: Backend#Session): Model = createMetaModel(getTables.list,this)
-
-  /** Generates the ColumnOptions for the given MColumn */
-  def optionsFromColumn(column: MColumn): Set[ColumnOption[_]] = {
-    val IntValue = "^([0-9]*)$".r
-    val DoubleValue = "^([0-9*]\\.[0-9]*)$".r
-    val StringValue = """^'(.+)'$""".r
-    import ColumnOption._
-    Set(DBType(column.typeName + column.size.map("("+_+")").getOrElse(""))) ++
-      (if(column.isAutoInc.getOrElse(false)) Some(AutoInc) else None) ++
-      (column.columnDef.collect{
-         case IntValue(value) => value.toInt
-         case DoubleValue(value) => value.toDouble
-         case StringValue(value) => value
-         case "NULL" => None
-       }.map(Default.apply))
-  }
 }
 
 object JdbcProfile {

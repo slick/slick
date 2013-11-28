@@ -63,19 +63,6 @@ trait DerbyDriver extends JdbcDriver { driver =>
 
   override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
   /** Generates the ColumnOptions for the given MColumn */
-  override def optionsFromColumn(column: MColumn) = {
-    if(
-      // FIXME: the type list needs review and maybe consolidation with HsqldbDriver
-      // see http://db.apache.org/derby/docs/10.2/ref/
-      Seq("BOOLEAN","TINYINT","SMALLINT","INTEGER","BIGINT","NUMERIC","DECIMAL","DATE","TIME","DATETIME","TIMESTAMP","DOUBLE","FLOAT","BLOB")
-        .contains(column.typeName)
-    ){
-      // some types allow no size ascription for this driver
-      Set(DBType(column.typeName)) ++ super.optionsFromColumn(column).filterNot(_.isInstanceOf[DBType])
-    } else {
-      super.optionsFromColumn(column)
-    }
-  }
 
   override val compiler = QueryCompiler.relational + Phase.rewriteBooleans
   override val columnTypes = new JdbcTypes

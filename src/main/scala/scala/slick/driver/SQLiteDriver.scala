@@ -72,12 +72,6 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     this
   )
 
-  /** Generates the ColumnOptions for the given MColumn */
-  override def optionsFromColumn(column: MColumn) = {
-    // SQLite already encodes the size in the typeName
-    Set(DBType(column.typeName)) ++ super.optionsFromColumn(column).filterNot(_.isInstanceOf[DBType])
-  }
-
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
