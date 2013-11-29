@@ -80,6 +80,12 @@ abstract class AbstractGenerator[Code](model: m.Model)
           Seq(docWithCode(entityClassDoc,entityClassCode))
         else
           Seq()
+      ) ++
+      (
+        if(plainSQLEnabled)
+          Seq(docWithCode(plainSQLDoc,plainSQLCode))
+        else
+          Seq()
       ) ++ Seq(
         docWithCode(tableClassDoc,tableClassCode),
         docWithCode(tableValueDoc,tableValueCode)
@@ -113,6 +119,18 @@ abstract class AbstractGenerator[Code](model: m.Model)
     def entityClassName: String = entityName(meta.name.table)
     /** Generates the entity case class (holding a complete row of data of this table).*/
     def entityClassCode: Code
+
+    // GetResult mapper to use with plain SQL
+    /** Plain SQL helper code is only generated for tables where the types of all columns appear in this least */
+    def plainSQLSupportedTypes: Set[Code]
+    /** Indicates if an implicit GetResult mapper should be generated for this table. */
+    def plainSQLEnabled = columns.forall(c => plainSQLSupportedTypes.contains(c.rawType))
+    /** Scala doc for GetResult mapper */
+    def plainSQLDoc: Option[String] = Some(s"GetResult implicit for fetching $entityClassName objects using plain SQL queries")
+    /** Name used for GetResult mapper */
+    def plainSQLName: String = "Get"+tableName(meta.name.table)
+    /** Generates the GetResult mapper definition code.*/
+    def plainSQLCode: Code
 
     // Table class
     /** Scala doc for the Table class */
@@ -153,7 +171,7 @@ abstract class AbstractGenerator[Code](model: m.Model)
        */
       def rawType: Code = sqlTypeToScala(meta.jdbcType)
       /** Possibly Option-wrapped Scala type of this column. @see rawType */
-      def tpe: Code = if(meta.nullable) toOption(rawType) else rawType
+      final def tpe: Code = if(meta.nullable) toOption(rawType) else rawType
 
       /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
       def options: Iterable[Code]

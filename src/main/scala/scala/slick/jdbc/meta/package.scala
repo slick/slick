@@ -35,6 +35,7 @@ package object meta{
           // omitting the DBType as it is not portable between backends
           options = Set() ++
             (if(column.isAutoInc.getOrElse(false)) Some(AutoInc) else None) ++
+            // FIXME: just ignoring other default values
             (column.columnDef.collect{
                case IntValue(value) => value.toInt
                case DoubleValue(value) => value.toDouble

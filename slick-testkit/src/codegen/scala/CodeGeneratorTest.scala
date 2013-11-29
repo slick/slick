@@ -95,9 +95,9 @@ val  SimpleA = CustomTyping.SimpleA
             } else super.code
           }
           override def Column = new Column(_){
-            override def tpe = meta.name match {
+            override def rawType = meta.name match {
               case "A1" => "Bool"
-              case _ => super.tpe
+              case _ => super.rawType
             }
           }
         }
