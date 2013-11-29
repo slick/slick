@@ -29,7 +29,7 @@ object CodeGeneratorTest {
       object Tables extends Tables(driver)
       import Tables._
       import Tables.profile.simple._
-      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl
+      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl
       //println(ddl.createStatements.mkString("\n"))
       val db = Database.forURL(url=url,driver=jdbcDriver)
       val gen = db.withSession{ implicit session =>
@@ -180,5 +180,50 @@ class Tables(val profile: JdbcProfile){
     def pk = primaryKey("PK", (Int,Long))
   }
   val typeTest = TableQuery[TypeTest]
+
+  // testing table larger 22 columns (code gen round trip does not preserve structure of the * projection or names of mapped to classes)
+  case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
+  case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
+  class Large(tag: Tag) extends Table[Whole](tag, "LARGE") {
+    def id = column[Int]("id", O.PrimaryKey)
+    def p1i1 = column[Int]("p1i1")
+    def p1i2 = column[Int]("p1i2")
+    def p1i3 = column[Int]("p1i3")
+    def p1i4 = column[Int]("p1i4")
+    def p1i5 = column[Int]("p1i5")
+    def p1i6 = column[Int]("p1i6")
+    def p2i1 = column[Int]("p2i1")
+    def p2i2 = column[Int]("p2i2")
+    def p2i3 = column[Int]("p2i3")
+    def p2i4 = column[Int]("p2i4")
+    def p2i5 = column[Int]("p2i5")
+    def p2i6 = column[Int]("p2i6")
+    def p3i1 = column[Int]("p3i1")
+    def p3i2 = column[Int]("p3i2")
+    def p3i3 = column[Int]("p3i3")
+    def p3i4 = column[Int]("p3i4")
+    def p3i5 = column[Int]("p3i5")
+    def p3i6 = column[Int]("p3i6")
+    def p4i1 = column[Int]("p4i1")
+    def p4i2 = column[Int]("p4i2")
+    def p4i3 = column[Int]("p4i3")
+    def p4i4 = column[Int]("p4i4")
+    def p4i5 = column[Int]("p4i5")
+    def p4i6 = column[Int]("p4i6")
+    def * = (
+      id,
+      (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6),
+      (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6),
+      (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6),
+      (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
+    ).shaped <> ({ case (id, p1, p2, p3, p4) =>
+      // We could do this without .shaped but then we'd have to write a type annotation for the parameters
+      Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
+    }, { w: Whole =>
+      def f(p: Part) = Part.unapply(p).get
+      Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
+    })
+  }
+  val large = TableQuery[Large]
 }
 

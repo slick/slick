@@ -106,7 +106,7 @@ abstract class AbstractGenerator[Code](model: m.Model)
 
     // entity class (mapped case class)
     /** Indicates if an entity case class should be generated for this table. (This also set mappingEnabled to false unless you override it.) */
-    def entityClassEnabled = true
+    def entityClassEnabled = columns.size <= 22
     /** Scala doc for entity case class */
     def entityClassDoc: Option[String] = Some(s"Entity class storing rows of table $tableValueName")
     /** Name used for entity case class */

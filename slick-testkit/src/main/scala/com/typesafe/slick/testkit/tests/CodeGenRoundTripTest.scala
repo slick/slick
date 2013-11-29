@@ -33,5 +33,14 @@ class CodeGenRoundTripTest extends TestkitTest[JdbcTestDB] {
     Tables.Categories.insert( Tables.CategoriesRow(2,"cat") )
     val res = ( Tables.Posts.length.run, Tables.Posts.filter(_.title =!= "post 1").map(_.title).run.toList )
     assertEquals((3,List("post 2","post 3")), res)
+
+    // Testing table larger 22 columns
+    import scala.slick.collection.heterogenous._
+    import scala.slick.collection.heterogenous.syntax._
+    val ts = Tables.Large
+    val oData = 0 :: 11 :: 12 :: 13 :: 14 :: 15 :: 16 :: 21 :: 22 :: 23 :: 24 :: 25 :: 26 :: 31 :: 32 :: 33 :: 34 :: 35 :: 36 :: 41 :: 42 :: 43 :: 44 :: 45 :: 46 :: HNil
+    ts.ddl.create
+    ts.insert(oData)
+    assertEquals((oData,0), ts.map(r => (r,r.id)).first)
   }
 }
