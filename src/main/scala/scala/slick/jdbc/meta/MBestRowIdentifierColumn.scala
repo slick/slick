@@ -1,7 +1,8 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker, JdbcType}
+import scala.slick.jdbc.{ResultSetInvoker, UnitInvoker}
+import scala.slick.driver.JdbcTypesComponent
 
 /**
  * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getBestRowIdentifier().
@@ -10,7 +11,7 @@ case class MBestRowIdentifierColumn(
   scope: MBestRowIdentifierColumn.Scope, column: String, sqlType: Int, typeName: String,
   columnSize: Option[Int], decimalDigits: Option[Short], pseudoColumn: Option[Boolean]) {
 
-  def sqlTypeName = JdbcType.typeNames.get(sqlType)
+  def sqlTypeName = JdbcTypesComponent.typeNames.get(sqlType)
 }
 
 object MBestRowIdentifierColumn {

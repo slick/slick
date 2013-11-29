@@ -3,12 +3,110 @@ package scala.slick.driver
 import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import java.util.UUID
 import scala.slick.SlickException
-import scala.slick.ast.{ScalaBaseType, OptionType, NumericTypedType, BaseTypedType, Type}
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
+import scala.slick.ast._
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.profile.RelationalTypesComponent
 import scala.reflect.ClassTag
 
 trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =>
+
+  /** A JdbcType object represents a Scala type that can be
+    * used as a column type in the database. Implicit JdbcTypes
+    * for the standard types of a profile are provided by the drivers. */
+  trait JdbcType[T] extends TypedType[T] { self =>
+    /** The constant from java.sql.Types that is used for setting parameters
+      * of the type to NULL. */
+    def sqlType: Int
+    /** The default name for the SQL type that is used for column declarations. */
+    def sqlTypeName: String
+    /** Set a parameter of the type. */
+    def setValue(v: T, p: PositionedParameters): Unit
+    /** Set an Option parameter of the type. */
+    def setOption(v: Option[T], p: PositionedParameters): Unit
+    /** Get a result column of the type. */
+    def nextValue(r: PositionedResult): T
+    /** Update a column of the type in a mutable result set. */
+    def updateValue(v: T, r: PositionedResult): Unit
+    def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs.wasNull) d else v }
+    def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs.wasNull) None else Some(v) }
+    def updateOption(v: Option[T], r: PositionedResult): Unit = v match {
+      case Some(s) => updateValue(s, r)
+      case None => r.updateNull()
+    }
+
+    /** Convert a value to a SQL literal.
+      * This should throw a `SlickException` if `hasLiteralForm` is false. */
+    def valueToSQLLiteral(value: T): String
+
+    def nullable = false
+
+    /** Indicates whether values of this type have a literal representation in
+      * SQL statements.
+      * This must return false if `valueToSQLLiteral` throws a SlickException.
+      * QueryBuilder (and driver-specific subclasses thereof) uses this method
+      * to treat LiteralNodes as volatile (i.e. using bind variables) as needed. */
+    def hasLiteralForm: Boolean
+
+    override def optionType: OptionTypedType[T] with JdbcType[Option[T]] = new OptionTypedType[T] with JdbcType[Option[T]] {
+      val elementType = self
+      def sqlType = self.sqlType
+      override def sqlTypeName = self.sqlTypeName
+      def scalaType = new ScalaOptionType[T](self.scalaType)
+      def setValue(v: Option[T], p: PositionedParameters) = self.setOption(v, p)
+      def setOption(v: Option[Option[T]], p: PositionedParameters) = self.setOption(v.getOrElse(None), p)
+      def nextValue(r: PositionedResult) = self.nextOption(r)
+      def updateValue(v: Option[T], r: PositionedResult) = self.updateOption(v, r)
+      override def valueToSQLLiteral(value: Option[T]): String = value.map(self.valueToSQLLiteral).getOrElse("null")
+      override def nullable = true
+      override def toString = s"Option[$self]"
+      def hasLiteralForm = self.hasLiteralForm
+      def mapChildren(f: Type => Type): OptionTypedType[T] with JdbcType[Option[T]] = {
+        val e2 = f(elementType)
+        if(e2 eq elementType) this
+        else e2.asInstanceOf[JdbcType[T]].optionType
+      }
+    }
+
+    override def toString = {
+      def cln = getClass.getName
+      val pos = cln.lastIndexOf("$JdbcTypes$")
+      val s = if(pos >= 0) cln.substring(pos+11) else cln
+      val s2 = if(s.endsWith("JdbcType")) s.substring(0, s.length-8) else s
+      s2 + "/" + sqlTypeName
+    }
+  }
+
+  abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U], tag: ClassTag[T]) extends JdbcType[T] {
+    def map(t: T): U
+    def comap(u: U): T
+
+    def newSqlType: Option[Int] = None
+    def newSqlTypeName: Option[String] = None
+    def newValueToSQLLiteral(value: T): Option[String] = None
+    def newNullable: Option[Boolean] = None
+    def newHasLiteralForm: Option[Boolean] = None
+
+    def sqlType = newSqlType.getOrElse(tmd.sqlType)
+    override def sqlTypeName = newSqlTypeName.getOrElse(tmd.sqlTypeName)
+    def setValue(v: T, p: PositionedParameters) = tmd.setValue(map(v), p)
+    def setOption(v: Option[T], p: PositionedParameters) = tmd.setOption(v.map(map _), p)
+    def nextValue(r: PositionedResult) = comap(tmd.nextValue(r))
+    override def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = tmd.nextValue(r); if(r.rs.wasNull) d else comap(v) }
+    override def nextOption(r: PositionedResult): Option[T] = { val v = tmd.nextValue(r); if(r.rs.wasNull) None else Some(comap(v)) }
+    def updateValue(v: T, r: PositionedResult) = tmd.updateValue(map(v), r)
+    override def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
+    override def nullable = newNullable.getOrElse(tmd.nullable)
+    def hasLiteralForm = newHasLiteralForm.getOrElse(tmd.hasLiteralForm)
+    def scalaType = ScalaBaseType[T]
+  }
+
+  object MappedJdbcType extends MappedColumnTypeFactory {
+    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] =
+      new MappedJdbcType[T, U] with BaseTypedType[T] {
+        def map(t: T) = tmap(t)
+        def comap(u: U) = tcomap(u)
+      }
+  }
 
   type TypeInfo = JdbcType[Any /* it's really _ but we'd have to cast it to Any anyway */]
 
@@ -32,7 +130,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
   def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR(254)"
     case java.sql.Types.DECIMAL => "DECIMAL(21,2)"
-    case t => JdbcType.typeNames.getOrElse(t,
+    case t => JdbcTypesComponent.typeNames.getOrElse(t,
       throw new SlickException("No SQL type name found in java.sql.Types for code "+t))
   }
 
@@ -279,4 +377,10 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     implicit def uuidColumnType = columnTypes.uuidJdbcType
     implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
   }
+}
+
+object JdbcTypesComponent {
+  private[slick] lazy val typeNames = Map() ++
+    (for(f <- classOf[java.sql.Types].getFields)
+    yield f.get(null).asInstanceOf[Int] -> f.getName)
 }

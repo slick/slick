@@ -6,12 +6,30 @@ import scala.slick.compiler._
 import scala.slick.lifted._
 import scala.slick.profile.{RelationalMappingCompilerComponent, RelationalDriver, RelationalProfile}
 import scala.slick.SlickException
+import scala.reflect.ClassTag
 
 /** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
 trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDriver =>
 
   type ColumnType[T] = ScalaType[T]
   type BaseColumnType[T] = ScalaType[T] with BaseTypedType[T]
+
+  val MappedColumnType = new MappedColumnTypeFactory
+
+  class MappedColumnTypeFactory extends super.MappedColumnTypeFactory {
+    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] =
+      new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
+  }
+
+  class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T) extends ScalaType[T] with BaseTypedType[T] {
+    def nullable: Boolean = baseType.nullable
+    def ordered: Boolean = baseType.ordered
+    def zero: T = toMapped(baseType.zero)
+    def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T] = new scala.math.Ordering[T] {
+      val uOrdering = baseType.scalaOrderingFor(ord)
+      def compare(x: T, y: T): Int = uOrdering.compare(toBase(x), toBase(y))
+    }
+  }
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes
 
