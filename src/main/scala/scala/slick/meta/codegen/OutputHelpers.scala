@@ -31,31 +31,36 @@ trait OutputHelpers{
    * Creates a folder structure for the given package inside the given srcFolder
    * and places the new file inside or overrides the existing one.
    * @param folder target folder, in which the package structure folders are placed
-   * @param driver Slick driver that is imported in the generated package
+   * @param profile Slick profile that is imported in the generated package (e.g. scala.slick.driver.H2Driver)
    * @param pkg Scala package the generated code is placed in (a subfolder structure will be created within srcFolder)
-   * @param obj The name of an object the generated code will be placed in within the specified package. (It inherits from a class with the same name which can be customized if needed.)
+   * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    * @param fileName Name of the output file, to which the code will be written
    */
-  def writeToFile(driver: String, folder:String, pkg: String, obj:String="Tables", fileName: String="Tables.scala") {
-    writeStringToFile(packageCode(driver, pkg, obj), folder, pkg, fileName)
+  def writeToFile(profile: String, folder:String, pkg: String, container:String="Tables", fileName: String="Tables.scala") {
+    writeStringToFile(packageCode(profile, pkg, container), folder, pkg, fileName)
   }
 
   /**
-   * Generate code wrapped in a Scala package
-   * @param driver Slick driver that is imported in the generated package
+   * Generates code providing the data model as trait and object in a Scala package
+   * @param profile Slick profile that is imported in the generated package (e.g. scala.slick.driver.H2Driver)
    * @param pkg Scala package the generated code is placed in
-   * @param obj The name of an object the generated code will be placed in within the specified package. (It inherits from a class with the same name which can be customized if needed.)
+   * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    */
-    def packageCode(driver: String, pkg: String, obj:String="Tables") : String = {
+    def packageCode(profile: String, pkg: String, container:String="Tables") : String = {
       s"""
 package ${pkg}
-/** AUTO-GENERATED FILE */
-object ${obj} extends ${obj}
-class ${obj}{
-  /** Auto-generated Slick classes for working with the corresponding database tables */
-  import $driver.simple._
+// AUTO-GENERATED Slick data model
+/** Stand-alone Slick data model for immediate use */
+object ${container} extends {
+  val profile = $profile
+} with ${container}
+
+/** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
+trait ${container} {
+  val profile: scala.slick.driver.JdbcProfile
+  import profile.simple._
   ${indent(code)}
 }
       """.trim()
-    }	
+    }
 }

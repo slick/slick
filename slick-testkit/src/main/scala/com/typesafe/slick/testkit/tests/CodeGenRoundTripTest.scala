@@ -12,7 +12,9 @@ import scala.slick.test.meta.codegen.roundtrip.Tables
 class CodeGenRoundTripTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
   def test {
-    object Tables extends Tables(tdb.profile)
+    object Tables extends{
+      val profile = tdb.profile
+    } with Tables
     import Tables.profile.simple._
     val ddl = Tables.Posts.ddl ++ Tables.Categories.ddl ++ Tables.TypeTest.ddl
     //println(ddl.createStatements.mkString("\n"))

@@ -235,9 +235,9 @@ object SlickBuild extends Build {
     )
   }
   lazy val typeProvidersTask =
-    (fullClasspath in typeProvidersConfig, runner in typeProviders, sourceManaged, streams, sourceDirectory) map { (cp, r, output, s, srcDir) =>
+    (fullClasspath in typeProvidersConfig, runner in typeProviders, sourceManaged, streams, sourceDirectory, sourceDirectory in slickProject) map { (cp, r, output, s, srcDir, slickSrc) =>
       val src = srcDir / "codegen"
-      val inFiles = (src ** "*.scala" get).toSet
+      val inFiles = (src ** "*.scala" get).toSet ++ (slickSrc / "main/scala/scala/slick/meta/codegen" ** "*.scala" get).toSet ++ (slickSrc / "main/scala/scala/slick/jdbc/meta" ** "*.scala" get).toSet
       val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", outStyle = FilesInfo.exists) { (in: Set[File]) =>
         IO.delete(output ** "*.scala" get)
         toError(r.run("scala.slick.test.meta.codegen.CodeGeneratorTest", cp.files, Array(output.getPath, "scala.slick.test.meta.codegen.generated"), s.log))

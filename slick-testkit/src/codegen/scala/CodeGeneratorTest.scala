@@ -15,7 +15,7 @@ object CodeGeneratorTest {
       import config._
       val db = slickDriverObject.simple.Database.forURL(url=url,driver=jdbcDriver,user="",password="")
       db.withSession{ implicit session =>
-        generator(config)(session).writeToFile(driver=slickDriver, folder=args(0), pkg="scala.slick.test.meta.codegen.generated", objectName, fileName=objectName+".scala" )
+        generator(config)(session).writeToFile(profile=slickDriver, folder=args(0), pkg="scala.slick.test.meta.codegen.generated", objectName, fileName=objectName+".scala" )
       }
     }
     ;{
@@ -37,18 +37,7 @@ object CodeGeneratorTest {
         (new SourceCodeGenerator(driver.metaModel(session)))
       }
       val pkg = "scala.slick.test.meta.codegen.roundtrip"
-      val packagedCode = s"""
-package ${pkg}
-/** AUTO-GENERATED FILE */
-import scala.slick.driver.JdbcProfile
-class Tables(val profile: JdbcProfile){
-import profile.simple._
-
-${gen.code}
-
-}
-      """.trim()
-      gen.writeStringToFile( packagedCode, args(0), pkg, "Tables.scala" )
+      gen.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg )
     }
   }
 

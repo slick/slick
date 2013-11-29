@@ -31,7 +31,9 @@ class GeneratedCodeTest {
   }
 
   @Test def hsqlSimpleTest() {
-    val Db1 = CG2
+class Db1 extends {
+  val profile = scala.slick.driver.HsqldbDriver
+} with CG2   ; val Db1 = new Db1
     import Db1.driver.simple._
     import Db1._
     database.withSession { implicit session =>
