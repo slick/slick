@@ -258,21 +258,39 @@ object LiftedEmbedding extends App{
       User(None,"",""),
       User(None,"","")
     )
-    //#template1
-    val userNameByID = for {
-      id <- Parameters[Int]
-      u <- users if u.id is id
-    } yield u.first
 
-    val name = userNameByID(2).first
+    {
+      //#compiled1
+      def userNameByIDRange(min: Column[Int], max: Column[Int]) =
+        for {
+          u <- users if u.id >= min && u.id < max
+        } yield u.first
 
-    val userNameByIDRange = for {
-      (min, max) <- Parameters[(Int, Int)]
-      u <- users if u.id >= min && u.id < max
-    } yield u.first
+      val userNameByIDRangeCompiled = Compiled(userNameByIDRange _)
 
-    val names = userNameByIDRange(2, 5).list
-    //#template1
+      // The query will be compiled only once:
+      val names1 = userNameByIDRangeCompiled(2, 5).run
+      val names2 = userNameByIDRangeCompiled(1, 3).run
+      //#compiled1
+    }
+
+    {
+      //#template1
+      val userNameByID = for {
+        id <- Parameters[Int]
+        u <- users if u.id is id
+      } yield u.first
+
+      val name = userNameByID(2).first
+
+      val userNameByIDRange = for {
+        (min, max) <- Parameters[(Int, Int)]
+        u <- users if u.id >= min && u.id < max
+      } yield u.first
+
+      val names = userNameByIDRange(2, 5).list
+      //#template1
+    }
   }
 
   db withDynSession {
@@ -314,6 +332,20 @@ object LiftedEmbedding extends App{
 
     // You can now use Bool like any built-in column type (in tables, queries, etc.)
     //#mappedtype1
+  }
+
+  db withDynSession {
+    //#mappedtype2
+    // A custom ID type for a table
+    case class MyID(value: Long) extends MappedTo[Long]
+
+    // Use it directly for this table's ID -- No extra boilerplate needed
+    class MyTable(tag: Tag) extends Table[(MyID, String)](tag, "MY_TABLE") {
+      def id = column[MyID]("ID")
+      def data = column[String]("DATA")
+      def * = (id, data)
+    }
+    //#mappedtype2
   }
 
   db withDynSession {

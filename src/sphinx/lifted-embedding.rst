@@ -7,7 +7,7 @@ describes the available features in more detail.
 
 The name *Lifted Embedding* refers to the fact that you are not working with
 standard Scala types (as in the :doc:`direct embedding <direct-embedding>`)
-but with types that are *lifted* into a the ``scala.slick.lifted.Rep`` type
+but with types that are *lifted* into a ``scala.slick.lifted.Rep`` type
 constructor. This becomes clear when you compare the types of a simple
 Scala collections example
 
@@ -21,7 +21,10 @@ All plain types are lifted into ``Rep``. The same is true for the table row
 type ``Coffees`` which is a subtype of ``Rep[(String, Int, Double, Int, Int)]``.
 Even the literal ``8.0`` is automatically lifted to a ``Rep[Double]`` by an
 implicit conversion because that is what the ``>`` operator on
-``Rep[Double]`` expects for the right-hand side.
+``Rep[Double]`` expects for the right-hand side. This lifting is necessary
+because the lifted types allow us to generate a syntax tree that captures
+the query computations. Getting plain Scala functions and values would not
+give us enough information for translating those computations to SQL.
 
 Tables
 ------
@@ -370,21 +373,30 @@ updating are defined in
 There is currently no way to use scalar expressions or transformations of
 the existing data in the database for updates.
 
-Query Templates
----------------
+Compiled Queries
+----------------
 
-Query templates are parameterized queries. A template works like a function
-that takes some parameters and returns a ``Query`` for them except that the
-template is more efficient. When you evaluate a function to create a query
-the function constructs a new query AST, and when you execute that query it
-has to be compiled anew by the query compiler every time even if that always
-results in the same SQL string. A query template on the other hand is limited
-to a single SQL string (where all parameters are turned into bind
-variables) by design but the query is built and compiled only once.
+Database queries typically depend on some parameters, e.g. an ID for which
+you want to retrieve a matching database row. You can write a regular Scala
+function to create a parameterized ``Query`` object each time you need to
+execute that query but this will incur the cost of recompiling the query
+in Slick (and possibly also on the database if you don't use bind variables
+for all parameters). It is more efficient to pre-compile such parameterized
+query functions:
 
-You can create a query template by calling ``flatMap`` on a
-:api:`scala.slick.lifted.Parameters` object. In many cases this enables you
-to write a single *for comprehension* for a template.
+.. includecode:: code/LiftedEmbedding.scala#compiled1
+
+This works for all functions that take ``Column`` parameters (or
+:ref:`records <record-types>` of Columns) and return a ``Query`` object or a
+scalar query. See the API documentation for :api:`scala.slick.lifted.Compiled`
+and its subclasses for details on composing compiled queries.
+
+You can use a compiled query for querying, updating and deleting data.
+
+For backwards-compatibility with Slick 1.0 you can still create a compiled
+query by calling ``flatMap`` on a :api:`scala.slick.lifted.Parameters` object.
+In many cases this enables you to write a single *for comprehension* for a
+compiled query:
 
 .. includecode:: code/LiftedEmbedding.scala#template1
 
@@ -415,16 +427,28 @@ User-Defined Scalar Types
 -------------------------
 
 If you need a custom column type you can implement
-:api:`scala.slick.lifted.TypeMapper` and
-:api:`scala.slick.lifted.TypeMapperDelegate`. The most common scenario is
-mapping an application-specific type to an already supported type in the
-database. This can be done much simpler by using a
-:api:`scala.slick.lifted.MappedTypeMapper` which takes care of all the
-boilerplate:
+:api:`ColumnType <scala.slick.driver.JdbcProfile@ColumnType>`. The most
+common scenario is mapping an application-specific type to an already supported
+type in the database. This can be done much simpler by using
+:api:`MappedColumnType <scala.slick.driver.JdbcProfile@MappedColumnType>` which
+takes care of all the boilerplate:
 
 .. includecode:: code/LiftedEmbedding.scala#mappedtype1
 
-You can also subclass ``MappedTypeMapper`` for a bit more flexibility.
+You can also subclass
+:api:`MappedJdbcType <scala.slick.driver.JdbcProfile@MappedJdbcType>`
+for a bit more flexibility.
+
+If you have a wrapper class (which can optionally be a case class and/or value
+class) for an underlying value of some supported type, you can make it extend
+:api:`scala.slick.lifted.MappedTo` to get a macro-generated implicit
+``ColumnType`` for free. Such wrapper classes are commonly used for type-safe
+table-specific primary key types:
+
+.. includecode:: code/LiftedEmbedding.scala#mappedtype2
+
+
+.. _record-types:
 
 User-Defined Record Types
 -------------------------
