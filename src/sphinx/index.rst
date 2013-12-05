@@ -12,3 +12,4 @@ Slick - Scala Language Integrated Connection Kit
    direct-embedding
    testkit
    extensions
+   upgrade

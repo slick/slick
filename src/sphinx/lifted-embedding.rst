@@ -91,6 +91,8 @@ or omit some columns as you like. The non-lifted type corresponding to the
 non-mapped tables, this will be a single column type or a tuple of column
 types.
 
+.. _mapped-tables:
+
 Mapped Tables
 -------------
 
