@@ -192,6 +192,10 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("Updated "+updated2+" row(s)")
     assertEquals(1, updated2)
 
+    val q9 = users.length
+    assertEquals(4, q9.run)
+    println("Count statement: " + q9.selectStatement)
+
     for(t <- q1) println("User tuple: "+t)
   }
 }

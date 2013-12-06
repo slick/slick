@@ -46,7 +46,7 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
     implicit def runnableCompiledToQueryExecutor[RU](c: RunnableCompiled[_, RU]): QueryExecutor[RU] = createQueryExecutor[RU](c.compiledQuery, c.param)
     // We can't use this direct way due to SI-3346
     def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[_ <: ShapeLevel.Flat, M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(shape.toNode(q)).tree, ())
-    implicit final def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutor[M](q)
+    implicit def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = createUnshapedQueryExecutor[M](q)
 
     implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createInsertInvoker[T](insertCompiler.run(c.toNode).tree)
     implicit def shapedValueToInsertInvoker[T, U](u: ShapedValue[T, U]) = createInsertInvoker[U](insertCompiler.run(u.toNode).tree)
@@ -132,8 +132,12 @@ trait BasicExecutorComponent { driver: BasicDriver =>
   /** The type of query executors returned by the driver */
   type QueryExecutor[T] <: QueryExecutorDef[T]
 
+  /** The type of query executors returned by the driver */
+  type UnshapedQueryExecutor[T] <: UnshapedQueryExecutorDef[T]
+
   /** Create an executor -- this method should be implemented by drivers as needed */
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
+  def createUnshapedQueryExecutor[M](value: M): UnshapedQueryExecutor[M]
 
   trait QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R
@@ -141,8 +145,11 @@ trait BasicExecutorComponent { driver: BasicDriver =>
   }
 
   // Work-around for SI-3346
-  final class UnshapedQueryExecutor[M](val value: M) {
-    @inline def run[U](implicit shape: Shape[_ <: ShapeLevel.Flat, M, U, _], session: Backend#Session): U =
-      createQueryExecutor[U](queryCompiler.run(shape.toNode(value)).tree, ()).run
+  class UnshapedQueryExecutorDef[M](protected[this] val value: M) {
+    @inline final def run[U](implicit shape: Shape[_ <: ShapeLevel.Flat, M, U, _], session: Backend#Session): U =
+      executor[U].run
+
+    @inline final def executor[U](implicit shape: Shape[_ <: ShapeLevel.Flat, M, U, _]): QueryExecutor[U] =
+      createQueryExecutor[U](queryCompiler.run(shape.toNode(value)).tree, ())
   }
 }
