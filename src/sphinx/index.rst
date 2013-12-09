@@ -8,10 +8,12 @@ You can find the API documentation `here <api/>`_.
 
    introduction
    gettingstarted
-   connection
-   lifted-embedding
-   sql
    migration
+   connection
+   schemas
+   queries
+   userdefined
+   sql
+   extensions
    direct-embedding
    testkit
-   extensions

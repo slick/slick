@@ -11,7 +11,7 @@ Scaffolding
 
 :example-src:`jdbc/PlainSQL.scala` demonstrates some features of the *Plain SQL* support. The
 imports are different from what you're used to for the
-:doc:`lifted embedding <lifted-embedding>` or
+:ref:`lifted embedding <lifted-embedding>` or
 :doc:`direct embedding <direct-embedding>`:
 
 .. includecode:: code/PlainSQL.scala#imports
@@ -37,7 +37,7 @@ DDL/DML Statements
 The simplest ``StaticQuery`` method is ``updateNA`` which creates a
 parameterless (*NA = no args*) ``StaticQuery[Unit, Int]`` that is supposed to
 return the row count from a DDL statement instead of a result set. It can be
-executed the same way as a query that uses the :doc:`lifted embedding
+executed the same way as a query that uses the :ref:`lifted embedding
 <lifted-embedding>`. Here we are using ``.execute`` to run the query without
 getting the results:
 
