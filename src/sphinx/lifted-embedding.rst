@@ -7,7 +7,7 @@ describes the available features in more detail.
 
 The name *Lifted Embedding* refers to the fact that you are not working with
 standard Scala types (as in the :doc:`direct embedding <direct-embedding>`)
-but with types that are *lifted* into a ``scala.slick.lifted.Rep`` type
+but with types that are *lifted* into a :api:`scala.slick.lifted.Rep` type
 constructor. This becomes clear when you compare the types of a simple
 Scala collections example
 
@@ -18,7 +18,7 @@ Scala collections example
 .. includecode:: code/LiftedEmbedding.scala#reptypes
 
 All plain types are lifted into ``Rep``. The same is true for the table row
-type ``Coffees`` which is a subtype of ``Rep[(String, Int, Double, Int, Int)]``.
+type ``Coffees`` which is a subtype of ``Rep[(String, Double)]``.
 Even the literal ``8.0`` is automatically lifted to a ``Rep[Double]`` by an
 implicit conversion because that is what the ``>`` operator on
 ``Rep[Double]`` expects for the right-hand side. This lifting is necessary
@@ -219,9 +219,7 @@ Explicit joins are created by calling one of the available join methods:
 
 .. includecode:: code/JoinsUnions.scala#explicit
 
-The explicit versions of the cross join and inner join will result in the same
-SQL code being generated as for the implicit versions (usually an implicit join
-in SQL). Note the use of ``.?`` in the outer joins. Since these joins can
+Note the use of ``.?`` in the outer joins. Since these joins can
 introduce additional NULL values (on the right-hand side for a left outer join,
 on the left-hand sides for a right outer join, and on both sides for a full
 outer join), you have to make sure to retrieve ``Option`` values from them.
@@ -250,8 +248,8 @@ operators if they have compatible types:
 
 .. includecode:: code/JoinsUnions.scala#union
 
-Unlike ``union`` which filters out duplicate values, ``++`` simply
-concatenates the queries, which is usually more efficient.
+Unlike ``union`` which filters out duplicate values, ``++`` simply concatenates
+the results of the individual queries, which is usually more efficient.
 
 Aggregation
 -----------
@@ -261,7 +259,9 @@ Query that returns a single column, usually with a numeric type, e.g.:
 
 .. includecode:: code/LiftedEmbedding.scala#aggregation1
 
-Some aggregation functions are defined for arbitrary queries:
+Note that these aggregate queries return a scalar result, not a collection.
+Some aggregation functions are defined for arbitrary queries (of more than
+one column):
 
 .. includecode:: code/LiftedEmbedding.scala#aggregation2
 
@@ -329,16 +329,9 @@ for inserting are defined in
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
 
-While some database systems allow inserting proper values into AutoInc columns
-or inserting ``None`` to get a created value, most databases forbid this
-behaviour, so you have to make sure to omit these columns. Slick does not yet
-have a feature to do this automatically but it is planned for a future
-release. For now, you have to use a query with a custom projection which does not
-include the AutoInc column, like ``usersForInsert`` in the following example:
-
-.. includecode:: code/LiftedEmbedding.scala#insert2
-
-In these cases you frequently want to get back the auto-generated primary key
+When you include an ``AutoInc`` column in an insert operation, it is silently
+ignored, so that the database can generate the proper value.
+In this case you usually want to get back the auto-generated primary key
 column. By default, ``+=`` gives you a count of the number of affected
 rows (which will usually be 1) and ``++=`` gives you an accumulated
 count in an ``Option`` (which can be ``None`` if the database system does not
@@ -358,6 +351,8 @@ created by a ``Query`` or a scalar expression that is executed in the
 database server:
 
 .. includecode:: code/LiftedEmbedding.scala#insert4
+
+In these cases, ``AutoInc`` columns are *not* ignored.
 
 Updating
 --------

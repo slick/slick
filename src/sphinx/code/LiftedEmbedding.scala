@@ -4,8 +4,34 @@ import scala.slick.driver.H2Driver.simple._
 import Database.dynamicSession
 import java.sql.Date
 
-object LiftedEmbedding extends App{
+object LiftedEmbedding extends App {
+  // Simple Coffees for Rep types comparison
+  {
+  //#reptypes
+  class Coffees(tag: Tag) extends Table[(String, Double)](tag, "COFFEES") {
+    def name = column[String]("COF_NAME")
+    def price = column[Double]("PRICE")
+    def * = (name, price)
+  }
+  val coffees = TableQuery[Coffees]
 
+  //#reptypes
+  }
+
+  {
+//#plaintypes
+  case class Coffee(name: String, price: Double)
+  val coffees: List[Coffee] = //...
+
+//#plaintypes
+    Nil
+//#plaintypes
+  val l = coffees.filter(_.price > 8.0).map(_.name)
+  //                       ^       ^          ^
+  //                       Double  Double     String
+//#plaintypes
+
+  }
 //#foreignkey
   class Suppliers(tag: Tag) extends Table[(Int, String, String, String, String, String)](tag, "SUPPLIERS") {
     def id = column[Int]("SUP_ID", O.PrimaryKey)
@@ -24,23 +50,19 @@ object LiftedEmbedding extends App{
 
 //#foreignkey
 //#tabledef
-//#reptypes
 //#foreignkey
   class Coffees(tag: Tag) extends Table[(String, Int, Double, Int, Int)](tag, "COFFEES") {
 //#foreignkey
     def name = column[String]("COF_NAME", O.PrimaryKey)
-//#reptypes
 //#foreignkey
     def supID = column[Int]("SUP_ID")
 //#foreignkey
-//#reptypes
     def price = column[Double]("PRICE")
 //#foreignkey
 //#tabledef
     //...
 //#tabledef
 //#foreignkey
-//#reptypes
     def sales = column[Int]("SALES", O.Default(0))
     def total = column[Int]("TOTAL", O.Default(0))
     def * = (name, supID, price, sales, total)
@@ -48,28 +70,21 @@ object LiftedEmbedding extends App{
 //#foreignkeynav
 //#foreignkey
     def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
+//#foreignkeynav
+    // Typical SQL statement:
+    //   alter table "COFFEES" add constraint "SUP_FK" foreign key("SUP_ID")
+    //     references "SUPPLIERS"("SUP_ID")
+    //     on update NO ACTION on delete NO ACTION
+//#foreignkeynav
 //#foreignkey
     def supplier2 = suppliers.filter(_.id === supID)
 //#foreignkeynav
 //#foreignkey
 //#tabledef
-//#reptypes
   }
   val coffees = TableQuery[Coffees]
 //#foreignkey
-//#reptypes
 //#tabledef
-
-//#plaintypes
-  case class Coffee(name: String, price: Double)
-  val l: List[Coffee] = //...
-//#plaintypes
-    Nil
-//#plaintypes
-  val l2 = l.filter(_.price > 8.0).map(_.name)
-  //                  ^       ^          ^
-  //                  Double  Double     String
-//#plaintypes
 
 //#reptypes
   val q = coffees.filter(_.price > 8.0).map(_.name)
@@ -101,9 +116,13 @@ object LiftedEmbedding extends App{
     def * = (k1, k2)
 //#index
     def pk = primaryKey("pk_a", (k1, k2))
+    // Typical SQL statement:
+    //   alter table "a" add constraint "pk_a" primary key("k1","k2")
 //#primarykey
 //#index
     def idx = index("idx_a", (k1, k2), unique = true)
+    // Typical SQL statement:
+    //   create unique index "idx_a" on "a" ("k1","k2")
 //#primarykey
   }
 //#primarykey
@@ -123,31 +142,73 @@ object LiftedEmbedding extends App{
   ddl.createStatements.foreach(println)
   ddl.dropStatements.foreach(println)
 //#ddl2
+  TableQuery[A].ddl.createStatements.foreach(println)
 
   db withDynSession {
     //#filtering
     val q1 = coffees.filter(_.supID === 101)
+    // Typical SQL statement (simplified):
+    //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
+    //     from "COFFEES"
+    //     where "SUP_ID" = 101
+
     val q2 = coffees.drop(10).take(5)
+    // Typical SQL statement (simplified):
+    //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
+    //     from "COFFEES"
+    //     limit 5 offset 10
+
     val q3 = coffees.sortBy(_.name.desc.nullsFirst)
+    // Typical SQL statement (simplified):
+    //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
+    //     from "COFFEES"
+    //     order by "COF_NAME" desc nulls first
     //#filtering
+    println(q1.selectStatement)
+    println(q2.selectStatement)
+    println(q3.selectStatement)
   }
 
   db withDynSession {
     //#aggregation1
     val q = coffees.map(_.price)
+
     val q1 = q.min
+    // Typical SQL statement (simplified):
+    //   select min(x4."PRICE") from "COFFEES" x4
+
     val q2 = q.max
+    // Typical SQL statement (simplified):
+    //   select max(x4."PRICE") from "COFFEES" x4
+
     val q3 = q.sum
+    // Typical SQL statement (simplified):
+    //   select sum(x4."PRICE") from "COFFEES" x4
+
     val q4 = q.avg
+    // Typical SQL statement (simplified):
+    //   select avg(x4."PRICE") from "COFFEES" x4
     //#aggregation1
+    println(q.selectStatement)
+    println(q1.shaped.selectStatement)
+    println(q2.shaped.selectStatement)
+    println(q3.shaped.selectStatement)
+    println(q4.shaped.selectStatement)
   }
 
   db withDynSession {
     ddl.create
     //#aggregation2
     val q1 = coffees.length
+    // Typical SQL statement (simplified):
+    //   select count(1) from "COFFEES"
+
     val q2 = coffees.exists
+    // Typical SQL statement (simplified):
+    //   select exists(select * from "COFFEES")
     //#aggregation2
+    println(q1.shaped.selectStatement)
+    println(q2.shaped.selectStatement)
 
     {
       //#invoker
@@ -185,7 +246,13 @@ object LiftedEmbedding extends App{
     val q2 = q.map { case (supID, css) =>
       (supID, css.length, css.map(_._1.price).avg)
     }
+    // Typical SQL statement:
+    //   select x2."SUP_ID", count(1), avg(x2."PRICE")
+    //     from "COFFEES" x2, "SUPPLIERS" x3
+    //     where x3."SUP_ID" = x2."SUP_ID"
+    //     group by x2."SUP_ID"
     //#aggregation3
+    println(q2.selectStatement)
   }
 
   db withDynSession {
@@ -209,18 +276,19 @@ object LiftedEmbedding extends App{
 
     val statement = coffees.insertStatement
     val invoker = coffees.insertInvoker
+
+    // Typical SQL statement:
+    //   INSERT INTO "COFFEES" ("COF_NAME","SUP_ID","PRICE","SALES","TOTAL") VALUES (?,?,?,?,?)
     //#insert1
+    println(statement)
 
     users.ddl.create
-  //#insert2
-
-  usersForInsert += User(None, "Christopher", "Vogt")
-  //#insert2
 
     //#insert3
     val userId =
-      (usersForInsert returning users.map(_.id)) += User(None, "Stefan", "Zeiger")
+      (users returning users.map(_.id)) += User(None, "Stefan", "Zeiger")
     //#insert3
+    println((users returning users.map(_.id)).insertStatement)
 
     //#insert4
     class Users2(tag: Tag) extends Table[(Int, String)](tag, "users2") {
@@ -249,7 +317,11 @@ object LiftedEmbedding extends App{
 
     val statement = q.updateStatement
     val invoker = q.updateInvoker
+
+    // Typical SQL statement:
+    //   update "COFFEES" set "PRICE" = ? where "COFFEES"."COF_NAME" = 'Espresso'
     //#update1
+    println(statement)
   }
 
   db withDynSession {
