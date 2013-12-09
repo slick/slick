@@ -13,42 +13,43 @@ and which data is transferred. You can also use SQL directly.
 
 .. includecode:: code/GettingStartedOverview.scala#what-is-slick-micro-example
 
-When using Scala instead of SQL for your queries you profit from the compile-time safety
-and compositionality. Slick can generate queries for different backends including
+When using Scala instead of raw SQL for your queries you benefit from compile-time safety
+and compositionality. Slick can generate queries for different back-end databases including
 your own, using its extensible query compiler.
 
-Why Slick? / Features
-----------------------------
+Get started learning Slick in minutes using the `Hello Slick <http://typesafe.com/activator/template/hello-slick>`_ template in 
+`Typesafe Activator <http://typesafe.com/activator>`_.
 
-Slick offers a unique combination of features:
 
-Easy
+Features
+--------
+
+Scala
 ^^^^^
-* Access stored data just like Scala collections
-* Unified session management based on JDBC Connections
-* Supports SQL if you need it
-* Simple setup
+* Queries, Table & Column Mappings, and types are plain Scala
 
-Concise
-^^^^^^^^
-* Scala syntax
-* Fetch results without pain (no ResultSet.getX)
+.. includecode:: code/GettingStartedOverview.scala#quick-schema
 
-Scales naturally
-^^^^^^^^^^^^^^^^
-* Stateless (like the web)
-* Explicit control of execution time and transferred data
+* Data access APIs similar to Scala collections
 
-Safe
-^^^^^^^^
-* No SQL-injections
-* Compile-time safety (types, names, no typos, etc.)
-* Type-safe support for custom database functions
+.. includecode:: code/GettingStartedOverview.scala#features-scala-collections
+
+Type Safe
+^^^^^^^^^
+* Let your IDE help you write your code
+* Find problems at compile-time instead of at runtime
+
+.. includecode:: code/GettingStartedOverview.scala#features-type-safe
 
 Composable
-^^^^^^^^^^^^^^^^
-* It‘s Scala code: abstract and re-use with ease
+^^^^^^^^^^
+* Queries are functions that can be composed and reused
 
+.. includecode:: code/GettingStartedOverview.scala#features-composable
+
+
+Compatibility
+-------------
 
 Slick requires Scala 2.10. (For Scala 2.9 please use ScalaQuery_, the predecessor of Slick).
 
@@ -73,26 +74,6 @@ Other SQL databases can be accessed right away with a reduced feature set.
 Writing a fully featured plugin for your own SQL-based backend can be achieved
 with a reasonable amount of work. Support for other backends (like NoSQL) is
 under development but not yet available.
-
-Quick Overview
---------------
-
-Accessing databases using Slick's lifted embedding requires the following steps.
-
-#. Add the Slick jar and its dependencies to your project
-#. Pick a driver for a particular db
-
-   .. includecode:: code/GettingStartedOverview.scala#quick-imports
-
-#. Describe your Database schema
-
-   .. includecode:: code/GettingStartedOverview.scala#quick-schema
-
-#. Write queries using for-comprehensions or map/flatMap wrapped in a session scope
-
-   .. includecode:: code/GettingStartedOverview.scala#quick-query
-
-The :doc:`next chapter <gettingstarted>` explains these steps and further aspects in more detail.
 
 License
 -------
