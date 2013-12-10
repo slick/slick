@@ -1,5 +1,5 @@
 package scala.slick
-
+/** Specific database drivers */
 package object driver {
 
   @deprecated("Use JdbcProfile instead of ExtendedProfile", "1.1")

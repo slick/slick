@@ -3,6 +3,7 @@ import slick.util.SlickLogger
 import org.slf4j.LoggerFactory
 import scala.reflect.ClassTag
 import scala.slick.SlickException
+/** A wrapper around jdbc's meta data api and logic to create a Slick model from it. */
 package object meta{
   import scala.slick.driver.JdbcProfile
   import scala.slick.jdbc.JdbcBackend

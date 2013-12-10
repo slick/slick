@@ -1,0 +1,66 @@
+<a style="float:right" href="https://github.com/slick/slick/blob/master/scaladoc-root.txt">edit this text on github</a>
+<img src="http://slick.typesafe.com/resources/images/slick-logo.png" alt="Slick logo" />
+<h2>Scala Language-Integrated Connection Kit</h2>
+This is the documentation for the <a href="http://slick.typesafe.com" target="_top">Slick</a> database library.
+Slick is a joint effort by <a href="http://www.typesafe.com" target="_top">Typesafe</a> and
+<a href="http://lamp.epfl.ch/" target="_top">LAMP, EPFL Lausanne</a>.
+
+Further documentation for Slick can be found on the
+<a href="http://slick.typesafe.com/docs/" target="_top">documentation pages</a>.
+
+
+<a href="scala/slick/package.html">To the slick package list...</a>
+
+<h3>Important places</h3>
+
+<h4>Type-safe query operators</h4>
+<ul>
+  <li><a href="scala/slick/lifted/Query.html">Query</a></li>
+  <li><a href="scala/slick/lifted/Column.html">Column</a></li>
+  <li><a href="scala/slick/lifted/NumericColumnExtensionMethods.html">Numeric</a></li>
+  <li><a href="scala/slick/lifted/BooleanColumnExtensionMethods.html">Boolean</a></li>
+  <li><a href="scala/slick/lifted/StringColumnExtensionMethods.html">String</a></li>
+  <li><a href="scala/slick/lifted/PlainColumnExtensionMethods.html">AnyVal / non-nullable</a></li>
+  <li><a href="scala/slick/lifted/OptionColumnExtensionMethods.html">Option / nullable</a></li>
+  <li><a href="scala/slick/lifted/Compiled$.html">Pre-Compiled queries (aka Parameters)</a></li>
+</ul>
+
+</h4>Plain SQL queries</h4>
+<ul>
+  <li><a href="scala/slick/jdbc/GetResult$.html">GetResult mapper</a></li>
+  <li><a href="scala/slick/jdbc/StaticQuery$.html">StaticQuery for raw strings</a></li>
+  <li><a href="scala/slick/jdbc/SQLInterpolation.html">String interpolation</a></li>
+</ul>
+
+<h4>Driver / Connection related</h4>
+<ul>
+  <li><a href="scala/slick/jdbc/JdbcBackend$DatabaseDef.html">Database: withSession / withTransaction</a></li>
+  <li><a href="scala/slick/jdbc/JdbcBackend$SessionDef.html">Session</a></li>
+  <li><a href="scala/slick/driver/package.html">Drivers</a></li>
+  <li><a href="scala/slick/driver/JdbcProfile.html">JdbcProfile</a></li>
+  <li><a href="scala/slick/driver/JdbcExecutorComponent$QueryExecutorDef.html">QueryExecutor</a></li>
+  <li><a href="scala/slick/jdbc/Invoker.html">Invoker</a></li>
+</ul>
+
+<h4>Mapping related</h4>
+<ul>
+  <li><a href="scala/slick/driver/JdbcTypesComponent$ImplicitColumnTypes.html">supported base types</a></li>
+  <li><a href="scala/slick/lifted/SimpleFunction$.html">SimpleFunction</a></li>
+</ul>
+
+<h4>Model / Table class related</h4>
+<ul>
+  <li><a href="scala/slick/lifted/TableQuery$.html">TableQuery</a></li>
+  <li><a href="scala/slick/profile/RelationalTableComponent$Table.html">Table</a></li>
+  <li><a href="scala/slick/ast/ColumnOption.html">ColumnOptions</a></li>
+  <li><a href="scala/slick/model/ForeignKeyAction$.html">ForeignKeyAction</a></li>
+  <li><a href="scala/slick/model/codegen/SourceCodeGenerator.html">Code generator</a></li>
+  <li><a href="scala/slick/model/package.html">Slick model</a></li>
+  <li><a href="scala/slick/jdbc/meta/package.html">JDBC Metadata api (including Slick model converter)</a></li>
+</ul>
+
+<h5>Other</h5>
+<ul>
+  <li><a href="scala/slick/collection/heterogenous/package.html">HLists</a></li>
+  <li><a href="scala/slick/memory/DistributedBackend.html">DistributedBackend</a></li>
+</ul>
