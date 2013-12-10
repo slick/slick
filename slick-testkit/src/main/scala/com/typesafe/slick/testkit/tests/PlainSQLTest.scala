@@ -102,7 +102,7 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     } yield sqlu"insert into USERS values ($id, $name)".first).sum
     assertEquals(4, total)
 
-    assertEquals(Set(0,1,2,3), sql"select id from users".as[Int].to[Set])
+    assertEquals(Set(0,1,2,3), sql"select id from users".as[Int].buildColl[Set])
 
     val res = userForID(2).first
     println("User for ID 2: "+res)

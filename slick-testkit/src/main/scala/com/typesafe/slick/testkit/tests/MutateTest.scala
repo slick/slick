@@ -61,6 +61,6 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
 
     tsByA(1).mutate(_.delete)
 
-    assertEquals(Set((2,5), (2,6), (2,7), (2,8)), ts.to[Set])
+    assertEquals(Set((2,5), (2,6), (2,7), (2,8)), ts.buildColl[Set])
   }
 }

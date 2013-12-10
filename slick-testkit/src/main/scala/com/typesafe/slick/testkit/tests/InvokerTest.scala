@@ -26,23 +26,23 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
     val r1t: List[Int] = r1
     assertEquals(List(1, 2, 3, 4, 5), r1)
 
-    val r2 = q.to[List]
+    val r2 = q.buildColl[List]
     val r2t: List[Int] = r2
     assertEquals(List(1, 2, 3, 4, 5), r2)
 
-    val r3 = q.to[Set]
+    val r3 = q.buildColl[Set]
     val r3t: Set[Int] = r3
     assertEquals(Set(3, 4, 2, 1, 5), r3)
 
-    val r4 = q.to[IndexedSeq]
+    val r4 = q.buildColl[IndexedSeq]
     val r4t: IndexedSeq[Int] = r4
     assertEquals(IndexedSeq(1, 2, 3, 4, 5), r4)
 
-    val r5 = q.to[ArrayBuffer]
+    val r5 = q.buildColl[ArrayBuffer]
     val r5t: ArrayBuffer[Int] = r5
     assertEquals(ArrayBuffer(1, 2, 3, 4, 5), r5)
 
-    val r6 = q.to[Array]
+    val r6 = q.buildColl[Array]
     val r6t: Array[Int] = r6
     assertEquals(Array(1, 2, 3, 4, 5).toList, r6.toList)
 
