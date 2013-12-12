@@ -112,6 +112,15 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length)
     }
     assertEquals(Set((1, 3, 3, 3), (2, 3, 3, 3), (3, 2, 2, 2), (4, 1, 1, 0)), q6.run.toSet)
+
+    println("=========================================================== q7")
+    val q7 = ts.groupBy(_.a).map { case (a, ts) =>
+      (a, ts.map(_.b).sum, ts.map(_.b).min, ts.map(_.b).max, ts.map(_.b).avg)
+    }
+    assertEquals(Set(
+      (1, Some(6), Some(1), Some(3), Some(2)),
+      (2, Some(8), Some(1), Some(5), Some(2)),
+      (3, Some(10), Some(1), Some(9), Some(5))), q7.run.toSet)
   }
 
   def testIntLength {
