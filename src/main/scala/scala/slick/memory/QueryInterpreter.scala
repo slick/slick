@@ -250,19 +250,19 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Library.Min(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
-        val (num, opt) = itType match {
-          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
-          case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
+        val (ord, opt) = itType match {
+          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
+          case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
-        reduceOptionIt(it, opt, (a, b) => if(num.lt(b, a)) b else a)
+        reduceOptionIt(it, opt, (a, b) => if(ord.lt(b, a)) b else a)
       case Library.Max(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
-        val (num, opt) = itType match {
-          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
-          case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
+        val (ord, opt) = itType match {
+          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
+          case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
-        reduceOptionIt(it, opt, (a, b) => if(num.gt(b, a)) b else a)
+        reduceOptionIt(it, opt, (a, b) => if(ord.gt(b, a)) b else a)
       case Apply(sym, ch) =>
         val chV = ch.map(n => (n.nodeType, run(n)))
         logDebug("[chV: "+chV.mkString(", ")+"]")
@@ -361,6 +361,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
     case ProductType(Seq(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
+    case StructType(Seq((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
     case t => (coll.iterator, t)
   }
 
