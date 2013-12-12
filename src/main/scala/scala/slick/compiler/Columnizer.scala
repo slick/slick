@@ -89,13 +89,18 @@ class FlattenProjections extends Phase {
         logger.debug("Analyzing "+Path.toString(path)+" with symbols "+translations.keySet.mkString(", "))
         splitPath(n, translations.keySet) match {
           case Some((base, rest, tsym)) =>
-            logger.debug("Found "+Path.toString(path)+" with local part "+Path.toString(rest)+" over "+tsym)
+            logger.debug("Found "+Path.toString(path)+" with local part "+rest.map(Path.toString _)+" over "+tsym)
             val (paths, tpe) = translations(tsym)
             def retype(n: Node): Node = n.nodeMapChildren(retype, keepType = true).nodeTypedOrCopy(n.nodeType.replace {
               case t @ NominalType(tsym) if translations.contains(tsym) =>
                 t.withStructuralView(tpe)
             })
-            Select(retype(base), paths(rest)).nodeTyped(n.nodeType)
+            rest match {
+              case Some(r) =>
+                Select(retype(base), paths(r)).nodeTyped(n.nodeType)
+              case None =>
+                retype(base).nodeTyped(n.nodeType)
+            }
           case None => n
         }
       case n => n.nodeMapChildren(tr)
@@ -104,17 +109,18 @@ class FlattenProjections extends Phase {
   }}
 
   /** Split a path into the shortest part with a NominalType and the rest on top of it. */
-  def splitPath(n: Node, candidates: scala.collection.Set[TypeSymbol]): Option[(Node, List[Symbol], TypeSymbol)] = {
-    def checkType = n.nodeType match {
-      case NominalType(tsym) if candidates contains tsym => Some((n, Nil, tsym))
+  def splitPath(n: Node, candidates: scala.collection.Set[TypeSymbol]): Option[(Node, Option[List[Symbol]], TypeSymbol)] = {
+    def checkType(tpe: Type): Option[(Node, Option[List[Symbol]], TypeSymbol)] = tpe match {
+      case NominalType(tsym) if candidates contains tsym => Some((n, Some(Nil), tsym))
+      case CollectionType(cons, el) => checkType(el).map { case (n, _, tsym) => (n, None, tsym) }
       case _ => None
     }
     n match {
       case Select(in, field) => splitPath(in, candidates) match {
-        case Some((n, p, tsym)) => Some((n, field :: p, tsym))
-        case None => checkType
+        case Some((n, p, tsym)) => Some((n, Some(field :: p.get), tsym))
+        case None => checkType(n.nodeType)
       }
-      case _: Ref => checkType
+      case _: Ref => checkType(n.nodeType)
     }
   }
 

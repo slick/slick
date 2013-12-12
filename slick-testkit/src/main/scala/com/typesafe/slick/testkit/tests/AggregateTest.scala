@@ -121,6 +121,16 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       (1, Some(6), Some(1), Some(3), Some(2)),
       (2, Some(8), Some(1), Some(5), Some(2)),
       (3, Some(10), Some(1), Some(9), Some(5))), q7.run.toSet)
+
+    println("=========================================================== q8")
+    val q8 = us.map( _ => "test").groupBy(x => x).map(_._2.max)
+    assertEquals((Seq(Some("test"))), q8.run)
+    val q8b = for( (key, group) <- us.map(_ => "x").groupBy(co => co) )
+    yield (key, group.map(co => co).max )
+    assertEquals((Seq(("x", Some("x")))), q8b.run)
+    val q8c = for( (key, group) <- us.map(_ => 5).groupBy(co => co) )
+    yield (key, group.map(co => co + co).sum )
+    assertEquals((Seq((5, Some(40)))), q8c.run)
   }
 
   def testIntLength {

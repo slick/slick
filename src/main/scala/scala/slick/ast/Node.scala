@@ -352,7 +352,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNo
     val by2 = by.nodeWithComputedType(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
     nodeRebuildOrThis(Vector(from2, by2)).nodeTypedOrCopy(
       if(!nodeHasType || retype)
-        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType, CollectionType(CollectionTypeConstructor.default, from2Type.elementType))))
+        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType.structural, CollectionType(CollectionTypeConstructor.default, from2Type.elementType))))
       else nodeType)
   }
 }
