@@ -90,7 +90,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
     def dropLobTrigger(tname: String): Option[String] =
       if(sqlType == "lo") Some(
-        "drop trigger "+lobTrigger(tname)
+        "drop trigger "+lobTrigger(tname)+" on "+quoteIdentifier(tname)
       ) else None
   }
 

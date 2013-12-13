@@ -15,7 +15,8 @@ abstract class RefTag(val path: List[Symbol]) extends Tag
 /** A Tag marking the base table instance itself */
 trait BaseTag extends Tag
 
-/** The driver-independent superclass of all table row objects. */
+/** The driver-independent superclass of all table row objects.
+  * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
 abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends ColumnBase[T] {
   /** The client-side type of the table as defined by its * projection */
   type TableElementType
@@ -26,8 +27,10 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   def encodeRef(path: List[Symbol]) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
-  /** The default projection of the table. This defines the type you get when
-    * you return a table row from a Query. The `ProvenShape` type ensures that
+  /** The * projection of the table used as default for queries and inserts.
+    * Should include all columns as a tuple, HList or custom shape and optionally
+    * map them to a custom entity type using the <> operator.
+    * The `ProvenShape` return type ensures that
     * there is a `Shape` available for translating between the `Column`-based
     * type in * and the client-side type without `Column` in the table's type
     * parameter. */
