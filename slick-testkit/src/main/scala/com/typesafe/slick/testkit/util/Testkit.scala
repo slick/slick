@@ -28,6 +28,7 @@ object Testkit {
     classOf[tk.JoinTest] ::
     classOf[tk.MainTest] ::
     classOf[tk.JdbcMapperTest] ::
+    classOf[tk.MetaModelTest] ::
     classOf[tk.RelationalMapperTest] ::
     classOf[tk.RelationalMiscTest] ::
     classOf[tk.JdbcMiscTest] ::

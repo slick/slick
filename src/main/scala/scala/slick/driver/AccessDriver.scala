@@ -80,6 +80,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.typeLong
     - RelationalProfile.capabilities.zip
+    - JdbcProfile.capabilities.createModel
     )
 
   def integralTypes = Set(
