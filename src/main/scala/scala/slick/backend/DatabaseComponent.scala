@@ -39,6 +39,26 @@ trait DatabaseComponent { self =>
     def withDynSession[T](f: => T): T = withSession { s: Session => withDynamicSession(s)(f) }
 
     /**
+     * Run the supplied function with a new session and automatically close the session at the end,
+     * if other session is not opened in the dynamic (inheritable thread-local) variable.
+     */
+    def withNestedSession[T](f: Session => T): T = {
+      val s = dyn.value
+      if(s eq null) withSession { s => withDynamicSession(s)(f(s)) }
+      else f(s)
+    }
+
+    /** Run the supplied thunk with a new session and automatically close the session at the end,
+      * if other session is not opened in the dynamic (inheritable thread-local) variable.
+      * The session is stored in a dynamic (inheritable thread-local) variable
+      * which can be accessed with the implicit function in
+      * Database.dynamicSession. */
+    def withNestedSession[T](f: => T): T = {
+      if(dyn.value eq null) withDynSession(f)
+      else f
+    }
+
+    /**
      * Run the supplied function with a new session in a transaction and automatically close the session at the end.
      */
     def withTransaction[T](f: Session => T): T = withSession { s => s.withTransaction(f(s)) }
@@ -49,6 +69,29 @@ trait DatabaseComponent { self =>
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
     def withDynTransaction[T](f: => T): T = withDynSession { Database.dynamicSession.withTransaction(f) }
+
+    /**
+     * Run the supplied function with a new session in a transaction and automatically close the session at the end,
+     * if other session is not opened in the dynamic (inheritable thread-local) variable.
+     */
+    def withNestedTransaction[T](f: Session => T): T = {
+      val s = dyn.value
+      if(s eq null) withSession { s => withDynamicSession(s)(s.withTransaction(f(s))) }
+      else s.withTransaction(f(s))
+    }
+
+    /** Run the supplied thunk with a new session in a transaction and
+      * automatically close the session at the end.
+      * if other session is not opened in the dynamic (inheritable thread-local) variable.
+      * The session is stored in a dynamic (inheritable thread-local) variable
+      * which can be accessed with the implicit function in
+      * Database.dynamicSession. */
+    def withNestedTransaction[T](f: => T): T = {
+      val s = dyn.value
+      if(s eq null) withDynTransaction(f)
+      else s.withTransaction(f)
+    }
+
   }
 
   private[this] val dyn = new DynamicVariable[Session](null)
