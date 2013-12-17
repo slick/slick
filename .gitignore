@@ -11,3 +11,4 @@ target/
 /\.classpath
 /\.settings/
 .DS_Store
+slick-testkit/src/codegen/resources/dbs/hsql/supp.properties

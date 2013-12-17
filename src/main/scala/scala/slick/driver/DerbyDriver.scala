@@ -6,6 +6,8 @@ import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
+import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.UnitInvoker
 
 /**
  * Slick driver for Derby/JavaDB.
@@ -55,6 +57,8 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCycle
     - RelationalProfile.capabilities.zip
   )
+
+  override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val compiler = QueryCompiler.relational + Phase.rewriteBooleans
   override val columnTypes = new JdbcTypes

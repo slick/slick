@@ -6,6 +6,7 @@ import scala.slick.jdbc.JdbcBackend
 /**
  * Generate Scala code from database meta-data.
  */
+@deprecated("Use scala.slick.model.codegen.SourceCodeGenerator instead.","2.0.0")
 object CodeGen {
 
   def output(table: MTable, out: PrintWriter)(implicit session: JdbcBackend#Session) {
