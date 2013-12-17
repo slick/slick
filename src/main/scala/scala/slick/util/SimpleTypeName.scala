@@ -3,7 +3,7 @@ package scala.slick.util
 /**
  * Get a simple type name for a value.
  */
-
+@deprecated("Not needed anymore", "2.0.0")
 object SimpleTypeName {
   def forVal(v: Any) = v match {
     case null => "Null"

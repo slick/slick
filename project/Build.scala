@@ -101,7 +101,17 @@ object SlickBuild extends Build {
     settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ extTarget("slick", None) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
-      scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick", "-doc-version", v)),
+      scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile).map((v,src) => Seq(
+        "-doc-title", "Slick",
+        "-doc-version", v,
+        "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+        "-doc-root-content", "scaladoc-root.txt",
+        "-sourcepath", src.getPath, // needed for scaladoc to strip the location of the linked source path
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
+        "-implicits",
+        "-diagrams", // requires graphviz
+        "-groups"
+      )),
       test := (), // suppress test status output
       testOnly :=  (),
       ivyConfigurations += config("macro").hide.extend(Compile),
