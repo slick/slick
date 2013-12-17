@@ -48,7 +48,7 @@ trait DatabaseComponent { self =>
       * The session is stored in a dynamic (inheritable thread-local) variable
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
-    def withDynTransaction[T](f: => T): T = withSession { Database.dynamicSession.withTransaction(_ => f) }
+    def withDynTransaction[T](f: => T): T = withDynSession { Database.dynamicSession.withTransaction(f) }
   }
 
   private[this] val dyn = new DynamicVariable[Session](null)
