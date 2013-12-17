@@ -64,7 +64,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       ts insert (2, new SerialBlob(Array[Byte](4,5)))
 
       assertEquals(Set((1,"123"), (2,"45")),
-        ts.mapResult{ case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }.to[Set])
+        ts.mapResult{ case (id, data) => (id, data.getBytes(1, data.length.toInt).mkString) }.buildColl[Set])
     }
   }
 

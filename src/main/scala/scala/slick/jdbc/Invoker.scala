@@ -73,8 +73,12 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
   /**
    * Execute the statement and return a fully materialized collection.
    */
-  final def to[C[_]](param: P)(implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
+  final def buildColl[C[_]](param: P)(implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
     build[C[R]](param)(session, canBuildFrom)
+
+  @deprecated("Use .buildColl instead of .to", "2.0.0")
+  final def to[C[_]](param: P)(implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
+    buildColl[C](param)
 
   /**
    * Execute the statement and call f for each converted row of the result set.
@@ -151,6 +155,9 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   final def firstOption(implicit session: JdbcBackend#Session): Option[R] = delegate.firstOption(appliedParameter)
   final def first()(implicit session: JdbcBackend#Session): R = delegate.first(appliedParameter)
   final def list()(implicit session: JdbcBackend#Session): List[R] = delegate.list(appliedParameter)
+  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
+    delegate.buildColl(appliedParameter)
+  @deprecated("Use .buildColl instead of .to", "2.0.0")
   final def to[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
     delegate.to(appliedParameter)
   final def toMap[T, U](implicit session: JdbcBackend#Session, ev: R <:< (T, U)): Map[T, U] = delegate.toMap(appliedParameter)

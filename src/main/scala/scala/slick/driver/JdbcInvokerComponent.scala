@@ -232,12 +232,12 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
       implicit val session: Backend#Session = null
-      buildKeysResult(st).to[Vector]
+      buildKeysResult(st).buildColl[Vector]
     }
 
     protected def retQuery(st: Statement, updateCount: Int) = {
       implicit val session: Backend#Session = null
-      buildKeysResult(st).to[Vector]
+      buildKeysResult(st).buildColl[Vector]
     }
 
     def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](tree, keys, f)
@@ -259,7 +259,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
       implicit val session: Backend#Session = null
-      val ru = buildKeysResult(st).to[Vector]
+      val ru = buildKeysResult(st).buildColl[Vector]
       (values, ru).zipped.map(tr)
     }
   }
