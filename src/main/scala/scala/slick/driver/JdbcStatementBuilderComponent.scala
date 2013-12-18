@@ -302,6 +302,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
+        case Comprehension(_, Seq(), _, _, _, _, _) => throw new SlickException("Update without filter not allowed as a precaution. You probably wanted to filter by your primary key before updating. If you really want to replace every single row in the table, please split your update in two queries, which each update part of your data.")
         case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>

@@ -93,6 +93,12 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       Set(Data(7, 8), Data(9, 10), Data(5, 6)),
       ts.list.toSet
     )
+
+    try{
+      ts.update(new Data(9,9))
+    } catch {
+      case _:SlickException => // update of complete table disallowed as precaution
+    }
   }
 
   def testWideMappedEntity {
