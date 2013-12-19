@@ -46,7 +46,7 @@ import scala.slick.driver.H2Driver.simple._
     // Your query could look like this:
     ( for( c <- coffees; if c.price < limit ) yield c.name ).list
     
-    // Or using more manual SQL String Interpolation:
+    // Or using more plain SQL String Interpolation:
     sql"select COF_NAME from COFFEES where PRICE < $limit".as[String].list
     
     // Both queries result in SQL equivalent to:
