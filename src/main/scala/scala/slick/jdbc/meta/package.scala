@@ -130,25 +130,31 @@ package object meta{
             )
           }
       }
-      def indices(mIndexInfo: Seq[MIndexInfo]) = {
-        mIndexInfo
-          // filter out unnecessary tableIndexStatistic (we can safely call .get later)
-          .filter(_.indexType != DatabaseMetaData.tableIndexStatistic)
-          .groupBy(_.indexName)
-          .toSeq
-          .sortBy(_._1)
-          .map(_._2.sortBy(_.ordinalPosition)) // respect order
-          .map{ mIndices =>
-            val idx = mIndices.head
-            m.Index(
-              idx.indexName.filter(_ != ""),
-              tableName,
-              mIndices.map(
-                _.column.get.stripPrefix("\"").stripSuffix("\"") // strip " to work around postgres issue
-              ).map(columnsByName),
-              !idx.nonUnique
-            )
-          }          
+      def indices(mTable: MTable) = {
+        try{
+          mTable.getIndexInfo().list
+            // filter out unnecessary tableIndexStatistic (we can safely call .get later)
+            .filter(_.indexType != DatabaseMetaData.tableIndexStatistic)
+            .groupBy(_.indexName)
+            .toSeq
+            .sortBy(_._1)
+            .map(_._2.sortBy(_.ordinalPosition)) // respect order
+            .map{ mIndices =>
+              val idx = mIndices.head
+              m.Index(
+                idx.indexName.filter(_ != ""),
+                tableName,
+                mIndices.map(
+                  _.column.get.stripPrefix("\"").stripSuffix("\"") // strip " to work around postgres issue
+                ).map(columnsByName),
+                !idx.nonUnique
+              )
+            }
+        } catch {
+          case e:java.sql.SQLException =>
+            logger.debug(s"Skipping indices of table ${mTable.name.name} due to exception during getIndexInfo: "+e.getMessage.trim)
+            Seq()
+        }
       }
 
       val mPrimaryKeys = mPrimaryKeysByMQName(mTable.name)
@@ -159,7 +165,7 @@ package object meta{
         primaryKey(mPrimaryKeys),
         fks,
         // indices not including primary key and table statistics
-        indices(mTable.getIndexInfo().list)
+        indices(mTable)
           .filter{ 
             // filter out foreign key index
             case idx if !idx.unique => !fks.exists(_.referencingColumns.toSet == idx.columns.toSet)
