@@ -2,6 +2,7 @@ package scala.slick.lifted
 
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
+import scala.slick.model // workaround until deprecated lifted.ForeignKeyAction is removed
 
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
@@ -15,7 +16,8 @@ abstract class RefTag(val path: List[Symbol]) extends Tag
 /** A Tag marking the base table instance itself */
 trait BaseTag extends Tag
 
-/** The driver-independent superclass of all table row objects. */
+/** The driver-independent superclass of all table row objects.
+  * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
 abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends ColumnBase[T] {
   /** The client-side type of the table as defined by its * projection */
   type TableElementType
@@ -26,8 +28,10 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   def encodeRef(path: List[Symbol]) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
-  /** The default projection of the table. This defines the type you get when
-    * you return a table row from a Query. The `ProvenShape` type ensures that
+  /** The * projection of the table used as default for queries and inserts.
+    * Should include all columns as a tuple, HList or custom shape and optionally
+    * map them to a custom entity type using the <> operator.
+    * The `ProvenShape` return type ensures that
     * there is a `Shape` available for translating between the `Column`-based
     * type in * and the client-side type without `Column` in the table's type
     * parameter. */
@@ -61,8 +65,8 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     */
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
-      (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
-       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[_ <: ShapeLevel.Flat, TT, U, _], unpackp: Shape[_ <: ShapeLevel.Flat, P, PU, _]): ForeignKeyQuery[TT, U] = {
+      (targetColumns: TT => P, onUpdate: model.ForeignKeyAction = model.ForeignKeyAction.NoAction,
+       onDelete: model.ForeignKeyAction = model.ForeignKeyAction.NoAction)(implicit unpack: Shape[_ <: ShapeLevel.Flat, TT, U, _], unpackp: Shape[_ <: ShapeLevel.Flat, P, PU, _]): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.unpackable.value
     val q = Query[TT, U, TT](targetTable)(Shape.repShape.asInstanceOf[Shape[ShapeLevel.Flat, TT, U, TT]])
     val generator = new AnonSymbol

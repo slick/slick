@@ -1,10 +1,12 @@
 package scala.slick.driver
 
 import java.util.UUID
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
+import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.UnitInvoker
 
 /**
  * Slick driver for PostgreSQL.
@@ -25,6 +27,8 @@ import scala.slick.compiler.CompilerState
  * @author szeiger
  */
 trait PostgresDriver extends JdbcDriver { driver =>
+
+  override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
@@ -89,7 +93,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
     def dropLobTrigger(tname: String): Option[String] =
       if(sqlType == "lo") Some(
-        "drop trigger "+lobTrigger(tname)
+        "drop trigger "+lobTrigger(tname)+" on "+quoteIdentifier(tname)
       ) else None
   }
 

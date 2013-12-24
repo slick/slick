@@ -152,7 +152,7 @@ object LiftedEmbedding extends App{
     {
       //#invoker
       val l = q.list
-      val v = q.to[Vector]
+      val v = q.buildColl[Vector]
       val invoker = q.invoker
       val statement = q.selectStatement
       //#invoker

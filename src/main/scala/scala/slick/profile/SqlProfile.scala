@@ -86,6 +86,7 @@ trait SqlDriver extends RelationalDriver with SqlProfile with SqlUtilsComponent 
 
 trait SqlUtilsComponent { driver: SqlDriver =>
 
+  /** quotes identifiers to avoid collisions with SQL keywords and other syntax issues */
   def quoteIdentifier(id: String): String = {
     val s = new StringBuilder(id.length + 4) append '"'
     for(c <- id) if(c == '"') s append "\"\"" else s append c

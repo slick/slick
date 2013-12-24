@@ -4,7 +4,7 @@ import scala.language.implicitConversions
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.compiler.{QueryCompiler, CompilerState, Phase}
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType, JdbcType}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType}
 import scala.slick.lifted._
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
@@ -80,6 +80,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.typeLong
     - RelationalProfile.capabilities.zip
+    - JdbcProfile.capabilities.createModel
     )
 
   def integralTypes = Set(

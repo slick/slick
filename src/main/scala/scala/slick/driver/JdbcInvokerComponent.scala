@@ -39,7 +39,6 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       CompiledStatement(_, sres: SQLBuilder.Result, _),
       CompiledMapping(converter, _)) = tree
 
-    def selectStatement = getStatement
     protected def getStatement = sres.sql
     protected def setParam(param: P, st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), param)
     protected def extractValue(pr: PositionedResult): R = converter.read(pr).asInstanceOf[R]
@@ -233,12 +232,12 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
       implicit val session: Backend#Session = null
-      buildKeysResult(st).to[Vector]
+      buildKeysResult(st).buildColl[Vector]
     }
 
     protected def retQuery(st: Statement, updateCount: Int) = {
       implicit val session: Backend#Session = null
-      buildKeysResult(st).to[Vector]
+      buildKeysResult(st).buildColl[Vector]
     }
 
     def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](tree, keys, f)
@@ -260,7 +259,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]) = {
       implicit val session: Backend#Session = null
-      val ru = buildKeysResult(st).to[Vector]
+      val ru = buildKeysResult(st).buildColl[Vector]
       (values, ru).zipped.map(tr)
     }
   }

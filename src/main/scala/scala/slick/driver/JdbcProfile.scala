@@ -4,24 +4,29 @@ import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{MappedJdbcType, JdbcMappingCompilerComponent, JdbcType, MutatingUnitInvoker, JdbcBackend}
+import scala.slick.jdbc.{JdbcMappingCompilerComponent, MutatingUnitInvoker, JdbcBackend}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.SlickException
+import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.UnitInvoker
+import scala.slick.model.Model
+import scala.slick.jdbc.meta.{createModel => jdbcCreateModel}
 
 /**
  * A profile for accessing SQL databases via JDBC.
  */
 trait JdbcProfile extends SqlProfile with JdbcTableComponent
-  with JdbcInvokerComponent with JdbcExecutorComponent { driver: JdbcDriver =>
+  with JdbcInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent { driver: JdbcDriver =>
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
   val compiler = QueryCompiler.relational
   val Implicit: Implicits = new Implicits {}
-  val simple: SimpleQL = new SimpleQL {}
+  val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
   val columnTypes = new JdbcTypes
+  lazy val MappedColumnType = MappedJdbcType
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
@@ -34,7 +39,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
   trait LowPriorityImplicits {
-    implicit def queryToAppliedQueryInvoker[T, U](q: Query[T, _ <: U]): UnitQueryInvoker[U] = createUnitQueryInvoker[U](queryCompiler.run(q.toNode).tree)
+    implicit def queryToAppliedQueryInvoker[U](q: Query[_,U]): UnitQueryInvoker[U] = createUnitQueryInvoker[U](queryCompiler.run(q.toNode).tree)
     implicit def queryToUpdateInvoker[E, U](q: Query[E, U]): UpdateInvoker[U] = createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
   }
 
@@ -52,10 +57,13 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
       createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
   }
 
-  trait SimpleQL extends super.SimpleQL with Implicits {
-    type MappedColumnType[T, U] = MappedJdbcType[T, U]
-    val MappedColumnType = MappedJdbcType
-  }
+  /**
+   * Jdbc meta data for all tables
+   */
+  def getTables: UnitInvoker[MTable] = MTable.getTables()
+
+  /** Gets the Slick data model describing this data source */
+  def createModel(implicit session: Backend#Session): Model = jdbcCreateModel(getTables.list,this)
 }
 
 object JdbcProfile {
@@ -68,20 +76,21 @@ object JdbcProfile {
     val returnInsertKey = Capability("jdbc.returnInsertKey")
     /** Can also return non-primary-key columns of inserted row */
     val returnInsertOther = Capability("jdbc.returnInsertOther")
+    /** Can also return non-primary-key columns of inserted row */
+    val createModel = Capability("jdbc.createModel")
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther)
+    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther, createModel)
   }
 }
 
 trait JdbcDriver extends SqlDriver
   with JdbcProfile
   with JdbcStatementBuilderComponent
-  with JdbcMappingCompilerComponent
-  with JdbcTypesComponent { driver =>
+  with JdbcMappingCompilerComponent { driver =>
 
   override val profile: JdbcProfile = this
 

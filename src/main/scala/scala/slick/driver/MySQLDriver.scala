@@ -115,6 +115,9 @@ trait MySQLDriver extends JdbcDriver { driver =>
     override protected def dropForeignKey(fk: ForeignKey) = {
       "ALTER TABLE " + table.tableName + " DROP FOREIGN KEY " + fk.name
     }
+    override protected def dropPrimaryKey(pk: PrimaryKey): String = {
+      "ALTER TABLE " + table.tableName + " DROP PRIMARY KEY"
+    }
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {

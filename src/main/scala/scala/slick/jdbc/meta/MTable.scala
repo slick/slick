@@ -17,6 +17,7 @@ case class MTable(
   def getTablePrivileges = MTablePrivilege.getTablePrivileges(name)
   def getBestRowIdentifier(scope: MBestRowIdentifierColumn.Scope, nullable: Boolean = false) =
     MBestRowIdentifierColumn.getBestRowIdentifier(name, scope, nullable)
+  /** @param unique when true, return only indices for unique values; when false, return indices regardless of whether unique or not */
   def getIndexInfo(unique: Boolean = false, approximate: Boolean = false) =
     MIndexInfo.getIndexInfo(name, unique, approximate)
 }

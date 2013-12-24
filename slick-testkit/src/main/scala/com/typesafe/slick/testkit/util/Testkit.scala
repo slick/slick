@@ -27,7 +27,9 @@ object Testkit {
     classOf[tk.IterateeTest] ::
     classOf[tk.JoinTest] ::
     classOf[tk.MainTest] ::
-    classOf[tk.MapperTest] ::
+    classOf[tk.JdbcMapperTest] ::
+    classOf[tk.MetaModelTest] ::
+    classOf[tk.RelationalMapperTest] ::
     classOf[tk.RelationalMiscTest] ::
     classOf[tk.JdbcMiscTest] ::
     classOf[tk.MutateTest] ::

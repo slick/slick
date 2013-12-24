@@ -3,6 +3,7 @@ package scala.slick.test.collection.heterogenous
 import org.junit.Test
 import scala.slick.collection.heterogenous._
 import syntax._
+import org.junit.Assert._
 
 class HListTest {
   @Test
@@ -12,6 +13,9 @@ class HListTest {
     val l1b = l1.tail.head
     val l1c = l1.tail.tail.head
     val l1d = l1.tail.tail.tail.head
+
+    assertEquals( 42, l1(Nat._0) )
+    assertEquals( "bar", l1(Nat._3) )
 
     println(l1)
     val l2 = l1.drop(Nat._3)

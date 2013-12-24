@@ -28,6 +28,7 @@
     <logger name="scala.slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />
     <logger name="scala.slick.compiler.InsertCompiler"            level="${log.qcomp.insertCompiler:-inherited}" />
     <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.session:-info}" />
+    <logger name="scala.slick.jdbc.meta"                          level="${log.jdbc.meta:-info}" />
     <logger name="scala.slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
     <logger name="scala.slick.memory.HeapBackend$"                level="${log.heap:-inherited}" />
     <logger name="scala.slick.memory.QueryInterpreter"            level="${log.interpreter:-inherited}" />
