@@ -71,7 +71,7 @@ object LiftedEmbedding extends App {
 //#foreignkey
     def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
 //#foreignkeynav
-    // Typical SQL statement:
+    // compiles to SQL:
     //   alter table "COFFEES" add constraint "SUP_FK" foreign key("SUP_ID")
     //     references "SUPPLIERS"("SUP_ID")
     //     on update NO ACTION on delete NO ACTION
@@ -116,12 +116,12 @@ object LiftedEmbedding extends App {
     def * = (k1, k2)
 //#index
     def pk = primaryKey("pk_a", (k1, k2))
-    // Typical SQL statement:
+    // compiles to SQL:
     //   alter table "a" add constraint "pk_a" primary key("k1","k2")
 //#primarykey
 //#index
     def idx = index("idx_a", (k1, k2), unique = true)
-    // Typical SQL statement:
+    // compiles to SQL:
     //   create unique index "idx_a" on "a" ("k1","k2")
 //#primarykey
   }
@@ -147,19 +147,19 @@ object LiftedEmbedding extends App {
   db withDynSession {
     //#filtering
     val q1 = coffees.filter(_.supID === 101)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
     //     from "COFFEES"
     //     where "SUP_ID" = 101
 
     val q2 = coffees.drop(10).take(5)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
     //     from "COFFEES"
     //     limit 5 offset 10
 
     val q3 = coffees.sortBy(_.name.desc.nullsFirst)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
     //     from "COFFEES"
     //     order by "COF_NAME" desc nulls first
@@ -174,19 +174,19 @@ object LiftedEmbedding extends App {
     val q = coffees.map(_.price)
 
     val q1 = q.min
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select min(x4."PRICE") from "COFFEES" x4
 
     val q2 = q.max
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select max(x4."PRICE") from "COFFEES" x4
 
     val q3 = q.sum
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select sum(x4."PRICE") from "COFFEES" x4
 
     val q4 = q.avg
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select avg(x4."PRICE") from "COFFEES" x4
     //#aggregation1
     println(q.selectStatement)
@@ -200,11 +200,11 @@ object LiftedEmbedding extends App {
     ddl.create
     //#aggregation2
     val q1 = coffees.length
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select count(1) from "COFFEES"
 
     val q2 = coffees.exists
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select exists(select * from "COFFEES")
     //#aggregation2
     println(q1.shaped.selectStatement)
@@ -246,7 +246,7 @@ object LiftedEmbedding extends App {
     val q2 = q.map { case (supID, css) =>
       (supID, css.length, css.map(_._1.price).avg)
     }
-    // Typical SQL statement:
+    // compiles to SQL:
     //   select x2."SUP_ID", count(1), avg(x2."PRICE")
     //     from "COFFEES" x2, "SUPPLIERS" x3
     //     where x3."SUP_ID" = x2."SUP_ID"
@@ -277,7 +277,7 @@ object LiftedEmbedding extends App {
     val statement = coffees.insertStatement
     val invoker = coffees.insertInvoker
 
-    // Typical SQL statement:
+    // compiles to SQL:
     //   INSERT INTO "COFFEES" ("COF_NAME","SUP_ID","PRICE","SALES","TOTAL") VALUES (?,?,?,?,?)
     //#insert1
     println(statement)
@@ -318,7 +318,7 @@ object LiftedEmbedding extends App {
     val statement = q.updateStatement
     val invoker = q.updateInvoker
 
-    // Typical SQL statement:
+    // compiles to SQL:
     //   update "COFFEES" set "PRICE" = ? where "COFFEES"."COF_NAME" = 'Espresso'
     //#update1
     println(statement)
@@ -343,6 +343,7 @@ object LiftedEmbedding extends App {
       // The query will be compiled only once:
       val names1 = userNameByIDRangeCompiled(2, 5).run
       val names2 = userNameByIDRangeCompiled(1, 3).run
+      // Also works for .update and .delete
       //#compiled1
     }
 

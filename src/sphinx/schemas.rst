@@ -2,7 +2,10 @@ Schemas
 =======
 
 This chapter describes how to work with database schemas in the
-:ref:`Lifted Embedding <lifted-embedding>` API.
+:ref:`Lifted Embedding <lifted-embedding>` API. This explains
+how you can write schema descriptions by hand. Instead you 
+can also use the :doc:`code generator <code-generation>` to 
+take this work off your hands.
 
 Tables
 ------

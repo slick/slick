@@ -182,6 +182,13 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("Updated "+updated1+" row(s)")
     assertEquals(1, updated1)
 
+    val q7b = Compiled { users.where(_.first is "Homer Jay").map(_.first) }
+    println("q7b: " + q7b.updateStatement)
+    val updated7b = q7b.update("Homie")
+    println("Updated "+updated7b+" row(s)")
+    assertEquals(1, updated7b)
+
+
     assertEquals(1, q7("Marge").map(_.length).run)
     q7("Marge").delete
     assertEquals(0, q7("Marge").map(_.length).run)

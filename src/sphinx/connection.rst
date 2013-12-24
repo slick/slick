@@ -8,7 +8,7 @@ Database connection
 ------------------------------------
 
 You can tell Slick how to connect to the JDBC database of your choice by
-creating a :api:`Database <scala.slick.jdbc.JdbcBackend@Database>` object
+creating a :api:`Database <scala.slick.jdbc.JdbcBackend@Database>` object,
 which encapsulates the information. There are several
 :api:`factory methods <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef>`
 on `scala.slick.jdbc.JdbcBackend.Database` that you can use depending on what
@@ -31,7 +31,7 @@ You can provide a JDBC URL to
 
 .. includecode:: code/Connection.scala#forURL
 
-Here we are connecting to a new, empty in-memory H2 database called ``test1``
+Here we are connecting to a new, empty, in-memory H2 database called ``test1``
 and keep it resident until the JVM ends (``DB_CLOSE_DELAY=-1``, which is H2
 specific).
 
@@ -67,7 +67,7 @@ Session handling
 --------------------------------------------
 
 Now you have a :api:`Database <scala.slick.jdbc.JdbcBackend@Database>` object
-and you can use it to open database connections which Slick encapsulates in
+and you can use it to open database connections, which Slick encapsulates in
 :api:`Session <scala.slick.jdbc.JdbcBackend@Session>` objects.
 
 .. _session-scope:

@@ -5,8 +5,16 @@ Slick 2.0 contains some improvements which are not source compatible with Slick
 1.0. When migrating your application from 1.0 to 2.0, you will likely need to
 perform changes in the following areas.
 
-Table Definitions
+Code generation
 -----------------
+
+Instead of writing your table descriptions or plain SQL mappers by hand, in 2.0 you can
+now automatically generate them from your database schema. The code-generator
+is flexible enough to customize it's output to fit exactly what you need.
+:doc:`More info on code generation <code-generation>`.
+
+Table descriptions
+------------------
 
 In Slick 1.0 tables were defined by a single ``val`` or ``object`` (called the
 *table object*) and the ``*`` projection was limited to a flat tuple of columns
@@ -29,7 +37,7 @@ projection can use the standard tuple syntax:
 .. includecode:: code/MigrationGuide.scala#tabledef
 
 You can import :api:`TupleMethods <scala.slick.util.TupleMethods$>`._ to get
-support for the old tuple syntax. The simple ``TableQuery[T]`` syntax is a
+support for the old `~` syntax. The simple ``TableQuery[T]`` syntax is a
 macro which expands to a proper TableQuery instance that calls the table's
 constructor (``new TableQuery(new T(_))``). In Slick 1.0 it was common practice
 to place extra static methods associated with a table into that table's object.
@@ -49,11 +57,11 @@ Profile Hierarchy
 Slick 1.0 provided two *profiles*, ``BasicProfile`` and ``ExtendedProfile``.
 These two have been unified in 2.0 as ``JdbcProfile``. Slick now provides
 more abstract profiles, in particular ``RelationalProfile`` which does not
-have all the features of ``JdbcProfile`` but it supported by the new
-``HeapDriver`` and ``DistributedDriver``. When porting code from Slick 1.0
-you generally want to stick to ``JdbcProfile``. In particular, pay attention
-to the fact that ``BasicProfile`` in 2.0 is very different from
-``BasicProfile`` in 1.0.
+have all the features of ``JdbcProfile`` but is supported by the new
+``HeapDriver`` and ``DistributedDriver``. When porting code from Slick 1.0,
+you generally want to switch to ``JdbcProfile`` when abstracting over
+drivers. In particular, pay attention to the fact that ``BasicProfile``
+in 2.0 is very different from ``BasicProfile`` in 1.0.
 
 Inserting
 ---------
@@ -73,7 +81,7 @@ projection from the table query:
 Note the use of the new ``+=`` operator for API compatibility with Scala
 collections. The old name ``insert`` is still available as an alias.
 
-Slick 2.0 will automatically exclude ``AutoInc`` fields by default when
+Slick 2.0 will now automatically exclude ``AutoInc`` fields by default when
 inserting data. In 1.0 it was common to have a separate projection for
 inserts in order to exclude these fields manually::
 
@@ -112,11 +120,18 @@ it::
 
   def * = id ~ name ~ street <> (Supplier _, Supplier.unapply)
 
-This is no longer supported in 2.0. You now have to use the proper tuple type.
-If you map to a case class you can get that by calling ``.tupled`` on its
+This is no longer supported in 2.0. One of the reasons is that the overloading
+lead to complicated error messages.
+You now have to use a function with an appropriate tuple type.
+If you map to a case class you can simply use ``.tupled`` on its
 companion object:
 
 .. includecode:: code/MigrationGuide.scala#mappedprojection
+
+Pre-compiled updates
+-----------------------------
+Slick now supports pre-compilation of updates in the same manner like selects, see
+:ref:`compiled-queries`.
 
 Database and Session Handling
 -----------------------------
@@ -163,6 +178,10 @@ an explicit type annotation when using the statically scoped session:
 This is no longer necessary in 2.0:
 
 .. includecode:: code/MigrationGuide.scala#session
+
+Again, the recommended practice is NOT to use dynamic sessions.
+If you are uncertain if you need them the answer is most probably no.
+Static sessions are safer.
 
 Mapped Column Types
 -------------------

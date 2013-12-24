@@ -1,7 +1,7 @@
 Queries
 =======
 
-This chapter describes how to define queries which are used for querying,
+This chapter describes how to write type-safe queries for selecting,
 inserting, updating and deleting data with the
 :ref:`Lifted Embedding <lifted-embedding>` API.
 
@@ -213,6 +213,8 @@ updating are defined in
 
 There is currently no way to use scalar expressions or transformations of
 the existing data in the database for updates.
+
+.. _compiled-queries:
 
 Compiled Queries
 ----------------

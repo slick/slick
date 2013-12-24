@@ -13,7 +13,7 @@ and which data is transferred. You can also use SQL directly.
 
 .. includecode:: code/GettingStartedOverview.scala#what-is-slick-micro-example
 
-When using Scala instead of SQL for your queries you profit from the compile-time safety
+When using Scala instead of SQL for your queries you benefit from compile-time safety
 and compositionality. Slick can generate queries for different backends including
 your own, using its extensible query compiler.
 
@@ -90,7 +90,7 @@ Accessing databases using Slick's lifted embedding requires the following steps.
 
    .. includecode:: code/GettingStartedOverview.scala#quick-imports
 
-#. Describe your Database schema
+#. :doc:`Generate a database <code-generation>` schema description from your database or describe it yourself
 
    .. includecode:: code/GettingStartedOverview.scala#quick-schema
 

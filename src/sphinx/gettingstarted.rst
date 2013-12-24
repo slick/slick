@@ -61,8 +61,10 @@ Schema
 ------
 
 We are using the :ref:`lifted embedding <lifted-embedding>` in this
-application, so we have to write ``Table`` row classes and ``TableQuery``
-values for our database tables:
+application, so we need ``Table`` row classes and ``TableQuery``
+values for our database tables. You can either use the :doc:`code generator <code-generation>`
+to automatically create them for your database schema or you
+can write them by hand:
 
 .. includecode:: code/FirstExample.scala#tables
 
