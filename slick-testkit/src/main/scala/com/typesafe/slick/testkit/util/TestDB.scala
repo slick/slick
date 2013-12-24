@@ -185,7 +185,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
 abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) {
   val jdbcDriver = TestDB.get(confName, "driver").orNull
   val urlTemplate = TestDB.get(confName, "url").getOrElse("")
-  val dbPath = new File(TestDB.testDBDir).getAbsolutePath
+  val dbPath = TestDB.get(confName, "dir").getOrElse(new File(TestDB.testDBDir).getAbsolutePath)
   val dbName = TestDB.get(confName, "testDB").getOrElse("").replace("[DBPATH]", dbPath)
   val password = TestDB.get(confName, "password").orNull
   val user = TestDB.get(confName, "user").orNull
