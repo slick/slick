@@ -75,3 +75,7 @@ pre {
 div.sidebar input[type="text"] {
   width: 155px;
 }
+.highlight pre .c, .highlight pre .cm, .highlight pre .c1, .highlight pre .cs{
+  font-style: normal;
+  color: #999;
+}

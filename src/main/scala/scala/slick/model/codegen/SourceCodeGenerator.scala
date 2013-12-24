@@ -5,23 +5,7 @@ import scala.slick.{model => m}
 /**
  * A customizable code generator for working with Slick.
  *
- * Parts of the generator were explained in our <a href="http://slick.typesafe.com/docs/#20131203_patterns_for_slick_database_applications_at_scala_exchange_2013">talk at Scala eXchange 2013</a>.
- *
- * By default it generates Table classes, corresponding TableQuery values which
- * can be used in a collection-like manner and case classes for holding complete
- * rows of values. For Tables > 22 columns the generator automatically switches
- * to Slick HLists for overcoming Scala's tuple size limit.
- *
- * The implementation is ready for practical use, but since it is new in
- * Slick 2.0 we consider it experimental and reserve the right to remove features
- * without a deprecation cycle if we think that it is necessary. It would be only
- * a small effort to run an old generator against a future version of Slick though,
- * if necessary, as it's implementation is rather isolated from the rest of Slick.
- * 
- * The generator can be flexibly customized by overriding methods to programmatically
- * generate any code based on the data model. This can be used for minor customizations
- * as well as heavy, model driven code generation, e.g. for framework bindings (Play,...)
- * repetetive sections of applications, etc.
+ * For usage information please see the corresponding part of the Slick documentation.
  *
  * The implementation is structured into a small hierarchy of sub-generators responsible
  * for different fragments of the complete output. The implementation of each
@@ -33,39 +17,6 @@ import scala.slick.{model => m}
  *
  * Within the sub-generators the relevant part of the Slick data `model` can
  * be accessed to drive the code generation.
- * 
- * Here is an example for customizing the generator:
- * {{{
-    import scala.slick.jdbc.model.createModel
-    // fetch data model
-    val model = db.withSession{ implicit session =>
-     createModel(H2Driver.getTables.list.filter(...),H2Driver)
-    }
-    // customize code generator
-    val codegen = new SourceCodeGenerator(model){
-      // override mapped table and class name
-      override def entityName = dbTableName => dbTableName.dropRight(1).toLowerCase.toCamelCase
-      override def tableName  = dbTableName => dbTableName.toLowerCase.toCamelCase
-    
-      // add some custom import
-      override def code = "import foo.{MyCustomType,MyCustomTypeMapper}" + "\n" + super.code
-    
-      // override table generator
-      override def Table = new Table(_){
-        // disable entity class generation and mapping
-        override def EntityType = new EntityType{
-          override def classEnabled = false
-        }
-    
-        // override contained column generator
-        override def Column = new Column(_){
-          // use the data model member of this column to change the Scala type, e.g. to a custom enum or anything else
-          override def rawType = if(model.name == "SOME_SPECIAL_COLUMN_NAME") "MyCustomType" else super.rawType
-        }
-      }
-    }
-    codegen.writeToFile("scala.slick.driver.H2Driver","some/folder/","some.packag","Tables","Tables.scala")
- * }}}
  *
  * Of coures it makes sense to integrate this into your build process.
  * @param model Slick data model for which code should be generated.
@@ -121,15 +72,15 @@ object SourceCodeGenerator{
         println("""
 Usage: SourceCodeGenerator.main(Array( slickDriver, jdbcDriver, url, outputFolder, pkg ))
 
-slickDriver: Fully qualified name to Slick driver class, e.g. "scala.slick.driver.H2Driver"
+slickDriver: Fully qualified name of Slick driver class, e.g. "scala.slick.driver.H2Driver"
 
-jdbcDriver: Fully qualified name to Slick driver class, e.g. "org.h2.Driver"
+jdbcDriver: Fully qualified name of jdbc driver class, e.g. "org.h2.Driver"
 
 url: jdbc url, e.g. "jdbc:postgresql://localhost/test"
 
-outputFolder: Place where the package folder structure is put.
+outputFolder: Place where the package folder structure should be put
 
-pkg: Scala package, the generated code should be places in
+pkg: Scala package the generated code should be places in
             """.trim
         )
       }

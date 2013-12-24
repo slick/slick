@@ -1,11 +1,11 @@
 User-Defined Features
 =====================
 
-This chapter describes how use custom data types and database functions
+This chapter describes how to use custom data types and database functions
 in the :ref:`Lifted Embedding <lifted-embedding>` API.
 
-User-Defined Functions
-----------------------
+Scala Database functions
+--------------------------
 
 If your database system supports a scalar function that is not available as
 a method in Slick you can define it as a
@@ -27,8 +27,14 @@ write your own wrapper function with the proper type-checking:
 flexibility (e.g. function-like expressions with unusual syntax), you can
 use :api:`scala.slick.lifted.SimpleExpression`.
 
-User-Defined Scalar Types
--------------------------
+Other Database functions and stored procedures
+----------------------------------------------
+
+For database functions that return complete tables or stored procedures please use :doc:`sql`.
+Stored procedures that return multiple result sets are currently not supported.
+
+Scalar Types
+-------------
 
 If you need a custom column type you can implement
 :api:`ColumnType <scala.slick.driver.JdbcProfile@ColumnType>`. The most
@@ -53,17 +59,20 @@ table-specific primary key types:
 
 .. _record-types:
 
-User-Defined Record Types
--------------------------
+Record Types
+-------------
 
-Out of the box, Slick supports Scala tuples (up to arity 22) and Slick's own
+Record types are data structures containing a statically known
+number of components with individually declared types.  Out of the box,
+Slick supports Scala tuples (up to arity 22) and Slick's own
 experimental :api:`scala.slick.collection.heterogenous.HList` implementation
-(without any size limit) for record types, i.e. data structures containing a
-fixed number of elements with individually defined types. These record types
-can be nested and mixed arbitrarily.
+(without any size limit, but currently suffering from long compilation
+times for arities > 25). Record types can be nested and
+mixed arbitrarily in Slick.
 
-If you need more flexibility, you can add implicit :api:`scala.slick.lifted.Shape`
-definitions for other types like ``Pair`` in this example:
+If you need more flexibility, you can add support for your own by
+defining an implicit :api:`scala.slick.lifted.Shape`
+definition. Here is an example for a type ``Pair``:
 
 .. includecode:: code/LiftedEmbedding.scala#recordtypepair
 

@@ -10,6 +10,7 @@ You can find the API documentation `here <api/>`_.
    gettingstarted
    migration
    connection
+   code-generation
    schemas
    queries
    userdefined

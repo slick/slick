@@ -34,7 +34,7 @@ object JoinsUnions extends App{
       c <- coffees
       s <- suppliers
     } yield (c.name, s.name)
-    // Typical SQL statement:
+    // compiles to SQL:
     //   select x2."COF_NAME", x3."SUP_NAME"
     //     from "COFFEES" x2, "SUPPLIERS" x3
     //#implicitCross
@@ -45,7 +45,7 @@ object JoinsUnions extends App{
       c <- coffees
       s <- suppliers if c.supID === s.id
     } yield (c.name, s.name)
-    // Typical SQL statement:
+    // compiles to SQL:
     //   select x2."COF_NAME", x3."SUP_NAME"
     //     from "COFFEES" x2, "SUPPLIERS" x3
     //     where x2."SUP_ID" = x3."SUP_ID"
@@ -56,14 +56,14 @@ object JoinsUnions extends App{
     val explicitCrossJoin = for {
       (c, s) <- coffees innerJoin suppliers
     } yield (c.name, s.name)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     inner join "SUPPLIERS" x3
 
     val explicitInnerJoin = for {
       (c, s) <- coffees innerJoin suppliers on (_.supID === _.id)
     } yield (c.name, s.name)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     inner join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
@@ -71,7 +71,7 @@ object JoinsUnions extends App{
     val explicitLeftOuterJoin = for {
       (c, s) <- coffees leftJoin suppliers on (_.supID === _.id)
     } yield (c.name, s.name.?)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     left outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
@@ -79,7 +79,7 @@ object JoinsUnions extends App{
     val explicitRightOuterJoin = for {
       (c, s) <- coffees rightJoin suppliers on (_.supID === _.id)
     } yield (c.name.?, s.name)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     right outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
@@ -87,7 +87,7 @@ object JoinsUnions extends App{
     val explicitFullOuterJoin = for {
       (c, s) <- coffees outerJoin suppliers on (_.supID === _.id)
     } yield (c.name.?, s.name.?)
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     full outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
@@ -122,7 +122,7 @@ object JoinsUnions extends App{
     val q2 = coffees.filter(_.price > 9.0)
 
     val unionQuery = q1 union q2
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select x8."COF_NAME", x8."SUP_ID", x8."PRICE", x8."SALES", x8."TOTAL"
     //     from "COFFEES" x8
     //     where x8."PRICE" < 8.0
@@ -131,7 +131,7 @@ object JoinsUnions extends App{
     //     where x9."PRICE" > 9.0
 
     val unionAllQuery = q1 ++ q2
-    // Typical SQL statement (simplified):
+    // compiles to SQL (simplified):
     //   select x8."COF_NAME", x8."SUP_ID", x8."PRICE", x8."SALES", x8."TOTAL"
     //     from "COFFEES" x8
     //     where x8."PRICE" < 8.0
