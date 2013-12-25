@@ -7,6 +7,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.UnitInvoker
+import scala.slick.lifted.Tag
 
 /**
  * Slick driver for PostgreSQL.
@@ -31,6 +32,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
   override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
+  override val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -41,6 +43,23 @@ trait PostgresDriver extends JdbcDriver { driver =>
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
     case _ => super.defaultSqlTypeName(tmd)
+  }
+
+  trait SimpleQL extends super.SimpleQL {
+    type SubTable[T] = driver.SubTable[T]
+  }
+
+  abstract class SubTable[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String)
+                    extends Table[T](_tableTag, _schemaName, _tableName) { sub =>
+
+    def this(_tableTag: Tag, _tableName: String) = this(_tableTag, None, _tableName)
+
+    override def create_* : Iterable[FieldSymbol] = {
+      val parColumns = h.create_*.toSeq
+      collectFieldSymbols(*.toNode).filterNot(parColumns.contains _)
+    }
+
+    val h: Table[_]
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -70,6 +89,12 @@ trait PostgresDriver extends JdbcDriver { driver =>
       }
       if(dropLobs.isEmpty) super.dropPhase1
       else Seq("delete from "+quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
+    }
+    override protected def createTable: String = {
+      if(table.isInstanceOf[SubTable[_]]) {
+        val h = table.asInstanceOf[SubTable[_]].h
+        s"${super.createTable} inherits (${quoteTableName(h.tableNode)})"
+      } else super.createTable
     }
   }
 
