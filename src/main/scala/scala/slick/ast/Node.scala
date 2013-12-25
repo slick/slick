@@ -561,7 +561,7 @@ final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: 
 
 /** A window function node; clauses should be: [partition by ...] [order by ...] [rows between .. and ..] */
 final case class WindowFunc(agg: Node, partitionBy: Seq[Node], orderBy: Seq[(Node, Ordering)],
-                            rowsBetween: Option[(String, String)] = None) extends SimplyTypedNode {
+                            frameDef: Option[(String, String, Option[String])] = None) extends SimplyTypedNode {
   type Self = WindowFunc
   val nodeChildren = agg +: (partitionBy ++ orderBy.map(_._1))
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = {

@@ -282,7 +282,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b" over("
         if(!c.partitionBy.isEmpty) { b" partition by "; b.sep(c.partitionBy, ",")(expr(_, true)) }
         if(!c.orderBy.isEmpty) buildOrderByClause(c.orderBy)
-        c.rowsBetween.map { case (start, end) => b" rows between $start and $end" }
+        c.frameDef.map {
+          case (mode, start, Some(end)) => b" $mode between $start and $end"
+          case (mode, start, None)      => b" $mode $start"
+        }
         b") "
       case RowNumber(by) =>
         b"row_number() over("

@@ -7,19 +7,24 @@ import scala.slick.ast._
   * chained, e.g.:
   * {{{
   *   salary.avg :: Over.partitionBy(dept).orderBy(dept,salary)
-  *                   .rowsBetween(RowCursor.Preceding, RowCursor.Current)
+  *                   .rowsFrame(RowCursor.UnboundPreceding, RowCursor.CurrentRow)
   * }}}
   * NOTE: to cooperate with it, you maybe need some aggregate related column extension
   * methods, like [[scala.slick.lifted.ExtensionMethods]] did.
   * */
 object Over {
-  sealed case class RowCursor(name: String)
+  sealed class RowCursor(val desc: String)
 
   object RowCursor {
-    object Current extends RowCursor("current row")
-    object Preceding extends RowCursor("unbounded preceding")
-    object Following extends RowCursor("unbounded following")
+    case object CurrentRow extends RowCursor("current row")
+    case class BoundPreceding[T <: AnyVal](value: T) extends RowCursor(s"$value preceding")
+    case object UnboundPreceding extends RowCursor("unbounded preceding")
+    case class BoundFollowing[T <: AnyVal](value: T) extends RowCursor(s"$value following")
+    case object UnboundFollowing extends RowCursor("unbounded following")
   }
+
+  private val ROWS_MODE  = "rows"
+  private val RANGE_MODE = "range"
 
   ///
   def apply(): OverClause = new OverClause(IndexedSeq())
@@ -28,24 +33,37 @@ object Over {
 
   def orderBy(ordered: Ordered): OverWithOrderBy = new OverWithOrderBy(ordered.columns)
 
-  def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween = new OverWithRowsBetween((start.name, end.name))
+  def rowsFrame(start: RowCursor, end: Option[RowCursor] = None): OverWithFrameDef = new OverWithFrameDef((ROWS_MODE, start.desc, end.map(_.desc)))
+  
+  def rangeFrame(start: RowCursor, end: Option[RowCursor] = None): OverWithFrameDef = new OverWithFrameDef((RANGE_MODE, start.desc, end.map(_.desc)))
 
   //
-  sealed class OverClause(partitionBy: Seq[Node] = Nil, orderBy: Seq[(Node, Ordering)] = Nil, rowsBetween: Option[(String, String)] = None) {
-    def ::[T: TypedType](agg: Column[T]): Column[T] = Column.forNode[T](WindowFunc(agg.toNode, partitionBy, orderBy, rowsBetween))
+  sealed class OverClause(partitionBy: Seq[Node] = Nil, orderBy: Seq[(Node, Ordering)] = Nil,
+                          frameDef: Option[(String, String, Option[String])] = None) {
+    def ::[T: TypedType](agg: Column[T]): Column[T] = Column.forNode[T](WindowFunc(agg.toNode, partitionBy, orderBy, frameDef))
   }
 
   final class OverWithPartitionBy(partitionBy: Seq[Node]) extends OverClause(partitionBy) {
+    
     def orderBy(ordered: Ordered): OverWithOrderBy = new OverWithOrderBy(ordered.columns, partitionBy)
-    def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween =
-      new OverWithRowsBetween((start.name, end.name), partitionBy = partitionBy)
+    
+    def rowsFrame(start: RowCursor, end: Option[RowCursor] = None): OverWithFrameDef =
+      new OverWithFrameDef((ROWS_MODE, start.desc, end.map(_.desc)), partitionBy = partitionBy)
+    
+    def rangeFrame(start: RowCursor, end: Option[RowCursor] = None): OverWithFrameDef =
+      new OverWithFrameDef((RANGE_MODE, start.desc, end.map(_.desc)), partitionBy = partitionBy)
   }
+  
   final class OverWithOrderBy(orderBy: Seq[(Node, Ordering)],
                               partitionBy: Seq[Node] = Nil) extends OverClause(partitionBy, orderBy) {
-    def rowsBetween(start: RowCursor, end: RowCursor): OverWithRowsBetween =
-      new OverWithRowsBetween((start.name, end.name), orderBy, partitionBy)
+    def rowsFrame(start: RowCursor, end: Option[RowCursor] = None): OverWithFrameDef =
+      new OverWithFrameDef((ROWS_MODE, start.desc, end.map(_.desc)), orderBy, partitionBy)
+    
+    def rangeFrame(start: RowCursor, end: Option[RowCursor] = None): OverWithFrameDef =
+      new OverWithFrameDef((RANGE_MODE, start.desc, end.map(_.desc)), orderBy, partitionBy)
   }
-  final class OverWithRowsBetween(rowsBetween: (String, String),
-                                  orderBy: Seq[(Node, Ordering)] = Nil,
-                                  partitionBy: Seq[Node] = Nil) extends OverClause(partitionBy, orderBy, Some(rowsBetween))
+  
+  final class OverWithFrameDef(frameDef: (String, String, Option[String]),
+                               orderBy: Seq[(Node, Ordering)] = Nil,
+                               partitionBy: Seq[Node] = Nil) extends OverClause(partitionBy, orderBy, Some(frameDef))
 }

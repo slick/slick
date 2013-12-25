@@ -52,7 +52,7 @@ class WindowFuncTest extends TestkitTest[JdbcTestDB] {
 
       val q1 = Tabs.filter(r => r.col4 < 5).map(r => {
         val avg4 = Avg.column[Int](r.col4.toNode)
-        val w = Over.partitionBy(r.col1).orderBy(r.col1, r.col4.desc).rowsBetween(RowCursor.Preceding, RowCursor.Current)
+        val w = Over.partitionBy(r.col1).orderBy(r.col1, r.col4.desc).rowsFrame(RowCursor.BoundPreceding(3), Some(RowCursor.CurrentRow))
         (r.col1, r.col2, r.col4, avg4 :: w)
       })
       println(q1.selectStatement)
