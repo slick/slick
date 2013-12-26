@@ -3,8 +3,8 @@ package scala.slick.lifted
 import scala.slick.ast._
 
 /** `Over` provides a DSL for `OVER clause` of window function in the query language.
-  * An optional series of `partitionBy`/`OrderBy`/`rowsBetween` expressions can be
-  * chained, e.g.:
+  * An optional series of `partitionBy`/`OrderBy`/`rowsFrame`/`rangeFrame` expressions
+  * can be chained, e.g.:
   * {{{
   *   salary.avg :: Over.partitionBy(dept).orderBy(dept,salary)
   *                   .rowsFrame(RowCursor.UnboundPreceding, RowCursor.CurrentRow)
