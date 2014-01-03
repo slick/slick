@@ -114,7 +114,7 @@ class $name(tag: Tag) extends Table[$elementType](tag, ${args.mkString(", ")})$p
     }
 
     trait TableValueDef extends super.TableValueDef{
-      def code = s"lazy val $name = TableQuery[${TableClass.name}]"
+      def code = s"lazy val $name = new TableQuery(tag => new ${TableClass.name}(tag))"
     }
 
     class ColumnDef(model: m.Column) extends super.ColumnDef(model){
