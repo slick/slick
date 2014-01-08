@@ -9,7 +9,8 @@ template.  To learn how to integrate Slick with Play Framework check out the
 To include Slick into an existing project use the library published on Maven Central.  For sbt projects add the 
 following to your ``libraryDependencies``::
 
-  "com.typesafe.slick" %% "slick" % "2.0.0"
+  "com.typesafe.slick" %% "slick" % "2.0.0",
+  "org.slf4j" % "slf4j-nop" % "1.6.4"
 
 For Maven projects add the following to your ``<dependencies>``::
 
@@ -18,11 +19,25 @@ For Maven projects add the following to your ``<dependencies>``::
     <artifactId>slick_2.10</artifactId>
     <version>1.0.1</version>
   </dependency>
+  <dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-nop</artifactId>
+    <version>1.6.4</version>
+  </dependency>
 
-Continue reading for an overview of the Slick basics.
+Slick uses SLF4J_ for its own debug logging so you also need to add an SLF4J
+implementation. Here we are using ``slf4j-nop`` to disable logging. You have
+to replace this with a real logging framework like Logback_ if you want to see
+log output.
 
-Imports
--------
+Slick Examples
+--------------
+
+Check out the `Slick Examples`_ project for more examples like using multiple databases, using native queries, and advanced invoker usage.
+
+
+Quick Introduction
+------------------
 
 To use Slick you first need to import the API for the database you will be using, like:
 
