@@ -130,25 +130,37 @@ package object meta{
             )
           }
       }
-      def indices(mIndexInfo: Seq[MIndexInfo]) = {
-        mIndexInfo
-          // filter out unnecessary tableIndexStatistic (we can safely call .get later)
-          .filter(_.indexType != DatabaseMetaData.tableIndexStatistic)
-          .groupBy(_.indexName)
-          .toSeq
-          .sortBy(_._1)
-          .map(_._2.sortBy(_.ordinalPosition)) // respect order
-          .map{ mIndices =>
-            val idx = mIndices.head
-            m.Index(
-              idx.indexName.filter(_ != ""),
-              tableName,
-              mIndices.map(
+      def indices(mTable: MTable) = {
+        try{
+          mTable.getIndexInfo().list
+            // filter out unnecessary tableIndexStatistic (we can safely call .get later)
+            .filter(_.indexType != DatabaseMetaData.tableIndexStatistic)
+            .groupBy(_.indexName)
+            .toSeq
+            .sortBy(_._1)
+            .map(_._2.sortBy(_.ordinalPosition)) // respect order
+            .map{ mIndices =>
+              val idx = mIndices.head
+              val cols = mIndices.map(
                 _.column.get.stripPrefix("\"").stripSuffix("\"") // strip " to work around postgres issue
-              ).map(columnsByName),
-              !idx.nonUnique
-            )
-          }          
+              )
+              if(!cols.forall(columnsByName.isDefinedAt)){
+                // postgres may refer to column oid, skipping index for now. Maybe we should generate a column and include it instead.
+                logger.debug(s"Skipping index ${idx.indexName} of table ${mTable.name.name} because it refered to undefined columns: "+(cols.toSet intersect columnsByName.keys.toSet))
+                None
+              } else
+                Some(m.Index(
+                  idx.indexName.filter(_ != ""),
+                  tableName,
+                  cols.map(columnsByName),
+                  !idx.nonUnique
+                ))
+            }.flatten
+        } catch {
+          case e:java.sql.SQLException =>
+            logger.debug(s"Skipping indices of table ${mTable.name.name} due to exception during getIndexInfo: "+e.getMessage.trim)
+            Seq()
+        }
       }
 
       val mPrimaryKeys = mPrimaryKeysByMQName(mTable.name)
@@ -159,7 +171,7 @@ package object meta{
         primaryKey(mPrimaryKeys),
         fks,
         // indices not including primary key and table statistics
-        indices(mTable.getIndexInfo().list)
+        indices(mTable)
           .filter{ 
             // filter out foreign key index
             case idx if !idx.unique => !fks.exists(_.referencingColumns.toSet == idx.columns.toSet)

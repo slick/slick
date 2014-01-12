@@ -70,7 +70,12 @@ pre {
   letter-spacing: 0.015em;
   line-height: 120%;
   padding: 0.5em;
+  overflow: scroll;
 }
 div.sidebar input[type="text"] {
   width: 155px;
+}
+.highlight pre .c, .highlight pre .cm, .highlight pre .c1, .highlight pre .cs{
+  font-style: normal;
+  color: #999;
 }

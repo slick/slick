@@ -1,35 +1,45 @@
 Getting Started
 ===============
 
-The easiest way of setting up a Slick application is by starting with the
-`Slick Examples`_ project. You can build and run this project by following the
-instructions in its README file.
+The easiest way to get started is with a working application in `Typesafe Activator <http://typesafe.com/activator>`_.
+To learn the basics of Slick start with the `Hello Slick <http://typesafe.com/activator/template/hello-slick>`_ 
+template.  To learn how to integrate Slick with Play Framework check out the 
+`Play Slick with Typesafe IDs <http://typesafe.com/activator/template/play-slick-advanced>`_ template.
 
-Dependencies
-------------
+To include Slick into an existing project use the library published on Maven Central.  For sbt projects add the 
+following to your ``libraryDependencies``::
 
-Let's take a closer look at what's happening in that project. First of all,
-you need to add Slick and the embedded databases or drivers for external
-databases to your project. If you are using sbt_, you do this in your
-main ``build.sbt`` file::
+  "com.typesafe.slick" %% "slick" % "2.0.0",
+  "org.slf4j" % "slf4j-nop" % "1.6.4"
 
-  libraryDependencies ++= List(
-    // use the right Slick version here:
-    "com.typesafe.slick" %% "slick" % "2.0.0",
-    "org.slf4j" % "slf4j-nop" % "1.6.4",
-    "com.h2database" % "h2" % "1.3.170"
-  )
+For Maven projects add the following to your ``<dependencies>``::
+
+  <dependency>
+    <groupId>com.typesafe.slick</groupId>
+    <artifactId>slick_2.10</artifactId>
+    <version>1.0.1</version>
+  </dependency>
+  <dependency>
+    <groupId>org.slf4j</groupId>
+    <artifactId>slf4j-nop</artifactId>
+    <version>1.6.4</version>
+  </dependency>
 
 Slick uses SLF4J_ for its own debug logging so you also need to add an SLF4J
 implementation. Here we are using ``slf4j-nop`` to disable logging. You have
 to replace this with a real logging framework like Logback_ if you want to see
 log output.
 
-Imports
--------
+Slick Examples
+--------------
 
-:example-src:`lifted/FirstExample.scala` contains a self-contained application that you can run.
-It starts off with some imports:
+Check out the `Slick Examples`_ project for more examples like using multiple databases, using native queries, and advanced invoker usage.
+
+
+Quick Introduction
+------------------
+
+To use Slick you first need to import the API for the database you will be using, like:
 
 .. includecode:: code/FirstExample.scala#imports
 
@@ -54,15 +64,17 @@ to a JDBC URL using a JDBC driver class (see the JDBC driver's documentation
 for the correct URL syntax). If you are only using
 :doc:`plain SQL queries <sql>`, nothing more is required, but when Slick is
 generating SQL code for you (using the :doc:`direct embedding <direct-embedding>`
-or the :doc:`lifted embedding <lifted-embedding>`), you need to make sure to use
+or the :ref:`lifted embedding <lifted-embedding>`), you need to make sure to use
 a matching Slick driver (in our case the ``H2Driver`` import above).
 
 Schema
 ------
 
-We are using the :doc:`lifted embedding <lifted-embedding>` in this
-application, so we have to write ``Table`` row classes and ``TableQuery``
-values for our database tables:
+We are using the :ref:`lifted embedding <lifted-embedding>` in this
+application, so we need ``Table`` row classes and ``TableQuery``
+values for our database tables. You can either use the :doc:`code generator <code-generation>`
+to automatically create them for your database schema or you
+can write them by hand:
 
 .. includecode:: code/FirstExample.scala#tables
 

@@ -4,7 +4,7 @@ Slick Extensions
 Slick drivers for Oracle (``com.typesafe.slick.driver.oracle.OracleDriver``),
 IBM DB2 (``com.typesafe.slick.driver.db2.DB2Driver``) and Microsoft SQL Server
 (``com.typesafe.slick.driver.ms.SQLServerDriver``) are available in
-*slick-extensions*, a closed-source package package with commercial support
+*slick-extensions*, a closed-source package with commercial support
 provided by Typesafe, Inc. It is made available under the terms and conditions
 of the `Typesafe Subscription Agreement`_ (PDF).
 
