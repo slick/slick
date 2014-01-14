@@ -30,7 +30,16 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
   
   abstract class TableDef(model: m.Table) extends super.TableDef(model){
 
-    def compoundType(types: Seq[String]): String = compoundValue(types)
+    def compoundType(types: Seq[String]): String = {
+      if(hlistEnabled){
+        def mkHList(types: List[String]): String = types match {
+          case Nil => "HNil"
+          case e :: tail => s"HCons[$e," + mkHList(tail) + "]"
+        }
+        mkHList(types.toList)
+      }
+      else compoundValue(types)
+    }
 
     def compoundValue(values: Seq[String]): String = {
       if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
