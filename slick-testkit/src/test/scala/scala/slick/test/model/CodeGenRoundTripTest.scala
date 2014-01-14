@@ -41,7 +41,6 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
 
     assertEquals((3,List("post 2","post 3")), res)
 
-/* deactivated because of sporadic compilation errors. See https://github.com/slick/slick/pull/541
     // Testing table larger 22 columns
     import scala.slick.collection.heterogenous._
     import scala.slick.collection.heterogenous.syntax._
@@ -52,7 +51,7 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
     assertEquals((oData,0), Large.map(r => (r,r.id)).first)
     assertEquals(oData, StaticQuery.queryNA[LargeRow]("select * from "+quoteIdentifier("LARGE")).first )
     assertEquals(oData, StaticQuery.queryNA("select * from "+quoteIdentifier("LARGE"))(GetResultLargeRow).first )
-*/
+
 
     X.map(r => (r.pk,r.pk2,r.column,r.schemaNameXX,r.schemaNameX)).insert((1,1,1,1.1,"test"))
 

@@ -29,7 +29,7 @@ object CodeGeneratorTest {
       object Tables extends Tables(driver)
       import Tables._
       import Tables.profile.simple._
-      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ /*large.ddl ++ */`null`.ddl ++ X.ddl
+      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl ++ `null`.ddl ++ X.ddl
       //println(ddl.createStatements.mkString("\n"))
       val db = Database.forURL(url=url,driver=jdbcDriver)
       val gen = db.withSession{ implicit session =>
@@ -236,7 +236,7 @@ class Tables(val profile: JdbcProfile){
     def pk = primaryKey("PK", (Int,Long))
   }
   val typeTest = TableQuery[TypeTest]
-/* deactivated because of sporadic compilation errors. See https://github.com/slick/slick/pull/541
+
   // testing table larger 22 columns (code gen round trip does not preserve structure of the * projection or names of mapped to classes)
   case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
   case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
@@ -281,6 +281,5 @@ class Tables(val profile: JdbcProfile){
     })
   }
   val large = TableQuery[Large]
-*/
 }
 
