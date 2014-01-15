@@ -220,7 +220,7 @@ class Tables(val profile: JdbcProfile){
     def Boolean = column[Boolean]("Boolean",O.Default(true))
     def Byte = column[Byte]("Byte")
     def Short = column[Short]("Short")
-    def Int = column[Int]("Int",O.Default(5))
+    def Int = column[Int]("Int",O.Default(-5))
     def Long = column[Long]("Long",O.Default(5L))
     //def java_math_BigInteger = column[java.math.BigInteger]("java_math_BigInteger")
     def Float = column[Float]("Float",O.Default(9.999F))
