@@ -239,9 +239,9 @@ class Tables(val profile: JdbcProfile){
 
   // testing table larger 22 columns (code gen round trip does not preserve structure of the * projection or names of mapped to classes)
   case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
-  case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
+  case class Whole(id: Long, p1: Part, p2: Part, p3: Part, p4: Part, p5: Part, p6: Part)
   class Large(tag: Tag) extends Table[Whole](tag, "LARGE") {
-    def id = column[Int]("id", O.PrimaryKey)
+    def id = column[Long]("id", O.PrimaryKey)
     def p1i1 = column[Int]("p1i1")
     def p1i2 = column[Int]("p1i2")
     def p1i3 = column[Int]("p1i3")
@@ -266,18 +266,32 @@ class Tables(val profile: JdbcProfile){
     def p4i4 = column[Int]("p4i4")
     def p4i5 = column[Int]("p4i5")
     def p4i6 = column[Int]("p4i6")
+    def p5i1 = column[Int]("p5i1")
+    def p5i2 = column[Int]("p5i2")
+    def p5i3 = column[Int]("p5i3")
+    def p5i4 = column[Int]("p5i4")
+    def p5i5 = column[Int]("p5i5")
+    def p5i6 = column[Int]("p5i6")
+    def p6i1 = column[Int]("p6i1")
+    def p6i2 = column[Int]("p6i2")
+    def p6i3 = column[Int]("p6i3")
+    def p6i4 = column[Int]("p6i4")
+    def p6i5 = column[Int]("p6i5")
+    def p6i6 = column[Int]("p6i6")
     def * = (
       id,
       (p1i1, p1i2, p1i3, p1i4, p1i5, p1i6),
       (p2i1, p2i2, p2i3, p2i4, p2i5, p2i6),
       (p3i1, p3i2, p3i3, p3i4, p3i5, p3i6),
-      (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6)
-    ).shaped <> ({ case (id, p1, p2, p3, p4) =>
+      (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6),
+      (p5i1, p5i2, p5i3, p5i4, p5i5, p5i6),
+      (p6i1, p6i2, p6i3, p6i4, p6i5, p6i6)
+    ).shaped <> ({ case (id, p1, p2, p3, p4, p5, p6) =>
       // We could do this without .shaped but then we'd have to write a type annotation for the parameters
-      Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4))
+      Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4), Part.tupled.apply(p5), Part.tupled.apply(p6))
     }, { w: Whole =>
       def f(p: Part) = Part.unapply(p).get
-      Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4)))
+      Some((w.id, f(w.p1), f(w.p2), f(w.p3), f(w.p4), f(w.p5), f(w.p6)))
     })
   }
   val large = TableQuery[Large]
