@@ -153,7 +153,7 @@ Deleting
 Deleting works very similarly to querying. You write a query which selects the
 rows to delete and then call the ``delete`` method on it. There is again an
 implicit conversion from ``Query`` to the special
-:api:`scala.slick.driver.BasicInvokerComponent$DeleteInvoker` which provides
+:api:`DeleteInvoker <scala.slick.driver.JdbcInvokerComponent@DeleteInvoker:JdbcDriver.DeleteInvoker>` which provides
 the ``delete`` method and a self-reference ``deleteInvoker``:
 
 .. includecode:: code/LiftedEmbedding.scala#delete
@@ -170,8 +170,8 @@ projection. Omitting some of a table's columns when inserting causes the
 database to use the default values specified in the table definition, or
 a type-specific default in case no explicit default was given. All methods
 for inserting are defined in
-:api:`scala.slick.driver.BasicInvokerComponent$InsertInvoker` and
-:api:`scala.slick.driver.BasicInvokerComponent$FullInsertInvoker`.
+:api:`InsertInvoker <scala.slick.driver.JdbcInvokerComponent@InsertInvoker[T]:JdbcDriver.InsertInvoker[T]>` and
+:api:`FullInsertInvoker <scala.slick.driver.JdbcInvokerComponent@FullInsertInvoker[U]:JdbcDriver.FullInsertInvoker[U]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
 
@@ -207,7 +207,7 @@ Updates are performed by writing a query that selects the data to update and
 then replacing it with new data. The query must only return raw columns (no
 computed values) selected from a single table. The relevant methods for
 updating are defined in
-:api:`scala.slick.driver.BasicInvokerComponent$UpdateInvoker`.
+:api:`UpdateInvoker <scala.slick.driver.JdbcInvokerComponent@UpdateInvoker[T]:JdbcDriver.UpdateInvoker[T]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#update1
 
