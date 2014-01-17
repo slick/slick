@@ -96,15 +96,15 @@ You can see how we are able to already define the query outside of the
 :api:`withSession <scala.slick.jdbc.JdbcBackend$DatabaseDef@withSession[T]((Session)⇒T):T>`
 scope. Only the methods actually executing the query in the database require a
 :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>`. Here we use the
-:api:`list <scala.slick.jdbc.Invoker@list(P)(SessionDef):List[R]>`
+:api:`list <scala.slick.jdbc.Invoker@list(SessionDef):List[R]>`
 method to execute the query
 and return the results as a :scalaapi:`scala.collection.immutable.List`. (The
 executing methods are made available via implicit conversions).
 
 Note that by default a database session is in **auto-commit** mode. Each call to
 the database like
-:api:`insert <scala.slick.driver.JdbcInvokerComponent$BaseInsertInvoker@insert(U)(SessionDef):SingleInsertResult>`
-or :api:`insertAll <scala.slick.driver.JdbcInvokerComponent$BaseInsertInvoker@insertAll(U*)(SessionDef):MultiInsertResult>`
+:api:`insert <scala.slick.driver.JdbcInsertInvokerComponent$BaseInsertInvoker@insert(U)(SessionDef):SingleInsertResult>`
+or :api:`insertAll <scala.slick.driver.JdbcInsertInvokerComponent$BaseInsertInvoker@insertAll(U*)(SessionDef):MultiInsertResult>`
 executes atomically (i.e. it succeeds or fails completely).
 To bundle several statements use :ref:`transactions`.
 

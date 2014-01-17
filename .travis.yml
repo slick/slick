@@ -8,3 +8,6 @@ notifications:
 services:
   - mysql
   - postgresql
+before_install:
+  - sudo apt-get update -qq
+  - sudo apt-get install -y python-sphinx
