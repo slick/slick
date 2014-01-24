@@ -15,8 +15,7 @@ class InferTypes extends Phase {
     }.groupBy(_._1).mapValues(v => StructType(v.map(_._2).toMap.toIndexedSeq))
     logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
     def tr(n: Node): Node = n.nodeMapChildren(tr, keepType = true).nodeTypedOrCopy(n.nodeType.replace {
-      case t @ NominalType(tsym) if t.structuralView == NoType && structs.contains(tsym) =>
-        t.withStructuralView(structs(tsym))
+      case NoTypeView(tsym) if structs.contains(tsym) => structs(tsym)
     })
     tr(tree2)
   }

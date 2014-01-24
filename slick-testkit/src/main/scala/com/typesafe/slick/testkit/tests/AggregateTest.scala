@@ -112,6 +112,38 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length)
     }
     assertEquals(Set((1, 3, 3, 3), (2, 3, 3, 3), (3, 2, 2, 2), (4, 1, 1, 0)), q6.run.toSet)
+
+    println("=========================================================== q7")
+    val q7 = ts.groupBy(_.a).map { case (a, ts) =>
+      (a, ts.map(_.b).sum, ts.map(_.b).min, ts.map(_.b).max, ts.map(_.b).avg)
+    }
+    assertEquals(Set(
+      (1, Some(6), Some(1), Some(3), Some(2)),
+      (2, Some(8), Some(1), Some(5), Some(2)),
+      (3, Some(10), Some(1), Some(9), Some(5))), q7.run.toSet)
+
+    println("=========================================================== q8")
+    val q8 = us.map( _ => "test").groupBy(x => x).map(_._2.max)
+    assertEquals((Seq(Some("test"))), q8.run)
+    val q8b = for( (key, group) <- us.map(_ => "x").groupBy(co => co) )
+    yield (key, group.map(co => co).max )
+    assertEquals((Seq(("x", Some("x")))), q8b.run)
+    val q8c = for( (key, group) <- us.map(_ => 5).groupBy(co => co) )
+    yield (key, group.map(co => co + co).sum )
+    assertEquals((Seq((5, Some(40)))), q8c.run)
+
+    println("=========================================================== q9")
+    val res9 = Set(
+      (1, Some(1)), (1, Some(2)), (1, Some(3)),
+      (2, Some(1)), (2, Some(2)), (2, Some(5)),
+      (3, Some(1)), (3, Some(9))
+    )
+    val q9 = ts.groupBy(x => x).map(_._1)
+    assertEquals(res9, q9.run.toSet)
+    val q9b = ts.map(x => x).groupBy(_.*).map(_._1)
+    assertEquals(res9, q9b.run.toSet)
+    val q9c = ts.map(x => x).groupBy(x => x).map(_._1)
+    assertEquals(res9, q9c.run.toSet)
   }
 
   def testIntLength {

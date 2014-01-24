@@ -108,7 +108,13 @@ final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: 
   override def select(sym: Symbol) = baseType.select(sym)
 }
 
-final case object NoType extends AtomicType
+trait NoType extends AtomicType
+
+/** An unknown type */
+final case object NoType extends NoType
+
+/** An unknown type which is the structural view of a NominalType */
+final case class NoTypeView(sym: TypeSymbol) extends NoType
 
 final case object UnassignedType extends AtomicType
 
