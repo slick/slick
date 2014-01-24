@@ -131,6 +131,19 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     val q8c = for( (key, group) <- us.map(_ => 5).groupBy(co => co) )
     yield (key, group.map(co => co + co).sum )
     assertEquals((Seq((5, Some(40)))), q8c.run)
+
+    println("=========================================================== q9")
+    val res9 = Set(
+      (1, Some(1)), (1, Some(2)), (1, Some(3)),
+      (2, Some(1)), (2, Some(2)), (2, Some(5)),
+      (3, Some(1)), (3, Some(9))
+    )
+    val q9 = ts.groupBy(x => x).map(_._1)
+    assertEquals(res9, q9.run.toSet)
+    val q9b = ts.map(x => x).groupBy(_.*).map(_._1)
+    assertEquals(res9, q9b.run.toSet)
+    val q9c = ts.map(x => x).groupBy(x => x).map(_._1)
+    assertEquals(res9, q9c.run.toSet)
   }
 
   def testIntLength {
