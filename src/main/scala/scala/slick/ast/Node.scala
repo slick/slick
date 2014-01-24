@@ -514,7 +514,7 @@ object FwdPath {
 /** A Node representing a database table. */
 final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any) extends NullaryNode with TypedNode {
   type Self = TableNode
-  def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(identity)(NoType))
+  def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(identity)(NoTypeView(identity)))
   def nodeRebuild = copy()
   override def toString = "Table " + tableName
 }
