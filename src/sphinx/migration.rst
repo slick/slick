@@ -41,7 +41,7 @@ support for the old `~` syntax. The simple ``TableQuery[T]`` syntax is a
 macro which expands to a proper TableQuery instance that calls the table's
 constructor (``new TableQuery(new T(_))``). In Slick 1.0 it was common practice
 to place extra static methods associated with a table into that table's object.
-You can do the same in 2.0 with a custon ``TableQuery`` object:
+You can do the same in 2.0 with a custom ``TableQuery`` object:
 
 .. includecode:: code/MigrationGuide.scala#tablequery
 
