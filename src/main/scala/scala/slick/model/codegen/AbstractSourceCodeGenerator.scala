@@ -45,7 +45,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         if(classEnabled){
           val args = columns.map(c=>
             c.default.map( v =>
-              s"${c.name}: ${c.exposedType}=$v"
+              s"${c.name}: ${c.exposedType} = $v"
             ).getOrElse(
               s"${c.name}: ${c.exposedType}"
             )
