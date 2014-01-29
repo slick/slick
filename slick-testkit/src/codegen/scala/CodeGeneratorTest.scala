@@ -215,7 +215,8 @@ class Tables(val profile: JdbcProfile){
   }
   val posts = TableQuery[Posts]
 
-  class TypeTest(tag: Tag) extends Table[(String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob)](tag, "TYPE_TEST") {
+  class TypeTest(tag: Tag) extends Table[(Option[Int],String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob)](tag, "TYPE_TEST") {
+    def Option = column[Option[Int]]("Option_Int",O.Default(Some(5)))
     def `type` = column[String]("type") // <- test escaping of keywords
     def Boolean = column[Boolean]("Boolean",O.Default(true))
     def Byte = column[Byte]("Byte")
@@ -232,7 +233,7 @@ class Tables(val profile: JdbcProfile){
     def java_sql_Timestamp = column[java.sql.Timestamp]("java_sql_Timestamp")
     def java_sql_Blob = column[java.sql.Blob]("java_sql_Blob")
     def java_sql_Clob = column[java.sql.Clob]("java_sql_Clob")
-    def * = (`type`,Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob)
+    def * = (Option, `type`,Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob)
     def pk = primaryKey("PK", (Int,Long))
   }
   val typeTest = TableQuery[TypeTest]
