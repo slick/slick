@@ -226,9 +226,9 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def columnOptionCode: ColumnOption[_] => Option[Code]
       /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
       def options: Iterable[Code] = model.options.flatMap(columnOptionCode(_).toSeq)
-      /** */
+      /** Returns a function, that maps a value to its literal representation as code */
       def defaultCode: Any => Code
-      /** Generates literal represenation of the default value */
+      /** Generates a literal represenation of the default value or None in case of an Option-typed autoinc column */
       def default: Option[Code] = model.options.collect{
         case ColumnOption.Default(value) => value
         case _ if fakeNullable => None
