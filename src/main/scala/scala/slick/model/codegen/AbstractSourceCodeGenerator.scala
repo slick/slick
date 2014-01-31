@@ -32,23 +32,18 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
   
   abstract class TableDef(model: m.Table) extends super.TableDef(model){
 
-    def compoundType(types: Seq[String]): String = {
-      if(hlistEnabled){
-        def mkHList(types: List[String]): String = types match {
+    def compound(valuesOrTypes: Seq[String]): String =
+      if(hlistEnabled && GlobalVariables.compoundTypeEnabled){
+        def mkHList(valuesOrTypes: List[String]): String = valuesOrTypes match {
           case Nil => "HNil"
           case e :: tail => s"HCons[$e," + mkHList(tail) + "]"
         }
-        mkHList(types.toList)
+        mkHList(valuesOrTypes.toList)
       }
-      else compoundValue(types)
-    }
-
-    def compoundValue(values: Seq[String]): String = {
-      if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
-      else if (values.size == 1) values.head
-      else if(values.size <= 22) s"""(${values.mkString(", ")})"""
+      else if(hlistEnabled) valuesOrTypes.mkString(" :: ") + " :: HNil"
+      else if (valuesOrTypes.size == 1) valuesOrTypes.head
+      else if(valuesOrTypes.size <= 22) s"""(${valuesOrTypes.mkString(", ")})"""
       else throw new Exception("Cannot generate tuple for > 22 columns, please set hlistEnable=true or override compound.")
-    }
 
     def factory   = if(columns.size == 1) TableClass.elementType else s"${TableClass.elementType}.tupled"
     def extractor = s"${TableClass.elementType}.unapply"
@@ -70,7 +65,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
 type $name = $types
 /** Constructor for $name providing default values if available in the database schema. */
 def $name($args): $name = {
-  ${compoundValue(columns.map(_.name))}
+  ${compound(columns.map(_.name))}
 }
           """.trim
         }
@@ -79,9 +74,9 @@ def $name($args): $name = {
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
-        val positional = compoundValue(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
+        val positional = compound(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
         val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
-        val rearranged = compoundValue(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
+        val rearranged = compound(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
         def result(args: String) = if(mappingEnabled) s"$factory($args)" else args
         val body =
           if(autoIncLastAsOption && columns.size > 1){
@@ -103,12 +98,12 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
 
     trait TableClassDef extends super.TableClassDef{
       def star = {
-        val struct = compoundValue(columns.map(c=>if(c.fakeNullable)s"${c.name}.?" else s"${c.name}"))
+        val struct = compound(columns.map(c=>if(c.fakeNullable)s"${c.name}.?" else s"${c.name}"))
         val rhs = if(mappingEnabled) s"$struct <> ($factory, $extractor)" else struct
         s"def * = $rhs"
       }
       def option = {
-        val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"${c.name}.?"))
+        val struct = compound(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"${c.name}.?"))
         val rhs = if(mappingEnabled) s"""$struct.shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
         s"def ? = $rhs"
       }
@@ -117,7 +112,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
           val accessor = if(columns.size > 1) tuple(i) else "r"
           if(c.fakeNullable || c.model.nullable) accessor else s"$accessor.get"
         }
-        val fac = s"$factory(${compoundValue(accessors)})"
+        val fac = s"$factory(${compound(accessors)})"
         val discriminator = columns.zipWithIndex.collect{ case (c,i) if !c.model.nullable => if(columns.size > 1) tuple(i) else "r" }.headOption
         val expr = discriminator.map(d => s"$d.map(_=> $fac)").getOrElse(s"None")
         if(columns.size > 1)
@@ -168,7 +163,7 @@ class $name(tag: Tag) extends Table[$elementType](tag, ${args.mkString(", ")})$p
     }
 
     class PrimaryKeyDef(model: m.PrimaryKey) extends super.PrimaryKeyDef(model){
-      def code = s"""val $name = primaryKey("$dbName", ${compoundValue(columns.map(_.name))})"""
+      def code = s"""val $name = primaryKey("$dbName", ${compound(columns.map(_.name))})"""
     }
 
     class ForeignKeyDef(model: m.ForeignKey) extends super.ForeignKeyDef(model){
@@ -180,9 +175,9 @@ class $name(tag: Tag) extends Table[$elementType](tag, ${args.mkString(", ")})$p
         case ForeignKeyAction.SetDefault => "ForeignKeyAction.SetDefault"
       }
       def code = {
-        val fkColumns = compoundValue(referencingColumns.map(_.name))
+        val fkColumns = compound(referencingColumns.map(_.name))
         val pkTable = referencedTable.TableValue.name
-        val pkColumns = compoundValue(referencedColumns.map(c => s"r.${c.name}"))
+        val pkColumns = compound(referencedColumns.map(c => s"r.${c.name}"))
         s"""lazy val $name = foreignKey("$dbName", $fkColumns, $pkTable)(r => $pkColumns, onUpdate=${onUpdate}, onDelete=${onDelete})"""
       }
     }
@@ -190,7 +185,7 @@ class $name(tag: Tag) extends Table[$elementType](tag, ${args.mkString(", ")})$p
     class IndexDef(model: m.Index) extends super.IndexDef(model){
       def code = {
         val unique = if(model.unique) s", unique=true" else ""
-        s"""val $name = index("$dbName", ${compoundValue(columns.map(_.name))}$unique)"""
+        s"""val $name = index("$dbName", ${compound(columns.map(_.name))}$unique)"""
       }
     }
   }
