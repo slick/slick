@@ -4,6 +4,11 @@ import scala.slick.{model => m}
 import scala.slick.model.ForeignKeyAction
 import scala.slick.ast.ColumnOption
 
+/** Workaround for 2.0.x binary compatibility */
+private[codegen] object GlobalVariables{
+  var compoundTypeEnabled = false
+}
+
 /**
  * Slick code generator providing the base structure and facilities.
  * It contains a subclass as a generator for Tables, which again contains
@@ -73,14 +78,10 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
         @group Basic customization overrides */
     def code: Seq[Code] = definitions.flatMap(_.getEnabled).map(_.docWithCode)
 
-    /** Creates a compound type from a given sequence of types.
+    /** Creates a compound type or value from a given sequence of types or values.
      *  Uses HList if hlistEnabled else tuple.
      */
-    def compoundType(types: Seq[Code]): Code
-    /** Creates a compound value from a given sequence of values.
-     *  Uses HList if hlistEnabled else tuple.
-     */
-    def compoundValue(values: Seq[Code]): Code
+    def compound(valuesOrTypes: Seq[Code]): Code
     /** If HList should be used as a compound type instead of tuples. Default to true for > 22 columns.
         @group Basic customization overrides */
     def hlistEnabled = columns.size > 22
@@ -107,7 +108,12 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
         @group Basic customization overrides */
     trait EntityTypeDef extends TypeDef{
       /** Column types */
-      def types: Code = compoundType(columns.map(_.exposedType))
+      def types: Code = {
+        GlobalVariables.compoundTypeEnabled = true
+        val code = compound(columns.map(_.exposedType))
+        GlobalVariables.compoundTypeEnabled = false
+        code
+      }
       /** Indicated whether a case class should be generated. Otherwise a type alias. */
       def classEnabled = mappingEnabled
       def doc =
