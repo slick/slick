@@ -105,13 +105,17 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
         s"def ? = $rhs"
       }
       def optionFactory = {
-        val positionalAccessors = columns.zipWithIndex.map{ case(c,i) =>
-          if(c.fakeNullable || c.model.nullable) tuple(i) else s"${tuple(i)}.get"
+        val accessors = columns.zipWithIndex.map{ case(c,i) =>
+          val accessor = if(columns.size > 1) tuple(i) else "r"
+          if(c.fakeNullable || c.model.nullable) accessor else s"$accessor.get"
         }
-        val fac = s"$factory(${compoundValue(positionalAccessors)})"
-        val discriminator = columns.zipWithIndex.collect{ case (c,i) if !c.model.nullable => s"${tuple(i)}" }.headOption
+        val fac = s"$factory(${compoundValue(accessors)})"
+        val discriminator = columns.zipWithIndex.collect{ case (c,i) if !c.model.nullable => if(columns.size > 1) tuple(i) else "r" }.headOption
         val expr = discriminator.map(d => s"$d.map(_=> $fac)").getOrElse(s"None")
-        s"{r=>import r._; $expr}"
+        if(columns.size > 1)
+          s"{r=>import r._; $expr}"
+        else
+          s"r => $expr"
       }
       def code = {
         val prns = parents.map(" with " + _).mkString("")
