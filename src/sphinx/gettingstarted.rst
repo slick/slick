@@ -17,7 +17,7 @@ For Maven projects add the following to your ``<dependencies>``::
   <dependency>
     <groupId>com.typesafe.slick</groupId>
     <artifactId>slick_2.10</artifactId>
-    <version>1.0.1</version>
+    <version>2.0.0</version>
   </dependency>
   <dependency>
     <groupId>org.slf4j</groupId>
