@@ -204,50 +204,89 @@ object ShapeLevel {
   trait Columns extends Flat
 }
 
-/** A value together with its Shape */
-case class ShapedValue[T, U](value: T, shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) {
-  def encodeRef(path: List[Symbol]): ShapedValue[T, U] = {
+/**
+ * A value together with its [[scala.slick.lifted.Shape]]. Slick uses
+ * this for type-level computations and the construction
+ * of mappings between simple projections (Columns, Tuples, HLists, etc.)
+ * and anything Slick users want to map them to.
+ * @tparam Projection type of the projection
+ */
+case class ShapedValue[T, Projection](value: T, shape: Shape[_ <: ShapeLevel.Flat, T, Projection, _]) {
+  def encodeRef(path: List[Symbol]): ShapedValue[T, Projection] = {
     val fv = shape.encodeRef(value, path).asInstanceOf[T]
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
   def toNode = shape.toNode(value)
-  def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, R, U, _]])
-  def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
-  @inline def <>[R](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
+  def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, T, _, R]): ShapedValue[R, Projection] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, R, Projection, _]])
+  def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (Projection, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
+  /**
+   * @tparam Target     type the projection is mapped to
+   * @see <> in   [[scala.slick.lifted.ToShapedValue]]
+   */
+  @inline def <>[Target](create: (Projection => Target), extract: (Target => Option[Projection])) = new MappedProjection[Target, Projection](shape.toNode(value), create, extract.andThen(_.get))
 }
-
+   
 // Work-around for SI-3346
 final class ToShapedValue[T](val value: T) extends AnyVal {
-  @inline def shaped[U](implicit shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) = new ShapedValue[T, U](value, shape)
-  @inline def <>[R, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
+/**
+ * Turns any value for which an appropriate implicit
+ * [[scala.slick.lifted.Shape]] can be found (Columns, Tuples,
+ * HLists, etc.) in Slick or externally into a
+ * [[scala.slick.lifted.ShapedValue]].
+ *
+ * @tparam Projection type of the projection
+ * @tparam Target     type the projection is mapped to
+ * @param child       internal Slick AST of the wrapped projection
+ */
+  @inline def shaped[Projection](implicit shape: Shape[_ <: ShapeLevel.Flat, T, Projection, _]) = new ShapedValue[T, Projection](value, shape)
+  /**
+   * Turns any value for which an appropriate implicit
+   * [[scala.slick.lifted.Shape]] can be found (Columns, Tuples,
+   * HLists, etc.) in Slick or externally into a
+   * [[scala.slick.lifted.MappedProjection]].
+   *
+   * Alternatively, you can use .shaped.<> instead for more step-wise type-inference, which makes
+   * type debugging easier and can help the type-inferences in certain cases.
+   * @tparam Projection type of the projection
+   * @tparam Target     type the projection is mapped to
+   */
+  @inline def <>[Target, Projection](create: (Projection => Target), extract: (Target => Option[Projection]))(implicit shape: Shape[_ <: ShapeLevel.Flat, T, Projection, _]) = new MappedProjection[Target, Projection](shape.toNode(value), create, extract.andThen(_.get))
 }
 
 /** A limited version of ShapedValue which can be constructed for every type
   * that has a valid shape. We use it to enforce that a table's * projection
   * has a valid shape. A ProvenShape has itself a Shape so it can be used in
-  * place of the value that it wraps for purposes of packing and unpacking. */
-trait ProvenShape[U] {
+  * place of the value that it wraps for purposes of packing and unpacking.
+  * @tparam Projection type of the projection
+  */
+trait ProvenShape[Projection] {
   def value: Any
-  val shape: Shape[_ <: ShapeLevel.Flat, _, U, _]
-  def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, _, U, R]): ShapedValue[R, U]
+  val shape: Shape[_ <: ShapeLevel.Flat, _, Projection, _]
+  def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, _, Projection, R]): ShapedValue[R, Projection]
   def toNode = packedValue(shape).toNode
 }
 
 object ProvenShape {
   /** Convert an appropriately shaped value to a ProvenShape */
-  implicit def proveShapeOf[T, U](v: T)(implicit sh: Shape[_ <: ShapeLevel.Flat, T, U, _]): ProvenShape[U] =
-    new ProvenShape[U] {
+  implicit def proveShapeOf[T, Projection](v: T)(implicit sh: Shape[_ <: ShapeLevel.Flat, T, Projection, _]): ProvenShape[Projection] =
+    new ProvenShape[Projection] {
       def value = v
-      val shape: Shape[_ <: ShapeLevel.Flat, _, U, _] = sh.asInstanceOf[Shape[ShapeLevel.Flat, _, U, _]]
-      def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, _, U, R]): ShapedValue[R, U] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, R, U, _]])
+      val shape: Shape[_ <: ShapeLevel.Flat, _, Projection, _] = sh.asInstanceOf[Shape[ShapeLevel.Flat, _, Projection, _]]
+      def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, _, Projection, R]): ShapedValue[R, Projection] = ShapedValue(sh.pack(value).asInstanceOf[R], sh.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, R, Projection, _]])
     }
 }
 
-class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends ColumnBase[T] {
+/**
+ * Encapsulated mapping logic from and to a projection (a Tuple, HList, etc. of Columns).
+ * @tparam Projection type of the projection
+ * @tparam Target     type the projection is mapped to
+ * @param child       internal Slick AST of the wrapped projection
+ */
+class MappedProjection[Target, Projection](child: Node, create: (Projection => Target), extract: (Target => Projection)) extends ColumnBase[Target] {
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
-  override def toNode: Node = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
-  def encodeRef(path: List[Symbol]): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
+  override def toNode: Node = TypeMapping(child, (v => extract(v.asInstanceOf[Target])), (v => create(v.asInstanceOf[Projection])))
+  def encodeRef(path: List[Symbol]): MappedProjection[Target, Projection] = new MappedProjection[Target, Projection](child, create, extract) {
     override def toNode = Path(path)
   }
 }
