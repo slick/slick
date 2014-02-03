@@ -52,21 +52,27 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     def extractor = s"${TableClass.elementType}.unapply"
 
     trait EntityTypeDef extends super.EntityTypeDef{
-      def code = 
+      def code = {
+        val args = columns.map(c=>
+          c.default.map( v =>
+            s"${c.name}: ${c.exposedType} = $v"
+          ).getOrElse(
+            s"${c.name}: ${c.exposedType}"
+          )
+        ).mkString(", ")
         if(classEnabled){
-          val args = columns.map(c=>
-            c.default.map( v =>
-              s"${c.name}: ${c.exposedType} = $v"
-            ).getOrElse(
-              s"${c.name}: ${c.exposedType}"
-            )
-          ).mkString(", ")
           val prns = (parents.take(1).map(" extends "+_) ++ parents.drop(1).map(" with "+_)).mkString("")
           s"""case class $name($args)$prns"""
-
         } else {
-          s"type $name = $types"
+          s"""
+type $name = $types
+/** Constructor for $name providing default values if available in the database schema. */
+def $name($args): $name = {
+  ${compoundValue(columns.map(_.name))}
+}
+          """.trim
         }
+      }
     }
 
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
