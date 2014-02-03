@@ -55,22 +55,27 @@ object SourceCodeGenerator{
   import scala.reflect.runtime.currentMirror
   def main(args: Array[String]) = {
     args.toList match {
-      case List(slickDriver, jdbcDriver, url, outputFolder, pkg) => {
+      case slickDriver :: jdbcDriver :: url :: outputFolder :: pkg :: tail if tail.size == 0 || tail.size == 2 => {
         val driver: JdbcProfile = {
           val module = currentMirror.staticModule(slickDriver)
           val reflectedModule = currentMirror.reflectModule(module)
           val driver = reflectedModule.instance.asInstanceOf[JdbcProfile]
           driver
         }
-        driver.simple.Database
-          .forURL(url, driver = jdbcDriver)
-          .withSession{ implicit session =>
-            (new SourceCodeGenerator(driver.createModel)).writeToFile(slickDriver,outputFolder,pkg)
-          }
+        val db = driver.simple.Database
+        (tail match{
+          case user :: password :: Nil => db.forURL(url, driver = jdbcDriver, user=user, password=password)
+          case Nil => db.forURL(url, driver = jdbcDriver)
+          case _ => throw new Exception("This should never happen.")
+        }).withSession{ implicit session =>
+          (new SourceCodeGenerator(driver.createModel)).writeToFile(slickDriver,outputFolder,pkg)
+        }
       }
       case _ => {
         println("""
-Usage: SourceCodeGenerator.main(Array( slickDriver, jdbcDriver, url, outputFolder, pkg ))
+Usage:
+  SourceCodeGenerator.main(Array(slickDriver, jdbcDriver, url, outputFolder, pkg))
+  SourceCodeGenerator.main(Array(slickDriver, jdbcDriver, url, outputFolder, pkg, user, password))
 
 slickDriver: Fully qualified name of Slick driver class, e.g. "scala.slick.driver.H2Driver"
 
@@ -81,6 +86,10 @@ url: jdbc url, e.g. "jdbc:postgresql://localhost/test"
 outputFolder: Place where the package folder structure should be put
 
 pkg: Scala package the generated code should be places in
+
+user: database connection user name
+
+password: database connection password
             """.trim
         )
       }
