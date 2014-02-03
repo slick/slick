@@ -73,10 +73,14 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
         @group Basic customization overrides */
     def code: Seq[Code] = definitions.flatMap(_.getEnabled).map(_.docWithCode)
 
-    /** Creates a compound type or value from a given sequence of types or values.
+    /** Creates a compound type from a given sequence of types.
      *  Uses HList if hlistEnabled else tuple.
      */
-    def compound(valuesOrTypes: Seq[Code]): Code
+    def compoundType(types: Seq[Code]): Code
+    /** Creates a compound value from a given sequence of values.
+     *  Uses HList if hlistEnabled else tuple.
+     */
+    def compoundValue(values: Seq[Code]): Code
     /** If HList should be used as a compound type instead of tuples. Default to true for > 22 columns.
         @group Basic customization overrides */
     def hlistEnabled = columns.size > 22
@@ -103,7 +107,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
         @group Basic customization overrides */
     trait EntityTypeDef extends TypeDef{
       /** Column types */
-      def types: Code = compound(columns.map(_.exposedType))
+      def types: Code = compoundType(columns.map(_.exposedType))
       /** Indicated whether a case class should be generated. Otherwise a type alias. */
       def classEnabled = mappingEnabled
       def doc =
@@ -222,9 +226,9 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       def columnOptionCode: ColumnOption[_] => Option[Code]
       /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
       def options: Iterable[Code] = model.options.flatMap(columnOptionCode(_).toSeq)
-      /** */
+      /** Returns a function, that maps a value to its literal representation as code */
       def defaultCode: Any => Code
-      /** Generates literal represenation of the default value */
+      /** Generates a literal represenation of the default value or None in case of an Option-typed autoinc column */
       def default: Option[Code] = model.options.collect{
         case ColumnOption.Default(value) => value
         case _ if fakeNullable => None

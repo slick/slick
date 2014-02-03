@@ -42,7 +42,8 @@ object CodeGenerator extends App {
 
          // override contained column generator
         override def Column = new Column(_){
-          // use the data model member of this column to change the Scala type, e.g. to a custom enum or anything else
+          // use the data model member of this column to change the Scala type,
+          // e.g. to a custom enum or anything else
           override def rawType =
             if(model.name == "SOME_SPECIAL_COLUMN_NAME") "MyCustomType" else super.rawType
         }
