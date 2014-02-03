@@ -3,17 +3,15 @@ Schema code generation
 
 The Slick code generator is a convenient tool for working
 with an existing or evolving database schema. It can be run
-as stand-alone or integrated into you sbt build for creating all
-code Slick needs to work with it.
+stand-alone or integrated into you sbt build for creating all
+code Slick needs to work.
 
 Overview
 --------
-By default the code generator generates Table classes, corresponding TableQuery values, which
-can be used in a collection-like manner as well as case classes for holding complete
+By default, the code generator generates Table classes, corresponding TableQuery values, which
+can be used in a collection-like manner, as well as case classes for holding complete
 rows of values. For Tables with more than 22 columns the generator automatically switches
-to Slick's experimental HList implementation for overcoming Scala's tuple size limit.
-(Note that compilation times currently get extremely long for more than 25 columns.
-We are hoping to fix this as soon as possible).
+to Slick's experimental HList implementation for overcoming Scala's tuple size limit. (If needed use ``HCons`` instead of ``::`` as a type contructor in Scala <= 2.10.3 for now due to performance issues during compilation.)
 
 The implementation is ready for practical use, but since it is new in
 Slick 2.0 we consider it experimental and reserve the right to remove features
@@ -25,9 +23,9 @@ using it in practice.
 
 Parts of the generator are also explained in our `talk at Scala eXchange 2013 <http://slick.typesafe.com/docs/#20131203_patterns_for_slick_database_applications_at_scala_exchange_2013>`_.
 
-Run from the command line or Java/Scala
+Standalone use
 ---------------------------------------
-Slick's code generator comes with a default runner. You can simply execute
+Slick's code generator comes with a default runner that can be used from the command line or from Java/Scala. You can simply execute
 
    .. includecode:: code/CodeGenerator.scala#default-runner
 
@@ -39,15 +37,21 @@ and provide the following values
 * **outputFolder** Place where the package folder structure should be put
 * **pkg** Scala package the generated code should be places in
 
-The code generator places a file "Tables.scala" in the given folder in a subfolder corresponding
-to the package. The file contains an object "Tables" from which the code
-can be imported for use right away. Make sure you use the same Slick driver.
-The file also contains a trait "Tables" which can be used in the cake pattern.
-
 Integrated into sbt
 -------------------
 The code generator can be run before every compilation or manually.
 An example project showing both can be `found here <https://github.com/slick/slick-codegen-example/tree/master>`_.
+
+Generated Code
+--------------
+By default, the code generator places a file ``Tables.scala`` in the given folder in a subfolder corresponding
+to the package. The file contains an ``object Tables`` from which the code
+can be imported for use right away. Make sure you use the same Slick driver.
+The file also contains a ``trait Tables`` which can be used in the cake pattern.
+
+Warning
+-------
+When using the generated code, be careful **not** to mix different database drivers accidentally. The default ``object Tables`` uses the driver used during code generation. Using it together with a different driver for queries will lead to runtime errors. The generated ``trait Tables`` can be used with a different driver, but be aware, that this is currently untested and not officially supported. It may or may not work in your case. We will officially support this at some point in the future.
 
 Customization
 -------------
