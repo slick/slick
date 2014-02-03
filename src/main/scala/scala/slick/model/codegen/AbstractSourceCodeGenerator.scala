@@ -183,7 +183,7 @@ class $name(tag: Tag) extends Table[$elementType](tag, ${args.mkString(", ")})$p
         val fkColumns = compoundValue(referencingColumns.map(_.name))
         val pkTable = referencedTable.TableValue.name
         val pkColumns = compoundValue(referencedColumns.map(c => s"r.${c.name}"))
-        s"""val $name = foreignKey("$dbName", $fkColumns, $pkTable)(r => $pkColumns, onUpdate=${onUpdate}, onDelete=${onDelete})"""
+        s"""lazy val $name = foreignKey("$dbName", $fkColumns, $pkTable)(r => $pkColumns, onUpdate=${onUpdate}, onDelete=${onDelete})"""
       }
     }
 
