@@ -114,7 +114,7 @@ a database ``Session`` is in *auto-commit* mode.
 Each call to the database like ``+=`` or ``++=`` executes atomically
 in its own transaction (i.e. it succeeds or fails completely but can never
 leave the database in an inconsistent state somewhere in between). In this
-mode we we have to populate the ``suppliers`` table first because the
+mode we have to populate the ``suppliers`` table first because the
 ``coffees`` data can only refer to valid supplier IDs.
 
 We could also use an explicit transaction bracket encompassing all these

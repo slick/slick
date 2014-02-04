@@ -37,10 +37,10 @@ Scalar Types
 -------------
 
 If you need a custom column type you can implement
-:api:`ColumnType <scala.slick.driver.JdbcProfile@ColumnType>`. The most
+:api:`ColumnType <scala.slick.driver.JdbcProfile@ColumnType[T]:JdbcDriver.ColumnType[T]>`. The most
 common scenario is mapping an application-specific type to an already supported
 type in the database. This can be done much simpler by using
-:api:`MappedColumnType <scala.slick.driver.JdbcProfile@MappedColumnType>` which
+:api:`MappedColumnType <scala.slick.driver.JdbcProfile@MappedColumnType:JdbcDriver.MappedJdbcType.type>` which
 takes care of all the boilerplate:
 
 .. includecode:: code/LiftedEmbedding.scala#mappedtype1

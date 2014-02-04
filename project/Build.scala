@@ -1,7 +1,7 @@
 import sbt._
 import Keys._
 import Tests._
-import com.typesafe.sbt.site.SphinxSupport.Sphinx
+import com.typesafe.sbt.site.SphinxSupport.{Sphinx, sphinxEnv, sphinxProperties}
 import com.typesafe.sbt.SbtSite.site
 
 object SlickBuild extends Build {
@@ -48,7 +48,7 @@ object SlickBuild extends Build {
   }
 
   lazy val sharedSettings = Seq(
-    version := "2.0.0-RC1",
+    version := "2.0.0",
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
@@ -97,7 +97,7 @@ object SlickBuild extends Build {
       test := (), // suppress test status output
       testOnly :=  ()
     )).aggregate(slickProject, slickTestkitProject)
-  lazy val slickProject = Project(id = "slick", base = file("."),
+  lazy val slickProject: Project = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ extTarget("slick", None) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
@@ -112,6 +112,8 @@ object SlickBuild extends Build {
         "-diagrams", // requires graphviz
         "-groups"
       )),
+      (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value + ("version" -> version.value) + ("release" -> version.value),
+      (sphinxProperties in Sphinx) := Map.empty,
       test := (), // suppress test status output
       testOnly :=  (),
       ivyConfigurations += config("macro").hide.extend(Compile),
