@@ -46,6 +46,9 @@ trait DistributedBackend extends DatabaseComponent with Logging {
 
     def withTransaction[T](f: => T) =
       throw new SlickException("DistributedBackend does not currently support transactions")
+
+    def withSavepoint[T](f: => T) =
+      throw new SlickException("DistributedBackend does not currently support transactions")
   }
 }
 

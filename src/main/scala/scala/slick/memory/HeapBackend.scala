@@ -60,6 +60,9 @@ trait HeapBackend extends DatabaseComponent with Logging {
 
     def withTransaction[T](f: => T) =
       throw new SlickException("HeapBackend does not currently support transactions")
+
+    override def withSavepoint[T](f: => T) =
+      throw new SlickException("HeapBackend does not currently support transactions")
   }
 
   type Row = IndexedSeq[Any]

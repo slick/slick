@@ -197,6 +197,15 @@ trait JdbcBackend extends DatabaseComponent {
      */
     def withTransaction[T](f: => T): T
 
+    /**
+     * Run the supplied function within a new savepoint using the
+     * current transaction or starts a new transaction if not in
+     * transaction. If the function throws an Exception the
+     * transaction is rolled back to the savepoint.
+     */
+    def withSavepoint[T](f: => T): T
+
+
     def forParameters(rsType: ResultSetType = resultSetType, rsConcurrency: ResultSetConcurrency = resultSetConcurrency,
                       rsHoldability: ResultSetHoldability = resultSetHoldability): Session = new Session {
       override def resultSetType = rsType
@@ -209,6 +218,7 @@ trait JdbcBackend extends DatabaseComponent {
       def close() = self.close()
       def rollback() = self.rollback()
       def withTransaction[T](f: => T) = self.withTransaction(f)
+      override def withSavepoint[R](f: => R) = self.withSavepoint(f)
     }
 
     protected def loggingStatement(st: Statement): Statement = if(statementLogger.isDebugEnabled) new Statement {
@@ -337,6 +347,23 @@ trait JdbcBackend extends DatabaseComponent {
       } finally {
         conn.setAutoCommit(true)
         inTransaction = false
+      }
+    }
+
+    override def withSavepoint[R](f: => R) = {
+      if (inTransaction) {
+        val savepoint = conn.setSavepoint()
+        try {
+          val r = f
+          conn.releaseSavepoint(savepoint)
+          r
+        } catch {
+          case e: Exception =>
+            conn.rollback(savepoint)
+            throw e
+        }
+      } else {
+        withTransaction(f)
       }
     }
   }
