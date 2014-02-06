@@ -252,4 +252,42 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
     assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)
   }
+
+  def testSingleElement {
+    import scala.slick.collection.heterogenous._
+    import scala.slick.collection.heterogenous.syntax._
+
+    class A(tag: Tag) extends Table[String](tag, "single_a") {
+      def b = column[String]("b")
+      def * = b
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+    as += "Foo"
+    val ares: String = as.run.head
+    assertEquals("Foo", ares)
+    as.update("Foo")
+
+    class B(tag: Tag) extends Table[Tuple1[String]](tag, "single_b") {
+      def b = column[String]("b")
+      def * = Tuple1(b)
+    }
+    val bs = TableQuery[B]
+    bs.ddl.create
+    bs += Tuple1("Foo")
+    bs.update(Tuple1("Foo"))
+    val Tuple1(bres) = bs.run.head
+    assertEquals("Foo", bres)
+
+    class C(tag: Tag) extends Table[String :: HNil](tag, "single_c") {
+      def b = column[String]("b")
+      def * = b :: HNil
+    }
+    val cs = TableQuery[C]
+    cs.ddl.create
+    cs += ("Foo" :: HNil)
+    cs.update("Foo" :: HNil)
+    val cres :: HNil = cs.run.head
+    assertEquals("Foo", cres)
+  }
 }

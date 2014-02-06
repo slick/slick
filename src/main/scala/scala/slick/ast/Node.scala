@@ -433,10 +433,7 @@ final case class Bind(generator: Symbol, from: Node, select: Node) extends Binar
   }
 }
 
-/** A table expansion. In phase expandTables, all tables are replaced by
-  * TableExpansions to capture the dual nature of tables as as single entity
-  * and a structure of columns. TableExpansions are removed again in phase
-  * rewritePaths. */
+/** A table together with its expansion into columns. */
 final case class TableExpansion(generator: Symbol, table: Node, columns: Node) extends BinaryNode with DefNode {
   type Self = TableExpansion
   def left = table
