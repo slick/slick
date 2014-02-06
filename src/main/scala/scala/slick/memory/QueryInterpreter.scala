@@ -235,7 +235,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
           case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
         }
-        foldOptionIt(it, opt, num.zero, (a, b) => num.plus(a, b))
+        reduceOptionIt(it, opt, (a, b) => num.plus(a, b))
       case Library.Avg(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
@@ -243,18 +243,26 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
           case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
         }
-        foldOptionIt(it, opt, num.zero, (a, b) => num.plus(a, b)).map { sum =>
+        reduceOptionIt(it, opt, (a, b) => num.plus(a, b)).map { sum =>
           if(num.isInstanceOf[Fractional[_]]) num.asInstanceOf[Fractional[Any]].div(sum, num.fromInt(coll.size))
           else num.fromInt(num.toInt(sum) / coll.size)
         }
       case Library.Min(ch) =>
         val coll = run(ch).asInstanceOf[Coll]
         val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
-        val (num, opt) = itType match {
-          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaNumericType[Any]].numeric, true)
-          case t => (t.asInstanceOf[ScalaNumericType[Any]].numeric, false)
+        val (ord, opt) = itType match {
+          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
+          case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
-        foldOptionIt(it, opt, num.zero, (a, b) => if(num.lt(b, a)) b else a)
+        reduceOptionIt(it, opt, (a, b) => if(ord.lt(b, a)) b else a)
+      case Library.Max(ch) =>
+        val coll = run(ch).asInstanceOf[Coll]
+        val (it, itType) = unwrapSingleColumn(coll, ch.nodeType)
+        val (ord, opt) = itType match {
+          case t: ScalaOptionType[_] => (t.elementType.asInstanceOf[ScalaBaseType[Any]].ordering, true)
+          case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
+        }
+        reduceOptionIt(it, opt, (a, b) => if(ord.gt(b, a)) b else a)
       case Apply(sym, ch) =>
         val chV = ch.map(n => (n.nodeType, run(n)))
         logDebug("[chV: "+chV.mkString(", ")+"]")
@@ -353,15 +361,16 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
     case ProductType(Seq(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
+    case StructType(Seq((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
     case t => (coll.iterator, t)
   }
 
-  def foldOptionIt(it: Iterator[Any], opt: Boolean, zero: Any, f: (Any, Any) => Any): Option[Any] = {
+  def reduceOptionIt(it: Iterator[Any], opt: Boolean, f: (Any, Any) => Any): Option[Any] = {
     if(!it.hasNext) None
-    else if(opt) it.foldLeft(Some(zero): Option[Any]) { (z, b) =>
-      for(z <- z; b <- b.asInstanceOf[Option[Any]]) yield f(z, b)
-    }
-    else Some(it.foldLeft(zero) { (z, b) => f(z, b) })
+    else if(opt) it.reduceLeft { (z, b) =>
+      for(z <- z.asInstanceOf[Option[Any]]; b <- b.asInstanceOf[Option[Any]]) yield f(z, b)
+    }.asInstanceOf[Option[Any]]
+    else Some(it.reduceLeft { (z, b) => f(z, b) })
   }
 
   def createNullRow(tpe: Type): Any = tpe match {
