@@ -225,6 +225,15 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     import scala.slick.collection.heterogenous._
     import scala.slick.collection.heterogenous.syntax._
 
+    class C(tag: Tag) extends Table[String :: HNil](tag, "hlist_c") {
+      def b = column[String]("b")
+      def * = b :: HNil
+    }
+    val cs = TableQuery[C]
+    cs.ddl.create
+    cs += ("Foo" :: HNil)
+    cs.update("Foo" :: HNil)
+
     class B(tag: Tag) extends Table[Int :: Boolean :: String :: HNil](tag, "hlist_b") {
       def id = column[Int]("id", O.PrimaryKey)
       def b = column[Boolean]("b")
@@ -251,5 +260,9 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       .sortBy { case _ :: _ :: ss :: HNil => ss }
       .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
     assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)
+
+    bs.filter(_.id===3).update(3 :: false :: "b" :: HNil)
+    bs.map(b => b.s).update("b")
+    bs.map(b => b.s :: HNil).update("b" :: HNil)
   }
 }
