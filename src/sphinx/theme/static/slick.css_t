@@ -79,3 +79,7 @@ div.sidebar input[type="text"] {
   font-style: normal;
   color: #999;
 }
+pre.literal-block {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
