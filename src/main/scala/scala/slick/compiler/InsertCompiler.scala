@@ -35,10 +35,7 @@ trait InsertCompiler extends Phase {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildren(tr, keepType = true)
       case te @ TableExpansion(_, _, expansion) =>
         setTable(te)
-        tr(expansion match {
-          case ProductNode(Seq(ch)) => ch
-          case n => n
-        })
+        tr(expansion)
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
         cols += Select(tref, fs).nodeTyped(sel.nodeType)
         InsertColumn(Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType), fs).nodeTyped(sel.nodeType)
