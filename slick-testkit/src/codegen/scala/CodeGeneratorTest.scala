@@ -29,7 +29,7 @@ object CodeGeneratorTest {
       object Tables extends Tables(driver)
       import Tables._
       import Tables.profile.simple._
-      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl ++ `null`.ddl ++ X.ddl
+      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl ++ `null`.ddl ++ X.ddl ++ SingleNonOptionColumn.ddl
       //println(ddl.createStatements.mkString("\n"))
       val db = Database.forURL(url=url,driver=jdbcDriver)
       val gen = db.withSession{ implicit session =>
@@ -176,6 +176,13 @@ class Tables(val profile: JdbcProfile){
     def * = name
   }
   val `null` = TableQuery[`null`]
+
+  /** Tests single column table, scala keyword type name and all nullable columns table*/
+  class SingleNonOptionColumn(tag: Tag) extends Table[String](tag, "SingleNonOptionColumn") {
+    def name = column[String]("name")
+    def * = name
+  }
+  val SingleNonOptionColumn = TableQuery[SingleNonOptionColumn]
 
   /** Tests slick term name collision */
   class X(tag: Tag) extends Table[(Int,Int,Option[Int],Int,Double,String,Option[Int],Option[Int])](tag, "X") {
