@@ -57,6 +57,7 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     def ins1 = as.map(a => (a.s1, a.s2)) returning as.map(_.id)
     def ins2 = as.map(a => (a.s1, a.s2)) returning as.map(a => (a.id, a.s1))
     def ins3 = as.map(a => (a.s1, a.s2)) returning as.map(_.id) into ((v, i) => (i, v._1, v._2))
+    def ins4 = as.map(a => (a.s1, a.s2)) returning as.map(a => a)
 
     as.ddl.create
 
@@ -78,6 +79,11 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
 
       val id4 = ins3.insert("i", "j")
       assertEquals((5, "i", "j"), id4)
+
+      ifCap(jcap.returnInsertOther) {
+        val id5: (Int, String, String) = ins4.insert("k", "l")
+        assertEquals((6, "k", "l"), id5)
+      }
     }
   }
 
