@@ -19,10 +19,12 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       } else ""
     ) +
     ( if(tables.exists(_.PlainSqlMapper.enabled)){
-        "import scala.slick.jdbc.{GetResult => GR}\n"+
-        "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"
+        "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n"+
+        "import scala.slick.jdbc.{GetResult => GR}\n"
       } else ""
-    ) + "\n" +
+    ) +
+    "\n/** DDL for all tables. Call .create to execute. */\nval ddl = " + tables.map(_.TableValue.name + ".ddl").mkString(" ++ ") +
+    "\n\n" +
     tables.map(_.code.mkString("\n")).mkString("\n\n")
   }
 

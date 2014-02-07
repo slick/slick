@@ -184,6 +184,13 @@ class Tables(val profile: JdbcProfile){
   }
   val SingleNonOptionColumn = TableQuery[SingleNonOptionColumn]
 
+  /** Tests single column table and collision with generated names */
+  class all(tag: Tag) extends Table[String](tag, "all") {
+    def dynamic = column[String]("dynamic")
+    def * = dynamic
+  }
+  val all = TableQuery[all]
+
   /** Tests slick term name collision */
   class X(tag: Tag) extends Table[(Int,Int,Option[Int],Int,Double,String,Option[Int],Option[Int])](tag, "X") {
     def pk = column[Int]("pk")
