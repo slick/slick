@@ -1,7 +1,10 @@
 language: scala
-script: sbt test
+script: sbt -Dslick.testkit.dbprops=test-dbs/databases.travis.properties test
 jdk:
-- openjdk6
+  - openjdk6
 notifications:
   flowdock:
     secure: j3YP9TjiIcMRy2mvunF1AHBOFnz2H7mZAFVbHPBNkAjMCwSdBNvLpn33qv6ybr02c5snBDJTs0P70RJ/mh3YsqwnIeloQD9HUfnndKQD6ujxx1QWRI/lVDW4pfVRQEuPsXdW/3AiqxrSG5BS4thiyc3vj3LpnodHwNMUT+Nlmq0=
+services:
+  - mysql
+  - postgresql
