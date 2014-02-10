@@ -305,6 +305,11 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         case (_, ScalaBaseType.stringType) => v.toString
         case (_, ScalaBaseType.intType) => v.toString.toInt
         case (_, ScalaBaseType.longType) => v.toString.toLong
+        case (_, ScalaBaseType.byteType) => v.toString.toByte
+        case (_, ScalaBaseType.shortType) => v.toString.toShort
+        case (_, ScalaBaseType.doubleType) => v.toString.toDouble
+        case (_, ScalaBaseType.floatType) => v.toString.toFloat
+        case (_, ScalaBaseType.bigDecimalType) => BigDecimal(v.toString)
       }
     case Library.Ceiling =>
       val t = args(0)._1.asInstanceOf[ScalaNumericType[Any]]
