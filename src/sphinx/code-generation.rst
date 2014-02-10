@@ -29,6 +29,10 @@ Slick's code generator comes with a default runner that can be used from the com
 
    .. includecode:: code/CodeGenerator.scala#default-runner
 
+or
+
+   .. includecode:: code/CodeGenerator.scala#default-runner-with-auth
+
 and provide the following values
 
 * **slickDriver** Fully qualified name of Slick driver class, e.g. *"scala.slick.driver.H2Driver"*
@@ -36,6 +40,8 @@ and provide the following values
 * **url** jdbc url, e.g. *"jdbc:postgresql://localhost/test"*
 * **outputFolder** Place where the package folder structure should be put
 * **pkg** Scala package the generated code should be places in
+* **user** database connection user name
+* **password** database connection password
 
 Integrated into sbt
 -------------------

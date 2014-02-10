@@ -8,6 +8,8 @@ object CodeGenerator extends App {
   val url = "jdbc:postgresql://localhost/test"
   val outputFolder = ""
   val pkg = "demo"
+  val user = ""
+  val password = ""
   if(false){
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
     //#default-runner
@@ -15,6 +17,11 @@ object CodeGenerator extends App {
       Array(slickDriver, jdbcDriver, url, outputFolder, pkg)
     )
     //#default-runner
+    //#default-runner-with-auth
+    scala.slick.model.codegen.SourceCodeGenerator.main(
+      Array(slickDriver, jdbcDriver, url, outputFolder, pkg, user, password)
+    )
+    //#default-runner-with-auth
     //#customization
     import scala.slick.jdbc.meta.createModel
     import scala.slick.model.codegen.SourceCodeGenerator
