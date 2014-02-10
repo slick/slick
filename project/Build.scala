@@ -56,6 +56,16 @@ object SlickBuild extends Build {
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
     scalacOptions ++= List("-deprecation", "-feature"),
+    scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile,name).map((v,src,n) => Seq(
+      "-doc-title", n,
+      "-doc-version", v,
+      "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+      "-sourcepath", src.getPath, // needed for scaladoc to strip the location of the linked source path
+      "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
+      "-implicits",
+      "-diagrams", // requires graphviz
+      "-groups"
+    )),
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
@@ -104,16 +114,9 @@ object SlickBuild extends Build {
     settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
-      scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile).map((v,src) => Seq(
-        "-doc-title", "Slick",
-        "-doc-version", v,
-        "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
-        "-doc-root-content", "scaladoc-root.txt",
-        "-sourcepath", src.getPath, // needed for scaladoc to strip the location of the linked source path
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
-        "-implicits",
-        "-diagrams", // requires graphviz
-        "-groups"
+        "-doc-root-content", "scaladoc-root.txt"
       )),
       (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value + ("version" -> version.value) + ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
@@ -144,7 +147,9 @@ object SlickBuild extends Build {
     settings = Project.defaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
-      scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-testkit/src/main€{FILE_PATH}.scala"
+      )),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++= Seq(
