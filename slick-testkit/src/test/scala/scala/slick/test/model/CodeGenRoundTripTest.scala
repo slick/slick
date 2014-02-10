@@ -40,6 +40,10 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
 
     assertEquals((3,List("post 2","post 3")), res)
 
+    SelfRef.forceInsert(SelfRefRow(1,None))
+    SelfRef.forceInsert(SelfRefRow(2,Some(1)))
+    SelfRef.run
+
     // Testing table larger 22 columns
     import scala.slick.collection.heterogenous._
     import scala.slick.collection.heterogenous.syntax._

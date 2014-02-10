@@ -29,7 +29,7 @@ object CodeGeneratorTest {
       object Tables extends Tables(driver)
       import Tables._
       import Tables.profile.simple._
-      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl ++ `null`.ddl ++ X.ddl ++ SingleNonOptionColumn.ddl
+      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl ++ `null`.ddl ++ X.ddl ++ SingleNonOptionColumn.ddl ++ SelfRef.ddl
       //println(ddl.createStatements.mkString("\n"))
       val db = Database.forURL(url=url,driver=jdbcDriver)
       val gen = db.withSession{ implicit session =>
@@ -176,6 +176,15 @@ class Tables(val profile: JdbcProfile){
     def * = name
   }
   val `null` = TableQuery[`null`]
+
+  /** Tests table with self-referring foreign key */
+  class SelfRef(tag: Tag) extends Table[(Int,Option[Int])](tag, "SELF_REF") {
+    def id = column[Int]("id",O.AutoInc)
+    def parent = column[Option[Int]]("parent")
+    def parentFK = foreignKey("parent_fk", parent, SelfRef)(_.id)
+    def * = (id,parent)
+  }
+  val SelfRef = TableQuery[SelfRef]
 
   /** Tests single column table, scala keyword type name and all nullable columns table*/
   class SingleNonOptionColumn(tag: Tag) extends Table[String](tag, "SingleNonOptionColumn") {
