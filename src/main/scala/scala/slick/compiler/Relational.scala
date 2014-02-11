@@ -367,12 +367,12 @@ class FuseComprehensions extends Phase {
     if(lift.isEmpty) c2
     else {
       val newFrom = lift.map { case (a, f, s, c2) =>
+        val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
         val a2 = new AnonSymbol
         val (c2b, call) = s match {
           case Library.CountAll =>
-            (c2, Library.Count.typed(c2.nodeType.asCollectionType.elementType, LiteralNode(1)))
+            (c3, Library.Count.typed(c3.nodeType.asCollectionType.elementType, LiteralNode(1)))
           case s =>
-            val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
             // All standard aggregate functions operate on a single column
             val Some(Pure(StructNode(Seq((f2, _))), _)) = c3.select
             val elType = c3.nodeType.asCollectionType.elementType
