@@ -5,15 +5,15 @@ Slick 2.0 contains some improvements which are not source compatible with Slick
 1.0. When migrating your application from 1.0 to 2.0, you will likely need to
 perform changes in the following areas.
 
-Code generation
------------------
+Code Generation
+---------------
 
 Instead of writing your table descriptions or plain SQL mappers by hand, in 2.0 you can
 now automatically generate them from your database schema. The code-generator
 is flexible enough to customize it's output to fit exactly what you need.
 :doc:`More info on code generation <code-generation>`.
 
-Table descriptions
+Table Descriptions
 ------------------
 
 In Slick 1.0 tables were defined by a single ``val`` or ``object`` (called the
@@ -41,7 +41,7 @@ support for the old `~` syntax. The simple ``TableQuery[T]`` syntax is a
 macro which expands to a proper TableQuery instance that calls the table's
 constructor (``new TableQuery(new T(_))``). In Slick 1.0 it was common practice
 to place extra static methods associated with a table into that table's object.
-You can do the same in 2.0 with a custon ``TableQuery`` object:
+You can do the same in 2.0 with a custom ``TableQuery`` object:
 
 .. includecode:: code/MigrationGuide.scala#tablequery
 
@@ -50,6 +50,44 @@ conversion from a table row object to a ``Query`` that could be applied in
 unexpected places is no longer needed or available. All the places where you
 had to use the raw *table object* in Slick 1.0 have been changed to use the
 *table query* instead, e.g. inserting (see below) or foreign key references.
+
+The method for creating simple finders has been renamed from ``createFinderBy``
+to ``findBy``. It is defined as an *extension method* for ``TableQuery``, so
+you have to prefix the call with ``this.`` (see code snippet above).
+
+Mapped Tables
+-------------
+
+In 1.0 the ``<>`` method for bidirectional mappings was overloaded for
+different arities so you could directly pass a case class's ``apply`` method to
+it::
+
+  // --------------------- Slick 1.0 code -- does not compile in 2.0 ---------------------
+
+  def * = id ~ name ~ street <> (Supplier _, Supplier.unapply)
+
+This is no longer supported in 2.0. One of the reasons is that the overloading
+led to complicated error messages.
+You now have to use a function with an appropriate tuple type.
+If you map to a case class you can simply use ``.tupled`` on its
+companion object:
+
+.. includecode:: code/MigrationGuide.scala#mappedprojection
+
+Note that ``.tupled`` is only available for proper Scala *functions*. In 1.0 it
+was sufficient to have a *method* like ``apply`` that could be converted to
+a function on demand (``<> (Supplier.apply _, Supplier.unapply)``).
+
+When using a case class, the companion object extends the correct function
+type by default, but only if you do not define the object yourself. In that
+case you should provide the right supertype manually, e.g.:
+
+.. includecode:: code/MigrationGuide.scala#caseclassextends
+
+Alternatively, you can have the Scala compiler first do the lifting to a
+function and then call ``.tupled``:
+
+.. includecode:: code/MigrationGuide.scala#mappedprojection2
 
 Profile Hierarchy
 -----------------
@@ -112,23 +150,7 @@ projection and Slick will skip the auto-incrementing ``id`` column:
 If you really want to insert into an ``AutoInc`` field, you can use the new
 methods ``forceInsert`` and ``forceInsertAll``.
 
-In 1.0 the ``<>`` method for bidirectional mappings was overloaded for
-different arities so you could directly pass a case class's ``apply`` method to
-it::
-
-  // --------------------- Slick 1.0 code -- does not compile in 2.0 ---------------------
-
-  def * = id ~ name ~ street <> (Supplier _, Supplier.unapply)
-
-This is no longer supported in 2.0. One of the reasons is that the overloading
-lead to complicated error messages.
-You now have to use a function with an appropriate tuple type.
-If you map to a case class you can simply use ``.tupled`` on its
-companion object:
-
-.. includecode:: code/MigrationGuide.scala#mappedprojection
-
-Pre-compiled updates
+Pre-compiled Updates
 -----------------------------
 Slick now supports pre-compilation of updates in the same manner like selects, see
 :ref:`compiled-queries`.
