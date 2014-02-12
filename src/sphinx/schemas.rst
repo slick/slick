@@ -7,12 +7,12 @@ how you can write schema descriptions by hand. Instead you
 can also use the :doc:`code generator <code-generation>` to 
 take this work off your hands.
 
-Tables
-------
+Table Rows
+----------
 
 In order to use the *Lifted Embedding* API for type-safe queries, you need to
-define ``Table`` row classes and corresponding ``TableQuery`` values for your
-database schema:
+define ``Table`` row classes for your database schema. These describe the
+structure of the tables:
 
 .. includecode:: code/LiftedEmbedding.scala#tabledef
 
@@ -75,6 +75,28 @@ or omit some columns as you like. The non-lifted type corresponding to the
 ``*`` projection is given as a type parameter to ``Table``. For simple,
 non-mapped tables, this will be a single column type or a tuple of column
 types.
+
+If your database layout requires *schema names*, you can specify the schema
+name for a table in front of the table name, wrapped in ``Some()``:
+
+.. includecode:: code/LiftedEmbedding.scala#schemaname
+
+Table Query
+-----------
+
+Alongside the ``Table`` row class you also need a ``TableQuery`` value
+which represents the actual database table:
+
+.. includecode:: code/LiftedEmbedding.scala#tablequery
+
+The simple ``TableQuery[T]`` syntax is a
+macro which expands to a proper TableQuery instance that calls the table's
+constructor (``new TableQuery(new T(_))``).
+
+You can also extend ``TableQuery`` to use it as a convenient namespace for
+additional functionality associated with the table:
+
+.. includecode:: code/LiftedEmbedding.scala#tablequery2
 
 Mapped Tables
 -------------

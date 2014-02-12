@@ -82,10 +82,30 @@ object LiftedEmbedding extends App {
 //#foreignkey
 //#tabledef
   }
-  val coffees = TableQuery[Coffees]
-//#foreignkey
 //#tabledef
+//#tablequery
+  val coffees = TableQuery[Coffees]
+//#tablequery
+//#foreignkey
 
+  {
+  //#schemaname
+  class Coffees(tag: Tag)
+    extends Table[(String, Int, Double, Int, Int)](tag, Some("MYSCHEMA"), "COFFEES") {
+    //...
+  //#schemaname
+    def * = ???
+    def name = column[String]("NAME")
+  //#schemaname
+  }
+  //#schemaname
+
+  //#tablequery2
+  object coffees extends TableQuery(new Coffees(_)) {
+    val findByName = this.findBy(_.name)
+  }
+  //#tablequery2
+  }
 //#reptypes
   val q = coffees.filter(_.price > 8.0).map(_.name)
   //                       ^       ^          ^
