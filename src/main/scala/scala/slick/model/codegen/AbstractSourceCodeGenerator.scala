@@ -80,7 +80,7 @@ def $name($args): $name = {
     trait PlainSqlMapperDef extends super.PlainSqlMapperDef{
       def code = {
         val positional = compoundValue(columnsPositional.map(c => (if(c.fakeNullable || c.model.nullable)s"<<?[${c.rawType}]"else s"<<[${c.rawType}]")))
-        val dependencies = columns.map(_.rawType).toSet.toList.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
+        val dependencies = columns.map(_.exposedType).distinct.zipWithIndex.map{ case (t,i) => s"""e$i: GR[$t]"""}.mkString(", ")
         val rearranged = compoundValue(desiredColumnOrder.map(i => if(hlistEnabled) s"r($i)" else tuple(i)))
         def result(args: String) = if(mappingEnabled) s"$factory($args)" else args
         val body =

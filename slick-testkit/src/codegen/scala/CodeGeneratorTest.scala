@@ -238,8 +238,14 @@ class Tables(val profile: JdbcProfile){
   }
   val posts = TableQuery[Posts]
 
-  class TypeTest(tag: Tag) extends Table[(Option[Int],String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob)](tag, "TYPE_TEST") {
-    def Option = column[Option[Int]]("Option_Int",O.Default(Some(5)))
+  // Clob disabled because it fails in postgres and mysql, see https://github.com/slick/slick/issues/637
+  class TypeTest(tag: Tag) extends Table[(
+    String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob//,java.sql.Clob
+    ,Option[Int]
+    ,(
+      Option[Boolean],Option[Byte],Option[Short],Option[Int],Option[Long],Option[Float],Option[Double],Option[String],Option[java.sql.Date],Option[java.sql.Time],Option[java.sql.Timestamp],Option[java.sql.Blob]//,Option[java.sql.Clob]
+    )
+  )](tag, "TYPE_TEST") {
     def `type` = column[String]("type") // <- test escaping of keywords
     def Boolean = column[Boolean]("Boolean",O.Default(true))
     def Byte = column[Byte]("Byte")
@@ -255,8 +261,34 @@ class Tables(val profile: JdbcProfile){
     def java_sql_Time = column[java.sql.Time]("java_sql_Time")
     def java_sql_Timestamp = column[java.sql.Timestamp]("java_sql_Timestamp")
     def java_sql_Blob = column[java.sql.Blob]("java_sql_Blob")
-    def java_sql_Clob = column[java.sql.Clob]("java_sql_Clob")
-    def * = (Option, `type`,Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob)
+    //def java_sql_Clob = column[java.sql.Clob]("java_sql_Clob")
+    
+    def None_Int = column[Option[Int]]("None_Int",O.Default(None))
+
+    def Option_Boolean = column[Option[Boolean]]("Option_Boolean",O.Default(Some(true)))
+    def Option_Byte = column[Option[Byte]]("Option_Byte")
+    def Option_Short = column[Option[Short]]("Option_Short")
+    def Option_Int = column[Option[Int]]("Option_Int",O.Default(Some(5)))
+    def Option_Long = column[Option[Long]]("Option_Long",O.Default(Some(5L)))
+    //def java_math_BigInteger = column[Option[java.math.BigInteger]]("java_math_BigInteger")
+    def Option_Float = column[Option[Float]]("Option_Float",O.Default(Some(9.999F)))
+    def Option_Double = column[Option[Double]]("Option_Double",O.Default(Some(9.999)))
+    //def java_math_BigDecimal = column[Option[java.math.BigDecimal]]("java_math_BigDecimal")
+    def Option_String = column[Option[String]]("Option_String",O.Default(Some("someDefaultString")))
+    def Option_java_sql_Date = column[Option[java.sql.Date]]("Option_java_sql_Date")
+    def Option_java_sql_Time = column[Option[java.sql.Time]]("Option_java_sql_Time")
+    def Option_java_sql_Timestamp = column[Option[java.sql.Timestamp]]("Option_java_sql_Timestamp")
+    def Option_java_sql_Blob = column[Option[java.sql.Blob]]("Option_java_sql_Blob")
+    def Option_java_sql_Option_Blob = column[Option[Option[java.sql.Blob]]]("Option_java_sql_Blob")
+    //def Option_java_sql_Clob = column[Option[java.sql.Clob]]("Option_java_sql_Clob")
+    def * = (
+      `type`,
+      Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob//,java_sql_Clob
+      ,None_Int
+      ,(
+        Option_Boolean,Option_Byte,Option_Short,Option_Int,Option_Long,Option_Float,Option_Double,Option_String,Option_java_sql_Date,Option_java_sql_Time,Option_java_sql_Timestamp,Option_java_sql_Blob//,Option_java_sql_Clob
+      )
+    )
     def pk = primaryKey("PK", (Int,Long))
   }
   val typeTest = TableQuery[TypeTest]
