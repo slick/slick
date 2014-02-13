@@ -9,6 +9,8 @@ import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 
 object SlickBuild extends Build {
 
+  val slickVersion = "2.1.0-SNAPSHOT"
+
   /* Custom Settings */
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
@@ -51,7 +53,7 @@ object SlickBuild extends Build {
   }
 
   lazy val sharedSettings = Seq(
-    version := "2.0.0",
+    version := slickVersion,
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
@@ -122,7 +124,7 @@ object SlickBuild extends Build {
       (sphinxProperties in Sphinx) := Map.empty,
       test := (), // suppress test status output
       testOnly :=  (),
-      previousArtifact := Some("com.typesafe.slick" % "slick_2.10" % "2.0.0"),
+      previousArtifact := Some("com.typesafe.slick" %% "slick" % "2.1.0"),
       binaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
