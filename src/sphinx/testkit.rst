@@ -17,11 +17,12 @@ Scaffolding
 Its ``build.sbt`` file is straight-forward. Apart from the usual name and
 version settings, it adds the dependencies for Slick, the TestKit,
 junit-interface, Logback and the PostgreSQL JDBC driver, and it sets some
-options for the test runs::
+options for the test runs:
 
+.. parsed-literal::
   libraryDependencies ++= Seq(
-    "com.typesafe.slick" %% "slick" % "2.0.0-RC1",
-    "com.typesafe.slick" %% "slick-testkit" % "2.0.0-RC1" % "test",
+    "com.typesafe.slick" %% "slick" % "|release|",
+    "com.typesafe.slick" %% "slick-testkit" % "|release|" % "test",
     "com.novocode" % "junit-interface" % "0.10" % "test",
     "ch.qos.logback" % "logback-classic" % "0.9.28" % "test",
     "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test"

@@ -487,6 +487,9 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
     val r1 = q1(42).run
     assertEquals(List(1), r1)
+
+    val q2 = as.filter(_.id in as.sortBy(_.id).map(_.id))
+    assertEquals(Vector(42), q2.run)
   }
 
   def testExpansion {

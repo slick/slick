@@ -14,7 +14,7 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
 
   def testSimple = ifCap(TestDB.plainSql) {
     def getUsers(id: Option[Int]) = {
-      val q = Q[User] + "select id, name from users "
+      val q = Q[User] + "select id, name from USERS "
       id map { q + "where id =" +? _ } getOrElse q
     }
 
@@ -23,9 +23,9 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     val createTable = Q[Int] + "create table USERS(ID int not null primary key, NAME varchar(255))"
     val populateUsers = List(InsertUser(1, "szeiger"), InsertUser(0, "admin"), InsertUser(2, "guest"), InsertUser(3, "foo"))
 
-    val allIDs = Q[Int] + "select id from users"
-    val userForID = Q[Int, User] + "select id, name from users where id = ?"
-    val userForIdAndName = Q[(Int, String), User] + "select id, name from users where id = ? and name = ?"
+    val allIDs = Q[Int] + "select id from USERS"
+    val userForID = Q[Int, User] + "select id, name from USERS where id = ?"
+    val userForIdAndName = Q[(Int, String), User] + "select id, name from USERS where id = ? and name = ?"
 
     sharedSession.withTransaction {
       println("Creating user table: "+createTable.first)
@@ -93,8 +93,8 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
   }
 
   def testInterpolation = ifCap(TestDB.plainSql) {
-    def userForID(id: Int) = sql"select id, name from users where id = $id".as[User]
-    def userForIdAndName(id: Int, name: String) = sql"select id, name from users where id = $id and name = $name".as[User]
+    def userForID(id: Int) = sql"select id, name from USERS where id = $id".as[User]
+    def userForIdAndName(id: Int, name: String) = sql"select id, name from USERS where id = $id and name = $name".as[User]
 
     sqlu"create table USERS(ID int not null primary key, NAME varchar(255))".execute
     val total = (for {
@@ -102,16 +102,16 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     } yield sqlu"insert into USERS values ($id, $name)".first).sum
     assertEquals(4, total)
 
-    assertEquals(Set(0,1,2,3), sql"select id from users".as[Int].buildColl[Set])
+    assertEquals(Set(0,1,2,3), sql"select id from USERS".as[Int].buildColl[Set])
 
     val res = userForID(2).first
     println("User for ID 2: "+res)
     assertEquals(User(2,"guest"), res)
 
-    val s1 = sql"select id from users where name = ${"szeiger"}".as[Int]
-    val s2 = sql"select id from users where name = '#${"guest"}'".as[Int]
-    assertEquals("select id from users where name = ?", s1.getStatement)
-    assertEquals("select id from users where name = 'guest'", s2.getStatement)
+    val s1 = sql"select id from USERS where name = ${"szeiger"}".as[Int]
+    val s2 = sql"select id from USERS where name = '#${"guest"}'".as[Int]
+    assertEquals("select id from USERS where name = ?", s1.getStatement)
+    assertEquals("select id from USERS where name = 'guest'", s2.getStatement)
     assertEquals(List(1), s1.list)
     assertEquals(List(2), s2.list)
 

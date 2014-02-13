@@ -234,7 +234,7 @@ This works for all functions that take ``Column`` parameters (or
 scalar query. See the API documentation for :api:`scala.slick.lifted.Compiled`
 and its subclasses for details on composing compiled queries.
 
-You can use a compiled query for querying, updating and deleting data.
+You can use a compiled query for querying, updating and deleting data. (For inserts, you can cache the :api:`InsertInvoker <scala.slick.driver.JdbcInvokerComponent@InsertInvoker[T]:JdbcDriver.InsertInvoker[T]>` and re-use it instead. To get it, call a query's :api:`insertInvoker <scala.slick.profile.BasicInvokerComponent$InsertInvokerDef@insertInvoker:InsertInvokerDef.this.type>` method, which is added by the :api:`createInsertInvoker <scala.slick.driver.JdbcInvokerComponent@createInsertInvoker[U](Node):JdbcDriver.CountingInsertInvoker[U]>` implicit conversion.)
 
 For backwards-compatibility with Slick 1.0 you can still create a compiled
 query by calling ``flatMap`` on a :api:`scala.slick.lifted.Parameters` object.
