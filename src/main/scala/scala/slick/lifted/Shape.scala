@@ -165,7 +165,9 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
 /** Base class for ProductNodeShapes with a type mapping */
 abstract class MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] extends ProductNodeShape[Level, C, M, U, P] {
   override def toNode(value: Mixed) = TypeMapping(super.toNode(value), toBase, toMapped)
-  def toBase(v: Any) = new ProductWrapper(getIterator(v.asInstanceOf[C]).toIndexedSeq)
+  @deprecated("No longer needed", "2.0.1")
+  lazy val unary = shapes.length == 1
+  def toBase(v: Any): AnyRef = new ProductWrapper(getIterator(v.asInstanceOf[C]).toIndexedSeq)
   def toMapped(v: Any) = buildValue(TupleSupport.buildIndexedSeq(v.asInstanceOf[Product]))
 }
 

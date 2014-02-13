@@ -343,7 +343,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     final case class StarAnd(child: Node) extends UnaryNode with SimplyTypedNode {
       type Self = StarAnd
       protected[this] def nodeRebuild(child: Node) = StarAnd(child)
-      protected def buildType = UnassignedType
+      protected def buildType = NoType
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
