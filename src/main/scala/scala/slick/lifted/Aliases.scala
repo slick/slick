@@ -14,7 +14,6 @@ trait Aliases {
   val Compiled = lifted.Compiled
   type Column[T] = lifted.Column[T]
   type ConstColumn[T] = lifted.ConstColumn[T]
-  val ConstColumn = lifted.ConstColumn
   type LiteralColumn[T] = lifted.LiteralColumn[T]
   val LiteralColumn = lifted.LiteralColumn
   val Case = lifted.Case

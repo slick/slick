@@ -13,13 +13,6 @@ case class MColumn(
   columnDef: Option[String], charOctetLength: Int, ordinalPosition: Int, isNullable: Option[Boolean], scope: Option[MQName],
   sourceDataType: Option[Int], isAutoInc: Option[Boolean]) {
 
-  @deprecated("Use name instead.","2.0.0")
-  def column = name
-  @deprecated("Use size instead.","2.0.0")
-  def columnSize = size
-  @deprecated("Use ordinalPosition instead.","2.0.0")
-  def ordinalPos = ordinalPosition
-
   def sqlTypeName = JdbcTypesComponent.typeNames.get(sqlType)
   def getColumnPrivileges = MColumnPrivilege.getColumnPrivileges(table, name)
 }
