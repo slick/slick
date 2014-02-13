@@ -15,9 +15,9 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
   import tdb.driver.quoteIdentifier
   @Test def test { db.withSession{ implicit session =>
-    object Tables extends{
+    object Tables extends Tables{
       val profile = tdb.profile
-    } with Tables
+    }
     import Tables.profile.simple._
     import Tables._
     //println(ddl.createStatements.mkString("\n"))
