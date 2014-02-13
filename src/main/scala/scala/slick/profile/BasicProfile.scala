@@ -29,13 +29,15 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
     def ++(other: SchemaDescription): SchemaDescription
   }
 
-  val Implicit: Implicits
-
   /** A collection of values for using the query language with a single import
     * statement. This provides the driver's implicits, the Database and
     * Session objects for DB connections, and commonly used query language
     * types and objects. */
   val simple: SimpleQL
+
+  /** The implicit values and conversions provided by this driver.
+    * This is a subset of ``simple``. */
+  val Implicit: Implicits
 
   trait Implicits extends ExtensionMethodConversions {
     implicit val slickDriver: driver.type = driver
