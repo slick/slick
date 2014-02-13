@@ -145,13 +145,15 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     val q9c = ts.map(x => x).groupBy(x => x).map(_._1)
     assertEquals(res9, q9c.run.toSet)
 
-    println("=========================================================== q10")
-    val q10 = (for {
-      m <- ts
-    } yield m) groupBy (_.a) map {
-      case (id, data) => (id, data.map(_.b.asColumnOf[Option[Double]]).max)
+    ifCap(rcap.arbitraryCasts){
+      println("=========================================================== q10")
+      val q10 = (for {
+        m <- ts
+      } yield m) groupBy (_.a) map {
+        case (id, data) => (id, data.map(_.b.asColumnOf[Option[Double]]).max)
+      }
+      assertEquals(Set((2,Some(5.0)), (1,Some(3.0)), (3,Some(9.0))), q10.run.toSet)
     }
-    assertEquals(Set((2,Some(5.0)), (1,Some(3.0)), (3,Some(9.0))), q10.run.toSet)
   }
 
   def testIntLength {
