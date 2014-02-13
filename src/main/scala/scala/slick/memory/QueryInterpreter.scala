@@ -378,6 +378,15 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     else Some(it.reduceLeft { (z, b) => f(z, b) })
   }
 
+  @deprecated("Use reduceOptionIt instead", "2.0.1")
+  def foldOptionIt(it: Iterator[Any], opt: Boolean, zero: Any, f: (Any, Any) => Any): Option[Any] = {
+    if(!it.hasNext) None
+    else if(opt) it.foldLeft(Some(zero): Option[Any]) { (z, b) =>
+      for(z <- z; b <- b.asInstanceOf[Option[Any]]) yield f(z, b)
+    }
+    else Some(it.foldLeft(zero) { (z, b) => f(z, b) })
+  }
+
   def createNullRow(tpe: Type): Any = tpe match {
     case t: ScalaType[_] => if(t.nullable) None else null
     case StructType(el) =>

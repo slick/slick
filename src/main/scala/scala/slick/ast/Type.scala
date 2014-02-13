@@ -108,6 +108,9 @@ final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: 
   override def select(sym: Symbol) = baseType.select(sym)
 }
 
+@deprecated("Use UnassignedType or UnassignedStructuralType", "2.0.1")
+final case object NoType extends AtomicType
+
 /** The standard type for freshly constructed nodes without an explicit type. */
 final case object UnassignedType extends AtomicType
 
