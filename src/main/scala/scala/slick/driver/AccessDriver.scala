@@ -150,6 +150,8 @@ trait AccessDriver extends JdbcDriver { driver =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
           else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName
         ).toLowerCase match {
+          case "boolean" => b"cbool(${ch(0)})"
+          case "double" => b"cdbl(${ch(0)})"
           case "integer" => b"cint(${ch(0)})"
           case "long" => b"clng(${ch(0)})"
           case t if t.startsWith("varchar") && integralTypes.contains(typeInfoFor(ch(0).nodeType).sqlType) =>
