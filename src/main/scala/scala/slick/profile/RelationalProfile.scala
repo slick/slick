@@ -218,7 +218,7 @@ trait RelationalMappingCompilerComponent {
         new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
       case GetOrElse(ch, default) =>
         new GetOrElseResultConverter(compileMapping(ch), default)
-      case TypeMapping(ch, toBase, toMapped) =>
+      case TypeMapping(ch, toBase, toMapped, _) =>
         new TypeMappingResultConverter(compileMapping(ch), toBase, toMapped)
       case n =>
         throw new SlickException("Unexpected node in ResultSetMapping: "+n)

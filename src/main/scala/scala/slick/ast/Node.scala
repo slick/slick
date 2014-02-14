@@ -1,9 +1,11 @@
 package scala.slick.ast
 
+import scala.language.existentials
 import scala.slick.SlickException
 import scala.slick.util.Logging
 import TypeUtil.typeToTypeUtil
 import Util._
+import scala.reflect.ClassTag
 
 /**
  * A node in the query AST.
@@ -584,11 +586,11 @@ final case class CompiledStatement(statement: String, extra: Any, tpe: Type) ext
 }
 
 /** A client-side type mapping */
-final case class TypeMapping(val child: Node, val toBase: Any => Any, val toMapped: Any => Any) extends UnaryNode with SimplyTypedNode { self =>
+final case class TypeMapping(val child: Node, val toBase: Any => Any, val toMapped: Any => Any, classTag: ClassTag[_]) extends UnaryNode with SimplyTypedNode { self =>
   type Self = TypeMapping
   def nodeRebuild(ch: Node) = copy(child = ch)
   override def toString = "TypeMapping"
-  protected def buildType = new MappedScalaType(child.nodeType, toBase, toMapped)
+  protected def buildType = new MappedScalaType(child.nodeType, toBase, toMapped, classTag)
 }
 
 /** A parameter from a QueryTemplate which gets turned into a bind variable. */

@@ -1,11 +1,11 @@
 package scala.slick.memory
 
 import scala.language.{implicitConversions, existentials}
-import scala.collection.mutable.ArrayBuffer
+import scala.collection.mutable.{Builder, ArrayBuffer}
 import scala.slick.ast._
 import scala.slick.compiler._
 import scala.slick.profile.Capability
-import TypeUtil.typeToTypeUtil
+import scala.slick.ast.TypeUtil._
 
 /** A profile and driver for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
@@ -42,9 +42,9 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
     def run(implicit session: Backend#Session): R = {
       val inter = new QueryInterpreter(session.database, param) {
         override def run(n: Node) = n match {
-          case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
+          case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) :@ CollectionType(cons, el) =>
             val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
-            val b = n.nodeType.asCollectionType.cons.createErasedBuilder
+            val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
             b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
             b.result()
           case n => super.run(n)

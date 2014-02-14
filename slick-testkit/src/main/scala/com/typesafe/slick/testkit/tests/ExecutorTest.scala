@@ -54,5 +54,10 @@ class ExecutorTest extends TestkitTest[RelationalTestDB] {
     assertEquals(e2, r2a)
     assertEquals(e2, r2b)
     assertEquals(e2, r2c)
+
+    val r3a = ts.to[Array].run
+    assertTrue(r3a.isInstanceOf[Array[(Int, String)]])
+    val r3b = ts.to[Array].map(_.a).run
+    assertTrue(r3b.isInstanceOf[Array[Int]])
   }
 }

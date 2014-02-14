@@ -3,6 +3,7 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
+import scala.reflect.ClassTag
 
 class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
@@ -191,7 +192,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     case class Pair[A, B](a: A, b: B)
 
     // A Shape that maps Pair to a ProductNode
-    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
+    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
       def copy(shapes: Seq[Shape[_, _, _, _]]) = new PairShape(shapes)
     }

@@ -1,12 +1,12 @@
 package scala.slick.memory
 
 import scala.language.{implicitConversions, existentials}
-import scala.collection.mutable.HashMap
+import scala.collection.mutable.{Builder, HashMap}
 import scala.slick.SlickException
 import scala.slick.ast._
+import scala.slick.ast.TypeUtil._
 import scala.slick.compiler._
 import scala.slick.profile.{RelationalDriver, RelationalProfile}
-import TypeUtil.typeToTypeUtil
 
 /** A profile and driver for distributed queries. */
 trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriver =>
@@ -57,10 +57,10 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
         val wr = wrapScalaValue(dv, n.nodeType)
         if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)
         wr
-      case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
+      case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) :@ CollectionType(cons, el) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
-        val b = n.nodeType.asCollectionType.cons.createErasedBuilder
+        val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
         b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
@@ -95,7 +95,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
       val needed = new HashMap[IntrinsicSymbol, Set[RelationalDriver]]
       val taints = new HashMap[IntrinsicSymbol, Set[RelationalDriver]]
       def collect(n: Node, scope: Scope): (Set[RelationalDriver], Set[RelationalDriver]) = {
-        val (dr: Set[RelationalDriver], tt: Set[RelationalDriver]) = (n match {
+        val (dr: Set[RelationalDriver], tt: Set[RelationalDriver]) = n match {
           case t: TableNode => (Set(t.driverTable.asInstanceOf[RelationalDriver#Table[_]].tableProvider), Set.empty)
           case Ref(sym) =>
             scope.get(sym) match {
@@ -115,7 +115,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
               n
             }, scope)
             (nnd, ntt)
-        })
+        }
         needed += n.nodeIntrinsicSymbol -> dr
         taints += n.nodeIntrinsicSymbol -> tt
         (dr, tt)
@@ -126,7 +126,10 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
         val tt = taints(n.nodeIntrinsicSymbol)
         if(dr.size == 1 && (tt -- dr).isEmpty) {
           val compiled = dr.head.queryCompiler.run(n).tree
-          DriverComputation(compiled, dr.head, compiled.nodeType)
+          val substituteType = compiled.nodeType.replace {
+            case CollectionType(cons, el) => CollectionType(cons.iterableSubstitute, el)
+          }
+          DriverComputation(compiled.nodeTypedOrCopy(substituteType), dr.head, substituteType)
         } else n.nodeMapChildren(transform)
       }
       transform(tree)
@@ -137,7 +140,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
 /** Represents a computation that needs to be performed by another driver.
   * Despite having a child it is a NullaryNode because the sub-computation
   * should be opaque to the query compiler. */
-final case class DriverComputation(val compiled: Node, val driver: RelationalDriver, tpe: Type) extends NullaryNode with TypedNode {
+final case class DriverComputation(compiled: Node, driver: RelationalDriver, tpe: Type) extends NullaryNode with TypedNode {
   type Self = DriverComputation
   protected[this] def nodeRebuild = copy()
   override def toString = s"DriverComputation($driver)"

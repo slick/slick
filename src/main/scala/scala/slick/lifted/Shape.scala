@@ -6,6 +6,7 @@ import scala.annotation.unchecked.uncheckedVariance
 import scala.slick.SlickException
 import scala.slick.util.{ProductWrapper, TupleSupport}
 import scala.slick.ast._
+import scala.reflect.ClassTag
 
 /** A type class that encodes the unpacking `Mixed => Unpacked` of a
  * `Query[Mixed]` to its result element type `Unpacked` and the packing to a
@@ -164,13 +165,14 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
 
 /** Base class for ProductNodeShapes with a type mapping */
 abstract class MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] extends ProductNodeShape[Level, C, M, U, P] {
-  override def toNode(value: Mixed) = TypeMapping(super.toNode(value), toBase, toMapped)
+  override def toNode(value: Mixed) = TypeMapping(super.toNode(value), toBase, toMapped, classTag)
   def toBase(v: Any) = new ProductWrapper(getIterator(v.asInstanceOf[C]).toIndexedSeq)
   def toMapped(v: Any) = buildValue(TupleSupport.buildIndexedSeq(v.asInstanceOf[Product]))
+  def classTag: ClassTag[U]
 }
 
 /** Base class for ProductNodeShapes with a type mapping to a type that extends scala.Product */
-abstract class MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C, U <: C, P <: C] extends MappedProductShape[Level, C, M, U, P] {
+abstract class MappedScalaProductShape[Level <: ShapeLevel, C <: Product, M <: C, U <: C, P <: C](implicit val classTag: ClassTag[U]) extends MappedProductShape[Level, C, M, U, P] {
   override def getIterator(value: C) = value.productIterator
   def getElement(value: C, idx: Int) = value.productElement(idx)
 }
@@ -207,13 +209,13 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: ShapeLevel.Flat, T, U, 
   def toNode = shape.toNode(value)
   def packedValue[R](implicit ev: Shape[_ <: ShapeLevel.Flat, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[ShapeLevel.Flat, R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
-  @inline def <>[R](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
+  @inline def <>[R : ClassTag](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get), implicitly[ClassTag[R]])
 }
 
 // Work-around for SI-3346
 final class ToShapedValue[T](val value: T) extends AnyVal {
   @inline def shaped[U](implicit shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) = new ShapedValue[T, U](value, shape)
-  @inline def <>[R, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get))
+  @inline def <>[R : ClassTag, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[_ <: ShapeLevel.Flat, T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get), implicitly[ClassTag[R]])
 }
 
 /** A limited version of ShapedValue which can be constructed for every type
@@ -237,11 +239,11 @@ object ProvenShape {
     }
 }
 
-class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P)) extends ColumnBase[T] {
+class MappedProjection[T, P](child: Node, f: (P => T), g: (T => P), classTag: ClassTag[T]) extends ColumnBase[T] {
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
-  override def toNode: Node = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])))
-  def encodeRef(path: List[Symbol]): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g) {
+  override def toNode: Node = TypeMapping(child, (v => g(v.asInstanceOf[T])), (v => f(v.asInstanceOf[P])), classTag)
+  def encodeRef(path: List[Symbol]): MappedProjection[T, P] = new MappedProjection[T, P](child, f, g, classTag) {
     override def toNode = Path(path)
   }
 }

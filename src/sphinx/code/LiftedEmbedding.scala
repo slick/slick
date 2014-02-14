@@ -3,6 +3,7 @@ package com.typesafe.slick.docsnippets
 import scala.slick.driver.H2Driver.simple._
 import Database.dynamicSession
 import java.sql.Date
+import scala.reflect.ClassTag
 
 object LiftedEmbedding extends App {
   // Simple Coffees for Rep types comparison
@@ -449,7 +450,7 @@ object LiftedEmbedding extends App {
 
     //#recordtype1
     // A Shape implementation for Pair
-    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](
+    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](
       val shapes: Seq[Shape[_, _, _, _]])
     extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))

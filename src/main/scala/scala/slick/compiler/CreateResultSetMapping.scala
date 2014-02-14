@@ -74,7 +74,7 @@ class CreateResultSetMapping extends Phase {
         case StructType(ch) =>
           ProductNode(ch.map { case (_, t) => f(t) })
         case t: MappedScalaType =>
-          TypeMapping(f(t.baseType), t.toBase, t.toMapped)
+          TypeMapping(f(t.baseType), t.toBase, t.toMapped, t.classTag)
         case n @ NominalType(ts) => tables.get(ts) match {
           case Some(n) => f(n.nodeType)
           case None => f(n.structuralView)
