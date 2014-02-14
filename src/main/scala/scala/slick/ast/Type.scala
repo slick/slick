@@ -3,6 +3,7 @@ package scala.slick.ast
 import scala.language.{implicitConversions, higherKinds}
 import scala.slick.SlickException
 import scala.collection.generic.CanBuild
+import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 import Util._
 import scala.collection.mutable.ArrayBuffer
@@ -86,17 +87,27 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
   def children: Seq[Type] = Seq(elementType)
 }
 
-class CollectionTypeConstructor(val canBuildFrom: CanBuild[Any, Any], clazz: Class[_]) { //TODO remove val
-  override def toString = s"Coll[$canBuildFrom]"
-  def isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(clazz)
-  def isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(clazz)
-  def createErasedBuilder = canBuildFrom()
+trait CollectionTypeConstructor {
+  def isSequential: Boolean
+  def isUnique: Boolean
+  def createErasedBuilder: Builder[Any, Any]
 }
 
-object CollectionTypeConstructor {
+trait TypedCollectionTypeConstructor[C[_]] extends CollectionTypeConstructor {
+  def createErasedBuilder: Builder[Any, C[Any]]
+}
+
+class ErasedCollectionTypeConstructor[C[_]](canBuildFrom: CanBuild[Any, C[Any]], tag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C] {
+  override def toString = s"Coll[$canBuildFrom]"
+  val isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(tag.runtimeClass)
+  val isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(tag.runtimeClass)
+  def createErasedBuilder: Builder[Any, C[Any]] = canBuildFrom()
+}
+
+object TypedCollectionTypeConstructor {
   def seq = forColl[Vector]
-  def forColl[C[_]](implicit cbf: CanBuild[Any, C[Any]], tag: ClassTag[C[_]]) =
-    new CollectionTypeConstructor(cbf.asInstanceOf[CanBuild[Any, Any]], tag.runtimeClass)
+  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: CanBuild[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
+    new ErasedCollectionTypeConstructor[C](cbf, tag)
 }
 
 final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: Any => Any) extends Type {

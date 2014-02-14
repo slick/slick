@@ -51,7 +51,7 @@ trait InsertCompiler extends Phase {
     logger.debug("Insert node:", ins)
 
     ResultSetMapping(rgen, ins, createMapping(ins)).nodeTyped(
-      CollectionType(CollectionTypeConstructor.seq, ins.nodeType))
+      CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType))
   }
 
   def createMapping(ins: Insert): Node

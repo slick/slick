@@ -60,7 +60,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
       case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
-        val b = n.nodeType.asCollectionType.cons.canBuildFrom()
+        val b = n.nodeType.asCollectionType.cons.createErasedBuilder
         b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)

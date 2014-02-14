@@ -260,7 +260,7 @@ final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) ex
   protected[this] def nodeRebuild(child: Node) = copy(child)
   def withComputedTypeNoRec: Self = nodeBuildTypedNode(this, buildType)
   protected def buildType =
-    CollectionType(CollectionTypeConstructor.seq,
+    CollectionType(TypedCollectionTypeConstructor.seq,
       NominalType(identity)(value.nodeType))
 }
 
@@ -359,7 +359,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNo
     val by2 = by.nodeWithComputedType(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
     nodeRebuildOrThis(Vector(from2, by2)).nodeTypedOrCopy(
       if(!nodeHasType || retype)
-        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType.structural, CollectionType(CollectionTypeConstructor.seq, from2Type.elementType))))
+        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType.structural, CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
       else nodeType)
   }
 }
@@ -518,7 +518,7 @@ object FwdPath {
 /** A Node representing a database table. */
 final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any) extends NullaryNode with TypedNode {
   type Self = TableNode
-  def tpe = CollectionType(CollectionTypeConstructor.seq, NominalType(identity)(UnassignedStructuralType(identity)))
+  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity)(UnassignedStructuralType(identity)))
   def nodeRebuild = copy()
   override def toString = "Table " + tableName
 }
@@ -536,7 +536,7 @@ final case class SequenceNode(name: String)(val increment: Long) extends Nullary
   * cannot be represented in SQL outside of a 'zip' operation. */
 final case class RangeFrom(start: Long = 1L) extends NullaryNode with TypedNode {
   type Self = RangeFrom
-  def tpe = CollectionType(CollectionTypeConstructor.seq, ScalaBaseType.longType)
+  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, ScalaBaseType.longType)
   def nodeRebuild = copy()
 }
 

@@ -44,7 +44,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
         override def run(n: Node) = n match {
           case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) =>
             val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
-            val b = n.nodeType.asCollectionType.cons.canBuildFrom()
+            val b = n.nodeType.asCollectionType.cons.createErasedBuilder
             b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
             b.result()
           case n => super.run(n)
