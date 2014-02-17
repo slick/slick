@@ -10,6 +10,7 @@ import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
 import scala.reflect.runtime.universe._
+import compat._
 import scala.reflect.runtime.{currentMirror=>cm}
 
 /** maps a Scala method to a Slick FunctionSymbol */
