@@ -92,7 +92,7 @@ object PlainSQL extends App {
       where c.price < ? and s.id = c.sup_id
     """)
     // This time we read the result set into a List
-    val l2 = q2.list(9.0)
+    val l2 = q2(9.0).list
     for (t <- l2) println("  " + t._1 + " supplied by " + t._2)
 //#query
 

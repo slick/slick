@@ -8,7 +8,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.UnitInvoker
+import scala.slick.jdbc.Invoker
 
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -32,7 +32,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCurr
   )
 
-  override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

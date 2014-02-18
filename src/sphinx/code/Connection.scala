@@ -35,7 +35,7 @@ object Connection extends App {
     val query = for (c <- coffees) yield c.name
     val result = db.withSession {
       session =>
-      query.list()( session )
+      query.list(session)
     }
     //#withSession
   };{
@@ -71,7 +71,7 @@ object Connection extends App {
     //#manual-session
     val query = for (c <- coffees) yield c.name
     val session : Session = db.createSession
-    val result  = query.list()( session )
+    val result  = query.list(session)
     session.close
     //#manual-session
   }

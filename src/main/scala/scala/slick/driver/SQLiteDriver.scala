@@ -1,16 +1,15 @@
 package scala.slick.driver
 
+import java.sql.{Timestamp, Time, Date}
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import java.sql.{Timestamp, Time, Date}
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
-import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.UnitInvoker
 import scala.slick.model.Model
-import scala.slick.jdbc.meta.{createModel => jdbcCreateModel}
+import scala.slick.jdbc.Invoker
+import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
 
 /**
  * Slick driver for SQLite.
@@ -63,7 +62,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.zip
   )
 
-  override def getTables: UnitInvoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+  override def getTables: Invoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
 
   override def createModel(implicit session: Backend#Session): Model = jdbcCreateModel(
     getTables.list.filter(_.name.name.toLowerCase != "sqlite_sequence"),

@@ -160,9 +160,9 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   }
   def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     for(t <- getLocalTables)
-      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)+" cascade").execute()
+      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)+" cascade").execute
     for(t <- getLocalSequences)
-      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute()
+      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute
   }
   def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
     for(t <- tables) {

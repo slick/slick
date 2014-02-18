@@ -4,13 +4,10 @@ import scala.language.implicitConversions
 import scala.slick.ast.{Node, TypedType, BaseTypedType}
 import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{JdbcMappingCompilerComponent, MutatingUnitInvoker, JdbcBackend}
+import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker}
+import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
-import scala.slick.SlickException
-import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.UnitInvoker
 import scala.slick.model.Model
-import scala.slick.jdbc.meta.{createModel => jdbcCreateModel}
 
 /**
  * A profile for accessing SQL databases via JDBC.
@@ -39,14 +36,14 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
   trait LowPriorityImplicits {
-    implicit def queryToAppliedQueryInvoker[U](q: Query[_,U]): UnitQueryInvoker[U] = createUnitQueryInvoker[U](queryCompiler.run(q.toNode).tree)
+    implicit def queryToAppliedQueryInvoker[U](q: Query[_,U]): QueryInvoker[U] = createQueryInvoker[U](queryCompiler.run(q.toNode).tree, ())
     implicit def queryToUpdateInvoker[E, U](q: Query[E, U]): UpdateInvoker[U] = createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
   }
 
   trait Implicits extends LowPriorityImplicits with super.Implicits with ImplicitColumnTypes {
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = createDDLInvoker(d)
     implicit def queryToDeleteInvoker(q: Query[_ <: Table[_], _]): DeleteInvoker = createDeleteInvoker(deleteCompiler.run(q.toNode).tree, ())
-    implicit def runnableCompiledToAppliedQueryInvoker[RU](c: RunnableCompiled[_ <: Query[_, _], Seq[RU]]): MutatingUnitInvoker[RU] = createQueryInvoker[Any, RU](c.compiledQuery)(c.param)
+    implicit def runnableCompiledToAppliedQueryInvoker[RU](c: RunnableCompiled[_ <: Query[_, _], Seq[RU]]): QueryInvoker[RU] = createQueryInvoker[RU](c.compiledQuery, c.param)
     implicit def runnableCompiledToUpdateInvoker[RU](c: RunnableCompiled[_ <: Query[_, _], Seq[RU]]): UpdateInvoker[RU] =
       createUpdateInvoker(c.compiledUpdate, c.param)
     implicit def runnableCompiledToDeleteInvoker[RU](c: RunnableCompiled[_ <: Query[_, _], Seq[RU]]): DeleteInvoker =
@@ -60,7 +57,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   /**
    * Jdbc meta data for all tables
    */
-  def getTables: UnitInvoker[MTable] = MTable.getTables()
+  def getTables: Invoker[MTable] = MTable.getTables
 
   /** Gets the Slick data model describing this data source */
   def createModel(implicit session: Backend#Session): Model = jdbcCreateModel(getTables.list,this)

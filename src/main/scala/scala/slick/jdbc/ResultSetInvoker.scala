@@ -11,11 +11,11 @@ import scala.slick.util.CloseableIterator
  * For convenience, if the function returns null, this is treated like an
  * empty ResultSet.
  */
-abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
+abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
 
   protected def createResultSet(session: JdbcBackend#Session): ResultSet
 
-  def iteratorTo(param: Unit, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = {
+  def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = {
     val rs = createResultSet(session)
     if(rs eq null) CloseableIterator.empty
     else new PositionedResultIterator[R](rs, maxRows) {
@@ -28,7 +28,7 @@ abstract class ResultSetInvoker[+R] extends UnitInvokerMixin[R] { self =>
 }
 
 object ResultSetInvoker {
-  def apply[R](f: JdbcBackend#Session => ResultSet)(implicit conv: PositionedResult => R): UnitInvoker[R] = new ResultSetInvoker[R] {
+  def apply[R](f: JdbcBackend#Session => ResultSet)(implicit conv: PositionedResult => R): Invoker[R] = new ResultSetInvoker[R] {
     def createResultSet(session: JdbcBackend#Session) = f(session)
     def extractValue(pr: PositionedResult) = conv (pr)
   }
