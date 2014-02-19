@@ -146,13 +146,13 @@ trait AccessDriver extends JdbcDriver { driver =>
         b")"
       }
       case Library.IfNull(l, r) => b"iif(isnull($l),$r,$l)"
-      case a @ Library.Cast(ch @ _*) =>
+      case Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName
+          else jdbcTypeFor(c.nodeType).sqlTypeName
         ).toLowerCase match {
           case "integer" => b"cint(${ch(0)})"
           case "long" => b"clng(${ch(0)})"
-          case t if t.startsWith("varchar") && integralTypes.contains(typeInfoFor(ch(0).nodeType).sqlType) =>
+          case t if t.startsWith("varchar") && integralTypes.contains(jdbcTypeFor(ch(0).nodeType).sqlType) =>
             b"format(${ch(0)}, '#############################0')"
           case tn =>
             throw new SlickException(s"""Cannot represent cast to type "$tn" in Access SQL""")

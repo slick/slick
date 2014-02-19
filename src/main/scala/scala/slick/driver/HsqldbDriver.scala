@@ -44,7 +44,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     override protected val concatOperator = Some("||")
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case l @ LiteralNode(v: String) if (v ne null) && typeInfoFor(l.tpe).sqlType != Types.CHAR =>
+      case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.tpe).sqlType != Types.CHAR =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
          * spaces in some expressions, so we cast all string literals to
          * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave

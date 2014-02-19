@@ -55,8 +55,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
   type RowReader = QueryInterpreter.ProductValue
 
   /** The driver-specific representation of types */
-  type TypeInfo = ScalaType[Any]
-  def typeInfoFor(t: Type): TypeInfo = ((t match {
+  def typeInfoFor(t: Type): ScalaType[Any] = ((t match {
     case t: ScalaType[_] => t
     case t: TypedType[_] => t.scalaType
     case o: OptionType => typeInfoFor(o.elementType).asInstanceOf[ScalaBaseType[_]].optionType

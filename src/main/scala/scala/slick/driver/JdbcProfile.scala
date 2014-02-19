@@ -90,8 +90,6 @@ trait JdbcDriver extends SqlDriver
   with JdbcMappingCompilerComponent { driver =>
 
   override val profile: JdbcProfile = this
-
-  def quote[T](v: T)(implicit tm: TypedType[T]): String = typeInfoFor(tm).valueToSQLLiteral(v)
 }
 
 object JdbcDriver extends JdbcDriver

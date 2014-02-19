@@ -3,6 +3,7 @@ package scala.slick.driver
 import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
+import scala.slick.ast.TypeUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
@@ -79,34 +80,33 @@ trait DerbyDriver extends JdbcDriver { driver =>
     override protected val supportsTuples = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case a @ Library.Cast(ch @ _*) =>
+      case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
         val (toVarchar, tn) = {
           val tn =
             (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-            else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName).toLowerCase
+            else jdbcTypeFor(c.nodeType).sqlTypeName).toLowerCase
           if(tn == "varchar") (true, columnTypes.stringJdbcType.sqlTypeName)
           else if(tn.startsWith("varchar")) (true, tn)
           else (false, tn)
         }
-        if(toVarchar && typeInfoFor(ch(0).nodeType).isInstanceOf[NumericTypedType])
+        if(toVarchar && jdbcTypeFor(ch(0).nodeType).isInstanceOf[NumericTypedType])
           b"trim(cast(cast(${ch(0)} as char(30)) as $tn))"
         else b"cast(${ch(0)} as $tn)"
       case Library.IfNull(l, r) =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
-        b"coalesce(cast($l as ${typeInfoFor(c.nodeType).sqlTypeName}),!$r)"
-      case c @ LiteralNode(v) if currentPart == SelectPart =>
+        b"coalesce(cast($l as ${jdbcTypeFor(c.nodeType).sqlTypeName}),!$r)"
+      case (c @ LiteralNode(v)) :@ JdbcType(ti, option) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
          * This should be fixed in Derby 10.6.1.1. The workaround is to add an
          * explicit type annotation (in the form of a CAST expression). */
-        val tmd = typeInfoFor(c.tpe)
-        if(c.volatileHint || !tmd.hasLiteralForm) {
+        if(c.volatileHint || !ti.hasLiteralForm) {
           b"cast("
-          b +?= { (p, param) => tmd.setValue(v, p) }
-          b" as ${tmd.sqlTypeName})"
+          b +?= { (p, param) => if(option) ti.setOption(v.asInstanceOf[Option[Any]], p) else ti.setValue(v, p) }
+          b" as ${ti.sqlTypeName})"
         } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")

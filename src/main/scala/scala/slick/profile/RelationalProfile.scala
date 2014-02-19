@@ -224,7 +224,7 @@ trait RelationalMappingCompilerComponent {
         throw new SlickException("Unexpected node in ResultSetMapping: "+n)
     }
 
-    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter
+    def createColumnConverter(n: Node, path: Node, optionApply: Boolean, column: Option[FieldSymbol]): ResultConverter
   }
 
   /** A node that wraps a ResultConverter */
