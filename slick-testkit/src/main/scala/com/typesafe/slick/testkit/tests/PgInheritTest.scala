@@ -8,7 +8,10 @@ class PgInheritTest extends TestkitTest[JdbcTestDB] {
 
   def testPgInherits {
     if (List("postgres").contains(tdb.confName)) {
-      import PostgresDriver.simple._
+
+      val driver = tdb.driver.asInstanceOf[PostgresDriver]
+
+      import driver.simple._
 
       ///
       abstract class BaseT[T](tag: Tag, tname: String = "test_tab1") extends Table[T](tag, tname) {
@@ -36,15 +39,8 @@ class PgInheritTest extends TestkitTest[JdbcTestDB] {
       }
       val tabs1 = TableQuery[Tabs1]
 
-      // use this way, because I encountered compiler error like below:
-      // ----------------
-      // value dll is not a member of scala.slick.lifted.TableQuery[PgInheritTest.this.Tabs,PgInheritTest.this.Tabs#TableElementType]
-      // ----------------
-      // And I can't find out why
-      val ddl1 = new PostgresDriver.TableDDLBuilder(tabs.baseTableRow).buildDDL
-      val ddl2 = new PostgresDriver.TableDDLBuilder(tabs1.baseTableRow).buildDDL
-
-      (ddl1 ++ ddl2).create
+      ////////////////////////////////////////////////////////////
+      (tabs.ddl ++ tabs1.ddl).create
 
       ///
       tabs ++= Seq(
@@ -80,7 +76,7 @@ class PgInheritTest extends TestkitTest[JdbcTestDB] {
       assertEquals(expected1, q1.list)
 
       // NOTES: reverse order!!!
-      (ddl2 ++ ddl1).drop
+      (tabs.ddl ++ tabs1.ddl).drop
     }
   }
 }
