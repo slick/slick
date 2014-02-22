@@ -310,6 +310,14 @@ object LiftedEmbedding extends App {
     //#insert3
     println((users returning users.map(_.id)).insertStatement)
 
+    //#insert3b
+    val userWithId =
+      (users returning users.map(_.id)
+             into ((user,id) => user.copy(id=Some(id)))
+      ) += User(None, "Stefan", "Zeiger")
+    //#insert3b
+    println(userWithId)
+
     //#insert4
     class Users2(tag: Tag) extends Table[(Int, String)](tag, "users2") {
       def id = column[Int]("id", O.PrimaryKey)
