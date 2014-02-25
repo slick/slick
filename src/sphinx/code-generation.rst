@@ -11,7 +11,8 @@ Overview
 By default, the code generator generates Table classes, corresponding TableQuery values, which
 can be used in a collection-like manner, as well as case classes for holding complete
 rows of values. For Tables with more than 22 columns the generator automatically switches
-to Slick's experimental HList implementation for overcoming Scala's tuple size limit. (If needed use ``HCons`` instead of ``::`` as a type contructor in Scala <= 2.10.3 for now due to performance issues during compilation.)
+to Slick's experimental HList implementation for overcoming Scala's tuple size limit. (In Scala
+<= 2.10.3 use ``HCons`` instead of ``::`` as a type contructor due to performance issues during compilation, which are fixed in 2.10.4 and later.)
 
 The implementation is ready for practical use, but since it is new in
 Slick 2.0 we consider it experimental and reserve the right to remove features
