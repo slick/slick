@@ -190,45 +190,40 @@ object LiftedEmbedding extends App {
   }
 
   db withDynSession {
+    ddl.create
     //#aggregation1
     val q = coffees.map(_.price)
 
-    val q1 = q.min
+    q.min.run
     // compiles to SQL (simplified):
     //   select min(x4."PRICE") from "COFFEES" x4
 
-    val q2 = q.max
+    q.max.run
     // compiles to SQL (simplified):
     //   select max(x4."PRICE") from "COFFEES" x4
 
-    val q3 = q.sum
+    q.sum.run
     // compiles to SQL (simplified):
     //   select sum(x4."PRICE") from "COFFEES" x4
 
-    val q4 = q.avg
+    q.avg.run
     // compiles to SQL (simplified):
     //   select avg(x4."PRICE") from "COFFEES" x4
     //#aggregation1
     println(q.selectStatement)
-    println(q1.shaped.selectStatement)
-    println(q2.shaped.selectStatement)
-    println(q3.shaped.selectStatement)
-    println(q4.shaped.selectStatement)
   }
 
   db withDynSession {
     ddl.create
     //#aggregation2
-    val q1 = coffees.length
+    coffees.length.run
     // compiles to SQL (simplified):
     //   select count(1) from "COFFEES"
 
-    val q2 = coffees.exists
+    coffees.exists.run
     // compiles to SQL (simplified):
     //   select exists(select * from "COFFEES")
     //#aggregation2
-    println(q1.shaped.selectStatement)
-    println(q2.shaped.selectStatement)
 
     {
       //#invoker
