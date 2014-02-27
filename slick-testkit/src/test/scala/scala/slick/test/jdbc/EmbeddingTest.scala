@@ -12,7 +12,7 @@ class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.backend.Database.dynamicSession
 
   @Test def testRaw(): Unit = db withDynSession {
-    import scala.slick.jdbc.{StaticQuery => Q, GetResult}
+    import scala.slick.jdbc.{ StaticQuery => Q, GetResult }
 
     (Q.u + "create table USERS(ID int not null primary key, NAME varchar(255))").execute
     (Q.u + "create table POSTS(ID int not null primary key, NAME varchar(255), UID int not null)").execute
@@ -26,7 +26,7 @@ class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
       (2, "p2u1", 1),
       (3, "p3u1", 1),
       (4, "p4u2", 2)
-    ).foreach((Q.u1[(Int, String, Int)] + "insert into POSTS values (?, ?, ?)").execute)
+    ).foreach((Q.u1[(Int, String, Int)] + "insert into POSTS values (?, ?, ?)").applied(_).executedQuery())
 
     val l1 = (Q(GetResult { r => (r.nextString, r.nextString) }) + """
       select u.NAME, p.NAME
@@ -42,13 +42,15 @@ class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
       ("u3", null)
     ), l1)
 
-    val l2 = (Q(GetResult { r => (r.nextString, r.view1.to[List](GetResult(_.nextString))) }) + """
+    val ql2 = (Q(GetResult { r => (r.nextString, r.view1.to[List](GetResult(_.nextString))) }) + """
       select u.NAME, (u.r0 + p.r0), p.NAME
       from (select *, rownum as r0 from USERS order by NAME) u
         left join (select *, 0 as r0 from POSTS order by NAME) p
         on u.ID = p.UID
       order by u.r0
-    """).list
+    """).executedQuery()
+    val warning: Option[java.sql.SQLWarning] = ql2.warning
+    val l2 = ql2.list
     l2 foreach println
     assertEquals(List(
       ("u1", List("p1u1", "p2u1", "p3u1")),
