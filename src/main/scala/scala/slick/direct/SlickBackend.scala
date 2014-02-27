@@ -10,6 +10,8 @@ import scala.slick.compiler.CompilerState
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
 import scala.reflect.runtime.universe._
+// TODO 2.11 Remove this after dropping 2.10.x support.
+private object HasCompat { val compat = ??? }; import HasCompat._
 import scala.reflect.runtime.{currentMirror=>cm}
 
 /** maps a Scala method to a Slick FunctionSymbol */
@@ -76,6 +78,8 @@ object CustomNodes{
 import CustomNodes._
 
 class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
+  import scala.reflect.runtime.universe.{Scope => _, _}
+  import compat._
   type Session = JdbcDriver#Backend#Session
   import slick.ast.ScalaBaseType
   val columnTypes = {
