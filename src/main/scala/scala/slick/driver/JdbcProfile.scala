@@ -21,8 +21,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
   val compiler = QueryCompiler.relational
-  val Implicit: Implicits = new Implicits {}
   val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
+  lazy val Implicit: Implicits = simple
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
   val columnTypes = new JdbcTypes

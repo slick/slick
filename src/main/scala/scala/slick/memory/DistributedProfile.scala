@@ -15,8 +15,8 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   type Backend = DistributedBackend
   type QueryExecutor[R] = QueryExecutorDef[R]
   val backend: Backend = DistributedBackend
-  val Implicit: Implicits = new Implicits {}
   val simple: SimpleQL = new SimpleQL {}
+  val Implicit: Implicits = simple
 
   lazy val queryCompiler =
     QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen

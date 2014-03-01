@@ -112,13 +112,15 @@ class ConvertToComprehensions extends Phase {
       val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)
       logger.debug("Replacing simple groupBy selection in:", sel)
       val newSel = sel.replace({
-        //case a @ Apply(fs, Seq(b @ Bind(s1, Select(Ref(gen2), ElementSymbol(2)), Pure(ProductOfCommonPaths(s2, rests), _))))
-        case a @ Apply(fs, Seq(b @ Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(ProductOfCommonPaths(s2, rests), _)), None, None)))
-          if (s2 == s1) && (gen2 == gen) =>
-          Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rests.head).nodeTyped(b.nodeType)))(a.nodeType)
-        case a @ Apply(fs, Seq(b @ Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(FwdPath(s2 :: rest), _)), None, None)))
-          if (s2 == s1) && (gen2 == gen) =>
-          Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(FwdPath(gen :: rest).nodeTyped(b.nodeType)))(a.nodeType)
+        case a @ Apply(fs, Seq(b @ Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(pexpr, _)), None, None))) if gen2 == gen =>
+          val newExpr = pexpr match {
+            case ProductOfCommonPaths(s2, rests) if s2 == s1 =>
+              FwdPath(gen :: rests.head).nodeTyped(b.nodeType)
+            case n => n.replace ({
+              case FwdPath(s2 :: rest) if s2 == s1 => FwdPath(gen :: rest)
+            }, keepType = true).nodeTyped(b.nodeType)
+          }
+          Apply(if(fs == Library.CountAll) Library.Count else fs, Seq(newExpr))(a.nodeType)
         case ca @ Library.CountAll(Select(Ref(gen2), ElementSymbol(2))) if gen2 == gen =>
           Library.Count.typed(ca.nodeType, LiteralNode(1))
         case FwdPath(gen2 :: ElementSymbol(idx) :: rest) if gen2 == gen && (idx == 1 || idx == 2) =>
@@ -193,7 +195,7 @@ class FuseComprehensions extends Phase {
         case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
-      liftAggregates(fused).nodeWithComputedType(SymbolScope.empty, false, true)
+      liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)
     case g: GroupBy =>
       throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
     case n => n
@@ -301,6 +303,28 @@ class FuseComprehensions extends Phase {
     else c
   }
 
+  /** Remove constant GROUP BY criteria. Not all databases support them and
+    * they never make sense. We filter all constant columns out of the
+    * grouping criteria. If any non-constant columns are left, they are
+    * kept as the new criteria, otherwise the GROUP BY clause is removed
+    * entirely. Since all column references to non-criteria columns can only
+    * be used with aggregation functions, this automatically turns the
+    * query into an aggregating query. */
+  def fixConstantGrouping(c: Comprehension): Comprehension = {
+    c.groupBy match {
+      case Some(n) =>
+        val newGroupBy = n match {
+          case ProductNode(ch) =>
+            val ch2 = ch.filter(n => !n.isInstanceOf[LiteralNode])
+            if(ch2.isEmpty) None
+            else Some(ProductNode(ch2).nodeWithComputedType())
+          case LiteralNode(_) => None
+        }
+        c.copy(groupBy = newGroupBy)
+      case None => c
+    }
+  }
+
   /** Lift aggregates of sub-queries into the 'from' list or inline them
     * (if they would refer to unreachable symbols when used in 'from'
     * position). */
@@ -343,12 +367,12 @@ class FuseComprehensions extends Phase {
     if(lift.isEmpty) c2
     else {
       val newFrom = lift.map { case (a, f, s, c2) =>
+        val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
         val a2 = new AnonSymbol
         val (c2b, call) = s match {
           case Library.CountAll =>
-            (c2, Library.Count.typed(c2.nodeType.asCollectionType.elementType, LiteralNode(1)))
+            (c3, Library.Count.typed(c3.nodeType.asCollectionType.elementType, LiteralNode(1)))
           case s =>
-            val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
             // All standard aggregate functions operate on a single column
             val Some(Pure(StructNode(Seq((f2, _))), _)) = c3.select
             val elType = c3.nodeType.asCollectionType.elementType

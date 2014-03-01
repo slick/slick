@@ -3,8 +3,13 @@ import Keys._
 import Tests._
 import com.typesafe.sbt.site.SphinxSupport.{Sphinx, sphinxEnv, sphinxProperties}
 import com.typesafe.sbt.SbtSite.site
+import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
+import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
+import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 
 object SlickBuild extends Build {
+
+  val slickVersion = "2.1.0-SNAPSHOT"
 
   /* Custom Settings */
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
@@ -48,11 +53,21 @@ object SlickBuild extends Build {
   }
 
   lazy val sharedSettings = Seq(
-    version := "2.0.0",
+    version := slickVersion,
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
     scalacOptions ++= List("-deprecation", "-feature"),
+    scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile,name).map((v,src,n) => Seq(
+      "-doc-title", n,
+      "-doc-version", v,
+      "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
+      "-sourcepath", src.getPath, // needed for scaladoc to strip the location of the linked source path
+      "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
+      "-implicits",
+      "-diagrams", // requires graphviz
+      "-groups"
+    )),
     libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
@@ -98,24 +113,22 @@ object SlickBuild extends Build {
       testOnly :=  ()
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ extTarget("slick", None) ++ Seq(
+    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
-      scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile).map((v,src) => Seq(
-        "-doc-title", "Slick",
-        "-doc-version", v,
-        "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
-        "-doc-root-content", "scaladoc-root.txt",
-        "-sourcepath", src.getPath, // needed for scaladoc to strip the location of the linked source path
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
-        "-implicits",
-        "-diagrams", // requires graphviz
-        "-groups"
+        "-doc-root-content", "scaladoc-root.txt"
       )),
       (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value + ("version" -> version.value) + ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
       test := (), // suppress test status output
       testOnly :=  (),
+      previousArtifact := Some("com.typesafe.slick" %% "slick" % "2.1.0"),
+      binaryIssueFilters ++= Seq(
+        ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
+        ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
+      ),
       ivyConfigurations += config("macro").hide.extend(Compile),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
@@ -136,7 +149,9 @@ object SlickBuild extends Build {
     settings = Project.defaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
-      scalacOptions in (Compile, doc) <++= (version).map(v => Seq("-doc-title", "Slick TestKit", "-doc-version", v)),
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-testkit/src/main€{FILE_PATH}.scala"
+      )),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++= Seq(

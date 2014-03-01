@@ -108,9 +108,12 @@ final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: 
   override def select(sym: Symbol) = baseType.select(sym)
 }
 
-final case object NoType extends AtomicType
-
+/** The standard type for freshly constructed nodes without an explicit type. */
 final case object UnassignedType extends AtomicType
+
+/** The type of a structural view of a NominalType before computing the
+  * proper type in the `inferTypes` phase. */
+final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType
 
 /* A type with a name, as used by tables.
  *

@@ -352,7 +352,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNo
     val by2 = by.nodeWithComputedType(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
     nodeRebuildOrThis(Vector(from2, by2)).nodeTypedOrCopy(
       if(!nodeHasType || retype)
-        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType, CollectionType(CollectionTypeConstructor.default, from2Type.elementType))))
+        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType.structural, CollectionType(CollectionTypeConstructor.default, from2Type.elementType))))
       else nodeType)
   }
 }
@@ -433,10 +433,7 @@ final case class Bind(generator: Symbol, from: Node, select: Node) extends Binar
   }
 }
 
-/** A table expansion. In phase expandTables, all tables are replaced by
-  * TableExpansions to capture the dual nature of tables as as single entity
-  * and a structure of columns. TableExpansions are removed again in phase
-  * rewritePaths. */
+/** A table together with its expansion into columns. */
 final case class TableExpansion(generator: Symbol, table: Node, columns: Node) extends BinaryNode with DefNode {
   type Self = TableExpansion
   def left = table
@@ -514,7 +511,7 @@ object FwdPath {
 /** A Node representing a database table. */
 final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any) extends NullaryNode with TypedNode {
   type Self = TableNode
-  def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(identity)(NoType))
+  def tpe = CollectionType(CollectionTypeConstructor.default, NominalType(identity)(UnassignedStructuralType(identity)))
   def nodeRebuild = copy()
   override def toString = "Table " + tableName
 }

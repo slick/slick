@@ -56,31 +56,37 @@ package object meta{
           options = Set() ++
             (if(autoInc) Some(AutoInc) else None) ++
             (column.columnDef.filter(_ => !autoInc).flatMap( v =>
-              try{
-                Some((v,tpe) match {
-                  // NOTE: When extending this list, please also extend the code generator accordingly
-                  case (_,"Int") => v.toInt
-                  case (_,"Long") => v.toLong
-                  case (_,"Short") => v.toShort // seen in Derby
-                  case (_,"Float") => v.toFloat
-                  case (_,"Double") => v.toDouble
-                  case (StringValue(str),"String") => str
-                  case ("NULL",_) if nullable => None
-                  //case (_,"String") => v // seen in MySQL // buggy in postgres, found value 'unchecked'::character varying
-                  case ("1","Boolean") => true // seen in MySQL
-                  case ("0","Boolean") => false
-                  case ("true","Boolean") => true // seen in postgres
-                  case ("false","Boolean") => false
-                  case ("TRUE","Boolean") => true // seen in H2
-                  case ("FALSE","Boolean") => false
-                  case ("CURRENT_TIMESTAMP","java.sql.Timestamp") => throw new SlickException(s"Ignoring default value CURRENT_TIMESTAMP of column $tableName.${column.name} of type $tpe")
-                  case _ => throw new SlickException(s"Could not parse default value $v of column $tableName.${column.name} of type $tpe")
-                })
-              } catch {
-                case e: java.lang.NumberFormatException => logger.debug(s"NumberFormatException: Could not parse default value $v of column $tableName.${column.name} as $tpe"); None
-                case e: SlickException => logger.debug(e.getMessage); None
+              if(v=="NULL"){
+                Some(None)
+              } else {
+                val mapped = try{
+                  Some((v,tpe) match {
+                    // NOTE: When extending this list, please also extend the code generator accordingly
+                    case (_,"Int") => v.toInt
+                    case (_,"Long") => v.toLong
+                    case (_,"Short") => v.toShort // seen in Derby
+                    case (_,"Float") => v.toFloat
+                    case (_,"Double") => v.toDouble
+                    case (StringValue(str),"String") => str
+                    //case (_,"String") => v // seen in MySQL // buggy in postgres, found value 'unchecked'::character varying
+                    case ("1","Boolean") => true // seen in MySQL
+                    case ("0","Boolean") => false
+                    case ("true","Boolean") => true // seen in postgres
+                    case ("false","Boolean") => false
+                    case ("TRUE","Boolean") => true // seen in H2
+                    case ("FALSE","Boolean") => false
+                    case ("CURRENT_TIMESTAMP","java.sql.Timestamp") => throw new SlickException(s"Ignoring default value CURRENT_TIMESTAMP of column $tableName.${column.name} of type $tpe")
+                    case _ => throw new SlickException(s"Could not parse default value $v of column $tableName.${column.name} of type $tpe")
+                  })
+                } catch {
+                  case e: java.lang.NumberFormatException => logger.debug(s"NumberFormatException: Could not parse default value $v of column $tableName.${column.name} as $tpe"); None
+                  case e: SlickException => logger.debug(e.getMessage); None
+                }
+                if(nullable)
+                  Some(mapped)
+                else mapped
               }
-             ).map(Default.apply)) ++
+            ).map(Default.apply)) ++
             // Add ColumnOption if single column primary key
             (if(mPrimaryKeys.size == 1) mPrimaryKeys.filter(_.column == column.name).map(_ => PrimaryKey) else Set())
         )

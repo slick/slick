@@ -7,17 +7,19 @@ template.  To learn how to integrate Slick with Play Framework check out the
 `Play Slick with Typesafe IDs <http://typesafe.com/activator/template/play-slick-advanced>`_ template.
 
 To include Slick into an existing project use the library published on Maven Central.  For sbt projects add the 
-following to your ``libraryDependencies``::
+following to your ``libraryDependencies``:
 
-  "com.typesafe.slick" %% "slick" % "2.0.0",
+.. parsed-literal::
+  "com.typesafe.slick" %% "slick" % "|release|",
   "org.slf4j" % "slf4j-nop" % "1.6.4"
 
-For Maven projects add the following to your ``<dependencies>``::
+For Maven projects add the following to your ``<dependencies>``:
 
+.. parsed-literal::
   <dependency>
     <groupId>com.typesafe.slick</groupId>
     <artifactId>slick_2.10</artifactId>
-    <version>1.0.1</version>
+    <version>\ |release|\ </version>
   </dependency>
   <dependency>
     <groupId>org.slf4j</groupId>

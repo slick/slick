@@ -164,15 +164,9 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
 
 /** Base class for ProductNodeShapes with a type mapping */
 abstract class MappedProductShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] extends ProductNodeShape[Level, C, M, U, P] {
-  lazy val unary = shapes.length == 1
   override def toNode(value: Mixed) = TypeMapping(super.toNode(value), toBase, toMapped)
-  def toBase(v: Any) = {
-    val it = getIterator(v.asInstanceOf[C])
-    if(unary) it.next() else new ProductWrapper(it.toIndexedSeq)
-  }
-  def toMapped(v: Any) = buildValue(
-    if(unary) Vector(v) else TupleSupport.buildIndexedSeq(v.asInstanceOf[Product])
-  )
+  def toBase(v: Any) = new ProductWrapper(getIterator(v.asInstanceOf[C]).toIndexedSeq)
+  def toMapped(v: Any) = buildValue(TupleSupport.buildIndexedSeq(v.asInstanceOf[Product]))
 }
 
 /** Base class for ProductNodeShapes with a type mapping to a type that extends scala.Product */

@@ -19,37 +19,35 @@ trait InsertCompiler extends Phase {
     val tref = Ref(gen)
     val rref = Ref(rgen)
 
-    var table: TableNode = null
+    var tableExpansion: TableExpansion = null
     var expansionRef: Symbol = null
     val cols = new ArrayBuffer[Select]
     def setTable(te: TableExpansion) {
-      val t = te.table.asInstanceOf[TableNode]
-      if(table eq null) {
-        table = t
+      if(tableExpansion eq null) {
+        tableExpansion = te
         expansionRef = te.generator
       }
-      else if(table ne t) throw new SlickException("Cannot insert into more than one table at once")
+      else if(tableExpansion.table ne te.table) throw new SlickException("Cannot insert into more than one table at once")
     }
 
     def tr(n: Node): Node = n match {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildren(tr, keepType = true)
       case te @ TableExpansion(_, _, expansion) =>
         setTable(te)
-        tr(expansion match {
-          case ProductNode(Seq(ch)) => ch
-          case n => n
-        })
+        tr(expansion)
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
         cols += Select(tref, fs).nodeTyped(sel.nodeType)
         InsertColumn(Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType), fs).nodeTyped(sel.nodeType)
+      case Ref(s) if s == expansionRef =>
+        tr(tableExpansion.columns)
       case Bind(gen, te @ TableExpansion(_, t: TableNode, _), Pure(sel, _)) =>
         setTable(te)
         tr(sel.replace({ case Ref(s) if s == gen => Ref(expansionRef) }, keepType = true))
       case _ => throw new SlickException("Cannot use node "+n+" for inserting data")
     }
     val tree2 = tr(tree)
-    if(table eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(gen, table, tree2, ProductNode(cols)).nodeWithComputedType(SymbolScope.empty, typeChildren = false, retype = true)
+    if(tableExpansion eq null) throw new SlickException("No table to insert into")
+    val ins = Insert(gen, tableExpansion.table, tree2, ProductNode(cols)).nodeWithComputedType(SymbolScope.empty, typeChildren = false, retype = true)
     logger.debug("Insert node:", ins)
 
     ResultSetMapping(rgen, ins, createMapping(ins)).nodeTyped(

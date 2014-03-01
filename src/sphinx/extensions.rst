@@ -10,9 +10,9 @@ of the `Typesafe Subscription Agreement`_ (PDF).
 
 If you are using sbt_, you can add *slick-extensions* and the Typesafe
 repository (which contains the required artifacts) to your build definition
-like this::
+like this:
 
-  // Use the right Slick version here:
-  libraryDependencies += "com.typesafe.slick" %% "slick-extensions" % "2.0.0"
+.. parsed-literal::
+  libraryDependencies += "com.typesafe.slick" %% "slick-extensions" % "|release|"
 
   resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/maven-releases/"

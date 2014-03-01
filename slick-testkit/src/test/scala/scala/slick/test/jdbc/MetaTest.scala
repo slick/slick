@@ -89,12 +89,6 @@ class MetaTest(val tdb: JdbcTestDB) extends DBTest {
         for(t <- MClientInfoProperty.getClientInfoProperties) println("  "+t)
       }
 
-      println("Generated code:")
-      val out = new PrintWriter(System.out)
-      for(t <- MTable.getTables(None, None, None, None).list if Set("users", "orders") contains t.name.name)
-        CodeGen.output(t, out)
-      out.flush
-
       assertTrue("Tables before deleting",
         Set("orders", "users") subsetOf MTable.getTables(None, None, None, None).list.map(_.name.name).toSet)
       for(t <- tdb.getLocalTables.sorted) {

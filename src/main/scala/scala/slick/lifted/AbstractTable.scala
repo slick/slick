@@ -40,7 +40,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   override def toNode = tableTag match {
     case _: BaseTag =>
       val sym = new AnonSymbol
-      TableExpansion(sym, tableNode, ProductNode(Vector(tableTag.taggedAs(List(sym)).*.toNode)).flatten)
+      TableExpansion(sym, tableNode, tableTag.taggedAs(List(sym)).*.toNode)
     case t: RefTag => Path(t.path)
   }
 

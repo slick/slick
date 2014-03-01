@@ -2,10 +2,20 @@ package com.typesafe.slick.docs
 
 import scala.slick.driver.H2Driver.simple._
 
+//#caseclassextends
+case class Supplier(id: Int, name: String, street: String)
+
+object Supplier // overriding the default companion object
+  extends ((Int, String, String) => Supplier) { // manually extending the correct function type
+  //...
+}
+//#caseclassextends
+
 class MigrationGuide {
 
   val myDB: Database = null
   implicit val session: Session = null
+
 
   {
     //#tabledef
@@ -45,12 +55,26 @@ class MigrationGuide {
   }
 
   {
-    class Suppliers(tag: Tag) extends Table[Nothing](tag, "") {
-      def * = ???
+    class Suppliers(tag: Tag) extends Table[Supplier](tag, "SUPPLIERS") {
+      def id = column[Int]("SUP_ID", O.PrimaryKey, O.AutoInc)
+      def name = column[String]("SUP_NAME")
+      def street = column[String]("STREET")
+      //#mappedprojection2
+      def * = (id, name, street) <> ((Supplier.apply _).tupled, Supplier.unapply)
+      //#mappedprojection2
+    }
+    Supplier.apply _
+  }
+
+  {
+    class Suppliers(tag: Tag) extends Table[Int](tag, "") {
+      def id = column[Int]("ID")
+      def * = id
     }
     //#tablequery
     object suppliers extends TableQuery(new Suppliers(_)) {
-      // put extra methods here
+      // put extra methods here, e.g.:
+      val findByID = this.findBy(_.id)
     }
     //#tablequery
   }
