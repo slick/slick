@@ -7,13 +7,13 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.UnitInvoker
-import scala.slick.lifted.Tag
+import scala.slick.lifted.{PrimaryKey, Tag}
 
 /**
  * Slick driver for PostgreSQL.
  *
  * This driver implements all capabilities of the
- * [[scala.slick.driver.ExtendedProfile]].
+ * [[scala.slick.driver.JdbcProfile]].
  *
  * Notes:
  *
@@ -72,12 +72,23 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected val columns: Iterable[ColumnDDLBuilder] = {
-      (if (table.isInstanceOf[InheritingTable]) {
-        val hColumns = table.asInstanceOf[InheritingTable].inherited.create_*.toSeq
-        table.create_*.filterNot(hColumns.contains(_))
+      (if(table.isInstanceOf[InheritingTable]) {
+        val hColumns = table.asInstanceOf[InheritingTable].inherited.create_*.toSeq.map(_.name.toLowerCase)
+        table.create_*.filterNot(s => hColumns.contains(s.name.toLowerCase))
       } else table.create_*)
         .map(fs => createColumnDDLBuilder(fs, table))
     }
+    override protected val primaryKeys: Iterable[PrimaryKey] = {
+      if(table.isInstanceOf[InheritingTable]) {
+        val hTable = table.asInstanceOf[InheritingTable].inherited
+        val hPrimaryKeys = hTable.primaryKeys.map(pk => PrimaryKey(table.tableName + "_" + pk.name, pk.columns))
+        hTable.create_*.find(_.options.contains(ColumnOption.PrimaryKey))
+          .map(s => PrimaryKey(table.tableName + "_PK", IndexedSeq(Select(Ref(IntrinsicSymbol(tableNode)), s))))
+          .map(Iterable(_) ++ hPrimaryKeys ++ table.primaryKeys)
+          .getOrElse(hPrimaryKeys ++ table.primaryKeys)
+      } else table.primaryKeys
+    }
+
     override def createPhase1 = super.createPhase1 ++ columns.flatMap {
       case cb: ColumnDDLBuilder => cb.createLobTrigger(table.tableName)
     }
@@ -88,6 +99,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
       if(dropLobs.isEmpty) super.dropPhase1
       else Seq("delete from "+quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
     }
+
     override protected def createTable: String = {
       if(table.isInstanceOf[InheritingTable]) {
         val hTable = table.asInstanceOf[InheritingTable].inherited

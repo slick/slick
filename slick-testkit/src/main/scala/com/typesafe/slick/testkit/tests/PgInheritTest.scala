@@ -18,7 +18,7 @@ class PgInheritTest extends TestkitTest[JdbcTestDB] {
         def col1 = column[String]("COL1")
         def col2 = column[String]("COL2")
         def col3 = column[String]("COL3")
-        def col4 = column[Int]("COL4")
+        def col4 = column[Int]("COL4", O.PrimaryKey)
       }
 
       case class Tab(col1: String, col2: String, col3: String, col4: Int)
@@ -75,8 +75,16 @@ class PgInheritTest extends TestkitTest[JdbcTestDB] {
       println(s"q1 = ${q1.selectStatement}")
       assertEquals(expected1, q1.list)
 
+      //
+      tabs1.filter(_.col4 === 5.bind).mutate { m =>
+        m.row = m.row.copy(col3 = "bat1")
+      }
+      val q2 = tabs1.filter(_.col4 === 5.bind)
+      val expect2 = Tab1("plus", "bar",  "bat1", 5, 101)
+      assertEquals(expect2, q2.first())
+
       // NOTES: reverse order!!!
-      (tabs.ddl ++ tabs1.ddl).drop
+      (tabs1.ddl ++ tabs.ddl).drop
     }
   }
 }
