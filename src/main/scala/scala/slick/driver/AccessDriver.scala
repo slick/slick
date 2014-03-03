@@ -14,7 +14,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
 /**
  * Slick driver for Microsoft Access via JdbcOdbcDriver.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * This driver implements the [[scala.slick.driver.JdbcProfile]]
  * ''without'' the following capabilities:
  *
  * <ul>
