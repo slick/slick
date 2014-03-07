@@ -1,6 +1,6 @@
 package scala.slick.driver
 
-import scala.language.higherKinds
+import scala.language.{higherKinds, existentials}
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{Insert, CompiledStatement, ResultSetMapping, Node}
@@ -8,6 +8,7 @@ import scala.slick.lifted.{FlatShapeLevel, Query, Shape}
 import scala.slick.jdbc._
 import scala.slick.util.SQLBuilder
 import scala.slick.profile.BasicInvokerComponent
+import scala.slick.relational.{ResultConverter, CompiledMapping}
 
 trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
@@ -37,12 +38,13 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
-      CompiledMapping(converter, _)) = tree
+      CompiledMapping(_converter, _)) = tree
+    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, R]]
 
     protected def getStatement = sres.sql
     protected def setParam(st: PreparedStatement): Unit = sres.setter(new PositionedParameters(st), param)
-    protected def extractValue(pr: PositionedResult): R = converter.read(pr).asInstanceOf[R]
-    protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr)
+    protected def extractValue(pr: PositionedResult): R = converter.readGeneric(pr)
+    protected def updateRowValues(pr: PositionedResult, value: R) = converter.updateGeneric(value, pr)
     def invoker: this.type = this
   }
 
@@ -75,7 +77,8 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   /** Pseudo-invoker for running INSERT calls. */
   abstract class BaseInsertInvoker[U](tree: Node) extends InsertInvokerDef[U] {
 
-    protected[this] val ResultSetMapping(_, insertNode: Insert, CompiledMapping(converter, _)) = tree
+    protected[this] val ResultSetMapping(_, insertNode: Insert, CompiledMapping(_converter, _)) = tree
+    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, U]]
     protected[this] lazy val builder = createInsertBuilder(insertNode)
 
     protected def retOne(st: Statement, value: U, updateCount: Int): SingleInsertResult
@@ -105,7 +108,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def internalInsert(forced: Boolean, value: U)(implicit session: Backend#Session): SingleInsertResult =
       prepared(if(forced) forceInsertStatement else insertStatement) { st =>
         st.clearParameters()
-        converter.set(value, new PositionedParameters(st), forced)
+        converter.setGeneric(value, new PositionedParameters(st), forced)
         val count = st.executeUpdate()
         retOne(st, value, count)
       }
@@ -133,7 +136,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
         prepared(if(forced) forceInsertStatement else insertStatement) { st =>
           st.clearParameters()
           for(value <- values) {
-            converter.set(value, new PositionedParameters(st), forced)
+            converter.setGeneric(value, new PositionedParameters(st), forced)
             st.addBatch()
           }
           val counts = st.executeBatch()
@@ -199,7 +202,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     extends BaseInsertInvoker[U](tree) {
 
     protected def buildKeysResult(st: Statement): Invoker[RU] =
-      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr).asInstanceOf[RU])
+      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => keyConverter.readGeneric(pr).asInstanceOf[RU])
 
     // Returning keys from batch inserts is generally not supported
     override def useBatchUpdates(implicit session: Backend#Session) = false
@@ -266,7 +269,8 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   class UpdateInvoker[T](protected val tree: Node, param: Any) {
     protected[this] val ResultSetMapping(_,
       CompiledStatement(_, sres: SQLBuilder.Result, _),
-      CompiledMapping(converter, _)) = tree
+      CompiledMapping(_converter, _)) = tree
+    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
 
     def updateStatement = getStatement
 
@@ -275,7 +279,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     def update(value: T)(implicit session: Backend#Session): Int = session.withPreparedStatement(updateStatement) { st =>
       st.clearParameters
       val pp = new PositionedParameters(st)
-      converter.set(value, pp, true)
+      converter.setGeneric(value, pp, true)
       sres.setter(pp, param)
       st.executeUpdate
     }

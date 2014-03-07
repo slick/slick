@@ -8,7 +8,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.Invoker
+import scala.slick.jdbc.{Invoker, JdbcType}
 
 /** Slick driver for Derby/JavaDB.
   *

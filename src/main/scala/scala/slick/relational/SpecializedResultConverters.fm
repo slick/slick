@@ -1,0 +1,16 @@
+package scala.slick.relational
+
+<#assign specTypes = ["Byte", "Short", "Int", "Long", "Char", "Float", "Double", "Boolean", "AnyRef"]>
+<#list specTypes as tpe>
+/** A specialized ResultConverter for handling unboxed primitive values of type `${tpe}` */
+abstract class ResultConverter_${tpe}[M <: ResultConverterDomain] extends ResultConverter[M, ${tpe}] {
+  final def readGeneric(pr: M#Reader): ${tpe} = read(pr)
+  final def updateGeneric(value: ${tpe}, pr: M#Updater): Unit = update(value, pr)
+  final def setGeneric(value: ${tpe}, pp: M#Writer, forced: Boolean): Unit = set(value, pp, forced)
+
+  def read(pr: M#Reader): ${tpe}
+  def update(value: ${tpe}, pr: M#Updater): Unit
+  def set(value: ${tpe}, pp: M#Writer, forced: Boolean): Unit
+}
+
+</#list>

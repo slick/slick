@@ -146,17 +146,19 @@ object TypedCollectionTypeConstructor {
   }
 }
 
-final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: Any => Any, val classTag: ClassTag[_]) extends Type {
-  def toBase(v: Any): Any = _toBase(v)
-  def toMapped(v: Any): Any = _toMapped(v)
+final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapper, val classTag: ClassTag[_]) extends Type {
   override def toString = s"Mapped[$baseType]"
   def mapChildren(f: Type => Type): MappedScalaType = {
     val e2 = f(baseType)
     if(e2 eq baseType) this
-    else new MappedScalaType(e2, _toBase, _toMapped, classTag)
+    else new MappedScalaType(e2, mapper, classTag)
   }
   def children: Seq[Type] = Seq(baseType)
   override def select(sym: Symbol) = baseType.select(sym)
+}
+
+object MappedScalaType {
+  case class Mapper(toBase: Any => Any, toMapped: Any => Any, fastPath: Option[PartialFunction[Any, Any]])
 }
 
 /** The standard type for freshly constructed nodes without an explicit type. */

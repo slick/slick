@@ -9,7 +9,7 @@ import scala.sys.BooleanProp
  * Create a readable printout of an AST
  */
 object Dump {
-  private[ast] val (normal, green, yellow, blue) = {
+  private[slick] val (normal, green, yellow, blue) = {
     if(BooleanProp.valueIsTrue("scala.slick.ansiDump")) ("\u001B[0m", "\u001B[32m", "\u001B[33m", "\u001B[34m")
     else ("", "", "", "")
   }

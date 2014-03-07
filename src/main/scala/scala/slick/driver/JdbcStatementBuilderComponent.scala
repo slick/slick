@@ -12,6 +12,8 @@ import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
 import scala.slick.profile.RelationalProfile
+import scala.slick.relational.{ResultConverter, CompiledMapping}
+import scala.slick.jdbc.JdbcResultConverterDomain
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
@@ -458,7 +460,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($qAllColumns) ${sbr.sql}", sbr.setter)
     }
 
-    def buildReturnColumns(node: Node, table: String): (IndexedSeq[String], ResultConverter) = {
+    def buildReturnColumns(node: Node, table: String): (IndexedSeq[String], ResultConverter[JdbcResultConverterDomain, _]) = {
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, Insert(_, ktable: TableNode, _, ProductNode(kpaths)), CompiledMapping(rconv, _)) =
@@ -469,7 +471,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       val kfields = kpaths.map { case Select(_, fs: FieldSymbol) => fs }.toIndexedSeq
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && (kfields.size > 1 || !kfields.head.options.contains(ColumnOption.AutoInc)))
         throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
-      (kfields.map(_.name), rconv)
+      (kfields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]])
     }
   }
 

@@ -48,6 +48,8 @@ sealed abstract class PositionedResult(val rs: ResultSet) extends Closeable { ou
   final def nextTime()       = { val npos = pos + 1; val r = rs getTime       npos; pos = npos; r }
   final def nextTimestamp()  = { val npos = pos + 1; val r = rs getTimestamp  npos; pos = npos; r }
 
+  final def wasNull() = rs.wasNull
+
   final def nextBooleanOption()    = { val npos = pos + 1; val r = rs getBoolean    npos; val rr = (if(rs.wasNull) None else Some(r)); pos = npos; rr }
   final def nextBigDecimalOption() = { val npos = pos + 1; val r = rs getBigDecimal npos; val rr = (if(rs.wasNull) None else Some(BigDecimal(r))); pos = npos; rr }
   final def nextBlobOption()       = { val npos = pos + 1; val r = rs getBlob       npos; val rr = (if(rs.wasNull) None else Some(r)); pos = npos; rr }

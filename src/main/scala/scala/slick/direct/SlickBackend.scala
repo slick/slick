@@ -213,14 +213,17 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     val tableRef = new sq.AnonSymbol
     val tableExp = sq.TableExpansion(tableRef, table, sq.TypeMapping(
       sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, sq.Ref(tableRef)) )),
-      v => throw new Exception("not implemented yet"),
-      v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
-        .reflectConstructor(
-        typetag.tpe.member( nme.CONSTRUCTOR ).asMethod
-      )( (v match {
-        case v:Vector[_] => v
-        case v:Product => v.productIterator.toVector
-      }):_* ),
+      sq.MappedScalaType.Mapper(
+        v => throw new Exception("not implemented yet"),
+        v => cm.reflectClass( cm.classSymbol(cm.runtimeClass(typetag.tpe)) )
+          .reflectConstructor(
+          typetag.tpe.member( nme.CONSTRUCTOR ).asMethod
+        )( (v match {
+          case v:Vector[_] => v
+          case v:Product => v.productIterator.toVector
+        }):_* ),
+        None
+      ),
       ClassTag(typetag.mirror.runtimeClass(typetag.tpe))
     ))
     new Query( tableExp, Scope() )

@@ -1,8 +1,9 @@
 package scala.slick.profile
 
-import scala.language.{implicitConversions, higherKinds}
+import scala.language.{implicitConversions, higherKinds, existentials}
 import scala.slick.ast._
 import scala.slick.lifted._
+import scala.slick.relational._
 import scala.slick.util.{TupleMethods, TupleSupport}
 import FunctionSymbolExtensionMethods._
 import scala.slick.SlickException
@@ -204,75 +205,5 @@ trait RelationalTypesComponent { driver: BasicDriver =>
     implicit def longColumnType: BaseColumnType[Long] with NumericTypedType
     implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
-  }
-}
-
-/** This optional driver component provides a way to compose client-side
-  * accessors for parameters and result sets. */
-trait RelationalMappingCompilerComponent {
-  /* TODO: PositionedResult isn't the right interface -- it assumes that
-   * all columns will be read and updated in order. We should not limit it in
-   * this way. */
-  type RowReader
-  type RowWriter
-  type RowUpdater
-
-  /** Create a CompiledMapping for parameters and result sets. Subclasses have
-    * to provide profile-specific createColumnConverter implementations. */
-  trait MappingCompiler {
-
-    def compileMapping(n: Node): ResultConverter = n match {
-      case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, false, Some(fs))
-      case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, true, Some(fs))
-      case p @ Path(_) => createColumnConverter(n, p, false, None)
-      case OptionApply(p @ Path(_)) => createColumnConverter(n, p, true, None)
-      case ProductNode(ch) =>
-        new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
-      case GetOrElse(ch, default) =>
-        new GetOrElseResultConverter(compileMapping(ch), default)
-      case TypeMapping(ch, toBase, toMapped, _) =>
-        new TypeMappingResultConverter(compileMapping(ch), toBase, toMapped)
-      case n =>
-        throw new SlickException("Unexpected node in ResultSetMapping: "+n)
-    }
-
-    def createColumnConverter(n: Node, path: Node, optionApply: Boolean, column: Option[FieldSymbol]): ResultConverter
-  }
-
-  /** A node that wraps a ResultConverter */
-  final case class CompiledMapping(converter: ResultConverter, tpe: Type) extends NullaryNode with TypedNode {
-    type Self = CompiledMapping
-    def nodeRebuild = copy()
-    override def toString = "CompiledMapping"
-  }
-
-  trait ResultConverter {
-    def read(pr: RowReader): Any
-    def update(value: Any, pr: RowUpdater): Unit
-    def set(value: Any, pp: RowWriter, forced: Boolean): Unit
-  }
-
-  final class ProductResultConverter(children: IndexedSeq[ResultConverter]) extends ResultConverter {
-    def read(pr: RowReader) = TupleSupport.buildTuple(children.map(_.read(pr)))
-    def update(value: Any, pr: RowUpdater) =
-      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
-        ch.update(v, pr)
-      }
-    def set(value: Any, pp: RowWriter, forced: Boolean) =
-      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
-        ch.set(v, pp, forced)
-      }
-  }
-
-  final class GetOrElseResultConverter(child: ResultConverter, default: () => Any) extends ResultConverter {
-    def read(pr: RowReader) = child.read(pr).asInstanceOf[Option[Any]].getOrElse(default())
-    def update(value: Any, pr: RowUpdater) = child.update(Some(value), pr)
-    def set(value: Any, pp: RowWriter, forced: Boolean) = child.set(Some(value), pp, forced)
-  }
-
-  final class TypeMappingResultConverter(child: ResultConverter, toBase: Any => Any, toMapped: Any => Any) extends ResultConverter {
-    def read(pr: RowReader) = toMapped(child.read(pr))
-    def update(value: Any, pr: RowUpdater) = child.update(toBase(value), pr)
-    def set(value: Any, pp: RowWriter, forced: Boolean) = child.set(toBase(value), pp, forced)
   }
 }

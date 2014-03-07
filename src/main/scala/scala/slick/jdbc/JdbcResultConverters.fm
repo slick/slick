@@ -1,0 +1,119 @@
+package scala.slick.jdbc
+
+import scala.language.existentials
+import scala.slick.relational._
+import scala.slick.SlickException
+import scala.slick.ast.{Dump, ScalaBaseType}
+
+<#assign specTypes = ["Byte", "Short", "Int", "Long", "Char", "Float", "Double", "Boolean", "AnyRef"]>
+
+<#list specTypes as tpe>
+/** JDBC ResultConverter for handling unboxed primitive values of type `${tpe}` */
+class BaseResultConverter_${tpe}(val ti: JdbcType[${tpe}], autoInc: Boolean, name: String) extends ResultConverter_${tpe}[JdbcResultConverterDomain] {
+  def read(pr: PositionedResult) = {
+    val v = ti.nextValue(pr)
+    if(<#if tpe = "AnyRef">v eq null<#else>ti.wasNull(pr)</#if>)
+      throw new SlickException("Read NULL value ("+v+") for ResultSet column "+name)
+    v
+  }
+  def update(value: ${tpe}, pr: PositionedResult) = ti.updateValue(value, pr)
+  def set(value: ${tpe}, pp: PositionedParameters, forced: Boolean) =
+    if(forced || !autoInc) ti.setValue(value, pp)
+  override def info = super.info + "(" + Dump.blue + ti + Dump.normal + s", autoInc=$autoInc, name=$name)"
+}
+</#list>
+object BaseResultConverter {
+  /** Create a new type-specialized `BaseResultConverter` for the given type-specialized `JdbcType` */
+  def apply[T](ti: JdbcType[T], autoInc: Boolean, name: String) = (ti.scalaType match {
+    <#list specTypes as tpe>
+    case <#if tpe = "AnyRef">_<#else>ScalaBaseType.${tpe?lower_case}Type</#if> => new BaseResultConverter_${tpe}(ti.asInstanceOf[JdbcType[${tpe}]], autoInc, name)
+    </#list>
+  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+}
+
+<#list specTypes as tpe>
+/** JDBC ResultConverter for handling values of type `Option[${tpe}]`.
+  * Boxing is avoided when the result is `None`. */
+class OptionResultConverter_${tpe}(val ti: JdbcType[${tpe}], val autoInc: Boolean) extends ResultConverter[JdbcResultConverterDomain, Option[${tpe}]] {
+  def readGeneric(pr: PositionedResult) = {
+    val v = ti.nextValue(pr)
+    if(<#if tpe = "AnyRef">v eq null<#else>ti.wasNull(pr)</#if>) None else Some(v)
+  }
+  def updateGeneric(value: Option[${tpe}], pr: PositionedResult) = value match {
+    case Some(v) => ti.updateValue(v, pr)
+    case _ => ti.updateNull(pr)
+  }
+  def setGeneric(value: Option[${tpe}], pp: PositionedParameters, forced: Boolean) =
+    if(forced || !autoInc) value match {
+      case Some(v) => ti.setValue(v, pp)
+      case _ => ti.setNull(pp)
+    }
+  override def info = super.info + "(" + Dump.blue + ti + Dump.normal + s", autoInc=$autoInc)"
+}
+</#list>
+object OptionResultConverter {
+  /** Create a new type-specialized `OptionResultConverter` for the given type-specialized `JdbcType` */
+  def apply[T](ti: JdbcType[T], autoInc: Boolean) = (ti.scalaType match {
+    <#list specTypes as tpe>
+    case <#if tpe = "AnyRef">_<#else>ScalaBaseType.${tpe?lower_case}Type</#if> => new OptionResultConverter_${tpe}(ti.asInstanceOf[JdbcType[${tpe}]], autoInc)
+    </#list>
+  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
+}
+
+<#list specTypes as tpe>
+/** JDBC ResultConverter for handling unboxed primitive values of type `${tpe}`.
+  * A (possibly specialized) function for the default value is used to translate SQL `NULL` values. */
+class DefaultingResultConverter_${tpe}(val ti: JdbcType[${tpe}], autoInc: Boolean, default: () => ${tpe}) extends ResultConverter_${tpe}[JdbcResultConverterDomain] {
+  def read(pr: PositionedResult) = {
+    val v = ti.nextValue(pr)
+    if(<#if tpe = "AnyRef">v eq null<#else>ti.wasNull(pr)</#if>) default() else v
+  }
+  def update(value: ${tpe}, pr: PositionedResult) = ti.updateValue(value, pr)
+  def set(value: ${tpe}, pp: PositionedParameters, forced: Boolean) =
+    if(forced || !autoInc) ti.setValue(value, pp)
+  override def info =
+    super.info + "(" + Dump.blue + ti + Dump.normal + ", autoInc=" + autoInc+ ", default=" +
+    { try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } } + ")"
+}
+</#list>
+object DefaultingResultConverter {
+  /** Create a new type-specialized `DefaultingResultConverter` for the given type-specialized `JdbcType` */
+  def apply[T](ti: JdbcType[T], autoInc: Boolean, default: () => T) = (ti.scalaType match {
+    <#list specTypes as tpe>
+    case <#if tpe = "AnyRef">_<#else>ScalaBaseType.${tpe?lower_case}Type</#if> => new DefaultingResultConverter_${tpe}(ti.asInstanceOf[JdbcType[${tpe}]], autoInc, default.asInstanceOf[() => ${tpe}])
+    </#list>
+  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+
+  /** Create a new type-specialized `DefaultingResultConverter` or an unspecialized
+    * GetOrElseResultConverter for a given Option-valued ResultConverter. */
+  def apply[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]], default: () => T) = (rc match {
+    <#list specTypes as tpe>
+    case rc: OptionResultConverter_${tpe} => new DefaultingResultConverter_${tpe}(rc.ti, rc.autoInc, default.asInstanceOf[() => ${tpe}])
+    </#list>
+    case _ => new GetOrElseResultConverter[JdbcResultConverterDomain, T](rc, default)
+  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+}
+
+/** A `ResultConverter` that simplifies the implementation of fast path
+  * converters for `JdbcProfile`. It always wraps a `TypeMappingResultConverter`
+  * on top of a `ProductResultConverter`, allowing direct access to the product
+  * elements. */
+abstract class JdbcFastPath[T](protected[this] val rc: TypeMappingResultConverter[JdbcResultConverterDomain, T, _]) extends ResultConverter[JdbcResultConverterDomain, T] {
+  private[this] val ch = rc.child.asInstanceOf[ProductResultConverter[JdbcResultConverterDomain, _]].elementConverters
+  private[this] var idx = -1
+  private[this] def nextRC: ResultConverter[JdbcResultConverterDomain, _] = { idx += 1; ch(idx) }
+
+  <#list specTypes as tpe><#if tpe != "AnyRef">
+  /** Return the next specialized child `ResultConverter` for type `${tpe}`. */
+  protected[this] def next${tpe} = nextRC.asInstanceOf[ResultConverter_${tpe}[JdbcResultConverterDomain]]
+  </#if></#list>
+  /** Return the next generic child `ResultConverter` for an `AnyRef` subtype. */
+  protected[this] def next[C <: AnyRef] = nextRC.asInstanceOf[ResultConverter[JdbcResultConverterDomain, C]]
+
+  def readGeneric(pr: Reader) = rc.readGeneric(pr)
+  def updateGeneric(value: T, pr: Updater) = rc.updateGeneric(value, pr)
+  def setGeneric(value: T, pp: Writer, forced: Boolean) = rc.setGeneric(value, pp, forced)
+
+  override def children = Iterator(rc)
+  override def info = super.info + Dump.yellow + " [FastPath]" + Dump.normal
+}

@@ -4,6 +4,7 @@ import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
+import scala.slick.jdbc.JdbcType
 
 /** Slick driver for H2.
   *

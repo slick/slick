@@ -7,7 +7,7 @@ import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.Invoker
+import scala.slick.jdbc.{Invoker, JdbcType}
 
 /** Slick driver for PostgreSQL.
   *
@@ -103,16 +103,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
     class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
       override val sqlTypeName = "BYTEA"
-      override def setOption(v: Option[Array[Byte]], p: PositionedParameters) = v match {
-        case Some(a) => p.setBytes(a)
-        case None => p.setNull(sqlType)
-      }
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlTypeName = "UUID"
       override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
-      override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
       override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
       override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"

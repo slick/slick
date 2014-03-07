@@ -4,7 +4,7 @@ import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast.BaseTypedType
 import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker}
+import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker, JdbcType, JdbcFastPath}
 import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.model.Model
@@ -16,7 +16,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
-  val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
+  val simple: SimpleQL = new SimpleQL {}
   lazy val Implicit: Implicits = simple
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
@@ -48,10 +48,15 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
       createUpdateInvoker(c.compiledUpdate, c.param)
     implicit def runnableCompiledToDeleteInvoker[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteInvoker =
       createDeleteInvoker(c.compiledDelete, c.param)
+    implicit def jdbcFastPathExtensionMethods[T, P](mp: MappedProjection[T, P]) = new JdbcFastPathExtensionMethods[T, P](mp)
 
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T, C[_]](q: Query[_ <: ColumnBase[T], T, C]): UpdateInvoker[T] =
       createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
+  }
+
+  trait SimpleQL extends super.SimpleQL with Implicits {
+    type FastPath[T] = JdbcFastPath[T]
   }
 
   /** Jdbc meta data for all tables */

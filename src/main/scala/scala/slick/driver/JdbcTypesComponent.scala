@@ -4,55 +4,11 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp}
 import java.util.UUID
 import scala.slick.SlickException
 import scala.slick.ast._
-import scala.slick.jdbc.{PositionedParameters, PositionedResult}
+import scala.slick.jdbc.{PositionedParameters, PositionedResult, JdbcType}
 import scala.slick.profile.RelationalTypesComponent
 import scala.reflect.ClassTag
 
 trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =>
-
-  /** A JdbcType object represents a Scala type that can be
-    * used as a column type in the database. Implicit JdbcTypes
-    * for the standard types of a profile are provided by the drivers. */
-  trait JdbcType[T] extends TypedType[T] { self =>
-    /** The constant from java.sql.Types that is used for setting parameters
-      * of the type to NULL. */
-    def sqlType: Int
-    /** The default name for the SQL type that is used for column declarations. */
-    def sqlTypeName: String
-    /** Set a parameter of the type. */
-    def setValue(v: T, p: PositionedParameters): Unit
-    /** Set an Option parameter of the type. */
-    def setOption(v: Option[T], p: PositionedParameters): Unit
-    /** Get a result column of the type. */
-    def nextValue(r: PositionedResult): T
-    def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = nextValue(r); if(r.rs.wasNull) d else v }
-    def nextOption(r: PositionedResult): Option[T] = { val v = nextValue(r); if(r.rs.wasNull) None else Some(v) }
-    /** Update a column of the type in a mutable result set. */
-    def updateValue(v: T, r: PositionedResult): Unit
-    def updateOption(v: Option[T], r: PositionedResult): Unit = v match {
-      case Some(s) => updateValue(s, r)
-      case None => r.updateNull()
-    }
-
-    /** Convert a value to a SQL literal.
-      * This should throw a `SlickException` if `hasLiteralForm` is false. */
-    def valueToSQLLiteral(value: T): String
-
-    /** Indicates whether values of this type have a literal representation in
-      * SQL statements.
-      * This must return false if `valueToSQLLiteral` throws a SlickException.
-      * QueryBuilder (and driver-specific subclasses thereof) uses this method
-      * to treat LiteralNodes as volatile (i.e. using bind variables) as needed. */
-    def hasLiteralForm: Boolean
-
-    override def toString = {
-      def cln = getClass.getName
-      val pos = cln.lastIndexOf("$JdbcTypes$")
-      val s = if(pos >= 0) cln.substring(pos+11) else cln
-      val s2 = if(s.endsWith("JdbcType")) s.substring(0, s.length-8) else s
-      s2 + "/" + sqlTypeName
-    }
-  }
 
   abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U], val classTag: ClassTag[T]) extends JdbcType[T] {
     def map(t: T): U
@@ -64,14 +20,17 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     def newHasLiteralForm: Option[Boolean] = None
 
     def sqlType = newSqlType.getOrElse(tmd.sqlType)
-    override def sqlTypeName = newSqlTypeName.getOrElse(tmd.sqlTypeName)
+    def sqlTypeName = newSqlTypeName.getOrElse(tmd.sqlTypeName)
     def setValue(v: T, p: PositionedParameters) = tmd.setValue(map(v), p)
-    def setOption(v: Option[T], p: PositionedParameters) = tmd.setOption(v.map(map _), p)
-    def nextValue(r: PositionedResult) = comap(tmd.nextValue(r))
-    override def nextValueOrElse(d: =>T, r: PositionedResult) = { val v = tmd.nextValue(r); if(r.rs.wasNull) d else comap(v) }
-    override def nextOption(r: PositionedResult): Option[T] = { val v = tmd.nextValue(r); if(r.rs.wasNull) None else Some(comap(v)) }
+    def setNull(p: PositionedParameters): Unit = tmd.setNull(p)
+    def nextValue(r: PositionedResult) = {
+      val v = tmd.nextValue(r)
+      if((v.asInstanceOf[AnyRef] eq null) || tmd.wasNull(r)) null.asInstanceOf[T]
+      else comap(v)
+    }
+    def wasNull(r: PositionedResult) = tmd.wasNull(r)
     def updateValue(v: T, r: PositionedResult) = tmd.updateValue(map(v), r)
-    override def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
+    def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
     def hasLiteralForm = newHasLiteralForm.getOrElse(tmd.hasLiteralForm)
     def scalaType = ScalaBaseType[T]
   }
@@ -112,13 +71,15 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       throw new SlickException("No SQL type name found in java.sql.Types for code "+t))
   }
 
-  abstract class DriverJdbcType[T](implicit val classTag: ClassTag[T]) extends JdbcType[T] with BaseTypedType[T] {
+  abstract class DriverJdbcType[@specialized T](implicit val classTag: ClassTag[T]) extends JdbcType[T] {
     def scalaType = ScalaBaseType[T]
     def sqlTypeName: String = driver.defaultSqlTypeName(this)
     def valueToSQLLiteral(value: T) =
       if(hasLiteralForm) value.toString
       else throw new SlickException(sqlTypeName + " does not have a literal representation")
     def hasLiteralForm = true
+    def wasNull(r: PositionedResult) = r.wasNull
+    def setNull(p: PositionedParameters): Unit = p.setNull(sqlType)
   }
 
   class JdbcTypes {
@@ -144,7 +105,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class BooleanJdbcType extends DriverJdbcType[Boolean] {
       def sqlType = java.sql.Types.BOOLEAN
       def setValue(v: Boolean, p: PositionedParameters) = p.setBoolean(v)
-      def setOption(v: Option[Boolean], p: PositionedParameters) = p.setBooleanOption(v)
       def nextValue(r: PositionedResult) = r.nextBoolean
       def updateValue(v: Boolean, r: PositionedResult) = r.updateBoolean(v)
     }
@@ -152,7 +112,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class BlobJdbcType extends DriverJdbcType[Blob] {
       def sqlType = java.sql.Types.BLOB
       def setValue(v: Blob, p: PositionedParameters) = p.setBlob(v)
-      def setOption(v: Option[Blob], p: PositionedParameters) = p.setBlobOption(v)
       def nextValue(r: PositionedResult) = r.nextBlob
       def updateValue(v: Blob, r: PositionedResult) = r.updateBlob(v)
       override def hasLiteralForm = false
@@ -161,7 +120,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class ByteJdbcType extends DriverJdbcType[Byte] with NumericTypedType {
       def sqlType = java.sql.Types.TINYINT
       def setValue(v: Byte, p: PositionedParameters) = p.setByte(v)
-      def setOption(v: Option[Byte], p: PositionedParameters) = p.setByteOption(v)
       def nextValue(r: PositionedResult) = r.nextByte
       def updateValue(v: Byte, r: PositionedResult) = r.updateByte(v)
     }
@@ -169,7 +127,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class ByteArrayJdbcType extends DriverJdbcType[Array[Byte]] {
       def sqlType = java.sql.Types.BLOB
       def setValue(v: Array[Byte], p: PositionedParameters) = p.setBytes(v)
-      def setOption(v: Option[Array[Byte]], p: PositionedParameters) = p.setBytesOption(v)
       def nextValue(r: PositionedResult) = r.nextBytes
       def updateValue(v: Array[Byte], r: PositionedResult) = r.updateBytes(v)
       override def hasLiteralForm = false
@@ -178,7 +135,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class ClobJdbcType extends DriverJdbcType[Clob] {
       def sqlType = java.sql.Types.CLOB
       def setValue(v: Clob, p: PositionedParameters) = p.setClob(v)
-      def setOption(v: Option[Clob], p: PositionedParameters) = p.setClobOption(v)
       def nextValue(r: PositionedResult) = r.nextClob
       def updateValue(v: Clob, r: PositionedResult) = r.updateClob(v)
       override def hasLiteralForm = false
@@ -188,7 +144,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def sqlType = java.sql.Types.CHAR
       override def sqlTypeName = "CHAR(1)"
       def setValue(v: Char, p: PositionedParameters) = stringJdbcType.setValue(String.valueOf(v), p)
-      def setOption(v: Option[Char], p: PositionedParameters) = stringJdbcType.setOption(v.map(String.valueOf), p)
       def nextValue(r: PositionedResult) = {
         val s = stringJdbcType.nextValue(r)
         if(s == null || s.isEmpty) ' ' else s.charAt(0)
@@ -200,7 +155,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class DateJdbcType extends DriverJdbcType[Date] {
       def sqlType = java.sql.Types.DATE
       def setValue(v: Date, p: PositionedParameters) = p.setDate(v)
-      def setOption(v: Option[Date], p: PositionedParameters) = p.setDateOption(v)
       def nextValue(r: PositionedResult) = r.nextDate
       def updateValue(v: Date, r: PositionedResult) = r.updateDate(v)
       override def valueToSQLLiteral(value: Date) = "{d '"+value.toString+"'}"
@@ -209,7 +163,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
       def sqlType = java.sql.Types.DOUBLE
       def setValue(v: Double, p: PositionedParameters) = p.setDouble(v)
-      def setOption(v: Option[Double], p: PositionedParameters) = p.setDoubleOption(v)
       def nextValue(r: PositionedResult) = r.nextDouble
       def updateValue(v: Double, r: PositionedResult) = r.updateDouble(v)
     }
@@ -217,7 +170,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class FloatJdbcType extends DriverJdbcType[Float] with NumericTypedType {
       def sqlType = java.sql.Types.FLOAT
       def setValue(v: Float, p: PositionedParameters) = p.setFloat(v)
-      def setOption(v: Option[Float], p: PositionedParameters) = p.setFloatOption(v)
       def nextValue(r: PositionedResult) = r.nextFloat
       def updateValue(v: Float, r: PositionedResult) = r.updateFloat(v)
     }
@@ -225,7 +177,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class IntJdbcType extends DriverJdbcType[Int] with NumericTypedType {
       def sqlType = java.sql.Types.INTEGER
       def setValue(v: Int, p: PositionedParameters) = p.setInt(v)
-      def setOption(v: Option[Int], p: PositionedParameters) = p.setIntOption(v)
       def nextValue(r: PositionedResult) = r.nextInt
       def updateValue(v: Int, r: PositionedResult) = r.updateInt(v)
     }
@@ -233,7 +184,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class LongJdbcType extends DriverJdbcType[Long] with NumericTypedType {
       def sqlType = java.sql.Types.BIGINT
       def setValue(v: Long, p: PositionedParameters) = p.setLong(v)
-      def setOption(v: Option[Long], p: PositionedParameters) = p.setLongOption(v)
       def nextValue(r: PositionedResult) = r.nextLong
       def updateValue(v: Long, r: PositionedResult) = r.updateLong(v)
     }
@@ -241,7 +191,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class ShortJdbcType extends DriverJdbcType[Short] with NumericTypedType {
       def sqlType = java.sql.Types.SMALLINT
       def setValue(v: Short, p: PositionedParameters) = p.setShort(v)
-      def setOption(v: Option[Short], p: PositionedParameters) = p.setShortOption(v)
       def nextValue(r: PositionedResult) = r.nextShort
       def updateValue(v: Short, r: PositionedResult) = r.updateShort(v)
     }
@@ -249,7 +198,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class StringJdbcType extends DriverJdbcType[String] {
       def sqlType = java.sql.Types.VARCHAR
       def setValue(v: String, p: PositionedParameters) = p.setString(v)
-      def setOption(v: Option[String], p: PositionedParameters) = p.setStringOption(v)
       def nextValue(r: PositionedResult) = r.nextString
       def updateValue(v: String, r: PositionedResult) = r.updateString(v)
       override def valueToSQLLiteral(value: String) = if(value eq null) "NULL" else {
@@ -267,7 +215,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class TimeJdbcType extends DriverJdbcType[Time] {
       def sqlType = java.sql.Types.TIME
       def setValue(v: Time, p: PositionedParameters) = p.setTime(v)
-      def setOption(v: Option[Time], p: PositionedParameters) = p.setTimeOption(v)
       def nextValue(r: PositionedResult) = r.nextTime
       def updateValue(v: Time, r: PositionedResult) = r.updateTime(v)
       override def valueToSQLLiteral(value: Time) = "{t '"+value.toString+"'}"
@@ -276,7 +223,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class TimestampJdbcType extends DriverJdbcType[Timestamp] {
       def sqlType = java.sql.Types.TIMESTAMP
       def setValue(v: Timestamp, p: PositionedParameters) = p.setTimestamp(v)
-      def setOption(v: Option[Timestamp], p: PositionedParameters) = p.setTimestampOption(v)
       def nextValue(r: PositionedResult) = r.nextTimestamp
       def updateValue(v: Timestamp, r: PositionedResult) = r.updateTimestamp(v)
       override def valueToSQLLiteral(value: Timestamp) = "{ts '"+value.toString+"'}"
@@ -285,8 +231,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class UUIDJdbcType extends DriverJdbcType[UUID] {
       def sqlType = java.sql.Types.OTHER
       def setValue(v: UUID, p: PositionedParameters) = p.setBytes(toBytes(v))
-      def setOption(v: Option[UUID], p: PositionedParameters) =
-        if(v == None) p.setNull(sqlType) else p.setBytes(toBytes(v.get))
       def nextValue(r: PositionedResult) = fromBytes(r.nextBytes())
       def updateValue(v: UUID, r: PositionedResult) = r.updateBytes(toBytes(v))
       override def hasLiteralForm = false
@@ -321,7 +265,6 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class BigDecimalJdbcType extends DriverJdbcType[BigDecimal] with NumericTypedType {
       def sqlType = java.sql.Types.DECIMAL
       def setValue(v: BigDecimal, p: PositionedParameters) = p.setBigDecimal(v)
-      def setOption(v: Option[BigDecimal], p: PositionedParameters) = p.setBigDecimalOption(v)
       def nextValue(r: PositionedResult) = r.nextBigDecimal
       def updateValue(v: BigDecimal, r: PositionedResult) = r.updateBigDecimal(v)
     }
@@ -329,7 +272,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     class NullJdbcType extends DriverJdbcType[Null] {
       def sqlType = java.sql.Types.NULL
       def setValue(v: Null, p: PositionedParameters) = p.setString(null)
-      def setOption(v: Option[Null], p: PositionedParameters) = p.setString(null)
+      override def setNull(p: PositionedParameters) = p.setString(null)
       def nextValue(r: PositionedResult) = { r.nextString; null }
       def updateValue(v: Null, r: PositionedResult) = r.updateNull()
       override def valueToSQLLiteral(value: Null) = "NULL"
