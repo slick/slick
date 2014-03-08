@@ -32,12 +32,17 @@ trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTab
     /** All statements to execute for drop() */
     def dropStatements: Iterator[String] = dropPhase1.iterator ++ dropPhase2.iterator
 
-    /** Create a new DDL object which combines this and the other DDL object. */
+    /**
+     * Create a new DDL object which combines this and the other DDL object.
+     *
+     * Composition is such that given {{{A.ddl ++ B.ddl}}} the create phases will be
+     * run in FIFO order and the drop phases will be run in LIFO order.
+     */
     def ++(other: DDL): DDL = new DDL {
       protected lazy val createPhase1 = self.createPhase1 ++ other.createPhase1
       protected lazy val createPhase2 = self.createPhase2 ++ other.createPhase2
-      protected lazy val dropPhase1 = self.dropPhase1 ++ other.dropPhase1
-      protected lazy val dropPhase2 = self.dropPhase2 ++ other.dropPhase2
+      protected lazy val dropPhase1 = other.dropPhase1 ++ self.dropPhase1
+      protected lazy val dropPhase2 = other.dropPhase2 ++ self.dropPhase2
     }
   }
 
