@@ -83,6 +83,17 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
     assertEquals(Set((MyMappedID(1), 2), (MyMappedID(3), 4)), ts.run.toSet)
     assertEquals(Set((MyMappedID(1), 2)), ts.filter(_.id === MyMappedID(1)).run.toSet)
   }
+
+  def mappedToMacroCompilerBug {
+    case class MyId(val value: Int) extends MappedTo[Int]
+
+    class MyTable(tag: Tag) extends Table[MyId](tag, "table") {
+      def * = ???
+    }
+
+    implicitly[Shape[_ <: ShapeLevel.Flat, MyTable, _, _]]
+    TableQuery(new MyTable(_)).map(identity)
+  }
 }
 
 case class MyMappedID(value: Int) extends AnyVal with scala.slick.lifted.MappedTo[Int]
