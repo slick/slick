@@ -127,5 +127,29 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
     } yield (c.id, p.category)
     q2.run.foreach(x => println("  "+x))
     assertEquals(List((1,-1), (2,1), (3,2), (4,2)), q2.run)
+
+    val q3 = for {
+      (c, p) <- categories zip posts
+    } yield (c.id, p.category)
+    q3.run.foreach(x => println("  "+x))
+    assertEquals(List((1, -1), (3, 1), (2, 2), (4, 3)), q3.run)
+
+    val q4 = for {
+      res <- categories.zipWith(posts, (c: Categories, p: Posts) => (c.id, p.category))
+    } yield res
+    q4.run.foreach(x => println("  "+x))
+    assertEquals(List((1, -1), (3, 1), (2, 2), (4, 3)), q4.run)
+
+    val q5 = for {
+      (c, i) <- categories.zipWithIndex
+    } yield (c.id, i)
+    q5.run.foreach(x => println("  "+x))
+    assertEquals(List((1,0), (3,1), (2,2), (4,3)), q5.run)
+
+    val q6 = for {
+      ((c, p), i) <- (categories zip posts).zipWithIndex
+    } yield (c.id, p.category, i)
+    q6.run.foreach(x => println("  "+x))
+    assertEquals(List((1, -1, 0), (3, 1, 1), (2, 2, 2), (4, 3, 3)), q6.run)
   }
 }
