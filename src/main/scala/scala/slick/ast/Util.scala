@@ -120,7 +120,7 @@ object ExtraUtil {
   def linearizeFieldRefs(n: Node): IndexedSeq[Node] = {
     val sels = new ArrayBuffer[Node]
     def f(n: Node): Unit = n match {
-      case Path(_) => sels += n
+      case _: Select | _: Ref | _: TableNode => sels += n
       case _: ProductNode | _: OptionApply | _: GetOrElse | _: TypeMapping | _: ClientSideOp =>
         n.nodeChildren.foreach(f)
     }

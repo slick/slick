@@ -197,9 +197,7 @@ object CanBeQueryCondition {
     }
 }
 
-class WrappingQuery[+E, U, C[_]](val toNode: Node, val base: ShapedValue[_ <: E, U]) extends Query[E, U, C] {
-  lazy val shaped = base.encodeRef(toNode.nodeIntrinsicSymbol :: Nil)
-}
+class WrappingQuery[+E, U, C[_]](val toNode: Node, val shaped: ShapedValue[_ <: E, U]) extends Query[E, U, C]
 
 final class BaseJoinQuery[+E1, +E2, U1, U2, C[_]](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)])
     extends WrappingQuery[(E1, E2), (U1,  U2), C](AJoin(leftGen, rightGen, left, right, jt, LiteralNode(true)), base) {

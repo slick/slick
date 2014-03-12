@@ -22,7 +22,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
-  lazy val insertCompiler = QueryCompiler(Phase.inline, Phase.assignUniqueSymbols, new MemoryInsertCompiler)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new MemoryInsertCompiler)
 
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
 

@@ -126,10 +126,10 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
     def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
       override def toNode =
-        Path(FieldSymbol(n)(options, tm) :: (tableTag match {
-          case r: RefTag => r.path
-          case _ => List(tableNode.nodeIntrinsicSymbol)
-        })).nodeTyped(tm)
+        Select((tableTag match {
+          case r: RefTag => Path(r.path)
+          case _ => tableNode
+        }), FieldSymbol(n)(options, tm)).nodeTyped(tm)
       override def toString = (tableTag match {
         case r: RefTag => "(" + _tableName + " " + Path.toString(r.path) + ")"
         case _ => _tableName

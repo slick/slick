@@ -563,7 +563,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) {
       var first = true
       for(c <- columns) c match {
-        case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
+        case Select(t: TableNode, field: FieldSymbol) =>
           if(first) first = false
           else sb append ","
           sb append quoteIdentifier(field.name)
