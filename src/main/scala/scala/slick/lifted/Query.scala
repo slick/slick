@@ -30,9 +30,6 @@ abstract class Query[+E, U] extends Rep[Seq[U]] { self =>
   def map[F, G, T](f: E => F)(implicit shape: Shape[_ <: ShapeLevel.Flat, F, T, G]): Query[G, T] =
     flatMap(v => Query.pure[F, T, G](f(v)))
 
-  @deprecated("Use flatMap instead", "2.0")
-  def >>[F, T](q: Query[F, T]): Query[F, T] = flatMap(_ => q)
-
   /** Select all elements of this query which satisfy a predicate. */
   private def filterHelper[T](f: E => T, wrapExpr: Node => Node)
                              (implicit wt: CanBeQueryCondition[T]): Query[E, U] = {

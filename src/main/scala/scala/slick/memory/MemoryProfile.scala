@@ -14,9 +14,9 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   type InsertInvoker[T] = InsertInvokerDef[T]
   type QueryExecutor[R] = QueryExecutorDef[R]
   type Backend = HeapBackend
-  val Implicit: Implicits = new Implicits {}
   val backend: Backend = HeapBackend
   val simple: SimpleQL = new SimpleQL {}
+  val Implicit: Implicits = simple
 
   val compiler = QueryCompiler.standard
   lazy val queryCompiler = compiler + new MemoryCodeGen

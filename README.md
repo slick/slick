@@ -1,7 +1,7 @@
 Slick
 =====
 
-[![Build Status](https://travis-ci.org/slick/slick.png?branch=2.0)](https://travis-ci.org/slick/slick) [![Stories in Ready](https://badge.waffle.io/slick/slick.png?label=1%20-%20Ready)](https://waffle.io/slick/slick)
+[![Build Status](https://travis-ci.org/slick/slick.png?branch=master)](https://travis-ci.org/slick/slick) [![Stories in Ready](https://badge.waffle.io/slick/slick.png?label=1%20-%20Ready)](https://waffle.io/slick/slick)
 
 Slick is a modern database query and access library for Scala. It allows you
 to work with stored data almost as if you were using Scala collections while

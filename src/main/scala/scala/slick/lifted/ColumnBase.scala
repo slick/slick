@@ -32,11 +32,6 @@ abstract class ConstColumn[T](implicit tt: TypedType[T]) extends Column[T] {
   override def encodeRef(path: List[Symbol]): ConstColumn[T] = new ConstColumn[T] { def toNode = Path(path) }
 }
 
-object ConstColumn {
-  @deprecated("Use LiteralColumn.apply instead of ConstColumn.apply", "2.0.0-M3")
-  def apply[T](value: T)(implicit tt: TypedType[T]): LiteralColumn[T] = LiteralColumn[T](value)
-}
-
 /** A scalar query parameter. This is a placeholder without a known value
   * which has to be compiled to a bind variable. */
 class ParameterColumn[T](val toNode: Node)(implicit tt: TypedType[T]) extends ConstColumn[T]

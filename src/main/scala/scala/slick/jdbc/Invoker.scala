@@ -17,8 +17,6 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    * The iterator must either be fully read or closed explicitly.
    */
   final def iterator(param: P)(implicit session: JdbcBackend#Session) = iteratorTo(param, 0)
-  @deprecated("Use .iterator instead of .elements", "2.0.0-M3")
-  final def elements(param: P)(implicit session: JdbcBackend#Session) = iterator(param)(session)
 
   /**
    * Execute the statement and return a CloseableIterator of the converted results.
@@ -27,8 +25,6 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    * @param maxRows Maximum number of rows to read from the result (0 for unlimited).
    */
   def iteratorTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R]
-  @deprecated("Use .iteratorTo instead of .elementsTo", "2.0.0-M3")
-  def elementsTo(param: P, maxRows: Int)(implicit session: JdbcBackend#Session) = iteratorTo(param, maxRows)(session)
 
   /**
    * Execute the statement and ignore the results.
@@ -75,10 +71,6 @@ trait Invoker[-P, +R] extends Function1[P, UnitInvoker[R]] { self =>
    */
   final def buildColl[C[_]](param: P)(implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
     build[C[R]](param)(session, canBuildFrom)
-
-  @deprecated("Use .buildColl instead of .to", "2.0.0")
-  final def to[C[_]](param: P)(implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
-    buildColl[C](param)
 
   /**
    * Execute the statement and call f for each converted row of the result set.
@@ -157,18 +149,11 @@ trait UnitInvoker[+R] extends Invoker[Unit, R] {
   final def list()(implicit session: JdbcBackend#Session): List[R] = delegate.list(appliedParameter)
   final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
     delegate.buildColl(appliedParameter)
-  @deprecated("Use .buildColl instead of .to", "2.0.0")
-  final def to[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
-    delegate.to(appliedParameter)
   final def toMap[T, U](implicit session: JdbcBackend#Session, ev: R <:< (T, U)): Map[T, U] = delegate.toMap(appliedParameter)
   final def foreach(f: R => Unit)(implicit session: JdbcBackend#Session): Unit = delegate.foreach(appliedParameter, f)
   final def foreach(f: R => Unit, maxRows: Int)(implicit session: JdbcBackend#Session): Unit = delegate.foreach(appliedParameter, f, maxRows)
   final def iterator()(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iterator(appliedParameter)
-  @deprecated("Use .iterator instead of .elements", "2.0.0-M3")
-  final def elements()(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iterator(appliedParameter)
   final def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iteratorTo(appliedParameter, maxRows)
-  @deprecated("Use .iteratorTo instead of .elementsTo", "2.0.0-M3")
-  final def elementsTo(maxRows: Int)(implicit session: JdbcBackend#Session): CloseableIterator[R] = delegate.iteratorTo(appliedParameter, maxRows)
   final def execute()(implicit session: JdbcBackend#Session): Unit = delegate.execute(appliedParameter)
   final def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: JdbcBackend#Session): B = delegate.foldLeft(appliedParameter, z)(op)
   final def enumerate[B, RR >: R](iter: IterV[RR,B])(implicit session: JdbcBackend#Session): IterV[RR, B] = delegate.enumerate(appliedParameter, iter)
