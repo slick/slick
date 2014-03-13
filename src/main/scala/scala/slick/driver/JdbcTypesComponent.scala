@@ -213,7 +213,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def setOption(v: Option[Char], p: PositionedParameters) = stringJdbcType.setOption(v.map(String.valueOf), p)
       def nextValue(r: PositionedResult) = {
         val s = stringJdbcType.nextValue(r)
-        if(s.isEmpty) ' ' else s.charAt(0)
+        if(s == null || s.isEmpty) ' ' else s.charAt(0)
       }
       def updateValue(v: Char, r: PositionedResult) = stringJdbcType.updateValue(String.valueOf(v), r)
       override def valueToSQLLiteral(v: Char) = stringJdbcType.valueToSQLLiteral(String.valueOf(v))
