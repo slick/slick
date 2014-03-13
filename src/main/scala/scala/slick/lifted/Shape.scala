@@ -70,7 +70,7 @@ trait ShapeLowPriority extends ShapeLowPriority1 {
     def toNode(value: Mixed): Node = value.toNode
   }
 
-  implicit def provenShape[T, P](implicit shape: Shape[_ <: FlatShapeLevel, T, _, P]): Shape[FlatShapeLevel, ProvenShape[T], T, P] = new Shape[FlatShapeLevel, ProvenShape[T], T, P] {
+  implicit def provenShape[T, P](implicit shape: Shape[_ <: FlatShapeLevel, T, T, P]): Shape[FlatShapeLevel, ProvenShape[T], T, P] = new Shape[FlatShapeLevel, ProvenShape[T], T, P] {
     def pack(value: Mixed): Packed =
       value.shape.pack(value.value.asInstanceOf[value.shape.Mixed]).asInstanceOf[Packed]
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] =
