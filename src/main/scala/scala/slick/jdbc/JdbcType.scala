@@ -1,5 +1,6 @@
 package scala.slick.jdbc
 
+import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.ast.BaseTypedType
 
 /** A JdbcType object represents a Scala type that can be
@@ -12,41 +13,26 @@ trait JdbcType[@specialized T] extends BaseTypedType[T] { self =>
   /** The default name for the SQL type that is used for column declarations. */
   def sqlTypeName: String
   /** Set a parameter of the type. */
-  def setValue(v: T, p: PositionedParameters): Unit
+  def setValue(v: T, p: PreparedStatement, idx: Int): Unit
   /** Set a parameter of the type to NULL. */
-  def setNull(p: PositionedParameters): Unit
+  def setNull(p: PreparedStatement, idx: Int): Unit
   /** Set an Option parameter of the type. */
-  final def setOption(v: Option[T], p: PositionedParameters): Unit = v match {
-    case Some(v) => setValue(v, p)
-    case None => setNull(p)
+  final def setOption(v: Option[T], p: PreparedStatement, idx: Int): Unit = v match {
+    case Some(v) => setValue(v, p, idx)
+    case None => setNull(p, idx)
   }
 
   /** Get a result column of the type. For reference types, SQL NULL values
     * are returned as `null`, for primitive types a default value is returned. */
-  def nextValue(r: PositionedResult): T
+  def getValue(r: ResultSet, idx: Int): T
   /** Check if the value returned by the immediately preceding call to
-    * nextValue() was NULL. */
-  def wasNull(r: PositionedResult): Boolean
-  @deprecated("Use nextValue() and wasNull() instead", "2.1")
-  final def nextValueOrElse(d: =>T, r: PositionedResult) = {
-    val v = nextValue(r)
-    if((v.asInstanceOf[AnyRef] eq null) || r.wasNull) d else v
-  }
-  @deprecated("Use nextValue() and wasNull() instead", "2.1")
-  final def nextOption(r: PositionedResult): Option[T] = {
-    val v = nextValue(r)
-    if((v.asInstanceOf[AnyRef] eq null) || r.wasNull) None else Some(v)
-  }
+    * getValue() was NULL. */
+  def wasNull(r: ResultSet, idx: Int): Boolean
 
   /** Update a column of the type in a mutable result set. */
-  def updateValue(v: T, r: PositionedResult): Unit
+  def updateValue(v: T, r: ResultSet, idx: Int): Unit
   /** Update a column of the type in a mutable result set with NULL. */
-  def updateNull(r: PositionedResult): Unit = r.updateNull()
-  @deprecated("Use updateValue() and updateNull() instead", "2.1")
-  final def updateOption(v: Option[T], r: PositionedResult): Unit = v match {
-    case Some(s) => updateValue(s, r)
-    case None => r.updateNull()
-  }
+  def updateNull(r: ResultSet, idx: Int): Unit = r.updateNull(idx)
 
   /** Convert a value to a SQL literal.
     * This should throw a `SlickException` if `hasLiteralForm` is false. */

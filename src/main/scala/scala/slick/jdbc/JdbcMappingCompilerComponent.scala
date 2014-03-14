@@ -1,5 +1,6 @@
 package scala.slick.jdbc
 
+import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.compiler.{InsertCompiler, CompilerState, CodeGen}
 import scala.slick.ast._
 import scala.slick.relational._
@@ -10,12 +11,22 @@ import scala.slick.util.SQLBuilder
 /** JDBC driver component which contains the mapping compiler and insert compiler */
 trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
 
-  trait MappingCompiler extends ResultConverterCompiler[JdbcResultConverterDomain] {
-    def createColumnConverter(n: Node, path: Node, optionApply: Boolean, column: Option[FieldSymbol]): ResultConverter[JdbcResultConverterDomain, _] = {
+  /** A ResultConverterCompiler that builds JDBC-based converters. Instances of
+    * this class use mutable state internally. They are meant to be used for a
+    * single conversion only and must not be shared or reused. */
+  class MappingCompiler extends ResultConverterCompiler[JdbcResultConverterDomain] {
+    protected[this] var nextFullIdx = 1
+    protected[this] var nextSkippingIdx = 1
+
+    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[JdbcResultConverterDomain, _] = {
       val JdbcType(ti, option) = n.nodeType.structural
       val autoInc = column.fold(false)(_.options.contains(ColumnOption.AutoInc))
-      if(option) OptionResultConverter(ti, autoInc)
-      else BaseResultConverter(ti, autoInc, column.fold(n.toString)(_.name))
+      val fullIdx = nextFullIdx
+      nextFullIdx += 1
+      val skippingIdx = if(autoInc) 0 else nextSkippingIdx
+      if(!autoInc) nextSkippingIdx += 1
+      if(option) OptionResultConverter(ti, fullIdx, skippingIdx)
+      else BaseResultConverter(ti, column.fold(n.toString)(_.name), fullIdx, skippingIdx)
     }
 
     override def createGetOrElseResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]], default: () => T) =
@@ -31,7 +42,7 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
   }
 
   /** Code generator phase for JdbcProfile-based drivers. */
-  class JdbcCodeGen(f: QueryBuilder => SQLBuilder.Result) extends CodeGen with MappingCompiler {
+  class JdbcCodeGen(f: QueryBuilder => SQLBuilder.Result) extends CodeGen {
 
     def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
 
@@ -39,13 +50,13 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
       ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
         val sbr = f(driver.createQueryBuilder(rsm.from, state))
         val nfrom = CompiledStatement(sbr.sql, sbr, rsm.from.nodeType)
-        val nmap = compileMapping(rsm.map)
+        val nmap = (new MappingCompiler).compileMapping(rsm.map)
         rsm.copy(from = nfrom, map = nmap).nodeTyped(rsm.nodeType)
       }
   }
 
-  class JdbcInsertCompiler extends InsertCompiler with MappingCompiler {
-    def createMapping(ins: Insert) = compileMapping(ins.map)
+  class JdbcInsertCompiler extends InsertCompiler {
+    def createMapping(ins: Insert) = (new MappingCompiler).compileMapping(ins.map)
   }
 
   class JdbcFastPathExtensionMethods[T, P](val mp: MappedProjection[T, P]) {
@@ -58,7 +69,7 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
 }
 
 trait JdbcResultConverterDomain extends ResultConverterDomain {
-  type Reader = PositionedResult
-  type Writer = PositionedParameters
-  type Updater = PositionedResult
+  type Reader = ResultSet
+  type Writer = PreparedStatement
+  type Updater = ResultSet
 }

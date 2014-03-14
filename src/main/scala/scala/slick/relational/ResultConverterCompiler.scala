@@ -10,13 +10,11 @@ import org.slf4j.LoggerFactory
   * to provide profile-specific createColumnConverter implementations. */
 trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
-  protected[this] lazy val resultConverterLogger = new SlickLogger(LoggerFactory.getLogger(classOf[ResultConverterCompiler[_]]))
-
   def compile(n: Node): ResultConverter[Domain, _] = n match {
-    case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, false, Some(fs))
-    case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, true, Some(fs))
-    case p @ Path(_) => createColumnConverter(n, p, false, None)
-    case OptionApply(p @ Path(_)) => createColumnConverter(n, p, true, None)
+    case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, Some(fs))
+    case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, Some(fs))
+    case p @ Path(_) => createColumnConverter(n, p, None)
+    case OptionApply(p @ Path(_)) => createColumnConverter(n, p, None)
     case ProductNode(ch) =>
       new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
     case GetOrElse(ch, default) =>
@@ -33,14 +31,18 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
   def createTypeMappingResultConverter(rc: ResultConverter[Domain, Any], mapper: MappedScalaType.Mapper): ResultConverter[Domain, Any] =
     new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
 
-  def createColumnConverter(n: Node, path: Node, optionApply: Boolean, column: Option[FieldSymbol]): ResultConverter[Domain, _]
+  def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[Domain, _]
 
   def compileMapping(n: Node): CompiledMapping = {
     val rc = compile(n)
-    if(resultConverterLogger.isDebugEnabled)
-      resultConverterLogger.debug("Compiled ResultConverter:\n"+ResultConverter.getDump(rc, prefix = "  "))
+    if(ResultConverterCompiler.logger.isDebugEnabled)
+      ResultConverterCompiler.logger.debug("Compiled ResultConverter:\n"+ResultConverter.getDump(rc, prefix = "  "))
     CompiledMapping(rc, n.nodeType)
   }
+}
+
+object ResultConverterCompiler {
+  protected lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[ResultConverterCompiler[_]]))
 }
 
 /** A node that wraps a ResultConverter */

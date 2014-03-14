@@ -95,7 +95,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
       case t => typeInfoFor(t)
     }
 
-    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
+    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
       val Select(_, ElementSymbol(ridx)) = path
       val nullable = typeInfoFor(n.nodeType.structural).nullable
       new QueryResultConverter(ridx, nullable)
@@ -110,6 +110,8 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
       def updateGeneric(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
       def setGeneric(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = ???
       override def info = super.info + s"($ridx, nullable=$nullable)"
+      def fullWidth = 1
+      def skippingWidth = 1
     }
   }
 }

@@ -76,9 +76,9 @@ object UnboxedBenchmark extends App {
       }
       override def wasNull(): Boolean = lastIndex >= 3
     }
-    new PositionedResultIterator[Any](fakeRS, 0) {
-      def extractValue = converter.readGeneric(this)
-      def closeUnderlying() {}
+    val pr = new PositionedResult(fakeRS) { def close() {} }
+    new PositionedResultIterator[Any](pr, 0) {
+      def extractValue(pr: PositionedResult) = converter.readGeneric(rs)
     }
   }
 

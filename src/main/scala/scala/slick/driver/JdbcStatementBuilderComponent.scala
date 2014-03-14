@@ -199,14 +199,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case (n @ LiteralNode(v)) :@ JdbcType(ti, option) =>
-        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, param) =>
-          if(option) ti.setOption(v.asInstanceOf[Option[Any]], p)
-          else ti.setValue(v, p)
+        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, idx, param) =>
+          if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx)
+          else ti.setValue(v, p, idx)
         } else b += valueToSQLLiteral(v, n.nodeType)
       case QueryParameter(extractor, JdbcType(ti, option)) =>
-        b +?= { (p, param) =>
-          if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p)
-          else ti.setValue(extractor(param), p)
+        b +?= { (p, idx, param) =>
+          if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p, idx)
+          else ti.setValue(extractor(param), p, idx)
         }
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"

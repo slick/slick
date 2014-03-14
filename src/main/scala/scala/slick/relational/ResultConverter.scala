@@ -22,6 +22,14 @@ abstract class ResultConverter[M <: ResultConverterDomain, T] {
   }
   def children: Iterator[ResultConverter[M, _]] = Iterator.empty
   override def toString = s"$info(${children.mkString(", ")}})"
+
+  /** The full width of this converter (in columns), corresponding to the
+    * number of columns that will be read or written by it. */
+  def fullWidth: Int
+
+  /** The width of this converter without `AutoInc` columns.
+    * @see #fullWidth */
+  def skippingWidth: Int
 }
 
 object ResultConverter {
@@ -59,6 +67,17 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
   override def children = elementConverters.iterator
   private[this] val cha = children.to[Array]
   private[this] val len = cha.length
+
+  val (fullWidth, skippingWidth) = {
+    var i, full, skipping = 0
+    while(i < len) {
+      full += cha(i).fullWidth
+      skipping += cha(i).skippingWidth
+      i += 1
+    }
+    (full, skipping)
+  }
+
   def readGeneric(pr: Reader) = {
     val a = new Array[Any](len)
     var i = 0
@@ -91,6 +110,8 @@ final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: Resul
   override def info =
     super.info + s"(${ try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } })"
   override def children = Iterator(child)
+  def fullWidth = child.fullWidth
+  def skippingWidth = child.skippingWidth
 }
 
 final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C], toBase: T => C, toMapped: C => T) extends ResultConverter[M, T] {
@@ -98,4 +119,6 @@ final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](ch
   def updateGeneric(value: T, pr: Updater) = child.updateGeneric(toBase(value), pr)
   def setGeneric(value: T, pp: Writer, forced: Boolean) = child.setGeneric(toBase(value), pp, forced)
   override def children = Iterator(child)
+  def fullWidth = child.fullWidth
+  def skippingWidth = child.skippingWidth
 }

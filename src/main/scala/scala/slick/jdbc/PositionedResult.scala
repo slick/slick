@@ -4,12 +4,12 @@ import scala.language.higherKinds
 import scala.collection.generic.CanBuildFrom
 import java.sql.{ResultSet, Blob, Clob, Date, Time, Timestamp}
 import java.io.Closeable
-import scala.slick.util.CloseableIterator
+import scala.slick.util.{ReadAheadIterator, CloseableIterator}
 
 /**
  * A database result positioned at a row and column.
  */
-sealed abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
+abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
   protected[this] var pos = Int.MaxValue
   protected[this] val startPos = 0
 
@@ -162,53 +162,25 @@ sealed abstract class PositionedResult(val rs: ResultSet) extends Closeable { ou
 }
 
 /**
- * A PositionedResult which can be used as a CloseableIterator.
+ * An CloseableIterator for a PositionedResult.
  */
-abstract class PositionedResultIterator[+T](_rs: ResultSet, maxRows: Int) extends PositionedResult(_rs) with CloseableIterator[T] {
+abstract class PositionedResultIterator[+T](val pr: PositionedResult, maxRows: Int) extends ReadAheadIterator[T] with CloseableIterator[T] {
 
-  private[this] var done = false
-  private[this] var count = 0
   private[this] var closed = false
 
-  final override def nextRow = {
-    if(pos == Int.MinValue) super.nextRow else {
-      if(maxRows != 0 && count >= maxRows) false
-      else {
-        val ret = super.nextRow
-        if(ret) count += 1 else done = true
-        ret
-      }
-    }
-  }
+  def rs = pr.rs
 
-  final def hasNext = {
-    val r = !done && ((pos == startPos) || nextRow)
-    if(!r) close()
-    r
-  }
-
-  final def next() = {
-    if(done) noNext
-    else {
-      if(pos != startPos) nextRow
-      if(done) noNext
-      else {
-        val ret = extractValue()
-        pos = Int.MaxValue
-        ret
-      }
-    }
+  protected def fetchNext(): T = {
+    if(pr.nextRow) extractValue(pr)
+    else finished()
   }
 
   final def close() {
     if(!closed) {
-      closeUnderlying()
+      pr.close()
       closed = true
     }
   }
 
-  protected def extractValue(): T
-  protected def closeUnderlying(): Unit
-
-  final override def foreach[U](f: T =>  U) { while(hasNext) f(extractValue()) }
+  protected def extractValue(pr: PositionedResult): T
 }

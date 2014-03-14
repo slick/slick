@@ -109,7 +109,7 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
     val Insert(_, table: TableNode, _, ProductNode(cols)) = insert
     val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
-    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
+    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
       val fs = column.get
       val tidx = tableColumnIdxs(fs)
       val autoInc = fs.options.contains(ColumnOption.AutoInc)
@@ -122,6 +122,8 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
       def setGeneric(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) =
         if(forced || !autoInc) pp(tidx) = value
       override def info = super.info + s"($tidx, autoInc=$autoInc)"
+      def fullWidth = 1
+      def skippingWidth = if(autoInc) 0 else 1
     }
   }
 

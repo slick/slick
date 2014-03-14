@@ -109,7 +109,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
          * explicit type annotation (in the form of a CAST expression). */
         if(c.volatileHint || !ti.hasLiteralForm) {
           b"cast("
-          b +?= { (p, param) => if(option) ti.setOption(v.asInstanceOf[Option[Any]], p) else ti.setValue(v, p) }
+          b +?= { (p, idx, param) => if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx) else ti.setValue(v, p, idx) }
           b" as ${ti.sqlTypeName})"
         } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
