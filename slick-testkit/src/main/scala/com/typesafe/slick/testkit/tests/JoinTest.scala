@@ -152,4 +152,21 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
     q6.run.foreach(x => println("  "+x))
     assertEquals(List((1, -1, 0), (3, 1, 1), (2, 2, 2), (4, 3, 3)), q6.run)
   }
+
+  def testNoJoinCondition {
+    class T(tag: Tag) extends Table[Int](tag, "t_nojoincondition") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    lazy val ts = TableQuery[T]
+    ts.ddl.create
+    val q1 = ts leftJoin ts
+    q1.run
+    ifCap(rcap.joinRight) {
+      val q2 = ts rightJoin ts
+      q2.run
+    }
+    val q3 = ts innerJoin ts
+    q3.run
+  }
 }
