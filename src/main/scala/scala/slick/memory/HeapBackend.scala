@@ -1,12 +1,12 @@
 package scala.slick.memory
 
+import java.util.concurrent.atomic.AtomicLong
+import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.slick.SlickException
-import scala.slick.ast.{ScalaBaseType, ScalaType, Select, ColumnOption, FieldSymbol, Symbol}
+import scala.slick.ast._
 import scala.slick.backend.DatabaseComponent
 import scala.slick.lifted.{PrimaryKey, Constraint, Index}
 import scala.slick.util.Logging
-import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
-import java.util.concurrent.atomic.AtomicLong
 
 /** A simple database engine that stores data in heap data structures. */
 trait HeapBackend extends DatabaseComponent with Logging {
@@ -153,7 +153,7 @@ object HeapBackend extends HeapBackend {
         if(tpe == ScalaBaseType.longType) i
         else if(tpe == ScalaBaseType.intType) i.toInt
         else throw new SlickException("Only Long and Int types are allowed for AutoInc columns")
-      case None => default.getOrElse(tpe.zero)
+      case None => default.getOrElse(null)
     }
   }
 }

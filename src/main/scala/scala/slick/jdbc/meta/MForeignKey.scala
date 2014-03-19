@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.{JdbcBackend, ResultSetInvoker, UnitInvoker}
+import scala.slick.jdbc.{JdbcBackend, ResultSetInvoker, Invoker}
 import scala.slick.model.ForeignKeyAction
 
 /**
@@ -15,13 +15,13 @@ case class MForeignKey(
 
 object MForeignKey {
 
-  def getImportedKeys(table: MQName): UnitInvoker[MForeignKey] =
+  def getImportedKeys(table: MQName): Invoker[MForeignKey] =
     createInvoker(_.metaData.getImportedKeys(table.catalog_?, table.schema_?, table.name))
 
-  def getExportedKeys(table: MQName): UnitInvoker[MForeignKey] =
+  def getExportedKeys(table: MQName): Invoker[MForeignKey] =
     createInvoker(_.metaData.getExportedKeys(table.catalog_?, table.schema_?, table.name))
 
-  def getCrossReference(parentTable: MQName, foreignTable: MQName): UnitInvoker[MForeignKey] =
+  def getCrossReference(parentTable: MQName, foreignTable: MQName): Invoker[MForeignKey] =
     createInvoker(_.metaData.getCrossReference(
       parentTable.catalog_?, parentTable.schema_?, parentTable.name,
       foreignTable.catalog_?, foreignTable.schema_?, foreignTable.name))

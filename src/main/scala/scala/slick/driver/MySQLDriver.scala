@@ -4,6 +4,7 @@ import scala.slick.SlickException
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Util._
+import scala.slick.ast.TypeUtil._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
@@ -82,8 +83,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
       }
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case a @ Library.Cast(ch) =>
-        val ti = typeInfoFor(a.asInstanceOf[Typed].tpe)
+      case Library.Cast(ch) :@ JdbcType(ti, _) =>
         val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName
         b"{fn convert(!${ch},$tn)}"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
@@ -133,7 +133,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
   class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       import seq.integral._
-      val sqlType = driver.typeInfoFor(seq.tpe).sqlTypeName
+      val sqlType = driver.jdbcTypeFor(seq.tpe).sqlTypeName
       val t = sqlType + " not null"
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero

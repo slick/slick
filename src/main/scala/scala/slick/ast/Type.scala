@@ -249,12 +249,11 @@ trait ScalaType[T] extends TypedType[T] {
   override def optionType: ScalaOptionType[T] = new ScalaOptionType[T](this)
   def nullable: Boolean
   def ordered: Boolean
-  def zero: T
   def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T]
   final def scalaType = this
 }
 
-class ScalaBaseType[T](val zero: T)(implicit val tag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
+class ScalaBaseType[T](implicit val tag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
   override def toString = "ScalaType[" + tag.runtimeClass.getName + "]"
   def nullable = false
   def ordered = ordering ne null
@@ -279,43 +278,28 @@ class ScalaBaseType[T](val zero: T)(implicit val tag: ClassTag[T], val ordering:
 }
 
 object ScalaBaseType {
-  implicit val booleanType = new ScalaBaseType[Boolean](false)
-  implicit val bigDecimalType: ScalaNumericType[BigDecimal] = new ScalaNumericType[BigDecimal] {
-    def fromDouble(v: Double) = BigDecimal(v)
-  }
-  implicit val byteType: ScalaNumericType[Byte] = new ScalaNumericType[Byte] {
-    def fromDouble(v: Double) = v.toByte
-  }
-  implicit val charType = new ScalaBaseType[Char](' ')
-  implicit val doubleType: ScalaNumericType[Double] = new ScalaNumericType[Double] {
-    def fromDouble(v: Double) = v
-  }
-  implicit val floatType: ScalaNumericType[Float] = new ScalaNumericType[Float] {
-    def fromDouble(v: Double) = v.toFloat
-  }
-  implicit val intType: ScalaNumericType[Int] = new ScalaNumericType[Int] {
-    def fromDouble(v: Double) = v.toInt
-  }
-  implicit val longType: ScalaNumericType[Long] = new ScalaNumericType[Long] {
-    def fromDouble(v: Double) = v.toLong
-  }
-  implicit val nullType = new ScalaBaseType[Null](null)
-  implicit val shortType: ScalaNumericType[Short] = new ScalaNumericType[Short] {
-    def fromDouble(v: Double) = v.toShort
-  }
-  implicit val stringType = new ScalaBaseType[String]("")
+  implicit val booleanType = new ScalaBaseType[Boolean]
+  implicit val bigDecimalType = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
+  implicit val byteType = new ScalaNumericType[Byte](_.toByte)
+  implicit val charType = new ScalaBaseType[Char]
+  implicit val doubleType = new ScalaNumericType[Double](identity)
+  implicit val floatType = new ScalaNumericType[Float](_.toFloat)
+  implicit val intType = new ScalaNumericType[Int](_.toInt)
+  implicit val longType = new ScalaNumericType[Long](_.toLong)
+  implicit val nullType = new ScalaBaseType[Null]
+  implicit val shortType = new ScalaNumericType[Short](_.toShort)
+  implicit val stringType = new ScalaBaseType[String]
 
   private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
       floatType, intType, longType, nullType, shortType, stringType).map(s => (s.tag, s)).toMap
 
   def apply[T](implicit tag: ClassTag[T], ord: scala.math.Ordering[T] = null): ScalaBaseType[T] =
-    all.getOrElse(tag, new ScalaBaseType[T](null.asInstanceOf[T])).asInstanceOf[ScalaBaseType[T]]
+    all.getOrElse(tag, new ScalaBaseType[T]).asInstanceOf[ScalaBaseType[T]]
 }
 
-abstract class ScalaNumericType[T](implicit tag: ClassTag[T], val numeric: Numeric[T])
-  extends ScalaBaseType[T](numeric.zero)(tag, numeric) with NumericTypedType {
-  def fromDouble(v: Double): T
+class ScalaNumericType[T](val fromDouble: Double => T)(implicit tag: ClassTag[T], val numeric: Numeric[T])
+  extends ScalaBaseType[T]()(tag, numeric) with NumericTypedType {
   def toDouble(v: T) = numeric.toDouble(v)
 }
 
@@ -323,7 +307,6 @@ class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option
   override def toString = "ScalaOptionType[" + elementType + "]"
   def nullable = true
   def ordered = elementType.ordered
-  def zero = None
   def scalaOrderingFor(ord: Ordering) = {
     val nullsFirst = if(ord.nulls == Ordering.NullsFirst) -1 else 1
     val base = elementType.scalaOrderingFor(ord)

@@ -4,26 +4,20 @@ import scala.language.implicitConversions
 import java.sql.PreparedStatement
 import collection.mutable.ArrayBuffer
 
-/**
- * Invoker for raw SQL queries.
- * The companion object contains utility methods for building static queries.
- */
-abstract class StaticQuery[-P,+R](query: String, rconv: GetResult[R], pconv: SetParameter[P])
-extends StatementInvoker[P,R] {
-  def getStatement = query
-  protected def setParam(param: P, st: PreparedStatement) = pconv(param, new PositionedParameters(st))
-  protected def extractValue(rs: PositionedResult): R = rconv(rs)
+/** A builder for Plain SQL queries. */
+class StaticQuery[-P,+R](query: String, pconv: SetParameter[P], rconv: GetResult[R]) extends (P => Invoker[R]) {
+  /** Append a string to this query */
+  def + (s: String) = new StaticQuery(query + s, pconv, rconv)
 
-  protected[this] type Self <: StaticQuery[P, R]
-  protected[this] def copy(query: String = this.query, pconv: SetParameter[P] = this.pconv): Self
-
-  def + (s: String) = copy(query + s)
-  def +? [T](v: T)(implicit p: SetParameter[T]) = copy(query + '?', new SetParameter[P] {
+  /** Append a bind variable to this query */
+  def +? [T](v: T)(implicit p: SetParameter[T]) = new StaticQuery(query + '?', new SetParameter[P] {
     def apply(param: P, pp: PositionedParameters) {
       pconv(param, pp)
       p(v, pp)
     }
-  })
+  }, rconv)
+
+  def apply(param: P): StaticQueryInvoker[P, R] = new StaticQueryInvoker[P, R](query, pconv, param, rconv)
 }
 
 object StaticQuery {
@@ -32,19 +26,28 @@ object StaticQuery {
   def u = updateNA("")
   def u1[P](implicit pconv1: SetParameter[P]) = update[P]("")
 
-  def query[P,R](query: String)(implicit rconv: GetResult[R], pconv: SetParameter[P]) =
-    new StaticQuery1[P, R](query, rconv, pconv)
+  def query[P,R](query: String)(implicit pconv: SetParameter[P], rconv: GetResult[R]) =
+    new StaticQuery[P, R](query, pconv, rconv)
 
-  def queryNA[R](query: String)(implicit conv: GetResult[R]) =
-    new StaticQuery0[R](query, conv)
+  def queryNA[R](query: String)(implicit rconv: GetResult[R]) =
+    new StaticQuery[Unit, R](query, SetParameter.SetUnit, rconv)
 
   def update[P](query: String)(implicit pconv: SetParameter[P]) =
-    new StaticQuery1[P, Int](query, GetResult.GetUpdateValue, pconv)
+    new StaticQuery[P, Int](query, pconv, GetResult.GetUpdateValue)
 
   def updateNA(query: String) =
-    new StaticQuery0[Int](query, GetResult.GetUpdateValue)
+    new StaticQuery[Unit, Int](query, SetParameter.SetUnit, GetResult.GetUpdateValue)
 
   @inline implicit def interpolation(s: StringContext) = new SQLInterpolation(s)
+
+  /** Automatically apply a parameterless query */
+  @inline implicit def staticQueryToInvoker[R](s: StaticQuery[Unit, R]): StaticQueryInvoker[Unit, R] = s(())
+}
+
+/** Invoker for Plain SQL queries. */
+class StaticQueryInvoker[-P, +R](val getStatement: String, pconv: SetParameter[P], param: P, rconv: GetResult[R]) extends StatementInvoker[R] {
+  protected def setParam(st: PreparedStatement) = pconv(param, new PositionedParameters(st))
+  protected def extractValue(rs: PositionedResult): R = rconv(rs)
 }
 
 class SQLInterpolation(val s: StringContext) extends AnyVal {
@@ -56,9 +59,9 @@ class SQLInterpolation(val s: StringContext) extends AnyVal {
 }
 
 case class SQLInterpolationResult[P](strings: Seq[String], param: P, pconv: SetParameter[P]) {
-  def as[R](implicit rconv: GetResult[R]): StaticQuery0[R] = {
+  def as[R](implicit rconv: GetResult[R]): StaticQuery[Unit, R] = {
     if(strings.length == 1)
-      new StaticQuery0[R](strings(0), rconv)
+      new StaticQuery[Unit, R](strings(0), SetParameter.SetUnit, rconv)
     else {
       val (convs, params) = pconv match {
         case pconv: SetTupleParameter[_] =>
@@ -82,21 +85,11 @@ case class SQLInterpolationResult[P](strings: Seq[String], param: P, pconv: SetP
         }
       }
       b.append(strings.last)
-      new StaticQuery0[R](b.toString, rconv, new SetParameter[Unit] {
+      new StaticQuery[Unit, R](b.toString, new SetParameter[Unit] {
         def apply(u: Unit, pp: PositionedParameters): Unit =
           remaining.foreach(_.apply(u, pp))
-      })
+      }, rconv)
     }
   }
   def asUpdate = as[Int](GetResult.GetUpdateValue)
-}
-
-class StaticQuery0[R](query: String, rconv: GetResult[R], pconv: SetParameter[Unit] = SetParameter.SetUnit) extends StaticQuery[Unit, R](query, rconv, pconv) with UnitInvokerMixin[R] {
-  protected[this] type Self = StaticQuery0[R]
-  protected[this] def copy(query: String, pconv: SetParameter[Unit]): Self = new StaticQuery0(query, rconv, pconv)
-}
-
-class StaticQuery1[P1, R](query: String, rconv: GetResult[R], pconv: SetParameter[P1]) extends StaticQuery[P1, R](query, rconv, pconv) {
-  protected[this] type Self = StaticQuery1[P1, R]
-  protected[this] def copy(query: String, pconv: SetParameter[P1]): Self = new StaticQuery1(query, rconv, pconv)
 }

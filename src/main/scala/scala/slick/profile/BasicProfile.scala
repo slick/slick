@@ -81,10 +81,6 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
 trait BasicDriver extends BasicProfile {
   val profile: BasicProfile = this
 
-  /** The driver-specific representation of types */
-  type TypeInfo
-  def typeInfoFor(t: Type): TypeInfo
-
   override def toString = {
     val cl = getClass.getName
     if(cl.startsWith("scala.slick.driver.") && cl.endsWith("$"))

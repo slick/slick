@@ -250,7 +250,7 @@ object LiftedEmbedding extends App {
     {
       val session = dynamicSession
       //#invoker_explicit
-      val l = q.list()(session)
+      val l = q.list(session)
       //#invoker_explicit
       ()
     }

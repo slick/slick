@@ -8,7 +8,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.UnitInvoker
+import scala.slick.jdbc.Invoker
 
 /**
  * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -32,7 +32,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCurr
   )
 
-  override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
@@ -44,7 +44,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     override protected val concatOperator = Some("||")
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case l @ LiteralNode(v: String) if (v ne null) && typeInfoFor(l.tpe).sqlType != Types.CHAR =>
+      case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.tpe).sqlType != Types.CHAR =>
         /* Hsqldb treats string literals as type CHARACTER and pads them with
          * spaces in some expressions, so we cast all string literals to
          * VARCHAR. The length is only 16M instead of 2^31-1 in order to leave

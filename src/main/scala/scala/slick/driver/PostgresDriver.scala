@@ -7,7 +7,7 @@ import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.UnitInvoker
+import scala.slick.jdbc.Invoker
 
 /**
  * Slick driver for PostgreSQL.
@@ -29,7 +29,7 @@ import scala.slick.jdbc.UnitInvoker
  */
 trait PostgresDriver extends JdbcDriver { driver =>
 
-  override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

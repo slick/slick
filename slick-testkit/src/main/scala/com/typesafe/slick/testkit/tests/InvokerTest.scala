@@ -86,7 +86,7 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
 
     def f() = CloseableIterator close db.createSession after { session =>
       setUp(session)
-      q.iterator()(session)
+      q.iterator(session)
     }
 
     def g() = CloseableIterator close db.createSession after { session =>

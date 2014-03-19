@@ -20,13 +20,13 @@ class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
       (1, "u1"),
       (2, "u2"),
       (3, "u3")
-    ).foreach((Q.u1[(Int, String)] + "insert into USERS values (?, ?)").execute)
+    ).map(Q.u1[(Int, String)] + "insert into USERS values (?, ?)").foreach(_.execute)
     List(
       (1, "p1u1", 1),
       (2, "p2u1", 1),
       (3, "p3u1", 1),
       (4, "p4u2", 2)
-    ).foreach((Q.u1[(Int, String, Int)] + "insert into POSTS values (?, ?, ?)").execute)
+    ).map(Q.u1[(Int, String, Int)] + "insert into POSTS values (?, ?, ?)").foreach(_.execute)
 
     val l1 = (Q(GetResult { r => (r.nextString, r.nextString) }) + """
       select u.NAME, p.NAME
