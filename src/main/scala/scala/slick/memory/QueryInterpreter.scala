@@ -1,12 +1,12 @@
 package scala.slick.memory
 
+import java.util.regex.Pattern
 import org.slf4j.LoggerFactory
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.ast._
 import scala.slick.SlickException
 import scala.slick.util.{SlickLogger, Logging}
 import TypeUtil.typeToTypeUtil
-import java.util.regex.Pattern
 
 /** A query interpreter for the MemoryDriver and for client-side operations
   * that need to be run as part of distributed queries against multiple
@@ -55,7 +55,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         dbt.rows.view.map { row => new StructValue(row, acc) }
       case Bind(gen, from, sel) =>
         val fromV = run(from).asInstanceOf[Coll]
-        val b = from.nodeType.asCollectionType.cons.canBuildFrom()
+        val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
         fromV.foreach { v =>
           scope(gen) = v
           b ++= run(sel).asInstanceOf[Coll]
@@ -122,7 +122,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case First(ch) => run(ch).asInstanceOf[Coll].toIterator.next()
       case SortBy(gen, from, by) =>
         val fromV = run(from).asInstanceOf[Coll]
-        val b = from.nodeType.asCollectionType.cons.canBuildFrom()
+        val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
         val ords: IndexedSeq[scala.math.Ordering[Any]] = by.map { case (b, o) =>
           b.nodeType.asInstanceOf[ScalaType[Any]].scalaOrderingFor(o)
         }(collection.breakOut)
@@ -150,17 +150,17 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           grouped.getOrElseUpdate(run(by), new ArrayBuffer[Any]()) += v
         }
         scope.remove(gen)
-        val b = from.nodeType.asCollectionType.cons.canBuildFrom()
+        val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
         grouped.foreach { case (k, vs) => b += new ProductValue(Vector(k, vs)) }
         b.result()
       case Take(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
-        val b = from.nodeType.asCollectionType.cons.canBuildFrom()
+        val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
         b ++= fromV.toIterator.take(num)
         b.result()
       case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
-        val b = from.nodeType.asCollectionType.cons.canBuildFrom()
+        val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
         b ++= fromV.toIterator.drop(num)
         b.result()
       case Union(left, right, all, _, _) =>
@@ -280,6 +280,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         } else evalFunction(sym, chV, n.nodeType)
       //case Library.CountAll(ch) => run(ch).asInstanceOf[Coll].size
       case l: LiteralNode => l.value
+      case CollectionCast(ch, _) => run(ch)
     }
     indent -= 1
     if(logger.isDebugEnabled) logDebug("Result: "+res)

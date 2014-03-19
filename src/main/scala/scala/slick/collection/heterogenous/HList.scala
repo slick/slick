@@ -5,6 +5,7 @@ import scala.language.experimental.macros
 import scala.annotation.unchecked.{uncheckedVariance => uv}
 import scala.reflect.macros.Context
 import scala.slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
+import scala.reflect.ClassTag
 
 /** A heterogenous list where each element has its own type. */
 sealed abstract class HList extends Product {
@@ -126,7 +127,7 @@ sealed abstract class HList extends Product {
 final object HList {
   import syntax._
 
-  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList, P <: HList](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
+  final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
     def buildValue(elems: IndexedSeq[Any]) = elems.foldRight(HNil: HList)(_ :: _)
     def copy(shapes: Seq[Shape[_, _, _, _]]) = new HListShape(shapes)
   }

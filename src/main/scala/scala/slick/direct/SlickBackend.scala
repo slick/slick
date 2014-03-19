@@ -7,6 +7,7 @@ import scala.slick.driver._
 import scala.slick.{ast => sq}
 import scala.slick.ast.{Library, FunctionSymbol, Dump, ColumnOption}
 import scala.slick.compiler.CompilerState
+import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
 import scala.reflect.runtime.universe._
@@ -213,7 +214,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
       )( (v match {
         case v:Vector[_] => v
         case v:Product => v.productIterator.toVector
-      }):_* )
+      }):_* ),
+      ClassTag(typetag.mirror.runtimeClass(typetag.tpe))
     ))
     new Query( tableExp, Scope() )
   }

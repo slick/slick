@@ -1,6 +1,6 @@
 package scala.slick.driver
 
-import scala.language.{existentials, implicitConversions}
+import scala.language.{existentials, implicitConversions, higherKinds}
 import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.ast._
@@ -450,7 +450,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($c) VALUES ($v)")
     }
 
-    def buildInsert(query: Query[_, _]): InsertBuilderResult = {
+    def buildInsert[C[_]](query: Query[_, _, C]): InsertBuilderResult = {
       val (_, sbr: SQLBuilder.Result) =
         CodeGen.findResult(queryCompiler.run((query.toNode)).tree)
       InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($qAllColumns) ${sbr.sql}", sbr.setter)

@@ -1,11 +1,14 @@
 package scala.slick.ast
 
-import scala.language.implicitConversions
+import scala.language.{implicitConversions, higherKinds}
 import scala.slick.SlickException
-import scala.collection.generic.CanBuildFrom
-import scala.reflect.ClassTag
+import scala.collection.generic.CanBuild
+import scala.collection.mutable.{Builder, ArrayBuilder}
+import scala.reflect.{ClassTag, classTag => mkClassTag}
 import Util._
 import scala.collection.mutable.ArrayBuffer
+import scala.annotation.implicitNotFound
+import scala.slick.util.TupleSupport
 
 /** Super-trait for all types */
 trait Type {
@@ -19,6 +22,8 @@ trait Type {
     throw new SlickException("No type for symbol "+sym+" found in "+this)
   /** The structural view of this type */
   def structural: Type = this
+  /** A ClassTag for the erased type of this type's Scala values */
+  def classTag: ClassTag[_]
 }
 
 /** An atomic type (i.e. a type which does not contain other types) */
@@ -27,11 +32,11 @@ trait AtomicType extends Type {
   def children: Seq[Type] = Seq.empty
 }
 
-final case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
+final case class StructType(elements: IndexedSeq[(Symbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[Symbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
-  def children: Seq[Type] = elements.map(_._2)
+  def children: IndexedSeq[Type] = elements.map(_._2)
   def mapChildren(f: Type => Type): StructType =
     mapOrNone(elements.map(_._2))(f) match {
       case Some(types2) => StructType((elements, types2).zipped.map((e, t) => (e._1, t)))
@@ -41,12 +46,14 @@ final case class StructType(elements: Seq[(Symbol, Type)]) extends Type {
     case ElementSymbol(idx) => elements(idx-1)._2
     case _ => elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
   }
+  def classTag = TupleSupport.classTagForArity(elements.size)
 }
 
 trait OptionType extends Type {
   override def toString = "Option[" + elementType + "]"
   def elementType: Type
   def children: Seq[Type] = Seq(elementType)
+  def classTag = OptionType.classTag
 }
 
 object OptionType {
@@ -58,6 +65,7 @@ object OptionType {
       else OptionType(e2)
     }
   }
+  private val classTag = mkClassTag[Option[_]]
 }
 
 final case class ProductType(elements: IndexedSeq[Type]) extends Type {
@@ -74,6 +82,7 @@ final case class ProductType(elements: IndexedSeq[Type]) extends Type {
   def children: Seq[Type] = elements
   def numberedElements: Iterator[(ElementSymbol, Type)] =
     elements.iterator.zipWithIndex.map { case (t, i) => (new ElementSymbol(i+1), t) }
+  def classTag = TupleSupport.classTagForArity(elements.size)
 }
 
 final case class CollectionType(cons: CollectionTypeConstructor, elementType: Type) extends Type {
@@ -84,36 +93,82 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
     else CollectionType(cons, e2)
   }
   def children: Seq[Type] = Seq(elementType)
+  def classTag = cons.classTag
 }
 
-case class CollectionTypeConstructor(dummy: String = "") {
-  def canBuildFrom = implicitly[CanBuildFrom[Vector[Any], Any, Vector[Any]]]
-  override def toString = "Coll"
+/** Represents a type constructor that can be usd for a collection-valued query.
+  * The relevant information for Slick is whether the elements of the collection
+  * keep their insertion order (isSequential) and whether only distinct elements
+  * are allowed (isUnique). */
+trait CollectionTypeConstructor {
+  /** The ClassTag for the type constructor */
+  def classTag: ClassTag[_]
+  /** Determines if order is relevant */
+  def isSequential: Boolean
+  /** Determines if only distinct elements are allowed */
+  def isUnique: Boolean
+  /** Create a `Builder` for the collection type, given a ClassTag for the element type */
+  def createBuilder[E : ClassTag]: Builder[E, Any]
+  /** Return a CollectionTypeConstructor which builds a subtype of Iterable
+    * but has the same properties otherwise. */
+  def iterableSubstitute: CollectionTypeConstructor =
+    if(isUnique && !isSequential) TypedCollectionTypeConstructor.set
+    else TypedCollectionTypeConstructor.seq
+    //TODO We should have a better substitute for (isUnique && isSequential)
 }
 
-object CollectionTypeConstructor {
-  def default = new CollectionTypeConstructor
+@implicitNotFound("Cannot use collection in a query\n            collection type: ${C}[_]\n  requires implicit of type: scala.slick.ast.TypedCollectionTypeConstructor[${C}]")
+abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]) extends CollectionTypeConstructor {
+  override def toString = s"Coll[$classTag]"
+  def createBuilder[E : ClassTag]: Builder[E, C[E]]
 }
 
-final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: Any => Any) extends Type {
+class ErasedCollectionTypeConstructor[C[_]](canBuildFrom: CanBuild[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
+  val isSequential = classOf[scala.collection.Seq[_]].isAssignableFrom(classTag.runtimeClass)
+  val isUnique = classOf[scala.collection.Set[_]].isAssignableFrom(classTag.runtimeClass)
+  def createBuilder[E : ClassTag] = canBuildFrom().asInstanceOf[Builder[E, C[E]]]
+}
+
+object TypedCollectionTypeConstructor {
+  private[this] val arrayClassTag = mkClassTag[Array[_]]
+  /** The standard TypedCollectionTypeConstructor for Seq */
+  def seq = forColl[Vector]
+  /** The standard TypedCollectionTypeConstructor for Set */
+  def set = forColl[Set]
+  /** Get a TypedCollectionTypeConstructor for an Iterable type */
+  implicit def forColl[C[X] <: Iterable[X]](implicit cbf: CanBuild[Any, C[Any]], tag: ClassTag[C[_]]): TypedCollectionTypeConstructor[C] =
+    new ErasedCollectionTypeConstructor[C](cbf, tag)
+  /** Get a TypedCollectionTypeConstructor for an Array type */
+  implicit val forArray: TypedCollectionTypeConstructor[Array] = new TypedCollectionTypeConstructor[Array](arrayClassTag) {
+    def isSequential = true
+    def isUnique = false
+    def createBuilder[E : ClassTag]: Builder[E, Array[E]] = ArrayBuilder.make[E]
+  }
+}
+
+final class MappedScalaType(val baseType: Type, _toBase: Any => Any, _toMapped: Any => Any, val classTag: ClassTag[_]) extends Type {
   def toBase(v: Any): Any = _toBase(v)
   def toMapped(v: Any): Any = _toMapped(v)
   override def toString = s"Mapped[$baseType]"
   def mapChildren(f: Type => Type): MappedScalaType = {
     val e2 = f(baseType)
     if(e2 eq baseType) this
-    else new MappedScalaType(e2, _toBase, _toMapped)
+    else new MappedScalaType(e2, _toBase, _toMapped, classTag)
   }
   def children: Seq[Type] = Seq(baseType)
   override def select(sym: Symbol) = baseType.select(sym)
 }
 
 /** The standard type for freshly constructed nodes without an explicit type. */
-final case object UnassignedType extends AtomicType
+case object UnassignedType extends AtomicType {
+  def classTag = throw new SlickException("UnassignedType does not have a ClassTag")
+}
 
 /** The type of a structural view of a NominalType before computing the
   * proper type in the `inferTypes` phase. */
-final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType
+final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType {
+  def classTag = throw new SlickException("UnassignedStructuralType does not have a ClassTag")
+}
 
 /* A type with a name, as used by tables.
  *
@@ -138,6 +193,7 @@ final case class NominalType(sym: TypeSymbol)(val structuralView: Type) extends 
     case n: NominalType => n.sourceNominalType
     case _ => this
   }
+  def classTag = structuralView.classTag
 }
 
 /** Something that has a type */
@@ -212,7 +268,7 @@ object TypeUtilOps {
   import TypeUtil.typeToTypeUtil
 
   def replace(tpe: Type, f: PartialFunction[Type, Type]): Type =
-    f.applyOrElse(tpe, ({ case t: Type => t.mapChildren(_.replace(f)) }): PartialFunction[Type, Type])
+    f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
 
   def collect[T](tpe: Type, pf: PartialFunction[Type, T]): Iterable[T] = {
     val b = new ArrayBuffer[T]
@@ -253,8 +309,8 @@ trait ScalaType[T] extends TypedType[T] {
   final def scalaType = this
 }
 
-class ScalaBaseType[T](implicit val tag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
-  override def toString = "ScalaType[" + tag.runtimeClass.getName + "]"
+class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
+  override def toString = "ScalaType[" + classTag.runtimeClass.getName + "]"
   def nullable = false
   def ordered = ordering ne null
   def scalaOrderingFor(ord: Ordering) = {
@@ -270,9 +326,9 @@ class ScalaBaseType[T](implicit val tag: ClassTag[T], val ordering: scala.math.O
       }
     }
   }
-  override def hashCode = tag.hashCode
+  override def hashCode = classTag.hashCode
   override def equals(o: Any) = o match {
-    case t: ScalaBaseType[_] => tag == t.tag
+    case t: ScalaBaseType[_] => classTag == t.classTag
     case _ => false
   }
 }
@@ -292,7 +348,7 @@ object ScalaBaseType {
 
   private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
-      floatType, intType, longType, nullType, shortType, stringType).map(s => (s.tag, s)).toMap
+      floatType, intType, longType, nullType, shortType, stringType).map(s => (s.classTag, s)).toMap
 
   def apply[T](implicit tag: ClassTag[T], ord: scala.math.Ordering[T] = null): ScalaBaseType[T] =
     all.getOrElse(tag, new ScalaBaseType[T]).asInstanceOf[ScalaBaseType[T]]

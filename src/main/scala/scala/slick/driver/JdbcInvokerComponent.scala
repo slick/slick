@@ -1,5 +1,6 @@
 package scala.slick.driver
 
+import scala.language.higherKinds
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{Insert, CompiledStatement, ResultSetMapping, Node}
@@ -85,7 +86,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected lazy val insertForcedResult = builder.buildInsert(forced = true)
     lazy val insertStatement = insertResult.sql
     lazy val forceInsertStatement = insertForcedResult.sql
-    def insertStatementFor[TT](query: Query[TT, U]): String = builder.buildInsert(query).sql
+    def insertStatementFor[TT, C[_]](query: Query[TT, U, C]): String = builder.buildInsert(query).sql
     def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: ShapeLevel.Flat, TT, U, _]): String = insertStatementFor(Query(c)(shape))
 
     def useBatchUpdates(implicit session: Backend#Session) = session.capabilities.supportsBatchUpdates
@@ -154,7 +155,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: ShapeLevel.Flat, TT, U, _], session: Backend#Session): QueryInsertResult =
       insert(Query(c)(shape))(session)
 
-    def insert[TT](query: Query[TT, U])(implicit session: Backend#Session): QueryInsertResult = {
+    def insert[TT, C[_]](query: Query[TT, U, C])(implicit session: Backend#Session): QueryInsertResult = {
       val sbr = builder.buildInsert(query)
       prepared(insertStatementFor(query)) { st =>
         st.clearParameters()
@@ -189,7 +190,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
 
-    def returning[RT, RU](value: Query[RT, RU]) =
+    def returning[RT, RU, C[_]](value: Query[RT, RU, C]) =
       createKeysInsertInvoker[U, RU](tree, value.toNode)
   }
 

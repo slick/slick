@@ -1,12 +1,14 @@
 package scala.slick
 package lifted
 
+import scala.language.higherKinds
+
 /**
  * Aliases for lifted embedding features. This trait can be mixed into aliasing objects
  * which simplify the use of the lifted embedding.
  */
 trait Aliases {
-  type Query[+E, U] = lifted.Query[E, U]
+  type Query[+E, U, C[_]] = lifted.Query[E, U, C]
   val Query = lifted.Query
   type TableQuery[E <: AbstractTable[_]] = lifted.TableQuery[E]
   val TableQuery = lifted.TableQuery

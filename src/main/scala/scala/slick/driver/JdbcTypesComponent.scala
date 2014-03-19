@@ -54,7 +54,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     }
   }
 
-  abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U], tag: ClassTag[T]) extends JdbcType[T] {
+  abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U], val classTag: ClassTag[T]) extends JdbcType[T] {
     def map(t: T): U
     def comap(u: U): T
 
@@ -112,7 +112,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       throw new SlickException("No SQL type name found in java.sql.Types for code "+t))
   }
 
-  abstract class DriverJdbcType[T : ClassTag] extends JdbcType[T] with BaseTypedType[T] {
+  abstract class DriverJdbcType[T](implicit val classTag: ClassTag[T]) extends JdbcType[T] with BaseTypedType[T] {
     def scalaType = ScalaBaseType[T]
     def sqlTypeName: String = driver.defaultSqlTypeName(this)
     def valueToSQLLiteral(value: T) =

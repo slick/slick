@@ -24,7 +24,7 @@ trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDr
       new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
   }
 
-  class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T) extends ScalaType[T] with BaseTypedType[T] {
+  class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T)(implicit val classTag: ClassTag[T]) extends ScalaType[T] with BaseTypedType[T] {
     def nullable: Boolean = baseType.nullable
     def ordered: Boolean = baseType.ordered
     def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T] = new scala.math.Ordering[T] {

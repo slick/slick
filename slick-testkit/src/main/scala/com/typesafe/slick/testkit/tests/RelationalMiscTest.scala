@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import scala.language.higherKinds
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
@@ -68,9 +69,9 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     t1s.ddl.create
     t1s ++= Seq(("a2", "b2", "c2"), ("a1", "b1", "c1"))
 
-    implicit class TupledQueryExtensionMethods[E1, E2, U1, U2](q: Query[(E1, E2), (U1, U2)]) {
+    implicit class TupledQueryExtensionMethods[E1, E2, U1, U2, C[_]](q: Query[(E1, E2), (U1, U2), C]) {
       def sortedValues(implicit ordered: (E1 => Ordered),
-                       shape: Shape[ShapeLevel.Flat, E2, U2, E2]): Query[E2, U2] =
+                       shape: Shape[ShapeLevel.Flat, E2, U2, E2]): Query[E2, U2, C] =
           q.sortBy(_._1).map(_._2)
     }
 

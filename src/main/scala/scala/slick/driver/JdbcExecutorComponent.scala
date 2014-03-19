@@ -1,6 +1,7 @@
 package scala.slick.driver
 
-import scala.slick.ast.{CompiledStatement, First, ResultSetMapping, Node}
+import scala.collection.mutable.Builder
+import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.TypeUtil._
 import scala.slick.util.SQLBuilder
@@ -21,12 +22,14 @@ trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
       tree.findNode(_.isInstanceOf[CompiledStatement]).get
         .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
 
-    def run(implicit session: Backend#Session): R = (tree match {
-      case rsm: ResultSetMapping =>
-        createQueryInvoker[Any](rsm, param).buildColl(session, rsm.nodeType.asCollectionType.cons.canBuildFrom)
+    def run(implicit session: Backend#Session): R = tree match {
+      case rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType)) :@ CollectionType(cons, el) =>
+        val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
+        createQueryInvoker[Any](rsm, param).foreach({ x => b += x }, 0)(session)
+        b.result()
       case First(rsm: ResultSetMapping) =>
-        createQueryInvoker[Any](rsm, param).first
-    }).asInstanceOf[R]
+        createQueryInvoker[R](rsm, param).first
+    }
   }
 
   class UnshapedQueryExecutorDef[M](value: M) extends super.UnshapedQueryExecutorDef[M](value) {
