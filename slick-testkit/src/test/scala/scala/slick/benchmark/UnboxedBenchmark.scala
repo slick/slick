@@ -27,8 +27,8 @@ object UnboxedBenchmark extends App {
   // Fast path
   val q2 =  as.map(a => a.proj <> (A.tupled, A.unapply)
     fastPath(new FastPath(_) {
-      val (a, b, c, d) = (nextInt, nextInt, nextInt, nextInt)
-      override def readGeneric(r: Reader) = new A(a.read(r), b.read(r), c.read(r), d.read(r))
+      val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
+      override def read(r: Reader) = new A(a.read(r), b.read(r), c.read(r), d.read(r))
     })
   )
 
@@ -36,8 +36,8 @@ object UnboxedBenchmark extends App {
   val sharedA = new A(0, 0, 0, 0)
   val q3 =  as.map(a => a.proj <> (A.tupled, A.unapply)
     fastPath(new FastPath(_) {
-      val (a, b, c, d) = (nextInt, nextInt, nextInt, nextInt)
-      override def readGeneric(r: Reader) = {
+      val (a, b, c, d) = (next[Int], next[Int], next[Int], next[Int])
+      override def read(r: Reader) = {
         sharedA.a = a.read(r)
         sharedA.b = b.read(r)
         sharedA.c = c.read(r)
@@ -78,7 +78,7 @@ object UnboxedBenchmark extends App {
     }
     val pr = new PositionedResult(fakeRS) { def close() {} }
     new PositionedResultIterator[Any](pr, 0) {
-      def extractValue(pr: PositionedResult) = converter.readGeneric(rs)
+      def extractValue(pr: PositionedResult) = converter.read(rs)
     }
   }
 

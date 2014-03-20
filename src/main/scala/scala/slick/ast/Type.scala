@@ -309,6 +309,7 @@ trait ScalaType[T] extends TypedType[T] {
   def ordered: Boolean
   def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T]
   final def scalaType = this
+  final def isPrimitive = classTag.runtimeClass.isPrimitive
 }
 
 class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {

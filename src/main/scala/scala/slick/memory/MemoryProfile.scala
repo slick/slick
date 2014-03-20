@@ -45,7 +45,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
           case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) :@ CollectionType(cons, el) =>
             val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
             val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
-            b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].readGeneric(v.asInstanceOf[QueryInterpreter.ProductValue]))
+            b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
             b.result()
           case n => super.run(n)
         }
@@ -63,7 +63,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
     def += (value: T)(implicit session: Backend#Session) {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
-      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].setGeneric(value, buf, false)
+      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf, false)
       htable.append(buf)
     }
 
@@ -117,9 +117,9 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
     }
 
     class InsertResultConverter(tidx: Int, autoInc: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
-      def readGeneric(pr: MemoryResultConverterDomain#Reader) = ???
-      def updateGeneric(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
-      def setGeneric(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) =
+      def read(pr: MemoryResultConverterDomain#Reader) = ???
+      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) =
         if(forced || !autoInc) pp(tidx) = value
       override def info = super.info + s"($tidx, autoInc=$autoInc)"
       def fullWidth = 1

@@ -102,13 +102,13 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
     }
 
     class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
-      def readGeneric(pr: MemoryResultConverterDomain#Reader) = {
+      def read(pr: MemoryResultConverterDomain#Reader) = {
         val v = pr(ridx-1)
         if(!nullable && (v.asInstanceOf[AnyRef] eq null)) throw new SlickException("Read null value for non-nullable column")
         v
       }
-      def updateGeneric(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
-      def setGeneric(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = ???
+      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = ???
       override def info = super.info + s"($ridx, nullable=$nullable)"
       def fullWidth = 1
       def skippingWidth = 1

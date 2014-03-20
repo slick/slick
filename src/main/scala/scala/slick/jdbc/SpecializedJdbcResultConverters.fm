@@ -1,0 +1,41 @@
+package scala.slick.jdbc
+
+import scala.language.existentials
+import java.sql.{PreparedStatement, ResultSet}
+import scala.slick.relational._
+import scala.slick.SlickException
+import scala.slick.ast.{Dump, ScalaBaseType}
+<#assign specTypes = ["Byte", "Short", "Int", "Long", "Char", "Float", "Double", "Boolean"]>
+
+/** Factory methods for JdbcResultConverters which are manually specialized on
+  * the underlying JdbcType. A generic implementation of this factory still
+  * provides allocation free call paths but performs almost 100% slower in the
+  * fast path benchmark. */
+object SpecializedJdbcResultConverter {
+  /** Create a new type-specialized `BaseResultConverter` for the given type-specialized `JdbcType` */
+  def base[T](ti: JdbcType[T], name: String, fullIdx: Int, skippingIdx: Int) = (ti.scalaType match {
+    <#list specTypes as tpe>
+    case ScalaBaseType.${tpe?lower_case}Type => new BaseResultConverter[${tpe}](ti.asInstanceOf[JdbcType[${tpe}]], name, fullIdx, skippingIdx)
+    </#list>
+    case _ => new BaseResultConverter[T](ti.asInstanceOf[JdbcType[T]], name, fullIdx, skippingIdx) {
+      override def read(pr: ResultSet) = {
+        val v = ti.getValue(pr, fullIdx)
+        if(v.asInstanceOf[AnyRef] eq null) throw new SlickException("Read NULL value ("+v+") for ResultSet column "+name)
+        v
+      }
+    }
+  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+
+  /** Create a new type-specialized `OptionResultConverter` for the given type-specialized `JdbcType` */
+  def option[T](ti: JdbcType[T], fullIdx: Int, skippingIdx: Int) = (ti.scalaType match {
+    <#list specTypes as tpe>
+    case ScalaBaseType.${tpe?lower_case}Type => new OptionResultConverter[${tpe}](ti.asInstanceOf[JdbcType[${tpe}]], fullIdx, skippingIdx)
+    </#list>
+    case _ => new OptionResultConverter[T](ti.asInstanceOf[JdbcType[T]], fullIdx, skippingIdx) {
+      override def read(pr: ResultSet) = {
+        val v = ti.getValue(pr, fullIdx)
+        if(v.asInstanceOf[AnyRef] eq null) None else Some(v)
+      }
+    }
+  }).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Option[T]]]
+}

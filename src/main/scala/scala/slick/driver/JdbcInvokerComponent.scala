@@ -43,8 +43,8 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def getStatement = sres.sql
     protected def setParam(st: PreparedStatement): Unit = sres.setter(st, 1, param)
-    protected def extractValue(pr: PositionedResult): R = converter.readGeneric(pr.rs)
-    protected def updateRowValues(pr: PositionedResult, value: R) = converter.updateGeneric(value, pr.rs)
+    protected def extractValue(pr: PositionedResult): R = converter.read(pr.rs)
+    protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr.rs)
     def invoker: this.type = this
   }
 
@@ -108,7 +108,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def internalInsert(forced: Boolean, value: U)(implicit session: Backend#Session): SingleInsertResult =
       prepared(if(forced) forceInsertStatement else insertStatement) { st =>
         st.clearParameters()
-        converter.setGeneric(value, st, forced)
+        converter.set(value, st, forced)
         val count = st.executeUpdate()
         retOne(st, value, count)
       }
@@ -136,7 +136,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
         prepared(if(forced) forceInsertStatement else insertStatement) { st =>
           st.clearParameters()
           for(value <- values) {
-            converter.setGeneric(value, st, forced)
+            converter.set(value, st, forced)
             st.addBatch()
           }
           val counts = st.executeBatch()
@@ -202,7 +202,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     extends BaseInsertInvoker[U](tree) {
 
     protected def buildKeysResult(st: Statement): Invoker[RU] =
-      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => keyConverter.readGeneric(pr.rs).asInstanceOf[RU])
+      ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr.rs).asInstanceOf[RU])
 
     // Returning keys from batch inserts is generally not supported
     override def useBatchUpdates(implicit session: Backend#Session) = false
@@ -278,7 +278,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     def update(value: T)(implicit session: Backend#Session): Int = session.withPreparedStatement(updateStatement) { st =>
       st.clearParameters
-      converter.setGeneric(value, st, true)
+      converter.set(value, st, true)
       sres.setter(st, converter.fullWidth+1, param)
       st.executeUpdate
     }

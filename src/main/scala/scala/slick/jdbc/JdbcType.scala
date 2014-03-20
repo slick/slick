@@ -6,7 +6,7 @@ import scala.slick.ast.BaseTypedType
 /** A JdbcType object represents a Scala type that can be
   * used as a column type in the database. Implicit JdbcTypes
   * for the standard types of a profile are provided by the drivers. */
-trait JdbcType[@specialized T] extends BaseTypedType[T] { self =>
+trait JdbcType[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T] extends BaseTypedType[T] { self =>
   /** The constant from java.sql.Types that is used for setting parameters
     * of the type to NULL. */
   def sqlType: Int

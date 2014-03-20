@@ -299,8 +299,8 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       def a = column[Int]("A")
       def b = column[Int]("B")
       def * = (a, b) <> (Data.tupled, Data.unapply _) fastPath(new FastPath(_) {
-        val (a, b) = (nextInt, nextInt)
-        override def readGeneric(r: Reader) = Data(a.read(r), b.read(r))
+        val (a, b) = (next[Int], next[Int])
+        override def read(r: Reader) = Data(a.read(r), b.read(r))
       })
     }
     val ts = TableQuery[T]

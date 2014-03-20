@@ -25,12 +25,14 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
       nextFullIdx += 1
       val skippingIdx = if(autoInc) 0 else nextSkippingIdx
       if(!autoInc) nextSkippingIdx += 1
-      if(option) OptionResultConverter(ti, fullIdx, skippingIdx)
-      else BaseResultConverter(ti, column.fold(n.toString)(_.name), fullIdx, skippingIdx)
+      if(option) SpecializedJdbcResultConverter.option(ti, fullIdx, skippingIdx)
+      else SpecializedJdbcResultConverter.base(ti, column.fold(n.toString)(_.name), fullIdx, skippingIdx)
     }
 
-    override def createGetOrElseResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]], default: () => T) =
-      DefaultingResultConverter[T](rc, default)
+    override def createGetOrElseResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]], default: () => T) = rc match {
+      case rc: OptionResultConverter[_] => rc.getOrElse(default)
+      case _ => super.createGetOrElseResultConverter[T](rc, default)
+    }
 
     override def createTypeMappingResultConverter(rc: ResultConverter[JdbcResultConverterDomain, Any], mapper: MappedScalaType.Mapper) = {
       val tm = new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)

@@ -7,13 +7,13 @@ import java.io.{StringWriter, OutputStreamWriter, PrintWriter}
 
 /** A `ResultConverter` is used to read data from a result, update a result,
   * and set parameters of a query. */
-abstract class ResultConverter[M <: ResultConverterDomain, T] {
+trait ResultConverter[M <: ResultConverterDomain, @specialized T] {
   protected[this] type Reader = M#Reader
   protected[this] type Writer = M#Writer
   protected[this] type Updater = M#Updater
-  def readGeneric(pr: Reader): T
-  def updateGeneric(value: T, pr: Updater): Unit
-  def setGeneric(value: T, pp: Writer, forced: Boolean): Unit
+  def read(pr: Reader): T
+  def update(value: T, pr: Updater): Unit
+  def set(value: T, pp: Writer, forced: Boolean): Unit
   def info: String = {
     val cln = getClass.getName.replaceAll(".*\\.", "")
     val sep = cln.lastIndexOf("_")
@@ -78,35 +78,35 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
     (full, skipping)
   }
 
-  def readGeneric(pr: Reader) = {
+  def read(pr: Reader) = {
     val a = new Array[Any](len)
     var i = 0
     while(i < len) {
-      a(i) = cha(i).readGeneric(pr)
+      a(i) = cha(i).read(pr)
       i += 1
     }
     TupleSupport.buildTuple(a).asInstanceOf[T]
   }
-  def updateGeneric(value: T, pr: Updater) = {
+  def update(value: T, pr: Updater) = {
     var i = 0
     while(i < len) {
-      cha(i).asInstanceOf[ResultConverter[M, Any]].updateGeneric(value.productElement(i), pr)
+      cha(i).asInstanceOf[ResultConverter[M, Any]].update(value.productElement(i), pr)
       i += 1
     }
   }
-  def setGeneric(value: T, pp: Writer, forced: Boolean) = {
+  def set(value: T, pp: Writer, forced: Boolean) = {
     var i = 0
     while(i < len) {
-      cha(i).asInstanceOf[ResultConverter[M, Any]].setGeneric(value.productElement(i), pp, forced)
+      cha(i).asInstanceOf[ResultConverter[M, Any]].set(value.productElement(i), pp, forced)
       i += 1
     }
   }
 }
 
 final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]], default: () => T) extends ResultConverter[M, T] {
-  def readGeneric(pr: Reader) = child.readGeneric(pr).getOrElse(default())
-  def updateGeneric(value: T, pr: Updater) = child.updateGeneric(Some(value), pr)
-  def setGeneric(value: T, pp: Writer, forced: Boolean) = child.setGeneric(Some(value), pp, forced)
+  def read(pr: Reader) = child.read(pr).getOrElse(default())
+  def update(value: T, pr: Updater) = child.update(Some(value), pr)
+  def set(value: T, pp: Writer, forced: Boolean) = child.set(Some(value), pp, forced)
   override def info =
     super.info + s"(${ try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } })"
   override def children = Iterator(child)
@@ -115,9 +115,9 @@ final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: Resul
 }
 
 final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C], toBase: T => C, toMapped: C => T) extends ResultConverter[M, T] {
-  def readGeneric(pr: Reader) = toMapped(child.readGeneric(pr))
-  def updateGeneric(value: T, pr: Updater) = child.updateGeneric(toBase(value), pr)
-  def setGeneric(value: T, pp: Writer, forced: Boolean) = child.setGeneric(toBase(value), pp, forced)
+  def read(pr: Reader) = toMapped(child.read(pr))
+  def update(value: T, pr: Updater) = child.update(toBase(value), pr)
+  def set(value: T, pp: Writer, forced: Boolean) = child.set(toBase(value), pp, forced)
   override def children = Iterator(child)
   def fullWidth = child.fullWidth
   def skippingWidth = child.skippingWidth
