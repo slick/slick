@@ -70,12 +70,12 @@ object LiftedEmbedding extends App {
 //#tabledef
 //#foreignkeynav
 //#foreignkey
-    def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
+    def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id, onUpdate=ForeignKeyAction.Restrict, onDelete=ForeignKeyAction.Cascade)
 //#foreignkeynav
     // compiles to SQL:
     //   alter table "COFFEES" add constraint "SUP_FK" foreign key("SUP_ID")
     //     references "SUPPLIERS"("SUP_ID")
-    //     on update NO ACTION on delete NO ACTION
+    //     on update RESTRICT on delete CASCADE
 //#foreignkeynav
 //#foreignkey
     def supplier2 = suppliers.filter(_.id === supID)

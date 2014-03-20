@@ -116,16 +116,13 @@ to the mapping functions.
 Constraints
 -----------
 
-A foreign key constraint can be defined with a table's ``foreignKey`` method.
-It takes a name for the constraint, the local column (or projection, so you
-can define compound foreign keys), the linked table, and a function from that
-table to the corresponding column(s). When creating the DDL statements for the
-table, the foreign key definition is added to it.
+A foreign key constraint can be defined with a Table's :api:`foreignKey <scala.slick.profile.RelationalTableComponent$Table@foreignKey[P,PU,TT<:AbstractTable[_],U](String,P,TableQuery[TT])((TT)⇒P,ForeignKeyAction,ForeignKeyAction)(Shape[_<:Flat,TT,U,_],Shape[_<:Flat,P,PU,_]):ForeignKeyQuery[TT,U]>` method.
+It first takes a name for the constraint, the referencing column(s) and the referenced table. The second argument list takes a function from the referenced table to its referenced column(s) as well as :api:`ForeignKeyAction <scala.slick.model.ForeignKeyAction$>` for ``onUpdate`` and ``onDelete``, which are optional and default to :api:`NoAction <scala.slick.model.ForeignKeyAction$$NoAction$>`. When creating the DDL statements for the table, the foreign key definition is added to it.
 
 .. includecode:: code/LiftedEmbedding.scala#foreignkey
 
 Independent of the actual constraint defined in the database, such a foreign
-key can be used to navigate to the linked data with a *join*. For this
+key can be used to navigate to the referenced data with a *join*. For this
 purpose, it behaves the same as a manually defined utility method for finding
 the joined data:
 

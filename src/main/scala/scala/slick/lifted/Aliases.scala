@@ -40,4 +40,6 @@ trait Aliases {
   val ShapeLevel = lifted.ShapeLevel
   type Isomorphism[A, B] = lifted.Isomorphism[A, B]
   type MappedTo[T] = lifted.MappedTo[T]
+  val ForeignKeyAction = scala.slick.model.ForeignKeyAction
+  type ForeignKeyAction = scala.slick.model.ForeignKeyAction
 }
