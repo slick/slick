@@ -454,7 +454,7 @@ object LiftedEmbedding extends App {
       val shapes: Seq[Shape[_, _, _, _]])
     extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
-      def copy(shapes: Seq[Shape[_, _, _, _]]) = new PairShape(shapes)
+      def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
     }
 
     implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](

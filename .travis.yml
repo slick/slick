@@ -1,5 +1,5 @@
 language: scala
-script: sbt -Dslick.testkit.dbprops=test-dbs/databases.travis.properties test doctest:test
+script: sbt -jvm-opts jvmopts.travis -Dslick.testkit.dbprops=test-dbs/databases.travis.properties +testAll
 jdk:
   - openjdk6
 notifications:

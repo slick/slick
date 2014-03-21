@@ -143,7 +143,7 @@ class $name(tag: Tag) extends Table[$elementType](tag, ${args.mkString(", ")})$p
     class ColumnDef(model: m.Column) extends super.ColumnDef(model){
       import ColumnOption._
       def columnOptionCode = {
-        case PrimaryKey     => Some(s"O.PrimaryKey")
+        case ColumnOption.PrimaryKey => Some(s"O.PrimaryKey")
         case Default(value) => Some(s"O.Default(${default.get})") // .get is safe here
         case DBType(dbType) => Some(s"O.DBType($dbType)")
         case AutoInc        => Some(s"O.AutoInc")

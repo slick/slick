@@ -11,6 +11,11 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
 import scala.reflect.runtime.universe._
+
+// TODO 2.11 Remove this after dropping 2.10.x support
+// http://docs.scala-lang.org/overviews/macros/changelog211.html
+private object HasCompat { val compat = ??? }; import HasCompat._
+
 import scala.reflect.runtime.{currentMirror=>cm}
 
 /** maps a Scala method to a Slick FunctionSymbol */
@@ -77,14 +82,15 @@ object CustomNodes{
 import CustomNodes._
 
 class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
+  import scala.reflect.runtime.universe.{Scope => _, _}
+  import compat._
   type Session = JdbcDriver#Backend#Session
-  import slick.ast.ScalaBaseType
   val columnTypes = {
     Map( // FIXME use symbols instead of strings for type names here
-       typeOf[Int].typeSymbol     -> ScalaBaseType.intType
-      ,typeOf[Double].typeSymbol  -> ScalaBaseType.doubleType
-      ,typeOf[String].typeSymbol  -> ScalaBaseType.stringType
-      ,typeOf[Boolean].typeSymbol -> ScalaBaseType.booleanType
+       typeOf[Int].typeSymbol     -> sq.ScalaBaseType.intType
+      ,typeOf[Double].typeSymbol  -> sq.ScalaBaseType.doubleType
+      ,typeOf[String].typeSymbol  -> sq.ScalaBaseType.stringType
+      ,typeOf[Boolean].typeSymbol -> sq.ScalaBaseType.booleanType
     )
   }
   /** generates a map from Scala symbols to Slick FunctionSymbols from description in OperatorMapping */
@@ -366,8 +372,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
             op,
             components
         )
-        if definitions
-            .TupleClass
+        if (2 to 22).map(definitions.TupleClass)
             .filter(_ != NoSymbol)
             .map( _.companionSymbol.typeSignature.member( newTermName("apply") ) )
             .contains( op.symbol )

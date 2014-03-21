@@ -1,0 +1,7 @@
+-Xmx3076M
+-XX:MaxPermSize=1024M
+-Xss2M
+-XX:+DoEscapeAnalysis
+-XX:+UseParallelGC
+-XX:+UseCompressedOops
+-XX:ReservedCodeCacheSize=128M
