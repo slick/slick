@@ -46,6 +46,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
+    override protected val supportsEmptyJoinConditions = false
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b" limit $t offset $d"

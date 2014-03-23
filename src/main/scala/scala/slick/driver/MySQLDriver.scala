@@ -49,6 +49,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
+    override protected val supportsEmptyJoinConditions = false
 
     final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
       type Self = RowNum
