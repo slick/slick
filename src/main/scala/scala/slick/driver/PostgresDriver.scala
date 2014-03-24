@@ -13,7 +13,7 @@ import scala.slick.jdbc.UnitInvoker
  * Slick driver for PostgreSQL.
  *
  * This driver implements all capabilities of the
- * [[scala.slick.driver.ExtendedProfile]].
+ * [[scala.slick.driver.JdbcProfile]].
  *
  * Notes:
  *

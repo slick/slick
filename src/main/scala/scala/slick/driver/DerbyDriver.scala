@@ -12,7 +12,7 @@ import scala.slick.jdbc.UnitInvoker
 /**
  * Slick driver for Derby/JavaDB.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * This driver implements the [[scala.slick.driver.JdbcProfile]]
  * ''without'' the following capabilities:
  *
  * <ul>
