@@ -233,7 +233,11 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       implicit val session: Backend#Session = null
       buildKeysResult(st).buildColl[Vector]
     }
-
+    /**
+      * Specifies a mapping from inserted values and generated keys to a desired value.
+      * @param f Function that maps inserted values and generated keys to a desired value.
+      * @tparam R target type of the mapping
+      */
     def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](tree, keys, f)
   }
 

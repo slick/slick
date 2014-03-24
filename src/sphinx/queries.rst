@@ -192,6 +192,12 @@ which must be the table's auto-incrementing primary key. If you ask for
 other columns a ``SlickException`` is thrown at runtime (unless the database
 actually supports it).
 
+You can follow the ``returning`` method with the ``into`` method to map
+the inserted values and the generated keys (specified in returning) to a desired value.
+Here is an example of using this feature to return an object with an updated id:
+
+.. includecode:: code/LiftedEmbedding.scala#insert3b
+
 Instead of inserting data from the client side you can also insert data
 created by a ``Query`` or a scalar expression that is executed in the
 database server:

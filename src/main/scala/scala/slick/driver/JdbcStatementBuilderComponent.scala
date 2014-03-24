@@ -42,6 +42,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val scalarFrom: Option[String] = None
     protected val supportsTuples = true
     protected val supportsCast = true
+    protected val supportsEmptyJoinConditions = true
     protected val concatOperator: Option[String] = None
     protected val hasPiFunction = true
     protected val hasRadDegConversion = true
@@ -176,6 +177,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           buildFrom(right, Some(rightGen))
           on match {
             case LiteralNode(true) =>
+              if(!supportsEmptyJoinConditions) b" on 1=1"
             case _ => b" on !$on"
           }
         case Union(left, right, all, _, _) =>
