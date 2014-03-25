@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 
 /**
@@ -20,6 +20,8 @@ import scala.slick.compiler.CompilerState
  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+ *     Full outer joins are not supported by H2.</li>
  * </ul>
  *
  * @author szeiger
@@ -31,6 +33,7 @@ trait H2Driver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceMax
     - SqlProfile.capabilities.sequenceCycle
     - JdbcProfile.capabilities.returnInsertOther
+    - RelationalProfile.capabilities.joinFull
   )
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

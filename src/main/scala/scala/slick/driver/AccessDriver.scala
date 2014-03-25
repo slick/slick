@@ -58,6 +58,8 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  *     Row numbers (required by <code>zip</code> and
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
  *     code which uses this feature throws a SlickException.</li>
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+ *     Full outer joins are not supported by Access.</li>
  * </ul>
  *
  * @author szeiger
@@ -81,6 +83,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeLong
     - RelationalProfile.capabilities.zip
     - JdbcProfile.capabilities.createModel
+    - RelationalProfile.capabilities.joinFull
     )
 
   def integralTypes = Set(

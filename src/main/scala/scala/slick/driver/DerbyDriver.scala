@@ -43,6 +43,8 @@ import scala.slick.jdbc.Invoker
  *     support them with the standard SQL:2003 syntax (see
  *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber" target="_parent"
  *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+ *     Full outer joins are not supported by Derby.</li>
  * </ul>
  *
  * @author szeiger
@@ -57,6 +59,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
     - SqlProfile.capabilities.sequenceCycle
     - RelationalProfile.capabilities.zip
+    - RelationalProfile.capabilities.joinFull
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))

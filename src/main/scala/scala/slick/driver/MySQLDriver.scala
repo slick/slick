@@ -7,7 +7,7 @@ import scala.slick.ast.Util._
 import scala.slick.ast.TypeUtil._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 
 /**
@@ -22,6 +22,8 @@ import scala.slick.compiler.CompilerState
  *     may be specified which must be the table's AutoInc column.</li>
  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceLimited]]:
  *     Non-cyclic sequence may not have an upper limit.</li>
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+ *     Full outer joins are not supported by MySQL.</li>
  * </ul>
  *
  * Sequences are supported through an emulation which requires the schema to
@@ -36,6 +38,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.returnInsertOther
     - SqlProfile.capabilities.sequenceLimited
+    - RelationalProfile.capabilities.joinFull
   )
 
   override val columnTypes = new JdbcTypes
