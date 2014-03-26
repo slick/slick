@@ -21,7 +21,8 @@ import scala.slick.compiler.CompilerState
  *     When returning columns from an INSERT operation, only a single column
  *     may be specified which must be the table's AutoInc column.</li>
  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
- *     Full outer joins are not supported by H2.</li>
+ *     Full outer joins are emulated because there is not native support
+ *     for them.</li>
  * </ul>
  *
  * @author szeiger

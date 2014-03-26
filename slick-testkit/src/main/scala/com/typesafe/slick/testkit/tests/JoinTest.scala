@@ -74,23 +74,19 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
     q3b.run.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => (p._1, p._2)).run)
 
-    ifCap(rcap.joinRight) {
-      val q4 = (for {
-        (c,p) <- categories rightJoin posts on (_.id is _.category)
-      } yield (p.id, c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title)).sortBy(_._1)
-      println("Right outer join")
-      q4.run.foreach(x => println("  "+x))
-      assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => (p._1, p._2)).run)
-    }
+    val q4 = (for {
+      (c,p) <- categories rightJoin posts on (_.id is _.category)
+    } yield (p.id, c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title)).sortBy(_._1)
+    println("Right outer join")
+    q4.run.foreach(x => println("  "+x))
+    assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => (p._1, p._2)).run)
 
-    ifCap(rcap.joinFull) {
-      val q4 = (for {
-        (c,p) <- categories outerJoin posts on (_.id is _.category)
-      } yield (p.id.?.getOrElse(0), c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title.?.getOrElse(""))).sortBy(_._1)
-      println("Full outer join")
-      q4.run.foreach(x => println("  "+x))
-      assertEquals(Vector((0,4), (1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => (p._1, p._2)).run)
-    }
+    val q5 = (for {
+      (c,p) <- categories outerJoin posts on (_.id is _.category)
+    } yield (p.id.?.getOrElse(0), c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title.?.getOrElse(""))).sortBy(_._1)
+    println("Full outer join")
+    q5.run.foreach(x => println("  "+x))
+    assertEquals(Vector((0,4), (1,0), (2,1), (3,2), (4,3), (5,2)), q5.map(p => (p._1, p._2)).run)
   }
 
   def testZip = ifCap(rcap.zip) {
@@ -171,10 +167,8 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
     ts.ddl.create
     val q1 = ts leftJoin ts
     q1.run
-    ifCap(rcap.joinRight) {
-      val q2 = ts rightJoin ts
-      q2.run
-    }
+    val q2 = ts rightJoin ts
+    q2.run
     val q3 = ts innerJoin ts
     q3.run
   }

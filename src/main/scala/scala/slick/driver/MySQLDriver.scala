@@ -23,7 +23,8 @@ import scala.slick.compiler.CompilerState
  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceLimited]]:
  *     Non-cyclic sequence may not have an upper limit.</li>
  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
- *     Full outer joins are not supported by MySQL.</li>
+ *     Full outer joins are emulated because there is not native support
+ *     for them.</li>
  * </ul>
  *
  * Sequences are supported through an emulation which requires the schema to

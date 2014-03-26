@@ -1,7 +1,7 @@
 package scala.slick.driver
 
 import scala.language.{implicitConversions, higherKinds}
-import scala.slick.ast.{Node, TypedType, BaseTypedType}
+import scala.slick.ast.BaseTypedType
 import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
 import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker}
@@ -17,13 +17,14 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
-  val compiler = QueryCompiler.relational
   val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
   lazy val Implicit: Implicits = simple
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
   val columnTypes = new JdbcTypes
   lazy val MappedColumnType = MappedJdbcType
+
+  override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.relationalPhases
 
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 

@@ -18,8 +18,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   val simple: SimpleQL = new SimpleQL {}
   val Implicit: Implicits = simple
 
-  lazy val queryCompiler =
-    QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
+  lazy val queryCompiler = compiler.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
   lazy val updateCompiler = ???
   lazy val deleteCompiler = ???
   lazy val insertCompiler = ???

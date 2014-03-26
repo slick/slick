@@ -59,7 +59,8 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
  *     code which uses this feature throws a SlickException.</li>
  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
- *     Full outer joins are not supported by Access.</li>
+ *     Full outer joins are emulated because there is not native support
+ *     for them.</li>
  * </ul>
  *
  * @author szeiger
@@ -93,8 +94,8 @@ trait AccessDriver extends JdbcDriver { driver =>
     java.sql.Types.TINYINT
   )
 
-  override val compiler =
-    QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
+  override protected def computeQueryCompiler =
+    super.computeQueryCompiler.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
