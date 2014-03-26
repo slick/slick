@@ -68,7 +68,7 @@ Session handling
 
 Now you have a :api:`Database <scala.slick.jdbc.JdbcBackend@Database:Database>` object
 and you can use it to open database connections, which Slick encapsulates in
-:api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` objects.
+:api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` objects.
 
 .. _session-scope:
 
@@ -78,16 +78,16 @@ Automatically closing Session scope
 The :api:`Database <scala.slick.jdbc.JdbcBackend@Database:Database>` object's
 :api:`withSession <scala.slick.jdbc.JdbcBackend$DatabaseDef@withSession[T]((Session)⇒T):T>`
 method creates a
-:api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>`, passes it to a given function and closes it
+:api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>`, passes it to a given function and closes it
 afterwards. If you use a connection pool, closing the
-:api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` returns the connection to the pool.
+:api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` returns the connection to the pool.
 
 .. includecode:: code/Connection.scala#withSession
 
 You can see how we are able to already define the query outside of the
 :api:`withSession <scala.slick.jdbc.JdbcBackend$DatabaseDef@withSession[T]((Session)⇒T):T>`
 scope. Only the methods actually executing the query in the database require a
-:api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>`. Here we use the
+:api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>`. Here we use the
 :api:`list <scala.slick.jdbc.Invoker@list(P)(SessionDef):List[R]>`
 method to execute the query
 and return the results as a :scalaapi:`scala.collection.immutable.List`. (The
@@ -100,7 +100,7 @@ or :api:`insertAll <scala.slick.driver.JdbcInvokerComponent$BaseInsertInvoker@in
 executes atomically (i.e. it succeeds or fails completely).
 To bundle several statements use :ref:`transactions`.
 
-**Be careful:** If the :api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` object escapes the
+**Be careful:** If the :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` object escapes the
 :api:`withSession <scala.slick.jdbc.JdbcBackend$DatabaseDef@withSession[T]((Session)⇒T):T>`
 scope, it has already been closed and is invalid. It can escape in several ways,
 which should be avoided, e.g. as state of a closure (if you use a
@@ -112,7 +112,7 @@ as the return value of the withSession scope or else.
 Implicit Session
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-By marking the :api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` as implicit you can avoid
+By marking the :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` as implicit you can avoid
 having to pass it to the executing methods explicitly.
 
 .. includecode:: code/Connection.scala#withSession-implicit
@@ -124,7 +124,7 @@ This is optional of course. Use it if you think it makes your code cleaner.
 Transactions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can use the :api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` object's
+You can use the :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` object's
 :api:`withTransaction <scala.slick.jdbc.JdbcBackend$SessionDef@withTransaction[T](⇒T):T>`
 method to create a transaction when you need one. The block passed to it
 is executed in a single transaction. If an exception is thrown, Slick rolls
@@ -135,7 +135,7 @@ Slick only rolls back database operations, not the effects of other Scala code.
 
 .. includecode:: code/Connection.scala#transaction
 
-If you don't have a :api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` yet you can use the
+If you don't have a :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` yet you can use the
 :api:`Database <scala.slick.jdbc.JdbcBackend@Database:Database>` object's
 :api:`withTransaction <scala.slick.jdbc.JdbcBackend$DatabaseDef@withTransaction[T]((Session)⇒T):T>`
 method as a shortcut.
@@ -146,7 +146,7 @@ Manual Session handling
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 This is not recommended, but if you have to, you can handle the lifetime of a
-:api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` manually.
+:api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` manually.
 
 .. includecode:: code/Connection.scala#manual-session
 
@@ -154,9 +154,9 @@ Passing sessions around
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can write re-useable functions to help with Slick queries. They mostly do
-not need a :api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` as they just produce query
+not need a :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` as they just produce query
 fragments or assemble queries. If you want to execute queries inside of them
-however, they need a :api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>`. You can either put it
+however, they need a :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>`. You can either put it
 into the function signature and pass it as a (possibly implicit) argument. Or
 you can bundle several such methods into a class, which stores the session to
 reduce boilerplate code:
@@ -181,7 +181,7 @@ without a session argument.
 .. includecode:: code/Connection.scala#withSession-empty
 
 :api:`dynamicSession <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@dynamicSession:Session>` is an
-implicit def that returns a valid :api:`Session <scala.slick.jdbc.JdbcBackend@Session:Session>` if a
+implicit def that returns a valid :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` if a
 :api:`withDynSession <scala.slick.jdbc.JdbcBackend$DatabaseDef@withDynSession[T](⇒T):T>`
 or :api:`withDynTransaction :<scala.slick.jdbc.JdbcBackend$DatabaseDef@withDynTransaction[T](⇒T):T>`
 scope is open somewhere on the current call stack.
@@ -213,3 +213,17 @@ Note that Slick uses *prepared* statements wherever possible but it does not
 cache them on its own. You should therefore enable prepared statement caching
 in the connection pool's configuration and select a sufficiently large pool
 size.
+
+
+.. _jdbc-interop:
+
+JDBC interoperability
+---------------------
+To access features not available in Slick directly it can be useful to drop down to JDBC level.
+
+You can access the underlying :javaapi:`JDBC Connection <java/sql/Connection>` of a Slick :api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>` using the :api:`conn <scala.slick.jdbc.JdbcBackend$SessionDef@conn:Connection>` method.
+
+:api:`Session <scala.slick.jdbc.JdbcBackend$SessionDef>`'s
+:api:`withPreparedInsertStatement <scala.slick.jdbc.JdbcBackend$SessionDef@withPreparedInsertStatement[T](String,Array[String])((PreparedStatement)⇒T):T>`,
+:api:`withPreparedStatement <scala.slick.jdbc.JdbcBackend$SessionDef@withPreparedStatement[T](String,ResultSetType,ResultSetConcurrency,ResultSetHoldability)((PreparedStatement)⇒T):T>`,
+:api:`withStatement <scala.slick.jdbc.JdbcBackend$SessionDef@withStatement[T](ResultSetType,ResultSetConcurrency,ResultSetHoldability)((Statement)⇒T):T>` methods allow you to create automatically closing :javaapi:`JDBC Statements <java/sql/Statement>`.
