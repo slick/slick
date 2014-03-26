@@ -104,14 +104,18 @@ object SlickBuild extends Build {
         </scm>
   ) ++ scalaSettings
 
-  /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
-  def testAll = Command.command("testAll") { state =>
-    Project.runTask(test in (slickTestkitProject, Test), state) flatMap {
-      case (s, Inc(_)) => Some(s)
-      case (s, _) =>
-        Project.runTask(test in (slickTestkitProject, DocTest), state).map(_._1)
-    } getOrElse state
+  def runTasksSequentially(tasks: List[TaskKey[_]])(state: State): State = tasks match {
+    case t :: ts =>
+      Project.runTask(t.asInstanceOf[TaskKey[Any]], state) match {
+        case None => state.fail
+        case Some((s, Inc(_))) => s.fail
+        case Some((s, _)) => runTasksSequentially(ts)(s)
+      }
+    case Nil => state
   }
+
+  /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
+  def testAll = Command.command("testAll")(runTasksSequentially(List(test in (slickTestkitProject, Test), test in (slickTestkitProject, DocTest))))
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
