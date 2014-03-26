@@ -6,6 +6,7 @@ import com.typesafe.sbt.SbtSite.site
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
+import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 
 object SlickBuild extends Build {
 
@@ -115,7 +116,7 @@ object SlickBuild extends Build {
   }
 
   /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
-  def testAll = Command.command("testAll")(runTasksSequentially(List(test in (slickTestkitProject, Test), test in (slickTestkitProject, DocTest))))
+  def testAll = Command.command("testAll")(runTasksSequentially(List(test in (slickTestkitProject, Test), test in (slickTestkitProject, DocTest), test in (osgiTestProject, Test))))
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
@@ -125,9 +126,9 @@ object SlickBuild extends Build {
       test := (), // suppress test status output
       testOnly :=  (),
       commands += testAll
-    )).aggregate(slickProject, slickTestkitProject)
+    )).aggregate(slickProject, slickTestkitProject, osgiTestProject)
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ Seq(
+    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -146,7 +147,11 @@ object SlickBuild extends Build {
       ivyConfigurations += config("macro").hide.extend(Compile),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
-      mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin)
+      mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin),
+      OsgiKeys.exportPackage := Seq(
+        "scala.slick", 
+        // TODO - Should we be explicit here?
+        "scala.slick.*")
     ) ++ ifPublished(Seq(
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
     )))
@@ -202,6 +207,41 @@ object SlickBuild extends Build {
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
   ) dependsOn(slickProject)
+
+
+  def paxExamVersion = "2.6.0"
+
+  lazy val paxDependencies = Seq(
+    "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
+    "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
+    "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
+    "org.ops4j.pax.url"      % "pax-url-aether"             % "1.6.0",
+    "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
+    "ch.qos.logback"         % "logback-core"               % "1.1.1",
+    "ch.qos.logback"         % "logback-classic"            % "1.1.1",
+    "junit"                  % "junit"                      % "4.10",
+    "org.apache.felix"       % "org.apache.felix.framework" % "3.2.2",
+    "com.novocode"           % "junit-interface"            % "0.10-M4"
+  ).map(_ % "test")
+
+  lazy val osgiBundleFiles = taskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
+
+  lazy val osgiTestProject = (
+    Project(id = "osgitests", base = file("osgi-tests"))
+    settings(sharedSettings:_*)
+    settings(
+      name := "Slick-OsgiTests",
+      libraryDependencies ++= paxDependencies,
+      fork in Test := true,
+      javaOptions in Test += {
+        "-Dslick.osgi.bundlepath=" + osgiBundleFiles.value.map(_.getCanonicalPath).mkString(":")
+      },
+      testGrouping <<= definedTests in Test map partitionTests,
+      osgiBundleFiles := Seq((OsgiKeys.bundle in slickProject).value),
+      osgiBundleFiles ++= (dependencyClasspath in Compile in slickProject).value.map(_.data).filterNot(_.isDirectory)
+    )
+    dependsOn(slickProject % "test")
+  )
 
   /* Test Configuration for running tests on doc sources */
   lazy val DocTest = config("doctest") extend(Test)
