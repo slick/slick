@@ -346,7 +346,7 @@ object Ordering {
 }
 
 /** A .groupBy call. */
-final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNode with DefNode {
+final case class GroupBy(fromGen: Symbol, from: Node, by: Node, identity: TypeSymbol = new AnonTypeSymbol) extends BinaryNode with DefNode {
   type Self = GroupBy
   def left = from
   def right = by
@@ -361,7 +361,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNo
     val by2 = by.nodeWithComputedType(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
     nodeRebuildOrThis(Vector(from2, by2)).nodeTypedOrCopy(
       if(!nodeHasType || retype)
-        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType.structural, CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
+        CollectionType(from2Type.cons, ProductType(IndexedSeq(NominalType(identity)(by2.nodeType), CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
       else nodeType)
   }
 }

@@ -152,6 +152,35 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       case (id, data) => (id, data.map(_.b.asColumnOf[Option[Double]]).max)
     }
     assertEquals(Set((2,Some(5.0)), (1,Some(3.0)), (3,Some(9.0))), q10.run.toSet)
+
+    case class Pair(a:Int,b:Option[Int])
+    class T4(tag: Tag) extends Table[Pair](tag, "t4") {
+      def a = column[Int]("a")
+      def b = column[Option[Int]]("b")
+      def * = (a, b) <> (Pair.tupled,Pair.unapply)
+    }
+    val t4s = TableQuery[T4]
+    t4s.ddl.create
+    t4s ++= Seq(Pair(1, Some(1)), Pair(1, Some(2)))
+    t4s ++= Seq(Pair(1, Some(1)), Pair(1, Some(2)))
+    t4s ++= Seq(Pair(1, Some(1)), Pair(1, Some(2)))
+
+    println("=========================================================== q11")
+    val expected11 = Set(
+      Pair(1, Some(1)), Pair(1, Some(2))
+    )
+    val q12 = t4s
+    val res12 = q12.run
+    assertEquals(6, res12.size)
+    assertEquals(expected11, res12.toSet)
+    val q13 = t4s.map(identity)
+    val res13 = q13.run
+    assertEquals(6, res13.size)
+    assertEquals(expected11, res13.toSet)
+    val q11 = t4s.groupBy(identity).map(_._1)
+    val res11 = q11.run
+    assertEquals(expected11, res11.toSet)
+    assertEquals(2, res11.size)
   }
 
   def testIntLength {

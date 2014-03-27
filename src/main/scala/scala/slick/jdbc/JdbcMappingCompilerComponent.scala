@@ -15,7 +15,7 @@ trait JdbcMappingCompilerComponent extends RelationalMappingCompilerComponent { 
 
   trait MappingCompiler extends super.MappingCompiler {
     def createColumnConverter(n: Node, path: Node, optionApply: Boolean, column: Option[FieldSymbol]): ResultConverter = {
-      val JdbcType(ti, option) = n.nodeType
+      val JdbcType(ti, option) = n.nodeType.structural
       val autoInc = column.fold(false)(_.options.contains(ColumnOption.AutoInc))
       if(option) new OptionResultConverter(ti, autoInc)
       else new BaseResultConverter(ti, autoInc, column.fold(n.toString)(_.name))
