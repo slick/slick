@@ -160,6 +160,7 @@ object Nat {
   }
 }
 
+/** The zero value and type for `Nat` */
 final object Zero extends Nat {
   type Self = Zero.type
   type Fold[U, F[_ <: U] <: U, Z <: U] = Z
@@ -170,6 +171,7 @@ final object Zero extends Nat {
   def self = this
 }
 
+/** A successor of another `Nat` */
 final class Succ[N <: Nat] private[heterogenous] (val value: Int) extends Nat {
   type Self = Succ[N]
   type -- = N

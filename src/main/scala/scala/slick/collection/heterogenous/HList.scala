@@ -160,6 +160,7 @@ final object HListMacros{
   }
 }
 
+/** A cons cell of an `HList`, containing an element type and the element */
 final class HCons[@specialized +H, +T <: HList](val head: H, val tail: T) extends HList {
   type Self = HCons[H @uv, T @uv]
   type Head = H @uv
@@ -177,6 +178,7 @@ object HCons {
   def unapply[H, T <: HList](l: HCons[H, T]) = Some((l.head, l.tail))
 }
 
+/** The empty `HList` */
 final object HNil extends HList {
   type Self = HNil.type
   type Head = Nothing

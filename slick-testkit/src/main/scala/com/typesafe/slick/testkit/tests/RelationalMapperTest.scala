@@ -104,8 +104,8 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
     ts.ddl.create
     ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True)))
     assertEquals(ts.run.toSet, Set((1, False, None), (2, True, Some(True))))
-    assertEquals(ts.where(_.b === (True:Bool)).run.toSet, Set((2, True, Some(True))))
-    assertEquals(ts.where(_.b === (False:Bool)).run.toSet, Set((1, False, None)))
+    assertEquals(ts.filter(_.b === (True:Bool)).run.toSet, Set((2, True, Some(True))))
+    assertEquals(ts.filter(_.b === (False:Bool)).run.toSet, Set((1, False, None)))
   }
 
   def testAutoMapped {

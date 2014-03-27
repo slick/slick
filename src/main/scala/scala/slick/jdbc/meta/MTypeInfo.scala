@@ -4,9 +4,7 @@ import java.sql._
 import scala.slick.jdbc.ResultSetInvoker
 import scala.slick.driver.JdbcTypesComponent
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTypeInfo().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTypeInfo(). */
 case class MTypeInfo(
   typeName: String, sqlType: Int, precision: Option[Int], literalPrefix: Option[String], literalSuffix: Option[String],
   createParams: Option[String], nullable: Option[Boolean], caseSensitive: Boolean, searchable: Short,

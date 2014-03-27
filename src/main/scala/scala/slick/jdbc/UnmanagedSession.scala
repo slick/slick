@@ -3,11 +3,9 @@ package scala.slick.jdbc
 import java.sql.Connection
 import scala.slick.SlickException
 
-/**
- * A JDBC Session which is not managed by Slick. You can use this to wrap an
- * existing JDBC Connection. Override 'database' and 'performRollback' if
- * applicable.
- */
+/** A JDBC Session which is not managed by Slick. You can use this to wrap an
+  * existing JDBC Connection. Override 'database' and 'performRollback'
+  * as needed. */
 class UnmanagedSession(val conn: Connection) extends JdbcBackend.SessionDef {
   protected var open = true
   protected var doRollback = false

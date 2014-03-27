@@ -5,7 +5,12 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import TypeUtil._
 
-/** Ensure that all symbol definitions in a tree are unique */
+/** Ensure that all symbol definitions in a tree are unique. The same symbol
+  * can initially occur in multiple sub-trees when some part of a query is
+  * reused multiple times. This phase assigns new, uniqe symbols, so that
+  * later phases do not have to take scopes into account for identifying
+  * the source of a symbol. The rewriting is performed for both, term symbols
+  * and type symbols. */
 class AssignUniqueSymbols extends Phase {
   val name = "assignUniqueSymbols"
 

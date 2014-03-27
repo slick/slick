@@ -34,14 +34,14 @@ object Benchmark {
     val q1 = for(u <- users) yield u
     val q2 = for {
       u <- users
-      o <- orders where { o => (u.id is o.userID) && (u.first.isNotNull) }
+      o <- orders filter { o => (u.id is o.userID) && (u.first.isNotNull) }
     } yield (u.first, u.last, o.orderID)
-    val q3 = for(u <- users where(_.id is 42)) yield (u.first, u.last)
+    val q3 = for(u <- users filter(_.id is 42)) yield (u.first, u.last)
     val q4 =
       (users innerJoin orders on (_.id is _.userID)).sortBy(_._1.last.asc).map(uo => (uo._1.first, uo._2.orderID))
     val q5 = for (
       o <- orders
-        where { o => o.orderID === (for { o2 <- orders where(o.userID is _.userID) } yield o2.orderID).max }
+        filter { o => o.orderID === (for { o2 <- orders filter(o.userID is _.userID) } yield o2.orderID).max }
     ) yield o.orderID
 
     val s1 = q1.selectStatement

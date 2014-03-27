@@ -2,9 +2,7 @@ package scala.slick.jdbc.meta
 
 import scala.slick.jdbc.ResultSetInvoker
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getIndexInfo().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getIndexInfo(). */
 case class MIndexInfo(table: MQName, nonUnique: Boolean, indexQualifier: Option[String],
   indexName: Option[String], indexType: Short, ordinalPosition: Short,
   column: Option[String], ascending: Option[Boolean],

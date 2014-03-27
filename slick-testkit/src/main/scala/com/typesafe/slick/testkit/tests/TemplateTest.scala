@@ -50,7 +50,7 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
 
     val userNameByIDRangeAndProduct = for {
       (min, (max, product)) <- Parameters[(Int, (Int, String))]
-      u <- users if u.id >= min && u.id <= max && orders.where(o => (u.id is o.userID) && (o.product is product)).exists
+      u <- users if u.id >= min && u.id <= max && orders.filter(o => (u.id is o.userID) && (o.product is product)).exists
     } yield u.first
     val q4 = userNameByIDRangeAndProduct(2,(5,"Product A"))
     assertEquals(List("Marge","Apu"), q4.run)

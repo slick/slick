@@ -9,9 +9,8 @@ import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.model.Model
 
-/**
- * A profile for accessing SQL databases via JDBC.
- */
+/** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
+  * implement this profile. */
 trait JdbcProfile extends SqlProfile with JdbcTableComponent
   with JdbcInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent { driver: JdbcDriver =>
 
@@ -55,9 +54,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
       createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
   }
 
-  /**
-   * Jdbc meta data for all tables
-   */
+  /** Jdbc meta data for all tables */
   def getTables: Invoker[MTable] = MTable.getTables
 
   /** Gets the Slick data model describing this data source */
@@ -65,6 +62,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 }
 
 object JdbcProfile {
+  /** The capabilities specific to `JdbcProfile` */
   object capabilities {
     /** Can insert into AutoInc columns. */
     val forceInsert = Capability("jdbc.forceInsert")
@@ -85,6 +83,9 @@ object JdbcProfile {
   }
 }
 
+/** The internal implementation details of `JdbcProfile`-based drivers. These can be
+  * used by driver implementors but are not intended to be accessed by users of a
+  * driver. */
 trait JdbcDriver extends SqlDriver
   with JdbcProfile
   with JdbcStatementBuilderComponent
@@ -93,4 +94,6 @@ trait JdbcDriver extends SqlDriver
   override val profile: JdbcProfile = this
 }
 
+/** A generic driver for JDBC-based databases. This can be used as a fallback
+  * when a specific driver for a database is not available. */
 object JdbcDriver extends JdbcDriver

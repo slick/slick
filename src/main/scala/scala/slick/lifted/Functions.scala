@@ -5,6 +5,9 @@ import scala.slick.ast.{TypedType, Library}
 import FunctionSymbolExtensionMethods._
 import scala.slick.ast.ScalaBaseType._
 
+/** Contains stand-alone database functions for use in queries. Functions which
+  * operate on columns are generally added as extension methods to the appropriate
+  * column types instead. */
 object Functions {
 
   /** The name of the database user, or an empty string if not supported by the DBMS */

@@ -2,7 +2,7 @@ package scala.slick.lifted
 
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
-import scala.slick.model // workaround until deprecated lifted.ForeignKeyAction is removed
+import scala.slick.model.ForeignKeyAction
 
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
@@ -65,8 +65,8 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     */
   def foreignKey[P, PU, TT <: AbstractTable[_], U]
       (name: String, sourceColumns: P, targetTableQuery: TableQuery[TT])
-      (targetColumns: TT => P, onUpdate: model.ForeignKeyAction = model.ForeignKeyAction.NoAction,
-       onDelete: model.ForeignKeyAction = model.ForeignKeyAction.NoAction)(implicit unpack: Shape[_ <: FlatShapeLevel, TT, U, _], unpackp: Shape[_ <: FlatShapeLevel, P, PU, _]): ForeignKeyQuery[TT, U] = {
+      (targetColumns: TT => P, onUpdate: ForeignKeyAction = ForeignKeyAction.NoAction,
+       onDelete: ForeignKeyAction = ForeignKeyAction.NoAction)(implicit unpack: Shape[_ <: FlatShapeLevel, TT, U, _], unpackp: Shape[_ <: FlatShapeLevel, P, PU, _]): ForeignKeyQuery[TT, U] = {
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]
     val generator = new AnonSymbol

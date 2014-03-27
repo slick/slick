@@ -9,23 +9,20 @@ import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.Invoker
 
-/**
- * Slick driver for PostgreSQL.
- *
- * This driver implements all capabilities of the
- * [[scala.slick.driver.ExtendedProfile]].
- *
- * Notes:
- *
- * <ul>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBlob]]:
- *   The default implementation of the <code>Blob</code> type uses the
- *   database type <code>lo</code> and the stored procedure
- *   <code>lo_manage</code>, both of which are provided by the "lo"
- *   extension in PostgreSQL.</li>
- * </ul>
- *
- * @author szeiger
+/** Slick driver for PostgreSQL.
+  *
+  * This driver implements all capabilities of the
+  * [[scala.slick.driver.ExtendedProfile]].
+  *
+  * Notes:
+  *
+  * <ul>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBlob]]:
+  *   The default implementation of the <code>Blob</code> type uses the
+  *   database type <code>lo</code> and the stored procedure
+  *   <code>lo_manage</code>, both of which are provided by the "lo"
+  *   extension in PostgreSQL.</li>
+  * </ul>
  */
 trait PostgresDriver extends JdbcDriver { driver =>
 
