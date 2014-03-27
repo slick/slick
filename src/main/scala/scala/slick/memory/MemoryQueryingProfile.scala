@@ -108,9 +108,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
     }
 
     def trType(t: Type): Type = t.structural match {
-      case StructType(el) => StructType(el.map { case (s, t) => (s, trType(t)) })
-      case ProductType(el) => ProductType(el.map(trType))
-      case CollectionType(cons, el) => CollectionType(cons, trType(el))
+      case t @ (_: StructType | _: ProductType | _: CollectionType | _: MappedScalaType) => t.mapChildren(trType)
       case t => typeInfoFor(t)
     }
   }

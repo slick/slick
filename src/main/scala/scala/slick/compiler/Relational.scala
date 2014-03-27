@@ -107,7 +107,7 @@ class ConvertToComprehensions extends Phase {
         select = Some(Pure(StructNode(rowType.elements.map { case (s, _) => (s, Select(ref, s) ) }.toVector)))
       ).nodeWithComputedType()
     // Simple GroupBy followed by aggregating map operation to Comprehension
-    case b @ Bind(gen, gr @ GroupBy(fromGen, from, by), Pure(sel, _)) =>
+    case b @ Bind(gen, gr @ GroupBy(fromGen, from, by, _), Pure(sel, _)) =>
       val genType = gr.nodeType.asCollectionType.elementType
       val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)
       logger.debug("Replacing simple groupBy selection in:", sel)

@@ -142,7 +142,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         })
         scope.remove(gen)
         b.result()
-      case GroupBy(gen, from, by) =>
+      case GroupBy(gen, from, by, _) =>
         val fromV = run(from).asInstanceOf[Coll]
         val grouped = new HashMap[Any, ArrayBuffer[Any]]()
         fromV.foreach { v =>
