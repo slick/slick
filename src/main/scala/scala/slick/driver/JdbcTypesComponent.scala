@@ -110,7 +110,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
 
   type TypeInfo = JdbcType[Any /* it's really _ but we'd have to cast it to Any anyway */]
 
-  def typeInfoFor(t: Type): TypeInfo = ((t match {
+  def typeInfoFor(t: Type): TypeInfo = ((t.structural match {
     case tmd: JdbcType[_] => tmd
     case ScalaBaseType.booleanType => columnTypes.booleanJdbcType
     case ScalaBaseType.bigDecimalType => columnTypes.bigDecimalJdbcType

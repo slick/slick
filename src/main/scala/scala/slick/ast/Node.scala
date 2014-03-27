@@ -338,12 +338,21 @@ object Ordering {
 
 /** A .groupBy call. */
 final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNode with DefNode {
+  private var identity: TypeSymbol = new AnonTypeSymbol
   type Self = GroupBy
   def left = from
   def right = by
   override def nodeChildNames = Seq("from "+fromGen, "by")
-  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, by = right)
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(fromGen = gen(0))
+  protected[this] def nodeRebuild(left: Node, right: Node) = {
+    val n = copy(from = left, by = right)
+    n.identity = identity
+    n
+  }
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = {
+    val n = copy(fromGen = gen(0))
+    n.identity = identity
+    n
+  }
   def nodeGenerators = Seq((fromGen, from))
   override def toString = "GroupBy"
   def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
@@ -352,7 +361,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node) extends BinaryNo
     val by2 = by.nodeWithComputedType(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
     nodeRebuildOrThis(Vector(from2, by2)).nodeTypedOrCopy(
       if(!nodeHasType || retype)
-        CollectionType(from2Type.cons, ProductType(IndexedSeq(by2.nodeType.structural, CollectionType(CollectionTypeConstructor.default, from2Type.elementType))))
+        CollectionType(from2Type.cons, ProductType(IndexedSeq(NominalType(identity)(by2.nodeType), CollectionType(CollectionTypeConstructor.default, from2Type.elementType))))
       else nodeType)
   }
 }
