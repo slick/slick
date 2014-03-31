@@ -219,6 +219,10 @@ final class ToShapedValue[T](val value: T) extends AnyVal {
   @inline def <>[R : ClassTag, U](f: (U => R), g: (R => Option[U]))(implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get), implicitly[ClassTag[R]])
 }
 
+object mapped{
+  def apply[T,R : ClassTag, U](value: T)(f: (U => R), g: (R => Option[U]))(implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]) = new MappedProjection[R, U](shape.toNode(value), f, g.andThen(_.get), implicitly[ClassTag[R]])
+}
+
 /** A limited version of ShapedValue which can be constructed for every type
   * that has a valid shape. We use it to enforce that a table's * projection
   * has a valid shape. A ProvenShape has itself a Shape so it can be used in
