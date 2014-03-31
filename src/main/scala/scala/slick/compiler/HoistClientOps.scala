@@ -84,6 +84,8 @@ class HoistClientOps extends Phase {
     case OptionApply(ch) =>
       val ch2 = rewriteDBSide(ch)
       ch2.nodeTypedOrCopy(OptionType(ch2.nodeType))
+    case CollectionCast(ch, _) :@ tpe =>
+      rewriteDBSide(ch).nodeTypedOrCopy(tpe)
     case GetOrElse(ch, default) =>
       val ch2 = rewriteDBSide(ch)
       val tpe = ch2.nodeType.asOptionType.elementType

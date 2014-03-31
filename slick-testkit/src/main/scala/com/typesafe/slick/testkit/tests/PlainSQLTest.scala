@@ -45,7 +45,7 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     }
     assertEquals(Set(1,0,2,3), s1)
 
-    val res = userForID.first(2)
+    val res = userForID(2).first
     println("User for ID 2: "+res)
     assertEquals(User(2,"guest"), res)
 

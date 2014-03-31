@@ -161,9 +161,9 @@ class SQLiteTestDB(dburl: String, confName: String) extends JdbcTestDB(confName)
     super.getLocalTables.filter(s => !s.toLowerCase.contains("sqlite_"))
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     for(t <- getLocalTables)
-      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)).execute()
+      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)).execute
     for(t <- getLocalSequences)
-      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)).execute()
+      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)).execute
   }
   override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }
@@ -219,11 +219,11 @@ abstract class DerbyDB(confName: String) extends JdbcTestDB(confName) {
             where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
                                              """).list
       for((c, t) <- constraints if !c.startsWith("SQL"))
-        (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute()
+        (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute
       for(t <- getLocalTables)
-        (Q.u+"drop table "+driver.quoteIdentifier(t)).execute()
+        (Q.u+"drop table "+driver.quoteIdentifier(t)).execute
       for(t <- getLocalSequences)
-        (Q.u+"drop sequence "+driver.quoteIdentifier(t)).execute()
+        (Q.u+"drop sequence "+driver.quoteIdentifier(t)).execute
     } catch {
       case e: Exception =>
         println("[Caught Exception while dropping user artifacts in Derby: "+e+"]")

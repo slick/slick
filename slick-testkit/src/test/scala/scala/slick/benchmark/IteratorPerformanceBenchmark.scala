@@ -34,12 +34,12 @@ object IteratorPerformanceBenchmark {
       var r = 0
       while (r < repeat) {
         measure("foreach") {
-          ; inv.foreach((), {
+          ; inv.foreach({
             i => buf += i
           }, 0)
         }
         measure("iterator loop") {
-          val it = inv.iterator()
+          val it = inv.iterator
           try {
             while (it.hasNext) buf += it.next
           } finally {
@@ -47,7 +47,7 @@ object IteratorPerformanceBenchmark {
           }
         }
         measure("iterator.foreach") {
-          inv.iterator().foreach(i => buf += i)
+          inv.iterator.foreach(i => buf += i)
         }
         r += 1
       }

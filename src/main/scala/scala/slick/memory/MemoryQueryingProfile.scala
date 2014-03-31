@@ -24,10 +24,9 @@ trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDr
       new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
   }
 
-  class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T) extends ScalaType[T] with BaseTypedType[T] {
+  class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T)(implicit val classTag: ClassTag[T]) extends ScalaType[T] with BaseTypedType[T] {
     def nullable: Boolean = baseType.nullable
     def ordered: Boolean = baseType.ordered
-    def zero: T = toMapped(baseType.zero)
     def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T] = new scala.math.Ordering[T] {
       val uOrdering = baseType.scalaOrderingFor(ord)
       def compare(x: T, y: T): Int = uOrdering.compare(toBase(x), toBase(y))
@@ -55,8 +54,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
   type RowReader = QueryInterpreter.ProductValue
 
   /** The driver-specific representation of types */
-  type TypeInfo = ScalaType[Any]
-  def typeInfoFor(t: Type): TypeInfo = ((t match {
+  def typeInfoFor(t: Type): ScalaType[Any] = ((t match {
     case t: ScalaType[_] => t
     case t: TypedType[_] => t.scalaType
     case o: OptionType => typeInfoFor(o.elementType).asInstanceOf[ScalaBaseType[_]].optionType
@@ -110,9 +108,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
     }
 
     def trType(t: Type): Type = t.structural match {
-      case StructType(el) => StructType(el.map { case (s, t) => (s, trType(t)) })
-      case ProductType(el) => ProductType(el.map(trType))
-      case CollectionType(cons, el) => CollectionType(cons, trType(el))
+      case t @ (_: StructType | _: ProductType | _: CollectionType | _: MappedScalaType) => t.mapChildren(trType)
       case t => typeInfoFor(t)
     }
   }

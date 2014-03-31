@@ -61,7 +61,7 @@ object MacroSupportInterpolationImpl {
       val s = pit.next()
       val ae @ Expr(a) = ait.next()
       val len = s.length
-      val marker = if(len == 0) '\0' else s.charAt(len-1)
+      val marker = if(len == 0) '\u0000' else s.charAt(len-1)
       marker match {
         case '`' =>
           exprs ++= appendString(s.substring(0, len-1))

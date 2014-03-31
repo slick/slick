@@ -3,6 +3,7 @@ package com.typesafe.slick.docsnippets
 import scala.slick.driver.H2Driver.simple._
 import Database.dynamicSession
 import java.sql.Date
+import scala.reflect.ClassTag
 
 object LiftedEmbedding extends App {
   // Simple Coffees for Rep types comparison
@@ -69,12 +70,12 @@ object LiftedEmbedding extends App {
 //#tabledef
 //#foreignkeynav
 //#foreignkey
-    def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id)
+    def supplier = foreignKey("SUP_FK", supID, suppliers)(_.id, onUpdate=ForeignKeyAction.Restrict, onDelete=ForeignKeyAction.Cascade)
 //#foreignkeynav
     // compiles to SQL:
     //   alter table "COFFEES" add constraint "SUP_FK" foreign key("SUP_ID")
     //     references "SUPPLIERS"("SUP_ID")
-    //     on update NO ACTION on delete NO ACTION
+    //     on update RESTRICT on delete CASCADE
 //#foreignkeynav
 //#foreignkey
     def supplier2 = suppliers.filter(_.id === supID)
@@ -250,7 +251,7 @@ object LiftedEmbedding extends App {
     {
       val session = dynamicSession
       //#invoker_explicit
-      val l = q.list()(session)
+      val l = q.list(session)
       //#invoker_explicit
       ()
     }
@@ -309,6 +310,14 @@ object LiftedEmbedding extends App {
       (users returning users.map(_.id)) += User(None, "Stefan", "Zeiger")
     //#insert3
     println((users returning users.map(_.id)).insertStatement)
+
+    //#insert3b
+    val userWithId =
+      (users returning users.map(_.id)
+             into ((user,id) => user.copy(id=Some(id)))
+      ) += User(None, "Stefan", "Zeiger")
+    //#insert3b
+    println(userWithId)
 
     //#insert4
     class Users2(tag: Tag) extends Table[(Int, String)](tag, "users2") {
@@ -449,11 +458,11 @@ object LiftedEmbedding extends App {
 
     //#recordtype1
     // A Shape implementation for Pair
-    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](
+    final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](
       val shapes: Seq[Shape[_, _, _, _]])
     extends MappedScalaProductShape[Level, Pair[_,_], M, U, P] {
       def buildValue(elems: IndexedSeq[Any]) = Pair(elems(0), elems(1))
-      def copy(shapes: Seq[Shape[_, _, _, _]]) = new PairShape(shapes)
+      def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new PairShape(shapes)
     }
 
     implicit def pairShape[Level <: ShapeLevel, M1, M2, U1, U2, P1, P2](

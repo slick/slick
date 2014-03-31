@@ -1,4 +1,6 @@
 package com.typesafe.slick.docs
+
+import scala.language.higherKinds
 import scala.slick.driver.H2Driver.simple._
 
 /**
@@ -35,7 +37,7 @@ object Connection extends App {
     val query = for (c <- coffees) yield c.name
     val result = db.withSession {
       session =>
-      query.list()( session )
+      query.list(session)
     }
     //#withSession
   };{
@@ -71,14 +73,14 @@ object Connection extends App {
     //#manual-session
     val query = for (c <- coffees) yield c.name
     val session : Session = db.createSession
-    val result  = query.list()( session )
+    val result  = query.list(session)
     session.close
     //#manual-session
   }
   ;{
     //#helpers
     class Helpers(implicit session: Session){
-      def execute[T](query: Query[T,_]) = query.list
+      def execute[T, C[_]](query: Query[T,_, C]) = query.list
       // ... place further helpers methods here
     }
     val query = for (c <- coffees) yield c.name
@@ -98,7 +100,7 @@ object Connection extends App {
     import Database.dynamicSession // <- implicit def dynamicSession : Session
     //#dynamicSession-import
     object helpers{
-      def execute[T](query: Query[T,_]) = query.list // uses dynamicSession to try to get the Session
+      def execute[T, C[_]](query: Query[T,_, C]) = query.list // uses dynamicSession to try to get the Session
     }
     val query = for (c <- coffees) yield c.name
     db.withDynSession { // <- creates a Session and stores it as dynamicSession

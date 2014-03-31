@@ -6,8 +6,8 @@ import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.UnitInvoker
-import scala.slick.lifted.{PrimaryKey, Tag}
+import scala.slick.jdbc.Invoker
+import scala.slick.lifted.PrimaryKey
 
 /**
  * Slick driver for PostgreSQL.
@@ -29,7 +29,7 @@ import scala.slick.lifted.{PrimaryKey, Tag}
  */
 trait PostgresDriver extends JdbcDriver { driver =>
 
-  override def getTables: UnitInvoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
@@ -55,6 +55,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
+    override protected val supportsEmptyJoinConditions = false
 
     override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b" limit $t offset $d"

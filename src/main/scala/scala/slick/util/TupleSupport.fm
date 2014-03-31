@@ -1,6 +1,7 @@
 package scala.slick.util
 
 import scala.language.implicitConversions
+import scala.reflect.{ClassTag, classTag}
 import scala.slick.ast._
 import scala.slick.lifted._
 
@@ -19,6 +20,17 @@ object TupleSupport {
     case p: ProductWrapper => p.seq
     case p => p.productIterator.toIndexedSeq
   }
+
+  private[this] val tupleClassTags = Vector[ClassTag[_ <: Product]](
+<#list 1..22 as i>
+    classTag[Tuple${i}[<#list 1..i as j>_<#if i != j>, </#if></#list>]]<#if i != 22>,</#if>
+</#list>
+  )
+  private[this] val productWrapperTag = classTag[ProductWrapper]
+
+  /** Return a ClassTag for a tuple of the given arity */
+  def classTagForArity(i: Int): ClassTag[_ <: Product] =
+    if(i <= tupleClassTags.length) tupleClassTags(i-1) else productWrapperTag
 }
 
 /** Extension methods for prepending and appending values to tuples */

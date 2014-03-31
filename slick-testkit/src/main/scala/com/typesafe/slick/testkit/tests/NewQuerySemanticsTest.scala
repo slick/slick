@@ -1,5 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
+import scala.language.higherKinds
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
@@ -71,7 +72,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       ("French_Roast_Decaf", 49, 999, 5, 0)
     )
 
-    def show(name: String, g: Query[_,_]) =
+    def show[C[_]](name: String, g: Query[_,_, C]) =
       println("=========================================== "+name)
 
     val qa = for {

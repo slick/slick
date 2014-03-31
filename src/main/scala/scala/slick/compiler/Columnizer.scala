@@ -80,10 +80,9 @@ class FlattenProjections extends Phase {
     val translations = new HashMap[TypeSymbol, (Map[List[Symbol], Symbol], StructType)]
     def tr(n: Node): Node = n match {
       case Pure(v, ts) =>
-        val tsym = n.nodeType.asCollectionType.elementType.asInstanceOf[NominalType].sym
-        logger.debug(s"Flattening projection $tsym")
+        logger.debug(s"Flattening projection $ts")
         val (newV, newTranslations) = flattenProjection(tr(v))
-        translations += tsym -> (newTranslations, newV.nodeType.asInstanceOf[StructType])
+        translations += ts -> (newTranslations, newV.nodeType.asInstanceOf[StructType])
         Pure(newV, ts).nodeWithComputedType()
       case Path(path) =>
         logger.debug("Analyzing "+Path.toString(path)+" with symbols "+translations.keySet.mkString(", "))

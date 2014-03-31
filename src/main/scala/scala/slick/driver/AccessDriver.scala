@@ -120,6 +120,24 @@ trait AccessDriver extends JdbcDriver { driver =>
     override protected val hasPiFunction = false
     override protected val hasRadDegConversion = false
 
+    protected final case class StarAnd(child: Node) extends UnaryNode with SimplyTypedNode {
+      type Self = StarAnd
+      protected[this] def nodeRebuild(child: Node) = StarAnd(child)
+      protected def buildType = UnassignedType
+    }
+
+    protected def extendWithDummyColumn(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
+      case Some(Pure(StructNode(ch), _)) =>
+        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> LiteralNode(1))))), fetch = None, offset = None)
+      case Some(Pure(ProductNode(ch), _)) =>
+        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> LiteralNode(1))))), fetch = None, offset = None)
+      case Some(Pure(n, _)) =>
+        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> LiteralNode(1))))), fetch = None, offset = None)
+      case None =>
+        // should not happen at the outermost layer, so copying an extra row does not matter
+        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAnd(LiteralNode(1)))))), fetch = None, offset = None)
+    }
+
     override protected def buildComprehension(c: Comprehension) =
       if(c.offset.isDefined) throw new SlickException("Access does not support drop(...) calls")
       else super.buildComprehension(c)
@@ -128,7 +146,21 @@ trait AccessDriver extends JdbcDriver { driver =>
       if(!c.fetch.isEmpty) b"top ${c.fetch.get} "
     }
 
+    override protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
+      n match {
+        case j @ Join(leftGen, rightGen, left: Comprehension, right: Comprehension, jt, LiteralNode(true)) =>
+          val sym = new AnonSymbol
+          buildFrom(extendWithDummyColumn(left, sym), Some(leftGen))
+          b" ${jt.sqlName} join "
+          buildFrom(extendWithDummyColumn(right, sym), Some(rightGen))
+          val on = Apply(Library.==, Seq(Select(Ref(leftGen), sym), Select(Ref(rightGen), sym)))(ScalaBaseType.booleanType)
+          b" on !$on"
+        case n => super.buildFrom(n, alias, skipParens)
+      }
+    }
+
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+      case StarAnd(ch) => b"*, !$ch"
       case c: ConditionalExpr => {
         b"switch("
         var first = true
@@ -146,13 +178,15 @@ trait AccessDriver extends JdbcDriver { driver =>
         b")"
       }
       case Library.IfNull(l, r) => b"iif(isnull($l),$r,$l)"
-      case a @ Library.Cast(ch @ _*) =>
+      case Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName
+          else jdbcTypeFor(c.nodeType).sqlTypeName
         ).toLowerCase match {
+          case "boolean" => b"cbool(${ch(0)})"
+          case "double" => b"cdbl(${ch(0)})"
           case "integer" => b"cint(${ch(0)})"
           case "long" => b"clng(${ch(0)})"
-          case t if t.startsWith("varchar") && integralTypes.contains(typeInfoFor(ch(0).nodeType).sqlType) =>
+          case t if t.startsWith("varchar") && integralTypes.contains(jdbcTypeFor(ch(0).nodeType).sqlType) =>
             b"format(${ch(0)}, '#############################0')"
           case tn =>
             throw new SlickException(s"""Cannot represent cast to type "$tn" in Access SQL""")

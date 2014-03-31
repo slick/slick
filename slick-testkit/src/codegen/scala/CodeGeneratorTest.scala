@@ -64,7 +64,7 @@ object CodeGeneratorTest {
     new H2Config("CG5b", Seq("create-fk-2.sql"),
       config => session => new MySourceCodeGenerator(
         createModel(
-          H2Driver.getTables.list()(session).filter(_.name.name == "a"),
+          H2Driver.getTables.list(session).filter(_.name.name == "a"),
           H2Driver
         )(session),
         config

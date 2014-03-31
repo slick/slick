@@ -1,11 +1,12 @@
 package scala.slick.driver
 
-import scala.slick.ast.{CompiledStatement, First, ResultSetMapping, Node}
+import scala.collection.mutable.Builder
+import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.TypeUtil._
 import scala.slick.util.SQLBuilder
 import scala.slick.profile.SqlExecutorComponent
-import scala.slick.lifted.{Shape, ShapeLevel}
+import scala.slick.lifted.{Shape, FlatShapeLevel}
 
 trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
 
@@ -21,16 +22,18 @@ trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
       tree.findNode(_.isInstanceOf[CompiledStatement]).get
         .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
 
-    def run(implicit session: Backend#Session): R = (tree match {
-      case rsm: ResultSetMapping =>
-        createQueryInvoker[Any, Any](rsm).buildColl(param)(session, rsm.nodeType.asCollectionType.cons.canBuildFrom)
+    def run(implicit session: Backend#Session): R = tree match {
+      case rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType)) :@ CollectionType(cons, el) =>
+        val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
+        createQueryInvoker[Any](rsm, param).foreach({ x => b += x }, 0)(session)
+        b.result()
       case First(rsm: ResultSetMapping) =>
-        createQueryInvoker[Any, Any](rsm).first(param)
-    }).asInstanceOf[R]
+        createQueryInvoker[R](rsm, param).first
+    }
   }
 
   class UnshapedQueryExecutorDef[M](value: M) extends super.UnshapedQueryExecutorDef[M](value) {
-    @inline final def selectStatement[U](implicit shape: Shape[_ <: ShapeLevel.Flat, M, U, _], session: Backend#Session): String =
+    @inline final def selectStatement[U](implicit shape: Shape[_ <: FlatShapeLevel, M, U, _], session: Backend#Session): String =
       executor[U].selectStatement
   }
 }

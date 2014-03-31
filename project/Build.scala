@@ -15,9 +15,9 @@ object SlickBuild extends Build {
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   val publishedScalaSettings = Seq(
-    scalaVersion := "2.10.3",
+    scalaVersion := "2.10.4",
+    crossScalaVersions := Seq(scalaVersion.value, "2.11.0-RC3"),
     //scalaBinaryVersion <<= scalaVersion,
-    //crossScalaVersions ++= "2.10.0-M4" :: Nil,
     libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
   )
 
@@ -104,13 +104,27 @@ object SlickBuild extends Build {
         </scm>
   ) ++ scalaSettings
 
+  def runTasksSequentially(tasks: List[TaskKey[_]])(state: State): State = tasks match {
+    case t :: ts =>
+      Project.runTask(t.asInstanceOf[TaskKey[Any]], state) match {
+        case None => state.fail
+        case Some((s, Inc(_))) => s.fail
+        case Some((s, _)) => runTasksSequentially(ts)(s)
+      }
+    case Nil => state
+  }
+
+  /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
+  def testAll = Command.command("testAll")(runTasksSequentially(List(test in (slickTestkitProject, Test), test in (slickTestkitProject, DocTest))))
+
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
     settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
       test := (), // suppress test status output
-      testOnly :=  ()
+      testOnly :=  (),
+      commands += testAll
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ Seq(

@@ -1,10 +1,11 @@
 package scala.slick.driver
 
-import scala.language.{existentials, implicitConversions}
+import scala.language.{existentials, implicitConversions, higherKinds}
 import scala.collection.mutable.HashMap
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
+import scala.slick.ast.TypeUtil._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.compiler.{RewriteBooleans, CodeGen, Phase, CompilerState}
 import scala.slick.util._
@@ -27,6 +28,13 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   case object WherePart extends StatementPart
   case object OtherPart extends StatementPart
 
+  /** Create a SQL representation of a literal value. */
+  def valueToSQLLiteral(v: Any, tpe: Type): String = {
+    val JdbcType(ti, option) = tpe
+    if(option) v.asInstanceOf[Option[Any]].fold("null")(ti.valueToSQLLiteral)
+    else ti.valueToSQLLiteral(v)
+  }
+
   /** Builder for SELECT and UPDATE statements. */
   class QueryBuilder(val tree: Node, val state: CompilerState) { queryBuilder =>
 
@@ -34,6 +42,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val scalarFrom: Option[String] = None
     protected val supportsTuples = true
     protected val supportsCast = true
+    protected val supportsEmptyJoinConditions = true
     protected val concatOperator: Option[String] = None
     protected val hasPiFunction = true
     protected val hasRadDegConversion = true
@@ -168,6 +177,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           buildFrom(right, Some(rightGen))
           on match {
             case LiteralNode(true) =>
+              if(!supportsEmptyJoinConditions) b" on 1=1"
             case _ => b" on !$on"
           }
         case Union(left, right, all, _, _) =>
@@ -186,13 +196,16 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case n @ LiteralNode(v) =>
-        val ti = typeInfoFor(n.tpe)
-        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, param) => ti.setValue(v, p) }
-        else b += ti.valueToSQLLiteral(v)
-      case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
-        typeInfoFor(tpe).setValue(extractor(param), p)
-      }
+      case (n @ LiteralNode(v)) :@ JdbcType(ti, option) =>
+        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, param) =>
+          if(option) ti.setOption(v.asInstanceOf[Option[Any]], p)
+          else ti.setValue(v, p)
+        } else b += valueToSQLLiteral(v, n.nodeType)
+      case QueryParameter(extractor, JdbcType(ti, option)) =>
+        b +?= { (p, param) =>
+          if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p)
+          else ti.setValue(extractor(param), p)
+        }
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"
       case Library.==(l, LiteralNode(null)) =>
@@ -243,15 +256,15 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
         b"\($l like $r escape '$esc'\)"
       case Library.StartsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote(likeEncode(s)+'%')(ScalaBaseType.stringType)} escape '^'\)"
+        b"\($n like ${valueToSQLLiteral(likeEncode(s)+'%', ScalaBaseType.stringType)} escape '^'\)"
       case Library.EndsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${quote("%"+likeEncode(s))(ScalaBaseType.stringType)} escape '^'\)"
+        b"\($n like ${valueToSQLLiteral("%"+likeEncode(s), ScalaBaseType.stringType)} escape '^'\)"
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
-      case a @ Library.Cast(ch @ _*) =>
+      case Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else typeInfoFor(a.asInstanceOf[Typed].tpe).sqlTypeName
+          else jdbcTypeFor(n.nodeType).sqlTypeName
         if(supportsCast) b"cast(${ch(0)} as $tn)"
         else b"{fn convert(!${ch(0)},$tn)}"
       case s: SimpleBinaryOperator => b"\(${s.left} ${s.name} ${s.right}\)"
@@ -449,7 +462,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($c) VALUES ($v)")
     }
 
-    def buildInsert(query: Query[_, _]): InsertBuilderResult = {
+    def buildInsert[C[_]](query: Query[_, _, C]): InsertBuilderResult = {
       val (_, sbr: SQLBuilder.Result) =
         CodeGen.findResult(queryCompiler.run((query.toNode)).tree)
       InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($qAllColumns) ${sbr.sql}", sbr.setter)
@@ -573,10 +586,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   /** Builder for column specifications in DDL statements. */
   class ColumnDDLBuilder(column: FieldSymbol) {
-    protected val tmDelegate = typeInfoFor(column.tpe)
+    protected val JdbcType(jdbcType, isOption) = column.tpe
     protected var sqlType: String = null
     protected var customSqlType: Boolean = false
-    protected var notNull = !tmDelegate.nullable
+    protected var notNull = !isOption
     protected var autoIncrement = false
     protected var primaryKey = false
     protected var defaultLiteral: String = null
@@ -584,7 +597,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def init() {
       for(o <- column.options) handleColumnOption(o)
-      if(sqlType eq null) sqlType = tmDelegate.sqlTypeName
+      if(sqlType eq null) sqlType = jdbcType.sqlTypeName
       else customSqlType = true
     }
 
@@ -594,7 +607,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.PrimaryKey => primaryKey = true
-      case ColumnOption.Default(v) => defaultLiteral = typeInfoFor(column.tpe).valueToSQLLiteral(v)
+      case ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
     }
 
     def appendColumn(sb: StringBuilder) {
