@@ -81,10 +81,10 @@ class PgInheritTest extends TestkitTest[JdbcTestDB] {
       }
       val q2 = tabs1.filter(_.col4 === 5.bind)
       val expect2 = Tab1("plus", "bar",  "bat1", 5, 101)
-      assertEquals(expect2, q2.first())
+      assertEquals(expect2, q2.first)
 
-      // NOTES: reverse order!!!
-      (tabs1.ddl ++ tabs.ddl).drop
+      // NOTES: (auto) reverse order!!!
+      (tabs.ddl ++ tabs1.ddl).drop
     }
   }
 }
