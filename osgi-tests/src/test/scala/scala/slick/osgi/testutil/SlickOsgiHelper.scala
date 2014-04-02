@@ -1,5 +1,4 @@
-package scala.slick
-package testutil
+package scala.slick.osgi.testutil
 
 import org.ops4j.pax.exam.CoreOptions._
 import org.ops4j.pax.exam

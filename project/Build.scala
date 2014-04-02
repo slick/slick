@@ -126,7 +126,7 @@ object SlickBuild extends Build {
       test := (), // suppress test status output
       testOnly :=  (),
       commands += testAll
-    )).aggregate(slickProject, slickTestkitProject, osgiTestProject)
+    )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
       name := "Slick",
@@ -217,11 +217,13 @@ object SlickBuild extends Build {
     "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
     "org.ops4j.pax.url"      % "pax-url-aether"             % "1.6.0",
     "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
-    "ch.qos.logback"         % "logback-core"               % "1.1.1",
-    "ch.qos.logback"         % "logback-classic"            % "1.1.1",
+    "ch.qos.logback"         % "logback-core"               % "0.9.28",
+    "ch.qos.logback"         % "logback-classic"            % "0.9.28",
+    //"org.slf4j"              % "slf4j-api"                  % "1.6.4",
     "junit"                  % "junit"                      % "4.10",
     "org.apache.felix"       % "org.apache.felix.framework" % "3.2.2",
-    "com.novocode"           % "junit-interface"            % "0.10-M4"
+    "com.novocode"           % "junit-interface"            % "0.10-M4",
+    "com.h2database"         % "h2"                         % "1.3.170"
   ).map(_ % "test")
 
   lazy val osgiBundleFiles = taskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
@@ -233,12 +235,16 @@ object SlickBuild extends Build {
       name := "Slick-OsgiTests",
       libraryDependencies ++= paxDependencies,
       fork in Test := true,
-      javaOptions in Test += {
-        "-Dslick.osgi.bundlepath=" + osgiBundleFiles.value.map(_.getCanonicalPath).mkString(":")
-      },
+      testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
+      javaOptions in Test ++= Seq(
+        "-Dslick.osgi.bundlepath=" + osgiBundleFiles.value.map(_.getCanonicalPath).mkString(":"),
+        "-Dorg.ops4j.pax.logging.DefaultServiceLog.level=WARN"
+      ),
       testGrouping <<= definedTests in Test map partitionTests,
       osgiBundleFiles := Seq((OsgiKeys.bundle in slickProject).value),
-      osgiBundleFiles ++= (dependencyClasspath in Compile in slickProject).value.map(_.data).filterNot(_.isDirectory)
+      osgiBundleFiles ++= (dependencyClasspath in Compile in slickProject).value.map(_.data).filterNot(_.isDirectory),
+      osgiBundleFiles ++= (dependencyClasspath in Test).value.map(_.data).filter(f => f.name.contains("logback-") || f.name.contains("h2")),
+      publishArtifact := false
     )
     dependsOn(slickProject % "test")
   )
