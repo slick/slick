@@ -124,7 +124,7 @@ sealed abstract class HList extends Product {
   final def canEqual(that: Any) = that.isInstanceOf[HList]
 }
 
-final object HList {
+trait LowPriorityHListShapes{
   import syntax._
 
   final class HListShape[Level <: ShapeLevel, M <: HList, U <: HList : ClassTag, P <: HList](val shapes: Seq[Shape[_, _, _, _]]) extends MappedScalaProductShape[Level, HList, M, U, P] {
@@ -135,6 +135,8 @@ final object HList {
   implicit def hconsShape[Level <: ShapeLevel, L1 <: Level, L2 <: Level, M1, M2 <: HList, U1, U2 <: HList, P1, P2 <: HList](implicit s1: Shape[L1, M1, U1, P1], s2: HListShape[L2, M2, U2, P2]) =
     new HListShape[Level, M1 :: M2, U1 :: U2, P1 :: P2](s1 +: s2.shapes)
 }
+final object HList extends HListShapes
+
 // Separate object for macro impl to avoid dependency of companion class on scala.reflect, see https://github.com/xeno-by/sbt-example-paradise210/issues/1#issuecomment-21021396
 final object HListMacros{
   def applyImpl(ctx: Context { type PrefixType = HList })(n: ctx.Expr[Int]): ctx.Expr[Any] = {
