@@ -1,0 +1,44 @@
+package scala.slick.collection.heterogenous
+import scala.slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
+
+// These shapes are redundant (hconsShape would be sufficient) but serve to
+// limit the depth of implicit search through `hconsShape`, which has
+// exponential performance (albeit at a low constant factor) shows up with hlists
+// in the order of 100 or more elements. See SI-8478.
+
+trait LowPriorityHListShapes2 extends LowPriorityHListShapes{
+  import syntax._
+  implicit def hconsShape10[Level <: ShapeLevel, 
+       L1 <: Level<#list 2..10 as i>, L${i} <: Level</#list>
+       <#list 1..10 as i>, M${i}</#list> <: HList
+       <#list 1..10 as i>, U${i}</#list> <: HList
+       <#list 1..10 as i>, P${i}</#list> <: HList](
+        implicit
+<#list 1..9 as i>
+        s${i}: Shape[L${i}, M${i}, U${i}, P${i}], 
+</#list>
+        s10: HListShape[L10, M10, U10, P10]
+   ) = new HListShape[Level,
+   						 M1 <#list 2..10 as i>:: M${i}</#list>,
+                         U1 <#list 2..10 as i>:: U${i}</#list>,
+                         P1 <#list 2..10 as i>:: P${i}</#list>
+   ](Seq(s1<#list 2..9 as i>,s${i}</#list>) ++ s10.shapes)
+}
+trait HListShapes extends LowPriorityHListShapes2{
+  import syntax._
+  implicit def hconsShape100[Level <: ShapeLevel, 
+       L1 <: Level<#list 2..100 as i>, L${i} <: Level</#list>
+       <#list 1..100 as i>, M${i}</#list> <: HList
+       <#list 1..100 as i>, U${i}</#list> <: HList
+       <#list 1..100 as i>, P${i}</#list> <: HList](
+        implicit
+<#list 1..99 as i>
+        s${i}: Shape[L${i}, M${i}, U${i}, P${i}], 
+</#list>
+        s100: HListShape[L8, M100, U100, P100]
+   ) = new HListShape[Level,
+   						 M1 <#list 2..100 as i>:: M${i}</#list>,
+                         U1 <#list 2..100 as i>:: U${i}</#list>,
+                         P1 <#list 2..100 as i>:: P${i}</#list>
+   ](Seq(s1<#list 2..99 as i>,s${i}</#list>) ++ s100.shapes)
+}

@@ -41,5 +41,22 @@ class HListTest {
     val l4 = new HCons(42, new HCons(10.0d, HNil))
     println(l4.getClass)
     println(l4.tail.getClass)
+    ;{
+      import scala.slick.lifted.{Shape,FlatShapeLevel}
+      import scala.slick.driver.JdbcDriver.simple._
+
+      type HList10[T <: HList] = HCons[String,HCons[String,HCons[String,HCons[String,HCons[String,HCons[String,HCons[String,HCons[String,HCons[String,HCons[String,T]]]]]]]]]]
+      type HList100[T <: HList] = HList10[HList10[HList10[HList10[HList10[HList10[HList10[HList10[HList10[HList10[T]]]]]]]]]]
+
+      // making sure compile times for long hlists are sane
+      // measured roughly:
+      // 30 seconds for size 1000
+      // 12 seconds for size 500
+      //  9 seconds for size 400
+      //  7 seconds for size 300
+
+      type HListFull = HList100[HList100[HList100[HList100[HNil]]]]
+      implicitly[Shape[_ <: FlatShapeLevel, HListFull, HListFull, _]] 
+    }
   }
 }
