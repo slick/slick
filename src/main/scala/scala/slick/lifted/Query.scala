@@ -130,8 +130,10 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
     * elements are preserved. */
   def ++[O >: E, R, D[_]](other: Query[O, U, D]) = unionAll(other)
 
-  /** The total number of elements of the query. */
+  /** The total number of elements (i.e. rows). */
   def length: Column[Int] = Library.CountAll.column(toNode)
+  /** The total number of elements (i.e. rows). */
+  def size = length
 
   /** The number of distinct elements of the query. */
   def countDistinct: Column[Int] = Library.CountDistinct.column(toNode)
