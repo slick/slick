@@ -32,7 +32,9 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
   val c: Column[P1]
 
+  /** Returns true if the column is NULL, false otherwise. */
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))
+  /** Returns false if the column is NULL, true otherwise. */
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
 
   def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
@@ -81,6 +83,10 @@ final class OptionColumnExtensionMethods[B1](val c: Column[Option[B1]]) extends 
     Column.forNode[B1](GetOrElse(c.toNode, () => default))(c.tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
   def get: Column[B1] =
     getOrElse { throw new SlickException("Read NULL value for column "+this) }
+  /** Returns true if the column is NULL, false otherwise. */
+  def isEmpty = this.isNull
+  /** Returns false if the column is NULL, true otherwise. */
+  def nonEmpty = this.isNotNull
 }
 
 /** Extension methods for numeric Columns */

@@ -205,4 +205,32 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
 
     for(t <- q1) println("User tuple: "+t)
   }
+  def testNull{
+    class Users(tag: Tag) extends Table[Option[String]](tag, "users") {
+      def name = column[Option[String]]("name")
+      def * = name
+    }
+    lazy val users = TableQuery[Users]
+    users.ddl.create
+    users.insert(Some("chris"))
+    users.insert(Some("stefan"))
+    users.insert(None)
+    println(users.filter(_.name.isNull).length.selectStatement)
+    assertEquals( 1, users.filter(_.name.isNull).length.run )
+    assertEquals( 1, users.filter(_.name.isNull).run.length )
+    assertEquals( 1, users.filter(_.name.isEmpty).length.run )
+    assertEquals( 1, users.filter(_.name.isEmpty).run.length )
+    assertEquals( 2, users.filter(_.name.isNotNull).length.run )
+    assertEquals( 2, users.filter(_.name.isNotNull).run.length )
+    assertEquals( 2, users.filter(_.name.nonEmpty).length.run )
+    assertEquals( 2, users.filter(_.name.nonEmpty).run.length )
+    try{
+      assertEquals( 0, users.filter(_.name === Option[String](null)).length.run )
+      fail()
+    }catch{ case _:SlickException =>  }
+    try{
+      assertEquals( 0, users.filter(_.name === Option[String](null)).run.length )
+      fail()
+    }catch{ case _:SlickException => }
+  }
 }

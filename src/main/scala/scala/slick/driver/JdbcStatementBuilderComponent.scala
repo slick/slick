@@ -195,6 +195,13 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case QueryParameter(extractor, tpe) => b +?= { (p, param) =>
         typeInfoFor(tpe).setValue(extractor(param), p)
       }
+      // Disallow === comparisons with None, as they always return NULL (=false).
+      case Library.Not(Library.==(l, LiteralNode(None))) => {
+        throw new SlickException("Inequality comparison with None not allowed. Please use nonEmpty or isNotNull instead.")
+      }
+      case Library.==(l, LiteralNode(None)) => {
+        throw new SlickException("Equality comparison with None not allowed. Please use isEmpty or isNull instead.")
+      }
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"
       case Library.==(l, LiteralNode(null)) =>
