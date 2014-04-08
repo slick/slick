@@ -364,21 +364,23 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node, identity: TypeSy
 }
 
 /** A .take call. */
-final case class Take(from: Node, num: Int) extends FilteredQuery with UnaryNode {
+final case class Take(from: Node, count: Node) extends FilteredQuery with BinaryNode {
   type Self = Take
-  def child = from
+  def left = from
+  def right = count
   protected[this] val generator = new AnonSymbol
-  override def nodeChildNames = Seq("from")
-  protected[this] def nodeRebuild(child: Node) = copy(from = child)
+  override def nodeChildNames = Seq("from", "count")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, count = right)
 }
 
 /** A .drop call. */
-final case class Drop(from: Node, num: Int) extends FilteredQuery with UnaryNode {
+final case class Drop(from: Node, count: Node) extends FilteredQuery with BinaryNode {
   type Self = Drop
-  def child = from
+  def left = from
+  def right = count
   protected[this] val generator = new AnonSymbol
-  override def nodeChildNames = Seq("from")
-  protected[this] def nodeRebuild(child: Node) = copy(from = child)
+  override def nodeChildNames = Seq("from", "count")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, count = right)
 }
 
 /** A join expression of type
@@ -594,5 +596,30 @@ final case class TypeMapping(val child: Node, val mapper: MappedScalaType.Mapper
 final case class QueryParameter(extractor: (Any => Any), val tpe: Type) extends NullaryNode with TypedNode {
   type Self = QueryParameter
   def nodeRebuild = copy()
-  override def toString = "QueryParameter"
+  override def toString = s"QueryParameter($extractor@${System.identityHashCode(extractor)}})"
+}
+
+object QueryParameter {
+  /** Create a LiteralNode or QueryParameter that performs a client-side computation
+    * on two `Long` values. The given Nodes must also be of type `LiteralNode` or
+    * `QueryParameter`. */
+  def constOp(name: String)(op: (Long, Long) => Long)(l: Node, r: Node): Node = (l, r) match {
+    case (LiteralNode(ll: Long), LiteralNode(rl: Long)) => LiteralNode[Long](op(ll, rl))
+    case (LiteralNode(ll: Long), QueryParameter(re, rt: TypedType[_])) if rt.scalaType == ScalaBaseType.longType =>
+      QueryParameter(new (Any => Long) {
+        def apply(param: Any) = op(ll, re(param).asInstanceOf[Long])
+        override def toString = s"($ll $name $re)"
+      }, ScalaBaseType.longType)
+    case (QueryParameter(le, lt: TypedType[_]), LiteralNode(rl: Long)) if lt.scalaType == ScalaBaseType.longType =>
+      QueryParameter(new (Any => Long) {
+        def apply(param: Any) = op(le(param).asInstanceOf[Long], rl)
+        override def toString = s"($le $name $rl)"
+      }, ScalaBaseType.longType)
+    case (QueryParameter(le, lt: TypedType[_]), QueryParameter(re, rt: TypedType[_])) if lt.scalaType == ScalaBaseType.longType && rt.scalaType == ScalaBaseType.longType =>
+      QueryParameter(new (Any => Long) {
+        def apply(param: Any) = op(le(param).asInstanceOf[Long], re(param).asInstanceOf[Long])
+        override def toString = s"($le $name $re)"
+      }, ScalaBaseType.longType)
+    case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations")
+  }
 }

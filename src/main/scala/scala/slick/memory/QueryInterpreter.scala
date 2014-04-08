@@ -179,13 +179,15 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         b.result()
       case Take(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
+        val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.take(num)
+        b ++= fromV.toIterator.take(numV.toInt)
         b.result()
       case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
+        val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.drop(num)
+        b ++= fromV.toIterator.drop(numV.toInt)
         b.result()
       case Union(left, right, all, _, _) =>
         val leftV = run(left).asInstanceOf[Coll]

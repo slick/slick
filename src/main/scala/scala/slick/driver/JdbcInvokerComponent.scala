@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.language.{higherKinds, existentials}
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
-import scala.slick.ast.{Insert, CompiledStatement, ResultSetMapping, Node}
+import scala.slick.ast.{Insert, CompiledStatement, ResultSetMapping, Node, ParameterSwitch}
 import scala.slick.lifted.{FlatShapeLevel, Query, Shape}
 import scala.slick.jdbc._
 import scala.slick.util.SQLBuilder
@@ -36,10 +36,15 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     override protected val mutateType = invokerMutateType
     override protected val previousAfterDelete = invokerPreviousAfterDelete
 
-    protected[this] val ResultSetMapping(_,
-      CompiledStatement(_, sres: SQLBuilder.Result, _),
-      CompiledMapping(_converter, _)) = tree
+    protected[this] val ResultSetMapping(_, compiled, CompiledMapping(_converter, _)) = tree
     protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, R]]
+    protected[this] val CompiledStatement(_, sres: SQLBuilder.Result, _) = findCompiledStatement(compiled)
+
+    protected[this] def findCompiledStatement(n: Node): CompiledStatement = n match {
+      case c: CompiledStatement => c
+      case ParameterSwitch(cases, default) =>
+        findCompiledStatement(cases.find { case (f, n) => f(param) }.map(_._2).getOrElse(default))
+    }
 
     protected def getStatement = sres.sql
     protected def setParam(st: PreparedStatement): Unit = sres.setter(st, 1, param)

@@ -357,13 +357,13 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
                   if( !i.isInstanceOf[Int] ){
                     throw new Exception("drop expects Int, found "+i.getClass)
                   }
-                  sq.Drop( sq_lhs, i.asInstanceOf[Int] ) 
+                  sq.Drop( sq_lhs, sq.LiteralNode[Long](i.asInstanceOf[Int].toLong) )
                 case "take"       =>
                   val i = eval(rhs)
                   if( !i.isInstanceOf[Int] ){
                     throw new Exception("take expects Int, found "+i.getClass)
                   }
-                  sq.Take( sq_lhs, i.asInstanceOf[Int] ) 
+                  sq.Take( sq_lhs, sq.LiteralNode[Long](i.asInstanceOf[Int].toLong) )
                 case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
               },
               scope

@@ -84,10 +84,10 @@ trait SQLiteDriver extends JdbcDriver { driver =>
       if(o.direction.desc) b" desc"
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b" LIMIT $d,$t"
-      case (Some(t), None   ) => b" LIMIT $t"
-      case (None,    Some(d)) => b" LIMIT $d,-1"
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
+      case (Some(t), Some(d)) => b" limit $d,$t"
+      case (Some(t), None   ) => b" limit $t"
+      case (None,    Some(d)) => b" limit $d,-1"
       case _ =>
     }
 

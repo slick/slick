@@ -27,6 +27,7 @@
     <logger name="scala.slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
     <logger name="scala.slick.compiler.HoistClientOps"            level="${log.qcomp.hoistClientOps:-inherited}" />
     <logger name="scala.slick.compiler.RewriteBooleans"           level="${log.qcomp.rewriteBooleans:-inherited}" />
+    <logger name="scala.slick.compiler.SpecializeParameters"      level="${log.qcomp.specializeParameters:-inherited}" />
     <logger name="scala.slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />
     <logger name="scala.slick.compiler.InsertCompiler"            level="${log.qcomp.insertCompiler:-inherited}" />
     <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.session:-info}" />

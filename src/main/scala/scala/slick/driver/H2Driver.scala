@@ -50,7 +50,7 @@ trait H2Driver extends JdbcDriver { driver =>
       case _ => super.expr(n, skipParens)
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b" limit $t offset $d"
       case (Some(t), None   ) => b" limit $t"
       case (None, Some(d)   ) => b" limit -1 offset $d"
