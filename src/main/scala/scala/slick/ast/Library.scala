@@ -36,6 +36,7 @@ object Library {
   val > = new SqlOperator(">")
   val >= = new SqlOperator(">=")
   val == = new SqlOperator("=")
+  val is = new SqlOperator("is")
 
   // Set membership
   val In = new SqlOperator("in")

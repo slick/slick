@@ -41,7 +41,7 @@ object Benchmark {
       (users innerJoin orders on (_.id is _.userID)).sortBy(_._1.last.asc).map(uo => (uo._1.first, uo._2.orderID))
     val q5 = for (
       o <- orders
-        where { o => o.orderID === (for { o2 <- orders where(o.userID is _.userID) } yield o2.orderID).max }
+        filter { o => o.orderID is (for { o2 <- orders filter(o.userID is _.userID) } yield o2.orderID).max }
     ) yield o.orderID
 
     val s1 = q1.selectStatement

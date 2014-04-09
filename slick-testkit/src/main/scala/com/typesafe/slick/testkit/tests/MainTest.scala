@@ -91,7 +91,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     val q4 = for {
       u <- users
       o <- u.orders
-        if (o.orderID === (for { o2 <- orders where(o.userID is _.userID) } yield o2.orderID).max)
+        if (o.orderID is (for { o2 <- orders filter(o.userID is _.userID) } yield o2.orderID).max)
     } yield (u.first, o.orderID)
     println("q4: " + q4.selectStatement)
     println("Latest Order per User:")
@@ -139,12 +139,12 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("Orders for Homer and Marge:")
     q4d.foreach(o => println("  "+o))
 
-    val b1 = orders.where( o => o.shipped && o.shipped ).map( o => o.shipped && o.shipped )
-    val b2 = orders.where( o => o.shipped && o.rebate ).map( o => o.shipped && o.rebate )
-    val b3 = orders.where( o => o.rebate && o.shipped ).map( o => o.rebate && o.shipped )
-    val b4 = orders.where( o => o.rebate && o.rebate ).map( o => o.rebate && o.rebate )
-    val b5 = orders.where( o => !o.shipped ).map( o => !o.shipped )
-    val b6 = orders.where( o => !o.rebate ).map( o => !o.rebate )
+    val b1 = orders.filter( o => o.shipped && o.shipped ).map( o => o.shipped && o.shipped )
+    val b2 = orders.filter( o => o.shipped && o.rebate.getOrElse(false) ).map( o => o.shipped && o.rebate )
+    val b3 = orders.filter( o => o.rebate.getOrElse(false) && o.shipped ).map( o => o.rebate && o.shipped )
+    val b4 = orders.filter( o => (o.rebate && o.rebate).getOrElse(false) ).map( o => o.rebate && o.rebate )
+    val b5 = orders.filter( o => !o.shipped ).map( o => !o.shipped )
+    val b6 = orders.filter( o => !o.rebate ).map( o => !o.rebate )
     val b7 = orders.map( o => o.shipped is o.shipped )
     val b8 = orders.map( o => o.rebate is o.shipped )
     val b9 = orders.map( o => o.shipped is o.rebate )
@@ -204,5 +204,32 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("Count statement: " + q9.selectStatement)
 
     for(t <- q1) println("User tuple: "+t)
+  }
+  def testNull{
+    class Users(tag: Tag) extends Table[Option[String]](tag, "users") {
+      def name = column[Option[String]]("name")
+      def * = name
+    }
+    lazy val users = TableQuery[Users]
+    users.ddl.create
+    users.insert(Some("chris"))
+    users.insert(Some("stefan"))
+    users.insert(None)
+    println(users.filter(_.name.isNull).length.selectStatement)
+    assertEquals( 1, users.filter(_.name.isNull).length.run )
+    assertEquals( 1, users.filter(_.name.isNull).run.length )
+    assertEquals( 1, users.filter(_.name.isEmpty).length.run )
+    assertEquals( 1, users.filter(_.name.isEmpty).run.length )
+    assertEquals( 1, users.filter(_.name is ConstColumn[Option[String]](None)).run.length )
+    assertEquals( 2, users.filter(_.name.isNotNull).length.run )
+    assertEquals( 2, users.filter(_.name.isNotNull).run.length )
+    assertEquals( 2, users.filter(_.name.nonEmpty).length.run )
+    assertEquals( 2, users.filter(_.name.nonEmpty).run.length )
+    assertEquals( 1, users.filter(_.name is "chris").length.run )
+    assertEquals( 1, users.filter(_.name is "chris").run.length )
+    assertEquals( 1, users.filter(u => (u.name === "chris").getOrElse(false)).run.length )
+    assertEquals( 1, users.filter(u => (u.name === "chris").getOrElse(false)).length.run )
+    assertEquals( 2, users.filter(u => (u.name === "chris").getOrElse(true)).run.length )
+    assertEquals( 2, users.filter(u => (u.name === "chris").getOrElse(true)).length.run )
   }
 }
