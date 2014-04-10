@@ -202,7 +202,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   private def canBeMapped( tpe:Type ) : Boolean = columnTypes.isDefinedAt(underlyingTypeSymbol(tpe))
   private def columnSelect( sym:Symbol, sq_symbol:sq.Node ) =
     sq.Select(
-      sq.Ref(sq_symbol.nodeIntrinsicSymbol),
+      sq_symbol,
       columnField(sym)
     ).nodeTyped( columnType(sym.typeSignature) )
 

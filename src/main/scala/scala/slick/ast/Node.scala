@@ -55,9 +55,6 @@ trait Node {
     case _ => super.toString
   }
 
-  /** The intrinsic symbol that points to this Node object. */
-  final def nodeIntrinsicSymbol = new IntrinsicSymbol(this)
-
   private var _nodeType: Type = UnassignedType
 
   /** The current type of this node */

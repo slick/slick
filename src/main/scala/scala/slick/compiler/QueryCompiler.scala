@@ -81,7 +81,6 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 object QueryCompiler {
   val standardPhases = Vector(
     // Clean up trees from the lifted embedding
-    Phase.inline,
     Phase.assignUniqueSymbols,
     // Distribute and normalize
     Phase.inferTypes,
@@ -124,7 +123,6 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
 
 object Phase {
   /** The standard phases of the query compiler */
-  val inline = new Inline
   val assignUniqueSymbols = new AssignUniqueSymbols
   val inferTypes = new InferTypes
   val createResultSetMapping = new CreateResultSetMapping

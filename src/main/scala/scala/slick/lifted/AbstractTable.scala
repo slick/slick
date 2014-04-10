@@ -48,7 +48,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   protected[this] def collectFieldSymbols(n: Node): Iterable[FieldSymbol] =
     n.collect {
-      case Select(Ref(IntrinsicSymbol(in)), f: FieldSymbol) if in == tableNode => f
+      case Select(in, f: FieldSymbol) if in == tableNode => f
     }.toSeq.distinct
 
   /** Define a foreign key relationship.
