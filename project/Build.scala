@@ -11,13 +11,41 @@ import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 object SlickBuild extends Build {
 
   val slickVersion = "2.1.0-SNAPSHOT"
+  val binaryCompatSlickVersion = "2.1.0" // Slick base version for binary compatibility checks
+  val scalaVersions = Seq("2.10.4", "2.11.0-RC4")
+
+  /** Dependencies for reuse in different parts of the build */
+  object Dependencies {
+    val junit = Seq(
+      "junit" % "junit-dep" % "4.10",
+      "com.novocode" % "junit-interface" % "0.10-M4"
+    )
+    val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
+    val logback = "ch.qos.logback" % "logback-classic" % "0.9.28"
+    val h2 = "com.h2database" % "h2" % "1.3.170"
+    val testDBs = Seq(
+      h2,
+      "org.xerial" % "sqlite-jdbc" % "3.7.2",
+      "org.apache.derby" % "derby" % "10.9.1.0",
+      "org.hsqldb" % "hsqldb" % "2.2.8"
+    )
+    val paxExamVersion = "2.6.0"
+    val paxExam = Seq(
+      "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
+      "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
+      "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
+      "org.ops4j.pax.url"      % "pax-url-aether"             % "1.6.0",
+      "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
+      "org.apache.felix"       % "org.apache.felix.framework" % "3.2.2"
+    )
+  }
 
   /* Custom Settings */
   val repoKind = SettingKey[String]("repo-kind", "Maven repository kind (\"snapshots\" or \"releases\")")
 
   val publishedScalaSettings = Seq(
-    scalaVersion := "2.10.4",
-    crossScalaVersions := Seq(scalaVersion.value, "2.11.0-RC3"),
+    scalaVersion := scalaVersions.head,
+    crossScalaVersions := scalaVersions,
     //scalaBinaryVersion <<= scalaVersion,
     libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
   )
@@ -69,7 +97,7 @@ object SlickBuild extends Build {
       "-diagrams", // requires graphviz
       "-groups"
     )),
-    libraryDependencies += "org.slf4j" % "slf4j-api" % "1.6.4",
+    libraryDependencies += Dependencies.slf4j,
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     //publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)))),
@@ -139,7 +167,7 @@ object SlickBuild extends Build {
       (sphinxProperties in Sphinx) := Map.empty,
       test := (), // suppress test status output
       testOnly :=  (),
-      previousArtifact := Some("com.typesafe.slick" %% "slick" % "2.1.0"),
+      previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
       binaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
@@ -156,13 +184,7 @@ object SlickBuild extends Build {
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
     )))
 
-  val testKitTestCodegenDependencies = Seq(
-    "ch.qos.logback" % "logback-classic" % "0.9.28",
-    "com.h2database" % "h2" % "1.3.170",
-    "org.xerial" % "sqlite-jdbc" % "3.7.2",
-    "org.apache.derby" % "derby" % "10.9.1.0",
-    "org.hsqldb" % "hsqldb" % "2.2.8"
-  )
+  val testKitTestCodegenDependencies = Dependencies.logback +: Dependencies.testDBs
 
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
     settings = Project.defaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
@@ -173,16 +195,12 @@ object SlickBuild extends Build {
       )),
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       //scalacOptions in Compile += "-Yreify-copypaste",
-      libraryDependencies ++= Seq(
-        // TestKit needs JUnit for its Runner
-        "junit" % "junit-dep" % "4.10",
-        // The Slick core tests need junit-interface, logback and the DB drivers
-        "com.novocode" % "junit-interface" % "0.10-M4" % "test",
-        "postgresql" % "postgresql" % "9.1-901.jdbc4" % "test",
-        "mysql" % "mysql-connector-java" % "5.1.23" % "test"
-      ) ++
-        testKitTestCodegenDependencies.map(_ % "test") ++
-        testKitTestCodegenDependencies.map(_ % "codegen"),
+      libraryDependencies ++=
+        ("postgresql" % "postgresql" % "9.1-901.jdbc4" % "test") +:
+        ("mysql" % "mysql-connector-java" % "5.1.23" % "test") +:
+        Dependencies.junit ++:
+        (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
+        (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
       // Run the Queryable tests (which need macros) on a forked JVM
       // to avoid classloader problems with reification
       testGrouping <<= definedTests in Test map partitionTests,
@@ -209,23 +227,6 @@ object SlickBuild extends Build {
   ) dependsOn(slickProject)
 
 
-  def paxExamVersion = "2.6.0"
-
-  lazy val paxDependencies = Seq(
-    "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
-    "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
-    "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
-    "org.ops4j.pax.url"      % "pax-url-aether"             % "1.6.0",
-    "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
-    "ch.qos.logback"         % "logback-core"               % "0.9.28",
-    "ch.qos.logback"         % "logback-classic"            % "0.9.28",
-    //"org.slf4j"              % "slf4j-api"                  % "1.6.4",
-    "junit"                  % "junit"                      % "4.10",
-    "org.apache.felix"       % "org.apache.felix.framework" % "3.2.2",
-    "com.novocode"           % "junit-interface"            % "0.10-M4",
-    "com.h2database"         % "h2"                         % "1.3.170"
-  ).map(_ % "test")
-
   lazy val osgiBundleFiles = taskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
 
   lazy val osgiTestProject = (
@@ -233,7 +234,7 @@ object SlickBuild extends Build {
     settings(sharedSettings:_*)
     settings(
       name := "Slick-OsgiTests",
-      libraryDependencies ++= paxDependencies,
+      libraryDependencies ++= (Dependencies.h2 +: Dependencies.logback +: Dependencies.junit ++: Dependencies.paxExam).map(_ % "test"),
       fork in Test := true,
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       javaOptions in Test ++= Seq(
