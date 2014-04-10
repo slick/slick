@@ -380,7 +380,7 @@ object LiftedEmbedding extends App {
       //#template1
       val userNameByID = for {
         id <- Parameters[Int]
-        u <- users if u.id is id
+        u <- users if u.id === id
       } yield u.first
 
       val name = userNameByID(2).first

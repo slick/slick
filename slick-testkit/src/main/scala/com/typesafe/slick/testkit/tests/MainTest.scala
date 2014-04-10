@@ -14,7 +14,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     def first = column[String]("first", O DBType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = (id, first, last)
-    def orders = mainTest.orders filter { _.userID is id }
+    def orders = mainTest.orders filter { _.userID === id }
   }
   lazy val users = TableQuery[Users]
 
@@ -70,7 +70,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       case (id,f,l) => (id, Some(f), l, if(id < 3) "low" else if(id < 6) "medium" else "high")
     }, q1b.list)
 
-    val q2 = for(u <- users if u.first is "Apu".bind) yield (u.last, u.id)
+    val q2 = for(u <- users if u.first === "Apu".bind) yield (u.last, u.id)
     println("q2: " + q2.selectStatement)
     println("Apu's last name and ID are: " + q2.first)
     assertEquals((Some("Nahasapeemapetilon"),3), q2.first)
@@ -82,7 +82,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
         u.id, "Gizmo "+((scala.math.random*10)+1).toInt, i == 2, Some(u.first == "Marge"))
 
     val q3 = for (
-      u <- users.sortBy(_.first) if u.last.isNotNull;
+      u <- users.sortBy(_.first) if u.last.isDefined;
       o <- u.orders
     ) yield (u.first, u.last, o.orderID, o.product, o.shipped, o.rebate)
     println("q3: " + q3.selectStatement)
@@ -92,7 +92,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     val q4 = for {
       u <- users
       o <- u.orders
-        if (o.orderID === (for { o2 <- orders filter(o.userID is _.userID) } yield o2.orderID).max)
+        if (o.orderID === (for { o2 <- orders filter(o.userID === _.userID) } yield o2.orderID).max)
     } yield (u.first, o.orderID)
     println("q4: " + q4.selectStatement)
     println("Latest Order per User:")
@@ -102,12 +102,12 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       q4.list.toSet)
 
     def maxOfPer[T <: Table[_], C[_]](c: Query[T, _, C])(m: (T => Column[Int]), p: (T => Column[Int])) =
-      c filter { o => m(o) is (for { o2 <- c if p(o) is p(o2) } yield m(o2)).max }
+      c filter { o => m(o) === (for { o2 <- c if p(o) === p(o2) } yield m(o2)).max }
 
     val q4b = for (
       u <- users;
       o <- maxOfPer(orders)(_.orderID, _.userID)
-        if o.userID is u.id
+        if o.userID === u.id
     ) yield (u.first, o.orderID)
     println("q4b: " + q4b.selectStatement)
     println("Latest Order per User, using maxOfPer:")
@@ -119,7 +119,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     /*
     val q4c = for (
       u <- Users;
-      o <- Orders if o.userID is u.id;
+      o <- Orders if o.userID === u.id;
       _ <- Query /*TODO groupBy u.id
                  having { _ => o.orderID.max > 5 }
                  orderBy o.orderID.max*/
@@ -134,7 +134,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
 
     val q4d = for (
       u <- users if u.first inSetBind List("Homer", "Marge");
-      o <- orders if o.userID is u.id
+      o <- orders if o.userID === u.id
     ) yield (u.first, (LiteralColumn(1) + o.orderID, 1), o.product)
     println("q4d: " + q4d.selectStatement)
     println("Orders for Homer and Marge:")
@@ -146,10 +146,10 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     val b4 = orders.filter( o => o.rebate && o.rebate ).map( o => o.rebate && o.rebate )
     val b5 = orders.filter( o => !o.shipped ).map( o => !o.shipped )
     val b6 = orders.filter( o => !o.rebate ).map( o => !o.rebate )
-    val b7 = orders.map( o => o.shipped is o.shipped )
-    val b8 = orders.map( o => o.rebate is o.shipped )
-    val b9 = orders.map( o => o.shipped is o.rebate )
-    val b10 = orders.map( o => o.rebate is o.rebate )
+    val b7 = orders.map( o => o.shipped === o.shipped )
+    val b8 = orders.map( o => o.rebate === o.shipped )
+    val b9 = orders.map( o => o.shipped === o.rebate )
+    val b10 = orders.map( o => o.rebate === o.rebate )
 
     println("b1: " + b1.selectStatement)
     println("b2: " + b2.selectStatement)
@@ -177,13 +177,13 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("Users without Orders left: " + q6.first)
     assertEquals(0, q6.first)
 
-    val q7 = Compiled { (s: Column[String]) => users.filter(_.first is s).map(_.first) }
+    val q7 = Compiled { (s: Column[String]) => users.filter(_.first === s).map(_.first) }
     println("q7: " + q7("Homer").updateStatement)
     val updated1 = q7("Homer").update("Homer Jay")
     println("Updated "+updated1+" row(s)")
     assertEquals(1, updated1)
 
-    val q7b = Compiled { users.filter(_.first is "Homer Jay").map(_.first) }
+    val q7b = Compiled { users.filter(_.first === "Homer Jay").map(_.first) }
     println("q7b: " + q7b.updateStatement)
     val updated7b = q7b.update("Homie")
     println("Updated "+updated7b+" row(s)")
@@ -194,7 +194,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     q7("Marge").delete
     assertEquals(0, q7("Marge").map(_.length).run)
 
-    val q8 = for(u <- users if u.last.isNull) yield (u.first, u.last)
+    val q8 = for(u <- users if u.last.isEmpty) yield (u.first, u.last)
     println("q8: " + q8.updateStatement)
     val updated2 = q8.update("n/a", Some("n/a"))
     println("Updated "+updated2+" row(s)")

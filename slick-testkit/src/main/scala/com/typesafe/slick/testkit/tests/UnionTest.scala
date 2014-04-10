@@ -22,7 +22,7 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     def * = (id, name, manager)
 
     // A convenience method for selecting employees by department
-    def departmentIs(dept: String) = manager in managers.filter(_.department is dept).map(_.id)
+    def departmentIs(dept: String) = manager in managers.filter(_.department === dept).map(_.id)
   }
   lazy val employees = TableQuery[Employees]
 
@@ -43,7 +43,7 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
       (8, "Greg", 3)
     )
 
-    val q1 = for(m <- managers filter { _.department is "IT" }) yield (m.id, m.name)
+    val q1 = for(m <- managers filter { _.department === "IT" }) yield (m.id, m.name)
     println("Managers in IT")
     q1.run.foreach(o => println("  "+o))
     assertEquals(Set((2,"Amy"), (3,"Steve")), q1.run.toSet)

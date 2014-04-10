@@ -23,7 +23,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     val q1 = for(t <- ts if t.a === "1" || t.a === "2") yield t
     assertEquals(Set(("1", "a"), ("2", "a")), q1.run.toSet)
 
-    val q2 = for(t <- ts if (t.a isNot "1") || (t.b isNot "a")) yield t
+    val q2 = for(t <- ts if (t.a =!= "1") || (t.b =!= "a")) yield t
     assertEquals(Set(("2", "a"), ("3", "b")), q2.run.toSet)
 
     // No need to test that the unexpected result is actually unexpected

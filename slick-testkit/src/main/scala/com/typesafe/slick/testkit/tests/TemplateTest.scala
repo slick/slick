@@ -30,13 +30,13 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
     for(uid <- users.map(_.id).run)
       orders.map(o => (o.userID, o.product)) += (uid, if(uid < 4) "Product A" else "Product B")
 
-    def userNameByID1(id: Int) = for(u <- users if u.id is id.bind) yield u.first
+    def userNameByID1(id: Int) = for(u <- users if u.id === id.bind) yield u.first
     def q1 = userNameByID1(3)
     assertEquals(List("Apu"), q1.run)
 
     val userNameByID2 = for {
       id <- Parameters[Int]
-      u <- users if u.id is id
+      u <- users if u.id === id
     } yield u.first
     val q2 = userNameByID2(3)
     assertEquals(List("Apu"), q2.run)
@@ -50,13 +50,13 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
 
     val userNameByIDRangeAndProduct = for {
       (min, (max, product)) <- Parameters[(Int, (Int, String))]
-      u <- users if u.id >= min && u.id <= max && orders.filter(o => (u.id is o.userID) && (o.product is product)).exists
+      u <- users if u.id >= min && u.id <= max && orders.filter(o => (u.id === o.userID) && (o.product === product)).exists
     } yield u.first
     val q4 = userNameByIDRangeAndProduct(2,(5,"Product A"))
     assertEquals(List("Marge","Apu"), q4.run)
 
     def userNameByIDOrAll(id: Option[Int]) = for(
-      u <- users if id.map(u.id is _.bind).getOrElse(LiteralColumn(true))
+      u <- users if id.map(u.id === _.bind).getOrElse(LiteralColumn(true))
     ) yield u.first
     val q5a = userNameByIDOrAll(Some(3))
     assertEquals(List("Apu"), q5a.run)

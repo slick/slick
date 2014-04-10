@@ -42,47 +42,47 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
 
     val q1 = (for {
       c <- categories
-      p <- posts if c.id is p.category
+      p <- posts if c.id === p.category
     } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
     println("Implicit join")
     q1.run.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q1.map(p => (p._1, p._2)).run)
 
     val q2 = (for {
-      (c,p) <- categories innerJoin posts on (_.id is _.category)
+      (c,p) <- categories innerJoin posts on (_.id === _.category)
     } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
     println("Explicit inner join")
     q2.run.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2)), q2.map(p => (p._1, p._2)).run)
 
     val q3 = (for {
-      (c,p) <- categories leftJoin posts on (_.id is _.category)
+      (c,p) <- categories leftJoin posts on (_.id === _.category)
     } yield (p.id, (p.id.?.getOrElse(0), c.id, c.name, p.title.?.getOrElse("")))).sortBy(_._1.nullsFirst).map(_._2)
     println("Left outer join (nulls first)")
     q3.run.foreach(x => println("  "+x))
     assertEquals(List((0,4), (2,1), (3,2), (4,3), (5,2)), q3.map(p => (p._1, p._2)).run)
 
     val q3a = (for {
-      (c,p) <- categories leftJoin posts on (_.id is _.category)
+      (c,p) <- categories leftJoin posts on (_.id === _.category)
     } yield (p.id, c.id, c.name, p.title)).sortBy(_._1.nullsFirst)
     assertFail(println("q3a result: " + q3a.run)) // reads NULL from non-nullable column
 
     val q3b = (for {
-      (c,p) <- categories leftJoin posts on (_.id is _.category)
+      (c,p) <- categories leftJoin posts on (_.id === _.category)
     } yield (p.id, (p.id.?.getOrElse(0), c.id, c.name, p.title.?.getOrElse("")))).sortBy(_._1.nullsLast).map(_._2)
     println("Left outer join (nulls last)")
     q3b.run.foreach(x => println("  "+x))
     assertEquals(List((2,1), (3,2), (4,3), (5,2), (0,4)), q3b.map(p => (p._1, p._2)).run)
 
     val q4 = (for {
-      (c,p) <- categories rightJoin posts on (_.id is _.category)
+      (c,p) <- categories rightJoin posts on (_.id === _.category)
     } yield (p.id, c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title)).sortBy(_._1)
     println("Right outer join")
     q4.run.foreach(x => println("  "+x))
     assertEquals(List((1,0), (2,1), (3,2), (4,3), (5,2)), q4.map(p => (p._1, p._2)).run)
 
     val q5 = (for {
-      (c,p) <- categories outerJoin posts on (_.id is _.category)
+      (c,p) <- categories outerJoin posts on (_.id === _.category)
     } yield (p.id.?.getOrElse(0), c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title.?.getOrElse(""))).sortBy(_._1)
     println("Full outer join")
     q5.run.foreach(x => println("  "+x))
