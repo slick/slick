@@ -24,7 +24,8 @@ import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
  *     not available in SQLite. Slick will return empty strings for both.</li>
  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]],
  *     [[scala.slick.profile.RelationalProfile.capabilities.joinRight]]:
- *     Right and full outer joins are not supported by SQLite.</li>
+ *     Right and full outer joins are emulated because there is not native
+ *     support for them.</li>
  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.mutable]]:
  *     SQLite does not allow mutation of result sets. All cursors are
  *     read-only.</li>

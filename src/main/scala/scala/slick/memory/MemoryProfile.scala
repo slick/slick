@@ -18,7 +18,6 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   val simple: SimpleQL = new SimpleQL {}
   val Implicit: Implicits = simple
 
-  val compiler = QueryCompiler.standard
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler

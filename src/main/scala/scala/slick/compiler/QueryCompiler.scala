@@ -2,14 +2,19 @@ package scala.slick.compiler
 
 import scala.collection.immutable.HashMap
 import scala.slick.SlickException
-import scala.slick.util.Logging
+import scala.slick.util.{SlickLogger, Logging}
 import scala.slick.ast.{SymbolNamer, Node}
+import org.slf4j.LoggerFactory
 
 /** An immutable, stateless query compiler consisting of a series of phases */
 class QueryCompiler(val phases: Vector[Phase]) extends Logging {
+  protected[this] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(getClass.getName+".benchmark"))
 
   /** Return a new compiler with the new phase added at the end. */
   def + (p: Phase) = new QueryCompiler(phases :+ p)
+
+  /** Return a new compiler with the new phases added at the end. */
+  def ++ (ps: Seq[Phase]) = new QueryCompiler(phases ++ ps)
 
   /** Return a new compiler with the new phase added directly after another
    * phase (or a different implementation of the same phase name). */
@@ -41,14 +46,28 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
     run(state)
   }
 
-  def run(state: CompilerState): CompilerState = {
-    if(logger.isDebugEnabled) state.symbolNamer.use { logger.debug("Source:", state.tree) }
-    phases.foldLeft(state){ case (n,p) => runPhase(p, n) }
-  }
+  def run(state: CompilerState): CompilerState =
+    runPhases(phases.iterator, state)
 
-  def runBefore(before: Phase, state: CompilerState): CompilerState = {
+  def runBefore(before: Phase, state: CompilerState): CompilerState =
+    runPhases(phases.iterator.takeWhile(_.name != before.name), state)
+
+  protected[this] def runPhases(it: Iterator[Phase], state: CompilerState): CompilerState = {
     if(logger.isDebugEnabled) state.symbolNamer.use { logger.debug("Source:", state.tree) }
-    phases.iterator.takeWhile(_.name != before.name).foldLeft(state){ case (n,p) => runPhase(p, n) }
+    if(benchmarkLogger.isDebugEnabled) {
+      val (res, times) = it.foldLeft((state, Nil: List[(String, Long)])){ case ((n, times), p) =>
+        val t0 = System.nanoTime()
+        val pout = runPhase(p, n)
+        val time = System.nanoTime() - t0
+        (pout, (p.name, time) :: times)
+      }
+      benchmarkLogger.debug("------------------- Phase: Time ---------")
+      (("TOTAL", times.map(_._2).sum) :: times).reverse.foreach { case (name, nanos) =>
+        val millis = nanos / 1000000.0
+        benchmarkLogger.debug(f"$name%25s: $millis%11.6f ms")
+      }
+      res
+    } else it.foldLeft(state){ case (n,p) => runPhase(p, n) }
   }
 
   protected[this] def runPhase(p: Phase, state: CompilerState): CompilerState = state.symbolNamer.use {
@@ -87,9 +106,6 @@ object QueryCompiler {
 
   /** The default compiler */
   val standard = new QueryCompiler(standardPhases)
-
-  /** The default compiler with the additional conversion to relational trees */
-  val relational = new QueryCompiler(standardPhases ++ relationalPhases)
 
   def apply(phases: Phase*) = new QueryCompiler(phases.toVector)
 }

@@ -7,6 +7,7 @@ import scala.slick.util.{TupleMethods, TupleSupport}
 import FunctionSymbolExtensionMethods._
 import scala.slick.SlickException
 import scala.reflect.ClassTag
+import scala.slick.compiler.{Phase, EmulateOuterJoins, QueryCompiler}
 
 /**
  * A profile for relational databases that does not assume the existence
@@ -19,6 +20,16 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   val Implicit: Implicits
   val simple: SimpleQL
+  final lazy val compiler = computeQueryCompiler
+
+  protected def computeQueryCompiler: QueryCompiler = {
+    val base = QueryCompiler.standard
+    val canJoinLeft = capabilities contains RelationalProfile.capabilities.joinLeft
+    val canJoinRight = capabilities contains RelationalProfile.capabilities.joinRight
+    val canJoinFull = capabilities contains RelationalProfile.capabilities.joinFull
+    if(canJoinLeft && canJoinRight && canJoinFull) base
+    else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.forceOuterBinds)
+  }
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes {
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
@@ -63,6 +74,8 @@ object RelationalProfile {
     val functionUser = Capability("relational.functionUser")
     /** Supports full outer joins */
     val joinFull = Capability("relational.joinFull")
+    /** Supports left outer joins */
+    val joinLeft = Capability("relational.joinLeft")
     /** Supports right outer joins */
     val joinRight = Capability("relational.joinRight")
     /** Supports escape characters in "like" */
@@ -91,7 +104,7 @@ object RelationalProfile {
 
     /** All relational capabilities */
     val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
-      functionUser, joinFull, joinRight, likeEscape, pagingDrop, pagingNested,
+      functionUser, joinFull, joinLeft, joinRight, likeEscape, pagingDrop, pagingNested,
       pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
       zip)
   }

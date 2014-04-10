@@ -43,6 +43,9 @@ import scala.slick.jdbc.Invoker
  *     support them with the standard SQL:2003 syntax (see
  *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber" target="_parent"
  *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
+ *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+ *     Full outer joins are emulated because there is not native support
+ *     for them.</li>
  * </ul>
  *
  * @author szeiger
@@ -57,11 +60,12 @@ trait DerbyDriver extends JdbcDriver { driver =>
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
     - SqlProfile.capabilities.sequenceCycle
     - RelationalProfile.capabilities.zip
+    - RelationalProfile.capabilities.joinFull
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
-  override val compiler = QueryCompiler.relational + Phase.rewriteBooleans
+  override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -98,6 +102,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         b"coalesce(cast($l as ${jdbcTypeFor(c.nodeType).sqlTypeName}),!$r)"
+      case LiteralNode(None) :@ JdbcType(ti, _) if currentPart == SelectPart =>
+        // Cast NULL to the correct type
+        b"cast(null as ${ti.sqlTypeName})"
       case (c @ LiteralNode(v)) :@ JdbcType(ti, option) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
