@@ -81,8 +81,8 @@ def $name($args): $name = {
         val body =
           if(autoIncLastAsOption && columns.size > 1){
             s"""
-val positional = $positional
-import positional._
+val r = $positional
+import r._
 ${result(rearranged)} // putting AutoInc last
             """.trim
           } else

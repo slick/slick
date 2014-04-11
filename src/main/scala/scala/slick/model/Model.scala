@@ -91,7 +91,7 @@ case class Model(
           assert( table.columns.contains(column), msg("column "+column,"primary key "+pk) )
         }
       }
-      assert(foreignKeys.filter(_.name!="").size == foreignKeys.filter(_.name!="").map(_.name).distinct.size, "duplicate foreign key names detected")
+      assert(foreignKeys.filter(_.name!=None).size == foreignKeys.filter(_.name!=None).map(_.name).distinct.size, "duplicate foreign key names detected")
       foreignKeys.foreach{ fk =>
         assert( tablesByName.isDefinedAt(fk.referencedTable), msg("table "+fk.referencedTable,"foreign key "+fk) )
         assert( tablesByName.isDefinedAt(fk.referencingTable), msg("table "+fk.referencingTable,"foreign key "+fk) )
@@ -105,7 +105,7 @@ case class Model(
           assert( fkTable.columns.contains(fkColumn), msg("column "+fkColumn+" of table "+fkTable,"foreign key "+fk) )
         }
       }
-      assert(indices.filter(_.name!="").size == indices.filter(_.name!="").map(_.name).distinct.size, "duplicate index names detected")
+      assert(indices.filter(_.name!=None).size == indices.filter(_.name!=None).map(_.name).distinct.size, "duplicate index names detected")
       indices.foreach{ idx =>
         assert( tablesByName.isDefinedAt(idx.table), msg("table "+idx.table,"index "+idx) )
         idx.columns.foreach{ column =>

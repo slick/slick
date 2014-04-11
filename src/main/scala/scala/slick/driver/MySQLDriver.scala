@@ -12,7 +12,7 @@ import scala.slick.compiler.CompilerState
 /**
  * Slick driver for MySQL.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * This driver implements the [[scala.slick.driver.JdbcProfile]]
  * ''without'' the following capabilities:
  *
  * <ul>

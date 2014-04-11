@@ -15,7 +15,7 @@ import scala.slick.jdbc.meta.{createModel => jdbcCreateModel}
 /**
  * Slick driver for SQLite.
  *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+ * This driver implements the [[scala.slick.driver.JdbcProfile]]
  * ''without'' the following capabilities:
  *
  * <ul>
