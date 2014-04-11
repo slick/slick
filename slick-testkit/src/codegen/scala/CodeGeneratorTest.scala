@@ -32,17 +32,25 @@ object CodeGeneratorTest {
       val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl ++ `null`.ddl ++ X.ddl ++ SingleNonOptionColumn.ddl ++ SelfRef.ddl
       //println(ddl.createStatements.mkString("\n"))
       val db = Database.forURL(url=url,driver=jdbcDriver)
-      val gen = db.withSession{ implicit session =>
+      val (gen,gen2) = db.withSession{ implicit session =>
         ddl.create
-        (new SourceCodeGenerator(driver.createModel(session)){
-          override def tableName = {
-            case n if n.toLowerCase == "null" => "null" // testing null as table name
-            case n => super.tableName(n)
-          }
-        })
+        (
+          (new SourceCodeGenerator(driver.createModel(session)){
+            override def tableName = {
+              case n if n.toLowerCase == "null" => "null" // testing null as table name
+              case n => super.tableName(n)
+            }
+          }),
+          (new SourceCodeGenerator(driver.createModel(session)){
+            override def Table = new Table(_){
+              override def autoIncLastAsOption = true
+            }
+          })
+        )
       }
       val pkg = "scala.slick.test.model.codegen.roundtrip"
       gen.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg )
+      gen2.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg+"2" )
     }
   }
 
