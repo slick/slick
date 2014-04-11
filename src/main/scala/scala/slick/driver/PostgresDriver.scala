@@ -11,8 +11,7 @@ import scala.slick.jdbc.{Invoker, JdbcType}
 
 /** Slick driver for PostgreSQL.
   *
-  * This driver implements all capabilities of the
-  * [[scala.slick.driver.ExtendedProfile]].
+  * This driver implements all capabilities of [[scala.slick.driver.JdbcProfile]].
   *
   * Notes:
   *
@@ -23,7 +22,7 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   *   <code>lo_manage</code>, both of which are provided by the "lo"
   *   extension in PostgreSQL.</li>
   * </ul>
- */
+  */
 trait PostgresDriver extends JdbcDriver { driver =>
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))

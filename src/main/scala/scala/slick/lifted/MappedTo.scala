@@ -18,6 +18,11 @@ object MappedToBase {
 
   def mappedToIsomorphismMacroImpl[E <: MappedToBase](c: Context)(implicit e: c.WeakTypeTag[E]): c.Expr[Isomorphism[E, E#Underlying]] = {
     import c.universe._
+    // Check that E <: MappedToBase. Due to SI-8351 the macro can be expanded before scalac has
+    // checked this. The error message here will never be seen because scalac's subsequent bounds
+    // check fails, overriding our error (or backtracking in implicit search).
+    if(!(e.tpe <:< c.typeOf[MappedToBase]))
+      c.abort(c.enclosingPosition, "Work-around for SI-8351 leading to illegal macro-invocation -- You should not see this message")
     implicit val eutag = c.TypeTag[E#Underlying](e.tpe.member(newTypeName("Underlying")).typeSignatureIn(e.tpe))
     val cons = c.Expr[E#Underlying => E](Function(
       List(ValDef(Modifiers(Flag.PARAM), newTermName("v"), /*Ident(eu.tpe.typeSymbol)*/TypeTree(), EmptyTree)),

@@ -13,7 +13,7 @@ import scala.slick.jdbc.Invoker
 /** Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
   * (starting with version 2.0).
   *
-  * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+  * This driver implements the [[scala.slick.driver.JdbcProfile]]
   * ''without'' the following capabilities:
   *
   * <ul>
