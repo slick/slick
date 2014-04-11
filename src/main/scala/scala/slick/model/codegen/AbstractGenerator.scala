@@ -394,7 +394,9 @@ trait GeneratorHelpers[Code,TermName,TypeName]{
       // AbstractTable
       Seq("*","tableIdentitySymbol","create_*","foreignKeys","indexes","primaryKeys","schemaName","tableConstraints","tableName","tableNode","tableTag"),
       // Table
-      Seq("O","tableIdentitySymbol","tableProvider")
+      Seq("O","tableIdentitySymbol","tableProvider"),
+      // generated code
+      Seq("tag")
     ).flatten
 /* currently disambiguated using overloading
   /** Existing term member names in Table[_] that take parameters */

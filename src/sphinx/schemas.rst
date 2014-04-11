@@ -113,6 +113,11 @@ to call ``.shaped`` on a tuple on the left-hand side in order to get its
 type inferred properly. Otherwise you may have to add full type annotations
 to the mapping functions.
 
+For case classes with hand-written companion objects, ``.tupled`` only works
+if you manually extend the correct Scala function type. Alternatively you can use
+``(User.apply _).tupled``. See `SI-3664 <https://issues.scala-lang.org/browse/SI-3664>`_ and
+`SI-4808 <https://issues.scala-lang.org/browse/SI-4808>`_.
+
 Constraints
 -----------
 
