@@ -201,7 +201,7 @@ class Tables(val profile: JdbcProfile){
   val all = TableQuery[all]
 
   /** Tests slick term name collision */
-  class X(tag: Tag) extends Table[(Int,Int,Option[Int],Int,Double,String,Option[Int],Option[Int])](tag, "X") {
+  class X(tag: Tag) extends Table[(Int,Int,Option[Int],Int,Double,String,Option[Int],Option[Int],Option[String])](tag, "X") {
     def pk = column[Int]("pk")
     def pk2 = column[Int]("pk2")
     def pkpk = primaryKey( "", (pk,pk2) ) // pk column collision
@@ -211,7 +211,8 @@ class Tables(val profile: JdbcProfile){
     def a = column[Option[Int]]("val") // scala keyword collision
     def s = column[Double]("schema_name") // slick Table no-arg method collision
     def sx = column[String]("schema_name_x") // column name collision after disambiguation
-    def * = (pk,pk2,a,c, s, sx,i1,p)
+    def t_ag = column[Option[String]]("tag") // column name collision after disambiguation
+    def * = (pk,pk2,a,c,s,sx,i1,p,t_ag)
     def idx1 = index("",i1) // idx column collision
     def idx2 = index("i2",i1) // idx column collision
     def categoryFK1 = foreignKey("fk1", pk, categories)(_.id) // dup FK collision
