@@ -28,7 +28,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     tables.map(_.code.mkString("\n")).mkString("\n\n")
   }
 
-  protected def tuple(i: Int) = termName(s"_${i+1}")
+  private def tuple(i: Int) = termName(s"_${i+1}")
   
   abstract class TableDef(model: m.Table) extends super.TableDef(model){
 
