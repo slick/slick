@@ -39,19 +39,23 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
     val fv = f(aliased.value)
     new WrappingQuery[E, U, C](Filter.ifRefutable(generator, toNode, wrapExpr(wt(fv).toNode)), shaped)
   }
-  def filter[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
-    filterHelper(f, identity)
-  def filterNot[T](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
+  /** Select all elements of this query which satisfy a predicate. Unlike
+    * `withFilter, this method only allows `Column`-valued predicates, so it
+    * guards against the accidental use use plain Booleans. */
+  def filter[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
+    withFilter(f)
+  def filterNot[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
     filterHelper(f, node => Library.Not.typed(node.nodeType, node) )
 
   /** Select all elements of this query which satisfy a predicate. This method
     * is used when desugaring for-comprehensions over queries. There is no
     * reason to call it directly because it is the same as `filter`. */
-  def withFilter[T : CanBeQueryCondition](f: E => T) = filter(f)
+  def withFilter[T : CanBeQueryCondition](f: E => T) = filterHelper(f, identity)
 
   /** Select all elements of this query which satisfy a predicate. Unlike
-    * `filter`, this method only allows `Column`-valued predicates, so it
+    * `withilter`, this method only allows `Column`-valued predicates, so it
     * guards against the accidental use use plain Booleans. */
+  @deprecated("Use `filter` instead of `where`", "2.1")
   def where[T <: Column[_] : CanBeQueryCondition](f: E => T) = filter(f)
 
   /** Join two collections.

@@ -4,10 +4,8 @@ import java.sql._
 import scala.slick.jdbc.{JdbcBackend, ResultSetInvoker, Invoker}
 import scala.slick.model.ForeignKeyAction
 
-/**
- * A wrapper for a row in the ResultSet returned by
- * DatabaseMetaData.getImportedKeys/getExportedKeys/getCrossReference().
- */
+/** A wrapper for a row in the ResultSet returned by
+  * DatabaseMetaData.getImportedKeys/getExportedKeys/getCrossReference(). */
 case class MForeignKey(
   pkTable: MQName, pkColumn: String, fkTable: MQName, fkColumn: String,
   keySeq: Short, updateRule: ForeignKeyAction, deleteRule: ForeignKeyAction,

@@ -3,10 +3,8 @@ package lifted
 
 import scala.language.higherKinds
 
-/**
- * Aliases for lifted embedding features. This trait can be mixed into aliasing objects
- * which simplify the use of the lifted embedding.
- */
+/** Aliases for lifted embedding features. This trait can be mixed into aliasing
+  * objects which simplify the use of the lifted embedding. */
 trait Aliases {
   type Query[+E, U, C[_]] = lifted.Query[E, U, C]
   val Query = lifted.Query

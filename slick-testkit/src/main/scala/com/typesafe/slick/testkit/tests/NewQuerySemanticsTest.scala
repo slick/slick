@@ -187,9 +187,9 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q3 = coffees.flatMap { c =>
-      val cf = Query(c).where(_.price === 849)
+      val cf = Query(c).filter(_.price === 849)
       cf.flatMap { cf =>
-        suppliers.where(_.id === c.supID).map { s =>
+        suppliers.filter(_.id === c.supID).map { s =>
           (c.name, s.name, cf.name, cf.total, cf.totalComputed)
         }
       }
@@ -203,9 +203,9 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q3b = coffees.flatMap { c =>
-      val cf = Query((c, 42)).where(_._1.price < 900)
+      val cf = Query((c, 42)).filter(_._1.price < 900)
       cf.flatMap { case (cf, num) =>
-        suppliers.where(_.id === c.supID).map { s =>
+        suppliers.filter(_.id === c.supID).map { s =>
           (c.name, s.name, cf.name, cf.total, cf.totalComputed, num)
         }
       }
@@ -344,7 +344,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
       assertEquals(r71e, r71)
     }
 
-    val q7b = q7 where (_._1 =!= "Colombian")
+    val q7b = q7 filter (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)
     if(doRun) {
       val r7b = q7b.run.toSet
@@ -358,7 +358,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q8 = for {
-      (c1, c2) <- coffees.where(_.price < 900) leftJoin coffees.where(_.price < 800) on (_.name === _.name)
+      (c1, c2) <- coffees.filter(_.price < 900) leftJoin coffees.filter(_.price < 800) on (_.name === _.name)
     } yield (c1.name, c2.name.?)
     show("q8: Outer join", q8)
     if(doRun) {
@@ -409,31 +409,29 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
 
     val q2 = for {
       u <- users.sortBy(u => (u.first, u.last.desc))
-      o <- orders where {
-        o => (u.id is o.userID) && (u.first.isNotNull)
-      }
+      o <- orders filter { o => u.id === o.userID }
     } yield u.first ~ u.last ~ o.orderID
 
     (users.ddl ++ orders.ddl).create
 
-    val q3 = for (u <- users where (_.id is 42)) yield u.first ~ u.last
+    val q3 = for (u <- users filter (_.id === 42)) yield u.first ~ u.last
     q3.run
 
     val q4 = (for {
-      (u, o) <- users innerJoin orders on (_.id is _.userID)
+      (u, o) <- users innerJoin orders on (_.id === _.userID)
     } yield (u.last, u.first ~ o.orderID)).sortBy(_._1).map(_._2)
     q4.run
 
     val q6a =
-      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID).sorted
+      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID === o2.userID} yield o2.orderID).max) yield o.orderID).sorted
     q6a.run
 
     val q6b =
-      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
+      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID === o2.userID} yield o2.orderID).max) yield o.orderID ~ o.userID).sortBy(_._1)
     q6b.run
 
     val q6c =
-      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID is o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
+      (for (o <- orders if o.orderID === (for {o2 <- orders if o.userID === o2.userID} yield o2.orderID).max) yield o).sortBy(_.orderID).map(o => o.orderID ~ o.userID)
     q6c.run
 
     (users.ddl ++ orders.ddl).drop
@@ -484,7 +482,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     assertEquals(1, r0)
 
     val q1 = Compiled { (n: Column[Int]) =>
-      as.filter(_.id is n).map(a => as.length)
+      as.filter(_.id === n).map(a => as.length)
     }
     val r1 = q1(42).run
     assertEquals(List(1), r1)

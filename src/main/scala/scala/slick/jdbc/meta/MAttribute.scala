@@ -4,9 +4,7 @@ import java.sql._
 import scala.slick.jdbc.ResultSetInvoker
 import scala.slick.driver.JdbcTypesComponent
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getAttributes().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getAttributes(). */
 case class MAttribute(typeName: MQName, attrName: String, sqlType: Int, attrTypeName: String,
   attrSize: Int, decimalDigits: Option[Int], numPrecRadic: Int, nullable: Option[Boolean],
   remarks: Option[String], attrDef: Option[String], charOctetLength: Option[Int],

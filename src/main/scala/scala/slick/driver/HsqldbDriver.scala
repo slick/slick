@@ -10,22 +10,19 @@ import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.Invoker
 
-/**
- * Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
- * (starting with version 2.0).
- *
- * This driver implements the [[scala.slick.driver.ExtendedProfile]]
- * ''without'' the following capabilities:
- *
- * <ul>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
- *     <code>Sequence.curr</code> to get the current value of a sequence is
- *     not supported by Hsqldb. Trying to generate SQL code which uses this
- *     feature throws a SlickException.</li>
- * </ul>
- * 
- * @author szeiger
- */
+/** Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
+  * (starting with version 2.0).
+  *
+  * This driver implements the [[scala.slick.driver.ExtendedProfile]]
+  * ''without'' the following capabilities:
+  *
+  * <ul>
+  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
+  *     <code>Sequence.curr</code> to get the current value of a sequence is
+  *     not supported by Hsqldb. Trying to generate SQL code which uses this
+  *     feature throws a SlickException.</li>
+  * </ul>
+  */
 trait HsqldbDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities

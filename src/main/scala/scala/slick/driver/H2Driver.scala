@@ -1,32 +1,28 @@
 package scala.slick.driver
 
-import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 
-/**
- * Slick driver for H2.
- *
- * This driver implements the [[scala.slick.driver.JdbcProfile]]
- * ''without'' the following capabilities:
- *
- * <ul>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceMin]],
- *     [[scala.slick.profile.SqlProfile.capabilities.sequenceMax]],
- *     [[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
- *     H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
- *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
- *     When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
- *     Full outer joins are emulated because there is not native support
- *     for them.</li>
- * </ul>
- *
- * @author szeiger
- */
+/** Slick driver for H2.
+  *
+  * This driver implements [[scala.slick.driver.JdbcProfile]]
+  * ''without'' the following capabilities:
+  *
+  * <ul>
+  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceMin]],
+  *     [[scala.slick.profile.SqlProfile.capabilities.sequenceMax]],
+  *     [[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
+  *     H2 does not support MINVALUE, MAXVALUE and CYCLE</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
+  *     When returning columns from an INSERT operation, only a single column
+  *     may be specified which must be the table's AutoInc column.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+  *     Full outer joins are emulated because there is not native support
+  *     for them.</li>
+  * </ul>
+  */
 trait H2Driver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities

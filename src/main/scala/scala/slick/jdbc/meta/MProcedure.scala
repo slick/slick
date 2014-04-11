@@ -3,9 +3,7 @@ package scala.slick.jdbc.meta
 import java.sql._
 import scala.slick.jdbc.ResultSetInvoker
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getProcedures().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getProcedures(). */
 case class MProcedure(name: MQName, remarks: String, returnsResult: Option[Boolean], specificName: Option[String]) {
   def getProcedureColumns(columnNamePattern: String = "%") =
     MProcedureColumn.getProcedureColumns(name, columnNamePattern)

@@ -2,18 +2,14 @@ package scala.slick.jdbc.meta
 
 import scala.slick.jdbc.{PositionedResult, ResultSetInvoker}
 
-/**
- * A common privilege type which is used by MTablePrivilege and MColumnPrivilege.
- */
+/** A common privilege type which is used by MTablePrivilege and MColumnPrivilege. */
 case class MPrivilege(grantor: Option[String], grantee: String, privilege: String, grantable: Option[Boolean])
 
 object MPrivilege {
   private[meta] def from(r: PositionedResult) = MPrivilege(r.<<, r.<<, r.<<, DatabaseMeta.yesNoOpt(r))
 }
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTablePrivileges().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTablePrivileges(). */
 case class MTablePrivilege(table: MQName, privilege: MPrivilege)
 
 object MTablePrivilege {
@@ -23,9 +19,7 @@ object MTablePrivilege {
   }
 }
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getColumnPrivileges().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getColumnPrivileges(). */
 case class MColumnPrivilege(table: MQName, column: String, privilege: MPrivilege)
 
 object MColumnPrivilege {

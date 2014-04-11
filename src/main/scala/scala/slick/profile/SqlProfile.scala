@@ -4,9 +4,7 @@ import scala.language.higherKinds
 import scala.slick.ast.{TableNode, Symbol, SymbolNamer, Node, ColumnOption}
 import scala.slick.lifted.AbstractTable
 
-/**
- * Basic profile for SQL-based drivers.
- */
+/** Basic profile for SQL-based drivers. */
 trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTableComponent { driver: SqlDriver =>
 
   override protected def computeCapabilities = super.computeCapabilities ++ SqlProfile.capabilities.all

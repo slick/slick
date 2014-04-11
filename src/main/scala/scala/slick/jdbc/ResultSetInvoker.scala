@@ -3,14 +3,12 @@ package scala.slick.jdbc
 import java.sql.ResultSet
 import scala.slick.util.CloseableIterator
 
-/**
- * An invoker which calls a function to retrieve a ResultSet. This can be used
- * for reading information from a java.sql.DatabaseMetaData object which has
- * many methods that return ResultSets.
- * 
- * For convenience, if the function returns null, this is treated like an
- * empty ResultSet.
- */
+/** An invoker which calls a function to retrieve a ResultSet. This can be used
+  * for reading information from a java.sql.DatabaseMetaData object which has
+  * many methods that return ResultSets.
+  *
+  * For convenience, if the function returns null, this is treated like an
+  * empty ResultSet. */
 abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
 
   protected def createResultSet(session: JdbcBackend#Session): ResultSet

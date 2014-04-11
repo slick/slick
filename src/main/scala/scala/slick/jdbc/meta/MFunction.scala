@@ -3,9 +3,7 @@ package scala.slick.jdbc.meta
 import java.sql._
 import scala.slick.jdbc.ResultSetInvoker
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getFunctions().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getFunctions(). */
 case class MFunction(name: MQName, remarks: String, returnsTable: Option[Boolean], specificName: String) {
   def getFunctionColumns(columnNamePattern: String = "%") =
     MFunctionColumn.getFunctionColumns(name, columnNamePattern)

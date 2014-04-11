@@ -17,7 +17,9 @@ trait ColumnBase[T] extends Rep[T]
 
 /** Base class for columns. */
 abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>
+  /** Order by this column in ascending order */
   def asc = ColumnOrdered[T](this, Ordering())
+  /** Order by this column in descending order */
   def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
   override def toString = s"Column($toNode)"
   def encodeRef(path: List[Symbol]): Column[T] = Column.forNode(Path(path))
@@ -38,6 +40,7 @@ class ParameterColumn[T](val toNode: Node)(implicit tt: TypedType[T]) extends Co
 
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
 final case class LiteralColumn[T](value: T)(implicit tt: TypedType[T]) extends ConstColumn[T] {
+  /** Request that a bind variable be used instead of inserting a literal */
   def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
   def toNode = LiteralNode(tt, value)
 }

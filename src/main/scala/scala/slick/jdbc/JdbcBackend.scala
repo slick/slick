@@ -10,9 +10,8 @@ import javax.sql.DataSource
 import javax.naming.InitialContext
 import org.slf4j.LoggerFactory
 
-/**
- * A JDBC-based database back-end.
- */
+/** A JDBC-based database back-end which can be used for <em>Plain SQL</em> queries
+  * and with all `JdbcProfile`-based drivers. */
 trait JdbcBackend extends DatabaseComponent {
   protected[this] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
 
@@ -24,13 +23,11 @@ trait JdbcBackend extends DatabaseComponent {
   val backend: JdbcBackend = this
 
   trait DatabaseDef extends super.DatabaseDef {
-    /**
-     * The DatabaseCapabilities, accessed through a Session and created by the
-     * first Session that needs them. Access does not need to be synchronized
-     * because, in the worst case, capabilities will be determined multiple
-     * times by different concurrent sessions but the result should always be
-     * the same.
-     */
+    /** The DatabaseCapabilities, accessed through a Session and created by the
+      * first Session that needs them. Access does not need to be synchronized
+      * because, in the worst case, capabilities will be determined multiple
+      * times by different concurrent sessions but the result should always be
+      * the same. */
     @volatile
     protected[JdbcBackend] var capabilities: DatabaseCapabilities = null
 
