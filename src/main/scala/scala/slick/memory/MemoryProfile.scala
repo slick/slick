@@ -1,11 +1,12 @@
 package scala.slick.memory
 
 import scala.language.{implicitConversions, existentials}
-import scala.collection.mutable.{Builder, ArrayBuffer}
+import scala.collection.mutable.Builder
 import scala.slick.ast._
 import scala.slick.compiler._
 import scala.slick.profile.Capability
-import scala.slick.ast.TypeUtil._
+import scala.slick.relational.{ResultConverterCompiler, ResultConverter, CompiledMapping}
+import TypeUtil._
 
 /** A profile and driver for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
@@ -44,7 +45,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
           case ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) :@ CollectionType(cons, el) =>
             val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
             val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
-            b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+            b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
             b.result()
           case n => super.run(n)
         }
@@ -62,7 +63,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
     def += (value: T)(implicit session: Backend#Session) {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
-      converter.set(value, buf, false)
+      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf, false)
       htable.append(buf)
     }
 
@@ -104,28 +105,30 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
 
   override val profile: MemoryProfile = this
 
-  type RowWriter = ArrayBuffer[Any]
-
-  class InsertMappingCompiler(insert: Insert) extends super.MappingCompiler {
+  class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
     val Insert(_, table: TableNode, _, ProductNode(cols)) = insert
     val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
-    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter = {
+    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
       val fs = column.get
       val tidx = tableColumnIdxs(fs)
       val autoInc = fs.options.contains(ColumnOption.AutoInc)
-      new ResultConverter {
-        def read(pr: RowReader) = ???
-        def update(value: Any, pr: RowUpdater) = ???
-        def set(value: Any, pp: RowWriter, forced: Boolean) =
-          if(forced || !autoInc) pp(tidx) = value
-      }
+      new InsertResultConverter(tidx, autoInc)
+    }
+
+    class InsertResultConverter(tidx: Int, autoInc: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
+      def read(pr: MemoryResultConverterDomain#Reader) = ???
+      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) =
+        if(forced || !autoInc) pp(tidx) = value
+      override def info = super.info + s"($tidx, autoInc=$autoInc)"
+      def fullWidth = 1
+      def skippingWidth = if(autoInc) 0 else 1
     }
   }
 
   class MemoryInsertCompiler extends InsertCompiler {
-    def createMapping(ins: Insert) =
-      CompiledMapping(new InsertMappingCompiler(ins).compileMapping(ins.map), ins.map.nodeType)
+    def createMapping(ins: Insert) = new InsertMappingCompiler(ins).compileMapping(ins.map)
   }
 }
 

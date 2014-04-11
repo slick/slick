@@ -291,4 +291,32 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     val cres :: HNil = cs.run.head
     assertEquals("Foo", cres)
   }
+
+  def testFastPath {
+    case class Data(a: Int, b: Int)
+
+    class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
+      def a = column[Int]("A")
+      def b = column[Int]("B")
+      def * = (a, b) <> (Data.tupled, Data.unapply _) fastPath(new FastPath(_) {
+        val (a, b) = (next[Int], next[Int])
+        override def read(r: Reader) = Data(a.read(r), b.read(r))
+      })
+    }
+    val ts = TableQuery[T]
+
+    ts.ddl.create
+    ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
+
+    val updateQ = ts.filter(_.a === 1)
+    updateQ.update(Data(7, 8))
+
+    val updateQ2 = ts.filter(_.a === 3).map(identity)
+    updateQ2.update(Data(9, 10))
+
+    assertEquals(
+      Set(Data(7, 8), Data(9, 10), Data(5, 6)),
+      ts.list.toSet
+    )
+  }
 }

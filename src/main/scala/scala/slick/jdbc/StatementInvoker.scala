@@ -27,9 +27,11 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
     try {
       st.setMaxRows(maxRows)
       if(st.execute) {
-        val rs = new PositionedResultIterator[R](st.getResultSet, maxRows) {
-          def closeUnderlying() = st.close()
-          def extractValue() = self.extractValue(this)
+        val pr = new PositionedResult(st.getResultSet) {
+          def close() = st.close()
+        }
+        val rs = new PositionedResultIterator[R](pr, maxRows) {
+          def extractValue(pr: PositionedResult) = self.extractValue(pr)
         }
         doClose = false
         Right(rs)
@@ -53,7 +55,8 @@ trait MutatingStatementInvoker[R] extends StatementInvoker[R] with MutatingInvok
        * use an explicit transaction. It shouldn't hurt other databases. */
       results(0, defaultConcurrency = mutateConcurrency, defaultType = mutateType).fold(
         _ => throw new SlickException("Cannot transform an update result"),
-        pr => try {
+        prit => try {
+          val pr = prit.pr
           val rs = pr.rs
           var current: R = null.asInstanceOf[R]
           val mu = new ResultSetMutator[R] {
@@ -92,7 +95,7 @@ trait MutatingStatementInvoker[R] extends StatementInvoker[R] with MutatingInvok
               }
             })
           }
-        } finally { pr.close() }
+        } finally { prit.close() }
       )
     }
 }

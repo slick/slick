@@ -34,4 +34,5 @@
     <logger name="scala.slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
     <logger name="scala.slick.memory.HeapBackend$"                level="${log.heap:-inherited}" />
     <logger name="scala.slick.memory.QueryInterpreter"            level="${log.interpreter:-inherited}" />
+    <logger name="scala.slick.relational.ResultConverterCompiler" level="${log.resultConverter:-inherited}" />
 </configuration>

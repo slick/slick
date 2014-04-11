@@ -583,11 +583,11 @@ final case class CompiledStatement(statement: String, extra: Any, tpe: Type) ext
 }
 
 /** A client-side type mapping */
-final case class TypeMapping(val child: Node, val toBase: Any => Any, val toMapped: Any => Any, classTag: ClassTag[_]) extends UnaryNode with SimplyTypedNode { self =>
+final case class TypeMapping(val child: Node, val mapper: MappedScalaType.Mapper, classTag: ClassTag[_]) extends UnaryNode with SimplyTypedNode { self =>
   type Self = TypeMapping
   def nodeRebuild(ch: Node) = copy(child = ch)
   override def toString = "TypeMapping"
-  protected def buildType = new MappedScalaType(child.nodeType, toBase, toMapped, classTag)
+  protected def buildType = new MappedScalaType(child.nodeType, mapper, classTag)
 }
 
 /** A parameter from a QueryTemplate which gets turned into a bind variable. */
