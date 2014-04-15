@@ -4,9 +4,7 @@ import java.sql._
 import scala.slick.jdbc.ResultSetInvoker
 import scala.slick.driver.JdbcTypesComponent
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getVersionColumns().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getVersionColumns(). */
 case class MVersionColumn(
   column: String, sqlType: Int, typeName: String,
   columnSize: Option[Int], bufferLength: Int, decimalDigits: Option[Int], pseudoColumn: Option[Boolean]) {

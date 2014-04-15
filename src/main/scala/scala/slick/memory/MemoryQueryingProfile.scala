@@ -1,12 +1,14 @@
 package scala.slick.memory
 
 import scala.language.{implicitConversions, existentials}
+import scala.collection.mutable.ArrayBuffer
+import scala.reflect.ClassTag
+import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.compiler._
 import scala.slick.lifted._
-import scala.slick.profile.{RelationalMappingCompilerComponent, RelationalDriver, RelationalProfile}
-import scala.slick.SlickException
-import scala.reflect.ClassTag
+import scala.slick.relational._
+import scala.slick.profile.{RelationalDriver, RelationalProfile}
 
 /** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
 trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDriver =>
@@ -49,9 +51,7 @@ trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDr
   }
 }
 
-trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile with RelationalMappingCompilerComponent { driver =>
-
-  type RowReader = QueryInterpreter.ProductValue
+trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile { driver =>
 
   /** The driver-specific representation of types */
   def typeInfoFor(t: Type): ScalaType[Any] = ((t match {
@@ -61,30 +61,13 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
     case t => throw new SlickException("No ScalaType found for type "+t)
   }): ScalaType[_]).asInstanceOf[ScalaType[Any]]
 
-  trait QueryMappingCompiler extends super.MappingCompiler {
-
-    def createColumnConverter(n: Node, path: Node, option: Boolean, column: Option[FieldSymbol]): ResultConverter = {
-      val Select(_, ElementSymbol(ridx)) = path
-      val nullable = typeInfoFor(n.nodeType.structural).nullable
-      new ResultConverter {
-        def read(pr: RowReader) = {
-          val v = pr(ridx-1)
-          if(!nullable && (v.asInstanceOf[AnyRef] eq null)) throw new SlickException("Read null value for non-nullable column")
-          v
-        }
-        def update(value: Any, pr: RowUpdater) = ???
-        def set(value: Any, pp: RowWriter, forced: Boolean) = ???
-      }
-    }
-  }
-
-  class MemoryCodeGen extends CodeGen with QueryMappingCompiler {
+  class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
 
     def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
 
     def apply(node: Node, state: CompilerState): Node =
       ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
-        val nmap = CompiledMapping(compileMapping(rsm.map), rsm.map.nodeType)
+        val nmap = compileMapping(rsm.map)
         rsm.copy(map = nmap).nodeTyped(rsm.nodeType)
       }
 
@@ -111,5 +94,29 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile w
       case t @ (_: StructType | _: ProductType | _: CollectionType | _: MappedScalaType) => t.mapChildren(trType)
       case t => typeInfoFor(t)
     }
+
+    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
+      val Select(_, ElementSymbol(ridx)) = path
+      val nullable = typeInfoFor(n.nodeType.structural).nullable
+      new QueryResultConverter(ridx, nullable)
+    }
+
+    class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
+      def read(pr: MemoryResultConverterDomain#Reader) = {
+        val v = pr(ridx-1)
+        if(!nullable && (v.asInstanceOf[AnyRef] eq null)) throw new SlickException("Read null value for non-nullable column")
+        v
+      }
+      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = ???
+      override def info = super.info + s"($ridx, nullable=$nullable)"
+      def fullWidth = 1
+      def skippingWidth = 1
+    }
   }
+}
+
+trait MemoryResultConverterDomain extends ResultConverterDomain {
+  type Reader = QueryInterpreter.ProductValue
+  type Writer = ArrayBuffer[Any]
 }

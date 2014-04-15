@@ -28,7 +28,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     tables.map(_.code.mkString("\n")).mkString("\n\n")
   }
 
-  private def tuple(i: Int) = termName(s"_${i+1}")
+  protected def tuple(i: Int) = termName(s"_${i+1}")
   
   abstract class TableDef(model: m.Table) extends super.TableDef(model){
 
@@ -86,8 +86,8 @@ def $name($args): $name = {
         val body =
           if(autoIncLastAsOption && columns.size > 1){
             s"""
-val positional = $positional
-import positional._
+val r = $positional
+import r._
 ${result(rearranged)} // putting AutoInc last
             """.trim
           } else

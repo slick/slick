@@ -4,13 +4,14 @@ import scala.language.implicitConversions
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.compiler.{QueryCompiler, CompilerState, Phase}
-import scala.slick.jdbc.{PositionedParameters, PositionedResult, ResultSetType}
+import scala.slick.jdbc.{ResultSetType, JdbcType}
 import scala.slick.lifted._
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import java.util.UUID
-import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
+import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException, PreparedStatement, ResultSet}
 
+<<<<<<< HEAD
 /**
  * Slick driver for Microsoft Access via JdbcOdbcDriver.
  *
@@ -62,6 +63,59 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException}
  *
  * @author szeiger
  */
+=======
+/** Slick driver for Microsoft Access via JdbcOdbcDriver.
+  *
+  * This driver implements [[scala.slick.driver.JdbcProfile]]
+  * ''without'' the following capabilities:
+  *
+  * <ul>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.columnDefaults]]:
+  *     Access does not allow the definition of default values through ODBC but
+  *     only via OLEDB/ADO. Trying to generate DDL SQL code which uses this
+  *     feature throws a SlickException.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.foreignKeyActions]]:
+  *     All foreign key actions are ignored. Access supports CASCADE and SET
+  *     NULL but not through ODBC, only via OLEDB/ADO.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]],
+  *     [[scala.slick.profile.RelationalProfile.capabilities.functionUser]]:
+  *     <code>Functions.user</code> and <code>Functions.database</code> are
+  *     not available in Access. Slick will return empty strings for both.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.likeEscape]]:
+  *     Access does not allow you to specify a custom escape character for
+  *     <code>like</code>.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.pagingDrop]]:
+  *     <code>Drop(n)</code> modifiers are not supported. Trying to generate
+  *     SQL code which uses this feature throws a SlickException.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.pagingPreciseTake]]:
+  *     <code>Take(n)</code> modifiers are mapped to <code>SELECT TOP n</code>
+  *     which may return more rows than requested if they are not unique.</li>
+  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
+  *     Sequences are not supported by Access</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertKey]],
+  *     [[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
+  *     Returning columns from an INSERT operation is not supported. Trying to
+  *     execute such an insert statement throws a SlickException.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBlob]]:
+  *     Trying to use <code>java.sql.Blob</code> objects causes a NPE in the
+  *     JdbcOdbcDriver. Binary data in the form of <code>Array[Byte]</code> is
+  *     supported.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.setByteArrayNull]]:
+  *     Setting an Option[ Array[Byte] ] column to None causes an Exception
+  *     in the JdbcOdbcDriver.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBigDecimal]],
+  *     [[scala.slick.profile.RelationalProfile.capabilities.typeLong]]:
+  *     Access does not support decimal or long integer types.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.zip]]:
+  *     Row numbers (required by <code>zip</code> and
+  *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
+  *     code which uses this feature throws a SlickException.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+  *     Full outer joins are emulated because there is not native support
+  *     for them.</li>
+  * </ul>
+  */
+>>>>>>> upstream/master
 trait AccessDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
@@ -81,6 +135,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeLong
     - RelationalProfile.capabilities.zip
     - JdbcProfile.capabilities.createModel
+    - RelationalProfile.capabilities.joinFull
     )
 
   def integralTypes = Set(
@@ -90,8 +145,8 @@ trait AccessDriver extends JdbcDriver { driver =>
     java.sql.Types.TINYINT
   )
 
-  override val compiler =
-    QueryCompiler.relational.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
+  override protected def computeQueryCompiler =
+    super.computeQueryCompiler.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
 
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
@@ -240,62 +295,34 @@ trait AccessDriver extends JdbcDriver { driver =>
      * S1090 (Invalid string or buffer length) exceptions. Retrying the call can
      * sometimes work around the bug. */
     trait Retry[T] extends JdbcType[T] {
-      abstract override def nextValue(r: PositionedResult) = {
-        def f(c: Int): T =
-          try super.nextValue(r) catch {
-            case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
-          }
+      protected[this] def retry[T](g: => T) = {
+        def f(c: Int): T = try g catch { case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1) }
         f(retryCount)
       }
-      abstract override def setValue(v: T, p: PositionedParameters) = {
-        def f(c: Int): Unit =
-          try super.setValue(v, p) catch {
-            case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
-          }
-        f(retryCount)
-      }
-      abstract override def setOption(v: Option[T], p: PositionedParameters) = {
-        def f(c: Int): Unit =
-          try super.setOption(v, p) catch {
-            case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
-          }
-        f(retryCount)
-      }
-      abstract override def updateValue(v: T, r: PositionedResult) = {
-        def f(c: Int): Unit =
-          try super.updateValue(v, r) catch {
-            case e: SQLException if c > 0 && e.getSQLState == "S1090" => f(c-1)
-          }
-        f(retryCount)
-      }
+      abstract override def getValue(r: ResultSet, idx: Int) = retry(super.getValue(r, idx))
+      abstract override def wasNull(r: ResultSet, idx: Int) = retry(super.wasNull(r, idx))
+      abstract override def setValue(v: T, p: PreparedStatement, idx: Int) = retry(super.setValue(v, p, idx))
+      abstract override def setNull(p: PreparedStatement, idx: Int) = retry(super.setNull(p, idx))
+      abstract override def updateValue(v: T, r: ResultSet, idx: Int) = retry(super.updateValue(v, r, idx))
+      abstract override def updateNull(r: ResultSet, idx: Int) = retry(super.updateNull(r, idx))
     }
 
     // This is a nightmare... but it seems to work
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB
-      override def setOption(v: Option[UUID], p: PositionedParameters) =
-        if(v == None) p.setString(null) else p.setBytes(toBytes(v.get))
-      override def nextValueOrElse(d: =>UUID, r: PositionedResult) = { val v = nextValue(r); if(v.eq(null) || r.rs.wasNull) d else v }
-      override def nextOption(r: PositionedResult): Option[UUID] = { val v = nextValue(r); if(v.eq(null) || r.rs.wasNull) None else Some(v) }
+      override def setNull(p: PreparedStatement, idx: Int) = p.setString(idx, null)
     }
 
     /* Access does not have a TINYINT (8-bit signed type), so we use 16-bit signed. */
     class ByteJdbcType extends super.ByteJdbcType {
-      override def setValue(v: Byte, p: PositionedParameters) = p.setShort(v)
-      override def setOption(v: Option[Byte], p: PositionedParameters) = p.setIntOption(v.map(_.toInt))
-      override def nextValue(r: PositionedResult) = r.nextInt.toByte
-      override def updateValue(v: Byte, r: PositionedResult) = r.updateInt(v)
-    }
-
-    /* Reading null from a nullable LONGBINARY column does not cause wasNull
-       to be set, so we check for nulls directly. */
-    class ByteArrayJdbcType extends super.ByteArrayJdbcType {
-      override def nextOption(r: PositionedResult): Option[Array[Byte]] = Option(nextValue(r))
+      override def setValue(v: Byte, p: PreparedStatement, idx: Int) = p.setShort(idx, v)
+      override def getValue(r: ResultSet, idx: Int) = r.getInt(idx).toByte
+      override def updateValue(v: Byte, r: ResultSet, idx: Int) = r.updateInt(idx, v)
     }
 
     class LongJdbcType extends super.LongJdbcType {
-      override def setValue(v: Long, p: PositionedParameters) = p.setString(v.toString)
-      override def setOption(v: Option[Long], p: PositionedParameters) = p.setStringOption(v.map(_.toString))
+      override def setValue(v: Long, p: PreparedStatement, idx: Int) = p.setString(idx, v.toString)
+      override def setNull(p: PreparedStatement, idx: Int) = p.setString(idx, null)
     }
 
     override val booleanJdbcType = new BooleanJdbcType with Retry[Boolean]

@@ -7,7 +7,10 @@ import scala.slick.ast.TypeUtil._
 import scala.slick.util.SQLBuilder
 import scala.slick.profile.SqlExecutorComponent
 import scala.slick.lifted.{Shape, FlatShapeLevel}
+import scala.slick.relational.CompiledMapping
 
+/** The part of the driver cake that handles the <em>executor</em> API for
+  * running queries. */
 trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
 
   type QueryExecutor[T] = QueryExecutorDef[T]

@@ -48,17 +48,17 @@ class NestingTest extends TestkitTest[RelationalTestDB] {
     val res2 = Set((1, "1", 8), (2, "2", 10))
 
     val q2a = for {
-      a ~ b ~ c <- ts.where(_.a === 1).map(t => t.a ~ t.b ~ 4) unionAll ts.where(_.a === 2).map(t => t.a ~ t.b ~ 5)
+      a ~ b ~ c <- ts.filter(_.a === 1).map(t => t.a ~ t.b ~ 4) unionAll ts.filter(_.a === 2).map(t => t.a ~ t.b ~ 5)
     } yield a ~ b ~ (c*2)
     assertEquals(res2, q2a.run.toSet)
 
     val q2b = for {
-      (a, b, c) <- ts.where(_.a === 1).map(t => (t.a, t.b, LiteralColumn(4))) unionAll ts.where(_.a === 2).map(t => (t.a, t.b, LiteralColumn(5)))
+      (a, b, c) <- ts.filter(_.a === 1).map(t => (t.a, t.b, LiteralColumn(4))) unionAll ts.filter(_.a === 2).map(t => (t.a, t.b, LiteralColumn(5)))
     } yield a ~ b ~ (c*2)
     assertEquals(res2, q2b.run.toSet)
 
     val q2c = for {
-      (a, b, c) <- ts.where(_.a === 1).map(t => (t.a, t.b, 4)) unionAll ts.where(_.a === 2).map(t => (t.a, t.b, 5))
+      (a, b, c) <- ts.filter(_.a === 1).map(t => (t.a, t.b, 4)) unionAll ts.filter(_.a === 2).map(t => (t.a, t.b, 5))
     } yield a ~ b ~ (c*2)
     assertEquals(res2, q2c.run.toSet)
   }

@@ -112,6 +112,30 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         scope.remove(leftGen)
         scope.remove(rightGen)
         res
+      case Join(leftGen, rightGen, left, right, JoinType.Outer, by) =>
+        val leftJoinRes = run(left).asInstanceOf[Coll].flatMap { l =>
+          scope(leftGen) = l
+          val inner = run(right).asInstanceOf[Coll].filter { r =>
+            scope(rightGen) = r
+            asBoolean(run(by))
+          }.map { r =>
+            new ProductValue(Vector(l, r))
+          }
+          if(inner.headOption.isEmpty) Vector(new ProductValue(Vector(l, createNullRow(right.nodeType.asCollectionType.elementType))))
+          else inner
+        }
+        scope.remove(leftGen)
+        scope.remove(rightGen)
+        val emptyRightRes = run(right).asInstanceOf[Coll].filter { r =>
+          scope(rightGen) = r
+          run(left).asInstanceOf[Coll].find { l =>
+            scope(leftGen) = l
+            asBoolean(run(by))
+          }.isEmpty
+        }.map { r => new ProductValue(Vector(createNullRow(left.nodeType.asCollectionType.elementType), r)) }
+        scope.remove(leftGen)
+        scope.remove(rightGen)
+        leftJoinRes ++ emptyRightRes
       case Filter(gen, from, where) =>
         val res = run(from).asInstanceOf[Coll].filter { v =>
           scope(gen) = v

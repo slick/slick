@@ -2,9 +2,7 @@ package scala.slick.jdbc.meta
 
 import scala.slick.jdbc.ResultSetInvoker
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getClientInfoProperties().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getClientInfoProperties(). */
 case class MClientInfoProperty(name: String, maxLen: Int, defaultValue: String, description: String)
 
 object MClientInfoProperty {

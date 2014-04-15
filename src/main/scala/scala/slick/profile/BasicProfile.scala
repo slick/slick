@@ -13,9 +13,13 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
 
   /** The back-end type required by this profile */
   type Backend <: DatabaseComponent
+  /** The back-end implementation for this profile */
   val backend: Backend
 
+  /** The capabilities supported by this driver. This can be used to query at
+    * runtime whether a specific feature is supported. */
   final val capabilities: Set[Capability] = computeCapabilities
+  /** Compute the capabilities. This should be overridden in subclasses as needed. */
   protected def computeCapabilities: Set[Capability] = Set.empty
 
   /** The type of a schema description (DDL) */
@@ -36,7 +40,8 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
   val simple: SimpleQL
 
   /** The implicit values and conversions provided by this driver.
-    * This is a subset of ``simple``. */
+    * This is a subset of ``simple``. You usually want to import
+    * `simple._` instead of using `Implicit`. */
   val Implicit: Implicits
 
   trait Implicits extends ExtensionMethodConversions {
@@ -79,6 +84,7 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
 }
 
 trait BasicDriver extends BasicProfile {
+  /** The external interface of this driver which defines the API. */
   val profile: BasicProfile = this
 
   override def toString = {
@@ -137,6 +143,7 @@ trait BasicExecutorComponent { driver: BasicDriver =>
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
   def createUnshapedQueryExecutor[M](value: M): UnshapedQueryExecutor[M]
 
+  /** Base class for `QueryExecutor` implementations */
   trait QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R
     def executor: this.type = this

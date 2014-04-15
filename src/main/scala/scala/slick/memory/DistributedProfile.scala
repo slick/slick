@@ -6,7 +6,9 @@ import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
 import scala.slick.compiler._
+import scala.slick.relational.{ResultConverter, CompiledMapping}
 import scala.slick.profile.{RelationalDriver, RelationalProfile}
+import scala.slick.util.RefId
 
 /** A profile and driver for distributed queries. */
 trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriver =>
@@ -18,8 +20,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   val simple: SimpleQL = new SimpleQL {}
   val Implicit: Implicits = simple
 
-  lazy val queryCompiler =
-    QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
+  lazy val queryCompiler = compiler.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
   lazy val updateCompiler = ???
   lazy val deleteCompiler = ???
   lazy val insertCompiler = ???
@@ -61,7 +62,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
         if(logger.isDebugEnabled) logDebug("Evaluating "+n)
         val fromV = run(from).asInstanceOf[TraversableOnce[Any]]
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, Any]]
-        b ++= fromV.map(v => converter.read(v.asInstanceOf[QueryInterpreter.ProductValue]))
+        b ++= fromV.map(v => converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].read(v.asInstanceOf[QueryInterpreter.ProductValue]))
         b.result()
       case n => super.run(n)
     }
@@ -92,15 +93,15 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
 
     def apply(state: CompilerState) = state.map { tree =>
       // Collect the required drivers and tainting drivers for all subtrees
-      val needed = new HashMap[IntrinsicSymbol, Set[RelationalDriver]]
-      val taints = new HashMap[IntrinsicSymbol, Set[RelationalDriver]]
+      val needed = new HashMap[RefId[Node], Set[RelationalDriver]]
+      val taints = new HashMap[RefId[Node], Set[RelationalDriver]]
       def collect(n: Node, scope: Scope): (Set[RelationalDriver], Set[RelationalDriver]) = {
         val (dr: Set[RelationalDriver], tt: Set[RelationalDriver]) = n match {
           case t: TableNode => (Set(t.driverTable.asInstanceOf[RelationalDriver#Table[_]].tableProvider), Set.empty)
           case Ref(sym) =>
             scope.get(sym) match {
               case Some(nn) =>
-                val target = nn._1.nodeIntrinsicSymbol
+                val target = RefId(nn._1)
                 (Set.empty, needed(target) ++ taints(target))
               case None =>
                 (Set.empty, Set.empty)
@@ -116,14 +117,14 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
             }, scope)
             (nnd, ntt)
         }
-        needed += n.nodeIntrinsicSymbol -> dr
-        taints += n.nodeIntrinsicSymbol -> tt
+        needed += RefId(n) -> dr
+        taints += RefId(n) -> tt
         (dr, tt)
       }
       collect(tree, Scope.empty)
       def transform(n: Node): Node = {
-        val dr = needed(n.nodeIntrinsicSymbol)
-        val tt = taints(n.nodeIntrinsicSymbol)
+        val dr = needed(RefId(n))
+        val tt = taints(RefId(n))
         if(dr.size == 1 && (tt -- dr).isEmpty) {
           val compiled = dr.head.queryCompiler.run(n).tree
           val substituteType = compiled.nodeType.replace {

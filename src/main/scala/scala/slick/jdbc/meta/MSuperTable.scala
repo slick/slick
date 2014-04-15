@@ -2,9 +2,7 @@ package scala.slick.jdbc.meta
 
 import scala.slick.jdbc.ResultSetInvoker
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getSuperTables().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getSuperTables(). */
 case class MSuperTable(table: MQName, superTable: String) {
   def getSuperTables = MSuperTable.getSuperTables(MQName(table.catalog, table.schema, superTable))
 }

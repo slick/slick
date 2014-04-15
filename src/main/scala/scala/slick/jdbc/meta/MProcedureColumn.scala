@@ -4,9 +4,7 @@ import java.sql._
 import scala.slick.jdbc.ResultSetInvoker
 import scala.slick.driver.JdbcTypesComponent
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getProcedureColumns().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getProcedureColumns(). */
 case class MProcedureColumn(
   procedure: MQName, column: String, columnType: Short, sqlType: Int, typeName: String,
   precision: Option[Int], length: Int, scale: Option[Short], radix: Short,

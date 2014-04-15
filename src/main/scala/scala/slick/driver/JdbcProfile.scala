@@ -1,36 +1,36 @@
 package scala.slick.driver
 
 import scala.language.{implicitConversions, higherKinds}
-import scala.slick.ast.{Node, TypedType, BaseTypedType}
+import scala.slick.ast.BaseTypedType
 import scala.slick.compiler.{Phase, QueryCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker}
+import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker, JdbcType, JdbcFastPath}
 import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 import scala.slick.model.Model
 
-/**
- * A profile for accessing SQL databases via JDBC.
- */
+/** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
+  * implement this profile. */
 trait JdbcProfile extends SqlProfile with JdbcTableComponent
   with JdbcInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent { driver: JdbcDriver =>
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
-  val compiler = QueryCompiler.relational
-  val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
+  val simple: SimpleQL = new SimpleQL {}
   lazy val Implicit: Implicits = simple
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
   val columnTypes = new JdbcTypes
   lazy val MappedColumnType = MappedJdbcType
 
+  override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.relationalPhases
+
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
-  lazy val insertCompiler = QueryCompiler(Phase.inline, Phase.assignUniqueSymbols, new JdbcInsertCompiler)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new JdbcInsertCompiler)
 
   final def buildTableSchemaDescription(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
@@ -48,15 +48,18 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
       createUpdateInvoker(c.compiledUpdate, c.param)
     implicit def runnableCompiledToDeleteInvoker[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteInvoker =
       createDeleteInvoker(c.compiledDelete, c.param)
+    implicit def jdbcFastPathExtensionMethods[T, P](mp: MappedProjection[T, P]) = new JdbcFastPathExtensionMethods[T, P](mp)
 
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T, C[_]](q: Query[_ <: ColumnBase[T], T, C]): UpdateInvoker[T] =
       createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
   }
 
-  /**
-   * Jdbc meta data for all tables
-   */
+  trait SimpleQL extends super.SimpleQL with Implicits {
+    type FastPath[T] = JdbcFastPath[T]
+  }
+
+  /** Jdbc meta data for all tables */
   def getTables: Invoker[MTable] = MTable.getTables
 
   /** Gets the Slick data model describing this data source */
@@ -64,6 +67,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 }
 
 object JdbcProfile {
+  /** The capabilities specific to `JdbcProfile` */
   object capabilities {
     /** Can insert into AutoInc columns. */
     val forceInsert = Capability("jdbc.forceInsert")
@@ -84,6 +88,9 @@ object JdbcProfile {
   }
 }
 
+/** The internal implementation details of `JdbcProfile`-based drivers. These can be
+  * used by driver implementors but are not intended to be accessed by users of a
+  * driver. */
 trait JdbcDriver extends SqlDriver
   with JdbcProfile
   with JdbcStatementBuilderComponent
@@ -92,4 +99,6 @@ trait JdbcDriver extends SqlDriver
   override val profile: JdbcProfile = this
 }
 
+/** A generic driver for JDBC-based databases. This can be used as a fallback
+  * when a specific driver for a database is not available. */
 object JdbcDriver extends JdbcDriver

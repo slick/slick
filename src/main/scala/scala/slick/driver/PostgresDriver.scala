@@ -1,6 +1,7 @@
 package scala.slick.driver
 
 import java.util.UUID
+<<<<<<< HEAD
 import scala.slick.jdbc.{PositionedParameters, PositionedResult}
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
@@ -27,6 +28,30 @@ import scala.slick.lifted.PrimaryKey
  *
  * @author szeiger
  */
+=======
+import java.sql.{PreparedStatement, ResultSet}
+import scala.slick.lifted._
+import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
+import scala.slick.util.MacroSupport.macroSupportInterpolation
+import scala.slick.compiler.CompilerState
+import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.{Invoker, JdbcType}
+
+/** Slick driver for PostgreSQL.
+  *
+  * This driver implements all capabilities of [[scala.slick.driver.JdbcProfile]].
+  *
+  * Notes:
+  *
+  * <ul>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBlob]]:
+  *   The default implementation of the <code>Blob</code> type uses the
+  *   database type <code>lo</code> and the stored procedure
+  *   <code>lo_manage</code>, both of which are provided by the "lo"
+  *   extension in PostgreSQL.</li>
+  * </ul>
+  */
+>>>>>>> upstream/master
 trait PostgresDriver extends JdbcDriver { driver =>
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
@@ -141,18 +166,13 @@ trait PostgresDriver extends JdbcDriver { driver =>
     class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
       override val sqlTypeName = "BYTEA"
-      override def setOption(v: Option[Array[Byte]], p: PositionedParameters) = v match {
-        case Some(a) => p.setBytes(a)
-        case None => p.setNull(sqlType)
-      }
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlTypeName = "UUID"
-      override def setValue(v: UUID, p: PositionedParameters) = p.setObject(v, sqlType)
-      override def setOption(v: Option[UUID], p: PositionedParameters) = p.setObjectOption(v, sqlType)
-      override def nextValue(r: PositionedResult) = r.nextObject().asInstanceOf[UUID]
-      override def updateValue(v: UUID, r: PositionedResult) = r.updateObject(v)
+      override def setValue(v: UUID, p: PreparedStatement, idx: Int) = p.setObject(idx, v, sqlType)
+      override def getValue(r: ResultSet, idx: Int) = r.getObject(idx).asInstanceOf[UUID]
+      override def updateValue(v: UUID, r: ResultSet, idx: Int) = r.updateObject(idx, v)
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
       override def hasLiteralForm = true
     }

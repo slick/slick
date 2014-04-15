@@ -2,9 +2,7 @@ package scala.slick.jdbc.meta
 
 import scala.slick.jdbc.ResultSetInvoker
 
-/**
- * A wrapper for a row in the ResultSet returned by DatabaseMetaData.getSchemas().
- */
+/** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getSchemas(). */
 case class MSchema(schema: String, catalog: Option[String]) {
   override def toString = "MSchema(" + catalog.map(_ + ".").getOrElse("") + schema + ")"
 }

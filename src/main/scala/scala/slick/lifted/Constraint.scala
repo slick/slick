@@ -4,11 +4,11 @@ import scala.slick.ast._
 import scala.slick.ast.Filter
 import scala.slick.model // workaround until deprecated lifted.ForeignKeyAction is removed
 
-/**
- * Marker trait for foreign key and primary key constraints.
- */
+/** Marker trait for foreign key and primary key constraints. */
 trait Constraint
 
+/** Represents a foreign key. Objects of this type are used internally by Slick.
+  * At the user level you generally see `ForeignKeyQuery` objects instead. */
 final class ForeignKey( //TODO Simplify this mess!
     val name: String,
     val sourceTable: Node,
@@ -48,6 +48,7 @@ object ForeignKey {
     )
 }
 
+/** A query that selects data linked by a foreign key. */
 class ForeignKeyQuery[E <: AbstractTable[_], U](
     nodeDelegate: Node,
     base: ShapedValue[_ <: E, U],
@@ -57,11 +58,9 @@ class ForeignKeyQuery[E <: AbstractTable[_], U](
     aliasedValue: E
   ) extends WrappingQuery[E, U, Seq](nodeDelegate, base) with Constraint {
 
-  /**
-   * Combine the constraints of this ForeignKeyQuery with another one with the
-   * same target table, leading to a single instance of the target table which
-   * satisfies the constraints of both.
-   */
+  /** Combine the constraints of this `ForeignKeyQuery` with another one with the
+    * same target table, leading to a single instance of the target table which
+    * satisfies the constraints of both. */
   def & (other: ForeignKeyQuery[E, U]): ForeignKeyQuery[E, U] = {
     val newFKs = fks ++ other.fks
     val conditions = newFKs.map { fk =>
@@ -73,9 +72,9 @@ class ForeignKeyQuery[E <: AbstractTable[_], U](
   }
 }
 
+/** An explicit primary key. Simple primary keys can also be represented by `O.PrimaryKey`
+  * column options instead. */
 case class PrimaryKey(name: String, columns: IndexedSeq[Node]) extends Constraint
 
-/**
- * An index (or foreign key constraint with an implicit index).
- */
+/** An index (or foreign key constraint with an implicit index). */
 class Index(val name: String, val table: AbstractTable[_], val on: IndexedSeq[Node], val unique: Boolean)

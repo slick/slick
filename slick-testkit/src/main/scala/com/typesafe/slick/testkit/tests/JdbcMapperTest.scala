@@ -39,24 +39,24 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     users.map(_.asFoo) += Foo(User(None, "Lenny", "Leonard"))
 
     val lastNames = Set("Bouvier", "Ferdinand")
-    assertEquals(1, users.where(_.last inSet lastNames).list.size)
+    assertEquals(1, users.filter(_.last inSet lastNames).list.size)
 
-    val updateQ = users.where(_.id === 2.bind).map(_.forUpdate)
+    val updateQ = users.filter(_.id === 2.bind).map(_.forUpdate)
     println("Update: "+updateQ.updateStatement)
     updateQ.update(User(None, "Marge", "Simpson"))
 
-    assertTrue(Query(users.where(_.id === 1).exists).first)
+    assertTrue(Query(users.filter(_.id === 1).exists).first)
 
-    users.where(_.id between(1, 2)).foreach(println)
+    users.filter(_.id between(1, 2)).foreach(println)
     println("ID 3 -> " + users.byID(3).first)
 
     assertEquals(
       Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")),
-      users.where(_.id between(1, 2)).list.toSet
+      users.filter(_.id between(1, 2)).list.toSet
     )
     assertEquals(
       Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson"))),
-      users.where(_.id between(1, 2)).map(_.asFoo).list.toSet
+      users.filter(_.id between(1, 2)).map(_.asFoo).list.toSet
     )
     assertEquals(
       User(Some(3), "Carl", "Carlson"),
@@ -84,10 +84,10 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     ts.ddl.create
     ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
 
-    val updateQ = ts.where(_.a === 1)
+    val updateQ = ts.filter(_.a === 1)
     updateQ.update(Data(7, 8))
 
-    val updateQ2 = ts.where(_.a === 3).map(identity)
+    val updateQ2 = ts.filter(_.a === 3).map(identity)
     updateQ2.update(Data(9, 10))
 
     assertEquals(
@@ -290,5 +290,33 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     cs.update("Foo" :: HNil)
     val cres :: HNil = cs.run.head
     assertEquals("Foo", cres)
+  }
+
+  def testFastPath {
+    case class Data(a: Int, b: Int)
+
+    class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
+      def a = column[Int]("A")
+      def b = column[Int]("B")
+      def * = (a, b) <> (Data.tupled, Data.unapply _) fastPath(new FastPath(_) {
+        val (a, b) = (next[Int], next[Int])
+        override def read(r: Reader) = Data(a.read(r), b.read(r))
+      })
+    }
+    val ts = TableQuery[T]
+
+    ts.ddl.create
+    ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
+
+    val updateQ = ts.filter(_.a === 1)
+    updateQ.update(Data(7, 8))
+
+    val updateQ2 = ts.filter(_.a === 3).map(identity)
+    updateQ2.update(Data(9, 10))
+
+    assertEquals(
+      Set(Data(7, 8), Data(9, 10), Data(5, 6)),
+      ts.list.toSet
+    )
   }
 }

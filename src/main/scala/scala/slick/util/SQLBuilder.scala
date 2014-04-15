@@ -1,7 +1,7 @@
 package scala.slick.util
 
+import java.sql.PreparedStatement
 import scala.collection.mutable.ArrayBuffer
-import scala.slick.jdbc.PositionedParameters
 
 final class SQLBuilder extends SQLBuilder.Segment { self =>
   import SQLBuilder._
@@ -61,14 +61,20 @@ final class SQLBuilder extends SQLBuilder.Segment { self =>
 }
 
 object SQLBuilder {
-  final type Setter = ((PositionedParameters, Any) => Unit)
+  final type Setter = ((PreparedStatement, Int, Any) => Unit)
 
-  val EmptySetter: Setter = (_: PositionedParameters, _: Any) => ()
+  val EmptySetter: Setter = (_: PreparedStatement, _: Int, _: Any) => ()
 
   final case class Result(sql: String, setter: Setter)
 
-  private class CombinedSetter(b: Seq[Setter]) extends Setter {
-    def apply(p: PositionedParameters, param: Any): Unit = for(s <- b) s(p, param)
+  private class CombinedSetter(children: Seq[Setter]) extends Setter {
+    def apply(p: PreparedStatement, idx: Int, param: Any): Unit = {
+      var i = idx
+      for(s <- children) {
+        s(p, i, param)
+        i += 1
+      }
+    }
   }
 
   trait Segment {

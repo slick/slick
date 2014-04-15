@@ -1,17 +1,18 @@
 package scala.slick.profile
 
-import scala.language.{implicitConversions, higherKinds}
+import scala.language.{implicitConversions, higherKinds, existentials}
 import scala.slick.ast._
 import scala.slick.lifted._
+import scala.slick.relational._
 import scala.slick.util.{TupleMethods, TupleSupport}
 import FunctionSymbolExtensionMethods._
 import scala.slick.SlickException
 import scala.reflect.ClassTag
+import scala.slick.compiler.{Phase, EmulateOuterJoins, QueryCompiler}
 
-/**
- * A profile for relational databases that does not assume the existence
- * of SQL (or any other text-based language for executing statements).
- */
+/** A profile for relational databases that does not assume the existence
+  * of SQL (or any other text-based language for executing statements).
+  * It requires a relational table structure as its basic model of data. */
 trait RelationalProfile extends BasicProfile with RelationalTableComponent
   with RelationalSequenceComponent with RelationalTypesComponent { driver: RelationalDriver =>
 
@@ -19,6 +20,16 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   val Implicit: Implicits
   val simple: SimpleQL
+  final lazy val compiler = computeQueryCompiler
+
+  protected def computeQueryCompiler: QueryCompiler = {
+    val base = QueryCompiler.standard
+    val canJoinLeft = capabilities contains RelationalProfile.capabilities.joinLeft
+    val canJoinRight = capabilities contains RelationalProfile.capabilities.joinRight
+    val canJoinFull = capabilities contains RelationalProfile.capabilities.joinFull
+    if(canJoinLeft && canJoinRight && canJoinFull) base
+    else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.forceOuterBinds)
+  }
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes {
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
@@ -63,6 +74,8 @@ object RelationalProfile {
     val functionUser = Capability("relational.functionUser")
     /** Supports full outer joins */
     val joinFull = Capability("relational.joinFull")
+    /** Supports left outer joins */
+    val joinLeft = Capability("relational.joinLeft")
     /** Supports right outer joins */
     val joinRight = Capability("relational.joinRight")
     /** Supports escape characters in "like" */
@@ -91,7 +104,7 @@ object RelationalProfile {
 
     /** All relational capabilities */
     val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
-      functionUser, joinFull, joinRight, likeEscape, pagingDrop, pagingNested,
+      functionUser, joinFull, joinLeft, joinRight, likeEscape, pagingDrop, pagingNested,
       pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
       zip)
   }
@@ -126,10 +139,10 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
     def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
       override def toNode =
-        Path(FieldSymbol(n)(options, tm) :: (tableTag match {
-          case r: RefTag => r.path
-          case _ => List(tableNode.nodeIntrinsicSymbol)
-        })).nodeTyped(tm)
+        Select((tableTag match {
+          case r: RefTag => Path(r.path)
+          case _ => tableNode
+        }), FieldSymbol(n)(options, tm)).nodeTyped(tm)
       override def toString = (tableTag match {
         case r: RefTag => "(" + _tableName + " " + Path.toString(r.path) + ")"
         case _ => _tableName
@@ -192,75 +205,5 @@ trait RelationalTypesComponent { driver: BasicDriver =>
     implicit def longColumnType: BaseColumnType[Long] with NumericTypedType
     implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
-  }
-}
-
-/** This optional driver component provides a way to compose client-side
-  * accessors for parameters and result sets. */
-trait RelationalMappingCompilerComponent {
-  /* TODO: PositionedResult isn't the right interface -- it assumes that
-   * all columns will be read and updated in order. We should not limit it in
-   * this way. */
-  type RowReader
-  type RowWriter
-  type RowUpdater
-
-  /** Create a CompiledMapping for parameters and result sets. Subclasses have
-    * to provide profile-specific createColumnConverter implementations. */
-  trait MappingCompiler {
-
-    def compileMapping(n: Node): ResultConverter = n match {
-      case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, false, Some(fs))
-      case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, true, Some(fs))
-      case p @ Path(_) => createColumnConverter(n, p, false, None)
-      case OptionApply(p @ Path(_)) => createColumnConverter(n, p, true, None)
-      case ProductNode(ch) =>
-        new ProductResultConverter(ch.map(n => compileMapping(n))(collection.breakOut))
-      case GetOrElse(ch, default) =>
-        new GetOrElseResultConverter(compileMapping(ch), default)
-      case TypeMapping(ch, toBase, toMapped, _) =>
-        new TypeMappingResultConverter(compileMapping(ch), toBase, toMapped)
-      case n =>
-        throw new SlickException("Unexpected node in ResultSetMapping: "+n)
-    }
-
-    def createColumnConverter(n: Node, path: Node, optionApply: Boolean, column: Option[FieldSymbol]): ResultConverter
-  }
-
-  /** A node that wraps a ResultConverter */
-  final case class CompiledMapping(converter: ResultConverter, tpe: Type) extends NullaryNode with TypedNode {
-    type Self = CompiledMapping
-    def nodeRebuild = copy()
-    override def toString = "CompiledMapping"
-  }
-
-  trait ResultConverter {
-    def read(pr: RowReader): Any
-    def update(value: Any, pr: RowUpdater): Unit
-    def set(value: Any, pp: RowWriter, forced: Boolean): Unit
-  }
-
-  final class ProductResultConverter(children: IndexedSeq[ResultConverter]) extends ResultConverter {
-    def read(pr: RowReader) = TupleSupport.buildTuple(children.map(_.read(pr)))
-    def update(value: Any, pr: RowUpdater) =
-      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
-        ch.update(v, pr)
-      }
-    def set(value: Any, pp: RowWriter, forced: Boolean) =
-      children.iterator.zip(value.asInstanceOf[Product].productIterator).foreach { case (ch, v) =>
-        ch.set(v, pp, forced)
-      }
-  }
-
-  final class GetOrElseResultConverter(child: ResultConverter, default: () => Any) extends ResultConverter {
-    def read(pr: RowReader) = child.read(pr).asInstanceOf[Option[Any]].getOrElse(default())
-    def update(value: Any, pr: RowUpdater) = child.update(Some(value), pr)
-    def set(value: Any, pp: RowWriter, forced: Boolean) = child.set(Some(value), pp, forced)
-  }
-
-  final class TypeMappingResultConverter(child: ResultConverter, toBase: Any => Any, toMapped: Any => Any) extends ResultConverter {
-    def read(pr: RowReader) = toMapped(child.read(pr))
-    def update(value: Any, pr: RowUpdater) = child.update(toBase(value), pr)
-    def set(value: Any, pp: RowWriter, forced: Boolean) = child.set(toBase(value), pp, forced)
   }
 }

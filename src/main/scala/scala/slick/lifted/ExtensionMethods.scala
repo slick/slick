@@ -32,16 +32,21 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
   def c: Column[P1]
 
+  @deprecated("Use 'isEmpty' instead of 'isNull'", "2.1")
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))
+  @deprecated("Use 'isDefined' instead of 'isNotNull'", "2.1")
   def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
 
-  def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    om.column(Library.==, n, e.toNode)
   def === [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.==, n, e.toNode)
+  @deprecated("Use '===' instead of 'is'", "2.1")
+  def is[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
+    === [P2, R](e)
+  @deprecated("Use '=!=' instead of 'isNot'", "2.1")
   def isNot[P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
+    =!= [P2, R](e)
+  def =!= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.Not, Library.==.typed(om.liftedType, n, e.toNode))
-  def =!= [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) = isNot[P2, R](e)
 
   def < [P2, R](e: Column[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.<, n, e.toNode)
@@ -76,6 +81,12 @@ final class OptionColumnExtensionMethods[B1](val c: Column[Option[B1]]) extends 
     Column.forNode[B1](GetOrElse(c.toNode, () => default))(c.tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
   def get: Column[B1] =
     getOrElse { throw new SlickException("Read NULL value for column "+this) }
+  /** Check if this Option column is empty (i.e. the underlying value is NULL) */
+  def isEmpty = Library.==.column[Boolean](n, LiteralNode(null))
+  /** Check if this Option column is not empty (i.e. the underlying value is not NULL) */
+  def isDefined = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
+  /** Check if this Option column is not empty (i.e. the underlying value is not NULL) */
+  def nonEmpty = isDefined
 }
 
 /** Extension methods for numeric Columns */

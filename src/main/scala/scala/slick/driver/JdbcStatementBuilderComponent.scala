@@ -12,6 +12,8 @@ import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
 import scala.slick.profile.RelationalProfile
+import scala.slick.relational.{ResultConverter, CompiledMapping}
+import scala.slick.jdbc.JdbcResultConverterDomain
 
 trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
@@ -197,14 +199,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case (n @ LiteralNode(v)) :@ JdbcType(ti, option) =>
-        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, param) =>
-          if(option) ti.setOption(v.asInstanceOf[Option[Any]], p)
-          else ti.setValue(v, p)
+        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, idx, param) =>
+          if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx)
+          else ti.setValue(v, p, idx)
         } else b += valueToSQLLiteral(v, n.nodeType)
       case QueryParameter(extractor, JdbcType(ti, option)) =>
-        b +?= { (p, param) =>
-          if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p)
-          else ti.setValue(extractor(param), p)
+        b +?= { (p, idx, param) =>
+          if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p, idx)
+          else ti.setValue(extractor(param), p, idx)
         }
       case Library.Not(Library.==(l, LiteralNode(null))) =>
         b"\($l is not null\)"
@@ -468,7 +470,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($qAllColumns) ${sbr.sql}", sbr.setter)
     }
 
-    def buildReturnColumns(node: Node, table: String): (IndexedSeq[String], ResultConverter) = {
+    def buildReturnColumns(node: Node, table: String): (IndexedSeq[String], ResultConverter[JdbcResultConverterDomain, _]) = {
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, Insert(_, ktable: TableNode, _, ProductNode(kpaths)), CompiledMapping(rconv, _)) =
@@ -479,7 +481,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       val kfields = kpaths.map { case Select(_, fs: FieldSymbol) => fs }.toIndexedSeq
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && (kfields.size > 1 || !kfields.head.options.contains(ColumnOption.AutoInc)))
         throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
-      (kfields.map(_.name), rconv)
+      (kfields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]])
     }
   }
 
@@ -573,7 +575,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def addColumnList(columns: IndexedSeq[Node], sb: StringBuilder, requiredTableName: String, typeInfo: String) {
       var first = true
       for(c <- columns) c match {
-        case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
+        case Select(t: TableNode, field: FieldSymbol) =>
           if(first) first = false
           else sb append ","
           sb append quoteIdentifier(field.name)

@@ -44,15 +44,6 @@ class AnonSymbol extends Symbol {
   def name = "@"+System.identityHashCode(this)
 }
 
-case class IntrinsicSymbol(val target: Node) extends Symbol {
-  def name = "/"+System.identityHashCode(this)
-  override def hashCode = System.identityHashCode(target)
-  override def equals(o: Any) = o match {
-    case i: IntrinsicSymbol => target eq i.target
-    case _ => false
-  }
-}
-
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
   def nodeGenerators: Seq[(Symbol, Node)]

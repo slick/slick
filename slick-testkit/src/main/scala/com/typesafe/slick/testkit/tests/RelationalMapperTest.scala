@@ -104,8 +104,8 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
     ts.ddl.create
     ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True)))
     assertEquals(ts.run.toSet, Set((1, False, None), (2, True, Some(True))))
-    assertEquals(ts.where(_.b === (True:Bool)).run.toSet, Set((2, True, Some(True))))
-    assertEquals(ts.where(_.b === (False:Bool)).run.toSet, Set((1, False, None)))
+    assertEquals(ts.filter(_.b === (True:Bool)).run.toSet, Set((2, True, Some(True))))
+    assertEquals(ts.filter(_.b === (False:Bool)).run.toSet, Set((1, False, None)))
   }
 
   def testAutoMapped {
@@ -121,6 +121,17 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
 
     assertEquals(Set((MyMappedID(1), 2), (MyMappedID(3), 4)), ts.run.toSet)
     assertEquals(Set((MyMappedID(1), 2)), ts.filter(_.id === MyMappedID(1)).run.toSet)
+  }
+
+  def mappedToMacroCompilerBug {
+    case class MyId(val value: Int) extends MappedTo[Int]
+
+    class MyTable(tag: Tag) extends Table[MyId](tag, "table") {
+      def * = ???
+    }
+
+    implicitly[Shape[_ <: FlatShapeLevel, MyTable, _, _]]
+    TableQuery(new MyTable(_)).map(identity)
   }
 }
 

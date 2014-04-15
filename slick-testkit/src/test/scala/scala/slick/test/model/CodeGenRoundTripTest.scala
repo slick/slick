@@ -53,8 +53,8 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
     Large.insert(oData)
     Large.insert(oData2)
     assertEquals(Set((oData,0),(oData2,1)), Large.map(r => (r,r.id)).run.toSet)
-    assertEquals(oData, StaticQuery.queryNA[LargeRow]("select * from "+quoteIdentifier("LARGE")).first )
-    assertEquals(oData, StaticQuery.queryNA("select * from "+quoteIdentifier("LARGE"))(GetResultLargeRow).first )
+    assertEquals(oData, StaticQuery.queryNA[LargeRow]("select * from "+quoteIdentifier("LARGE")+" where "+quoteIdentifier("id")+" = 0").first )
+    assertEquals(oData, StaticQuery.queryNA("select * from "+quoteIdentifier("LARGE")+" where "+quoteIdentifier("id")+" = 0")(GetResultLargeRow).first )
 
 
     X.map(r => (r.pk,r.pk2,r.column,r.schemaNameXX,r.schemaNameX)).insert((1,1,1,1.1,"test"))

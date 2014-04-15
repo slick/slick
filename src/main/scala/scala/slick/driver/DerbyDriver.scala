@@ -8,8 +8,9 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.Invoker
+import scala.slick.jdbc.{Invoker, JdbcType}
 
+<<<<<<< HEAD
 /**
  * Slick driver for Derby/JavaDB.
  *
@@ -47,6 +48,45 @@ import scala.slick.jdbc.Invoker
  *
  * @author szeiger
  */
+=======
+/** Slick driver for Derby/JavaDB.
+  *
+  * This driver implements [[scala.slick.driver.JdbcProfile]]
+  * ''without'' the following capabilities:
+  *
+  * <ul>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]]:
+  *     <code>Functions.database</code> is not available in Derby. Slick
+  *     will return an empty string instead.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.pagingNested]]:
+  *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
+  *     target="_parent">DERBY-5911</a>.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
+  *     When returning columns from an INSERT operation, only a single column
+  *     may be specified which must be the table's AutoInc column.</li>
+  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
+  *     <code>Sequence.curr</code> to get the current value of a sequence is
+  *     not supported by Derby. Trying to generate SQL code which uses this
+  *     feature throws a SlickException.</li>
+  *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
+  *     Sequence cycling is supported but does not conform to SQL:2008
+  *     semantics. Derby cycles back to the START value instead of MINVALUE or
+  *     MAXVALUE.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.zip]]:
+  *     Ordered sub-queries and window functions with orderings are currently
+  *     not supported by Derby. These are required by <code>zip</code> and
+  *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
+  *     feature causes the DB to throw an exception. We do not prevent these
+  *     queries from being generated because we expect future Derby versions to
+  *     support them with the standard SQL:2003 syntax (see
+  *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber" target="_parent"
+  *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
+  *     Full outer joins are emulated because there is not native support
+  *     for them.</li>
+  * </ul>
+  */
+>>>>>>> upstream/master
 trait DerbyDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
@@ -57,11 +97,12 @@ trait DerbyDriver extends JdbcDriver { driver =>
     // Cycling is broken in Derby. It cycles to the start value instead of min or max
     - SqlProfile.capabilities.sequenceCycle
     - RelationalProfile.capabilities.zip
+    - RelationalProfile.capabilities.joinFull
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
-  override val compiler = QueryCompiler.relational + Phase.rewriteBooleans
+  override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -98,6 +139,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         b"coalesce(cast($l as ${jdbcTypeFor(c.nodeType).sqlTypeName}),!$r)"
+      case LiteralNode(None) :@ JdbcType(ti, _) if currentPart == SelectPart =>
+        // Cast NULL to the correct type
+        b"cast(null as ${ti.sqlTypeName})"
       case (c @ LiteralNode(v)) :@ JdbcType(ti, option) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
@@ -105,7 +149,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
          * explicit type annotation (in the form of a CAST expression). */
         if(c.volatileHint || !ti.hasLiteralForm) {
           b"cast("
-          b +?= { (p, param) => if(option) ti.setOption(v.asInstanceOf[Option[Any]], p) else ti.setValue(v, p) }
+          b +?= { (p, idx, param) => if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx) else ti.setValue(v, p, idx) }
           b" as ${ti.sqlTypeName})"
         } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"

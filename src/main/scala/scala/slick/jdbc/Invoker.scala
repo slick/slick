@@ -103,6 +103,7 @@ object Invoker {
   }
 }
 
+/** A special kind of invoker that allows the result data to be mutated .*/
 trait MutatingInvoker[R] extends Invoker[R] { self =>
   /** Transform a query's results with an updatable result set. */
   def mutate(f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit = null)(implicit session: JdbcBackend#Session): Unit
