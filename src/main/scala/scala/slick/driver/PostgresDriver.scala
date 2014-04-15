@@ -1,37 +1,9 @@
 package scala.slick.driver
 
 import java.util.UUID
-<<<<<<< HEAD
-import scala.slick.jdbc.{PositionedParameters, PositionedResult}
-import scala.slick.ast._
-import scala.slick.util.MacroSupport.macroSupportInterpolation
-import scala.slick.compiler.CompilerState
-import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.Invoker
-import scala.slick.lifted.PrimaryKey
-
-/**
- * Slick driver for PostgreSQL.
- *
- * This driver implements all capabilities of the
- * [[scala.slick.driver.JdbcProfile]].
- *
- * Notes:
- *
- * <ul>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBlob]]:
- *   The default implementation of the <code>Blob</code> type uses the
- *   database type <code>lo</code> and the stored procedure
- *   <code>lo_manage</code>, both of which are provided by the "lo"
- *   extension in PostgreSQL.</li>
- * </ul>
- *
- * @author szeiger
- */
-=======
 import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.lifted._
-import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
+import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
@@ -51,7 +23,6 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   *   extension in PostgreSQL.</li>
   * </ul>
   */
->>>>>>> upstream/master
 trait PostgresDriver extends JdbcDriver { driver =>
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
@@ -109,7 +80,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
         val hTable = table.asInstanceOf[InheritingTable].inherited
         val hPrimaryKeys = hTable.primaryKeys.map(pk => PrimaryKey(table.tableName + "_" + pk.name, pk.columns))
         hTable.create_*.find(_.options.contains(ColumnOption.PrimaryKey))
-          .map(s => PrimaryKey(table.tableName + "_PK", IndexedSeq(Select(Ref(IntrinsicSymbol(tableNode)), s))))
+          .map(s => PrimaryKey(table.tableName + "_PK", IndexedSeq(Select(tableNode, s))))
           .map(Iterable(_) ++ hPrimaryKeys ++ table.primaryKeys)
           .getOrElse(hPrimaryKeys ++ table.primaryKeys)
       } else table.primaryKeys

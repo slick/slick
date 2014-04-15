@@ -10,45 +10,6 @@ import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.{Invoker, JdbcType}
 
-<<<<<<< HEAD
-/**
- * Slick driver for Derby/JavaDB.
- *
- * This driver implements the [[scala.slick.driver.JdbcProfile]]
- * ''without'' the following capabilities:
- *
- * <ul>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]]:
- *     <code>Functions.database</code> is not available in Derby. Slick
- *     will return an empty string instead.</li>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.pagingNested]]:
- *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
- *     target="_parent">DERBY-5911</a>.</li>
- *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
- *     When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCurr]]:
- *     <code>Sequence.curr</code> to get the current value of a sequence is
- *     not supported by Derby. Trying to generate SQL code which uses this
- *     feature throws a SlickException.</li>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
- *     Sequence cycling is supported but does not conform to SQL:2008
- *     semantics. Derby cycles back to the START value instead of MINVALUE or
- *     MAXVALUE.</li>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.zip]]:
- *     Ordered sub-queries and window functions with orderings are currently
- *     not supported by Derby. These are required by <code>zip</code> and
- *     <code>zipWithIndex</code>. Trying to generate SQL code which uses this
- *     feature causes the DB to throw an exception. We do not prevent these
- *     queries from being generated because we expect future Derby versions to
- *     support them with the standard SQL:2003 syntax (see
- *     <a href="http://wiki.apache.org/db-derby/OLAPRowNumber" target="_parent"
- *     >http://wiki.apache.org/db-derby/OLAPRowNumber</a>).</li>
- * </ul>
- *
- * @author szeiger
- */
-=======
 /** Slick driver for Derby/JavaDB.
   *
   * This driver implements [[scala.slick.driver.JdbcProfile]]
@@ -86,7 +47,6 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   *     for them.</li>
   * </ul>
   */
->>>>>>> upstream/master
 trait DerbyDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities

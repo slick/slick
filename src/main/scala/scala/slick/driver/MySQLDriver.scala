@@ -10,29 +10,6 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 
-<<<<<<< HEAD
-/**
- * Slick driver for MySQL.
- *
- * This driver implements the [[scala.slick.driver.JdbcProfile]]
- * ''without'' the following capabilities:
- *
- * <ul>
- *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
- *     When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceLimited]]:
- *     Non-cyclic sequence may not have an upper limit.</li>
- * </ul>
- *
- * Sequences are supported through an emulation which requires the schema to
- * be created by Slick. You can also use an existing schema with your own
- * sequence emulation if you provide for each sequence ''s'' a pair of
- * functions <code>s_nextval</code> and <code>s_currval</code>.
-
- * @author szeiger
- */
-=======
 /** Slick driver for MySQL.
   *
   * This driver implements [[scala.slick.driver.JdbcProfile]]
@@ -54,7 +31,6 @@ import scala.slick.compiler.CompilerState
   * sequence emulation if you provide for each sequence ''s'' a pair of
   * functions <code>s_nextval</code> and <code>s_currval</code>.
   */
->>>>>>> upstream/master
 trait MySQLDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities

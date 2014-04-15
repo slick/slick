@@ -81,6 +81,7 @@ object SlickBuild extends Build {
     }
   }
 
+  lazy val distDictionary = file("./../dist")
   lazy val sharedSettings = Seq(
     version := slickVersion,
     organizationName := "Typesafe",
@@ -101,10 +102,11 @@ object SlickBuild extends Build {
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     //publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)))),
-    publishTo <<= (repoKind){
-      case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
-      case "releases" =>  Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
-    },
+    publishTo := Some(Resolver.file("file",  distDictionary)),
+//    publishTo <<= (repoKind){
+//      case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
+//      case "releases" =>  Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
+//    },
     publishMavenStyle := true,
     publishArtifact in Test := false,
     pomIncludeRepository := { _ => false },

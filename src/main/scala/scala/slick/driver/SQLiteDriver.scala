@@ -11,44 +11,6 @@ import scala.slick.model.Model
 import scala.slick.jdbc.Invoker
 import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
 
-<<<<<<< HEAD
-/**
- * Slick driver for SQLite.
- *
- * This driver implements the [[scala.slick.driver.JdbcProfile]]
- * ''without'' the following capabilities:
- *
- * <ul>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]],
- *     [[scala.slick.profile.RelationalProfile.capabilities.functionUser]]:
- *     <code>Functions.user</code> and <code>Functions.database</code> are
- *     not available in SQLite. Slick will return empty strings for both.</li>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]],
- *     [[scala.slick.profile.RelationalProfile.capabilities.joinRight]]:
- *     Right and full outer joins are not supported by SQLite.</li>
- *   <li>[[scala.slick.driver.JdbcProfile.capabilities.mutable]]:
- *     SQLite does not allow mutation of result sets. All cursors are
- *     read-only.</li>
- *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequence]]:
- *     Sequences are not supported by SQLite.</li>
- *   <li>[[scala.slick.driver.JdbcProfile.capabilities.returnInsertOther]]:
- *     When returning columns from an INSERT operation, only a single column
- *     may be specified which must be the table's AutoInc column.</li>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBigDecimal]]:
- *     SQLite does not support a decimal type.</li>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.typeBlob]]: Blobs are
- *     not supported by the SQLite JDBC driver (but binary data in the form of
- *     <code>Array[Byte]</code> is).</li>
- *   <li>[[scala.slick.profile.RelationalProfile.capabilities.zip]]:
- *     Row numbers (required by <code>zip</code> and
- *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
- *     code which uses this feature throws a SlickException.</li>
- * </ul>
- *
- * @author Paul Snively
- * @author Stefan Zeiger
- */
-=======
 /** Slick driver for SQLite.
   *
   * This driver implements [[scala.slick.driver.JdbcProfile]]
@@ -82,7 +44,6 @@ import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
   *     code which uses this feature throws a SlickException.</li>
   * </ul>
   */
->>>>>>> upstream/master
 trait SQLiteDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
