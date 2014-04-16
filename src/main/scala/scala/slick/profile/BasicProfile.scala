@@ -51,13 +51,14 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
     implicit def queryToQueryExecutor[U, C[_]](q: Query[_, U, C]): QueryExecutor[C[U]] = createQueryExecutor[C[U]](queryCompiler.run(q.toNode).tree, ())
     implicit def shapedValueToQueryExecutor[U](u: ShapedValue[_, U]): QueryExecutor[U] = createQueryExecutor[U](queryCompiler.run(u.toNode).tree, ())
     implicit def runnableCompiledToQueryExecutor[RU](c: RunnableCompiled[_, RU]): QueryExecutor[RU] = createQueryExecutor[RU](c.compiledQuery, c.param)
+    implicit def streamableCompiledToInsertInvoker[EU](c: StreamableCompiled[_, _, EU]): InsertInvoker[EU] = createInsertInvoker[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
     // We can't use this direct way due to SI-3346
     def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(shape.toNode(q)).tree, ())
     implicit def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = createUnshapedQueryExecutor[M](q)
 
-    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createInsertInvoker[T](insertCompiler.run(c.toNode).tree)
-    implicit def shapedValueToInsertInvoker[U](u: ShapedValue[_, U]) = createInsertInvoker[U](insertCompiler.run(u.toNode).tree)
-    implicit def queryToInsertInvoker[U, C[_]](q: Query[_, U, C]) = createInsertInvoker[U](insertCompiler.run(q.toNode).tree)
+    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createInsertInvoker[T](compileInsert(c.toNode))
+    implicit def shapedValueToInsertInvoker[U](u: ShapedValue[_, U]) = createInsertInvoker[U](compileInsert(u.toNode))
+    implicit def queryToInsertInvoker[U, C[_]](q: Query[_, U, C]) = createInsertInvoker[U](compileInsert(q.toNode))
 
     // Work-around for SI-3346
     @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
@@ -81,6 +82,9 @@ trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { d
 
   /** The compiler used for inserting data */
   def insertCompiler: QueryCompiler
+
+  /** (Partially) ompile an AST for insert operations */
+  def compileInsert(n: Node): CompiledInsert
 }
 
 trait BasicDriver extends BasicProfile {
@@ -115,7 +119,12 @@ trait BasicInvokerComponent { driver: BasicDriver =>
   type InsertInvoker[T] <: InsertInvokerDef[T]
 
   /** Create an InsertInvoker -- this method should be implemented by drivers as needed */
-  def createInsertInvoker[T](tree: Node): InsertInvoker[T]
+  def createInsertInvoker[T](compiled: CompiledInsert): InsertInvoker[T]
+
+  /** The type of a (partially) compiled AST for Insert operations. Unlike
+    * querying or deleting, inserts may require different compilation results
+    * which should be computed lazily. */
+  type CompiledInsert
 
   trait InsertInvokerDef[T] {
     type SingleInsertResult

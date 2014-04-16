@@ -24,6 +24,25 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
+  class JdbcCompiledInsert(source: Node) {
+    protected[this] lazy val standardInsert: Node = insertCompiler.run(source).tree
+
+    /** The `ResultConverter` and `InsertBuilder` for standard insert statements.
+      * The builder can also be used for building custom inserts based on another
+      * `Query`. */
+    lazy val (standardInsertConverter, standardInsertBuilder) = {
+      val ResultSetMapping(_, insertNode: Insert, CompiledMapping(_converter, _)) = standardInsert
+      (_converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]], createInsertBuilder(insertNode))
+    }
+
+    /** The table and SQL statement for standard inserts. */
+    lazy val InsertBuilderResult(standardInsertTable, standardInsertStatement, _) = standardInsertBuilder.buildInsert(forced = false)
+
+    /** The statement for standard inserts with `force` methods that insert
+      * data even into `AutoInc` columns. */
+    lazy val standardInsertForcedStatement = standardInsertBuilder.buildInsert(forced = true).sql
+  }
+
   abstract class StatementPart
   case object SelectPart extends StatementPart
   case object FromPart extends StatementPart

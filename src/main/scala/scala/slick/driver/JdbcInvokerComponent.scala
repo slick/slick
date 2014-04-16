@@ -14,12 +14,12 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
   type InsertInvoker[T] = CountingInsertInvoker[T]
 
-  def createInsertInvoker[U](tree: Node) = createCountingInsertInvoker(tree)
+  def createInsertInvoker[U](tree: CompiledInsert) = createCountingInsertInvoker(tree)
 
   // Create the different invokers -- these methods should be overridden by drivers as needed
-  def createCountingInsertInvoker[U](tree: Node) = new CountingInsertInvoker[U](tree)
-  def createKeysInsertInvoker[U, RU](tree: Node, keys: Node) = new KeysInsertInvoker[U, RU](tree, keys)
-  def createMappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R) = new MappedKeysInsertInvoker[U, RU, R](tree, keys, tr)
+  def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
+  def createKeysInsertInvoker[U, RU](compiled: CompiledInsert, keys: Node) = new KeysInsertInvoker[U, RU](compiled, keys)
+  def createMappedKeysInsertInvoker[U, RU, R](compiled: CompiledInsert, keys: Node, tr: (U, RU) => R) = new MappedKeysInsertInvoker[U, RU, R](compiled, keys, tr)
   def createUpdateInvoker[T](tree: Node, param: Any) = new UpdateInvoker[T](tree, param)
   def createDeleteInvoker(tree: Node, param: Any) = new DeleteInvoker(tree, param)
   def createQueryInvoker[R](tree: Node, param: Any): QueryInvoker[R] = new QueryInvoker[R](tree, param)
@@ -80,21 +80,15 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running INSERT calls. */
-  abstract class BaseInsertInvoker[U](tree: Node) extends InsertInvokerDef[U] {
-
-    protected[this] val ResultSetMapping(_, insertNode: Insert, CompiledMapping(_converter, _)) = tree
-    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, U]]
-    protected[this] lazy val builder = createInsertBuilder(insertNode)
+  abstract class BaseInsertInvoker[U](protected val compiled: CompiledInsert) extends InsertInvokerDef[U] {
 
     protected def retOne(st: Statement, value: U, updateCount: Int): SingleInsertResult
     protected def retMany(values: Seq[U], individual: Seq[SingleInsertResult]): MultiInsertResult
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]): MultiInsertResult
 
-    protected lazy val insertResult = builder.buildInsert(forced = false)
-    protected lazy val insertForcedResult = builder.buildInsert(forced = true)
-    lazy val insertStatement = insertResult.sql
-    lazy val forceInsertStatement = insertForcedResult.sql
-    def insertStatementFor[TT, C[_]](query: Query[TT, U, C]): String = builder.buildInsert(query).sql
+    lazy val insertStatement = compiled.standardInsertStatement
+    lazy val forceInsertStatement = compiled.standardInsertForcedStatement
+    def insertStatementFor[TT, C[_]](query: Query[TT, U, C]): String = compiled.standardInsertBuilder.buildInsert(query).sql
     def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String = insertStatementFor(Query(c)(shape))
 
     def useBatchUpdates(implicit session: Backend#Session) = session.capabilities.supportsBatchUpdates
@@ -113,7 +107,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def internalInsert(forced: Boolean, value: U)(implicit session: Backend#Session): SingleInsertResult =
       prepared(if(forced) forceInsertStatement else insertStatement) { st =>
         st.clearParameters()
-        converter.set(value, st, forced)
+        compiled.standardInsertConverter.set(value, st, forced)
         val count = st.executeUpdate()
         retOne(st, value, count)
       }
@@ -141,7 +135,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
         prepared(if(forced) forceInsertStatement else insertStatement) { st =>
           st.clearParameters()
           for(value <- values) {
-            converter.set(value, st, forced)
+            compiled.standardInsertConverter.set(value, st, forced)
             st.addBatch()
           }
           val counts = st.executeBatch()
@@ -164,7 +158,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       insert(Query(c)(shape))(session)
 
     def insert[TT, C[_]](query: Query[TT, U, C])(implicit session: Backend#Session): QueryInsertResult = {
-      val sbr = builder.buildInsert(query)
+      val sbr = compiled.standardInsertBuilder.buildInsert(query)
       prepared(insertStatementFor(query)) { st =>
         st.clearParameters()
         sbr.setter(st, 1, null)
@@ -175,7 +169,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   }
 
   /** Pseudo-invoker for running INSERT calls and returning affected row counts. */
-  class CountingInsertInvoker[U](tree: Node) extends BaseInsertInvoker[U](tree) with FullInsertInvoker[U] {
+  class CountingInsertInvoker[U](compiled: CompiledInsert) extends BaseInsertInvoker[U](compiled) with FullInsertInvoker[U] {
     type SingleInsertResult = Int
     type MultiInsertResult = Option[Int]
     type QueryInsertResult = Int
@@ -199,12 +193,12 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def retQuery(st: Statement, updateCount: Int) = updateCount
 
     def returning[RT, RU, C[_]](value: Query[RT, RU, C]) =
-      createKeysInsertInvoker[U, RU](tree, value.toNode)
+      createKeysInsertInvoker[U, RU](compiled, value.toNode)
   }
 
   /** Base class with common functionality for KeysInsertInvoker and MappedKeysInsertInvoker. */
-  abstract class AbstractKeysInsertInvoker[U, RU](tree: Node, keys: Node)
-    extends BaseInsertInvoker[U](tree) {
+  abstract class AbstractKeysInsertInvoker[U, RU](compiled: CompiledInsert, keys: Node)
+    extends BaseInsertInvoker[U](compiled) {
 
     protected def buildKeysResult(st: Statement): Invoker[RU] =
       ResultSetInvoker[RU](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr.rs).asInstanceOf[RU])
@@ -213,15 +207,15 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     override def useBatchUpdates(implicit session: Backend#Session) = false
 
     protected lazy val (keyColumns, keyConverter) =
-      builder.buildReturnColumns(keys, insertResult.table)
+      compiled.standardInsertBuilder.buildReturnColumns(keys, compiled.standardInsertTable)
 
     override protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
       session.withPreparedInsertStatement(sql, keyColumns.toArray)(f)
   }
 
   /** Pseudo-invoker for running INSERT calls and returning generated keys. */
-  class KeysInsertInvoker[U, RU](tree: Node, keys: Node)
-    extends AbstractKeysInsertInvoker[U, RU](tree, keys) with FullInsertInvoker[U] {
+  class KeysInsertInvoker[U, RU](compiled: CompiledInsert, keys: Node)
+    extends AbstractKeysInsertInvoker[U, RU](compiled, keys) with FullInsertInvoker[U] {
 
     type SingleInsertResult = RU
     type MultiInsertResult = Seq[RU]
@@ -246,12 +240,12 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
       * @param f Function that maps inserted values and generated keys to a desired value.
       * @tparam R target type of the mapping
       */
-    def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](tree, keys, f)
+    def into[R](f: (U, RU) => R) = createMappedKeysInsertInvoker[U, RU, R](compiled, keys, f)
   }
 
   /** Pseudo-invoker for running INSERT calls and returning generated keys combined with the values. */
-  class MappedKeysInsertInvoker[U, RU, R](tree: Node, keys: Node, tr: (U, RU) => R)
-    extends AbstractKeysInsertInvoker[U, RU](tree, keys) {
+  class MappedKeysInsertInvoker[U, RU, R](compiled: CompiledInsert, keys: Node, tr: (U, RU) => R)
+    extends AbstractKeysInsertInvoker[U, RU](compiled, keys) {
 
     type SingleInsertResult = R
     type MultiInsertResult = Seq[R]
