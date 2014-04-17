@@ -11,8 +11,12 @@ import org.slf4j.LoggerFactory
 trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
   def compile(n: Node): ResultConverter[Domain, _] = n match {
-    case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, Some(fs))
-    case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, Some(fs))
+    case InsertColumn(paths, fs, _) =>
+      if(paths.length == 1) createColumnConverter(n, paths.head, Some(fs))
+      else CompoundResultConverter(1, paths.map(p => createColumnConverter(n, p, Some(fs))): _*)
+    case OptionApply(InsertColumn(paths, fs, _)) =>
+      if(paths.length == 1) createColumnConverter(n, paths.head, Some(fs))
+      else CompoundResultConverter(1, paths.map(p => createColumnConverter(n, p, Some(fs))): _*)
     case p @ Path(_) => createColumnConverter(n, p, None)
     case OptionApply(p @ Path(_)) => createColumnConverter(n, p, None)
     case ProductNode(ch) =>

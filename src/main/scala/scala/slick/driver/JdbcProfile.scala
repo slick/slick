@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast.{BaseTypedType, Node}
-import scala.slick.compiler.{Phase, QueryCompiler}
+import scala.slick.compiler.{Phase, QueryCompiler, InsertCompiler}
 import scala.slick.lifted._
 import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker, JdbcType, JdbcFastPath}
 import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
@@ -30,7 +30,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
-  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new JdbcInsertCompiler)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(true), new JdbcInsertCodeGen)
+  lazy val forceInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(false), new JdbcInsertCodeGen)
   def compileInsert(tree: Node) = new JdbcCompiledInsert(tree)
   type CompiledInsert = JdbcCompiledInsert
 

@@ -19,28 +19,40 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   // Create the different builders -- these methods should be overridden by drivers as needed
   def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  def createInsertBuilder(node: Node): InsertBuilder = new InsertBuilder(node)
+  def createInsertBuilder(node: Insert): InsertBuilder = new InsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
   class JdbcCompiledInsert(source: Node) {
     protected[this] lazy val standardInsert: Node = insertCompiler.run(source).tree
+    protected[this] lazy val forceInsert: Node = forceInsertCompiler.run(source).tree
 
-    /** The `ResultConverter` and `InsertBuilder` for standard insert statements.
-      * The builder can also be used for building custom inserts based on another
-      * `Query`. */
-    lazy val (standardInsertConverter, standardInsertBuilder) = {
-      val ResultSetMapping(_, insertNode: Insert, CompiledMapping(_converter, _)) = standardInsert
-      (_converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]], createInsertBuilder(insertNode))
+    /** The `ResultConverter` and `InsertBuilderResult` for standard insert statements. */
+    lazy val (standardInsertConverter, standardInsertBuilderResult) = {
+      val ResultSetMapping(_, CompiledStatement(sql, ibr: InsertBuilderResult, _), CompiledMapping(conv, _)) = standardInsert
+      (conv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]], ibr)
     }
 
-    /** The table and SQL statement for standard inserts. */
-    lazy val InsertBuilderResult(standardInsertTable, standardInsertStatement, _) = standardInsertBuilder.buildInsert(forced = false)
+    /** The `ResultConverter` and `InsertBuilderResult` for forced insert statements. */
+    lazy val (forceInsertConverter, forceInsertBuilderResult) = {
+      val ResultSetMapping(_, CompiledStatement(sql, ibr: InsertBuilderResult, _), CompiledMapping(conv, _)) = forceInsert
+      (conv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]], ibr)
+    }
 
-    /** The statement for standard inserts with `force` methods that insert
-      * data even into `AutoInc` columns. */
-    lazy val standardInsertForcedStatement = standardInsertBuilder.buildInsert(forced = true).sql
+    /** Build a list of columns and a matching `ResultConverter` for retrieving keys of inserted rows. */
+    def buildReturnColumns(node: Node): (IndexedSeq[String], ResultConverter[JdbcResultConverterDomain, _]) = {
+      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
+        throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
+      val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(rconv, _)) =
+        forceInsertCompiler.run(node).tree
+      if(ibr.table.baseIdentity != standardInsertBuilderResult.table.baseIdentity)
+        throw new SlickException("Returned key columns must be from same table as inserted columns ("+
+          ibr.table.baseIdentity+" != "+standardInsertBuilderResult.table.baseIdentity+")")
+      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && (ibr.fields.size > 1 || !ibr.fields.head.options.contains(ColumnOption.AutoInc)))
+        throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
+      (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]])
+    }
   }
 
   abstract class StatementPart
@@ -463,41 +475,22 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   }
 
   /** Builder for INSERT statements. */
-  class InsertBuilder(val node: Node) {
+  class InsertBuilder(val ins: Insert) {
+    protected val Insert(_, table: TableNode, ProductNode(rawColumns)) = ins
+    protected val syms: IndexedSeq[FieldSymbol] = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }(collection.breakOut)
 
-    protected val Insert(_, table: TableNode, _, ProductNode(rawColumns)) = node
-    protected lazy val allColumns = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }
-    protected lazy val softColumns = allColumns.filterNot(_.options.contains(ColumnOption.AutoInc))
-    protected lazy val qTable = quoteTableName(table)
-    protected lazy val qAllColumns = allColumns.map(fs => quoteIdentifier(fs.name)).mkString(",")
-    protected lazy val qAllValues = allColumns.map(_ => "?").mkString(",")
-    protected lazy val qSoftColumns = softColumns.map(fs => quoteIdentifier(fs.name)).mkString(",")
-    protected lazy val qSoftValues = softColumns.map(_ => "?").mkString(",")
-
-    def buildInsert(forced: Boolean): InsertBuilderResult = {
-      val (c, v) = if(forced) (qAllColumns, qAllValues) else (qSoftColumns, qSoftValues)
-      InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($c) VALUES ($v)")
+    def buildInsert: InsertBuilderResult = {
+      val start = buildInsertStart
+      new InsertBuilderResult(table, start + syms.map(_ => "?").mkString("values (", ",", ")"), syms) {
+        def buildInsert(compiledQuery: Node) = {
+          val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery)
+          SQLBuilder.Result(start + sbr.sql, sbr.setter)
+        }
+      }
     }
 
-    def buildInsert[C[_]](query: Query[_, _, C]): InsertBuilderResult = {
-      val (_, sbr: SQLBuilder.Result) =
-        CodeGen.findResult(queryCompiler.run((query.toNode)).tree)
-      InsertBuilderResult(table.tableName, s"INSERT INTO $qTable ($qAllColumns) ${sbr.sql}", sbr.setter)
-    }
-
-    def buildReturnColumns(node: Node, table: String): (IndexedSeq[String], ResultConverter[JdbcResultConverterDomain, _]) = {
-      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
-        throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
-      val ResultSetMapping(_, Insert(_, ktable: TableNode, _, ProductNode(kpaths)), CompiledMapping(rconv, _)) =
-        insertCompiler.run(node).tree
-      if(ktable.tableName != table)
-        throw new SlickException("Returned key columns must be from same table as inserted columns ("+
-          ktable+" != "+table+")")
-      val kfields = kpaths.map { case Select(_, fs: FieldSymbol) => fs }.toIndexedSeq
-      if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && (kfields.size > 1 || !kfields.head.options.contains(ColumnOption.AutoInc)))
-        throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
-      (kfields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]])
-    }
+    protected def buildInsertStart: String =
+      "insert into "+quoteTableName(table) + syms.map(fs => quoteIdentifier(fs.name)).mkString(" (", ",", ") ")
   }
 
   /** Builder for various DDL statements. */
@@ -655,4 +648,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   }
 }
 
-case class InsertBuilderResult(table: String, sql: String, setter: SQLBuilder.Setter = SQLBuilder.EmptySetter)
+abstract class InsertBuilderResult(val table: TableNode, val sql: String, val fields: IndexedSeq[FieldSymbol]) {
+  def buildInsert(compiledQuery: Node): SQLBuilder.Result
+}

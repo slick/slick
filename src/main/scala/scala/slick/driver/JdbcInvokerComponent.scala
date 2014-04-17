@@ -4,7 +4,7 @@ import scala.language.{higherKinds, existentials}
 import java.sql.{Statement, PreparedStatement}
 import scala.slick.SlickException
 import scala.slick.ast.{Insert, CompiledStatement, ResultSetMapping, Node, ParameterSwitch}
-import scala.slick.lifted.{FlatShapeLevel, Query, Shape}
+import scala.slick.lifted.{CompiledStreamingExecutable, FlatShapeLevel, Query, Shape}
 import scala.slick.jdbc._
 import scala.slick.util.SQLBuilder
 import scala.slick.profile.BasicInvokerComponent
@@ -86,12 +86,20 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def retMany(values: Seq[U], individual: Seq[SingleInsertResult]): MultiInsertResult
     protected def retManyBatch(st: Statement, values: Seq[U], updateCounts: Array[Int]): MultiInsertResult
 
-    lazy val insertStatement = compiled.standardInsertStatement
-    lazy val forceInsertStatement = compiled.standardInsertForcedStatement
-    def insertStatementFor[TT, C[_]](query: Query[TT, U, C]): String = compiled.standardInsertBuilder.buildInsert(query).sql
+    lazy val insertStatement = compiled.standardInsertBuilderResult.sql
+    lazy val forceInsertStatement = compiled.forceInsertBuilderResult.sql
+
+    def insertStatementFor[TT, C[_]](query: Query[TT, U, C]): String = buildSubquery(query).sql
+    def insertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String = buildSubquery(compiledQuery).sql
     def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String = insertStatementFor(Query(c)(shape))
 
     def useBatchUpdates(implicit session: Backend#Session) = session.capabilities.supportsBatchUpdates
+
+    protected def buildSubquery[TT, C[_]](query: Query[TT, U, C]): SQLBuilder.Result =
+      compiled.standardInsertBuilderResult.buildInsert(queryCompiler.run(query.toNode).tree)
+
+    protected def buildSubquery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): SQLBuilder.Result =
+      compiled.standardInsertBuilderResult.buildInsert(compiledQuery.compiledQuery)
 
     protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
       session.withPreparedStatement(sql)(f)
@@ -107,7 +115,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def internalInsert(forced: Boolean, value: U)(implicit session: Backend#Session): SingleInsertResult =
       prepared(if(forced) forceInsertStatement else insertStatement) { st =>
         st.clearParameters()
-        compiled.standardInsertConverter.set(value, st, forced)
+        (if(forced) compiled.forceInsertConverter else compiled.standardInsertConverter).set(value, st, forced)
         val count = st.executeUpdate()
         retOne(st, value, count)
       }
@@ -135,7 +143,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
         prepared(if(forced) forceInsertStatement else insertStatement) { st =>
           st.clearParameters()
           for(value <- values) {
-            compiled.standardInsertConverter.set(value, st, forced)
+            (if(forced) compiled.forceInsertConverter else compiled.standardInsertConverter).set(value, st, forced)
             st.addBatch()
           }
           val counts = st.executeBatch()
@@ -157,9 +165,14 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _], session: Backend#Session): QueryInsertResult =
       insert(Query(c)(shape))(session)
 
-    def insert[TT, C[_]](query: Query[TT, U, C])(implicit session: Backend#Session): QueryInsertResult = {
-      val sbr = compiled.standardInsertBuilder.buildInsert(query)
-      prepared(insertStatementFor(query)) { st =>
+    def insert[TT, C[_]](query: Query[TT, U, C])(implicit session: Backend#Session): QueryInsertResult =
+      internalInsertQuery(buildSubquery(query))
+
+    def insert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _])(implicit session: Backend#Session): QueryInsertResult =
+      internalInsertQuery(buildSubquery(compiledQuery))
+
+    protected def internalInsertQuery(sbr: SQLBuilder.Result)(implicit session: Backend#Session): QueryInsertResult = {
+      prepared(sbr.sql) { st =>
         st.clearParameters()
         sbr.setter(st, 1, null)
         val count = st.executeUpdate()
@@ -206,8 +219,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     // Returning keys from batch inserts is generally not supported
     override def useBatchUpdates(implicit session: Backend#Session) = false
 
-    protected lazy val (keyColumns, keyConverter) =
-      compiled.standardInsertBuilder.buildReturnColumns(keys, compiled.standardInsertTable)
+    protected lazy val (keyColumns, keyConverter) = compiled.buildReturnColumns(keys)
 
     override protected def prepared[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
       session.withPreparedInsertStatement(sql, keyColumns.toArray)(f)
@@ -278,7 +290,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     def update(value: T)(implicit session: Backend#Session): Int = session.withPreparedStatement(updateStatement) { st =>
       st.clearParameters
       converter.set(value, st, true)
-      sres.setter(st, converter.fullWidth+1, param)
+      sres.setter(st, converter.width+1, param)
       st.executeUpdate
     }
 

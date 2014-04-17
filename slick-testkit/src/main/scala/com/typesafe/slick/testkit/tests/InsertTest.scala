@@ -20,8 +20,9 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     val src1 = TableQuery(new TestTable(_, "src1_q"))
     val dst1 = TableQuery(new TestTable(_, "dst1_q"))
     val dst2 = TableQuery(new TestTable(_, "dst2_q"))
+    val dst3 = TableQuery(new TestTable(_, "dst3_q"))
 
-    (src1.ddl ++ dst1.ddl ++ dst2.ddl).create
+    (src1.ddl ++ dst1.ddl ++ dst2.ddl ++ dst3.ddl).create
 
     src1.insert(1, "A")
     src1.map(_.ins).insertAll((2, "B"), (3, "C"))
@@ -38,6 +39,11 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     println("Insert 3: "+dst2.insertStatementFor(q3))
     dst2.insertExpr(q3)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X")), dst2.list.toSet)
+
+    val q4comp = Compiled { dst2.filter(_.id < 10) }
+    val dst3comp = Compiled { dst3 }
+    dst3comp.insert(q4comp)
+    assertEquals(Set((1,"A"), (2,"B")), dst3comp.run.toSet)
 
     /*val q4 = (43, "Y".bind)
     println("Insert 4: "+Dst2.shaped.insertStatementFor(q4))

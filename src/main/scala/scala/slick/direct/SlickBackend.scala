@@ -209,7 +209,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     def _fields = getConstructorArgs(typetag.tpe)
     val tableName = mapper.typeToTable( typetag.tpe )
-    val table = sq.TableNode(None, tableName, sq.SimpleTableIdentitySymbol(driver, "_", tableName), null)
+    val tsym = sq.SimpleTableIdentitySymbol(driver, "_", tableName)
+    val table = sq.TableNode(None, tableName, tsym, null, tsym)
     val tableRef = new sq.AnonSymbol
     val tableExp = sq.TableExpansion(tableRef, table, sq.TypeMapping(
       sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, sq.Ref(tableRef)) )),

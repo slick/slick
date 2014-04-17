@@ -9,15 +9,15 @@ import Util._
 
 /** A custom compiler for INSERT statements. We could reuse the standard
   * phases with a minor modification instead, but this is much faster. */
-trait InsertCompiler extends Phase {
+class InsertCompiler(val skipAutoInc: Boolean) extends Phase {
   val name = "insertCompiler"
 
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[CodeGen]))
 
   def apply(state: CompilerState) = state.map { tree =>
-    val gen, rgen = new AnonSymbol
-    val tref = Ref(gen)
-    val rref = Ref(rgen)
+    val tableSym, linearSym = new AnonSymbol
+    val tref = Ref(tableSym)
+    val rref = Ref(linearSym)
 
     var tableExpansion: TableExpansion = null
     var expansionRef: Symbol = null
@@ -36,8 +36,13 @@ trait InsertCompiler extends Phase {
         setTable(te)
         tr(expansion)
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
-        cols += Select(tref, fs).nodeTyped(sel.nodeType)
-        InsertColumn(Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType), fs).nodeTyped(sel.nodeType)
+        val ch =
+          if(skipAutoInc && fs.options.contains(ColumnOption.AutoInc)) IndexedSeq.empty[Node]
+          else {
+            cols += Select(tref, fs).nodeTyped(sel.nodeType)
+            IndexedSeq(Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType))
+          }
+        InsertColumn(ch, fs, sel.nodeType)
       case Ref(s) if s == expansionRef =>
         tr(tableExpansion.columns)
       case Bind(gen, te @ TableExpansion(_, t: TableNode, _), Pure(sel, _)) =>
@@ -47,12 +52,7 @@ trait InsertCompiler extends Phase {
     }
     val tree2 = tr(tree)
     if(tableExpansion eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(gen, tableExpansion.table, tree2, ProductNode(cols)).nodeWithComputedType(SymbolScope.empty, typeChildren = false, retype = true)
-    logger.debug("Insert node:", ins)
-
-    ResultSetMapping(rgen, ins, createMapping(ins)).nodeTyped(
-      CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType))
+    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).nodeWithComputedType(SymbolScope.empty, typeChildren = false, retype = true)
+    ResultSetMapping(linearSym, ins, tree2).nodeTyped(CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType))
   }
-
-  def createMapping(ins: Insert): Node
 }

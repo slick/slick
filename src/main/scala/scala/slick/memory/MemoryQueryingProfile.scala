@@ -62,14 +62,9 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
   }): ScalaType[_]).asInstanceOf[ScalaType[Any]]
 
   class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
-
-    def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
-
-    def apply(node: Node, state: CompilerState): Node =
-      ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
-        val nmap = compileMapping(rsm.map)
-        rsm.copy(map = nmap).nodeTyped(rsm.nodeType)
-      }
+    override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
+    def compileServerSide(n: Node, state: CompilerState) = n
+    def compileMapping(n: Node, state: CompilerState, serverSide: Node) = compileMapping(n)
 
     def retype(n: Node): Node = {
       val n2 = transformSimpleGrouping(n)
@@ -110,8 +105,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
       def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = ???
       override def info = super.info + s"($ridx, nullable=$nullable)"
-      def fullWidth = 1
-      def skippingWidth = 1
+      def width = 1
     }
   }
 }

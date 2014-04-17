@@ -1,6 +1,7 @@
 package scala.slick.relational
 
 import scala.language.existentials
+import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.util.TupleSupport
 import java.io.{StringWriter, OutputStreamWriter, PrintWriter}
@@ -23,13 +24,9 @@ trait ResultConverter[M <: ResultConverterDomain, @specialized T] {
   def children: Iterator[ResultConverter[M, _]] = Iterator.empty
   override def toString = s"$info(${children.mkString(", ")}})"
 
-  /** The full width of this converter (in columns), corresponding to the
+  /** The width of this converter (in columns), corresponding to the
     * number of columns that will be read or written by it. */
-  def fullWidth: Int
-
-  /** The width of this converter without `AutoInc` columns.
-    * @see #fullWidth */
-  def skippingWidth: Int
+  def width: Int
 }
 
 object ResultConverter {
@@ -68,15 +65,7 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
   private[this] val cha = children.to[Array]
   private[this] val len = cha.length
 
-  val (fullWidth, skippingWidth) = {
-    var i, full, skipping = 0
-    while(i < len) {
-      full += cha(i).fullWidth
-      skipping += cha(i).skippingWidth
-      i += 1
-    }
-    (full, skipping)
-  }
+  val width = cha.foldLeft(0)(_ + _.width)
 
   def read(pr: Reader) = {
     val a = new Array[Any](len)
@@ -103,6 +92,32 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
   }
 }
 
+/** Result converter that can write to multiple sub-converters and read from the first one */
+final case class CompoundResultConverter[M <: ResultConverterDomain, @specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
+  override def children = childConverters.iterator
+  private[this] val cha = children.to[Array]
+  private[this] val len = cha.length
+
+  def read(pr: Reader) = {
+    if(len == 0) throw new SlickException("Cannot read from empty CompoundResultConverter")
+    else cha(0).read(pr)
+  }
+  def update(value: T, pr: Updater) = {
+    var i = 0
+    while(i < len) {
+      cha(i).update(value, pr)
+      i += 1
+    }
+  }
+  def set(value: T, pp: Writer, forced: Boolean) = {
+    var i = 0
+    while(i < len) {
+      cha(i).set(value, pp, forced)
+      i += 1
+    }
+  }
+}
+
 final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]], default: () => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = child.read(pr).getOrElse(default())
   def update(value: T, pr: Updater) = child.update(Some(value), pr)
@@ -110,8 +125,7 @@ final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: Resul
   override def info =
     super.info + s"(${ try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } })"
   override def children = Iterator(child)
-  def fullWidth = child.fullWidth
-  def skippingWidth = child.skippingWidth
+  def width = child.width
 }
 
 final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C], toBase: T => C, toMapped: C => T) extends ResultConverter[M, T] {
@@ -119,6 +133,5 @@ final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](ch
   def update(value: T, pr: Updater) = child.update(toBase(value), pr)
   def set(value: T, pp: Writer, forced: Boolean) = child.set(toBase(value), pp, forced)
   override def children = Iterator(child)
-  def fullWidth = child.fullWidth
-  def skippingWidth = child.skippingWidth
+  def width = child.width
 }

@@ -22,7 +22,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
-  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new MemoryInsertCompiler)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(true) , new MemoryInsertCodeGen)
 
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
 
@@ -55,7 +55,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   }
 
   class InsertInvokerDef[T](tree: Node) extends super.InsertInvokerDef[T] {
-    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, projection, _), CompiledMapping(converter, _)) = tree
+    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, _), CompiledMapping(converter, _)) = tree
 
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
@@ -106,29 +106,28 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
   override val profile: MemoryProfile = this
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
-    val Insert(_, table: TableNode, _, ProductNode(cols)) = insert
+    val Insert(_, table: TableNode, ProductNode(cols)) = insert
     val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
     def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
       val fs = column.get
       val tidx = tableColumnIdxs(fs)
-      val autoInc = fs.options.contains(ColumnOption.AutoInc)
-      new InsertResultConverter(tidx, autoInc)
+      new InsertResultConverter(tidx)
     }
 
-    class InsertResultConverter(tidx: Int, autoInc: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
+    class InsertResultConverter(tidx: Int) extends ResultConverter[MemoryResultConverterDomain, Any] {
       def read(pr: MemoryResultConverterDomain#Reader) = ???
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) =
-        if(forced || !autoInc) pp(tidx) = value
-      override def info = super.info + s"($tidx, autoInc=$autoInc)"
-      def fullWidth = 1
-      def skippingWidth = if(autoInc) 0 else 1
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = pp(tidx) = value
+      override def info = super.info + s"($tidx)"
+      def width = 1
     }
   }
 
-  class MemoryInsertCompiler extends InsertCompiler {
-    def createMapping(ins: Insert) = new InsertMappingCompiler(ins).compileMapping(ins.map)
+  class MemoryInsertCodeGen extends CodeGen {
+    def compileServerSide(n: Node, state: CompilerState) = n
+    def compileMapping(n: Node, state: CompilerState, serverSide: Node) =
+      new InsertMappingCompiler(serverSide.asInstanceOf[Insert]).compileMapping(n)
   }
 }
 
