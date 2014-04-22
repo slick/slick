@@ -396,7 +396,7 @@ trait GeneratorHelpers[Code,TermName,TypeName]{
       // Table
       Seq("O","tableIdentitySymbol","tableProvider"),
       // generated code
-      Seq("tag")
+      Seq("_tableTag")
     ).flatten
 /* currently disambiguated using overloading
   /** Existing term member names in Table[_] that take parameters */
