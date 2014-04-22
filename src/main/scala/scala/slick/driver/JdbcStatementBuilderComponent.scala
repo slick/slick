@@ -302,6 +302,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           case (ElementSymbol(idx), z) => joins(z).nodeGenerators(idx-1)._1
         }
         b += symbolName(struct) += '.' += symbolName(field)
+      case OptionApply(ch) => expr(ch, skipParens)
       case n => // try to build a sub-query
         b"\("
         buildComprehension(toComprehension(n))
