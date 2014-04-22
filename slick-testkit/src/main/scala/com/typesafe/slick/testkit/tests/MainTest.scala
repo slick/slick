@@ -204,6 +204,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     assertEquals(4, q9.run)
     println("Count statement: " + q9.selectStatement)
 
-    for(t <- q1) println("User tuple: "+t)
+    val q10 = users.filter(_.last inSetBind Seq()).map(u => (u.first, u.last))
+    assertEquals(Nil, q10.run)
   }
 }
