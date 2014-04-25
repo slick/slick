@@ -14,14 +14,23 @@ abstract class CodeGen extends Phase {
 
   def apply(node: Node, state: CompilerState): Node =
     ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
-      val nfrom = ClientSideOp.mapServerSide(rsm.from, keepType = true)(ss => compileServerSide(ss, state))
-      val nmap = compileMapping(rsm.map, state, nfrom)
-      rsm.copy(from = nfrom, map = nmap).nodeTyped(rsm.nodeType)
+      var nmap: Option[Node] = None
+      var compileMap: Option[Node] = Some(rsm.map)
+
+      val nfrom = ClientSideOp.mapServerSide(rsm.from, keepType = true) { ss =>
+        val (nss, nmapOpt) = compileServerSideAndMapping(ss, compileMap, state)
+        nmapOpt match {
+          case Some(_) =>
+            nmap = nmapOpt
+            compileMap = None
+          case None =>
+        }
+        nss
+      }
+      rsm.copy(from = nfrom, map = nmap.get).nodeTyped(rsm.nodeType)
     }
 
-  def compileServerSide(n: Node, state: CompilerState): Node
-
-  def compileMapping(n: Node, state: CompilerState, serverSide: Node): Node
+  def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState): (Node, Option[Node])
 }
 
 object CodeGen {

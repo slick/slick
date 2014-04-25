@@ -14,7 +14,7 @@ class BaseResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Doub
     v
   }
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
-  def set(value: T, pp: PreparedStatement, forced: Boolean) =
+  def set(value: T, pp: PreparedStatement) =
     ti.setValue(value, pp, idx)
   override def info = super.info + "(" + Dump.blue + ti + Dump.normal + s", idx=$idx, name=$name)"
   def width = 1
@@ -31,7 +31,7 @@ class OptionResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Do
     case Some(v) => ti.updateValue(v, pr, idx)
     case _ => ti.updateNull(pr, idx)
   }
-  def set(value: Option[T], pp: PreparedStatement, forced: Boolean) = value match {
+  def set(value: Option[T], pp: PreparedStatement) = value match {
     case Some(v) => ti.setValue(v, pp, idx)
     case _ => ti.setNull(pp, idx)
   }
@@ -55,7 +55,7 @@ class DefaultingResultConverter[@specialized(Byte, Short, Int, Long, Char, Float
     if(ti.wasNull(pr, idx)) default() else v
   }
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
-  def set(value: T, pp: PreparedStatement, forced: Boolean) = ti.setValue(value, pp, idx)
+  def set(value: T, pp: PreparedStatement) = ti.setValue(value, pp, idx)
   override def info =
     super.info + "(" + Dump.blue + ti + Dump.normal + ", idx=" + idx + ", default=" +
       { try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } } + ")"
@@ -78,7 +78,7 @@ abstract class JdbcFastPath[T](protected[this] val rc: TypeMappingResultConverte
 
   def read(pr: Reader) = rc.read(pr)
   def update(value: T, pr: Updater) = rc.update(value, pr)
-  def set(value: T, pp: Writer, forced: Boolean) = rc.set(value, pp, forced)
+  def set(value: T, pp: Writer) = rc.set(value, pp)
 
   override def children = Iterator(rc)
   override def info = super.info + Dump.yellow + " [FastPath]" + Dump.normal

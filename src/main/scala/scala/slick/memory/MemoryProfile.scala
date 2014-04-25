@@ -22,7 +22,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
-  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(true) , new MemoryInsertCodeGen)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.NonAutoInc), new MemoryInsertCodeGen)
 
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
 
@@ -63,7 +63,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
     def += (value: T)(implicit session: Backend#Session) {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
-      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf, false)
+      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf)
       htable.append(buf)
     }
 
@@ -109,25 +109,21 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
     val Insert(_, table: TableNode, ProductNode(cols)) = insert
     val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
-    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
-      val fs = column.get
-      val tidx = tableColumnIdxs(fs)
-      new InsertResultConverter(tidx)
-    }
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] =
+      new InsertResultConverter(tableColumnIdxs(column.get))
 
     class InsertResultConverter(tidx: Int) extends ResultConverter[MemoryResultConverterDomain, Any] {
       def read(pr: MemoryResultConverterDomain#Reader) = ???
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = pp(tidx) = value
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer) = pp(tidx) = value
       override def info = super.info + s"($tidx)"
       def width = 1
     }
   }
 
   class MemoryInsertCodeGen extends CodeGen {
-    def compileServerSide(n: Node, state: CompilerState) = n
-    def compileMapping(n: Node, state: CompilerState, serverSide: Node) =
-      new InsertMappingCompiler(serverSide.asInstanceOf[Insert]).compileMapping(n)
+    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) =
+      (serverSide, mapping.map(new InsertMappingCompiler(serverSide.asInstanceOf[Insert]).compileMapping))
   }
 }
 

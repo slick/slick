@@ -9,7 +9,7 @@ import Util._
 
 /** A custom compiler for INSERT statements. We could reuse the standard
   * phases with a minor modification instead, but this is much faster. */
-class InsertCompiler(val skipAutoInc: Boolean) extends Phase {
+class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
   val name = "insertCompiler"
 
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[CodeGen]))
@@ -37,11 +37,10 @@ class InsertCompiler(val skipAutoInc: Boolean) extends Phase {
         tr(expansion)
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
         val ch =
-          if(skipAutoInc && fs.options.contains(ColumnOption.AutoInc)) IndexedSeq.empty[Node]
-          else {
+          if(mode(fs)) {
             cols += Select(tref, fs).nodeTyped(sel.nodeType)
             IndexedSeq(Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType))
-          }
+          } else IndexedSeq.empty[Node]
         InsertColumn(ch, fs, sel.nodeType)
       case Ref(s) if s == expansionRef =>
         tr(tableExpansion.columns)
@@ -50,9 +49,28 @@ class InsertCompiler(val skipAutoInc: Boolean) extends Phase {
         tr(sel.replace({ case Ref(s) if s == gen => Ref(expansionRef) }, keepType = true))
       case _ => throw new SlickException("Cannot use node "+n+" for inserting data")
     }
-    val tree2 = tr(tree)
+    val tree2 = tr(tree).nodeWithComputedType()
     if(tableExpansion eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).nodeWithComputedType(SymbolScope.empty, typeChildren = false, retype = true)
+    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).nodeWithComputedType(retype = true)
     ResultSetMapping(linearSym, ins, tree2).nodeTyped(CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType))
+  }
+}
+
+object InsertCompiler {
+  /** Determines which columns to include in the `Insert` and mapping nodes
+    * created by `InsertCompiler`. */
+  trait Mode extends (FieldSymbol => Boolean)
+
+  /** Include all columns. For use in forced inserts and merges. */
+  case object AllColumns extends Mode {
+    def apply(fs: FieldSymbol) = true
+  }
+  /** Include only non-AutoInc columns. For use in standard (soft) inserts. */
+  case object NonAutoInc extends Mode {
+    def apply(fs: FieldSymbol) = !fs.options.contains(ColumnOption.AutoInc)
+  }
+  /** Include only primary keys. For use in the insertOrUpdate emulation. */
+  case object PrimaryKeys extends Mode {
+    def apply(fs: FieldSymbol) = fs.options.contains(ColumnOption.PrimaryKey)
   }
 }

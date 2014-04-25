@@ -12,7 +12,7 @@ import scala.slick.model.Model
 /** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
   * implement this profile. */
 trait JdbcProfile extends SqlProfile with JdbcTableComponent
-  with JdbcInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent { driver: JdbcDriver =>
+  with JdbcInvokerComponent with JdbcInsertInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent { driver: JdbcDriver =>
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
@@ -24,14 +24,16 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   lazy val MappedColumnType = MappedJdbcType
 
   override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.relationalPhases
-
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
-  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(true), new JdbcInsertCodeGen)
-  lazy val forceInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(false), new JdbcInsertCodeGen)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.NonAutoInc), new JdbcInsertCodeGen(createInsertBuilder))
+  lazy val forceInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createInsertBuilder))
+  lazy val upsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createUpsertBuilder))
+  lazy val checkInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.PrimaryKeys), new JdbcInsertCodeGen(createCheckInsertBuilder))
+  lazy val updateInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createUpdateInsertBuilder))
   def compileInsert(tree: Node) = new JdbcCompiledInsert(tree)
   type CompiledInsert = JdbcCompiledInsert
 
@@ -72,22 +74,27 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
 object JdbcProfile {
   /** The capabilities specific to `JdbcProfile` */
   object capabilities {
+    /** Can be used for reverse-engineering the database schema */
+    val createModel = Capability("jdbc.createModel")
     /** Can insert into AutoInc columns. */
     val forceInsert = Capability("jdbc.forceInsert")
+    /** Supports a native insertOrUpdate command. Ootherwise the functionality
+      * is emulated on the client side. The emulation uses transactions for
+      * consistency but does not guarantee atomicity, so it may fail if another
+      * insert for the same key happens concurrently. */
+    val insertOrUpdate = Capability("jdbc.insertOrUpdate")
     /** Supports mutable result sets */
     val mutable = Capability("jdbc.mutable")
-    /** Can return primary key of inserted row */
+    /** Can return primary key of inserted rows */
     val returnInsertKey = Capability("jdbc.returnInsertKey")
-    /** Can also return non-primary-key columns of inserted row */
+    /** Can also return non-primary-key columns of inserted rows */
     val returnInsertOther = Capability("jdbc.returnInsertOther")
-    /** Can also return non-primary-key columns of inserted row */
-    val createModel = Capability("jdbc.createModel")
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, forceInsert, mutable, returnInsertKey, returnInsertOther, createModel)
+    val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, returnInsertOther)
   }
 }
 

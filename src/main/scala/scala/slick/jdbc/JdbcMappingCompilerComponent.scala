@@ -11,8 +11,8 @@ import scala.slick.util.SQLBuilder
 /** JDBC driver component which contains the mapping compiler and insert compiler */
 trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
 
-  /** Create a `MappingCompiler` for this driver. */
-  def createMappingCompiler: MappingCompiler = new MappingCompiler
+  /** The `MappingCompiler` for this driver. */
+  val mappingCompiler: MappingCompiler = new MappingCompiler
 
   /** Create a (possibly specialized) `ResultConverter` for the given `JdbcType`. */
   def createBaseResultConverter[T](ti: JdbcType[T], name: String, idx: Int): ResultConverter[JdbcResultConverterDomain, T] =
@@ -26,11 +26,8 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
     * this class use mutable state internally. They are meant to be used for a
     * single conversion only and must not be shared or reused. */
   class MappingCompiler extends ResultConverterCompiler[JdbcResultConverterDomain] {
-    protected[this] var idx = 0
-
-    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[JdbcResultConverterDomain, _] = {
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[JdbcResultConverterDomain, _] = {
       val JdbcType(ti, option) = n.nodeType.structural
-      idx += 1
       if(option) createOptionResultConverter(ti, idx)
       else createBaseResultConverter(ti, column.fold(n.toString)(_.name), idx)
     }
@@ -51,20 +48,19 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
 
   /** Code generator phase for queries on JdbcProfile-based drivers. */
   class JdbcCodeGen(f: QueryBuilder => SQLBuilder.Result) extends CodeGen {
-    def compileServerSide(n: Node, state: CompilerState) = {
-      val sbr = f(driver.createQueryBuilder(n, state))
-      CompiledStatement(sbr.sql, sbr, n.nodeType)
+    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
+      val sbr = f(driver.createQueryBuilder(serverSide, state))
+      (CompiledStatement(sbr.sql, sbr, serverSide.nodeType), mapping.map(mappingCompiler.compileMapping))
     }
-    def compileMapping(n: Node, state: CompilerState, serverSide: Node) = createMappingCompiler.compileMapping(n)
   }
 
   /** Code generator phase for inserts on JdbcProfile-based drivers. */
-  class JdbcInsertCodeGen extends CodeGen {
-    override def compileServerSide(n: Node, state: CompilerState) = {
-      val ibr = driver.createInsertBuilder(n.asInstanceOf[Insert]).buildInsert
-      CompiledStatement(ibr.sql, ibr, n.nodeType)
+  class JdbcInsertCodeGen(f: Insert => InsertBuilder) extends CodeGen {
+    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
+      val ib = f(serverSide.asInstanceOf[Insert])
+      val ibr = ib.buildInsert
+      (CompiledStatement(ibr.sql, ibr, serverSide.nodeType), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
     }
-    def compileMapping(n: Node, state: CompilerState, serverSide: Node) = createMappingCompiler.compileMapping(n)
   }
 
   class JdbcFastPathExtensionMethods[T, P](val mp: MappedProjection[T, P]) {

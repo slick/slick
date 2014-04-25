@@ -9,7 +9,7 @@ import scala.slick.lifted._
 /**
  * The basic functionality that has to be implemented by all drivers.
  */
-trait BasicProfile extends BasicInvokerComponent with BasicExecutorComponent { driver: BasicDriver =>
+trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponent with BasicExecutorComponent { driver: BasicDriver =>
 
   /** The back-end type required by this profile */
   type Backend <: DatabaseComponent
@@ -114,6 +114,9 @@ trait BasicInvokerComponent { driver: BasicDriver =>
 
     def ddlInvoker: this.type = this
   }
+}
+
+trait BasicInsertInvokerComponent { driver: BasicDriver =>
 
   /** The type of insert invokers returned by the driver */
   type InsertInvoker[T] <: InsertInvokerDef[T]
@@ -126,8 +129,13 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     * which should be computed lazily. */
   type CompiledInsert
 
+  /** Defines the standard InsertInvoker methods for inserting data,
+    * which are available at the level of BasicProfile. */
   trait InsertInvokerDef[T] {
+    /** The result type when inserting a single value */
     type SingleInsertResult
+
+    /** The result type when inserting a collection of values */
     type MultiInsertResult
 
     /** Insert a single value */
@@ -136,6 +144,7 @@ trait BasicInvokerComponent { driver: BasicDriver =>
     /** Insert a collection of values */
     def ++= (values: Iterable[T])(implicit session: Backend#Session): MultiInsertResult
 
+    /** Return a reference to this InsertInvoker */
     def insertInvoker: this.type = this
   }
 }

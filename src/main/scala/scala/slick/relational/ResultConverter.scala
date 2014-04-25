@@ -14,7 +14,7 @@ trait ResultConverter[M <: ResultConverterDomain, @specialized T] {
   protected[this] type Updater = M#Updater
   def read(pr: Reader): T
   def update(value: T, pr: Updater): Unit
-  def set(value: T, pp: Writer, forced: Boolean): Unit
+  def set(value: T, pp: Writer): Unit
   def info: String = {
     val cln = getClass.getName.replaceAll(".*\\.", "")
     val sep = cln.lastIndexOf("_")
@@ -83,10 +83,10 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
       i += 1
     }
   }
-  def set(value: T, pp: Writer, forced: Boolean) = {
+  def set(value: T, pp: Writer) = {
     var i = 0
     while(i < len) {
-      cha(i).asInstanceOf[ResultConverter[M, Any]].set(value.productElement(i), pp, forced)
+      cha(i).asInstanceOf[ResultConverter[M, Any]].set(value.productElement(i), pp)
       i += 1
     }
   }
@@ -109,10 +109,10 @@ final case class CompoundResultConverter[M <: ResultConverterDomain, @specialize
       i += 1
     }
   }
-  def set(value: T, pp: Writer, forced: Boolean) = {
+  def set(value: T, pp: Writer) = {
     var i = 0
     while(i < len) {
-      cha(i).set(value, pp, forced)
+      cha(i).set(value, pp)
       i += 1
     }
   }
@@ -121,7 +121,7 @@ final case class CompoundResultConverter[M <: ResultConverterDomain, @specialize
 final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]], default: () => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = child.read(pr).getOrElse(default())
   def update(value: T, pr: Updater) = child.update(Some(value), pr)
-  def set(value: T, pp: Writer, forced: Boolean) = child.set(Some(value), pp, forced)
+  def set(value: T, pp: Writer) = child.set(Some(value), pp)
   override def info =
     super.info + s"(${ try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } })"
   override def children = Iterator(child)
@@ -131,7 +131,7 @@ final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: Resul
 final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C], toBase: T => C, toMapped: C => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = toMapped(child.read(pr))
   def update(value: T, pr: Updater) = child.update(toBase(value), pr)
-  def set(value: T, pp: Writer, forced: Boolean) = child.set(toBase(value), pp, forced)
+  def set(value: T, pp: Writer) = child.set(toBase(value), pp)
   override def children = Iterator(child)
   def width = child.width
 }

@@ -45,6 +45,11 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
   *     Full outer joins are emulated because there is not native support
   *     for them.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side because there
+  *     is no native support for them (but there is work in progress: see
+  *     <a href="https://issues.apache.org/jira/browse/DERBY-3155"
+  *     target="_parent" >DERBY-3155</a>).</li>
   * </ul>
   */
 trait DerbyDriver extends JdbcDriver { driver =>
@@ -58,6 +63,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCycle
     - RelationalProfile.capabilities.zip
     - RelationalProfile.capabilities.joinFull
+    - JdbcProfile.capabilities.insertOrUpdate
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
@@ -76,8 +82,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
+  override protected val scalarFrom = Some("sysibm.sysdummy1")
+
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
-    override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {

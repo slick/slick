@@ -22,6 +22,10 @@ import scala.slick.jdbc.JdbcType
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
   *     Full outer joins are emulated because there is not native support
   *     for them.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side if the
+  *     data to insert contains an `AutoInc` fields. Otherwise the operation
+  *     is performmed natively on the server side.</li>
   * </ul>
   */
 trait H2Driver extends JdbcDriver { driver =>
@@ -32,9 +36,12 @@ trait H2Driver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCycle
     - JdbcProfile.capabilities.returnInsertOther
     - RelationalProfile.capabilities.joinFull
+    - JdbcProfile.capabilities.insertOrUpdate
   )
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
+  override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
@@ -56,6 +63,18 @@ trait H2Driver extends JdbcDriver { driver =>
       case (None, Some(d)   ) => b" limit -1 offset $d"
       case _ =>
     }
+  }
+
+  /* Extending super.InsertBuilder here instead of super.UpsertBuilder. MERGE is almost identical to INSERT on H2. */
+  class UpsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+    override protected def buildInsertStart = allNames.mkString(s"merge into $tableName (", ",", ") ")
+  }
+
+  class CountingInsertInvoker[U](compiled: CompiledInsert) extends super.CountingInsertInvoker[U](compiled) {
+    // H2 cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
+    // the same in ReturningInsertInvoker because H2 does not allow returning non-AutoInc keys anyway.
+    override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
+    override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 }
 
