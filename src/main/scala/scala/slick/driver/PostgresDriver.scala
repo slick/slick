@@ -43,10 +43,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   trait SimpleQL extends super.SimpleQL {
     type InheritingTable = driver.InheritingTable
-  }
-
-  trait InheritingTable { sub: Table[_] =>
-    val inherited: Table[_]
+    type AggFuncStarter[T,R] = AggFuncStarter[T,R]
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -63,6 +60,10 @@ trait PostgresDriver extends JdbcDriver { driver =>
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
+      case c: AggFuncInputs =>
+        if (c.modifier.isDefined) b"${c.modifier.get} "
+        b.sep(c.aggParams, ",")(expr(_, true))
+        if (c.orderBy.nonEmpty) buildOrderByClause(c.orderBy)
       case _ => super.expr(n, skipParens)
     }
   }
@@ -148,6 +149,70 @@ trait PostgresDriver extends JdbcDriver { driver =>
       override def hasLiteralForm = true
     }
   }
+
+  /*****************************************************************************************
+   *                        additional feature support related
+   *****************************************************************************************/
+  /**
+   * pg inherits support, for usage pls see [[com.typesafe.slick.testkit.tests.PgInheritTest]]
+   */
+  trait InheritingTable { sub: Table[_] =>
+    val inherited: Table[_]
+  }
+
+  /**
+   * pg aggregate function support, usage:
+   * {{{
+   *  object AggregateLibrary {
+   *    val StringAgg = new SqlFunction("string_agg")
+   *  }
+   *  case class StringAdd(delimiter: String) extends AggFuncStarter(AggregateLibrary.StringAgg, List(LiteralNode(delimiter)))
+   *  ...
+   *  col1 :^ StringAdd(",").forDistinct().orderBy(col1 desc)
+   *  or
+   *  stringAdd(col1, ",")(Some(true), col1 desc)
+   * }}}
+   */
+  final case class AggFuncInputs(aggParams: Seq[Node], modifier: Option[String] = None, orderBy: Seq[(Node, Ordering)] = Nil) extends SimplyTypedNode {
+    type Self = AggFuncInputs
+    val nodeChildren = aggParams ++ orderBy.map(_._1)
+    protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = {
+      val newAggParams = ch.slice(0, aggParams.length)
+      val orderByOffset = aggParams.length
+      val newOrderBy = ch.slice(orderByOffset, orderByOffset + orderBy.length)
+      copy(aggParams = newAggParams,
+        orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) })
+    }
+    protected def buildType = aggParams(0).nodeType
+    override def toString = "AggFuncInputs"
+  }
+
+  ///
+  sealed class AggFuncParts[T,R](aggFunc: FunctionSymbol, _params: Seq[Node] = Nil, _modifier: Option[String] = None, _ordered: Option[Ordered] = None) {
+    def ^:[P1,PR](expr: Column[P1])(implicit tm: JdbcType[R], om: OptionMapperDSL.arg[T,P1]#to[R,PR]): Column[PR] = {
+      val aggParams = expr.toNode +: _params
+      om.column(aggFunc, AggFuncInputs(aggParams, _modifier, _ordered.map(_.columns).getOrElse(Nil)))
+    }
+    def ^:[P1,P2,PR](expr: (Column[P1], Column[P2]))(implicit tm: JdbcType[R], om: OptionMapperDSL.arg[T,P1]#arg[T,P2]#to[R,PR]): Column[PR] = {
+      val aggParams = expr._1.toNode +: expr._2.toNode +: _params
+      om.column(aggFunc, AggFuncInputs(aggParams, _modifier, _ordered.map(_.columns).getOrElse(Nil)))
+    }
+    def ^:[P1,P2,P3,PR](expr: (Column[P1], Column[P2], Column[P3]))(
+      implicit tm: JdbcType[R], om: OptionMapperDSL.arg[T,P1]#arg[T,P2]#arg[T,P3]#to[R,PR]): Column[PR] = {
+        val aggParams = expr._1.toNode +: expr._2.toNode +: expr._3.toNode +: _params
+        om.column(aggFunc, AggFuncInputs(aggParams, _modifier, _ordered.map(_.columns).getOrElse(Nil)))
+      }
+  }
+
+  final class AggFuncStarter[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil) extends AggFuncParts[T,R](aggFunc, params) {
+    def forDistinct(): AggFuncWithModifier[T,R] = new AggFuncWithModifier[T,R](aggFunc, params, Some("DISTINCT"))
+    def orderBy(ordered: Ordered): AggFuncParts[T,R] = new AggFuncParts[T,R](aggFunc, params, None, Some(ordered))
+  }
+
+  final class AggFuncWithModifier[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil, modifier: Option[String] = None) extends AggFuncParts[T,R](aggFunc, params, modifier) {
+    def orderBy(ordered: Ordered): AggFuncParts[T,R] = new AggFuncParts[T,R](aggFunc, params, modifier, Some(ordered))
+  }
+
 }
 
 object PostgresDriver extends PostgresDriver
