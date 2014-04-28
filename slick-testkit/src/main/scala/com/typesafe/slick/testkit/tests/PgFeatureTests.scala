@@ -1,10 +1,10 @@
 package com.typesafe.slick.testkit.tests
 
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import scala.slick.driver.PostgresDriver
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class PgInheritTest extends TestkitTest[JdbcTestDB] {
+class PgFeatureTests extends TestkitTest[JdbcTestDB] {
 
   def testPgInherits {
     if (List("postgres").contains(tdb.confName)) {
