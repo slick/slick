@@ -40,7 +40,7 @@ object Over {
   //
   sealed class OverClause(partitionBy: Seq[Node] = Nil, orderBy: Seq[(Node, Ordering)] = Nil,
                           frameDef: Option[(String, String, Option[String])] = None) {
-    def ::[T: TypedType](agg: Column[T]): Column[T] = Column.forNode[T](WindowFunc(agg.toNode, partitionBy, orderBy, frameDef))
+    def ::[T: TypedType](aggExpr: Column[T]): Column[T] = Column.forNode[T](WindowExpr(aggExpr.toNode, partitionBy, orderBy, frameDef))
   }
 
   final class OverWithPartitionBy(partitionBy: Seq[Node]) extends OverClause(partitionBy) {
