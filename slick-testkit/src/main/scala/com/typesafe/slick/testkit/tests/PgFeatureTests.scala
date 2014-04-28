@@ -2,15 +2,16 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import scala.slick.driver.PostgresDriver
+import scala.slick.ast.Library.SqlFunction
+import scala.slick.ast.LiteralNode
 import org.junit.Assert._
 
 class PgFeatureTests extends TestkitTest[JdbcTestDB] {
 
-  def testPgInherits {
+  def testInherits {
     if (List("postgres").contains(tdb.confName)) {
 
       val driver = tdb.driver.asInstanceOf[PostgresDriver]
-
       import driver.simple._
 
       ///
@@ -85,6 +86,49 @@ class PgFeatureTests extends TestkitTest[JdbcTestDB] {
 
       // NOTES: (auto) reverse order!!!
       (tabs.ddl ++ tabs1.ddl).drop
+    }
+  }
+
+  def testAggregates {
+    if (List("postgres").contains(tdb.confName)) {
+
+      val driver = tdb.driver.asInstanceOf[PostgresDriver]
+      import driver.simple._
+
+      ///
+      case class Tab(name: String, count: Int)
+
+      class Tabs(tag: Tag) extends Table[Tab](tag, "test1_tab1") {
+        def name = column[String]("COL2")
+        def count = column[Int]("count")
+
+        def * = (name, count) <> (Tab.tupled, Tab.unapply)
+      }
+      val tabs = TableQuery[Tabs]
+
+      (tabs.ddl).create
+
+      ///
+      tabs ++= Seq(
+        Tab("foo", 1),
+        Tab("quux", 3),
+        Tab("bar", 2),
+        Tab("bar", 11)
+      )
+
+      println("============== testing pg aggregate function support =============")
+
+      object AggLibrary {
+        val Avg = new SqlFunction("avg")
+        val StringAdd = new SqlFunction("string_add")
+      }
+
+      case class Avg[T]() extends AggFuncStarter[T,T](AggLibrary.Avg)
+      case class StringAdd(delimiter: String) extends AggFuncStarter[String,String](AggLibrary.StringAdd, List(LiteralNode(delimiter)))
+
+      val q = tabs.map(t => (t.name ^: StringAdd(",").forDistinct().orderBy(t.name), t.count ^: Avg[Int]))
+      println(s"q = ${q.selectStatement}")
+      assertEquals(("bar,foo,quux", 4), q.first)
     }
   }
 }

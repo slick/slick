@@ -32,7 +32,7 @@ class WindowFuncTest extends TestkitTest[JdbcTestDB] {
         Tab("az", "quux", "bat", 5)
       )
 
-      println("============== testing window functions =============")
+      println("============== testing window function support =============")
       val Avg = new SqlFunction("avg")
 
       val q = Tabs.map(r => {

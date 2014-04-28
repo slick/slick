@@ -43,7 +43,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   trait SimpleQL extends super.SimpleQL {
     type InheritingTable = driver.InheritingTable
-    type AggFuncStarter[T,R] = AggFuncStarter[T,R]
+    type AggFuncStarter[T,R] = driver.AggFuncStarter[T,R]
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -166,11 +166,9 @@ trait PostgresDriver extends JdbcDriver { driver =>
    *  object AggregateLibrary {
    *    val StringAgg = new SqlFunction("string_agg")
    *  }
-   *  case class StringAdd(delimiter: String) extends AggFuncStarter(AggregateLibrary.StringAgg, List(LiteralNode(delimiter)))
+   *  case class StringAdd(delimiter: String) extends AggFuncStarter[String,String](AggregateLibrary.StringAgg, List(LiteralNode(delimiter)))
    *  ...
-   *  col1 :^ StringAdd(",").forDistinct().orderBy(col1 desc)
-   *  or
-   *  stringAdd(col1, ",")(Some(true), col1 desc)
+   *  col1 ^: StringAdd(",").forDistinct().orderBy(col1 desc)
    * }}}
    */
   final case class AggFuncInputs(aggParams: Seq[Node], modifier: Option[String] = None, orderBy: Seq[(Node, Ordering)] = Nil) extends SimplyTypedNode {
@@ -204,12 +202,12 @@ trait PostgresDriver extends JdbcDriver { driver =>
       }
   }
 
-  final class AggFuncStarter[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil) extends AggFuncParts[T,R](aggFunc, params) {
+  class AggFuncStarter[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil) extends AggFuncParts[T,R](aggFunc, params) {
     def forDistinct(): AggFuncWithModifier[T,R] = new AggFuncWithModifier[T,R](aggFunc, params, Some("DISTINCT"))
     def orderBy(ordered: Ordered): AggFuncParts[T,R] = new AggFuncParts[T,R](aggFunc, params, None, Some(ordered))
   }
 
-  final class AggFuncWithModifier[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil, modifier: Option[String] = None) extends AggFuncParts[T,R](aggFunc, params, modifier) {
+  class AggFuncWithModifier[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil, modifier: Option[String] = None) extends AggFuncParts[T,R](aggFunc, params, modifier) {
     def orderBy(ordered: Ordered): AggFuncParts[T,R] = new AggFuncParts[T,R](aggFunc, params, modifier, Some(ordered))
   }
 
