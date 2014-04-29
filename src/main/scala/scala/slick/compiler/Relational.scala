@@ -1,6 +1,5 @@
 package scala.slick.compiler
 
-import scala.math.{min, max}
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SlickException
 import scala.slick.ast._
@@ -142,36 +141,42 @@ class ConvertToComprehensions extends Phase {
     // Take and Drop to Comprehension
     case td @ TakeDrop(from, take, drop) =>
       logger.debug(s"Matched TakeDrop($take, $drop) on top of:", from)
-      val drop2 = if(drop == Some(0)) None else drop
-      val c =
-        if(take == Some(0)) Comprehension(from = mkFrom(new AnonSymbol, from), where = Seq(LiteralNode(false)))
-        else Comprehension(from = mkFrom(new AnonSymbol, from), fetch = take.map(_.toLong), offset = drop2.map(_.toLong))
+      val drop2 = drop match {
+        case Some(LiteralNode(0L)) => None
+        case _ => drop
+      }
+      val c = take match {
+        case Some(LiteralNode(0L)) => Comprehension(from = mkFrom(new AnonSymbol, from), where = Seq(LiteralNode(false)))
+        case _ => Comprehension(from = mkFrom(new AnonSymbol, from), fetch = take, offset = drop2)
+      }
       c.nodeTyped(td.nodeType)
     case n => n
   }
 
   /** An extractor for nested Take and Drop nodes (including already converted ones) */
   object TakeDrop {
-    def unapply(n: Node): Option[(Node, Option[Long], Option[Long])] = n match {
+    import QueryParameter.constOp
+
+    def unapply(n: Node): Option[(Node, Option[Node], Option[Node])] = n match {
       case Take(from, num) => unapply(from) match {
-        case Some((f, Some(t), d)) => Some((f, Some(min(t, num)), d))
+        case Some((f, Some(t), d)) => Some((f, Some(constOp("min")(math.min)(t, num)), d))
         case Some((f, None, d)) => Some((f, Some(num), d))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d) => Some((f, Some(min(t, num)), d))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d) => Some((f, Some(constOp("min")(math.min)(t, num)), d))
             case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, d) => Some((f, Some(num), d))
             case _ => Some((from, Some(num), None))
           }
       }
       case Drop(from, num) => unapply(from) match {
-        case Some((f, Some(t), None)) => Some((f, Some(max(0, t-num)), Some(num)))
-        case Some((f, None, Some(d))) => Some((f, None, Some(d+num)))
-        case Some((f, Some(t), Some(d))) => Some((f, Some(max(0, t-num)), Some(d+num)))
+        case Some((f, Some(t), None)) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(num)))
+        case Some((f, None, Some(d))) => Some((f, None, Some(constOp("+")(_ + _)(d, num))))
+        case Some((f, Some(t), Some(d))) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(constOp("+")(_ + _)(d, num))))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None) => Some((f, Some(max(0, t-num)), Some(num)))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d)) => Some((f, None, Some(d+num)))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d)) => Some((f, Some(max(0, t-num)), Some(d+num)))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(num)))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d)) => Some((f, None, Some(constOp("+")(_ + _)(d, num))))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d)) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(constOp("+")(_ + _)(d, num))))
             case _ => Some((from, None, Some(num)))
           }
       }

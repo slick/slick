@@ -86,13 +86,18 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def buildComprehension(c: Comprehension): Unit = {
+      val limit0 = c.fetch match {
+        case Some(LiteralNode(0L)) => true
+        case _ => false
+      }
       scanJoins(c.from)
       buildSelectClause(c)
       buildFromClause(c.from)
-      buildWhereClause(c.where)
+      if(limit0) b" where 1=0"
+      else buildWhereClause(c.where)
       buildGroupByClause(c.groupBy)
       buildOrderByClause(c.orderBy)
-      buildFetchOffsetClause(c.fetch, c.offset)
+      if(!limit0) buildFetchOffsetClause(c.fetch, c.offset)
     }
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
@@ -148,7 +153,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
-    protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = building(OtherPart) {
+    protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = building(OtherPart) {
       (fetch, offset) match {
         /* SQL:2008 syntax */
         case (Some(t), Some(d)) => b" offset $d row fetch next $t row only"
@@ -388,7 +393,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         super.buildComprehension(c3)
         b") $tn where $rn"
         (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b" between ${d+1L} and ${t+d}"
+          case (Some(t), Some(d)) => b" between ${QueryParameter.constOp("+")(_ + _)(d, LiteralNode(1L))} and ${QueryParameter.constOp("+")(_ + _)(t, d)}"
           case (Some(t), None   ) => b" between 1 and $t"
           case (None,    Some(d)) => b" > $d"
           case _ => throw new SlickException("Unexpected empty fetch/offset")

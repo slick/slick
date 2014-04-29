@@ -152,9 +152,18 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
     }
 
   /** Select the first `num` elements. */
-  def take(num: Int): Query[E, U, C] = new WrappingQuery[E, U, C](Take(toNode, num), shaped)
+  def take(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Take(toNode, num.toNode), shaped)
+  /** Select the first `num` elements. */
+  def take(num: Long): Query[E, U, C] = take(LiteralColumn(num))
+  /** Select the first `num` elements. */
+  def take(num: Int): Query[E, U, C] = take(num.toLong)
+
   /** Select all elements except the first `num` ones. */
-  def drop(num: Int): Query[E, U, C] = new WrappingQuery[E, U, C](Drop(toNode, num), shaped)
+  def drop(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Drop(toNode, num.toNode), shaped)
+  /** Select all elements except the first `num` ones. */
+  def drop(num: Long): Query[E, U, C] = drop(LiteralColumn(num))
+  /** Select all elements except the first `num` ones. */
+  def drop(num: Int): Query[E, U, C] = drop(num.toLong)
 
   def to[D[_]](implicit ctc: TypedCollectionTypeConstructor[D]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped

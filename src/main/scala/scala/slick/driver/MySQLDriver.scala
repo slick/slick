@@ -96,7 +96,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
       case _ => super.expr(n, skipParens)
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b" limit $d,$t"
       case (Some(t), None   ) => b" limit $t"
       case (None,    Some(d)) => b" limit $d,18446744073709551615"

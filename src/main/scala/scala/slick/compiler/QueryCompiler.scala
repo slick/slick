@@ -151,6 +151,7 @@ object Phase {
 
   /* Extra phases that are not enabled by default */
   val rewriteBooleans = new RewriteBooleans
+  val specializeParameters = new SpecializeParameters
 }
 
 /** The current state of a compiler run, consisting of the current AST and

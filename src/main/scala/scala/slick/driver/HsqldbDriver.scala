@@ -6,7 +6,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
-import scala.slick.compiler.CompilerState
+import scala.slick.compiler.{Phase, CompilerState}
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.Invoker
 
@@ -31,6 +31,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
+  override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.specializeParameters
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -58,7 +59,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
       case _ => super.expr(c, skipParens)
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b" limit $t offset $d"
       case (Some(t), None   ) => b" limit $t"
       case (None, Some(d)   ) => b" offset $d"

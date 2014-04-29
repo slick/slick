@@ -206,7 +206,7 @@ trait AccessDriver extends JdbcDriver { driver =>
       if(o.direction.desc) b" desc"
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = ()
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = ()
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
