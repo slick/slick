@@ -166,9 +166,9 @@ trait PostgresDriver extends JdbcDriver { driver =>
    *  object AggregateLibrary {
    *    val StringAgg = new SqlFunction("string_agg")
    *  }
-   *  case class StringAdd(delimiter: String) extends AggFuncStarter[String,String](AggregateLibrary.StringAgg, List(LiteralNode(delimiter)))
+   *  case class StringAgg(delimiter: String) extends AggFuncStarter[String,String](AggregateLibrary.StringAgg, List(LiteralNode(delimiter)))
    *  ...
-   *  col1 ^: StringAdd(",").forDistinct().orderBy(col1 desc)
+   *  col1 ^: StringAgg(",").forDistinct().orderBy(col1 desc)
    * }}}
    */
   final case class AggFuncInputs(aggParams: Seq[Node], modifier: Option[String] = None, orderBy: Seq[(Node, Ordering)] = Nil) extends SimplyTypedNode {

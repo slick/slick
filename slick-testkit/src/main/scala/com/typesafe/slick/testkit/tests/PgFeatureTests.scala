@@ -120,13 +120,14 @@ class PgFeatureTests extends TestkitTest[JdbcTestDB] {
 
       object AggLibrary {
         val Avg = new SqlFunction("avg")
-        val StringAdd = new SqlFunction("string_add")
+        val StringAgg = new SqlFunction("string_agg")
       }
 
       case class Avg[T]() extends AggFuncStarter[T,T](AggLibrary.Avg)
-      case class StringAdd(delimiter: String) extends AggFuncStarter[String,String](AggLibrary.StringAdd, List(LiteralNode(delimiter)))
+      case class StringAgg(delimiter: String) extends AggFuncStarter[String,String](
+        AggLibrary.StringAgg, List(LiteralNode(delimiter)))
 
-      val q = tabs.map(t => (t.name ^: StringAdd(",").forDistinct().orderBy(t.name), t.count ^: Avg[Int]))
+      val q = tabs.map(t => (t.name ^: StringAgg(",").forDistinct().orderBy(t.name), t.count ^: Avg[Int]))
       println(s"q = ${q.selectStatement}")
       assertEquals(("bar,foo,quux", 4), q.first)
     }
