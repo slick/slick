@@ -90,6 +90,8 @@ trait Executable[T, TU]
 
 object Executable {
   @inline implicit def queryIsExecutable[B, BU]: Executable[Query[B, BU], Seq[BU]] = null
+  @inline implicit def tableQueryIsExecutable[B <: AbstractTable[_], BU]: Executable[Query[B, BU] with TableQuery[B], Seq[BU]] = null
+  @inline implicit def baseJoinQueryIsExecutable[B1, B2, BU1, BU2]: Executable[BaseJoinQuery[B1, B2, BU1, BU2], Seq[(BU1, BU2)]] = null
   @inline implicit def scalarIsExecutable[A, AU](implicit shape: Shape[ShapeLevel.Flat, A, AU, A]): Executable[A, AU] = null
 }
 
