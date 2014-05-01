@@ -60,6 +60,35 @@ class CountTest extends TestkitTest[RelationalTestDB] {
 
     val q2 = Query(joinedQuery.length)
     assertEquals(Vector(2), q2.run)
+  }
 
+  def testJoinCount {
+    class A(tag: Tag) extends Table[Long](tag, "a_j") {
+      def id = column[Long]("id", O.PrimaryKey)
+      def * = id
+    }
+    lazy val as = TableQuery[A]
+    class B(tag: Tag) extends Table[(Long, String)](tag, "b_j") {
+      def aId = column[Long]("a_id")
+      def data = column[String]("data")
+      def * = (aId, data)
+    }
+    lazy val bs = TableQuery[B]
+    (as.ddl ++ bs.ddl).create
+    as ++= Seq(1L, 2L)
+    bs ++= Seq((1L, "1a"), (1L, "1b"), (2L, "2"))
+    val qDirectLength = for {
+      a <- as if a.id === 1L
+    } yield (a, (for {
+        b <- bs if b.aId === a.id
+      } yield b).length)
+    assertEquals(Seq((1L, 2)), qDirectLength.run)
+    val qJoinLength = for {
+      a <- as if a.id === 1L
+      l <- Query((for {
+        b <- bs if b.aId === a.id
+      } yield b).length)
+    } yield (a, l)
+    assertEquals(Seq((1L, 2)), qJoinLength.run)
   }
 }
