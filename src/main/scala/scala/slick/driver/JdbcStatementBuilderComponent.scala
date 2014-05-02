@@ -109,8 +109,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
             buildSelectPart(n)
             b" as `$sym"
           }
+          if(ch.isEmpty) b"1"
         case Some(Pure(ProductNode(ch), _)) =>
           b.sep(ch, ", ")(buildSelectPart)
+          if(ch.isEmpty) b"1"
         case Some(Pure(n, _)) => buildSelectPart(n)
         case None =>
           if(c.from.length <= 1) b"*"
