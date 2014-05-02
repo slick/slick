@@ -269,6 +269,8 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals("Foo", ares)
     as.update("Foo")
 
+    assertEquals("Foo" :: "Foo" :: HNil, as.map(a => a :: a :: HNil).run.head)
+
     class B(tag: Tag) extends Table[Tuple1[String]](tag, "single_b") {
       def b = column[String]("b")
       def * = Tuple1(b)
