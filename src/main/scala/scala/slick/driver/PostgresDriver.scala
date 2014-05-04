@@ -61,6 +61,10 @@ trait PostgresDriver extends JdbcDriver { driver =>
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
+      case c: AggFuncInputs =>
+        if (c.modifier.isDefined) b"${c.modifier.get} "
+        b.sep(c.aggParams, ",")(expr(_, true))
+        if (c.orderBy.nonEmpty) buildOrderByClause(c.orderBy)
       case _ => super.expr(n, skipParens)
     }
   }
@@ -124,12 +128,6 @@ trait PostgresDriver extends JdbcDriver { driver =>
   /*****************************************************************************************
     *                        additional feature support related
     *****************************************************************************************/
-  /**
-   * pg inherits support, for usage pls see [[com.typesafe.slick.testkit.tests.PgFeatureTests]]
-   */
-  trait InheritingTable { sub: Table[_] =>
-    val inherited: Table[_]
-  }
 
   /**
    * pg aggregate function support, usage:
