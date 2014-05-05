@@ -176,13 +176,26 @@ object SlickBuild extends Build {
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin),
-      OsgiKeys.exportPackage := Seq(
-        "scala.slick", 
-        // TODO - Should we be explicit here?
-        "scala.slick.*")
+      OsgiKeys.exportPackage := Seq("scala.slick", "scala.slick.*"),
+      OsgiKeys.importPackage := Seq(
+        osgiImport("scala*", scalaVersion.value),
+        "*"
+      ),
+      OsgiKeys.privatePackage := Nil
     ) ++ ifPublished(Seq(
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro")
     )))
+
+  /** Create an OSGi version range for standard Scala / Typesafe versioning
+    * schemes that describes binary compatible versions. */
+  def osgiVersionRange(version: String, requireMicro: Boolean = false): String =
+    if(version contains '-') "${@}" // M, RC or SNAPSHOT -> exact version
+    else if(requireMicro) "${range;[===,=+)}" // At least the same micro version
+    else "${range;[==,=+)}" // Any binary compatible version
+
+  /** Create an OSGi Import-Package version specification. */
+  def osgiImport(pattern: String, version: String, requireMicro: Boolean = false): String =
+    pattern + ";version=\"" + osgiVersionRange(version, requireMicro) + "\""
 
   val testKitTestCodegenDependencies = Dependencies.logback +: Dependencies.testDBs
 
