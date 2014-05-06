@@ -167,11 +167,16 @@ abstract class PositionedResult(val rs: ResultSet) extends Closeable { outer =>
 abstract class PositionedResultIterator[+T](val pr: PositionedResult, maxRows: Int) extends ReadAheadIterator[T] with CloseableIterator[T] {
 
   private[this] var closed = false
+  private[this] var readRows = 0
 
   def rs = pr.rs
 
   protected def fetchNext(): T = {
-    if(pr.nextRow) extractValue(pr)
+    if((readRows < maxRows || maxRows <= 0) && pr.nextRow) {
+      val res = extractValue(pr)
+      readRows += 1
+      res
+    }
     else finished()
   }
 
