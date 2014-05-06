@@ -103,6 +103,14 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
   }
 }
 
+final class UnitResultConverter[M <: ResultConverterDomain] extends ResultConverter[M, Unit] {
+  def fullWidth = 0
+  def skippingWidth = 0
+  def read(pr: Reader) = ()
+  def update(value: Unit, pr: Updater) = ()
+  def set(value: Unit, pp: Writer, forced: Boolean) = ()
+}
+
 final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]], default: () => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = child.read(pr).getOrElse(default())
   def update(value: T, pr: Updater) = child.update(Some(value), pr)

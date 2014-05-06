@@ -59,4 +59,17 @@ class RelationalTypeTest extends TestkitTest[RelationalTestDB] {
     roundtrip[Boolean]("boolean_true", true)
     roundtrip[Boolean]("boolean_false", false)
   }
+
+  def testUnit {
+    class T(tag: Tag) extends Table[Int](tag, "unit_t") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    val ts = TableQuery[T]
+    ts.ddl.create
+    ts += 42
+    assertEquals(Seq(()), ts.map(_ => ()).run)
+    assertEquals(Seq(((), 42)), ts.map(a => ((), a)).run)
+    assertEquals(Seq((42, ())), ts.map(a => (a, ())).run)
+  }
 }

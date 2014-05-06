@@ -16,7 +16,8 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
     case p @ Path(_) => createColumnConverter(n, p, None)
     case OptionApply(p @ Path(_)) => createColumnConverter(n, p, None)
     case ProductNode(ch) =>
-      new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
+      if(ch.isEmpty) new UnitResultConverter
+      else new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
     case GetOrElse(ch, default) =>
       createGetOrElseResultConverter(compile(ch).asInstanceOf[ResultConverter[Domain, Option[Any]]], default)
     case TypeMapping(ch, mapper, _) =>
