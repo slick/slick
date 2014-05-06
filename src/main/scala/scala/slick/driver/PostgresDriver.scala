@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.lifted._
-import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
+import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
@@ -28,6 +28,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
+  override val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
@@ -38,6 +39,12 @@ trait PostgresDriver extends JdbcDriver { driver =>
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
     case _ => super.defaultSqlTypeName(tmd)
+  }
+
+  trait SimpleQL extends super.SimpleQL {
+    type UnaryAggFuncPartsBasic[T,R] = driver.UnaryAggFuncPartsBasic[T,R]
+    type BinaryAggFuncPartsBasic[T,R] = driver.BinaryAggFuncPartsBasic[T,R]
+    type TernaryAggFuncPartsBasic[T,R] = driver.TernaryAggFuncPartsBasic[T,R]
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -54,6 +61,10 @@ trait PostgresDriver extends JdbcDriver { driver =>
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
+      case c: AggFuncInputs =>
+        if (c.modifier.isDefined) b"${c.modifier.get} "
+        b.sep(c.aggParams, ",")(expr(_, true))
+        if (c.orderBy.nonEmpty) buildOrderByClause(c.orderBy)
       case _ => super.expr(n, skipParens)
     }
   }
@@ -112,6 +123,98 @@ trait PostgresDriver extends JdbcDriver { driver =>
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
       override def hasLiteralForm = true
     }
+  }
+
+  /*****************************************************************************************
+    *                        additional feature support related
+    *****************************************************************************************/
+
+  /**
+   * pg aggregate function support, usage:
+   * {{{
+   *  object AggregateLibrary {
+   *    val StringAgg = new SqlFunction("string_agg")
+   *  }
+   *  case class StringAgg(delimiter: String) extends UnaryAggFuncPartsBasic[String, String](AggregateLibrary.StringAgg, List(LiteralNode(delimiter)))
+   *  ...
+   *  col1 ^: StringAgg(",").forDistinct().orderBy(col1 desc)
+   * }}}
+   */
+  final case class AggFuncInputs(aggParams: Seq[Node], modifier: Option[String] = None, orderBy: Seq[(Node, Ordering)] = Nil) extends SimplyTypedNode {
+    type Self = AggFuncInputs
+    val nodeChildren = aggParams ++ orderBy.map(_._1)
+    protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = {
+      val newAggParams = ch.slice(0, aggParams.length)
+      val orderByOffset = aggParams.length
+      val newOrderBy = ch.slice(orderByOffset, orderByOffset + orderBy.length)
+      copy(aggParams = newAggParams,
+        orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) })
+    }
+    protected def buildType = aggParams(0).nodeType
+    override def toString = "AggFuncInputs"
+  }
+
+  ///
+  trait AggFuncParts {
+    def aggFunc: FunctionSymbol
+    def params: Seq[Node]
+    def modifier: Option[String]
+    def ordered: Option[Ordered]
+  }
+  protected sealed class AggFuncPartsImpl(
+    val aggFunc: FunctionSymbol,
+    val params: Seq[Node] = Nil,
+    val modifier: Option[String] = None,
+    val ordered: Option[Ordered] = None
+    ) extends AggFuncParts
+
+  ///
+  trait UnaryAggFunction[T,R] { parts: AggFuncParts =>
+    def ^:[P1,PR](expr: Column[P1])(implicit tm: JdbcType[R], om: OptionMapperDSL.arg[T,P1]#to[R,PR]): Column[PR] = {
+      val aggParams = expr.toNode +: params
+      om.column(aggFunc, AggFuncInputs(aggParams, modifier, ordered.map(_.columns).getOrElse(Nil)))
+    }
+  }
+  class UnaryAggFuncPartsBasic[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil) extends AggFuncPartsImpl(aggFunc, params) with UnaryAggFunction[T,R] {
+    def forDistinct() = new UnaryAggFuncPartsWithModifier[T,R](aggFunc, params, Some("DISTINCT"))
+    def orderBy(ordered: Ordered) = new AggFuncPartsImpl(aggFunc, params, None, Some(ordered)) with UnaryAggFunction[T,R]
+  }
+  class UnaryAggFuncPartsWithModifier[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil, modifier: Option[String] = None)
+    extends AggFuncPartsImpl(aggFunc, params, modifier) with UnaryAggFunction[T,R] {
+    def orderBy(ordered: Ordered) = new AggFuncPartsImpl(aggFunc, params, modifier, Some(ordered)) with UnaryAggFunction[T,R]
+  }
+
+  ///
+  trait BinaryAggFunction[T,R] { parts: AggFuncParts =>
+    def ^:[P1,P2,PR](expr: (Column[P1], Column[P2]))(implicit tm: JdbcType[R], om: OptionMapperDSL.arg[T,P1]#arg[T,P2]#to[R,PR]): Column[PR] = {
+      val aggParams = expr._1.toNode +: expr._2.toNode +: params
+      om.column(aggFunc, AggFuncInputs(aggParams, modifier, ordered.map(_.columns).getOrElse(Nil)))
+    }
+  }
+  class BinaryAggFuncPartsBasic[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil) extends AggFuncPartsImpl(aggFunc, params) with BinaryAggFunction[T,R] {
+    def forDistinct() = new BinaryAggFuncPartsWithModifier[T,R](aggFunc, params, Some("DISTINCT"))
+    def orderBy(ordered: Ordered) = new AggFuncPartsImpl(aggFunc, params, None, Some(ordered)) with BinaryAggFunction[T,R]
+  }
+  class BinaryAggFuncPartsWithModifier[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil, modifier: Option[String] = None)
+    extends AggFuncPartsImpl(aggFunc, params, modifier) with BinaryAggFunction[T,R] {
+    def orderBy(ordered: Ordered) = new AggFuncPartsImpl(aggFunc, params, modifier, Some(ordered)) with BinaryAggFunction[T,R]
+  }
+
+  ///
+  trait TernaryAggFunction[T,R] { parts: AggFuncParts =>
+    def ^:[P1,P2,P3,PR](expr: (Column[P1], Column[P2], Column[P3]))(
+      implicit tm: JdbcType[R], om: OptionMapperDSL.arg[T,P1]#arg[T,P2]#arg[T,P3]#to[R,PR]): Column[PR] = {
+      val aggParams = expr._1.toNode +: expr._2.toNode +: expr._3.toNode +: params
+      om.column(aggFunc, AggFuncInputs(aggParams, modifier, ordered.map(_.columns).getOrElse(Nil)))
+    }
+  }
+  class TernaryAggFuncPartsBasic[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil) extends AggFuncPartsImpl(aggFunc, params) with TernaryAggFunction[T,R] {
+    def forDistinct() = new TernaryAggFuncPartsWithModifier[T,R](aggFunc, params, Some("DISTINCT"))
+    def orderBy(ordered: Ordered) = new AggFuncPartsImpl(aggFunc, params, None, Some(ordered)) with TernaryAggFunction[T,R]
+  }
+  class TernaryAggFuncPartsWithModifier[T,R](aggFunc: FunctionSymbol, params: Seq[Node] = Nil, modifier: Option[String] = None)
+    extends AggFuncPartsImpl(aggFunc, params, modifier) with TernaryAggFunction[T,R] {
+    def orderBy(ordered: Ordered) = new AggFuncPartsImpl(aggFunc, params, modifier, Some(ordered)) with TernaryAggFunction[T,R]
   }
 }
 
