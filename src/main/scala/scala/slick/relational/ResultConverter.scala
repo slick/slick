@@ -119,11 +119,10 @@ final case class CompoundResultConverter[M <: ResultConverterDomain, @specialize
 }
 
 final class UnitResultConverter[M <: ResultConverterDomain] extends ResultConverter[M, Unit] {
-  def fullWidth = 0
-  def skippingWidth = 0
+  def width = 0
   def read(pr: Reader) = ()
   def update(value: Unit, pr: Updater) = ()
-  def set(value: Unit, pp: Writer, forced: Boolean) = ()
+  def set(value: Unit, pp: Writer) = ()
 }
 
 final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]], default: () => T) extends ResultConverter[M, T] {
