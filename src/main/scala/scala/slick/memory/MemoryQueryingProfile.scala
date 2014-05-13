@@ -16,9 +16,9 @@ trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDr
   type ColumnType[T] = ScalaType[T]
   type BaseColumnType[T] = ScalaType[T] with BaseTypedType[T]
   type UnshapedQueryExecutor[R] = UnshapedQueryExecutorDef[R]
-
+  def compileInsert(tree: Node) = insertCompiler.run(tree).tree
+  type CompiledInsert = Node
   val MappedColumnType = new MappedColumnTypeFactory
-
   def createUnshapedQueryExecutor[M](value: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutorDef[M](value)
 
   class MappedColumnTypeFactory extends super.MappedColumnTypeFactory {
@@ -62,14 +62,8 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
   }): ScalaType[_]).asInstanceOf[ScalaType[Any]]
 
   class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
-
-    def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
-
-    def apply(node: Node, state: CompilerState): Node =
-      ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
-        val nmap = compileMapping(rsm.map)
-        rsm.copy(map = nmap).nodeTyped(rsm.nodeType)
-      }
+    override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
+    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = (serverSide, mapping.map(compileMapping))
 
     def retype(n: Node): Node = {
       val n2 = transformSimpleGrouping(n)
@@ -95,11 +89,8 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
       case t => typeInfoFor(t)
     }
 
-    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
-      val Select(_, ElementSymbol(ridx)) = path
-      val nullable = typeInfoFor(n.nodeType.structural).nullable
-      new QueryResultConverter(ridx, nullable)
-    }
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] =
+      new QueryResultConverter(idx, typeInfoFor(n.nodeType.structural).nullable)
 
     class QueryResultConverter(ridx: Int, nullable: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
       def read(pr: MemoryResultConverterDomain#Reader) = {
@@ -108,10 +99,9 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
         v
       }
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) = ???
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer) = ???
       override def info = super.info + s"($ridx, nullable=$nullable)"
-      def fullWidth = 1
-      def skippingWidth = 1
+      def width = 1
     }
   }
 }

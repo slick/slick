@@ -26,7 +26,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   lazy val insertCompiler = ???
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
-  def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = ???
+  def createInsertInvoker[T](tree: Node): InsertInvoker[T] = ???
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = ???
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)

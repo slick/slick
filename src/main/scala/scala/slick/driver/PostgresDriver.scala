@@ -3,7 +3,9 @@ package scala.slick.driver
 import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.lifted._
-import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node}
+import scala.slick.profile.{SqlProfile, RelationalProfile, Capability}
+import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node, Insert, InsertColumn, Select, ElementSymbol, ColumnOption }
+import scala.slick.ast.Util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
@@ -11,7 +13,17 @@ import scala.slick.jdbc.{Invoker, JdbcType}
 
 /** Slick driver for PostgreSQL.
   *
-  * This driver implements all capabilities of [[scala.slick.driver.JdbcProfile]].
+  * This driver implements [[scala.slick.driver.JdbcProfile]]
+  * ''without'' the following capabilities:
+  *
+  * <ul>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the server side with a single
+  *     JDBC statement executing multiple server-side statements in a transaction.
+  *     This is faster than a client-side emulation but may still fail due to
+  *     concurrent updates. InsertOrUpdate operations with `returning` are
+  *     emulated on the client side.</li>
+  * </ul>
   *
   * Notes:
   *
@@ -25,12 +37,20 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   */
 trait PostgresDriver extends JdbcDriver { driver =>
 
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - JdbcProfile.capabilities.insertOrUpdate
+  )
+
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override protected lazy val useServerSideUpsert = true
+  override protected lazy val useTransactionForUpsert = true
+  override protected lazy val useServerSideUpsertReturning = false
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BLOB => "lo"
@@ -56,6 +76,19 @@ trait PostgresDriver extends JdbcDriver { driver =>
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
       case _ => super.expr(n, skipParens)
     }
+  }
+
+  class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+    override def buildInsert: InsertBuilderResult = {
+      val update = "update " + tableName + " set " + softNames.map(n => s"$n=?").mkString(",") + " where " + pkNames.map(n => s"$n=?").mkString(" and ")
+      val nonAutoIncNames = nonAutoIncSyms.map(fs => quoteIdentifier(fs.name)).mkString(",")
+      val nonAutoIncVars = nonAutoIncSyms.map(_ => "?").mkString(",")
+      val cond = pkNames.map(n => s"$n=?").mkString(" and ")
+      val insert = s"insert into $tableName ($nonAutoIncNames) select $nonAutoIncVars where not exists (select 1 from $tableName where $cond)"
+      new InsertBuilderResult(table, s"begin; $update; $insert; end", softSyms ++ pkSyms)
+    }
+
+    override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms ++ pkSyms)
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {

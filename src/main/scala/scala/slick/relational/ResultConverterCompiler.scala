@@ -11,10 +11,14 @@ import org.slf4j.LoggerFactory
 trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
   def compile(n: Node): ResultConverter[Domain, _] = n match {
-    case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, Some(fs))
-    case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, Some(fs))
-    case p @ Path(_) => createColumnConverter(n, p, None)
-    case OptionApply(p @ Path(_)) => createColumnConverter(n, p, None)
+    case InsertColumn(paths, fs, _) =>
+      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
+    case OptionApply(InsertColumn(paths, fs, _)) =>
+      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
+    case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, None)
+    case OptionApply(Select(_, ElementSymbol(idx))) => createColumnConverter(n, idx, None)
     case ProductNode(ch) =>
       if(ch.isEmpty) new UnitResultConverter
       else new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
@@ -32,7 +36,7 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
   def createTypeMappingResultConverter(rc: ResultConverter[Domain, Any], mapper: MappedScalaType.Mapper): ResultConverter[Domain, Any] =
     new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
 
-  def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[Domain, _]
+  def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[Domain, _]
 
   def compileMapping(n: Node): CompiledMapping = {
     val rc = compile(n)

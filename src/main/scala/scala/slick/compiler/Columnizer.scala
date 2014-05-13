@@ -18,7 +18,7 @@ class ExpandTables extends Phase {
     if(tsyms.isEmpty) tree else {
       // Find the corresponding TableExpansions
       val tables: Map[TableIdentitySymbol, (Symbol, Node)] = tree.collect {
-        case TableExpansion(s, TableNode(_, _, ts, _), ex) if tsyms contains ts => ts -> (s, ex)
+        case TableExpansion(s, TableNode(_, _, ts, _, _), ex) if tsyms contains ts => ts -> (s, ex)
       }.toMap
       logger.debug("Table expansions: " + tables.mkString(", "))
       // Create a mapping that expands the tables

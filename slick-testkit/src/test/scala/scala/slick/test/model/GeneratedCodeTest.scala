@@ -84,7 +84,7 @@ class Db1 extends {
     import scala.slick.ast._
     node match{
       case TableExpansion(generator, tableNode, columns) => tableName(tableNode)
-      case TableNode(schemaName, tableName, identity, driverTable) => tableName
+      case TableNode(schemaName, tableName, identity, driverTable, _) => tableName
     }
   }
 

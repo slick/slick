@@ -42,6 +42,10 @@ import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
   *     Row numbers (required by <code>zip</code> and
   *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
   *     code which uses this feature throws a SlickException.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side if the
+  *     data to insert contains an `AutoInc` field. Otherwise the operation
+  *     is performmed natively on the server side.</li>
   * </ul>
   */
 trait SQLiteDriver extends JdbcDriver { driver =>
@@ -57,6 +61,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBigDecimal
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.zip
+    - JdbcProfile.capabilities.insertOrUpdate
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
@@ -68,8 +73,10 @@ trait SQLiteDriver extends JdbcDriver { driver =>
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
@@ -116,6 +123,11 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     }
   }
 
+  /* Extending super.InsertBuilder here instead of super.UpsertBuilder. INSERT OR REPLACE is almost identical to INSERT. */
+  class UpsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+    override protected def buildInsertStart = allNames.mkString(s"insert or replace into $tableName (", ",", ") ")
+  }
+
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected val foreignKeys = Nil // handled directly in addTableOptions
     override protected val primaryKeys = Nil // handled directly in addTableOptions
@@ -139,6 +151,13 @@ trait SQLiteDriver extends JdbcDriver { driver =>
       else if(primaryKey) sb append " PRIMARY KEY"
       if(notNull) sb append " NOT NULL"
     }
+  }
+
+  class CountingInsertInvoker[U](compiled: CompiledInsert) extends super.CountingInsertInvoker[U](compiled) {
+    // SQLite cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
+    // the same in ReturningInsertInvoker because SQLite does not allow returning non-AutoInc keys anyway.
+    override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
+    override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 
   class JdbcTypes extends super.JdbcTypes {

@@ -72,7 +72,8 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
     }
     def ts = TableQuery[T]
     ts.ddl.create
-    ts ++= Seq((1, "a"), (2, "b"), (3, "c"))
+    Compiled(ts.map(identity)) += (1, "a")
+    Compiled(ts) ++= Seq((2, "b"), (3, "c"))
 
     val byIdAndS = { (id: Column[Int], s: ConstColumn[String]) => ts.filter(t => t.id === id && t.s === s) }
     val byIdAndSC = Compiled(byIdAndS)
@@ -105,5 +106,8 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
     val r5 = countBelowC(3).run
     val r5t: Int = r5
     assertEquals(2, r5)
+
+    val joinC = Compiled { id: Column[Int] => ts.filter(_.id === id).innerJoin(ts.filter(_.id === id)) }
+    assertEquals(Seq(((1, "a"), (1, "a"))), joinC(1).run)
   }
 }

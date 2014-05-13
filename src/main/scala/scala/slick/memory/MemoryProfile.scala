@@ -22,12 +22,12 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
-  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new MemoryInsertCompiler)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.NonAutoInc), new MemoryInsertCodeGen)
 
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
-  def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
+  def createInsertInvoker[T](tree: Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
   def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new TableDDL(table)
@@ -55,7 +55,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   }
 
   class InsertInvokerDef[T](tree: Node) extends super.InsertInvokerDef[T] {
-    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, projection, _), CompiledMapping(converter, _)) = tree
+    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, _), CompiledMapping(converter, _)) = tree
 
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
@@ -63,7 +63,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
     def += (value: T)(implicit session: Backend#Session) {
       val htable = session.database.getTable(table.tableName)
       val buf = htable.createInsertRow
-      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf, false)
+      converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, Any]].set(value, buf)
       htable.append(buf)
     }
 
@@ -106,29 +106,24 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
   override val profile: MemoryProfile = this
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
-    val Insert(_, table: TableNode, _, ProductNode(cols)) = insert
+    val Insert(_, table: TableNode, ProductNode(cols)) = insert
     val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
-    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] = {
-      val fs = column.get
-      val tidx = tableColumnIdxs(fs)
-      val autoInc = fs.options.contains(ColumnOption.AutoInc)
-      new InsertResultConverter(tidx, autoInc)
-    }
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] =
+      new InsertResultConverter(tableColumnIdxs(column.get))
 
-    class InsertResultConverter(tidx: Int, autoInc: Boolean) extends ResultConverter[MemoryResultConverterDomain, Any] {
+    class InsertResultConverter(tidx: Int) extends ResultConverter[MemoryResultConverterDomain, Any] {
       def read(pr: MemoryResultConverterDomain#Reader) = ???
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer, forced: Boolean) =
-        if(forced || !autoInc) pp(tidx) = value
-      override def info = super.info + s"($tidx, autoInc=$autoInc)"
-      def fullWidth = 1
-      def skippingWidth = if(autoInc) 0 else 1
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer) = pp(tidx) = value
+      override def info = super.info + s"($tidx)"
+      def width = 1
     }
   }
 
-  class MemoryInsertCompiler extends InsertCompiler {
-    def createMapping(ins: Insert) = new InsertMappingCompiler(ins).compileMapping(ins.map)
+  class MemoryInsertCodeGen extends CodeGen {
+    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) =
+      (serverSide, mapping.map(new InsertMappingCompiler(serverSide.asInstanceOf[Insert]).compileMapping))
   }
 }
 

@@ -42,14 +42,16 @@ trait MySQLDriver extends JdbcDriver { driver =>
   override val columnTypes = new JdbcTypes
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
+  override protected val scalarFrom = Some("DUAL")
+
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
-    override protected val scalarFrom = Some("DUAL")
     override protected val supportsCast = false
     override protected val supportsEmptyJoinConditions = false
 
@@ -110,6 +112,14 @@ trait MySQLDriver extends JdbcDriver { driver =>
         b"isnull($n) desc,"
       expr(n)
       if(o.direction.desc) b" desc"
+    }
+  }
+
+  class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+    override def buildInsert: InsertBuilderResult = {
+      val start = buildInsertStart
+      val update = softNames.map(n => s"$n=VALUES($n)").mkString(", ")
+      new InsertBuilderResult(table, s"$start values $allVars on duplicate key update $update", syms)
     }
   }
 

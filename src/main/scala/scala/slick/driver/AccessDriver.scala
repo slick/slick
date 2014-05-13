@@ -60,6 +60,9 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException, PreparedStatem
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
   *     Full outer joins are emulated because there is not native support
   *     for them.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side because there
+  *     is no native support for them.</li>
   * </ul>
   */
 trait AccessDriver extends JdbcDriver { driver =>
@@ -82,7 +85,8 @@ trait AccessDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.zip
     - JdbcProfile.capabilities.createModel
     - RelationalProfile.capabilities.joinFull
-    )
+    - JdbcProfile.capabilities.insertOrUpdate
+  )
 
   def integralTypes = Set(
     java.sql.Types.INTEGER,
