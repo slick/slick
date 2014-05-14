@@ -22,8 +22,10 @@ trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDr
   def createUnshapedQueryExecutor[M](value: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutorDef[M](value)
 
   class MappedColumnTypeFactory extends super.MappedColumnTypeFactory {
-    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] =
+    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
+      assertNonNullType(implicitly[BaseColumnType[U]])
       new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
+    }
   }
 
   class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T)(implicit val classTag: ClassTag[T]) extends ScalaType[T] with BaseTypedType[T] {

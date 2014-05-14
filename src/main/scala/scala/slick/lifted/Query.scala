@@ -225,7 +225,7 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_]](leftGen: Symbol, rightGen: Sym
   * for operations that can be performed on tables but not on arbitrary
   * queries, e.g. getting the table DDL. */
 class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
-  val shaped = {
+  lazy val shaped = {
     val baseTable = cons(new BaseTag { base =>
       def taggedAs(path: List[Symbol]): AbstractTable[_] = cons(new RefTag(path) {
         def taggedAs(path: List[Symbol]) = base.taggedAs(path)
@@ -234,7 +234,7 @@ class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#Table
     ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, E, E#TableElementType, E]])
   }
 
-  val toNode = shaped.toNode
+  lazy val toNode = shaped.toNode
 
   /** Get the "raw" table row that represents the table itself, as opposed to
     * a Path for a variable of the table's type. This method should generally
