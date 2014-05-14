@@ -8,14 +8,22 @@ div.header-wrapper {
 }
 h1, h2, h3, h4 {
   font-family: sans-serif;
-  font-size: 14pt;
+  font-size: 13pt;
   font-weight: bold;
   color: rgba(218, 56, 48, 0.9);
+}
+h2{
+  font-size: 15pt;
+  padding-bottom: 5px;
 }
 h1{  
   color: #5e5e5e;
   font-size: 18pt;
   text-transform: uppercase;
+}
+h4{
+  font-size: 12pt;
+  color: #5e5e5e;
 }
 h3{
   color: rgba(218, 56, 48, 0.9);
