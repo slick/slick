@@ -9,6 +9,7 @@ You can find the API documentation `here <api/>`_.
    introduction
    gettingstarted
    migration
+   from-sql-to-slick
    connection
    code-generation
    schemas

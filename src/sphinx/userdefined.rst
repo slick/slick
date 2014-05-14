@@ -4,7 +4,9 @@ User-Defined Features
 This chapter describes how to use custom data types and database functions
 in the :ref:`Lifted Embedding <lifted-embedding>` API.
 
-Scala Database functions
+.. _scalar-db-functions:
+
+Scalar Database functions
 --------------------------
 
 If your database system supports a scalar function that is not available as
