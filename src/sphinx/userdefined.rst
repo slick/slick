@@ -4,7 +4,7 @@ User-Defined Features
 This chapter describes how to use custom data types and database functions
 in the :ref:`Lifted Embedding <lifted-embedding>` API.
 
-Scala Database functions
+Scalar Database functions
 --------------------------
 
 If your database system supports a scalar function that is not available as
@@ -33,8 +33,8 @@ Other Database functions and stored procedures
 For database functions that return complete tables or stored procedures please use :doc:`sql`.
 Stored procedures that return multiple result sets are currently not supported.
 
-Scalar Types
--------------
+Using custom scalar types in queries
+---------------------------------------
 
 If you need a custom column type you can implement
 :api:`ColumnType <scala.slick.driver.JdbcProfile@ColumnType[T]:JdbcDriver.ColumnType[T]>`. The most
@@ -59,30 +59,29 @@ table-specific primary key types:
 
 .. _record-types:
 
-Record Types
--------------
+Using custom structured types in queries
+----------------------------------------
 
-Record types are data structures containing a statically known
+Structured types are data structures containing a statically known
 number of components with individually declared types.  Out of the box,
 Slick supports Scala tuples (up to arity 22) and Slick's own
-experimental :api:`scala.slick.collection.heterogenous.HList` implementation
-(without any size limit, but currently suffering from long compilation
-times for arities > 25). Record types can be nested and
-mixed arbitrarily in Slick.
+experimental :api:`scala.slick.collection.heterogenous.HList` implementation.
 
-If you need more flexibility, you can add support for your own by
-defining an implicit :api:`scala.slick.lifted.Shape`
-definition. Here is an example for a type ``Pair``:
+In order to use custom structured data types
+(case classes, custom hlists, tuple-like types, ...)
+in queries you need to tell Slick how to map them between queries
+and results. You can do that using a :api:`scala.slick.lifted.Shape`
+extending :api:`scala.slick.lifted.MappedScalaProductShape`.
 
-.. includecode:: code/LiftedEmbedding.scala#recordtypepair
+Mapped structured types can be arbitrarily combined.
 
-``Shape`` implementations for record types extend
-:api:`scala.slick.lifted.MappedScalaProductShape`. They are are generally very
-simple but they require some boilerplate for all the types involved. A
-``MappedScalaProductShape`` takes a sequence of Shapes for its elements and
-provides the operations ``buildValue`` (for creating an instance of the record
-type given its elements) and ``copy`` (for creating a copy of this ``Shape``
-with new element Shapes):
+Nestable types (e.g. custom tuple types or hlists)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+You can add support for custom nestable types using an appropriate
+:api:`scala.slick.lifted.Shape`.
+
+Here is an example for a type ``Pair``:
 
 .. includecode:: code/LiftedEmbedding.scala#recordtype1
 
@@ -94,3 +93,23 @@ With these definitions in place, we can use the ``Pair`` record type in every
 location in Slick where a tuple or ``HList`` would be acceptable:
 
 .. includecode:: code/LiftedEmbedding.scala#recordtype2
+
+Custom case classes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+I order to map a custom case class using a :api:`scala.slick.lifted.Shape`,
+you need to write
+two variants. One case class with ``Column``  typed members for use in
+queries and one with ordinary Scala types for use in results.
+
+Here is an example using a ``CaseClassShape`` snippet to easily create
+a Shape for the mapping:
+
+.. includecode:: code/LiftedEmbedding.scala#case-class-shape
+
+Combining mapped types
+^^^^^^^^^^^^^^^^^^^^^^^^^
+In the following example we are combining a mapped case class and the mapped
+``Pair`` type in another mapped case class.
+
+.. includecode:: code/LiftedEmbedding.scala#combining-shapes

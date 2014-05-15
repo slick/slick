@@ -450,12 +450,10 @@ object LiftedEmbedding extends App {
   }
 
   db withDynSession {
-    //#recordtypepair
+    //#recordtype1
     // A custom record class
     case class Pair[A, B](a: A, b: B)
-    //#recordtypepair
 
-    //#recordtype1
     // A Shape implementation for Pair
     final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_], P <: Pair[_,_]](
       val shapes: Seq[Shape[_, _, _, _]])
@@ -490,6 +488,94 @@ object LiftedEmbedding extends App {
       .filter { case Pair(id, _) => id =!= 1 }
       .sortBy { case Pair(_, ss) => ss }
       .map { case Pair(id, ss) => Pair(id, Pair(42 , ss)) }
+
+    assert(q2.run == Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc"))))
     //#recordtype2
+
+    //#case-class-shape
+    // two custom case class variants
+    case class BProjection(a: Column[Int], b: Column[String])
+    case class BRow(a: Int, b: String)
+
+    import scala.slick.lifted.{Shape, ShapeLevel, TupleShape}
+    import scala.slick.util.TupleSupport
+    /** 
+     * A generic case class shape that maps between some ProjectionCaseClass and RowCaseClass
+     * (re-use this in your code)
+     */
+    class CaseClassShape[
+      P <: Product, ProjectionTuple, ProjectionCaseClass <: P, RowTuple, RowCaseClass <: P
+    ](
+      createProjection: ProjectionTuple => ProjectionCaseClass,
+      createRow: RowTuple => RowCaseClass
+    )(
+      implicit columnShapes: Shape[ShapeLevel.Flat, ProjectionTuple, RowTuple, ProjectionTuple]
+    ) extends MappedScalaProductShape[
+      ShapeLevel.Flat, P, ProjectionCaseClass, RowCaseClass, ProjectionCaseClass
+    ]{
+      val shapes = columnShapes.asInstanceOf[TupleShape[_,_,_,_]].shapes
+      override def toMapped(v: Any)
+        = createRow(v.asInstanceOf[RowTuple])
+      def buildValue(elems: IndexedSeq[Any])
+        = createProjection(TupleSupport.buildTuple(elems).asInstanceOf[ProjectionTuple])
+      def copy(s: Seq[Shape[_, _, _, _]])
+        = new CaseClassShape(createProjection,createRow){ override val shapes = s }
+    }
+
+    // custom case class mapping
+    implicit object BShape extends CaseClassShape(BProjection.tupled,BRow.tupled)
+
+    class B(tag: Tag) extends Table[BRow](tag, "shape_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = BProjection(id, s)
+    }
+    val bs = TableQuery[B]
+    bs.ddl.create
+
+    bs += BRow(1, "a")
+    bs.map(b => (b.id, b.s)) += ((2, "c"))
+    bs += BRow(3, "b")
+
+    val q3 = bs
+      .map { case b => BProjection(b.id, (b.s ++ b.s)) }
+      .filter { case BProjection(id, _) => id =!= 1 }
+      .sortBy { case BProjection(_, ss) => ss }
+
+    assert(q3.run == Vector(BRow(3,"bb"), BRow(2,"cc")))
+    //#case-class-shape
+
+    //#combining-shapes
+    // Combining multiple mapped types
+    case class CProjection(p: Pair[Column[Int],Column[String]], b: BProjection)
+    case class CRow(p: Pair[Int,String], b: BRow)
+
+    implicit object CShape extends CaseClassShape(CProjection.tupled,CRow.tupled)
+
+    class C(tag: Tag) extends Table[CRow](tag, "shape_c") {
+      def id = column[Int]("id")
+      def s = column[String]("s")
+      def projection = CProjection(
+        Pair(column("p1"),column("p2")), // (cols defined inline, type inferred)
+        BProjection(id,s)
+      )
+      def * = projection
+    }
+    val cs = TableQuery[C]
+    cs.ddl.create
+
+    cs += CRow(Pair(7,"x"), BRow(1,"a"))
+    cs += CRow(Pair(8,"y"), BRow(2,"c"))
+    cs += CRow(Pair(9,"z"), BRow(3,"b"))
+
+    val q4 = cs
+      .map { case c => CProjection(c.projection.p, BProjection(c.id,(c.s ++ c.s))) }
+      .filter { case CProjection(_, BProjection(id,_)) => id =!= 1 }
+      .sortBy { case CProjection(Pair(_,p2), BProjection(_,ss)) => ss++p2 }
+
+    assert(q4.run == Vector(CRow(Pair(9,"z"),BRow(3,"bb")), CRow(Pair(8,"y"),BRow(2,"cc"))))
+    //#combining-shapes
+
+    ()
   }
 }
