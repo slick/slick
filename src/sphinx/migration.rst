@@ -1,3 +1,5 @@
+.. index:: migration, 1.0, upgrading
+
 Migration Guide from Slick 1.0 to 2.0
 =====================================
 
@@ -12,6 +14,8 @@ Instead of writing your table descriptions or plain SQL mappers by hand, in 2.0 
 now automatically generate them from your database schema. The code-generator
 is flexible enough to customize it's output to fit exactly what you need.
 :doc:`More info on code generation <code-generation>`.
+
+.. index:: table object, ~, tuple
 
 Table Descriptions
 ------------------
@@ -89,6 +93,8 @@ function and then call ``.tupled``:
 
 .. includecode:: code/MigrationGuide.scala#mappedprojection2
 
+.. index:: profile, BasicProfile, ExtendedProfile, JdbcProfile
+
 Profile Hierarchy
 -----------------
 
@@ -155,6 +161,9 @@ Pre-compiled Updates
 Slick now supports pre-compilation of updates in the same manner like selects, see
 :ref:`compiled-queries`.
 
+.. index::
+   pair: session; package
+
 Database and Session Handling
 -----------------------------
 
@@ -204,6 +213,8 @@ This is no longer necessary in 2.0:
 Again, the recommended practice is NOT to use dynamic sessions.
 If you are uncertain if you need them the answer is most probably no.
 Static sessions are safer.
+
+.. index:: MappedTypeMapper
 
 Mapped Column Types
 -------------------

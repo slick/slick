@@ -1,5 +1,7 @@
 :tocdepth: 2
 
+.. index:: introduction
+
 Introduction
 ############
 
@@ -17,8 +19,7 @@ When using Scala instead of raw SQL for your queries you benefit from compile-ti
 and compositionality. Slick can generate queries for different back-end databases including
 your own, using its extensible query compiler.
 
-Get started learning Slick in minutes using the `Hello Slick <http://typesafe.com/activator/template/hello-slick>`_ template in 
-`Typesafe Activator <http://typesafe.com/activator>`_.
+Get started learning Slick in minutes using the `Hello Slick template`_ in Typesafe Activator_.
 
 
 Features
@@ -34,7 +35,7 @@ Scala
 
 .. includecode:: code/GettingStartedOverview.scala#features-scala-collections
 
-Type Safe
+Type-Safe
 ^^^^^^^^^
 * Let your IDE help you write your code
 * Find problems at compile-time instead of at runtime
@@ -55,6 +56,10 @@ Slick requires Scala 2.10. (For Scala 2.9 please use ScalaQuery_, the predecesso
 
 .. _supported-dbs:
 
+.. index::
+   pair: database; supported
+.. index:: Derby, JavaDB, H2, HSQLDB, HyperSQL, Access, MySQL, PostgreSQL, SQLite
+
 Supported database systems
 --------------------------
 
@@ -74,12 +79,42 @@ Writing a fully featured plugin for your own SQL-based backend can be achieved
 with a reasonable amount of work. Support for other backends (like NoSQL) is
 under development but not yet available.
 
+.. index:: license
+
 License
 -------
+
 Slick is released under a BSD-Style free and open source software :slick:`license <LICENSE.txt>`.
 See the chapter on the commercial :doc:`Slick Extensions <extensions>` add-on
 package for details on licensing the Slick drivers for the big commercial
 database systems.
+
+.. index::
+   pair: source; compatibility
+   pair: binary; compatibility
+
+Compatibility Policy
+--------------------
+
+Slick version numbers consist of an epoch, a major and minor version, and possibly a qualifier
+(for milestone, RC and SNAPSHOT versions).
+
+For release versions (i.e. versions without a qualifier), backward binary compatibility is
+guaranteed between releases with the same epoch and major version (e.g. you could use 2.1.2 as a
+drop-in relacement for 2.1.0 but not for 2.0.0). :doc:`Slick Extensions <extensions>` requires at
+least the same minor version of Slick (e.g. Slick Extensions 2.1.2 can be used with Slick 2.1.2 but
+not with Slick 2.1.1).
+
+We do not guarantee source compatibility but we try to preserve it within the same major release.
+Upgrading to a new major release may require some changes to your sources. We generally deprecate
+old features and keep them around for a full major release cycle (i.e. features which become
+deprecated in 2.1.0 will not be removed before 2.2.0) but this is not possible for all kinds of
+changes.
+
+Release candidates have the same compatibility guarantees as the final versions to which they
+lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
+
+.. index:: APIs
 
 Query APIs
 ----------
@@ -94,6 +129,7 @@ The experimental :doc:`Direct Embedding <direct-embedding>` is available as an
 alternative to the *Lifted Embedding*.
 
 .. _lifted-embedding:
+.. index:: lifted
 
 Lifted Embedding
 ----------------

@@ -163,7 +163,9 @@ object SlickBuild extends Build {
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
         "-doc-root-content", "scaladoc-root.txt"
       )),
-      (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value + ("version" -> version.value) + ("release" -> version.value),
+      (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value +
+        ("version" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1""")) +
+        ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
       test := (), // suppress test status output
       testOnly :=  (),
