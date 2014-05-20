@@ -1,5 +1,57 @@
+For Slick developers
+======================
+
+`slick at github <https://github.com/slick/slick>`_
+
+`waffle board <https://waffle.io/slick/slick>`_
+
+`slick-extensions at github <https://github.com/typesafe-hub/slick-extensions>`_
+
+
+Clone source code
+------------------
+``git clone https://github.com/slick/slick.git``
+
+Run tests
+----------
+all
+___
+``sbt> test``
+
+selected
+________
+
+``sbt> test-only -- *MainTest*`` or some other wildcard using a partial test class or method name
+
+enable output
+______________
+``sbt> test-only -- +q``
+
+enable Slick Scala to SQL compiler debug log
+______________________________________________
+
+``sbt> test-only -- -Dlog.qcomp=debug -Dscala.slick.ansiDump=true``
+
+enabling tests for MySQL, PostgreSQL, Access
+______________________________________________
+
+Copy the ``.example`` files in ``test-dbs`` removing the suffix. Edit the files to configure and enable the databases
+
+
+Configuring your ide
+-----------------------
+
+IntelliJ
+__________
+Use https://github.com/mpeltonen/sbt-idea
+
+``sbt> gen-idea``
+
+Then delete the modules root, root-build and slick-build in IntelliJ. That makes syntax highlighting and cross-referencing work pretty well. Build doesn't work in IntelliJ. Use sbt instead.
+
+
 Slick TestKit
-=============
+---------------
 
 When you write your own database driver for Slick, you need a way to run all
 the standard unit tests on it (in addition to any custom tests you may want to
@@ -12,7 +64,7 @@ contains a (slightly outdated) version of Slick's standard PostgreSQL driver
 and all the infrastructure required to build and test it.
 
 Scaffolding
------------
+___________
 
 Its ``build.sbt`` file is straight-forward. Apart from the usual name and
 version settings, it adds the dependencies for Slick, the TestKit,
@@ -39,12 +91,12 @@ There is a copy of Slick's logback configuration in
 framework if you prefer a different one.
 
 Driver
-------
+______
 
 The actual driver implementation can be found under ``src/main/scala``.
 
 Test Harness
-------------
+____________
 
 In order to run the TestKit tests, you need to add a class that extends
 ``DriverTest``, plus an implementation of ``TestDB`` which tells the TestKit
@@ -75,7 +127,7 @@ default implementations can be used out of the box::
   }
 
 Database Configuration
-----------------------
+______________________
 
 Since the PostgreSQL test harness is based on ``ExternalTestDB``, it needs to
 be configured in ``test-dbs/databases.properties``::
@@ -95,7 +147,7 @@ be configured in ``test-dbs/databases.properties``::
   mypostgres.driver = org.postgresql.Driver
 
 Testing
--------
+_______
 
 Running ``sbt test`` discovers ``MyPostgresTest`` and runs it with TestKit's
 JUnit runner. This in turn causes the database to be set up through the test
