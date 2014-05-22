@@ -137,6 +137,7 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
   def ltrim = Library.LTrim.column[P1](n)
   def rtrim = Library.RTrim.column[P1](n)
   def trim = Library.Trim.column[P1](n)
+  def substring(start: Int, end: Int) = Library.Substring.column[String](n, LiteralNode(start), LiteralNode(end))
 }
 
 /** Extension methods for Queries of a single Column */
