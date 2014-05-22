@@ -11,38 +11,13 @@ import scala.slick.jdbc.GetResult._
 import scala.slick.driver._
 import scala.slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
 import org.junit.Assert
+import com.typesafe.config.Config
 
 object TestDB {
   /** Marks a driver which is specially supported by the test kit for plain SQL queries */
   val plainSql = new Capability("test.plainSql")
   /** Marks a driver which is specially supported by the test kit for plain SQL wide result set queries */
   val plainSqlWide = new Capability("test.plainSqlWide")
-
-  val testDBDir = dbProps.getProperty("testDir", "test-dbs")
-  def testDBPath = {
-    val f = new File(testDBDir)
-    val s = f.getPath().replace('\\', '/')
-    if(f.isAbsolute) s else "./" + s
-  }
-  private lazy val dbProps = {
-    val p = new Properties
-    val f = new File(sys.props.getOrElse("slick.testkit.dbprops", "test-dbs/databases.properties"))
-    if(f.isFile) {
-      val in = new FileInputStream(f)
-      try { p.load(in) } finally { in.close() }
-    }
-    p
-  }
-  private lazy val testDBs = Option(dbProps.getProperty("testDBs")).map(_.split(',').map(_.trim).toSet)
-  def isInternalEnabled(db: String) = testDBs.map(_.contains(db)).getOrElse(true)
-  def isExternalEnabled(db: String) = isInternalEnabled(db) && "true" == dbProps.getProperty(db+".enabled")
-  def get(db: String, o: String) = Option(dbProps.getProperty(db+"."+o))
-
-  def getMulti(db: String, key: String): Seq[String] = get(db, key) match {
-    case Some(s) => Seq(s)
-    case None =>
-      Iterator.from(1).map(i => get(db, key+"."+i)).takeWhile(_.isDefined).toSeq.flatten
-  }
 
   /** Copy a file, expanding it if the source name ends with .gz */
   def copy(src: File, dest: File) {
@@ -70,10 +45,10 @@ object TestDB {
       if(f.isDirectory()) f.listFiles.forall(deleteRec _) && f.delete()
       else f.delete()
     }
-    val dir = new File(TestDB.testDBDir)
-    if(!dir.isDirectory) throw new IOException("Directory "+TestDB.testDBDir+" not found")
+    val dir = new File(TestkitConfig.testDir)
+    if(!dir.isDirectory) throw new IOException("Directory "+TestkitConfig.testDir+" not found")
     for(f <- dir.listFiles if f.getName startsWith prefix) {
-      val p = TestDB.testDBDir+"/"+f.getName
+      val p = TestkitConfig.testDir+"/"+f.getName
       if(deleteRec(f)) println("[Deleted database file "+p+"]")
       else throw new IOException("Couldn't delete database file "+p)
     }
@@ -98,8 +73,11 @@ trait TestDB {
   /** The test database name */
   val confName: String
 
+  /** The test configuration */
+  lazy val config: Config = TestkitConfig.testConfig(confName)
+
   /** Check if this test database is enabled */
-  def isEnabled = TestDB.isInternalEnabled(confName)
+  def isEnabled = TestkitConfig.testDBs.map(_.contains(confName)).getOrElse(true)
 
   /** This method is called to clean up before running all tests. */
   def cleanUpBefore() {}
@@ -132,6 +110,10 @@ trait TestDB {
   /** The capabilities of the Slick driver, possibly modified for this
     * test configuration. */
   def capabilities: Set[Capability] = profile.capabilities
+
+  def confOptionalString(path: String) = if(config.hasPath(path)) Some(config.getString(path)) else None
+  def confString(path: String) = confOptionalString(path).getOrElse(null)
+  def confStrings(path: String) = TestkitConfig.getStrings(config, path).getOrElse(Nil)
 }
 
 trait RelationalTestDB extends TestDB {
@@ -144,12 +126,9 @@ trait RelationalTestDB extends TestDB {
 trait SqlTestDB extends RelationalTestDB { type Driver <: SqlDriver }
 
 abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
-  type Driver <: JdbcDriver
+  type Driver = JdbcDriver
   lazy val database = profile.backend.Database
-  val url: String
-  override def toString = url
   val jdbcDriver: String
-  def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver)
   def getLocalTables(implicit session: profile.Backend#Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
@@ -182,40 +161,32 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   def canGetLocalTables = true
 }
 
+abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) {
+  val url: String
+  def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver)
+  override def toString = url
+}
+
 abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) {
-  val jdbcDriver = TestDB.get(confName, "driver").orNull
-  val urlTemplate = TestDB.get(confName, "url").getOrElse("")
-  val dbPath = TestDB.get(confName, "dir").getOrElse(new File(TestDB.testDBDir).getAbsolutePath)
-  val dbName = TestDB.get(confName, "testDB").getOrElse("").replace("[DBPATH]", dbPath)
-  val password = TestDB.get(confName, "password").orNull
-  val user = TestDB.get(confName, "user").orNull
-  val adminUser = TestDB.get(confName, "adminUser").getOrElse(user)
-  val adminPassword = TestDB.get(confName, "adminPassword").getOrElse(password)
-  lazy val url = replaceVars(urlTemplate)
+  val jdbcDriver = confString("driver")
+  val testDB = confString("testDB")
 
-  lazy val adminDB = TestDB.get(confName, "adminDB").getOrElse("").replace("[DBPATH]", dbPath)
-  lazy val adminDBURL = replaceVars(urlTemplate.replace("[DB]", adminDB))
-  lazy val create = TestDB.getMulti(confName, "create").map(replaceVars)
-  lazy val postCreate = TestDB.getMulti(confName, "postCreate").map(replaceVars)
-  lazy val drop = TestDB.getMulti(confName, "drop").map(replaceVars)
+  val create = confStrings("create")
+  val postCreate = confStrings("postCreate")
+  val drop = confStrings("drop")
 
-  def replaceVars(s: String): String =
-    s.replace("[DB]", dbName).replace("[DBPATH]", dbPath).
-      replace("[USER]", user).replace("[PASSWORD]", password)
+  override def toString = confString("testConn.url")
 
-  override def isEnabled = TestDB.isExternalEnabled(confName)
+  override def isEnabled = super.isEnabled && config.getBoolean("enabled")
 
-  def databaseFor(url: String, user: String, password: String, prop: Map[String, String] = null) = loadCustomDriver() match {
-    case Some(dr) => database.forDriver(dr, url, user = user, password = password, prop = TestDB.mapToProps(prop))
-    case None => database.forURL(url, user = user, password = password, driver = jdbcDriver, prop = TestDB.mapToProps(prop))
-  }
+  def databaseFor(path: String) = database.forConfig(path, config, loadCustomDriver().getOrElse(null))
 
-  override def createDB() = databaseFor(url, user, password)
+  override def createDB() = databaseFor("testConn")
 
   override def cleanUpBefore() {
     if(!drop.isEmpty || !create.isEmpty) {
       println("[Creating test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session =>
+      databaseFor("adminConn") withSession { implicit session =>
         for(s <- drop) (Q.u + s).execute
         for(s <- create) (Q.u + s).execute
       }
@@ -230,13 +201,13 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   override def cleanUpAfter() {
     if(!drop.isEmpty) {
       println("[Dropping test database "+this+"]")
-      databaseFor(adminDBURL, adminUser, adminPassword) withSession { implicit session =>
+      databaseFor("adminConn") withSession { implicit session =>
         for(s <- drop) (Q.u + s).execute
       }
     }
   }
 
-  def loadCustomDriver() = TestDB.get(confName, "driverJar").map { jar =>
+  def loadCustomDriver() = confOptionalString("driverJar").map { jar =>
     ExternalTestDB.getCustomDriver(jar, jdbcDriver)
   }
 }

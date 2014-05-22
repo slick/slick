@@ -1,7 +1,9 @@
 /.idea/
 target/
 /test-dbs/*-*
+/test-dbs/*_*
 /test-dbs/databases.properties
+/test-dbs/testkit.conf
 *.log
 *.iml
 *.pyc
