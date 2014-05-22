@@ -88,6 +88,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     override protected val supportsTuples = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+      case Library.Substring(n, start, end) => b"\(substr($n,$start,$end)\)"
       case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
