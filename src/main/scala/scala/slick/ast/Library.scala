@@ -47,6 +47,7 @@ object Library {
   val LCase = new JdbcFunction("lcase")
   val LTrim = new JdbcFunction("ltrim")
   val RTrim = new JdbcFunction("rtrim")
+  val Substring = new FunctionSymbol("substring")
   val Trim = new FunctionSymbol("Trim")
   val Like = new FunctionSymbol("Like")
   val StartsWith = new FunctionSymbol("StartsWith")
