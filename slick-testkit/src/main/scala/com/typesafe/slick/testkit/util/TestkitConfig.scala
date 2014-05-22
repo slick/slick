@@ -50,6 +50,11 @@ object TestkitConfig {
   /** The `testkit.testDBs` setting */
   lazy val testDBs = getStrings(testkitConfig, "testDBs")
 
+  /** The `testkit.testClasses` setting */
+  lazy val testClasses: Seq[Class[_ <: TestkitTest[_ >: Null <: TestDB]]] =
+    getStrings(testkitConfig, "testClasses").getOrElse(Nil).
+      map(n => Class.forName(n).asInstanceOf[Class[_ <: TestkitTest[_ >: Null <: TestDB]]])
+
   def getStrings(config: Config, path: String): Option[Seq[String]] = {
     if(config.hasPath(path)) {
       config.getValue(path).unwrapped() match {

@@ -7,8 +7,8 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import scala.slick.test.model.codegen.roundtrip.Tables
 import scala.slick.jdbc.StaticQuery
 import scala.slick.testutil._
-import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.JdbcTestDB
+import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
+import com.typesafe.slick.testkit.util.StandardTestDBs._
 
 object CodeGeneratorRoundTripTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {

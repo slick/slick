@@ -2,8 +2,7 @@ package scala.slick.test.jdbc
 
 import scala.language.higherKinds
 import scala.slick.testutil._
-import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.JdbcTestDB
+import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 
 object ExecutorTest extends DBTestObject()
 class ExecutorTest(val tdb: JdbcTestDB) extends DBTest {

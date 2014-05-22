@@ -1,4 +1,4 @@
-package scala.slick.testutil
+package com.typesafe.slick.testkit.util
 
 import java.io.File
 import java.util.logging.{Level, Logger}
@@ -8,11 +8,10 @@ import scala.slick.memory.MemoryDriver
 import scala.slick.jdbc.{ResultSetInvoker, StaticQuery => Q}
 import scala.slick.jdbc.GetResult._
 import scala.slick.jdbc.meta.MTable
-import com.typesafe.slick.testkit.util.{TestkitConfig, RelationalTestDB, ExternalJdbcTestDB, InternalJdbcTestDB, ExternalTestDB, TestDB}
 import org.junit.Assert
 
-object TestDBs {
-  def H2Mem = new InternalJdbcTestDB("h2mem") {
+object StandardTestDBs {
+  lazy val H2Mem = new InternalJdbcTestDB("h2mem") {
     val driver = H2Driver
     val url = "jdbc:h2:mem:test1"
     val jdbcDriver = "org.h2.Driver"
@@ -20,7 +19,7 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def H2Disk = new InternalJdbcTestDB("h2disk") {
+  lazy val H2Disk = new InternalJdbcTestDB("h2disk") {
     val driver = H2Driver
     val dbName = "h2-"+confName
     val url = "jdbc:h2:"+TestkitConfig.testDBPath+"/"+dbName
@@ -34,13 +33,13 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def HsqldbMem = new HsqlDB("hsqldbmem") {
+  lazy val HsqldbMem = new HsqlDB("hsqldbmem") {
     val dbName = "test1"
     val url = "jdbc:hsqldb:mem:"+dbName+";user=SA;password=;shutdown=true"
     override def isPersistent = false
   }
 
-  def HsqldbDisk = new HsqlDB("hsqldbdisk") {
+  lazy val HsqldbDisk = new HsqlDB("hsqldbdisk") {
     val dbName = "hsqldb-"+confName
     val url = "jdbc:hsqldb:file:"+TestkitConfig.testDBPath+"/"+dbName+";user=SA;password=;shutdown=true;hsqldb.applog=0"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -51,12 +50,12 @@ object TestDBs {
     }
   }
 
-  def SQLiteMem = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
+  lazy val SQLiteMem = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
     override def isPersistent = false
     override def isShared = false
   }
 
-  def SQLiteDisk = {
+  lazy val SQLiteDisk = {
     val confName = "sqlitedisk"
     val prefix = "sqlite-"+confName
     new SQLiteTestDB("jdbc:sqlite:"+TestkitConfig.testDBPath+"/"+prefix+".db", confName) {
@@ -64,7 +63,7 @@ object TestDBs {
     }
   }
 
-  def DerbyMem = new DerbyDB("derbymem") {
+  lazy val DerbyMem = new DerbyDB("derbymem") {
     val dbName = "test1"
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
@@ -74,7 +73,7 @@ object TestDBs {
     }
   }
 
-  def DerbyDisk = new DerbyDB("derbydisk") {
+  lazy val DerbyDisk = new DerbyDB("derbydisk") {
     val dbName = "derby-"+confName
     val url = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
@@ -85,7 +84,7 @@ object TestDBs {
     }
   }
 
-  def Postgres = new ExternalJdbcTestDB("postgres") {
+  lazy val Postgres = new ExternalJdbcTestDB("postgres") {
     val driver = PostgresDriver
     override def getLocalTables(implicit session: profile.Backend#Session) = {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
@@ -98,7 +97,7 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def MySQL = new ExternalJdbcTestDB("mysql") {
+  lazy val MySQL = new ExternalJdbcTestDB("mysql") {
     val driver = MySQLDriver
     // Recreating the DB is faster than dropping everything individually
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
@@ -108,9 +107,9 @@ object TestDBs {
     override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  def MSAccess = new AccessDB("access")
+  lazy val MSAccess = new AccessDB("access")
 
-  def Heap = new RelationalTestDB {
+  lazy val Heap = new RelationalTestDB {
     type Driver = MemoryDriver
     val driver: Driver = MemoryDriver
     val confName: String = "heap"
