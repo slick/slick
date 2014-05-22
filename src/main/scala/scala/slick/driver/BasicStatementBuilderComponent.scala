@@ -421,7 +421,7 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   class InsertBuilder(val node: Node) {
 
     class PartsResult(val table: String, val fields: IndexedSeq[FieldSymbol]) {
-      def qtable = quoteIdentifier(table)
+      def qtable = quoteTableName(node.asInstanceOf[TableNode])
       def qcolumns = fields.map(s => quoteIdentifier(s.name)).mkString(",")
       def qvalues = IndexedSeq.fill(fields.size)("?").mkString(",")
     }
