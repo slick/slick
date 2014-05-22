@@ -1,12 +1,25 @@
 package scala.slick.jdbc
 
+import com.typesafe.config.{ ConfigFactory, ConfigException }
+import java.sql.PreparedStatement
 import scala.language.experimental.macros
 import scala.reflect.macros.Context
-import com.typesafe.config.{ ConfigFactory, ConfigException }
+import scala.reflect.macros.TypecheckException
+import scala.slick.collection.heterogenous._
+import scala.slick.collection.heterogenous.syntax._
 
-abstract class TypedStaticQuery[-P, +R](query: String, rconv: GetResult[R], pconv: SetParameter[P])
-  extends StaticQuery[P, R](query, pconv, rconv) {
-  //    protected[this] type Self = TypedStaticQuery[P, R]
+class TypedStaticQuery[+R](query: String, rconv: GetResult[R], param: List[Any]) extends StatementInvoker[R] {
+  def getStatement = query
+  
+  protected def setParam(st: PreparedStatement) = {
+    SetParameter.SetSimpleProduct(new Product {
+        def productArity = param.length
+        def productElement(i: Int) = param(i)
+        def canEqual(that: Any) = false
+      }, new PositionedParameters(st)
+    )
+  }
+  protected def extractValue(rs: PositionedResult): R = rconv(rs)
 }
 
 trait CompileTimeConnection {
@@ -14,12 +27,41 @@ trait CompileTimeConnection {
 }
 
 object TypedStaticQuery {
-  implicit class TypedSQLInterpolator(ctxt: StringContext) {
-    def tsql(params: Any*) = macro tsqlImpl
-  }
-
-  def tsqlImpl(ctxt: Context)(params: ctxt.Expr[Any]*): ctxt.Expr[TypedStaticQuery[_, _]] = {
+  def tsqlImpl(ctxt: Context)(params: ctxt.Expr[Any]*): ctxt.Expr[TypedStaticQuery[Any]] = {
     import ctxt.universe._
+    
+    /*def typeToTree(tpe: Type): Tree = {
+      def erasedTypeToTree(etpe: Type): Tree =
+        createClassTreeFromString(etpe.typeSymbol.fullName)
+      tpe.asInstanceOf[TypeRef].args match {
+        case Nil => erasedTypeToTree(tpe.erasure)
+        case args => AppliedTypeTree(erasedTypeToTree(tpe.erasure), args.map(t => typeToTree(t)))
+      }
+    }*/
+    
+    def createClassTreeFromString(classString: String, generator: String => Name = newTypeName(_)): Tree = {
+      val tokens = classString.split('.').toList
+      tokens match {
+        case Nil => ctxt.abort(ctxt.enclosingPosition, s"No class/object name defined for $classString")
+        case _ => {
+          val packages = tokens.dropRight(1)
+          val classType = generator(tokens.last)
+          val packagesType = packages map (newTermName(_))
+          if (packagesType.isEmpty)
+            Ident(classType)
+          else {
+            val firstPackage = packages.head match {
+              case "_root_" => Ident(nme.ROOTPKG)
+              case _ => Ident(packagesType.head)
+            }
+            val others = (packagesType.tail :+ classType)
+            others.foldLeft[Tree](firstPackage)((prev, elem) => {
+              Select(prev, elem)
+            })
+          }
+        }
+      }
+    }
 
     val macroHelper = new {
       val c = ctxt
@@ -28,14 +70,112 @@ object TypedStaticQuery {
     macroHelper.connection withSession { implicit session =>
       val preparedStmt = session.prepareStatement(macroHelper.query)
       val resultMeta = preparedStmt.getMetaData
-      val resultTypes = List.tabulate(resultMeta.getColumnCount) { i =>
-        meta.jdbcTypeToScala(resultMeta.getColumnType(i))
+      val count = resultMeta.getColumnCount
+      val resultTypes = List.tabulate(count) { i =>
+        meta.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+      }.map (_.runtimeClass.getCanonicalName match {
+        case "int" => TypeTree(typeOf[Int])
+        case "byte" => TypeTree(typeOf[Byte])
+        case "long" => TypeTree(typeOf[Long])
+        case "short" => TypeTree(typeOf[Short])
+        case "float" => TypeTree(typeOf[Float])
+        case "double" => TypeTree(typeOf[Double])
+        case "boolean" => TypeTree(typeOf[Boolean])
+        case x => TypeTree(ctxt.mirror.staticClass(x).selfType)
+      })
+      
+      //val ptypeTree = weakTypeOf[P]
+      val rtypeTree = count match {
+        case 1 => resultTypes(0)
+        case n if (n <= 22) => AppliedTypeTree(
+          Select(Ident(newTermName("scala")), newTypeName("Tuple" + count)),
+          resultTypes
+        )
+        case _ => {
+          val syntaxTree = createClassTreeFromString("scala.slick.collection.heterogenous.syntax", newTermName(_))
+          val zero = TypeTree(typeOf[HNil])
+          val :: = Select(syntaxTree, newTypeName("$colon$colon"))
+          resultTypes.foldRight[TypTree](zero) { (typ, prev) =>
+            AppliedTypeTree(::, List(typ, prev))
+          }
+        }
       }
-
-    }
-
-    ctxt.Expr[TypedStaticQuery[Int, Int]] {
-      Block()
+      
+//      println(rtypeTree)
+      
+      
+      def implicitGetResultTree(reqType: Tree) = TypeApply(
+        Select(
+          Select(Ident(newTermName("scala")), newTermName("Predef")), 
+          newTermName("implicitly")
+        ), List(AppliedTypeTree(
+          createClassTreeFromString("scala.slick.jdbc.GetResult"), 
+          List(reqType)
+        ))
+      )
+      
+      val rconvTree = count match {
+        case n if (n <= 22) => implicitGetResultTree(Ident(newTypeName("rtype")))
+        case n => {
+          val zero = createClassTreeFromString("scala.slick.collection.heterogenous.HNil", newTermName(_))
+          val zipped = (0 until n) zip resultTypes
+          val << = Select(Ident(newTermName("p")), newTermName("$less$less"))
+          Apply(
+            TypeApply( 
+              Select(createClassTreeFromString("scala.slick.jdbc.GetResult", newTermName(_)), newTermName("apply")), 
+              List(rtypeTree)
+            ),
+            List( 
+                Function(
+                List(ValDef(Modifiers(Flag.PARAM), newTermName("p"), TypeTree(), EmptyTree)),
+                Block(
+                  zipped.map { tup =>
+                    val (i: Int, typ: Tree) = tup
+                    ValDef(Modifiers(), newTermName("gr" + i), TypeTree(), implicitGetResultTree(typ))
+                  }.toList,
+                  zipped.foldRight(zero) { (tup, prev) =>
+                    val (i: Int, typ: Tree) = tup
+                    Block(
+                      List(ValDef(Modifiers(), newTermName("pv" + i), TypeTree(), Apply(<<, List(Ident(newTermName("gr" + i)))))),
+                      Apply(Select(prev, newTermName("$colon$colon")), List(Ident(newTermName("pv" + i))))
+                    )
+                  }
+                )
+              )
+            )
+          )
+        }
+      }
+      
+      val ret = ctxt.Expr[TypedStaticQuery[Any]] {
+        Block( 
+          List (
+            TypeDef(Modifiers(), newTypeName("rtype"), List(), rtypeTree),
+            ValDef(Modifiers(), newTermName("rconv"), TypeTree(), rconvTree)
+          ),
+          Apply(
+            Select(
+              New( AppliedTypeTree(
+                createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery"), 
+                List(Ident(newTypeName("rtype")))
+              )), nme.CONSTRUCTOR
+            ), List(
+              Literal(Constant(macroHelper.query)), 
+              Ident(newTermName("rconv")), 
+              Apply(
+                Select(Ident(newTermName("scala")), newTermName("List")),
+                params.toList.map(_.tree)
+              )
+            )
+          )
+        )
+      }
+      println("*[ Start Tree")
+      println(ret)
+      println
+      println(showRaw(ret.tree))
+      println("*] End Tree")
+      ret
     }
   }
   
@@ -46,14 +186,24 @@ object TypedStaticQuery {
     val c: Context
 
     import c.universe._
-
+    
     val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = c.macroApplication
 
-    val Ident(implTree) = c.inferImplicitValue(typeOf[CompileTimeConnection], silent = false)
+    val implTree = {
+      try {
+        c.inferImplicitValue(typeOf[CompileTimeConnection], silent = false)
+      } catch {
+        case _: TypecheckException => abort(s"There should be an implicit object implementation of CompileTimeConnection trait")
+      }
+    } match { //Find the name of object / val we are interested in
+      case Ident(x) => x
+      case Select(_, x) => x
+    }
 
-    val query = strArg.map { tree =>
-      c.eval(c.Expr(c.resetAllAttrs(tree.duplicate)))
-    } mkString (" ? ")
+    val query: String = strArg.map[String, List[String]]{ 
+      case Literal(Constant(x: String)) => x
+      case _ => abort("The interpolation contained something other than constants...")
+    } mkString ("?")
 
     def abort(msg: String) = c.abort(c.enclosingPosition, msg)
 
@@ -61,7 +211,7 @@ object TypedStaticQuery {
 
   private[this] trait MacroConfigHandler { base: MacroBaseStructureHandler =>
 
-    val configFileName = "Some Random Shit"
+    val configFileName = "reference.conf"
     val configGlobalPrefix = "typedsql."
 
     lazy val conf = {
@@ -70,16 +220,18 @@ object TypedStaticQuery {
         if (file.isFile() && file.exists())
           file
         else
-          base.abort("Configuration file you provided does not exist")
+          base.abort(s"Configuration file does not exist. Create a file: ${file.getAbsolutePath}")
       }
       ConfigFactory.parseFile(confFile)
     }
 
-    @inline def getFromConfig(key: String): String = try {
-      conf.getString(configGlobalPrefix + key)
+    @inline def getFromConfig(key: String): Option[String => String] = try {
+      Some{ _key =>
+        val c = conf.getConfig(configGlobalPrefix + key)
+        if (c.hasPath(_key)) c.getString(_key) else null
+      }
     } catch {
-      case e: ConfigException.Missing   => null
-      case e: ConfigException.WrongType => base.abort(s"The value for $key should be String in the configuration file.")
+      case _: ConfigException.Missing => None
     }
   }
 
@@ -87,26 +239,42 @@ object TypedStaticQuery {
 
     val scope = base.c.enclosingClass
     val valName = "dbName"
+    val defName = "tsql"
 
-    lazy val connection = JdbcBackend.Database.forURL(base.getFromConfig(databaseName + ".url"),
-      user = base.getFromConfig(databaseName + ".user"),
-      password = base.getFromConfig(databaseName + ".password"),
-      driver = base.getFromConfig(databaseName + ".driver"))
+    lazy val connection = databaseConfig match {
+      case Some(config) => JdbcBackend.Database.forURL(config("url"),
+          user = config("user"),
+          password = config("password"),
+          driver = config("driver")
+        )
+      case None => base.abort(s"Configuration for compile-time database $databaseName not found")
+    }
+    
+    lazy val databaseConfig = base.getFromConfig(databaseName)
 
     lazy val databaseName: String = {
       import base.c.universe._
 
-      val macroTree = Apply(Select(Apply(Ident(newTermName("StringContext")), strArg), newTermName("func")), paramList)
-
+      val macroTree = Apply(Select(Apply(Ident(newTermName("StringContext")), strArg), newTermName(defName)), paramList)
+      //val macroTree = Apply(Select(Select(Ident(newTermName("scala")), newTermName("scala.StringContext")), newTermName("apply")), strArg)
+//      println("\n")
+//      println("Actual Macro Tree")
+//      println((base.c.macroApplication))
+//      println(showRaw(base.c.macroApplication))
+//      println("Expected macro Tree")
+//      println(showRaw(macroTree))
       val valTree = scope.collect { // Collect all blocks
         case x: Block if x.exists(_ equalsStructure macroTree) => x
-      }.flatMap(_.collect { // Find all modules in each block
+      }.:+(scope).flatMap(_.collect { // Find all modules in each block
         case x: ModuleDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(base.implTree)) => x
+        case x: ValDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(base.implTree)) => x
       }).headOption.getOrElse { // There must be just one such module
-        c.abort(c.enclosingPosition, s"${showRaw(implTree)} must be an object with constant definitions")
+        c.abort(c.enclosingPosition, s"${implTree} must be an implicit val or implicit object with the definition in place")
       }.collect { //Find the val we are interested in
         case x: ValDef if (x.name.toString == valName) => x.rhs
-      }.head
+      }.headOption.getOrElse { //The implicit val or object is not defined in place
+        c.abort(c.enclosingPosition, s"${implTree} must be defined in place and cannot refer to predefined an object")
+      }
 
       c.eval(c.Expr(c.resetAllAttrs(valTree.duplicate)))
     }

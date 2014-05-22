@@ -1,5 +1,6 @@
 package scala.slick.jdbc
 
+import scala.language.experimental.macros
 import scala.language.implicitConversions
 import java.sql.PreparedStatement
 import collection.mutable.ArrayBuffer
@@ -56,6 +57,8 @@ class SQLInterpolation(val s: StringContext) extends AnyVal {
     new SQLInterpolationResult[P](s.parts, param, pconv)
   /** Build a StaticQuery for an UPDATE statement via string interpolation */
   def sqlu[P](param: P)(implicit pconv: SetParameter[P]) = sql(param).asUpdate
+  
+  def tsql(params: Any*): TypedStaticQuery[Any] = macro TypedStaticQuery.tsqlImpl
 }
 
 case class SQLInterpolationResult[P](strings: Seq[String], param: P, pconv: SetParameter[P]) {
