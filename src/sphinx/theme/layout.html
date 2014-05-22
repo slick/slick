@@ -32,7 +32,7 @@ if(window.location.host == 'slick.typesafe.com'){
           {%- if logo %}
             <span class="logo"><img class="logo" src="{{ pathto('_static/' + logo, 1) }}" alt="Slick"/></span>
           {%- endif %}
-          {{ version|e }} documentation
+          {{ release|e }} manual
         </a></div>
         {%- endblock %}
        </div>
@@ -48,22 +48,19 @@ if(window.location.host == 'slick.typesafe.com'){
           {%- endblock %}
         </div>
         <div class="sidebar">
-          {%- block sidebartoc %}
-          <h3>{{ _('Table Of Contents') }}</h3>
-          {{ toctree() }}
-          {%- endblock %}
           {%- block sidebarsearch %}
-          <h3 style="margin-top: 1.5em;">{{ _('Search') }}</h3>
+          <h3>{{ _('Search') }}</h3>
           <form class="search" action="{{ pathto('search') }}" method="get">
             <input type="text" name="q" />
             <input type="submit" value="{{ _('Go') }}" />
             <input type="hidden" name="check_keywords" value="yes" />
             <input type="hidden" name="area" value="default" />
           </form>
-          <p class="searchtip" style="font-size: 90%">
-            {{ _('Enter search terms or a module, class or function name.') }}
-          </p>
           {%- endblock %}
+            {%- block sidebartoc %}
+            <h3 style="margin-top: 1.5em;">{{ _('Table Of Contents') }}</h3>
+            {{ toctree() }}
+            {%- endblock %}
         </div>
         <div class="clearer"></div>
       </div>

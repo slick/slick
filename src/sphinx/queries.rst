@@ -1,9 +1,13 @@
+.. index:: Query
+
 Queries
 =======
 
 This chapter describes how to write type-safe queries for selecting,
 inserting, updating and deleting data with the
 :ref:`Lifted Embedding <lifted-embedding>` API.
+
+.. index:: expression, Column, scalar, collection-valued, Rep, Seq, extension method, select, projection, view
 
 Expressions
 -----------
@@ -31,6 +35,8 @@ collections.
 Additional methods for queries of scalar values are added via an
 implicit conversion to ``SingleColumnQueryExtensionMethods``.
 
+.. index:: sort, filter, order by, sortBy, where
+
 Sorting and Filtering
 ---------------------
 
@@ -38,6 +44,8 @@ There are various methods with sorting/filtering semantics (i.e. they take a
 ``Query`` and return a new ``Query`` of the same type), for example:
 
 .. includecode:: code/LiftedEmbedding.scala#filtering
+
+.. index:: join, zip, zipWithIndex
 
 Joining and Zipping
 -------------------
@@ -48,6 +56,11 @@ There are two different ways of writing joins: *Explicit* joins are performed
 by calling a method that joins two queries into a single query of a tuple of
 the individual results. *Implicit* joins arise from a specific shape of a query
 without calling a special method.
+
+.. index::
+   pair: join; implicit
+   pair: join; inner
+   pair: join; cross
 
 An *implicit cross-join* is created with a ``flatMap`` operation on a ``Query``
 (i.e. by introducing more than one generator in a for-comprehension):
@@ -60,6 +73,10 @@ If you add a filter expression, it becomes an *implicit inner join*:
 
 The semantics of these implicit joins are the same as when you are using
 ``flatMap`` on Scala collections.
+
+.. index::
+   pair: join; outer
+   pair: join; explicit
 
 Explicit joins are created by calling one of the available join methods:
 
@@ -86,6 +103,8 @@ so ``zipWithIndex`` is supported as a primitive operator:
 
 .. includecode:: code/JoinsUnions.scala#zipWithIndex
 
+.. index:: union, ++, unionAll
+
 Unions
 ------
 
@@ -96,6 +115,8 @@ operators if they have compatible types:
 
 Unlike ``union`` which filters out duplicate values, ``++`` simply concatenates
 the results of the individual queries, which is usually more efficient.
+
+.. index:: aggregate, min, max, sum, avg, length, count, exists
 
 Aggregation
 -----------
@@ -111,6 +132,8 @@ one column):
 
 .. includecode:: code/LiftedEmbedding.scala#aggregation2
 
+.. index:: group by, groupBy
+
 Grouping is done with the ``groupBy`` method. It has the same semantics as for
 Scala collections:
 
@@ -121,6 +144,11 @@ These would turn into nested collections when executing the query, which is
 not supported at the moment. Therefore it is necessary to flatten the nested
 queries immediately by aggregating their values (or individual columns)
 as done in ``q2``.
+
+.. index:: querying, Invoker, first, buildColl, selectStatement, list
+.. index::
+   pair: query; execute
+   pair: query; run
 
 Querying
 --------
@@ -147,6 +175,8 @@ If you only want a single result value, you can use ``first`` or
 used to iterate over the result set without first copying all data into a
 Scala collection.
 
+.. index:: delete, DeleteInvoker, deleteStatement
+
 Deleting
 --------
 
@@ -161,6 +191,8 @@ the ``delete`` method and a self-reference ``deleteInvoker``:
 A query for deleting must only select from a single table. Any projection is
 ignored (it always deletes full rows).
 
+.. index:: insert, +=, ++=, InsertInvoker, insertStatement
+
 Inserting
 ---------
 
@@ -174,6 +206,8 @@ for inserting are defined in
 :api:`FullInsertInvoker <scala.slick.driver.JdbcInvokerComponent@FullInsertInvoker[U]:JdbcDriver.FullInsertInvoker[U]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
+
+.. index:: returning, AutoInc, generated key, into
 
 When you include an ``AutoInc`` column in an insert operation, it is silently
 ignored, so that the database can generate the proper value.
@@ -206,6 +240,8 @@ database server:
 
 In these cases, ``AutoInc`` columns are *not* ignored.
 
+.. index:: update, UpdateInvoker, updateStatement
+
 Updating
 --------
 
@@ -220,6 +256,9 @@ updating are defined in
 There is currently no way to use scalar expressions or transformations of
 the existing data in the database for updates.
 
+.. index:: prepared, QueryTemplate, parameter
+.. index::
+   pair: query; compiled
 .. _compiled-queries:
 
 Compiled Queries

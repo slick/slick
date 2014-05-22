@@ -1,3 +1,5 @@
+.. index:: SQL, Plain SQL
+
 Plain SQL Queries
 =================
 
@@ -6,13 +8,17 @@ not well supported at a higher level of abstraction. Instead of falling back
 to the low level of JDBC_, you can use Slick's *Plain SQL* queries with a much
 nicer Scala-based API.
 
+*Note:* The rest of this chapter is based on the `Slick Plain SQL Queries template`_.
+The prefered way of reading this introduction is in Activator_, where you can edit and
+run the code directly while reading the tutorial.
+
+.. index:: StaticQuery, GetResult
+
 Scaffolding
 -----------
 
-:example-src:`jdbc/PlainSQL.scala` demonstrates some features of the *Plain SQL* support. The
-imports are different from what you're used to for the
-:ref:`lifted embedding <lifted-embedding>` or
-:doc:`direct embedding <direct-embedding>`:
+The imports you need for Plain SQL queries are different from what you're used to for the
+:ref:`lifted embedding <lifted-embedding>` or :doc:`direct embedding <direct-embedding>`:
 
 .. includecode:: code/PlainSQL.scala#imports
 
@@ -30,6 +36,10 @@ The database connection is opened
 some case classes for our data:
 
 .. includecode:: code/PlainSQL.scala#setup
+
+.. index:: updateNA
+.. index::
+   pair: update; Plain SQL
 
 DDL/DML Statements
 ------------------
@@ -51,6 +61,8 @@ to ``StaticQuery.updateNA("")``). We are using it to insert some data into the
 
 .. includecode:: code/PlainSQL.scala#Q.u
 
+.. index:: +?
+
 Embedding literals into SQL code is generally not recommended for security and
 performance reasons, especially if they are to be filled at run-time with
 user-provided data. You can use the special concatenation operator ``+?`` to
@@ -61,6 +73,10 @@ value when the statement gets executed:
 
 The SQL statement is the same for all calls:
 ``insert into coffees values (?,?,?,?,?)``
+
+.. index:: queryNA, PositionedResult
+.. index::
+   pair: query; Plain SQL
 
 Query Statements
 ----------------
@@ -100,6 +116,11 @@ reducing it to a parameterless query. This makes the syntax for parameterized
 queries the same as for normal function application:
 
 .. includecode:: code/PlainSQL.scala#applyQuery
+
+.. index:: interpolation
+.. index::
+   pair: sql; interpolator
+   pair: sqlu; interpolator
 
 String Interpolation
 --------------------

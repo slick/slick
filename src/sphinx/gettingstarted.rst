@@ -1,12 +1,34 @@
+.. index:: Activator, template
+
 Getting Started
 ===============
 
-The easiest way to get started is with a working application in `Typesafe Activator <http://typesafe.com/activator>`_.
-To learn the basics of Slick start with the `Hello Slick <http://typesafe.com/activator/template/hello-slick>`_ 
-template.  To learn how to integrate Slick with Play Framework check out the 
-`Play Slick with Typesafe IDs <http://typesafe.com/activator/template/play-slick-advanced>`_ template.
+The easiest way to get started is with a working application in Typesafe Activator_. The following
+templates are created by the Slick team, with updated versions being made for new Slick releases:
 
-To include Slick into an existing project use the library published on Maven Central.  For sbt projects add the 
+* To learn the basics of Slick, start with the `Hello Slick template`_. It contains an extended
+  version of the tutorial and code from this page.
+
+* The `Slick Plain SQL Queries template`_ shows you how to do SQL queries with Slick.
+
+* The `Slick Multi-DB Patterns template`_ shows you how to write Slick applications that can use
+  different database systems and how to use custom database functions in Slick queries.
+
+* The `Slick Direct Embedding template`_ shows you how to use Slick's experimental Direct Embedding
+  query API.
+
+* The `Slick TestKit Example template`_ shows you how to use Slick TestKit to test your own Slick drivers.
+
+There are more Slick templates created by the community, as well as versions of our own templates for other
+Slick releases. You can find `all Slick templates <https://typesafe.com/activator/templates#filter:slick>`_
+on the Typesafe web site.
+
+.. index:: Maven, sbt, artifacts, build, dependency
+
+Adding Slick to Your Project
+============================
+
+To include Slick in an existing project use the library published on Maven Central.  For sbt projects add the
 following to your ``libraryDependencies``:
 
 .. parsed-literal::
@@ -27,19 +49,19 @@ For Maven projects add the following to your ``<dependencies>``:
     <version>1.6.4</version>
   </dependency>
 
+.. index:: logging, SLF4j
+
 Slick uses SLF4J_ for its own debug logging so you also need to add an SLF4J
 implementation. Here we are using ``slf4j-nop`` to disable logging. You have
 to replace this with a real logging framework like Logback_ if you want to see
 log output.
 
-Slick Examples
---------------
-
-Check out the `Slick Examples`_ project for more examples like using multiple databases, using native queries, and advanced invoker usage.
-
-
 Quick Introduction
-------------------
+==================
+
+*Note:* The rest of this chapter is based on the `Hello Slick template`_. The prefered
+way of reading this introduction is in Activator_, where you can edit and run the code
+directly while reading the tutorial.
 
 To use Slick you first need to import the API for the database you will be using, like:
 

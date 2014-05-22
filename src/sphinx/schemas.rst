@@ -1,3 +1,5 @@
+.. index:: schema
+
 Schemas
 =======
 
@@ -6,6 +8,8 @@ This chapter describes how to work with database schemas in the
 how you can write schema descriptions by hand. Instead you 
 can also use the :doc:`code generator <code-generation>` to 
 take this work off your hands.
+
+.. index:: table, row
 
 Table Rows
 ----------
@@ -36,22 +40,32 @@ currently using the database's null propagation semantics which may differ
 from Scala's Option semantics. In particular, ``None === None`` evaluates
 to ``None``. This behaviour may change in a future major release of Slick.
 
+.. index:: ColumnOption
+
 After the column name, you can add optional column options to a ``column``
 definition. The applicable options are available through the table's ``O``
 object. The following ones are defined for ``JdbcProfile``:
 
+.. index:: primary key
+
 ``PrimaryKey``
    Mark the column as a (non-compound) primary key when creating the DDL
    statements.
+
+.. index:: default
 
 ``Default[T](defaultValue: T)``
    Specify a default value for inserting data into the table without this column.
    This information is only used for creating DDL statements so that the
    database can fill in the missing information.
 
+.. index:: type
+
 ``DBType(dbType: String)``
    Use a non-standard database-specific type for the DDL statements (e.g.
    ``DBType("VARCHAR(20)")`` for a ``String`` column).
+
+.. index:: AutoInc, generated, identity
 
 ``AutoInc``
    Mark the column as an auto-incrementing key when creating the DDL
@@ -61,11 +75,15 @@ object. The following ones are defined for ``JdbcProfile``:
    Slick will check if the return column is properly marked as AutoInc where
    needed.
 
+.. index:: null, nullable, NotNull
+
 ``NotNull``, ``Nullable``
    Explicitly mark the column as nullable or non-nullable when creating the
    DDL statements for the table. Nullability is otherwise determined from the
    type (Option or non-Option). There is usually no reason to specify these
    options.
+
+.. index:: *, star projection
 
 Every table requires a ``*`` method contatining a default projection.
 This describes what you get back when you return rows (in the form of a
@@ -76,10 +94,15 @@ or omit some columns as you like. The non-lifted type corresponding to the
 non-mapped tables, this will be a single column type or a tuple of column
 types.
 
+.. index::
+   pair: schema; name
+
 If your database layout requires *schema names*, you can specify the schema
 name for a table in front of the table name, wrapped in ``Some()``:
 
 .. includecode:: code/LiftedEmbedding.scala#schemaname
+
+.. index:: TableQuery
 
 Table Query
 -----------
@@ -97,6 +120,10 @@ You can also extend ``TableQuery`` to use it as a convenient namespace for
 additional functionality associated with the table:
 
 .. includecode:: code/LiftedEmbedding.scala#tablequery2
+
+.. index::
+   pair: table; mapped
+.. index:: <>, entity, tupled, unapply
 
 Mapped Tables
 -------------
@@ -117,6 +144,11 @@ For case classes with hand-written companion objects, ``.tupled`` only works
 if you manually extend the correct Scala function type. Alternatively you can use
 ``(User.apply _).tupled``. See `SI-3664 <https://issues.scala-lang.org/browse/SI-3664>`_ and
 `SI-4808 <https://issues.scala-lang.org/browse/SI-4808>`_.
+
+.. index:: constraint, index
+.. index::
+   pair: key; foreign
+   pair: key; primary
 
 Constraints
 -----------
@@ -147,6 +179,8 @@ are non-unique by default unless you set the ``unique`` parameter:
 All constraints are discovered reflectively by searching for methods with
 the appropriate return types which are defined in the table. This behavior
 can be customized by overriding the ``tableConstraints`` method.
+
+.. index:: DDL, create, drop
 
 Data Definition Language
 ------------------------

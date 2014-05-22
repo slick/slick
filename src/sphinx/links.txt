@@ -8,3 +8,4 @@
 .. _DBCP: http://commons.apache.org/proper/commons-dbcp/
 .. _c3p0: http://sourceforge.net/projects/c3p0/
 .. _BoneCP: http://jolbox.com/
+.. _Activator: https://typesafe.com/activator

@@ -1,11 +1,16 @@
+.. index:: user-defined
+
 User-Defined Features
 =====================
 
 This chapter describes how to use custom data types and database functions
 in the :ref:`Lifted Embedding <lifted-embedding>` API.
 
-Scala Database functions
---------------------------
+.. index::
+   triple: user-defined; scalar; function
+
+Scalar Database Functions
+-------------------------
 
 If your database system supports a scalar function that is not available as
 a method in Slick you can define it as a
@@ -27,27 +32,35 @@ write your own wrapper function with the proper type-checking:
 flexibility (e.g. function-like expressions with unusual syntax), you can
 use :api:`scala.slick.lifted.SimpleExpression`.
 
-Other Database functions and stored procedures
+Other Database Functions And Stored Procedures
 ----------------------------------------------
 
 For database functions that return complete tables or stored procedures please use :doc:`sql`.
 Stored procedures that return multiple result sets are currently not supported.
+
+.. index:: MappedColumnType, MappedJdbcType
+.. index::
+   triple: user-defined; scalar; type
+   pair: mapped; type
 
 Scalar Types
 -------------
 
 If you need a custom column type you can implement
 :api:`ColumnType <scala.slick.driver.JdbcProfile@ColumnType[T]:JdbcDriver.ColumnType[T]>`. The most
-common scenario is mapping an application-specific type to an already supported
-type in the database. This can be done much simpler by using
-:api:`MappedColumnType <scala.slick.driver.JdbcProfile@MappedColumnType:JdbcDriver.MappedJdbcType.type>` which
-takes care of all the boilerplate. It comes with the usual import from the driver. Do not import it from the :api:`JdbcDriver <scala.slick.driver.JdbcDriver$>` singleton object.
+common scenario is mapping an application-specific type to an already supported type in the database.
+This can be done much simpler by using
+:api:`MappedColumnType <scala.slick.driver.JdbcProfile@MappedColumnType:JdbcDriver.MappedJdbcType.type>`
+which takes care of all the boilerplate. It comes with the usual import from the driver. Do not import
+it from the :api:`JdbcDriver <scala.slick.driver.JdbcDriver$>` singleton object.
 
 .. includecode:: code/LiftedEmbedding.scala#mappedtype1
 
 You can also subclass
 :api:`MappedJdbcType <scala.slick.driver.JdbcProfile@MappedJdbcType>`
 for a bit more flexibility.
+
+.. index:: MappedTo
 
 If you have a wrapper class (which can optionally be a case class and/or value
 class) for an underlying value of some supported type, you can make it extend
@@ -57,6 +70,9 @@ table-specific primary key types:
 
 .. includecode:: code/LiftedEmbedding.scala#mappedtype2
 
+.. index:: Shape
+.. index::
+   triple: user-defined; record; type
 .. _record-types:
 
 Record Types

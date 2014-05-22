@@ -1,3 +1,5 @@
+.. index:: extensions, Oracle, DB2, SQL Server
+
 Slick Extensions
 ================
 
