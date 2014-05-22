@@ -25,4 +25,24 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
     }
     check(myExpr(4, 5), 10)
   }
+
+  def testSubstring  {
+    case class Entity(id: Int, name: String)
+
+    class Entities(tag: Tag) extends Table[Entity](tag, "enities") {
+      def id = column[Int]("id", O.PrimaryKey)
+
+      def name = column[String]("name")
+
+      def * = (id, name) <>(Entity.tupled, Entity.unapply)
+    }
+
+    val entities = TableQuery[Entities]
+
+    entities.ddl.create
+    entities += Entity(1, "Some")
+    val names = for (s <- entities) yield s.name.substring(1, 3)
+    names.foreach(println(_))
+    names.foreach(n => assertEquals("Som", n))
+  }
 }
