@@ -133,9 +133,9 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
   }
 
   def testInsertOrUpdateAutoInc {
-    class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge2") {
-      def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
-      def name = column[String]("name")
+    class T(tag: Tag) extends Table[(Int, String)](tag, "T_MERGE2") {
+      def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
+      def name = column[String]("NAME")
       def * = (id, name)
       def ins = (id, name)
     }
