@@ -20,15 +20,37 @@ trait MongoBackend extends DatabaseComponent{
   val Database = new DatabaseFactoryDef {}
   val backend: MongoBackend = this
 
-  trait DatabaseDef extends super.DatabaseDef{
+  class DatabaseDef extends super.DatabaseDef{
 
-    def createSession(): Session = new BaseSession(this)
+    def createConnection(): MongoCollection = ???
 
-    def createConnection(): MongoCollection
+    override def createSession(): Session = ???
+
+    override def withTransaction[T](f: Session => T): T = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
+
+    override def withDynTransaction[T](f: => T): T = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
   }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef{
 
+  }
+
+  trait SessionDef extends super.SessionDef{
+    /** Close this Session. */
+    override def close(): Unit = ???
+
+    /** Call this method within a `withTransaction` call to roll back the current
+      * transaction after `withTransaction` returns. */
+    override def rollback(): Unit = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
+
+    /** Run the supplied function within a transaction. If the function throws an Exception
+      * or the session's `rollback()` method is called, the transaction is rolled back,
+      * otherwise it is committed when the function returns. */
+    override def withTransaction[T](f: => T): T = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
+
+    /** Force an actual database session to be opened. Slick sessions are lazy, so you do not
+      * get a real database connection until you need it or you call force() on the session. */
+    override def force(): Unit = ???
   }
 
 }
