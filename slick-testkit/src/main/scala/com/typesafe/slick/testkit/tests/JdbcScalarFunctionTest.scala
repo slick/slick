@@ -10,7 +10,7 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
 
   def test {
     def check[T](q: ColumnBase[T], exp: T) = assertEquals(exp, q.run)
-    def checkLit[T : ColumnType](v: T) = check(LiteralColumn(v), v)
+    def checkLit[T: ColumnType](v: T) = check(LiteralColumn(v), v)
 
     checkLit(Date.valueOf("2011-07-15"))
     checkLit(Time.valueOf("15:53:21"))
@@ -26,23 +26,47 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
     check(myExpr(4, 5), 10)
   }
 
-  def testSubstring  {
-    case class Entity(id: Int, name: String)
+  case class Entity(id: Int, name: String)
 
-    class Entities(tag: Tag) extends Table[Entity](tag, "enities") {
-      def id = column[Int]("id", O.PrimaryKey)
+  class Entities(tag: Tag) extends Table[Entity](tag, "enities") {
+    def id = column[Int]("id", O.PrimaryKey)
 
-      def name = column[String]("name")
+    def name = column[String]("name")
 
-      def * = (id, name) <>(Entity.tupled, Entity.unapply)
-    }
+    def * = (id, name) <>(Entity.tupled, Entity.unapply)
+  }
+  private val nameTest = "Some"
 
+  private def getCollection = {
     val entities = TableQuery[Entities]
-
     entities.ddl.create
-    entities += Entity(1, "Some")
-    val names = for (s <- entities) yield s.name.substring(1, 3)
+    entities += Entity(1, nameTest)
+    entities
+  }
+
+  def testSubstring() {
+    val names = for (s <- getCollection) yield s.name.substring(1, 3)
+    names.foreach(n => assertEquals(nameTest.substring(1, 3), n))
+  }
+
+  def testReplace() = ifCap(rcap.replace) {
+    val names = for (s <- getCollection) yield s.name.replace("So", "Ro")
+    names.foreach(n => assertEquals(nameTest.replace("So", "Ro"), n))
+  }
+
+  def testReverse() = ifCap(rcap.reverse)  {
+    val names = for (s <- getCollection) yield s.name.reverseString
+    names.foreach(n => assertEquals(nameTest.reverse, n))
+  }
+
+  def testTake() = ifCap(rcap.take) {
+    val names = for (s <- getCollection) yield s.name.take(3)
+    names.foreach(n => assertEquals(nameTest.take(3), n))
     names.foreach(println(_))
-    names.foreach(n => assertEquals("Som", n))
+  }
+
+  def testDrop() =  {
+    val names = for (s <- getCollection) yield s.name.drop(2)
+    names.foreach(n => assertEquals(nameTest.drop(2), n))
   }
 }

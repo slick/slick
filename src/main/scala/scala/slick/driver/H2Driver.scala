@@ -32,6 +32,7 @@ trait H2Driver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCycle
     - JdbcProfile.capabilities.returnInsertOther
     - RelationalProfile.capabilities.joinFull
+    - RelationalProfile.capabilities.reverse
   )
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

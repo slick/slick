@@ -388,6 +388,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.Sign => args(0)._1.asInstanceOf[ScalaNumericType[Any]].numeric.signum(args(0)._2)
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
+    case Library.Reverse => args(0)._2.asInstanceOf[String].reverse
     case Library.User => ""
   }
 

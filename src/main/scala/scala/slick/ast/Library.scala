@@ -4,6 +4,8 @@ package scala.slick.ast
  * The standard library for query operators.
  */
 object Library {
+
+
   trait AggregateFunctionSymbol extends Symbol
   class JdbcFunction(name: String) extends FunctionSymbol(name)
   class SqlFunction(name: String) extends FunctionSymbol(name)
@@ -47,11 +49,15 @@ object Library {
   val LCase = new JdbcFunction("lcase")
   val LTrim = new JdbcFunction("ltrim")
   val RTrim = new JdbcFunction("rtrim")
-  val Substring = new FunctionSymbol("substring")
+  val Substring = new JdbcFunction("substring")
+  val Replace = new JdbcFunction("replace")
+  val Take = new JdbcFunction("take")
+  val Drop = new JdbcFunction("drop")
   val Trim = new FunctionSymbol("Trim")
   val Like = new FunctionSymbol("Like")
   val StartsWith = new FunctionSymbol("StartsWith")
   val EndsWith = new FunctionSymbol("EndsWith")
+  val Reverse = new JdbcFunction("Reverse")
 
   // Aggregate functions
   val Min = new SqlAggregateFunction("min")

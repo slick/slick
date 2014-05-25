@@ -58,6 +58,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCycle
     - RelationalProfile.capabilities.zip
     - RelationalProfile.capabilities.joinFull
+    - RelationalProfile.capabilities.replace
+    - RelationalProfile.capabilities.reverse
+    - RelationalProfile.capabilities.take
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
@@ -82,6 +85,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.Substring(n, start, end) => b"\(substr($n,$start,$end)\)"
+      case Library.Drop(n, num) => b"\(substr($n,$num)\)"
       case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
