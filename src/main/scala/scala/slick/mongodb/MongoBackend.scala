@@ -20,37 +20,37 @@ trait MongoBackend extends DatabaseComponent{
   val Database = new DatabaseFactoryDef {}
   val backend: MongoBackend = this
 
-  class DatabaseDef extends super.DatabaseDef{
+  class DatabaseDef(val connectionUrl:String) extends super.DatabaseDef{
 
-    def createConnection(): MongoCollection = ???
+    override def createSession(): Session = new Session(MongoClient(connectionUrl))
 
-    override def createSession(): Session = ???
+    override def withTransaction[T](f: Session => T): T = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
 
-    override def withTransaction[T](f: Session => T): T = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
-
-    override def withDynTransaction[T](f: => T): T = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
+    override def withDynTransaction[T](f: => T): T = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
   }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef{
-
+    def forURL(url: String):DatabaseDef = new DatabaseDef(url)
   }
 
-  trait SessionDef extends super.SessionDef{
+  class SessionDef(val mongoClient: MongoClient) extends super.SessionDef{
     /** Close this Session. */
-    override def close(): Unit = ???
+    override def close(): Unit = mongoClient.close()
 
     /** Call this method within a `withTransaction` call to roll back the current
       * transaction after `withTransaction` returns. */
-    override def rollback(): Unit = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
+    override def rollback(): Unit = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
 
     /** Run the supplied function within a transaction. If the function throws an Exception
       * or the session's `rollback()` method is called, the transaction is rolled back,
       * otherwise it is committed when the function returns. */
-    override def withTransaction[T](f: => T): T = throw new UnsupportedOperationException("Transactions not supported for MongoDB")
+    override def withTransaction[T](f: => T): T = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
 
     /** Force an actual database session to be opened. Slick sessions are lazy, so you do not
       * get a real database connection until you need it or you call force() on the session. */
-    override def force(): Unit = ???
+    override def force(): Unit = throw new UnsupportedOperationException("Mongo session cannot be forced since MongoClient pools connections automatically")
   }
 
 }
+
+object MongoBackend extends MongoBackend {}
