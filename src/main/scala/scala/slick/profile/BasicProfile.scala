@@ -48,16 +48,12 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
     implicit val slickDriver: driver.type = driver
     implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker
 
-    implicit def queryToQueryExecutor[U, C[_]](q: Query[_, U, C]): QueryExecutor[C[U]] = createQueryExecutor[C[U]](queryCompiler.run(q.toNode).tree, ())
-    implicit def shapedValueToQueryExecutor[U](u: ShapedValue[_, U]): QueryExecutor[U] = createQueryExecutor[U](queryCompiler.run(u.toNode).tree, ())
+    implicit def repToQueryExecutor[U](rep: Rep[U]): QueryExecutor[U] = createQueryExecutor[U](queryCompiler.run(rep.toNode).tree, ())
     implicit def runnableCompiledToQueryExecutor[RU](c: RunnableCompiled[_, RU]): QueryExecutor[RU] = createQueryExecutor[RU](c.compiledQuery, c.param)
     implicit def streamableCompiledToInsertInvoker[EU](c: StreamableCompiled[_, _, EU]): InsertInvoker[EU] = createInsertInvoker[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
     // We can't use this direct way due to SI-3346
     def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(shape.toNode(q)).tree, ())
     implicit def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = createUnshapedQueryExecutor[M](q)
-
-    implicit def columnBaseToInsertInvoker[T](c: ColumnBase[T]) = createInsertInvoker[T](compileInsert(c.toNode))
-    implicit def shapedValueToInsertInvoker[U](u: ShapedValue[_, U]) = createInsertInvoker[U](compileInsert(u.toNode))
     implicit def queryToInsertInvoker[U, C[_]](q: Query[_, U, C]) = createInsertInvoker[U](compileInsert(q.toNode))
 
     // Work-around for SI-3346

@@ -18,7 +18,7 @@ trait BaseTag extends Tag
 
 /** The driver-independent superclass of all table row objects.
   * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
-abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends ColumnBase[T] {
+abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends Rep[T] {
   /** The client-side type of the table as defined by its * projection */
   type TableElementType
 
@@ -103,4 +103,8 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index])
+}
+
+object AbstractTable {
+  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
 }

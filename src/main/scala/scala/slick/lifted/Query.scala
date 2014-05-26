@@ -89,7 +89,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def zipWithIndex = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(leftGen :: Nil)
-    val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Shape.columnShape[Long, FlatShapeLevel])
+    val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Column.columnShape[Long, FlatShapeLevel])
     new BaseJoinQuery[E, Column[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
   }
 
@@ -110,7 +110,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: FlatShapeLevel, K, T, G], vshape: Shape[_ <: FlatShapeLevel, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(shaped.encodeRef(sym :: Nil).value), kshape).packedValue
-    val value = ShapedValue(pack.to[Seq], Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq], Query[P, U, Seq]]])
+    val value = ShapedValue(pack.to[Seq], RepShape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq]])
     val group = GroupBy(sym, toNode, key.toNode)
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
@@ -188,6 +188,8 @@ object Query {
     val toNode = shaped.toNode
     def shaped = ShapedValue((), Shape.unitShape[FlatShapeLevel])
   }
+
+  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, M, U, C[_]] = RepShape[Level, Query[M, U, C], Seq[U]]
 }
 
 /** A typeclass for types that can be used as predicates in `filter` calls. */
@@ -231,7 +233,7 @@ class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#Table
         def taggedAs(path: List[Symbol]) = base.taggedAs(path)
       })
     })
-    ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, E, E#TableElementType, E]])
+    ShapedValue(baseTable, RepShape[FlatShapeLevel, E, E#TableElementType])
   }
 
   lazy val toNode = shaped.toNode
