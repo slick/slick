@@ -6,6 +6,7 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import scala.slick.lifted.ColumnBase
 
 class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
+
   import tdb.profile.simple._
 
   def test {
@@ -35,6 +36,7 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
 
     def * = (id, name) <>(Entity.tupled, Entity.unapply)
   }
+
   private val nameTest = "Some"
 
   private def getCollection = {
@@ -44,9 +46,14 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
     entities
   }
 
-  def testSubstring() {
+  def testSubstring1() {
     val names = for (s <- getCollection) yield s.name.substring(1, 3)
     names.foreach(n => assertEquals(nameTest.substring(1, 3), n))
+  }
+
+  def testSubstring2() {
+    val names = for (s <- getCollection) yield s.name.substring(1)
+    names.foreach(n => assertEquals(nameTest.substring(1), n))
   }
 
   def testReplace() = ifCap(rcap.replace) {
@@ -54,19 +61,25 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
     names.foreach(n => assertEquals(nameTest.replace("So", "Ro"), n))
   }
 
-  def testReverse() = ifCap(rcap.reverse)  {
+  def testReverse() = ifCap(rcap.reverse) {
     val names = for (s <- getCollection) yield s.name.reverseString
     names.foreach(n => assertEquals(nameTest.reverse, n))
   }
 
-  def testTake() = ifCap(rcap.take) {
+  def testTake() =  {
     val names = for (s <- getCollection) yield s.name.take(3)
     names.foreach(n => assertEquals(nameTest.take(3), n))
-    names.foreach(println(_))
   }
 
-  def testDrop() =  {
+  def testDrop() = {
     val names = for (s <- getCollection) yield s.name.drop(2)
     names.foreach(n => assertEquals(nameTest.drop(2), n))
+  }
+
+  def testIndexOf() = ifCap(rcap.indexOf){
+    val names = for (s <- getCollection) yield (s.name.indexOf("o"), s.name.indexOf("r"))
+    names.foreach(n => {
+      assertEquals(nameTest.indexOf("o"), n._1); assertEquals(nameTest.indexOf("r"), n._2)
+    })
   }
 }
