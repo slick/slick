@@ -18,3 +18,5 @@ You can find the API documentation `here <api/>`_.
    extensions
    direct-embedding
    testkit
+   examples
+   community-docs
