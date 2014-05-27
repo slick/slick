@@ -4,6 +4,7 @@ import scala.slick.backend.DatabaseComponent
 import scala.slick.util.SlickLogger
 import org.slf4j.LoggerFactory
 import com.mongodb.casbah.Imports._
+import com.mongodb.casbah.MongoClientURI
 
 /**
  * User: Dmytro Vynokurov
@@ -20,9 +21,13 @@ trait MongoBackend extends DatabaseComponent{
   val Database = new DatabaseFactoryDef {}
   val backend: MongoBackend = this
 
+  // TODO: add possibility to create DatabaseDef without url
+  // In case user wants to create the connection with separate
+  // parameters: username, password, etc. we don't really need to concatenate
+  // them into URI and then pass it MongoClientURI for parsing
   class DatabaseDef(val connectionUrl:String) extends super.DatabaseDef{
 
-    override def createSession(): Session = new Session(MongoClient(connectionUrl))
+    override def createSession(): Session = new Session(MongoClient(MongoClientURI(connectionUrl)))
 
     override def withTransaction[T](f: Session => T): T = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
 
@@ -30,10 +35,19 @@ trait MongoBackend extends DatabaseComponent{
   }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef{
+    //TODO: add other methods and parameters here
     def forURL(url: String):DatabaseDef = new DatabaseDef(url)
   }
 
   class SessionDef(val mongoClient: MongoClient) extends super.SessionDef{
+    //TODO: make it take arguments
+    def execute() = {
+      val db = mongoClient.getDB("test")
+      val collection = db("slick_dev")
+      collection
+    }
+
+
     /** Close this Session. */
     override def close(): Unit = mongoClient.close()
 
