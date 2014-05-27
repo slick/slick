@@ -6,11 +6,6 @@ import org.slf4j.LoggerFactory
 import com.mongodb.casbah.Imports._
 import com.mongodb.casbah.MongoClientURI
 
-/**
- * User: Dmytro Vynokurov
- * Date: 21.05.14
- * Time: 20:54
- */
 trait MongoBackend extends DatabaseComponent{
   protected[this] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[MongoBackend].getName+".statement"))
 
@@ -27,7 +22,13 @@ trait MongoBackend extends DatabaseComponent{
   // them into URI and then pass it to MongoClientURI for parsing
   class DatabaseDef(val connectionUrl:String) extends super.DatabaseDef{
 
-    override def createSession(): Session = new Session(MongoClient(MongoClientURI(connectionUrl)))
+    override def createSession(): Session = {
+      val mongoUri = MongoClientURI(connectionUrl)
+      val mongoClient = MongoClient(mongoUri)
+      //TODO: check if there's better way without using Option.get:
+      val mongoDb = mongoClient(mongoUri.database.get)
+      new Session(mongoDb)
+    }
 
     override def withTransaction[T](f: Session => T): T = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
 
@@ -39,30 +40,46 @@ trait MongoBackend extends DatabaseComponent{
     def forURL(url: String):DatabaseDef = new DatabaseDef(url)
   }
 
-  class SessionDef(val mongoClient: MongoClient) extends super.SessionDef{
-    //TODO: make it take arguments
-    def execute() = {
-      val db = mongoClient.getDB("test")
-      val collection = db("slick_dev")
-      collection
+  // TODO: check if we need to have methods like find, findOne etc here
+  class SessionDef(val mongoDb: MongoDB) extends super.SessionDef{
+    def find(collectionName: String):MongoCollection#CursorType = find(collectionName,new MongoDBObject)
+    def find(collectionName: String, query: MongoDBObject):MongoCollection#CursorType = {
+      val collection = mongoDb(collectionName)
+      collection.find(query)
     }
 
 
-    /** Close this Session. */
-    override def close(): Unit = mongoClient.close()
+    /**
+     * Inherited method
+     *
+     * MongoDB session does nothing when closing
+     * since the database connection is shared between sessions
+     *
+     * */
+    override def close(): Unit = {}
 
-    /** Call this method within a `withTransaction` call to roll back the current
-      * transaction after `withTransaction` returns. */
+    /**
+     * Inherited method
+     *
+     * Transactions are not supported by MongoDB
+     * */
     override def rollback(): Unit = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
 
-    /** Run the supplied function within a transaction. If the function throws an Exception
-      * or the session's `rollback()` method is called, the transaction is rolled back,
-      * otherwise it is committed when the function returns. */
+    /**
+     * Inherited method
+     *
+     * Transactions are not supported by MongoDB
+     * */
     override def withTransaction[T](f: => T): T = throw new UnsupportedOperationException("Transactions are not supported by MongoDB")
 
-    /** Force an actual database session to be opened. Slick sessions are lazy, so you do not
-      * get a real database connection until you need it or you call force() on the session. */
-    override def force(): Unit = throw new UnsupportedOperationException("Mongo session cannot be forced since MongoClient pools connections automatically")
+    /**
+     * Inherited method
+     *
+     * Mongo sessions cannot be forced since MongoClient manages connections automatically
+     */
+    // TODO: discuss if we should throw an exception here or do nothing
+    override def force(): Unit =
+      throw new UnsupportedOperationException("Mongo session cannot be forced since MongoClient manages connections automatically")
   }
 
 }
