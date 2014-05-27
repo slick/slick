@@ -24,7 +24,7 @@ trait MongoBackend extends DatabaseComponent{
   // TODO: add possibility to create DatabaseDef without url
   // In case user wants to create the connection with separate
   // parameters: username, password, etc. we don't really need to concatenate
-  // them into URI and then pass it MongoClientURI for parsing
+  // them into URI and then pass it to MongoClientURI for parsing
   class DatabaseDef(val connectionUrl:String) extends super.DatabaseDef{
 
     override def createSession(): Session = new Session(MongoClient(MongoClientURI(connectionUrl)))
