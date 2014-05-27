@@ -26,7 +26,7 @@ Features
 --------
 
 Scala
-^^^^^
+_____
 * Queries, Table & Column Mappings, and types are plain Scala
 
 .. includecode:: code/GettingStartedOverview.scala#quick-schema
@@ -36,14 +36,14 @@ Scala
 .. includecode:: code/GettingStartedOverview.scala#features-scala-collections
 
 Type-Safe
-^^^^^^^^^
+_________
 * Let your IDE help you write your code
 * Find problems at compile-time instead of at runtime
 
 .. includecode:: code/GettingStartedOverview.scala#features-type-safe
 
 Composable
-^^^^^^^^^^
+__________
 * Queries are functions that can be composed and reused
 
 .. includecode:: code/GettingStartedOverview.scala#features-composable
