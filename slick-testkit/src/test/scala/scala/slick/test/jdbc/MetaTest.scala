@@ -7,8 +7,8 @@ import scala.slick.driver.{H2Driver, PostgresDriver}
 import scala.slick.jdbc.meta._
 import scala.slick.jdbc.{StaticQuery => Q}
 import scala.slick.testutil._
-import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.JdbcTestDB
+import com.typesafe.slick.testkit.util.{DBTestObject, DBTest, JdbcTestDB}
+import com.typesafe.slick.testkit.util.StandardTestDBs._
 
 object MetaTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 

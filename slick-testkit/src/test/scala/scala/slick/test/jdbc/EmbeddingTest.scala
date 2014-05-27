@@ -3,8 +3,8 @@ package scala.slick.test.jdbc
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.testutil._
-import scala.slick.testutil.TestDBs._
-import com.typesafe.slick.testkit.util.JdbcTestDB
+import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
+import com.typesafe.slick.testkit.util.StandardTestDBs._
 
 object EmbeddingTest extends DBTestObject(H2Mem)
 

@@ -1,41 +1,40 @@
 package scala.slick.test.driver
 
 import org.junit.runner.RunWith
-import com.typesafe.slick.testkit.util.{DriverTest, Testkit}
-import scala.slick.testutil.TestDBs
+import com.typesafe.slick.testkit.util.{StandardTestDBs, DriverTest, Testkit}
 
 @RunWith(classOf[Testkit])
-class H2MemTest extends DriverTest(TestDBs.H2Mem)
+class H2MemTest extends DriverTest(StandardTestDBs.H2Mem)
 
 @RunWith(classOf[Testkit])
-class H2DiskTest extends DriverTest(TestDBs.H2Disk)
+class H2DiskTest extends DriverTest(StandardTestDBs.H2Disk)
 
 @RunWith(classOf[Testkit])
-class HsqldbMemTest extends DriverTest(TestDBs.HsqldbMem)
+class HsqldbMemTest extends DriverTest(StandardTestDBs.HsqldbMem)
 
 @RunWith(classOf[Testkit])
-class HsqldbDiskTest extends DriverTest(TestDBs.HsqldbDisk)
+class HsqldbDiskTest extends DriverTest(StandardTestDBs.HsqldbDisk)
 
 @RunWith(classOf[Testkit])
-class SQLiteMemTest extends DriverTest(TestDBs.SQLiteMem)
+class SQLiteMemTest extends DriverTest(StandardTestDBs.SQLiteMem)
 
 @RunWith(classOf[Testkit])
-class SQLiteDiskTest extends DriverTest(TestDBs.SQLiteDisk)
+class SQLiteDiskTest extends DriverTest(StandardTestDBs.SQLiteDisk)
 
 @RunWith(classOf[Testkit])
-class DerbyMemTest extends DriverTest(TestDBs.DerbyMem)
+class DerbyMemTest extends DriverTest(StandardTestDBs.DerbyMem)
 
 @RunWith(classOf[Testkit])
-class DerbyDiskTest extends DriverTest(TestDBs.DerbyDisk)
+class DerbyDiskTest extends DriverTest(StandardTestDBs.DerbyDisk)
 
 @RunWith(classOf[Testkit])
-class PostgresTest extends DriverTest(TestDBs.Postgres)
+class PostgresTest extends DriverTest(StandardTestDBs.Postgres)
 
 @RunWith(classOf[Testkit])
-class MySQLTest extends DriverTest(TestDBs.MySQL)
+class MySQLTest extends DriverTest(StandardTestDBs.MySQL)
 
 @RunWith(classOf[Testkit])
-class MSAccessTest extends DriverTest(TestDBs.MSAccess)
+class MSAccessTest extends DriverTest(StandardTestDBs.MSAccess)
 
 @RunWith(classOf[Testkit])
-class HeapTest extends DriverTest(TestDBs.Heap)
+class HeapTest extends DriverTest(StandardTestDBs.Heap)

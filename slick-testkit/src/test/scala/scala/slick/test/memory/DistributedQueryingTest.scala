@@ -2,13 +2,13 @@ package scala.slick.test.memory
 
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.testutil.TestDBs
+import com.typesafe.slick.testkit.util.StandardTestDBs
 import scala.slick.memory.{DistributedDriver, DistributedBackend}
 
 /** Test for the DistributedDriver */
 class DistributedQueryingTest {
-  val tdb1 = TestDBs.H2Mem
-  val tdb2 = TestDBs.DerbyMem
+  val tdb1 = StandardTestDBs.H2Mem
+  val tdb2 = StandardTestDBs.DerbyMem
   val dProfile = new DistributedDriver(tdb1.driver, tdb2.driver).profile
 
   val ts = {

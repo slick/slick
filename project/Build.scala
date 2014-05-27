@@ -22,6 +22,8 @@ object SlickBuild extends Build {
     )
     val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
     val logback = "ch.qos.logback" % "logback-classic" % "0.9.28"
+    val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
+    val mainDependencies = Seq(slf4j, typesafeConfig)
     val h2 = "com.h2database" % "h2" % "1.3.170"
     val testDBs = Seq(
       h2,
@@ -97,7 +99,7 @@ object SlickBuild extends Build {
       "-diagrams", // requires graphviz
       "-groups"
     )),
-    libraryDependencies += Dependencies.slf4j,
+    libraryDependencies ++= Dependencies.mainDependencies,
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     //publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)))),

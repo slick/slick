@@ -4,11 +4,13 @@ import scala.language.reflectiveCalls
 import scala.slick.backend.DatabaseComponent
 import scala.slick.SlickException
 import slick.util.SlickLogger
+import scala.collection.JavaConverters._
 import java.util.Properties
 import java.sql.{Array => _, _}
 import javax.sql.DataSource
 import javax.naming.InitialContext
 import org.slf4j.LoggerFactory
+import com.typesafe.config.{ConfigFactory, Config}
 
 /** A JDBC-based database back-end which can be used for <em>Plain SQL</em> queries
   * and with all `JdbcProfile`-based drivers. */
@@ -96,6 +98,35 @@ trait JdbcBackend extends DatabaseComponent {
       if(prop ne null)
         for((k,v) <- prop) if(k.ne(null) && v.ne(null)) p.setProperty(k, v)
       forURL(url, prop = p, driver = null)
+    }
+
+    /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
+      *
+      * The following keys are supported:
+      * - `url`: JDBC URL (String, must be set)
+      * - `driver`: JDBC driver class to load (String, optional)
+      * - `user`: User name (String, optional)
+      * - `password`: Password (String, optional)
+      * - `properties`: Properties to pass to the driver (Map, optional)
+      *
+      * @param path The path in the configuration file for the database configuration (e.g. `foo.bar`
+      *             would find a database URL at config key `foo.bar.url`)
+      * @param config The `Config` object to read from. This defaults to the global app config
+      *               (e.g. in `application.conf` at the root of the class path) if not specified.
+      * @param driver An optional JDBC driver to call directly. If this is set to a non-null value,
+      *               the `driver` key from the configuration is ignored. The default is to use the
+      *               standard lookup mechanism.
+      */
+    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database = {
+      val c = if(path.isEmpty) config else config.getConfig(path)
+      def str(p: String) = if(!c.hasPath(p)) null else c.getString(p)
+      def props(p: String) = if(!c.hasPath(p)) null else {
+        val props = new Properties(null)
+        c.getObject(p).asScala.foreach { case (k, v) => props.put(k, v.unwrapped.toString) }
+        props
+      }
+      if(driver ne null) forDriver(driver, c.getString("url"), str("user"), str("password"), props("properties"))
+      else forURL(c.getString("url"), str("user"), str("password"), props("properties"), str("driver"))
     }
   }
 
