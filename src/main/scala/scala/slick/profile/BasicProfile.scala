@@ -51,9 +51,8 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
     implicit def repToQueryExecutor[U](rep: Rep[U]): QueryExecutor[U] = createQueryExecutor[U](queryCompiler.run(rep.toNode).tree, ())
     implicit def runnableCompiledToQueryExecutor[RU](c: RunnableCompiled[_, RU]): QueryExecutor[RU] = createQueryExecutor[RU](c.compiledQuery, c.param)
     implicit def streamableCompiledToInsertInvoker[EU](c: StreamableCompiled[_, _, EU]): InsertInvoker[EU] = createInsertInvoker[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
-    // We can't use this direct way due to SI-3346
-    def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(shape.toNode(q)).tree, ())
-    implicit def recordToUnshapedQueryExecutor[M <: Rep[_]](q: M): UnshapedQueryExecutor[M] = createUnshapedQueryExecutor[M](q)
+    // This only works on Scala 2.11 due to SI-3346:
+    implicit def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(shape.toNode(q)).tree, ())
     implicit def queryToInsertInvoker[U, C[_]](q: Query[_, U, C]) = createInsertInvoker[U](compileInsert(q.toNode))
 
     // Work-around for SI-3346
@@ -150,25 +149,12 @@ trait BasicExecutorComponent { driver: BasicDriver =>
   /** The type of query executors returned by the driver */
   type QueryExecutor[T] <: QueryExecutorDef[T]
 
-  /** The type of query executors returned by the driver */
-  type UnshapedQueryExecutor[T] <: UnshapedQueryExecutorDef[T]
-
   /** Create an executor -- this method should be implemented by drivers as needed */
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
-  def createUnshapedQueryExecutor[M](value: M): UnshapedQueryExecutor[M]
 
   /** Base class for `QueryExecutor` implementations */
   trait QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R
     def executor: this.type = this
-  }
-
-  // Work-around for SI-3346
-  class UnshapedQueryExecutorDef[M](protected[this] val value: M) {
-    @inline final def run[U](implicit shape: Shape[_ <: FlatShapeLevel, M, U, _], session: Backend#Session): U =
-      executor[U].run
-
-    @inline final def executor[U](implicit shape: Shape[_ <: FlatShapeLevel, M, U, _]): QueryExecutor[U] =
-      createQueryExecutor[U](queryCompiler.run(shape.toNode(value)).tree, ())
   }
 }

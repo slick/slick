@@ -26,6 +26,17 @@ class ExecutorTest extends TestkitTest[RelationalTestDB] {
     val r3 = q.length.run
     val r3t: Int = r3
     assertEquals(5, r3t)
+
+    val r4 = (q.length, q.length).shaped.run
+    val r4t: (Int, Int) = r4
+    assertEquals((5, 5), r4t)
+
+    /*
+    // Requires Scala 2.11+
+    val r5 = (q.length, q.length).run
+    val r5t: (Int, Int) = r5
+    assertEquals((5, 5), r5t)
+    */
   }
 
   def testCollections {
