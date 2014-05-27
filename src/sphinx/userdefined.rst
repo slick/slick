@@ -9,6 +9,8 @@ in the :ref:`Lifted Embedding <lifted-embedding>` API.
 .. index::
    triple: user-defined; scalar; function
 
+.. _scalar-db-functions:
+
 Scalar Database Functions
 -------------------------
 
