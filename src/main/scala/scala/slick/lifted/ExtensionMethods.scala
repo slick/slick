@@ -141,8 +141,8 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
   def substring(start: Int, end: Int) = Library.Substring.column[String](n, LiteralNode(start + 1), LiteralNode(end - 1))
   def substring(start: Int) = Library.Substring.column[String](n, LiteralNode(start + 1))
   def replace(target: String, replacement: String) = Library.Replace.column[String](n, LiteralNode(target), LiteralNode(replacement))
-  def take(num: Int) = Library.Substring.column[String](n, LiteralNode(1), LiteralNode(num))
-  def drop(num: Int) =  Library.Substring.column[String](n, LiteralNode(num + 1))
+  def take(num: Int) = substring(0, num + 1)
+  def drop(num: Int) = substring(num)
   def indexOf(str: String) = Library.IndexOf.column[Int](n, LiteralNode(str))
 }
 
