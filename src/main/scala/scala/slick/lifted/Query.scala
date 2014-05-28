@@ -8,12 +8,13 @@ import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
 
+sealed trait QueryBase[T] extends Rep[T]
+
 /** An instance of Query represents a query or view, i.e. a computation of a
   * collection type (Rep[Seq[T]]). It is parameterized with both, the mixed
   * type (the type of values you see e.g. when you call map()) and the unpacked
   * type (the type of values that you get back when you run the query).  */
-sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
-
+sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def shaped: ShapedValue[_ <: E, U]
   final lazy val packed = shaped.toNode
 
@@ -189,7 +190,7 @@ object Query {
     def shaped = ShapedValue((), Shape.unitShape[FlatShapeLevel])
   }
 
-  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, M, U, C[_]] = RepShape[Level, Query[M, U, C], Seq[U]]
+  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, T, Q <: QueryBase[_]](implicit ev: Q <:< Rep[T]) = RepShape[Level, Q, T]
 }
 
 /** A typeclass for types that can be used as predicates in `filter` calls. */
