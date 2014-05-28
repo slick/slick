@@ -5,7 +5,8 @@ import com.mongodb.casbah.Implicits._
 import scala.util.parsing.json.JSON
 
 // TODO: check if we really need pconv, rconv and invoker here
-//class MongoQuery [-P,+R](collection:String,query: Option[String], rconv: GetResult[R]) extends Traversable[R] {
+// TODO: check if we need to extend Traversable
+//class MongoQuery [-P,+R <: {def unapply(map: Map[String,Any]):R}](collection:String,query: Option[String], rconv: GetResult[R]) extends Traversable[R] {
 class MongoQuery [-P,+R](collection:String,query: Option[String], rconv: GetResult[R])  {
 
   //TODO: do we need foreach manually implemented here? - jdbc's static query doesn't have it
@@ -13,9 +14,9 @@ class MongoQuery [-P,+R](collection:String,query: Option[String], rconv: GetResu
     // cannot pass f to foreach because of implicit conversion from DBObject to MongoDBObject:
     session.find(collection).foreach(dbObject => f(dbObject))
   }
-//
+
 //  override def foreach[U](f: (R) => U): Unit = {
-//    val g: MongoDBObject => R = ??? // mongoDBObject => JSON.parseFull(mongoDBObject)
+//    val g: MongoDBObject => R = mongoDBObject =>
 //    foreach(g.andThen(f))
 //  }
 }
