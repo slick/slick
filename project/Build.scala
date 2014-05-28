@@ -10,7 +10,7 @@ import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 
 object SlickBuild extends Build {
 
-  val slickVersion = "2.1.0-SNAPSHOT"
+  val slickVersion = "2.1.0-M2"
   val binaryCompatSlickVersion = "2.1.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.10.4", "2.11.1")
 
