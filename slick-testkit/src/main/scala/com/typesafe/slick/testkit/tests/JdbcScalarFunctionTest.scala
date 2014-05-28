@@ -6,7 +6,6 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import scala.slick.lifted.ColumnBase
 
 class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
-
   import tdb.profile.simple._
 
   def test {

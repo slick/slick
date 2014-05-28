@@ -49,14 +49,14 @@ object Library {
   val LCase = new JdbcFunction("lcase")
   val LTrim = new JdbcFunction("ltrim")
   val RTrim = new JdbcFunction("rtrim")
-  val Substring = new FunctionSymbol("substring")
-  val Replace = new FunctionSymbol("replace")
+  val Substring = new JdbcFunction("substring")
+  val Replace = new JdbcFunction("replace")
+  val Reverse = new JdbcFunction("reverse")
   val Trim = new FunctionSymbol("Trim")
   val IndexOf = new FunctionSymbol("IndexOf")
   val Like = new FunctionSymbol("Like")
   val StartsWith = new FunctionSymbol("StartsWith")
   val EndsWith = new FunctionSymbol("EndsWith")
-  val Reverse = new FunctionSymbol("Reverse")
 
   // Aggregate functions
   val Min = new SqlAggregateFunction("min")
