@@ -1,53 +1,51 @@
 package scala.slick.mongodb
 
-import com.mongodb.casbah.commons.MongoDBObject
 import com.mongodb.casbah.Implicits._
-import scala.util.parsing.json.JSON
+import com.mongodb.casbah.MongoCursor
 
-// TODO: check if we really need pconv, rconv and invoker here
-// TODO: check if we need to extend Traversable
-//class MongoQuery [-P,+R <: {def unapply(map: Map[String,Any]):R}](collection:String,query: Option[String], rconv: GetResult[R]) extends Traversable[R] {
-class MongoQuery [-P,+R](collection:String,query: Option[String], rconv: GetResult[R])  {
 
-  //TODO: do we need foreach manually implemented here? - jdbc's static query doesn't have it
-  def foreach[U](f: MongoDBObject => U)(implicit session: MongoBackend#Session) = {
-    // cannot pass f to foreach because of implicit conversion from DBObject to MongoDBObject:
-    session.find(collection).foreach(dbObject => f(dbObject))
+// TODO: finish documentation here
+/**
+ *
+ * Data gets fetched when iterator is used for the first time.
+ *
+ * @param collection Name of the collection in the MongoDB to fetch data from
+ * @param query Represents the query that is used to fetch data
+ * @param rconv Mapper from MongoDbObject to Scala object
+ * @param session Implicit parameter used for connecting to the database
+ * @tparam R Result type of the query
+ */
+// TODO: see if we can refactor to simplify usage of rconv here
+// probably we can use Salat to perform conversions automatically
+class MongoQuery [+R](collection:String,query: Option[String], rconv: GetResult[R])(implicit session: MongoBackend#Session) extends Iterable[R] {
+  lazy val mongoCursor = session.find(collection)
+
+  override def iterator: Iterator[R] = {
+    mongoCursorAsIterator(mongoCursor)
   }
 
-//  override def foreach[U](f: (R) => U): Unit = {
-//    val g: MongoDBObject => R = mongoDBObject =>
-//    foreach(g.andThen(f))
-//  }
+  def mongoCursorAsIterator(mongoCursor: MongoCursor):Iterator[R] = new Iterator[R]{
+    override def hasNext: Boolean = mongoCursor.hasNext
+
+    override def next(): R = rconv(mongoCursor.next())
+  }
 }
+
 // TODO: think how collection name may be received implicitly from result type
 // Example: instead of
 // Q.queryNA[Employee]("employee","{name:John}") foreach{}    // filters will probably be implemented in a different way
-// I wan't to see
-// Q.queryNA[Emplyee]("{name:John}") foreach{}
+// I want to see
+// Q.queryNA[Employee]("{name:John}") foreach{}
 // however, this conflicts with
 // Q.queryNA[Employee]("employee") foreach{}
 // which is also useful when you don't want to apply any filters
 object MongoQuery{
-  def apply[R](collection:String)(implicit conv: GetResult[R]) = queryNA(collection)
+  def apply[R](collection:String)(implicit rconv: GetResult[R], session: MongoBackend#Session) = queryNA(collection)(rconv,session)
 
-  def queryNA[R](collection: String, query: String)(implicit rconv: GetResult[R]) =
-    new MongoQuery[Unit, R](collection, Some(query), rconv)
+  def queryNA[R](collection: String, query: String)(implicit rconv: GetResult[R], session: MongoBackend#Session) =
+    new MongoQuery[R](collection, Some(query), rconv)(session)
 
-  def queryNA[R](collection: String)(implicit rconv: GetResult[R]) =
-    new MongoQuery[Unit, R](collection, None, rconv)
+  def queryNA[R](collection: String)(implicit rconv: GetResult[R], session: MongoBackend#Session) =
+    new MongoQuery[R](collection, None, rconv)(session)
 
-}
-
-// TODO: review - probably this must be extended with some implicit conversions(like JDBC's) and moved to separate file
-// or we should implement some universal functionality that given the type generates mappings between MongoDBObject and Scala object
-// the latter is preferable or even the only right way
-trait GetResult[+T] extends (MongoDBObject => T) { self =>
-  override def andThen[A](g: T => A): GetResult[A] =
-    new GetResult[A] { def apply(MongoDBObject: MongoDBObject): A = g(self.apply(MongoDBObject)) }
-}
-object GetResult{
-  def apply[T](f: MongoDBObject => T) = new GetResult[T] {
-    override def apply(v1: MongoDBObject): T = f(v1)
-  }
 }

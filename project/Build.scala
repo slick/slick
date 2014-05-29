@@ -176,7 +176,9 @@ object SlickBuild extends Build {
       ivyConfigurations += config("macro").hide.extend(Compile),
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "macro"),
       libraryDependencies ++= Seq(
-        "org.mongodb" %% "casbah" % "2.7.1"
+        //TODO: check if Salat or other libraries are required
+        "org.mongodb" %% "casbah" % "2.7.1",
+        "com.novus" %% "salat" % "1.9.8"
       ),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
