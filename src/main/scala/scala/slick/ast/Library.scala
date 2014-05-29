@@ -51,7 +51,7 @@ object Library {
   val RTrim = new JdbcFunction("rtrim")
   val Substring = new JdbcFunction("substring")
   val Replace = new JdbcFunction("replace")
-  val Reverse = new JdbcFunction("reverse")
+  val Reverse = new FunctionSymbol("reverse")
   val Trim = new FunctionSymbol("Trim")
   val IndexOf = new FunctionSymbol("IndexOf")
   val Like = new FunctionSymbol("Like")
