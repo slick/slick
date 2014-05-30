@@ -42,11 +42,8 @@ trait MongoBackend extends DatabaseComponent{
 
   // TODO: check if we need to have methods like find, findOne etc here
   class SessionDef(val mongoDb: MongoDB) extends super.SessionDef{
-    def find(collectionName: String):MongoCollection#CursorType = find(collectionName,new MongoDBObject)
-    def find(collectionName: String, query: MongoDBObject):MongoCollection#CursorType = {
-      val collection = mongoDb(collectionName)
-      collection.find(query)
-    }
+
+    def collectionByName(collectionName: String): MongoCollection = mongoDb(collectionName)
 
 
     /**
