@@ -25,6 +25,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   def createCheckInsertBuilder(node: Insert): InsertBuilder = new CheckInsertBuilder(node)
   def createUpdateInsertBuilder(node: Insert): InsertBuilder = new UpdateInsertBuilder(node)
   def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
+  def createViewDDLBuilder(view: View[_]): ViewDDLBuilder = new ViewDDLBuilder(view)
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
@@ -322,6 +323,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"\($n like ${valueToSQLLiteral("%"+likeEncode(s), ScalaBaseType.stringType)} escape '^'\)"
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
+      case Library.IndexOf(n, str) => b"(position($str in $n) - 1)"
+      case Library.Reverse(n) => b"reverse($n)"
       case Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
@@ -578,8 +581,29 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms)
   }
 
+  class ViewDDLBuilder(view: View[_]) extends TableDDLBuilder(view) {
+    override def createPhase1 = Iterable(createView)
+    override def buildDDL: DDL = {
+      if(primaryKeys.size > 1)
+        throw new SlickException("View  defines multiple primary keys ("
+          + primaryKeys.map(_.name).mkString(", ") + ")")
+      DDL(createPhase1, createPhase2, dropPhase1, dropPhase2)
+    }
+
+    protected def createView: String = {
+      val b = new StringBuilder append "create view " append quoteTableName(tableNode)
+      b append "as select * from "
+      b append view.baseTable
+      b append " where "
+      b append view.predicate
+      println(b.toString)
+      b.toString
+    }
+  }
+
   /** Builder for various DDL statements. */
   class TableDDLBuilder(val table: Table[_]) { self =>
+    println("TableDDLBuilder TABLE")
     protected val tableNode = table.toNode.asInstanceOf[TableExpansion].table.asInstanceOf[TableNode]
     protected val columns: Iterable[ColumnDDLBuilder] = table.create_*.map(fs => createColumnDDLBuilder(fs, table))
     protected val indexes: Iterable[Index] = table.indexes

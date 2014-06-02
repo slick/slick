@@ -38,6 +38,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   type CompiledInsert = JdbcCompiledInsert
 
   final def buildTableSchemaDescription(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
+  final def buildViewSchemaDescription(view: View[_]): DDL = createViewDDLBuilder(view).buildDDL
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
   trait LowPriorityImplicits {
