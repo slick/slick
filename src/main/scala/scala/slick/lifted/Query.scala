@@ -123,12 +123,12 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
 
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are eliminated from the result. */
-  def union[O >: E, R, D[_]](other: Query[O, U, D]) =
+  def union[O >: E, R, D[_]](other: Query[O, U, D]): Query[O, U, C] =
     new WrappingQuery[O, U, C](Union(toNode, other.toNode, false), shaped)
 
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are preserved. */
-  def unionAll[O >: E, R, D[_]](other: Query[O, U, D]) =
+  def unionAll[O >: E, R, D[_]](other: Query[O, U, D]): Query[O, U, C] =
     new WrappingQuery[O, U, C](Union(toNode, other.toNode, true), shaped)
 
   /** Return a new query containing the elements from both operands. Duplicate

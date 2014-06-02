@@ -181,6 +181,10 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
   @inline def <>[R : ClassTag](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
 }
 
+object ShapedValue {
+  @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel] = RepShape[Level, ShapedValue[T, U], U]
+}
+
 // Work-around for SI-3346
 final class ToShapedValue[T](val value: T) extends AnyVal {
   @inline def shaped[U](implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]) = new ShapedValue[T, U](value, shape)
