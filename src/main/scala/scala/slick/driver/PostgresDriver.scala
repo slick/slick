@@ -76,6 +76,8 @@ trait PostgresDriver extends JdbcDriver { driver =>
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
       case _ => super.expr(n, skipParens)
     }
+
+    override protected val withRecursiveKeyword: Option[String] = Some("recursive")
   }
 
   class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {

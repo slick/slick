@@ -136,7 +136,19 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def ++[O >: E, R, D[_]](other: Query[O, U, D]) = unionAll(other)
 
   /** The total number of elements (i.e. rows). */
-  def length: Column[Int] = Library.CountAll.column(toNode)
+  def length: Column[Int] = {
+    /**
+     * Please don't use this with the With Clause like below.
+     * vTabA.`with`(vTabA, queryA).length
+     * If your DBMS doesn't support nested the With Clause, this is not executed.
+     * Instead, please use group-by like below even though something verbose.
+     * vTabA.
+     *   groupBy(t=>t.colA).
+     *   map{case (g,t)=>t.map(t=>t.colA).countDistinct}.
+     *   `with`(vTabA, queryA)
+     */
+      Library.CountAll.column(toNode)
+  }
   /** The total number of elements (i.e. rows). */
   def size = length
 
@@ -169,6 +181,47 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def to[D[_]](implicit ctc: TypedCollectionTypeConstructor[D]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped
     def toNode = CollectionCast(self.toNode, ctc)
+  }
+
+  /** Use like this:
+    * val virTabA = TabA.rename("vir_a")
+    * ...
+    * virTabA.`with`(virTabA, queryA).`with`(virTabB, queryB).filter(...)...
+    *
+    * But, Don't use like this.
+    * virTabA.`with`(virTabA, queryA).`with`(virTabB, queryB).union(...)
+    * or
+    * virTabA.`with`(virTabA, queryA).`with`(virTabB, queryB).join(...)
+    *
+    * Instead, use like this.
+    * virTabA.union(...).`with`(virTabA, queryA).`with`(virTabB, queryB)
+    * or
+    * virTabA.join(...).`with`(virTabA, queryA).`with`(virTabB, queryB)
+    *
+    * In some DBMSs, the With Clause can not be sub-query.
+    */
+  def `with`[A <: AbstractTable[_], X, Y, Z[_]](t: TableQuery[A], q: Query[X, Y, Z]): Query[E, U, C] = {
+    val oldWithNode = if (toNode.isInstanceOf[WithNode]) {
+      toNode.asInstanceOf[WithNode]
+    }
+    else {
+      WithNode(toNode, new AnonSymbol,
+        Seq(), Seq(), Seq(),
+        None, None, None)
+    }
+    /**
+     * If child Query's Node is Union,
+     * turn on Union's childOfWithClause to leave out parenthesis.
+     */
+    val checkedQueryNode =
+      if (q.toNode.isInstanceOf[Union])
+        q.toNode.asInstanceOf[Union].copy(childOfWithClause = true)
+      else
+        q.toNode
+    val newNode = oldWithNode.copy(
+      prevTableNodes = oldWithNode.tNodes, prevQueryNodes = oldWithNode.qNodes, prevNodeGenerators = oldWithNode.gens,
+      tableNode = Option(t.toNode), queryNode = Option(checkedQueryNode), queryNodeGenerator = Option(new AnonSymbol))
+    new WrappingQuery[E, U, C](newNode, shaped)
   }
 }
 
