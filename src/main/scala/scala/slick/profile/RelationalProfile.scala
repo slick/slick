@@ -35,12 +35,15 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
     implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
+    implicit def viewQueryToTableQueryExtensionMethods[T <: View[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
+      new ViewQueryExtensionMethods[T, U](q)
     implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
       new TableQueryExtensionMethods[T, U](q)
   }
 
   trait SimpleQL extends super.SimpleQL with Implicits {
     type Table[T] = driver.Table[T]
+    type View[T] = driver.View[T]
     type Sequence[T] = driver.Sequence[T]
     val Sequence = driver.Sequence
     type ColumnType[T] = driver.ColumnType[T]
@@ -50,6 +53,17 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
     def ddl: SchemaDescription = buildTableSchemaDescription(q.shaped.value)
+
+    /** Create a `Compiled` query which selects all rows where the specified
+      * key matches the parameter value. */
+    def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): CompiledFunction[Column[P] => Query[T, U, Seq], Column[P], P, Query[T, U, Seq], Seq[U]] = {
+      import driver.Implicit._
+      Compiled { (p: Column[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
+    }
+  }
+
+  class ViewQueryExtensionMethods[T <: View[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
+    def ddl: SchemaDescription = buildViewSchemaDescription(q.shaped.value)
 
     /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
@@ -125,6 +139,8 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription
 
+  def buildViewSchemaDescription(view: View[_]): SchemaDescription
+
   trait ColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = ColumnOption.Default[T](defaultValue)
@@ -157,6 +173,12 @@ trait RelationalTableComponent { driver: RelationalDriver =>
         case _ => _tableName
       }) + "." + n
     }
+  }
+  abstract class View[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String, _baseTable : String) extends Table[T](_tableTag, _schemaName, _tableName){
+    def this(_tableTag: Tag, _tableName: String, _baseTable: String) = this(_tableTag, None, _tableName, _baseTable)
+
+    def baseTable : String = _baseTable
+    def predicate : String
   }
 }
 

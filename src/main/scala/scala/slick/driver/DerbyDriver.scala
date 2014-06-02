@@ -80,7 +80,6 @@ trait DerbyDriver extends JdbcDriver { driver =>
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
-    override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {

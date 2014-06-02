@@ -31,6 +31,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new TableDDL(table)
+  def buildViewSchemaDescription(view: View[_]): SchemaDescription = new TableDDL(view)
 
   trait Implicits extends super.Implicits {
     implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker = d.asInstanceOf[DDLInvoker]
