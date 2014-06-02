@@ -91,10 +91,10 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     } yield q
 
   final def foreignKeys: Iterable[ForeignKey] =
-    tableConstraints.collect{ case q: ForeignKeyQuery[_, _] => q.fks }.flatten.toIndexedSeq
+    tableConstraints.collect{ case q: ForeignKeyQuery[_, _] => q.fks }.flatten.toIndexedSeq.sortBy(_.name)
 
   final def primaryKeys: Iterable[PrimaryKey] =
-    tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
+    tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq.sortBy(_.name)
 
   /** Define an index or a unique constraint. */
   def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)
@@ -102,5 +102,5 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
-    } yield m.invoke(this).asInstanceOf[Index])
+    } yield m.invoke(this).asInstanceOf[Index]).sortBy(_.name)
 }
