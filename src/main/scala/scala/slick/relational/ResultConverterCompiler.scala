@@ -40,8 +40,7 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
   def compileMapping(n: Node): CompiledMapping = {
     val rc = compile(n)
-    if(ResultConverterCompiler.logger.isDebugEnabled)
-      ResultConverterCompiler.logger.debug("Compiled ResultConverter:\n"+ResultConverter.getDump(rc, prefix = "  "))
+    ResultConverterCompiler.logger.debug("Compiled ResultConverter", rc)
     CompiledMapping(rc, n.nodeType)
   }
 }
@@ -54,5 +53,8 @@ object ResultConverterCompiler {
 final case class CompiledMapping(converter: ResultConverter[_ <: ResultConverterDomain, _], tpe: Type) extends NullaryNode with TypedNode {
   type Self = CompiledMapping
   def nodeRebuild = copy()
-  override def toString = "CompiledMapping"
+  override def getDumpInfo = {
+    val di = super.getDumpInfo
+    di.copy(mainInfo = "", children = di.children ++ Vector(("converter", converter)))
+  }
 }

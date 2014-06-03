@@ -4,7 +4,7 @@ import scala.language.existentials
 import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.relational._
 import scala.slick.SlickException
-import scala.slick.ast.{Dump, ScalaBaseType}
+import scala.slick.ast.ScalaBaseType
 <#assign specTypes = ["Byte", "Short", "Int", "Long", "Char", "Float", "Double", "Boolean"]>
 
 /** Factory methods for JdbcResultConverters which are manually specialized on

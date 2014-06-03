@@ -116,7 +116,7 @@ trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
       def read(pr: MemoryResultConverterDomain#Reader) = ???
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
       def set(value: Any, pp: MemoryResultConverterDomain#Writer) = pp(tidx) = value
-      override def info = super.info + s"($tidx)"
+      override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tidx=$tidx")
       def width = 1
     }
   }

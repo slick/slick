@@ -100,7 +100,7 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
       }
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
       def set(value: Any, pp: MemoryResultConverterDomain#Writer) = ???
-      override def info = super.info + s"($ridx, nullable=$nullable)"
+      override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"ridx=$ridx, nullable=$nullable")
       def width = 1
     }
   }
