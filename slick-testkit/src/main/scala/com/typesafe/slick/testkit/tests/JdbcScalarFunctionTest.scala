@@ -3,13 +3,12 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import java.sql.{Time, Date, Timestamp}
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
-import scala.slick.lifted.ColumnBase
 
 class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   def test {
-    def check[T](q: ColumnBase[T], exp: T) = assertEquals(exp, q.run)
+    def check[T](q: Rep[T], exp: T) = assertEquals(exp, q.run)
     def checkLit[T : ColumnType](v: T) = check(LiteralColumn(v), v)
 
     checkLit(Date.valueOf("2011-07-15"))
