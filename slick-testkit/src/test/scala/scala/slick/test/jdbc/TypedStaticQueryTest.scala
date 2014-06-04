@@ -1,33 +1,27 @@
 package scala.slick.test.jdbc
 
-import com.typesafe.config.{ConfigException, ConfigFactory}
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.collection.heterogenous.HNil
 import scala.slick.collection.heterogenous.syntax._
-import scala.slick.jdbc.CompileTimeConnection
-import scala.slick.jdbc.JdbcBackend
 import scala.slick.jdbc.StaticQuery.interpolation
+import scala.slick.jdbc.TypedStaticQuery.{CompileTimeConnection, ConfigHandler}
 
 class TypedStaticQueryTest {
 
-  
+  implicit object conn extends CompileTimeConnection {
+    val dbName = "default"
+  }
   
   lazy val db = {
-    val config = new TypedStaticQueryConfigHandler {
-      val databaseName = "default"
-      val configFileName = "reference.conf"
-      val configGlobalPrefix = "typedsql."
-      def abort(msg: String) = sys.error(msg)
+    val config = new ConfigHandler {
+      val databaseName = conn.dbName
     }
     config.connection
   }
   
   @Test
   def testTypedInterpolation = db withSession { implicit session =>
-    implicit object conn extends CompileTimeConnection {
-    val dbName = "default"
-  }
     val id1 = 150
     val id2 = 1
     val s1 = tsql"select * from SUPPLIERS where SUP_ID = ${id1}"
@@ -51,47 +45,31 @@ class TypedStaticQueryTest {
     assertEquals(1 :: "2" :: 3 :: 4 :: 5 :: 6 :: 7 :: 8 :: 9 :: 10 :: 11 :: 12 :: 13 :: 14 :: 15 :: 16 :: 17 :: 18 :: 19 :: 20 :: 21 :: 22 :: 23 :: HNil, hlist1)
   }
   
-  private[this] abstract class TypedStaticQueryConfigHandler {
+  @Test
+  def testCustomTypes = db withSession { implicit session =>
+    import scala.slick.jdbc.SetParameter
     
-    val databaseName: String
-    val configFileName: String
-    val configGlobalPrefix: String
-    def abort(msg: String): Nothing
+    class Foo(val intVal: Int)
+    class Bar(val strVal: String)
     
-    lazy val conf = {
-      import java.io.File
-      val confFile: File = {
-        val file = new File(configFileName)
-        if (file.isFile() && file.exists())
-          file
-        else
-          abort(s"Configuration file does not exist. Create a file: ${file.getAbsolutePath}")
-      }
-      ConfigFactory.parseFile(confFile)
+    implicit val SetFoo = SetParameter[Foo]{ (i, pp) =>
+      println("Yes this was called")
+      SetParameter.SetInt(i.intVal, pp)
     }
-
-    @inline def getFromConfig(key: String): Option[String => String] = try {
-      Some{ _key =>
-        val c = conf.getConfig(configGlobalPrefix + key)
-        try {
-          c.getString(_key)
-        } catch {
-          case _: ConfigException => null
-        }
-      }
-    } catch {
-      case _: ConfigException.Missing => None
+    implicit val SetBar = SetParameter[Bar]{ (s, pp) =>
+      SetParameter.SetString(s.strVal, pp)
     }
     
-    lazy val databaseConfig = getFromConfig(databaseName)
+    val foo = new Foo(150)
+    val bar = new Bar("Something")
     
-    lazy val connection = databaseConfig match {
-      case Some(config) => JdbcBackend.Database.forURL(config("url"),
-          user = config("user"),
-          password = config("password"),
-          driver = config("driver")
-        )
-      case None => abort(s"Configuration for database $databaseName not found")
-    }
+    val s1 = tsql"select * from SUPPLIERS where SUP_ID = ${foo}"
+    val t1: List[(Int, String, String, String, String, String)] = s1.list
+    assertEquals(List((150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966")), t1)
+    
+    val num = 15
+    val s2 = tsql"select * from SUPPLIERS where SUP_ID = ${num * 10}"
+    val t2: List[(Int, String, String, String, String, String)] = s1.list
+    assertEquals(List((150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966")), t2)
   }
 }

@@ -8,22 +8,18 @@ import scala.reflect.macros.TypecheckException
 import scala.slick.collection.heterogenous._
 import scala.slick.collection.heterogenous.syntax._
 
-class TypedStaticQuery[+R](query: String, rconv: GetResult[R], param: List[Any]) extends StatementInvoker[R] {
+class TypedStaticQuery[+R](query: String, rconv: GetResult[R], param: List[Any], pconv: List[SetParameter[_]])
+extends StatementInvoker[R] {
   def getStatement = query
   
   protected def setParam(st: PreparedStatement) = {
-    SetParameter.SetSimpleProduct(new Product {
-        def productArity = param.length
-        def productElement(i: Int) = param(i)
-        def canEqual(that: Any) = false
-      }, new PositionedParameters(st)
-    )
+    val pp = new PositionedParameters(st)
+    param.zip(pconv) foreach { i =>
+      val (p, sp) = i
+      sp.asInstanceOf[SetParameter[Any]](p, pp)
+    }
   }
   protected def extractValue(rs: PositionedResult): R = rconv(rs)
-}
-
-trait CompileTimeConnection {
-  val dbName: String
 }
 
 object TypedStaticQuery {
@@ -101,17 +97,26 @@ object TypedStaticQuery {
         }
       }
       
-//      println(rtypeTree)
-      
-      
-      def implicitGetResultTree(reqType: Tree) = TypeApply(
+      def implicitTree(reqType: Tree) = TypeApply(
         Select(
           Select(Ident(newTermName("scala")), newTermName("Predef")), 
           newTermName("implicitly")
-        ), List(AppliedTypeTree(
+        ), 
+        List(reqType)
+      )
+      
+      def implicitGetResultTree(reqType: Tree) = implicitTree(
+        AppliedTypeTree(
           createClassTreeFromString("scala.slick.jdbc.GetResult"), 
           List(reqType)
-        ))
+        )
+      )
+      
+      def implicitSetParameterTree(reqType: Tree) = implicitTree(
+        AppliedTypeTree(
+          createClassTreeFromString("scala.slick.jdbc.SetParameter"), 
+          List(reqType)
+        )
       )
       
       val rconvTree = count match {
@@ -126,7 +131,7 @@ object TypedStaticQuery {
               List(rtypeTree)
             ),
             List( 
-                Function(
+              Function(
                 List(ValDef(Modifiers(Flag.PARAM), newTermName("p"), TypeTree(), EmptyTree)),
                 Block(
                   zipped.map { tup =>
@@ -147,11 +152,19 @@ object TypedStaticQuery {
         }
       }
       
+      val pconvTree = Apply(
+        Select(Ident(newTermName("scala")), newTermName("List")), 
+        params.map( p =>
+          implicitSetParameterTree(TypeTree(p.actualType))
+        ).toList
+      )
+      
       val ret = ctxt.Expr[TypedStaticQuery[Any]] {
         Block( 
           List (
             TypeDef(Modifiers(), newTypeName("rtype"), List(), rtypeTree),
-            ValDef(Modifiers(), newTermName("rconv"), TypeTree(), rconvTree)
+            ValDef(Modifiers(), newTermName("rconv"), TypeTree(), rconvTree),
+            ValDef(Modifiers(), newTermName("pconv"), TypeTree(), pconvTree)
           ),
           Apply(
             Select(
@@ -165,7 +178,8 @@ object TypedStaticQuery {
               Apply(
                 Select(Ident(newTermName("scala")), newTermName("List")),
                 params.toList.map(_.tree)
-              )
+              ),
+              Ident(newTermName("pconv"))
             )
           )
         )
@@ -179,12 +193,20 @@ object TypedStaticQuery {
     }
   }
   
-  private[this] abstract class MacroHelpers extends MacroBaseStructureHandler with MacroConfigHandler with MacroConnectionHandler 
+  private[this] abstract class MacroHelpers extends MacroBaseStructureHandler with ConfigHandler with MacroConnectionHandler {
+    //val configFileName = "reference.conf" -- defined as final in Config Handler
+    override def error(msg: String) = abort(msg)
+  }
 
   private[this] trait MacroBaseStructureHandler {
-
     val c: Context
+    val scope = c.enclosingClass
+    val valName = "dbName"
+    val defName = "tsql"
+    def abort(msg: String) = c.abort(c.enclosingPosition, msg)
+  }
 
+  private[this] trait MacroConnectionHandler { base: MacroBaseStructureHandler =>
     import c.universe._
     
     val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = c.macroApplication
@@ -204,65 +226,11 @@ object TypedStaticQuery {
       case Literal(Constant(x: String)) => x
       case _ => abort("The interpolation contained something other than constants...")
     } mkString ("?")
-
-    def abort(msg: String) = c.abort(c.enclosingPosition, msg)
-
-  }
-
-  private[this] trait MacroConfigHandler { base: MacroBaseStructureHandler =>
-
-    val configFileName = "reference.conf"
-    val configGlobalPrefix = "typedsql."
-
-    lazy val conf = {
-      val confFile = {
-        val file = new java.io.File(configFileName)
-        if (file.isFile() && file.exists())
-          file
-        else
-          base.abort(s"Configuration file does not exist. Create a file: ${file.getAbsolutePath}")
-      }
-      ConfigFactory.parseFile(confFile)
-    }
-
-    @inline def getFromConfig(key: String): Option[String => String] = try {
-      Some{ _key =>
-        val c = conf.getConfig(configGlobalPrefix + key)
-        if (c.hasPath(_key)) c.getString(_key) else null
-      }
-    } catch {
-      case _: ConfigException.Missing => None
-    }
-  }
-
-  private[this] trait MacroConnectionHandler { base: MacroBaseStructureHandler with MacroConfigHandler =>
-
-    val scope = base.c.enclosingClass
-    val valName = "dbName"
-    val defName = "tsql"
-
-    lazy val connection = databaseConfig match {
-      case Some(config) => JdbcBackend.Database.forURL(config("url"),
-          user = config("user"),
-          password = config("password"),
-          driver = config("driver")
-        )
-      case None => base.abort(s"Configuration for compile-time database $databaseName not found")
-    }
     
-    lazy val databaseConfig = base.getFromConfig(databaseName)
-
     lazy val databaseName: String = {
       import base.c.universe._
 
       val macroTree = Apply(Select(Apply(Ident(newTermName("StringContext")), strArg), newTermName(defName)), paramList)
-      //val macroTree = Apply(Select(Select(Ident(newTermName("scala")), newTermName("scala.StringContext")), newTermName("apply")), strArg)
-//      println("\n")
-//      println("Actual Macro Tree")
-//      println((base.c.macroApplication))
-//      println(showRaw(base.c.macroApplication))
-//      println("Expected macro Tree")
-//      println(showRaw(macroTree))
       val valTree = scope.collect { // Collect all blocks
         case x: Block if x.exists(_ equalsStructure macroTree) => x
       }.:+(scope).flatMap(_.collect { // Find all modules in each block
@@ -278,5 +246,48 @@ object TypedStaticQuery {
 
       c.eval(c.Expr(c.resetAllAttrs(valTree.duplicate)))
     }
+  }
+  
+  trait ConfigHandler {
+    
+    val databaseName: String
+    final val configFileName = "reference.conf"
+    final val configGlobalPrefix = "typedsql."
+    def error(msg: String): Nothing = sys.error(msg)
+    
+    lazy val conf = {
+      val confFile = {
+        val file = new java.io.File(configFileName)
+        if (file.isFile() && file.exists())
+          file
+        else
+          error(s"Configuration file does not exist. Create a file: ${file.getAbsolutePath}")
+      }
+      ConfigFactory.parseFile(confFile)
+    }
+
+    @inline def getFromConfig(key: String): Option[String => String] = try {
+      Some{ _key =>
+        val c = conf.getConfig(configGlobalPrefix + key)
+        if (c.hasPath(_key)) c.getString(_key) else null
+      }
+    } catch {
+      case _: ConfigException.Missing => None
+    }
+    
+    lazy val connection = databaseConfig match {
+      case Some(config) => JdbcBackend.Database.forURL(config("url"),
+          user = config("user"),
+          password = config("password"),
+          driver = config("driver")
+        )
+      case None => error(s"Configuration for compile-time database $databaseName not found")
+    }
+    
+    lazy val databaseConfig = getFromConfig(databaseName)
+  }
+
+  trait CompileTimeConnection {
+    val dbName: String
   }
 }
