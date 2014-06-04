@@ -14,7 +14,7 @@ final case class Insert(tableSym: Symbol, table: Node, linear: Node) extends Bin
     val lin2 = linear.nodeWithComputedType(scope + (tableSym -> table2.nodeType), typeChildren, retype)
     nodeRebuildOrThis(Vector(table2, lin2)).nodeTypedOrCopy(if(!nodeHasType || retype) lin2.nodeType else nodeType)
   }
-  override def toString = "Insert"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }
 
 /** A column in an Insert operation. */
@@ -22,5 +22,5 @@ final case class InsertColumn(children: IndexedSeq[Node], fs: FieldSymbol, tpe: 
   def nodeChildren = children
   type Self = InsertColumn
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(children = ch)
-  override def toString = s"InsertColumn $fs"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = fs.toString)
 }

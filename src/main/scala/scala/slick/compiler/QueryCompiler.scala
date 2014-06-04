@@ -8,7 +8,7 @@ import org.slf4j.LoggerFactory
 
 /** An immutable, stateless query compiler consisting of a series of phases */
 class QueryCompiler(val phases: Vector[Phase]) extends Logging {
-  protected[this] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(getClass.getName+".benchmark"))
+  protected[this] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(getClass.getName+"Benchmark"))
 
   /** Return a new compiler with the new phase added at the end. */
   def + (p: Phase) = new QueryCompiler(phases :+ p)

@@ -47,7 +47,7 @@ final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) exte
   override def nodeChildNames = Seq("from "+generator, "map")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, map = right)
   def nodeGenerators = Seq((generator, from))
-  override def toString = "ResultSetMapping"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
   def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 = from.nodeWithComputedType(scope, typeChildren, retype)
@@ -85,5 +85,5 @@ final case class ParameterSwitch(cases: Seq[((Any => Boolean), Node)], default: 
     if(keepType && nodeHasType) this2.nodeTyped(nodeType)
     else this
   }
-  override def toString = "ParameterSwitch"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }
