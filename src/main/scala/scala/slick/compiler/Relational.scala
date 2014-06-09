@@ -75,10 +75,11 @@ class ConvertToComprehensions extends Phase {
 
   def convert(n: Node): Node = convert1(n.nodeMapChildren(convert, keepType = true)) match {
     case c1 @ Comprehension(from1, where1, None, orderBy1,
-        Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None)),
-        fetch, offset) =>
+        Some(c2 @ Comprehension(from2, where2, None, orderBy2, select, None, None, Nil)),
+        fetch, offset, joinNodes) =>
       c2.copy(from = from1 ++ from2, where = where1 ++ where2,
-        orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset
+        orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset,
+        joinNodes = joinNodes
       ).nodeTyped(c1.nodeType)
     case n => n
   }
@@ -88,7 +89,7 @@ class ConvertToComprehensions extends Phase {
     // for extracting aggregated values from groups. We have to do it here
     // because Comprehension fusion comes after the special rewriting that
     // we have to do for GroupBy aggregation.
-    case Bind(ogen, Comprehension(Seq((igen, from)), Nil, None, Nil, Some(Pure(isel, _)), None, None), Pure(osel, oident)) =>
+    case Bind(ogen, Comprehension(Seq((igen, from)), Nil, None, Nil, Some(Pure(isel, _)), None, None, Nil), Pure(osel, oident)) =>
       logger.debug("Fusing simple mapping:", n)
       val sel = osel.replace({
         case FwdPath(base :: rest) if base == ogen =>
@@ -111,7 +112,7 @@ class ConvertToComprehensions extends Phase {
       val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)
       logger.debug("Replacing simple groupBy selection in:", sel)
       val newSel = sel.replace({
-        case a @ Apply(fs, Seq(b @ Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(pexpr, _)), None, None))) if gen2 == gen =>
+        case a @ Apply(fs, Seq(b@Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(pexpr, _)), None, None, Nil))) if gen2 == gen =>
           val newExpr = pexpr match {
             case ProductOfCommonPaths(s2, rests) if s2 == s1 =>
               FwdPath(gen :: rests.head).nodeTyped(b.nodeType)
@@ -170,8 +171,8 @@ class ConvertToComprehensions extends Phase {
         case Some((f, None, d)) => Some((f, Some(num), d))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d) => Some((f, Some(constOp("min")(math.min)(t, num)), d))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, d) => Some((f, Some(num), d))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d, Nil) => Some((f, Some(constOp("min")(math.min)(t, num)), d))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, d, Nil) => Some((f, Some(num), d))
             case _ => Some((from, Some(num), None))
           }
       }
@@ -181,9 +182,9 @@ class ConvertToComprehensions extends Phase {
         case Some((f, Some(t), Some(d))) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(constOp("+")(_ + _)(d, num))))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(num)))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d)) => Some((f, None, Some(constOp("+")(_ + _)(d, num))))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d)) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(constOp("+")(_ + _)(d, num))))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None, Nil) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(num)))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d), Nil) => Some((f, None, Some(constOp("+")(_ + _)(d, num))))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d), Nil) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(constOp("+")(_ + _)(d, num))))
             case _ => Some((from, None, Some(num)))
           }
       }
@@ -267,6 +268,7 @@ class FuseComprehensions extends Phase {
     val newGroupBy = new ArrayBuffer[Node]
     val newOrderBy = new ArrayBuffer[(Node, Ordering)]
     val structs = new HashMap[Symbol, Node]
+    val newJoinNodes = new ArrayBuffer[Node]
     var fuse = false
 
     def inline(n: Node): Node = n match {
@@ -293,6 +295,7 @@ class FuseComprehensions extends Phase {
           for(n <- from.where) newWhere += inline(n)
           for((n, o) <- from.orderBy) newOrderBy += inline(n) -> o
           for(n <- from.groupBy) newGroupBy += inline(n)
+          for(n <- from.joinNodes) newJoinNodes += inline(n)
           structs += sym -> narrowStructure(from)
           fuse = true
         } else newFrom += ((t._1, inline(t._2)))
@@ -308,7 +311,8 @@ class FuseComprehensions extends Phase {
         (c.groupBy.toSeq.map { case n => inline(n) } ++ newGroupBy).headOption,
         c.orderBy.map { case (n, o) => (inline(n), o) } ++ newOrderBy,
         c.select.map { case n => inline(n) },
-        c.fetch, c.offset)
+        c.fetch, c.offset,
+        newJoinNodes ++ c.joinNodes.map(inline))
       logger.debug("Fused to:", c2)
       c2
     }
@@ -440,15 +444,15 @@ class FuseComprehensions extends Phase {
     case Pure(n, _) => n
     //case Join(_, _, l, r, _, _) => ProductNode(narrowStructure(l), narrowStructure(r))
     //case u: Union => u.copy(left = narrowStructure(u.left), right = narrowStructure(u.right))
-    case Comprehension(from, _, _, _, None, _, _) => narrowStructure(from.head._2)
-    case Comprehension(_, _, _, _, Some(n), _, _) => narrowStructure(n)
+    case Comprehension(from, _, _, _, None, _, _, _) => narrowStructure(from.head._2)
+    case Comprehension(_, _, _, _, Some(n), _, _, _) => narrowStructure(n)
     case n => n
   }
 
   /** Create a select for a Comprehension without one. */
   def createSelect(c: Comprehension): Comprehension = if(c.select.isDefined) c else {
     c.from.last match {
-      case (sym, UnionLeft(Comprehension(_, _, _, _, Some(Pure(StructNode(struct), _)), _, _))) =>
+      case (sym, UnionLeft(Comprehension(_, _, _, _, Some(Pure(StructNode(struct), _)), _, _, Nil))) =>
         val r = Ref(sym)
         val copyStruct = StructNode(struct.map { case (field, _) =>
           (field, Select(r, field))
@@ -462,6 +466,220 @@ class FuseComprehensions extends Phase {
         c.copy(select = Some(Pure(copyStruct)))*/
       case _ => c
     }
+  }
+}
+
+/** Post-process to leave out around the Join. This should be executed after Fuse phase. */
+class NoParenthesisAroundJoinPhase extends Phase {
+  override val name: String = "no parenthesis around the Join"
+
+  override def apply(state: CompilerState) = state.map { n =>
+    ClientSideOp.mapServerSide(n)(leaveOut)
+  }
+
+  private def retrieveColumnSetFromTableNode(comprehension: Comprehension): Set[Seq[Symbol]] = {
+    comprehension.from match {
+      // 1. Test whether this Comprehension's from is TableNode.
+      case Seq((tableSymbol, tableNode: TableNode)) =>
+        // 2. Retrieve the NominalType of this TableNode.
+        tableNode.nodeType.children match {
+          case Seq(nominalType: NominalType) =>
+            nominalType.structuralView match {
+              case StructType(structTypeElements) => {
+                // 3. Create this TableNode's columns' the Path nodes.
+                structTypeElements.
+                  map { case (columnSymbol, _) => Seq(columnSymbol, tableSymbol)}.
+                  toSet
+              }
+              case _ => Nil.toSet
+            }
+          case _ => Nil.toSet
+        }
+      case _ => Nil.toSet
+    }
+  }
+
+  // This method does following things
+  // 1. Create old Paths of this Comprehension's the select.
+  // 2. Create old Paths of this Comprehension's the Join's the on.
+  // 3. Create new Paths to substitute.
+  // These data are used to convert various Path nodes.
+  private def buildConvertMap(comprehension: Comprehension, leftPossibility: Boolean, rightPossibility: Boolean): Seq[(Node, Node, Node)] = {
+    def convertEachNode(firstSymbol: Symbol, utilMap: Map[Int, (Boolean, Symbol)])(x: (Int, Symbol, Node)): (Node, Node, Node) = {
+      val (order, symbolInStructNode, nodeInStructNode) = x
+      val oldPathInSelect = Path(symbolInStructNode :: ElementSymbol(order) :: firstSymbol :: Nil)
+      val oldPathInOn = utilMap.
+        get(order).
+        map { case (_, outerSymbol) => Path(symbolInStructNode :: outerSymbol :: Nil)}.
+        map(_.nodeTyped(nodeInStructNode.nodeType)).
+        get
+      val newPath = utilMap.
+        get(order).
+        filter { case (possibility, _) => possibility}.
+        map(_ => nodeInStructNode).
+        map(_.nodeTyped(nodeInStructNode.nodeType)).
+        getOrElse(oldPathInOn)
+      (oldPathInSelect, oldPathInOn, newPath)
+    }
+
+    // This is util method. Retrieve all Nodes in Comprehension c's the select.
+    def utilOne(c: Comprehension) = c match {
+      case Comprehension(_, _, _, _, Some(Pure(StructNode(elements), _)), _, _, _) => elements
+      case _ => throw new SlickException("what happened?")
+    }
+
+    def utilTwo(order: Int)(x: (Symbol, Node)): (Int, Symbol, Node) = (order, x._1, x._2)
+
+    comprehension match {
+      case Comprehension(Seq((firstSymbol, Join(leftGen, rightGen, left: Comprehension, right: Comprehension, _, _))), _, _, _, _, _, _, _) =>
+        val utilMap = Map((1, (leftPossibility, leftGen)), (2, (rightPossibility, rightGen)))
+        (utilOne(left).map(utilTwo(1)) ++ utilOne(right).map(utilTwo(2))).
+          map(convertEachNode(firstSymbol, utilMap))
+    }
+  }
+
+  // This method converts the ProductNode to the StructNode in which all column Nodes have alias.
+  private def convertProductNode2StructNode(comprehension: Comprehension, newNode: Node): Node = {
+    val productNodeElements = newNode match {
+      case Pure(StructNode(elements), _) => return newNode
+      case Pure(ProductNode(elements), _) => elements
+      case _ => throw new SlickException("what happened?")
+    }
+    val select = comprehension.select
+    val oldSymbols = select match {
+      case Some(Pure(StructNode(elements), _)) => Option(elements.map(_._1))
+      case _ => None
+    }
+    val structNodeElements =
+      oldSymbols.
+        map(_.zip(productNodeElements)).
+        getOrElse(productNodeElements.map(x => (new AnonSymbol, x))).
+        toIndexedSeq
+    val structNode = StructNode(structNodeElements)
+    select.head.nodeChildren.head.nodeType.asInstanceOf[ProductType].elements
+    val structNodeTypes =
+      structNodeElements.
+        map(x => (x._1, x._2.nodeType)).
+        toIndexedSeq
+    val structType = StructType(structNodeTypes)
+    val result = Pure(structNode.nodeTyped(structType), select.head.asInstanceOf[Pure].identity)
+    result
+  }
+
+  // Test whether the parenthesis around this Comprehension can be skipped.
+  private def testPossibilityToLeaveOutParenthesis(comprehension: Comprehension): Boolean = {
+    // the Path nodes in this Comprehension's the select should be came from in
+    // 1. this Comprehension's the from which is TableNode
+    // 2. or, this Comprehension's the joinNodes's Comprehension's the from which is TableNode.
+    // If not, don't leave out around the Join.
+    val selectNodes = comprehension match {
+      case Comprehension(_, _, _, _, Some(Pure(StructNode(elements), _)), _, _, _) => elements.map(_._2)
+      case _ => throw new SlickException("what happened?")
+    }
+    val columnsOfComprehension = Seq(retrieveColumnSetFromTableNode(comprehension))
+    val columnsOfJoinNodes =
+      comprehension.
+        joinNodes.
+        map {
+        case InternalJoinNode(_, joinRight: Comprehension, _, _, _, _) => retrieveColumnSetFromTableNode(joinRight)
+        case _ => throw new SlickException("what happened?")
+      }
+    val tempOne = (columnsOfComprehension ++ columnsOfJoinNodes).reduceLeft(_ ++ _)
+    selectNodes.map {
+      case Path(symbols) => tempOne(symbols)
+      case _ => false
+    }.forall(_ == true)
+  }
+
+  // Util method to convert various the Path nodes.
+  private def convertColumns(convertMap: Map[Node, Node])(n: Node): Node = {
+    def innerConvertColumns(convertMap: Map[Node, Node])(n: Node): Node = convertMap.get(n).getOrElse(n)
+    innerConvertColumns(convertMap)(n.nodeMapChildren(convertColumns(convertMap))).nodeTypedOrCopy(n.nodeType)
+  }
+
+  // Entry method to convert recursively.
+  private def leaveOut(n: Node): Node = {
+    // This method defines basic constraints in which skipping parenthesis is not allowed.
+    def basicConstraints(c: Comprehension): Boolean = {
+      // 1. no where
+      // 2. no group-by
+      // 3. no fetch
+      // 4. no offset
+      c.where.isEmpty &&
+        c.groupBy.isEmpty &&
+        c.fetch.isEmpty &&
+        c.offset.isEmpty
+    }
+
+    def innerLeaveOut(n: Node): Node = {
+      n match {
+        case comprehension@Comprehension(Seq((_, join@Join(leftGen, rightGen, left: Comprehension, right: Comprehension, jt, on))), _, _, _, _, _, _, joinNodes) => {
+          // these possibility value means that skipping parenthesis around each side is allowed.
+          val leftPossibility =
+            basicConstraints(left) &&
+              testPossibilityToLeaveOutParenthesis(left)
+          // in right side, right side's the joinNodes should be empty.
+          val rightPossibility =
+            basicConstraints(right) && right.joinNodes.isEmpty &&
+              testPossibilityToLeaveOutParenthesis(right)
+
+          // prepare convert-map for column converting.
+          val convertMap = buildConvertMap(comprehension, leftPossibility, rightPossibility)
+          val convertMap4SelectConvert = convertMap.map(x => (x._1, x._3)).toMap
+          val convertMap4OnConvert = convertMap.map(x => (x._2, x._3)).toMap
+
+          // prepare each sub components step by step.
+          val replacedOn = convertColumns(convertMap4OnConvert)(join.on)
+          val replacedOrderBy =
+            comprehension.
+              orderBy.
+              map(x => (convertColumns(convertMap4SelectConvert)(x._1), x._2))
+          val replacedSelect =
+            comprehension.
+              select.
+              map(convertColumns(convertMap4SelectConvert)).
+              map(convertProductNode2StructNode(comprehension, _))
+          val replacedWhere =
+            comprehension.
+              where.
+              map(convertColumns(convertMap4SelectConvert))
+          val replacedGroupBy =
+            comprehension.
+              groupBy.
+              map(convertColumns(convertMap4SelectConvert))
+          val replacedFetch = comprehension.fetch.map(convertColumns(convertMap4SelectConvert))
+          val replacedOffset = comprehension.offset.map(convertColumns(convertMap4SelectConvert))
+
+          val newInternalJoinNode = InternalJoinNode(rightGen, right, replacedOn, jt, right.nodeType, rightPossibility)
+          val result =
+            if (leftPossibility)
+              left.copy(select = replacedSelect,
+                joinNodes = left.joinNodes :+ newInternalJoinNode,
+                orderBy = replacedOrderBy,
+                where = left.where ++ replacedWhere, // concatenate the left's the where and outer's the where.
+                groupBy = replacedGroupBy,
+                fetch = replacedFetch,
+                offset = replacedOffset)
+            else {
+              // if parenthesis around the left can't be skipped,
+              // the left Comprehension will be another new Comprehension's nested the from.
+              // and, the right will be added to new Comprehension's joinNodes.
+              Comprehension(from = Seq((leftGen, left)),
+                select = replacedSelect,
+                joinNodes = Seq(newInternalJoinNode),
+                orderBy = replacedOrderBy,
+                where = replacedWhere,
+                groupBy = replacedGroupBy,
+                fetch = replacedFetch,
+                offset = replacedOffset)
+            }
+          result
+        }
+        case n => n
+      }
+    }
+    val t = innerLeaveOut(n.nodeMapChildren(leaveOut))
+    t
   }
 }
 
