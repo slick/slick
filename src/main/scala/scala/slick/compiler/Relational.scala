@@ -294,7 +294,8 @@ class FuseComprehensions extends Phase {
       }
 
     // FIXME I think that these conditions are not sufficient. more consideration is required.
-    resultOne && outer.orderBy.isEmpty && outer.where.isEmpty && outer.groupBy.isEmpty
+    resultOne && outer.orderBy.isEmpty && outer.where.isEmpty && outer.groupBy.isEmpty &&
+      outer.offset.isEmpty && outer.fetch.isEmpty
 
     /**
      * In sql, below is possible
