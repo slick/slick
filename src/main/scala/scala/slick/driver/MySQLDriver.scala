@@ -9,6 +9,7 @@ import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
+import java.util.logging.Logger
 
 /** Slick driver for MySQL.
   *
@@ -68,10 +69,15 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _) if hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, joinNodes) if hasRowNumber(sel) =>
           // MySQL does not support ROW_NUMBER() but you can manually increment
           // a variable in the SELECT clause to emulate it.
-          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
+          val joinNodesAliases =
+            joinNodes.
+              map(_.asInstanceOf[InternalJoinNode]).
+              map(x => if (x.skipParenthesis) x.joinRight.asInstanceOf[Comprehension].from.head._1 else x.genRight).
+              toSet
+          val paths = findPaths(from.map(_._1).toSet ++ joinNodesAliases, sel).map(p => (p, new AnonSymbol)).toMap
           val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
           val gen, rownumSym, rownumGen = new AnonSymbol
           var inc = true
