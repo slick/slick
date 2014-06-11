@@ -189,13 +189,18 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
-    protected def buildWhereClause(where: Seq[Node], useAsCheckConstraint: Boolean = false) = building(WherePart) {
+    protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
-        // in check constraint, "... check where (...)" is invalid.
-        if (!useAsCheckConstraint) b" where "
+        b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
-      else if (useAsCheckConstraint) b"1=1" // in check constraint, if there is no condition, use check (1=1).
+    }
+
+    protected def buildCheckConstraint(where: Seq[Node]) = building(WherePart) {
+      if(!where.isEmpty) {
+        // in check constraint, "... check where (...)" is invalid.
+        expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
+      }
     }
 
     protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
@@ -442,8 +447,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
                 case StructType(elements) => elements.map(_._1).map(Seq(_, tableAlias)).toSet
               }
           }
-          val map: Seq[Node] = wheres.map(convertColumns(convertMap))
-          buildWhereClause(map, true)
+          val columnNodes: Seq[Node] = wheres.map(convertColumns(convertMap))
+          buildCheckConstraint(columnNodes)
         // TODO please suggest more appropriately message.
         case _ => throw new SlickException("Unexpected node type. CheckConstraint should be based on simple Table query.")
       }
@@ -746,6 +751,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         map(_.run(checkConstraint.toNode)).
         map(_.tree).
         map(utilMethod).
+        filterNot(_.isEmpty).
         map(x => f"${prepareCheckConstraintCondition(checkConstraint.constraintName, x)}")
     }
   }
