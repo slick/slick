@@ -40,11 +40,13 @@ trait MongoBackend extends DatabaseComponent{
     def forURL(url: String):DatabaseDef = new DatabaseDef(url)
   }
 
-  // TODO: check if we need to have methods like find, findOne etc here
+  /**
+   * Provides access to the Mongo database.
+   *
+   * @param mongoDb database session points to
+   */
   class SessionDef(val mongoDb: MongoDB) extends super.SessionDef{
-
     def collectionByName(collectionName: String): MongoCollection = mongoDb(collectionName)
-
 
     /**
      * Inherited method

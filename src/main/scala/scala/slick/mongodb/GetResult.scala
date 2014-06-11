@@ -2,7 +2,7 @@ package scala.slick.mongodb
 
 import com.mongodb.casbah.commons.MongoDBObject
 
-// TODO: review - probably this must be extended with some implicit conversions(like JDBC's) and moved to separate file
+// TODO: review - probably this must be extended with some implicit conversions(like JDBC's)
 // or we should implement some universal functionality that given the type generates mappings between MongoDBObject and Scala object
 // the latter is preferable or even the only right way
 trait GetResult[+T] extends (MongoDBObject => T) { self =>
