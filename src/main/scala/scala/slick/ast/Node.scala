@@ -623,3 +623,17 @@ object QueryParameter {
     case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations")
   }
 }
+
+// this is copied from Ref. in order to translate check-constraint ddl, one-symbol node is needed.
+final case class CheckConstraintColumnNode(sym: Symbol) extends NullaryNode {
+  type Self = CheckConstraintColumnNode
+  def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
+    if(nodeHasType && !retype) this else {
+      scope.get(sym) match {
+        case Some(t) => if(t == nodeType) this else copy().nodeTyped(t)
+        case _ => throw new SlickException("No type for symbol "+sym+" found for "+this)
+      }
+    }
+  def nodeRebuild = copy()
+}
+

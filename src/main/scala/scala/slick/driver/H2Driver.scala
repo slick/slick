@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
-import scala.slick.compiler.CompilerState
+import scala.slick.compiler.{QueryCompiler, CompilerState}
 import scala.slick.jdbc.JdbcType
 
 /** Slick driver for H2.
@@ -42,6 +42,7 @@ trait H2Driver extends JdbcDriver { driver =>
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
+  override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR => "VARCHAR"
@@ -75,6 +76,10 @@ trait H2Driver extends JdbcDriver { driver =>
     // the same in ReturningInsertInvoker because H2 does not allow returning non-AutoInc keys anyway.
     override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
+  }
+
+  class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
+    override protected def queryCompiler: Option[QueryCompiler] = Option(checkConstraintCompiler)
   }
 }
 

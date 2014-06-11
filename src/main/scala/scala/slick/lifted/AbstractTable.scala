@@ -1,5 +1,6 @@
 package scala.slick.lifted
 
+import scala.language.higherKinds
 import scala.slick.ast._
 import scala.slick.ast.Util.nodeToNodeOps
 import scala.slick.model.ForeignKeyAction
@@ -77,6 +78,23 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     new ForeignKeyQuery[TT, U](Filter.ifRefutable(generator, q.toNode, fv), q.shaped, IndexedSeq(fk), q, generator, aliased.value)
   }
 
+  // Define the check constraint for this table.
+  // needs more detail and appropriate explain.
+  def checkConstraint[TableType <: AbstractTable[T], RetType <: Column[_]]
+  (name:String, f: TableType => RetType)(implicit wt: CanBeQueryCondition[RetType]): CheckConstraintQuery[TableType, TableType#TableElementType] = {
+    // this is copied from Query.filter almost.
+    val generator = new AnonSymbol
+    // this is copied from TableQuery.scala:234
+    val shaped = ShapedValue(
+      this.asInstanceOf[TableType], // Is this type-casting safe?
+      Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, TableType, TableType#TableElementType, TableType]])
+    val aliased = shaped.encodeRef(generator :: Nil)
+    val fv = f(aliased.value)
+    val query =
+      new CheckConstraintQuery[TableType, TableType#TableElementType](name, Filter.ifRefutable(generator, toNode, wt(fv).toNode), shaped)
+    query
+  }
+
   /** Define the primary key for this table.
     * It is usually simpler to use the `O.PrimaryKey` option on the primary
     * key column but this method allows you to define compound primary keys
@@ -95,6 +113,9 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
+
+  final def checkConstraints[E <: AbstractTable[T]]: Iterable[CheckConstraintQuery[_, _]] =
+    tableConstraints.collect { case k: CheckConstraintQuery[_, _] => k}.toIndexedSeq
 
   /** Define an index or a unique constraint. */
   def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)

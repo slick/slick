@@ -189,11 +189,13 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
-    protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
+    protected def buildWhereClause(where: Seq[Node], useAsCheckConstraint: Boolean = false) = building(WherePart) {
       if(!where.isEmpty) {
-        b" where "
+        // in check constraint, "... check where (...)" is invalid.
+        if (!useAsCheckConstraint) b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
+      else if (useAsCheckConstraint) b"1=1" // in check constraint, if there is no condition, use check (1=1).
     }
 
     protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
@@ -363,7 +365,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         }
         b += symbolName(struct) += '.' += symbolName(field)
       case OptionApply(ch) => expr(ch, skipParens)
-      case n => // try to build a sub-query
+      case CheckConstraintColumnNode(field) =>
+        // the main from's table alias should be not used in check constraint.
+        // so, the table alias is dropped in buildCheckConstraint already.
+        // so, this Node has just one symbol which is table column's name.
+        b += symbolName(field)
+       case n => // try to build a sub-query
         b"\("
         buildComprehension(toComprehension(n))
         b"\)"
@@ -409,6 +416,36 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       if(!where.isEmpty) {
         b" where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
+      }
+      b.build
+    }
+
+    def buildCheckConstraint(): SQLBuilder.Result = {
+      // TODO which is better way between this way and creating separated phase?
+      def convertColumns(convertMap: Set[Seq[Symbol]])(n: Node): Node = {
+        def innerConvertColumns(convertMap: Set[Seq[Symbol]])(n: Node): Node = {
+          n match {
+            // if current Node which is in the where Node is the one of TableNode's columns' Node,
+            // replace to CheckConstraintColumNode.
+            case Path(symbols) if convertMap(symbols) => CheckConstraintColumnNode(symbols.head)
+            case n => n
+          }
+        }
+        innerConvertColumns(convertMap)(n.nodeMapChildren(convertColumns(convertMap))).nodeTypedOrCopy(n.nodeType)
+      }
+      tree match {
+        case Comprehension(Seq((tableAlias, tableNode: TableNode)), wheres, _, _, _, _, _) =>
+          tableNode.nodeType.asInstanceOf[CollectionType].elementType.asInstanceOf[NominalType].structuralView.asInstanceOf[StructType].elements
+          val convertMap = tableNode.nodeType match {
+            case CollectionType(_, nominalType: NominalType) =>
+              nominalType.structuralView match {
+                case StructType(elements) => elements.map(_._1).map(Seq(_, tableAlias)).toSet
+              }
+          }
+          val map: Seq[Node] = wheres.map(convertColumns(convertMap))
+          buildWhereClause(map, true)
+        // TODO please suggest more appropriately message.
+        case _ => throw new SlickException("Unexpected node type. CheckConstraint should be based on simple Table query.")
       }
       b.build
     }
@@ -585,6 +622,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val indexes: Iterable[Index] = table.indexes
     protected val foreignKeys: Iterable[ForeignKey] = table.foreignKeys
     protected val primaryKeys: Iterable[PrimaryKey] = table.primaryKeys
+    protected val checkConstraints: Iterable[CheckConstraintQuery[_, _]] = table.checkConstraints
+
+    // this is used to get translated-where-clause sql text.
+    // In this point, there is no a queryCompiler instance. in subclasses, this method must be implemented.
+    // this queryCompiler must be made with like : + JdbcCodeGen(_.buildCheckConstraint). please refer to JdbcProfile.scala:29.
+    protected def queryCompiler: Option[QueryCompiler] = None
 
     def buildDDL: DDL = {
       if(primaryKeys.size > 1)
@@ -593,7 +636,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       DDL(createPhase1, createPhase2, dropPhase1, dropPhase2)
     }
 
-    protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex)
+    protected def createPhase1 = Iterable(createTable) ++ primaryKeys.map(createPrimaryKey) ++ indexes.map(createIndex) ++
+      checkConstraints.
+        map(createCheckConstraint).
+        filter(_.isDefined).
+        map(_.get)
     protected def createPhase2 = foreignKeys.map(createForeignKey)
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
     protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
@@ -676,6 +723,30 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
             throw new SlickException("All columns in "+typeInfo+" must belong to table "+requiredTableName)
         case _ => throw new SlickException("Cannot use column "+c+" in "+typeInfo+" (only named columns are allowed)")
       }
+    }
+
+    // in each DBMS drivers, if it is needed, this method should be overrided.
+    protected def prepareCheckConstraintCondition(constraintName: String, conditionString: String): String = {
+      val b = new StringBuilder
+      b append "alter table " append quoteTableName(tableNode)
+      b append " add constraint " append quoteIdentifier(constraintName)
+      b append " check (" append conditionString append ")"
+      b.toString()
+    }
+
+    protected def createCheckConstraint(checkConstraint: CheckConstraintQuery[_, _]): Option[String] = {
+      def utilMethod(n: Node): String = {
+        n match {
+          case ResultSetMapping(_, from: CompiledStatement, _) =>
+            from.statement
+          case _ => throw new SlickException("what happened?")
+        }
+      }
+      queryCompiler.
+        map(_.run(checkConstraint.toNode)).
+        map(_.tree).
+        map(utilMethod).
+        map(x => f"${prepareCheckConstraintCondition(checkConstraint.constraintName, x)}")
     }
   }
 

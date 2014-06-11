@@ -7,7 +7,7 @@ import scala.slick.profile.{SqlProfile, RelationalProfile, Capability}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node, Insert, InsertColumn, Select, ElementSymbol, ColumnOption }
 import scala.slick.ast.Util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import scala.slick.compiler.CompilerState
+import scala.slick.compiler.{QueryCompiler, CompilerState}
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.{Invoker, JdbcType}
 
@@ -102,6 +102,8 @@ trait PostgresDriver extends JdbcDriver { driver =>
       if(dropLobs.isEmpty) super.dropPhase1
       else Seq("delete from "+quoteIdentifier(table.tableName)) ++ dropLobs ++ super.dropPhase1
     }
+
+    override protected def queryCompiler: Option[QueryCompiler] = Option(checkConstraintCompiler)
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {

@@ -6,7 +6,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
-import scala.slick.compiler.CompilerState
+import scala.slick.compiler.{QueryCompiler, CompilerState}
 import scala.slick.model.Model
 import scala.slick.jdbc.Invoker
 import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
@@ -131,6 +131,10 @@ trait SQLiteDriver extends JdbcDriver { driver =>
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
     override protected val foreignKeys = Nil // handled directly in addTableOptions
     override protected val primaryKeys = Nil // handled directly in addTableOptions
+
+    // FIXME SQLite3.7 support "create table ... (acol btype check (acol ...))".
+    // But, does SQLite3.7 support "alter table ... add check ..."?
+    //    override protected def queryCompiler: Option[QueryCompiler] = None
 
     override protected def addTableOptions(b: StringBuilder) {
       for(pk <- table.primaryKeys) {

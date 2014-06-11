@@ -29,6 +29,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
+  lazy val checkConstraintCompiler = compiler + new JdbcCodeGen(_.buildCheckConstraint)
   lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.NonAutoInc), new JdbcInsertCodeGen(createInsertBuilder))
   lazy val forceInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createInsertBuilder))
   lazy val upsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createUpsertBuilder))

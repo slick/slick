@@ -1,5 +1,6 @@
 package scala.slick.lifted
 
+import scala.language.higherKinds
 import scala.slick.ast._
 import scala.slick.ast.Filter
 import scala.slick.model // workaround until deprecated lifted.ForeignKeyAction is removed
@@ -78,3 +79,7 @@ case class PrimaryKey(name: String, columns: IndexedSeq[Node]) extends Constrain
 
 /** An index (or foreign key constraint with an implicit index). */
 class Index(val name: String, val table: AbstractTable[_], val on: IndexedSeq[Node], val unique: Boolean)
+
+// this is copied from WrappingQuery for CheckConstraint DDL.
+class CheckConstraintQuery[+E, U](val constraintName:String, override val toNode: Node, override val shaped: ShapedValue[_ <: E, U])
+  extends WrappingQuery[E, U, Seq](toNode, shaped) with Constraint

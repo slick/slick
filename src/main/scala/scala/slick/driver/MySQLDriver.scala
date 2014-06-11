@@ -8,7 +8,7 @@ import scala.slick.ast.TypeUtil._
 import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
-import scala.slick.compiler.CompilerState
+import scala.slick.compiler.{QueryCompiler, CompilerState}
 
 /** Slick driver for MySQL.
   *
@@ -130,6 +130,9 @@ trait MySQLDriver extends JdbcDriver { driver =>
     override protected def dropPrimaryKey(pk: PrimaryKey): String = {
       "ALTER TABLE " + table.tableName + " DROP PRIMARY KEY"
     }
+
+    // Currently, MySQL 5.5 doesn't support CheckConstraint. Just ignore.
+    //    override protected def queryCompiler: Option[QueryCompiler] = None
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {

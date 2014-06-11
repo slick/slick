@@ -6,7 +6,7 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
-import scala.slick.compiler.{Phase, CompilerState}
+import scala.slick.compiler.{QueryCompiler, Phase, CompilerState}
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.Invoker
 
@@ -100,6 +100,8 @@ trait HsqldbDriver extends JdbcDriver { driver =>
         sb.toString
       } else super.createIndex(idx)
     }
+
+    override protected def queryCompiler: Option[QueryCompiler] = Option(checkConstraintCompiler)
   }
 
   class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {

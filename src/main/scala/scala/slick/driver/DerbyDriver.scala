@@ -139,6 +139,8 @@ trait DerbyDriver extends JdbcDriver { driver =>
         sb.toString
       } else super.createIndex(idx)
     }
+
+    override protected def queryCompiler: Option[QueryCompiler] = Option(checkConstraintCompiler)
   }
 
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
