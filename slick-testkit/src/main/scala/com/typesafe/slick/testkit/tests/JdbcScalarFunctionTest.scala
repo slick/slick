@@ -24,4 +24,60 @@ class JdbcScalarFunctionTest extends TestkitTest[JdbcTestDB] {
     }
     check(myExpr(4, 5), 10)
   }
+
+  case class Entity(id: Int, name: String)
+
+  class Entities(tag: Tag) extends Table[Entity](tag, "enities") {
+    def id = column[Int]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def * = (id, name) <>(Entity.tupled, Entity.unapply)
+  }
+
+  private val nameTest = "Some"
+
+  private def getCollection = {
+    val entities = TableQuery[Entities]
+    entities.ddl.create
+    entities += Entity(1, nameTest)
+    entities
+  }
+
+  def testSubstring1() {
+    val names = for (s <- getCollection) yield s.name.substring(1, 3)
+    names.foreach(n => assertEquals(nameTest.substring(1, 3), n))
+  }
+
+  def testSubstring2() {
+    val names = for (s <- getCollection) yield s.name.substring(1)
+    names.foreach(n => assertEquals(nameTest.substring(1), n))
+  }
+
+  def testReplace() = ifCap(rcap.replace) {
+    val names = for (s <- getCollection) yield s.name.replace("So", "Ro")
+    names.foreach(n => assertEquals(nameTest.replace("So", "Ro"), n))
+  }
+
+  def testReverse() = ifCap(rcap.reverse) {
+    val names = for (s <- getCollection) yield s.name.reverseString
+    names.foreach(n => assertEquals(nameTest.reverse, n))
+  }
+
+  def testTake() =  {
+    val names = for (s <- getCollection) yield s.name.take(3)
+    names.foreach(n => assertEquals(nameTest.take(3), n))
+  }
+
+  def testDrop() = {
+    val names = for (s <- getCollection) yield s.name.drop(2)
+    names.foreach(n => assertEquals(nameTest.drop(2), n))
+  }
+
+  def testIndexOf() = ifCap(rcap.indexOf){
+    val names = for (s <- getCollection) yield (s.name.indexOf("o"), s.name.indexOf("r"))
+    names.foreach(n => {
+      assertEquals(nameTest.indexOf("o"), n._1); assertEquals(nameTest.indexOf("r"), n._2)
+    })
+  }
 }

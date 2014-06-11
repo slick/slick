@@ -102,11 +102,18 @@ object RelationalProfile {
     /** Supports all RelationalProfile features which do not have separate capability values */
     val other = Capability("relational.other")
 
+    /** Supports replace method on string columns */
+    val replace = Capability("relational.replace")
+    /** Supports reverse method on string columns */
+    val reverse = Capability("relational.reverse")
+    /**  Supports indexOf method on string columns */
+    val indexOf = Capability("relational.indexOf")
+
     /** All relational capabilities */
     val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
       functionUser, joinFull, joinLeft, joinRight, likeEscape, pagingDrop, pagingNested,
       pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
-      zip)
+      zip, replace, reverse, indexOf)
   }
 }
 
