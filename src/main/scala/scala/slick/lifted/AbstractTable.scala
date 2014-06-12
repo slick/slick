@@ -87,7 +87,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     // this is copied from TableQuery.scala:234
     val shaped = ShapedValue(
       this.asInstanceOf[TableType], // Is this type-casting safe?
-      Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, TableType, TableType#TableElementType, TableType]])
+      RepShape[FlatShapeLevel, TableType, TableType#TableElementType])
     val aliased = shaped.encodeRef(generator :: Nil)
     val fv = f(aliased.value)
     val query =
