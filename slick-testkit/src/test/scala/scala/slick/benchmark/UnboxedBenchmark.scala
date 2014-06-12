@@ -3,6 +3,7 @@ package scala.slick.benchmark
 import scala.slick.ast._
 import scala.slick.jdbc._
 import scala.slick.relational._
+import scala.slick.util.TreeDump
 import com.typesafe.slick.testkit.util.DelegateResultSet
 
 object UnboxedBenchmark extends App {
@@ -53,9 +54,8 @@ object UnboxedBenchmark extends App {
 
   def runTest(n: Node) {
     val rsm = driver.queryCompiler.run(n).tree
-    Dump(rsm)
+    TreeDump(rsm)
     val ResultSetMapping(_, _, CompiledMapping(converter, _)) = rsm
-    ResultConverter.dump(converter)
     for(i <- 1 to 5) {
       val pr = createFakePR(10000000, converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]])
       readPR(pr)

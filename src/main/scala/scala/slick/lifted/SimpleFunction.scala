@@ -14,7 +14,7 @@ private[lifted] abstract class SimpleFeatureNode[T](implicit val tpe: TypedType[
 trait SimpleFunction extends Node {
   val name: String
   val scalar = false
-  override def toString = "SimpleFunction(" + name + ", " + scalar + ")"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"$name, $scalar")
 }
 
 object SimpleFunction {

@@ -64,6 +64,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.zip
     - RelationalProfile.capabilities.joinFull
     - JdbcProfile.capabilities.insertOrUpdate
+    - RelationalProfile.capabilities.replace
+    - RelationalProfile.capabilities.reverse
+    - RelationalProfile.capabilities.indexOf
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
@@ -88,6 +91,8 @@ trait DerbyDriver extends JdbcDriver { driver =>
     override protected val supportsTuples = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
+      case Library.Substring(n, start, end) => b"substr($n, $start, $end)" // Jdbc driver can't map substring to substr
+      case Library.Substring(n, start) => b"substr($n, $start)"
       case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
