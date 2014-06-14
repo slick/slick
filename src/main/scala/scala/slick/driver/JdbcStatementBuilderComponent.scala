@@ -153,6 +153,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
+      if(!validateForWindowFunction(c))
+        throw new SlickException("Invalid Window Function usages.")
       b"select "
       buildSelectModifiers(c)
       c.select match {
@@ -170,6 +172,25 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           if(c.from.length <= 1) b"*"
           else b"`${c.from.last._1}.*"
       }
+    }
+
+    protected def validateForWindowFunction(c: Comprehension): Boolean = {
+      // At here, test whether Window Function is made correctly.
+      // Let's say a example.
+      //   tableA.map(t => (t.id + 1, t.name,
+      //     Query(t).    -- (1)
+      //       partitionBy(t => (t.id, t.name)).
+      //       sortBy(t => t.id.desc).
+      //       windowFunctionArgs(row_number)
+      // If use incorrected thing in (1) place like below, this method should complain something.
+      //   tableA.map(t => (t.id + 1, t.name,
+      //     Query(tableB). -- in this case, tableA and tableB has no relation. this Window Function must be made for 't'.
+      //       partitionBy(t => (t.id, t.name)).
+      //       sortBy(t => t.id.desc).
+      //       windowFunctionArgs(row_number)
+      // FIXME But, How? If here is not appropriate place, Where?
+      // Even, Is it possible?
+      true
     }
 
     protected def buildSelectModifiers(c: Comprehension) {}
@@ -348,6 +369,71 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
         b")"
+      case Apply(windowFunctionSymbol: TypedWindowFunctionSymbolParams[_, _], Seq(WindowFunctionNode(from, arguments, _, frameType, frameStartType, precedingValue, frameEndType, followingValue))) =>
+        def utilMethodOne(name: String): Unit = {
+          if (windowFunctionSymbol.skipQuote) b"$name" else b"${quoteIdentifier(name)}"
+        }
+        windowFunctionSymbol.schemaName.foreach { x =>
+          utilMethodOne(x)
+          b"."
+        }
+        utilMethodOne(windowFunctionSymbol.name)
+        b"("
+        arguments match {
+          case ProductNode(ch) =>
+            b.sep(ch, ", ")(buildSelectPart)
+          case p@Path(_) =>
+            b.sep(Seq(p), ", ")(buildSelectPart)
+          case _ =>
+        }
+        b") over ("
+        from match {
+          case Comprehension(from, where, groupBy, orderBy, select, fetch, offset, partitionBy) =>
+            if (!from.isEmpty || !where.isEmpty || !groupBy.isEmpty || !fetch.isEmpty || !offset.isEmpty)
+              throw new SlickException("Invalid Window Function usage.")
+            partitionBy match {
+              case Some(ProductNode(ch)) =>
+                b"partition by "
+                b.sep(ch, ", ")(buildSelectPart)
+              case Some(p@Path(_)) =>
+                b"partition by "
+                b.sep(Seq(p), ", ")(buildSelectPart)
+              case _ =>
+            }
+            if (!orderBy.isEmpty) buildOrderByClause(orderBy)
+        }
+        // this condition is default of frame clause.
+        if (!(frameStartType == FrameStartEndType.unboundedPreceding && frameEndType == FrameStartEndType.currentRow)) {
+          b" "
+          frameType match {
+            case FrameType.rowFrame => b"rows "
+            case FrameType.rangeFrame => b"range "
+            case _ => throw new SlickException("Unexpected Window Frame Type.")
+          }
+          b"between "
+          frameStartType match {
+            case FrameStartEndType.precedingN =>
+              if (precedingValue.isEmpty)
+                throw new SlickException("Expected Preceding N value.")
+              precedingValue.foreach(v => expr(v))
+              b" preceding "
+            case FrameStartEndType.unboundedPreceding => b"unbounded preceding "
+            case FrameStartEndType.currentRow => b"current row "
+            case _ => throw new SlickException("Unexpected Start Frame Type")
+          }
+          b"and "
+          frameEndType match {
+            case FrameStartEndType.followingN =>
+              if (followingValue.isEmpty)
+                throw new SlickException("Expected Following N value.")
+              followingValue.foreach(v => expr(v))
+              b" following "
+            case FrameStartEndType.unboundedFollowing => b"unbounded following "
+            case FrameStartEndType.currentRow => b"current row "
+            case _ => throw new SlickException("Unexpected End Frame Type")
+          }
+        }
+        b")"
       case c: ConditionalExpr =>
         b"(case"
         c.clauses.foreach { case IfThen(l, r) => b" when $l then $r" }
@@ -382,7 +468,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -404,7 +490,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildDelete: SQLBuilder.Result = {
       val (gen, from, where) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None) => (sym, from, where)
+        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None, None) => (sym, from, where)
         case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
       val qtn = quoteTableName(from)
@@ -484,7 +570,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   trait OracleStyleRowNum extends QueryBuilder {
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
           // Pull the SELECT clause with the ROWNUM up into a new query
           val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
           val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
