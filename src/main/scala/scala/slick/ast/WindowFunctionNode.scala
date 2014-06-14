@@ -68,22 +68,19 @@ case class RangeFrame(override val start: FrameStartEnd = UnboundedPreceding, ov
   override val frameType: FrameType.Value = FrameType.rangeFrame
 }
 
-// FIXME I don't know classes' means of Node.scala exactly. Please re-arrange these.
-final case class WindowFunctionNode(from: Node, arguments: Node, override val nodeType: Type, val frameType: FrameType.Value, val frameStartType: FrameStartEndType.Value, val precedingValue: Option[Node], val frameEndType: FrameStartEndType.Value, val followingValue: Option[Node]) extends SimplyTypedNode {
+final case class WindowFunctionNode(from: Node, val frameType: FrameType.Value, val frameStartType: FrameStartEndType.Value, val precedingValue: Option[Node], val frameEndType: FrameStartEndType.Value, val followingValue: Option[Node]) extends SimplyTypedNode {
   type Self = WindowFunctionNode
 
-  override def nodeChildNames = Seq("from", "arguments") ++ precedingValue.map(_ => "precedingN") ++ followingValue.map(_ => "followingN")
+  override def nodeChildNames = Seq("from") ++ precedingValue.map(_ => "precedingN") ++ followingValue.map(_ => "followingN")
 
-  override protected def buildType: Type = nodeType
+  override protected def buildType: Type = from.nodeType
 
-  override def nodeChildren: Seq[Node] = Seq(from, arguments) ++ precedingValue ++ followingValue
+  override def nodeChildren: Seq[Node] = Seq(from) ++ precedingValue ++ followingValue
 
   override protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = {
     val iterator = ch.iterator
     copy(
       iterator.next(),
-      iterator.next(),
-      nodeType,
       frameType,
       frameStartType,
       precedingValue.map(_ => iterator.next()),
@@ -92,15 +89,4 @@ final case class WindowFunctionNode(from: Node, arguments: Node, override val no
   }
 }
 
-final case class PartitionBy(generator: Symbol, from: Node, partitionByNode: Node) extends FilteredQuery with DefNode {
-  type Self = PartitionBy
-
-  override def nodeChildNames = Seq("from", "partitionBy")
-
-  override protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node = copy(generator = gen(0))
-
-  override protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = copy(from = ch(0), partitionByNode = ch(1))
-
-  override def nodeChildren: Seq[Node] = Seq(from, partitionByNode)
-}
 

@@ -110,10 +110,6 @@ class FunctionSymbol(val name: String) extends Symbol {
   override def toString = "Function "+name
 }
 
-// This is intended to use with WindowFunction.
-// I think that using like this is more convenient than using SimpleFunction in this case.
-// TODO But, How do you think about this?
-// This is general form.
 class TypedWindowFunctionSymbolParams[ParamType, RetType]
 (override val name: String, val schemaName: Option[String] = None, val skipQuote: Boolean = false)
 (implicit val tpe: TypedType[RetType]) extends FunctionSymbol(name) {

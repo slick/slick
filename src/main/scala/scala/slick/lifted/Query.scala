@@ -117,50 +117,13 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
 
-  // these window function related codes are copied from groupBy and FunctionSymbolExtensionMethods.
-  def partitionBy[ParMapType](f: E => ParMapType)(implicit shape: Shape[_ <: FlatShapeLevel, ParMapType, _, _]): Query[E, U, C] = {
-    val sym = new AnonSymbol
-    val partitions = ShapedValue(f(shaped.encodeRef(sym :: Nil).value), shape).packedValue
-    new WrappingQuery[E, U, C](PartitionBy(sym, toNode, partitions.toNode), shaped)
-  }
-
-  // Use this feature like below.
-  //    val row_number = new TypedWindowFunctionSymbol[Option[Int]]("row_number")
-  //    val someParamWinFunc = new TypedWindowFunctionSymbolParams[(Column[Int], Column[String]), Option[Float]]("some_func")
-  //    val h =
-  //      tableA.join(tableB).on(_.id===_.id).
-  //        map {
-  //          case (a,b)=>(a.id,b.id,a.name,b.name)
-  //        }.map {
-  //          case (a,b,c,d)=>(
-  //            a,b,
-  //            Query((a,b,c,d)).
-  //              partitionBy(t=>t._2).
-  //              sortBy(t=>t._1.desc).
-  //              windowFunction(row_number)
-  // or
-  //              windowFunctionArgs(someParamWinFunc)(t => (t._1, t._3, t._2 + 1))
-  //          )
-  //        }
-  // And, please refers to 'WindowFunctionTest.scala' test.
-  def windowFunctionArgs[ParamType, RetType]
-  (functionSymbol: TypedWindowFunctionSymbolParams[ParamType, RetType], windowFrame: Option[AbstractWindowFrame] = Option(RangeFrame()))(f: E => ParamType)
-  (implicit shape: Shape[_ <: FlatShapeLevel, ParamType, _, _], tpe: TypedType[RetType]): Column[RetType] = {
-    internalWindowFunction(functionSymbol, windowFrame, f)
-  }
-
   def windowFunction[RetType]
   (functionSymbol: TypedWindowFunctionSymbol[RetType], windowFrame: Option[AbstractWindowFrame] = Option(RangeFrame()))
   (implicit tpe: TypedType[RetType]): Column[RetType] = {
-    internalWindowFunction(functionSymbol, windowFrame, E => ())
+    Column.forNode[RetType](functionSymbol.apply(createWindowFunctionNode(windowFrame)))
   }
 
-  private def internalWindowFunction[ParamType, RetType]
-  (functionSymbol: TypedWindowFunctionSymbolParams[ParamType, RetType], windowFrame: Option[AbstractWindowFrame], mapper: E => ParamType)
-  (implicit shape: Shape[_ <: FlatShapeLevel, ParamType, _, _], tpe: TypedType[RetType]): Column[RetType] = {
-    // I can't find to where and how to convert WindowFunction's arguments' nodes correctly.
-    // So, this is a just workaround in which there is no 'new AnonSymbol'.
-    val mappedNode = ShapedValue(mapper.apply(shaped.value), shape).packedValue.toNode
+  private def createWindowFunctionNode(windowFrame: Option[AbstractWindowFrame]): WindowFunctionNode = {
     val startFrame = windowFrame.map(_.start).getOrElse(UnboundedPreceding)
     val endFrame = windowFrame.map(_.end).getOrElse(CurrentRow)
     val precedingN = startFrame match {
@@ -175,13 +138,16 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
       case UnboundedPreceding => throw new SlickException("Invalid end frame.")
       case _ => None
     }
-    val windowFunctionNode =
-      WindowFunctionNode(
-        toNode, mappedNode, tpe,
-        windowFrame.get.frameType,
-        startFrame.frameStartEndType, precedingN,
-        endFrame.frameStartEndType, followingN)
-    Column.forNode[RetType](functionSymbol.apply(windowFunctionNode))
+    WindowFunctionNode(
+      toNode, windowFrame.get.frameType,
+      startFrame.frameStartEndType, precedingN,
+      endFrame.frameStartEndType, followingN)
+  }
+
+  def windowFunctionParams[RetType]
+  (functionSymbol: TypedWindowFunctionSymbolParams[_>:E, RetType], windowFrame: Option[AbstractWindowFrame] = Option(RangeFrame()))
+  (implicit tpe: TypedType[RetType]): Column[RetType] = {
+    Column.forNode[RetType](functionSymbol.apply(createWindowFunctionNode(windowFrame)))
   }
 
   def encodeRef(path: List[Symbol]): Query[E, U, C] = new Query[E, U, C] {

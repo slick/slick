@@ -1,10 +1,13 @@
 package com.typesafe.slick.testkit.tests
 
+import java.util.logging.Logger
+
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import org.junit.Assert._
 
 import scala.slick.ast._
 import scala.slick.driver.PostgresDriver
+import scala.slick.util.TreeDump
 
 class WindowFunctionTest extends TestkitTest[JdbcTestDB] {
 
@@ -72,17 +75,20 @@ class WindowFunctionTest extends TestkitTest[JdbcTestDB] {
 
       val windowFunctionColumn =
         Query(a, b).
-          partitionBy { case (a: Students, b: ExamScores) => b.subject}.
           sortBy { case (a: Students, b: ExamScores) => (b.score.desc, a.name.asc)}.
+          groupBy { case (a: Students, b: ExamScores) => b.subject}.
+          flatMap { case (_, t) => t}.map { case (a: Students, b: ExamScores) => ()}.
           windowFunction(rank)
       val windowFunctionColumn2 =
         Query(a, b).
           sortBy { case (a: Students, b: ExamScores) => (b.score.asc)}.
-          windowFunctionArgs(avg) { case (a: Students, b: ExamScores) => b.score}
+          map { case (a: Students, b: ExamScores) => (b.score)}.
+          windowFunctionParams(avg)
       val windowFunctionColumn3 =
         Query(a, b).
           sortBy { case (a: Students, b: ExamScores) => (b.score.asc)}.
-          windowFunctionArgs(lag) { case (a: Students, b: ExamScores) => (b.score, LiteralColumn(1), LiteralColumn(None))}
+          map { case (a: Students, b: ExamScores) => (b.score, LiteralColumn(1), LiteralColumn[Option[Int]](None))}.
+          windowFunctionParams(lag)
       (a, b, windowFunctionColumn, windowFunctionColumn2, windowFunctionColumn3)
     }
 
@@ -114,8 +120,8 @@ class WindowFunctionTest extends TestkitTest[JdbcTestDB] {
       return
     (frameTestTable.ddl).create
     1.to(10).foreach(i => frameTestTable.+=((i, i * 10)))
+    val sum = new TypedWindowFunctionSymbolParams[Column[Int], Int]("sum")
     def query(c: Column[Int]): Query[(Column[Int], Column[Int]), (Int, Int), Seq] = {
-      val sum = new TypedWindowFunctionSymbolParams[Column[Int], Int]("sum")
       // http://www.postgresql.org/docs/9.1/static/sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS
       val frame = Option(RowFrame(PrecedingN(c), FollowingN(c)))
       frameTestTable.
@@ -123,18 +129,14 @@ class WindowFunctionTest extends TestkitTest[JdbcTestDB] {
         t.id,
         Query(t).
           sortBy(t => t.score.asc).
-          windowFunctionArgs(sum, frame)(t => t.score))
+          map(t => t.score).
+          windowFunctionParams(sum, frame))
       }
     }
     val compiled = Compiled(query _)
+    val expected = 1.to(10).zip(Seq((1 + 2) * 10) ++ 2.to(9).map(n => ((n - 1) + n + (n + 1)) * 10) ++ Seq((9 + 10) * 10))
     val result = compiled.apply(1).run
-    val expected = 1.to(10).zip(
-      Seq((1 + 2) * 10) ++
-        2.to(9).map(n => ((n - 1) + n + (n + 1)) * 10) ++
-        Seq((9 + 10) * 10))
-
     (frameTestTable.ddl).drop
-
     assertEquals(expected, result)
   }
 }
