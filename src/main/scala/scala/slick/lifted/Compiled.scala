@@ -82,19 +82,27 @@ class AppliedCompiledFunction[PU, R <: Rep[_], RU](val param: PU, function: Comp
   def compiledInsert = function.compiledInsert
 }
 
-class CompiledExecutable[R <: Rep[_], RU](val extract: R, val driver: BasicProfile) extends RunnableCompiled[R, RU] with CompilersMixin {
+abstract class CompiledExecutable[R, RU](val extract: R, val driver: BasicProfile) extends RunnableCompiled[R, RU] with CompilersMixin {
   def param = ()
-  def toNode: Node = extract.toNode
+  def toNode: Node
 }
 
-class CompiledStreamingExecutable[R <: Rep[_], RU, EU](extract: R, driver: BasicProfile) extends CompiledExecutable[R, RU](extract, driver) with StreamableCompiled[R, RU, EU]
+abstract class CompiledStreamingExecutable[R, RU, EU](extract: R, driver: BasicProfile) extends CompiledExecutable[R, RU](extract, driver) with StreamableCompiled[R, RU, EU]
 
 /** Typeclass for types that can be executed as queries. This encompasses
-  * collection-valued (`Query[_, _, _[_] ]`), scalar and record types. This is used
-  * as a phantom type for computing the required types. The actual value is
-  * always `null`. */
+  * collection-valued (`Query[_, _, _[_] ]`), scalar and record types. */
 @implicitNotFound("Computation of type ${T} cannot be executed (with result type ${TU})")
-trait Executable[T, TU]
+trait Executable[T, TU] {
+  def toNode(value: T): Node
+}
+
+object Executable {
+  @inline implicit def queryIsExecutable[B, BU, C[_]] = StreamingExecutable[Query[B, BU, C], C[BU], BU]
+  @inline implicit def tableQueryIsExecutable[B <: AbstractTable[_], BU, C[_]] = StreamingExecutable[Query[B, BU, C] with TableQuery[B], C[BU], BU]
+  @inline implicit def baseJoinQueryIsExecutable[B1, B2, BU1, BU2, C[_]] = StreamingExecutable[BaseJoinQuery[B1, B2, BU1, BU2, C], C[(BU1, BU2)], (BU1, BU2)]
+  @inline implicit def scalarIsExecutable[R, U](implicit shape: Shape[_ <: FlatShapeLevel, R, U, _]): Executable[R, U] =
+    new Executable[R, U] { def toNode(value: R) = shape.toNode(value) }
+}
 
 /** Typeclass for types that can be executed as streaming queries, i.e. only
   * collection-valued (`Query[_, _, _[_] ]`) types. This is used
@@ -103,11 +111,10 @@ trait Executable[T, TU]
 @implicitNotFound("Computation of type ${T} cannot be executed (with sequence result type ${TU} and base result type ${EU})")
 trait StreamingExecutable[T, TU, EU] extends Executable[T, TU]
 
-object Executable {
-  @inline implicit def queryIsExecutable[B, BU, C[_]]: StreamingExecutable[Query[B, BU, C], C[BU], BU] = null
-  @inline implicit def tableQueryIsExecutable[B <: AbstractTable[_], BU, C[_]]: StreamingExecutable[Query[B, BU, C] with TableQuery[B], C[BU], BU] = null
-  @inline implicit def baseJoinQueryIsExecutable[B1, B2, BU1, BU2, C[_]]: StreamingExecutable[BaseJoinQuery[B1, B2, BU1, BU2, C], C[(BU1, BU2)], (BU1, BU2)] = null
-  @inline implicit def scalarIsExecutable[A, AU](implicit shape: Shape[FlatShapeLevel, A, AU, A]): Executable[A, AU] = null
+/** A prototype `StreamingExecutable` instance for `Rep` types. */
+object StreamingExecutable extends StreamingExecutable[Rep[Any], Any, Any] {
+  def apply[T <: Rep[_], TU, EU] = this.asInstanceOf[StreamingExecutable[T, TU, EU]]
+  def toNode(value: Rep[Any]) = value.toNode
 }
 
 /** Typeclass for types that can be contained in a `Compiled` container. This
@@ -123,14 +130,14 @@ object Compilable extends CompilableFunctions {
     def compiled(raw: A => B, driver: BasicProfile) =
       new CompiledFunction[A => B, A, P, B, U](raw, identity[A => B], pshape.asInstanceOf[Shape[ColumnsShapeLevel, P, P, A]], driver)
   }
-  implicit def streamingExecutableIsCompilable[T <: Rep[_], U, EU](implicit e: StreamingExecutable[T, U, EU]): Compilable[T, CompiledStreamingExecutable[T, U, EU]] = new Compilable[T, CompiledStreamingExecutable[T, U, EU]] {
-    def compiled(raw: T, driver: BasicProfile) = new CompiledStreamingExecutable[T, U, EU](raw, driver)
+  implicit def streamingExecutableIsCompilable[T, U, EU](implicit e: StreamingExecutable[T, U, EU]): Compilable[T, CompiledStreamingExecutable[T, U, EU]] = new Compilable[T, CompiledStreamingExecutable[T, U, EU]] {
+    def compiled(raw: T, driver: BasicProfile) = new CompiledStreamingExecutable[T, U, EU](raw, driver) { def toNode = e.toNode(raw) }
   }
 }
 
 trait CompilableLowPriority {
-  implicit def executableIsCompilable[T <: Rep[_], U](implicit e: Executable[T, U]): Compilable[T, CompiledExecutable[T, U]] = new Compilable[T, CompiledExecutable[T, U]] {
-    def compiled(raw: T, driver: BasicProfile) = new CompiledExecutable[T, U](raw, driver)
+  implicit def executableIsCompilable[T, U](implicit e: Executable[T, U]): Compilable[T, CompiledExecutable[T, U]] = new Compilable[T, CompiledExecutable[T, U]] {
+    def compiled(raw: T, driver: BasicProfile) = new CompiledExecutable[T, U](raw, driver) { def toNode = e.toNode(raw) }
   }
 }
 

@@ -4,7 +4,8 @@ import scala.language.existentials
 import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.relational._
 import scala.slick.SlickException
-import scala.slick.ast.{ScalaBaseType, Dump}
+import scala.slick.ast.ScalaBaseType
+import scala.slick.util.{TreeDump => Dump} //--
 
 /** Specialized JDBC ResultConverter for non-`Option` values. */
 class BaseResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](val ti: JdbcType[T], val name: String, val idx: Int) extends ResultConverter[JdbcResultConverterDomain, T] {
@@ -16,7 +17,7 @@ class BaseResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Doub
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
   def set(value: T, pp: PreparedStatement) =
     ti.setValue(value, pp, idx)
-  override def info = super.info + "(" + Dump.blue + ti + Dump.normal + s", idx=$idx, name=$name)"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx, name=$name", attrInfo = ": " + ti)
   def width = 1
 }
 
@@ -35,7 +36,7 @@ class OptionResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Do
     case Some(v) => ti.setValue(v, pp, idx)
     case _ => ti.setNull(pp, idx)
   }
-  override def info = super.info + "(" + Dump.blue + ti + Dump.normal + s", idx=$idx)"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
   def width = 1
   def getOrElse(default: () => T): DefaultingResultConverter[T] =
     if(ti.scalaType.isPrimitive) new DefaultingResultConverter[T](ti, default, idx)
@@ -56,9 +57,9 @@ class DefaultingResultConverter[@specialized(Byte, Short, Int, Long, Char, Float
   }
   def update(value: T, pr: ResultSet) = ti.updateValue(value, pr, idx)
   def set(value: T, pp: PreparedStatement) = ti.setValue(value, pp, idx)
-  override def info =
-    super.info + "(" + Dump.blue + ti + Dump.normal + ", idx=" + idx + ", default=" +
-      { try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } } + ")"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx, default=" +
+    { try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } },
+    attrInfo = ": " + ti)
   def width = 1
 }
 
@@ -80,7 +81,6 @@ abstract class JdbcFastPath[T](protected[this] val rc: TypeMappingResultConverte
   def update(value: T, pr: Updater) = rc.update(value, pr)
   def set(value: T, pp: Writer) = rc.set(value, pp)
 
-  override def children = Iterator(rc)
-  override def info = super.info + Dump.yellow + " [FastPath]" + Dump.normal
+  override def getDumpInfo = super.getDumpInfo.copy(name = "JdbcFastPath", mainInfo = "", children = Vector(("rc", rc)))
   def width = rc.width
 }

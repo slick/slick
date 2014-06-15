@@ -9,7 +9,7 @@
     </root>
     <logger name="scala.slick.compiler"                           level="${log.qcomp:-info}" />
     <logger name="scala.slick.compiler.QueryCompiler"             level="${log.qcomp.phases:-inherited}" />
-    <logger name="scala.slick.compiler.QueryCompiler.benchmark"   level="${log.qcomp.bench:-inherited}" />
+    <logger name="scala.slick.compiler.QueryCompilerBenchmark"    level="${log.qcomp.bench:-inherited}" />
     <logger name="scala.slick.compiler.Inline"                    level="${log.qcomp.inline:-inherited}" />
     <logger name="scala.slick.compiler.AssignUniqueSymbols"       level="${log.qcomp.assignUniqueSymbols:-inherited}" />
     <logger name="scala.slick.compiler.InferTypes"                level="${log.qcomp.inferTypes:-inherited}" />
