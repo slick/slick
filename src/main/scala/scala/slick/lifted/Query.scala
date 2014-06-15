@@ -5,7 +5,6 @@ import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
 import scala.reflect.macros.Context
 import scala.slick.ast.{Join => AJoin, _}
-import scala.slick.SlickException
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
 
@@ -136,19 +135,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def ++[O >: E, R, D[_]](other: Query[O, U, D]) = unionAll(other)
 
   /** The total number of elements (i.e. rows). */
-  def length: Column[Int] = {
-    /**
-     * Please don't use this with the With Clause like below.
-     * vTabA.`with`(vTabA, queryA).length
-     * If your DBMS doesn't support nested the With Clause, this is not executed.
-     * Instead, please use group-by like below even though something verbose.
-     * vTabA.
-     *   groupBy(t=>t.colA).
-     *   map{case (g,t)=>t.map(t=>t.colA).countDistinct}.
-     *   `with`(vTabA, queryA)
-     */
-      Library.CountAll.column(toNode)
-  }
+  def length: Column[Int] = Library.CountAll.column(toNode)
   /** The total number of elements (i.e. rows). */
   def size = length
 
@@ -181,47 +168,6 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def to[D[_]](implicit ctc: TypedCollectionTypeConstructor[D]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped
     def toNode = CollectionCast(self.toNode, ctc)
-  }
-
-  /** Use like this:
-    * val virTabA = TabA.rename("vir_a")
-    * ...
-    * virTabA.`with`(virTabA, queryA).`with`(virTabB, queryB).filter(...)...
-    *
-    * But, Don't use like this.
-    * virTabA.`with`(virTabA, queryA).`with`(virTabB, queryB).union(...)
-    * or
-    * virTabA.`with`(virTabA, queryA).`with`(virTabB, queryB).join(...)
-    *
-    * Instead, use like this.
-    * virTabA.union(...).`with`(virTabA, queryA).`with`(virTabB, queryB)
-    * or
-    * virTabA.join(...).`with`(virTabA, queryA).`with`(virTabB, queryB)
-    *
-    * In some DBMSs, the With Clause can not be sub-query.
-    */
-  def `with`[A <: AbstractTable[_], X, Y, Z[_]](t: TableQuery[A], q: Query[X, Y, Z]): Query[E, U, C] = {
-    val oldWithNode = if (toNode.isInstanceOf[WithNode]) {
-      toNode.asInstanceOf[WithNode]
-    }
-    else {
-      WithNode(toNode, new AnonSymbol,
-        Seq(), Seq(), Seq(),
-        None, None, None)
-    }
-    /**
-     * If child Query's Node is Union,
-     * turn on Union's childOfWithClause to leave out parenthesis.
-     */
-    val checkedQueryNode =
-      if (q.toNode.isInstanceOf[Union])
-        q.toNode.asInstanceOf[Union].copy(childOfWithClause = true)
-      else
-        q.toNode
-    val newNode = oldWithNode.copy(
-      prevTableNodes = oldWithNode.tNodes, prevQueryNodes = oldWithNode.qNodes, prevNodeGenerators = oldWithNode.gens,
-      tableNode = Option(t.toNode), queryNode = Option(checkedQueryNode), queryNodeGenerator = Option(new AnonSymbol))
-    new WrappingQuery[E, U, C](newNode, shaped)
   }
 }
 
@@ -278,9 +224,7 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_]](leftGen: Symbol, rightGen: Sym
 /** Represents a database table. Profiles add extension methods to TableQuery
   * for operations that can be performed on tables but not on arbitrary
   * queries, e.g. getting the table DDL. */
-class TableQuery[E <: AbstractTable[_]] private[slick] (cons: Tag => E, newNode: Option[TableExpansion] = None) extends Query[E, E#TableElementType, Seq] {
-  def this(cons: Tag => E) = this(cons, None)
-
+class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
   lazy val shaped = {
     val baseTable = cons(new BaseTag { base =>
       def taggedAs(path: List[Symbol]): AbstractTable[_] = cons(new RefTag(path) {
@@ -290,22 +234,12 @@ class TableQuery[E <: AbstractTable[_]] private[slick] (cons: Tag => E, newNode:
     ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, E, E#TableElementType, E]])
   }
 
-  lazy val toNode: Node = newNode.getOrElse(shaped.toNode)
+  lazy val toNode = shaped.toNode
 
   /** Get the "raw" table row that represents the table itself, as opposed to
     * a Path for a variable of the table's type. This method should generally
     * not be called from user code. */
   def baseTableRow: E = shaped.value
-
-  def rename(n: String, s: Option[String] = None) = {
-    if (!toNode.isInstanceOf[TableExpansion])
-      throw new SlickException("This is not Table Node.")
-    val tableExpansion: TableExpansion = toNode.asInstanceOf[TableExpansion]
-    val tableNode = tableExpansion.table match {
-      case x: TableNode ⇒ x.copy(schemaName = s, tableName = n)
-    }
-    new TableQuery[E](cons, Option(tableExpansion.copy(table = tableNode)))
-  }
 }
 
 object TableQuery {

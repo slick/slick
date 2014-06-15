@@ -4,14 +4,9 @@ import TypeUtil.typeToTypeUtil
 import Util._
 
 /** A SQL comprehension */
-final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None, withNode: Option[Node] = None) extends DefNode {
-  /**
-   * field WithNode is added to support With Clause.
-   * If there is a WithNode in Comprehension,
-   * JdbcStatementBuilderComponent start to writing With Clause first before Select Clause.
-   */
+final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None) extends DefNode {
   type Self = Comprehension
-  val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select ++ fetch ++ offset ++ withNode
+  val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select ++ fetch ++ offset
   override def nodeChildNames =
     from.map("from " + _._1) ++
     where.zipWithIndex.map("where" + _._2) ++
@@ -19,8 +14,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     orderBy.map("orderBy " + _._2) ++
     select.map(_ => "select") ++
     fetch.map(_ => "fetch") ++
-    offset.map(_ => "offset") ++
-    withNode.map(_ => "with")
+    offset.map(_ => "offset")
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = {
     val newFrom = ch.slice(0, from.length)
     val whereOffset = newFrom.length
@@ -35,8 +29,6 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     val newFetch = ch.slice(fetchOffset, fetchOffset + (if(fetch.isDefined) 1 else 0))
     val offsetOffset = fetchOffset + newFetch.length
     val newOffset = ch.slice(offsetOffset, offsetOffset + (if(offset.isDefined) 1 else 0))
-    val withNodeOffset = offsetOffset + newOffset.length
-    val newWithNode = ch.slice(withNodeOffset, withNodeOffset + (if(withNode.isDefined) 1 else 0))
     copy(
       from = (from, newFrom).zipped.map { case ((s, _), n) => (s, n) },
       where = newWhere,
@@ -44,8 +36,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
       orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) },
       select = if(newSelect.isEmpty) None else Some(newSelect.head),
       fetch = if(newFetch.isEmpty) None else Some(newFetch.head),
-      offset = if(newOffset.isEmpty) None else Some(newOffset.head),
-      withNode = if(newWithNode.isEmpty) None else Some(newWithNode.head)
+      offset = if(newOffset.isEmpty) None else Some(newOffset.head)
     )
   }
   def nodeGenerators = from
@@ -67,11 +58,9 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     val s2 = mapOrNone(select)(_.nodeWithComputedType(genScope, typeChildren, retype))
     val fetch2 = mapOrNone(fetch)(_.nodeWithComputedType(genScope, typeChildren, retype))
     val offset2 = mapOrNone(offset)(_.nodeWithComputedType(genScope, typeChildren, retype))
-    val withNode2 = mapOrNone(withNode)(_.nodeWithComputedType(genScope, typeChildren, retype))
     // Check if the nodes changed
     val same = (from, f2).zipped.map(_._2 eq _).forall(identity) &&
-      w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty && fetch2.isEmpty && offset2.isEmpty &&
-      withNode2.isEmpty
+      w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty && fetch2.isEmpty && offset2.isEmpty
     val newSel = s2.map(_.headOption).getOrElse(select)
     val newType =
       if(!nodeHasType || retype) {
@@ -92,8 +81,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
         orderBy = o2.map(o2 => (orderBy, o2).zipped.map { case ((_, o), n) => (n, o) }).getOrElse(orderBy),
         select = s2.map(_.headOption).getOrElse(select),
         fetch = fetch2.map(_.headOption).getOrElse(fetch),
-        offset = offset2.map(_.headOption).getOrElse(offset),
-        withNode = withNode2.map(_.headOption).getOrElse(withNode)
+        offset = offset2.map(_.headOption).getOrElse(offset)
       ).nodeTyped(newType)
     }
   }

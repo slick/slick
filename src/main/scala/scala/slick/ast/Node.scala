@@ -409,14 +409,7 @@ final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node
 
 /** A union of type
   * (CollectionType(c, t), CollectionType(_, t)) => CollectionType(c, t). */
- final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol, childOfWithClause: Boolean = false) extends BinaryNode with DefNode with SimplyTypedNode {
-  /**
-   * In Recursive With Clause, the Union should not use parenthesis.
-   * For example,
-   * "with ... as (select ... from (select ... union select ...)) select ..." doesn't work.
-   * Without childOfWithClause flag, translated sql text will be like above.
-   * This flag is used at JdbcStatementBuilderComponent.buildComprehension and Query.`with`
-   */
+final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with DefNode with SimplyTypedNode {
   type Self = Union
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
   override def toString = if(all) "Union all" else "Union"
@@ -629,44 +622,4 @@ object QueryParameter {
       }, ScalaBaseType.longType)
     case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations")
   }
-}
-
-case class WithNode(val mainQueryNode: Node, val mainQueryNodeGenerator: Symbol,
-                    val prevTableNodes: Seq[Node], val prevQueryNodes: Seq[Node], val prevNodeGenerators: Seq[Symbol],
-                    val tableNode: Option[Node], val queryNode: Option[Node], val queryNodeGenerator: Option[Symbol])
-  extends DefNode with SimplyTypedNode {
-  override type Self = WithNode
-
-  // We need TableExpansion instead of Comprehension to write With Clause's declaration.
-  // so in nodeChildren, this tNodes is not included.
-  val tNodes: Seq[Node] = tableNode.map(prevTableNodes :+ _).getOrElse(prevTableNodes)
-  val qNodes: Seq[Node] = queryNode.map(prevQueryNodes :+ _).getOrElse(prevQueryNodes)
-  val gens: Seq[Symbol] = queryNodeGenerator.map(prevNodeGenerators :+ _).getOrElse(prevNodeGenerators)
-  override val nodeChildren: Seq[Node] = mainQueryNode +: qNodes
-
-  override def nodeGenerators: Seq[(Symbol, Node)] = (mainQueryNodeGenerator, mainQueryNode) +: gens.zip(qNodes)
-
-  override protected def buildType: Type = mainQueryNode.nodeType
-
-  override def nodeChildNames = {
-    val seqStr = gens.
-      zip(qNodes).
-      map(t => f"(${t._2.toString()}, ${t._1.toString()})").
-      toSeq
-    f"(${mainQueryNode.toString()}, ${mainQueryNodeGenerator.toString()})" +: seqStr
-  }
-
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = {
-    val newMainQueryGenerator = gen.head
-    val newPrevNodeGenerators = gen.tail
-    copy(mainQueryNodeGenerator = newMainQueryGenerator, prevNodeGenerators = newPrevNodeGenerators, queryNodeGenerator = None)
-  }
-
-  override protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = {
-    val newMainQueryNode = ch.head
-    val newPrevQueryNodes = ch.tail
-    copy(mainQueryNode = newMainQueryNode, prevQueryNodes = newPrevQueryNodes, queryNode = None)
-  }
-
-  override def toString(): String = "With: " + nodeChildNames
 }

@@ -68,7 +68,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _) if hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if hasRowNumber(sel) =>
           // MySQL does not support ROW_NUMBER() but you can manually increment
           // a variable in the SELECT clause to emulate it.
           val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap

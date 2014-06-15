@@ -107,10 +107,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected var currentPart: StatementPart = OtherPart
     protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new HashMap[Symbol, Join]
-    // In some DBMSs(postgres), keyworkd "recursive" is required,
-    // and in another DBMSs(oracle), there is no such keyword.
-    // So, in some slick's driver, below val has to be overrided.
-    protected val withRecursiveKeyword: Option[String] = None
 
     def sqlBuilder = b
 
@@ -141,72 +137,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         else throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
 
-    protected def buildUnwrappedUnion4WithRecursive(from: Seq[(Symbol, Node)]) = building(FromPart) {
-      b" "
-      b.sep(from, ", ") { case (sym, n) ⇒ buildFrom(n, Some(sym))}
-    }
-
-    // check With clause's columns' type. Is there any way to check this?
-    protected def checkWithClause(t: TableExpansion, c: Comprehension): Boolean = true
-
-    protected def buildWithClause(w: WithNode): Unit = {
-      def processEachWithDeclaration(tableNode: Node, queryNode: Node): Unit = {
-        if (!tableNode.isInstanceOf[TableExpansion]) {
-          // please suggest more appropriate message.
-          throw new SlickException("TableExpansion was expected to declare each With Clause.")
-        }
-        val first = tableNode.asInstanceOf[TableExpansion]
-        val second = toComprehension(queryNode, true)
-        if (!checkWithClause(first, second)) {
-          // please suggest more appropriate message.
-          throw new SlickException("Invalid With Clause's type between declaration and query")
-        }
-        b"${quoteTableName(first.table.asInstanceOf[TableNode])}"
-        b" ("
-        buildWithClauseColumns(first)
-        b")"
-        b" as ("
-        buildComprehension(second)
-        b")"
-      }
-      def utilMethod(n: (Node, Node)): Unit = {
-        val (tableNode, queryNode) = n
-        b", "
-        processEachWithDeclaration(tableNode, queryNode)
-      }
-      if (w.tNodes.isEmpty) {
-        // please suggest more appropriate message.
-        throw new SlickException("Invalid the With Node. There is no With declaration.")
-      }
-      if (w.tNodes.length != w.qNodes.length) {
-        // please suggest more appropriate message.
-        throw new SlickException("Invalid the With Node. tableNodes' length and queryNodes' length are not same.")
-      }
-      b"with "
-      withRecursiveKeyword.filter {
-        _ => w.qNodes.
-          map(_.asInstanceOf[Comprehension]).
-          exists(_.from.head._2.isInstanceOf[Union])
-      }.foreach(t => b"$t ")
-      processEachWithDeclaration(w.tNodes.head, w.qNodes.head)
-      w.tNodes.tail.zip(w.qNodes.tail).foreach(utilMethod)
-      b" "
-    }
-
     protected def buildComprehension(c: Comprehension): Unit = {
-      if (!c.from.isEmpty &&
-        c.from.head._2.isInstanceOf[Union] &&
-        c.from.head._2.asInstanceOf[Union].childOfWithClause) {
-        buildUnwrappedUnion4WithRecursive(c.from)
-        return
-      }
       val limit0 = c.fetch match {
         case Some(LiteralNode(0L)) => true
         case _ => false
       }
-      c.withNode.
-        map(_.asInstanceOf[WithNode]).
-        foreach(buildWithClause)
       scanJoins(c.from)
       buildSelectClause(c)
       buildFromClause(c.from)
@@ -291,27 +226,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         expr(n, true)
     }
 
-    protected def buildWithClauseColumns(c: TableExpansion) = building(SelectPart) {
-      // to write only column's name.
-      // this is needed for With Clause's columns writing.
-      c.columns.nodeChildren.head match {
-        case ProductNode(ch) ⇒ {
-          if (ch.isEmpty) {
-            // I don't know what happened.
-            throw new SlickException("")
-          }
-          b.sep(ch, ", ") {
-            case Path(field :: _) ⇒ b += symbolName(field)
-          }
-        }
-        case Path(field :: _) ⇒ b += symbolName(field)
-        case _ ⇒ {
-          // I don't know what happened.
-          throw new SlickException("")
-        }
-      }
-    }
-
     protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
@@ -327,15 +241,13 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
               if(!supportsEmptyJoinConditions) b" on 1=1"
             case _ => b" on !$on"
           }
-        case Union(left, right, all, _, _, childOfWithClause) =>
-          if (!childOfWithClause) b"\("
+        case Union(left, right, all, _, _) =>
+          b"\("
           buildFrom(left, None, true)
           if(all) b" union all " else b" union "
           buildFrom(right, None, true)
-          if (!childOfWithClause) {
-            b"\)"
-            addAlias
-          }
+          b"\)"
+          addAlias
         case n =>
           b"\("
           buildComprehension(toComprehension(n, true))
@@ -466,7 +378,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None, _) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -488,7 +400,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildDelete: SQLBuilder.Result = {
       val (gen, from, where) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None, _) => (sym, from, where)
+        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None) => (sym, from, where)
         case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
       val qtn = quoteTableName(from)
@@ -568,7 +480,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   trait OracleStyleRowNum extends QueryBuilder {
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
           // Pull the SELECT clause with the ROWNUM up into a new query
           val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
           val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
