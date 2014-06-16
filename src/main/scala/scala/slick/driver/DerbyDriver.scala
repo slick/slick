@@ -93,6 +93,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.Substring(n, start, end) => b"substr($n, $start, $end)" // Jdbc driver can't map substring to substr
       case Library.Substring(n, start) => b"substr($n, $start)"
+      case Library.Take(n, num) => b"substr($n, 1, $num)"
       case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
