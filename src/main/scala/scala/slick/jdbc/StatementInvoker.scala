@@ -1,8 +1,16 @@
 package scala.slick.jdbc
 
 import java.sql.PreparedStatement
-import scala.slick.util.CloseableIterator
+import scala.slick.util.{TableDump, SlickLogger, CloseableIterator}
 import scala.slick.SlickException
+import org.slf4j.LoggerFactory
+import scala.collection.mutable.ArrayBuffer
+
+private[jdbc] object StatementInvoker {
+  val maxLogResults = 5
+  lazy val tableDump = new TableDump(20)
+  lazy val resultLogger = new SlickLogger(LoggerFactory.getLogger(classOf[StatementInvoker[_]].getName+".result"))
+}
 
 /** An invoker which executes an SQL statement through JDBC. */
 abstract class StatementInvoker[+R] extends Invoker[R] { self =>
@@ -26,16 +34,42 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
     var doClose = true
     try {
       st.setMaxRows(maxRows)
+      val doLogResult = StatementInvoker.resultLogger.isDebugEnabled
       if(st.execute) {
-        val pr = new PositionedResult(st.getResultSet) {
-          def close() = st.close()
+        val rs = st.getResultSet
+        val logHeader = if(doLogResult) {
+          val meta = rs.getMetaData
+          1.to(meta.getColumnCount).map(idx => meta.getColumnLabel(idx)).to[ArrayBuffer]
+        } else null
+        val logBuffer = if(doLogResult) new ArrayBuffer[ArrayBuffer[Any]] else null
+        var rowCount = 0
+        val pr = new PositionedResult(rs) {
+          def close() = {
+            st.close()
+            if(doLogResult) {
+              StatementInvoker.tableDump(logHeader, logBuffer).foreach(s => StatementInvoker.resultLogger.debug(s))
+              val rest = rowCount - logBuffer.length
+              if(rest > 0) StatementInvoker.resultLogger.debug(s"$rest more rows read ($rowCount total)")
+            }
+          }
         }
-        val rs = new PositionedResultIterator[R](pr, maxRows) {
-          def extractValue(pr: PositionedResult) = self.extractValue(pr)
+        val pri = new PositionedResultIterator[R](pr, maxRows) {
+          def extractValue(pr: PositionedResult) = {
+            if(doLogResult) {
+              if(logBuffer.length < StatementInvoker.maxLogResults)
+                logBuffer += 1.to(logHeader.length).map(idx => rs.getObject(idx) : Any).to[ArrayBuffer]
+              rowCount += 1
+            }
+            self.extractValue(pr)
+          }
         }
         doClose = false
-        Right(rs)
-      } else Left(st.getUpdateCount)
+        Right(pri)
+      } else {
+        val count = st.getUpdateCount
+        if(doLogResult) StatementInvoker.resultLogger.debug(count+" rows affected")
+        Left(count)
+      }
     } finally if(doClose) st.close()
   }
 
