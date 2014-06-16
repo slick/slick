@@ -21,6 +21,7 @@ import TypeUtil.typeToTypeUtil
   * @param params The query parameters
   */
 class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
+  import scala.math._
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
   import QueryInterpreter._
 
@@ -314,6 +315,17 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   }
 
   def evalFunction(sym: Symbol, args: Seq[(Type, Any)], retType: Type) = sym match {
+    case Library.Exp => exp(args(0)._2.asInstanceOf[Double])
+    case Library.Log => log(args(0)._2.asInstanceOf[Double])
+    case Library.Log10 => log10(args(0)._2.asInstanceOf[Double])
+    case Library.Sin => sin(args(0)._2.asInstanceOf[Double])
+    case Library.Cos => cos(args(0)._2.asInstanceOf[Double])
+    case Library.Tan => tan(args(0)._2.asInstanceOf[Double])
+    case Library.Cot => 1.0 / tan(args(0)._2.asInstanceOf[Double])
+    case Library.Atan => atan(args(0)._2.asInstanceOf[Double])
+    case Library.Asin => asin(args(0)._2.asInstanceOf[Double])
+    case Library.Acos => acos(args(0)._2.asInstanceOf[Double])
+    case Library.Sqrt => sqrt(args(0)._2.asInstanceOf[Double])
     case Library.== => args(0)._2 == args(1)._2
     case Library.< => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lt(args(0)._2, args(1)._2)
     case Library.<= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lteq(args(0)._2, args(1)._2)
