@@ -104,6 +104,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
       case Library.LCase(ch) => b"lower(!$ch)"
       case Library.Substring(n, start, end) => b"substr($n, $start, $end)"
       case Library.Substring(n, start) => b"substr($n, $start)"
+      case Library.Take(n, num) => b"substr($n, 1, $num)"
       case Library.%(l, r) => b"\($l%$r\)"
       case Library.Ceiling(ch) => b"round($ch+0.5)"
       case Library.Floor(ch) => b"round($ch-0.5)"

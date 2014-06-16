@@ -47,6 +47,7 @@ object Library {
   val LCase = new JdbcFunction("lcase")
   val LTrim = new JdbcFunction("ltrim")
   val RTrim = new JdbcFunction("rtrim")
+  val Take = new FunctionSymbol("take")
   val Substring = new JdbcFunction("substring")
   val Replace = new JdbcFunction("replace")
   val Reverse = new FunctionSymbol("reverse")
