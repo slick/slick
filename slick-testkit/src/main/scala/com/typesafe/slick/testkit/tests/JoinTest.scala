@@ -87,6 +87,12 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
     println("Full outer join")
     q5.run.foreach(x => println("  "+x))
     assertEquals(Vector((0,4), (1,0), (2,1), (3,2), (4,3), (5,2)), q5.map(p => (p._1, p._2)).run)
+
+    val q6 = (for {
+      ((c1,c2),p) <- (categories innerJoin categories on (_.id === _.id)) outerJoin posts on (_._2.id === _.category)
+    } yield c1.id)
+    println("two joins")
+    println(q6.run)
   }
 
   def testZip = ifCap(rcap.zip) {
