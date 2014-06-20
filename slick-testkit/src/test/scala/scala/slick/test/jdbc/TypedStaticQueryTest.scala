@@ -12,16 +12,13 @@ class TypedStaticQueryTest {
   implicit object conn extends CompileTimeConnection {
     val dbName = "default"
   }
-  
-  lazy val db = {
-    val config = new ConfigHandler {
-      val databaseName = conn.dbName
-    }
-    config.connection
+
+  lazy val config = new ConfigHandler {
+    val databaseName = conn.dbName
   }
   
   @Test
-  def testTypedInterpolation = db withSession { implicit session =>
+  def testTypedInterpolation = config.connection withSession { implicit session =>
     val id1 = 150
     val id2 = 1
     val s1 = tsql"select * from SUPPLIERS where SUP_ID = ${id1}"
@@ -46,7 +43,7 @@ class TypedStaticQueryTest {
   }
   
   @Test
-  def testCustomTypes = db withSession { implicit session =>
+  def testCustomTypes = config.connection withSession { implicit session =>
     import scala.slick.jdbc.SetParameter
     
     class Foo(val intVal: Int)

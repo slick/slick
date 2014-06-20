@@ -26,15 +26,6 @@ object TypedStaticQuery {
   def tsqlImpl(ctxt: Context)(params: ctxt.Expr[Any]*): ctxt.Expr[TypedStaticQuery[Any]] = {
     import ctxt.universe._
     
-    /*def typeToTree(tpe: Type): Tree = {
-      def erasedTypeToTree(etpe: Type): Tree =
-        createClassTreeFromString(etpe.typeSymbol.fullName)
-      tpe.asInstanceOf[TypeRef].args match {
-        case Nil => erasedTypeToTree(tpe.erasure)
-        case args => AppliedTypeTree(erasedTypeToTree(tpe.erasure), args.map(t => typeToTree(t)))
-      }
-    }*/
-    
     def createClassTreeFromString(classString: String, generator: String => Name = newTypeName(_)): Tree = {
       val tokens = classString.split('.').toList
       tokens match {
@@ -63,8 +54,7 @@ object TypedStaticQuery {
       val c = ctxt
     } with MacroHelpers
 
-    macroHelper.connection withSession { implicit session =>
-      val preparedStmt = session.prepareStatement(macroHelper.query)
+    macroHelper.connection withSession (_.withPreparedStatement(macroHelper.query) { implicit preparedStmt =>
       val resultMeta = preparedStmt.getMetaData
       val count = resultMeta.getColumnCount
       val resultTypes = List.tabulate(count) { i =>
@@ -80,7 +70,6 @@ object TypedStaticQuery {
         case x => TypeTree(ctxt.mirror.staticClass(x).selfType)
       })
       
-      //val ptypeTree = weakTypeOf[P]
       val rtypeTree = count match {
         case 1 => resultTypes(0)
         case n if (n <= 22) => AppliedTypeTree(
@@ -190,7 +179,7 @@ object TypedStaticQuery {
       println(showRaw(ret.tree))
       println("*] End Tree")
       ret
-    }
+    })
   }
   
   private[this] abstract class MacroHelpers extends MacroBaseStructureHandler with ConfigHandler with MacroConnectionHandler {
@@ -234,8 +223,8 @@ object TypedStaticQuery {
       val valTree = scope.collect { // Collect all blocks
         case x: Block if x.exists(_ equalsStructure macroTree) => x
       }.:+(scope).flatMap(_.collect { // Find all modules in each block
-        case x: ModuleDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(base.implTree)) => x
-        case x: ValDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(base.implTree)) => x
+        case x: ModuleDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(implTree)) => x
+        case x: ValDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(implTree)) => x
       }).headOption.getOrElse { // There must be just one such module
         c.abort(c.enclosingPosition, s"${implTree} must be an implicit val or implicit object with the definition in place")
       }.collect { //Find the val we are interested in
@@ -255,7 +244,7 @@ object TypedStaticQuery {
     final val configGlobalPrefix = "typedsql."
     def error(msg: String): Nothing = sys.error(msg)
     
-    lazy val conf = {
+    lazy private[this] val conf = {
       val confFile = {
         val file = new java.io.File(configFileName)
         if (file.isFile() && file.exists())
@@ -264,9 +253,10 @@ object TypedStaticQuery {
           error(s"Configuration file does not exist. Create a file: ${file.getAbsolutePath}")
       }
       ConfigFactory.parseFile(confFile)
+//      ConfigFactory.load()
     }
 
-    @inline def getFromConfig(key: String): Option[String => String] = try {
+    @inline private[this] def getFromConfig(key: String): Option[String => String] = try {
       Some{ _key =>
         val c = conf.getConfig(configGlobalPrefix + key)
         if (c.hasPath(_key)) c.getString(_key) else null
@@ -275,7 +265,9 @@ object TypedStaticQuery {
       case _: ConfigException.Missing => None
     }
     
-    lazy val connection = databaseConfig match {
+    lazy final val databaseConfig = getFromConfig(databaseName)
+
+    lazy final val connection = databaseConfig match {
       case Some(config) => JdbcBackend.Database.forURL(config("url"),
           user = config("user"),
           password = config("password"),
@@ -283,8 +275,12 @@ object TypedStaticQuery {
         )
       case None => error(s"Configuration for compile-time database $databaseName not found")
     }
-    
-    lazy val databaseConfig = getFromConfig(databaseName)
+
+    lazy final val slickDriver = databaseConfig match {
+      case Some(config) => Class.forName(config("slickDriver")).asInstanceOf[scala.slick.driver.JdbcDriver]
+      case None => error(s"Configuration for compile-time database $databaseName not found")
+    }
+
   }
 
   trait CompileTimeConnection {
