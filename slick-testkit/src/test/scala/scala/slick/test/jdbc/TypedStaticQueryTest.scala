@@ -5,16 +5,14 @@ import org.junit.Assert._
 import scala.slick.collection.heterogenous.HNil
 import scala.slick.collection.heterogenous.syntax._
 import scala.slick.jdbc.StaticQuery.interpolation
-import scala.slick.jdbc.TypedStaticQuery.{CompileTimeConnection, ConfigHandler}
+import scala.slick.jdbc.TypedStaticQuery.ConfigHandler
 
 class TypedStaticQueryTest {
 
-  implicit object conn extends CompileTimeConnection {
-    val dbName = "default"
-  }
-
-  lazy val config = new ConfigHandler {
-    val databaseName = conn.dbName
+  implicit val config = new ConfigHandler {
+//    override val databaseName = Some("default")
+    override val url = Some("jdbc:h2:mem:test1;INIT=runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/create.sql'\\;runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/populate.sql'")
+    override val jdbcDriver = Some("org.h2.Driver")
   }
   
   @Test
