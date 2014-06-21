@@ -6,6 +6,7 @@ import scala.language.experimental.macros
 import scala.reflect.ClassTag
 import scala.reflect.macros.Context
 import scala.reflect.macros.TypecheckException
+import scala.slick.SlickException
 import scala.slick.collection.heterogenous._
 import scala.slick.collection.heterogenous.syntax._
 
@@ -20,7 +21,10 @@ extends StatementInvoker[R] {
       sp.asInstanceOf[SetParameter[Any]](p, pp)
     }
   }
+
   protected def extractValue(rs: PositionedResult): R = rconv(rs)
+  
+  def as[T](f: R => T) = new TypedStaticQuery(query, rconv.andThen(f), param, pconv)
 }
 
 object TypedStaticQuery {
@@ -30,11 +34,14 @@ object TypedStaticQuery {
     val macroConnHelper = new {
       val c = ctxt
     } with MacroConnectionHelper
-
-    macroConnHelper.connection withSession (_.withPreparedStatement(macroConnHelper.query) { implicit preparedStmt =>
-      val resultMeta = preparedStmt.getMetaData
-      val rTypes = List.tabulate(resultMeta.getColumnCount) { i =>
-        meta.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+    
+    macroConnHelper.connection withSession { session =>
+      
+      val rTypes = session.withPreparedStatement(macroConnHelper.query) { preparedStmt =>
+        val resultMeta = preparedStmt.getMetaData
+        List.tabulate(resultMeta.getColumnCount) { i =>
+          meta.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+        }
       }
       
       val macroTreeBuilder = new {
@@ -71,7 +78,11 @@ object TypedStaticQuery {
       println(showRaw(ret.tree))
       println("*] End Tree")
       ret
-    })
+    }
+  }
+  
+  object GetNoResult extends GetResult[Nothing] {
+    def apply(pr: PositionedResult) = throw new SlickException("The result type of query could not be determined. You must call the 'as' before executing statement.")
   }
   
   private[this] abstract class MacroTreeBuilderHelper extends MacroTreeBuilderBase with MacroTreeBuilder 
@@ -105,6 +116,7 @@ object TypedStaticQuery {
     lazy val ImplicitlyTree = createClassTreeFromString("scala.Predef.implicitly", newTermName(_))
     lazy val HeterogenousTree = createClassTreeFromString("scala.slick.collection.heterogenous", newTermName(_))
     lazy val ListTree = createClassTreeFromString("scala.List", newTermName(_))
+    lazy val GetNoResultTree = createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery.GetNoResult", newTermName(_))
   }
   
   private[this] trait MacroTreeBuilder { base: MacroTreeBuilderBase => 
@@ -124,9 +136,10 @@ object TypedStaticQuery {
     })
     
     lazy val rtypeTree = resultCount match {
+      case 0 => TypeTree(typeOf[Nothing])
       case 1 => resultTypeTreeList(0)
       case n if (n <= 22) => AppliedTypeTree(
-        Select(Ident(newTermName("scala")), newTypeName("Tuple" + resultCount)),
+        Select(Select(Ident(nme.ROOTPKG), newTermName("scala")), newTypeName("Tuple" + resultCount)),
         resultTypeTreeList
       )
       case _ => {
@@ -139,6 +152,7 @@ object TypedStaticQuery {
     }
     
     lazy val rconvTree = resultCount match {
+      case 0 => base.GetNoResultTree
       case n if (n <= 22) => base.implicitTree(Ident(newTypeName("rtype")), base.GetResultTypeTree)
       case n => {
         val zero = Select(base.HeterogenousTree, newTermName("HNil"))
