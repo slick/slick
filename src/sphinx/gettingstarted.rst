@@ -29,7 +29,7 @@ Adding Slick to Your Project
 ============================
 
 To include Slick in an existing project use the library published on Maven Central.  For sbt projects add the
-following to your build definition - ``build.sbt`` or ``project/build.scala``:
+following to your build definition - ``build.sbt`` or ``project/Build.scala``:
 
 .. parsed-literal::
   libraryDependencies ++= Seq(
@@ -43,7 +43,7 @@ For Maven projects add the following to your ``<dependencies>``:
   <dependency>
     <groupId>com.typesafe.slick</groupId>
     <artifactId>slick_2.10</artifactId>
-    <version>|release|</version>
+    <version>\ |release|\ </version>
   </dependency>
   <dependency>
     <groupId>org.slf4j</groupId>
