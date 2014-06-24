@@ -90,5 +90,10 @@ class CountTest extends TestkitTest[RelationalTestDB] {
       } yield b).length)
     } yield (a, l)
     assertEquals(Seq((1L, 2)), qJoinLength.run)
+
+    val qOuterJoinLength = (for {
+      (a, b) <- as leftJoin bs on (_.id === _.aId)
+    } yield (a.id, b.data.?)).length
+    assertEquals(3, qOuterJoinLength.run)
   }
 }
