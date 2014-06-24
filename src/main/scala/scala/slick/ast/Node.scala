@@ -623,19 +623,3 @@ object QueryParameter {
     case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations")
   }
 }
-
-/**
- * This class is intended as wrapper and is used for UnionNodes.
- * Please refer to Comprehension's unionNodes field and Relational.scala's fusing process about UnionNodes.
- * In order to store operator name like "union" or "intersect",
- * Some Wrapper is needed.
- */
-case class InternalUnionNode(override val child: Node, op: String = "union") extends UnaryNode with SimplyTypedNode {
-  override lazy val nodeChildren = Seq(child)
-
-  override def nodeRebuild(child: Node): Self = copy(child)
-
-  override type Self = InternalUnionNode
-
-  override protected def buildType: Type = nodeChildren.head.nodeType
-}

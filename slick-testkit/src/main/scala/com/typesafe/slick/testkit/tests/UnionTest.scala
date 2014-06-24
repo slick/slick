@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{JdbcTestDB, RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
-class UnionTest extends TestkitTest[JdbcTestDB] {
+class UnionTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
   override val reuseInstance = true
 
@@ -113,29 +113,5 @@ class UnionTest extends TestkitTest[JdbcTestDB] {
     assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r2)
     val r3 = q3.run.toSet
     assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)), r3)
-  }
-
-  def testNoParenthesisAroundUnion(): Unit = {
-    class Drinks(tag: Tag, tableName: String) extends Table[(Long, Long)](tag, tableName) {
-      def pk = column[Long]("pk")
-
-      def pkCup = column[Long]("pkCup")
-
-      def * = (pk, pkCup)
-    }
-    val coffees = TableQuery(new Drinks(_, "Coffee_noparenthesis"))
-    val teas = TableQuery(new Drinks(_, "Tea_noparenthesis"))
-    (coffees.ddl ++ teas.ddl).create
-
-    val q1 = coffees.
-      map(x => (x.pkCup, x.pk)).
-      filter(_._2 < 10L).
-      union(teas.map(x => (x.pkCup, x.pk)).filter(_._2 < 10L)).
-      union(coffees.map(x => (x.pkCup, x.pk)).filter(_._2 < 10L)).
-      union(teas.map(x => (x.pkCup, x.pk)).filter(_._2 < 10L))
-    q1.list
-    val s1: String = q1.selectStatement
-    assertEquals(-1, s1.indexOf('('))
-    assertEquals(-1, s1.indexOf(')'))
   }
 }

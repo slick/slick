@@ -2,7 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import scala.language.higherKinds
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{StandardTestDBs, RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
 class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
@@ -346,33 +346,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
 
     val q7b = q7 filter (_._1 =!= "Colombian")
     show("q7b: Union with filter on the outside", q7b)
-    if (doRun && !StandardTestDBs.DerbyMem.eq(tdb) && !StandardTestDBs.DerbyDisk.eq(tdb)) {
-      // FIXME With this the Union patch, here is not executed in only the Derby DBMS.
-      // I think that this is the Derby's bug.
-      // Actually, If you see result sql, you can see that there is no problem.
-      // or, It's possible that I'm wrong.
-      // below is original's result sql.
-      //   select s3.s5, s3.s6, s3.s7
-      //   from (
-      //   select s10."COF_NAME" as s5, s10."SUP_ID" as s6, 1 as s7
-      //   from "COFFEES" s10
-      //   where s10."PRICE" < 800
-      //   union
-      //   select s12."COF_NAME" as s5, s12."SUP_ID" as s6, 2 as s7
-      //   from "COFFEES" s12
-      //   where s12."PRICE" > 950
-      //   ) s3 where not (s3.s5 = 'Colombian')
-      // below is this patch's result sql.
-      //   select s3.s5, s3.s6, s3.s7
-      //   from (
-      //   select s8."COF_NAME" as s5, s8."SUP_ID" as s6, 1 as s7
-      //   from "COFFEES" s8
-      //   where s8."PRICE" < 800
-      //   union
-      //   select s14."COF_NAME" as s11, s14."SUP_ID" as s12, 2 as s13
-      //   from "COFFEES" s14
-      //   where s14."PRICE" > 950
-      //   ) s3 where not (s3.s5 = 'Colombian')
+    if(doRun) {
       val r7b = q7b.run.toSet
       println("r7b: "+r7b)
       val r7be = Set(

@@ -36,7 +36,7 @@ class RewriteBooleans extends Phase {
     case Apply(sym, ch) :@ tpe if isBooleanLike(tpe) =>
       toFake(Apply(sym, ch)(n.nodeType))
     // Where clauses, join conditions and case clauses need real boolean predicates
-    case n @ Comprehension(_, where, _, _, _, _, _, _) =>
+    case n @ Comprehension(_, where, _, _, _, _, _) =>
       n.copy(where = where.map(toReal)).nodeTyped(n.nodeType)
     case n @ Join(_, _, _, _, _, on) =>
       n.copy(on = toReal(on)).nodeTyped(n.nodeType)
