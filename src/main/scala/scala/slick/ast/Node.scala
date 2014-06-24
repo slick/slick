@@ -431,6 +431,17 @@ final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = 
   protected def buildType = left.nodeType
 }
 
+final case class InternalUnion(inner: Node, innerGen: Symbol = new AnonSymbol, operator: String = "union") extends UnaryNode with DefNode with SimplyTypedNode {
+  type Self = InternalUnion
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = operator)
+  override def nodeChildNames = Seq("inner " + inner)
+  def nodeGenerators = Seq((innerGen, inner))
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(innerGen = gen(0))
+  protected def buildType = inner.nodeType
+  override def child: Node = inner
+  override protected[this] def nodeRebuild(child: Node): Self = copy(inner=child)
+}
+
 /** A .flatMap call of type
   * (CollectionType(c, _), CollectionType(_, u)) => CollectionType(c, u). */
 final case class Bind(generator: Symbol, from: Node, select: Node) extends BinaryNode with DefNode {
