@@ -18,7 +18,7 @@ trait BaseTag extends Tag
 
 /** The driver-independent superclass of all table row objects.
   * @tparam T Row type for this table. Make sure it matches the type of your `*` projection. */
-abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends ColumnBase[T] {
+abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String], val tableName: String) extends Rep[T] {
   /** The client-side type of the table as defined by its * projection */
   type TableElementType
 
@@ -91,10 +91,10 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     } yield q
 
   final def foreignKeys: Iterable[ForeignKey] =
-    tableConstraints.collect{ case q: ForeignKeyQuery[_, _] => q.fks }.flatten.toIndexedSeq
+    tableConstraints.collect{ case q: ForeignKeyQuery[_, _] => q.fks }.flatten.toIndexedSeq.sortBy(_.name)
 
   final def primaryKeys: Iterable[PrimaryKey] =
-    tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq
+    tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq.sortBy(_.name)
 
   /** Define an index or a unique constraint. */
   def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)
@@ -102,5 +102,9 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
-    } yield m.invoke(this).asInstanceOf[Index])
+    } yield m.invoke(this).asInstanceOf[Index]).sortBy(_.name)
+}
+
+object AbstractTable {
+  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
 }

@@ -322,6 +322,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"\($n like ${valueToSQLLiteral("%"+likeEncode(s), ScalaBaseType.stringType)} escape '^'\)"
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
+      case Library.Substring(n, start, end) => b"\(substring($n from $start for $end)\)"
+      case Library.Substring(n, start) => b"\(substring($n from $start)\)"
+      case Library.IndexOf(n, str) => b"position($str in $n) - 1"
+      case Library.Reverse(n) => b"reverse($n)"
       case Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]

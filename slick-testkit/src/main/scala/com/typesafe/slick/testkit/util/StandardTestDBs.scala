@@ -148,6 +148,7 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
   override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }
 
+@deprecated("AccessDriver will be removed when we drop support for Java versions < 8", "2.1")
 class AccessDB(confName: String) extends ExternalJdbcTestDB(confName) {
   val driver = AccessDriver
   val dir = new File(TestkitConfig.testDir)

@@ -56,7 +56,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
     implicit def jdbcFastPathExtensionMethods[T, P](mp: MappedProjection[T, P]) = new JdbcFastPathExtensionMethods[T, P](mp)
 
     // This conversion only works for fully packed types
-    implicit def productQueryToUpdateInvoker[T, C[_]](q: Query[_ <: ColumnBase[T], T, C]): UpdateInvoker[T] =
+    implicit def productQueryToUpdateInvoker[T, C[_]](q: Query[_ <: Rep[T], T, C]): UpdateInvoker[T] =
       createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
   }
 

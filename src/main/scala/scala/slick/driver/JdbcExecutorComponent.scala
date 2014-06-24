@@ -14,10 +14,8 @@ import scala.slick.relational.CompiledMapping
 trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
 
   type QueryExecutor[T] = QueryExecutorDef[T]
-  type UnshapedQueryExecutor[T] = UnshapedQueryExecutorDef[T]
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
-  def createUnshapedQueryExecutor[M](value: M): UnshapedQueryExecutor[M] = new UnshapedQueryExecutorDef[M](value)
 
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
 
@@ -33,10 +31,5 @@ trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
       case First(rsm: ResultSetMapping) =>
         createQueryInvoker[R](rsm, param).first
     }
-  }
-
-  class UnshapedQueryExecutorDef[M](value: M) extends super.UnshapedQueryExecutorDef[M](value) {
-    @inline final def selectStatement[U](implicit shape: Shape[_ <: FlatShapeLevel, M, U, _], session: Backend#Session): String =
-      executor[U].selectStatement
   }
 }

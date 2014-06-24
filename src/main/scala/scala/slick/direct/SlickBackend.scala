@@ -5,8 +5,9 @@ import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.driver._
 import scala.slick.{ast => sq}
-import scala.slick.ast.{Library, FunctionSymbol, Dump, ColumnOption}
+import scala.slick.ast.{Library, FunctionSymbol, ColumnOption}
 import scala.slick.compiler.CompilerState
+import scala.slick.util.TreeDump
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
@@ -406,7 +407,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   }
   protected[slick] def dump( queryable:BaseQueryable[_] ) = {
     val (_,query) = this.toQuery(queryable)
-    Dump(query.node)
+    TreeDump(query.node)
   }
   import scala.collection.generic.CanBuildFrom
   import scala.slick.jdbc.{PositionedParameters, PositionedResult}
