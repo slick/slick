@@ -4,9 +4,9 @@ import TypeUtil.typeToTypeUtil
 import Util._
 
 /** A SQL comprehension */
-final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None, joinNodes: Seq[Node] = Nil) extends DefNode {
+final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None, joinNodes: Seq[Node] = Nil, unionNodes: Seq[Node] = Nil) extends DefNode {
   type Self = Comprehension
-  val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select ++ fetch ++ offset ++ joinNodes
+  val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select ++ fetch ++ offset ++ joinNodes ++ unionNodes
   override def nodeChildNames =
     from.map("from " + _._1) ++
     where.zipWithIndex.map("where" + _._2) ++
@@ -15,7 +15,8 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     select.map(_ => "select") ++
     fetch.map(_ => "fetch") ++
     offset.map(_ => "offset") ++
-    joinNodes.zipWithIndex.map("joinNodes" + _._2)
+    joinNodes.zipWithIndex.map("joinNodes" + _._2) ++
+    unionNodes.zipWithIndex.map("unionNodes" + _._2)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = {
     val newFrom = ch.slice(0, from.length)
     val whereOffset = newFrom.length
@@ -32,6 +33,8 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     val newOffset = ch.slice(offsetOffset, offsetOffset + (if(offset.isDefined) 1 else 0))
     val joinNodesOffset = offsetOffset + newOffset.length
     val newJoinNodes = ch.slice(joinNodesOffset, joinNodesOffset + joinNodes.length)
+    val unionNodesOffset = joinNodesOffset + newJoinNodes.length
+    val newUnionNodes = ch.slice(unionNodesOffset, unionNodesOffset + unionNodes.length)
     copy(
       from = (from, newFrom).zipped.map { case ((s, _), n) => (s, n) },
       where = newWhere,
@@ -40,7 +43,8 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
       select = if(newSelect.isEmpty) None else Some(newSelect.head),
       fetch = if(newFetch.isEmpty) None else Some(newFetch.head),
       offset = if(newOffset.isEmpty) None else Some(newOffset.head),
-      joinNodes = newJoinNodes
+      joinNodes = newJoinNodes,
+      unionNodes = newUnionNodes
     )
   }
   def nodeGenerators = from
@@ -63,10 +67,12 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     val fetch2 = mapOrNone(fetch)(_.nodeWithComputedType(genScope, typeChildren, retype))
     val offset2 = mapOrNone(offset)(_.nodeWithComputedType(genScope, typeChildren, retype))
     val joinNodes2 = mapOrNone(joinNodes)(_.nodeWithComputedType(genScope, typeChildren, retype))
+    val unionNodes2 = mapOrNone(unionNodes)(_.nodeWithComputedType(genScope, typeChildren, retype))
     // Check if the nodes changed
     val same = (from, f2).zipped.map(_._2 eq _).forall(identity) &&
       w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty && fetch2.isEmpty && offset2.isEmpty &&
-      joinNodes2.isEmpty
+      joinNodes2.isEmpty &&
+      unionNodes2.isEmpty
     val newSel = s2.map(_.headOption).getOrElse(select)
     val newType =
       if(!nodeHasType || retype) {
@@ -88,7 +94,8 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
         select = s2.map(_.headOption).getOrElse(select),
         fetch = fetch2.map(_.headOption).getOrElse(fetch),
         offset = offset2.map(_.headOption).getOrElse(offset),
-        joinNodes = joinNodes2.getOrElse(joinNodes)
+        joinNodes = joinNodes2.getOrElse(joinNodes),
+        unionNodes = unionNodes2.getOrElse(unionNodes)
       ).nodeTyped(newType)
     }
   }

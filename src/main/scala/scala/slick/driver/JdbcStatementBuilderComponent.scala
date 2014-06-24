@@ -151,6 +151,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       buildGroupByClause(c.groupBy)
       buildOrderByClause(c.orderBy)
       if(!limit0) buildFetchOffsetClause(c.fetch, c.offset)
+      buildUnionNodes(c.unionNodes)
     }
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
@@ -227,6 +228,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         case (Some(t), None) => b" fetch next $t row only"
         case (None, Some(d)) => b" offset $d row"
         case _ =>
+      }
+    }
+
+    protected def buildUnionNodes(unionNodes: Seq[Node]) = building(OtherPart) {
+      unionNodes.foreach {
+        case InternalUnion(inner: Comprehension, innerGen, operator) =>
+          b" ${operator} "
+          buildComprehension(inner)
       }
     }
 
