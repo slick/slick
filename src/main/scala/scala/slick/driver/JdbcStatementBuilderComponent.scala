@@ -107,6 +107,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected var currentPart: StatementPart = OtherPart
     protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new HashMap[Symbol, Join]
+    protected val withClauseKeyword = "with"
 
     def sqlBuilder = b
 
@@ -143,6 +144,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         case _ => false
       }
       scanJoins(c.from)
+      buildWithClause(c)
       buildSelectClause(c)
       buildFromClause(c.from)
       buildJoinClause(c.joinNodes)
@@ -152,6 +154,23 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       buildOrderByClause(c.orderBy)
       if(!limit0) buildFetchOffsetClause(c.fetch, c.offset)
       buildUnionNodes(c.unionNodes)
+    }
+
+    protected def buildWithClause(c: Comprehension): Unit = {
+      if (c.withClauseNodes.isEmpty) return
+      b += withClauseKeyword += " "
+      b.sep(c.withClauseNodes, ", ") {
+        case WithClauseNode(_, syntheticTableNode: SyntheticTableNode, union: Comprehension) =>
+          b += quoteIdentifier(syntheticTableNode.tableName)
+          b"("
+          b.sep(syntheticTableNode.columnsType.asInstanceOf[StructType].elements, ", ") {
+            case (symbol, _) => b"${symbol.name}"
+          }
+          b") as ("
+          buildComprehension(union)
+          b")"
+      }
+      b" "
     }
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
@@ -253,6 +272,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       n match {
         case t: TableNode =>
           b += quoteTableName(t)
+          addAlias
+        case t: SyntheticTableNode =>
+          b +=  quoteIdentifier(t.tableName)
           addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
@@ -404,7 +426,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None, Nil, Nil) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None, Nil, Nil, Nil) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -426,7 +448,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildDelete: SQLBuilder.Result = {
       val (gen, from, where) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None, Nil, Nil) => (sym, from, where)
+        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None, Nil, Nil, Nil) => (sym, from, where)
         case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
       }
       val qtn = quoteTableName(from)
@@ -506,7 +528,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   trait OracleStyleRowNum extends QueryBuilder {
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _, _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
           // Pull the SELECT clause with the ROWNUM up into a new query
           val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
           val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))

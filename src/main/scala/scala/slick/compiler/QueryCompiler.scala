@@ -108,6 +108,7 @@ object QueryCompiler {
     Phase.fuseComprehensions,
     Phase.noParenthesisJoin,
     Phase.noParenthesesUnion,
+    Phase.bubblingUpWithClauseNodesPhase,
     Phase.fixRowNumberOrdering,
     Phase.hoistClientOps
   )
@@ -150,6 +151,7 @@ object Phase {
   val fuseComprehensions = new FuseComprehensions
   val noParenthesisJoin = new NoParenthesesJoin
   val noParenthesesUnion = new NoParenthesesUnion
+  val bubblingUpWithClauseNodesPhase = new BubblingUpWithClauseNodesPhase
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val hoistClientOps = new HoistClientOps
 

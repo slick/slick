@@ -1,10 +1,13 @@
 package scala.slick.compiler
 
+import java.util.logging.Logger
+
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
 import TypeUtil._
+import scala.slick.util.TreeDump
 
 /** Expand table-valued expressions in the result type to their star projection. */
 class ExpandTables extends Phase {
@@ -95,8 +98,19 @@ class FlattenProjections extends Phase {
                 t.withStructuralView(tpe)
             })
             rest match {
-              case Some(r) =>
-                Select(retype(base), paths(r)).nodeTyped(n.nodeType)
+              case Some(r) => {
+                r match {
+                  // FIXME workaround for the With Clause: SortBy(Union(WithClauseNode,WithClauseNode))
+                  case ElementSymbol(idx) :: Nil =>
+                    if (paths.contains(r))
+                      Select(retype(base), paths(r)).nodeTyped(n.nodeType)
+                    else {
+                      Select(retype(base), tpe.elements.apply(idx - 1)._1).nodeTyped(n.nodeType)
+                    }
+                  case _ =>
+                    Select(retype(base), paths(r)).nodeTyped(n.nodeType)
+                }
+              }
               case None =>
                 retype(base).nodeTyped(n.nodeType)
             }

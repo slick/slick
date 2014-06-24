@@ -7,6 +7,7 @@ import scala.reflect.macros.Context
 import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
+import scala.util.Random
 
 sealed trait QueryBase[T] extends Rep[T]
 
@@ -134,6 +135,173 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are preserved. */
   def ++[O >: E, R, D[_]](other: Query[O, U, D]) = unionAll(other)
+
+  def recursiveUnion[F >: E](f: E => Query[F, U, C]): Query[F, U, C] = {
+    def process(outerSymbol: Symbol, toNode: Node, select: Node): Node = {
+      def convertRef(outerSymbol: Symbol, toNodeSymbol: Symbol)(n: Node): Node = {
+        def innerConvertRef(outerSymbol: Symbol, toNodeSymbol: Symbol)(n: Node): Node = {
+          n match {
+            case Ref(_) => Ref(outerSymbol)
+            case Path(symbols) => Path(symbols.last :: Nil)
+            case n => n
+          }
+        }
+        innerConvertRef(outerSymbol, toNodeSymbol)(n.nodeMapChildren(convertRef(outerSymbol, toNodeSymbol)))
+      }
+      def renameField(numberIterator: Iterator[Int])(n: Node): Node = {
+        def innerRenameField(numberIterator: Iterator[Int])(n: Node): Node = {
+          n match {
+            case path@Path(List(fieldSymbol, refSymbol)) => {
+              val newFieldSymbol = FieldSymbol("col" + numberIterator.next())(Nil, path.nodeType)
+              Path(newFieldSymbol :: refSymbol :: Nil).nodeTyped(path.nodeType)
+            }
+            case n => n
+          }
+        }
+        innerRenameField(numberIterator)(n.nodeMapChildren(renameField(numberIterator))).nodeTypedOrCopy(n.nodeType)
+      }
+      def createFakeTableExpansion(outerSymbol: Symbol, columnNodes: List[Node], tableName: String): TableExpansion = {
+        def numberStreamSeed(i: Int): Stream[Int] = Stream.cons(i, numberStreamSeed(i + 1))
+        val numberIterator: Iterator[Int] = numberStreamSeed(1).toIterator
+        val renamedColumnNodes = columnNodes.map(x => renameField(numberIterator)(x.nodeMapChildren(renameField(numberIterator))))
+        val productNode = ProductNode(renamedColumnNodes) //.withComputedTypeNoRec
+        val columnTypes = renamedColumnNodes.map {
+            case path@Path(symbols) => (symbols.head, path.nodeType)
+            case literalNode: LiteralNode => (FieldSymbol("col" + numberIterator.next())(Nil, literalNode.nodeType), literalNode.nodeType)
+          }.toIndexedSeq
+        val structType = StructType(columnTypes)
+        val simpleTableIdentitySymbol = SimpleTableIdentitySymbol(null, None.getOrElse("_"), tableName)
+        val tableNode = SyntheticTableNode(tableName, simpleTableIdentitySymbol, structType)
+        TableExpansion(outerSymbol, tableNode, productNode)
+      }
+      def convertRecursiveRefInSelectToNewBind(outerSymbol: Symbol, newBind: Bind)(n: Node): Node = {
+        def innerConvertRecursiveRefToFakeTableExpansion(outerSymbol: Symbol, newBind: Bind)(n: Node): Node = {
+          n match {
+            case Pure(Ref(refSymbol), _) if refSymbol == outerSymbol => newBind
+            case pure@Pure(ProductNode(columnNodes), _)
+              if columnNodes.forall { case Path(symbols) => symbols.last == outerSymbol; case n => true} => newBind
+            case n => n
+          }
+        }
+        innerConvertRecursiveRefToFakeTableExpansion(outerSymbol, newBind)(n.nodeMapChildren(convertRecursiveRefInSelectToNewBind(outerSymbol, newBind))).nodeTypedOrCopy(n.nodeType)
+      }
+      def createWithClauseNode(columnNodes: List[Node], outerBind: Bind): WithClauseNode = {
+        val newFakeTableExpansion = createFakeTableExpansion(outerSymbol, columnNodes, "with" + Random.nextInt())
+
+        val newBindSymbol = new AnonSymbol
+        val newBindColumns =
+          newFakeTableExpansion.table.nodeType.asInstanceOf[CollectionType].
+            elementType.asInstanceOf[NominalType].
+            structuralView.asInstanceOf[StructType].
+            elements.map {
+            case (symbol, nodeType) => Select(Ref(newBindSymbol), symbol).nodeTypedOrCopy(nodeType)
+          }
+        val newBindSelect = ProductNode(newBindColumns) //.withComputedTypeNoRec
+        val newBind = new Bind(newBindSymbol, newFakeTableExpansion, Pure(newBindSelect) /*.withComputedTypeNoRec*/)
+
+        val selectAsBind = select.asInstanceOf[Bind]
+        val newSelect = selectAsBind.copy(from = convertRecursiveRefInSelectToNewBind(outerSymbol, newBind)(selectAsBind.from))
+        val newSelectOfNewSelect =
+          if (newBindColumns.length == 1) {
+            newSelect.select match {
+              case Pure(Ref(refSymbol), _) if refSymbol == newSelect.generator => {
+                Pure(
+                  ProductNode(
+                    Seq(
+                      newBindColumns.head.copy(
+                        Ref(newSelect.generator),
+                        ElementSymbol(1)
+                      ).nodeTypedOrCopy(newBindColumns.head.nodeType))
+                  )
+                )
+              }
+              case x => x
+            }
+          }
+          else {
+            newSelect.select
+          }
+        val newSelect2 = newSelect.copy(select = newSelectOfNewSelect)
+
+        WithClauseNode(
+          new AnonSymbol, newFakeTableExpansion.table,
+          Union(outerBind , newSelect2, true))
+      }
+      def prepareForOneLiteralColumnFrom(bindSymbol: Symbol, bindFrom: Node, bindSelect: Node): Node = {
+        val testOne = bindSelect match {
+          case Pure(Ref(refSymbol), _) => refSymbol == bindSymbol
+          case _ => false
+        }
+        val testTwo = bindFrom match {
+          case Pure(ProductNode(_), _) => None
+          case Pure(n, _) => Option(n.nodeType)
+          case _ => None
+        }
+        testTwo.
+          filter(_ => testOne).
+          map(x => Pure(Select(Ref(bindSymbol), ElementSymbol(1)).nodeTypedOrCopy(x)).withComputedTypeNoRec).
+          getOrElse(bindSelect)
+      }
+      def prepareBindSelectIfBindFromIsWithClauseNode(bindSymbol: Symbol, bindFrom: Node, bindSelect: Node): List[Node] = {
+        def assignNodeTypeIfThereIsNoType(columnTypes: Map[Node, Type])(n: Node): Node = {
+          def innerAssignNodeTypeIfThereIsNoType(columnTypes: Map[Node, Type])(n: Node): Node = {
+            n match {
+              case select: Select if columnTypes.contains(select) => {
+                select.nodeTypedOrCopy(columnTypes.apply(select))
+              }
+              case pure: Pure => pure //.withComputedTypeNoRec
+              case productNode: ProductNode => productNode //.withComputedTypeNoRec
+              case x => x
+            }
+          }
+          innerAssignNodeTypeIfThereIsNoType(columnTypes)(n.nodeMapChildren(assignNodeTypeIfThereIsNoType(columnTypes)))
+        }
+        val preparedBindSelectIfBindFromIsWithClauseNode =
+          bindFrom match {
+            case innerWithClauseNode: WithClauseNode => {
+              val columnTypes: Map[Node, Type] =
+                innerWithClauseNode.nodeType. // CollectionType
+                  children.head. // NominalType
+                  children.head. // StructType
+                  children.
+                  zipWithIndex.map {
+                  case (eachType, idx) => (Select(Ref(bindSymbol), ElementSymbol(idx + 1)), eachType)
+                }.toMap
+              assignNodeTypeIfThereIsNoType(columnTypes)(bindSelect)
+            }
+            case _ => bindSelect
+          }
+        preparedBindSelectIfBindFromIsWithClauseNode match {
+          case Pure(ProductNode(innerColumnNodes), _) => {
+            innerColumnNodes.map(x => x.nodeMapChildren(convertRef(outerSymbol, bindSymbol))).toList
+          }
+          case Pure(innerPath@Path(_), _) => {
+            Seq(innerPath).map(x => x.nodeMapChildren(convertRef(outerSymbol, bindSymbol))).toList
+          }
+        }
+      }
+      toNode match {
+        case bind@Bind(bindSymbol, bindFrom, bindPure) => {
+          val newBindPure = prepareForOneLiteralColumnFrom(bindSymbol, bindFrom, bindPure)
+          val columnNodes2 = prepareBindSelectIfBindFromIsWithClauseNode(bindSymbol, bindFrom, newBindPure)
+          val columnNodes3 = bindFrom match {
+            case Pure(ProductNode(fromNodes), _) => {
+              fromNodes.zip(columnNodes2).
+                map { case (a, b) => b.nodeTypedOrCopy(a.nodeType)}.
+                map(x => x.nodeMapChildren(convertRef(outerSymbol, bindSymbol))).toList
+            }
+            case _ => columnNodes2
+          }
+          createWithClauseNode(columnNodes3, bind)
+        }
+      }
+    }
+
+    val generator = new AnonSymbol
+    val aliased = shaped.encodeRef(generator :: Nil).value
+    val fv = f(aliased)
+    new WrappingQuery[F, U, C](process(generator, toNode, fv.toNode), fv.shaped)
+  }
 
   /** The total number of elements (i.e. rows). */
   def length: Column[Int] = Library.CountAll.column(toNode)

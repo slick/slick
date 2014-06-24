@@ -94,6 +94,7 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
   }
   def children: Seq[Type] = Seq(elementType)
   def classTag = cons.classTag
+  override def select(sym: Symbol): Type = elementType.select(sym)
 }
 
 /** Represents a type constructor that can be usd for a collection-valued query.

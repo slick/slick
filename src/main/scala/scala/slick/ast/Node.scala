@@ -657,3 +657,25 @@ final case class InternalJoin(rightGen: Symbol, right: Node, jt: JoinType, on: N
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(rightGen = gen(0))
   override protected def buildType: Type = right.nodeType
 }
+
+final case class SyntheticTableNode(tableName: String, identity: TableIdentitySymbol, columnsType: Type) extends NullaryNode with TypedNode {
+  type Self = SyntheticTableNode
+  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity)(columnsType))
+  def nodeRebuild = copy()
+  override def getDumpInfo = super.getDumpInfo.copy(name = "SyntheticTableNode", mainInfo = tableName)
+}
+
+case class WithClauseNode(unionGenerator: Symbol, val syntheticTableNode: Node, val union: Node /*, override val tpe: Type*/) extends UnaryNode with TypedNode with DefNode {
+  override lazy val nodeChildren = Seq(union)
+  override type Self = WithClauseNode
+  override def nodeGenerators: Seq[(Symbol, Node)] = Seq((unionGenerator, union))
+  override protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node = copy(unionGenerator = gen.apply(0))
+  override def getDumpInfo: DumpInfo = {
+    val children = Seq("syntheticTableNode").zip(Seq(syntheticTableNode)).toVector
+    val dumpInfo: DumpInfo = super.getDumpInfo
+    dumpInfo.copy(children = children ++ dumpInfo.children)
+  }
+  override def child: Node = union
+  override protected[this] def nodeRebuild(child: Node): Self = copy(union = child)
+  override def tpe: Type = syntheticTableNode.nodeType
+}
