@@ -477,7 +477,6 @@ class FuseComprehensions extends Phase {
 class NoParenthesesJoin extends Phase {
   val name = "No Parentheses Join"
 
-  // FIXME 칸을 아직 안맞췄다.
   def apply(state: CompilerState) = state.map { n =>
     ClientSideOp.mapServerSide(n)(process)
   }
@@ -485,24 +484,24 @@ class NoParenthesesJoin extends Phase {
   def process(n: Node): Node = {
     def innerProcess(n: Node): Node = {
       n match {
-        case outerComprehension@Comprehension(Seq((outerSymbol, Join(leftGen, rightGen, left@Comprehension(_, _, _, _, _, _, _, _), right: Comprehension, joinType, on))), outerWhere, outerGroupBy, outerOrderBy, outerSelect@Some(Pure(ProductNode(outerSelectNodes), _)), outerFetch, outerOffset, _) => {
+        case outerComprehension@Comprehension(Seq((outerSymbol, Join(leftGen, rightGen, left@Comprehension(_, _, _, _, _, _, _, _, _), right: Comprehension, joinType, on))), outerWhere, outerGroupBy, outerOrderBy, outerSelect@Some(Pure(ProductNode(outerSelectNodes), _)), outerFetch, outerOffset, _, outerUnions) => {
           def isRightSimple(n: Node): Boolean = {
             n match {
-              case Comprehension(Seq((_, _: TableNode)), where, groupBy, orderBy, select, fetch, offset, joinNodes)
-                if (where.isEmpty && groupBy.isEmpty && orderBy.isEmpty && fetch.isEmpty && offset.isEmpty && joinNodes.isEmpty) => true
+              case Comprehension(Seq((_, _: TableNode)), where, groupBy, orderBy, select, fetch, offset, joinNodes, unionNodes)
+                if (where.isEmpty && groupBy.isEmpty && orderBy.isEmpty && fetch.isEmpty && offset.isEmpty && joinNodes.isEmpty && unionNodes.isEmpty) => true
               case _ => false
             }
           }
           def isLeftOuterSimple(n: Node): Boolean = {
             n match {
-              case Comprehension(Seq((_, _)), where, groupBy, orderBy, select, fetch, offset, _)
-                if (where.isEmpty && groupBy.isEmpty && orderBy.isEmpty && fetch.isEmpty && offset.isEmpty) => true
+              case Comprehension(Seq((_, _)), where, groupBy, orderBy, select, fetch, offset, _, unionNodes)
+                if (where.isEmpty && groupBy.isEmpty && orderBy.isEmpty && fetch.isEmpty && offset.isEmpty && unionNodes.isEmpty) => true
               case _ => false
             }
           }
           def areThereOnlyPathNodes(n: Node): Boolean = {
             n match {
-              case Comprehension(_, _, _, _, select@Some(Pure(ProductNode(nodes), _)), _, _, _) =>
+              case Comprehension(_, _, _, _, select@Some(Pure(ProductNode(nodes), _)), _, _, _, _) =>
                 nodes.forall {
                   case Path(_) => true
                   case _ => false
@@ -606,7 +605,8 @@ class NoParenthesesJoin extends Phase {
                   orderBy = convertedOrderBy,
                   fetch = convertedFetch,
                   offset = convertedOffset,
-                  joinNodes = Seq(internalJoin)).
+                  joinNodes = Seq(internalJoin),
+                  unionNodes = outerUnions).
                   nodeTypedOrCopy(outerComprehension.nodeType)
               }
             result
@@ -632,7 +632,6 @@ class NoParenthesesJoin extends Phase {
 
 class NoParenthesesUnion extends Phase {
   val name = "NoParenthesesUnion"
-  // FIXME 아직 칸을 안맞췄다.
 
   def apply(state: CompilerState) = state.map { n =>
     ClientSideOp.mapServerSide(n)(process)
@@ -657,7 +656,7 @@ class NoParenthesesUnion extends Phase {
             }
           }
           val newUnionNodes = left.unionNodes.map {
-            case xxx@InternalUnion(comprehension@Comprehension(_, _, _, _, select@Some(Pure(StructNode(innerElements), _)), _, _, _), _, _) => {
+            case xxx@InternalUnion(comprehension@Comprehension(_, _, _, _, select@Some(Pure(StructNode(innerElements), _)), _, _, _, _), _, _) => {
               val newInnerElements = innerElements.zip(newAlias).map {
                 case ((oldSymbol, currentNode), newSymbol) => (newSymbol, currentNode)
               }
@@ -676,8 +675,8 @@ class NoParenthesesUnion extends Phase {
           val x = left.copy(select = newLeftSelect, unionNodes = newUnionNodes ++ Seq(internalUnion))
           x
         }
-        case comprehension@Comprehension(from, where, groupBy, orderBy, select@Some(pure: Pure), fetch, offset, unionNodes)
-          if ((from.length <= 1) :: areThereOnlySelect(pure) :: where.isEmpty :: groupBy.isEmpty :: orderBy.isEmpty :: fetch.isEmpty :: offset.isEmpty :: Nil).forall(_ == true) => {
+        case comprehension@Comprehension(from, where, groupBy, orderBy, select@Some(pure: Pure), fetch, offset, joinNodes, unionNodes)
+          if ((from.length <= 1) :: areThereOnlySelect(pure) :: where.isEmpty :: groupBy.isEmpty :: orderBy.isEmpty :: fetch.isEmpty :: offset.isEmpty :: joinNodes.isEmpty :: Nil).forall(_ == true) => {
           def retrieveColumnTypes(pure: Pure): Seq[Type] = {
             pure.nodeType.asInstanceOf[CollectionType].
               elementType.asInstanceOf[NominalType].
@@ -696,10 +695,10 @@ class NoParenthesesUnion extends Phase {
               case x => x
             }
           val fromUnionNodes = from.map {
-            case (symbol, comprehension@Comprehension(_, _, _, _, Some(innerPure: Pure), _, _, unionNodes)) if unionNodes.length > 0 => {
+            case (symbol, comprehension@Comprehension(_, _, _, _, Some(innerPure: Pure), _, _, _, unionNodes)) if unionNodes.length > 0 => {
               val innerColumnTypes = retrieveColumnTypes(innerPure)
               val unionNodesNodeType = unionNodes.map {
-                case InternalUnion(Comprehension(_, _, _, _, Some(innerInnerPure: Pure), _, _, _), innerGen, operator) =>
+                case InternalUnion(Comprehension(_, _, _, _, Some(innerInnerPure: Pure), _, _, _, _), innerGen, operator) =>
                   retrieveColumnTypes(innerInnerPure)
               }
               (comprehension, Seq(innerColumnTypes) ++ unionNodesNodeType)

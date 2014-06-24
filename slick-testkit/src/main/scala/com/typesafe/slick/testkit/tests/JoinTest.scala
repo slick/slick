@@ -194,4 +194,31 @@ class JoinTest extends TestkitTest[JdbcTestDB] {
 
     (employees.ddl).drop
   }
+
+  def testNoParenthesesUnion {
+    class Employees(tag: Tag) extends Table[(Int, String, Int)](tag, "emp_noparenthesesjoin") {
+      def id = column[Int]("id")
+      def name = column[String]("name2")
+      def manager = column[Int]("manager")
+      def * = (id, name, manager)
+    }
+
+    lazy val employees = TableQuery[Employees]
+    (employees.ddl).create
+    val queryOne = employees.
+      join(employees).on(_.id === _.id).
+      join(employees).on(_._2.id === _.manager).
+      map(t => (t._1._1.id, t._1._2.id, t._2.id)).
+      filter(t => t._1 < 10)
+    val queryTwo = queryOne.union(queryOne).union(queryOne)
+    queryTwo.list
+    val resultOne = queryTwo.selectStatement
+    val queryThree = queryOne.union(queryOne.union(queryOne))
+    queryThree.list
+    val resultTwo = queryThree.selectStatement
+
+    assertEquals(true, (resultOne :: resultTwo :: Nil).forall(x => x.indexOf('(') == -1 && x.indexOf(')') == -1))
+
+    (employees.ddl).drop
+  }
 }
