@@ -65,6 +65,7 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException, PreparedStatem
   *     is no native support for them.</li>
   * </ul>
   */
+@deprecated("AccessDriver will be removed when we drop support for Java versions < 8", "2.1")
 trait AccessDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
@@ -312,4 +313,5 @@ trait AccessDriver extends JdbcDriver { driver =>
   }
 }
 
+@deprecated("AccessDriver will be removed when we drop support for Java versions < 8", "2.1")
 object AccessDriver extends AccessDriver

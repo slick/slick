@@ -109,5 +109,21 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
 
     val joinC = Compiled { id: Column[Int] => ts.filter(_.id === id).innerJoin(ts.filter(_.id === id)) }
     assertEquals(Seq(((1, "a"), (1, "a"))), joinC(1).run)
+
+    implicitly[scala.slick.lifted.Executable[(Column[Int], Column[Int]), _]]
+    implicitly[scala.slick.lifted.Compilable[(Column[Int], Column[Int]), _]]
+    val impShaped = (ts.length, ts.length)
+    val impShapedC = Compiled(impShaped)
+    val impShapedR = impShapedC.run
+    val impShapedT = impShapedR: (Int, Int)
+    assertEquals((3, 3), impShapedT)
+
+    implicitly[scala.slick.lifted.Executable[scala.slick.lifted.ShapedValue[(Column[Int], Column[Int]), (Int, Int)], _]]
+    implicitly[scala.slick.lifted.Compilable[scala.slick.lifted.ShapedValue[(Column[Int], Column[Int]), (Int, Int)], _]]
+    val expShaped = impShaped.shaped
+    val expShapedC = Compiled(expShaped)
+    val expShapedR = expShapedC.run
+    val expShapedT = expShapedR: (Int, Int)
+    assertEquals((3, 3), expShapedT)
   }
 }

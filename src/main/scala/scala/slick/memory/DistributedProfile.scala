@@ -144,5 +144,5 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
 final case class DriverComputation(compiled: Node, driver: RelationalDriver, tpe: Type) extends NullaryNode with TypedNode {
   type Self = DriverComputation
   protected[this] def nodeRebuild = copy()
-  override def toString = s"DriverComputation($driver)"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = driver.toString)
 }
