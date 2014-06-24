@@ -4,9 +4,9 @@ import TypeUtil.typeToTypeUtil
 import Util._
 
 /** A SQL comprehension */
-final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None, joinNodes: Seq[Node] = Nil) extends DefNode {
+final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None) extends DefNode {
   type Self = Comprehension
-  val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select ++ fetch ++ offset ++ joinNodes
+  val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select ++ fetch ++ offset
   override def nodeChildNames =
     from.map("from " + _._1) ++
     where.zipWithIndex.map("where" + _._2) ++
@@ -14,8 +14,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     orderBy.map("orderBy " + _._2) ++
     select.map(_ => "select") ++
     fetch.map(_ => "fetch") ++
-    offset.map(_ => "offset") ++
-    joinNodes.zipWithIndex.map("joinNodes" + _._2)
+    offset.map(_ => "offset")
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = {
     val newFrom = ch.slice(0, from.length)
     val whereOffset = newFrom.length
@@ -30,8 +29,6 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     val newFetch = ch.slice(fetchOffset, fetchOffset + (if(fetch.isDefined) 1 else 0))
     val offsetOffset = fetchOffset + newFetch.length
     val newOffset = ch.slice(offsetOffset, offsetOffset + (if(offset.isDefined) 1 else 0))
-    val joinNodesOffset = offsetOffset + newOffset.length
-    val newJoinNodes = ch.slice(joinNodesOffset, joinNodesOffset + joinNodes.length)
     copy(
       from = (from, newFrom).zipped.map { case ((s, _), n) => (s, n) },
       where = newWhere,
@@ -39,8 +36,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
       orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) },
       select = if(newSelect.isEmpty) None else Some(newSelect.head),
       fetch = if(newFetch.isEmpty) None else Some(newFetch.head),
-      offset = if(newOffset.isEmpty) None else Some(newOffset.head),
-      joinNodes = newJoinNodes
+      offset = if(newOffset.isEmpty) None else Some(newOffset.head)
     )
   }
   def nodeGenerators = from
@@ -62,7 +58,6 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     val s2 = mapOrNone(select)(_.nodeWithComputedType(genScope, typeChildren, retype))
     val fetch2 = mapOrNone(fetch)(_.nodeWithComputedType(genScope, typeChildren, retype))
     val offset2 = mapOrNone(offset)(_.nodeWithComputedType(genScope, typeChildren, retype))
-    val joinNodes2 = mapOrNone(joinNodes)(_.nodeWithComputedType(genScope, typeChildren, retype))
     // Check if the nodes changed
     val same = (from, f2).zipped.map(_._2 eq _).forall(identity) &&
       w2.isEmpty && g2.isEmpty && o2.isEmpty && s2.isEmpty && fetch2.isEmpty && offset2.isEmpty
@@ -86,8 +81,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
         orderBy = o2.map(o2 => (orderBy, o2).zipped.map { case ((_, o), n) => (n, o) }).getOrElse(orderBy),
         select = s2.map(_.headOption).getOrElse(select),
         fetch = fetch2.map(_.headOption).getOrElse(fetch),
-        offset = offset2.map(_.headOption).getOrElse(offset),
-        joinNodes = joinNodes2.getOrElse(joinNodes)
+        offset = offset2.map(_.headOption).getOrElse(offset)
       ).nodeTyped(newType)
     }
   }

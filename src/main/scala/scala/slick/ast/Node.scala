@@ -623,19 +623,3 @@ object QueryParameter {
     case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations")
   }
 }
-
-case class InternalJoinNode(genRight: Symbol, joinRight: Node, on: Node, jt: JoinType, tpe: Type, skipParenthesis: Boolean) extends BinaryNode with SimplyTypedNode with DefNode {
-  override def left: Node = joinRight
-
-  override def right: Node = on
-
-  override protected[this] def nodeRebuild(left: Node, right: Node): Self = copy(joinRight = left, on = right)
-
-  override protected def buildType: Type = tpe
-
-  override type Self = InternalJoinNode
-
-  override def nodeGenerators: Seq[(Symbol, Node)] = Seq((genRight, joinRight))
-
-  override protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node = copy(genRight = gen(0))
-}
