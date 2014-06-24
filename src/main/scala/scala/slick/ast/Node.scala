@@ -635,3 +635,14 @@ object QueryParameter {
     case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations")
   }
 }
+
+final case class InternalJoin(rightGen: Symbol, right: Node, jt: JoinType, on: Node) extends DefNode with SimplyTypedNode {
+  type Self = InternalJoin
+  lazy val nodeChildren = IndexedSeq(right, on)
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(right = ch(0), on = ch(1))
+  override def nodeChildNames = Seq("right "+rightGen, "on")
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = jt.sqlName)
+  def nodeGenerators = Seq((rightGen, right))
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(rightGen = gen(0))
+  override protected def buildType: Type = right.nodeType
+}

@@ -1,9 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, RelationalTestDB, TestkitTest}
 
-class JoinTest extends TestkitTest[RelationalTestDB] {
+class JoinTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   override val reuseInstance = true
@@ -171,5 +171,27 @@ class JoinTest extends TestkitTest[RelationalTestDB] {
     q2.run
     val q3 = ts innerJoin ts
     q3.run
+  }
+
+  def testNoParenthesesJoin {
+    class Employees(tag: Tag) extends Table[(Int, String, Int)](tag, "emp_noparenthesesjoin") {
+      def id = column[Int]("id")
+      def name = column[String]("name2")
+      def manager = column[Int]("manager")
+      def * = (id, name, manager)
+    }
+
+    lazy val employees = TableQuery[Employees]
+    (employees.ddl).create
+    val resultString = employees.
+      join(employees).on(_.id === _.id).
+      join(employees).on(_._2.id === _.manager).
+      map(t => (t._1._1.id, t._1._2.id, t._2.id)).
+      filter(t => t._1 < 10).selectStatement
+
+    assertEquals(-1, resultString.indexOf('('))
+    assertEquals(-1, resultString.indexOf(')'))
+
+    (employees.ddl).drop
   }
 }
