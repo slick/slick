@@ -544,7 +544,13 @@ class NoParenthesesUnion extends Phase {
             }
             case _ => (null, Nil)
           }.filterNot(x => (x._2 == Nil))
-          val result = if (fromUnionNodes.isEmpty) false else fromUnionNodes.flatMap(_._2).forall(_ == currentColumnTypes)
+          val result =
+            if (fromUnionNodes.isEmpty) false
+            else fromUnionNodes.flatMap(_._2).forall(_.zip(currentColumnTypes).forall {
+              case (a, b) =>
+                if (a.children.isEmpty && b.children.isEmpty) a == b
+                else a.children == b.children
+            })
           val x = if (result) {
             val innerComprehension = fromUnionNodes.head._1
             innerComprehension.copy(unionNodes = innerComprehension.unionNodes ++ unionNodes)
