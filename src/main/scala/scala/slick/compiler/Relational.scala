@@ -537,8 +537,8 @@ class NoParenthesesJoin extends Phase {
                 }
                 case optionApply: OptionApply => optionApply.nodeTypedOrCopy(OptionType(optionApply.child.nodeType))
                 case getOrElse: GetOrElse => getOrElse.nodeTypedOrCopy(getOrElse.child.nodeType)
-                case productNode: ProductNode => productNode.withComputedTypeNoRec
-                case pure: Pure => pure.withComputedTypeNoRec
+                case productNode: ProductNode => productNode.nodeWithComputedType()
+                case pure: Pure => pure.nodeWithComputedType()
                 case x => map.get(x).getOrElse(x)
               }
             }
