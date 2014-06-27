@@ -1,7 +1,16 @@
 Slick - Scala Language Integrated Connection Kit
 ################################################
 
-You can find the API documentation `here <api/>`_.
+API Documentation (scaladoc)
+----------------------------
+
+* `Slick <api/>`_
+* `Slick TestKit <testkit-api/>`_
+* `Slick Code Generator <codegen-api/>`_
+* `Slick Extensions <extensions-api/>`_
+
+User Manual
+-----------
 
 .. toctree::
    :maxdepth: 3

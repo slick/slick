@@ -48,12 +48,6 @@ __________
 
 .. includecode:: code/GettingStartedOverview.scala#features-composable
 
-
-Compatibility
--------------
-
-Slick requires Scala 2.10. (For Scala 2.9 please use ScalaQuery_, the predecessor of Slick).
-
 .. _supported-dbs:
 
 .. index::
@@ -104,6 +98,8 @@ database systems.
 Compatibility Policy
 --------------------
 
+Slick requires Scala 2.10 or 2.11. (For Scala 2.9 please use ScalaQuery_, the predecessor of Slick).
+
 Slick version numbers consist of an epoch, a major and minor version, and possibly a qualifier
 (for milestone, RC and SNAPSHOT versions).
 
@@ -111,7 +107,8 @@ For release versions (i.e. versions without a qualifier), backward binary compat
 guaranteed between releases with the same epoch and major version (e.g. you could use 2.1.2 as a
 drop-in relacement for 2.1.0 but not for 2.0.0). :doc:`Slick Extensions <extensions>` requires at
 least the same minor version of Slick (e.g. Slick Extensions 2.1.2 can be used with Slick 2.1.2 but
-not with Slick 2.1.1).
+not with Slick 2.1.1). Binary compatibility is not preserved for `slick-codegen`, which is generally
+used at compile-time.
 
 We do not guarantee source compatibility but we try to preserve it within the same major release.
 Upgrading to a new major release may require some changes to your sources. We generally deprecate

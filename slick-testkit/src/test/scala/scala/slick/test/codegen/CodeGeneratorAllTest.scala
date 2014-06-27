@@ -1,9 +1,7 @@
-package scala.slick.test.model
+package scala.slick.test.codegen
 
 import org.junit.Test
-import org.junit.Assert._
-import scala.slick.model.codegen._
-import scala.slick.testutil._
+import scala.slick.codegen.SourceCodeGenerator
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 

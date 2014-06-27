@@ -1,4 +1,4 @@
-package scala.slick.test.model.codegen
+package scala.slick.test.codegen
 import scala.slick.driver.H2Driver
 object CustomTyping {
   import H2Driver.simple._

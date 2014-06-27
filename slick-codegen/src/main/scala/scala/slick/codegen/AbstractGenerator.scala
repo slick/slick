@@ -1,4 +1,4 @@
-package scala.slick.model.codegen
+package scala.slick.codegen
 
 import scala.slick.{model => m}
 import scala.slick.model.ForeignKeyAction
