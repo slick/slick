@@ -5,18 +5,20 @@ import org.junit.Assert._
 import scala.slick.collection.heterogenous.HNil
 import scala.slick.collection.heterogenous.syntax._
 import scala.slick.jdbc.StaticQuery.interpolation
-import scala.slick.jdbc.TypedStaticQuery.ConfigHandler
+import scala.slick.jdbc.TypedStaticQuery._
 
+@TSQLConfig("default")
 class TypedStaticQueryTest {
 
-  implicit val config = new ConfigHandler {
-//    override val databaseName = Some("default")
-    override val url = Some("jdbc:h2:mem:test1;INIT=runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/create.sql'\\;runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/populate.sql'")
-    override val jdbcDriver = Some("org.h2.Driver")
-  }
+//  implicit val config = new ConfigHandler {
+////    override val databaseName = Some("default")
+//    override val url = Some("jdbc:h2:mem:test1;INIT=runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/create.sql'\\;runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/populate.sql'")
+//    override val jdbcDriver = Some("org.h2.Driver")
+//  }
   
   @Test
-  def testTypedInterpolation = config.connection withSession { implicit session =>
+  @TSQLConfig(url = "jdbc:h2:mem:test1;INIT=runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/create.sql'\\;runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/populate.sql'", driver = "org.h2.Driver")
+  def testTypedInterpolation = getConfigHandler().connection withSession { implicit session =>
     val id1 = 150
     val id2 = 1
     val s1 = tsql"select * from SUPPLIERS where SUP_ID = ${id1}"
@@ -42,7 +44,8 @@ class TypedStaticQueryTest {
   }
   
   @Test
-  def testCustomTypes = config.connection withSession { implicit session =>
+  //@TSQLConfig("default")
+  def testCustomTypes = getConfigHandler().connection withSession { implicit session =>
     import scala.slick.jdbc.SetParameter
     
     case class Foo(intVal: Int)

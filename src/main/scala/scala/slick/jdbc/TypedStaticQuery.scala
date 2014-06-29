@@ -2,19 +2,20 @@ package scala.slick.jdbc
 
 import com.typesafe.config.{ ConfigFactory, ConfigException }
 import java.sql.PreparedStatement
+import scala.annotation.{Annotation, StaticAnnotation}
+import scala.collection.mutable.{Map => MutableMap}
 import scala.language.experimental.macros
 import scala.reflect.ClassTag
 import scala.reflect.macros.Context
-import scala.reflect.macros.TypecheckException
 import scala.slick.SlickException
 import scala.slick.collection.heterogenous._
-import scala.slick.collection.heterogenous.syntax._
 
 class TypedStaticQuery[+R](query: String, rconv: GetResult[R], param: List[Any], pconv: List[SetParameter[_]])
 extends StatementInvoker[R] {
   def getStatement = query
   
   protected def setParam(st: PreparedStatement) = {
+    import scala.language.existentials
     val pp = new PositionedParameters(st)
     param.zip(pconv) foreach { i =>
       val (p, sp) = i
@@ -35,7 +36,7 @@ object TypedStaticQuery {
       val c = ctxt
     } with MacroConnectionHelper
     
-    macroConnHelper.connection withSession { session =>
+    macroConnHelper.configHandler.connection withSession { session =>
       
       val rTypes = session.withPreparedStatement(macroConnHelper.query) { preparedStmt =>
         val resultMeta = preparedStmt.getMetaData
@@ -81,6 +82,35 @@ object TypedStaticQuery {
     }
   }
   
+  final class TSQLConfig(dbName: String = null, url: String = null, user: String = null,
+                         pass: String = null, driver: String = null, slickDriver: String = null)
+  extends Annotation with StaticAnnotation {
+    val dbNameOption      = Option(dbName)
+    val urlOption         = Option(url)
+    val userOption        = Option(user)
+    val passOption        = Option(pass)
+    val jdbcdriverOption  = Option(driver)
+    val slickDriverOption = Option(slickDriver)
+  }
+
+  def getConfigHandler() = macro getCHimpl
+
+  def getCHimpl(ctxt: Context)(): ctxt.Expr[TypedStaticQuery.ConfigHandler] = {
+    val macroConnHelper = new {
+      val c: ctxt.type = ctxt
+    } with MacroConnectionHelper
+
+    val ret = macroConnHelper.createConfigHandler(macroConnHelper.configHandler)
+
+    println("Happy Birthday")
+    println("*[ Start Tree")
+    println(ret)
+    println
+    println(ctxt.universe.showRaw(ret))
+    println("*] End Tree")
+    ctxt.Expr(ret)
+  }
+
   object GetNoResult extends GetResult[Nothing] {
     def apply(pr: PositionedResult) = throw new SlickException("The result type of query could not be determined. You must call the 'as' before executing statement.")
   }
@@ -143,7 +173,7 @@ object TypedStaticQuery {
         resultTypeTreeList
       )
       case _ => {
-        val zero = TypeTree(typeOf[HNil])
+        val zero = TypeTree(typeOf[scala.slick.collection.heterogenous.syntax.HNil])
         val :: = Select(Select(base.HeterogenousTree, newTermName("syntax")), newTypeName("$colon$colon"))
         resultTypeTreeList.foldRight[TypTree](zero) { (typ, prev) =>
           AppliedTypeTree(::, List(typ, prev))
@@ -195,97 +225,195 @@ object TypedStaticQuery {
     )
   }
   
-  private[this] abstract class MacroConnectionHelper extends MacroConnectionHandlerBase with ConfigHandler with MacroConnectionHandler {
-    //val configFileName = "reference.conf" -- defined as final in Config Handler
-    override def error(msg: String) = abort(msg)
-  }
+  private[this] abstract class MacroConnectionHelper extends MacroConnectionHandlerBase with MacroConnectionHandler
 
   private[this] trait MacroConnectionHandlerBase {
     val c: Context
-    val scope = c.enclosingClass
-    val defName = "tsql"
     def abort(msg: String) = c.abort(c.enclosingPosition, msg)
   }
 
-  private[TypedStaticQuery] trait ConnectionParameters {
-    def databaseName:Option[String] = None
-    def url         :Option[String] = None
-    def user        :Option[String] = None
-    def password    :Option[String] = None
-    def jdbcDriver  :Option[String] = None
-    def slickDriver :Option[String] = None
-    
-    private[TypedStaticQuery] final def connectionParameter[T](value: Option[T], 
-            name: String): T = value match {
-      case Some(x) => x
-      case None => error(s"Configuration for essential parameter ${name} not found")
-    }
-    
-    private[TypedStaticQuery] final def connectionParameter[T](value: Option[T], 
-            default: Option[T]): T = value.orElse(default).get
-    
-    def error(msg: String): Nothing = sys.error(msg)
-  }
-  
-  private[this] trait MacroConnectionHandler extends ConnectionParameters { base: MacroConnectionHandlerBase =>
+  private[this] trait MacroConnectionHandler  { base: MacroConnectionHandlerBase =>
     import base.c.universe._
     
-    //Deconstruct macro application to determine the passed string and the actual parameters
-    val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = base.c.macroApplication
-
     //create SQL query string 
-    val query: String = strArg.map[String, List[String]]{ 
-      case Literal(Constant(x: String)) => x
-      case _ => base.abort("The interpolation contained something other than constants...")
-    } mkString ("?")
+    lazy val query: String = {
+      //Deconstruct macro application to determine the passed string and the actual parameters
+      val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = base.c.macroApplication
+      strArg.map[String, List[String]]{
+        case Literal(Constant(x: String)) => x
+        case _ => base.abort("The interpolation contained something other than constants...")
+      } mkString ("?")
+    }
     
-    //local name of the implicit ConfigHandler implementation
-    val moduleName = { 
-      try {
-        base.c.inferImplicitValue(typeOf[ConfigHandler], silent = false)
-      } catch {
-        case _: TypecheckException => abort("There should be an implicit object implementation of ConfigHandler trait")
+    //Create a ConfigHandler Expr from a TSQLConfig Expr
+    def createConfigHandler(config: TSQLConfig) = {
+      @inline def valdef[T](name: String, opt: Option[T]) = opt map { t =>
+        ValDef(Modifiers(Flag.OVERRIDE | Flag.LAZY), newTermName(name), TypeTree(),
+          Apply(
+            Select(createClassTreeFromString("scala.Option", newTermName(_)), newTermName("apply")),
+            List(Literal(Constant(t)))
+          )
+        )
       }
-    } match { //Find the name of object / val we are interested in
-      case Ident(x) => x      //When defined locally
-      case Select(_, x) => x  //When defined globally
+      Block(
+        List(
+          ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(),
+            Template(
+              List(createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery.ConfigHandler", newTypeName(_))),
+              emptyValDef,
+              List(
+                DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(),
+                  Block(
+                    List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())),
+                    Literal(Constant(()))
+                  )
+                )
+              ) ++
+              valdef("databaseName", config.dbNameOption) ++
+              valdef("jdbcDriver",   config.jdbcdriverOption) ++
+              valdef("url",          config.urlOption) ++
+              valdef("user",         config.userOption) ++
+              valdef("password",     config.passOption) ++
+              valdef("slickDriver",  config.slickDriverOption)
+            )
+          )
+        ),
+        Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
+      )
     }
 
-    //tree of the implicit ConfigHandler implementation
-    lazy val moduleTree = { 
-      val macroTree = Apply(Select(Apply(Ident(newTermName("StringContext")), strArg), newTermName(defName)), paramList)
-      scope.collect { // Collect all blocks
-        case x: Block if x.exists(_ equalsStructure macroTree) => x
-      }.:+(scope).flatMap(_.collect { // Find all modules in each block matching the name we found implicitly
-        case x: ModuleDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(moduleName)) => x
-        case x: ValDef if (x.mods.hasFlag(Flag.IMPLICIT) && x.name.toString == showRaw(moduleName)) => x
-      }).headOption.getOrElse { // There must be just one such module
-        base.abort(s"${moduleName} must be an implicit val or implicit object with the definition in place")
+    //Create a ConfigHandler Expr from an existing ConfigHandler instance
+    def createConfigHandler(config: ConfigHandler) = {
+      @inline def valdef[T](name: String, opt: Option[T]) = opt map { t =>
+        ValDef(Modifiers(Flag.OVERRIDE | Flag.LAZY), newTermName(name), TypeTree(),
+          Apply(
+            Select(createClassTreeFromString("scala.Option", newTermName(_)), newTermName("apply")),
+            List(Literal(Constant(t)))
+          )
+        )
       }
+      Block(
+        List(
+          ClassDef(Modifiers(Flag.FINAL), newTypeName("$anon"), List(),
+            Template(
+              List(createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery.ConfigHandler", newTypeName(_))),
+              emptyValDef,
+              List(
+                DefDef(Modifiers(), nme.CONSTRUCTOR, List(), List(List()), TypeTree(),
+                  Block(
+                    List(Apply(Select(Super(This(tpnme.EMPTY), tpnme.EMPTY), nme.CONSTRUCTOR), List())),
+                    Literal(Constant(()))
+                  )
+                )
+              ) ++
+              valdef("databaseName", config.databaseName) ++
+              valdef("jdbcDriver",   config.jdbcDriver) ++
+              valdef("url",          config.url) ++
+              valdef("user",         config.user) ++
+              valdef("password",     config.password) ++
+              valdef("slickDriver",  config.slickDriver)
+            )
+          )
+        ),
+        Apply(Select(New(Ident(newTypeName("$anon"))), nme.CONSTRUCTOR), List())
+      )
+    }
+
+    //convert a TSQLConfig tree to a ConfigHandler object
+    def fix(tree: Tree): Tree = {
+      //Work around for a problem -
+      // Reflective compilation failed : Type not found : TSQLConfig
+      //when you try to c.eval( tree )
+      val Apply(Select(_, _), args) = tree
+      val realTree = Apply(
+        Select(
+          New(createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery.TSQLConfig", newTypeName(_))),
+          nme.CONSTRUCTOR
+        ), args map (_.duplicate)
+      )
+      realTree
     }
     
-    //Find the val we are interested in
-    def findInTree[T](valName: String): Option[T] = moduleTree.collect { 
-      case x: ValDef if (x.name.toString == valName) => x.rhs
-      case x: DefDef if (x.name.toString == valName) => x.rhs
-    }.headOption.map { valTree =>
-      base.c.eval[Some[T]](base.c.Expr(base.c.resetAllAttrs(valTree.duplicate))).get
+    def createClassTreeFromString(classString: String, generator: String => Name): Tree = {
+      val tokens = classString.split('.').toList
+      val packages = tokens.dropRight(1) map (newTermName(_))
+      val classType = generator(tokens.last)
+      val firstPackage = Ident(nme.ROOTPKG)
+      val others = (packages :+ classType)
+      others.foldLeft[Tree](firstPackage)((prev, elem) => {
+        Select(prev, elem)
+      })
     }
     
-    override lazy val databaseName: Option[String] = findInTree("databaseName")
-    override lazy val url          :Option[String] = findInTree("url")         .orElse(super.url)
-    override lazy val user         :Option[String] = findInTree("user")        .orElse(super.user)
-    override lazy val password     :Option[String] = findInTree("password")    .orElse(super.password)
-    override lazy val jdbcDriver   :Option[String] = findInTree("jdbcDriver")  .orElse(super.jdbcDriver)
-    override lazy val slickDriver  :Option[String] = findInTree("slickDriver") .orElse(super.slickDriver)
-    
+    lazy val configHandler: ConfigHandler = {
+
+      //Shorthand for c.eval
+      def eval[T](tree: Tree): T = base.c.eval(base.c.Expr[T](base.c.resetLocalAttrs(tree)))
+
+      //Convert a given Name to its fully qualified name in String format
+      def completeNameOf(name: Name): String = base.c.typeCheck(
+        Typed(
+          Select(Select(Ident(newTermName("scala")), newTermName("Predef")), newTermName("$qmark$qmark$qmark")),
+          Ident(newTypeName(name.toString))
+        )
+      ).tpe.typeSymbol.fullName
+
+      //From a list of annotations determine the TSQLConfig annotation
+      def findAnnotationTree(ann: List[Tree]): Option[Tree] = ann.flatMap {
+        tree =>
+        base.c.typeCheck(tree, pt = weakTypeOf[TSQLConfig], silent = true) match {
+          case EmptyTree => None
+          case _ => {
+            val Apply(Select(_, _), args) = tree
+            val realTree = Apply(
+              Select(
+                New(createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery.TSQLConfig", newTypeName(_))),
+                nme.CONSTRUCTOR
+              ), args map (_.duplicate)
+            )
+            Some(realTree)
+          }
+        }
+      }.headOption
+
+      //Determine the trees
+      val clasDef = base.c.enclosingClass.asInstanceOf[MemberDef]
+      val methDef = base.c.enclosingMethod.asInstanceOf[MemberDef]
+
+      //Determine their names
+      val clasName = completeNameOf(clasDef.name)
+      val methName = clasName + "." + methDef.name
+
+      //Determine the annotations and evaluate corresponding ConfigHandlers
+      val clasConf = findAnnotationTree(clasDef.mods.annotations) map {t =>
+        eval[ConfigHandler](createConfigHandler(eval[TSQLConfig](fix(t))))
+      }
+      val methConf = findAnnotationTree(methDef.mods.annotations) map {t =>
+        eval[ConfigHandler](createConfigHandler(eval[TSQLConfig](fix(t))))
+      }
+
+      val map = Map.empty[String, ConfigHandler] ++
+        clasConf.map(("." + clasName) -> _) ++
+        methConf.map(("." + methName) -> _)
+      cache.getFromCache(methName.split('.').toList, new StringBuffer(methName.length), map,
+                         base.abort("Cannot find suitable config handler for this invocation")
+      )
+    }
   }
-  
-  trait ConfigHandler extends ConnectionParameters {
+
+  trait ConfigHandler {
     
     final val configFileName = "reference.conf"
     final val configGlobalPrefix = "typedsql."
     
+    private[TypedStaticQuery] final def connectionParameter[T](value: Option[T],
+            name: String): T = value match {
+      case Some(x) => x
+      case None => error(s"Configuration for essential parameter ${name} not found")
+    }
+
+    def error(msg: String): Nothing = sys.error(msg)
+
     lazy private[this] val conf = {
       val confFile = {
         val file = new java.io.File(configFileName)
@@ -307,15 +435,16 @@ object TypedStaticQuery {
       case _: ConfigException.Missing => None
     }
     
-    override def url         :Option[String] = databaseConfig.map(_.apply("url"))         .orElse(super.url)
-    override def user        :Option[String] = databaseConfig.map(_.apply("user"))        .orElse(super.user)
-    override def password    :Option[String] = databaseConfig.map(_.apply("password"))    .orElse(super.password)
-    override def jdbcDriver  :Option[String] = databaseConfig.map(_.apply("jdbcDriver"))  .orElse(super.jdbcDriver)
-    override def slickDriver :Option[String] = databaseConfig.map(_.apply("slickDriver")) .orElse(super.slickDriver)
+    lazy val databaseName:Option[String] = None
+    lazy val url         :Option[String] = databaseConfig.map(_.apply("url"))
+    lazy val user        :Option[String] = databaseConfig.map(_.apply("user"))
+    lazy val password    :Option[String] = databaseConfig.map(_.apply("password"))
+    lazy val jdbcDriver  :Option[String] = databaseConfig.map(_.apply("jdbcDriver"))
+    lazy val slickDriver :Option[String] = databaseConfig.map(_.apply("slickDriver"))
     
     lazy final val connection = JdbcBackend.Database.forURL(connectionParameter(url, "url"), 
-      user     = connectionParameter(user, Some(null)),
-      password = connectionParameter(password, Some(null)),
+      user     = user getOrElse null,
+      password = password getOrElse null,
       driver   = connectionParameter(jdbcDriver, "driver")
     )
 
@@ -324,4 +453,21 @@ object TypedStaticQuery {
     lazy final val SlickDriver = Class.forName(connectionParameter(slickDriver, "slickDriver")).asInstanceOf[scala.slick.driver.JdbcDriver]
 
   }
+
+  //Cache implementation
+  private[this] class HierarchalCache[T](val ident: String) {
+    val subCaches = MutableMap[String, HierarchalCache[T]]()
+    var config: Option[T] = None
+
+    def getFromCache(path: List[String], prev: StringBuffer, map: Map[String, T], default: => T): T = {
+      config = config orElse map.get(prev.toString + ident)
+      path match {
+        case x :: xs => subCaches.getOrElseUpdate(x, new HierarchalCache[T](x)).
+          getFromCache(xs, prev.append(ident + "."), map, config.getOrElse(default))
+        case Nil => config.getOrElse(default)
+      }
+    }
+  }
+
+  private[this] val cache = new HierarchalCache[ConfigHandler]("")
 }
