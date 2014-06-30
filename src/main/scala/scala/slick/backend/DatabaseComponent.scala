@@ -3,6 +3,7 @@ package scala.slick.backend
 import scala.util.DynamicVariable
 import scala.slick.SlickException
 import java.io.Closeable
+import scala.util.control.NonFatal
 
 /** Backend cake slice for the basic database and session handling features.
   * Concrete backends like `JdbcBackend` extend this type and provide concrete
@@ -23,10 +24,23 @@ trait DatabaseComponent { self =>
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
-    /** Run the supplied function with a new session and automatically close the session at the end. */
+    /** Run the supplied function with a new session and automatically close the session at the end.
+      * Exceptions thrown while closing the session are propagated, but only if the code block using the
+      * session terminated normally. Otherwise the first exception wins. */
     def withSession[T](f: Session => T): T = {
       val s = createSession()
-      try { f(s) } finally s.close()
+      var ok = false
+      try {
+        val res = f(s)
+        ok = true
+        res
+      } finally {
+        if(ok) s.close() // Let exceptions propagate normally
+        else {
+          // f(s) threw an exception, so don't replace it with an Exception from close()
+          try s.close() catch { case _: Throwable => }
+        }
+      }
     }
 
     /** Run the supplied thunk with a new session and automatically close the
