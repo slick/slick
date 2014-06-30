@@ -391,6 +391,9 @@ trait JdbcBackend extends DatabaseComponent {
     protected var doRollback = false
     protected var inTransaction = false
 
+    def isOpen = open
+    def isInTransaction = inTransaction
+
     lazy val conn = { open = true; database.createConnection() }
     lazy val metaData = conn.getMetaData()
 
