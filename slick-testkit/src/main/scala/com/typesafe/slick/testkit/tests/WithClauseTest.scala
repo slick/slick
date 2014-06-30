@@ -4,6 +4,7 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import org.junit.Assert._
 
 import scala.slick.driver.PostgresDriver
+import scala.util.Try
 
 class WithClauseTest extends TestkitTest[JdbcTestDB] {
 
@@ -85,20 +86,21 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
       def * = (id, name, manager)
     }
     val employees = TableQuery[Employees](new Employees(_))
+    Try(employees.ddl.drop)
     employees.ddl.create
     employees.++=(1.to(15).map(x => (x, f"num$x", x + 1)))
-    def utilMapper(f: Employees) = (f.id, f.name, f.manager)
-    type QueryType = Query[(Column[Int], Column[String], Column[Int]), (Int, String, Int), Seq]
+    def utilMapper(f: Employees) = ((f.id, f.name), f.manager)
+    type QueryType = Query[((Column[Int], Column[String]), Column[Int]), ((Int, String), Int), Seq]
     val withDeclarationOne =
       employees.filter(t => t.id === 1).map(utilMapper).
         recursiveUnion {
         case t => Query(t).asInstanceOf[QueryType].
           join(employees).on {
-          case ((id, name, manager), employee) => manager === employee.id
+          case (((id, name), manager), employee) => manager === employee.id
         }.filter {
-          case ((id, name, manager), employee) => id < 4
+          case (((id, name), manager), employee) => id < 4
         }.map {
-          case ((id, name, manager), employee) => (employee.id, employee.name, employee.manager)
+          case (((id, name), manager), employee) => ((employee.id, employee.name), employee.manager)
         }.asInstanceOf[QueryType]
       }
     val withDeclarationTwo =
@@ -106,11 +108,11 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
         recursiveUnion {
         case t => Query(t).asInstanceOf[QueryType].
           join(employees).on {
-          case ((id, name, manager), employee) => manager === employee.id
+          case (((id, name), manager), employee) => manager === employee.id
         }.filter {
-          case ((id, name, manager), employee) => id < 9
+          case (((id, name), manager), employee) => id < 9
         }.map {
-          case ((id, name, manager), employee) => (employee.id, employee.name, employee.manager)
+          case (((id, name), manager), employee) => ((employee.id, employee.name), employee.manager)
         }.asInstanceOf[QueryType]
       }
     val withDeclarationThree =
@@ -118,11 +120,11 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
         recursiveUnion {
         case t => Query(t).asInstanceOf[QueryType].
           join(employees).on {
-          case ((id, name, manager), employee) => manager === employee.id
+          case (((id, name), manager), employee) => manager === employee.id
         }.filter {
-          case ((id, name, manager), employee) => id < 14
+          case (((id, name), manager), employee) => id < 14
         }.map {
-          case ((id, name, manager), employee) => (employee.id, employee.name, employee.manager)
+          case (((id, name), manager), employee) => ((employee.id, employee.name), employee.manager)
         }.asInstanceOf[QueryType]
       }
     val union = withDeclarationOne.union(withDeclarationTwo).union(withDeclarationThree)
@@ -130,11 +132,11 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
     val result = qOne.list
     val expected = 1.to(15).
       filter(x => (1 <= x && x <= 4) || (6 <= x && x <= 9) || (11 <= x && x <= 14)).
-      map(x => (x, f"num$x", x + 1))
+      map(x => ((x, f"num$x"), x + 1))
     assertEquals(expected, result)
-    val result2 = union.groupBy(t => ()).map { case (g, t) => (t.map(t => t._1).sum, t.map(t => t._3).sum)}.list
+    val result2 = union.groupBy(t => ()).map { case (g, t) => (t.map { case ((a, b), c) => a}.sum, t.map { case ((a, b), c) => c}.sum)}.list
     val expected2 = Seq(
-      expected.tail.foldLeft((expected.head._1, expected.head._3)) { case ((a, b), (x, _, z)) => (a + x, b + z)}
+      expected.tail.foldLeft((expected.head._1._1, expected.head._2)) { case ((a, b), ((x, _), z)) => (a + x, b + z)}
     ).map { case (a, b) => (Some(a), Some(b))}
     assertEquals(expected2, result2)
     employees.ddl.drop
@@ -152,6 +154,7 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
       def * = (id, name, manager)
     }
     val employees = TableQuery[Employees](new Employees(_))
+    Try(employees.ddl.drop)
     employees.ddl.create
     employees.++=(1.to(15).map(x => (x, f"num$x", x + 1)))
     def utilMapper(f: Employees) = (f.id, f.name, f.manager)
@@ -190,7 +193,8 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
         }.asInstanceOf[QueryType]
       }
 
-    val result = withDeclarationThree.sortBy(t => (t._1)).list
+    val by = withDeclarationThree.sortBy(t => (t._1))
+    val result = by.list
     val expected = 1.to(11).
       map(x => (x, f"num$x", x + 1))
     assertEquals(expected, result)
@@ -215,12 +219,13 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
     }
 
     val tableA = TableQuery[TableA](new TableA(_))
+    Try(tableA.ddl.drop)
     tableA.ddl.create
 
     type TypeOne = Query[(Column[Option[Int]], Column[Option[Int]]), (Option[Int], Option[Int]), Seq]
     type TypeTwo = Query[
-      (Column[Option[Int]], Column[Option[Int]], Column[Option[String]], Column[Option[Int]], Column[Option[Int]]),
-      (Option[Int], Option[Int], Option[String], Option[Int], Option[Int]),
+      (((Column[Option[Int]], Column[Option[Int]]), Column[Option[String]]), (Column[Option[Int]], Column[Option[Int]])),
+      (((Option[Int], Option[Int]), Option[String]), (Option[Int], Option[Int])),
       Seq]
     def partOne = {
       val inParameter = tableA.filter(t ⇒ t.parentId.isEmpty).map(t ⇒ t.id)
@@ -236,36 +241,33 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
         on(_.id === _._1).
         map {
         case (a, (_, c)) =>
-          (a.id, a.parentId, a.name,
-            LiteralColumn(Option(0)), // level
-            c) // subNodeCount
+          (((a.id, a.parentId), a.name),
+            (Option(0), // level
+              c)) // subNodeCount
       }
     }
 
     val partTwo = partOne.
-      map { case (id, parentId, name, level, subNodeCount) => (id, parentId, name, level, subNodeCount)}.
       recursiveUnion {
-      case (id, parentId, name, level, subNodeCount) =>
+      case (((id, parentId), name), (level, subNodeCount)) =>
         val joinOne =
           tableA.
             groupBy(t ⇒ t.parentId).
             map { case (parentId, t) => (parentId, t.map(t ⇒ t.id).countDistinct.asColumnOf[Option[Int]])}.
             asInstanceOf[TypeOne]
-        Query(id, parentId, name, level, subNodeCount).
-          asInstanceOf[TypeTwo].
+        Query(((id, parentId), name), (level, subNodeCount)).asInstanceOf[TypeTwo].
           join(tableA).on {
-          case ((id, _, _, _, _), tabA) => id === tabA.parentId
+          case ((((id, _), _), (_, _)), tabA) => id === tabA.parentId
         }.leftJoin(joinOne).on {
           case ((_, tabA), (grpBy, _)) => tabA.id === grpBy
         }.map {
-          case (((id, parentId, name, level, subNodeCount), b), (c, d)) =>
-            (b.id, b.parentId, b.name,
-              (level + 1).asColumnOf[Option[Int]], // level
-              Case.If(d.isDefined).Then(d).Else(LiteralColumn(Option(0)))) //subNodeCount
+          case (((((id, parentId), name), (level, subNodeCount)), b), (c, d)) =>
+            (((b.id, b.parentId), b.name),
+              ((level + 1).asColumnOf[Option[Int]], // level
+                Case.If(d.isDefined).Then(d).Else(LiteralColumn(Option(0))))) //subNodeCount
         }
-    }.asInstanceOf[TypeTwo].
-      sortBy {
-      case (id, parentId, name, level, subNodeCount) => (level.asc, id.asc)
+    }.sortBy {
+      case (((id, parentId), name), (level, subNodeCount)) => (level.asc, id.asc)
     }
 
     var data = List[ModelA]()
@@ -289,7 +291,7 @@ class WithClauseTest extends TestkitTest[JdbcTestDB] {
     }
     tableA.++=(data.reverse)
     val result = partTwo.list
-    val expected = expectedData.sortBy { case (a, b, c, d, e) => (d, a)}
+    val expected = expectedData.sortBy { case (a, b, c, d, e) => (d, a)}.map { case (a, b, c, d, e) => (((a, b), c), (d, e))}
     assertEquals(expected, result)
 
     tableA.ddl.drop
