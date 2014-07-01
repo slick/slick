@@ -366,7 +366,7 @@ class FuseComprehensions extends Phase {
           val a = new AnonSymbol
           val f = new AnonSymbol
           lift += ((a, f, s, c2, ap.nodeType))
-          Select(Ref(a), f)
+          Select(Ref(a), f).nodeTyped(ap.nodeType)
         }
       case c: Comprehension => c // don't recurse into sub-queries
       case n => n.nodeMapChildren(tr, keepType = true)
