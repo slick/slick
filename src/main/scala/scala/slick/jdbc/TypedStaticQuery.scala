@@ -115,9 +115,9 @@ object TypedStaticQuery {
     def apply(pr: PositionedResult) = throw new SlickException("The result type of query could not be determined. You must call the 'as' before executing statement.")
   }
   
-  private[this] abstract class MacroTreeBuilderHelper extends MacroTreeBuilderBase with MacroTreeBuilder 
+  private[jdbc] abstract class MacroTreeBuilderHelper extends MacroTreeBuilderBase with MacroTreeBuilder
   
-  private[this] trait MacroTreeBuilderBase {
+  private[jdbc] trait MacroTreeBuilderBase {
     val c: Context
     val resultTypes: List[ClassTag[_]]
     val paramsList: List[c.Expr[Any]]
@@ -149,7 +149,7 @@ object TypedStaticQuery {
     lazy val GetNoResultTree = createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery.GetNoResult", newTermName(_))
   }
   
-  private[this] trait MacroTreeBuilder { base: MacroTreeBuilderBase => 
+  private[jdbc] trait MacroTreeBuilder { base: MacroTreeBuilderBase =>
     import base.c.universe._
     
     lazy val resultCount = resultTypes.size
@@ -225,26 +225,29 @@ object TypedStaticQuery {
     )
   }
   
-  private[this] abstract class MacroConnectionHelper extends MacroConnectionHandlerBase with MacroConnectionHandler
+  private[jdbc] abstract class MacroConnectionHelper extends MacroConnectionHandlerBase with MacroConnectionHandler
 
-  private[this] trait MacroConnectionHandlerBase {
+  private[jdbc] trait MacroConnectionHandlerBase {
     val c: Context
     def abort(msg: String) = c.abort(c.enclosingPosition, msg)
   }
 
-  private[this] trait MacroConnectionHandler  { base: MacroConnectionHandlerBase =>
+  private[jdbc] trait MacroConnectionHandler  { base: MacroConnectionHandlerBase =>
     import base.c.universe._
     
-    //create SQL query string 
-    lazy val query: String = {
+    //create a list of strings passed to this interpolation
+    lazy val queryParts: List[String] = {
       //Deconstruct macro application to determine the passed string and the actual parameters
       val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = base.c.macroApplication
-      strArg.map[String, List[String]]{
+      strArg map {
         case Literal(Constant(x: String)) => x
         case _ => base.abort("The interpolation contained something other than constants...")
-      } mkString ("?")
+      }
     }
     
+    //create SQL query string
+    lazy val query: String = queryParts.mkString("?")
+
     //Create a ConfigHandler Expr from a TSQLConfig Expr
     def createConfigHandler(config: TSQLConfig) = {
       @inline def valdef[T](name: String, opt: Option[T]) = opt map { t =>
