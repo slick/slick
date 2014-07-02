@@ -72,6 +72,8 @@ object RelationalProfile {
     /** Supports the ''user'' function to get the current database user.
       * A driver without this capability will return an empty string. */
     val functionUser = Capability("relational.functionUser")
+    /** Supports indexOf method on string columns */
+    val indexOf = Capability("relational.indexOf")
     /** Supports full outer joins */
     val joinFull = Capability("relational.joinFull")
     /** Supports left outer joins */
@@ -88,6 +90,10 @@ object RelationalProfile {
       * unique. Without this capability, non-unique rows may be counted as
       * only one row each. */
     val pagingPreciseTake = Capability("relational.pagingPreciseTake")
+    /** Supports replace method on string columns */
+    val replace = Capability("relational.replace")
+    /** Supports reverse method on string columns */
+    val reverse = Capability("relational.reverse")
     /** Can set an Option[ Array[Byte] ] column to None */
     val setByteArrayNull = Capability("relational.setByteArrayNull")
     /** Supports the BigDecimal data type */
@@ -101,13 +107,6 @@ object RelationalProfile {
 
     /** Supports all RelationalProfile features which do not have separate capability values */
     val other = Capability("relational.other")
-
-    /** Supports replace method on string columns */
-    val replace = Capability("relational.replace")
-    /** Supports reverse method on string columns */
-    val reverse = Capability("relational.reverse")
-    /**  Supports indexOf method on string columns */
-    val indexOf = Capability("relational.indexOf")
 
     /** All relational capabilities */
     val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,

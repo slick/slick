@@ -62,7 +62,6 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.zip
     - JdbcProfile.capabilities.insertOrUpdate
-    - RelationalProfile.capabilities.indexOf
   )
 
   override def getTables: Invoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
@@ -102,8 +101,11 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.UCase(ch) => b"upper(!$ch)"
       case Library.LCase(ch) => b"lower(!$ch)"
-      case Library.Substring(n, start, end) => b"substr($n, $start, $end)"
-      case Library.Substring(n, start) => b"substr($n, $start)"
+      case Library.Substring(n, start, end) =>
+        b"substr($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})"
+      case Library.Substring(n, start) =>
+        b"substr($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))})\)"
+      case Library.IndexOf(n, str) => b"\(charindex($str, $n) - 1\)"
       case Library.%(l, r) => b"\($l%$r\)"
       case Library.Ceiling(ch) => b"round($ch+0.5)"
       case Library.Floor(ch) => b"round($ch-0.5)"
