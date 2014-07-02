@@ -29,6 +29,18 @@ object Library {
   val Sign = new JdbcFunction("sign")
   val Degrees = new JdbcFunction("degrees")
   val Radians = new JdbcFunction("radians")
+  val Exp = new JdbcFunction("exp")
+  val Log = new JdbcFunction("log")
+  val Log10 = new JdbcFunction("log10")
+  val Power = new JdbcFunction("mod")
+  val Sin = new JdbcFunction("sin")
+  val Cos = new JdbcFunction("cos")
+  val Tan = new JdbcFunction("tan")
+  val Cot = new JdbcFunction("cot")
+  val Asin = new JdbcFunction("asin")
+  val Acos = new JdbcFunction("acos")
+  val Atan = new JdbcFunction("atan")
+  val Sqrt = new JdbcFunction("sqrt")
 
   // Comparison
   val < = new SqlOperator("<")

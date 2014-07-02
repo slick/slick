@@ -104,10 +104,26 @@ final class NumericColumnExtensionMethods[B1, P1](val c: Column[P1]) extends Any
   def abs = Library.Abs.column[P1](n)
   def ceil = Library.Ceiling.column[P1](n)
   def floor = Library.Floor.column[P1](n)
+  @deprecated("use signum instead", "2.1")
   def sign[R](implicit om: o#to[Int, R]) =
+    om.column(Library.Sign, n)
+  def signum[R](implicit om: o#to[Int, R]) =
     om.column(Library.Sign, n)
   def toDegrees = Library.Degrees.column[P1](n)
   def toRadians = Library.Radians.column[P1](n)
+  // scala.math functions
+  def exp = Library.Exp.column[P1](n)
+  def log = Library.Log.column[P1](n)
+  def log10 = Library.Log10.column[P1](n)
+  def pow(x:Int) = Library.Power.column[P1](n, LiteralNode(x))
+  def sin = Library.Sin.column[P1](n)
+  def cos = Library.Cos.column[P1](n)
+  def tan = Library.Tan.column[P1](n)
+  def cot = Library.Cot.column[P1](n)
+  def asin = Library.Asin.column[P1](n)
+  def acos = Library.Acos.column[P1](n)
+  def atan = Library.Atan.column[P1](n)
+  def sqrt = Library.Sqrt.column[P1](n)
 }
 
 /** Extension methods for Column[Boolean] and Column[Option[Boolean]] */
