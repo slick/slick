@@ -102,8 +102,9 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.UCase(ch) => b"upper(!$ch)"
       case Library.LCase(ch) => b"lower(!$ch)"
-      case Library.Substring(n, start, end) => b"substr($n, $start, $end)"
-      case Library.Substring(n, start) => b"substr($n, $start)"
+       // jdbc driver doesn't support substring jdbc function
+      case Library.Substring(n, LiteralNode(start: Int), LiteralNode(end: Int)) => b"\(substr($n, ${start+1}, ${end-start})\)"
+      case Library.Substring(n, LiteralNode(start: Int)) => b"\(substr($n, ${start + 1})\)"
       case Library.%(l, r) => b"\($l%$r\)"
       case Library.Ceiling(ch) => b"round($ch+0.5)"
       case Library.Floor(ch) => b"round($ch-0.5)"

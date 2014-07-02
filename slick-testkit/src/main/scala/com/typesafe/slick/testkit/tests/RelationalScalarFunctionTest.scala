@@ -53,4 +53,60 @@ class RelationalScalarFunctionTest extends TestkitTest[RelationalTestDB] {
     assertEquals(180.0, Functions.pi.toDegrees.run, 0.00001)
     assertTrue((Functions.pi.toDegrees.toRadians - Functions.pi).abs.run <= 0.00001)
   }
+
+  case class Entity(id: Int, name: String)
+
+  class Entities(tag: Tag) extends Table[Entity](tag, "enities") {
+    def id = column[Int]("id", O.PrimaryKey)
+
+    def name = column[String]("name")
+
+    def * = (id, name) <>(Entity.tupled, Entity.unapply)
+  }
+
+  private val nameTest = "abcdefghijklmnopqrstuvwxyz"
+
+  private def getCollection = {
+    val entities = TableQuery[Entities]
+    entities.ddl.create
+    entities += Entity(1, nameTest)
+    entities
+  }
+
+  def testSubstring1() {
+    val names = for (s <- getCollection) yield s.name.substring(3, 5)
+    names.run.foreach(n => assertEquals(nameTest.substring(3, 5), n))
+  }
+
+  def testSubstring2() {
+    val names = for (s <- getCollection) yield s.name.substring(3)
+    names.run.foreach(n => assertEquals(nameTest.substring(3), n))
+  }
+
+  def testReplace() = ifCap(rcap.replace) {
+    val names = for (s <- getCollection) yield s.name.replace("cd", "XXXX")
+    names.run.foreach(n => assertEquals(nameTest.replace("cd", "XXXX"), n))
+  }
+
+  def testReverse() = ifCap(rcap.reverse) {
+    val names = for (s <- getCollection) yield s.name.reverseString
+    names.run.foreach(n => assertEquals(nameTest.reverse, n))
+  }
+
+  def testTake() =  {
+    val names = for (s <- getCollection) yield s.name.take(3)
+    names.run.foreach(n => assertEquals(nameTest.take(3), n))
+  }
+
+  def testDrop() = {
+    val names = for (s <- getCollection) yield s.name.drop(3)
+    names.run.foreach(n => assertEquals(nameTest.drop(3), n))
+  }
+
+  def testIndexOf() = ifCap(rcap.indexOf){
+    val names = for (s <- getCollection) yield (s.name.indexOf("o"), s.name.indexOf("r"))
+    names.run.foreach(n => {
+      assertEquals(nameTest.indexOf("o"), n._1); assertEquals(nameTest.indexOf("r"), n._2)
+    })
+  }
 }

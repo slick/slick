@@ -91,8 +91,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
     override protected val supportsTuples = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case Library.Substring(n, start, end) => b"substr($n, $start, $end)" // Jdbc driver can't map substring to substr
-      case Library.Substring(n, start) => b"substr($n, $start)"
+        // jdbc driver doesn't support substring jdbc function
+      case Library.Substring(n, LiteralNode(start: Int), LiteralNode(end: Int)) => b"\(substr($n, ${start+1}, ${end-start})\)"
+      case Library.Substring(n, LiteralNode(start: Int)) => b"\(substr($n, ${start + 1})\)"
       case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and
          * then to VARCHAR. */
