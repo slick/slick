@@ -85,7 +85,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
-  override protected val scalarFrom = Some("sysibm.sysdummy1")
+  override val scalarFrom = Some("sysibm.sysdummy1")
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false

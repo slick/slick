@@ -88,7 +88,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   // Immutable config options (to be overridden by subclasses)
   /** The table name for scalar selects (e.g. "select 42 from DUAL;"), or `None` for
     * scalar selects without a FROM clause ("select 42;"). */
-  protected val scalarFrom: Option[String] = None
+  val scalarFrom: Option[String] = None
 
   /** Builder for SELECT and UPDATE statements. */
   class QueryBuilder(val tree: Node, val state: CompilerState) { queryBuilder =>

@@ -45,7 +45,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
   override protected lazy val useServerSideUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
-  override protected val scalarFrom = Some("(VALUES (0))")
+  override val scalarFrom = Some("(VALUES (0))")
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) with OracleStyleRowNum {
     override protected val concatOperator = Some("||")

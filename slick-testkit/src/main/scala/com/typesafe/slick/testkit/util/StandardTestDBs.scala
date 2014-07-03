@@ -11,26 +11,20 @@ import scala.slick.jdbc.meta.MTable
 import org.junit.Assert
 
 object StandardTestDBs {
-  lazy val H2Mem = new InternalJdbcTestDB("h2mem") {
-    val driver = H2Driver
+  lazy val H2Mem = new H2TestDB("h2mem") {
     val url = "jdbc:h2:mem:test1"
-    val jdbcDriver = "org.h2.Driver"
     override def isPersistent = false
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
-  lazy val H2Disk = new InternalJdbcTestDB("h2disk") {
-    val driver = H2Driver
+  lazy val H2Disk = new H2TestDB("h2disk") {
     val dbName = "h2-"+confName
     val url = "jdbc:h2:"+TestkitConfig.testDBPath+"/"+dbName
-    val jdbcDriver = "org.h2.Driver"
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
     // Recreating the DB is faster than dropping everything individually
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
       session.close()
       cleanUpBefore()
     }
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
   lazy val HsqldbMem = new HsqlDB("hsqldbmem") {
@@ -94,7 +88,7 @@ object StandardTestDBs {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
       tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
+    override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
   }
 
   lazy val MySQL = new ExternalJdbcTestDB("mysql") {
@@ -104,7 +98,6 @@ object StandardTestDBs {
       session.close()
       cleanUpBefore()
     }
-    override lazy val capabilities = driver.capabilities + TestDB.plainSql + TestDB.plainSqlWide
   }
 
   lazy val MSAccess = new AccessDB("access")
@@ -133,6 +126,12 @@ object StandardTestDBs {
   }
 }
 
+abstract class H2TestDB(confName: String) extends InternalJdbcTestDB(confName) {
+  val driver = H2Driver
+  val jdbcDriver = "org.h2.Driver"
+  override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
+}
+
 class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(confName) {
   val driver = SQLiteDriver
   val url = dburl
@@ -145,7 +144,6 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
     for(t <- getLocalSequences)
       (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)).execute
   }
-  override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }
 
 @deprecated("AccessDriver will be removed when we drop support for Java versions < 8", "2.1")
@@ -169,7 +167,7 @@ class AccessDB(confName: String) extends ExternalJdbcTestDB(confName) {
   override def canGetLocalTables = false
   override def getLocalTables(implicit session: profile.Backend#Session) =
     MTable.getTables.list.map(_.name.name).sorted
-  override lazy val capabilities = driver.capabilities + TestDB.plainSql
+  override def capabilities = super.capabilities - TestDB.capabilities.jdbcMeta
 }
 
 abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
@@ -202,7 +200,6 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
         cleanUpBefore()
     }
   }
-  override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }
 
 object DerbyDB {
@@ -223,5 +220,4 @@ abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
     Logger.getLogger("org.hsqldb").setLevel(Level.OFF)
     Logger.getLogger("hsqldb").setLevel(Level.OFF)
   }
-  override lazy val capabilities = driver.capabilities + TestDB.plainSql
 }
