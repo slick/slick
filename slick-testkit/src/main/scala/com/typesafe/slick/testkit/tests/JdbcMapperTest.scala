@@ -215,6 +215,23 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
   }
 
+  def testCaseClassShape {
+    case class C(a: Int, b: String)
+    case class LiftedC(a: Column[Int], b: Column[String])
+    implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+
+    class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = LiftedC(id, s)
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+    val data = Seq(C(1, "a"), C(2, "b"))
+    as ++= data
+    assertEquals(as.sortBy(_.id).run, data)
+  }
+
   def testCustomShape {
     // A custom record class
     case class Pair[A, B](a: A, b: B)
