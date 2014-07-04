@@ -153,6 +153,29 @@ final class TupleShape[Level <: ShapeLevel, M <: Product, U <: Product, P <: Pro
   def copy(shapes: Seq[Shape[_ <: ShapeLevel, _, _, _]])  = new TupleShape(shapes: _*)
 }
 
+/** A generic case class shape that can be used to lift a case class of
+  * plain Scala types to a case class of lifted types. This allows the type
+  * to be used as a record type (like tuples and HLists) in the Lifted
+  * Embedding.
+  *
+  * Example:
+  *
+  * {{{
+  *   case class C(a: Int, b: String)
+  *   case class LiftedC(a: Column[Int], b: Column[String])
+  *   implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+  * }}}
+  */
+class CaseClassShape[P <: Product, LiftedTuple, LiftedCaseClass <: P, PlainTuple, PlainCaseClass <: P](
+   mapLifted: LiftedTuple => LiftedCaseClass, mapPlain: PlainTuple => PlainCaseClass)(
+   implicit columnShapes: Shape[FlatShapeLevel, LiftedTuple, PlainTuple, LiftedTuple], classTag: ClassTag[PlainCaseClass])
+extends MappedScalaProductShape[FlatShapeLevel, P, LiftedCaseClass, PlainCaseClass, LiftedCaseClass] {
+  val shapes = columnShapes.asInstanceOf[TupleShape[_,_,_,_]].shapes
+  override def toMapped(v: Any) = mapPlain(v.asInstanceOf[PlainTuple])
+  def buildValue(elems: IndexedSeq[Any]) = mapLifted(TupleSupport.buildTuple(elems).asInstanceOf[LiftedTuple])
+  def copy(s: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new CaseClassShape(mapLifted, mapPlain) { override val shapes = s }
+}
+
 /** The level of a Shape, i.e. what kind of types it allows.
   * Subtypes of this trait are used as a phantom type for Shape resolution.
   * There are no instances of any ShapeLevel. */
