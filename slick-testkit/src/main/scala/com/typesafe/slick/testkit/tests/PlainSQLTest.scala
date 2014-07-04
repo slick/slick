@@ -2,9 +2,9 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert
 import org.junit.Assert._
-import scala.slick.jdbc.{GetResult, StaticQuery => Q}
+import scala.slick.jdbc.{StaticQuery => Q, GetResult}
 import Q.interpolation
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
 class PlainSQLTest extends TestkitTest[JdbcTestDB] {
 
@@ -12,7 +12,7 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
 
   case class User(id:Int, name:String)
 
-  def testSimple = ifCap(TestDB.plainSql) {
+  def testSimple = ifCap(tcap.plainSql) {
     def getUsers(id: Option[Int]) = {
       val q = Q[User] + "select id, name from USERS "
       id map { q + "where id =" +? _ } getOrElse q
@@ -92,7 +92,7 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     assertUnquotedTablesExist("USERS")
   }
 
-  def testInterpolation = ifCap(TestDB.plainSql) {
+  def testInterpolation = ifCap(tcap.plainSql) {
     def userForID(id: Int) = sql"select id, name from USERS where id = $id".as[User]
     def userForIdAndName(id: Int, name: String) = sql"select id, name from USERS where id = $id and name = $name".as[User]
 
@@ -134,12 +134,12 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
         Assert.fail("Table "+t+" should not exist")
       } catch { case _: Exception => }
     }
-  }
 
-  def testWideResult = ifCap(TestDB.plainSqlWide) {
-    val q = sql"select 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23"
-    val r1 = q.as[((Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int),
-                   (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int))].first
+    val q = "select 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23" +
+      tdb.driver.scalarFrom.map(" from " + _).getOrElse("")
+
+    val r1 = Q.queryNA[((Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int),
+                        (Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int))](q).first
     assertEquals(((1,2,3,4,5,6,7,8,9,10,11,12),(13,14,15,16,17,18,19,20,21,22,23)), r1)
 
     class Foo(val v1: Int, val v2: Int, val v3: Int, val v4: Int,
@@ -163,7 +163,7 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
       }
     }
     implicit val getFooResult = GetResult(r => new Foo(r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<))
-    val r2 = q.as[Foo].first
+    val r2 = Q.queryNA[Foo](q).first
     assertEquals(new Foo(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23), r2)
   }
 }
