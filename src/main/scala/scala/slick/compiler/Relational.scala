@@ -1,5 +1,6 @@
 package scala.slick.compiler
 
+import scala.collection.mutable
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SlickException
 import scala.slick.ast._
@@ -470,95 +471,62 @@ class FuseComprehensions extends Phase {
 }
 
 class NoParenthesesUnion extends Phase {
-  val name = "NoParenthesesUnion"
+  override val name = "NoParenthesesUnion"
 
-  def apply(state: CompilerState) = state.map { n =>
+  override def apply(state: CompilerState) = state.map { n =>
     ClientSideOp.mapServerSide(n)(process)
   }
 
   def process(n: Node): Node = {
     def areThereOnlySelect(pure: Pure): Boolean = {
-      val w = pure.value match {
-        case StructNode(elements) => elements.forall(_._2.isInstanceOf[Select])
-        case ProductNode(elements) => elements.forall(_.isInstanceOf[Select])
-        case x => x.isInstanceOf[Select]
+      val x = pure.value match {
+        case ProductNode(elements) => elements.forall {
+          case _: Select => true
+          case _ => false
+        }
+        case _: Select => true
+        case _ => false
       }
-      w
+      x
     }
     def innerProcess(n: Node): Node = {
       n match {
         case union@Union(left: Comprehension, right: Comprehension, all, leftGen, rightGen) => {
-          val internalUnion = InternalUnion(right, rightGen, if (all) "union all" else "union")
-          val newAlias = right.select match {
-            case Some(Pure(StructNode(elements), _)) => {
-              elements.map(_._1)
-            }
-          }
-          val newUnionNodes = left.unionNodes.map {
-            case xxx@InternalUnion(comprehension@Comprehension(_, _, _, _, select@Some(Pure(StructNode(innerElements), _)), _, _, _), _, _) => {
-              val newInnerElements = innerElements.zip(newAlias).map {
-                case ((oldSymbol, currentNode), newSymbol) => (newSymbol, currentNode)
-              }
-              val newSelect = Some(Pure(StructNode(newInnerElements).withComputedTypeNoRec).withComputedTypeNoRec)
-              xxx.copy(inner = comprehension.copy(select = newSelect))
-            }
-          }
-          val newLeftSelect = left.select match {
-            case leftSelect@Some(Pure(StructNode(innerElements), _)) => {
-              val newSelectElements = innerElements.zip(newAlias).map {
-                case ((oldSymbol, currentNode), newSymbol) => (newSymbol, currentNode)
-              }
-              Some(Pure(StructNode(newSelectElements).withComputedTypeNoRec).withComputedTypeNoRec)
-            }
-          }
-          val x = left.copy(select = newLeftSelect, unionNodes = newUnionNodes ++ Seq(internalUnion))
-          x
+          val internalUnion = InternalUnion(right, if (all) "union all" else "union")
+          left.copy(unionNodes = left.unionNodes ++ Seq(internalUnion))
         }
-        case comprehension@Comprehension(from, where, groupBy, orderBy, select@Some(pure: Pure), fetch, offset, unionNodes)
-          if ((from.length <= 1) :: areThereOnlySelect(pure) :: where.isEmpty :: groupBy.isEmpty :: orderBy.isEmpty :: fetch.isEmpty :: offset.isEmpty :: Nil).forall(_ == true) => {
-          def retrieveColumnTypes(pure: Pure): Seq[Type] = {
-            pure.nodeType.asInstanceOf[CollectionType].
-              elementType.asInstanceOf[NominalType].
-              structuralView match {
-              case StructType(elements) => elements.map(_._2)
-              case ProductType(elements) => elements
-              case t: Type => Seq(t)
-            }
+        case outerComprehension@Comprehension(from@Seq((innerComprehensionSymbol, innerComprehension: Comprehension)), where, groupBy, orderBy, select@Some(pure: Pure), fetch, offset, unionNodes)
+          if (areThereOnlySelect(pure) :: where.isEmpty :: groupBy.isEmpty :: orderBy.isEmpty :: fetch.isEmpty :: offset.isEmpty :: Nil).forall(_ == true) => {
+          val outerColumns = pure match {
+            case Pure(ProductNode(outerColumns), _) => outerColumns
+            case Pure(outerColumn: Select, _) => Seq(outerColumn)
+            case _ => Nil
           }
-          val currentColumnTypes =
-            retrieveColumnTypes(pure).map {
-              case nominalType: NominalType =>
-                nominalType.structuralView match {
-                  case StructType(elements) if elements.length == 1 => elements.head._2
+          val innerColumns = innerComprehension.select match {
+            case Some(Pure(StructNode(innerColumns), _)) => innerColumns
+            case _ => Nil
+          }
+          val outerFieldSymbols = outerColumns.map {
+            case Select(_, fieldSymbol) => fieldSymbol
+            case x => throw new SlickException("Impossible.") // because areThereOnlySelect(pure) == true
+          }
+          val innerFieldSymbols = innerColumns.map(_._1)
+          if (outerFieldSymbols != Nil && outerFieldSymbols == innerFieldSymbols) {
+            val newInnerColumns = innerComprehension.select match {
+              case Some(Pure(StructNode(innerColumns), _)) => {
+                val newSymbols = pure match {
+                  case Pure(StructNode(outerColumns), _) => outerColumns.map(_._1)
+                  case _ => outerFieldSymbols
                 }
-              case x => x
-            }
-          val fromUnionNodes = from.map {
-            case (symbol, comprehension@Comprehension(_, _, _, _, Some(innerPure: Pure), _, _, unionNodes)) if unionNodes.length > 0 => {
-              val innerColumnTypes = retrieveColumnTypes(innerPure)
-              val unionNodesNodeType = unionNodes.map {
-                case InternalUnion(Comprehension(_, _, _, _, Some(innerInnerPure: Pure), _, _, _), innerGen, operator) =>
-                  retrieveColumnTypes(innerInnerPure)
+                innerColumns.zip(newSymbols).map { case ((innerSymbol, innerNode), newSymbol) => (newSymbol, innerNode)}
               }
-              (comprehension, Seq(innerColumnTypes) ++ unionNodesNodeType)
+              case _ => throw new SlickException("Impossible.") // because areThereOnlySelect(pure) == true
             }
-            case _ => (null, Nil)
-          }.filterNot(x => (x._2 == Nil))
-          val result =
-            if (fromUnionNodes.isEmpty) false
-            else fromUnionNodes.flatMap(_._2).forall(_.zip(currentColumnTypes).forall {
-              case (a, b) =>
-                if (a.children.isEmpty && b.children.isEmpty) a == b
-                else a.children == b.children
-            })
-          val x = if (result) {
-            val innerComprehension = fromUnionNodes.head._1
-            innerComprehension.copy(unionNodes = innerComprehension.unionNodes ++ unionNodes)
+            innerComprehension.copy(select = Some(Pure(StructNode(newInnerColumns))), unionNodes = innerComprehension.unionNodes ++ unionNodes)
           }
           else {
-            comprehension
+            outerComprehension
           }
-          x
         }
         case x => x
       }

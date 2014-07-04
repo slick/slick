@@ -220,7 +220,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def buildUnionNodes(unionNodes: Seq[Node]) = building(OtherPart) {
       unionNodes.foreach {
-        case InternalUnion(inner: Comprehension, innerGen, operator) =>
+        case InternalUnion(inner: Comprehension, operator) =>
           b" ${operator} "
           buildComprehension(inner)
       }
