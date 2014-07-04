@@ -199,24 +199,25 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
   }
 
   def testGroup3 {
-    case class Tab(col1: String, col2: String, col3: String, col4: Int)
+    case class Tab(col1: String, col2: String, col3: String, col4: Int, col5: Int)
 
     class Tabs(tag: Tag) extends Table[Tab](tag, "TAB_group3") {
       def col1 = column[String]("COL1")
       def col2 = column[String]("COL2")
       def col3 = column[String]("COL3")
       def col4 = column[Int]("COL4")
+      def col5 = column[Int]("COL5")
 
-      def * = (col1, col2, col3, col4) <> (Tab.tupled, Tab.unapply)
+      def * = (col1, col2, col3, col4, col5) <> (Tab.tupled, Tab.unapply)
     }
     val Tabs = TableQuery[Tabs]
 
     Tabs.ddl.create
     Tabs ++= Seq(
-      Tab("foo", "bar",  "bat", 1),
-      Tab("foo", "bar",  "bat", 2),
-      Tab("foo", "quux", "bat", 3),
-      Tab("baz", "quux", "bat", 4)
+      Tab("foo", "bar",  "bat", 1, 5),
+      Tab("foo", "bar",  "bat", 2, 6),
+      Tab("foo", "quux", "bat", 3, 7),
+      Tab("baz", "quux", "bat", 4, 8)
     )
 
     val q1 = Tabs.groupBy(t => (t.col1, t.col2, t.col3)).map {
@@ -228,6 +229,11 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       case (grp, t) => (grp._1._1, grp._1._2, t.map(_.col4).sum)
     }
     assertEquals(Set(("baz","quux",Some(4)), ("foo","quux",Some(3)), ("foo","bar",Some(3))), q2.run.toSet)
+
+    val q3 = Tabs.groupBy(_.col1).map {
+      case (grp, t) => (grp, t.map(x => x.col4 + x.col5).sum)
+    }
+    assertEquals(Set(("baz",Some(12)), ("foo",Some(24))), q3.run.toSet)
   }
 
   def testMultiMapAggregates {
