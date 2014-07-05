@@ -15,7 +15,11 @@ sealed trait QueryBase[T] extends Rep[T]
 /** An instance of Query represents a query or view, i.e. a computation of a
   * collection type (Rep[Seq[T]]). It is parameterized with both, the mixed
   * type (the type of values you see e.g. when you call map()) and the unpacked
-  * type (the type of values that you get back when you run the query).  */
+  * type (the type of values that you get back when you run the query).
+  *
+  * Additional extension methods for queries containing a single column are
+  * defined in [[scala.slick.lifted.SingleColumnQueryExtensionMethods]].
+  */
 sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def shaped: ShapedValue[_ <: E, U]
   final lazy val packed = shaped.toNode

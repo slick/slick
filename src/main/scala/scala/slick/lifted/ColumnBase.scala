@@ -11,7 +11,19 @@ trait Rep[T] {
   def toNode: Node
 }
 
-/** Base class for columns. */
+/** Base class for columns.
+  *
+  * Most operations are added with extension methods that depend on the type inside the `Column`.
+  * These are defined in:
+  * <ul>
+  *   <li>[[scala.slick.lifted.AnyExtensionMethods]] and [[scala.slick.lifted.ColumnExtensionMethods]] for columns of all types</li>
+  *   <li>[[scala.slick.lifted.OptionColumnExtensionMethods]] for columns of all `Option` types</li>
+  *   <li>[[scala.slick.lifted.PlainColumnExtensionMethods]] for columns of all non-`Option` types</li>
+  *   <li>[[scala.slick.lifted.NumericColumnExtensionMethods]] for columns of numeric types (and Options thereof)</li>
+  *   <li>[[scala.slick.lifted.BooleanColumnExtensionMethods]] for columns of `Boolean` / `Option[Boolean]`</li>
+  *   <li>[[scala.slick.lifted.StringColumnExtensionMethods]] for columns of `String` / `Option[String]`</li>
+  * </ul>
+  */
 abstract class Column[T](implicit final val tpe: TypedType[T]) extends Rep[T] { self =>
   /** Order by this column in ascending order */
   def asc = ColumnOrdered[T](this, Ordering())

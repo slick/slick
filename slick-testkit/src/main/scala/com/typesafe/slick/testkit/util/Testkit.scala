@@ -127,6 +127,7 @@ abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TD
   def rcap = RelationalProfile.capabilities
   def scap = SqlProfile.capabilities
   def jcap = JdbcProfile.capabilities
+  def tcap = TestDB.capabilities
   def ifCap[T](caps: Capability*)(f: => T): Unit =
     if(caps.forall(c => tdb.capabilities.contains(c))) f
   def ifNotCap[T](caps: Capability*)(f: => T): Unit =
