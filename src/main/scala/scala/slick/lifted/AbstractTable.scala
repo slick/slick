@@ -81,7 +81,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   // Define the check constraint for this table.
   // needs more detail and appropriate explain.
   def checkConstraint[TableType <: AbstractTable[T], RetType <: Column[_]]
-  (name:String, f: TableType => RetType)(implicit wt: CanBeQueryCondition[RetType]): CheckConstraintQuery[TableType, TableType#TableElementType] = {
+  (name: String, f: TableType => RetType)(implicit wt: CanBeQueryCondition[RetType]): CheckConstraintHolder = {
     // this is copied from Query.filter almost.
     val generator = new AnonSymbol
     // this is copied from TableQuery.scala:234
@@ -90,9 +90,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
       RepShape[FlatShapeLevel, TableType, TableType#TableElementType])
     val aliased = shaped.encodeRef(generator :: Nil)
     val fv = f(aliased.value)
-    val query =
-      new CheckConstraintQuery[TableType, TableType#TableElementType](name, Filter.ifRefutable(generator, toNode, wt(fv).toNode), shaped)
-    query
+    new CheckConstraintHolder(name, Filter.ifRefutable(generator, toNode, wt(fv).toNode))
   }
 
   /** Define the primary key for this table.
@@ -114,8 +112,8 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   final def primaryKeys: Iterable[PrimaryKey] =
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq.sortBy(_.name)
 
-  final def checkConstraints[E <: AbstractTable[T]]: Iterable[CheckConstraintQuery[_, _]] =
-    tableConstraints.collect { case k: CheckConstraintQuery[_, _] => k}.toIndexedSeq
+  final def checkConstraints[E <: AbstractTable[T]]: Iterable[CheckConstraintHolder] =
+    tableConstraints.collect { case k: CheckConstraintHolder => k}.toIndexedSeq
 
   /** Define an index or a unique constraint. */
   def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)

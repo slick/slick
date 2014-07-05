@@ -374,12 +374,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         }
         b += symbolName(struct) += '.' += symbolName(field)
       case OptionApply(ch) => expr(ch, skipParens)
-      case CheckConstraintColumnNode(field) =>
-        // the main from's table alias should be not used in check constraint.
-        // so, the table alias is dropped in buildCheckConstraint already.
-        // so, this Node has just one symbol which is table column's name.
-        b += symbolName(field)
-       case n => // try to build a sub-query
+      case n => // try to build a sub-query
         b"\("
         buildComprehension(toComprehension(n))
         b"\)"
@@ -430,29 +425,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def buildCheckConstraint(): SQLBuilder.Result = {
-      // TODO which is better way between this way and creating separated phase?
-      def convertColumns(convertMap: Set[Seq[Symbol]])(n: Node): Node = {
-        def innerConvertColumns(convertMap: Set[Seq[Symbol]])(n: Node): Node = {
-          n match {
-            // if current Node which is in the where Node is the one of TableNode's columns' Node,
-            // replace to CheckConstraintColumNode.
-            case Path(symbols) if convertMap(symbols) => CheckConstraintColumnNode(symbols.head)
-            case n => n
-          }
-        }
-        innerConvertColumns(convertMap)(n.nodeMapChildren(convertColumns(convertMap))).nodeTypedOrCopy(n.nodeType)
-      }
       tree match {
         case Comprehension(Seq((tableAlias, tableNode: TableNode)), wheres, _, _, _, _, _) =>
-          tableNode.nodeType.asInstanceOf[CollectionType].elementType.asInstanceOf[NominalType].structuralView.asInstanceOf[StructType].elements
-          val convertMap = tableNode.nodeType match {
-            case CollectionType(_, nominalType: NominalType) =>
-              nominalType.structuralView match {
-                case StructType(elements) => elements.map(_._1).map(Seq(_, tableAlias)).toSet
-              }
-          }
-          val columnNodes: Seq[Node] = wheres.map(convertColumns(convertMap))
-          buildCheckConstraint(columnNodes)
+          // copied from `def buildDelete`. https://github.com/slick/slick/pull/849
+          val qtn = quoteTableName(tableNode)
+          symbolName(tableAlias) = qtn
+          buildCheckConstraint(wheres)
         // TODO please suggest more appropriately message.
         case _ => throw new SlickException("Unexpected node type. CheckConstraint should be based on simple Table query.")
       }
@@ -631,7 +609,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val indexes: Iterable[Index] = table.indexes
     protected val foreignKeys: Iterable[ForeignKey] = table.foreignKeys
     protected val primaryKeys: Iterable[PrimaryKey] = table.primaryKeys
-    protected val checkConstraints: Iterable[CheckConstraintQuery[_, _]] = table.checkConstraints
+    protected val checkConstraints: Iterable[CheckConstraintHolder] = table.checkConstraints
 
     // this is used to get translated-where-clause sql text.
     // In this point, there is no a queryCompiler instance. in subclasses, this method must be implemented.
@@ -743,7 +721,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b.toString()
     }
 
-    protected def createCheckConstraint(checkConstraint: CheckConstraintQuery[_, _]): Option[String] = {
+    protected def createCheckConstraint(checkConstraint: CheckConstraintHolder): Option[String] = {
       def utilMethod(n: Node): String = {
         n match {
           case ResultSetMapping(_, from: CompiledStatement, _) =>
@@ -752,11 +730,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         }
       }
       queryCompiler.
-        map(_.run(checkConstraint.toNode)).
+        map(_.run(checkConstraint._2)).
         map(_.tree).
         map(utilMethod).
         filterNot(_.isEmpty).
-        map(x => f"${prepareCheckConstraintCondition(checkConstraint.constraintName, x)}")
+        map(x => f"${prepareCheckConstraintCondition(checkConstraint._1, x)}")
     }
   }
 
