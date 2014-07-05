@@ -30,7 +30,9 @@
     <logger name="scala.slick.compiler.SpecializeParameters"      level="${log.qcomp.specializeParameters:-inherited}" />
     <logger name="scala.slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />
     <logger name="scala.slick.compiler.InsertCompiler"            level="${log.qcomp.insertCompiler:-inherited}" />
-    <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.session:-info}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.jdbc.statement:-info}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.benchmark"         level="${log.jdbc.bench:-info}" />
+    <logger name="scala.slick.jdbc.StatementInvoker.result"       level="${log.jdbc.result:-info}" />
     <logger name="scala.slick.jdbc.meta"                          level="${log.createModel:-info}" />
     <logger name="scala.slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
     <logger name="scala.slick.memory.HeapBackend$"                level="${log.heap:-inherited}" />

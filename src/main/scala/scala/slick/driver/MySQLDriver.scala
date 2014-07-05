@@ -49,7 +49,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
-  override protected val scalarFrom = Some("DUAL")
+  override val scalarFrom = Some("DUAL")
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsCast = false

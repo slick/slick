@@ -16,3 +16,4 @@ target/
 slick-testkit/src/codegen/resources/dbs/hsql/supp.properties
 lib
 *.autosave
+src/sphinx/capabilities.csv
