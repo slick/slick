@@ -36,11 +36,23 @@ trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTab
      * Composition is such that given {{{A.ddl ++ B.ddl}}} the create phases will be
      * run in FIFO order and the drop phases will be run in LIFO order.
      */
-    def ++(other: DDL): DDL = new DDL {
+    override def ++(other: DDL): DDL = new DDL {
       protected lazy val createPhase1 = self.createPhase1 ++ other.createPhase1
       protected lazy val createPhase2 = self.createPhase2 ++ other.createPhase2
       protected lazy val dropPhase1 = other.dropPhase1 ++ self.dropPhase1
       protected lazy val dropPhase2 = other.dropPhase2 ++ self.dropPhase2
+    }
+
+    override def hashCode() = 
+      Vector(self.createPhase1, self.createPhase2, self.dropPhase1, self.dropPhase2).hashCode
+
+    override def equals(o: Any) = o match {
+      case ddl: DDL => 
+        self.createPhase1 == ddl.createPhase1 &&
+        self.createPhase2 == ddl.createPhase2 &&
+        self.dropPhase1 == ddl.dropPhase1 &&
+        self.dropPhase2 == ddl.dropPhase2
+      case _ => false
     }
   }
 

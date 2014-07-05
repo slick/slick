@@ -91,3 +91,29 @@ pre.literal-block {
   margin-top: 0.8em;
   margin-bottom: 0.8em;
 }
+
+table.docutils {
+  background-color: #e0e0e0;
+  border: 0;
+  padding: 0.2em;
+  border: 1px solid #CCCCCC;
+  margin-left: auto;
+  margin-right: auto;
+  width: 0;
+}
+table.docutils th, table.docutils td {
+  text-align: center;
+  border: 0;
+  padding-left: 1em;
+  padding-right: 1em;
+}
+table.docutils td {
+  background-color: #F8F8F8;
+}
+table.docutils caption {
+  margin: 0.5em;
+  font-family: sans-serif;
+  font-size: 13pt;
+  font-weight: bold;
+  color: rgba(218, 56, 48, 0.9);
+}

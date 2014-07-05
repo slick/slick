@@ -3,6 +3,7 @@ import Keys._
 import Tests._
 import com.typesafe.sbt.site.SphinxSupport.{Sphinx, sphinxEnv, sphinxProperties}
 import com.typesafe.sbt.SbtSite.site
+import com.typesafe.sbt.SbtSite.SiteKeys.makeSite
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
@@ -169,6 +170,7 @@ object SlickBuild extends Build {
         ("version" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1""")) +
         ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
+      makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
       test := (), // suppress test status output
       testOnly :=  (),
       previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
@@ -234,6 +236,15 @@ object SlickBuild extends Build {
         val products = a.relations.allProducts.toSeq ** new SimpleFileFilter(_.getParentFile.getName == "compile")
         IO.delete(products.get)
         a
+      },
+      buildCapabilitiesTable := {
+        val logger = ConsoleLogger()
+        Run.executeTrapExit({
+          Run.run( "com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
+            (fullClasspath in Compile).value.map(_.data),
+            Seq("src/sphinx/capabilities.csv"),
+            logger)(runner.value)
+        }, logger)
       }
     ) ++ ifPublished(Seq(
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test")
@@ -281,6 +292,8 @@ object SlickBuild extends Build {
       new Group("inProcess", notFork, InProcess)
     )
   }
+
+  lazy val buildCapabilitiesTable = taskKey[Unit]("Build the capabilities.csv table for the documentation")
 
   /* FMPP Task */
   lazy val fmpp = TaskKey[Seq[File]]("fmpp")
