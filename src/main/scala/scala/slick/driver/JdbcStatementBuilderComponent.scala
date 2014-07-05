@@ -88,7 +88,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   // Immutable config options (to be overridden by subclasses)
   /** The table name for scalar selects (e.g. "select 42 from DUAL;"), or `None` for
     * scalar selects without a FROM clause ("select 42;"). */
-  protected val scalarFrom: Option[String] = None
+  val scalarFrom: Option[String] = None
 
   /** Builder for SELECT and UPDATE statements. */
   class QueryBuilder(val tree: Node, val state: CompilerState) { queryBuilder =>
@@ -412,9 +412,16 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def buildDelete: SQLBuilder.Result = {
+      def fail(msg: String) =
+        throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, _, _, Some(Pure(select, _)), None, None, Nil) => (sym, from, where)
-        case o => throw new SlickException("A query for a DELETE statement must resolve to a comprehension with a single table -- Unsupported shape: "+o)
+        case Comprehension(from, where, _, _, Some(Pure(select, _)), fetch, offset, Nil) =>
+          if(fetch.isDefined || offset.isDefined) fail(".take and .drop are not supported")
+          from match {
+            case Seq((sym, from: TableNode)) => (sym, from, where)
+            case from => fail("A single source table is required, found: "+from)
+          }
+        case o => fail("Unsupported shape: "+o+" -- A single SQL comprehension is required")
       }
       val qtn = quoteTableName(from)
       symbolName(gen) = qtn // Alias table to itself because DELETE does not support aliases

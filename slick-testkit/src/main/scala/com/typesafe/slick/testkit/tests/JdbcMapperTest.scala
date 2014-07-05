@@ -155,6 +155,34 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals(oData, ts.first)
   }
 
+  def testNestedMappedEntity {
+    case class Part1(i1: Int, i2: String)
+    case class Part2(i1: String, i2: Int)
+    case class Whole(p1: Part1, p2: Part2)
+
+    class T(tag: Tag) extends Table[Whole](tag, "t_nested") {
+      def p1 = column[Int]("p1")
+      def p2 = column[String]("p2")
+      def p3 = column[String]("p3")
+      def p4 = column[Int]("p4")
+      def part1 = (p1,p2) <> (Part1.tupled,Part1.unapply)
+      def part2 = (p3,p4) <> (Part2.tupled,Part2.unapply)
+      def * = (part1, part2) <> (Whole.tupled,Whole.unapply)
+    }
+    val T = TableQuery[T]
+
+    val data = Seq(
+      Whole(
+        Part1(1, "2"),
+        Part2("3", 4)
+      )
+    )
+
+    T.ddl.create
+    T.insertAll(data:_*)
+
+    assertEquals(data, T.run)
+  }
   def testMappedJoin {
     case class A(id: Int, value: Int)
     case class B(id: Int, value: Option[String])
@@ -185,6 +213,23 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     val r = q.run.toList
     val r2: List[(A, B)] = r
     assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
+  }
+
+  def testCaseClassShape {
+    case class C(a: Int, b: String)
+    case class LiftedC(a: Column[Int], b: Column[String])
+    implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+
+    class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = LiftedC(id, s)
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+    val data = Seq(C(1, "a"), C(2, "b"))
+    as ++= data
+    assertEquals(as.sortBy(_.id).run, data)
   }
 
   def testCustomShape {

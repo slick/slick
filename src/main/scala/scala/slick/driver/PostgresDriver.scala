@@ -107,8 +107,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
-      if(autoIncrement && !customSqlType) sb append "SERIAL"
-      else sb append sqlType
+      val typeName =
+        if(autoIncrement && !customSqlType) {
+          if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL"
+        } else sqlType
+      sb append typeName
       autoIncrement = false
       appendOptions(sb)
     }

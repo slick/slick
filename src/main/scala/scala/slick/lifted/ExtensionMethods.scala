@@ -7,18 +7,18 @@ import ScalaBaseType._
 import scala.slick.SlickException
 
 trait ExtensionMethods[B1, P1] extends Any {
-  def c: Column[P1]
-  @inline def n = c.toNode
-  @inline implicit def p1Type = c.tpe
-  implicit def b1Type = (c.tpe match {
+  protected[this] def c: Column[P1]
+  @inline protected[this] def n = c.toNode
+  @inline protected[this] implicit def p1Type = c.tpe
+  implicit protected[this] def b1Type = (c.tpe match {
     case o: OptionTypedType[_] => o.elementType
     case b => b
   }).asInstanceOf[TypedType[B1]]
-  implicit def optionType = (c.tpe match {
+  implicit protected[this] def optionType = (c.tpe match {
     case o: OptionTypedType[_] => o
     case b => b.optionType
   }).asInstanceOf[TypedType[Option[B1]]]
-  type o = OptionMapperDSL.arg[B1, P1]
+  protected[this] type o = OptionMapperDSL.arg[B1, P1]
 }
 
 /** Extension methods for all Columns and all primitive values that can be lifted to Columns */
@@ -30,7 +30,7 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 
 /** Extension methods for all Columns */
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
-  def c: Column[P1]
+  protected[this] def c: Column[P1]
 
   @deprecated("Use 'isEmpty' instead of 'isNull'", "2.1")
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))

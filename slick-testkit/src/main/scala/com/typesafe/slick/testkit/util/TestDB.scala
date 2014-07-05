@@ -14,10 +14,20 @@ import org.junit.Assert
 import com.typesafe.config.Config
 
 object TestDB {
-  /** Marks a driver which is specially supported by the test kit for plain SQL queries */
-  val plainSql = new Capability("test.plainSql")
-  /** Marks a driver which is specially supported by the test kit for plain SQL wide result set queries */
-  val plainSqlWide = new Capability("test.plainSqlWide")
+  object capabilities {
+    /** Marks a driver which is specially supported by the test kit for plain SQL queries. */
+    val plainSql = new Capability("test.plainSql")
+    /** Supports JDBC metadata in general */
+    val jdbcMeta = new Capability("test.jdbcMeta")
+    /** Supports JDBC metadata getClientInfoProperties method */
+    val jdbcMetaGetClientInfoProperties = new Capability("test.jdbcMetaGetClientInfoProperties")
+    /** Supports JDBC metadata getFunctions method */
+    val jdbcMetaGetFunctions = new Capability("test.jdbcMetaGetFunctions")
+    /** Supports JDBC metadata getIndexInfo method */
+    val jdbcMetaGetIndexInfo = new Capability("test.jdbcMetaGetIndexInfo")
+
+    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo)
+  }
 
   /** Copy a file, expanding it if the source name ends with .gz */
   def copy(src: File, dest: File) {
@@ -109,7 +119,7 @@ trait TestDB {
 
   /** The capabilities of the Slick driver, possibly modified for this
     * test configuration. */
-  def capabilities: Set[Capability] = profile.capabilities
+  def capabilities: Set[Capability] = profile.capabilities ++ TestDB.capabilities.all
 
   def confOptionalString(path: String) = if(config.hasPath(path)) Some(config.getString(path)) else None
   def confString(path: String) = confOptionalString(path).getOrElse(null)
