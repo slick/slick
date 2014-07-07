@@ -8,6 +8,7 @@ import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
+import com.typesafe.sbt.sdlc.Plugin._
 
 object SlickBuild extends Build {
 
@@ -147,7 +148,12 @@ object SlickBuild extends Build {
   }
 
   /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
-  def testAll = Command.command("testAll")(runTasksSequentially(List(test in (slickTestkitProject, Test), test in (slickTestkitProject, DocTest), test in (osgiTestProject, Test))))
+  def testAll = Command.command("testAll")(runTasksSequentially(List(
+    test in (slickTestkitProject, Test),
+    test in (slickTestkitProject, DocTest),
+    test in (osgiTestProject, Test),
+    sdlc in slickProject
+  )))
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
@@ -159,7 +165,7 @@ object SlickBuild extends Build {
       commands += testAll
     )).aggregate(slickProject, slickTestkitProject)
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
+    settings = Project.defaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -171,6 +177,9 @@ object SlickBuild extends Build {
         ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
       makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
+      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/api/",
+      sdlcCheckDir := (target in com.typesafe.sbt.SbtSite.SiteKeys.makeSite).value,
+      sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
       test := (), // suppress test status output
       testOnly :=  (),
       previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
