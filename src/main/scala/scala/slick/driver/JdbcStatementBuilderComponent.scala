@@ -695,6 +695,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   class ColumnDDLBuilder(column: FieldSymbol) {
     protected val JdbcType(jdbcType, isOption) = column.tpe
     protected var sqlType: String = null
+    protected var varying: Boolean = false
+    protected var size: Option[Int] = None
     protected var customSqlType: Boolean = false
     protected var notNull = !isOption
     protected var autoIncrement = false
@@ -703,6 +705,15 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     init()
 
     protected def init() {
+      if(
+        column.options.collect{
+          case _:ColumnOption.DBType =>
+          case _:ColumnOption.Length[_] =>
+        }.size > 1
+      ){
+        throw new SlickException("Please specify either ColumnOption DBType or Length, not both for column ${column.name}.")
+      }
+
       for(o <- column.options) handleColumnOption(o)
       if(sqlType eq null) sqlType = jdbcType.sqlTypeName
       else customSqlType = true
@@ -710,6 +721,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
       case ColumnOption.DBType(s) => sqlType = s
+      case ColumnOption.Length(s,v) =>
+        size = Some(s)
+        varying = v
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
@@ -717,9 +731,23 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
     }
 
+    def appendType(sb: StringBuilder): Unit = {
+      if(size == None){
+        sb append sqlType
+      }
+      size.foreach{ s =>
+        // TODO: this probably needs to be generalized and unified with defaultSqlTypeName
+        if(varying)
+          sb append "VARCHAR"
+        else
+          sb append "CHAR"
+        sb append "("+s+")"
+      }
+    }
+
     def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
-      sb append sqlType
+      appendType(sb)
       appendOptions(sb)
     }
 

@@ -230,7 +230,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
       if(autoIncrement && !customSqlType) sb append "AUTOINCREMENT"
-      else sb append sqlType
+      else appendType(sb)
       autoIncrement = false
       appendOptions(sb)
     }

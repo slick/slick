@@ -128,6 +128,7 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
+    val Length = ColumnOption.Length
   }
 
   val columnOptions: ColumnOptions = new AnyRef with ColumnOptions
@@ -143,9 +144,18 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
     val O: driver.columnOptions.type = columnOptions
 
+    /**
+      * Note that Slick uses VARCHAR or VARCHAR(254) in DDL for String
+      * columns if neither ColumnOption DBType nor Length are given.
+      */
     def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
-      if(tm == null)
-        throw new NullPointerException("implicit TypedType[C] for column[C] is null. This may be an initialization order problem. When using a MappedColumnType, you may want to change it from a val to a lazy val or def.")
+      if(tm == null){
+        throw new NullPointerException(
+          "implicit TypedType[C] for column[C] is null. "+
+          "This may be an initialization order problem. "+
+          "When using a MappedColumnType, you may want to change it from a val to a lazy val or def."
+        )
+      }
       override def toNode =
         Select((tableTag match {
           case r: RefTag => Path(r.path)
