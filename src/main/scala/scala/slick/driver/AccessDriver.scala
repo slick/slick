@@ -197,6 +197,7 @@ trait AccessDriver extends JdbcDriver { driver =>
           case tn =>
             throw new SlickException(s"""Cannot represent cast to type "$tn" in Access SQL""")
         }
+      case Library.Reverse(n) => b"StrReverse($n)"
       case RowNumber(_) => throw new SlickException("Access does not support row numbers")
       case _ => super.expr(c, skipParens)
     }

@@ -12,6 +12,8 @@ import scala.slick.jdbc.JdbcType
   * ''without'' the following capabilities:
   *
   * <ul>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.reverse]]:
+  *     This String function is not available in H2.</li>
   *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceMin]],
   *     [[scala.slick.profile.SqlProfile.capabilities.sequenceMax]],
   *     [[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:

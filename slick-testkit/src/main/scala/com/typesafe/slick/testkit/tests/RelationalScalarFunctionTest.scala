@@ -52,5 +52,17 @@ class RelationalScalarFunctionTest extends TestkitTest[RelationalTestDB] {
     check(LiteralColumn(-10.0).sign, -1)
     assertEquals(180.0, Functions.pi.toDegrees.run, 0.00001)
     assertTrue((Functions.pi.toDegrees.toRadians - Functions.pi).abs.run <= 0.00001)
+
+    val s = "abcdefghijklmnopqrstuvwxyz"
+    check(LiteralColumn(s).substring(3, 5), s.substring(3, 5))
+    check(LiteralColumn(s).substring(3), s.substring(3))
+    check(LiteralColumn(s).take(3), s.take(3))
+    check(LiteralColumn(s).drop(3), s.drop(3))
+    ifCap(rcap.replace)(check(LiteralColumn(s).replace("cd", "XXX"), s.replace("cd", "XXX")))
+    ifCap(rcap.reverse)(check(LiteralColumn(s).reverseString, s.reverse))
+    ifCap(rcap.indexOf) {
+      check(LiteralColumn(s).indexOf("o"), s.indexOf("o"))
+      check(LiteralColumn(s).indexOf("7"), s.indexOf("7"))
+    }
   }
 }
