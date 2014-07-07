@@ -1,6 +1,6 @@
-package scala.slick.test.model.codegen
+package scala.slick.test.codegen
 
-import scala.slick.model.codegen.SourceCodeGenerator
+import scala.slick.codegen.SourceCodeGenerator
 import scala.slick.driver._
 import scala.slick.jdbc.JdbcBackend
 import scala.slick.driver.JdbcDriver
@@ -15,7 +15,7 @@ object CodeGeneratorTest {
       import config._
       val db = slickDriverObject.simple.Database.forURL(url=url,driver=jdbcDriver,user="",password="")
       db.withSession{ implicit session =>
-        generator(config)(session).writeToFile(profile=slickDriver, folder=args(0), pkg="scala.slick.test.model.codegen.generated", objectName, fileName=objectName+".scala" )
+        generator(config)(session).writeToFile(profile=slickDriver, folder=args(0), pkg="scala.slick.test.codegen.generated", objectName, fileName=objectName+".scala" )
       }
     }
     ;{
@@ -48,7 +48,7 @@ object CodeGeneratorTest {
           })
         )
       }
-      val pkg = "scala.slick.test.model.codegen.roundtrip"
+      val pkg = "scala.slick.test.codegen.roundtrip"
       gen.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg )
       gen2.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg+"2" )
     }
@@ -116,8 +116,8 @@ trait B
           override def code = {
             if(model.name.table == "SIMPLE_AS"){
               Seq("""
-import scala.slick.test.model.codegen.CustomTyping._
-import scala.slick.test.model.codegen.CustomTyping
+import scala.slick.test.codegen.CustomTyping._
+import scala.slick.test.codegen.CustomTyping
 type SimpleA = CustomTyping.SimpleA
 val  SimpleA = CustomTyping.SimpleA
                 """.trim) ++ super.code

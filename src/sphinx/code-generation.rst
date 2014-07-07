@@ -84,7 +84,7 @@ Custom sub-generators can easily be added as well.
 Within the sub-generators the relevant part of the Slick data model can
 be accessed to drive the code generation.
 
-Please see the :api:`api documentation <scala.slick.model.codegen.SourceCodeGenerator>` for info
+Please see the :codegenapi:`api documentation <scala.slick.codegen.SourceCodeGenerator>` for info
 on all of the methods that can be overridden for customization.
 
 Here is an example for customizing the generator:

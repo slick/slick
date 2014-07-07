@@ -1,4 +1,4 @@
-package scala.slick.model.codegen
+package scala.slick.codegen
 
 import scala.slick.{model => m}
 import scala.slick.model.ForeignKeyAction
@@ -196,7 +196,7 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
   }
 }
 
-trait StringGeneratorHelpers extends scala.slick.model.codegen.GeneratorHelpers[String,String,String]{
+trait StringGeneratorHelpers extends scala.slick.codegen.GeneratorHelpers[String,String,String]{
   def docWithCode(doc: String, code:String): String = (if(doc != "") "/** "+doc.split("\n").mkString("\n *  ")+" */\n" else "") + code
   final def optionType(t: String) = s"Option[$t]"
   def parseType(tpe: String): String = tpe

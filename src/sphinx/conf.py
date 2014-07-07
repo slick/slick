@@ -258,6 +258,7 @@ extlinks = {
 
 apilinks = {
   'api': 'http://slick.typesafe.com/doc/'+release+'/api/#%s',
+  'codegenapi': 'http://slick.typesafe.com/doc/'+release+'/codegen-api/#%s',
   'scalaapi': 'http://www.scala-lang.org/api/'+scala_version+'/#%s'
 }
 
