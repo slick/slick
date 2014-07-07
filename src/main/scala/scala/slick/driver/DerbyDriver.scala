@@ -9,6 +9,7 @@ import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.{Invoker, JdbcType}
+import scala.slick.model.Model
 
 /** Slick driver for Derby/JavaDB.
   *
@@ -71,7 +72,19 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.reverse
   )
 
-  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def schema = super.schema.filter(_ != "APP") // remove default schema
+    }
+  }
+
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+
+  override def defaultTables(implicit session: Backend#Session)
+    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
 
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
   override val columnTypes = new JdbcTypes

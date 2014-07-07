@@ -35,13 +35,13 @@ object CodeGeneratorTest {
       val (gen,gen2) = db.withSession{ implicit session =>
         ddl.create
         (
-          (new SourceCodeGenerator(driver.createModel(session)){
+          (new SourceCodeGenerator(driver.createModel(ignoreInvalidDefaults=false)(session)){
             override def tableName = {
               case n if n.toLowerCase == "null" => "null" // testing null as table name
               case n => super.tableName(n)
             }
           }),
-          (new SourceCodeGenerator(driver.createModel(session)){
+          (new SourceCodeGenerator(driver.createModel(ignoreInvalidDefaults=false)(session)){
             override def Table = new Table(_){
               override def autoIncLastAsOption = true
             }
@@ -60,27 +60,26 @@ object CodeGeneratorTest {
       "CG2",
       "jdbc:hsqldb:"+testdbLocation+"hsql/supp;shutdown=true",
       HsqldbDriver, "scala.slick.driver.HsqldbDriver", "org.hsqldb.jdbcDriver",
-      config => session => new MySourceCodeGenerator(HsqldbDriver.createModel(session),config)
+      config => session => new MySourceCodeGenerator(HsqldbDriver.createModel(ignoreInvalidDefaults=false)(session),config)
     ),
     Config("CG3", "jdbc:sqlite:"+testdbLocation+"sqlite/sqlite-supp.db",
       SQLiteDriver, "scala.slick.driver.SQLiteDriver", "org.sqlite.JDBC",
-      config => session => new MySourceCodeGenerator(SQLiteDriver.createModel(session),config)
+      config => session => new MySourceCodeGenerator(SQLiteDriver.createModel(ignoreInvalidDefaults=false)(session),config)
     ),
     new H2Config("CG4", Seq("create-fk-1.sql")),
     new H2Config("CG5", Seq("create-fk-2.sql")),
     // CG5b tests that foreign keys to not included tables are removed
     new H2Config("CG5b", Seq("create-fk-2.sql"),
       config => session => new MySourceCodeGenerator(
-        createModel(
-          H2Driver.getTables.list(session).filter(_.name.name == "a"),
-          H2Driver
+        H2Driver.createModel(
+          Some(H2Driver.defaultTables(session).filter(_.name.name == "a"))
         )(session),
         config
       )
     ),
     new H2Config("CG6", Seq("create-ainc.sql")),
     new H2Config("CG7", Seq("create.sql","populate.sql"),
-      config => session => new MySourceCodeGenerator(H2Driver.createModel(session),config){
+      config => session => new MySourceCodeGenerator(H2Driver.createModel(ignoreInvalidDefaults=false)(session),config){
         override def entityName = {
           case "COFFEES" => "Coff"
           case other => super.entityName(other)
@@ -107,7 +106,7 @@ trait B
       }
     ),
     new H2Config("CG8", Seq("create-simple.sql"),
-      config => session => new MySourceCodeGenerator(H2Driver.createModel(session),config){
+      config => session => new MySourceCodeGenerator(H2Driver.createModel(ignoreInvalidDefaults=false)(session),config){
         override def Table = new Table(_){
           override def EntityType = new EntityType{
             override def enabled = false
@@ -133,7 +132,7 @@ val  SimpleA = CustomTyping.SimpleA
       }
     ),
     new H2Config("CG9", Seq("create-ainc.sql"),
-      config => session => new MySourceCodeGenerator(H2Driver.createModel(session),config){
+      config => session => new MySourceCodeGenerator(H2Driver.createModel(ignoreInvalidDefaults=false)(session),config){
         override def Table = new Table(_){
           override def autoIncLastAsOption = true
         }
@@ -166,7 +165,7 @@ val database = Database.forURL(url=""\"$url""\",driver="$jdbcDriver",user="",pas
     objectName: String,
     inits: Seq[String],
     generator: Config => JdbcBackend#Session => SourceCodeGenerator
-      = config => session => new MySourceCodeGenerator(H2Driver.createModel(session),config)
+      = config => session => new MySourceCodeGenerator(H2Driver.createModel(ignoreInvalidDefaults=false)(session),config)
   ) extends Config(
     objectName,
     "jdbc:h2:mem:test3;INIT="+inits.map("runscript from '"+testdbLocation+"h2mem/"+_+"'").mkString("\\;"),
@@ -225,6 +224,8 @@ class Tables(val profile: JdbcProfile){
     def * = (pk,pk2,a,c,s,sx,i1,p,t_ag,tt,_underscore)
     def idx1 = index("",i1) // idx column collision
     def idx2 = index("i2",i1) // idx column collision
+    def idx3 = index("foo",c,unique=true)
+    def idx4 = index("bar",p,unique=true)
     def categoryFK1 = foreignKey("fk1", pk, categories)(_.id) // dup FK collision
     def categoryFK2 = foreignKey("fk2", pk2, categories)(_.id)
     def postsFK = foreignKey("fk_to_posts", p, posts)(_.id) // fk column name collision
