@@ -32,9 +32,7 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
 
     import scala.slick.jdbc.meta.createModel
     // fetch data model
-    val model = {
-      createModel(tdb.profile.getTables.list.filter(_.name.name.toLowerCase != "sqlite_sequence"),tdb.profile)
-    }
+    val model = tdb.profile.createModel()
     // customize code generator
     val codegen = new SourceCodeGenerator(model){
       // override mapped table and class name

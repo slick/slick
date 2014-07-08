@@ -144,10 +144,11 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
       import ColumnOption._
       def columnOptionCode = {
         case ColumnOption.PrimaryKey => Some(s"O.PrimaryKey")
-        case Default(value) => Some(s"O.Default(${default.get})") // .get is safe here
-        case DBType(dbType) => Some(s"O.DBType($dbType)")
-        case AutoInc        => Some(s"O.AutoInc")
-        case NotNull|Nullable => throw new SlickException( s"Please don't use Nullable or NotNull column options. Use an Option type, respectively the nullable flag in Slick's model model Column." )
+        case Default(value)     => Some(s"O.Default(${default.get})") // .get is safe here
+        case DBType(dbType)     => Some(s"O.DBType($dbType)")
+        case Length(length,varying) => Some(s"O.Length($length,varying=$varying)")
+        case AutoInc            => Some(s"O.AutoInc")
+        case NotNull|Nullable   => throw new SlickException( s"Please don't use Nullable or NotNull column options. Use an Option type, respectively the nullable flag in Slick's model model Column." )
         case o => throw new SlickException( s"Don't know how to generate code for unexpected ColumnOption $o." )
       }
       def defaultCode = {

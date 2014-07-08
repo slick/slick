@@ -9,7 +9,7 @@ import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.model.Model
 import scala.slick.jdbc.Invoker
-import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
+import scala.slick.jdbc.meta.MTable
 
 /** Slick driver for SQLite.
   *
@@ -64,12 +64,30 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
   )
 
-  override def getTables: Invoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def Column = new Column(_){
+        /** Regex matcher to extract name and length out of a db type name with length ascription */
+        final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
+        private val (_dbType,_size) = meta.typeName match {
+          case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
+        }
+        override def dbType = Some(_dbType)
+        override def length = _size
+        override def varying = dbType == Some("VARCHAR")
+      }
+    }
+  }
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
-  override def createModel(implicit session: Backend#Session): Model = jdbcCreateModel(
-    getTables.list.filter(_.name.name.toLowerCase != "sqlite_sequence"),
-    this
-  )
+  /** Jdbc meta data for all tables included in the Slick model by default */
+  override def defaultTables(implicit session: Backend#Session): Seq[MTable]
+    = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+            .list
+            .filter(_.name.name.toLowerCase != "sqlite_sequence")
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

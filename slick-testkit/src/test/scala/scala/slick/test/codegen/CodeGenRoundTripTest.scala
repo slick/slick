@@ -72,6 +72,10 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
       X.map(r =>{(r.categoriesFk3: ForeignKeyQuery[Categories,CategoriesRow]) == null})
       X.map(r =>{(r.index1X: Index) == null})
       X.map(r =>{(r.index2: Index) == null})
+      X.map(r =>{(r.index1X: Index) == null})
+      X.map(r =>{(r.index2: Index) == null})
+      X.map(r =>{(r.index3: Index) == null})
+      X.map(r =>{(r.index4: Index) == null})
 
       TypeTest.map(r =>{(r.pk: PrimaryKey) == null})
     }

@@ -2,7 +2,12 @@ package scala.slick.model
 import scala.slick.ast.ColumnOption
 
 /** Qualified name of a database table */
-case class QualifiedName(table: String, schema: Option[String]=None, catalog: Option[String]=None)
+case class QualifiedName(table: String, schema: Option[String]=None, catalog: Option[String]=None){
+  /** human readable String representation */
+  def asString = catalog.map(_+".").getOrElse("") + 
+                  schema.map(_+".").getOrElse("") + 
+                  table
+}
 
 case class Table(
   name: QualifiedName,
