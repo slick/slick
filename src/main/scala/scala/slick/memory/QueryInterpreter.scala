@@ -189,13 +189,31 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
         b ++= fromV.toIterator.drop(numV.toInt)
         b.result()
-      case Union(left, right, all, _, _) =>
+      case Union(left, right, all, _, _, operator) =>
         val leftV = run(left).asInstanceOf[Coll]
         val rightV = run(right).asInstanceOf[Coll]
-        if(all) leftV ++ rightV
-        else leftV ++ {
-          val s = leftV.toSet
-          rightV.filter(e => !s.contains(e))
+        if (operator.isEmpty) {
+          if (all) leftV ++ rightV
+          else leftV ++ {
+            val s = leftV.toSet
+            rightV.filter(e => !s.contains(e))
+          }
+        } else {
+          operator.map {
+            case InternalUnionOperatorType.union => leftV ++ {
+              val s = leftV.toSet
+              rightV.filter(e => !s.contains(e))
+            }
+            case InternalUnionOperatorType.unionAll => leftV ++ rightV
+            case InternalUnionOperatorType.intersect => {
+              val s = leftV.toSet
+              rightV.filter(e => s.contains(e))
+            }
+            case InternalUnionOperatorType.except => {
+              val s = rightV.toSet
+              leftV.filterNot(e => s.contains(e))
+            }
+          }.get
         }
       case GetOrElse(ch, default) =>
         run(ch).asInstanceOf[Option[Any]].getOrElse(default())

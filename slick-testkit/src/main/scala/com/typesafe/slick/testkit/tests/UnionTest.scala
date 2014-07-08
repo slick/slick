@@ -3,6 +3,8 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{JdbcTestDB, RelationalTestDB, TestkitTest}
 
+import scala.slick.driver.MySQLDriver
+
 class UnionTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
   override val reuseInstance = true
@@ -145,5 +147,23 @@ class UnionTest extends TestkitTest[JdbcTestDB] {
       (resultOne.indexOf(')') :: resultOne.indexOf('(') :: resultTwo.indexOf(')') :: resultTwo.indexOf('(') :: Nil).forall(_ == -1))
 
     (employees.ddl).drop
+  }
+
+  def testIntersect {
+    if (tdb.driver.isInstanceOf[MySQLDriver]) return
+    (managers.ddl).create
+
+    managers ++= Seq(
+      (1, "Peter", "HR"),
+      (2, "Amy", "IT"),
+      (3, "Steve", "IT")
+    )
+
+    val result = managers.filter(t => t.id =!= 1).intersect(managers.filter(t => t.id =!= 3)).run
+    val result2 = managers.except(managers.filter(t => t.id =!= 3)).run
+    assertEquals(1, result.length)
+    assertEquals(1, result2.length)
+
+    (managers.ddl).drop
   }
 }

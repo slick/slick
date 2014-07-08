@@ -491,8 +491,12 @@ class NoParenthesesUnion extends Phase {
     }
     def innerProcess(n: Node): Node = {
       n match {
-        case union@Union(left: Comprehension, right: Comprehension, all, leftGen, rightGen) => {
-          val internalUnion = InternalUnion(right, if (all) "union all" else "union")
+        case union@Union(left: Comprehension, right: Comprehension, all, leftGen, rightGen, operator) => {
+          val op = if (operator.isEmpty)
+            if (all) Some(InternalUnionOperatorType.unionAll) else Some(InternalUnionOperatorType.union)
+          else
+            operator
+          val internalUnion = InternalUnion(right, op)
           left.copy(unionNodes = left.unionNodes ++ Seq(internalUnion))
         }
         case outerComprehension@Comprehension(from@Seq((innerComprehensionSymbol, innerComprehension: Comprehension)), where, groupBy, orderBy, select@Some(pure: Pure), fetch, offset, unionNodes)
