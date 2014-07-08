@@ -1,6 +1,12 @@
 package scala.slick.model
 import scala.slick.ast.ColumnOption
 
+trait ModelOption[T]
+trait TableOption[T]
+trait PrimaryKeyOption[T]
+trait ForeignKeyOption[T]
+trait IndexOption[T]
+
 /** Qualified name of a database table */
 case class QualifiedName(table: String, schema: Option[String]=None, catalog: Option[String]=None){
   /** human readable String representation */
@@ -14,7 +20,8 @@ case class Table(
   columns: Seq[Column],
   primaryKey: Option[PrimaryKey],
   foreignKeys: Seq[ForeignKey],
-  indices: Seq[Index]
+  indices: Seq[Index],
+  options: Set[TableOption[_]] = Set()
 ){
   require( name.table != "", "name cannot be empty string" )
 }
@@ -25,7 +32,7 @@ case class Column(
   table: QualifiedName,
   tpe: String,
   nullable: Boolean,
-  options: Set[ColumnOption[_]]
+  options: Set[ColumnOption[_]] = Set()
 ){
   require( name != "", "name cannot be empty string" )
 }
@@ -33,7 +40,8 @@ case class Column(
 case class PrimaryKey(
   name: Option[String],
   table: QualifiedName,
-  columns: Seq[Column]
+  columns: Seq[Column],
+  options: Set[PrimaryKeyOption[_]] = Set()
 ){
   require( !name.exists(_ == ""), "name cannot be empty string" )
 }
@@ -45,7 +53,8 @@ case class ForeignKey(
   referencedTable: QualifiedName,
   referencedColumns: Seq[Column],
   onUpdate: ForeignKeyAction,
-  onDelete: ForeignKeyAction
+  onDelete: ForeignKeyAction,
+  options: Set[ForeignKeyOption[_]] = Set()
 ){
   require( !name.exists(_ == ""), "name cannot be empty string" )
 }
@@ -65,7 +74,8 @@ case class Index(
   name: Option[String],
   table: QualifiedName,
   columns: Seq[Column],
-  unique: Boolean
+  unique: Boolean,
+  options: Set[IndexOption[_]] = Set()
 ){
   require( !name.exists(_ == ""), "name cannot be empty string" )
 }
@@ -77,7 +87,8 @@ case class Index(
  * The references are broken apart by using names instead of object references for back references.
  */
 case class Model(
-  tables: Seq[Table]
+  tables: Seq[Table],
+  options: Set[ModelOption[_]] = Set()
 ){
   lazy val tablesByName = tables.map(t => t.name->t).toMap
   /**
