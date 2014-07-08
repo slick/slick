@@ -161,6 +161,8 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
         case v:Double  => s"$v"
         case v:Boolean => s"$v"
         case v:Short   => s"$v"
+        case v:Char   => s"'$v'"
+        case v:BigDecimal => s"new scala.math.BigDecimal(new java.math.BigDecimal($v))"
         case v => throw new SlickException( s"Dont' know how to generate code for default value $v of ${v.getClass}" )
       }
       // Explicit type to allow overloading existing Slick method names.
