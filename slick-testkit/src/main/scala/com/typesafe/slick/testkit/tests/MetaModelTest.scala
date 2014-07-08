@@ -60,7 +60,10 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       case _:AssertionError => 
     }
 
-    val DBTypePattern = "^[a-zA-Z][a-zA-Z0-9]*$".r // postgres uses lower case and things like int4
+    // postgres uses lower case and things like int4
+    // seen in jtds: int identity
+    // seen in oracle: VARCHAR2
+    val DBTypePattern = "^[a-zA-Z][a-zA-Z0-9 ]*$".r
 
     // check that the model matches the table classes
     val model = tdb.profile.createModel(ignoreInvalidDefaults=false)
@@ -101,8 +104,9 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       assert(
         Seq(
           "CHAR","CHARACTER",
-          "bpchar" // postgres
-        ) contains tpe("title"),
+          "BPCHAR" // bpchar: postgres
+          //"char" // jtds
+        ) contains tpe("title").toUpperCase,
         tpe("title")
       )
       assert(
