@@ -21,7 +21,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
   def createModel(implicit session: Backend#Session): Model = createModel(Some(defaultTables))
 
   /** Gets the Slick data model describing this data source
-    * @tables tables used to build the model, uses defaultTables if None given
+    * @param tables used to build the model, uses defaultTables if None given
     * @param ignoreInvalidDefaults logs unrecognized default values instead of throwing an exception
     */
   def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
@@ -139,13 +139,12 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
       class Column(val meta: MColumn){
         /** Regex matcher to extract string out ouf surrounding '' */
         final val StringPattern = """^'(.*)'$""".r
-        /** Fully qualified name as string (e.g. for error messages) */
-        final def qualifiedNameString = table.qualifiedName.asString + "." + name
         /** Scala type this column is mapped to */
         def tpe = jdbcTypeToScala(meta.sqlType).toString match {
           case "java.lang.String" => "String"
           case t => t
         }
+        def name = meta.name
         /** Indicates whether this is a nullable column */
         def nullable = meta.nullable.getOrElse(true)
         /** Indicates whether this is an auto increment column */
@@ -194,6 +193,9 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
                 case (v,"Int")    => v.toInt
                 case (v,"Long")   => v.toLong
                 case (v,"Double") => v.toDouble
+                case (v,"Char")   => v.head // FIXME: check length
+                case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
+                case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
                 case (StringPattern(str),"String") => str
                 case ("TRUE","Boolean")  => true
                 case ("FALSE","Boolean") => false
@@ -201,7 +203,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
             }
           }
 
-        private def formatDefault(v:Any) = s" default value $v for column $qualifiedNameString of type $tpe"
+        private def formatDefault(v:Any) = s" default value $v for column ${table.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString
 
         /** The default value for the column as a ColumnOption Default
           * or None if no default. The value wrapped by
@@ -223,7 +225,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
               case _ => default.map( d =>
                 ColumnOption.Default(
                   if(nullable) d
-                  else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column $qualifiedNameString of type $tpe"))
+                  else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${table.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
                 )
               )
             }
@@ -251,7 +253,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
         }
 
         def model = m.Column(
-          name=meta.name,
+          name=name,
           table=table.qualifiedName,
           tpe=tpe,
           nullable=nullable,

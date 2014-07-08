@@ -22,7 +22,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
     class Posts(tag: Tag) extends Table[(Int, String, Option[Int], Boolean, String)](tag, "posts") {
       def id = column[Int]("id")
       def title = column[String]("title",O.Length(99,varying=false)) // tests Length produces valid SQL
-      def category = column[Option[Int]]("category")
+      def category = column[Option[Int]]("category",O.Default(Some(531)))
       def someBool = column[Boolean]("some_bool",O.Default(true)) // tests boolean default values parsing
       def someString = column[String]("some_string",O.Length(111,varying=true)) // tests Length produces valid SQL
       def * = (id, title, category, someBool, someString)
@@ -60,7 +60,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       case _:AssertionError => 
     }
 
-    val DBTypePattern = "^[A-Z]+|[a-z0-9]+$".r // postgres uses lower case and things like int4
+    val DBTypePattern = "^[a-zA-Z][a-zA-Z0-9]*$".r // postgres uses lower case and things like int4
 
     // check that the model matches the table classes
     val model = tdb.profile.createModel(ignoreInvalidDefaults=false)
@@ -102,12 +102,15 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
         Seq(
           "CHAR","CHARACTER",
           "bpchar" // postgres
-          ) contains tpe("title"),
+        ) contains tpe("title"),
         tpe("title")
       )
-      assertEquals(
-        "VARCHAR",
-        tpe("some_string").toUpperCase
+      assert(
+        Seq(
+          "VARCHAR",
+          "VARCHAR2" // oracle
+        ) contains tpe("some_string").toUpperCase,
+        tpe("title")
       )
       assertEquals(
         (99,false),
