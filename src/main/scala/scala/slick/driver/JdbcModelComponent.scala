@@ -198,6 +198,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
                 case (v,"Int")    => v.toInt
                 case (v,"Long")   => v.toLong
                 case (v,"Double") => v.toDouble
+                case (v,"Float") => v.toFloat
                 case (v,"Char")   => v.head // FIXME: check length
                 case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
                 case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
