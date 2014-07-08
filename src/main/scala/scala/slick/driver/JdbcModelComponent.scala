@@ -58,6 +58,9 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
     /** Table model builders indexed by meta data qualified name */
     final lazy val tablesByMQName: Map[MQName,Table] = tables.map(t => t.meta.name -> t).toMap
 
+    /** currently unused */
+    def includeJdbcMetaData: Boolean = ???
+
     /** Table model builder factory. Override for customization.
         @group Basic customization overrides */
     def Table = new Table(_)
@@ -158,6 +161,8 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           * for string types, this should not include a length ascription
           * for other types it should */
         def dbType: Option[String] = Some(meta.typeName)
+        /** currently unused */
+        def ansiType: Option[String] = ???
         /** Column length of string types */
         def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
         /** Indicates wether this should be a varchar in case of a string column.
