@@ -158,7 +158,7 @@ object SlickBuild extends Build {
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
-    settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
+    settings = sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
       test := (), // suppress test status output
@@ -167,7 +167,7 @@ object SlickBuild extends Build {
     )).aggregate(slickProject, slickCodegenProject, slickTestkitProject)
 
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
+    settings = sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -217,7 +217,7 @@ object SlickBuild extends Build {
   val testKitTestCodegenDependencies = Dependencies.logback +: Dependencies.testDBs
 
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
+    settings = typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -269,7 +269,7 @@ object SlickBuild extends Build {
   ) dependsOn(slickProject, slickCodegenProject)
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
-    settings = Project.defaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen", None) ++ Seq(
+    settings = sdlcSettings ++ sharedSettings ++ extTarget("codegen", None) ++ Seq(
       name := "Slick-CodeGen",
       description := "Code Generator for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -332,13 +332,13 @@ object SlickBuild extends Build {
     ivyConfigurations += fmppConfig,
     fullClasspath in fmppConfig <<= update map { _ select configurationFilter(fmppConfig.name) map Attributed.blank },
     //mappings in (Compile, packageSrc) <++= // Add generated sources to sources JAR
-    //  (sourceManaged in Compile, managedSources in Compile) map { (b, s) => s x (Path.relativeTo(b) | Path.flat) }
+    //  (sourceManaged in Compile, managedSources in Compile) map { (b, s) => s pair (Path.relativeTo(b) | Path.flat) }
     mappings in (Compile, packageSrc) <++=
       (sourceManaged in Compile, managedSources in Compile, sourceDirectory in Compile) map { (base, srcs, srcDir) =>
         val fmppSrc = srcDir / "scala"
         val inFiles = fmppSrc ** "*.fm"
-        (srcs x (Path.relativeTo(base) | Path.flat)) ++ // Add generated sources to sources JAR
-          (inFiles x (Path.relativeTo(fmppSrc) | Path.flat)) // Add *.fm files to sources JAR
+        (srcs pair (Path.relativeTo(base) | Path.flat)) ++ // Add generated sources to sources JAR
+          (inFiles pair (Path.relativeTo(fmppSrc) | Path.flat)) // Add *.fm files to sources JAR
       }
   )
   lazy val fmppTask =
@@ -376,8 +376,8 @@ object SlickBuild extends Build {
         (sourceManaged in Test, managedSources in Test, sourceDirectory in Test) map { (base, srcs, srcDir) =>
           val src = srcDir / "codegen"
           val inFiles = src ** "*.scala"
-          (srcs x (Path.relativeTo(base) | Path.flat)) ++ // Add generated sources to sources JAR
-            (inFiles x (Path.relativeTo(src) | Path.flat)) // Add *.fm files to sources JAR
+          (srcs pair (Path.relativeTo(base) | Path.flat)) ++ // Add generated sources to sources JAR
+            (inFiles pair (Path.relativeTo(src) | Path.flat)) // Add *.fm files to sources JAR
         }
     )
   }
