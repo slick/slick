@@ -13,7 +13,7 @@ object Ordered {
 }
 
 /** A `Column` with an associated `Ordering`. */
-case class ColumnOrdered[T](column: Column[T], ord: Ordering) extends Ordered(Seq((column.toNode, ord))) {
+case class ColumnOrdered[T](column: Rep[T], ord: Ordering) extends Ordered(Seq((column.toNode, ord))) {
   def asc = copy(ord = ord.asc)
   def desc = copy(ord = ord.desc)
   def reverse = copy(ord = ord.reverse)

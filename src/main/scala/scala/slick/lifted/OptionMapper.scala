@@ -1,14 +1,14 @@
 package scala.slick.lifted
 
 import annotation.implicitNotFound
-import scala.slick.ast.{FunctionSymbol, BaseTypedType, Node, TypedType}
+import scala.slick.ast.{Typed, OptionApply, FunctionSymbol, BaseTypedType, Node, TypedType}
 
-trait OptionMapper[BR, R] extends (Column[BR] => Column[R]) {
+trait OptionMapper[BR, R] extends (Rep[BR] => Rep[R]) {
   def lift: Boolean
 
-  def column(fs: FunctionSymbol, ch: Node*)(implicit bt: TypedType[BR]): Column[R] = {
+  def column(fs: FunctionSymbol, ch: Node*)(implicit bt: TypedType[BR]): Rep[R] = {
     implicit val tt = liftedType
-    Column.forNode[R](fs.typed(tt, ch: _*))
+    Rep.forNode[R](fs.typed(tt, ch: _*))
   }
 
   def liftedType(implicit bt: TypedType[BR]): TypedType[R] =
@@ -20,11 +20,11 @@ sealed trait OptionMapper2[B1, B2, BR, P1, P2, R] extends OptionMapper[BR, R]
 
 object OptionMapper2 {
   val plain = new OptionMapper2[Any,Any,Any,Any,Any,Any] {
-    def apply(n: Column[Any]): Column[Any] = n
+    def apply(n: Rep[Any]): Rep[Any] = n
     def lift = false
   }
   val option = new OptionMapper2[Any,Any,Any,Any,Any,Option[Any]] {
-    def apply(n: Column[Any]): Column[Option[Any]] = new PlainColumnExtensionMethods[Any](n).?
+    def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Typed].tpe.asInstanceOf[TypedType[Any]].optionType)
     def lift = true
   }
 
@@ -39,11 +39,11 @@ sealed trait OptionMapper3[B1, B2, B3, BR, P1, P2, P3, R] extends OptionMapper[B
 
 object OptionMapper3 {
   val plain = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Any] {
-    def apply(n: Column[Any]): Column[Any] = n
+    def apply(n: Rep[Any]): Rep[Any] = n
     def lift = false
   }
   val option = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Option[Any]] {
-    def apply(n: Column[Any]): Column[Option[Any]] = new PlainColumnExtensionMethods[Any](n).?
+    def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Typed].tpe.asInstanceOf[TypedType[Any]].optionType)
     def lift = true
   }
 

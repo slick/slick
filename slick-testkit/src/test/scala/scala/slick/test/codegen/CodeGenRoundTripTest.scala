@@ -58,14 +58,14 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
     {
       // testing name and types especially in case of collisions
       import scala.slick.lifted._
-      X.map(r =>{(r.pk: Column[Int]) == null})
-      X.map(r =>{(r.pk2: Column[Int]) == null})
-      X.map(r =>{(r.`val`: Column[Option[Int]]) == null})
-      X.map(r =>{(r.column: Column[Int]) == null})
-      X.map(r =>{(r.schemaNameXX: Column[Double]) == null})
-      X.map(r =>{(r.schemaNameX: Column[String]) == null})
-      X.map(r =>{(r.index1: Column[Option[Int]]) == null})
-      X.map(r =>{(r.posts: Column[Option[Int]]) == null})
+      X.map(r =>{(r.pk: Rep[Int]) == null})
+      X.map(r =>{(r.pk2: Rep[Int]) == null})
+      X.map(r =>{(r.`val`: Rep[Option[Int]]) == null})
+      X.map(r =>{(r.column: Rep[Int]) == null})
+      X.map(r =>{(r.schemaNameXX: Rep[Double]) == null})
+      X.map(r =>{(r.schemaNameX: Rep[String]) == null})
+      X.map(r =>{(r.index1: Rep[Option[Int]]) == null})
+      X.map(r =>{(r.posts: Rep[Option[Int]]) == null})
       X.map(r =>{(r.pkX: PrimaryKey) == null})
       X.map(r =>{(r.postsFk: ForeignKeyQuery[Posts,PostsRow]) == null})
       X.map(r =>{(r.categoriesFk2: ForeignKeyQuery[Categories,CategoriesRow]) == null})

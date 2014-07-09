@@ -45,11 +45,11 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     new WrappingQuery[E, U, C](Filter.ifRefutable(generator, toNode, wrapExpr(wt(fv).toNode)), shaped)
   }
   /** Select all elements of this query which satisfy a predicate. Unlike
-    * `withFilter, this method only allows `Column`-valued predicates, so it
+    * `withFilter, this method only allows `Rep`-valued predicates, so it
     * guards against the accidental use use plain Booleans. */
-  def filter[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
+  def filter[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
     withFilter(f)
-  def filterNot[T <: Column[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
+  def filterNot[T <: Rep[_]](f: E => T)(implicit wt: CanBeQueryCondition[T]): Query[E, U, C] =
     filterHelper(f, node => Library.Not.typed(node.nodeType, node) )
 
   /** Select all elements of this query which satisfy a predicate. This method
@@ -58,10 +58,10 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def withFilter[T : CanBeQueryCondition](f: E => T) = filterHelper(f, identity)
 
   /** Select all elements of this query which satisfy a predicate. Unlike
-    * `withilter`, this method only allows `Column`-valued predicates, so it
+    * `withFilter`, this method only allows `Column`-valued predicates, so it
     * guards against the accidental use use plain Booleans. */
   @deprecated("Use `filter` instead of `where`", "2.1")
-  def where[T <: Column[_] : CanBeQueryCondition](f: E => T) = filter(f)
+  def where[T <: Rep[_] : CanBeQueryCondition](f: E => T) = filter(f)
 
   /** Join two collections.
     * An optional join predicate can be specified later by calling `on`. */
@@ -94,8 +94,8 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def zipWithIndex = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(leftGen :: Nil)
-    val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Column.columnShape[Long, FlatShapeLevel])
-    new BaseJoinQuery[E, Column[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
+    val aliased2 = ShapedValue(Rep.forNode[Long](Ref(rightGen)), Rep.repColumnShape[Long, FlatShapeLevel])
+    new BaseJoinQuery[E, Rep[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
   }
 
   /** Sort this query according to a function which extracts the ordering
@@ -140,12 +140,12 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def ++[O >: E, R, D[_]](other: Query[O, U, D]) = unionAll(other)
 
   /** The total number of elements (i.e. rows). */
-  def length: Column[Int] = Library.CountAll.column(toNode)
+  def length: Rep[Int] = Library.CountAll.column(toNode)
   /** The total number of elements (i.e. rows). */
   def size = length
 
   /** The number of distinct elements of the query. */
-  def countDistinct: Column[Int] = Library.CountDistinct.column(toNode)
+  def countDistinct: Rep[Int] = Library.CountDistinct.column(toNode)
 
   /** Test whether this query is non-empty. */
   def exists = Library.Exists.column[Boolean](toNode)
@@ -198,20 +198,20 @@ object Query {
 }
 
 /** A typeclass for types that can be used as predicates in `filter` calls. */
-@implicitNotFound("Type ${T} cannot be a query condition (only Boolean, Column[Boolean] and Column[Option[Boolean]] are allowed")
-trait CanBeQueryCondition[-T] extends (T => Column[_])
+@implicitNotFound("Type ${T} cannot be a query condition (only Boolean, Rep[Boolean] and Rep[Option[Boolean]] are allowed")
+trait CanBeQueryCondition[-T] extends (T => Rep[_])
 
 object CanBeQueryCondition {
   // Using implicits with explicit type annotation here (instead of previously implicit objects)
   // because otherwise they would not be found in this file above this line. 
   // See https://github.com/slick/slick/pull/217
-  implicit val BooleanColumnCanBeQueryCondition : CanBeQueryCondition[Column[Boolean]] =
-    new CanBeQueryCondition[Column[Boolean]] {
-      def apply(value: Column[Boolean]) = value
+  implicit val BooleanColumnCanBeQueryCondition : CanBeQueryCondition[Rep[Boolean]] =
+    new CanBeQueryCondition[Rep[Boolean]] {
+      def apply(value: Rep[Boolean]) = value
     }
-  implicit val BooleanOptionColumnCanBeQueryCondition : CanBeQueryCondition[Column[Option[Boolean]]] =
-    new CanBeQueryCondition[Column[Option[Boolean]]] {
-      def apply(value: Column[Option[Boolean]]) = value
+  implicit val BooleanOptionColumnCanBeQueryCondition : CanBeQueryCondition[Rep[Option[Boolean]]] =
+    new CanBeQueryCondition[Rep[Option[Boolean]]] {
+      def apply(value: Rep[Option[Boolean]]) = value
     }
   implicit val BooleanCanBeQueryCondition : CanBeQueryCondition[Boolean] =
     new CanBeQueryCondition[Boolean] {
@@ -224,7 +224,7 @@ class WrappingQuery[+E, U, C[_]](val toNode: Node, val shaped: ShapedValue[_ <: 
 final class BaseJoinQuery[+E1, +E2, U1, U2, C[_]](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)])
     extends WrappingQuery[(E1, E2), (U1,  U2), C](AJoin(leftGen, rightGen, left, right, jt, LiteralNode(true)), base) {
   /** Add a join condition to a join operation. */
-  def on[T <: Column[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
+  def on[T <: Rep[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
     new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(base.value._1, base.value._2)).toNode), base)
 }
 

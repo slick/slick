@@ -148,7 +148,7 @@ class Db1 extends {
   }
 
   @Test def autoIncTest() {
-    def optionsOfColumn(c: scala.slick.lifted.Column[_]) =
+    def optionsOfColumn(c: scala.slick.lifted.Rep[_]) =
       c.toNode.asInstanceOf[Select].field.asInstanceOf[scala.slick.ast.FieldSymbol].options.toList
 
     val Db1 = CG6
