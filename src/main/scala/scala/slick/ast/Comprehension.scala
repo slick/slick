@@ -4,7 +4,7 @@ import TypeUtil.typeToTypeUtil
 import Util._
 
 /** A SQL comprehension */
-final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None) extends DefNode {
+final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq[Node] = Seq.empty, groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty, select: Option[Node] = None, fetch: Option[Node] = None, offset: Option[Node] = None, distinctFlag: Boolean = false) extends DefNode {
   type Self = Comprehension
   val nodeChildren = from.map(_._2) ++ where ++ groupBy ++ orderBy.map(_._1) ++ select ++ fetch ++ offset
   override def nodeChildNames =

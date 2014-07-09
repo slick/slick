@@ -120,6 +120,10 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
 
+  def distinct(implicit kshape: Shape[_ <: FlatShapeLevel, E, _, _]): Query[E, U, C] = {
+    new WrappingQuery[E, U, C](groupBy { case (x: E) => x}.map { case (x: E, _) => x}.toNode, shaped)
+  }
+
   def encodeRef(path: List[Symbol]): Query[E, U, C] = new Query[E, U, C] {
     val shaped = self.shaped.encodeRef(path)
     lazy val toNode = Path(path)

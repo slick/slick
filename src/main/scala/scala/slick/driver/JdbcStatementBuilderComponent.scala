@@ -154,6 +154,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
       b"select "
+      if (c.distinctFlag) b"distinct "
       buildSelectModifiers(c)
       c.select match {
         case Some(Pure(StructNode(ch), _)) =>
@@ -382,7 +383,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None, _) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -406,7 +407,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(from, where, _, _, Some(Pure(select, _)), fetch, offset) =>
+        case Comprehension(from, where, _, _, Some(Pure(select, _)), fetch, offset, _) =>
           if(fetch.isDefined || offset.isDefined) fail(".take and .drop are not supported")
           from match {
             case Seq((sym, from: TableNode)) => (sym, from, where)
@@ -491,7 +492,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   trait OracleStyleRowNum extends QueryBuilder {
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
           // Pull the SELECT clause with the ROWNUM up into a new query
           val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
           val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
