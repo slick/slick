@@ -104,7 +104,3 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index]).sortBy(_.name)
 }
-
-object AbstractTable {
-  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
-}

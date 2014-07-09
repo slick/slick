@@ -149,7 +149,8 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     }
     class A(tag: Tag) extends Table[Customer](tag, "INIT_A") {
       def id = column[Id]("ID", O.PrimaryKey, O.AutoInc)(Tables.idMapper)
-      def * = id <> (Customer.apply, Customer.unapply)
+      import Tables.idMapper
+      def * = id.<>(Customer.apply, Customer.unapply)
     }
     Tables.as.ddl
 
