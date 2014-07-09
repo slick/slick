@@ -153,7 +153,7 @@ if you manually extend the correct Scala function type. Alternatively you can us
 Constraints
 -----------
 
-A foreign key constraint can be defined with a Table's :api:`foreignKey <scala.slick.profile.RelationalTableComponent$Table@foreignKey[P,PU,TT<:AbstractTable[_],U](String,P,TableQuery[TT])((TT)⇒P,ForeignKeyAction,ForeignKeyAction)(Shape[_<:Flat,TT,U,_],Shape[_<:Flat,P,PU,_]):ForeignKeyQuery[TT,U]>` method.
+A foreign key constraint can be defined with a Table's :api:`foreignKey <scala.slick.profile.RelationalTableComponent$Table@foreignKey[P,PU,TT<:AbstractTable[_],U](String,P,TableQuery[TT])((TT)⇒P,ForeignKeyAction,ForeignKeyAction)(Shape[_<:FlatShapeLevel,TT,U,_],Shape[_<:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U]>` method.
 It first takes a name for the constraint, the referencing column(s) and the referenced table. The second argument list takes a function from the referenced table to its referenced column(s) as well as :api:`ForeignKeyAction <scala.slick.model.ForeignKeyAction$>` for ``onUpdate`` and ``onDelete``, which are optional and default to :api:`NoAction <scala.slick.model.ForeignKeyAction$$NoAction$>`. When creating the DDL statements for the table, the foreign key definition is added to it.
 
 .. includecode:: code/LiftedEmbedding.scala#foreignkey

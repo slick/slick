@@ -323,10 +323,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"\($n like ${valueToSQLLiteral("%"+likeEncode(s), ScalaBaseType.stringType)} escape '^'\)"
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
-      case Library.Substring(n, start, end) => b"\(substring($n from $start for $end)\)"
-      case Library.Substring(n, start) => b"\(substring($n from $start)\)"
-      case Library.IndexOf(n, str) => b"position($str in $n) - 1"
-      case Library.Reverse(n) => b"reverse($n)"
+      case Library.Substring(n, start, end) =>
+        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})}\)"
+      case Library.Substring(n, start) =>
+        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))})}\)"
+      case Library.IndexOf(n, str) => b"\({fn locate($str, $n)} - 1\)"
       case Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
@@ -460,7 +461,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         super.buildComprehension(c3)
         b") $tn where $rn"
         (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b" between ${QueryParameter.constOp("+")(_ + _)(d, LiteralNode(1L))} and ${QueryParameter.constOp("+")(_ + _)(t, d)}"
+          case (Some(t), Some(d)) => b" between ${QueryParameter.constOp[Long]("+")(_ + _)(d, LiteralNode(1L))} and ${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}"
           case (Some(t), None   ) => b" between 1 and $t"
           case (None,    Some(d)) => b" > $d"
           case _ => throw new SlickException("Unexpected empty fetch/offset")
@@ -695,6 +696,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   class ColumnDDLBuilder(column: FieldSymbol) {
     protected val JdbcType(jdbcType, isOption) = column.tpe
     protected var sqlType: String = null
+    protected var varying: Boolean = false
+    protected var size: Option[Int] = None
     protected var customSqlType: Boolean = false
     protected var notNull = !isOption
     protected var autoIncrement = false
@@ -703,6 +706,15 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     init()
 
     protected def init() {
+      if(
+        column.options.collect{
+          case _:ColumnOption.DBType =>
+          case _:ColumnOption.Length[_] =>
+        }.size > 1
+      ){
+        throw new SlickException("Please specify either ColumnOption DBType or Length, not both for column ${column.name}.")
+      }
+
       for(o <- column.options) handleColumnOption(o)
       if(sqlType eq null) sqlType = jdbcType.sqlTypeName
       else customSqlType = true
@@ -710,6 +722,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
       case ColumnOption.DBType(s) => sqlType = s
+      case ColumnOption.Length(s,v) =>
+        size = Some(s)
+        varying = v
       case ColumnOption.NotNull => notNull = true
       case ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
@@ -717,9 +732,23 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
     }
 
+    def appendType(sb: StringBuilder): Unit = {
+      if(size == None){
+        sb append sqlType
+      }
+      size.foreach{ s =>
+        // TODO: this probably needs to be generalized and unified with defaultSqlTypeName
+        if(varying)
+          sb append "VARCHAR"
+        else
+          sb append "CHAR"
+        sb append "("+s+")"
+      }
+    }
+
     def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
-      sb append sqlType
+      appendType(sb)
       appendOptions(sb)
     }
 

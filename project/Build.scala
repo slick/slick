@@ -8,6 +8,7 @@ import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
 import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
+import com.typesafe.sbt.sdlc.Plugin._
 
 object SlickBuild extends Build {
 
@@ -147,7 +148,13 @@ object SlickBuild extends Build {
   }
 
   /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
-  def testAll = Command.command("testAll")(runTasksSequentially(List(test in (slickTestkitProject, Test), test in (slickTestkitProject, DocTest), test in (osgiTestProject, Test))))
+  def testAll = Command.command("testAll")(runTasksSequentially(List(
+    test in (slickTestkitProject, Test),
+    test in (slickTestkitProject, DocTest),
+    test in (osgiTestProject, Test),
+    sdlc in slickProject,
+    sdlc in slickCodegenProject
+  )))
 
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
@@ -157,9 +164,10 @@ object SlickBuild extends Build {
       test := (), // suppress test status output
       testOnly :=  (),
       commands += testAll
-    )).aggregate(slickProject, slickTestkitProject)
+    )).aggregate(slickProject, slickCodegenProject, slickTestkitProject)
+
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
-    settings = Project.defaultSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
+    settings = Project.defaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -171,6 +179,9 @@ object SlickBuild extends Build {
         ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
       makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
+      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/api/",
+      sdlcCheckDir := (target in com.typesafe.sbt.SbtSite.SiteKeys.makeSite).value,
+      sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
       test := (), // suppress test status output
       testOnly :=  (),
       previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
@@ -255,8 +266,20 @@ object SlickBuild extends Build {
     //test <<= Seq(test in Test, test in DocTest).dependOn,
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
-  ) dependsOn(slickProject)
+  ) dependsOn(slickProject, slickCodegenProject)
 
+  lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
+    settings = Project.defaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen", None) ++ Seq(
+      name := "Slick-CodeGen",
+      description := "Code Generator for Slick (Scala Language-Integrated Connection Kit)",
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-codegen/src/main€{FILE_PATH}.scala"
+      )),
+      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/codegen-api/",
+      sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
+      sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
+    )
+  ) dependsOn(slickProject)
 
   lazy val osgiBundleFiles = taskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
 
@@ -333,7 +356,7 @@ object SlickBuild extends Build {
     }
 
   /** Slick type provider code gen  */
-  lazy val typeProviders = TaskKey[Seq[File]]("Type provider code generation")
+  lazy val typeProviders = taskKey[Seq[File]]("Type provider code generation")
   lazy val typeProvidersConfig = config("codegen").hide
   lazy val typeProvidersSettings = {
     inConfig(typeProvidersConfig)(Defaults.configSettings) ++
@@ -344,7 +367,7 @@ object SlickBuild extends Build {
 
       (compile in Test) <<= (compile in Test) dependsOn (compile in typeProvidersConfig),
 
-      unmanagedClasspath in typeProvidersConfig <++= fullClasspath in (slickProject, Test),
+      unmanagedClasspath in typeProvidersConfig <++= fullClasspath in (slickCodegenProject, Test),
       unmanagedClasspath in Test <++= fullClasspath in typeProvidersConfig,
       //mappings in (Test, packageSrc) <++= mappings in (typeProvidersConfig, packageSrc),
       //mappings in (Test, packageBin) <++= mappings in (typeProvidersConfig, packageBin),
@@ -362,10 +385,10 @@ object SlickBuild extends Build {
     (fullClasspath in typeProvidersConfig, runner in typeProviders, sourceManaged in Test, streams, sourceDirectory, sourceDirectory in slickProject) map { (cp, r, output, s, srcDir, slickSrc) =>
       val src = srcDir / "codegen"
       val outDir = (output/"slick-codegen").getPath 
-      val inFiles = (src ** "*.scala" get).toSet ++ (slickSrc / "main/scala/scala/slick/model/codegen" ** "*.scala" get).toSet ++ (slickSrc / "main/scala/scala/slick/jdbc/meta" ** "*.scala" get).toSet
+      val inFiles = (src ** "*.scala" get).toSet ++ (slickSrc / "main/scala/scala/slick/codegen" ** "*.scala" get).toSet ++ (slickSrc / "main/scala/scala/slick/jdbc/meta" ** "*.scala" get).toSet
       val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", outStyle = FilesInfo.exists) { (in: Set[File]) =>
         IO.delete(output ** "*.scala" get)
-        toError(r.run("scala.slick.test.model.codegen.CodeGeneratorTest", cp.files, Array(outDir, "scala.slick.test.model.codegen.generated"), s.log))
+        toError(r.run("scala.slick.test.codegen.CodeGeneratorTest", cp.files, Array(outDir, "scala.slick.test.codegen.generated"), s.log))
         (output ** "*.scala").get.toSet
       }
       cachedFun(inFiles).toSeq
