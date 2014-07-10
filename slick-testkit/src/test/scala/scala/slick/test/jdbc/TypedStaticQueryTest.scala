@@ -10,12 +10,6 @@ import scala.slick.jdbc.TypedStaticQuery._
 @TSQLConfig("default")
 class TypedStaticQueryTest {
 
-//  implicit val config = new ConfigHandler {
-////    override val databaseName = Some("default")
-//    override val url = Some("jdbc:h2:mem:test1;INIT=runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/create.sql'\\;runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/populate.sql'")
-//    override val jdbcDriver = Some("org.h2.Driver")
-//  }
-  
   @Test
   @TSQLConfig(url = "jdbc:h2:mem:test1;INIT=runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/create.sql'\\;runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/populate.sql'", driver = "org.h2.Driver")
   def testTypedInterpolation = getConfigHandler().connection withSession { implicit session =>
@@ -52,7 +46,6 @@ class TypedStaticQueryTest {
     case class Bar(strVal: String)
     
     implicit val SetFoo = SetParameter[Foo]{ (i, pp) =>
-      println("Yes this was called")
       SetParameter.SetInt(i.intVal, pp)
     }
     implicit val SetBar = SetParameter[Bar]{ (s, pp) =>
@@ -82,6 +75,78 @@ class TypedStaticQueryTest {
     val o4 = s4.as(Bar(_)).list
     val t4: List[Bar] = o4
     assertEquals(List(Bar("Groundsville"), Bar("Meadows"), Bar("Mendocino")), t4)
+  }
+
+  @Test
+  def testPreparedQueries = getConfigHandler().connection withSession { implicit session =>
+    case class Supplier(id: Int, name: String)
+    implicit val supplierGetter = (arg: (Int, String)) => Supplier(arg._1, arg._2)
+
+    def supplierForID(id: Int) =
+      tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = $id"
+    def supplierForIdAndName(id: Int, name: String) =
+      tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = $id and SUP_NAME = $name"
+
+    val s1 = supplierForID(101)
+    val o1 = s1.as[Supplier].first
+    val t1: Supplier = o1
+    assertEquals(Supplier(101, "Acme, Inc."), t1)
+    val s2 = supplierForID(49)
+    val o2 = s2.as(supplierGetter).first
+    val t2: Supplier = o2
+    assertEquals(Supplier(49, "Superior Coffee"), t2)
+
+    val s3 = supplierForIdAndName(150, "The High Ground")
+    val o3 = s3.as[Supplier].first
+    val t3: Supplier = o3
+    assertEquals(Supplier(150, "The High Ground"), o3)
+    val s4 = supplierForIdAndName(49, "Superior Coffee")
+    val o4 = s4.as(supplierGetter).first
+    val t4: Supplier = o4
+    assertEquals(Supplier(49, "Superior Coffee"), t4)
+  }
+
+  @Test
+  def testAllStatements = getConfigHandler().connection withSession { implicit session =>
+    case class Supplier(id: Int, name: String)
+    implicit val supplierGetter = (arg: (Int, String)) => Supplier(arg._1, arg._2)
+
+    tsql"""create table "SUPPLIERS2" ("SUP_ID" INTEGER NOT NULL PRIMARY KEY,"SUP_NAME" VARCHAR NOT NULL);""".execute
+
+    val u1 = tsql"""INSERT INTO SUPPLIERS VALUES(102, 'Acme, Inc. Next', '99 Market Street', 'Groundsville', 'CA', '95199');""".first
+    assertEquals(1, u1)
+    val u2 = tsql"""INSERT INTO SUPPLIERS VALUES(103, 'Coffee Retailers Corp.', '9 Random Street', 'Ville', 'LA', '63195');""".first
+    assertEquals(1, u2)
+
+    val s1 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 102"
+    val o1 = s1.as[Supplier].first
+    val t1: Supplier = o1
+    assertEquals(Supplier(102, "Acme, Inc. Next"), t1)
+    val s2 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 103"
+    val o2 = s2.as(supplierGetter).first
+    val t2: Supplier = o2
+    assertEquals(Supplier(103, "Coffee Retailers Corp."), t2)
+
+    val u3 = tsql"""UPDATE SUPPLIERS SET SUP_NAME = 'Acme, Inc. II' WHERE SUP_ID = '102';""".first
+    assertEquals(1, u3)
+    val u4 = tsql"""UPDATE SUPPLIERS SET SUP_NAME = 'Coffee Retailers Corp. II' WHERE SUP_ID = '103';""".first
+    assertEquals(1, u4)
+
+    val s3 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 102"
+    val o3 = s3.as[Supplier].first
+    val t3: Supplier = o3
+    assertEquals(Supplier(102, "Acme, Inc. II"), t3)
+    val s4 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 103"
+    val o4 = s4.as(supplierGetter).first
+    val t4: Supplier = o4
+    assertEquals(Supplier(103, "Coffee Retailers Corp. II"), t4)
+
+    val u5 = tsql"""DELETE FROM SUPPLIERS WHERE SUP_ID = '102';""".first
+    assertEquals(1, u5)
+    val u6 = tsql"""DELETE FROM SUPPLIERS WHERE SUP_ID = '103';""".first
+    assertEquals(1, u6)
+
+    tsql"""drop table "SUPPLIERS2" """.execute
   }
 
 //  @Test

@@ -66,9 +66,7 @@ object SQLInterpolation {
     import ctxt.universe._
     import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
 
-    val macroConnHelper = new {
-      val c = ctxt
-    } with MacroConnectionHelper
+    val macroConnHelper = new MacroConnectionHelper(ctxt)
 
     val macroTreeBuilder = new {
       val c: ctxt.type = ctxt
@@ -94,9 +92,7 @@ object SQLInterpolation {
     import ctxt.universe._
     import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
 
-    val macroConnHelper = new {
-      val c = ctxt
-    } with MacroConnectionHelper
+    val macroConnHelper = new MacroConnectionHelper(ctxt)
 
     val macroTreeBuilder = new {
       val c: ctxt.type = ctxt

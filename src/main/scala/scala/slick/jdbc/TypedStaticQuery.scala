@@ -7,7 +7,6 @@ import scala.collection.mutable.{Map => MutableMap}
 import scala.language.experimental.macros
 import scala.reflect.ClassTag
 import scala.reflect.macros.Context
-import scala.slick.SlickException
 import scala.slick.collection.heterogenous._
 
 class TypedStaticQuery[+R](query: String, rconv: GetResult[R], param: List[Any], pconv: List[SetParameter[_]])
@@ -25,23 +24,23 @@ extends StatementInvoker[R] {
 
   protected def extractValue(rs: PositionedResult): R = rconv(rs)
   
-  def as[T](f: R => T) = new TypedStaticQuery(query, rconv.andThen(f), param, pconv)
+  def as[T](implicit f: R => T) = new TypedStaticQuery(query, rconv.andThen(f), param, pconv)
 }
 
 object TypedStaticQuery {
   def tsqlImpl(ctxt: Context)(params: ctxt.Expr[Any]*): ctxt.Expr[TypedStaticQuery[Any]] = {
     import ctxt.universe._
     
-    val macroConnHelper = new {
-      val c = ctxt
-    } with MacroConnectionHelper
+    val macroConnHelper = new MacroConnectionHelper(ctxt)
     
     macroConnHelper.configHandler.connection withSession { session =>
       
       val rTypes = session.withPreparedStatement(macroConnHelper.query) { preparedStmt =>
-        val resultMeta = preparedStmt.getMetaData
-        List.tabulate(resultMeta.getColumnCount) { i =>
-          meta.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+        preparedStmt.getMetaData match {
+          case null => List()
+          case resultMeta => List.tabulate(resultMeta.getColumnCount) { i =>
+            meta.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+          }
         }
       }
       
@@ -51,7 +50,7 @@ object TypedStaticQuery {
         val paramsList = params.toList
       } with MacroTreeBuilderHelper
       
-      val ret = ctxt.Expr[TypedStaticQuery[Any]] {
+      ctxt.Expr[TypedStaticQuery[Any]] {
         Block( 
           List (
             TypeDef(Modifiers(), newTypeName("rtype"), List(), macroTreeBuilder.rtypeTree),
@@ -73,12 +72,6 @@ object TypedStaticQuery {
           )
         )
       }
-      println("*[ Start Tree")
-      println(ret)
-      println
-      println(showRaw(ret.tree))
-      println("*] End Tree")
-      ret
     }
   }
   
@@ -96,23 +89,10 @@ object TypedStaticQuery {
   def getConfigHandler() = macro getCHimpl
 
   def getCHimpl(ctxt: Context)(): ctxt.Expr[TypedStaticQuery.ConfigHandler] = {
-    val macroConnHelper = new {
-      val c: ctxt.type = ctxt
-    } with MacroConnectionHelper
-
-    val ret = macroConnHelper.createConfigHandler(macroConnHelper.configHandler)
-
-    println("Happy Birthday")
-    println("*[ Start Tree")
-    println(ret)
-    println
-    println(ctxt.universe.showRaw(ret))
-    println("*] End Tree")
-    ctxt.Expr(ret)
-  }
-
-  object GetNoResult extends GetResult[Nothing] {
-    def apply(pr: PositionedResult) = throw new SlickException("The result type of query could not be determined. You must call the 'as' before executing statement.")
+    val macroConnHelper = new MacroConnectionHelper(ctxt) {
+      override val c: ctxt.type = ctxt
+    }
+    ctxt.Expr(macroConnHelper.createConfigHandler(macroConnHelper.configHandler))
   }
   
   private[jdbc] abstract class MacroTreeBuilderHelper extends MacroTreeBuilderBase with MacroTreeBuilder
@@ -166,7 +146,7 @@ object TypedStaticQuery {
     })
     
     lazy val rtypeTree = resultCount match {
-      case 0 => TypeTree(typeOf[Nothing])
+      case 0 => TypeTree(typeOf[Int])
       case 1 => resultTypeTreeList(0)
       case n if (n <= 22) => AppliedTypeTree(
         Select(Select(Ident(nme.ROOTPKG), newTermName("scala")), newTypeName("Tuple" + resultCount)),
@@ -182,7 +162,7 @@ object TypedStaticQuery {
     }
     
     lazy val rconvTree = resultCount match {
-      case 0 => base.GetNoResultTree
+      case 0 => base.implicitTree(TypeTree(typeOf[Int]), base.GetResultTypeTree)
       case n if (n <= 22) => base.implicitTree(Ident(newTypeName("rtype")), base.GetResultTypeTree)
       case n => {
         val zero = Select(base.HeterogenousTree, newTermName("HNil"))
@@ -225,23 +205,19 @@ object TypedStaticQuery {
     )
   }
   
-  private[jdbc] abstract class MacroConnectionHelper extends MacroConnectionHandlerBase with MacroConnectionHandler
+  private[jdbc] class MacroConnectionHelper(ctxt: Context) {
+    val c: Context = ctxt
+    import c.universe._
 
-  private[jdbc] trait MacroConnectionHandlerBase {
-    val c: Context
     def abort(msg: String) = c.abort(c.enclosingPosition, msg)
-  }
-
-  private[jdbc] trait MacroConnectionHandler  { base: MacroConnectionHandlerBase =>
-    import base.c.universe._
     
     //create a list of strings passed to this interpolation
     lazy val queryParts: List[String] = {
       //Deconstruct macro application to determine the passed string and the actual parameters
-      val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = base.c.macroApplication
+      val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = c.macroApplication
       strArg map {
         case Literal(Constant(x: String)) => x
-        case _ => base.abort("The interpolation contained something other than constants...")
+        case _ => abort("The interpolation contained something other than constants...")
       }
     }
     
@@ -351,10 +327,10 @@ object TypedStaticQuery {
     lazy val configHandler: ConfigHandler = {
 
       //Shorthand for c.eval
-      def eval[T](tree: Tree): T = base.c.eval(base.c.Expr[T](base.c.resetLocalAttrs(tree)))
+      def eval[T](tree: Tree): T = c.eval(c.Expr[T](c.resetLocalAttrs(tree)))
 
       //Convert a given Name to its fully qualified name in String format
-      def completeNameOf(name: Name): String = base.c.typeCheck(
+      def completeNameOf(name: Name): String = c.typeCheck(
         Typed(
           Select(Select(Ident(newTermName("scala")), newTermName("Predef")), newTermName("$qmark$qmark$qmark")),
           Ident(newTypeName(name.toString))
@@ -364,7 +340,7 @@ object TypedStaticQuery {
       //From a list of annotations determine the TSQLConfig annotation
       def findAnnotationTree(ann: List[Tree]): Option[Tree] = ann.flatMap {
         tree =>
-        base.c.typeCheck(tree, pt = weakTypeOf[TSQLConfig], silent = true) match {
+        c.typeCheck(tree, pt = weakTypeOf[TSQLConfig], silent = true) match {
           case EmptyTree => None
           case _ => {
             val Apply(Select(_, _), args) = tree
@@ -380,8 +356,8 @@ object TypedStaticQuery {
       }.headOption
 
       //Determine the trees
-      val clasDef = base.c.enclosingClass.asInstanceOf[MemberDef]
-      val methDef = base.c.enclosingMethod.asInstanceOf[MemberDef]
+      val clasDef = c.enclosingClass.asInstanceOf[MemberDef]
+      val methDef = c.enclosingMethod.asInstanceOf[MemberDef]
 
       //Determine their names
       val clasName = completeNameOf(clasDef.name)
@@ -399,7 +375,7 @@ object TypedStaticQuery {
         clasConf.map(("." + clasName) -> _) ++
         methConf.map(("." + methName) -> _)
       cache.getFromCache(methName.split('.').toList, new StringBuffer(methName.length), map,
-                         base.abort("Cannot find suitable config handler for this invocation")
+                         abort("Cannot find suitable config handler for this invocation")
       )
     }
   }
