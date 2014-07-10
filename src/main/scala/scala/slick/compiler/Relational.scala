@@ -2,7 +2,6 @@ package scala.slick.compiler
 
 import scala.collection.mutable.{HashMap, ArrayBuffer}
 import scala.slick.SlickException
-import scala.slick.ast.Library.AggregateFunctionSymbol
 import scala.slick.ast._
 import Util._
 import ExtraUtil._
@@ -76,8 +75,8 @@ class ConvertToComprehensions extends Phase {
 
   def convert(n: Node): Node = convert1(n.nodeMapChildren(convert, keepType = true)) match {
     case c1@Comprehension(from1, where1, None, orderBy1,
-        Some(c2@Comprehension(from2, where2, None, orderBy2, select, None, None, _)),
-        fetch, offset, _) =>
+        Some(c2@Comprehension(from2, where2, None, orderBy2, select, None, None, false)),
+        fetch, offset, false) =>
       c2.copy(from = from1 ++ from2, where = where1 ++ where2,
         orderBy = orderBy2 ++ orderBy1, fetch = fetch, offset = offset
       ).nodeTyped(c1.nodeType)
@@ -89,7 +88,7 @@ class ConvertToComprehensions extends Phase {
     // for extracting aggregated values from groups. We have to do it here
     // because Comprehension fusion comes after the special rewriting that
     // we have to do for GroupBy aggregation.
-    case Bind(ogen, Comprehension(Seq((igen, from)), Nil, None, Nil, Some(Pure(isel, _)), None, None, _), Pure(osel, oident)) =>
+    case Bind(ogen, Comprehension(Seq((igen, from)), Nil, None, Nil, Some(Pure(isel, _)), None, None, false), Pure(osel, oident)) =>
       logger.debug("Fusing simple mapping:", n)
       val sel = osel.replace({
         case FwdPath(base :: rest) if base == ogen =>
@@ -112,7 +111,7 @@ class ConvertToComprehensions extends Phase {
       val newBy = by.replace({ case r @ Ref(f) if f == fromGen => Ref(gen).nodeTyped(r.nodeType) }, keepType = true)
       logger.debug("Replacing simple groupBy selection in:", sel)
       val newSel = sel.replace({
-        case a@Apply(fs, Seq(b@Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(pexpr, _)), None, None, _))) if gen2 == gen =>
+        case a@Apply(fs, Seq(b@Comprehension(Seq((s1, Select(Ref(gen2), ElementSymbol(2)))), Nil, None, Nil, Some(Pure(pexpr, _)), None, None, false))) if gen2 == gen =>
           val newExpr = pexpr match {
             case ProductOfCommonPaths(s2, rests) if s2 == s1 =>
               FwdPath(gen :: rests.head).nodeTyped(b.nodeType)
@@ -158,6 +157,9 @@ class ConvertToComprehensions extends Phase {
         case _ => Comprehension(from = mkFrom(new AnonSymbol, from), fetch = take, offset = drop2)
       }
       c.nodeTyped(td.nodeType)
+    case d@Distinct(gen, child) => {
+      Comprehension(from = mkFrom(gen, child), distinctFlag = true).nodeTyped(d.nodeType)
+    }
     case n => n
   }
 
@@ -171,8 +173,8 @@ class ConvertToComprehensions extends Phase {
         case Some((f, None, d)) => Some((f, Some(num), d))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d, _) => Some((f, Some(constOp[Long]("min")(math.min)(t, num)), d))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, d, _) => Some((f, Some(num), d))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d, false) => Some((f, Some(constOp[Long]("min")(math.min)(t, num)), d))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, d, false) => Some((f, Some(num), d))
             case _ => Some((from, Some(num), None))
           }
       }
@@ -182,9 +184,9 @@ class ConvertToComprehensions extends Phase {
         case Some((f, Some(t), Some(d))) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(constOp[Long]("+")(_ + _)(d, num))))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None, _) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(num)))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d), _) => Some((f, None, Some(constOp[Long]("+")(_ + _)(d, num))))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d), _) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(constOp[Long]("+")(_ + _)(d, num))))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None, false) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(num)))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d), false) => Some((f, None, Some(constOp[Long]("+")(_ + _)(d, num))))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d), false) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(constOp[Long]("+")(_ + _)(d, num))))
             case _ => Some((from, None, Some(num)))
           }
       }
@@ -269,6 +271,7 @@ class FuseComprehensions extends Phase {
     val newOrderBy = new ArrayBuffer[(Node, Ordering)]
     val structs = new HashMap[Symbol, Node]
     var fuse = false
+    var distinctFlag = c.distinctFlag
 
     def inline(n: Node): Node = n match {
       case p @ FwdPath(syms) =>
@@ -296,6 +299,9 @@ class FuseComprehensions extends Phase {
           for(n <- from.groupBy) newGroupBy += inline(n)
           structs += sym -> narrowStructure(from)
           fuse = true
+          // Why? `select distinct a.a1, a.b1 from (select a.a1, a.b1 from ...) a` is equals to
+          // `select a.a1, a.b1 from (select distinct a.a1, a.b1 from ...) a` if both Comprehensions can be fused with remain conditions.
+          distinctFlag = distinctFlag | from.distinctFlag
         } else newFrom += ((t._1, inline(t._2)))
       case t =>
         newFrom += ((t._1, inline(t._2)))
@@ -309,7 +315,8 @@ class FuseComprehensions extends Phase {
         (c.groupBy.toSeq.map { case n => inline(n) } ++ newGroupBy).headOption,
         c.orderBy.map { case (n, o) => (inline(n), o) } ++ newOrderBy,
         c.select.map { case n => inline(n) },
-        c.fetch, c.offset)
+        c.fetch, c.offset,
+        distinctFlag)
       logger.debug("Fused to:", c2)
       c2
     }
@@ -462,96 +469,6 @@ class FuseComprehensions extends Phase {
         })
         c.copy(select = Some(Pure(copyStruct)))*/
       case _ => c
-    }
-  }
-}
-
-class SelectDistinctPhase extends Phase {
-  override val name: String = "SelectDistinctPhase"
-
-  override def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n)(process)
-  }
-
-  private def isItPossibleToUseSelectDistinct(startComprehension: Comprehension): Boolean = {
-    def findNode(refs: Seq[Node])(n: Node): Boolean = {
-      n match {
-        case Select(ref@Ref(_), _) => refs.exists(_ == ref)
-        case x => x.nodeChildren.exists(findNode(refs))
-      }
-    }
-    def findAggregateFunction(refs: Seq[Node], c: Comprehension)(n: Node): Boolean = {
-      n match {
-        case Apply(_: AggregateFunctionSymbol, parameters) =>
-          // If any aggregate function are in original Comprehension's select clause, this function result is always `true`.
-          if (c == startComprehension) true
-          else parameters.exists(findNode(refs))
-        case c: Comprehension => c.nodeChildren.exists(findAggregateFunction(refs, c))
-        case x => x.nodeChildren.exists(findAggregateFunction(refs, c))
-      }
-    }
-    val foundAggregateFunction = startComprehension.groupBy.map {
-      case ProductNode(elements) => {
-        val refs = elements.map { case Select(path@Path(symbols), _) => Ref(symbols.last)}.distinct
-        startComprehension.select.exists(findAggregateFunction(refs, startComprehension))
-      }
-    }.getOrElse(false) // this `false` means that there are no aggregateFunctions.
-    // if there are aggregateFunction, don't skip groupBy clause. so return value should be false.
-    startComprehension.groupBy.isDefined && !foundAggregateFunction
-  }
-
-  private def tryFuse(outer: Comprehension): Comprehension = {
-    if (!(outer.where.isEmpty && outer.groupBy.isEmpty && outer.orderBy.isEmpty && outer.fetch.isEmpty && outer.offset.isEmpty)) return outer
-    val outerSelectNodes = outer.select match {
-      case Some(Pure(ProductNode(elements), _)) if elements.forall { case Select(_, _) => true case _ => false} => elements
-      case Some(Pure(select@Select(_, _), _)) => Seq(select)
-      case _ => Nil
-    }
-    val (innerComprehension, innerSelectNodes, comparingInnerSelectNodes, structNode) = outer.from match {
-      case Seq((innerSymbol, innerComprehension: Comprehension)) => {
-        innerComprehension.select match {
-          case Some(Pure(structNode@StructNode(elements), _)) =>
-            (Some(innerComprehension), elements, elements.map(x => Select(Ref(innerSymbol), x._1)), Some(structNode))
-          case _ => (None, Nil, Nil, None)
-        }
-      }
-      case _ => (None, Nil, Nil, None)
-    }
-    val newSymbols = outer.select match {
-      case Some(Pure(StructNode(elements), _)) => elements.map(_._1)
-      case _ => comparingInnerSelectNodes.map(_.field)
-    }
-    val newComprehension = structNode.
-      filterNot(_ => outerSelectNodes.isEmpty || outerSelectNodes != comparingInnerSelectNodes).
-      map(_.nodeType).
-      flatMap {
-      case StructType(elements) => Some(StructType(elements.zip(newSymbols).map(x => (x._2, x._1._2))))
-      case _ => None
-    }.
-      map(x => StructNode(innerSelectNodes.zip(newSymbols).map(x => (x._2, x._1._2)).toIndexedSeq).nodeTypedOrCopy(x)).
-      map(x => Some(Pure(x))).
-      flatMap(x => innerComprehension.map(_.copy(select = x, distinctFlag = true))).getOrElse(outer)
-    newComprehension
-  }
-
-  // for example, this phase can remove Comprehension's groupBy in Window Function-related-node.
-  // so, with this method, test whether skipping this phase on the node is required.
-  // of course, this work is only for the select distinct, so there are no window function codes.
-  // so, always returns false.
-  private def isRequiredToSkipThisPhase(n: Node): Boolean = false
-
-  def process(n: Node): Node = {
-    def innerProcess(n: Node): Node = {
-      n match {
-        case outerComprehension: Comprehension if isItPossibleToUseSelectDistinct(outerComprehension) => {
-          tryFuse(outerComprehension.copy(distinctFlag = true, groupBy = None).nodeTypedOrCopy(outerComprehension.nodeType))
-        }
-        case x => x
-      }
-    }
-    n match {
-      case x if isRequiredToSkipThisPhase(x) => x
-      case x => innerProcess(x.nodeMapChildren(process))
     }
   }
 }

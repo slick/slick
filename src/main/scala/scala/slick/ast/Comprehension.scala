@@ -40,7 +40,7 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     )
   }
   def nodeGenerators = from
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = f"distinct:$distinctFlag")
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(from = (from, gen).zipped.map { case ((_, n), s) => (s, n) })
   def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {

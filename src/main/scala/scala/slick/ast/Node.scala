@@ -637,3 +637,11 @@ object QueryParameter {
     case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations of type $tpe")
   }
 }
+
+final case class Distinct(val generator: Symbol, override val child: Node) extends UnaryNode with SimplyTypedNode with DefNode {
+  override type Self = Distinct
+  override protected def buildType: Type = child.nodeType
+  override def nodeGenerators: Seq[(Symbol, Node)] = Seq((generator, child))
+  override protected[this] def nodeRebuild(child: Node): Self = copy(child = child)
+  override protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node = copy(generator = gen(0))
+}
