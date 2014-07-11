@@ -3,7 +3,7 @@ package scala.slick.util
 import java.sql.PreparedStatement
 import scala.collection.mutable.ArrayBuffer
 
-final class SQLBuilder extends SQLBuilder.Segment { self =>
+final class SQLBuilder(val sqlIndent: Boolean = false) extends SQLBuilder.Segment { self =>
   import SQLBuilder._
 
   private val segments = new ArrayBuffer[Segment]
@@ -43,7 +43,7 @@ final class SQLBuilder extends SQLBuilder.Segment { self =>
   def isEmpty = ss.sb.isEmpty
 
   def createSlot = {
-    val s = new SQLBuilder
+    val s = new SQLBuilder(sqlIndent)
     segments += s
     currentStringSegment = null
     s
@@ -57,6 +57,35 @@ final class SQLBuilder extends SQLBuilder.Segment { self =>
     val setters = new ArrayBuffer[Setter]
     appendTo(sb, setters)
     Result(sb.toString, new CombinedSetter(setters))
+  }
+
+  private var currentIndentLevel: Int = 0
+
+  def addIndentLevel(): SQLBuilder = {
+    if (sqlIndent) currentIndentLevel += 1
+    this
+  }
+
+  def removeIndentLevel(): SQLBuilder = {
+    if (sqlIndent) currentIndentLevel -= 1
+    this
+  }
+
+  def getIndentLevel: Int = currentIndentLevel
+
+  def newLine(): SQLBuilder = {
+    if (sqlIndent) {
+      this.+=("\n")
+      if (1 <= currentIndentLevel) 1.to(currentIndentLevel).foreach(_ => this.+=("  "))
+    }
+    this
+  }
+
+  def newLineStr: String = {
+    if ((sqlIndent) && (1 <= currentIndentLevel)) {
+      "\n" + 1.to(currentIndentLevel).map(_ => this.+=("  "))
+    }
+    else " "
   }
 }
 
