@@ -28,25 +28,29 @@ trait Rep[T] {
   override def toString = s"Rep($toNode)"
 }
 
-object Rep extends RepLowPriority {
-  /** A Shape for ConstColumns. It is identical to `columnShape` but it
-    * ensures that a `ConstColumn[T]` packs to itself, not just to
-    * `Column[T]`. This allows ConstColumns to be used as fully packed
-    * types when compiling query functions. */
-  @inline implicit def constColumnShape[T, Level <: ShapeLevel] = RepShape[Level, ConstColumn[T], T]
-
-  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
-
+object Rep {
   def forNode[T : TypedType](n: Node): Rep[T] = new TypedRep[T] { def toNode = n }
 
   abstract class TypedRep[T](implicit final val tpe: TypedType[T]) extends Rep[T] with Typed {
     def encodeRef(path: List[Symbol]): Rep[T] = forNode(Path(path))
   }
+
+  def Some[M, O](v: M)(implicit od: OptionLift[M, _, O]): O =
+    ??? //TODO
+
+  def None[P]: Rep[Option[P]] =
+    ??? //TODO
 }
 
-trait RepLowPriority {
-  /** A Shape for single-column Reps. */
-  @inline implicit def repColumnShape[T : TypedType, Level <: ShapeLevel] = RepShape[Level, Rep[T], T]
+/** A typeclass that lifts a mixed type to the packed Option type. */
+trait OptionLift[M, P, O]
+
+object OptionLift extends OptionLiftLowPriority {
+  @inline implicit def repOptionLift[M <: Rep[_], P](implicit shape: Shape[_ <: FlatShapeLevel, M, _, Rep[P]]): OptionLift[M, Rep[P], Rep[Option[P]]] = null
+}
+
+trait OptionLiftLowPriority {
+  @inline implicit def anyOptionLift[M, P](implicit shape: Shape[_ <: FlatShapeLevel, M, _, P]): OptionLift[M, P, Rep[Option[P]]] = null
 }
 
 /** A scalar value that is known at the client side at the time a query is executed.

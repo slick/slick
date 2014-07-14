@@ -46,7 +46,7 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
   def toNode(value: Mixed): Node
 }
 
-object Shape extends ShapeLowPriority2 {
+object Shape extends ShapeLowPriority {
   implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]): Shape[Level, T, T, ConstColumn[T]] = new Shape[Level, T, T, ConstColumn[T]] {
     def pack(value: Mixed) = LiteralColumn(value)
     def packedShape = RepShape[Level, Packed, Unpacked]
@@ -66,6 +66,29 @@ object Shape extends ShapeLowPriority2 {
     def encodeRef(value: Mixed, path: List[Symbol]) = ()
     def toNode(value: Mixed) = ProductNode(Nil)
   }
+
+  /** A Shape for ConstColumns. It is identical to `columnShape` but it
+    * ensures that a `ConstColumn[T]` packs to itself, not just to
+    * `Column[T]`. This allows ConstColumns to be used as fully packed
+    * types when compiling query functions. */
+  @inline implicit def constColumnShape[T, Level <: ShapeLevel] = RepShape[Level, ConstColumn[T], T]
+
+  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
+}
+
+trait ShapeLowPriority extends ShapeLowPriority1 {
+  /** A Shape for single-column Reps. */
+  @inline implicit def repColumnShape[T : BaseTypedType, Level <: ShapeLevel] = RepShape[Level, Rep[T], T]
+
+  /** A Shape for Option-valued Reps. */
+  @inline implicit def optionShape[M, U, P, Level <: ShapeLevel](implicit sh: Shape[_ <: Level, Rep[M], U, Rep[P]]): Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]] =
+    RepShape.asInstanceOf[Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]]]
+}
+
+trait ShapeLowPriority1 extends ShapeLowPriority2 {
+  /** A Shape for Option-valued non-Reps. */
+  @inline implicit def anyOptionShape[M, U, P, Level <: ShapeLevel](implicit sh: Shape[_ <: Level, M, U, P]): Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]] =
+    RepShape.asInstanceOf[Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]]]
 }
 
 /** Shape for Rep values (always fully packed) */
