@@ -8,7 +8,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.model.Model
-import scala.slick.jdbc.Invoker
+import scala.slick.jdbc.{Invoker, JdbcType}
 import scala.slick.jdbc.meta.MTable
 
 /** Slick driver for SQLite.
@@ -181,6 +181,11 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     // the same in ReturningInsertInvoker because SQLite does not allow returning non-AutoInc keys anyway.
     override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
+  }
+
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
+    case java.sql.Types.TINYINT | java.sql.Types.SMALLINT | java.sql.Types.BIGINT => "INTEGER"
+    case _ => super.defaultSqlTypeName(tmd)
   }
 
   class JdbcTypes extends super.JdbcTypes {
