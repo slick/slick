@@ -209,7 +209,9 @@ class FuseComprehensions extends Phase {
         case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
-      liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)
+      Some(liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)).
+        map(noParenthesesUnion).
+        get
     case g: GroupBy =>
       throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
     case n => n
@@ -468,16 +470,8 @@ class FuseComprehensions extends Phase {
       case _ => c
     }
   }
-}
 
-class NoParenthesesUnion extends Phase {
-  override val name = "NoParenthesesUnion"
-
-  override def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n)(process)
-  }
-
-  def process(n: Node): Node = {
+  private def noParenthesesUnion(n: Comprehension): Comprehension = {
     def areThereOnlySelect(pure: Pure): Boolean = {
       val x = pure.value match {
         case ProductNode(elements) => elements.forall {
@@ -489,53 +483,59 @@ class NoParenthesesUnion extends Phase {
       }
       x
     }
-    def innerProcess(n: Node): Node = {
-      n match {
-        case union@Union(left: Comprehension, right: Comprehension, all, leftGen, rightGen, operator) => {
-          val op = if (operator.isEmpty)
-            if (all) Some(InternalUnionOperatorType.unionAll) else Some(InternalUnionOperatorType.union)
-          else
-            operator
-          val internalUnion = InternalUnion(right, op)
-          left.copy(unionNodes = left.unionNodes ++ Seq(internalUnion))
-        }
-        case outerComprehension@Comprehension(from@Seq((innerComprehensionSymbol, innerComprehension: Comprehension)), where, groupBy, orderBy, select@Some(pure: Pure), fetch, offset, unionNodes)
-          if (areThereOnlySelect(pure) :: where.isEmpty :: groupBy.isEmpty :: orderBy.isEmpty :: fetch.isEmpty :: offset.isEmpty :: Nil).forall(_ == true) => {
-          val outerColumns = pure match {
-            case Pure(ProductNode(outerColumns), _) => outerColumns
-            case Pure(outerColumn: Select, _) => Seq(outerColumn)
-            case _ => Nil
-          }
-          val innerColumns = innerComprehension.select match {
-            case Some(Pure(StructNode(innerColumns), _)) => innerColumns
-            case _ => Nil
-          }
-          val outerFieldSymbols = outerColumns.map {
-            case Select(_, fieldSymbol) => fieldSymbol
-            case x => throw new SlickException("Impossible.") // because areThereOnlySelect(pure) == true
-          }
-          val innerFieldSymbols = innerColumns.map(_._1)
-          if (outerFieldSymbols != Nil && outerFieldSymbols == innerFieldSymbols) {
-            val newInnerColumns = innerComprehension.select match {
-              case Some(Pure(StructNode(innerColumns), _)) => {
-                val newSymbols = pure match {
-                  case Pure(StructNode(outerColumns), _) => outerColumns.map(_._1)
-                  case _ => outerFieldSymbols
-                }
-                innerColumns.zip(newSymbols).map { case ((innerSymbol, innerNode), newSymbol) => (newSymbol, innerNode)}
-              }
-              case _ => throw new SlickException("Impossible.") // because areThereOnlySelect(pure) == true
-            }
-            innerComprehension.copy(select = Some(Pure(StructNode(newInnerColumns))), unionNodes = innerComprehension.unionNodes ++ unionNodes)
-          }
-          else {
-            outerComprehension
-          }
-        }
-        case x => x
+    def convertUnionToComprehension(n: Node): Node = n match {
+      case union@Union(left: Comprehension, right: Comprehension, all, leftGen, rightGen, operator) => {
+        val op = if (operator.isEmpty)
+          if (all) Some(InternalUnionOperatorType.unionAll) else Some(InternalUnionOperatorType.union)
+        else
+          operator
+        val internalUnion = InternalUnion(right, op)
+        left.copy(unionNodes = left.unionNodes ++ Seq(internalUnion))
       }
+      case _ => throw new SlickException("Expected only Union node.")
     }
-    innerProcess(n.nodeMapChildren(process))
+    def internalFuse(c: Comprehension): Comprehension = c match {
+      case outerComprehension@Comprehension(from@Seq((innerComprehensionSymbol, innerComprehension: Comprehension)), where, groupBy, orderBy, select@Some(pure: Pure), fetch, offset, unionNodes)
+        if (areThereOnlySelect(pure) :: where.isEmpty :: groupBy.isEmpty :: orderBy.isEmpty :: fetch.isEmpty :: offset.isEmpty :: Nil).forall(_ == true) => {
+        val outerColumns = pure match {
+          case Pure(ProductNode(outerColumns), _) => outerColumns
+          case Pure(outerColumn: Select, _) => Seq(outerColumn)
+          case _ => Nil
+        }
+        val innerColumns = innerComprehension.select match {
+          case Some(Pure(StructNode(innerColumns), _)) => innerColumns
+          case _ => Nil
+        }
+        val outerFieldSymbols = outerColumns.map {
+          case Select(_, fieldSymbol) => fieldSymbol
+          case x => throw new SlickException("Impossible.") // because areThereOnlySelect(pure) == true
+        }
+        val innerFieldSymbols = innerColumns.map(_._1)
+        if (outerFieldSymbols != Nil && outerFieldSymbols == innerFieldSymbols) {
+          val newInnerColumns = innerComprehension.select match {
+            case Some(Pure(StructNode(innerColumns), _)) => {
+              val newSymbols = pure match {
+                case Pure(StructNode(outerColumns), _) => outerColumns.map(_._1)
+                case _ => outerFieldSymbols
+              }
+              innerColumns.zip(newSymbols).map { case ((innerSymbol, innerNode), newSymbol) => (newSymbol, innerNode)}
+            }
+            case _ => throw new SlickException("Impossible.") // because areThereOnlySelect(pure) == true
+          }
+          innerComprehension.copy(select = Some(Pure(StructNode(newInnerColumns))), unionNodes = innerComprehension.unionNodes ++ unionNodes)
+        }
+        else {
+          outerComprehension
+        }
+      }
+      case c => c
+    }
+    n match {
+      case outerComprehension@Comprehension(from@Seq((innerUnionSymbol, innerUnion: Union)), _, _, _, _, _, _, _) => {
+        internalFuse(outerComprehension.copy(from = Seq((innerUnionSymbol, convertUnionToComprehension(innerUnion)))))
+      }
+      case x => x
+    }
   }
 }
 
