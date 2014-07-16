@@ -106,7 +106,6 @@ object QueryCompiler {
     Phase.resolveZipJoins,
     Phase.convertToComprehensions,
     Phase.fuseComprehensions,
-    Phase.noParenthesisJoin,
     Phase.fixRowNumberOrdering,
     Phase.hoistClientOps
   )
@@ -147,7 +146,6 @@ object Phase {
   val assignTypes = new AssignTypes
   val convertToComprehensions = new ConvertToComprehensions
   val fuseComprehensions = new FuseComprehensions
-  val noParenthesisJoin = new NoParenthesesJoin
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val hoistClientOps = new HoistClientOps
 
