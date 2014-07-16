@@ -154,8 +154,7 @@ Querying
 --------
 
 Queries are executed using methods defined in the :api:`scala.slick.jdbc.Invoker`
-trait (or :api:`scala.slick.jdbc.UnitInvoker` for the parameterless versions).
-There is an implicit conversion from ``Query``, so you can execute any
+trait. There is an implicit conversion from ``Query``, so you can execute any
 ``Query`` directly. The most common usage scenario is reading a complete
 result set into a strict collection with a specialized method such as ``list``
 or the generic method ``to`` which can build any kind of collection:
@@ -202,8 +201,8 @@ projection. Omitting some of a table's columns when inserting causes the
 database to use the default values specified in the table definition, or
 a type-specific default in case no explicit default was given. All methods
 for inserting are defined in
-:api:`InsertInvoker <scala.slick.driver.JdbcInvokerComponent@InsertInvoker[T]:JdbcDriver.InsertInvoker[T]>` and
-:api:`FullInsertInvoker <scala.slick.driver.JdbcInvokerComponent@FullInsertInvoker[U]:JdbcDriver.FullInsertInvoker[U]>`.
+:api:`InsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@InsertInvokerDef[U]:JdbcDriver.InsertInvokerDef[U]>` and
+:api:`FullInsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@FullInsertInvokerDef[U]:JdbcDriver.FullInsertInvokerDef[U]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
 
@@ -279,7 +278,13 @@ This works for all functions that take ``Column`` parameters (or
 scalar query. See the API documentation for :api:`scala.slick.lifted.Compiled`
 and its subclasses for details on composing compiled queries.
 
-You can use a compiled query for querying, updating and deleting data. (For inserts, you can cache the :api:`InsertInvoker <scala.slick.driver.JdbcInvokerComponent@InsertInvoker[T]:JdbcDriver.InsertInvoker[T]>` and re-use it instead. To get it, call a query's :api:`insertInvoker <scala.slick.profile.BasicInvokerComponent$InsertInvokerDef@insertInvoker:InsertInvokerDef.this.type>` method, which is added by the :api:`createInsertInvoker <scala.slick.driver.JdbcInvokerComponent@createInsertInvoker[U](Node):JdbcDriver.CountingInsertInvoker[U]>` implicit conversion.)
+You can use a compiled query for querying, updating and deleting data. (For inserts,
+you can cache the :api:`InsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@InsertInvokerDef[U]:JdbcDriver.InsertInvokerDef[U]>`
+and re-use it instead. To get it, call a query's
+:api:`insertInvoker <scala.slick.profile.BasicInsertInvokerComponent$InsertInvokerDef@insertInvoker:InsertInvokerDef.this.type>`
+method, which is added by the
+:api:`createInsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@createInsertInvoker[U](tree:JdbcInsertInvokerComponent.this.CompiledInsert):JdbcInsertInvokerComponent.this.CountingInsertInvokerDef[U]>`
+implicit conversion.)
 
 For backwards-compatibility with Slick 1.0 you can still create a compiled
 query by calling ``flatMap`` on a :api:`scala.slick.lifted.Parameters` object.

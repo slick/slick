@@ -354,8 +354,10 @@ object ScalaBaseType {
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
       floatType, intType, longType, nullType, shortType, stringType).map(s => (s.classTag, s)).toMap
 
-  def apply[T](implicit tag: ClassTag[T], ord: scala.math.Ordering[T] = null): ScalaBaseType[T] =
-    all.getOrElse(tag, new ScalaBaseType[T]).asInstanceOf[ScalaBaseType[T]]
+  def apply[T](implicit classTag: ClassTag[T], ordering: scala.math.Ordering[T] = null): ScalaBaseType[T] =
+    all.getOrElse(classTag, new ScalaBaseType[T]).asInstanceOf[ScalaBaseType[T]]
+
+  def unapply[T](t: ScalaBaseType[T]) = Some((t.classTag,t.ordering))
 }
 
 class ScalaNumericType[T](val fromDouble: Double => T)(implicit tag: ClassTag[T], val numeric: Numeric[T])

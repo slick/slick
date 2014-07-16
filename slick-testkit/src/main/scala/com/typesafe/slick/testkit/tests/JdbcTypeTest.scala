@@ -29,6 +29,12 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
       Set((1,"123"), (2,"45")),
       ts.list.map{ case (id, data) => (id, data.mkString) }.toSet
     )
+    if(implicitly[ColumnType[Array[Byte]]].hasLiteralForm) {
+      assertEquals(
+        Set("45"),
+        ts.filter(_.data === Array[Byte](4,5)).map(_.data).to[Set].run.map(_.mkString)
+      )
+    }
   }
 
   def testByteArrayOption {

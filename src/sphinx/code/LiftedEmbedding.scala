@@ -451,12 +451,10 @@ object LiftedEmbedding extends App {
   }
 
   db withDynSession {
-    //#recordtypepair
+    //#recordtype1
     // A custom record class
     case class Pair[A, B](a: A, b: B)
-    //#recordtypepair
 
-    //#recordtype1
     // A Shape implementation for Pair
     final class PairShape[Level <: ShapeLevel, M <: Pair[_,_], U <: Pair[_,_] : ClassTag, P <: Pair[_,_]](
       val shapes: Seq[Shape[_, _, _, _]])
@@ -491,6 +489,69 @@ object LiftedEmbedding extends App {
       .filter { case Pair(id, _) => id =!= 1 }
       .sortBy { case Pair(_, ss) => ss }
       .map { case Pair(id, ss) => Pair(id, Pair(42 , ss)) }
+
+    assert(q2.run == Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc"))))
     //#recordtype2
+
+    //#case-class-shape
+    // two custom case class variants
+    case class LiftedB(a: Column[Int], b: Column[String])
+    case class B(a: Int, b: String)
+
+    // custom case class mapping
+    implicit object BShape extends CaseClassShape(LiftedB.tupled, B.tupled)
+
+    class BRow(tag: Tag) extends Table[B](tag, "shape_b") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[String]("s")
+      def * = LiftedB(id, s)
+    }
+    val bs = TableQuery[BRow]
+    bs.ddl.create
+
+    bs += B(1, "a")
+    bs.map(b => (b.id, b.s)) += ((2, "c"))
+    bs += B(3, "b")
+
+    val q3 = bs
+      .map { case b => LiftedB(b.id, (b.s ++ b.s)) }
+      .filter { case LiftedB(id, _) => id =!= 1 }
+      .sortBy { case LiftedB(_, ss) => ss }
+
+    assert(q3.run == Vector(B(3,"bb"), B(2,"cc")))
+    //#case-class-shape
+
+    //#combining-shapes
+    // Combining multiple mapped types
+    case class LiftedC(p: Pair[Column[Int],Column[String]], b: LiftedB)
+    case class C(p: Pair[Int,String], b: B)
+
+    implicit object CShape extends CaseClassShape(LiftedC.tupled, C.tupled)
+
+    class CRow(tag: Tag) extends Table[C](tag, "shape_c") {
+      def id = column[Int]("id")
+      def s = column[String]("s")
+      def projection = LiftedC(
+        Pair(column("p1"),column("p2")), // (cols defined inline, type inferred)
+        LiftedB(id,s)
+      )
+      def * = projection
+    }
+    val cs = TableQuery[CRow]
+    cs.ddl.create
+
+    cs += C(Pair(7,"x"), B(1,"a"))
+    cs += C(Pair(8,"y"), B(2,"c"))
+    cs += C(Pair(9,"z"), B(3,"b"))
+
+    val q4 = cs
+      .map { case c => LiftedC(c.projection.p, LiftedB(c.id,(c.s ++ c.s))) }
+      .filter { case LiftedC(_, LiftedB(id,_)) => id =!= 1 }
+      .sortBy { case LiftedC(Pair(_,p2), LiftedB(_,ss)) => ss++p2 }
+
+    assert(q4.run == Vector(C(Pair(9,"z"),B(3,"bb")), C(Pair(8,"y"),B(2,"cc"))))
+    //#combining-shapes
+
+    ()
   }
 }

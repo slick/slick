@@ -1,12 +1,9 @@
-package scala.slick.test.model
+package scala.slick.test.codegen
 
 import org.junit.Test
 import org.junit.Assert._
-import scala.slick.model._
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
-import scala.slick.test.model.codegen.roundtrip.Tables
+import com.typesafe.slick.testkit.util.TestkitTest
 import scala.slick.jdbc.StaticQuery
-import scala.slick.testutil._
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 
@@ -15,7 +12,7 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
   import tdb.driver.quoteIdentifier
   @Test def test { db.withSession{ implicit session =>
-    object Tables extends Tables{
+    object Tables extends roundtrip.Tables{
       val profile = tdb.profile
     }
     import Tables.profile.simple._
@@ -46,7 +43,6 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
 
     // Testing table larger 22 columns
     import scala.slick.collection.heterogenous._
-    import scala.slick.collection.heterogenous.syntax._
 
     val oData = 0L :: 11 :: 12 :: 13 :: 14 :: 15 :: 16 :: 21 :: 22 :: 23 :: 24 :: 25 :: 26 :: 31 :: 32 :: 33 :: 34 :: 35 :: 36 :: 41 :: 42 :: 43 :: 44 :: 45 :: 46 :: 51 :: 52 :: 53 :: 54 :: 55 :: 56 :: 61 :: 62 :: 63 :: 64 :: 65 :: 66 :: HNil
     val oData2 = LargeRow( 1L, p6i4 = 123, p1i5 = 456 )
@@ -76,6 +72,10 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
       X.map(r =>{(r.categoriesFk3: ForeignKeyQuery[Categories,CategoriesRow]) == null})
       X.map(r =>{(r.index1X: Index) == null})
       X.map(r =>{(r.index2: Index) == null})
+      X.map(r =>{(r.index1X: Index) == null})
+      X.map(r =>{(r.index2: Index) == null})
+      X.map(r =>{(r.index3: Index) == null})
+      X.map(r =>{(r.index4: Index) == null})
 
       TypeTest.map(r =>{(r.pk: PrimaryKey) == null})
     }
