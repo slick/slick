@@ -9,6 +9,8 @@ import scala.slick.ast.ExtraUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
+import scala.slick.model.Model
+import scala.slick.jdbc.meta.MTable
 
 /** Slick driver for MySQL.
   *
@@ -39,8 +41,28 @@ trait MySQLDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.joinFull
   )
 
-  override val columnTypes = new JdbcTypes
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def PrimaryKey = new PrimaryKey(_){
+        // TODO: this needs a test
+        override def name = super.name.filter(_ != "PRIMARY")
+      }
+      override def Column = new Column(_){
+        override def default = meta.columnDef.map((_,tpe)).collect{
+          case (v,"String")    => Some(Some(v))
+          case ("1","Boolean") => Some(Some(true))
+          case ("0","Boolean") => Some(Some(false))
+        }.getOrElse{super.default}
+      }
+    }
+  }
+  
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
+  override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)

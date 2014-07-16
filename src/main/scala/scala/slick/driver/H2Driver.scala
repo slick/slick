@@ -5,6 +5,8 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.JdbcType
+import scala.slick.jdbc.meta.MTable
+import scala.slick.model.Model
 
 /** Slick driver for H2.
   *
@@ -12,6 +14,8 @@ import scala.slick.jdbc.JdbcType
   * ''without'' the following capabilities:
   *
   * <ul>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.reverse]]:
+  *     This String function is not available in H2.</li>
   *   <li>[[scala.slick.profile.SqlProfile.capabilities.sequenceMin]],
   *     [[scala.slick.profile.SqlProfile.capabilities.sequenceMax]],
   *     [[scala.slick.profile.SqlProfile.capabilities.sequenceCycle]]:
@@ -39,6 +43,20 @@ trait H2Driver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
     - RelationalProfile.capabilities.reverse
   )
+
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
+      override def Column = new Column(_){
+        override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
+      }
+    }
+  }
+   
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
