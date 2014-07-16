@@ -10,6 +10,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.{Invoker, JdbcType}
+import scala.slick.model.Model
 
 /** Slick driver for PostgreSQL.
   *
@@ -41,7 +42,28 @@ trait PostgresDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
   )
 
-  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def schema = super.schema.filter(_ != "public") // remove default schema
+      override def Column = new Column(_){
+        override def default = meta.columnDef.map((_,tpe)).collect{
+          case ("true","Boolean")  => Some(Some(true))
+          case ("false","Boolean") => Some(Some(false))
+        }.getOrElse{super.default}
+      }
+      override def Index = new Index(_){
+        // FIXME: this needs a test
+        override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
+      }
+    }
+  }
+
+  override def defaultTables(implicit session: Backend#Session) = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
@@ -107,11 +129,9 @@ trait PostgresDriver extends JdbcDriver { driver =>
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
-      val typeName =
-        if(autoIncrement && !customSqlType) {
-          if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL"
-        } else sqlType
-      sb append typeName
+      if(autoIncrement && !customSqlType) {
+        sb append (if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL")
+      } else appendType(sb)
       autoIncrement = false
       appendOptions(sb)
     }

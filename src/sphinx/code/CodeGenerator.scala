@@ -13,18 +13,18 @@ object CodeGenerator extends App {
   if(false){
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
     //#default-runner
-    scala.slick.model.codegen.SourceCodeGenerator.main(
+    scala.slick.codegen.SourceCodeGenerator.main(
       Array(slickDriver, jdbcDriver, url, outputFolder, pkg)
     )
     //#default-runner
     //#default-runner-with-auth
-    scala.slick.model.codegen.SourceCodeGenerator.main(
+    scala.slick.codegen.SourceCodeGenerator.main(
       Array(slickDriver, jdbcDriver, url, outputFolder, pkg, user, password)
     )
     //#default-runner-with-auth
     //#customization
     import scala.slick.jdbc.meta.createModel
-    import scala.slick.model.codegen.SourceCodeGenerator
+    import scala.slick.codegen.SourceCodeGenerator
     // fetch data model
     val model = db.withSession{ implicit session =>
       createModel(H2Driver.getTables.list,H2Driver) // you can filter specific tables here
