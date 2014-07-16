@@ -421,22 +421,20 @@ final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node
 
 /** A union of type
   * (CollectionType(c, t), CollectionType(_, t)) => CollectionType(c, t). */
-final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol) extends BinaryNode with DefNode with SimplyTypedNode {
+final case class Union(left: Node, right: Node, all: Boolean, leftGen: Symbol = new AnonSymbol, rightGen: Symbol = new AnonSymbol, val operator: Option[InternalUnionOperatorType.Value] = None) extends BinaryNode with DefNode with SimplyTypedNode {
   type Self = Union
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(left = left, right = right)
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = if(all) "all" else "")
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = operator.map(_.toString).getOrElse(if (all) "all" else ""))
   override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen)
   def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(leftGen = gen(0), rightGen = gen(1))
   protected def buildType = left.nodeType
 }
 
-final case class InternalUnion(inner: Node, operator: String = "union") extends UnaryNode with SimplyTypedNode {
+final case class InternalUnion(inner: Node, operator: Option[InternalUnionOperatorType.Value]) extends UnaryNode with SimplyTypedNode {
   type Self = InternalUnion
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = operator)
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = operator.map(_.toString).getOrElse("empty"))
   override def nodeChildNames = Seq("inner " + inner)
-//  def nodeGenerators = Seq((innerGen, inner))
-//  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(innerGen = gen(0))
   protected def buildType = inner.nodeType
   override def child: Node = inner
   override protected[this] def nodeRebuild(child: Node): Self = copy(inner=child)

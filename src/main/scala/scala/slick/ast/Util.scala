@@ -138,3 +138,10 @@ object ProductOfCommonPaths {
       case _ => None
     }
 }
+
+object InternalUnionOperatorType extends Enumeration {
+  val unionAll = Value("unionAll")
+  val union = Value("union")
+  val intersect = Value("intersect")
+  val except = Value("except")
+}

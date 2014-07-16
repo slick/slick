@@ -250,10 +250,20 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
+    protected def convertUnionOperator(operator: InternalUnionOperatorType.Value): String = {
+      operator match {
+        case InternalUnionOperatorType.unionAll => "union all"
+        case InternalUnionOperatorType.union => "union"
+        case InternalUnionOperatorType.intersect => "intersect"
+        case InternalUnionOperatorType.except => "except"
+        case _ => throw new SlickException("Unknown union operator type.")
+      }
+    }
+
     protected def buildUnionNodes(unionNodes: Seq[Node]) = building(OtherPart) {
       unionNodes.foreach {
         case InternalUnion(inner: Comprehension, operator) =>
-          b" ${operator} "
+          operator.map(convertUnionOperator).foreach(x => b" $x ")
           buildComprehension(inner)
       }
     }
@@ -285,10 +295,13 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
               if(!supportsEmptyJoinConditions) b" on 1=1"
             case _ => b" on !$on"
           }
-        case Union(left, right, all, _, _) =>
+        case Union(left, right, all, _, _, operator) =>
           b"\("
           buildFrom(left, None, true)
-          if(all) b" union all " else b" union "
+          if (operator.isEmpty)
+            if (all) b" union all " else b" union "
+          else
+            operator.map(convertUnionOperator).foreach(x => b" $x ")
           buildFrom(right, None, true)
           b"\)"
           addAlias
