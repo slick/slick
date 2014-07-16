@@ -219,7 +219,9 @@ class FuseComprehensions extends Phase {
         case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
-      liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)
+      Some(liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)).
+        map(noParenthesesJoin).
+        get
     case g: GroupBy =>
       throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
     case n => n
@@ -485,167 +487,118 @@ class FuseComprehensions extends Phase {
       case _ => c
     }
   }
-}
 
-class NoParenthesesJoin extends Phase {
-  val name = "No Parentheses Join"
-
-  def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n)(process)
-  }
-
-  def process(n: Node): Node = {
-    def innerProcess(n: Node): Node = {
-      n match {
-        case outerComprehension@Comprehension(Seq((outerSymbol, Join(leftGen, rightGen, left@Comprehension(_, _, _, _, _, _, _, _, _, _), right: Comprehension, joinType, on))), outerWhere, outerGroupBy, outerOrderBy, outerSelect@Some(Pure(ProductNode(outerSelectNodes), _)), outerFetch, outerOffset, _, outerUnions, outerWithClauseNodes) => {
-          def isRightSimple(n: Node): Boolean = {
-            n match {
-              case Comprehension(Seq((_, _: TableNode)), where, groupBy, orderBy, select, fetch, offset, joinNodes, unionNodes, _)
-                if (where.isEmpty && groupBy.isEmpty && orderBy.isEmpty && fetch.isEmpty && offset.isEmpty && joinNodes.isEmpty && unionNodes.isEmpty) => true
-              case Comprehension(Seq((_, _: SyntheticTableNode)), where, groupBy, orderBy, select, fetch, offset, joinNodes, unionNodes, _)
-                if (where.isEmpty && groupBy.isEmpty && orderBy.isEmpty && fetch.isEmpty && offset.isEmpty && joinNodes.isEmpty && unionNodes.isEmpty) =>{
-                true
-              }
-              case _ => false
-            }
-          }
-          def isLeftOuterSimple(n: Node): Boolean = {
-            n match {
-              case Comprehension(Seq((_, _)), where, groupBy, orderBy, select, fetch, offset, _, unionNodes, _)
-                if (where.isEmpty && groupBy.isEmpty && orderBy.isEmpty && fetch.isEmpty && offset.isEmpty && unionNodes.isEmpty) => true
-              case _ => false
-            }
-          }
-          def areThereOnlyPathNodes(n: Node): Boolean = {
-            n match {
-              case Comprehension(_, _, _, _, select@Some(Pure(ProductNode(nodes), _)), _, _, _, _, _) =>
-                nodes.forall {
-                  case Path(_) => true
-                  case _ => false
-                }
-              case _ => false
-            }
-          }
-          def convertPaths(outerSymbol: Symbol, leftGen: Symbol, rightGen: Symbol, map: Map[Node#Self, Node])(n: Node): Node = {
-            def innerConvertSelect(outerSymbol: Symbol, leftGen: Symbol, rightGen: Symbol, map: Map[Node#Self, Node])(n: Node): Node = {
-              n match {
-                case path@Path(ElementSymbol(idx) :: ref :: Nil) if ref == outerSymbol => {
-                  idx match {
-                    case 1 => Path(leftGen :: Nil).nodeTypedOrCopy(path.nodeType)
-                    case 2 => Path(rightGen :: Nil).nodeTypedOrCopy(path.nodeType)
-                  }
-                }
-                case optionApply: OptionApply => optionApply.nodeTypedOrCopy(OptionType(optionApply.child.nodeType))
-                case getOrElse: GetOrElse => getOrElse.nodeTypedOrCopy(getOrElse.child.nodeType)
-                case productNode: ProductNode => productNode.nodeWithComputedType()
-                case pure: Pure => pure.nodeWithComputedType()
-                case x => map.get(x).getOrElse(x)
-              }
-            }
-            innerConvertSelect(outerSymbol, leftGen, rightGen, map)(n.nodeMapChildren(convertPaths(outerSymbol, leftGen, rightGen, map)))
-          }
-          def prepareRightMap: Seq[(Node#Self, Node)] = {
-            right.select match {
-              case Some(Pure(StructNode(elements), _)) => {
-                elements.map {
-                  case (alias, path@Path(symbol :: ref :: Nil)) =>
-                    (Path(alias :: rightGen :: Nil).nodeTypedOrCopy(path.nodeType), Path(symbol :: ref :: Nil).nodeTypedOrCopy(path.nodeType))
-                  case _ => (null, null)
-                }.filter(x => (x._1 != null))
-              }
-            }
-          }
-          def prepareLeftMap: Seq[(Node#Self, Node)] = {
-            left.select match {
-              case Some(Pure(StructNode(elements), _)) => {
-                elements.map {
-                  case (alias, path@Path(symbol :: _ :: Nil)) =>
-                    (Path(alias :: leftGen :: Nil).nodeTypedOrCopy(path.nodeType), path)
-                  case _ => (null, null)
-                }.filter(x => (x._1 != null))
-              }
-            }
-          }
-          def createConvertedComprehension(): Node = {
-            val leaveOutRightParentheses = isRightSimple(right) && areThereOnlyPathNodes(right)
-            val leaveOutLeftParentheses = isLeftOuterSimple(left) && areThereOnlyPathNodes(left)
-            val separateOuterInner = isLeftOuterSimple(outerComprehension)
-            val mapOne = prepareLeftMap.map(x => (x._1, if (leaveOutLeftParentheses) x._2 else x._1))
-            val mapTwo = prepareRightMap.map(x => (x._1, if (leaveOutRightParentheses) x._2 else x._1))
-            val additionalMapOne = mapOne.zipWithIndex.map {
-              case ((oldPath@Select(oldRef@Ref(refSymbol), _), newPath), idx) => {
-                (Select(oldRef, ElementSymbol(idx + 1)).nodeTypedOrCopy(oldPath.nodeType), newPath)
-              }
-            }
-            val additionalMapTwo = mapTwo.zipWithIndex.map {
-              case ((oldPath@Select(oldRef@Ref(refSymbol), _), newPath), idx) => {
-                (Select(oldRef, ElementSymbol(idx + 1)).nodeTypedOrCopy(oldPath.nodeType), newPath)
-              }
-            }
-            val map: Map[Node#Self, Node] = (mapOne ++ mapTwo ++ additionalMapOne ++additionalMapTwo).toMap
-            def convertUtil(n: Node): Node = convertPaths(outerSymbol, leftGen, rightGen, map)(n)
-            val convertedOn = convertUtil(on)
-            val selectedRightJoin =
-              if (leaveOutRightParentheses) {
-                right.from match {
-                  case Seq((rightFromSymbol, rightFromNode)) => (rightFromSymbol, rightFromNode)
-                }
-              }
-              else {
-                (rightGen, right)
-              }
-            val internalJoin = InternalJoin(selectedRightJoin._1, selectedRightJoin._2, joinType, convertedOn)
-            val convertedSelect = outerSelect.map(convertUtil)
-            val convertedWhere = outerWhere.map(convertUtil)
-            val convertedGroupBy = outerGroupBy.map(convertUtil)
-            val convertedOrderBy = outerOrderBy.map(x => (convertUtil(x._1), x._2))
-            val convertedFetch = outerFetch.map(convertUtil)
-            val convertedOffset = outerOffset.map(convertUtil)
-            val result =
-              if (leaveOutLeftParentheses) {
-                left.copy(
-                  where = convertedWhere,
-                  select = convertedSelect,
-                  groupBy = convertedGroupBy,
-                  orderBy = convertedOrderBy,
-                  fetch = convertedFetch,
-                  offset = convertedOffset,
-                  joinNodes = left.joinNodes ++ Seq(internalJoin),
-                  withClauseNodes = left.withClauseNodes ++ right.withClauseNodes).
-                  nodeTypedOrCopy(outerComprehension.nodeType)
-              }
-              else {
-                Comprehension(
-                  from = Seq((leftGen, left)),
-                  where = convertedWhere,
-                  select = convertedSelect,
-                  groupBy = convertedGroupBy,
-                  orderBy = convertedOrderBy,
-                  fetch = convertedFetch,
-                  offset = convertedOffset,
-                  joinNodes = Seq(internalJoin),
-                  unionNodes = outerUnions,
-                  withClauseNodes = outerWithClauseNodes).
-                  nodeTypedOrCopy(outerComprehension.nodeType)
-              }
-            result
-          }
-          createConvertedComprehension()
-          // Join(Join(A,B),C)
-          // = Comprehension(Join(Comprehension(Join(Comprehension(A...), Comprehension(B...))), Comprehension(C...)))
-          // *** Join(Comprehension(A...), Comprehension(B...)) = Comprehension(A, joinNodes=Comprehension(B...))
-          // = Comprehension(Join(Comprehension(Comprehension(A, joinNodes=Comprehension(B...))), Comprehension(C...)))
-          // = Comprehension(Join(Comprehension(D...), Comprehension(C...)))
-          // *** Join(Comprehension(D...), Comprehension(C...)) = Comprehension(D, joinNodes=Comprehension(C...))
-          // = Comprehension(Comprehension(D, joinNodes=Comprehension(C...)))
-          // = Comprehension(Comprehension(Comprehension(A, joinNodes=Comprehension(B...)), joinNodes=Comprehension(C...)))
-          // = Comprehension(Comprehension(A, joinNodes={Comprehension(B...),Comprehension(C...)}))
-          // = Comprehension(A, joinNodes={Comprehension(B...),Comprehension(C...)})
+  private def noParenthesesJoin(n: Comprehension): Comprehension = {
+    def testBasicConstraint(c: Comprehension) = c.where.isEmpty && c.groupBy.isEmpty && c.orderBy.isEmpty && c.fetch.isEmpty && c.offset.isEmpty && c.unionNodes.isEmpty
+    def testOneTableNodeFrom(c: Comprehension) = c.from match {
+      case Seq((_, _: TableNode)) => true
+      case _ => false
+    }
+    def testOneNodeFrom(c: Comprehension) = c.from match {
+      case Seq((_, _)) => true
+      case _ => false
+    }
+    def isRightSimple(n: Node): Boolean = n match {
+      case c: Comprehension => areThereOnlySelectNodes(c) && testOneTableNodeFrom(c) && testBasicConstraint(c) && c.joinNodes.isEmpty
+      case _ => false
+    }
+    def isLeftSimple(n: Node): Boolean = n match {
+      case c: Comprehension => areThereOnlySelectNodes(c) && testOneNodeFrom(c) && testBasicConstraint(c)
+      case _ => false
+    }
+    def areThereOnlySelectNodes(c: Comprehension): Boolean = c.select match {
+      case Some(Pure(ProductNode(nodes), _)) => nodes.forall {
+        case Select(_, _) => true
+        case _ => false
+      }
+      case _ => false
+    }
+    def convertPath(outerSymbol: Symbol, leftGen: Symbol, rightGen: Symbol, map: Map[Node, Node])(n:Node): Node = {
+      def innerConvertPath(n: Node): Node = n match {
+        case select: Select if map.contains(select) => map(select)
+        case path@Path(ElementSymbol(idx) :: ref :: Nil) if ref == outerSymbol => idx match {
+          case 1 => Path(leftGen :: Nil).nodeTypedOrCopy(path.nodeType)
+          case 2 => Path(rightGen :: Nil).nodeTypedOrCopy(path.nodeType)
         }
+        case optionApply: OptionApply => optionApply.nodeTypedOrCopy(OptionType(optionApply.child.nodeType))
+        case getOrElse: GetOrElse => getOrElse.nodeTypedOrCopy(getOrElse.child.nodeType)
+        case productNode: ProductNode => productNode.nodeWithComputedType()
+        case pure: Pure => pure.nodeWithComputedType()
         case x => x
       }
+      innerConvertPath(n.nodeMapChildren(convertPath(outerSymbol,leftGen,rightGen,map)))
     }
-    innerProcess(n.nodeMapChildren(process)).nodeTypedOrCopy(n.nodeType)
+    def prepareRightMap(rightGen:Symbol,right: Comprehension): Seq[(Node, Node)] = (right.select match {
+      case Some(Pure(StructNode(elements), _)) => elements.map {
+        case (alias, select@Select(ref@Ref(_), symbol)) => Option((Select(Ref(rightGen), alias).nodeTypedOrCopy(select.nodeType), Select(ref, symbol).nodeTypedOrCopy(select.nodeType)))
+        case _ =>  None
+      }.filter(x => x.isDefined)
+    }).flatMap(x => x)
+    def prepareLeftMap(leftGen: Symbol, left: Comprehension): Seq[(Node, Node)] = (left.select match {
+      case Some(Pure(StructNode(elements), _)) => elements.map {
+        case (alias, select@Select(_, symbol)) => Option((Select(Ref(leftGen), alias).nodeTypedOrCopy(select.nodeType), select))
+        case _ =>  None
+      }.filter(x => x.isDefined)
+    }).flatMap(x => x)
+    def nodeSelector(b: Boolean)(n: (Node, Node)): (Node, Node) = (n._1, if (b) n._2 else n._1)
+    def testEmptyJoinNodes(s: Seq[Node]): Boolean = if (s.isEmpty) true else throw new SlickException("Any joinNodes must be not existed in Comprehension which has a Join node as the from.")
+    n match {
+      case outerComprehension@Comprehension(Seq((outerSymbol, Join(leftGen, rightGen, left: Comprehension, right: Comprehension, joinType, on))), outerWhere, outerGroupBy, outerOrderBy, outerSelect@Some(Pure(ProductNode(outerSelectNodes), _)), outerFetch, outerOffset, outerJoinNodes, outerUnionNodes, outerWithClauseNodes) if testEmptyJoinNodes(outerJoinNodes) => {
+        val leaveOutRightParentheses = isRightSimple(right)
+        val leaveOutLeftParentheses = isLeftSimple(left)
+        val mapOne = prepareLeftMap(leftGen, left).map(nodeSelector(leaveOutLeftParentheses))
+        val mapTwo = prepareRightMap(rightGen, right).map(nodeSelector(leaveOutRightParentheses))
+        val selectedRightJoin = if (leaveOutRightParentheses) right.from.head else (rightGen, right)
+        def convertPat(n:Node) = convertPath(outerSymbol, leftGen, rightGen, (mapOne ++ mapTwo).toMap)(n)
+        val internalJoin = InternalJoin(selectedRightJoin._1, selectedRightJoin._2, joinType, convertPat(on))
+        val convertedSelect = outerSelect.map(convertPat)
+        val convertedWhere = outerWhere.map(convertPat)
+        val convertedGroupBy = outerGroupBy.map(convertPat)
+        val convertedOrderBy = outerOrderBy.map(x => (convertPat(x._1), x._2))
+        val convertedFetch = outerFetch.map(convertPat)
+        val convertedOffset = outerOffset.map(convertPat)
+        val result =
+          if (leaveOutLeftParentheses) {
+            left.copy(
+              where = convertedWhere,
+              select = convertedSelect,
+              groupBy = convertedGroupBy,
+              orderBy = convertedOrderBy,
+              fetch = convertedFetch,
+              offset = convertedOffset,
+              joinNodes = left.joinNodes ++ Seq(internalJoin),
+              unionNodes = outerUnionNodes,
+              withClauseNodes = left.withClauseNodes ++ outerWithClauseNodes).
+              nodeTypedOrCopy(outerComprehension.nodeType)
+          }
+          else {
+            Comprehension(
+              from = Seq((leftGen, left)),
+              where = convertedWhere,
+              select = convertedSelect,
+              groupBy = convertedGroupBy,
+              orderBy = convertedOrderBy,
+              fetch = convertedFetch,
+              offset = convertedOffset,
+              joinNodes = Seq(internalJoin),
+              unionNodes = outerUnionNodes,
+              withClauseNodes = outerWithClauseNodes).
+              nodeTypedOrCopy(outerComprehension.nodeType)
+          }
+        result
+        // Join(Join(A,B),C)
+        // = Comprehension(Join(Comprehension(Join(Comprehension(A...), Comprehension(B...))), Comprehension(C...)))
+        // *** Join(Comprehension(A...), Comprehension(B...)) = Comprehension(A, joinNodes=Comprehension(B...))
+        // = Comprehension(Join(Comprehension(Comprehension(A, joinNodes=Comprehension(B...))), Comprehension(C...)))
+        // = Comprehension(Join(Comprehension(D...), Comprehension(C...)))
+        // *** Join(Comprehension(D...), Comprehension(C...)) = Comprehension(D, joinNodes=Comprehension(C...))
+        // = Comprehension(Comprehension(D, joinNodes=Comprehension(C...)))
+        // = Comprehension(Comprehension(Comprehension(A, joinNodes=Comprehension(B...)), joinNodes=Comprehension(C...)))
+        // = Comprehension(Comprehension(A, joinNodes={Comprehension(B...),Comprehension(C...)}))
+        // = Comprehension(A, joinNodes={Comprehension(B...),Comprehension(C...)})
+      }
+      case x => x
+    }
   }
 }
 
