@@ -178,17 +178,17 @@ final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType {
  * of the structural view but must update the AST at the end of the phase
  * so that all NominalTypes with the same symbol have the same structural
  * view. */
-final case class NominalType(sym: TypeSymbol)(val structuralView: Type) extends Type {
+final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type {
   def toShortString = s"NominalType($sym)"
   override def toString = s"$toShortString($structuralView)"
   def withStructuralView(t: Type): NominalType =
-    if(t == structuralView) this else copy()(t)
+    if(t == structuralView) this else copy(structuralView = t)
   override def structural: Type = structuralView.structural
   override def select(sym: Symbol): Type = structuralView.select(sym)
   def mapChildren(f: Type => Type): NominalType = {
     val struct2 = f(structuralView)
     if(struct2 eq structuralView) this
-    else new NominalType(sym)(struct2)
+    else new NominalType(sym, struct2)
   }
   def children: Seq[Type] = Seq(structuralView)
   def sourceNominalType: NominalType = structuralView match {
