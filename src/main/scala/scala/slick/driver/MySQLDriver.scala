@@ -26,6 +26,10 @@ import scala.slick.jdbc.meta.MTable
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
   *     Full outer joins are emulated because there is not native support
   *     for them.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.nullableNoDefault]]:
+  *     Columns in MySQL always have a default, NULL if no other given.
+  *     In case of non-nullable this can be interpreted as no default, but
+  *     nullable columns always have a default, in doubt NULL.</li>
   * </ul>
   *
   * Sequences are supported through an emulation which requires the schema to
@@ -39,6 +43,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.returnInsertOther
     - SqlProfile.capabilities.sequenceLimited
     - RelationalProfile.capabilities.joinFull
+    - JdbcProfile.capabilities.nullableNoDefault
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
@@ -52,7 +57,12 @@ trait MySQLDriver extends JdbcDriver { driver =>
           case (v,"String")    => Some(Some(v))
           case ("1","Boolean") => Some(Some(true))
           case ("0","Boolean") => Some(Some(false))
-        }.getOrElse{super.default}
+        }.getOrElse{
+          val d = super.default
+          if(meta.nullable == Some(true) && d == None){
+            Some(None)
+          } else d
+        }
       }
     }
   }

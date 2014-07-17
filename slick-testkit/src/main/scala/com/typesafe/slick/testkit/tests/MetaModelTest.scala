@@ -31,9 +31,27 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
     }
     val posts = TableQuery[Posts]
 
-    val ddl = posts.ddl ++ categories.ddl
+    class DefaultTest(tag: Tag) extends Table[(Boolean, Boolean, Boolean, Option[Boolean], Option[Boolean], Option[Boolean], String, String, String, Option[String], Option[String], Option[String], Option[String])](tag, "default_test") {
+      def someBool = column[Boolean]("some_bool")
+      def someBoolDefaultTrue = column[Boolean]("some_bool_default_true",O.Default(true))
+      def someBoolDefaultFalse = column[Boolean]("some_bool_default_false",O.Default(false))
+      def someBoolOption = column[Option[Boolean]]("some_bool_option")
+      def someBoolOptionDefaultSome = column[Option[Boolean]]("some_bool_option_default_some",O.Default(Some(true)))
+      def someBoolOptionDefaultNone = column[Option[Boolean]]("some_bool_option_default_none",O.Default(None))
+      def someString = column[String]("some_string")
+      def someStringDefaultNonEmpty = column[String]("some_string_default_non_empty",O.Default("bar"))
+      def someStringDefaultEmpty = column[String]("some_string_default_empty",O.Default(""))
+      def someStringOption = column[Option[String]]("some_string_option")
+      def someStringOptionDefaultEmpty = column[Option[String]]("some_string_option_default_empty",O.Default(Some("")))
+      def someStringOptionDefaultNone = column[Option[String]]("some_string_option_default_none",O.Default(None))
+      def someStringOptionDefaultNonEmpty = column[Option[String]]("some_string_option_default_non_empty",O.Default(Some("foo")))
+      def * = (someBool,someBoolDefaultTrue,someBoolDefaultFalse,someBoolOption,someBoolOptionDefaultSome,someBoolOptionDefaultNone,someString,someStringDefaultNonEmpty,someStringDefaultEmpty,someStringOption,someStringOptionDefaultEmpty,someStringOptionDefaultNonEmpty,someStringOptionDefaultNone)
+    }
+    val defaultTest = TableQuery[DefaultTest]
+
+    val ddl = posts.ddl ++ categories.ddl ++ defaultTest.ddl
     ddl.create
-//    throw new Exception(ddl.createStatements.toList.toString)
+    //println(ddl.createStatements.toList.toString)
     import tdb.profile.createModel
     createModel(ignoreInvalidDefaults=false).assertConsistency
     val tables = tdb.profile.defaultTables
@@ -41,7 +59,8 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
     ;{
       // checks that createModel filters out foreign keys pointing out
       val model = createModel(
-        Some(tables.filter(_.name.name.toUpperCase=="POSTS"))
+        Some(tables.filter(_.name.name.toUpperCase=="POSTS")),
+        ignoreInvalidDefaults = false
       )
       model.assertConsistency
       assertEquals( 0, model.tables.map(_.foreignKeys.size).sum )
@@ -53,7 +72,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
     try{
       // checks that assertConsistency fails when manually feeding the model with inconsistent tables
       Model(
-        createModel(Some(tables)).tables.filter(_.name.table.toUpperCase=="POSTS")
+        createModel(Some(tables), ignoreInvalidDefaults = false).tables.filter(_.name.table.toUpperCase=="POSTS")
       ).assertConsistency
       fail("Consistency assertion should have failed")
     } catch {
@@ -67,7 +86,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
 
     // check that the model matches the table classes
     val model = tdb.profile.createModel(ignoreInvalidDefaults=false)
-    assertEquals( model.tables.toString, 2, model.tables.size )
+    assertEquals( model.tables.toString, 3, model.tables.size )
     ;{
       val categories = model.tables.filter(_.name.table.toUpperCase=="CATEGORIES").head
       assertEquals( 2, categories.columns.size )
@@ -134,6 +153,56 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
           case ColumnOption.DBType(dbType) => assert(false, "invalid DBType: "+dbType)
           case _ =>
         }
+      }
+    };{
+      val defaultTest = model.tables.filter(_.name.table.toUpperCase=="DEFAULT_TEST").head
+      assertEquals(None,defaultTest.name.schema)
+      assert(Some("PUBLIC") != defaultTest.name.catalog.map(_.toUpperCase))
+      ifCap(jcap.defaultValueMetaData){
+        def column(name: String)
+          = defaultTest.columns.filter(_.name == name).head
+        def columnDefault(name: String)
+          = column(name)
+             .options.collect{case ColumnOption.Default(v) => v}
+             .headOption
+        assertEquals(None, columnDefault("some_bool"))
+        ifCap(jcap.booleanMetaData){
+          assertEquals(Some(true), columnDefault("some_bool_default_true"))
+        }
+        ifNotCap(jcap.booleanMetaData){
+          assertEquals(Some(1), columnDefault("some_bool_default_true"))
+        }
+        ifCap(jcap.booleanMetaData){
+          assertEquals(Some(false), columnDefault("some_bool_default_false"))
+        }
+        ifNotCap(jcap.booleanMetaData){
+          assertEquals(Some(0), columnDefault("some_bool_default_false"))
+        }
+        ifCap(jcap.nullableNoDefault){
+          assertEquals(None,columnDefault("some_bool_option"))
+        }
+        ifNotCap(jcap.nullableNoDefault){
+          assertEquals(Some(None),columnDefault("some_bool_option"))
+        }
+        ifCap(jcap.booleanMetaData){
+          assertEquals(Some(Some(true)), columnDefault("some_bool_option_default_some"))
+        }
+        ifNotCap(jcap.booleanMetaData){
+          assertEquals(Some(Some(1)), columnDefault("some_bool_option_default_some"))
+        }
+        assertEquals(Some(None),columnDefault("some_bool_option_default_none"))
+        assertEquals(None,columnDefault("some_string"))
+        assertEquals(Some("bar"),columnDefault("some_string_default_non_empty"))
+        assertEquals(Some(""),columnDefault("some_string_default_empty"))
+        ifCap(jcap.nullableNoDefault){
+          assertEquals(None,columnDefault("some_string_option"))
+        }
+        ifNotCap(jcap.nullableNoDefault){
+          assertEquals(Some(None),columnDefault("some_string_option"))
+        }
+        assertEquals(Some(Some("")),columnDefault("some_string_option_default_empty"))
+        assertEquals(Some(None),columnDefault("some_string_option_default_none"))
+        assertEquals(Some(Some("foo")),columnDefault("some_string_option_default_non_empty"))
       }
     }
   }}

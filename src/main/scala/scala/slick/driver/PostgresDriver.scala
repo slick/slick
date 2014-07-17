@@ -24,6 +24,10 @@ import scala.slick.model.Model
   *     This is faster than a client-side emulation but may still fail due to
   *     concurrent updates. InsertOrUpdate operations with `returning` are
   *     emulated on the client side.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.nullableNoDefault]]:
+  *     Columns in Postgres always have a default, NULL if no other given.
+  *     In case of non-nullable this can be interpreted as no default, but
+  *     nullable columns always have a default, in doubt NULL.</li>
   * </ul>
   *
   * Notes:
@@ -40,16 +44,25 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.insertOrUpdate
+    - JdbcProfile.capabilities.nullableNoDefault
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
     override def Table = new Table(_){
       override def schema = super.schema.filter(_ != "public") // remove default schema
       override def Column = new Column(_){
+        val VarCharPattern = "^'(.*)'::character varying$".r
         override def default = meta.columnDef.map((_,tpe)).collect{
           case ("true","Boolean")  => Some(Some(true))
           case ("false","Boolean") => Some(Some(false))
-        }.getOrElse{super.default}
+          case (VarCharPattern(str),"String") => Some(Some(str))
+          case ("NULL::character varying","String") => Some(None)
+        }.getOrElse{
+          val d = super.default
+          if(meta.nullable == Some(true) && d == None){
+            Some(None)
+          } else d
+        }
       }
       override def Index = new Index(_){
         // FIXME: this needs a test
