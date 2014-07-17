@@ -59,6 +59,9 @@ import scala.slick.model.Model
   *     Other jdbc drivers like MySQL map TINYINT(1) back to a Scala
   *     Boolean. Derby maps SMALLINT to an Integer and that's how it shows
   *     up in the jdbc meta data, thus the original type is lost.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
+  *     Derby doesn't have a corresponding type for Byte.
+  *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
   * </ul>
   */
 trait DerbyDriver extends JdbcDriver { driver =>
@@ -75,7 +78,8 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
     - RelationalProfile.capabilities.replace
     - RelationalProfile.capabilities.reverse
-    -JdbcProfile.capabilities.booleanMetaData
+    - JdbcProfile.capabilities.booleanMetaData
+    - JdbcProfile.capabilities.supportsByte
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){

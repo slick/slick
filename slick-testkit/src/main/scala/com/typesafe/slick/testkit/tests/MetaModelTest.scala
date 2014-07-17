@@ -49,9 +49,63 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
     }
     val defaultTest = TableQuery[DefaultTest]
 
-    val ddl = posts.ddl ++ categories.ddl ++ defaultTest.ddl
+    class TypeTest(tag: Tag) extends Table[(
+      String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob//,java.sql.Clob
+      ,Option[Int]
+      ,(
+        Option[Boolean],Option[Byte],Option[Short],Option[Int],Option[Long],Option[Float],Option[Double],Option[String],Option[java.sql.Date],Option[java.sql.Time],Option[java.sql.Timestamp],Option[java.sql.Blob]//,Option[java.sql.Clob]
+      )
+    )](tag, "TYPE_TEST") {
+      def `type` = column[String]("type") // <- test escaping of keywords
+      def Boolean = column[Boolean]("Boolean",O.Default(true))
+      def Byte = column[Byte]("Byte")
+      def Short = column[Short]("Short")
+      def Int = column[Int]("Int",O.Default(-5))
+      def Long = column[Long]("Long",O.Default(5L))
+      //def java_math_BigInteger = column[java.math.BigInteger]("java_math_BigInteger")
+      def Float = column[Float]("Float",O.Default(9.999F))
+      def Double = column[Double]("Double",O.Default(9.999))
+      //def java_math_BigDecimal = column[java.math.BigDecimal]("java_math_BigDecimal")
+      def String = column[String]("String",O.Default("someDefaultString"))
+      def java_sql_Date = column[java.sql.Date]("java_sql_Date")
+      def java_sql_Time = column[java.sql.Time]("java_sql_Time")
+      def java_sql_Timestamp = column[java.sql.Timestamp]("java_sql_Timestamp")
+      def java_sql_Blob = column[java.sql.Blob]("java_sql_Blob")
+      //def java_sql_Clob = column[java.sql.Clob]("java_sql_Clob")
+      
+      def None_Int = column[Option[Int]]("None_Int",O.Default(None))
+
+      def Option_Boolean = column[Option[Boolean]]("Option_Boolean",O.Default(Some(true)))
+      def Option_Byte = column[Option[Byte]]("Option_Byte")
+      def Option_Short = column[Option[Short]]("Option_Short")
+      def Option_Int = column[Option[Int]]("Option_Int",O.Default(Some(5)))
+      def Option_Long = column[Option[Long]]("Option_Long",O.Default(Some(-5L)))
+      //def java_math_BigInteger = column[Option[java.math.BigInteger]]("java_math_BigInteger")
+      def Option_Float = column[Option[Float]]("Option_Float",O.Default(Some(9.999F)))
+      def Option_Double = column[Option[Double]]("Option_Double",O.Default(Some(9.999)))
+      //def java_math_BigDecimal = column[Option[java.math.BigDecimal]]("java_math_BigDecimal")
+      def Option_String = column[Option[String]]("Option_String",O.Default(Some("someDefaultString")))
+      def Option_java_sql_Date = column[Option[java.sql.Date]]("Option_java_sql_Date")
+      def Option_java_sql_Time = column[Option[java.sql.Time]]("Option_java_sql_Time")
+      def Option_java_sql_Timestamp = column[Option[java.sql.Timestamp]]("Option_java_sql_Timestamp")
+      def Option_java_sql_Blob = column[Option[java.sql.Blob]]("Option_java_sql_Blob")
+      def Option_java_sql_Option_Blob = column[Option[Option[java.sql.Blob]]]("Option_java_sql_Blob")
+      //def Option_java_sql_Clob = column[Option[java.sql.Clob]]("Option_java_sql_Clob")
+      def * = (
+        `type`,
+        Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob//,java_sql_Clob
+        ,None_Int
+        ,(
+          Option_Boolean,Option_Byte,Option_Short,Option_Int,Option_Long,Option_Float,Option_Double,Option_String,Option_java_sql_Date,Option_java_sql_Time,Option_java_sql_Timestamp,Option_java_sql_Blob//,Option_java_sql_Clob
+        )
+      )
+      def pk = primaryKey("PK", (Int,Long))
+    }
+    val typeTest = TableQuery[TypeTest]
+
+    val ddl = posts.ddl ++ categories.ddl ++ defaultTest.ddl ++ typeTest.ddl
     ddl.create
-    //println(ddl.createStatements.toList.toString)
+    println(ddl.createStatements.toList.toString)
     import tdb.profile.createModel
     createModel(ignoreInvalidDefaults=false).assertConsistency
     val tables = tdb.profile.defaultTables
@@ -86,7 +140,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
 
     // check that the model matches the table classes
     val model = tdb.profile.createModel(ignoreInvalidDefaults=false)
-    assertEquals( model.tables.toString, 3, model.tables.size )
+    assertEquals( model.tables.toString, 4, model.tables.size )
     ;{
       val categories = model.tables.filter(_.name.table.toUpperCase=="CATEGORIES").head
       assertEquals( 2, categories.columns.size )
@@ -204,6 +258,91 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
         assertEquals(Some(None),columnDefault("some_string_option_default_none"))
         assertEquals(Some(Some("foo")),columnDefault("some_string_option_default_non_empty"))
       }
+    };{
+      val typeTest = model.tables.filter(_.name.table.toUpperCase=="TYPE_TEST").head
+      def column(name: String)
+        = typeTest.columns.filter(_.name.toUpperCase == name.toUpperCase).head
+      def columnDefault(name: String)
+        = column(name)
+           .options.collect{case ColumnOption.Default(v) => v}
+           .headOption
+
+      ifCap(jcap.booleanMetaData){
+        assertEquals("Boolean",column("Boolean").tpe)
+        assertEquals("Boolean",column("Option_Boolean").tpe)
+      }
+      assertEquals(false,column("Boolean").nullable)
+      assertEquals(true,column("Option_Boolean").nullable)
+
+      ifCap(jcap.supportsByte){
+        assertEquals("Byte",column("Byte").tpe)
+        assertEquals("Byte",column("Option_Byte").tpe)        
+      }
+      assertEquals(false,column("Byte").nullable)
+      assertEquals(true,column("Option_Byte").nullable)
+
+      ifCap(jcap.distinguishesIntTypes){
+        assertEquals("Short",column("Short").tpe)
+        assertEquals("Short",column("Option_Short").tpe)
+      }  
+      assertEquals(false,column("Short").nullable)
+      assertEquals(true,column("Option_Short").nullable)
+
+      assertEquals("Int",column("Int").tpe)
+      assertEquals("Int",column("Option_Int").tpe)
+      assertEquals(false,column("Int").nullable)
+      assertEquals(true,column("Option_Int").nullable)
+      ifCap(jcap.defaultValueMetaData){
+        assertEquals(Some(-5), columnDefault("Int"))
+        assertEquals(Some(Some(5)), columnDefault("Option_Int"))
+      }
+
+      ifCap(jcap.distinguishesIntTypes){
+        assertEquals("Long",column("Long").tpe)
+        assertEquals("Long",column("Option_Long").tpe)
+      }
+      assertEquals(false,column("Long").nullable)
+      assertEquals(true,column("Option_Long").nullable)
+      ifCap(jcap.defaultValueMetaData){
+        assertEquals(Some(5L), columnDefault("Long"))
+        assertEquals(Some(Some(-5L)), columnDefault("Option_Long"))
+      }
+      /* h2 and hsqldb map this to Double
+      assertEquals("Float",column("Float").tpe)
+      assertEquals("Float",column("Option_Float").tpe)
+      assertEquals(false,column("Float").nullable)
+      assertEquals(true,column("Option_Float").nullable)
+      */
+      println(column("java_sql_Blob"))
+      assertEquals("Double",column("Double").tpe)
+      assertEquals("Double",column("Option_Double").tpe)
+      assertEquals(false,column("Double").nullable)
+      assertEquals(true,column("Option_Double").nullable)
+
+      assertEquals("String",column("String").tpe)
+      assertEquals("String",column("Option_String").tpe)
+      assertEquals(false,column("String").nullable)
+      assertEquals(true,column("Option_String").nullable)
+
+      assertEquals("java.sql.Date",column("java_sql_Date").tpe)
+      assertEquals("java.sql.Date",column("Option_java_sql_Date").tpe)
+      assertEquals(false,column("java_sql_Date").nullable)
+      assertEquals(true,column("Option_java_sql_Date").nullable)
+
+      assertEquals("java.sql.Time",column("java_sql_Time").tpe)
+      assertEquals("java.sql.Time",column("Option_java_sql_Time").tpe)
+      assertEquals(false,column("java_sql_Time").nullable)
+      assertEquals(true,column("Option_java_sql_Time").nullable)
+
+      assertEquals("java.sql.Timestamp",column("java_sql_Timestamp").tpe)
+      assertEquals("java.sql.Timestamp",column("Option_java_sql_Timestamp").tpe)
+      assertEquals(false,column("java_sql_Timestamp").nullable)
+      assertEquals(true,column("Option_java_sql_Timestamp").nullable)
+
+      assertEquals("java.sql.Blob",column("java_sql_Blob").tpe)
+      assertEquals("java.sql.Blob",column("Option_java_sql_Blob").tpe)
+      assertEquals(false,column("java_sql_Blob").nullable)
+      assertEquals(true,column("Option_java_sql_Blob").nullable)
     }
   }}
 }

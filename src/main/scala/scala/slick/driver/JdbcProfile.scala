@@ -88,12 +88,16 @@ object JdbcProfile {
     val booleanMetaData = Capability("jdbc.booleanMetaData")
     /** Supports to have no default value (not even NULL) for a nullable column */
     val nullableNoDefault = Capability("jdbc.nullableNoDefault")
+    /** Makes a difference between different integer types */
+    val distinguishesIntTypes = Capability("jdbc.distinguishesIntTypes")
+    /** Has a datatype directly corresponding to Scala Byte */
+    val supportsByte = Capability("jdbc.supportsByte")
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, returnInsertOther)
+    val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, distinguishesIntTypes, supportsByte, returnInsertOther)
   }
 }
 

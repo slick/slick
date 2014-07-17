@@ -54,6 +54,17 @@ import scala.slick.jdbc.meta.MTable
   *     of the stable 3.7.2 in order to get default values with SQLite.
   *     Also see https://code.google.com/p/sqlite-jdbc/issues/detail?id=27
   *     </li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.booleanMetaData]]:
+  *     Derby <= 10.6 doesn't have booleans, so Slick maps to SMALLINT instead.
+  *     Other jdbc drivers like MySQL map TINYINT(1) back to a Scala
+  *     Boolean. Derby maps SMALLINT to an Integer and that's how it shows
+  *     up in the jdbc meta data, thus the original type is lost.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.distinguishesIntTypes]]:
+  *     SQLite does not distinguish integer types and maps them all to Int
+  *     in the meta data.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
+  *     SQLite does not distinguish integer types and maps them all to Int
+  *     in the meta data.</li>
   * </ul>
   */
 trait SQLiteDriver extends JdbcDriver { driver =>
@@ -71,6 +82,9 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.zip
     - JdbcProfile.capabilities.insertOrUpdate
     - JdbcProfile.capabilities.defaultValueMetaData
+    - JdbcProfile.capabilities.booleanMetaData
+    - JdbcProfile.capabilities.supportsByte
+    - JdbcProfile.capabilities.distinguishesIntTypes
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
@@ -87,6 +101,14 @@ trait SQLiteDriver extends JdbcDriver { driver =>
         override def default = meta.columnDef.map((_,tpe)).collect{
           case ("null",_)  => Some(None) // 3.7.15-M1
         }.getOrElse{super.default}
+        override def tpe = dbType match {
+          case Some("DOUBLE") => "Double"
+          case Some("DATE") => "java.sql.Date"
+          case Some("TIME") => "java.sql.Time"
+          case Some("TIMESTAMP") => "java.sql.Timestamp"
+          case Some("BLOB") => "java.sql.Blob"
+          case _ => super.tpe
+        }
       }
       override def PrimaryKey = new PrimaryKey(_){
         // in 3.7.15-M1:

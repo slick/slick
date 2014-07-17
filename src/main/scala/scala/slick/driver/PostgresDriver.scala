@@ -28,6 +28,9 @@ import scala.slick.model.Model
   *     Columns in Postgres always have a default, NULL if no other given.
   *     In case of non-nullable this can be interpreted as no default, but
   *     nullable columns always have a default, in doubt NULL.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
+  *     Derby doesn't have a corresponding type for Byte.
+  *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
   * </ul>
   *
   * Notes:
@@ -45,6 +48,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.insertOrUpdate
     - JdbcProfile.capabilities.nullableNoDefault
+    - JdbcProfile.capabilities.supportsByte
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
@@ -52,10 +56,13 @@ trait PostgresDriver extends JdbcDriver { driver =>
       override def schema = super.schema.filter(_ != "public") // remove default schema
       override def Column = new Column(_){
         val VarCharPattern = "^'(.*)'::character varying$".r
+        val IntPattern = "^\\((-?[0-9]*)\\)$".r
         override def default = meta.columnDef.map((_,tpe)).collect{
           case ("true","Boolean")  => Some(Some(true))
           case ("false","Boolean") => Some(Some(false))
           case (VarCharPattern(str),"String") => Some(Some(str))
+          case (IntPattern(v),"Int") => Some(Some(v.toInt))
+          case (IntPattern(v),"Long") => Some(Some(v.toLong))
           case ("NULL::character varying","String") => Some(None)
         }.getOrElse{
           val d = super.default
