@@ -58,6 +58,12 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     q3.run.foreach(o => println("  "+o))
     assertEquals(List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")), q3.run)
 
+    val q4 = managers.map(_.id)
+    val q4b = q4 union q4
+    assertEquals(Set(1, 2, 3), q4b.run.to[Set])
+    val q4c = q4 union q4 union q4
+    assertEquals(Set(1, 2, 3), q4c.run.to[Set])
+
     (managers.ddl ++ employees.ddl).drop
   }
 
