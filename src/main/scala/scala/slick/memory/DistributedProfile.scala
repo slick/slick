@@ -68,7 +68,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
     }
 
     def wrapScalaValue(value: Any, tpe: Type): Any = tpe match {
-      case ProductType(ts) =>
+      case ProductType(ts, _) =>
         val p = value.asInstanceOf[Product]
         new ProductValue((0 until p.productArity).map(i =>
           wrapScalaValue(p.productElement(i), ts(i))

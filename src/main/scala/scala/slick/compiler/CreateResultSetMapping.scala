@@ -69,10 +69,10 @@ class CreateResultSetMapping extends Phase {
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)
       tpe match {
-        case ProductType(ch) =>
-          ProductNode(ch.map(f))
-        case StructType(ch) =>
-          ProductNode(ch.map { case (_, t) => f(t) })
+        case ProductType(ch, mappingType) =>
+          ProductNode(ch.map(f), mappingType)
+        case StructType(ch, mappingType) =>
+          ProductNode(ch.map { case (_, t) => f(t) }, mappingType)
         case t: MappedScalaType =>
           TypeMapping(f(t.baseType), t.mapper, t.classTag)
         case n @ NominalType(ts) => tables.get(ts) match {

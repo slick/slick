@@ -76,6 +76,40 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
   override def getDumpInfo = super.getDumpInfo.copy(children = elementConverters.zipWithIndex.map { case (ch, i) => ((i+1).toString, ch) })
 }
 
+final case class ListResultConverter[M <: ResultConverterDomain, T <: Product](elementConverters: ResultConverter[M, _]*) extends ResultConverter[M, T] {
+  private[this] val cha = elementConverters.to[Array]
+  private[this] val len = cha.length
+
+  val width = cha.foldLeft(0)(_ + _.width)
+
+  def read(pr: Reader) = {
+    val a = new Array[Any](len)
+    var i = 0
+    while(i < len) {
+      a(i) = cha(i).read(pr)
+      i += 1
+    }
+    a.toList.asInstanceOf[T]
+  }
+
+  def update(value: T, pr: Updater) = {
+    var i = 0
+    while(i < len) {
+      cha(i).asInstanceOf[ResultConverter[M, Any]].update(value.productElement(i), pr)
+      i += 1
+    }
+  }
+  def set(value: T, pp: Writer) = {
+    var i = 0
+    while(i < len) {
+      cha(i).asInstanceOf[ResultConverter[M, Any]].set(value.productElement(i), pp)
+      i += 1
+    }
+  }
+
+  override def getDumpInfo = super.getDumpInfo.copy(children = elementConverters.zipWithIndex.map { case (ch, i) => ((i+1).toString, ch) })
+}
+
 /** Result converter that can write to multiple sub-converters and read from the first one */
 final case class CompoundResultConverter[M <: ResultConverterDomain, @specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
   private[this] val cha = childConverters.to[Array]

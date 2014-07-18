@@ -19,7 +19,9 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
       if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
     case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, None)
     case OptionApply(Select(_, ElementSymbol(idx))) => createColumnConverter(n, idx, None)
-    case ProductNode(ch) =>
+    case p@ProductNode(ch) if p.resultMappingType.map(_._1 == ProductNodeResultMappingType.list).getOrElse(false) =>
+      ListResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
+    case p@ProductNode(ch) if p.resultMappingType.isEmpty || p.resultMappingType.map(_._1 == ProductNodeResultMappingType.tuple).getOrElse(false) =>
       if(ch.isEmpty) new UnitResultConverter
       else new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
     case GetOrElse(ch, default) =>
@@ -47,6 +49,11 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
 object ResultConverterCompiler {
   protected lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[ResultConverterCompiler[_]]))
+}
+
+object ProductNodeResultMappingType extends Enumeration{
+  val tuple = Value
+  val list = Value
 }
 
 /** A node that wraps a ResultConverter */

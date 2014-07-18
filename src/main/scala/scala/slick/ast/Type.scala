@@ -8,6 +8,7 @@ import scala.reflect.{ClassTag, classTag => mkClassTag}
 import Util._
 import scala.collection.mutable.ArrayBuffer
 import scala.annotation.implicitNotFound
+import scala.slick.relational.ProductNodeResultMappingType
 import scala.slick.util.TupleSupport
 
 /** Super-trait for all types */
@@ -32,8 +33,8 @@ trait AtomicType extends Type {
   def children: Seq[Type] = Seq.empty
 }
 
-final case class StructType(elements: IndexedSeq[(Symbol, Type)]) extends Type {
-  override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
+final case class StructType(elements: IndexedSeq[(Symbol, Type)], resultMappingType: Option[(ProductNodeResultMappingType.Value, Int)] = None) extends Type {
+  override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}" + resultMappingType.map(x => f":(${x._1.toString}:${x._2})").getOrElse("")
   lazy val symbolToIndex: Map[Symbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
   def children: IndexedSeq[Type] = elements.map(_._2)
@@ -68,8 +69,8 @@ object OptionType {
   private val classTag = mkClassTag[Option[_]]
 }
 
-final case class ProductType(elements: IndexedSeq[Type]) extends Type {
-  override def toString = "(" + elements.mkString(", ") + ")"
+final case class ProductType(elements: IndexedSeq[Type], resultMappingType: Option[(ProductNodeResultMappingType.Value, Int)] = None) extends Type {
+  override def toString = "(" + elements.mkString(", ") + ")" + resultMappingType.map(x => f":(${x._1.toString}:${x._2})").getOrElse("")
   def mapChildren(f: Type => Type): ProductType =
     mapOrNone(elements)(f) match {
       case Some(e2) => ProductType(e2)

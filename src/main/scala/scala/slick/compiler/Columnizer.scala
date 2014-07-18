@@ -60,7 +60,7 @@ class ExpandRecords extends Phase {
   }}
 
   def expandPath(n: Node): Node = n.nodeType.structural match {
-    case StructType(ch) =>
+    case StructType(ch, _) =>
       StructNode(ch.map { case (s, t) =>
         (s, expandPath(Select(n, s).nodeTyped(t)))
       }(collection.breakOut)).nodeTyped(n.nodeType)

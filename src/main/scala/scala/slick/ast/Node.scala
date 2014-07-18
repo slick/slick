@@ -2,6 +2,7 @@ package scala.slick.ast
 
 import scala.language.existentials
 import scala.slick.SlickException
+import scala.slick.relational.ProductNodeResultMappingType
 import scala.slick.util.{Logging, Dumpable, DumpInfo}
 import TypeUtil.typeToTypeUtil
 import Util._
@@ -160,9 +161,11 @@ trait TypedNode extends Node with Typed {
 /** An expression that represents a conjunction of expressions. */
 trait ProductNode extends SimplyTypedNode { self =>
   type Self >: this.type <: SimplyTypedNode with ProductNode
-  override def getDumpInfo = super.getDumpInfo.copy(name = "ProductNode", mainInfo = "")
+  val resultMappingType: Option[(ProductNodeResultMappingType.Value, Int)] = None
+  override def getDumpInfo = super.getDumpInfo.copy(name = f"ProductNode${resultMappingType.map(x => f"(${x._1.toString}:${x._2})").getOrElse("")}", mainInfo = "")
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = new ProductNode {
     val nodeChildren = ch
+    override val resultMappingType = self.resultMappingType
   }.asInstanceOf[Self]
   override def nodeChildNames: Iterable[String] = Stream.from(1).map(_.toString)
   override def hashCode() = nodeChildren.hashCode()
@@ -175,7 +178,7 @@ trait ProductNode extends SimplyTypedNode { self =>
     val t = ch.nodeType
     if(t == UnassignedType) throw new SlickException(s"ProductNode child $ch has UnassignedType")
     t
-  }(collection.breakOut))
+  }(collection.breakOut), resultMappingType)
   def numberedElements: Iterator[(ElementSymbol, Node)] =
     nodeChildren.iterator.zipWithIndex.map { case (n, i) => (new ElementSymbol(i+1), n) }
   def flatten: ProductNode = {
@@ -192,6 +195,12 @@ object ProductNode {
   def apply(s: Seq[Node]): ProductNode = new ProductNode {
     val nodeChildren = s
   }
+
+  def apply(s: Seq[Node], resultMappingTpe: Option[(ProductNodeResultMappingType.Value, Int)]): ProductNode = new ProductNode {
+    val nodeChildren = s
+    override val resultMappingType = resultMappingTpe
+  }
+
   def unapply(p: ProductNode) = Some(p.nodeChildren)
 }
 

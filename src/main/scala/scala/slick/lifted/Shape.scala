@@ -4,6 +4,7 @@ import scala.language.{existentials, implicitConversions, higherKinds}
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 import scala.slick.SlickException
+import scala.slick.relational.ProductNodeResultMappingType
 import scala.slick.util.{ProductWrapper, TupleSupport}
 import scala.slick.ast._
 import scala.reflect.ClassTag
@@ -262,4 +263,30 @@ class MappedProjection[T, P](child: Node, mapper: MappedScalaType.Mapper, classT
 object MappedProjection {
   /** The Shape for a MappedProjection */
   @inline implicit final def mappedProjectionShape[Level >: FlatShapeLevel <: ShapeLevel, T, P] = RepShape[Level, MappedProjection[T, P], T]
+}
+
+class ListShape[Level <: ShapeLevel, M1, U1, P1](val elementShape: Shape[_ <: Level, M1, U1, P1]) extends Shape[Level, List[M1], List[U1], List[P1]] {
+  override def pack(value: Mixed): Packed = value.map(elementShape.pack(_))
+
+  override def buildParams(extract: (Any) => Unpacked): Packed = {
+    throw new SlickException("It is not possible to use variable-length parameters in JDBC prepared statement.")
+  }
+
+
+  override def encodeRef(value: Mixed, path: List[Symbol]): Any = {
+    value.zipWithIndex.map { case (x, i) => elementShape.encodeRef(x, ElementSymbol(i + 1) :: path)}
+  }
+
+  override def packedShape: Shape[Level, Packed, Unpacked, Packed] = {
+    new ListShape[Level, P1, U1, P1](elementShape.packedShape)
+  }
+
+  override def toNode(value: Mixed): Node = {
+    ProductNode(value.map(x => elementShape.toNode(x)), Some((ProductNodeResultMappingType.list, value.length)))
+  }
+}
+
+trait ListShapeTrait {
+  implicit def listShape2[Level <: ShapeLevel, Mix, Unp, Pac]
+  (implicit elementShape: Shape[_ <: Level, Mix, Unp, Pac]): Shape[Level, List[Mix], List[Unp], List[Pac]] = new ListShape[Level, Mix, Unp, Pac](elementShape)
 }

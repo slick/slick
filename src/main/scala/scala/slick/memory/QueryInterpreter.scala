@@ -234,7 +234,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         else {
           val whatBase = if(whatOpt) whatV.asInstanceOf[Option[Any]].get else whatV
           where.nodeType match {
-            case ProductType(elTypes) =>
+            case ProductType(elTypes, _) =>
               val p = whereV.asInstanceOf[ProductValue]
               0.until(elTypes.length).iterator.map { i =>
                 if(elTypes(i).isInstanceOf[OptionType]) {
@@ -347,7 +347,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       val CollectionType(_, elType) = args(0)._1
       val coll = args(0)._2.asInstanceOf[Coll]
       (elType match {
-        case ProductType(_) =>
+        case ProductType(_, _) =>
           coll.iterator.filter { p =>
             val v = p.asInstanceOf[ProductValue].apply(0)
             v != null && v != None
@@ -400,8 +400,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   }
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
-    case ProductType(Seq(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
-    case StructType(Seq((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
+    case ProductType(Seq(t), _) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
+    case StructType(Seq((_, t)), _) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
     case t => (coll.iterator, t)
   }
 
@@ -415,10 +415,10 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
 
   def createNullRow(tpe: Type): Any = tpe match {
     case t: ScalaType[_] => if(t.nullable) None else null
-    case StructType(el) =>
+    case StructType(el, _) =>
       new StructValue(el.map{ case (_, tpe) => createNullRow(tpe) }(collection.breakOut),
         el.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[Symbol, Int])
-    case ProductType(el) =>
+    case ProductType(el, _) =>
       new ProductValue(el.map(tpe => createNullRow(tpe))(collection.breakOut))
   }
 
