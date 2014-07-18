@@ -223,19 +223,18 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           * logs the message and treats it as no default value for convenience.
           */
         def defaultColumnOption: Option[ColumnOption.Default[_]]
-          = meta.columnDef.flatMap{ v =>
-            (v,tpe) match {
-              case ("CURRENT_TIMESTAMP","java.sql.Timestamp") =>
+          = meta.columnDef.map(v => (v,tpe)).collect{
+              case (v@"CURRENT_TIMESTAMP","java.sql.Timestamp") =>
                 logger.debug(s"Ignoring"+formatDefault(v))
                 None
-              case _ => default.map( d =>
+            }.getOrElse{
+              default.map( d =>
                 ColumnOption.Default(
                   if(nullable) d
                   else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${table.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
                 )
               )
             }
-          }
 
         private def convenientDefault: Option[ColumnOption.Default[_]] = {
           try{
@@ -280,10 +279,10 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
             in favor of ColumnOption PrimaryKey via Column#createPrimaryKeyColumnOption. */
         def enabled: Boolean = meta.size > 1
         def name: Option[String] = meta.head.pkName.filter(_ != "")
-        final val columns = meta.map(_.column).map(columnsByName)
+        def columns = meta.map(_.column)
         // single column primary keys excluded in favor of PrimaryKey column option
         final def model: Option[m.PrimaryKey] = if(!enabled) None else Some(
-          m.PrimaryKey(name,table.qualifiedName,columns)
+          m.PrimaryKey(name,table.qualifiedName,columns.map(columnsByName))
         )
       }
 
@@ -294,19 +293,19 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
         assert(table.qualifiedName == tablesByMQName(fk.fkTable).qualifiedName)
         def enabled: Boolean = true
         def name: Option[String] = fk.fkName.filter(_ != "")
-        private val referencedColumns  = meta.map(_.fkColumn).map(columnsByName)
-        private val referencingColumns = meta.map(_.pkColumn).map(
-          tables.filter(_.meta.name == fk.pkTable).head.columnsByName
-        )
+        def referencedColumns  = meta.map(_.fkColumn)
+        private val referencingColumns = meta.map(_.pkColumn)
         assert(referencingColumns.size == referencedColumns.size)
         def updateRule: m.ForeignKeyAction = fk.updateRule
         def deleteRule: m.ForeignKeyAction = fk.deleteRule
         final def model: Option[m.ForeignKey] = if(!enabled) None else Some(m.ForeignKey(
           name,
           table.qualifiedName,
-          referencedColumns,
+          referencedColumns.map(columnsByName),
           tablesByMQName(fk.pkTable).qualifiedName,
-          referencingColumns,
+          referencingColumns.map(
+            tablesByMQName(fk.pkTable).columnsByName
+          ),
           updateRule,
           deleteRule
         ))
