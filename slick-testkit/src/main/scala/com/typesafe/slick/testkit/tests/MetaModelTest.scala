@@ -48,6 +48,13 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       def * = (someBool,someBoolDefaultTrue,someBoolDefaultFalse,someBoolOption,someBoolOptionDefaultSome,someBoolOptionDefaultNone,someString,someStringDefaultNonEmpty,someStringDefaultEmpty,someStringOption,someStringOptionDefaultEmpty,someStringOptionDefaultNonEmpty,someStringOptionDefaultNone)
     }
     val defaultTest = TableQuery[DefaultTest]
+    class NoDefaultTest(tag: Tag) extends Table[(Int,Option[String],Option[String])](tag, "no_default_test") {
+      def int = column[Int]("int")
+      def stringOption = column[Option[String]]("stringOption")
+      def stringOptionDefaultNone = column[Option[String]]("stringOptionDefaultNone",O.Default(None))
+      def * = (int,stringOption,stringOptionDefaultNone)
+    }
+    val noDefaultTest = TableQuery[NoDefaultTest]
 
     class TypeTest(tag: Tag) extends Table[(
       String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob//,java.sql.Clob
@@ -103,9 +110,10 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
     }
     val typeTest = TableQuery[TypeTest]
 
-    val ddl = posts.ddl ++ categories.ddl ++ defaultTest.ddl ++ typeTest.ddl
+    val ddl = posts.ddl ++ categories.ddl ++ defaultTest.ddl ++ noDefaultTest.ddl ++ typeTest.ddl
     ddl.create
-    println(ddl.createStatements.toList.toString)
+    //println(ddl.createStatements.toList.toString)
+
     import tdb.profile.createModel
     createModel(ignoreInvalidDefaults=false).assertConsistency
     val tables = tdb.profile.defaultTables
@@ -140,7 +148,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
 
     // check that the model matches the table classes
     val model = tdb.profile.createModel(ignoreInvalidDefaults=false)
-    assertEquals( model.tables.toString, 4, model.tables.size )
+    assertEquals( model.tables.toString, 5, model.tables.size )
     ;{
       val categories = model.tables.filter(_.name.table.toUpperCase=="CATEGORIES").head
       assertEquals( 2, categories.columns.size )
@@ -343,6 +351,24 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       assertEquals("java.sql.Blob",column("Option_java_sql_Blob").tpe)
       assertEquals(false,column("java_sql_Blob").nullable)
       assertEquals(true,column("Option_java_sql_Blob").nullable)
+    };{
+      ifCap(jcap.defaultValueMetaData){
+        val typeTest = model.tables.filter(_.name.table.toUpperCase=="NO_DEFAULT_TEST").head
+        def column(name: String)
+          = typeTest.columns.filter(_.name.toUpperCase == name.toUpperCase).head
+        def columnDefault(name: String)
+          = column(name)
+             .options.collect{case ColumnOption.Default(v) => v}
+             .headOption
+
+        ifCap(jcap.nullableNoDefault){
+          assertEquals( None, columnDefault("stringOption") )
+        }
+        assertEquals( Some(None), columnDefault("stringOptionDefaultNone") )
+        noDefaultTest.map(_.int).insert(1)
+        assertEquals( None, noDefaultTest.map(_.stringOption).first )
+      }
     }
+
   }}
 }

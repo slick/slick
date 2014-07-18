@@ -25,9 +25,12 @@ import scala.slick.model.Model
   *     concurrent updates. InsertOrUpdate operations with `returning` are
   *     emulated on the client side.</li>
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.nullableNoDefault]]:
-  *     Columns in Postgres always have a default, NULL if no other given.
-  *     In case of non-nullable this can be interpreted as no default, but
-  *     nullable columns always have a default, in doubt NULL.</li>
+  *     Nullable columns always have NULL as a default according to the SQL
+  *     standard. Consequently Postgres treats no specifying a default value
+  *     just as specifying NULL and reports NULL as the default value.
+  *     Some other dbms treat queries with no default as NULL default, but
+  *     distinguish NULL from no default value in the meta data.</li>
+
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
   *     Derby doesn't have a corresponding type for Byte.
   *     SMALLINT is used instead and mapped to Short in the Slick model.</li>

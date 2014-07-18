@@ -86,7 +86,7 @@ object JdbcProfile {
     val defaultValueMetaData = Capability("jdbc.defaultValueMetaData")
     /** Doesn't map types to Boolean in DatabaseMetaData */
     val booleanMetaData = Capability("jdbc.booleanMetaData")
-    /** Supports to have no default value (not even NULL) for a nullable column */
+    /** Reports no default and NULL default differently in meta data */
     val nullableNoDefault = Capability("jdbc.nullableNoDefault")
     /** Makes a difference between different integer types */
     val distinguishesIntTypes = Capability("jdbc.distinguishesIntTypes")
