@@ -274,7 +274,7 @@ final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) ex
   def withComputedTypeNoRec: Self = nodeBuildTypedNode(this, buildType)
   protected def buildType =
     CollectionType(TypedCollectionTypeConstructor.seq,
-      NominalType(identity)(value.nodeType))
+      NominalType(identity, value.nodeType))
 }
 
 final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) extends UnaryNode with SimplyTypedNode {
@@ -370,7 +370,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node, identity: TypeSy
     val by2 = by.nodeWithComputedType(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
     nodeRebuildOrThis(Vector(from2, by2)).nodeTypedOrCopy(
       if(!nodeHasType || retype)
-        CollectionType(from2Type.cons, ProductType(IndexedSeq(NominalType(identity)(by2.nodeType), CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
+        CollectionType(from2Type.cons, ProductType(IndexedSeq(NominalType(identity, by2.nodeType), CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
       else nodeType)
   }
 }
@@ -531,7 +531,7 @@ object FwdPath {
 /** A Node representing a database table. */
 final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any, baseIdentity: TableIdentitySymbol) extends NullaryNode with TypedNode {
   type Self = TableNode
-  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity)(UnassignedStructuralType(identity)))
+  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedStructuralType(identity)))
   def nodeRebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(name = "Table", mainInfo = schemaName.map(_ + ".").getOrElse("") + tableName)
 }

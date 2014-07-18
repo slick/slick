@@ -232,6 +232,44 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     assertEquals(as.sortBy(_.id).run, data)
   }
 
+  def testProductClassShape {
+    def columnShape[T](implicit s: Shape[FlatShapeLevel, Column[T], T, Column[T]]) = s
+    class C(val a: Int, val b: Option[String]) extends Product{
+      def canEqual(that: Any): Boolean = that.isInstanceOf[C]
+      def productArity: Int = 2
+      def productElement(n: Int): Any = Seq(a, b)(n)
+      override def equals(a: Any) = a match {
+        case that: C => this.a == that.a && this.b == that.b
+        case _ => false
+      }
+    }
+    class LiftedC(val a: Column[Int], val b: Column[Option[String]]) extends Product{
+      def canEqual(that: Any): Boolean = that.isInstanceOf[LiftedC]
+      def productArity: Int = 2
+      def productElement(n: Int): Any = Seq(a, b)(n)
+      override def equals(a: Any) = a match {
+        case that: C => this.a == that.a && this.b == that.b
+        case _ => false
+      }
+    }
+    implicit object cShape extends ProductClassShape(
+      Seq(columnShape[Int], columnShape[Option[String]]),
+      seq => new LiftedC(seq(0).asInstanceOf[Column[Int]], seq(1).asInstanceOf[Column[Option[String]]]),
+      seq => new C(seq(0).asInstanceOf[Int], seq(1).asInstanceOf[Option[String]])
+    )
+
+    class A(tag: Tag) extends Table[C](tag, "A_ProductClassShape") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def s = column[Option[String]]("s")
+      def * = new LiftedC(id, s)
+    }
+    val as = TableQuery[A]
+    as.ddl.create
+    val data = Seq(new C(1, Some("a")), new C(2, Some("b")))
+    as ++= data
+    assertEquals(as.sortBy(_.id).run, data)
+  }
+
   def testCustomShape {
     // A custom record class
     case class Pair[A, B](a: A, b: B)
