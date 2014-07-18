@@ -17,7 +17,7 @@ User Manual
 
    introduction
    gettingstarted
-   migration
+   upgrade
    from-sql-to-slick
    connection
    code-generation
