@@ -88,7 +88,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def zipWithIndex = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(leftGen :: Nil)
-    val aliased2 = ShapedValue(Rep.forNode[Long](Ref(rightGen)), Rep.repColumnShape[Long, FlatShapeLevel])
+    val aliased2 = ShapedValue(Rep.forNode[Long](Ref(rightGen)), Shape.repColumnShape[Long, FlatShapeLevel])
     new BaseJoinQuery[E, Rep[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
   }
 
