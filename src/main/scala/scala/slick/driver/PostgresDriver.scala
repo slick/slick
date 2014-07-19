@@ -30,9 +30,8 @@ import scala.slick.model.Model
   *     just as specifying NULL and reports NULL as the default value.
   *     Some other dbms treat queries with no default as NULL default, but
   *     distinguish NULL from no default value in the meta data.</li>
-
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
-  *     Derby doesn't have a corresponding type for Byte.
+  *     Postgres doesn't have a corresponding type for Byte.
   *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
   * </ul>
   *

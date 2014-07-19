@@ -42,9 +42,9 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       def someStringDefaultNonEmpty = column[String]("some_string_default_non_empty",O.Default("bar"))
       def someStringDefaultEmpty = column[String]("some_string_default_empty",O.Default(""))
       def someStringOption = column[Option[String]]("some_string_option")
-      def someStringOptionDefaultEmpty = column[Option[String]]("some_string_option_default_empty",O.Default(Some("")))
-      def someStringOptionDefaultNone = column[Option[String]]("some_string_option_default_none",O.Default(None))
-      def someStringOptionDefaultNonEmpty = column[Option[String]]("some_string_option_default_non_empty",O.Default(Some("foo")))
+      def someStringOptionDefaultEmpty = column[Option[String]]("str_option_default_empty",O.Default(Some("")))
+      def someStringOptionDefaultNone = column[Option[String]]("str_option_default_none",O.Default(None))
+      def someStringOptionDefaultNonEmpty = column[Option[String]]("str_option_default_non_empty",O.Default(Some("foo")))
       def * = (someBool,someBoolDefaultTrue,someBoolDefaultFalse,someBoolOption,someBoolOptionDefaultSome,someBoolOptionDefaultNone,someString,someStringDefaultNonEmpty,someStringDefaultEmpty,someStringOption,someStringOptionDefaultEmpty,someStringOptionDefaultNonEmpty,someStringOptionDefaultNone)
     }
     val defaultTest = TableQuery[DefaultTest]
@@ -148,6 +148,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
 
     // check that the model matches the table classes
     val model = tdb.profile.createModel(ignoreInvalidDefaults=false)
+    //println(model)
     assertEquals( model.tables.toString, 5, model.tables.size )
     ;{
       val categories = model.tables.filter(_.name.table.toUpperCase=="CATEGORIES").head
@@ -218,7 +219,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       }
     };{
       val defaultTest = model.tables.filter(_.name.table.toUpperCase=="DEFAULT_TEST").head
-      assertEquals(None,defaultTest.name.schema)
+      assert(Some("PUBLIC") != defaultTest.name.schema.map(_.toUpperCase))
       assert(Some("PUBLIC") != defaultTest.name.catalog.map(_.toUpperCase))
       ifCap(jcap.defaultValueMetaData){
         def column(name: String)
@@ -232,13 +233,18 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
           assertEquals(Some(true), columnDefault("some_bool_default_true"))
         }
         ifNotCap(jcap.booleanMetaData){
-          assertEquals(Some(1), columnDefault("some_bool_default_true"))
+          assertEquals(false,column("some_bool_default_true").nullable)
+          assert( Seq(Some(1),Some('1')).contains(
+                    columnDefault("some_bool_default_true")
+                  ), columnDefault("some_bool_default_true").toString )
         }
         ifCap(jcap.booleanMetaData){
           assertEquals(Some(false), columnDefault("some_bool_default_false"))
         }
         ifNotCap(jcap.booleanMetaData){
-          assertEquals(Some(0), columnDefault("some_bool_default_false"))
+          assert( Seq(Some(0),Some('0')).contains(
+                    columnDefault("some_bool_default_false")
+                  ), columnDefault("some_bool_default_false").toString )
         }
         ifCap(jcap.nullableNoDefault){
           assertEquals(None,columnDefault("some_bool_option"))
@@ -250,7 +256,9 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
           assertEquals(Some(Some(true)), columnDefault("some_bool_option_default_some"))
         }
         ifNotCap(jcap.booleanMetaData){
-          assertEquals(Some(Some(1)), columnDefault("some_bool_option_default_some"))
+          assert( Seq(Some(Some(1)),Some(Some('1'))).contains(
+                    columnDefault("some_bool_option_default_some")
+                  ), columnDefault("some_bool_option_default_some").toString )
         }
         assertEquals(Some(None),columnDefault("some_bool_option_default_none"))
         assertEquals(None,columnDefault("some_string"))
@@ -262,9 +270,9 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
         ifNotCap(jcap.nullableNoDefault){
           assertEquals(Some(None),columnDefault("some_string_option"))
         }
-        assertEquals(Some(Some("")),columnDefault("some_string_option_default_empty"))
-        assertEquals(Some(None),columnDefault("some_string_option_default_none"))
-        assertEquals(Some(Some("foo")),columnDefault("some_string_option_default_non_empty"))
+        assertEquals(Some(Some("")),columnDefault("str_option_default_empty"))
+        assertEquals(Some(None),columnDefault("str_option_default_none"))
+        assertEquals(Some(Some("foo")),columnDefault("str_option_default_non_empty"))
       }
     };{
       val typeTest = model.tables.filter(_.name.table.toUpperCase=="TYPE_TEST").head
@@ -296,24 +304,25 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       assertEquals(false,column("Short").nullable)
       assertEquals(true,column("Option_Short").nullable)
 
-      assertEquals("Int",column("Int").tpe)
-      assertEquals("Int",column("Option_Int").tpe)
       assertEquals(false,column("Int").nullable)
       assertEquals(true,column("Option_Int").nullable)
-      ifCap(jcap.defaultValueMetaData){
-        assertEquals(Some(-5), columnDefault("Int"))
-        assertEquals(Some(Some(5)), columnDefault("Option_Int"))
-      }
-
-      ifCap(jcap.distinguishesIntTypes){
-        assertEquals("Long",column("Long").tpe)
-        assertEquals("Long",column("Option_Long").tpe)
-      }
       assertEquals(false,column("Long").nullable)
       assertEquals(true,column("Option_Long").nullable)
-      ifCap(jcap.defaultValueMetaData){
-        assertEquals(Some(5L), columnDefault("Long"))
-        assertEquals(Some(Some(-5L)), columnDefault("Option_Long"))
+      if(!tdb.profile.toString.contains("OracleDriver")){// FIXME: we should probably solve this somewhat cleaner
+        assertEquals("Int",column("Int").tpe)
+        assertEquals("Int",column("Option_Int").tpe)
+        ifCap(jcap.defaultValueMetaData){
+          assertEquals(Some(-5), columnDefault("Int"))
+          assertEquals(Some(Some(5)), columnDefault("Option_Int"))
+        }
+        ifCap(jcap.distinguishesIntTypes){
+          assertEquals("Long",column("Long").tpe)
+          assertEquals("Long",column("Option_Long").tpe)
+        }
+        ifCap(jcap.defaultValueMetaData){
+          assertEquals(Some(5L), columnDefault("Long"))
+          assertEquals(Some(Some(-5L)), columnDefault("Option_Long"))
+        }
       }
       /* h2 and hsqldb map this to Double
       assertEquals("Float",column("Float").tpe)
@@ -321,7 +330,6 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       assertEquals(false,column("Float").nullable)
       assertEquals(true,column("Option_Float").nullable)
       */
-      println(column("java_sql_Blob"))
       assertEquals("Double",column("Double").tpe)
       assertEquals("Double",column("Option_Double").tpe)
       assertEquals(false,column("Double").nullable)
@@ -332,20 +340,21 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       assertEquals(false,column("String").nullable)
       assertEquals(true,column("Option_String").nullable)
 
-      assertEquals("java.sql.Date",column("java_sql_Date").tpe)
-      assertEquals("java.sql.Date",column("Option_java_sql_Date").tpe)
       assertEquals(false,column("java_sql_Date").nullable)
       assertEquals(true,column("Option_java_sql_Date").nullable)
-
-      assertEquals("java.sql.Time",column("java_sql_Time").tpe)
-      assertEquals("java.sql.Time",column("Option_java_sql_Time").tpe)
       assertEquals(false,column("java_sql_Time").nullable)
       assertEquals(true,column("Option_java_sql_Time").nullable)
-
-      assertEquals("java.sql.Timestamp",column("java_sql_Timestamp").tpe)
-      assertEquals("java.sql.Timestamp",column("Option_java_sql_Timestamp").tpe)
       assertEquals(false,column("java_sql_Timestamp").nullable)
       assertEquals(true,column("Option_java_sql_Timestamp").nullable)
+
+      if(!tdb.profile.toString.contains("OracleDriver")){// FIXME: we should probably solve this somewhat cleaner
+        assertEquals("java.sql.Date",column("java_sql_Date").tpe)
+        assertEquals("java.sql.Date",column("Option_java_sql_Date").tpe)
+        assertEquals("java.sql.Time",column("java_sql_Time").tpe)
+        assertEquals("java.sql.Time",column("Option_java_sql_Time").tpe)
+        assertEquals("java.sql.Timestamp",column("java_sql_Timestamp").tpe)
+        assertEquals("java.sql.Timestamp",column("Option_java_sql_Timestamp").tpe)
+      }
 
       assertEquals("java.sql.Blob",column("java_sql_Blob").tpe)
       assertEquals("java.sql.Blob",column("Option_java_sql_Blob").tpe)

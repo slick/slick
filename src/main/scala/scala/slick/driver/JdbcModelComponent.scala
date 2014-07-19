@@ -174,6 +174,8 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           java.sql.Types.LONGNVARCHAR
         ) contains meta.sqlType
 
+        def rawDefault = meta.columnDef
+
         /** The default value for the column.
           * The outer option is used to indicate if a default value is given.
           * The inner Option is used to allow giving None for a nullable column.
@@ -187,7 +189,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           */
 
         def default: Option[Option[Any]]
-          = meta.columnDef.map{ v =>
+          = rawDefault.map{ v =>
             if(v=="NULL"){
               None
             } else {
@@ -198,8 +200,10 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
                 case (v,"Int")    => v.toInt
                 case (v,"Long")   => v.toLong
                 case (v,"Double") => v.toDouble
-                case (v,"Float") => v.toFloat
-                case (v,"Char")   => v.head // FIXME: check length
+                case (v,"Float")  => v.toFloat
+                case (v,"Char")   =>
+                  assert(v.size == 1, "char has unexpected size: "+v)
+                  v.head
                 case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
                 case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
                 case (StringPattern(str),"String") => str
@@ -223,7 +227,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           * logs the message and treats it as no default value for convenience.
           */
         def defaultColumnOption: Option[ColumnOption.Default[_]]
-          = meta.columnDef.map(v => (v,tpe)).collect{
+          = rawDefault.map(v => (v,tpe)).collect{
               case (v@"CURRENT_TIMESTAMP","java.sql.Timestamp") =>
                 logger.debug(s"Ignoring"+formatDefault(v))
                 None
@@ -243,11 +247,11 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
             case e: java.lang.NumberFormatException
               if ignoreInvalidDefaults =>
                 logger.debug(
-                  s"NumberFormatException: Could not parse"+formatDefault(meta.columnDef)
+                  s"NumberFormatException: Could not parse"+formatDefault(defaultColumnOption)
                 )
                 None
             case e: scala.MatchError =>
-              val msg = s"Could not parse"+formatDefault(meta.columnDef)
+              val msg = s"Could not parse"+formatDefault(defaultColumnOption)
               if(ignoreInvalidDefaults){
                 logger.debug("SlickException: "+msg)
                 None
