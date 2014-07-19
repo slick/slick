@@ -55,9 +55,9 @@ import scala.slick.jdbc.meta.MTable
   *     Also see https://code.google.com/p/sqlite-jdbc/issues/detail?id=27
   *     </li>
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.booleanMetaData]]:
-  *     Derby <= 10.6 doesn't have booleans, so Slick maps to SMALLINT instead.
+  *     SQlite doesn't have booleans, so Slick maps to INTEGER instead.
   *     Other jdbc drivers like MySQL map TINYINT(1) back to a Scala
-  *     Boolean. Derby maps SMALLINT to an Integer and that's how it shows
+  *     Boolean. SQlite maps INTEGER to an Integer and that's how it shows
   *     up in the jdbc meta data, thus the original type is lost.</li>
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.distinguishesIntTypes]]:
   *     SQLite does not distinguish integer types and maps them all to Int
