@@ -183,10 +183,15 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
         case ForeignKeyAction.SetDefault => "ForeignKeyAction.SetDefault"
       }
       def code = {
-        val fkColumns = compoundValue(referencingColumns.map(_.name))
         val pkTable = referencedTable.TableValue.name
-        val pkColumns = compoundValue(referencedColumns.map(c => s"r.${c.name}"))
-        s"""lazy val $name = foreignKey("$dbName", $fkColumns, $pkTable)(r => $pkColumns, onUpdate=${onUpdate}, onDelete=${onDelete})"""
+        val (pkColumns, fkColumns) = (referencedColumns, referencingColumns).zipped.map { (p, f) =>
+          val pk = s"r.${p.name}"
+          val fk = f.name
+          if(p.model.nullable && !f.model.nullable) (pk, fk + ".?")
+          else if(!p.model.nullable && f.model.nullable) (pk + ".?", fk)
+          else (pk, fk)
+        }.unzip
+        s"""lazy val $name = foreignKey("$dbName", ${compoundValue(fkColumns)}, $pkTable)(r => ${compoundValue(pkColumns)}, onUpdate=${onUpdate}, onDelete=${onDelete})"""
       }
     }
 
