@@ -234,6 +234,15 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
       case (grp, t) => (grp, t.map(x => x.col4 + x.col5).sum)
     }
     assertEquals(Set(("baz",Some(12)), ("foo",Some(24))), q3.run.toSet)
+
+    ifCap(rcap.mkString){
+      assertEquals("bar,bar,quux,quux", Tabs.map(_.col2).mkString(";").run)
+
+      val q4 = Tabs.groupBy(_.col1).map {
+        case (name, group) => (name, group.map(_.col2).mkString(","))
+      }
+      assertEquals(Set(("baz", "quux"), ("foo","bar,bar,quux")), q4.run.toSet)
+    }
   }
 
   def testMultiMapAggregates {

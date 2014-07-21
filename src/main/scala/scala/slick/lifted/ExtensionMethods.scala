@@ -161,6 +161,13 @@ final class SingleColumnQueryExtensionMethods[B1, P1, C[_]](val q: Query[Column[
   def sum(implicit tm: OptionTM) = Library.Sum.column[Option[B1]](q.toNode)
 }
 
+/** Extension methods for Queries of a single String Column */
+final class StringColumnQueryExtensionMethods[B1 <: String, P1, C[_]](val q: Query[Column[P1], _, C]) extends AnyVal {
+  type OptionTM =  TypedType[Option[B1]]
+  def mkString(separator: String)(implicit tm: OptionTM)
+    = Library.MkString.column[String](q.toNode)//, LiteralColumn(separator).toNode)
+}
+
 trait ExtensionMethodConversions {
   implicit def anyColumnExtensionMethods[B1 : BaseTypedType](c: Column[B1]) = new AnyExtensionMethods(c.toNode)
   implicit def anyOptionColumnExtensionMethods[B1](c: Column[Option[B1]]) = new AnyExtensionMethods(c.toNode)
@@ -177,4 +184,6 @@ trait ExtensionMethodConversions {
 
   implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Column[B1], _, C]) = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
   implicit def singleOptionColumnQueryExtensionMethods[B1, C[_]](q: Query[Column[Option[B1]], _, C]) = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
+  implicit def stringColumnQueryExtensionMethods[B1 <: String : BaseTypedType, C[_]](q: Query[Column[B1], _, C]) = new StringColumnQueryExtensionMethods[B1, B1, C](q)
+  implicit def stringOptionColumnQueryExtensionMethods[B1 <: String, C[_]](q: Query[Column[Option[B1]], _, C]) = new StringColumnQueryExtensionMethods[B1, Option[B1], C](q)
 }

@@ -129,6 +129,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
       case RowNum(sym, false) => b"@`$sym"
       case RowNumGen(sym) => b"(select @`$sym := 0)"
+      case Library.MkString(e)/*,separator)*/ => b"group_concat($e)"//" SEPARATOR $separator)"
       case _ => super.expr(n, skipParens)
     }
 

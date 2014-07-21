@@ -118,6 +118,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
+      case Library.MkString(e)/*,separator)*/ => b"string_agg($e, ',')"//$separator)"//" SEPARATOR $separator)"
       case _ => super.expr(n, skipParens)
     }
   }

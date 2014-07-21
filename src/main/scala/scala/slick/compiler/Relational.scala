@@ -346,7 +346,7 @@ class FuseComprehensions extends Phase {
     val seenGens = HashMap[Symbol, Node]()
     def tr(n: Node): Node = n match {
       //TODO Once we can recognize structurally equivalent sub-queries and merge them, c2 could be a Ref
-      case ap @ Apply(s: Library.AggregateFunctionSymbol, Seq(c2: Comprehension)) =>
+      case ap @ Apply(s: Library.AggregateFunctionSymbol, Seq(c2: Comprehension, args @ _*)) =>
         if(hasRefToOneOf(c2, seenGens.keySet)) {
           logger.debug("Seen reference to one of {"+seenGens.keys.mkString(", ")+"} in "+c2+" -- inlining")
           // This could still produce illegal SQL code if the reference is nested within another
@@ -360,7 +360,7 @@ class FuseComprehensions extends Phase {
               // All standard aggregate functions operate on a single column
               val Some(Pure(StructNode(Seq((_, expr))), _)) = c3.select
               val elType = c3.nodeType.asCollectionType.elementType
-              c3.copy(select = Some(Pure(ProductNode(Seq(Apply(s, Seq(expr))(elType))))))
+              c3.copy(select = Some(Pure(ProductNode(Seq(Apply(s, Seq(expr) ++ args)(elType))))))
           }
         } else {
           val a = new AnonSymbol

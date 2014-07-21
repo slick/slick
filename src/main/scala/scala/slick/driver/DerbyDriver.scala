@@ -62,6 +62,8 @@ import scala.slick.model.Model
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
   *     Derby doesn't have a corresponding type for Byte.
   *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.groupConcat]]:
+  *     Derby doesn't have a built-in string aggregation function.</li>
   * </ul>
   */
 trait DerbyDriver extends JdbcDriver { driver =>
@@ -80,6 +82,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.reverse
     - JdbcProfile.capabilities.booleanMetaData
     - JdbcProfile.capabilities.supportsByte
+    - RelationalProfile.capabilities.mkString
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
