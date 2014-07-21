@@ -12,12 +12,12 @@ trait Aliases {
   val TableQuery = lifted.TableQuery
   type Compiled[T] = lifted.Compiled[T]
   val Compiled = lifted.Compiled
-  type Column[T] = lifted.Column[T]
   type ConstColumn[T] = lifted.ConstColumn[T]
   type LiteralColumn[T] = lifted.LiteralColumn[T]
   val LiteralColumn = lifted.LiteralColumn
   val Case = lifted.Case
   type Rep[T] = lifted.Rep[T]
+  val Rep = lifted.Rep
   val Functions = lifted.Functions
   type Parameters[PU, PP] = lifted.Parameters[PU, PP]
   val Parameters = lifted.Parameters
@@ -43,4 +43,9 @@ trait Aliases {
   type MappedTo[T] = lifted.MappedTo[T]
   val ForeignKeyAction = scala.slick.model.ForeignKeyAction
   type ForeignKeyAction = scala.slick.model.ForeignKeyAction
+
+  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "2.2")
+  type Column[T] = lifted.Rep[T]
+  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "2.2")
+  val Column = lifted.Rep
 }

@@ -32,9 +32,10 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   }
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes {
-    implicit def columnToOptionColumn[T : BaseTypedType](c: Column[T]): Column[Option[T]] = c.?
+    @deprecated("Use an explicit conversion to an Option column with `.?`", "2.2")
+    implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
-    implicit def columnToOrdered[T](c: Column[T]): ColumnOrdered[T] = c.asc
+    implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
     implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
       new TableQueryExtensionMethods[T, U](q)
   }
@@ -53,9 +54,9 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
     /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
-    def findBy[P](f: (T => Column[P]))(implicit tm: TypedType[P]): CompiledFunction[Column[P] => Query[T, U, Seq], Column[P], P, Query[T, U, Seq], Seq[U]] = {
+    def findBy[P](f: (T => Rep[P]))(implicit tm: TypedType[P]): CompiledFunction[Rep[P] => Query[T, U, Seq], Rep[P], P, Query[T, U, Seq], Seq[U]] = {
       import driver.Implicit._
-      Compiled { (p: Column[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
+      Compiled { (p: Rep[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
     }
   }
 }
@@ -148,23 +149,22 @@ trait RelationalTableComponent { driver: RelationalDriver =>
       * Note that Slick uses VARCHAR or VARCHAR(254) in DDL for String
       * columns if neither ColumnOption DBType nor Length are given.
       */
-    def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
-      if(tm == null){
-        throw new NullPointerException(
-          "implicit TypedType[C] for column[C] is null. "+
-          "This may be an initialization order problem. "+
-          "When using a MappedColumnType, you may want to change it from a val to a lazy val or def."
-        )
+    def column[C](n: String, options: ColumnOption[C]*)(implicit tt: TypedType[C]): Rep[C] = {
+      if(tt == null) throw new NullPointerException(
+        "implicit TypedType[C] for column[C] is null. "+
+        "This may be an initialization order problem. "+
+        "When using a MappedColumnType, you may want to change it from a val to a lazy val or def.")
+      new Rep.TypedRep[C] {
+        override def toNode =
+          Select((tableTag match {
+            case r: RefTag => Path(r.path)
+            case _ => tableNode
+          }), FieldSymbol(n)(options, tt)).nodeTyped(tt)
+        override def toString = (tableTag match {
+          case r: RefTag => "(" + _tableName + " " + Path.toString(r.path) + ")"
+          case _ => _tableName
+        }) + "." + n
       }
-      override def toNode =
-        Select((tableTag match {
-          case r: RefTag => Path(r.path)
-          case _ => tableNode
-        }), FieldSymbol(n)(options, tm)).nodeTyped(tm)
-      override def toString = (tableTag match {
-        case r: RefTag => "(" + _tableName + " " + Path.toString(r.path) + ")"
-        case _ => _tableName
-      }) + "." + n
     }
   }
 }

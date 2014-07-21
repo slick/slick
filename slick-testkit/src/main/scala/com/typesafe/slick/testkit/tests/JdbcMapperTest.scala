@@ -217,7 +217,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
 
   def testCaseClassShape {
     case class C(a: Int, b: String)
-    case class LiftedC(a: Column[Int], b: Column[String])
+    case class LiftedC(a: Rep[Int], b: Rep[String])
     implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
 
     class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {

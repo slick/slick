@@ -27,7 +27,7 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       def someString = column[String]("some_string",O.Length(111,varying=true)) // tests Length produces valid SQL
       def * = (id, title, category, someBool, someString)
       def pk = primaryKey("posts_pk", (id,title))
-      def categoryFK = foreignKey("category_fk", category, categories)(_.id)
+      def categoryFK = foreignKey("category_fk", category, categories)(_.id.?)
     }
     val posts = TableQuery[Posts]
 

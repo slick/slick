@@ -198,7 +198,7 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
   def classTag = structuralView.classTag
 }
 
-/** Something that has a type */
+/** Something that has a Type */
 trait Typed {
   def tpe: Type
 }

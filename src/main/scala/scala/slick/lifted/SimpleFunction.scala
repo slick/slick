@@ -18,28 +18,28 @@ trait SimpleFunction extends Node {
 }
 
 object SimpleFunction {
-  def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Column[_]] => Column[T]) = {
+  def apply[T : TypedType](fname: String, fn: Boolean = false): (Seq[Rep[_]] => Rep[T]) = {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleFunction {
       val name = fname
       override val scalar = fn
       def nodeChildren = params
       protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = build(ch)
     }
-    { paramsC: Seq[Column[_] ] => Column.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
+    { paramsC: Seq[Rep[_] ] => Rep.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }
-  def nullary[R : TypedType](fname: String, fn: Boolean = false): Column[R] =
+  def nullary[R : TypedType](fname: String, fn: Boolean = false): Rep[R] =
     apply(fname, fn).apply(Seq())
-  def unary[T1, R : TypedType](fname: String, fn: Boolean = false): (Column[T1] => Column[R]) = {
+  def unary[T1, R : TypedType](fname: String, fn: Boolean = false): (Rep[T1] => Rep[R]) = {
     val f = apply(fname, fn);
-    { t1: Column[T1] => f(Seq(t1)) }
+    { t1: Rep[T1] => f(Seq(t1)) }
   }
-  def binary[T1, T2, R : TypedType](fname: String, fn: Boolean = false): ((Column[T1], Column[T2]) => Column[R]) = {
+  def binary[T1, T2, R : TypedType](fname: String, fn: Boolean = false): ((Rep[T1], Rep[T2]) => Rep[R]) = {
     val f = apply(fname, fn);
-    { (t1: Column[T1], t2: Column[T2]) => f(Seq(t1, t2)) }
+    { (t1: Rep[T1], t2: Rep[T2]) => f(Seq(t1, t2)) }
   }
-  def ternary[T1, T2, T3, R : TypedType](fname: String, fn: Boolean = false): ((Column[T1], Column[T2], Column[T3]) => Column[R]) = {
+  def ternary[T1, T2, T3, R : TypedType](fname: String, fn: Boolean = false): ((Rep[T1], Rep[T2], Rep[T3]) => Rep[R]) = {
     val f = apply(fname, fn);
-    { (t1: Column[T1], t2: Column[T2], t3: Column[T3]) => f(Seq(t1, t2, t3)) }
+    { (t1: Rep[T1], t2: Rep[T2], t3: Rep[T3]) => f(Seq(t1, t2, t3)) }
   }
 }
 
@@ -49,14 +49,14 @@ trait SimpleBinaryOperator extends BinaryNode {
 }
 
 object SimpleBinaryOperator {
-  def apply[T : TypedType](fname: String): ((Column[_], Column[_]) => Column[T]) = {
+  def apply[T : TypedType](fname: String): ((Rep[_], Rep[_]) => Rep[T]) = {
     def build(leftN: Node, rightN: Node): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleBinaryOperator {
       val name = fname
       val left = leftN
       val right = rightN
       protected[this] def nodeRebuild(left: Node, right: Node): Self = build(left, right)
     }
-    { (leftC: Column[_], rightC: Column[_]) => Column.forNode[T](build(leftC.toNode, rightC.toNode)) }
+    { (leftC: Rep[_], rightC: Rep[_]) => Rep.forNode[T](build(leftC.toNode, rightC.toNode)) }
   }
 }
 
@@ -74,32 +74,32 @@ trait SimpleExpression extends Node {
 }
 
 object SimpleExpression {
-  def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Column[_]] => Column[T]) = {
+  def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Rep[_]] => Rep[T]) = {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleExpression {
       def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(nodeChildren, qb)
       def nodeChildren = params
       protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = build(ch)
     }
-    { paramsC: Seq[Column[_] ] => Column.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
+    { paramsC: Seq[Rep[_] ] => Rep.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }
 
-  def nullary[R : TypedType](f: JdbcStatementBuilderComponent#QueryBuilder => Unit): Column[R] = {
+  def nullary[R : TypedType](f: JdbcStatementBuilderComponent#QueryBuilder => Unit): Rep[R] = {
     val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(qb) });
     g.apply(Seq())
   }
   
-  def unary[T1, R : TypedType](f: (Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Column[T1] => Column[R]) = {
+  def unary[T1, R : TypedType](f: (Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Rep[T1] => Rep[R]) = {
     val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(ch(0), qb) });
-    { t1: Column[T1] => g(Seq(t1)) }
+    { t1: Rep[T1] => g(Seq(t1)) }
   }
 
-  def binary[T1, T2, R : TypedType](f: (Node, Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): ((Column[T1], Column[T2]) => Column[R]) = {
+  def binary[T1, T2, R : TypedType](f: (Node, Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): ((Rep[T1], Rep[T2]) => Rep[R]) = {
     val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(ch(0), ch(1), qb) });
-    { (t1: Column[T1], t2: Column[T2]) => g(Seq(t1, t2)) }
+    { (t1: Rep[T1], t2: Rep[T2]) => g(Seq(t1, t2)) }
   }
 
-  def ternary[T1, T2, T3, R : TypedType](f: (Node, Node, Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): ((Column[T1], Column[T2], Column[T3]) => Column[R]) = {
+  def ternary[T1, T2, T3, R : TypedType](f: (Node, Node, Node, JdbcStatementBuilderComponent#QueryBuilder) => Unit): ((Rep[T1], Rep[T2], Rep[T3]) => Rep[R]) = {
     val g = apply({ (ch: Seq[Node], qb: JdbcStatementBuilderComponent#QueryBuilder) => f(ch(0), ch(1), ch(2), qb) });
-    { (t1: Column[T1], t2: Column[T2], t3: Column[T3]) => g(Seq(t1, t2, t3)) }
+    { (t1: Rep[T1], t2: Rep[T2], t3: Rep[T3]) => g(Seq(t1, t2, t3)) }
   }
 }
