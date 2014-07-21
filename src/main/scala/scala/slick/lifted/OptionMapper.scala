@@ -1,7 +1,7 @@
 package scala.slick.lifted
 
 import annotation.implicitNotFound
-import scala.slick.ast.{FunctionSymbol, BaseTypedType, Node, TypedType}
+import scala.slick.ast.{FunctionSymbol, BaseTypedType, Node, OptionApply, TypedType}
 
 trait OptionMapper[BR, R] extends (Column[BR] => Column[R]) {
   def lift: Boolean
@@ -24,7 +24,7 @@ object OptionMapper2 {
     def lift = false
   }
   val option = new OptionMapper2[Any,Any,Any,Any,Any,Option[Any]] {
-    def apply(n: Column[Any]): Column[Option[Any]] = new PlainColumnExtensionMethods[Any](n).?
+    def apply(n: Column[Any]): Column[Option[Any]] = Column.forNode(OptionApply(n.toNode))(n.tpe.optionType)
     def lift = true
   }
 
@@ -43,7 +43,7 @@ object OptionMapper3 {
     def lift = false
   }
   val option = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Option[Any]] {
-    def apply(n: Column[Any]): Column[Option[Any]] = new PlainColumnExtensionMethods[Any](n).?
+    def apply(n: Column[Any]): Column[Option[Any]] = Column.forNode(OptionApply(n.toNode))(n.tpe.optionType)
     def lift = true
   }
 

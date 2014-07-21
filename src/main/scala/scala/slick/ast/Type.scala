@@ -198,7 +198,7 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
   def classTag = structuralView.classTag
 }
 
-/** Something that has a type */
+/** Something that has a Type */
 trait Typed {
   def tpe: Type
 }
@@ -207,7 +207,7 @@ object Typed {
   def unapply(t: Typed) = Some(t.tpe)
 }
 
-/* A Type that carries a Scala type argument */
+/** A Type that carries a Scala type argument */
 trait TypedType[T] extends Type { self =>
   def optionType: OptionTypedType[T] = new OptionTypedType[T] {
     val elementType = self

@@ -17,14 +17,14 @@ class NestedShapesTest {
     implicitly[Shape[NestedShapeLevel, (Column[Int], (Int, Column[String])), _, _]]
 
     // Flat and Nested alike, fully specified
-    implicitly[Shape[FlatShapeLevel, Int, Int, Column[Int]]]
-    implicitly[Shape[FlatShapeLevel, (Int, String), (Int, String), (Column[Int], Column[String])]]
-    implicitly[Shape[FlatShapeLevel, (Column[Int], Int), (Int, Int), (Column[Int], Column[Int])]]
-    implicitly[Shape[FlatShapeLevel, (Column[Int], (Int, Column[String])), (Int, (Int, String)), (Column[Int], (Column[Int], Column[String]))]]
-    implicitly[Shape[NestedShapeLevel, Int, Int, Column[Int]]]
-    implicitly[Shape[NestedShapeLevel, (Int, String), (Int, String), (Column[Int], Column[String])]]
-    implicitly[Shape[NestedShapeLevel, (Column[Int], Int), (Int, Int), (Column[Int], Column[Int])]]
-    implicitly[Shape[NestedShapeLevel, (Column[Int], (Int, Column[String])), (Int, (Int, String)), (Column[Int], (Column[Int], Column[String]))]]
+    implicitly[Shape[FlatShapeLevel, Int, Int, ConstColumn[Int]]]
+    implicitly[Shape[FlatShapeLevel, (Int, String), (Int, String), (ConstColumn[Int], ConstColumn[String])]]
+    implicitly[Shape[FlatShapeLevel, (Column[Int], Int), (Int, Int), (Column[Int], ConstColumn[Int])]]
+    implicitly[Shape[FlatShapeLevel, (Column[Int], (Int, Column[String])), (Int, (Int, String)), (Column[Int], (ConstColumn[Int], Column[String]))]]
+    implicitly[Shape[NestedShapeLevel, Int, Int, ConstColumn[Int]]]
+    implicitly[Shape[NestedShapeLevel, (Int, String), (Int, String), (ConstColumn[Int], ConstColumn[String])]]
+    implicitly[Shape[NestedShapeLevel, (Column[Int], Int), (Int, Int), (Column[Int], ConstColumn[Int])]]
+    implicitly[Shape[NestedShapeLevel, (Column[Int], (Int, Column[String])), (Int, (Int, String)), (Column[Int], (ConstColumn[Int], Column[String]))]]
 
     // Only Nested, only Mixed specified
     implicitly[Shape[NestedShapeLevel, Query[Column[Int], Int, Seq], _, _]] // 1
@@ -36,7 +36,7 @@ class NestedShapesTest {
     implicitly[Shape[NestedShapeLevel, Query[Column[Int], Int, Seq], Seq[Int], Query[Column[Int], Int, Seq]]] // 5
     implicitly[Shape[NestedShapeLevel, Query[(Column[Int], Column[String]), (Int, String), Seq], Seq[(Int, String)], Query[(Column[Int], Column[String]), (Int, String), Seq]]] // 6
     implicitly[Shape[NestedShapeLevel, (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 7
-    implicitly[Shape[NestedShapeLevel, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 8
+    implicitly[Shape[NestedShapeLevel, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (ConstColumn[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 8
   }
 
   def illegal1 = ShouldNotTypecheck("""
@@ -68,6 +68,6 @@ class NestedShapesTest {
     """, "No matching Shape.*")
 
   def illegal8 = ShouldNotTypecheck("""
-      implicitly[Shape[FlatShapeLevel, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (Column[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 8
+      implicitly[Shape[FlatShapeLevel, (Int, Query[(Column[Int], Column[String]), (Int, String), Seq]), (Int, Seq[(Int, String)]), (ConstColumn[Int], Query[(Column[Int], Column[String]), (Int, String), Seq])]] // 8
     """, "No matching Shape.*")
 }

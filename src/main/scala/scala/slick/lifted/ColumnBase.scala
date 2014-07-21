@@ -13,7 +13,7 @@ trait Rep[T] {
 
 /** Base class for columns.
   *
-  * Most operations are added with extension methods that depend on the type inside the `Column`.
+  * All column operations are added with extension methods that depend on the type inside the `Column`.
   * These are defined in:
   * <ul>
   *   <li>[[scala.slick.lifted.AnyExtensionMethods]] and [[scala.slick.lifted.ColumnExtensionMethods]] for columns of all types</li>
@@ -22,13 +22,10 @@ trait Rep[T] {
   *   <li>[[scala.slick.lifted.NumericColumnExtensionMethods]] for columns of numeric types (and Options thereof)</li>
   *   <li>[[scala.slick.lifted.BooleanColumnExtensionMethods]] for columns of `Boolean` / `Option[Boolean]`</li>
   *   <li>[[scala.slick.lifted.StringColumnExtensionMethods]] for columns of `String` / `Option[String]`</li>
+  *   <li>[[scala.slick.lifted.ColumnOrdered]] for using column in `sortBy` calls</li>
   * </ul>
   */
 abstract class Column[T](implicit final val tpe: TypedType[T]) extends Rep[T] { self =>
-  /** Order by this column in ascending order */
-  def asc = ColumnOrdered[T](this, Ordering())
-  /** Order by this column in descending order */
-  def desc = ColumnOrdered[T](this, Ordering(direction = Ordering.Desc))
   override def toString = s"Column($toNode)"
   def encodeRef(path: List[Symbol]): Column[T] = Column.forNode(Path(path))
 }
@@ -48,18 +45,14 @@ trait ColumnLowPriority {
   @inline implicit def columnShape[T, Level <: ShapeLevel] = RepShape[Level, Column[T], T]
 }
 
-/** A scalar value that is known at the client side at the time a query is executed. */
-abstract class ConstColumn[T](implicit tt: TypedType[T]) extends Column[T] {
-  override def encodeRef(path: List[Symbol]): ConstColumn[T] = new ConstColumn[T] { def toNode = Path(path) }
+/** A scalar value that is known at the client side at the time a query is executed.
+  * This is either a constant value (`LiteralColumn`) or a scalar parameter. */
+class ConstColumn[T](val toNode: Node)(implicit tt: TypedType[T]) extends Column[T] {
+  override def encodeRef(path: List[Symbol]): ConstColumn[T] = new ConstColumn[T](Path(path))
 }
 
-/** A scalar query parameter. This is a placeholder without a known value
-  * which has to be compiled to a bind variable. */
-class ParameterColumn[T](val toNode: Node)(implicit tt: TypedType[T]) extends ConstColumn[T]
-
 /** A column with a constant value which is inserted into an SQL statement as a literal. */
-final case class LiteralColumn[T](value: T)(implicit tt: TypedType[T]) extends ConstColumn[T] {
+final case class LiteralColumn[T](value: T)(implicit tt: TypedType[T]) extends ConstColumn[T](LiteralNode(tt, value)) {
   /** Request that a bind variable be used instead of inserting a literal */
   def bind: Column[T] = Column.forNode[T](LiteralNode(tt, value, vol = true))
-  def toNode = LiteralNode(tt, value)
 }
