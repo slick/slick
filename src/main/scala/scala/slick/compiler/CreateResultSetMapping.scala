@@ -17,7 +17,7 @@ class CreateResultSetMapping extends Phase {
     val n3 = toCollection(n2)
     logger.debug("Converted to collection:", n3)
     val tables: Map[TypeSymbol, Node] = n.collect {
-      case TableExpansion(_, _, columns) :@ CollectionType(_, NominalType(ts)) =>
+      case TableExpansion(_, _, columns) :@ CollectionType(_, NominalType(ts, _)) =>
         ts -> columns
     }.toMap
     logger.debug("Found tables: "+tables)
@@ -75,7 +75,7 @@ class CreateResultSetMapping extends Phase {
           ProductNode(ch.map { case (_, t) => f(t) })
         case t: MappedScalaType =>
           TypeMapping(f(t.baseType), t.mapper, t.classTag)
-        case n @ NominalType(ts) => tables.get(ts) match {
+        case n @ NominalType(ts, _) => tables.get(ts) match {
           case Some(n) => f(n.nodeType)
           case None => f(n.structuralView)
         }
