@@ -1,7 +1,7 @@
 package scala.slick.lifted
 
 import annotation.implicitNotFound
-import scala.slick.ast.{Typed, OptionApply, FunctionSymbol, BaseTypedType, Node, TypedType}
+import scala.slick.ast.{OptionType, FieldSymbol, Typed, OptionApply, FunctionSymbol, BaseTypedType, Node, TypedType}
 
 trait OptionMapper[BR, R] extends (Rep[BR] => Rep[R]) {
   def lift: Boolean
@@ -22,10 +22,12 @@ object OptionMapper2 {
   val plain = new OptionMapper2[Any,Any,Any,Any,Any,Any] {
     def apply(n: Rep[Any]): Rep[Any] = n
     def lift = false
+    override def toString = "OptionMapper2.plain"
   }
   val option = new OptionMapper2[Any,Any,Any,Any,Any,Option[Any]] {
     def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Typed].tpe.asInstanceOf[TypedType[Any]].optionType)
     def lift = true
+    override def toString = "OptionMapper2.option"
   }
 
   @inline implicit def getOptionMapper2TT[B1, B2 : BaseTypedType, BR] = OptionMapper2.plain .asInstanceOf[OptionMapper2[B1, B2, BR, B1,         B2,         BR]]
@@ -41,10 +43,12 @@ object OptionMapper3 {
   val plain = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Any] {
     def apply(n: Rep[Any]): Rep[Any] = n
     def lift = false
+    override def toString = "OptionMapper3.plain"
   }
   val option = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Option[Any]] {
     def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Typed].tpe.asInstanceOf[TypedType[Any]].optionType)
     def lift = true
+    override def toString = "OptionMapper3.option"
   }
 
   @inline implicit def getOptionMapper3TTT[B1, B2 : BaseTypedType, B3 : BaseTypedType, BR] = OptionMapper3.plain .asInstanceOf[OptionMapper3[B1, B2, B3, BR, B1,         B2,         B3,         BR]]
@@ -67,5 +71,39 @@ object OptionMapperDSL {
         type to[BR, PR] = OptionMapper3[B1, B2, B3, BR, P1, P2, P3, PR]
       }
     }
+  }
+}
+
+/** A typeclass that lifts a mixed type to the packed Option type. */
+sealed trait OptionLift[M, O] {
+  def lift(v: M): O
+}
+
+object OptionLift extends OptionLiftLowPriority {
+  final implicit def repOptionLift[M <: Rep[_], P](implicit shape: Shape[_ <: FlatShapeLevel, M, _, Rep[P]]): OptionLift[M, Rep[Option[P]]] = new OptionLift[M, Rep[Option[P]]] {
+    def lift(v: M): Rep[Option[P]] = {
+      val n = OptionApply(v.toNode)
+      val packed = shape.pack(v)
+      packed match {
+        case r: (Rep[_] with Typed) if r.tpe.isInstanceOf[TypedType[_]] && !r.tpe.isInstanceOf[OptionType] /* An primitive column */ =>
+          Rep.forNode[Option[P]](n)(r.tpe.asInstanceOf[TypedType[P]].optionType)
+        case _ =>
+          RepOption[P](ShapedValue(packed, shape.packedShape), n)
+      }
+    }
+  }
+}
+
+sealed trait OptionLiftLowPriority {
+  final implicit def anyOptionLift[M, P](implicit shape: Shape[_ <: FlatShapeLevel, M, _, P]): OptionLift[M, Rep[Option[P]]] = new OptionLift[M, Rep[Option[P]]] {
+    def lift(v: M): Rep[Option[P]] =
+      RepOption[P](ShapedValue(shape.pack(v), shape.packedShape), OptionApply(shape.toNode(v)))
+  }
+
+  /** Get a suitably typed base value for a `Rep[Option[_]]` */
+  def baseValue[M, O](v: O, path: Node): M = v match {
+    case RepOption(base, _) => base.asInstanceOf[ShapedValue[M, _]].encodeRef(path).value
+    case r: (Rep[_] with Typed) if r.tpe.isInstanceOf[TypedType[_]] /* An Option column */ =>
+      Rep.columnPlaceholder[Any](r.tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[Any]]).encodeRef(path).asInstanceOf[M]
   }
 }

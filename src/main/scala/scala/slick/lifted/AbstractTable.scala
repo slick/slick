@@ -7,11 +7,11 @@ import scala.slick.model.ForeignKeyAction
 /** A Tag marks a specific row represented by an AbstractTable instance. */
 sealed trait Tag {
   /** Return a new instance of the AbstractTable carrying this Tag, with a new path */
-  def taggedAs(path: List[Symbol]): AbstractTable[_]
+  def taggedAs(path: Node): AbstractTable[_]
 }
 
-/** A Tag for table instances that represent a path */
-abstract class RefTag(val path: List[Symbol]) extends Tag
+/** A Tag for table instances that represent a Node */
+abstract class RefTag(val path: Node) extends Tag
 
 /** A Tag marking the base table instance itself */
 trait BaseTag extends Tag
@@ -26,7 +26,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
 
   lazy val tableNode = TableNode(schemaName, tableName, tableIdentitySymbol, this, tableIdentitySymbol)
 
-  def encodeRef(path: List[Symbol]) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
+  def encodeRef(path: Node) = tableTag.taggedAs(path).asInstanceOf[AbstractTable[T]]
 
   /** The * projection of the table used as default for queries and inserts.
     * Should include all columns as a tuple, HList or custom shape and optionally
@@ -40,8 +40,8 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
   override def toNode = tableTag match {
     case _: BaseTag =>
       val sym = new AnonSymbol
-      TableExpansion(sym, tableNode, tableTag.taggedAs(List(sym)).*.toNode)
-    case t: RefTag => Path(t.path)
+      TableExpansion(sym, tableNode, tableTag.taggedAs(Ref(sym)).*.toNode)
+    case t: RefTag => t.path
   }
 
   def create_* : Iterable[FieldSymbol] = collectFieldSymbols(*.toNode)
@@ -70,7 +70,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     val targetTable: TT = targetTableQuery.shaped.value
     val q = targetTableQuery.asInstanceOf[Query[TT, U, Seq]]
     val generator = new AnonSymbol
-    val aliased = q.shaped.encodeRef(generator :: Nil)
+    val aliased = q.shaped.encodeRef(Ref(generator))
     val fv = Library.==.typed[Boolean](unpackp.toNode(targetColumns(aliased.value)), unpackp.toNode(sourceColumns))
     val fk = ForeignKey(name, toNode, q.shaped.asInstanceOf[ShapedValue[TT, _]],
       targetTable, unpackp, sourceColumns, targetColumns, onUpdate, onDelete)
@@ -103,8 +103,4 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
       m <- getClass().getMethods.view
       if m.getReturnType == classOf[Index] && m.getParameterTypes.length == 0
     } yield m.invoke(this).asInstanceOf[Index]).sortBy(_.name)
-}
-
-object AbstractTable extends RepColumnShapeImplicits {
-  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
 }

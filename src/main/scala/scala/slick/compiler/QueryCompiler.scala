@@ -93,8 +93,10 @@ object QueryCompiler {
     Phase.createResultSetMapping,
     Phase.forceOuterBinds,
     // Convert to column form
+    Phase.expandSums,
     Phase.expandTables,
     Phase.expandRecords,
+    Phase.expandConditionals,
     Phase.flattenProjections,
     Phase.relabelUnions,
     Phase.pruneFields,
@@ -137,8 +139,10 @@ object Phase {
   val inferTypes = new InferTypes
   val createResultSetMapping = new CreateResultSetMapping
   val forceOuterBinds = new ForceOuterBinds
+  val expandSums = new ExpandSums
   val expandTables = new ExpandTables
   val expandRecords = new ExpandRecords
+  val expandConditionals = new ExpandConditionals
   val flattenProjections = new FlattenProjections
   val relabelUnions = new RelabelUnions
   val pruneFields = new PruneFields

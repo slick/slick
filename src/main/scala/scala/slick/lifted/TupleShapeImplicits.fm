@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-trait ShapeLowPriority2 {
+trait TupleShapeImplicits {
   @inline
   implicit final def tuple1Shape[Level <: ShapeLevel, M1, U1, P1](implicit u1: Shape[_ <: Level, M1, U1, P1]): Shape[Level, Tuple1[M1], Tuple1[U1], Tuple1[P1]] =
     new TupleShape[Level, Tuple1[M1], Tuple1[U1], Tuple1[P1]](u1)

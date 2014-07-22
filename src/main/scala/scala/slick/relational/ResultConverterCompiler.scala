@@ -18,6 +18,8 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
       val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
       if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
     case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, None)
+    case cast @ Library.SilentCast(sel @ Select(_, ElementSymbol(idx))) =>
+      createColumnConverter(sel.nodeTypedOrCopy(cast.nodeType), idx, None)
     case OptionApply(Select(_, ElementSymbol(idx))) => createColumnConverter(n, idx, None)
     case ProductNode(ch) =>
       if(ch.isEmpty) new UnitResultConverter
@@ -26,6 +28,10 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
       createGetOrElseResultConverter(compile(ch).asInstanceOf[ResultConverter[Domain, Option[Any]]], default)
     case TypeMapping(ch, mapper, _) =>
       createTypeMappingResultConverter(compile(ch).asInstanceOf[ResultConverter[Domain, Any]], mapper)
+    case RebuildOption(disc, data) =>
+      val discConv = createGetOrElseResultConverter(compile(disc).asInstanceOf[ResultConverter[Domain, Option[Int]]], () => 0)
+      val dataConv = compile(data).asInstanceOf[ResultConverter[Domain, Any]]
+      createOptionRebuildingConverter(discConv, dataConv)
     case n =>
       throw new SlickException("Unexpected node in ResultSetMapping: "+n)
   }
@@ -35,6 +41,9 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
   def createTypeMappingResultConverter(rc: ResultConverter[Domain, Any], mapper: MappedScalaType.Mapper): ResultConverter[Domain, Any] =
     new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
+
+  def createOptionRebuildingConverter(discriminator: ResultConverter[Domain, Int], data: ResultConverter[Domain, Any]): ResultConverter[Domain, Option[Any]] =
+    new OptionRebuildingResultConverter(discriminator, data)
 
   def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[Domain, _]
 

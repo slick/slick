@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.slick.ast.{LiteralNode, IfThen, Node, ConditionalExpr, BaseTypedType, OptionTypedType, TypedType}
+import scala.slick.ast.{LiteralNode, IfThenElse, Node, BaseTypedType, OptionTypedType, TypedType}
 import scala.slick.SlickException
 
 /** `Case` provides a DSL for conditional statements in the query language.
@@ -18,16 +18,16 @@ object Case {
 
   final class UntypedWhen(cond: Node) {
     def Then[P, B](res: Rep[P])(implicit om: OptionMapperDSL.arg[B, P]#to[B, P], bType: BaseTypedType[B]) =
-      new TypedCase[B, P](IndexedSeq(new IfThen(cond, res.toNode)))(bType, om.liftedType(bType))
+      new TypedCase[B, P](Vector(cond, res.toNode))(bType, om.liftedType(bType))
   }
 
-  final class TypedCase[B : TypedType, T : TypedType](clauses: IndexedSeq[Node]) extends Rep.TypedRep[Option[B]] {
-    def toNode = ConditionalExpr(clauses, LiteralNode(null))
+  final class TypedCase[B : TypedType, T : TypedType](clauses: Vector[Node]) extends Rep.TypedRep[Option[B]] {
+    def toNode = IfThenElse(clauses :+ LiteralNode(null)).nullExtend
     def If[C <: Rep[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond.toNode, clauses)
-    def Else(res: Rep[T]): Rep[T] = Rep.forNode(ConditionalExpr(clauses, res.toNode))
+    def Else(res: Rep[T]): Rep[T] = Rep.forNode(IfThenElse(clauses :+ res.toNode).nullExtend)
   }
 
-  final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: IndexedSeq[Node]) {
-    def Then(res: Rep[T]) = new TypedCase[B,T](parentClauses :+ new IfThen(cond, res.toNode))
+  final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: Vector[Node]) {
+    def Then(res: Rep[T]) = new TypedCase[B,T](parentClauses ++ Vector(cond, res.toNode))
   }
 }

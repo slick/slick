@@ -9,6 +9,7 @@ import scala.slick.compiler._
 import scala.slick.lifted._
 import scala.slick.relational._
 import scala.slick.profile.{RelationalDriver, RelationalProfile}
+import TypeUtil._
 
 /** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
 trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDriver =>
@@ -85,8 +86,16 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
     }
 
     def trType(t: Type): Type = t.structural match {
-      case t @ (_: StructType | _: ProductType | _: CollectionType | _: MappedScalaType) => t.mapChildren(trType)
+      case t @ (_: StructType | _: ProductType | _: CollectionType | _: MappedScalaType | OptionType.NonPrimitive(_)) => t.mapChildren(trType)
       case t => typeInfoFor(t)
+    }
+
+    override def compile(n: Node): ResultConverter[MemoryResultConverterDomain, _] = n match {
+      // We actually get a Scala Option value from the interpreter, so the SilentCast is not silent after all
+      case Library.SilentCast(sel @ Select(_, ElementSymbol(idx)) :@ OptionType(tpe2)) :@ tpe if !tpe.isInstanceOf[OptionType] =>
+        val base = createColumnConverter(sel, idx, None).asInstanceOf[ResultConverter[MemoryResultConverterDomain, Option[Any]]]
+        createGetOrElseResultConverter(base, () => throw new SlickException("Read null value for non-nullable column in Option"))
+      case n => super.compile(n)
     }
 
     def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] =

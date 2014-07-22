@@ -201,21 +201,27 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         run(ch).asInstanceOf[Option[Any]].getOrElse(default())
       case OptionApply(ch) =>
         Option(run(ch))
-      case ConditionalExpr(clauses, elseClause) =>
+      case c: IfThenElse =>
         val opt = n.nodeType.asInstanceOf[ScalaType[_]].nullable
-        val take = clauses.find { case IfThen(pred, _) => asBoolean(run(pred)) }
+        val take = c.ifThenClauses.find { case (pred, _) => asBoolean(run(pred)) }
         take match {
-          case Some(IfThen(_, r)) =>
+          case Some((_, r)) =>
             val res = run(r)
             if(opt && !r.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
             else res
           case _ =>
-            val res = run(elseClause)
-            if(opt && !elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
+            val res = run(c.elseClause)
+            if(opt && !c.elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
             else res
         }
       case QueryParameter(extractor, _) =>
         extractor(params)
+      case Library.SilentCast(ch) =>
+        val chV = run(ch)
+        (ch.nodeType, n.nodeType) match {
+          case (OptionType(tpe), tpe2) if tpe == tpe2 => chV.asInstanceOf[Option[Any]].get
+          case (tpe, OptionType(tpe2)) if tpe == tpe2 => Option(chV)
+        }
       case Library.Exists(coll) =>
         !run(coll).asInstanceOf[Coll].isEmpty
       case Library.IfNull(cond, default) =>
@@ -289,6 +295,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case t => (t.asInstanceOf[ScalaBaseType[Any]].ordering, false)
         }
         reduceOptionIt(it, opt, (a, b) => if(ord.gt(b, a)) b else a)
+      case Library.==(ch, LiteralNode(null)) =>
+        val chV = run(ch)
+        chV == null || chV.asInstanceOf[Option[_]].isEmpty
       case Apply(sym, ch) =>
         val chV = ch.map(n => (n.nodeType, run(n)))
         logDebug("[chV: "+chV.mkString(", ")+"]")

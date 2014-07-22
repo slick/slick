@@ -16,8 +16,10 @@
     <logger name="scala.slick.compiler.CreateResultSetMapping"    level="${log.qcomp.createResultSetMapping:-inherited}" />
     <logger name="scala.slick.compiler.EmulateOuterJoins"         level="${log.qcomp.emulateOuterJoins:-inherited}" />
     <logger name="scala.slick.compiler.ForceOuterBinds"           level="${log.qcomp.forceOuterBinds:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandSums"                level="${log.qcomp.expandSums:-inherited}" />
     <logger name="scala.slick.compiler.ExpandTables"              level="${log.qcomp.expandTables:-inherited}" />
     <logger name="scala.slick.compiler.ExpandRecords"             level="${log.qcomp.expandRecords:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandConditionals"        level="${log.qcomp.expandConditionals:-inherited}" />
     <logger name="scala.slick.compiler.FlattenProjections"        level="${log.qcomp.flattenProjections:-inherited}" />
     <logger name="scala.slick.compiler.RelabelUnions"             level="${log.qcomp.relabelUnions:-inherited}" />
     <logger name="scala.slick.compiler.PruneFields"               level="${log.qcomp.pruneFields:-inherited}" />

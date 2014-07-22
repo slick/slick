@@ -40,8 +40,8 @@ class RewriteBooleans extends Phase {
       n.copy(where = where.map(toReal)).nodeTyped(n.nodeType)
     case n @ Join(_, _, _, _, _, on) =>
       n.copy(on = toReal(on)).nodeTyped(n.nodeType)
-    case n @ IfThen(left, _) =>
-      n.copy(left = toReal(left))
+    case cond @ IfThenElse(_) =>
+      cond.mapConditionClauses(toReal)
     case n => n
   }
 

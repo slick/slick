@@ -3,6 +3,8 @@ package scala.slick.compiler
 import scala.slick.ast._
 import Util._
 import TypeUtil._
+import scala.reflect.ClassTag
+import scala.slick.SlickException
 
 /** Create a ResultSetMapping root node, ensure that the top-level server-side
   * node returns a collection, and hoist client-side type conversions into the
@@ -79,9 +81,15 @@ class CreateResultSetMapping extends Phase {
           case Some(n) => f(n.nodeType)
           case None => f(n.structuralView)
         }
+        case o @ OptionType(Type.Structural(el)) if el.children.nonEmpty =>
+          val discriminator = f(ScalaBaseType.intType.optionType)
+          val data = f(o.elementType)
+          RebuildOption(discriminator, data)
         case t =>
           curIdx += 1
-          Select(Ref(sym), ElementSymbol(curIdx))
+          // Assign the original type. Inside a RebuildOption the actual column type will always be
+          // Option-lifted but we can still treat it as the base type when the discriminator matches.
+          Library.SilentCast.typed(t, Select(Ref(sym), ElementSymbol(curIdx)))
       }
     }
     f(tpe)

@@ -27,7 +27,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * implicit inner join in SQL. */
   def flatMap[F, T, D[_]](f: E => Query[F, T, D]): Query[F, T, C] = {
     val generator = new AnonSymbol
-    val aliased = shaped.encodeRef(generator :: Nil).value
+    val aliased = shaped.encodeRef(Ref(generator)).value
     val fv = f(aliased)
     new WrappingQuery[F, T, C](new Bind(generator, toNode, fv.toNode), fv.shaped)
   }
@@ -40,7 +40,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   private def filterHelper[T](f: E => T, wrapExpr: Node => Node)
                              (implicit wt: CanBeQueryCondition[T]): Query[E, U, C] = {
     val generator = new AnonSymbol
-    val aliased = shaped.encodeRef(generator :: Nil)
+    val aliased = shaped.encodeRef(Ref(generator))
     val fv = f(aliased.value)
     new WrappingQuery[E, U, C](Filter.ifRefutable(generator, toNode, wrapExpr(wt(fv).toNode)), shaped)
   }
@@ -67,8 +67,8 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * An optional join predicate can be specified later by calling `on`. */
   def join[E2, U2, D[_]](q2: Query[E2, U2, D], jt: JoinType = JoinType.Inner) = {
     val leftGen, rightGen = new AnonSymbol
-    val aliased1 = shaped.encodeRef(leftGen :: Nil)
-    val aliased2 = q2.shaped.encodeRef(rightGen :: Nil)
+    val aliased1 = shaped.encodeRef(Ref(leftGen))
+    val aliased2 = q2.shaped.encodeRef(Ref(rightGen))
     new BaseJoinQuery[E, E2, U, U2, C](leftGen, rightGen, toNode, q2.toNode, jt, aliased1.zip(aliased2))
   }
   /** Join two collections with an inner join.
@@ -93,8 +93,8 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   /** Zip this query with its indices (starting at 0). */
   def zipWithIndex = {
     val leftGen, rightGen = new AnonSymbol
-    val aliased1 = shaped.encodeRef(leftGen :: Nil)
-    val aliased2 = ShapedValue(Rep.forNode[Long](Ref(rightGen)), Rep.repColumnShape[Long, FlatShapeLevel])
+    val aliased1 = shaped.encodeRef(Ref(leftGen))
+    val aliased2 = ShapedValue(Rep.forNode[Long](Ref(rightGen)), Shape.repColumnShape[Long, FlatShapeLevel])
     new BaseJoinQuery[E, Rep[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
   }
 
@@ -102,7 +102,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * criteria from the query's elements. */
   def sortBy[T <% Ordered](f: E => T): Query[E, U, C] = {
     val generator = new AnonSymbol
-    val aliased = shaped.encodeRef(generator :: Nil)
+    val aliased = shaped.encodeRef(Ref(generator))
     new WrappingQuery[E, U, C](SortBy(generator, toNode, f(aliased.value).columns), shaped)
   }
 
@@ -114,15 +114,15 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * function. */
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: FlatShapeLevel, K, T, G], vshape: Shape[_ <: FlatShapeLevel, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
     val sym = new AnonSymbol
-    val key = ShapedValue(f(shaped.encodeRef(sym :: Nil).value), kshape).packedValue
+    val key = ShapedValue(f(shaped.encodeRef(Ref(sym)).value), kshape).packedValue
     val value = ShapedValue(pack.to[Seq], RepShape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq]])
     val group = GroupBy(sym, toNode, key.toNode)
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
 
-  def encodeRef(path: List[Symbol]): Query[E, U, C] = new Query[E, U, C] {
+  def encodeRef(path: Node): Query[E, U, C] = new Query[E, U, C] {
     val shaped = self.shaped.encodeRef(path)
-    lazy val toNode = Path(path)
+    def toNode = path
   }
 
   /** Return a new query containing the elements from both operands. Duplicate
@@ -234,8 +234,8 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_]](leftGen: Symbol, rightGen: Sym
 class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
   lazy val shaped = {
     val baseTable = cons(new BaseTag { base =>
-      def taggedAs(path: List[Symbol]): AbstractTable[_] = cons(new RefTag(path) {
-        def taggedAs(path: List[Symbol]) = base.taggedAs(path)
+      def taggedAs(path: Node): AbstractTable[_] = cons(new RefTag(path) {
+        def taggedAs(path: Node) = base.taggedAs(path)
       })
     })
     ShapedValue(baseTable, RepShape[FlatShapeLevel, E, E#TableElementType])

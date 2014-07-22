@@ -40,18 +40,18 @@ abstract class Shape[Level <: ShapeLevel, -Mixed_, Unpacked_, Packed_] {
   /** Encode a reference into a value of this Shape.
     * This method may not be available for shapes where Mixed and Packed are
     * different types. */
-  def encodeRef(value: Mixed, path: List[Symbol]): Any
+  def encodeRef(value: Mixed, path: Node): Any
 
   /** Return an AST Node representing a mixed value. */
   def toNode(value: Mixed): Node
 }
 
-object Shape extends ShapeLowPriority2 {
+object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits with TupleShapeImplicits {
   implicit final def primitiveShape[T, Level <: ShapeLevel](implicit tm: TypedType[T]): Shape[Level, T, T, ConstColumn[T]] = new Shape[Level, T, T, ConstColumn[T]] {
     def pack(value: Mixed) = LiteralColumn(value)
     def packedShape = RepShape[Level, Packed, Unpacked]
     def buildParams(extract: Any => Unpacked): Packed = new ConstColumn[T](new QueryParameter(extract, tm))(tm)
-    def encodeRef(value: Mixed, path: List[Symbol]) =
+    def encodeRef(value: Mixed, path: Node) =
       throw new SlickException("Shape does not have the same Mixed and Packed type")
     def toNode(value: Mixed): Node = pack(value).toNode
   }
@@ -63,14 +63,36 @@ object Shape extends ShapeLowPriority2 {
     def pack(value: Mixed) = ()
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked) = ()
-    def encodeRef(value: Mixed, path: List[Symbol]) = ()
+    def encodeRef(value: Mixed, path: Node) = ()
     def toNode(value: Mixed) = ProductNode(Nil)
   }
 }
 
-trait RepColumnShapeImplicits {
+trait AbstractTableShapeImplicits extends RepShapeImplicits {
+  @inline implicit final def tableShape[Level >: FlatShapeLevel <: ShapeLevel, T, C <: AbstractTable[_]](implicit ev: C <:< AbstractTable[T]) = RepShape[Level, C, T]
+}
+
+trait ConstColumnShapeImplicits extends RepShapeImplicits {
+  /** A Shape for ConstColumns. It is identical to `columnShape` but it
+    * ensures that a `ConstColumn[T]` packs to itself, not just to
+    * `Rep[T]`. This allows ConstColumns to be used as fully packed
+    * types when compiling query functions. */
+  @inline implicit def constColumnShape[T, Level <: ShapeLevel] = RepShape[Level, ConstColumn[T], T]
+}
+
+trait RepShapeImplicits extends OptionShapeImplicits {
   /** A Shape for single-column Reps. */
-  @inline implicit def repColumnShape[T : TypedType, Level <: ShapeLevel] = RepShape[Level, Rep[T], T]
+  @inline implicit def repColumnShape[T : BaseTypedType, Level <: ShapeLevel] = RepShape[Level, Rep[T], T]
+
+  /** A Shape for Option-valued Reps. */
+  @inline implicit def optionShape[M, U, P, Level <: ShapeLevel](implicit sh: Shape[_ <: Level, Rep[M], U, Rep[P]]): Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]] =
+    RepShape.asInstanceOf[Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]]]
+}
+
+trait OptionShapeImplicits {
+  /** A Shape for Option-valued non-Reps. */
+  @inline implicit def anyOptionShape[M, U, P, Level <: ShapeLevel](implicit sh: Shape[_ <: Level, M, U, P]): Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]] =
+    RepShape.asInstanceOf[Shape[Level, Rep[Option[M]], Option[U], Rep[Option[P]]]]
 }
 
 /** Shape for Rep values (always fully packed) */
@@ -81,7 +103,7 @@ object RepShape extends Shape[FlatShapeLevel, Rep[_], Any, Rep[_]] {
   def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
   def buildParams(extract: Any => Unpacked): Packed =
     throw new SlickException("Shape does not have the same Mixed and Unpacked type")
-  def encodeRef(value: Mixed, path: List[Symbol]) = value.encodeRef(path)
+  def encodeRef(value: Mixed, path: Node) = value.encodeRef(path)
   def toNode(value: Mixed): Node = value.toNode
 }
 
@@ -125,9 +147,9 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
     }
     buildValue(elems.toIndexedSeq).asInstanceOf[Packed]
   }
-  def encodeRef(value: Mixed, path: List[Symbol]) = {
+  def encodeRef(value: Mixed, path: Node) = {
     val elems = shapes.iterator.zip(getIterator(value)).zipWithIndex.map {
-      case ((p, x), pos) => p.encodeRef(x.asInstanceOf[p.Mixed], ElementSymbol(pos + 1) :: path)
+      case ((p, x), pos) => p.encodeRef(x.asInstanceOf[p.Mixed], Select(path, ElementSymbol(pos + 1)))
     }
     buildValue(elems.toIndexedSeq)
   }
@@ -240,7 +262,7 @@ trait ColumnsShapeLevel extends FlatShapeLevel
 
 /** A value together with its Shape */
 case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _]) extends Rep[U] {
-  def encodeRef(path: List[Symbol]): ShapedValue[T, U] = {
+  def encodeRef(path: Node): ShapedValue[T, U] = {
     val fv = shape.encodeRef(value, path).asInstanceOf[T]
     if(fv.asInstanceOf[AnyRef] eq value.asInstanceOf[AnyRef]) this else new ShapedValue(fv, shape)
   }
@@ -288,7 +310,7 @@ object ProvenShape {
       shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, Packed, Unpacked, Packed]]
     def buildParams(extract: Any => Unpacked): Packed =
       shape.buildParams(extract.asInstanceOf[Any => shape.Unpacked])
-    def encodeRef(value: Mixed, path: List[Symbol]) =
+    def encodeRef(value: Mixed, path: Node) =
       value.shape.encodeRef(value.value.asInstanceOf[value.shape.Mixed], path)
     def toNode(value: Mixed): Node =
       value.shape.toNode(value.value.asInstanceOf[value.shape.Mixed])
@@ -299,8 +321,8 @@ class MappedProjection[T, P](child: Node, mapper: MappedScalaType.Mapper, classT
   type Self = MappedProjection[_, _]
   override def toString = "MappedProjection"
   override def toNode: Node = TypeMapping(child, mapper, classTag)
-  def encodeRef(path: List[Symbol]): MappedProjection[T, P] = new MappedProjection[T, P](child, mapper, classTag) {
-    override def toNode = Path(path)
+  def encodeRef(path: Node): MappedProjection[T, P] = new MappedProjection[T, P](child, mapper, classTag) {
+    override def toNode = path
   }
   def genericFastPath(pf: PartialFunction[Any, Any]) = new MappedProjection[T, P](child, mapper.copy(fastPath = Some(pf)), classTag)
 }
