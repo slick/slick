@@ -112,11 +112,22 @@ final class NumericColumnExtensionMethods[B1, P1](val c: Column[P1]) extends Any
 
 /** Extension methods for Column[Boolean] and Column[Option[Boolean]] */
 final class BooleanColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal with ExtensionMethods[Boolean, P1] {
-  def &&[P2, R](b: Column[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
-    om.column(Library.And, n, b.toNode)
+  //def &&[P2, R](b: Column[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
+  //  om.column(Library.And, n, b.toNode)
   def ||[P2, R](b: Column[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
     om.column(Library.Or, n, b.toNode)
   def unary_! = Library.Not.column[Boolean](n)
+}
+
+final class NewBooleanColumnExtensionMethods[P1, M1 <: OptionParam.M](val c1: Column[P1]) extends AnyVal {
+  /* We should really pass p1 as a constructor arg, but then this class couldn't be a value type.
+     Another option is to infer it as an implicit on every method but that complicates method
+     signatures and slows down type-checking. */
+  private def p1: OptionParam[_, _, M1] =
+    (if(c1.tpe.isInstanceOf[OptionType]) OptionParam.lifted[Nothing, M1] else OptionParam.plain[Nothing, M1]).asInstanceOf[OptionParam[_, _, M1]]
+
+  def &&[P2, M2 <: OptionParam.M](c2: Column[P2])(implicit p2: OptionParam[Boolean, P2, M2]) =
+    (p1 * p2).column[Boolean](Library.And, c1.toNode, c2.toNode)
 }
 
 /** Extension methods for Column[String] and Column[Option[String]] */
@@ -177,4 +188,7 @@ trait ExtensionMethodConversions {
 
   implicit def singleColumnQueryExtensionMethods[B1 : BaseTypedType, C[_]](q: Query[Column[B1], _, C]) = new SingleColumnQueryExtensionMethods[B1, B1, C](q)
   implicit def singleOptionColumnQueryExtensionMethods[B1, C[_]](q: Query[Column[Option[B1]], _, C]) = new SingleColumnQueryExtensionMethods[B1, Option[B1], C](q)
+
+  implicit def newBooleanColumnExtensionMethods(c: Column[Boolean]) = new NewBooleanColumnExtensionMethods[Boolean, OptionParam.Plain](c)
+  implicit def newBooleanOptionColumnExtensionMethods(c: Column[Option[Boolean]]) = new NewBooleanColumnExtensionMethods[Option[Boolean], OptionParam.Lifted](c)
 }
