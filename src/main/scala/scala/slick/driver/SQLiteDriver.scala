@@ -8,8 +8,8 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.model.Model
-import scala.slick.jdbc.Invoker
-import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
+import scala.slick.jdbc.{Invoker, JdbcType}
+import scala.slick.jdbc.meta.MTable
 
 /** Slick driver for SQLite.
   *
@@ -42,6 +42,10 @@ import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
   *     Row numbers (required by <code>zip</code> and
   *     <code>zipWithIndex</code>) are not supported. Trying to generate SQL
   *     code which uses this feature throws a SlickException.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side if the
+  *     data to insert contains an `AutoInc` field. Otherwise the operation
+  *     is performmed natively on the server side.</li>
   * </ul>
   */
 trait SQLiteDriver extends JdbcDriver { driver =>
@@ -57,19 +61,40 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBigDecimal
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.zip
+    - JdbcProfile.capabilities.insertOrUpdate
   )
 
-  override def getTables: Invoker[MTable] = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def Column = new Column(_){
+        /** Regex matcher to extract name and length out of a db type name with length ascription */
+        final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
+        private val (_dbType,_size) = meta.typeName match {
+          case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
+        }
+        override def dbType = Some(_dbType)
+        override def length = _size
+        override def varying = dbType == Some("VARCHAR")
+      }
+    }
+  }
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
-  override def createModel(implicit session: Backend#Session): Model = jdbcCreateModel(
-    getTables.list.filter(_.name.name.toLowerCase != "sqlite_sequence"),
-    this
-  )
+  /** Jdbc meta data for all tables included in the Slick model by default */
+  override def defaultTables(implicit session: Backend#Session): Seq[MTable]
+    = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+            .list
+            .filter(_.name.name.toLowerCase != "sqlite_sequence")
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
@@ -84,16 +109,21 @@ trait SQLiteDriver extends JdbcDriver { driver =>
       if(o.direction.desc) b" desc"
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b" LIMIT $d,$t"
-      case (Some(t), None   ) => b" LIMIT $t"
-      case (None,    Some(d)) => b" LIMIT $d,-1"
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
+      case (Some(t), Some(d)) => b" limit $d,$t"
+      case (Some(t), None   ) => b" limit $t"
+      case (None,    Some(d)) => b" limit $d,-1"
       case _ =>
     }
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.UCase(ch) => b"upper(!$ch)"
       case Library.LCase(ch) => b"lower(!$ch)"
+      case Library.Substring(n, start, end) =>
+        b"substr($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})"
+      case Library.Substring(n, start) =>
+        b"substr($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))})\)"
+      case Library.IndexOf(n, str) => b"\(charindex($str, $n) - 1\)"
       case Library.%(l, r) => b"\($l%$r\)"
       case Library.Ceiling(ch) => b"round($ch+0.5)"
       case Library.Floor(ch) => b"round($ch-0.5)"
@@ -114,6 +144,11 @@ trait SQLiteDriver extends JdbcDriver { driver =>
       case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
       case _ => super.expr(c, skipParens)
     }
+  }
+
+  /* Extending super.InsertBuilder here instead of super.UpsertBuilder. INSERT OR REPLACE is almost identical to INSERT. */
+  class UpsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+    override protected def buildInsertStart = allNames.mkString(s"insert or replace into $tableName (", ",", ") ")
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
@@ -139,6 +174,18 @@ trait SQLiteDriver extends JdbcDriver { driver =>
       else if(primaryKey) sb append " PRIMARY KEY"
       if(notNull) sb append " NOT NULL"
     }
+  }
+
+  class CountingInsertInvoker[U](compiled: CompiledInsert) extends super.CountingInsertInvoker[U](compiled) {
+    // SQLite cannot perform server-side insert-or-update with soft insert semantics. We don't have to do
+    // the same in ReturningInsertInvoker because SQLite does not allow returning non-AutoInc keys anyway.
+    override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
+    override protected def useTransactionForUpsert = !useServerSideUpsert
+  }
+
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
+    case java.sql.Types.TINYINT | java.sql.Types.SMALLINT | java.sql.Types.BIGINT => "INTEGER"
+    case _ => super.defaultSqlTypeName(tmd)
   }
 
   class JdbcTypes extends super.JdbcTypes {

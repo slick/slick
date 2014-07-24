@@ -36,9 +36,9 @@ object Scope {
 final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
 
-  @inline def collect[T](pf: PartialFunction[Node, T]): Iterable[T] = NodeOps.collect(tree, pf)
+  @inline def collect[T](pf: PartialFunction[Node, T]): Seq[T] = NodeOps.collect(tree, pf)
 
-  def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
+  def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Seq[T] = collect[Seq[T]](pf).flatten
 
   def replace(f: PartialFunction[Node, Node], keepType: Boolean = false): Node = NodeOps.replace(tree, f, keepType)
 
@@ -82,7 +82,7 @@ object NodeOps {
   // These methods should be in the class but 2.10.0-RC1 took away the ability
   // to use closures in value classes
 
-  def collect[T](tree: Node, pf: PartialFunction[Node, T]): Iterable[T] = {
+  def collect[T](tree: Node, pf: PartialFunction[Node, T]): Seq[T] = {
     val b = new ArrayBuffer[T]
     tree.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Node, Unit]{ case _ => () })
     b

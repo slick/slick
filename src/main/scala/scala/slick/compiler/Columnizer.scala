@@ -13,12 +13,12 @@ class ExpandTables extends Phase {
   def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n) { tree =>
     // Check for table types
     val tsyms: Set[TableIdentitySymbol] =
-      tree.nodeType.collect { case NominalType(sym: TableIdentitySymbol) => sym }.toSet
+      tree.nodeType.collect { case NominalType(sym: TableIdentitySymbol, _) => sym }.toSet
     logger.debug("Tables for expansion in result type: " + tsyms.mkString(", "))
     if(tsyms.isEmpty) tree else {
       // Find the corresponding TableExpansions
       val tables: Map[TableIdentitySymbol, (Symbol, Node)] = tree.collect {
-        case TableExpansion(s, TableNode(_, _, ts, _), ex) if tsyms contains ts => ts -> (s, ex)
+        case TableExpansion(s, TableNode(_, _, ts, _, _), ex) if tsyms contains ts => ts -> (s, ex)
       }.toMap
       logger.debug("Table expansions: " + tables.mkString(", "))
       // Create a mapping that expands the tables
@@ -33,7 +33,7 @@ class ExpandTables extends Phase {
   def createResult(expansions: Map[TableIdentitySymbol, (Symbol, Node)], path: List[Symbol], tpe: Type): Node = tpe match {
     case p: ProductType =>
       ProductNode(p.numberedElements.map { case (s, t) => createResult(expansions, s :: path, t) }.toVector)
-    case NominalType(tsym: TableIdentitySymbol) if expansions contains tsym =>
+    case NominalType(tsym: TableIdentitySymbol, _) if expansions contains tsym =>
       val (sym, exp) = expansions(tsym)
       val p = Path(path)
       exp.replace { case Ref(s) if s == sym => p }
@@ -91,7 +91,7 @@ class FlattenProjections extends Phase {
             logger.debug("Found "+Path.toString(path)+" with local part "+rest.map(Path.toString _)+" over "+tsym)
             val (paths, tpe) = translations(tsym)
             def retype(n: Node): Node = n.nodeMapChildren(retype, keepType = true).nodeTypedOrCopy(n.nodeType.replace {
-              case t @ NominalType(tsym) if translations.contains(tsym) =>
+              case t @ NominalType(tsym, _) if translations.contains(tsym) =>
                 t.withStructuralView(tpe)
             })
             rest match {
@@ -116,7 +116,7 @@ class FlattenProjections extends Phase {
     * (possibly empty) path of symbols on top of `base`. */
   def splitPath(n: Node, candidates: scala.collection.Set[TypeSymbol]): Option[(Node, Option[List[Symbol]], TypeSymbol)] = {
     def checkType(tpe: Type): Option[(Node, Option[List[Symbol]], TypeSymbol)] = tpe match {
-      case NominalType(tsym) if candidates contains tsym => Some((n, Some(Nil), tsym))
+      case NominalType(tsym, _) if candidates contains tsym => Some((n, Some(Nil), tsym))
       case CollectionType(cons, el) => checkType(el).map { case (n, _, tsym) => (n, None, tsym) }
       case _ => None
     }
@@ -193,12 +193,12 @@ class PruneFields extends Phase {
 
   def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n){ n =>
     val top = n.nodeType.asCollectionType.elementType.asInstanceOf[NominalType].sym
-    val referenced = n.collect[(TypeSymbol, Symbol)] { case Select(_ :@ NominalType(s), f) => (s, f) }.toSet
-    val allTSyms = n.collect[TypeSymbol] { case Pure(_, _) :@ CollectionType(_, NominalType(ts)) => ts }.toSet
+    val referenced = n.collect[(TypeSymbol, Symbol)] { case Select(_ :@ NominalType(s, _), f) => (s, f) }.toSet
+    val allTSyms = n.collect[TypeSymbol] { case Pure(_, _) :@ CollectionType(_, NominalType(ts, _)) => ts }.toSet
     val unrefTSyms = allTSyms -- referenced.map(_._1)
     logger.debug(s"Result tsym: $top; Unreferenced: ${unrefTSyms.mkString(", ")}; Field refs: ${referenced.mkString(", ")}")
     def tr(n: Node): Node =  n.replace {
-      case (p @ Pure(s @ StructNode(ch), pts)) :@ CollectionType(_, NominalType(ts)) =>
+      case (p @ Pure(s @ StructNode(ch), pts)) :@ CollectionType(_, NominalType(ts, _)) =>
         if(unrefTSyms contains ts) {
           val ch2 = s.nodeChildren.map(tr)
           val res = Pure(if(ch2.length == 1 && ts != top) ch2(0) else ProductNode(ch2), pts)

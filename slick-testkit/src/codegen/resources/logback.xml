@@ -9,7 +9,7 @@
     </root>
     <logger name="scala.slick.compiler"                           level="${log.qcomp:-info}" />
     <logger name="scala.slick.compiler.QueryCompiler"             level="${log.qcomp.phases:-inherited}" />
-    <logger name="scala.slick.compiler.QueryCompiler.benchmark"   level="${log.qcomp.bench:-inherited}" />
+    <logger name="scala.slick.compiler.QueryCompilerBenchmark"    level="${log.qcomp.bench:-inherited}" />
     <logger name="scala.slick.compiler.Inline"                    level="${log.qcomp.inline:-inherited}" />
     <logger name="scala.slick.compiler.AssignUniqueSymbols"       level="${log.qcomp.assignUniqueSymbols:-inherited}" />
     <logger name="scala.slick.compiler.InferTypes"                level="${log.qcomp.inferTypes:-inherited}" />
@@ -27,9 +27,12 @@
     <logger name="scala.slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
     <logger name="scala.slick.compiler.HoistClientOps"            level="${log.qcomp.hoistClientOps:-inherited}" />
     <logger name="scala.slick.compiler.RewriteBooleans"           level="${log.qcomp.rewriteBooleans:-inherited}" />
+    <logger name="scala.slick.compiler.SpecializeParameters"      level="${log.qcomp.specializeParameters:-inherited}" />
     <logger name="scala.slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />
     <logger name="scala.slick.compiler.InsertCompiler"            level="${log.qcomp.insertCompiler:-inherited}" />
-    <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.session:-info}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.jdbc.statement:-info}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.benchmark"         level="${log.jdbc.bench:-info}" />
+    <logger name="scala.slick.jdbc.StatementInvoker.result"       level="${log.jdbc.result:-info}" />
     <logger name="scala.slick.jdbc.meta"                          level="${log.createModel:-info}" />
     <logger name="scala.slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
     <logger name="scala.slick.memory.HeapBackend$"                level="${log.heap:-inherited}" />

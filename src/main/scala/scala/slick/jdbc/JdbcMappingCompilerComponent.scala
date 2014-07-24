@@ -1,7 +1,7 @@
 package scala.slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import scala.slick.compiler.{InsertCompiler, CompilerState, CodeGen}
+import scala.slick.compiler.{CompilerState, CodeGen}
 import scala.slick.ast._
 import scala.slick.relational._
 import scala.slick.lifted.MappedProjection
@@ -11,22 +11,25 @@ import scala.slick.util.SQLBuilder
 /** JDBC driver component which contains the mapping compiler and insert compiler */
 trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
 
+  /** The `MappingCompiler` for this driver. */
+  val mappingCompiler: MappingCompiler = new MappingCompiler
+
+  /** Create a (possibly specialized) `ResultConverter` for the given `JdbcType`. */
+  def createBaseResultConverter[T](ti: JdbcType[T], name: String, idx: Int): ResultConverter[JdbcResultConverterDomain, T] =
+    SpecializedJdbcResultConverter.base(ti, name, idx)
+
+  /** Create a (possibly specialized) `ResultConverter` for `Option` values of the given `JdbcType`. */
+  def createOptionResultConverter[T](ti: JdbcType[T], idx: Int): ResultConverter[JdbcResultConverterDomain, Option[T]] =
+    SpecializedJdbcResultConverter.option(ti, idx)
+
   /** A ResultConverterCompiler that builds JDBC-based converters. Instances of
     * this class use mutable state internally. They are meant to be used for a
     * single conversion only and must not be shared or reused. */
   class MappingCompiler extends ResultConverterCompiler[JdbcResultConverterDomain] {
-    protected[this] var nextFullIdx = 1
-    protected[this] var nextSkippingIdx = 1
-
-    def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[JdbcResultConverterDomain, _] = {
+    def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[JdbcResultConverterDomain, _] = {
       val JdbcType(ti, option) = n.nodeType.structural
-      val autoInc = column.fold(false)(_.options.contains(ColumnOption.AutoInc))
-      val fullIdx = nextFullIdx
-      nextFullIdx += 1
-      val skippingIdx = if(autoInc) 0 else nextSkippingIdx
-      if(!autoInc) nextSkippingIdx += 1
-      if(option) SpecializedJdbcResultConverter.option(ti, fullIdx, skippingIdx)
-      else SpecializedJdbcResultConverter.base(ti, column.fold(n.toString)(_.name), fullIdx, skippingIdx)
+      if(option) createOptionResultConverter(ti, idx)
+      else createBaseResultConverter(ti, column.fold(n.toString)(_.name), idx)
     }
 
     override def createGetOrElseResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]], default: () => T) = rc match {
@@ -43,22 +46,21 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
     }
   }
 
-  /** Code generator phase for JdbcProfile-based drivers. */
+  /** Code generator phase for queries on JdbcProfile-based drivers. */
   class JdbcCodeGen(f: QueryBuilder => SQLBuilder.Result) extends CodeGen {
-
-    def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
-
-    def apply(node: Node, state: CompilerState): Node =
-      ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
-        val sbr = f(driver.createQueryBuilder(rsm.from, state))
-        val nfrom = CompiledStatement(sbr.sql, sbr, rsm.from.nodeType)
-        val nmap = (new MappingCompiler).compileMapping(rsm.map)
-        rsm.copy(from = nfrom, map = nmap).nodeTyped(rsm.nodeType)
-      }
+    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
+      val sbr = f(driver.createQueryBuilder(serverSide, state))
+      (CompiledStatement(sbr.sql, sbr, serverSide.nodeType), mapping.map(mappingCompiler.compileMapping))
+    }
   }
 
-  class JdbcInsertCompiler extends InsertCompiler {
-    def createMapping(ins: Insert) = (new MappingCompiler).compileMapping(ins.map)
+  /** Code generator phase for inserts on JdbcProfile-based drivers. */
+  class JdbcInsertCodeGen(f: Insert => InsertBuilder) extends CodeGen {
+    def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
+      val ib = f(serverSide.asInstanceOf[Insert])
+      val ibr = ib.buildInsert
+      (CompiledStatement(ibr.sql, ibr, serverSide.nodeType), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
+    }
   }
 
   class JdbcFastPathExtensionMethods[T, P](val mp: MappedProjection[T, P]) {

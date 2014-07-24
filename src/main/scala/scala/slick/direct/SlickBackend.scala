@@ -5,8 +5,9 @@ import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.driver._
 import scala.slick.{ast => sq}
-import scala.slick.ast.{Library, FunctionSymbol, Dump, ColumnOption}
+import scala.slick.ast.{Library, FunctionSymbol, ColumnOption}
 import scala.slick.compiler.CompilerState
+import scala.slick.util.TreeDump
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
@@ -209,7 +210,8 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     def _fields = getConstructorArgs(typetag.tpe)
     val tableName = mapper.typeToTable( typetag.tpe )
-    val table = sq.TableNode(None, tableName, sq.SimpleTableIdentitySymbol(driver, "_", tableName), null)
+    val tsym = sq.SimpleTableIdentitySymbol(driver, "_", tableName)
+    val table = sq.TableNode(None, tableName, tsym, null, tsym)
     val tableRef = new sq.AnonSymbol
     val tableExp = sq.TableExpansion(tableRef, table, sq.TypeMapping(
       sq.ProductNode( _fields.map( fieldSym => columnSelect(fieldSym, sq.Ref(tableRef)) )),
@@ -357,13 +359,13 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
                   if( !i.isInstanceOf[Int] ){
                     throw new Exception("drop expects Int, found "+i.getClass)
                   }
-                  sq.Drop( sq_lhs, i.asInstanceOf[Int] ) 
+                  sq.Drop( sq_lhs, sq.LiteralNode[Long](i.asInstanceOf[Int].toLong) )
                 case "take"       =>
                   val i = eval(rhs)
                   if( !i.isInstanceOf[Int] ){
                     throw new Exception("take expects Int, found "+i.getClass)
                   }
-                  sq.Take( sq_lhs, i.asInstanceOf[Int] ) 
+                  sq.Take( sq_lhs, sq.LiteralNode[Long](i.asInstanceOf[Int].toLong) )
                 case e => throw new UnsupportedMethodException( scala_lhs.tpe.erasure+"."+term.decoded )
               },
               scope
@@ -405,7 +407,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   }
   protected[slick] def dump( queryable:BaseQueryable[_] ) = {
     val (_,query) = this.toQuery(queryable)
-    Dump(query.node)
+    TreeDump(query.node)
   }
   import scala.collection.generic.CanBuildFrom
   import scala.slick.jdbc.{PositionedParameters, PositionedResult}

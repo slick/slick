@@ -46,4 +46,17 @@ class JdbcMiscTest extends TestkitTest[JdbcTestDB] {
     assertFail { t1.insert(null.asInstanceOf[String]) }
     assertFail { t4.insert(None) }
   }
+
+  def testColumnOptions{
+    class Foo(tag: Tag) extends Table[String](tag, "posts") {
+      def bar = column[String]("s", O.Length(20,varying=true), O DBType "VARCHAR(20)" )        
+      def * = bar
+    }
+    try{
+      TableQuery[Foo].ddl.create
+      assert(false,"Length and DBType should not both be allowed at the same time")
+    }catch{
+      case _:SlickException =>
+    }    
+  }
 }

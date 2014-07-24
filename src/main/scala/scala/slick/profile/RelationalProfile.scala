@@ -72,6 +72,8 @@ object RelationalProfile {
     /** Supports the ''user'' function to get the current database user.
       * A driver without this capability will return an empty string. */
     val functionUser = Capability("relational.functionUser")
+    /** Supports indexOf method on string columns */
+    val indexOf = Capability("relational.indexOf")
     /** Supports full outer joins */
     val joinFull = Capability("relational.joinFull")
     /** Supports left outer joins */
@@ -88,6 +90,10 @@ object RelationalProfile {
       * unique. Without this capability, non-unique rows may be counted as
       * only one row each. */
     val pagingPreciseTake = Capability("relational.pagingPreciseTake")
+    /** Supports replace method on string columns */
+    val replace = Capability("relational.replace")
+    /** Supports reverse method on string columns */
+    val reverse = Capability("relational.reverse")
     /** Can set an Option[ Array[Byte] ] column to None */
     val setByteArrayNull = Capability("relational.setByteArrayNull")
     /** Supports the BigDecimal data type */
@@ -106,7 +112,7 @@ object RelationalProfile {
     val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
       functionUser, joinFull, joinLeft, joinRight, likeEscape, pagingDrop, pagingNested,
       pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
-      zip)
+      zip, replace, reverse, indexOf)
   }
 }
 
@@ -122,6 +128,7 @@ trait RelationalTableComponent { driver: RelationalDriver =>
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
+    val Length = ColumnOption.Length
   }
 
   val columnOptions: ColumnOptions = new AnyRef with ColumnOptions
@@ -137,7 +144,18 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
     val O: driver.columnOptions.type = columnOptions
 
+    /**
+      * Note that Slick uses VARCHAR or VARCHAR(254) in DDL for String
+      * columns if neither ColumnOption DBType nor Length are given.
+      */
     def column[C](n: String, options: ColumnOption[C]*)(implicit tm: TypedType[C]): Column[C] = new Column[C] {
+      if(tm == null){
+        throw new NullPointerException(
+          "implicit TypedType[C] for column[C] is null. "+
+          "This may be an initialization order problem. "+
+          "When using a MappedColumnType, you may want to change it from a val to a lazy val or def."
+        )
+      }
       override def toNode =
         Select((tableTag match {
           case r: RefTag => Path(r.path)
@@ -188,8 +206,13 @@ trait RelationalTypesComponent { driver: BasicDriver =>
 
   val MappedColumnType: MappedColumnTypeFactory
 
+
   trait MappedColumnTypeFactory {
     def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T]
+
+    protected[this] def assertNonNullType(t: BaseColumnType[_]): Unit =
+      if(t == null)
+        throw new NullPointerException("implicit BaseColumnType[U] for MappedColumnType.base[T, U] is null. This may be an initialization order problem.")
   }
 
   trait ImplicitColumnTypes {

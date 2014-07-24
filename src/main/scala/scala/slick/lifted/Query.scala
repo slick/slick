@@ -8,12 +8,17 @@ import scala.slick.ast.{Join => AJoin, _}
 import FunctionSymbolExtensionMethods._
 import ScalaBaseType._
 
+sealed trait QueryBase[T] extends Rep[T]
+
 /** An instance of Query represents a query or view, i.e. a computation of a
   * collection type (Rep[Seq[T]]). It is parameterized with both, the mixed
   * type (the type of values you see e.g. when you call map()) and the unpacked
-  * type (the type of values that you get back when you run the query).  */
-sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
-
+  * type (the type of values that you get back when you run the query).
+  *
+  * Additional extension methods for queries containing a single column are
+  * defined in [[scala.slick.lifted.SingleColumnQueryExtensionMethods]].
+  */
+sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def shaped: ShapedValue[_ <: E, U]
   final lazy val packed = shaped.toNode
 
@@ -89,7 +94,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def zipWithIndex = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(leftGen :: Nil)
-    val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Shape.columnShape[Long, FlatShapeLevel])
+    val aliased2 = ShapedValue(Column.forNode[Long](Ref(rightGen)), Column.columnShape[Long, FlatShapeLevel])
     new BaseJoinQuery[E, Column[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
   }
 
@@ -110,7 +115,7 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
   def groupBy[K, T, G, P](f: E => K)(implicit kshape: Shape[_ <: FlatShapeLevel, K, T, G], vshape: Shape[_ <: FlatShapeLevel, E, _, P]): Query[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C] = {
     val sym = new AnonSymbol
     val key = ShapedValue(f(shaped.encodeRef(sym :: Nil).value), kshape).packedValue
-    val value = ShapedValue(pack.to[Seq], Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq], Query[P, U, Seq]]])
+    val value = ShapedValue(pack.to[Seq], RepShape[FlatShapeLevel, Query[P, U, Seq], Query[P, U, Seq]])
     val group = GroupBy(sym, toNode, key.toNode)
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
@@ -122,12 +127,12 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
 
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are eliminated from the result. */
-  def union[O >: E, R, D[_]](other: Query[O, U, D]) =
+  def union[O >: E, R, D[_]](other: Query[O, U, D]): Query[O, U, C] =
     new WrappingQuery[O, U, C](Union(toNode, other.toNode, false), shaped)
 
   /** Return a new query containing the elements from both operands. Duplicate
     * elements are preserved. */
-  def unionAll[O >: E, R, D[_]](other: Query[O, U, D]) =
+  def unionAll[O >: E, R, D[_]](other: Query[O, U, D]): Query[O, U, C] =
     new WrappingQuery[O, U, C](Union(toNode, other.toNode, true), shaped)
 
   /** Return a new query containing the elements from both operands. Duplicate
@@ -152,9 +157,18 @@ sealed abstract class Query[+E, U, C[_]] extends Rep[C[U]] { self =>
     }
 
   /** Select the first `num` elements. */
-  def take(num: Int): Query[E, U, C] = new WrappingQuery[E, U, C](Take(toNode, num), shaped)
+  def take(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Take(toNode, num.toNode), shaped)
+  /** Select the first `num` elements. */
+  def take(num: Long): Query[E, U, C] = take(LiteralColumn(num))
+  /** Select the first `num` elements. */
+  def take(num: Int): Query[E, U, C] = take(num.toLong)
+
   /** Select all elements except the first `num` ones. */
-  def drop(num: Int): Query[E, U, C] = new WrappingQuery[E, U, C](Drop(toNode, num), shaped)
+  def drop(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Drop(toNode, num.toNode), shaped)
+  /** Select all elements except the first `num` ones. */
+  def drop(num: Long): Query[E, U, C] = drop(LiteralColumn(num))
+  /** Select all elements except the first `num` ones. */
+  def drop(num: Int): Query[E, U, C] = drop(num.toLong)
 
   def to[D[_]](implicit ctc: TypedCollectionTypeConstructor[D]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped
@@ -179,6 +193,8 @@ object Query {
     val toNode = shaped.toNode
     def shaped = ShapedValue((), Shape.unitShape[FlatShapeLevel])
   }
+
+  @inline implicit def queryShape[Level >: NestedShapeLevel <: ShapeLevel, T, Q <: QueryBase[_]](implicit ev: Q <:< Rep[T]) = RepShape[Level, Q, T]
 }
 
 /** A typeclass for types that can be used as predicates in `filter` calls. */
@@ -216,16 +232,16 @@ final class BaseJoinQuery[+E1, +E2, U1, U2, C[_]](leftGen: Symbol, rightGen: Sym
   * for operations that can be performed on tables but not on arbitrary
   * queries, e.g. getting the table DDL. */
 class TableQuery[E <: AbstractTable[_]](cons: Tag => E) extends Query[E, E#TableElementType, Seq] {
-  val shaped = {
+  lazy val shaped = {
     val baseTable = cons(new BaseTag { base =>
       def taggedAs(path: List[Symbol]): AbstractTable[_] = cons(new RefTag(path) {
         def taggedAs(path: List[Symbol]) = base.taggedAs(path)
       })
     })
-    ShapedValue(baseTable, Shape.repShape.asInstanceOf[Shape[FlatShapeLevel, E, E#TableElementType, E]])
+    ShapedValue(baseTable, RepShape[FlatShapeLevel, E, E#TableElementType])
   }
 
-  val toNode = shaped.toNode
+  lazy val toNode = shaped.toNode
 
   /** Get the "raw" table row that represents the table itself, as opposed to
     * a Path for a variable of the table's type. This method should generally

@@ -1,7 +1,9 @@
 /.idea/
 target/
 /test-dbs/*-*
+/test-dbs/*_*
 /test-dbs/databases.properties
+/test-dbs/testkit.conf
 *.log
 *.iml
 *.pyc
@@ -13,3 +15,5 @@ target/
 .DS_Store
 slick-testkit/src/codegen/resources/dbs/hsql/supp.properties
 lib
+*.autosave
+src/sphinx/capabilities.csv

@@ -36,11 +36,13 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
   }
 
   object MappedJdbcType extends MappedColumnTypeFactory {
-    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] =
+    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
+      assertNonNullType(implicitly[BaseColumnType[U]])
       new MappedJdbcType[T, U] with BaseTypedType[T] {
         def map(t: T) = tmap(t)
         def comap(u: U) = tcomap(u)
       }
+    }
   }
 
   object JdbcType {

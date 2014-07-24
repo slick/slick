@@ -81,9 +81,6 @@ class HoistClientOps extends Phase {
   }
 
   def rewriteDBSide(tree: Node): Node = tree match {
-    case OptionApply(ch) =>
-      val ch2 = rewriteDBSide(ch)
-      ch2.nodeTypedOrCopy(OptionType(ch2.nodeType))
     case CollectionCast(ch, _) :@ tpe =>
       rewriteDBSide(ch).nodeTypedOrCopy(tpe)
     case GetOrElse(ch, default) =>

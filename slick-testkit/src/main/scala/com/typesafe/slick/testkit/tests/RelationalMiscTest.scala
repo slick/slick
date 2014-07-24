@@ -137,4 +137,44 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     val q2 = for { t <- t1s } yield (t.a, t.b.getOrElse(0) + 1)
     assertEquals(Set((1, 11), (2, 1)), q2.run.toSet)
   }
+
+  def testInitErrors {
+    case class Id(toInt: Int)
+    case class Customer(id: Id)
+    // Before making `shaped` and `toNode` in `TableQuery` lazy,
+    // putting `Tables before `A` caused a StackOverflowException
+    object Tables {
+      val as = TableQuery[A]
+      implicit val idMapper = MappedColumnType.base[Id, Int](_.toInt, Id)
+    }
+    class A(tag: Tag) extends Table[Customer](tag, "INIT_A") {
+      def id = column[Id]("ID", O.PrimaryKey, O.AutoInc)(Tables.idMapper)
+      def * = id <> (Customer.apply, Customer.unapply)
+    }
+    Tables.as.ddl
+
+    case class Id2(toInt: Int)
+    implicit val id2Mapper = null.asInstanceOf[BaseColumnType[Id2]]
+    class B(tag: Tag) extends Table[Id2](tag, "INIT_A") {
+      def id = column[Id2]("ID", O.PrimaryKey, O.AutoInc)
+      def * = id
+    }
+    val bs = TableQuery[B]
+    try {
+      bs.map(_.id)
+      bs.ddl
+      ???
+    } catch {
+      case t: NullPointerException if (t.getMessage ne null) && (t.getMessage contains "initialization order") =>
+        // This is the expected error message from RelationalTableComponent.Table.column
+    }
+
+    try {
+      MappedColumnType.base[Id, Int](_.toInt, Id)(implicitly, null.asInstanceOf[BaseColumnType[Int]])
+      ???
+    } catch {
+      case t: NullPointerException if (t.getMessage ne null) && (t.getMessage contains "initialization order") =>
+      // This is the expected error message from RelationalTypesComponent.MappedColumnTypeFactory.assertNonNullType
+    }
+  }
 }

@@ -1,3 +1,3 @@
 package scala.slick
-/** Data model and code generator / type providers */
+/** Slick schema model */
 package object model

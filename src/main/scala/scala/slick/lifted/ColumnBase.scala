@@ -11,12 +11,20 @@ trait Rep[T] {
   def toNode: Node
 }
 
-/** Common base trait for record values
-  * (anything that is isomorphic to a tuple of scalar values). */
-trait ColumnBase[T] extends Rep[T]
-
-/** Base class for columns. */
-abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBase[T] { self =>
+/** Base class for columns.
+  *
+  * Most operations are added with extension methods that depend on the type inside the `Column`.
+  * These are defined in:
+  * <ul>
+  *   <li>[[scala.slick.lifted.AnyExtensionMethods]] and [[scala.slick.lifted.ColumnExtensionMethods]] for columns of all types</li>
+  *   <li>[[scala.slick.lifted.OptionColumnExtensionMethods]] for columns of all `Option` types</li>
+  *   <li>[[scala.slick.lifted.PlainColumnExtensionMethods]] for columns of all non-`Option` types</li>
+  *   <li>[[scala.slick.lifted.NumericColumnExtensionMethods]] for columns of numeric types (and Options thereof)</li>
+  *   <li>[[scala.slick.lifted.BooleanColumnExtensionMethods]] for columns of `Boolean` / `Option[Boolean]`</li>
+  *   <li>[[scala.slick.lifted.StringColumnExtensionMethods]] for columns of `String` / `Option[String]`</li>
+  * </ul>
+  */
+abstract class Column[T](implicit final val tpe: TypedType[T]) extends Rep[T] { self =>
   /** Order by this column in ascending order */
   def asc = ColumnOrdered[T](this, Ordering())
   /** Order by this column in descending order */
@@ -25,8 +33,19 @@ abstract class Column[T](implicit final val tpe: TypedType[T]) extends ColumnBas
   def encodeRef(path: List[Symbol]): Column[T] = Column.forNode(Path(path))
 }
 
-object Column {
+object Column extends ColumnLowPriority {
   def forNode[T : TypedType](n: Node): Column[T] = new Column[T] { def toNode = n }
+
+  /** A Shape for ConstColumns. It is identical to `columnShape` but it
+    * ensures that a `ConstColumn[T]` packs to itself, not just to
+    * `Column[T]`. This allows ConstColumns to be used as fully packed
+    * types when compiling query functions. */
+  @inline implicit def constColumnShape[T, Level <: ShapeLevel] = RepShape[Level, ConstColumn[T], T]
+}
+
+trait ColumnLowPriority {
+  /** A Shape for Columns. */
+  @inline implicit def columnShape[T, Level <: ShapeLevel] = RepShape[Level, Column[T], T]
 }
 
 /** A scalar value that is known at the client side at the time a query is executed. */

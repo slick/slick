@@ -7,47 +7,8 @@ import org.junit.runners.model._
 import org.junit.Assert._
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.driver.JdbcProfile
-import com.typesafe.slick.testkit.{tests => tk}
 import java.lang.reflect.Method
-import scala.slick.SlickException
 import scala.reflect.ClassTag
-
-/** Lists all tests of the Slick driver test kit */
-object Testkit {
-  val tests: List[Class[_ <: TestkitTest[_ >: Null <: TestDB]]] =
-    classOf[tk.AggregateTest] ::
-    classOf[tk.ColumnDefaultTest] ::
-    classOf[tk.CountTest] ::
-    classOf[tk.RelationalTypeTest] ::
-    classOf[tk.JdbcTypeTest] ::
-    classOf[tk.ExecutorTest] ::
-    classOf[tk.ForeignKeyTest] ::
-    classOf[tk.InsertTest] ::
-    classOf[tk.InvokerTest] ::
-    classOf[tk.IterateeTest] ::
-    classOf[tk.JoinTest] ::
-    classOf[tk.MainTest] ::
-    classOf[tk.JdbcMapperTest] ::
-    classOf[tk.MetaModelTest] ::
-    classOf[tk.RelationalMapperTest] ::
-    classOf[tk.RelationalMiscTest] ::
-    classOf[tk.JdbcMiscTest] ::
-    classOf[tk.MutateTest] ::
-    classOf[tk.NestingTest] ::
-    classOf[tk.NewQuerySemanticsTest] ::
-    classOf[tk.PagingTest] ::
-    classOf[tk.PlainSQLTest] ::
-    classOf[tk.PrimaryKeyTest] ::
-    classOf[tk.RelationalScalarFunctionTest] ::
-    classOf[tk.JdbcScalarFunctionTest] ::
-    classOf[tk.SequenceTest] ::
-    classOf[tk.TemplateTest] ::
-    classOf[tk.TransactionTest] ::
-    classOf[tk.UnionTest] ::
-    classOf[tk.PgFeatureTests] ::
-    classOf[tk.WindowFuncTest] ::
-    (Nil: List[Class[_ <: TestkitTest[_ >: Null <: TestDB]]])
-}
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
@@ -103,7 +64,7 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
 }
 
 abstract class DriverTest(val tdb: TestDB) {
-  def tests = Testkit.tests
+  def tests = TestkitConfig.testClasses
 }
 
 case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: TestkitTest[_ >: Null <: TestDB]])
@@ -166,6 +127,7 @@ abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TD
   def rcap = RelationalProfile.capabilities
   def scap = SqlProfile.capabilities
   def jcap = JdbcProfile.capabilities
+  def tcap = TestDB.capabilities
   def ifCap[T](caps: Capability*)(f: => T): Unit =
     if(caps.forall(c => tdb.capabilities.contains(c))) f
   def ifNotCap[T](caps: Capability*)(f: => T): Unit =

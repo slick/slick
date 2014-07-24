@@ -6,7 +6,8 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
-import scala.slick.compiler.CompilerState
+import scala.slick.compiler.{Phase, CompilerState}
+import scala.slick.model.Model
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.Invoker
 
@@ -21,23 +22,45 @@ import scala.slick.jdbc.Invoker
   *     <code>Sequence.curr</code> to get the current value of a sequence is
   *     not supported by Hsqldb. Trying to generate SQL code which uses this
   *     feature throws a SlickException.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side if generated
+  *     keys should be returned. Otherwise the operation is performmed
+  *     natively on the server side.</li>
   * </ul>
   */
 trait HsqldbDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - SqlProfile.capabilities.sequenceCurr
+    - JdbcProfile.capabilities.insertOrUpdate
   )
 
-  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
+    }
+  }
 
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+
+  override def defaultTables(implicit session: Backend#Session)
+    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+
+  override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.specializeParameters
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
+  override protected lazy val useServerSideUpsert = true
+  override protected lazy val useServerSideUpsertReturning = false
+
+  override val scalarFrom = Some("(VALUES (0))")
+
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) with OracleStyleRowNum {
-    override protected val scalarFrom = Some("(VALUES (0))")
     override protected val concatOperator = Some("||")
     override protected val supportsEmptyJoinConditions = false
 
@@ -58,7 +81,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
       case _ => super.expr(c, skipParens)
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b" limit $t offset $d"
       case (Some(t), None   ) => b" limit $t"
       case (None, Some(d)   ) => b" offset $d"

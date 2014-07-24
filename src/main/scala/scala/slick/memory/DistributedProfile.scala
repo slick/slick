@@ -26,7 +26,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   lazy val insertCompiler = ???
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
-  def createInsertInvoker[T](tree: scala.slick.ast.Node): InsertInvoker[T] = ???
+  def createInsertInvoker[T](tree: Node): InsertInvoker[T] = ???
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = ???
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
@@ -144,5 +144,5 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
 final case class DriverComputation(compiled: Node, driver: RelationalDriver, tpe: Type) extends NullaryNode with TypedNode {
   type Self = DriverComputation
   protected[this] def nodeRebuild = copy()
-  override def toString = s"DriverComputation($driver)"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = driver.toString)
 }

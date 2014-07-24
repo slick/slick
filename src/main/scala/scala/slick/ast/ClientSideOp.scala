@@ -1,5 +1,6 @@
 package scala.slick.ast
 
+import scala.slick.ast.Util._
 import scala.slick.ast.TypeUtil._
 import scala.slick.SlickException
 
@@ -46,7 +47,7 @@ final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) exte
   override def nodeChildNames = Seq("from "+generator, "map")
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, map = right)
   def nodeGenerators = Seq((generator, from))
-  override def toString = "ResultSetMapping"
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
   def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 = from.nodeWithComputedType(scope, typeChildren, retype)
@@ -68,4 +69,21 @@ final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) exte
     if(keepType && nodeHasType) this2.nodeTyped(nodeType)
     else this2
   }
+}
+
+/** A switch for special-cased parameters that needs to be interpreted in order
+  * to find the correct query string for the query arguments. */
+final case class ParameterSwitch(cases: Seq[((Any => Boolean), Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
+  type Self = ParameterSwitch
+  def nodeChildren = cases.map(_._2) :+ default
+  override def nodeChildNames = cases.map("[" + _._1 + "]") :+ "default"
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self =
+    copy(cases = (cases, ch).zipped.map { (c, n) => (c._1, n) }, default = ch.last)
+  protected def buildType = default.nodeType
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
+    val this2 = mapOrNone(nodeChildren)(r).map(nodeRebuild).getOrElse(this)
+    if(keepType && nodeHasType) this2.nodeTyped(nodeType)
+    else this
+  }
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }

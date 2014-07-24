@@ -4,27 +4,36 @@ import slick.ast.{ClientSideOp, CompiledStatement, ResultSetMapping, Node, First
 import slick.util.SlickLogger
 import org.slf4j.LoggerFactory
 
-/** The code generator phase. The actual implementation is provided
-  * by a driver. */
+/** A standard skeleton for a code generator phase. */
 abstract class CodeGen extends Phase {
   val name = "codeGen"
 
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[CodeGen]))
+
+  def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
+
+  def apply(node: Node, state: CompilerState): Node =
+    ClientSideOp.mapResultSetMapping(node, keepType = true) { rsm =>
+      var nmap: Option[Node] = None
+      var compileMap: Option[Node] = Some(rsm.map)
+
+      val nfrom = ClientSideOp.mapServerSide(rsm.from, keepType = true) { ss =>
+        val (nss, nmapOpt) = compileServerSideAndMapping(ss, compileMap, state)
+        nmapOpt match {
+          case Some(_) =>
+            nmap = nmapOpt
+            compileMap = None
+          case None =>
+        }
+        nss
+      }
+      rsm.copy(from = nfrom, map = nmap.get).nodeTyped(rsm.nodeType)
+    }
+
+  def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState): (Node, Option[Node])
 }
 
 object CodeGen {
-  def apply(f: () => ((Node, CompilerState) => (String, Any))): CodeGen = new CodeGen {
-    def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
-    def apply(node: Node, state: CompilerState): Node = node match {
-      case c: ClientSideOp =>
-        ClientSideOp.mapServerSide(c)(ch => apply(ch, state))
-      case n =>
-        val (st, ex) = buildStatement(n, state)
-        CompiledStatement(st, ex, n.nodeType)
-    }
-    def buildStatement(n: Node, state: CompilerState): (String, Any) = f().apply(n, state)
-  }
-
   def findResult(n: Node): (String, Any) = n match {
     case r @ ResultSetMapping(_, from, _) => findResult(from)
     case f @ First(from) => findResult(from)

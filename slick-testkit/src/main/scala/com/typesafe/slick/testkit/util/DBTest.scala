@@ -1,11 +1,10 @@
-package scala.slick.testutil
+package com.typesafe.slick.testkit.util
 
 import scala.collection.JavaConversions
 import org.junit.{Before, After}
-import org.junit.runner.{JUnitCore, RunWith}
+import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestDB}
 
 @RunWith(classOf[Parameterized])
 abstract class DBTest {

@@ -20,8 +20,9 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     val src1 = TableQuery(new TestTable(_, "src1_q"))
     val dst1 = TableQuery(new TestTable(_, "dst1_q"))
     val dst2 = TableQuery(new TestTable(_, "dst2_q"))
+    val dst3 = TableQuery(new TestTable(_, "dst3_q"))
 
-    (src1.ddl ++ dst1.ddl ++ dst2.ddl).create
+    (src1.ddl ++ dst1.ddl ++ dst2.ddl ++ dst3.ddl).create
 
     src1.insert(1, "A")
     src1.map(_.ins).insertAll((2, "B"), (3, "C"))
@@ -38,6 +39,11 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
     println("Insert 3: "+dst2.insertStatementFor(q3))
     dst2.insertExpr(q3)
     assertEquals(Set((1,"A"), (2,"B"), (42,"X")), dst2.list.toSet)
+
+    val q4comp = Compiled { dst2.filter(_.id < 10) }
+    val dst3comp = Compiled { dst3 }
+    dst3comp.insert(q4comp)
+    assertEquals(Set((1,"A"), (2,"B")), dst3comp.run.toSet)
 
     /*val q4 = (43, "Y".bind)
     println("Insert 4: "+Dst2.shaped.insertStatementFor(q4))
@@ -106,6 +112,47 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
       ts.forceInsert(104, "A")
       ts.map(_.ins).forceInsertAll((105, "B"), (106, "C"))
       assertEquals(3, ts.filter(_.id > 100).length.run)
+    }
+  }
+
+  def testInsertOrUpdatePlain {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "t_merge") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def name = column[String]("name")
+      def * = (id, name)
+      def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    ts.ddl.create
+
+    ts ++= Seq((1, "a"), (2, "b"))
+    assertEquals(1, ts.insertOrUpdate((3, "c")))
+    assertEquals(1, ts.insertOrUpdate((1, "d")))
+    assertEquals(Seq((1, "d"), (2, "b"), (3, "c")), ts.sortBy(_.id).run)
+  }
+
+  def testInsertOrUpdateAutoInc {
+    class T(tag: Tag) extends Table[(Int, String)](tag, "T_MERGE2") {
+      def id = column[Int]("ID", O.AutoInc, O.PrimaryKey)
+      def name = column[String]("NAME")
+      def * = (id, name)
+      def ins = (id, name)
+    }
+    val ts = TableQuery[T]
+
+    ts.ddl.create
+
+    ts ++= Seq((1, "a"), (2, "b"))
+    assertEquals(1, ts.insertOrUpdate((0, "c")))
+    assertEquals(1, ts.insertOrUpdate((1, "d")))
+    assertEquals(Seq((1, "d"), (2, "b"), (3, "c")), ts.sortBy(_.id).run)
+
+    ifCap(jcap.returnInsertKey) {
+      val q = ts returning ts.map(_.id)
+      assertEquals(Some(4), q.insertOrUpdate((0, "e")))
+      assertEquals(None, q.insertOrUpdate((1, "f")))
+      assertEquals(Seq((1, "f"), (2, "b"), (3, "c"), (4, "e")), ts.sortBy(_.id).run)
     }
   }
 }

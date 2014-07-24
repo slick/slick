@@ -60,8 +60,12 @@ import java.sql.{Blob, Clob, Date, Time, Timestamp, SQLException, PreparedStatem
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
   *     Full outer joins are emulated because there is not native support
   *     for them.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side because there
+  *     is no native support for them.</li>
   * </ul>
   */
+@deprecated("AccessDriver will be removed when we drop support for Java versions < 8", "2.1")
 trait AccessDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
@@ -82,7 +86,8 @@ trait AccessDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.zip
     - JdbcProfile.capabilities.createModel
     - RelationalProfile.capabilities.joinFull
-    )
+    - JdbcProfile.capabilities.insertOrUpdate
+  )
 
   def integralTypes = Set(
     java.sql.Types.INTEGER,
@@ -192,6 +197,7 @@ trait AccessDriver extends JdbcDriver { driver =>
           case tn =>
             throw new SlickException(s"""Cannot represent cast to type "$tn" in Access SQL""")
         }
+      case Library.Reverse(n) => b"StrReverse($n)"
       case RowNumber(_) => throw new SlickException("Access does not support row numbers")
       case _ => super.expr(c, skipParens)
     }
@@ -206,7 +212,7 @@ trait AccessDriver extends JdbcDriver { driver =>
       if(o.direction.desc) b" desc"
     }
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = ()
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = ()
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
@@ -224,7 +230,7 @@ trait AccessDriver extends JdbcDriver { driver =>
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
       if(autoIncrement && !customSqlType) sb append "AUTOINCREMENT"
-      else sb append sqlType
+      else appendType(sb)
       autoIncrement = false
       appendOptions(sb)
     }
@@ -308,4 +314,5 @@ trait AccessDriver extends JdbcDriver { driver =>
   }
 }
 
+@deprecated("AccessDriver will be removed when we drop support for Java versions < 8", "2.1")
 object AccessDriver extends AccessDriver

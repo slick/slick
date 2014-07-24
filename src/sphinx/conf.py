@@ -33,7 +33,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Slick'
-copyright = u'2011-2014 Typesafe, Inc.'
+copyright = u'2011-2014 Typesafe, Inc'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -244,29 +244,31 @@ epub_copyright = u'2011-2014 Typesafe, Inc.'
 
 # -- Custom set-up -------------------------------------------------------------
 
-slick_examples_version = version
+slick_template_suffix = '-'+version
 scala_version = '2.10.0'
 
 # e.g. :issue:`36` :ticket:`8`
 extlinks = {
-  'slick': ('https://github.com/slick/slick/blob/'+version+'/%s', ''),
+  'slick': ('https://github.com/slick/slick/blob/'+release+'/%s', ''),
   'issue': ('https://github.com/slick/slick/issues/%s', 'issue #'),
   'ticket': ('https://www.assembla.com/spaces/typesafe-slick/tickets/%s', 'ticket #'),
-  'example-src': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/src/main/scala/com/typesafe/slick/examples/%s', ''),
-  'example': ('https://github.com/slick/slick-examples/blob/'+slick_examples_version+'/%s', ''),
   'wikipedia' : ('http://en.wikipedia.org/wiki/%s',''),
   'javaapi' : ('http://docs.oracle.com/javase/7/docs/api/%s.html', '')
 }
 
 apilinks = {
-  'api': 'http://slick.typesafe.com/doc/'+version+'/api/#%s',
+  'api': 'http://slick.typesafe.com/doc/'+release+'/api/#%s',
+  'codegenapi': 'http://slick.typesafe.com/doc/'+release+'/codegen-api/#%s',
   'scalaapi': 'http://www.scala-lang.org/api/'+scala_version+'/#%s'
 }
 
 rst_epilog = '''
 .. include:: /links.txt
-.. _Slick Examples: https://github.com/slick/slick-examples/tree/%(examples-version)s
-.. _Slick TestKit Example: https://github.com/slick/slick-testkit-example/tree/%(examples-version)s
+.. _Hello Slick template: https://typesafe.com/activator/template/hello-slick%(template-suffix)s
+.. _Slick Plain SQL Queries template: https://typesafe.com/activator/template/slick-plainsql%(template-suffix)s
+.. _Slick Multi-DB Patterns template: http://typesafe.com/activator/template/slick-multidb%(template-suffix)s
+.. _Slick Direct Embedding template: http://typesafe.com/activator/template/slick-direct%(template-suffix)s
+.. _Slick TestKit Example template: https://typesafe.com/activator/template/slick-testkit-example%(template-suffix)s
 ''' % {
-  'examples-version': slick_examples_version
+  'template-suffix': slick_template_suffix
 }

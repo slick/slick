@@ -1,54 +1,34 @@
 package scala.slick.relational
 
 import scala.language.existentials
+import scala.slick.SlickException
 import scala.slick.ast._
-import scala.slick.util.TupleSupport
+import scala.slick.util.{Dumpable, DumpInfo, TupleSupport}
 import java.io.{StringWriter, OutputStreamWriter, PrintWriter}
 
 /** A `ResultConverter` is used to read data from a result, update a result,
   * and set parameters of a query. */
-trait ResultConverter[M <: ResultConverterDomain, @specialized T] {
+trait ResultConverter[M <: ResultConverterDomain, @specialized T] extends Dumpable {
   protected[this] type Reader = M#Reader
   protected[this] type Writer = M#Writer
   protected[this] type Updater = M#Updater
   def read(pr: Reader): T
   def update(value: T, pr: Updater): Unit
-  def set(value: T, pp: Writer, forced: Boolean): Unit
-  def info: String = {
-    val cln = getClass.getName.replaceAll(".*\\.", "")
-    val sep = cln.lastIndexOf("_")
-    if(sep == -1) Dump.green + cln + Dump.normal
-    else Dump.green + cln.substring(0, sep) + Dump.normal + "_" + Dump.yellow + cln.substring(sep+1) + Dump.normal
+  def set(value: T, pp: Writer): Unit
+  override def toString = {
+    val di = getDumpInfo
+    di.name + "(" + di.children.map(_._2).mkString(", ") + ")"
   }
-  def children: Iterator[ResultConverter[M, _]] = Iterator.empty
-  override def toString = s"$info(${children.mkString(", ")}})"
 
-  /** The full width of this converter (in columns), corresponding to the
+  /** The width of this converter (in columns), corresponding to the
     * number of columns that will be read or written by it. */
-  def fullWidth: Int
+  def width: Int
 
-  /** The width of this converter without `AutoInc` columns.
-    * @see #fullWidth */
-  def skippingWidth: Int
-}
-
-object ResultConverter {
-  /** Write a dump of a `ResultConverter` hierarchy to a provided `PrintWriter` or `System.out` */
-  def dump(r: ResultConverter[_ <: ResultConverterDomain, _], prefix: String = "", to: PrintWriter = null): Unit = {
-    val out = if(to eq null) new PrintWriter(new OutputStreamWriter(System.out)) else to
-    dumpInternal(r, prefix, out)
-    out.flush()
-  }
-
-  def getDump(r: ResultConverter[_ <: ResultConverterDomain, _], prefix: String = ""): String = {
-    val buf = new StringWriter
-    dump(r, prefix, new PrintWriter(buf))
-    buf.getBuffer.toString
-  }
-
-  private[this] def dumpInternal(r: ResultConverter[_ <: ResultConverterDomain, _], prefix: String, to: PrintWriter): Unit = {
-    to.println(prefix + r.info)
-    r.children.foreach { ch => dumpInternal(ch, prefix + "  ", to) }
+  override def getDumpInfo = {
+    val cln = getClass.getName.replaceAll(".*\\.", "")
+    val sep = cln.indexOf("$mc")
+    val name = if(sep == -1) cln else cln.substring(0, sep) + DumpInfo.highlight(cln.substring(sep))
+    DumpInfo(name)
   }
 }
 
@@ -64,19 +44,10 @@ trait ResultConverterDomain {
 
 /** An efficient (albeit boxed) ResultConverter for Product/Tuple values. */
 final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product](elementConverters: ResultConverter[M, _]*) extends ResultConverter[M, T] {
-  override def children = elementConverters.iterator
-  private[this] val cha = children.to[Array]
+  private[this] val cha = elementConverters.to[Array]
   private[this] val len = cha.length
 
-  val (fullWidth, skippingWidth) = {
-    var i, full, skipping = 0
-    while(i < len) {
-      full += cha(i).fullWidth
-      skipping += cha(i).skippingWidth
-      i += 1
-    }
-    (full, skipping)
-  }
+  val width = cha.foldLeft(0)(_ + _.width)
 
   def read(pr: Reader) = {
     val a = new Array[Any](len)
@@ -94,31 +65,66 @@ final case class ProductResultConverter[M <: ResultConverterDomain, T <: Product
       i += 1
     }
   }
-  def set(value: T, pp: Writer, forced: Boolean) = {
+  def set(value: T, pp: Writer) = {
     var i = 0
     while(i < len) {
-      cha(i).asInstanceOf[ResultConverter[M, Any]].set(value.productElement(i), pp, forced)
+      cha(i).asInstanceOf[ResultConverter[M, Any]].set(value.productElement(i), pp)
       i += 1
     }
   }
+
+  override def getDumpInfo = super.getDumpInfo.copy(children = elementConverters.zipWithIndex.map { case (ch, i) => ((i+1).toString, ch) })
+}
+
+/** Result converter that can write to multiple sub-converters and read from the first one */
+final case class CompoundResultConverter[M <: ResultConverterDomain, @specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](width: Int, childConverters: ResultConverter[M, T]*) extends ResultConverter[M, T] {
+  private[this] val cha = childConverters.to[Array]
+  private[this] val len = cha.length
+
+  def read(pr: Reader) = {
+    if(len == 0) throw new SlickException("Cannot read from empty CompoundResultConverter")
+    else cha(0).read(pr)
+  }
+  def update(value: T, pr: Updater) = {
+    var i = 0
+    while(i < len) {
+      cha(i).update(value, pr)
+      i += 1
+    }
+  }
+  def set(value: T, pp: Writer) = {
+    var i = 0
+    while(i < len) {
+      cha(i).set(value, pp)
+      i += 1
+    }
+  }
+
+  override def getDumpInfo = super.getDumpInfo.copy(children = childConverters.zipWithIndex.map {
+    case (ch, i) => (if(i == 0) "*" else "-", ch)
+  })
+}
+
+final class UnitResultConverter[M <: ResultConverterDomain] extends ResultConverter[M, Unit] {
+  def width = 0
+  def read(pr: Reader) = ()
+  def update(value: Unit, pr: Updater) = ()
+  def set(value: Unit, pp: Writer) = ()
 }
 
 final class GetOrElseResultConverter[M <: ResultConverterDomain, T](child: ResultConverter[M, Option[T]], default: () => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = child.read(pr).getOrElse(default())
   def update(value: T, pr: Updater) = child.update(Some(value), pr)
-  def set(value: T, pp: Writer, forced: Boolean) = child.set(Some(value), pp, forced)
-  override def info =
-    super.info + s"(${ try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } })"
-  override def children = Iterator(child)
-  def fullWidth = child.fullWidth
-  def skippingWidth = child.skippingWidth
+  def set(value: T, pp: Writer) = child.set(Some(value), pp)
+  def width = child.width
+  override def getDumpInfo =
+    super.getDumpInfo.copy(mainInfo = (try default().toString catch { case e: Throwable => "["+e.getClass.getName+"]" }), children = Vector(("child", child)))
 }
 
 final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](child: ResultConverter[M, C], toBase: T => C, toMapped: C => T) extends ResultConverter[M, T] {
   def read(pr: Reader) = toMapped(child.read(pr))
   def update(value: T, pr: Updater) = child.update(toBase(value), pr)
-  def set(value: T, pp: Writer, forced: Boolean) = child.set(toBase(value), pp, forced)
-  override def children = Iterator(child)
-  def fullWidth = child.fullWidth
-  def skippingWidth = child.skippingWidth
+  def set(value: T, pp: Writer) = child.set(toBase(value), pp)
+  def width = child.width
+  override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("child", child)))
 }

@@ -3,15 +3,29 @@ package scala.slick.driver
 import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
 import scala.slick.lifted._
+import scala.slick.profile.{SqlProfile, RelationalProfile, Capability}
+import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node, Insert, InsertColumn, Select, ElementSymbol, ColumnOption }
+import scala.slick.ast.Util._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.{Invoker, JdbcType}
+import scala.slick.model.Model
 
 /** Slick driver for PostgreSQL.
   *
-  * This driver implements all capabilities of [[scala.slick.driver.JdbcProfile]].
+  * This driver implements [[scala.slick.driver.JdbcProfile]]
+  * ''without'' the following capabilities:
+  *
+  * <ul>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the server side with a single
+  *     JDBC statement executing multiple server-side statements in a transaction.
+  *     This is faster than a client-side emulation but may still fail due to
+  *     concurrent updates. InsertOrUpdate operations with `returning` are
+  *     emulated on the client side.</li>
+  * </ul>
   *
   * Notes:
   *
@@ -25,13 +39,42 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   */
 trait PostgresDriver extends JdbcDriver { driver =>
 
-  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
+    - JdbcProfile.capabilities.insertOrUpdate
+  )
+
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def schema = super.schema.filter(_ != "public") // remove default schema
+      override def Column = new Column(_){
+        override def default = meta.columnDef.map((_,tpe)).collect{
+          case ("true","Boolean")  => Some(Some(true))
+          case ("false","Boolean") => Some(Some(false))
+        }.getOrElse{super.default}
+      }
+      override def Index = new Index(_){
+        // FIXME: this needs a test
+        override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
+      }
+    }
+  }
+
+  override def defaultTables(implicit session: Backend#Session) = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
   override val columnTypes = new JdbcTypes
   override val simple: SimpleQL with Implicits = new SimpleQL with Implicits {}
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
+  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
+  override protected lazy val useServerSideUpsert = true
+  override protected lazy val useTransactionForUpsert = true
+  override protected lazy val useServerSideUpsertReturning = false
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
     case java.sql.Types.BLOB => "lo"
@@ -52,7 +95,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
     override protected val concatOperator = Some("||")
     override protected val supportsEmptyJoinConditions = false
 
-    override protected def buildFetchOffsetClause(fetch: Option[Long], offset: Option[Long]) = (fetch, offset) match {
+    override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b" limit $t offset $d"
       case (Some(t), None   ) => b" limit $t"
       case (None,    Some(d)) => b" offset $d"
@@ -68,6 +111,19 @@ trait PostgresDriver extends JdbcDriver { driver =>
         if (c.orderBy.nonEmpty) buildOrderByClause(c.orderBy)
       case _ => super.expr(n, skipParens)
     }
+  }
+
+  class UpsertBuilder(ins: Insert) extends super.UpsertBuilder(ins) {
+    override def buildInsert: InsertBuilderResult = {
+      val update = "update " + tableName + " set " + softNames.map(n => s"$n=?").mkString(",") + " where " + pkNames.map(n => s"$n=?").mkString(" and ")
+      val nonAutoIncNames = nonAutoIncSyms.map(fs => quoteIdentifier(fs.name)).mkString(",")
+      val nonAutoIncVars = nonAutoIncSyms.map(_ => "?").mkString(",")
+      val cond = pkNames.map(n => s"$n=?").mkString(" and ")
+      val insert = s"insert into $tableName ($nonAutoIncNames) select $nonAutoIncVars where not exists (select 1 from $tableName where $cond)"
+      new InsertBuilderResult(table, s"begin; $update; $insert; end", softSyms ++ pkSyms)
+    }
+
+    override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms ++ pkSyms)
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {
@@ -112,8 +168,9 @@ trait PostgresDriver extends JdbcDriver { driver =>
   class ColumnDDLBuilder(column: FieldSymbol) extends super.ColumnDDLBuilder(column) {
     override def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '
-      if(autoIncrement && !customSqlType) sb append "SERIAL"
-      else sb append sqlType
+      if(autoIncrement && !customSqlType) {
+        sb append (if(sqlType.toUpperCase == "BIGINT") "BIGSERIAL" else "SERIAL")
+      } else appendType(sb)
       autoIncrement = false
       appendOptions(sb)
     }

@@ -7,18 +7,18 @@ import ScalaBaseType._
 import scala.slick.SlickException
 
 trait ExtensionMethods[B1, P1] extends Any {
-  def c: Column[P1]
-  @inline def n = c.toNode
-  @inline implicit def p1Type = c.tpe
-  implicit def b1Type = (c.tpe match {
+  protected[this] def c: Column[P1]
+  @inline protected[this] def n = c.toNode
+  @inline protected[this] implicit def p1Type = c.tpe
+  implicit protected[this] def b1Type = (c.tpe match {
     case o: OptionTypedType[_] => o.elementType
     case b => b
   }).asInstanceOf[TypedType[B1]]
-  implicit def optionType = (c.tpe match {
+  implicit protected[this] def optionType = (c.tpe match {
     case o: OptionTypedType[_] => o
     case b => b.optionType
   }).asInstanceOf[TypedType[Option[B1]]]
-  type o = OptionMapperDSL.arg[B1, P1]
+  protected[this] type o = OptionMapperDSL.arg[B1, P1]
 }
 
 /** Extension methods for all Columns and all primitive values that can be lifted to Columns */
@@ -30,7 +30,7 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 
 /** Extension methods for all Columns */
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
-  def c: Column[P1]
+  protected[this] def c: Column[P1]
 
   @deprecated("Use 'isEmpty' instead of 'isNull'", "2.1")
   def isNull = Library.==.column[Boolean](n, LiteralNode(null))
@@ -137,6 +137,19 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
   def ltrim = Library.LTrim.column[P1](n)
   def rtrim = Library.RTrim.column[P1](n)
   def trim = Library.Trim.column[P1](n)
+  def reverseString = Library.Reverse.column[P1](n)
+  def substring[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[Int, P2]#arg[Int, P3]#to[String, R]) =
+    om.column(Library.Substring, n, start.toNode, end.toNode)
+  def substring[P2, R](start: Column[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
+    om.column(Library.Substring, n, start.toNode)
+  def take[P2, R](num: Column[P2])(implicit om: o#arg[Int, Int]#arg[Int, P2]#to[String, R]) =
+    substring[Int, P2, R](LiteralColumn(0), num)
+  def drop[P2, R](num: Column[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
+    substring[P2, R](num)
+  def replace[P2, P3, R](target: Column[P2], replacement: Column[P3])(implicit om: o#arg[String, P2]#arg[String, P3]#to[String, R]) =
+    om.column(Library.Replace, n, target.toNode, replacement.toNode)
+  def indexOf[P2, R](str: Column[P2])(implicit om: o#arg[String, P2]#to[Int, R]) =
+    om.column(Library.IndexOf, n, str.toNode)
 }
 
 /** Extension methods for Queries of a single Column */

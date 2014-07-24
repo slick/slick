@@ -1,9 +1,13 @@
+.. index:: Query
+
 Queries
 =======
 
 This chapter describes how to write type-safe queries for selecting,
 inserting, updating and deleting data with the
 :ref:`Lifted Embedding <lifted-embedding>` API.
+
+.. index:: expression, Column, scalar, collection-valued, Rep, Seq, extension method, select, projection, view
 
 Expressions
 -----------
@@ -31,6 +35,8 @@ collections.
 Additional methods for queries of scalar values are added via an
 implicit conversion to ``SingleColumnQueryExtensionMethods``.
 
+.. index:: sort, filter, order by, sortBy, where
+
 Sorting and Filtering
 ---------------------
 
@@ -38,6 +44,8 @@ There are various methods with sorting/filtering semantics (i.e. they take a
 ``Query`` and return a new ``Query`` of the same type), for example:
 
 .. includecode:: code/LiftedEmbedding.scala#filtering
+
+.. index:: join, zip, zipWithIndex
 
 Joining and Zipping
 -------------------
@@ -48,6 +56,11 @@ There are two different ways of writing joins: *Explicit* joins are performed
 by calling a method that joins two queries into a single query of a tuple of
 the individual results. *Implicit* joins arise from a specific shape of a query
 without calling a special method.
+
+.. index::
+   pair: join; implicit
+   pair: join; inner
+   pair: join; cross
 
 An *implicit cross-join* is created with a ``flatMap`` operation on a ``Query``
 (i.e. by introducing more than one generator in a for-comprehension):
@@ -60,6 +73,10 @@ If you add a filter expression, it becomes an *implicit inner join*:
 
 The semantics of these implicit joins are the same as when you are using
 ``flatMap`` on Scala collections.
+
+.. index::
+   pair: join; outer
+   pair: join; explicit
 
 Explicit joins are created by calling one of the available join methods:
 
@@ -86,6 +103,8 @@ so ``zipWithIndex`` is supported as a primitive operator:
 
 .. includecode:: code/JoinsUnions.scala#zipWithIndex
 
+.. index:: union, ++, unionAll
+
 Unions
 ------
 
@@ -96,6 +115,8 @@ operators if they have compatible types:
 
 Unlike ``union`` which filters out duplicate values, ``++`` simply concatenates
 the results of the individual queries, which is usually more efficient.
+
+.. index:: aggregate, min, max, sum, avg, length, count, exists
 
 Aggregation
 -----------
@@ -111,6 +132,8 @@ one column):
 
 .. includecode:: code/LiftedEmbedding.scala#aggregation2
 
+.. index:: group by, groupBy
+
 Grouping is done with the ``groupBy`` method. It has the same semantics as for
 Scala collections:
 
@@ -122,12 +145,16 @@ not supported at the moment. Therefore it is necessary to flatten the nested
 queries immediately by aggregating their values (or individual columns)
 as done in ``q2``.
 
+.. index:: querying, Invoker, first, buildColl, selectStatement, list
+.. index::
+   pair: query; execute
+   pair: query; run
+
 Querying
 --------
 
 Queries are executed using methods defined in the :api:`scala.slick.jdbc.Invoker`
-trait (or :api:`scala.slick.jdbc.UnitInvoker` for the parameterless versions).
-There is an implicit conversion from ``Query``, so you can execute any
+trait. There is an implicit conversion from ``Query``, so you can execute any
 ``Query`` directly. The most common usage scenario is reading a complete
 result set into a strict collection with a specialized method such as ``list``
 or the generic method ``to`` which can build any kind of collection:
@@ -147,6 +174,8 @@ If you only want a single result value, you can use ``first`` or
 used to iterate over the result set without first copying all data into a
 Scala collection.
 
+.. index:: delete, DeleteInvoker, deleteStatement
+
 Deleting
 --------
 
@@ -161,6 +190,8 @@ the ``delete`` method and a self-reference ``deleteInvoker``:
 A query for deleting must only select from a single table. Any projection is
 ignored (it always deletes full rows).
 
+.. index:: insert, +=, ++=, InsertInvoker, insertStatement
+
 Inserting
 ---------
 
@@ -170,10 +201,12 @@ projection. Omitting some of a table's columns when inserting causes the
 database to use the default values specified in the table definition, or
 a type-specific default in case no explicit default was given. All methods
 for inserting are defined in
-:api:`InsertInvoker <scala.slick.driver.JdbcInvokerComponent@InsertInvoker[T]:JdbcDriver.InsertInvoker[T]>` and
-:api:`FullInsertInvoker <scala.slick.driver.JdbcInvokerComponent@FullInsertInvoker[U]:JdbcDriver.FullInsertInvoker[U]>`.
+:api:`InsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@InsertInvokerDef[U]:JdbcDriver.InsertInvokerDef[U]>` and
+:api:`FullInsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@FullInsertInvokerDef[U]:JdbcDriver.FullInsertInvokerDef[U]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
+
+.. index:: returning, AutoInc, generated key, into
 
 When you include an ``AutoInc`` column in an insert operation, it is silently
 ignored, so that the database can generate the proper value.
@@ -206,6 +239,8 @@ database server:
 
 In these cases, ``AutoInc`` columns are *not* ignored.
 
+.. index:: update, UpdateInvoker, updateStatement
+
 Updating
 --------
 
@@ -220,6 +255,9 @@ updating are defined in
 There is currently no way to use scalar expressions or transformations of
 the existing data in the database for updates.
 
+.. index:: prepared, QueryTemplate, parameter
+.. index::
+   pair: query; compiled
 .. _compiled-queries:
 
 Compiled Queries
@@ -240,7 +278,13 @@ This works for all functions that take ``Column`` parameters (or
 scalar query. See the API documentation for :api:`scala.slick.lifted.Compiled`
 and its subclasses for details on composing compiled queries.
 
-You can use a compiled query for querying, updating and deleting data. (For inserts, you can cache the :api:`InsertInvoker <scala.slick.driver.JdbcInvokerComponent@InsertInvoker[T]:JdbcDriver.InsertInvoker[T]>` and re-use it instead. To get it, call a query's :api:`insertInvoker <scala.slick.profile.BasicInvokerComponent$InsertInvokerDef@insertInvoker:InsertInvokerDef.this.type>` method, which is added by the :api:`createInsertInvoker <scala.slick.driver.JdbcInvokerComponent@createInsertInvoker[U](Node):JdbcDriver.CountingInsertInvoker[U]>` implicit conversion.)
+You can use a compiled query for querying, updating and deleting data. (For inserts,
+you can cache the :api:`InsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@InsertInvokerDef[U]:JdbcDriver.InsertInvokerDef[U]>`
+and re-use it instead. To get it, call a query's
+:api:`insertInvoker <scala.slick.profile.BasicInsertInvokerComponent$InsertInvokerDef@insertInvoker:InsertInvokerDef.this.type>`
+method, which is added by the
+:api:`createInsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@createInsertInvoker[U](tree:JdbcInsertInvokerComponent.this.CompiledInsert):JdbcInsertInvokerComponent.this.CountingInsertInvokerDef[U]>`
+implicit conversion.)
 
 For backwards-compatibility with Slick 1.0 you can still create a compiled
 query by calling ``flatMap`` on a :api:`scala.slick.lifted.Parameters` object.

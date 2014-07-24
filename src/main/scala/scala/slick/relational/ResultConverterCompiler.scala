@@ -11,12 +11,17 @@ import org.slf4j.LoggerFactory
 trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
 
   def compile(n: Node): ResultConverter[Domain, _] = n match {
-    case InsertColumn(p @ Path(_), fs) => createColumnConverter(n, p, Some(fs))
-    case OptionApply(InsertColumn(p @ Path(_), fs)) => createColumnConverter(n, p, Some(fs))
-    case p @ Path(_) => createColumnConverter(n, p, None)
-    case OptionApply(p @ Path(_)) => createColumnConverter(n, p, None)
+    case InsertColumn(paths, fs, _) =>
+      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
+    case OptionApply(InsertColumn(paths, fs, _)) =>
+      val pathConvs = paths.map { case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, Some(fs)) }
+      if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
+    case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, None)
+    case OptionApply(Select(_, ElementSymbol(idx))) => createColumnConverter(n, idx, None)
     case ProductNode(ch) =>
-      new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
+      if(ch.isEmpty) new UnitResultConverter
+      else new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
     case GetOrElse(ch, default) =>
       createGetOrElseResultConverter(compile(ch).asInstanceOf[ResultConverter[Domain, Option[Any]]], default)
     case TypeMapping(ch, mapper, _) =>
@@ -31,12 +36,11 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
   def createTypeMappingResultConverter(rc: ResultConverter[Domain, Any], mapper: MappedScalaType.Mapper): ResultConverter[Domain, Any] =
     new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
 
-  def createColumnConverter(n: Node, path: Node, column: Option[FieldSymbol]): ResultConverter[Domain, _]
+  def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[Domain, _]
 
   def compileMapping(n: Node): CompiledMapping = {
     val rc = compile(n)
-    if(ResultConverterCompiler.logger.isDebugEnabled)
-      ResultConverterCompiler.logger.debug("Compiled ResultConverter:\n"+ResultConverter.getDump(rc, prefix = "  "))
+    ResultConverterCompiler.logger.debug("Compiled ResultConverter", rc)
     CompiledMapping(rc, n.nodeType)
   }
 }
@@ -49,5 +53,8 @@ object ResultConverterCompiler {
 final case class CompiledMapping(converter: ResultConverter[_ <: ResultConverterDomain, _], tpe: Type) extends NullaryNode with TypedNode {
   type Self = CompiledMapping
   def nodeRebuild = copy()
-  override def toString = "CompiledMapping"
+  override def getDumpInfo = {
+    val di = super.getDumpInfo
+    di.copy(mainInfo = "", children = di.children ++ Vector(("converter", converter)))
+  }
 }

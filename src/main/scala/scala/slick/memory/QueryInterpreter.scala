@@ -179,13 +179,15 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         b.result()
       case Take(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
+        val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.take(num)
+        b ++= fromV.toIterator.take(numV.toInt)
         b.result()
       case Drop(from, num) =>
         val fromV = run(from).asInstanceOf[Coll]
+        val numV = run(num).asInstanceOf[Long]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        b ++= fromV.toIterator.drop(num)
+        b ++= fromV.toIterator.drop(numV.toInt)
         b.result()
       case Union(left, right, all, _, _) =>
         val leftV = run(left).asInstanceOf[Coll]
@@ -387,6 +389,14 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.Trim => args(0)._2.asInstanceOf[String].trim
     case Library.UCase => args(0)._2.asInstanceOf[String].toUpperCase
     case Library.User => ""
+    case Library.Substring if args.size == 2 => 
+      args(0)._2.asInstanceOf[String].substring(args(1)._2.asInstanceOf[Int])
+    case Library.Substring if args.size == 3 => args(0)._2.asInstanceOf[String].
+      substring(args(1)._2.asInstanceOf[Int], args(2)._2.asInstanceOf[Int])
+    case Library.Replace => args(0)._2.asInstanceOf[String].
+      replace(args(1)._2.asInstanceOf[String], args(2)._2.asInstanceOf[String])
+    case Library.Reverse => args(0)._2.asInstanceOf[String].reverse
+    case Library.IndexOf => args(0)._2.asInstanceOf[String].indexOf(args(1)._2.asInstanceOf[String])
   }
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {

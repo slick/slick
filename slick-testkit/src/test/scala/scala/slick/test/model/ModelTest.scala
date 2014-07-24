@@ -1,4 +1,4 @@
-package scala.slick.test.lifted
+package scala.slick.test.model
 
 import org.junit.Test
 import org.junit.Assert._

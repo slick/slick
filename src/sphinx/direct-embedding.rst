@@ -1,3 +1,5 @@
+.. index:: direct
+
 Direct Embedding (Experimental Feature)
 =======================================
 
@@ -10,6 +12,9 @@ For a user the difference in the code is small, but queries using the direct emb
 which can make error messages easier to understand. 
 
 The following descriptions are anolog to the description of the :doc:`lifted embedding <gettingstarted>`.
+
+.. index::
+   pair: dependency; direct
 
 Dependencies
 ------------

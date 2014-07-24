@@ -13,9 +13,9 @@ import slick.jdbc.StaticQuery.interpolation
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.ClassTag
 import scala.slick.SlickException
-import com.typesafe.slick.testkit.util.JdbcTestDB
+import com.typesafe.slick.testkit.util.{StandardTestDBs, DBTest, DBTestObject, JdbcTestDB}
 
-object QueryableTest extends DBTestObject(TestDBs.H2Mem)
+object QueryableTest extends DBTestObject(StandardTestDBs.H2Mem)
 
 class Foo[T]( val q : Queryable[T] )
 

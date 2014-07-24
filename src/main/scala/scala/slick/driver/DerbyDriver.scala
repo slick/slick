@@ -9,6 +9,7 @@ import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.{Invoker, JdbcType}
+import scala.slick.model.Model
 
 /** Slick driver for Derby/JavaDB.
   *
@@ -19,6 +20,9 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.functionDatabase]]:
   *     <code>Functions.database</code> is not available in Derby. Slick
   *     will return an empty string instead.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.replace]],
+  *     [[scala.slick.profile.RelationalProfile.capabilities.reverse]]:
+  *     These String functions are not available in Derby.</li>
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.pagingNested]]:
   *     See <a href="https://issues.apache.org/jira/browse/DERBY-5911"
   *     target="_parent">DERBY-5911</a>.</li>
@@ -45,6 +49,11 @@ import scala.slick.jdbc.{Invoker, JdbcType}
   *   <li>[[scala.slick.profile.RelationalProfile.capabilities.joinFull]]:
   *     Full outer joins are emulated because there is not native support
   *     for them.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.insertOrUpdate]]:
+  *     InsertOrUpdate operations are emulated on the client side because there
+  *     is no native support for them (but there is work in progress: see
+  *     <a href="https://issues.apache.org/jira/browse/DERBY-3155"
+  *     target="_parent" >DERBY-3155</a>).</li>
   * </ul>
   */
 trait DerbyDriver extends JdbcDriver { driver =>
@@ -58,11 +67,26 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - SqlProfile.capabilities.sequenceCycle
     - RelationalProfile.capabilities.zip
     - RelationalProfile.capabilities.joinFull
+    - JdbcProfile.capabilities.insertOrUpdate
+    - RelationalProfile.capabilities.replace
+    - RelationalProfile.capabilities.reverse
   )
 
-  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def schema = super.schema.filter(_ != "APP") // remove default schema
+    }
+  }
 
-  override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+
+  override def defaultTables(implicit session: Backend#Session)
+    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+
+  override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -76,8 +100,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd)
   }
 
+  override val scalarFrom = Some("sysibm.sysdummy1")
+
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
-    override protected val scalarFrom = Some("sysibm.sysdummy1")
     override protected val supportsTuples = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {

@@ -1,5 +1,13 @@
+.. index:: TestKit, testing
+.. index::
+   pair: driver; custom
+
 Slick TestKit
 =============
+
+*Note:* This chapter is based on the `Slick TestKit Example template`_.
+The prefered way of reading this introduction is in Activator_, where you can
+edit and run the code directly while reading the tutorial.
 
 When you write your own database driver for Slick, you need a way to run all
 the standard unit tests on it (in addition to any custom tests you may want to
@@ -7,9 +15,9 @@ add) to ensure that it works correctly and does not claim to support any
 capabilities which are not actually implemented. For this purpose the Slick
 unit tests have been factored out into a separate Slick TestKit project.
 
-To get started, you can clone the `Slick TestKit Example`_ project which
-contains a (slightly outdated) version of Slick's standard PostgreSQL driver
-and all the infrastructure required to build and test it.
+To get started, you can clone the `Slick TestKit Example template`_ which
+contains a copy of Slick's standard PostgreSQL driver and all the infrastructure
+required to build and test it.
 
 Scaffolding
 -----------
@@ -43,6 +51,8 @@ Driver
 
 The actual driver implementation can be found under ``src/main/scala``.
 
+.. index:: DriverTest, TestDB
+
 Test Harness
 ------------
 
@@ -73,6 +83,8 @@ default implementations can be used out of the box::
       override lazy val capabilities = driver.capabilities + TestDB.plainSql
     }
   }
+
+.. index:: databases.properties, ExternalTestDB, test-dbs
 
 Database Configuration
 ----------------------

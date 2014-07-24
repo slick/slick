@@ -1,4 +1,4 @@
-package scala.slick.model.codegen
+package scala.slick.codegen
 
 import scala.slick.{model => m}
 import scala.slick.model.ForeignKeyAction
@@ -225,7 +225,12 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
       /** Generates code for a columnOption */
       def columnOptionCode: ColumnOption[_] => Option[Code]
       /** Generates code for the ColumnOptions (DBType, AutoInc, etc.) */
-      def options: Iterable[Code] = model.options.flatMap(columnOptionCode(_).toSeq)
+      def options: Iterable[Code] = model.options.filter{
+        case t:ColumnOption.DBType => dbType
+        case _ => true
+      }.flatMap(columnOptionCode(_).toSeq)
+      /** Indicates if a (non-portable) DBType ColumnOption should be generated */
+      def dbType: Boolean = false
       /** Returns a function, that maps a value to its literal representation as code */
       def defaultCode: Any => Code
       /** Generates a literal represenation of the default value or None in case of an Option-typed autoinc column */
@@ -396,7 +401,7 @@ trait GeneratorHelpers[Code,TermName,TypeName]{
       // Table
       Seq("O","tableIdentitySymbol","tableProvider"),
       // generated code
-      Seq("tag")
+      Seq("_tableTag")
     ).flatten
 /* currently disambiguated using overloading
   /** Existing term member names in Table[_] that take parameters */
