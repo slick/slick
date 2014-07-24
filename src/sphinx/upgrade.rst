@@ -38,7 +38,7 @@ __________________________________
 The code generator has been moved into a separate artifact in order to evolve it faster than Slick core. it moved from package ``scala.slick.model.codegen`` to package ``scala.slick.codegen``. Binary compatibility will not be guaranteed, as it is supposed to be used before compile time. Add
 
 .. parsed-literal::
-  "com.typesafe.slick-codegen" % "slick" %% "|release|"
+  "com.typesafe.slick" %% "slick-codegen" % "|release|"
 
 to the dependencies of your code generator sbt project.
 
