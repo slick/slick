@@ -18,7 +18,7 @@ This chapter could also be called strict vs. lazy or imperative vs. declarative.
 val people: Seq[Person] = PeopleFinder.findByIds(Seq(2,99,17,234))
 val addresses: Seq[Address] = people.map(_.address)
 
-How many database roundtrips does this require? In fact reasoning about this question for different code is one of the things you need to devote the most time to when learning the collections-like API of an ORM. What usually happens is, that the ORM would do an immediate database round trip for ``findByIds`` and return the resulting people. Then ``map`` would be a Scala List method and ``.map(_.address)`` accesses the ``address`` of each person. An ORM would witness the ``address`` accesses one-by-one not knowing upfront that they happen in a loop. This often leads to an additional database round-trip for each person, which is not ideal (n+1 problem), because database round-trips are expensive. To solve the problem, ORMs often provide means to work around this, by basically telling them about the future, so they can aggregate many upcoming calls into fewer more efficient ones.
+How many database roundtrips does this require? In fact reasoning about this question for different code is one of the things you need to devote the most time to when learning the collections-like API of an ORM. What usually happens is, that the ORM would do an immediate database roundtrip for ``findByIds`` and return the resulting people. Then ``map`` would be a Scala List method and ``.map(_.address)`` accesses the ``address`` of each person. An ORM would witness the ``address`` accesses one-by-one not knowing upfront that they happen in a loop. This often leads to an additional database roundtrip for each person, which is not ideal (n+1 problem), because database roundtrips are expensive. To solve the problem, ORMs often provide means to work around this, by basically telling them about the future, so they can aggregate many upcoming calls into fewer more efficient ones.
 
 val people: Seq[Person] = PeopleFinder.findByIds(Seq(2,99,17,234)).prefetch(_.address) // tell the ORM to load all related addresses together
 val addresses: Seq[Address] = people.map(_.address)
@@ -36,7 +36,7 @@ val addresses: Seq[Address] = addressesQuery.run
 
 A single query is executed and the results returned. This makes database roundtrips very explicit and easy to reason about. Achieving few database roundtrips is easy.
 
-As you can see with Slick we do not navigate the object graph (i.e. results) directly, but by composing queries instead. We just compose queries instead, which are just place-holder values for database potential database round-trip yet to happen. We can lazily compose queries until they describe exactly what we need and then use a single ``.run`` call for execution. The problem explained above makes navigating the object graph directly not a very useful feature in many cases. As a consequence ORMs often offer a declarative query language as an alternative.
+As you can see with Slick we do not navigate the object graph (i.e. results) directly. We just compose queries instead, which are just place-holder values for potential database roundtrips yet to happen. We can lazily compose queries until they describe exactly what we need and then use a single ``.run`` call for execution. The problem explained above makes navigating the object graph directly not a very useful feature in many cases. As a consequence ORMs often offer a declarative query language as an alternative.
 
 Query languages
 _______________________
@@ -52,7 +52,7 @@ q.setParameterList("ids", Array(2,99,17,234));
 
 Strings are a very simple way to embed an arbitrary language and in many programming languages the only way without changing the compiler, for example in Java. While simple, this kind of embedding has significant limitations.
 
-On issue is that, that tools often have no knowledge about the embedded language and treat queries as ordinary Strings. The compiler or interpreter of the host languages does not detect syntactical mistakes upfront or if the query produces a different type of output than expected. Also IDEs often do not provide syntax highlighting, code completion, inline error hints, etc.
+One issue is that tools often have no knowledge about the embedded language and treat queries as ordinary Strings. The compiler or interpreter of the host languages does not detect syntactical mistakes upfront or if the query produces a different type of output than expected. Also IDEs often do not provide syntax highlighting, code completion, inline error hints, etc.
 
 More importantly, re-use is very hard, when it comes to queries embedded as Strings. You would need to compose Strings in order to re-use certain parts. As an exercise, try to make the part of our above HQL example, that filters by the ids re-useable, so we can use it for table person as well as address. It is really cumbersome.
 
@@ -105,9 +105,9 @@ val q = (People: Query[PersonTable, Person]).filter(
 		)
 )
 
-``Query`` marks collection-like query expressions, e.g. a whole table. ``PersonTable`` is the Slick Table subclass defined for table person. In this context the name of the type may be misleading as it is conceptually used as a prototype for a row here. It has members of type Column representing the individual columns. Expressions based on these columns result in other expressions of type Column. Here we are using Column[Int]'s to compute a Column[Boolean], which we use as the filter expression. Internally, Slick builds a tree from this, which represents the operations and is used to produce the corresponding SQL code. We often call the process of building up expression trees encapsulated in the place-holder values as lifting, which is why often call this query interface the lifted embedding in Slick. 
+``Query`` marks collection-like query expressions, e.g. a whole table. ``PersonTable`` is the Slick Table subclass defined for table person. In this context the name of the type may be misleading as it is conceptually used as a prototype for a row here. It has members of type Column representing the individual columns. Expressions based on these columns result in other expressions of type Column. Here we are using Column[Int]'s to compute a Column[Boolean], which we use as the filter expression. Internally, Slick builds a tree from this, which represents the operations and is used to produce the corresponding SQL code. We often call the process of building up expression trees encapsulated in the place-holder values as lifting, which is why we often call this query interface the lifted embedding in Slick. 
 
-It is important to note that Scala allows to be very type-safe here. E.g. Slick supports a method ``.substring`` for Column[String] for not for Column[Int]. This is impossible in Java and Java APIs like Criteria Queries, but possible in Scala using type-parameter based method extensions via implicits. This allows tools like the Scala compiler and IDEs to understand the code much more precisely and offer better checking and support.
+It is important to note that Scala allows to be very type-safe here. E.g. Slick supports a method ``.substring`` for Column[String] but not for Column[Int]. This is impossible in Java and Java APIs like Criteria Queries, but possible in Scala using type-parameter based method extensions via implicits. This allows tools like the Scala compiler and IDEs to understand the code much more precisely and offer better checking and support.
 
 A nice property of a Slick-like query language is, that it can be used with Scala's comprehension syntax, which is just Scala-builtin syntactic sugar for collections operations. The above example could be written like:
 
@@ -128,11 +128,11 @@ Scala macros offer another approach. They can be used to check queries embedded 
 
 Mapping configuration
 ---------------------------------------
-In ORMs you often provide your mapping specification in a configuration file. In Slick you provide it as Scala types, which are use to type check Slick queries. More information can be found here in the chapter about mapping TODO link. A difference is the the Slick mapping is conceptually very simple. It simple describes database tables and optionally maps rows to case classes or anything else using arbitrary factories and extractors. It does contain information about foreign keys, but nothing else about relationships or other patterns. These are mapped using re-usable queries fragments instead. More in the following section about Relationships.
+In ORMs you often provide your mapping specification in a configuration file. In Slick you provide it as Scala types, which are use to type check Slick queries. More information can be found here in the chapter about mapping TODO link. A difference is that Slick mapping is conceptually very simple. It simple describes database tables and optionally maps rows to case classes or anything else using arbitrary factories and extractors. It does contain information about foreign keys, but nothing else about relationships or other patterns. These are mapped using re-usable queries fragments instead. More in the following section about Relationships.
 
 Query granularity
 ---------------------
-With ORMs it is not uncommon to treat object or full rows as the smallest granularity when loading data. This is not necessarily a limitation of the frameworks, but a habit of using them. With Slick it is very much encouraged to only fetch the data you actually need. While you can map rows to classes with Slick, it is often more efficient to not use that feature, but to restrict your query. If you only need a person's name and age, just map to those and return them as a tuple.
+With ORMs it is not uncommon to treat objects or full rows as the smallest granularity when loading data. This is not necessarily a limitation of the frameworks, but a habit of using them. With Slick it is very much encouraged to only fetch the data you actually need. While you can map rows to classes with Slick, it is often more efficient to not use that feature, but to restrict your query. If you only need a person's name and age, just map to those and return them as a tuple.
 
 People.map(p => (p.name, p.age))
 
@@ -144,7 +144,7 @@ Slick doesn't cache query results. Working with Slick is like working with JDBC 
 
 PeopleFilter.getById(5)
 
-This call may be served from the database or from a cache. It is not clear at the call site what the performance is. In Slick is is very clear, executing a query leads to a database roundtrip using an object does not.
+This call may be served from the database or from a cache. It is not clear at the call site what the performance is. In Slick is is very clear: executing a query leads to a database roundtrip using an object does not.
 
 People.filter(_.id === 5).run
 
@@ -164,9 +164,9 @@ Here our hypothetical ORM records changes to the object and the save methods syn
 val personQuery = People.filter(_.id === 5)
 personQuery.map(p => (p.name,p.location)).update("Chris","Switzerland")
 
-Slick embraces immutability. Rather than modifying individual members of objects one after the other, you state all modifications at once and Slick creates a single database roundtrip from it without using a cache. New Slick users seem to be often confused by this syntax, but it is actually very neat. Slick unifies the syntax for queries, inserts, updates and deletes. Here ``q`` is just a query. We could use it to fetch data. But instead, we can also use it to update the columns specified by the query. Or we can use it do delete the rows
+Slick embraces immutability. Rather than modifying individual members of objects one after the other, you state all modifications at once and Slick creates a single database roundtrip from it without using a cache. New Slick users seem to be often confused by this syntax, but it is actually very neat. Slick unifies the syntax for queries, inserts, updates and deletes. Here ``personQuery`` is just a query. We could use it to fetch data. But instead, we can also use it to update the columns specified by the query. Or we can use it to delete the rows
 
-personQuery.delete // deletes person with id 5
+personQuery.delete // deletes person with id 5 as defined by the filter criteria
 
 For inserts, we insert into the query, that resembles the whole table and can select individual columns in the same way.
 
@@ -195,7 +195,7 @@ A common question for new Slick users is how they can follow a relationships on 
 val chris: Person = PeopleFilter.byId(4234)
 val address: Address = chris.address
 
-Also already explained in the section about navigating the object graph, Slick does not allow navigation as if data was in memory, because that makes it non-obvious when database roundtrips happen and can easily lead to too many round-trips. Slick is explicit about it. In Slick you would do this instead:
+Also already explained in the section about navigating the object graph, Slick does not allow navigation as if data was in memory, because that makes it non-obvious when database roundtrips happen and can easily lead to too many roundtrips. Slick is explicit about it. In Slick you would do this instead:
 
 val chrisQuery: Query[PersonTable,Person] = People.filter(_.id === 4234)
 val addressQuery: Query[AddressTable,Address] = chrisQuery.withAddress.map(_._2)
