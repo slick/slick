@@ -54,6 +54,10 @@ import scala.slick.model.Model
   *     is no native support for them (but there is work in progress: see
   *     <a href="https://issues.apache.org/jira/browse/DERBY-3155"
   *     target="_parent" >DERBY-3155</a>).</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.repeat]]:
+  *     There's not builtin string function repeat in Derby. 
+  *     <a href="https://db.apache.org/derby/docs/10.10/ref/rrefsqlj29026.html" target="_parent"
+  *     >https://db.apache.org/derby/docs/10.10/ref/rrefsqlj29026.html</a></li>
   * </ul>
   */
 trait DerbyDriver extends JdbcDriver { driver =>
@@ -70,6 +74,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
     - RelationalProfile.capabilities.replace
     - RelationalProfile.capabilities.reverse
+    - RelationalProfile.capabilities.repeat
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
