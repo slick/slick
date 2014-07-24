@@ -591,7 +591,6 @@ final case class WindowExpr(aggExpr: Node, partitionBy: Seq[Node], orderBy: Seq[
       orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) })
   }
   protected def buildType = aggExpr.nodeType
-  override def toString = "WindowExpr"
 }
 
 final case class OptionApply(val child: Node) extends UnaryNode with SimplyTypedNode {

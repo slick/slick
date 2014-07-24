@@ -241,7 +241,6 @@ trait PostgresDriver extends JdbcDriver { driver =>
         orderBy = (orderBy, newOrderBy).zipped.map { case ((_, o), n) => (n, o) })
     }
     protected def buildType = aggParams(0).nodeType
-    override def toString = "AggFuncInputs"
   }
 
   ///
