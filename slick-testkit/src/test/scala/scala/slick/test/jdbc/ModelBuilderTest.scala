@@ -11,7 +11,11 @@ object ModelBuilderTest extends DBTestObject(H2Mem)
 
 class ModelBuilderTest(val tdb: JdbcTestDB) extends DBTest {
   @Test def test(): Unit = db withSession { implicit s =>
-    sqlu"""create table SUPPLIERS (FOO VARCHAR(255) DEFAULT CURRENT_USER)""".execute
+    // test timestamps don't fail
+    sqlu"""create table BAR (FOO TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""".execute
+    tdb.profile.createModel(ignoreInvalidDefaults=false)
+
+    sqlu"""create table BAZ (FOO VARCHAR(255) DEFAULT CURRENT_USER)""".execute
     try{
       tdb.profile.createModel(ignoreInvalidDefaults=false)
       assert(false)
