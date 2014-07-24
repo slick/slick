@@ -7,7 +7,7 @@ import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.meta
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-class MetaModelTest extends TestkitTest[JdbcTestDB] {
+class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   def test { ifCap(jcap.createModel){
@@ -379,5 +379,9 @@ class MetaModelTest extends TestkitTest[JdbcTestDB] {
       }
     }
 
+    // test timestamps don't fail
+    import scala.slick.jdbc.StaticQuery.interpolation
+    sqlu"""create table SUPPLIERS (FOO TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""".execute
+    tdb.profile.createModel(ignoreInvalidDefaults=false)
   }}
 }

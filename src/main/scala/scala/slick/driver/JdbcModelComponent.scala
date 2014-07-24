@@ -228,7 +228,9 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           */
         def defaultColumnOption: Option[ColumnOption.Default[_]]
           = rawDefault.map(v => (v,tpe)).collect{
-              case (v@"CURRENT_TIMESTAMP","java.sql.Timestamp") =>
+              case (v,_)
+                if Seq("NOW","CURRENT_TIMESTAMP","CURRENT_DATE","CURRENT_TIME")
+                     .contains(v.stripSuffix("()").toUpperCase) =>
                 logger.debug(s"Ignoring"+formatDefault(v))
                 None
             }.getOrElse{
@@ -247,11 +249,11 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
             case e: java.lang.NumberFormatException
               if ignoreInvalidDefaults =>
                 logger.debug(
-                  s"NumberFormatException: Could not parse"+formatDefault(defaultColumnOption)
+                  s"NumberFormatException: Could not parse"+formatDefault(rawDefault)
                 )
                 None
             case e: scala.MatchError =>
-              val msg = s"Could not parse"+formatDefault(defaultColumnOption)
+              val msg = s"Could not parse"+formatDefault(rawDefault)
               if(ignoreInvalidDefaults){
                 logger.debug("SlickException: "+msg)
                 None
