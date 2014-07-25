@@ -108,9 +108,9 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     println("User for ID 2: "+res)
     assertEquals(User(2,"guest"), res)
 
-    val s1 = sql"select id from USERS where name = ${"szeiger"}".as[Int]
-    val s2 = sql"select id from USERS where name = '#${"guest"}'".as[Int]
-    assertEquals("select id from USERS where name = ?", s1.getStatement)
+    val s1 = sql"select id from USERS where name = '${"szeiger"}'".as[Int]
+    val s2 = sql"select id from USERS where name = '${"guest"}'".as[Int]
+    assertEquals("select id from USERS where name = 'szeiger'", s1.getStatement)
     assertEquals("select id from USERS where name = 'guest'", s2.getStatement)
     assertEquals(List(1), s1.list)
     assertEquals(List(2), s2.list)
@@ -127,22 +127,22 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
       VAL21 int not null, VAL22 int not null, VAL23 int not null, VAL24 int not null)""".execute
 
     val s3 = sqlu"""insert into LONGTABLE values ( 
-      ${100}, ${101}, ${102}, ${103}, ${104}, ${105}, ${106}, ${107}, 
-      ${108}, ${109}, ${110}, ${111}, ${112}, ${113}, ${114}, ${115}, 
+      ${100}, ${101}, ${102}, ${103}, ${104}, ${105}, ${106}, ${107},
+      ${108}, ${109}, ${110}, ${111}, ${112}, ${113}, ${114}, ${115},
       ${116}, ${117}, ${118}, ${119}, ${120}, ${121}, ${122}, ${123}) """
     val s4 = sqlu"""insert into LONGTABLE values ( 
-      ${200}, ${201}, ${202}, ${203}, ${204}, ${205}, ${206}, ${207}, 
-      ${208}, ${209}, ${210}, ${211}, ${212}, ${213}, ${214}, ${215}, 
+      ${200}, ${201}, ${202}, ${203}, ${204}, ${205}, ${206}, ${207},
+      ${208}, ${209}, ${210}, ${211}, ${212}, ${213}, ${214}, ${215},
       ${216}, ${217}, ${218}, ${219}, ${220}, ${221}, ${222}, ${223}) """
     assertEquals("""insert into LONGTABLE values ( 
-      ?, ?, ?, ?, ?, ?, ?, ?, 
-      ?, ?, ?, ?, ?, ?, ?, ?, 
-      ?, ?, ?, ?, ?, ?, ?, ?) """, s3.getStatement)
+      100, 101, 102, 103, 104, 105, 106, 107,
+      108, 109, 110, 111, 112, 113, 114, 115,
+      116, 117, 118, 119, 120, 121, 122, 123) """, s3.getStatement)
     s3.execute
     assertEquals("""insert into LONGTABLE values ( 
-      ?, ?, ?, ?, ?, ?, ?, ?, 
-      ?, ?, ?, ?, ?, ?, ?, ?, 
-      ?, ?, ?, ?, ?, ?, ?, ?) """, s4.getStatement)
+      200, 201, 202, 203, 204, 205, 206, 207,
+      208, 209, 210, 211, 212, 213, 214, 215,
+      216, 217, 218, 219, 220, 221, 222, 223) """, s4.getStatement)
     s4.execute
 
     val s5 = sql"""select VAL24 from LONGTABLE WHERE VAL1=${100} AND VAL2=${101} AND VAL3=${102} 

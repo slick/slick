@@ -86,7 +86,7 @@ trait Invoker[+R] { self =>
   }
 
   /** Create a new Invoker which applies the mapping function f to each row of the result set. */
-  def mapResult[U](f: (R => U)): Invoker[U] = new Invoker[U] {
+  def mapResult[U](implicit f: (R => U)): Invoker[U] = new Invoker[U] {
     def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session) = self.iteratorTo(maxRows).map(f)
   }
 

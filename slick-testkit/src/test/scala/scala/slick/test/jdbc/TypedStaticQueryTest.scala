@@ -10,9 +10,10 @@ import scala.slick.jdbc.TypedStaticQuery._
 @TSQLConfig("default")
 class TypedStaticQueryTest {
 
+  val config = getConfigHandler()
+
   @Test
-  @TSQLConfig(url = "jdbc:h2:mem:test1;INIT=runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/create.sql'\\;runscript from 'slick-testkit/src/codegen/resources/dbs/h2mem/populate.sql'", driver = "org.h2.Driver")
-  def testTypedInterpolation = getConfigHandler().connection withSession { implicit session =>
+  def testTypedInterpolation = config.connection withSession { implicit session =>
     val id1 = 150
     val id2 = 1
     val s1 = tsql"select * from SUPPLIERS where SUP_ID = ${id1}"
@@ -38,8 +39,7 @@ class TypedStaticQueryTest {
   }
   
   @Test
-  //@TSQLConfig("default")
-  def testCustomTypes = getConfigHandler().connection withSession { implicit session =>
+  def testCustomTypes = config.connection withSession { implicit session =>
     import scala.slick.jdbc.SetParameter
     
     case class Foo(intVal: Int)
@@ -67,18 +67,18 @@ class TypedStaticQueryTest {
     assertEquals(List((150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966")), t2)
     
     val s3 = tsql"select SUP_ID from SUPPLIERS"
-    val o3 = s3.as(Foo(_)).list
+    val o3 = s3.mapResult(Foo(_)).list
     val t3: List[Foo] = o3
     assertEquals(List(Foo(101), Foo(150), Foo(49)), t3)
     
     val s4 = tsql"select CITY from SUPPLIERS"
-    val o4 = s4.as(Bar(_)).list
+    val o4 = s4.mapResult(Bar(_)).list
     val t4: List[Bar] = o4
     assertEquals(List(Bar("Groundsville"), Bar("Meadows"), Bar("Mendocino")), t4)
   }
 
   @Test
-  def testPreparedQueries = getConfigHandler().connection withSession { implicit session =>
+  def testPreparedQueries = config.connection withSession { implicit session =>
     case class Supplier(id: Int, name: String)
     implicit val supplierGetter = (arg: (Int, String)) => Supplier(arg._1, arg._2)
 
@@ -88,26 +88,26 @@ class TypedStaticQueryTest {
       tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = $id and SUP_NAME = $name"
 
     val s1 = supplierForID(101)
-    val o1 = s1.as[Supplier].first
+    val o1 = s1.mapResult[Supplier].first
     val t1: Supplier = o1
     assertEquals(Supplier(101, "Acme, Inc."), t1)
     val s2 = supplierForID(49)
-    val o2 = s2.as(supplierGetter).first
+    val o2 = s2.mapResult(supplierGetter).first
     val t2: Supplier = o2
     assertEquals(Supplier(49, "Superior Coffee"), t2)
 
     val s3 = supplierForIdAndName(150, "The High Ground")
-    val o3 = s3.as[Supplier].first
+    val o3 = s3.mapResult[Supplier].first
     val t3: Supplier = o3
     assertEquals(Supplier(150, "The High Ground"), o3)
     val s4 = supplierForIdAndName(49, "Superior Coffee")
-    val o4 = s4.as(supplierGetter).first
+    val o4 = s4.mapResult(supplierGetter).first
     val t4: Supplier = o4
     assertEquals(Supplier(49, "Superior Coffee"), t4)
   }
 
   @Test
-  def testAllStatements = getConfigHandler().connection withSession { implicit session =>
+  def testAllStatements = config.connection withSession { implicit session =>
     case class Supplier(id: Int, name: String)
     implicit val supplierGetter = (arg: (Int, String)) => Supplier(arg._1, arg._2)
 
@@ -119,11 +119,11 @@ class TypedStaticQueryTest {
     assertEquals(1, u2)
 
     val s1 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 102"
-    val o1 = s1.as[Supplier].first
+    val o1 = s1.mapResult[Supplier].first
     val t1: Supplier = o1
     assertEquals(Supplier(102, "Acme, Inc. Next"), t1)
     val s2 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 103"
-    val o2 = s2.as(supplierGetter).first
+    val o2 = s2.mapResult(supplierGetter).first
     val t2: Supplier = o2
     assertEquals(Supplier(103, "Coffee Retailers Corp."), t2)
 
@@ -133,11 +133,11 @@ class TypedStaticQueryTest {
     assertEquals(1, u4)
 
     val s3 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 102"
-    val o3 = s3.as[Supplier].first
+    val o3 = s3.mapResult[Supplier].first
     val t3: Supplier = o3
     assertEquals(Supplier(102, "Acme, Inc. II"), t3)
     val s4 = tsql"select SUP_ID, SUP_NAME from SUPPLIERS where SUP_ID = 103"
-    val o4 = s4.as(supplierGetter).first
+    val o4 = s4.mapResult(supplierGetter).first
     val t4: Supplier = o4
     assertEquals(Supplier(103, "Coffee Retailers Corp. II"), t4)
 
@@ -149,19 +149,32 @@ class TypedStaticQueryTest {
     tsql"""drop table "SUPPLIERS2" """.execute
   }
 
-//  @Test
-  //@TSQLConfig("default")
-//  def testNoResult = getConfigHandler().connection withSession { implicit session =>
-//
-//    StringContext("create table \"COFFEES2\" (\"COF_NAME\" VARCHAR NOT NULL PRIMARY KEY, \"PRICE\" INTEGER NOT NULL)").sqlu().execute
-//    sqlu"INSERT INTO COFFEES2 VALUES('coffee', 3);".execute
-//
-//    val id1 = "coffee"
-//    val s1 = tsql"select * from COFFEES2 where COF_NAME = ${id1}"
-//    assertEquals("select * from COFFEES2 where COF_NAME = ?", s1.getStatement)
-//    val list1 = s1.as[(String, Int)].list
-//    //val list1 = s1.list
-//    val typedList1: List[(String, Int)] = list1
-//    assertEquals(List(("coffee", 3)), typedList1)
-//  }
+  @Test
+  @TSQLConfig(url = "jdbc:h2:mem:test1", driver = "org.h2.Driver", slickDriver = "scala.slick.driver.H2Driver")
+  def testAllConfigHandlerMacroStyles = {
+    testConfigHandlerMacro(getConfigHandler())
+    testConfigHandlerMacro(config)
+    testConfigHandlerMacro(TypedStaticQueryTest.chVal1)
+    testConfigHandlerMacro(TypedStaticQueryTest.chVal2)
+    testConfigHandlerMacro(TypedStaticQueryTest.chDef1)
+    testConfigHandlerMacro(TypedStaticQueryTest.chDef2)
+  }
+
+  def testConfigHandlerMacro(ch: ConfigHandler) = {
+    assertEquals("jdbc:h2:mem:test1", ch.url.get.take(17))
+    assertEquals(None, ch.user)
+    assertEquals(None, ch.password)
+    assertEquals("org.h2.Driver", ch.jdbcDriver.get)
+    assertEquals("scala.slick.driver.H2Driver", ch.slickDriver.get)
+  }
+}
+
+object TypedStaticQueryTest extends TypedStaticQuerySupport
+
+@TSQLConfig(url = "jdbc:h2:mem:test1", driver = "org.h2.Driver", slickDriver = "scala.slick.driver.H2Driver")
+trait TypedStaticQuerySupport {
+  def chDef1 = getConfigHandler()
+  @TSQLConfig("default") def chDef2 = getConfigHandler()
+  val chVal1 = getConfigHandler()
+  @TSQLConfig("default") val chVal2 = getConfigHandler()
 }
