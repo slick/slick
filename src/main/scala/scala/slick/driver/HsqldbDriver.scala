@@ -6,6 +6,8 @@ import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.compiler.{Phase, CompilerState}
+import scala.slick.model.Model
 import scala.slick.compiler.{QueryCompiler, Phase, CompilerState}
 import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.Invoker
@@ -34,7 +36,19 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
   )
 
-  override def getTables: Invoker[MTable] = MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
+    override def Table = new Table(_){
+      override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
+    }
+  }
+
+  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
+                          (implicit session: Backend#Session)
+                          : Model
+    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+
+  override def defaultTables(implicit session: Backend#Session)
+    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
 
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.specializeParameters
   override val columnTypes = new JdbcTypes

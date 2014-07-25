@@ -612,27 +612,29 @@ final case class QueryParameter(extractor: (Any => Any), val tpe: Type) extends 
 }
 
 object QueryParameter {
+  import TypeUtil._
+
   /** Create a LiteralNode or QueryParameter that performs a client-side computation
-    * on two `Long` values. The given Nodes must also be of type `LiteralNode` or
+    * on two primitive values. The given Nodes must also be of type `LiteralNode` or
     * `QueryParameter`. */
-  def constOp(name: String)(op: (Long, Long) => Long)(l: Node, r: Node): Node = (l, r) match {
-    case (LiteralNode(ll: Long), LiteralNode(rl: Long)) => LiteralNode[Long](op(ll, rl))
-    case (LiteralNode(ll: Long), QueryParameter(re, rt: TypedType[_])) if rt.scalaType == ScalaBaseType.longType =>
-      QueryParameter(new (Any => Long) {
-        def apply(param: Any) = op(ll, re(param).asInstanceOf[Long])
-        override def toString = s"($ll $name $re)"
-      }, ScalaBaseType.longType)
-    case (QueryParameter(le, lt: TypedType[_]), LiteralNode(rl: Long)) if lt.scalaType == ScalaBaseType.longType =>
-      QueryParameter(new (Any => Long) {
-        def apply(param: Any) = op(le(param).asInstanceOf[Long], rl)
-        override def toString = s"($le $name $rl)"
-      }, ScalaBaseType.longType)
-    case (QueryParameter(le, lt: TypedType[_]), QueryParameter(re, rt: TypedType[_])) if lt.scalaType == ScalaBaseType.longType && rt.scalaType == ScalaBaseType.longType =>
-      QueryParameter(new (Any => Long) {
-        def apply(param: Any) = op(le(param).asInstanceOf[Long], re(param).asInstanceOf[Long])
+  def constOp[T](name: String)(op: (T, T) => T)(l: Node, r: Node)(implicit tpe: ScalaBaseType[T]): Node = (l, r) match {
+    case (LiteralNode(lv) :@ (lt: TypedType[_]), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe => LiteralNode[T](op(lv.asInstanceOf[T], rv.asInstanceOf[T]))
+    case (LiteralNode(lv) :@ (lt: TypedType[_]), QueryParameter(re, rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
+      QueryParameter(new (Any => T) {
+        def apply(param: Any) = op(lv.asInstanceOf[T], re(param).asInstanceOf[T])
+        override def toString = s"($lv $name $re)"
+      }, tpe)
+    case (QueryParameter(le, lt: TypedType[_]), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
+      QueryParameter(new (Any => T) {
+        def apply(param: Any) = op(le(param).asInstanceOf[T], rv.asInstanceOf[T])
+        override def toString = s"($le $name $rv)"
+      }, tpe)
+    case (QueryParameter(le, lt: TypedType[_]), QueryParameter(re, rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
+      QueryParameter(new (Any => T) {
+        def apply(param: Any) = op(le(param).asInstanceOf[T], re(param).asInstanceOf[T])
         override def toString = s"($le $name $re)"
-      }, ScalaBaseType.longType)
-    case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations")
+      }, tpe)
+    case _ => throw new SlickException(s"Cannot fuse nodes $l, $r as constant operations of type $tpe")
   }
 }
 

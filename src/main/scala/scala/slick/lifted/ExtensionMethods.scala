@@ -138,12 +138,18 @@ final class StringColumnExtensionMethods[P1](val c: Column[P1]) extends AnyVal w
   def rtrim = Library.RTrim.column[P1](n)
   def trim = Library.Trim.column[P1](n)
   def reverseString = Library.Reverse.column[P1](n)
-  def substring(start: Int, end: Int) = Library.Substring.column[String](n, LiteralNode(start + 1), LiteralNode(end - 1))
-  def substring(start: Int) = Library.Substring.column[String](n, LiteralNode(start + 1))
-  def replace(target: String, replacement: String) = Library.Replace.column[String](n, LiteralNode(target), LiteralNode(replacement))
-  def take(num: Int) = substring(0, num + 1)
-  def drop(num: Int) = substring(num)
-  def indexOf(str: String) = Library.IndexOf.column[Int](n, LiteralNode(str))
+  def substring[P2, P3, R](start: Column[P2], end: Column[P3])(implicit om: o#arg[Int, P2]#arg[Int, P3]#to[String, R]) =
+    om.column(Library.Substring, n, start.toNode, end.toNode)
+  def substring[P2, R](start: Column[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
+    om.column(Library.Substring, n, start.toNode)
+  def take[P2, R](num: Column[P2])(implicit om: o#arg[Int, Int]#arg[Int, P2]#to[String, R]) =
+    substring[Int, P2, R](LiteralColumn(0), num)
+  def drop[P2, R](num: Column[P2])(implicit om: o#arg[Int, P2]#to[String, R]) =
+    substring[P2, R](num)
+  def replace[P2, P3, R](target: Column[P2], replacement: Column[P3])(implicit om: o#arg[String, P2]#arg[String, P3]#to[String, R]) =
+    om.column(Library.Replace, n, target.toNode, replacement.toNode)
+  def indexOf[P2, R](str: Column[P2])(implicit om: o#arg[String, P2]#to[Int, R]) =
+    om.column(Library.IndexOf, n, str.toNode)
 }
 
 /** Extension methods for Queries of a single Column */

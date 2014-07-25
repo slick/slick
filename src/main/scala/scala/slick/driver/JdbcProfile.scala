@@ -5,14 +5,13 @@ import scala.slick.ast.{BaseTypedType, Node}
 import scala.slick.compiler.{Phase, QueryCompiler, InsertCompiler}
 import scala.slick.lifted._
 import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker, JdbcType, JdbcFastPath}
-import scala.slick.jdbc.meta.{MTable, createModel => jdbcCreateModel}
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
-import scala.slick.model.Model
 
 /** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
   * implement this profile. */
 trait JdbcProfile extends SqlProfile with JdbcTableComponent
-  with JdbcInvokerComponent with JdbcInsertInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent { driver: JdbcDriver =>
+  with JdbcInvokerComponent with JdbcInsertInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent
+  with JdbcModelComponent { driver: JdbcDriver =>
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
@@ -64,12 +63,6 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   trait SimpleQL extends super.SimpleQL with Implicits {
     type FastPath[T] = JdbcFastPath[T]
   }
-
-  /** Jdbc meta data for all tables */
-  def getTables: Invoker[MTable] = MTable.getTables
-
-  /** Gets the Slick data model describing this data source */
-  def createModel(implicit session: Backend#Session): Model = jdbcCreateModel(getTables.list,this)
 }
 
 object JdbcProfile {

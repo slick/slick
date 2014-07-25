@@ -1,4 +1,4 @@
-package scala.slick.model.codegen
+package scala.slick.codegen
 
 import scala.slick.{model => m}
 
@@ -68,7 +68,7 @@ object SourceCodeGenerator{
           case Nil => db.forURL(url, driver = jdbcDriver)
           case _ => throw new Exception("This should never happen.")
         }).withSession{ implicit session =>
-          (new SourceCodeGenerator(driver.createModel)).writeToFile(slickDriver,outputFolder,pkg)
+          new SourceCodeGenerator(driver.createModel()).writeToFile(slickDriver,outputFolder,pkg)
         }
       }
       case _ => {

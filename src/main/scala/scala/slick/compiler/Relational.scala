@@ -166,24 +166,24 @@ class ConvertToComprehensions extends Phase {
 
     def unapply(n: Node): Option[(Node, Option[Node], Option[Node])] = n match {
       case Take(from, num) => unapply(from) match {
-        case Some((f, Some(t), d)) => Some((f, Some(constOp("min")(math.min)(t, num)), d))
+        case Some((f, Some(t), d)) => Some((f, Some(constOp[Long]("min")(math.min)(t, num)), d))
         case Some((f, None, d)) => Some((f, Some(num), d))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d) => Some((f, Some(constOp("min")(math.min)(t, num)), d))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), d) => Some((f, Some(constOp[Long]("min")(math.min)(t, num)), d))
             case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, d) => Some((f, Some(num), d))
             case _ => Some((from, Some(num), None))
           }
       }
       case Drop(from, num) => unapply(from) match {
-        case Some((f, Some(t), None)) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(num)))
-        case Some((f, None, Some(d))) => Some((f, None, Some(constOp("+")(_ + _)(d, num))))
-        case Some((f, Some(t), Some(d))) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(constOp("+")(_ + _)(d, num))))
+        case Some((f, Some(t), None)) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(num)))
+        case Some((f, None, Some(d))) => Some((f, None, Some(constOp[Long]("+")(_ + _)(d, num))))
+        case Some((f, Some(t), Some(d))) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(constOp[Long]("+")(_ + _)(d, num))))
         case _ =>
           from match {
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(num)))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d)) => Some((f, None, Some(constOp("+")(_ + _)(d, num))))
-            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d)) => Some((f, Some(constOp("max")(math.max)(LiteralNode(0L), constOp("-")(_ - _)(t, num))), Some(constOp("+")(_ + _)(d, num))))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), None) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(num)))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, None, Some(d)) => Some((f, None, Some(constOp[Long]("+")(_ + _)(d, num))))
+            case Comprehension(Seq((_, f)), Nil, None, Nil, None, Some(t), Some(d)) => Some((f, Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, num))), Some(constOp[Long]("+")(_ + _)(d, num))))
             case _ => Some((from, None, Some(num)))
           }
       }
