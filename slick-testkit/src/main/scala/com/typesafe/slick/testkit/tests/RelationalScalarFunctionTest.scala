@@ -64,5 +64,6 @@ class RelationalScalarFunctionTest extends TestkitTest[RelationalTestDB] {
       check(LiteralColumn(s).indexOf("o"), s.indexOf("o"))
       check(LiteralColumn(s).indexOf("7"), s.indexOf("7"))
     }
+    ifCap(rcap.repeat)(check(LiteralColumn(s) * 2, s * 2))
   }
 }

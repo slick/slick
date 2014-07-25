@@ -174,6 +174,8 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           java.sql.Types.LONGNVARCHAR
         ) contains meta.sqlType
 
+        def rawDefault = meta.columnDef
+
         /** The default value for the column.
           * The outer option is used to indicate if a default value is given.
           * The inner Option is used to allow giving None for a nullable column.
@@ -187,7 +189,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           */
 
         def default: Option[Option[Any]]
-          = meta.columnDef.map{ v =>
+          = rawDefault.map{ v =>
             if(v=="NULL"){
               None
             } else {
@@ -198,8 +200,10 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
                 case (v,"Int")    => v.toInt
                 case (v,"Long")   => v.toLong
                 case (v,"Double") => v.toDouble
-                case (v,"Float") => v.toFloat
-                case (v,"Char")   => v.head // FIXME: check length
+                case (v,"Float")  => v.toFloat
+                case (v,"Char")   =>
+                  assert(v.size == 1, "char has unexpected size: "+v)
+                  v.head
                 case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
                 case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
                 case (StringPattern(str),"String") => str
@@ -223,19 +227,18 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           * logs the message and treats it as no default value for convenience.
           */
         def defaultColumnOption: Option[ColumnOption.Default[_]]
-          = meta.columnDef.flatMap{ v =>
-            (v,tpe) match {
-              case ("CURRENT_TIMESTAMP","java.sql.Timestamp") =>
+          = rawDefault.map(v => (v,tpe)).collect{
+              case (v@"CURRENT_TIMESTAMP","java.sql.Timestamp") =>
                 logger.debug(s"Ignoring"+formatDefault(v))
                 None
-              case _ => default.map( d =>
+            }.getOrElse{
+              default.map( d =>
                 ColumnOption.Default(
                   if(nullable) d
                   else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${table.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
                 )
               )
             }
-          }
 
         private def convenientDefault: Option[ColumnOption.Default[_]] = {
           try{
@@ -244,11 +247,11 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
             case e: java.lang.NumberFormatException
               if ignoreInvalidDefaults =>
                 logger.debug(
-                  s"NumberFormatException: Could not parse"+formatDefault(meta.columnDef)
+                  s"NumberFormatException: Could not parse"+formatDefault(defaultColumnOption)
                 )
                 None
             case e: scala.MatchError =>
-              val msg = s"Could not parse"+formatDefault(meta.columnDef)
+              val msg = s"Could not parse"+formatDefault(defaultColumnOption)
               if(ignoreInvalidDefaults){
                 logger.debug("SlickException: "+msg)
                 None
@@ -280,10 +283,10 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
             in favor of ColumnOption PrimaryKey via Column#createPrimaryKeyColumnOption. */
         def enabled: Boolean = meta.size > 1
         def name: Option[String] = meta.head.pkName.filter(_ != "")
-        final val columns = meta.map(_.column).map(columnsByName)
+        def columns = meta.map(_.column)
         // single column primary keys excluded in favor of PrimaryKey column option
         final def model: Option[m.PrimaryKey] = if(!enabled) None else Some(
-          m.PrimaryKey(name,table.qualifiedName,columns)
+          m.PrimaryKey(name,table.qualifiedName,columns.map(columnsByName))
         )
       }
 
@@ -294,19 +297,19 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
         assert(table.qualifiedName == tablesByMQName(fk.fkTable).qualifiedName)
         def enabled: Boolean = true
         def name: Option[String] = fk.fkName.filter(_ != "")
-        private val referencedColumns  = meta.map(_.fkColumn).map(columnsByName)
-        private val referencingColumns = meta.map(_.pkColumn).map(
-          tables.filter(_.meta.name == fk.pkTable).head.columnsByName
-        )
+        def referencedColumns  = meta.map(_.fkColumn)
+        private val referencingColumns = meta.map(_.pkColumn)
         assert(referencingColumns.size == referencedColumns.size)
         def updateRule: m.ForeignKeyAction = fk.updateRule
         def deleteRule: m.ForeignKeyAction = fk.deleteRule
         final def model: Option[m.ForeignKey] = if(!enabled) None else Some(m.ForeignKey(
           name,
           table.qualifiedName,
-          referencedColumns,
+          referencedColumns.map(columnsByName),
           tablesByMQName(fk.pkTable).qualifiedName,
-          referencingColumns,
+          referencingColumns.map(
+            tablesByMQName(fk.pkTable).columnsByName
+          ),
           updateRule,
           deleteRule
         ))

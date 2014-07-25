@@ -391,6 +391,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case Library.User => ""
     case Library.Substring if args.size == 2 => 
       args(0)._2.asInstanceOf[String].substring(args(1)._2.asInstanceOf[Int])
+    case Library.Repeat if args.size == 2
+      => args(0)._2.asInstanceOf[String] * args(1)._2.asInstanceOf[Int]
     case Library.Substring if args.size == 3 => args(0)._2.asInstanceOf[String].
       substring(args(1)._2.asInstanceOf[Int], args(2)._2.asInstanceOf[Int])
     case Library.Replace => args(0)._2.asInstanceOf[String].

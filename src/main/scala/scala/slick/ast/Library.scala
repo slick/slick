@@ -55,6 +55,7 @@ object Library {
   val Like = new FunctionSymbol("Like")
   val StartsWith = new FunctionSymbol("StartsWith")
   val EndsWith = new FunctionSymbol("EndsWith")
+  val Repeat = new SqlFunction("repeat")
 
   // Aggregate functions
   val Min = new SqlAggregateFunction("min")
