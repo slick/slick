@@ -210,7 +210,9 @@ class FuseComprehensions extends Phase {
         case c2: Comprehension if isFuseableOuter(c2) => fuseComprehension(c2)
         case c2 => c2
       }
-      liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)
+      Some(liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)).
+        map(distinct).
+        get
     case g: GroupBy =>
       throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
     case n => n
@@ -471,58 +473,47 @@ class FuseComprehensions extends Phase {
       case _ => c
     }
   }
-}
 
-class SelectDistinctPhase extends Phase {
-  override val name: String = "SelectDistinctPhase"
+  private def distinct(c: Comprehension): Comprehension = {
+    c match {
+      case outerComprehension@Comprehension(Seq((_, innerComprehension: Comprehension)), _, _, _, _, _, _, _)
+        if (outerComprehension.where.isEmpty && outerComprehension.groupBy.isEmpty && outerComprehension.orderBy.isEmpty &&
+          outerComprehension.fetch.isEmpty && outerComprehension.offset.isEmpty &&
+          (outerComprehension.distinctFlag || innerComprehension.distinctFlag)) => {
 
-  override def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n)(process)
-  }
-
-  def process(n: Node): Node = {
-    def innerProcess(n: Node): Node = {
-      n match {
-        case outerComprehension@Comprehension(Seq((_, innerComprehension: Comprehension)), _, _, _, _, _, _, _)
-          if (outerComprehension.where.isEmpty && outerComprehension.groupBy.isEmpty && outerComprehension.orderBy.isEmpty &&
-            outerComprehension.fetch.isEmpty && outerComprehension.offset.isEmpty &&
-            (outerComprehension.distinctFlag || innerComprehension.distinctFlag)) => {
-
-          val outerSelectNodes = outerComprehension.select match {
-            case Some(Pure(ProductNode(elements), _)) if elements.forall { case Select(_, _) => true case _ => false} => elements
-            case Some(Pure(select@Select(_, _), _)) => Seq(select)
-            case _ => Nil
-          }
-          val (innerComprehension, innerSelectNodes, comparingInnerSelectNodes, structNode) = outerComprehension.from match {
-            case Seq((innerSymbol, innerComprehension: Comprehension)) => {
-              innerComprehension.select match {
-                case Some(Pure(structNode@StructNode(elements), _)) =>
-                  (Some(innerComprehension), elements, elements.map(x => Select(Ref(innerSymbol), x._1)), Some(structNode))
-                case _ => (None, Nil, Nil, None)
-              }
-            }
-            case _ => (None, Nil, Nil, None)
-          }
-          val newSymbols = outerComprehension.select match {
-            case Some(Pure(StructNode(elements), _)) => elements.map(_._1)
-            case _ => comparingInnerSelectNodes.map(_.field)
-          }
-          val newComprehension = structNode.
-            filterNot(_ => outerSelectNodes != comparingInnerSelectNodes).
-            map(_.nodeType).
-            flatMap {
-            case StructType(elements) => Some(StructType(elements.zip(newSymbols).map(x => (x._2, x._1._2))))
-            case _ => None
-          }.
-            map(x => StructNode(innerSelectNodes.zip(newSymbols).map(x => (x._2, x._1._2)).toIndexedSeq).nodeTypedOrCopy(x)).
-            map(x => Some(Pure(x))).
-            flatMap(x => innerComprehension.map(_.copy(select = x, distinctFlag = true))).getOrElse(outerComprehension)
-          newComprehension
+        val outerSelectNodes = outerComprehension.select match {
+          case Some(Pure(ProductNode(elements), _)) if elements.forall { case Select(_, _) => true case _ => false} => elements
+          case Some(Pure(select@Select(_, _), _)) => Seq(select)
+          case _ => Nil
         }
-        case x => x
+        val (innerComprehension, innerSelectNodes, comparingInnerSelectNodes, structNode) = outerComprehension.from match {
+          case Seq((innerSymbol, innerComprehension: Comprehension)) => {
+            innerComprehension.select match {
+              case Some(Pure(structNode@StructNode(elements), _)) =>
+                (Some(innerComprehension), elements, elements.map(x => Select(Ref(innerSymbol), x._1)), Some(structNode))
+              case _ => (None, Nil, Nil, None)
+            }
+          }
+          case _ => (None, Nil, Nil, None)
+        }
+        val newSymbols = outerComprehension.select match {
+          case Some(Pure(StructNode(elements), _)) => elements.map(_._1)
+          case _ => comparingInnerSelectNodes.map(_.field)
+        }
+        val newComprehension = structNode.
+          filterNot(_ => outerSelectNodes != comparingInnerSelectNodes).
+          map(_.nodeType).
+          flatMap {
+          case StructType(elements) => Some(StructType(elements.zip(newSymbols).map(x => (x._2, x._1._2))))
+          case _ => None
+        }.
+          map(x => StructNode(innerSelectNodes.zip(newSymbols).map(x => (x._2, x._1._2)).toIndexedSeq).nodeTypedOrCopy(x)).
+          map(x => Some(Pure(x))).
+          flatMap(x => innerComprehension.map(_.copy(select = x, distinctFlag = true))).getOrElse(outerComprehension)
+        newComprehension
       }
+      case x => x
     }
-    innerProcess(n.nodeMapChildren(process))
   }
 }
 
