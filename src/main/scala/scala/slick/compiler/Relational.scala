@@ -538,8 +538,6 @@ class FuseComprehensions extends Phase {
         }
         case optionApply: OptionApply => optionApply.nodeTypedOrCopy(OptionType(optionApply.child.nodeType))
         case getOrElse: GetOrElse => getOrElse.nodeTypedOrCopy(getOrElse.child.nodeType)
-        case productNode: ProductNode => productNode.nodeWithComputedType()
-        case pure: Pure => pure.nodeWithComputedType()
         case x => x
       }
       innerConvertPath(n.nodeMapChildren(convertPath(outerSymbol,leftGen,rightGen,map)))
