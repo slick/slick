@@ -12,7 +12,7 @@ inserting, updating and deleting data with the
 Expressions
 -----------
 
-Scalar (non-record, non-collection) values are representend by type
+Scalar (non-record, non-collection) values are represented by type
 ``Column[T]`` (a sub-type of ``Rep[T]``) where a ``TypedType[T]`` must
 exist. Only some special methods for internal use are defined directly in
 the ``Column`` class.
