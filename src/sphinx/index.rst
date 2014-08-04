@@ -18,7 +18,8 @@ User Manual
    introduction
    gettingstarted
    upgrade
-   from-sql-to-slick
+   orm-to-slick
+   sql-to-slick
    connection
    code-generation
    schemas
