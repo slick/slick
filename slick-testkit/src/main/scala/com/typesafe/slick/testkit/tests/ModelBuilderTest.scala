@@ -378,10 +378,5 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
         assertEquals( None, noDefaultTest.map(_.stringOption).first )
       }
     }
-
-    // test timestamps don't fail
-    import scala.slick.jdbc.StaticQuery.interpolation
-    sqlu"""create table SUPPLIERS (FOO TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""".execute
-    tdb.profile.createModel(ignoreInvalidDefaults=false)
   }}
 }
