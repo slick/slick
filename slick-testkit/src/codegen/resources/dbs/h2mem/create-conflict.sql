@@ -1,0 +1,2 @@
+create table "TAG" ("A1" INTEGER NOT NULL,"A2" VARCHAR NOT NULL);
+create table "TABLE" ("A1" INTEGER NOT NULL,"A2" VARCHAR NOT NULL);
