@@ -137,6 +137,9 @@ val  SimpleA = CustomTyping.SimpleA
           override def autoIncLastAsOption = true
         }
       }
+    ),
+    new H2Config("CG10", Seq("create-conflict.sql"),
+      config => session => new MySourceCodeGenerator(H2Driver.createModel(ignoreInvalidDefaults=false)(session), config)
     )
   )
   class MySourceCodeGenerator(model:Model, config: Config) extends SourceCodeGenerator(model){
