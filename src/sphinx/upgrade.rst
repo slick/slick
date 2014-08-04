@@ -9,7 +9,7 @@ Query type parameters
 _____________________
 :api:`Query <scala.slick.lifted.Query>` now takes 3 type parameters instead of two. 2.0's ``Query[T,E]`` is equivalent to Slick 2.1's ``Query[T,E,Seq]``. The third parameter is the collection type to be returned when executing the query using ``.run``, which always returned a ``Seq`` in Slick 2.0. This is the only place where it is used right now. In the future we will work on making queries correspond to the behavior of the corresponding Scala collection types, i.e. ``Query[_,_,Set]`` having the uniqueness property, ``Query[_,_,List]`` being order preserving, etc. The collecton type can be changed to ``C`` by calling ``.to[C]`` on a query.
 
-To upgrade your code to 2.1 you can either rename the new Query type to something else in the import, i.e. ``import ....simple.{Query=>NewQuery,_}`` and then write a type alias ``type Query[T,E] = NewQuery[T,E,Seq]``. Or you can add ``Seq`` as the third type argument in your code. This regex should work for most places: replace ``([^a-zA-Z])Query\[([^\]]+),([^\]]+)\]`` with ``\1Query[\2,\3,Seq]``.
+To upgrade your code to 2.1 you can either rename the new Query type to something else in the import, i.e. ``import ....simple.{Query=>NewQuery,_}`` and then write a type alias ``type Query[T,E] = NewQuery[T,E,Seq]``. Or you can add ``Seq`` as the third type argument in your code. This regex should work for most places: replace ``([^a-zA-Z])Query\[([^\]]+), ?([^\]]+)\]`` with ``\1Query[\2, \3, Seq]``.
 
 ``.list`` and ``.first``
 ___________________________
