@@ -1,26 +1,20 @@
 package com.typesafe.slick.docs
 import scala.slick.driver.H2Driver.simple._
 
-/**
- * A simple example that uses statically typed queries against an in-memory
- * H2 database. The example data comes from Oracle's JDBC tutorial at
- * http://download.oracle.com/javase/tutorial/jdbc/basics/tables.html.
- */
 object SqlToSlick extends App {
 
   object Tables{
     //#tableClasses
-    type Person = (Int,String,String,Int,Int)
-    class Persons(tag: Tag) extends Table[Person](tag, "PERSON") {
+    type Person = (Int,String,Int,Int)
+    class People(tag: Tag) extends Table[Person](tag, "PERSON") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
-      def first = column[String]("FIRST")
-      def last = column[String]("LAST")
+      def name = column[String]("NAME")
       def age = column[Int]("AGE")
-      def livesAt = column[Int]("LIVES_AT")
-      def * = (id,first,last,age,livesAt)
-      def livesAtFK = foreignKey("lives_at_fk",livesAt,addresses)(_.id)
+      def addressId = column[Int]("ADDRESS_ID")
+      def * = (id,name,age,addressId)
+      def address = foreignKey("ADDRESS",addressId,addresses)(_.id)
     }
-    lazy val persons = TableQuery[Persons]
+    lazy val people = TableQuery[People]
 
     type Address = (Int,String,String)
     class Addresses(tag: Tag) extends Table[Address](tag, "ADDRESS") {
@@ -36,17 +30,19 @@ object SqlToSlick extends App {
 
   val jdbcDriver = "org.h2.Driver"  
   val dbUrl = "jdbc:h2:mem:sqltoslick;DB_CLOSE_DELAY=-1"
-
-  Database.forURL(dbUrl,driver=jdbcDriver) withSession {
-    implicit session =>
-    addresses.ddl.create
+  def inserts(implicit session: Session) = {
     addresses.insert(0,"station 14","Lausanne")
-    addresses.insert(0,"Broadway 1","New York City")
+    addresses.insert(0,"Grand Central 1","New York City")
 
-    persons.ddl.create
-    persons.insert((0,"Chris","Vogt",999,1))
-    persons.insert((0,"John","Vogt",1001,1))
-    persons.insert((0,"John","Doe",18,2))
+    people.insert((0,"C. Vogt",999,1))
+    people.insert((0,"J. Vogt",1001,1))
+    people.insert((0,"J. Doe",18,2))
+  }
+
+  Database.forURL(dbUrl,driver=jdbcDriver) withSession { implicit s =>
+    addresses.ddl.create
+    people.ddl.create
+    inserts
   }
 
   val jdbc = {
@@ -55,15 +51,15 @@ object SqlToSlick extends App {
 
     Class.forName(jdbcDriver)
     val conn = DriverManager.getConnection(dbUrl)
-    val people = new scala.collection.mutable.MutableList[(Int,String,String,Int)]()
+    val people = new scala.collection.mutable.MutableList[(Int,String,Int)]()
     try{
       val stmt = conn.createStatement()
       try{
 
-        val rs = stmt.executeQuery("select ID, FIRST, LAST, AGE from PERSON")
+        val rs = stmt.executeQuery("select ID, NAME, AGE from PERSON")
         try{
           while(rs.next()){
-            people += ((rs.getInt(1), rs.getString(2), rs.getString(3), rs.getInt(4)))
+            people += ((rs.getInt(1), rs.getString(2), rs.getInt(3)))
           }
         }finally{
           rs.close()
@@ -86,7 +82,7 @@ object SqlToSlick extends App {
     
     val db = Database.forURL(dbUrl,driver=jdbcDriver)
     
-    val query = sql"select ID, FIRST, LAST, AGE from PERSON".as[(Int,String,String,Int)]
+    val query = sql"select ID, NAME, AGE from PERSON".as[(Int,String,Int)]
     val people = db.withSession{ implicit session =>
       query.list
     }
@@ -94,18 +90,18 @@ object SqlToSlick extends App {
     people
   }
   val slickTypesafeQuery = {
-    import Tables.Persons // <- import auto-generated or hand-written TableQuery
+    import Tables.People // <- import auto-generated or hand-written TableQuery
     //#SlickTypesafeQuery
     import scala.slick.driver.H2Driver.simple._
 
     val db = Database.forURL(dbUrl,driver=jdbcDriver)
 
-    val query = persons.map(p => (p.id,p.first,p.last,p.age))
-    val people = db.withSession{ implicit session =>
+    val query = people.map(p => (p.id,p.name,p.age))
+    val result = db.withSession{ implicit session =>
       query.run
     }
     //#SlickTypesafeQuery
-    people
+    result
   }
   assert(jdbc == slickPlainSql)
   assert(slickTypesafeQuery == slickPlainSql,(slickTypesafeQuery, slickPlainSql).toString)
@@ -115,7 +111,7 @@ object SqlToSlick extends App {
     import scala.slick.driver.H2Driver.simple._
     import scala.slick.jdbc.StaticQuery.interpolation
     import scala.slick.jdbc.GetResult
-    import Tables.Persons // <- import auto-generated or hand-written TableQuery
+    import Tables.People // <- import auto-generated or hand-written TableQuery
     val db = Database.forURL(dbUrl,driver=jdbcDriver)
 
     db.withSession{ implicit session =>
@@ -128,7 +124,7 @@ object SqlToSlick extends App {
       //#slickFunction
 
       // usage:
-      persons.map(p => p.age.squared)
+      people.map(p => p.age.squared)
       //#slickFunction
       .run
       //#dbFunction
@@ -138,7 +134,7 @@ object SqlToSlick extends App {
       //#dbFunction
 
       // usage:
-      persons.map(p => power(p.age,2))
+      people.map(p => power(p.age,2))
       //#dbFunction
       .run
 
@@ -149,12 +145,12 @@ object SqlToSlick extends App {
   ;{
     Database.forURL(dbUrl,driver=jdbcDriver) withSession { implicit session =>
       //#overrideSql
-      persons.map(p => (p.id,p.first,p.last,p.age))
+      people.map(p => (p.id,p.name,p.age))
              // inject hand-written SQL, see https://gist.github.com/cvogt/d9049c63fc395654c4b4
       //#overrideSql
       /*
       //#overrideSql
-             .overrideSql("SELECT id, first, last, age FROM Person")
+             .overrideSql("SELECT id, name, age FROM Person")
       //#overrideSql
       */
       //#overrideSql
@@ -169,7 +165,7 @@ object SqlToSlick extends App {
           //#sqlQueryProjection*
         val slick =
           //#slickQueryProjection*
-          persons.run
+          people.run
           //#slickQueryProjection*
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
@@ -177,35 +173,35 @@ object SqlToSlick extends App {
         val sql =
           //#sqlQueryProjection
           sql"""
-            select AGE, concat(concat(FIRST,' '),LAST)
+            select AGE, concat(concat(concat(NAME,' ('),ID),')')
             from PERSON
           """.as[(Int,String)].list
           //#sqlQueryProjection
         val slick =
           //#slickQueryProjection
-          persons.map(p => (p.age, p.first ++ " " ++ p.last)).run
+          people.map(p => (p.age, p.name ++ " (" ++ p.id.asColumnOf[String] ++ ")")).run
           //#slickQueryProjection
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
       };{
         val sql =
           //#sqlQueryFilter
-          sql"select * from PERSON where AGE >= 18 AND LAST = 'Vogt'".as[Person].list
+          sql"select * from PERSON where AGE >= 18 AND NAME = 'C. Vogt'".as[Person].list
           //#sqlQueryFilter
         val slick =
           //#slickQueryFilter
-          persons.filter(p => p.age >= 18 && p.last === "Vogt").run
+          people.filter(p => p.age >= 18 && p.name === "C. Vogt").run
           //#slickQueryFilter
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
       };{
         val sql =
           //#sqlQueryOrderBy
-          sql"select * from PERSON order by LAST asc, FIRST".as[Person].list
+          sql"select * from PERSON order by AGE asc, NAME".as[Person].list
           //#sqlQueryOrderBy
         val slick =
           //#slickQueryOrderBy
-          persons.sortBy(p => (p.last.asc, p.first)).run
+          people.sortBy(p => (p.age.asc, p.name)).run
           //#slickQueryOrderBy
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
@@ -216,23 +212,23 @@ object SqlToSlick extends App {
           //#sqlQueryAggregate
         val slick =
           //#slickQueryAggregate
-          persons.map(_.age).max.run
+          people.map(_.age).max.run
           //#slickQueryAggregate
         assert(sql == slick, (sql,slick).toString)
       };{
         val sql =
           //#sqlQueryGroupBy
           sql"""
-            select LAST, avg(AGE)
+            select ADDRESS_ID, AVG(AGE)
             from PERSON
-            group by LAST
-          """.as[(String,Option[Int])].list
+            group by ADDRESS_ID
+          """.as[(Int,Option[Int])].list
           //#sqlQueryGroupBy
         val slick =
           //#slickQueryGroupBy
-          persons.groupBy(p => p.last)
-                 .map{ case (last, group) => (last, group.map(_.age).avg) }
-                 .run
+          people.groupBy(p => p.addressId)
+                 .map{ case (addressId, group) => (addressId, group.map(_.age).avg) }
+                 .list
           //#slickQueryGroupBy
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
@@ -243,17 +239,17 @@ object SqlToSlick extends App {
         val sql =
           //#sqlQueryHaving
           sql"""
-            select LAST
+            select ADDRESS_ID
             from PERSON
-            group by LAST
+            group by ADDRESS_ID
             having avg(AGE) > 50
-          """.as[String].list
+          """.as[Int].list
           //#sqlQueryHaving
         val slick =
           //#slickQueryHaving
-          persons.groupBy(p => p.last)
-                 .map{ case (last, group) => (last, group.map(_.age).avg) }
-                 .filter{ case (last, avgAge) => avgAge > 50 }
+          people.groupBy(p => p.addressId)
+                 .map{ case (addressId, group) => (addressId, group.map(_.age).avg) }
+                 .filter{ case (addressId, avgAge) => avgAge > 50 }
                  .map(_._1)
                  .run
           //#slickQueryHaving
@@ -263,25 +259,25 @@ object SqlToSlick extends App {
         val sql =
           //#sqlQueryImplicitJoin
           sql"""
-            select P.LAST, A.CITY
+            select P.NAME, A.CITY
             from PERSON P, ADDRESS A
-            where P.LIVES_AT = a.id
+            where P.ADDRESS_ID = a.id
           """.as[(String,String)].list
           //#sqlQueryImplicitJoin
         val slick =
           //#slickQueryImplicitJoin
-          persons.flatMap(p =>
-            addresses.filter(a => p.livesAt === a.id)
-                     .map(a => (p.last, a.city))
+          people.flatMap(p =>
+            addresses.filter(a => p.addressId === a.id)
+                     .map(a => (p.name, a.city))
           ).run
           
           //#slickQueryImplicitJoin
         val slick2 =
           //#slickQueryImplicitJoin
           // or equivalent for-expression:
-          (for(p <- persons;
-               a <- addresses if p.livesAt === a.id
-           ) yield (p.last, a.city)
+          (for(p <- people;
+               a <- addresses if p.addressId === a.id
+           ) yield (p.name, a.city)
           ).run
           //#slickQueryImplicitJoin
         assert(sql == slick,(sql,slick).toString)
@@ -291,15 +287,15 @@ object SqlToSlick extends App {
         val sql =
           //#sqlQueryExplicitJoin
           sql"""
-            select P.LAST, A.CITY
+            select P.NAME, A.CITY
             from PERSON P
-            join ADDRESS A on P.LIVES_AT = a.id
+            join ADDRESS A on P.ADDRESS_ID = a.id
           """.as[(String,String)].list
           //#sqlQueryExplicitJoin
         val slick =
           //#slickQueryExplicitJoin
-          (persons join addresses on (_.livesAt === _.id))
-            .map{ case (p, a) => (p.last, a.city) }.run
+          (people join addresses on (_.addressId === _.id))
+            .map{ case (p, a) => (p.name, a.city) }.run
           //#slickQueryExplicitJoin
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
@@ -307,15 +303,15 @@ object SqlToSlick extends App {
         val sql =
           //#sqlQueryLeftJoin
           sql"""
-            select P.LAST,A.CITY
+            select P.NAME,A.CITY
             from ADDRESS A
-            left join PERSON P on P.LIVES_AT = a.id
+            left join PERSON P on P.ADDRESS_ID = a.id
           """.as[(Option[String],String)].list
           //#sqlQueryLeftJoin
         val slick =
           //#slickQueryLeftJoin
-          (addresses leftJoin persons on (_.id === _.livesAt))
-            .map{ case (a, p) => (p.last.?, a.city) }.run
+          (addresses leftJoin people on (_.id === _.addressId))
+            .map{ case (a, p) => (p.name.?, a.city) }.run
           //#slickQueryLeftJoin
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
@@ -333,7 +329,7 @@ object SqlToSlick extends App {
         val slick = {
           //#slickQueryCollectionSubQuery
           val address_ids = addresses.filter(_.city === "New York City").map(_.id)
-          persons.filter(_.id in address_ids).run // <- run as one query
+          people.filter(_.id in address_ids).run // <- run as one query
           //#slickQueryCollectionSubQuery
         }
         assert(sql == slick,(sql,slick).toString)
@@ -351,7 +347,7 @@ object SqlToSlick extends App {
         }
         val slick = {
           //#slickQueryInSet
-          persons.filter(_.id inSet Set(1,2))
+          people.filter(_.id inSet Set(1,2))
                  .run
           //#slickQueryInSet
         }  
@@ -372,9 +368,9 @@ object SqlToSlick extends App {
           //#slickQuerySemiRandomChoose
           val rand = SimpleFunction.nullary[Double]("RAND")
           
-          val rndId = (persons.map(_.id).max.asColumnOf[Double] * rand).asColumnOf[Int]
+          val rndId = (people.map(_.id).max.asColumnOf[Double] * rand).asColumnOf[Int]
 
-          persons.filter(_.id >= rndId)
+          people.filter(_.id >= rndId)
                  .sortBy(_.id)
                  .first
           //#slickQuerySemiRandomChoose
@@ -383,43 +379,65 @@ object SqlToSlick extends App {
         val sqlInsert =
           //#sqlQueryInsert
           sqlu"""
-            insert into PERSON (FIRST, LAST, AGE, LIVES_AT) values ('Stefan', 'Geiger', 12345, 1)
+            insert into PERSON (NAME, AGE, ADDRESS_ID) values ('M Odersky', 12345, 1)
           """.first
           //#sqlQueryInsert
         val sqlUpdate =
           //#sqlQueryUpdate
           sqlu"""
-            update PERSON set LAST='Zeiger', AGE=54321
+            update PERSON set NAME='M. Odersky', AGE=54321 where NAME='M Odersky'
           """.first
           //#sqlQueryUpdate
         val sqlDelete =
           //#sqlQueryDelete
           sqlu"""
-            delete PERSON where FIRST='Stefan' and LAST='Zeiger'
+            delete PERSON where NAME='M. Odersky'
           """.first
           //#sqlQueryDelete
 
         val slickInsert = {
           //#slickQueryInsert
-          persons.map(p => (p.first, p.last, p.age, p.livesAt))
-                 .insert(("Stefan","Zeiger",12345,1))
+          people.map(p => (p.name, p.age, p.addressId))
+                 .insert(("M Odersky",12345,1))
           //#slickQueryInsert
         }
         val slickUpdate = {
           //#slickQueryUpdate
-          persons.map(p => (p.last,p.age))
-                 .update(("Zeiger",54321))
+          people.filter(_.name === "M Odersky")
+                 .map(p => (p.name,p.age))
+                 .update(("M. Odersky",54321))
           //#slickQueryUpdate
         }
         val slickDelete = {
           //#slickQueryDelete
-          persons.filter(p => p.first === "Stefan" && p.last === "Zeiger")
+          people.filter(p => p.name === "M. Odersky")
                  .delete
           //#slickQueryDelete
         }
         assert(sqlInsert == slickInsert,(sqlInsert,slickInsert).toString)
         assert(sqlUpdate == slickUpdate,(sqlUpdate,slickUpdate).toString)
         assert(sqlDelete == slickDelete,(sqlDelete,slickDelete).toString)
+      };{
+        val sqlCase = 
+          //#sqlCase
+          sql"""
+            select
+              case 
+                when ADDRESS_ID = 1 then 'A'
+                when ADDRESS_ID = 2 then 'B'
+              end
+            from PERSON P
+          """.as[Option[String]].list
+          //#sqlCase
+        val slickCase = 
+          //#slickCase
+          people.map(p =>
+            Case
+              If(p.addressId === 1) Then "A"
+              If(p.addressId === 2) Then "B"
+          ).list
+          //#slickCase
+        assert(sqlCase == slickCase, (sqlCase,slickCase).toString)
       }
     }
   }
