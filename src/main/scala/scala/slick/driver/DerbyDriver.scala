@@ -62,6 +62,10 @@ import scala.slick.model.Model
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
   *     Derby doesn't have a corresponding type for Byte.
   *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
+  *   <li>[[scala.slick.profile.RelationalProfile.capabilities.repeat]]:
+  *     There's not builtin string function repeat in Derby.
+  *     <a href="https://db.apache.org/derby/docs/10.10/ref/rrefsqlj29026.html" target="_parent"
+  *     >https://db.apache.org/derby/docs/10.10/ref/rrefsqlj29026.html</a></li>
   * </ul>
   */
 trait DerbyDriver extends JdbcDriver { driver =>
@@ -80,6 +84,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.reverse
     - JdbcProfile.capabilities.booleanMetaData
     - JdbcProfile.capabilities.supportsByte
+    - RelationalProfile.capabilities.repeat
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){

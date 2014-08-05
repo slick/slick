@@ -180,6 +180,8 @@ trait SQLiteDriver extends JdbcDriver { driver =>
         b.sep(s.nodeChildren, ",")(expr(_, true))
         b")"
       case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
+      // https://github.com/jOOQ/jOOQ/issues/1595
+      case Library.Repeat(n, times) => b"replace(substr(quote(zeroblob(($times + 1) / 2)), 3, $times), '0', $n)"
       case _ => super.expr(c, skipParens)
     }
   }
