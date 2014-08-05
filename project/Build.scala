@@ -5,7 +5,7 @@ import com.typesafe.sbt.site.SphinxSupport.{Sphinx, sphinxEnv, sphinxProperties}
 import com.typesafe.sbt.SbtSite.site
 import com.typesafe.sbt.SbtSite.SiteKeys.makeSite
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
+import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters, reportBinaryIssues}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.sdlc.Plugin._
@@ -153,7 +153,8 @@ object SlickBuild extends Build {
     test in (slickTestkitProject, DocTest),
     test in (osgiTestProject, Test),
     sdlc in slickProject,
-    sdlc in slickCodegenProject
+    sdlc in slickCodegenProject,
+    reportBinaryIssues in slickProject
   )))
 
   /* Project Definitions */
@@ -184,7 +185,7 @@ object SlickBuild extends Build {
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
       test := (), // suppress test status output
       testOnly :=  (),
-      previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
+      previousArtifact := Some("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value) % binaryCompatSlickVersion),
       binaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
