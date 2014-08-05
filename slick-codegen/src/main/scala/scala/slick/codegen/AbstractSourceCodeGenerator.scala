@@ -46,7 +46,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     def compoundValue(values: Seq[String]): String = {
       if(hlistEnabled) values.mkString(" :: ") + " :: HNil"
       else if (values.size == 1) values.head
-      else if(values.size <= 22) s"""(${values.mkString(", ")})"""
+      else if (values.size <= 22) s"""(${values.mkString(", ")})"""
       else throw new Exception("Cannot generate tuple for > 22 columns, please set hlistEnable=true or override compound.")
     }
 
@@ -129,7 +129,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
         val prns = parents.map(" with " + _).mkString("")
         val args = model.name.schema.map(n => s"""Some("$n")""") ++ Seq("\""+model.name.table+"\"")
         s"""
-class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkString(", ")})$prns {
+class $name(_tableTag: scala.slick.lifted.Tag) extends profile.simple.Table[$elementType](_tableTag, ${args.mkString(", ")})$prns {
   ${indent(body.map(_.mkString("\n")).mkString("\n\n"))}
 }
         """.trim()
@@ -137,7 +137,7 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
     }
 
     trait TableValueDef extends super.TableValueDef{
-      def code = s"lazy val $name = new TableQuery(tag => new ${TableClass.name}(tag))"
+      def code = s"lazy val $name = new scala.slick.lifted.TableQuery(tag => new ${TableClass.name}(tag))"
     }
 
     class ColumnDef(model: m.Column) extends super.ColumnDef(model){
