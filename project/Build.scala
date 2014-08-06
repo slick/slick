@@ -239,7 +239,7 @@ object SlickBuild extends Build {
       testGrouping in DocTest <<= definedTests in DocTest map partitionTests,
       parallelExecution in Test := false,
       fork in run := true,
-      javaOptions in run += "-Dscala.slick.ansiDump=true",
+      javaOptions in run += "-Dslick.ansiDump=true",
       //javaOptions in run += "-verbose:gc",
       compile in Test ~= { a =>
         // Delete classes in "compile" packages after compiling. (Currently only scala.slick.test.compile.NestedShapeTest)

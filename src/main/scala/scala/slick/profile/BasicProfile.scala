@@ -1,10 +1,12 @@
 package scala.slick.profile
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.{higherKinds, implicitConversions, existentials}
 import scala.slick.compiler.QueryCompiler
 import scala.slick.backend.DatabaseComponent
 import scala.slick.ast._
 import scala.slick.lifted._
+import com.typesafe.config.{ConfigFactory, Config}
+import scala.slick.util.GlobalConfig
 
 /**
  * The basic functionality that has to be implemented by all drivers.
@@ -91,6 +93,29 @@ trait BasicDriver extends BasicProfile {
     if(cl.startsWith("scala.slick.driver.") && cl.endsWith("$"))
       cl.substring(19, cl.length-1)
     else super.toString
+  }
+
+  /** The configuration for this driver, loaded via [[loadDriverConfig]]. */
+  final lazy val driverConfig: Config = loadDriverConfig
+
+  /** Load the configuration for this driver. This can be overridden in user-defined driver
+    * subclasses to load different configurations.
+    *
+    * The default implementation does a breadth-first search in the supertype hierarchy of the
+    * runtime class until it finds a class or trait matching "scala.slick.driver.XXXDriver"
+    * where XXX is an arbitrary name, and then returns the path "slick.driver.XXX" from the
+    * application config, if it exists, otherwise an empty Config object. */
+  protected[this] def loadDriverConfig: Config = {
+    def findConfigName(classes: Vector[Class[_]]): Option[String] =
+      classes.iterator.map { cl =>
+        val n = cl.getName
+        if(n.startsWith("scala.slick.driver.") && n.endsWith("Driver")) Some(n.substring(19, n.length-6))
+        else None
+      }.find(_.isDefined).getOrElse {
+        val parents = classes.flatMap { cl => Option(cl.getSuperclass) ++: cl.getInterfaces.toVector }
+        if(parents.isEmpty) None else findConfigName(parents)
+      }
+    GlobalConfig.driverConfig(findConfigName(Vector(getClass)).get)
   }
 }
 

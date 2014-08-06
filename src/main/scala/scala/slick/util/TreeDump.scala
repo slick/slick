@@ -1,13 +1,11 @@
 package scala.slick.util
 
 import java.io.{OutputStreamWriter, StringWriter, PrintWriter}
-import scala.sys.BooleanProp
 
 /** Create a readable printout of a tree. */
 object TreeDump {
-  private[util] val ansiDump = BooleanProp.valueIsTrue("scala.slick.ansiDump")
   private[util] val (normal, green, yellow, blue, cyan) = {
-    if(ansiDump) ("\u001B[0m", "\u001B[32m", "\u001B[33m", "\u001B[34m", "\u001B[36m")
+    if(GlobalConfig.ansiDump) ("\u001B[0m", "\u001B[32m", "\u001B[33m", "\u001B[34m", "\u001B[36m")
     else ("", "", "", "", "")
   }
 
