@@ -106,6 +106,12 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     new WrappingQuery[E, U, C](SortBy(generator, toNode, f(aliased.value).columns), shaped)
   }
 
+  def sortByUsingList(f: E => List[ColumnOrdered[_]]): Query[E, U, C] = {
+    val generator = new AnonSymbol
+    val aliased = shaped.encodeRef(generator :: Nil)
+    new WrappingQuery[E, U, C](SortBy(generator, toNode, f(aliased.value).map(x => (x.column.toNode, x.ord)).toSeq), shaped)
+  }
+
   /** Sort this query according to a the ordering of its elements. */
   def sorted(implicit ev: (E => Ordered)): Query[E, U, C] = sortBy(identity)
 
