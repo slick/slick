@@ -3,9 +3,6 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
-/**
- * Created by KangWoo,Lee on 14. 8. 7.
- */
 class VariableLengthSortByTest extends TestkitTest[RelationalTestDB] {
 
   import tdb.profile.simple._
