@@ -130,7 +130,14 @@ class ConvertToComprehensions extends Phase {
       val newGroupBy = Some(ProductNode(Seq(newBy)).flatten.withComputedTypeNoRec)
       Comprehension(Seq(gen -> from), groupBy = newGroupBy,
         select = Some(Pure(newSel).withComputedTypeNoRec)).nodeTyped(b.nodeType)
-    // Bind to Comprehension
+    // Inline Pure(StructNode)) generators into Bind. It may be too late to recognize this pattern
+    // in fuseComprehensions after lifting aggregates
+    case b @ Bind(gen, Pure(StructNode(ch), _), select) =>
+      val defs = ch.toMap
+      Comprehension(select = Some(select.replace({
+        case Select(Ref(gen2), fs) if gen2 == gen => defs(fs)
+      }, keepType = true))).nodeTyped(b.nodeType)
+    // Other Bind to Comprehension
     case b @ Bind(gen, from, select) =>
       Comprehension(from = mkFrom(gen, from), select = Some(select)).nodeTyped(b.nodeType)
     // Filter to Comprehension
@@ -329,7 +336,8 @@ class FuseComprehensions extends Phase {
     * (if they would refer to unreachable symbols when used in 'from'
     * position). */
   def liftAggregates(c: Comprehension): Comprehension = {
-    val lift = ArrayBuffer[(AnonSymbol, AnonSymbol, Library.AggregateFunctionSymbol, Comprehension)]()
+    logger.debug("Checking for liftable aggregates in: ", c)
+    val lift = ArrayBuffer[(AnonSymbol, AnonSymbol, Library.AggregateFunctionSymbol, Comprehension, Type)]()
     val seenGens = HashMap[Symbol, Node]()
     def tr(n: Node): Node = n match {
       //TODO Once we can recognize structurally equivalent sub-queries and merge them, c2 could be a Ref
@@ -341,7 +349,7 @@ class FuseComprehensions extends Phase {
           s match {
             case Library.CountAll =>
               if(c2.from.isEmpty) Library.Cast.typed(ap.nodeType, LiteralNode(1))
-              else c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed(ap.nodeType, LiteralNode(1)))))))
+              else Library.SilentCast.typed(ap.nodeType, c2.copy(select = Some(Pure(ProductNode(Seq(Library.Count.typed(ap.nodeType, LiteralNode(1))))))))
             case s =>
               val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
               // All standard aggregate functions operate on a single column
@@ -352,8 +360,8 @@ class FuseComprehensions extends Phase {
         } else {
           val a = new AnonSymbol
           val f = new AnonSymbol
-          lift += ((a, f, s, c2))
-          Select(Ref(a), f)
+          lift += ((a, f, s, c2, ap.nodeType))
+          Select(Ref(a), f).nodeTyped(ap.nodeType)
         }
       case c: Comprehension => c // don't recurse into sub-queries
       case n => n.nodeMapChildren(tr, keepType = true)
@@ -364,19 +372,18 @@ class FuseComprehensions extends Phase {
         ch
       case (None, ch) => tr(ch)
     }
-    if(lift.isEmpty) c2
+    val c3 = if(lift.isEmpty) c2
     else {
-      val newFrom = lift.map { case (a, f, s, c2) =>
+      val newFrom = lift.map { case (a, f, s, c2, tpe) =>
         val c3 = ensureStruct(c2).nodeWithComputedType(SymbolScope.empty, false, true)
         val a2 = new AnonSymbol
         val (c2b, call) = s match {
           case Library.CountAll =>
-            (c3, Library.Count.typed(c3.nodeType.asCollectionType.elementType, LiteralNode(1)))
+            (c3, Library.Count.typed(tpe, LiteralNode(1)))
           case s =>
             // All standard aggregate functions operate on a single column
             val Some(Pure(StructNode(Seq((f2, _))), _)) = c3.select
-            val elType = c3.nodeType.asCollectionType.elementType
-            (c3, Apply(s, Seq(Select(Ref(a2), f2)))(elType))
+            (c3, Apply(s, Seq(Select(Ref(a2), f2)))(tpe))
         }
         a -> Comprehension(from = Seq(a2 -> c2b),
           select = Some(Pure(StructNode(IndexedSeq(f -> call)))))
@@ -384,6 +391,8 @@ class FuseComprehensions extends Phase {
       logger.debug("Introducing new generator(s) "+newFrom.map(_._1).mkString(", ")+" for aggregations")
       c2.copy(from = c.from ++ newFrom)
     }
+    if(c3 ne c) logger.debug("After lifting aggregates: ", c3)
+    c3
   }
 
   /** Rewrite a Comprehension to always return a StructNode */
