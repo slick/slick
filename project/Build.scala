@@ -51,7 +51,7 @@ object SlickBuild extends Build {
   }
 
   lazy val sharedSettings = Seq(
-    version := "2.0.2",
+    version := "2.0.3",
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
