@@ -314,7 +314,7 @@ Slick queries are composable. Subqueries can be simply composed, where the types
 
 .. includecode:: code/SqlToSlick.scala#slickQueryCollectionSubQuery
 
-The method ``.in`` expects a sub query. For an in-memory Scala collection, the method ``.inSeq`` can be used instead.
+The method ``.in`` expects a sub query. For an in-memory Scala collection, the method ``.inSet`` can be used instead.
 
 .. index:: subquery, function, database function, random
 
