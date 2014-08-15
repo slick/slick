@@ -8,8 +8,15 @@ import scala.reflect.ClassTag
 import scala.reflect.macros.Context
 import scala.slick.collection.heterogenous._
 
+/**
+ * An implementation of the macros involved in the Plain SQL API
+ */
 object TypedStaticQuery {
   
+  /**
+   * An annotation used with the tsql interpolation macro for defining
+   * the configuration of compile-time database connections
+   */
   final class TSQLConfig(dbName: String = null, url: String = null, user: String = null,
                          pass: String = null, driver: String = null, slickDriver: String = null)
   extends Annotation with StaticAnnotation {
@@ -21,6 +28,12 @@ object TypedStaticQuery {
     val slickDriverOption = Option(slickDriver)
   }
 
+  /**
+   * The function used to fetch a ConfigHandler instance that ensures
+   * uniform database connections at compile-time and at run-time.
+   * tsql interpolation macro must always be used in conjunction with a
+   * ConfigHandler, more specifically a ConfigHandler.connection
+   */
   def getConfigHandler() = macro getCHimpl
 
   def getCHimpl(ctxt: Context)(): ctxt.Expr[TypedStaticQuery.ConfigHandler] = {
@@ -30,8 +43,15 @@ object TypedStaticQuery {
     ctxt.Expr(macroConnHelper.createConfigHandler(macroConnHelper.configHandler))
   }
   
+  /**
+   * Helps macros build the output trees by constructing individual compiler trees
+   * for different arguments to SQLInterpolationResult class
+   */
   private[jdbc] abstract class MacroTreeBuilderHelper extends MacroTreeBuilderBase with MacroTreeBuilder
   
+  /**
+   * This trait encapsulates some basic functionalities needed to build compiler trees
+   */
   private[jdbc] trait MacroTreeBuilderBase {
     val c: Context
     val resultTypes: List[ClassTag[_]]
@@ -40,6 +60,11 @@ object TypedStaticQuery {
     
     import c.universe._
     
+    /**
+     * Create a Tree of the static name of a class
+     * eg java.lang.String becomes
+     * Select(Select(Select(Ident(nme.ROOTPKG), "java"), "lang"), "String")
+     */
     private def createClassTreeFromString(classString: String, generator: String => Name): Tree = {
       val tokens = classString.split('.').toList
       val packages = tokens.dropRight(1) map (newTermName(_))
@@ -51,10 +76,16 @@ object TypedStaticQuery {
       })
     }
     
+    /**
+     * Creates a tree equivalent to an implicity resolution of a given type
+     * eg for type GetResult[Int], this function gives the tree equivalent of
+     * scala.Predef.implicitly[GetResult[Int]]
+     */
     def implicitTree(reqType: Tree, baseType: Tree) = TypeApply(
       ImplicitlyTree, List(AppliedTypeTree(baseType, List(reqType)))
     )
     
+    //Some commonly used trees that are created on demand
     lazy val GetResultTypeTree = createClassTreeFromString("scala.slick.jdbc.GetResult", newTypeName(_))
     lazy val SetParameterTypeTree = createClassTreeFromString("scala.slick.jdbc.SetParameter", newTypeName(_))
     lazy val TypedStaticQueryTypeTree = createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery", newTypeName(_))
@@ -66,11 +97,22 @@ object TypedStaticQuery {
     lazy val GetNoResultTree = createClassTreeFromString("scala.slick.jdbc.TypedStaticQuery.GetNoResult", newTermName(_))
   }
   
+  /**
+   * Trait that creates actual compiler trees using the
+   * helper function from base trait MacroTreeBuilderBase
+   */
   private[jdbc] trait MacroTreeBuilder { base: MacroTreeBuilderBase =>
     import base.c.universe._
     
+    /**
+     * The number of columns returned by the query that is being processed
+     */
     lazy val resultCount = resultTypes.size
     
+    /**
+     * Converts the column types from ClassTag[] (which is returned by
+     * the function meta.jdbcTypeToScala) to TypeTree
+     */
     lazy val resultTypeTreeList = resultTypes.map (_.runtimeClass.getCanonicalName match {
       case "int" => TypeTree(typeOf[Int])
       case "byte" => TypeTree(typeOf[Byte])
@@ -82,6 +124,9 @@ object TypedStaticQuery {
       case x => TypeTree(base.c.mirror.staticClass(x).selfType)
     })
     
+    /**
+     * Creates the return type of the tsql macro
+     */
     lazy val rtypeTree = resultCount match {
       case 0 => TypeTree(typeOf[Int])
       case 1 => resultTypeTreeList(0)
@@ -98,6 +143,9 @@ object TypedStaticQuery {
       }
     }
     
+    /**
+     * Creates the tree for GetResult[] of the tsql macro
+     */
     lazy val rconvTree = resultCount match {
       case 0 => base.implicitTree(rtypeTree , base.GetResultTypeTree)
       case n if (n <= 22) => base.implicitTree(rtypeTree, base.GetResultTypeTree)
@@ -132,6 +180,10 @@ object TypedStaticQuery {
       }
     }
     
+    /**
+     * Processing of the query to fill in constants and prepare
+     * the query to be used and a list of SetParameter[]
+     */
     private lazy val interpolationResultParams = if (queryParts.length == 1) {
       (Literal(Constant(queryParts.head)), Select(base.SetParameterTree, newTermName("SetUnit")))
     } else {
@@ -188,13 +240,18 @@ object TypedStaticQuery {
     lazy val pconvTree = interpolationResultParams._2
   }
   
+  /**
+   * Helps fetch a ConfigHandler by scanning the cache or else searching
+   * enclosing class and method definitions for TSQLConfig annotation and 
+   * parsing it
+   */
   private[jdbc] class MacroConnectionHelper(ctxt: Context) {
     val c: Context = ctxt
     import c.universe._
 
     def abort(msg: String) = c.abort(c.enclosingPosition, msg)
     
-    //create a list of strings passed to this interpolation
+    // create a list of strings passed to this interpolation
     lazy val queryParts: List[String] = {
       //Deconstruct macro application to determine the passed string and the actual parameters
       val Apply(Select(Apply(_, List(Apply(_, strArg))), _), paramList) = c.macroApplication
@@ -204,10 +261,14 @@ object TypedStaticQuery {
       }
     }
     
-    //create SQL query string
+    /**
+     * create SQL query string
+     */
     lazy val rawQuery: String = queryParts.mkString("?")
 
-    //Create a ConfigHandler Expr from a TSQLConfig Expr
+    /**
+     * Create a ConfigHandler Expr from a TSQLConfig Expr
+     */
     def createConfigHandler(config: TSQLConfig) = {
       @inline def valdef[T](name: String, opt: Option[T]) = opt map { t =>
         ValDef(Modifiers(Flag.OVERRIDE | Flag.LAZY), newTermName(name), TypeTree(),
@@ -244,7 +305,9 @@ object TypedStaticQuery {
       )
     }
 
-    //Create a ConfigHandler Expr from an existing ConfigHandler instance
+    /**
+     * Create a ConfigHandler Expr from an existing ConfigHandler instance
+     */
     def createConfigHandler(config: ConfigHandler) = {
       @inline def valdef[T](name: String, opt: Option[T]) = opt map { t =>
         ValDef(Modifiers(Flag.OVERRIDE | Flag.LAZY), newTermName(name), TypeTree(),
@@ -281,7 +344,7 @@ object TypedStaticQuery {
       )
     }
 
-    //convert a TSQLConfig tree to a ConfigHandler object
+    // Convert a TSQLConfig tree to a ConfigHandler object
     def fix(tree: Tree): Tree = {
       //Work around for a problem -
       // Reflective compilation failed : Type not found : TSQLConfig
@@ -296,6 +359,11 @@ object TypedStaticQuery {
       realTree
     }
     
+    /**
+     * Create a Tree of the static name of a class
+     * eg java.lang.String becomes
+     * Select(Select(Select(Ident(nme.ROOTPKG), "java"), "lang"), "String")
+     */
     def createClassTreeFromString(classString: String, generator: String => Name): Tree = {
       val tokens = classString.split('.').toList
       val packages = tokens.dropRight(1) map (newTermName(_))
@@ -307,6 +375,9 @@ object TypedStaticQuery {
       })
     }
     
+    /**
+     * Actually locates a configHandler or creates one...
+     */
     lazy val configHandler: ConfigHandler = {
 
       //Shorthand for c.eval
@@ -365,6 +436,10 @@ object TypedStaticQuery {
     }
   }
 
+  /**
+   * The trait that is used to ensure an uniform database access mechanism
+   * at the compile-time and run-time by factoring the connection parameters
+   */
   trait ConfigHandler {
     
     final val configFileName = "reference.conf"
@@ -418,7 +493,7 @@ object TypedStaticQuery {
 
   }
 
-  //Cache implementation
+  // ConfigHandler Cache implementation
   private[this] class HierarchalCache[T](val ident: String) {
     val subCaches = MutableMap[String, HierarchalCache[T]]()
     var config: Option[T] = None

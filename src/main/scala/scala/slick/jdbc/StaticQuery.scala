@@ -4,7 +4,6 @@ import scala.language.experimental.macros
 import scala.language.implicitConversions
 import scala.reflect.macros.Context
 import java.sql.PreparedStatement
-import collection.mutable.ArrayBuffer
 
 /** A builder for Plain SQL queries. */
 class StaticQuery[-P,+R](query: String, pconv: SetParameter[P], rconv: GetResult[R]) extends (P => Invoker[R]) {
@@ -61,6 +60,9 @@ class SQLInterpolation(val s: StringContext) extends AnyVal {
   def tsql(param: Any*) = macro SQLInterpolation.tsqlImpl
 }
 
+/**
+ * Implementation of SQLInterpolation macros based on code in TypedStaticQuery object
+ */
 object SQLInterpolation {
   def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLInterpolationResult] = {
     import ctxt.universe._
@@ -140,6 +142,9 @@ object SQLInterpolation {
   }
 }
 
+/**
+ * Results of SQLInterpolation macros is SQLInterpolationResult objects
+ */
 case class SQLInterpolationResult(query: String, sp: SetParameter[Unit]) {
   def as[R](implicit rconv: GetResult[R]): StaticQuery[Unit, R] = new StaticQuery[Unit, R](query, sp, rconv)
   def asUpdate = as[Int](GetResult.GetUpdateValue)
