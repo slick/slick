@@ -1,7 +1,6 @@
 package scala.slick.compiler
 
 import scala.collection.mutable.{ArrayBuffer, HashMap}
-import scala.slick.SlickException
 import scala.slick.ast._
 import Util._
 import TypeUtil._
@@ -15,7 +14,8 @@ class ExpandTables extends Phase {
     val tsyms: Set[TableIdentitySymbol] =
       tree.nodeType.collect { case NominalType(sym: TableIdentitySymbol, _) => sym }.toSet
     logger.debug("Tables for expansion in result type: " + tsyms.mkString(", "))
-    if(tsyms.isEmpty) tree else {
+    val tree2 = tree.replace({ case TableExpansion(_, t, _) => t }, keepType = true)
+    if(tsyms.isEmpty) tree2 else {
       // Find the corresponding TableExpansions
       val tables: Map[TableIdentitySymbol, (Symbol, Node)] = tree.collect {
         case TableExpansion(s, TableNode(_, _, ts, _, _), ex) if tsyms contains ts => ts -> (s, ex)
@@ -23,117 +23,49 @@ class ExpandTables extends Phase {
       logger.debug("Table expansions: " + tables.mkString(", "))
       // Create a mapping that expands the tables
       val sym = new AnonSymbol
-      val mapping = createResult(tables, sym :: Nil, tree.nodeType.asCollectionType.elementType)
+      val mapping = createResult(tables, Ref(sym), tree.nodeType.asCollectionType.elementType)
         .nodeWithComputedType(SymbolScope.empty + (sym -> tree.nodeType.asCollectionType.elementType), typeChildren = true)
-      Bind(sym, tree, Pure(mapping)).nodeWithComputedType()
+      Bind(sym, tree2, Pure(mapping)).nodeWithComputedType()
     }
   }}
 
   /** Create an expression that copies a structured value, expanding tables in it. */
-  def createResult(expansions: Map[TableIdentitySymbol, (Symbol, Node)], path: List[Symbol], tpe: Type): Node = tpe match {
+  def createResult(expansions: Map[TableIdentitySymbol, (Symbol, Node)], path: Node, tpe: Type): Node = tpe match {
     case p: ProductType =>
-      ProductNode(p.numberedElements.map { case (s, t) => createResult(expansions, s :: path, t) }.toVector)
+      ProductNode(p.numberedElements.map { case (s, t) => createResult(expansions, Select(path, s), t) }.toVector)
     case NominalType(tsym: TableIdentitySymbol, _) if expansions contains tsym =>
       val (sym, exp) = expansions(tsym)
-      val p = Path(path)
-      exp.replace { case Ref(s) if s == sym => p }
+      exp.replace { case Ref(s) if s == sym => path }
     case tpe: NominalType => createResult(expansions, path, tpe.structuralView)
-    case _ => Path(path)
+    case m: MappedScalaType =>
+      TypeMapping(createResult(expansions, path, m.baseType), m.mapper, m.classTag)
+    case OptionType(el) =>
+      val gen = new AnonSymbol
+      OptionFold(path, LiteralNode.nullOption, OptionApply(createResult(expansions, Ref(gen), el)), gen)
+    case _ => path
   }
 }
 
 /** Expand paths of record types to reference all fields individually and
-  * recreate the record structure at the call site.
-  * We also remove TableExpansions here because we need to transform the whole
-  * tree anyway (Doing that in expandTables would be more logical). */
+  * recreate the record structure at the call site. */
 class ExpandRecords extends Phase {
   val name = "expandRecords"
 
   def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n){ tree =>
-    def tr(n: Node): Node = n match {
-      case Path(_) => expandPath(n)
-      case TableExpansion(_, table, _) => table
-      case n => n.nodeMapChildren(tr, keepType = true)
-    }
-    tr(tree)
+    tree.replace({ case n @ Path(_) => expandPath(n) }, keepType = true)
   }}
 
   def expandPath(n: Node): Node = n.nodeType.structural match {
     case StructType(ch) =>
       StructNode(ch.map { case (s, t) =>
-        (s, expandPath(Select(n, s).nodeTyped(t)))
+        (s, expandPath(n.select(s).nodeTypedOrCopy(t)))
       }(collection.breakOut)).nodeTyped(n.nodeType)
     case p: ProductType =>
       ProductNode(p.numberedElements.map { case (s, t) =>
-        expandPath(Select(n, s).nodeTyped(t))
+        expandPath(n.select(s).nodeTypedOrCopy(t))
       }.toVector).nodeTyped(n.nodeType)
     case t => n
   }
-}
-
-/** Expand multi-column conditional expressions and SilentCasts created by expandSums.
-  * Single-column conditionals involving NULL values are optimized away where possible. */
-class ExpandConditionals extends Phase {
-  val name = "expandConditionals"
-
-  def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n)(tr) }
-
-  def tr(n: Node): Node = n.nodeMapChildren(tr, keepType = true) match {
-    // Expand multi-column SilentCasts
-    case Library.SilentCast(LiteralNode(None) :@ OptionType(ScalaBaseType.nullType)) :@ tpe =>
-      buildMultiColumnNone(tpe)
-    case cast @ Library.SilentCast(ch) :@ Type.Structural(ProductType(typeCh)) =>
-      val elems = typeCh.zipWithIndex.map { case (t, idx) => tr(Library.SilentCast.typed(t, select(ch, ElementSymbol(idx+1)))) }
-      ProductNode(elems).nodeWithComputedType()
-    case Library.SilentCast(ch) :@ Type.Structural(StructType(typeCh)) =>
-      val elems = typeCh.map { case (sym, t) => (sym, tr(Library.SilentCast.typed(t, select(ch, sym)))) }
-      StructNode(elems).nodeWithComputedType()
-
-    // Optimize trivial SilentCasts
-    case Library.SilentCast(v :@ tpe) :@ tpe2 if tpe.structural == tpe2.structural => v
-    case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => tr(Library.SilentCast.typed(tpe, ch))
-    case Library.SilentCast(LiteralNode(None)) :@ (tpe @ OptionType.Primitive(_)) => LiteralNode(tpe, None)
-
-    // Expand multi-column ConditionalExprs
-    case (cond @ IfThenElse(_)) :@ Type.Structural(ProductType(chTypes)) =>
-      val ch = (1 to chTypes.length).map { idx =>
-        val sym = ElementSymbol(idx)
-        tr(cond.mapResultClauses(n => select(n, sym)).nodeWithComputedType())
-      }
-      ProductNode(ch).nodeWithComputedType()
-    case (cond @ IfThenElse(_)) :@ Type.Structural(StructType(chTypes)) =>
-      val ch = chTypes.map { case (sym, _) =>
-        (sym, tr(cond.mapResultClauses(n => select(n, sym)).nodeWithComputedType()))
-      }
-      StructNode(ch).nodeWithComputedType()
-
-    // Optimize null-propagating single-column ConditionalExprs
-    case IfThenElse(Seq(Library.==(r, LiteralNode(null)), Library.SilentCast(LiteralNode(None)), c @ Library.SilentCast(r2))) if r == r2 => c
-
-    // Fix Untyped nulls in else clauses
-    case cond @ IfThenElse(clauses) if (clauses.last match { case LiteralNode(None) :@ OptionType(ScalaBaseType.nullType) => true; case _ => false }) =>
-      cond.copy(clauses.init :+ LiteralNode(cond.nodeType, None))
-
-    // Resolve Selects into ProductNodes and StructNodes
-    case Select(ProductNode(ch), ElementSymbol(idx)) => ch(idx-1)
-    case Select(StructNode(ch), sym) => ch.find(_._1 == sym).get._2
-
-    case n => n
-  }
-
-  def select(n: Node, sym: Symbol): Node = n match {
-    // Can occur in an Else clause generated by Rep[Option[_]].filter. It won't pass type checking,
-    // so we have to resolve it here instead of relying on `tr` to optimize it away afterwards.
-    case LiteralNode(None) :@ OptionType(ScalaBaseType.nullType) => n
-    case n => n.select(sym)
-  }
-
-  def buildMultiColumnNone(tpe: Type): Node = (tpe.structural match {
-    case ProductType(ch) => ProductNode(ch.map(buildMultiColumnNone))
-    case StructType(ch) => StructNode(ch.map { case (sym, t) => (sym, buildMultiColumnNone(t)) })
-    case OptionType(ch) => LiteralNode(tpe, None)
-    case t => throw new SlickException("Unexpected non-Option type in multi-column None")
-  }).nodeTypedOrCopy(tpe)
 }
 
 /** Flatten all Pure node contents into a single StructNode. */

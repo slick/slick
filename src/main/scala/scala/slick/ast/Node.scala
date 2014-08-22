@@ -217,26 +217,26 @@ final case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends Produc
   })
 }
 
-/** A literal value expression. */
-trait LiteralNode extends NullaryNode with TypedNode {
+/** A literal value expression.
+  *
+  * @param volatileHint Indicates whether this value should be considered volatile, i.e. it
+  *                     contains user-generated data or may change in future executions of what
+  *                     is otherwise the same query. A database back-end should usually turn
+  *                     volatile constants into bind variables. */
+class LiteralNode(val tpe: Type, val value: Any, val volatileHint: Boolean = false) extends NullaryNode with TypedNode {
   type Self = LiteralNode
-  def value: Any
+  override def getDumpInfo = super.getDumpInfo.copy(name = "LiteralNode", mainInfo = s"$value (volatileHint=$volatileHint)")
+  protected[this] def nodeRebuild = new LiteralNode(tpe, value, volatileHint)
 
-  /** Indicates whether this value should be considered volatile, i.e. it
-    * contains user-generated data or may change in future executions of what
-    * is otherwise the same query. A database back-end should usually turn
-    * volatile constants into bind variables. */
-  def volatileHint: Boolean
+  override def hashCode = tpe.hashCode() + (if(value == null) 0 else value.asInstanceOf[AnyRef].hashCode)
+  override def equals(o: Any) = o match {
+    case l: LiteralNode => tpe == l.tpe && value == l.value
+    case _ => false
+  }
 }
 
 object LiteralNode {
-  def apply(tp: Type, v: Any, vol: Boolean = false): LiteralNode = new LiteralNode {
-    val value = v
-    val tpe = tp
-    def nodeRebuild = apply(tp, v, vol)
-    def volatileHint = vol
-    override def getDumpInfo = super.getDumpInfo.copy(name = "LiteralNode", mainInfo = s"$value (volatileHint=$volatileHint)")
-  }
+  def apply(tp: Type, v: Any, vol: Boolean = false): LiteralNode = new LiteralNode(tp, v, vol)
   def apply[T](v: T)(implicit tp: ScalaBaseType[T]): LiteralNode = apply(tp, v)
   def unapply(n: LiteralNode): Option[Any] = Some(n.value)
 
@@ -394,14 +394,20 @@ final case class Drop(from: Node, count: Node) extends FilteredQuery with Binary
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, count = right)
 }
 
-/** A join expression of type
-  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (t, u)). */
+/** A join expression. For joins without option extension, the type rule is
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (t, u)).
+  * Option-extended left outer joins are typed as
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (t, Option(u))),
+  * Option-extended right outer joins as
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (Option(t), u))
+  * and Option-extended full outer joins as
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (Option(t), Option(u))). */
 final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends DefNode {
   type Self = Join
   lazy val nodeChildren = IndexedSeq(left, right, on)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
   override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = jt.sqlName)
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = jt.toString)
   def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(leftGen = gen(0), rightGen = gen(1))
@@ -411,9 +417,14 @@ final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node
     val left2Type = left2.nodeType.asCollectionType
     val right2Type = right2.nodeType.asCollectionType
     val on2 = on.nodeWithComputedType(scope + (leftGen -> left2Type.elementType) + (rightGen -> right2Type.elementType), typeChildren, retype)
+    val (joinedLeftType, joinedRightType) = jt match {
+      case JoinType.LeftOption => (left2Type.elementType, OptionType(right2Type.elementType))
+      case JoinType.RightOption => (OptionType(left2Type.elementType), right2Type.elementType)
+      case JoinType.OuterOption => (OptionType(left2Type.elementType), OptionType(right2Type.elementType))
+      case _ => (left2Type.elementType, right2Type.elementType)
+    }
     nodeRebuildOrThis(Vector(left2, right2, on2)).nodeTypedOrCopy(
-      if(!nodeHasType || retype)
-        CollectionType(left2Type.cons, ProductType(IndexedSeq(left2Type.elementType, right2Type.elementType)))
+      if(!nodeHasType || retype) CollectionType(left2Type.cons, ProductType(IndexedSeq(joinedLeftType, joinedRightType)))
       else nodeType)
   }
 }

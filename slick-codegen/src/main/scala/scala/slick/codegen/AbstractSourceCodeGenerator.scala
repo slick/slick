@@ -103,12 +103,12 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
 
     trait TableClassDef extends super.TableClassDef{
       def star = {
-        val struct = compoundValue(columns.map(c=>if(c.fakeNullable)s"${c.name}.?" else s"${c.name}"))
+        val struct = compoundValue(columns.map(c=>if(c.fakeNullable)s"Rep.Some(${c.name})" else s"${c.name}"))
         val rhs = if(mappingEnabled) s"$struct <> ($factory, $extractor)" else struct
         s"def * = $rhs"
       }
       def option = {
-        val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"${c.name}.?"))
+        val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"Rep.Some(${c.name})"))
         val rhs = if(mappingEnabled) s"""$struct.shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
         s"def ? = $rhs"
       }
@@ -188,8 +188,8 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
         val (pkColumns, fkColumns) = (referencedColumns, referencingColumns).zipped.map { (p, f) =>
           val pk = s"r.${p.name}"
           val fk = f.name
-          if(p.model.nullable && !f.model.nullable) (pk, fk + ".?")
-          else if(!p.model.nullable && f.model.nullable) (pk + ".?", fk)
+          if(p.model.nullable && !f.model.nullable) (pk, s"Rep.Some($fk)")
+          else if(!p.model.nullable && f.model.nullable) (s"Rep.Some($pk)", fk)
           else (pk, fk)
         }.unzip
         s"""lazy val $name = foreignKey("$dbName", ${compoundValue(fkColumns)}, $pkTable)(r => ${compoundValue(pkColumns)}, onUpdate=${onUpdate}, onDelete=${onDelete})"""

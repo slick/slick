@@ -64,13 +64,15 @@ final case class Comprehension(from: Seq[(Symbol, Node)] = Seq.empty, where: Seq
     val newSel = s2.map(_.headOption).getOrElse(select)
     val newType =
       if(!nodeHasType || retype) {
-        newSel match {
-          case Some(sel) => sel.nodeType
-          case None =>
-            val el = f2.last.nodeType.asCollectionType.elementType
-            val tc = f2.head.nodeType.asCollectionType.cons
-            CollectionType(tc, el)
+        val el = newSel match {
+          case Some(sel) => sel.nodeType.asCollectionType.elementType
+          case None => f2.last.nodeType.asCollectionType.elementType
         }
+        val tc = f2 match {
+          case Vector(n, _*) => n.nodeType.asCollectionType.cons
+          case _ => newSel.get.nodeType.asCollectionType.cons
+        }
+        CollectionType(tc, el)
       } else nodeType
     if(same && newType == nodeType) this else {
       // Compute result type

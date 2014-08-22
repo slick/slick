@@ -63,39 +63,103 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   @deprecated("Use `filter` instead of `where`", "2.1")
   def where[T <: Rep[_] : CanBeQueryCondition](f: E => T) = filter(f)
 
-  /** Join two collections.
+  /** Join two queries with a cross join or inner join.
     * An optional join predicate can be specified later by calling `on`. */
-  def join[E2, U2, D[_]](q2: Query[E2, U2, D], jt: JoinType = JoinType.Inner) = {
+  def join[E2, U2, D[_]](q2: Query[E2, U2, D]) = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(Ref(leftGen))
     val aliased2 = q2.shaped.encodeRef(Ref(rightGen))
-    new BaseJoinQuery[E, E2, U, U2, C](leftGen, rightGen, toNode, q2.toNode, jt, aliased1.zip(aliased2))
+    new BaseJoinQuery[E, E2, U, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.Inner,
+      aliased1.zip(aliased2), aliased1.value, aliased2.value)
   }
-  /** Join two collections with an inner join.
+
+  /** Join two queries with a left outer join.
+    * An optional join predicate can be specified later by calling `on`.
+    * The right side of the join is lifted to an `Option`. If at least one element on the right
+    * matches, all matching elements are returned as `Some`, otherwise a single `None` row is
+    * returned. */
+  def joinLeft[E2, U2, D[_], O2](q2: Query[E2, _, D])(implicit ol: OptionLift[E2, O2], sh: Shape[FlatShapeLevel, O2, U2, _]) = {
+    val leftGen, rightGen = new AnonSymbol
+    val aliased1 = shaped.encodeRef(Ref(leftGen))
+    val aliased2 = ShapedValue(ol.lift(q2.shaped.value), sh).encodeRef(Ref(rightGen))
+    new BaseJoinQuery[E, O2, U, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.LeftOption,
+      aliased1.zip(aliased2), aliased1.value, q2.shaped.encodeRef(Ref(rightGen)).value)
+  }
+
+  /** Join two queries with a right outer join.
+    * An optional join predicate can be specified later by calling `on`.
+    * The left side of the join is lifted to an `Option`. If at least one element on the left
+    * matches, all matching elements are returned as `Some`, otherwise a single `None` row is
+    * returned. */
+  def joinRight[E1 >: E, E2, U2, D[_], O1, U1](q2: Query[E2, U2, D])(implicit ol: OptionLift[E1, O1], sh: Shape[FlatShapeLevel, O1, U1, _]) = {
+    val leftGen, rightGen = new AnonSymbol
+    val aliased1 = ShapedValue(ol.lift(shaped.value), sh).encodeRef(Ref(leftGen))
+    val aliased2 = q2.shaped.encodeRef(Ref(rightGen))
+    new BaseJoinQuery[O1, E2, U1, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.RightOption,
+      aliased1.zip(aliased2), shaped.encodeRef(Ref(leftGen)).value, aliased2.value)
+  }
+
+  /** Join two queries with a full outer join.
+    * An optional join predicate can be specified later by calling `on`.
+    * Both sides of the join are lifted to an `Option`. If at least one element on either side
+    * matches the other side, all matching elements are returned as `Some`, otherwise a single
+    * `None` row is returned. */
+  def joinFull[E1 >: E, E2, U2, D[_], O1, U1, O2](q2: Query[E2, _, D])(implicit ol1: OptionLift[E1, O1], sh1: Shape[FlatShapeLevel, O1, U1, _], ol2: OptionLift[E2, O2], sh2: Shape[FlatShapeLevel, O2, U2, _]) = {
+    val leftGen, rightGen = new AnonSymbol
+    val aliased1 = ShapedValue(ol1.lift(shaped.value), sh1).encodeRef(Ref(leftGen))
+    val aliased2 = ShapedValue(ol2.lift(q2.shaped.value), sh2).encodeRef(Ref(rightGen))
+    new BaseJoinQuery[O1, O2, U1, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, JoinType.OuterOption,
+      aliased1.zip(aliased2), shaped.encodeRef(Ref(leftGen)).value, q2.shaped.encodeRef(Ref(rightGen)).value)
+  }
+
+  private[this] def standardJoin[E2, U2, D[_]](q2: Query[E2, U2, D], jt: JoinType) = {
+    val leftGen, rightGen = new AnonSymbol
+    val aliased1 = shaped.encodeRef(Ref(leftGen))
+    val aliased2 = q2.shaped.encodeRef(Ref(rightGen))
+    new BaseJoinQuery[E, E2, U, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, jt,
+      aliased1.zip(aliased2), aliased1.value, aliased2.value)
+  }
+
+  /** Join two queries.
     * An optional join predicate can be specified later by calling `on`. */
-  def innerJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = join(q2, JoinType.Inner)
-  /** Join two collections with a left outer join.
+  @deprecated("Use join (without explicit JoinType), joinLeft, joinRight or joinOuter instead", "2.2")
+  def join[E2, U2, D[_]](q2: Query[E2, U2, D], jt: JoinType) = standardJoin(q2, jt)
+
+  /** Join two queries with a cross / inner join.
     * An optional join predicate can be specified later by calling `on`. */
-  def leftJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = join(q2, JoinType.Left)
-  /** Join two collections with a right outer join.
+  @deprecated("Use join instead of joinInner", "2.2")
+  def innerJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Inner)
+
+  /** Join two queries with a left outer join.
     * An optional join predicate can be specified later by calling `on`. */
-  def rightJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = join(q2, JoinType.Right)
-  /** Join two collections with a full outer join.
+  @deprecated("Use joinLeft (with correct Option types) instead of leftJoin", "2.2")
+  def leftJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Left)
+
+  /** Join two queries with a right outer join.
     * An optional join predicate can be specified later by calling `on`. */
-  def outerJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = join(q2, JoinType.Outer)
+  @deprecated("Use joinRight (with correct Option types) instead of rightJoin", "2.2")
+  def rightJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Right)
+
+  /** Join two queries with a full outer join.
+    * An optional join predicate can be specified later by calling `on`. */
+  @deprecated("Use joinFull (with correct Option types) instead of outerJoin", "2.2")
+  def outerJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Outer)
+
   /** Return a query formed from this query and another query by combining
     * corresponding elements in pairs. */
-  def zip[E2, U2, D[_]](q2: Query[E2, U2, D]): Query[(E, E2), (U, U2), C] = join(q2, JoinType.Zip)
+  def zip[E2, U2, D[_]](q2: Query[E2, U2, D]): Query[(E, E2), (U, U2), C] = standardJoin(q2, JoinType.Zip)
+
   /** Return a query formed from this query and another query by combining
     * corresponding elements with the specified function. */
   def zipWith[E2, U2, F, G, T, D[_]](q2: Query[E2, U2, D], f: (E, E2) => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, G]): Query[G, T, C] =
-    join(q2, JoinType.Zip).map[F, G, T](x => f(x._1, x._2))
+    standardJoin(q2, JoinType.Zip).map[F, G, T](x => f(x._1, x._2))
+
   /** Zip this query with its indices (starting at 0). */
   def zipWithIndex = {
     val leftGen, rightGen = new AnonSymbol
     val aliased1 = shaped.encodeRef(Ref(leftGen))
     val aliased2 = ShapedValue(Rep.forNode[Long](Ref(rightGen)), Shape.repColumnShape[Long, FlatShapeLevel])
-    new BaseJoinQuery[E, Rep[Long], U, Long, C](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2))
+    new BaseJoinQuery[E, Rep[Long], U, Long, C, E, Rep[Long]](leftGen, rightGen, toNode, RangeFrom(0L), JoinType.Zip, aliased1.zip(aliased2), aliased1.value, aliased2.value)
   }
 
   /** Sort this query according to a function which extracts the ordering
@@ -221,11 +285,11 @@ object CanBeQueryCondition {
 
 class WrappingQuery[+E, U, C[_]](val toNode: Node, val shaped: ShapedValue[_ <: E, U]) extends Query[E, U, C]
 
-final class BaseJoinQuery[+E1, +E2, U1, U2, C[_]](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)])
+final class BaseJoinQuery[+E1, +E2, U1, U2, C[_], +B1, +B2](leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, base: ShapedValue[_ <: (E1, E2), (U1, U2)], b1: B1, b2: B2)
     extends WrappingQuery[(E1, E2), (U1,  U2), C](AJoin(leftGen, rightGen, left, right, jt, LiteralNode(true)), base) {
   /** Add a join condition to a join operation. */
-  def on[T <: Rep[_]](pred: (E1, E2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
-    new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(base.value._1, base.value._2)).toNode), base)
+  def on[T <: Rep[_]](pred: (B1, B2) => T)(implicit wt: CanBeQueryCondition[T]): Query[(E1, E2), (U1, U2), C] =
+    new WrappingQuery[(E1, E2), (U1, U2), C](AJoin(leftGen, rightGen, left, right, jt, wt(pred(b1, b2)).toNode), base)
 }
 
 /** Represents a database table. Profiles add extension methods to TableQuery

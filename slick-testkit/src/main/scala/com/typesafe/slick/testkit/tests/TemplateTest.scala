@@ -107,7 +107,7 @@ class TemplateTest extends TestkitTest[RelationalTestDB] {
     val r5t: Int = r5
     assertEquals(2, r5)
 
-    val joinC = Compiled { id: Rep[Int] => ts.filter(_.id === id).innerJoin(ts.filter(_.id === id)) }
+    val joinC = Compiled { id: Rep[Int] => ts.filter(_.id === id).join(ts.filter(_.id === id)) }
     assertEquals(Seq(((1, "a"), (1, "a"))), joinC(1).run)
 
     implicitly[scala.slick.lifted.Executable[(Rep[Int], Rep[Int]), _]]

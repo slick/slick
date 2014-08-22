@@ -28,7 +28,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     val canJoinRight = capabilities contains RelationalProfile.capabilities.joinRight
     val canJoinFull = capabilities contains RelationalProfile.capabilities.joinFull
     if(canJoinLeft && canJoinRight && canJoinFull) base
-    else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.forceOuterBinds)
+    else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandConditionals)
   }
 
   trait Implicits extends super.Implicits with ImplicitColumnTypes {

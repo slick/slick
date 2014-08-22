@@ -301,7 +301,6 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case Apply(sym, ch) =>
         val chV = ch.map(n => (n.nodeType, run(n)))
         logDebug("[chV: "+chV.mkString(", ")+"]")
-        // Use ternary logic for function calls
         if(n.nodeType.isInstanceOf[OptionType]) {
           if(chV.exists { case (t, v) => t.isInstanceOf[OptionType] && (v == None) }) None
           else {

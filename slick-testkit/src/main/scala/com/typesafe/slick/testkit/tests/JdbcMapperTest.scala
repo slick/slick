@@ -197,7 +197,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     class BRow(tag: Tag) extends Table[B](tag, "t5_b") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def data = column[String]("data")
-      def * = (id, data.?) <> (B.tupled, B.unapply _)
+      def * = (id, Rep.Some(data)) <> (B.tupled, B.unapply _)
     }
     val bs = TableQuery[BRow]
 
@@ -205,14 +205,23 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     as.map(_.data).insertAll(1, 2)
     bs.map(_.data).insertAll("a", "b")
 
-    val q = for {
+    val q1 = for {
       a <- as if a.data === 2
       b <- bs if b.id === a.id
     } yield (a, b)
+    val r1 = q1.to[Set].run
+    val r1t: Set[(A, B)] = r1
+    assertEquals(Set((A(2, 2), B(2, Some("b")))), r1)
 
-    val r = q.run.toList
-    val r2: List[(A, B)] = r
-    assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
+    val q2 = as joinLeft bs
+    val r2 = q2.to[Set].run
+    val r2t: Set[(A, Option[B])] = r2
+    assertEquals(Set(
+      (A(1,1), Some(B(1,Some("a")))),
+      (A(1,1), Some(B(2,Some("b")))),
+      (A(2,2), Some(B(1,Some("a")))),
+      (A(2,2), Some(B(2,Some("b"))))
+    ), r2)
   }
 
   def testCaseClassShape {

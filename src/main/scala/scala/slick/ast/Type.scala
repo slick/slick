@@ -21,6 +21,8 @@ trait Type extends Dumpable {
   def select(sym: Symbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
   /** The structural view of this type */
   def structural: Type = this
+  /** Remove all NominalTypes recursively from this Type */
+  def structuralRec: Type = structural.mapChildren(_.structuralRec)
   /** A ClassTag for the erased type of this type's Scala values */
   def classTag: ClassTag[_]
   def getDumpInfo = DumpInfo(getClass.getName.replaceAll(".*\\.", ""), toString, "",
@@ -153,7 +155,10 @@ trait CollectionTypeConstructor {
 
 @implicitNotFound("Cannot use collection in a query\n            collection type: ${C}[_]\n  requires implicit of type: scala.slick.ast.TypedCollectionTypeConstructor[${C}]")
 abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]) extends CollectionTypeConstructor {
-  override def toString = s"Coll[$classTag]"
+  override def toString = classTag.runtimeClass.getName
+    .replaceFirst("^scala.collection.immutable.", "")
+    .replaceFirst("^scala.collection.mutable.", "m.")
+    .replaceFirst("^scala.collection.generic.", "g.")
   def createBuilder[E : ClassTag]: Builder[E, C[E]]
 }
 
@@ -213,8 +218,7 @@ final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType {
  * so that all NominalTypes with the same symbol have the same structural
  * view. */
 final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type {
-  def toShortString = s"NominalType($sym)"
-  override def toString = s"$toShortString($structuralView)"
+  override def toString = s"$sym<$structuralView>"
   def withStructuralView(t: Type): NominalType =
     if(t == structuralView) this else copy(structuralView = t)
   override def structural: Type = structuralView.structural
@@ -347,7 +351,7 @@ trait ScalaType[T] extends TypedType[T] {
 }
 
 class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
-  override def toString = "ScalaType[" + classTag.runtimeClass.getName + "]"
+  override def toString = classTag.toString.replaceFirst("^java.lang.", "")
   def nullable = false
   def ordered = ordering ne null
   def scalaOrderingFor(ord: Ordering) = {
@@ -370,6 +374,10 @@ class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.m
   }
 }
 
+class ErasedScalaBaseType[T, E](implicit val erasure: ScalaBaseType[E], val ct: ClassTag[T]) extends ScalaBaseType[T]()(ct, null) {
+  override def toString = classTag.toString.replaceFirst("^scala.slick.ast.", "") + "/" + erasure
+}
+
 object ScalaBaseType {
   implicit val booleanType = new ScalaBaseType[Boolean]
   implicit val bigDecimalType = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
@@ -382,10 +390,12 @@ object ScalaBaseType {
   implicit val nullType = new ScalaBaseType[Null]
   implicit val shortType = new ScalaNumericType[Short](_.toShort)
   implicit val stringType = new ScalaBaseType[String]
+  implicit val optionDiscType = new ErasedScalaBaseType[OptionDisc, Int]
 
   private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
-      floatType, intType, longType, nullType, shortType, stringType).map(s => (s.classTag, s)).toMap
+      floatType, intType, longType, nullType, shortType, stringType,
+      optionDiscType).map(s => (s.classTag, s)).toMap
 
   def apply[T](implicit classTag: ClassTag[T], ordering: scala.math.Ordering[T] = null): ScalaBaseType[T] =
     all.getOrElse(classTag, new ScalaBaseType[T]).asInstanceOf[ScalaBaseType[T]]
@@ -393,13 +403,16 @@ object ScalaBaseType {
   def unapply[T](t: ScalaBaseType[T]) = Some((t.classTag,t.ordering))
 }
 
+/** A phantom type for Option discriminator columns. Values are of type Int. */
+sealed trait OptionDisc
+
 class ScalaNumericType[T](val fromDouble: Double => T)(implicit tag: ClassTag[T], val numeric: Numeric[T])
   extends ScalaBaseType[T]()(tag, numeric) with NumericTypedType {
   def toDouble(v: T) = numeric.toDouble(v)
 }
 
 class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option[T]] with OptionTypedType[T] {
-  override def toString = "ScalaOptionType[" + elementType + "]"
+  override def toString = "SOption[" + elementType + "]"
   def nullable = true
   def ordered = elementType.ordered
   def scalaOrderingFor(ord: Ordering) = {

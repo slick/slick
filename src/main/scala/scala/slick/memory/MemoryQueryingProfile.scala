@@ -55,7 +55,7 @@ trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDr
 trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile { driver =>
 
   /** The driver-specific representation of types */
-  def typeInfoFor(t: Type): ScalaType[Any] = ((t match {
+  def typeInfoFor(t: Type): ScalaType[Any] = ((t.structural match {
     case t: ScalaType[_] => t
     case t: TypedType[_] => t.scalaType
     case o: OptionType => typeInfoFor(o.elementType).asInstanceOf[ScalaBaseType[_]].optionType
@@ -105,7 +105,10 @@ trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile {
       def read(pr: MemoryResultConverterDomain#Reader) = {
         val v = pr(ridx-1)
         if(!nullable && (v.asInstanceOf[AnyRef] eq null)) throw new SlickException("Read null value for non-nullable column")
-        v
+
+        // TODO: Remove this hack; see comment in ternary logic section of QueryInterpreter
+        if(!nullable && v.isInstanceOf[Option[_]]) v.asInstanceOf[Option[_]].get
+        else v
       }
       def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
       def set(value: Any, pp: MemoryResultConverterDomain#Writer) = ???

@@ -55,7 +55,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     def unapply(t: Type) = Some((jdbcTypeFor(t), t.isInstanceOf[OptionType]))
   }
 
-  def jdbcTypeFor(t: Type): JdbcType[Any] = ((t match {
+  def jdbcTypeFor(t: Type): JdbcType[Any] = ((t.structural match {
     case tmd: JdbcType[_] => tmd
     case ScalaBaseType.booleanType => columnTypes.booleanJdbcType
     case ScalaBaseType.bigDecimalType => columnTypes.bigDecimalJdbcType
@@ -69,6 +69,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     case ScalaBaseType.shortType => columnTypes.shortJdbcType
     case ScalaBaseType.stringType => columnTypes.stringJdbcType
     case t: OptionType => jdbcTypeFor(t.elementType)
+    case t: ErasedScalaBaseType[_, _] => jdbcTypeFor(t.erasure)
     case t => throw new SlickException("JdbcProfile has no JdbcType for type "+t)
   }): JdbcType[_]).asInstanceOf[JdbcType[Any]]
 

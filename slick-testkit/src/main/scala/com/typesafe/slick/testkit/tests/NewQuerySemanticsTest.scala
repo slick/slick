@@ -358,8 +358,8 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q8 = for {
-      (c1, c2) <- coffees.filter(_.price < 900) leftJoin coffees.filter(_.price < 800) on (_.name === _.name)
-    } yield (c1.name, c2.name.?)
+      (c1, c2) <- coffees.filter(_.price < 900) joinLeft coffees.filter(_.price < 800) on (_.name === _.name)
+    } yield (c1.name, c2.map(_.name))
     show("q8: Outer join", q8)
     if(doRun) {
       val r8 = q8.run.toSet
@@ -373,15 +373,15 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     }
 
     val q8b = for {
-      t <- coffees.sortBy(_.sales).take(1) leftJoin coffees.sortBy(_.sales).take(2) on (_.name === _.name) leftJoin coffees.sortBy(_.sales).take(4) on (_._1.supID === _.supID)
+      t <- coffees.sortBy(_.sales).take(1) joinLeft coffees.sortBy(_.sales).take(2) on (_.name === _.name) joinLeft coffees.sortBy(_.sales).take(4) on (_._1.supID === _.supID)
     } yield (t._1, t._2)
     show("q8b: Nested outer joins", q8b)
     if(doRun) {
       val r8b = q8b.run.toSet
       println("r8b: "+r8b)
       val r8be = Set(
-        ((("Colombian",101,799,1,0),("Colombian",101,799,1,0)),("Colombian",101,799,1,0)),
-        ((("Colombian",101,799,1,0),("Colombian",101,799,1,0)),("Colombian_Decaf",101,849,4,0))
+        ((("Colombian",101,799,1,0),Some(("Colombian",101,799,1,0))),Some(("Colombian",101,799,1,0))),
+        ((("Colombian",101,799,1,0),Some(("Colombian",101,799,1,0))),Some(("Colombian_Decaf",101,849,4,0)))
       )
       assertEquals(r8be, r8b)
     }
@@ -418,7 +418,7 @@ class NewQuerySemanticsTest extends TestkitTest[RelationalTestDB] {
     q3.run
 
     val q4 = (for {
-      (u, o) <- users innerJoin orders on (_.id === _.userID)
+      (u, o) <- users join orders on (_.id === _.userID)
     } yield (u.last, u.first ~ o.orderID)).sortBy(_._1).map(_._2)
     q4.run
 

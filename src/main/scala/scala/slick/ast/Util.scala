@@ -90,7 +90,7 @@ object NodeOps {
   }
 
   def replace(tree: Node, f: PartialFunction[Node, Node], keepType: Boolean, bottomUp: Boolean): Node =
-    if(bottomUp) f.applyOrElse(tree.nodeMapChildren(_.replace(f, keepType, bottomUp)), identity[Node])
+    if(bottomUp) f.applyOrElse(tree.nodeMapChildren(_.replace(f, keepType, bottomUp), keepType), identity[Node])
     else f.applyOrElse(tree, ({ case n: Node => n.nodeMapChildren(_.replace(f, keepType, bottomUp), keepType) }): PartialFunction[Node, Node])
 }
 
