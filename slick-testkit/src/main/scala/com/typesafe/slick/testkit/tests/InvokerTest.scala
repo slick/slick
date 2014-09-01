@@ -10,6 +10,20 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
 
   override val reuseInstance = true
 
+  def testForUpdate {
+    class T(tag: Tag) extends Table[Int](tag, "tfu") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    ts.ddl.create
+    ts.insertAll(2, 3, 1, 5, 4)
+    ifCap(jcap.forUpdate){
+      ts.forUpdate.list
+    }
+  }
+
   def testCollections {
     class T(tag: Tag) extends Table[Int](tag, "t") {
       def a = column[Int]("a")

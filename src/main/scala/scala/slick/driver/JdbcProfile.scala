@@ -92,12 +92,14 @@ object JdbcProfile {
     val distinguishesIntTypes = Capability("jdbc.distinguishesIntTypes")
     /** Has a datatype directly corresponding to Scala Byte */
     val supportsByte = Capability("jdbc.supportsByte")
+    /** Supports FOR UPDATE for locking */
+    val forUpdate = Capability("jdbc.forUpdate")
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, distinguishesIntTypes, supportsByte, returnInsertOther)
+    val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, distinguishesIntTypes, supportsByte, returnInsertOther, forUpdate)
   }
 }
 

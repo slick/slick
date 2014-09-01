@@ -22,7 +22,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   protected val invokerPreviousAfterDelete = false
 
   /** An Invoker for queries. */
-  class QueryInvoker[R](tree: Node, param: Any) extends MutatingStatementInvoker[R] {
+  abstract class AbstractQueryInvoker[R](tree: Node, param: Any) extends MutatingStatementInvoker[R] {
     override protected val mutateConcurrency = invokerMutateConcurrency
     override protected val mutateType = invokerMutateType
     override protected val previousAfterDelete = invokerPreviousAfterDelete
@@ -42,6 +42,14 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def extractValue(pr: PositionedResult): R = converter.read(pr.rs)
     protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr.rs)
     def invoker: this.type = this
+  }
+
+  class QueryInvoker[R](tree: Node, param: Any) extends AbstractQueryInvoker[R](tree,param){
+    def forUpdate = new ForUpdateQueryInvoker(tree, param)
+  }
+
+  class ForUpdateQueryInvoker[R](tree: Node, param: Any) extends AbstractQueryInvoker[R](tree,param){
+    override def getStatement = super.getStatement+" for update"
   }
 
   class DDLInvoker(ddl: DDL) extends super.DDLInvoker {
