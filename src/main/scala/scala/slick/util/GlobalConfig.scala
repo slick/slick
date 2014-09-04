@@ -16,6 +16,9 @@ object GlobalConfig {
   /** Use ANSI color sequences in tree dumps */
   val ansiDump = config.getBoolean("slick.ansiDump")
 
+  /** Use Unixode box characters in table dumps */
+  val unicodeDump = config.getBoolean("slick.unicodeDump")
+
   /** Get a `Config` object for a Slick driver */
   def driverConfig(name: String): Config = {
     val path = "slick.driver." + name
