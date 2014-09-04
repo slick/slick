@@ -64,7 +64,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    sharedSession.withTransaction {
+    implicitSession.withTransaction {
       ts.ddl.create;
       ts insert (1, new SerialBlob(Array[Byte](1,2,3)))
       ts insert (2, new SerialBlob(Array[Byte](4,5)))
@@ -95,7 +95,7 @@ class JdbcTypeTest extends TestkitTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    sharedSession.withTransaction {
+    implicitSession.withTransaction {
       ts.ddl.create
       ts.map(_.b).insertAll(Serialized(List(1,2,3)), Serialized(List(4,5)))
       assertEquals(Set((1, Serialized(List(1,2,3))), (2, Serialized(List(4,5)))), ts.list.toSet)

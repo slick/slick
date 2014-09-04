@@ -1,13 +1,18 @@
 package scala.slick.jdbc
 
+import scala.concurrent.Future
 import scala.language.reflectiveCalls
-import scala.slick.backend.DatabaseComponent
-import scala.slick.SlickException
-import slick.util.SlickLogger
+
 import java.util.Properties
 import java.sql.{Array => _, _}
 import javax.sql.DataSource
 import javax.naming.InitialContext
+
+import scala.slick.backend.DatabaseComponent
+import scala.slick.SlickException
+import scala.slick.util.{SlickLogger, AsyncExecutor}
+import scala.slick.util.ConfigExtensionMethods._
+
 import org.slf4j.LoggerFactory
 import com.typesafe.config.{ConfigFactory, Config}
 
@@ -24,7 +29,7 @@ trait JdbcBackend extends DatabaseComponent {
   val Database = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
 
-  class DatabaseDef(val source: JdbcDataSource) extends super.DatabaseDef {
+  class DatabaseDef(val source: JdbcDataSource, val executor: AsyncExecutor) extends super.DatabaseDef {
     /** The DatabaseCapabilities, accessed through a Session and created by the
       * first Session that needs them. Access does not need to be synchronized
       * because, in the worst case, capabilities will be determined multiple
@@ -35,27 +40,35 @@ trait JdbcBackend extends DatabaseComponent {
 
     def createSession(): Session = new BaseSession(this)
 
-    /** If this object represents a connection pool managed directly by Slick, close it.
-      * Otherwise no action is taken. */
-    def close(): Unit = source.close()
+    protected[this] def asyncExecutionContext = executor.executionContext
+
+    /** Free all resources allocated by Slick for this Database object. In particular, the
+      * [[AsyncExecutor]] with the thread pool for asynchronous execution is shut down. If this
+      * object represents a connection pool managed directly by Slick, it is also closed. */
+    def close(): Unit = try executor.close() finally source.close()
    }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef {
     /** Create a Database based on a [[JdbcDataSource]]. */
-    def forSource(source: JdbcDataSource) = new DatabaseDef(source)
+    def forSource(source: JdbcDataSource, executor: AsyncExecutor = AsyncExecutor.default()) =
+      new DatabaseDef(source, executor)
 
     /** Create a Database based on a DataSource. */
-    def forDataSource(ds: DataSource): DatabaseDef = forSource(new DataSourceJdbcDataSource(ds))
+    def forDataSource(ds: DataSource, executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
+      forSource(new DataSourceJdbcDataSource(ds))
 
     /** Create a Database based on the JNDI name of a DataSource. */
-    def forName(name: String) = new InitialContext().lookup(name) match {
-      case ds: DataSource => forDataSource(ds)
+    def forName(name: String, executor: AsyncExecutor = null) = new InitialContext().lookup(name) match {
+      case ds: DataSource => forDataSource(ds, executor match {
+        case null => AsyncExecutor.default(name)
+        case e => e
+      })
       case x => throw new SlickException("Expected a DataSource for JNDI name "+name+", but got "+x)
     }
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url:String, user:String = null, password:String = null, prop: Properties = null, driver:String = null): DatabaseDef =
-      forSource(new DriverJdbcDataSource(url, user, password, prop, driverName = driver))
+    def forURL(url:String, user:String = null, password:String = null, prop: Properties = null, driver:String = null, executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
+      forSource(new DriverJdbcDataSource(url, user, password, prop, driverName = driver), executor)
 
     /** Create a Database that uses the DriverManager to open new connections. */
     def forURL(url:String, prop: Map[String, String]): Database = {
@@ -67,8 +80,8 @@ trait JdbcBackend extends DatabaseComponent {
 
     /** Create a Database that directly uses a Driver to open new connections.
       * This is needed to open a JDBC URL with a driver that was not loaded by the system ClassLoader. */
-    def forDriver(driver:Driver, url:String, user:String = null, password:String = null, prop: Properties = null): DatabaseDef =
-      forSource(new DriverJdbcDataSource(url, user, password, prop, driver = driver))
+    def forDriver(driver:Driver, url:String, user:String = null, password:String = null, prop: Properties = null, executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
+      forSource(new DriverJdbcDataSource(url, user, password, prop, driver = driver), executor)
 
     /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
       *
@@ -143,6 +156,29 @@ trait JdbcBackend extends DatabaseComponent {
       *     instead that should work on all databases but is probably slower.</li>
       * </ul>
       *
+      * For asynchronous execution of database actions on top of JDBC, Slick needs to create a
+      * thread pool for the database. It can be configured with the following keys:
+      * <ul>
+      *   <li>`threads.max` (Int, optional): The maximum number of concurrent threads. When using
+      *     BoneCP, this defaults to the maximum number of connections
+      *     (`partitionCount * maxConnectionsPerPartition`), otherwise to 30. It should be manually
+      *     set to the correct size when using an external connection pool. Note that the automatic
+      *     sizing assumes that the connection pool is used exclusively for asynchronous execution.
+      *     This limit should be set lower than the actual pool size if you expect to use the pool
+      *     for other calls, too</li>
+      *   <li>`threads.core` (Int, optional): The maximum number of concurrent threads after which
+      *     queueing is preferred to spawning new threads. The pool will extend further up to
+      *     `threads.max` size when the queue is full. If not set (or set to null), the same size
+      *     as `threads.max` is used.</li>
+      *   <li>`threads.keepAlive` (Duration, optional, default: 1min): The time after which unused
+      *     threads are shut down and removed from the pool.
+      *   <li>`threads.queueSize` (Int, optional, default: 1000): The size of the queue for
+      *     database actions which cannot be executed immediately when all threads are busy. When
+      *     the queue is full, new threads are spawned up to `threads.max`. Beyond this limit new
+      *     actions fail immediately. Set to 0 for no queue (direct hand-off) or to -1 for an
+      *     unlimited queue size (not recommended).</li>
+      * </ul>
+      *
       * Unknown keys are ignored. Invalid values or missing mandatory keys will trigger a
       * [[SlickException]].
       *
@@ -169,8 +205,12 @@ trait JdbcBackend extends DatabaseComponent {
       *               standard lookup mechanism. The explicit driver may not be supported by all
       *               connection pools (in particular, the default [[BoneCPJdbcDataSource]]).
       */
-    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database =
-      forSource(JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver))
+    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database = {
+      val source = JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver)
+      val maxThreads = if(source.maxConnections == -1) 30 else source.maxConnections
+      val executor = AsyncExecutor(path, config.getConfigOr("threads"), maxThreads)
+      forSource(source, executor)
+    }
   }
 
   trait SessionDef extends super.SessionDef { self =>

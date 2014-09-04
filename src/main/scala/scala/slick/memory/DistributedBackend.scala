@@ -1,5 +1,6 @@
 package scala.slick.memory
 
+import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
 import scala.slick.backend.DatabaseComponent
 import scala.slick.util.Logging
@@ -26,6 +27,10 @@ trait DistributedBackend extends DatabaseComponent with Logging {
         }.get
       new SessionDef(sessions.toVector)
     }
+
+    protected[this] def asyncExecutionContext = ExecutionContext.global
+
+    def close(): Unit = ()
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {

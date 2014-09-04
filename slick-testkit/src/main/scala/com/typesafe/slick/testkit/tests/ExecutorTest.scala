@@ -1,7 +1,12 @@
 package com.typesafe.slick.testkit.tests
 
+import java.util.concurrent.TimeUnit
+
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 class ExecutorTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
@@ -70,5 +75,22 @@ class ExecutorTest extends TestkitTest[RelationalTestDB] {
     assertTrue(r3a.isInstanceOf[Array[(Int, String)]])
     val r3b = ts.to[Array].map(_.a).run
     assertTrue(r3b.isInstanceOf[Array[Int]])
+  }
+
+  def testAsyncExecution {
+    class T(tag: Tag) extends Table[Int](tag, "t_async") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    val f1 = db.runAsync { implicit implicitSession =>
+      ts.ddl.create
+      ts ++= Seq(2, 3, 1, 5, 4)
+      val q1 = ts.sortBy(_.a).map(_.a)
+      q1.run
+    }
+    val r1 = Await.result(f1, Duration(1, TimeUnit.MINUTES))
+    assertEquals(List(1, 2, 3, 4, 5), r1)
   }
 }

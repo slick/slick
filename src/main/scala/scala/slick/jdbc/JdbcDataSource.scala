@@ -19,6 +19,10 @@ trait JdbcDataSource extends Closeable {
   /** If this object represents a connection pool managed directly by Slick, close it.
     * Otherwise no action is taken. */
   def close(): Unit
+
+  /** Return the maximum number of concurrent connections that can be used with this data source,
+    * or -1 if the number is unknown. */
+  def maxConnections: Int
 }
 
 object JdbcDataSource {
@@ -46,6 +50,7 @@ trait JdbcDataSourceFactory {
 class DataSourceJdbcDataSource(val ds: DataSource) extends JdbcDataSource {
   def createConnection(): Connection = ds.getConnection
   def close(): Unit = ()
+  def maxConnections = -1
 }
 
 /** A JdbcDataSource which can load a JDBC `Driver` from a class name */
@@ -93,6 +98,8 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
   }
 
   def close(): Unit = ()
+
+  def maxConnections = -1
 }
 
 object DriverJdbcDataSource extends JdbcDataSourceFactory {
@@ -109,6 +116,7 @@ class BoneCPJdbcDataSource(val ds: com.jolbox.bonecp.BoneCPDataSource, driverNam
 
   def createConnection(): Connection = ds.getConnection()
   def close(): Unit = ds.close()
+  def maxConnections = ds.getPartitionCount * ds.getMaxConnectionsPerPartition
 }
 
 object BoneCPJdbcDataSource extends JdbcDataSourceFactory {
