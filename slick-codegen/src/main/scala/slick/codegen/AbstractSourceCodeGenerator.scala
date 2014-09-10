@@ -68,6 +68,24 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     }).toMap
   }
 
+   /**
+   * Generates statement code for the DDL creation.
+   * @group Basic customization overrides
+   */
+  def codeForDDL: String = "lazy val ddl = " + tables.map(_.TableValue.name + ".ddl").mkString("List(",",",").reduceLeft(_ ++ _)")
+
+  /**
+   * Generates scaladoc code for the DDL statement.
+   * @group Basic customization overrides
+   */
+  def docForDDL: String = "DDL for all tables. Call .create to execute."
+
+  /**
+   * Generates code for the DDL statement.
+   * @group Basic customization overrides
+   */
+  def docWithCodeForDDL : String = docWithCode(docForDDL,codeForDDL)
+
   protected def tuple(i: Int) = termName(s"_${i+1}")
 
   abstract class TableDef(model: m.Table) extends super.TableDef(model){
