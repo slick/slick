@@ -28,6 +28,7 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
     tables.map(_.code.mkString("\n")).mkString("\n\n")
   }
 
+
   /**
    * Generates code for the DDL statement.
    * @group Basic customization overrides
