@@ -58,6 +58,7 @@ trait H2Driver extends JdbcDriver { driver =>
                           : Model
     = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
+  override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
@@ -81,6 +82,12 @@ trait H2Driver extends JdbcDriver { driver =>
       case (Some(t), None   ) => b" limit $t"
       case (None, Some(d)   ) => b" limit -1 offset $d"
       case _ =>
+    }
+  }
+
+  class JdbcTypes extends super.JdbcTypes {
+    override val uuidJdbcType = new UUIDJdbcType {
+      override def sqlTypeName = "UUID"
     }
   }
 
