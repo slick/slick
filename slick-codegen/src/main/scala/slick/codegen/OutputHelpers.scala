@@ -125,6 +125,7 @@ trait ${container} ${mixinCode} {
   val profile: scala.slick.driver.JdbcProfile
   import profile.simple._
   ${indent(docWithCodeForDDL)}
+  
 }
       """.trim()
   }
