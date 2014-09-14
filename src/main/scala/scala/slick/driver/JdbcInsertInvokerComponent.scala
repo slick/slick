@@ -189,7 +189,8 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
     final def forceInsertAll(values: U*)(implicit session: Backend#Session): MultiInsertResult = internalInsertAll(compiled.forceInsert, values: _*)
 
     protected def internalInsertAll(a: compiled.Artifacts, values: U*)(implicit session: Backend#Session): MultiInsertResult = session.withTransaction {
-      if(!useBatchUpdates || (values.isInstanceOf[IndexedSeq[_]] && values.length < 2)) retMany(values, values.map(insert))
+      if(!useBatchUpdates || (values.isInstanceOf[IndexedSeq[_]] && values.length < 2))
+        retMany(values, values.map(v => internalInsert(a, v)))
       else preparedInsert(a.sql) { st =>
         st.clearParameters()
         for(value <- values) {
