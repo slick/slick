@@ -170,7 +170,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     }
 
     class FloatJdbcType extends DriverJdbcType[Float] with NumericTypedType {
-      def sqlType = java.sql.Types.FLOAT
+      def sqlType = java.sql.Types.REAL // see http://docs.oracle.com/javase/1.5.0/docs/guide/jdbc/getstart/mapping.html#1055162
       def setValue(v: Float, p: PreparedStatement, idx: Int) = p.setFloat(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getFloat(idx)
       def updateValue(v: Float, r: ResultSet, idx: Int) = r.updateFloat(idx, v)

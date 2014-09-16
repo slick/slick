@@ -4,7 +4,6 @@ import scala.language.reflectiveCalls
 import scala.slick.backend.DatabaseComponent
 import scala.slick.SlickException
 import slick.util.SlickLogger
-import scala.collection.JavaConverters._
 import java.util.Properties
 import java.sql.{Array => _, _}
 import javax.sql.DataSource
@@ -13,7 +12,7 @@ import org.slf4j.LoggerFactory
 import com.typesafe.config.{ConfigFactory, Config}
 
 /** A JDBC-based database back-end which can be used for <em>Plain SQL</em> queries
-  * and with all `JdbcProfile`-based drivers. */
+  * and with all [[scala.slick.driver.JdbcProfile]]-based drivers. */
 trait JdbcBackend extends DatabaseComponent {
   protected[this] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
   protected[this] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))
@@ -25,7 +24,7 @@ trait JdbcBackend extends DatabaseComponent {
   val Database = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
 
-  trait DatabaseDef extends super.DatabaseDef {
+  class DatabaseDef(val source: JdbcDataSource) extends super.DatabaseDef {
     /** The DatabaseCapabilities, accessed through a Session and created by the
       * first Session that needs them. Access does not need to be synchronized
       * because, in the worst case, capabilities will be determined multiple
@@ -36,64 +35,29 @@ trait JdbcBackend extends DatabaseComponent {
 
     def createSession(): Session = new BaseSession(this)
 
-    def createConnection(): Connection
-  }
+    /** If this object represents a connection pool managed directly by Slick, close it.
+      * Otherwise no action is taken. */
+    def close(): Unit = source.close()
+   }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef {
-    /**
-     * Create a Database based on a DataSource.
-     */
-    def forDataSource(ds: DataSource): DatabaseDef = new DatabaseDef {
-      def createConnection(): Connection = ds.getConnection
-    }
+    /** Create a Database based on a [[JdbcDataSource]]. */
+    def forSource(source: JdbcDataSource) = new DatabaseDef(source)
 
-    /**
-     * Create a Database based on the JNDI name of a DataSource.
-     */
+    /** Create a Database based on a DataSource. */
+    def forDataSource(ds: DataSource): DatabaseDef = forSource(new DataSourceJdbcDataSource(ds))
+
+    /** Create a Database based on the JNDI name of a DataSource. */
     def forName(name: String) = new InitialContext().lookup(name) match {
       case ds: DataSource => forDataSource(ds)
       case x => throw new SlickException("Expected a DataSource for JNDI name "+name+", but got "+x)
     }
 
-    /**
-     * Create a Database that uses the DriverManager to open new connections.
-     */
-    def forURL(url:String, user:String = null, password:String = null, prop: Properties = null, driver:String = null): DatabaseDef = new DatabaseDef {
-      if(driver ne null) Class.forName(driver)
-      val cprop = if(prop.ne(null) && user.eq(null) && password.eq(null)) prop else {
-        val p = new Properties(prop)
-        if(user ne null) p.setProperty("user", user)
-        if(password ne null) p.setProperty("password", password)
-        p
-      }
+    /** Create a Database that uses the DriverManager to open new connections. */
+    def forURL(url:String, user:String = null, password:String = null, prop: Properties = null, driver:String = null): DatabaseDef =
+      forSource(new DriverJdbcDataSource(url, user, password, prop, driverName = driver))
 
-      def createConnection(): Connection = DriverManager.getConnection(url, cprop)
-    }
-
-    /**
-     * Create a Database that directly uses a Driver to open new connections.
-     * This is needed to open a JDBC URL with a driver that was not loaded by
-     * the system ClassLoader.
-     */
-    def forDriver(driver:Driver, url:String, user:String = null, password:String = null, prop: Properties = null): DatabaseDef = new DatabaseDef {
-      val cprop = if(prop.ne(null) && user.eq(null) && password.eq(null)) prop else {
-        val p = new Properties(prop)
-        if(user ne null) p.setProperty("user", user)
-        if(password ne null) p.setProperty("password", password)
-        p
-      }
-
-      def createConnection(): Connection = {
-        val conn = driver.connect(url, cprop)
-        if(conn eq null)
-          throw new SQLException("Driver "+driver+" does not know how to handle URL "+url, "08001")
-        conn
-      }
-    }
-
-    /**
-     * Create a Database that uses the DriverManager to open new connections.
-     */
+    /** Create a Database that uses the DriverManager to open new connections. */
     def forURL(url:String, prop: Map[String, String]): Database = {
       val p = new Properties
       if(prop ne null)
@@ -101,14 +65,100 @@ trait JdbcBackend extends DatabaseComponent {
       forURL(url, prop = p, driver = null)
     }
 
+    /** Create a Database that directly uses a Driver to open new connections.
+      * This is needed to open a JDBC URL with a driver that was not loaded by the system ClassLoader. */
+    def forDriver(driver:Driver, url:String, user:String = null, password:String = null, prop: Properties = null): DatabaseDef =
+      forSource(new DriverJdbcDataSource(url, user, password, prop, driver = driver))
+
     /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
       *
-      * The following keys are supported:
-      * - `url`: JDBC URL (String, must be set)
-      * - `driver`: JDBC driver class to load (String, optional)
-      * - `user`: User name (String, optional)
-      * - `password`: Password (String, optional)
-      * - `properties`: Properties to pass to the driver (Map, optional)
+      * The main config key to set is `pool`. It determines the connection pool implementation to
+      * use (if any). The default is undefined/null (no pool, use the DriverManager directly).
+      * Slick comes with support for [[http://jolbox.com/ BoneCP]] which can be selected by setting
+      * `pool=BoneCP` (or the full object name `scala.slick.jdbc.BoneCPJdbcDataSource`).
+      * 3rd-party connection pool implementations have to be specified with the fully qualified
+      * name of an object implementing [[JdbcDataSourceFactory]].
+      *
+      * The following config keys are supported for pool settings `null` and `BoneCP`:
+      * <ul>
+      *   <li>`url` (String, required): JDBC URL</li>
+      *   <li>`driver` (String, optional): JDBC driver class to load</li>
+      *   <li>`user` (String, optional): User name</li>
+      *   <li>`password` (String, optional): Password</li>
+      *   <li>`autocommit` (Boolean, optional): Autocommit mode for new connections.</li>
+      *   <li>`isolation` (String, optional): Isolation level for new connections. Allowed values
+      *     are: `NONE`, `READ_COMMITTED`, `READ_UNCOMMITTED`, `REPEATABLE_READ`, `SERIALIZABLE`.</li>
+      *   <li>`defaultCatalog` (String, optional): Default catalog for new connections.</li>
+      *   <li>`readOnly` (Boolean, optional): Read Only flag for new connections.</li>
+      *   <li>`properties` (Map, optional): Properties to pass to the driver.</li>
+      * </ul>
+      *
+      * The following config keys are only supported for pool setting `BoneCP`:
+      * <ul>
+      *   <li>`partitionCount` (Int, optional, default: 1): In order to reduce lock contention and
+      *     thus improve performance, each incoming connection request picks off a connection from
+      *     a pool that has thread-affinity. The higher this number, the better your performance
+      *     will be for the case when you have plenty of short-lived threads. Beyond a certain
+      *     threshold, maintenance of these pools will start to have a negative effect on
+      *     performance (and only for the case when connections on a partition start running out).</li>
+      *   <li>`maxConnectionsPerPartition` (Int, optional, default: 30): The number of connections
+      *     to create per partition. Setting this to 5 with 3 partitions means you will have 15
+      *     unique connections to the database. Note that BoneCP will not create all these
+      *     connections in one go but rather start off with minConnectionsPerPartition and
+      *     gradually increase connections as required.</li>
+      *   <li>`minConnectionsPerPartition` (Int, optional, default: 5): The number of initial
+      *     connections, per partition.</li>
+      *   <li>`acquireIncrement` (Int, optional, default: 1): When the available connections are
+      *     about to run out, BoneCP will dynamically create new ones in batches. This property
+      *     controls how many new connections to create in one go (up to a maximum of
+      *     `maxConnectionsPerPartition`). Note: This is a per-partition setting.</li>
+      *   <li>`acquireRetryAttempts` (Int, optional, default: 10): After attempting to acquire a
+      *     connection and failing, try to connect this number of times before giving up.</li>
+      *   <li>`acquireRetryDelay` (Duration, optional, default: 1s): How long to wait before
+      *     attempting to obtain a connection again after a failure.</li>
+      *   <li>`connectionTimeout` (Duration, optional, default: 1s): The maximum time to wait
+      *     before a call to getConnection is timed out.</li>
+      *   <li>`idleMaxAge` (Duration, optional, default: 10m): Idle max age.</li>
+      *   <li>`idleConnectionTestPeriod` (Duration, optional, default: 1m): This sets the time for
+      *     a connection to remain idle before sending a test query to the DB. This is useful to
+      *     prevent a DB from timing out connections on its end.</li>
+      *   <li>`maxConnectionAge` (Duration, optional, default: 1h): The maximum connection age.</li>
+      *   <li>`queryExecuteTimeLimit` (Duration, optional, default: 0 (no limit)): The maximum
+      *     query execution time. Queries slower than this will be logged as a warning.</li>
+      *   <li>`initSQL` (String, optional): An initial SQL statement that is run only when a
+      *     connection is first created.</li>
+      *   <li>`logStatements` (Boolean, optional, default: false): If enabled, log SQL statements
+      *     being executed.</li>
+      *   <li>`disableJMX` (Boolean, optional, default: true): Set to true to disable JMX.</li>
+      *   <li>`statisticsEnabled` (Boolean, optional, default: false): If set to true, keep track
+      *     of some more statistics for exposure via JMX. Will slow down the pool operation.</li>
+      *   <li>`disableConnectionTracking` (Boolean, optional, default: true): If set to true, the
+      *     pool will not monitor connections for proper closure. Enable this option if you only
+      *     ever obtain your connections via a mechanism that is guaranteed to release the
+      *     connection back to the pool (e.g. using `withSession` or `withTransaction`).</li>
+      *   <li>`connectionTestStatement` (String, optional): Sets the connection test statement. The
+      *     query to send to the DB to maintain keep-alives and test for dead connections. This is
+      *     database specific and should be set to a query that consumes the minimal amount of load
+      *     on the server. If not set (or set to null), BoneCP will issue a metadata request
+      *     instead that should work on all databases but is probably slower.</li>
+      * </ul>
+      *
+      * Unknown keys are ignored. Invalid values or missing mandatory keys will trigger a
+      * [[SlickException]].
+      *
+      * The configuration settings are very similar to the ones supported by
+      * [[http://www.playframework.com/documentation/2.4.x/SettingsJDBC Play 2.4]], with a few
+      * notable differences:
+      * <ul>
+      *   <li>Play uses BoneCP by default. Slick requires `pool=BoneCP` to be set for that.</li>
+      *   <li>Play always sets `autocommit`, `isolation` and `readOnly` when checking out a
+      *     connection, with suitable default values. Slick requires explicit settings for that,
+      *     otherwise new connections are not modified.</li>
+      *   <li>Slick has no special support for MySQL, PostgreSQL and H2 URLs. All URLs are passed
+      *     directly to the pool or DriverManager.</li>
+      *   <li>Slick does not support the `jndiName` setting.</li>
+      *   <li>Play does not support the `properties` setting.</li>
+      * </ul>
       *
       * @param path The path in the configuration file for the database configuration (e.g. `foo.bar`
       *             would find a database URL at config key `foo.bar.url`)
@@ -116,19 +166,11 @@ trait JdbcBackend extends DatabaseComponent {
       *               (e.g. in `application.conf` at the root of the class path) if not specified.
       * @param driver An optional JDBC driver to call directly. If this is set to a non-null value,
       *               the `driver` key from the configuration is ignored. The default is to use the
-      *               standard lookup mechanism.
+      *               standard lookup mechanism. The explicit driver may not be supported by all
+      *               connection pools (in particular, the default [[BoneCPJdbcDataSource]]).
       */
-    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database = {
-      val c = if(path.isEmpty) config else config.getConfig(path)
-      def str(p: String) = if(!c.hasPath(p)) null else c.getString(p)
-      def props(p: String) = if(!c.hasPath(p)) null else {
-        val props = new Properties(null)
-        c.getObject(p).asScala.foreach { case (k, v) => props.put(k, v.unwrapped.toString) }
-        props
-      }
-      if(driver ne null) forDriver(driver, c.getString("url"), str("user"), str("password"), props("properties"))
-      else forURL(c.getString("url"), str("user"), str("password"), props("properties"), str("driver"))
-    }
+    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database =
+      forSource(JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver))
   }
 
   trait SessionDef extends super.SessionDef { self =>
@@ -394,7 +436,7 @@ trait JdbcBackend extends DatabaseComponent {
     def isOpen = open
     def isInTransaction = inTransaction
 
-    lazy val conn = { open = true; database.createConnection() }
+    lazy val conn = { open = true; database.source.createConnection }
     lazy val metaData = conn.getMetaData()
 
     def capabilities = {
