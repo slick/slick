@@ -83,12 +83,22 @@ object JdbcProfile {
     val returnInsertKey = Capability("jdbc.returnInsertKey")
     /** Can also return non-primary-key columns of inserted rows */
     val returnInsertOther = Capability("jdbc.returnInsertOther")
+    /** Returns column default values in meta data */
+    val defaultValueMetaData = Capability("jdbc.defaultValueMetaData")
+    /** Doesn't map types to Boolean in DatabaseMetaData */
+    val booleanMetaData = Capability("jdbc.booleanMetaData")
+    /** Reports no default and NULL default differently in meta data */
+    val nullableNoDefault = Capability("jdbc.nullableNoDefault")
+    /** Makes a difference between different integer types */
+    val distinguishesIntTypes = Capability("jdbc.distinguishesIntTypes")
+    /** Has a datatype directly corresponding to Scala Byte */
+    val supportsByte = Capability("jdbc.supportsByte")
 
     /** Supports all JdbcProfile features which do not have separate capability values */
     val other = Capability("jdbc.other")
 
     /** All JDBC capabilities */
-    val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, returnInsertOther)
+    val all = Set(other, createModel, forceInsert, insertOrUpdate, mutable, returnInsertKey, defaultValueMetaData, booleanMetaData, nullableNoDefault, distinguishesIntTypes, supportsByte, returnInsertOther)
   }
 }
 

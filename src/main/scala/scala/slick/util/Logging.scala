@@ -4,7 +4,8 @@ import org.slf4j.{ Logger => Slf4jLogger, LoggerFactory }
 
 final class SlickLogger(val slf4jLogger: Slf4jLogger) {
   @inline
-  def debug(msg: => String, n: => Dumpable): Unit = debug(msg+"\n"+TreeDump.get(n, prefix = DumpInfo.highlight("| ")))
+  def debug(msg: => String, n: => Dumpable): Unit =
+    debug(msg+"\n"+TreeDump.get(n, prefix = DumpInfo.highlight(if(GlobalConfig.unicodeDump) "\u2503 " else "| ")))
 
   @inline
   def isDebugEnabled = slf4jLogger.isDebugEnabled()

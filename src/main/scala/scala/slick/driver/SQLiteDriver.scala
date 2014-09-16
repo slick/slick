@@ -8,7 +8,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{QueryCompiler, CompilerState}
 import scala.slick.model.Model
-import scala.slick.jdbc.Invoker
+import scala.slick.jdbc.{Invoker, JdbcType}
 import scala.slick.jdbc.meta.MTable
 
 /** Slick driver for SQLite.
@@ -46,6 +46,25 @@ import scala.slick.jdbc.meta.MTable
   *     InsertOrUpdate operations are emulated on the client side if the
   *     data to insert contains an `AutoInc` field. Otherwise the operation
   *     is performmed natively on the server side.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.defaultValueMetaData]]:
+  *     The stable xerial sqlite-jdbc driver 3.7.2 does not return default values
+  *     for columns in the DatabaseMetaData. Consequently they also do not appear
+  *     in Slick's model. This has been fixed in sqlite-jdbc, but the only released
+  *     version that contains the fix is milestone 3.7.15-M1. You can use it instead
+  *     of the stable 3.7.2 in order to get default values with SQLite.
+  *     Also see https://code.google.com/p/sqlite-jdbc/issues/detail?id=27
+  *     </li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.booleanMetaData]]:
+  *     SQlite doesn't have booleans, so Slick maps to INTEGER instead.
+  *     Other jdbc drivers like MySQL map TINYINT(1) back to a Scala
+  *     Boolean. SQlite maps INTEGER to an Integer and that's how it shows
+  *     up in the jdbc meta data, thus the original type is lost.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.distinguishesIntTypes]]:
+  *     SQLite does not distinguish integer types and maps them all to Int
+  *     in the meta data.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
+  *     SQLite does not distinguish integer types and maps them all to Int
+  *     in the meta data.</li>
   * </ul>
   */
 trait SQLiteDriver extends JdbcDriver { driver =>
@@ -62,6 +81,10 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.typeBlob
     - RelationalProfile.capabilities.zip
     - JdbcProfile.capabilities.insertOrUpdate
+    - JdbcProfile.capabilities.defaultValueMetaData
+    - JdbcProfile.capabilities.booleanMetaData
+    - JdbcProfile.capabilities.supportsByte
+    - JdbcProfile.capabilities.distinguishesIntTypes
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
@@ -75,6 +98,21 @@ trait SQLiteDriver extends JdbcDriver { driver =>
         override def dbType = Some(_dbType)
         override def length = _size
         override def varying = dbType == Some("VARCHAR")
+        override def default = meta.columnDef.map((_,tpe)).collect{
+          case ("null",_)  => Some(None) // 3.7.15-M1
+        }.getOrElse{super.default}
+        override def tpe = dbType match {
+          case Some("DOUBLE") => "Double"
+          case Some("DATE") => "java.sql.Date"
+          case Some("TIME") => "java.sql.Time"
+          case Some("TIMESTAMP") => "java.sql.Timestamp"
+          case Some("BLOB") => "java.sql.Blob"
+          case _ => super.tpe
+        }
+      }
+      override def PrimaryKey = new PrimaryKey(_){
+        // in 3.7.15-M1:
+        override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
       }
     }
   }
@@ -185,6 +223,11 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     // the same in ReturningInsertInvoker because SQLite does not allow returning non-AutoInc keys anyway.
     override protected val useServerSideUpsert = compiled.upsert.fields.forall(fs => !fs.options.contains(ColumnOption.AutoInc))
     override protected def useTransactionForUpsert = !useServerSideUpsert
+  }
+
+  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
+    case java.sql.Types.TINYINT | java.sql.Types.SMALLINT | java.sql.Types.BIGINT => "INTEGER"
+    case _ => super.defaultSqlTypeName(tmd)
   }
 
   class JdbcTypes extends super.JdbcTypes {

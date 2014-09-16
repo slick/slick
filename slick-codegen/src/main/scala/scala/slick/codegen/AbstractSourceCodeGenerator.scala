@@ -149,12 +149,13 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
         case Length(length,varying) => Some(s"O.Length($length,varying=$varying)")
         case AutoInc            => Some(s"O.AutoInc")
         case NotNull|Nullable   => throw new SlickException( s"Please don't use Nullable or NotNull column options. Use an Option type, respectively the nullable flag in Slick's model model Column." )
-        case o => throw new SlickException( s"Don't know how to generate code for unexpected ColumnOption $o." )
+        case o => None // throw new SlickException( s"Don't know how to generate code for unexpected ColumnOption $o." )
       }
       def defaultCode = {
         case Some(v) => s"Some(${defaultCode(v)})"
         case s:String  => "\""+s+"\""
         case None      => s"None"
+        case v:Byte    => s"$v"
         case v:Int     => s"$v"
         case v:Long    => s"${v}L"
         case v:Float   => s"${v}F"
@@ -163,7 +164,7 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
         case v:Short   => s"$v"
         case v:Char   => s"'$v'"
         case v:BigDecimal => s"new scala.math.BigDecimal(new java.math.BigDecimal($v))"
-        case v => throw new SlickException( s"Dont' know how to generate code for default value $v of ${v.getClass}" )
+        case v => throw new SlickException( s"Dont' know how to generate code for default value $v of ${v.getClass}. Override def defaultCode to render the value." )
       }
       // Explicit type to allow overloading existing Slick method names.
       // Explicit type argument for better error message when implicit type mapper not found.
