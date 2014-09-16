@@ -2,11 +2,10 @@ package scala.slick.ast
 
 import scala.language.existentials
 import scala.slick.SlickException
-import scala.slick.util.{Logging, Dumpable, DumpInfo}
+import scala.slick.util.{Logging, Dumpable, DumpInfo, GlobalConfig}
 import TypeUtil.typeToTypeUtil
 import Util._
 import scala.reflect.ClassTag
-import scala.sys.BooleanProp
 
 /**
  * A node in the query AST.
@@ -114,7 +113,7 @@ trait Node extends Dumpable {
     val tpe = nodePeekType
     val ch = this match {
       // Omit path details unless dumpPaths is set
-      case Path(l @ (_ :: _ :: _)) if !Node.dumpPaths => Vector.empty
+      case Path(l @ (_ :: _ :: _)) if !GlobalConfig.dumpPaths => Vector.empty
       case _ => nodeChildNames.zip(nodeChildren).toVector
     }
     DumpInfo(objName, mainInfo, if(tpe != UnassignedType) ": " + tpe.toString else "", ch)
@@ -139,8 +138,6 @@ trait SimplyTypedNode extends Node {
 object Node extends Logging {
   private def logType(n: Node): Unit =
     logger.debug("Assigned type "+n.nodePeekType+" to node "+n)
-
-  private val dumpPaths: Boolean = BooleanProp.valueIsTrue("scala.slick.dumpPaths")
 }
 
 trait TypedNode extends Node with Typed {

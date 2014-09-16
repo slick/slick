@@ -112,6 +112,8 @@ class InsertTest extends TestkitTest[JdbcTestDB] {
       ts.forceInsert(104, "A")
       ts.map(_.ins).forceInsertAll((105, "B"), (106, "C"))
       assertEquals(3, ts.filter(_.id > 100).length.run)
+      ts.map(_.ins).forceInsertAll((111, "D"))
+      assertEquals(4, ts.filter(_.id > 100).length.run)
     }
   }
 

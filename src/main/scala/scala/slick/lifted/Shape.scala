@@ -161,8 +161,8 @@ final class TupleShape[Level <: ShapeLevel, M <: Product, U <: Product, P <: Pro
   * Example:
   *
   * {{{
-  *   case class C(a: Int, b: String)
-  *   case class LiftedC(a: Column[Int], b: Column[String])
+  *   case class C(a: Int, b: Option[String])
+  *   case class LiftedC(a: Column[Int], b: Column[Option[String]])
   *   implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
   * }}}
   */
@@ -174,6 +174,47 @@ extends MappedScalaProductShape[FlatShapeLevel, P, LiftedCaseClass, PlainCaseCla
   override def toMapped(v: Any) = mapPlain(v.asInstanceOf[PlainTuple])
   def buildValue(elems: IndexedSeq[Any]) = mapLifted(TupleSupport.buildTuple(elems).asInstanceOf[LiftedTuple])
   def copy(s: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new CaseClassShape(mapLifted, mapPlain) { override val shapes = s }
+}
+
+/** A generic Product class shape that can be used to lift a class of
+  * plain Scala types to a class of lifted types. This allows the type
+  * to be used as a record type (like tuples and HLists) in the Lifted
+  * Embedding.
+  *
+  * This can help with mapping tables >22 columns to classes, especially
+  * when using code generation. This can be used for Scala 2.11 case classes >22 fields.
+  *
+  * Example:
+  *
+  * {{{
+  *   def columnShape[T](implicit s: Shape[FlatShapeLevel, Column[T], T, Column[T]]) = s
+  *   class C(val a: Int, val b: Option[String]) extends Product{
+  *     def canEqual(that: Any): Boolean = that.isInstanceOf[C]
+  *     def productArity: Int = 2
+  *     def productElement(n: Int): Any = Seq(a, b)(n)
+  *   }
+  *   class LiftedC(val a: Column[Int], val b: Column[Option[String]]) extends Product{
+  *     def canEqual(that: Any): Boolean = that.isInstanceOf[LiftedC]
+  *     def productArity: Int = 2
+  *     def productElement(n: Int): Any = Seq(a, b)(n)
+  *   }
+  *   implicit object cShape extends ProductClassShape(
+  *     Seq(columnShape[Int], columnShape[Option[String]]),
+  *     seq => new LiftedC(seq(0).asInstanceOf[Column[Int]], seq(1).asInstanceOf[Column[Option[String]]]),
+  *     seq => new C(seq(0).asInstanceOf[Int], seq(1).asInstanceOf[Option[String]])
+  *   )
+  * }}}
+  */
+class ProductClassShape[E <: Product,C <: Product](
+  val shapes: Seq[Shape[_, _, _, _]],
+  mapLifted: Seq[Any] => C,
+  mapPlain:Seq[Any] => E
+)(implicit classTag: ClassTag[E]) extends MappedScalaProductShape[
+  FlatShapeLevel, Product, C, E, C
+]{
+  override def toMapped(v: Any) = mapPlain(v.asInstanceOf[Product].productIterator.toSeq)
+  def buildValue(elems: IndexedSeq[Any]) = mapLifted(elems)
+  def copy(s: Seq[Shape[_ <: ShapeLevel, _, _, _]]) = new ProductClassShape(s, mapLifted, mapPlain)
 }
 
 /** The level of a Shape, i.e. what kind of types it allows.
