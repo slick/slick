@@ -19,6 +19,9 @@ object GlobalConfig {
   /** Use Unixode box characters in table dumps */
   val unicodeDump = config.getBoolean("slick.unicodeDump")
 
+  // Determine whether use SQL Indentation.
+  val sqlIndent = config.getBoolean("slick.sqlIndent")
+
   /** Get a `Config` object for a Slick driver */
   def driverConfig(name: String): Config = {
     val path = "slick.driver." + name

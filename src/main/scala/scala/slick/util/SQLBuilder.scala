@@ -3,7 +3,7 @@ package scala.slick.util
 import java.sql.PreparedStatement
 import scala.collection.mutable.ArrayBuffer
 
-final class SQLBuilder(val sqlIndent: Boolean = false) extends SQLBuilder.Segment { self =>
+final class SQLBuilder(var sqlIndent: Boolean = false) extends SQLBuilder.Segment { self =>
   import SQLBuilder._
 
   private val segments = new ArrayBuffer[Segment]

@@ -28,8 +28,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder = new SequenceDDLBuilder(seq)
 
-  val sqlIndent: Boolean = true
-
   class JdbcCompiledInsert(source: Node) {
     class Artifacts(val compiled: Node, val converter: ResultConverter[JdbcResultConverterDomain, Any], val ibr: InsertBuilderResult) {
       def table: TableNode = ibr.table
@@ -105,7 +103,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val pi = "3.1415926535897932384626433832795"
 
     // Mutable state accessible to subclasses
-    protected val b = new SQLBuilder(sqlIndent)
+    private val currentSqlIndent = GlobalConfig.sqlIndent
+    protected val b = new SQLBuilder(currentSqlIndent)
     protected var currentPart: StatementPart = OtherPart
     protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new HashMap[Symbol, Join]
@@ -184,7 +183,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def sqlIndentPrefix: String = {
-      if (sqlIndent) {
+      if (currentSqlIndent) {
         b.newLine()
         ""
       }
