@@ -38,6 +38,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
     override def Table = new Table(_){
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
+      override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
     }
   }
 

@@ -12,7 +12,7 @@ inserting, updating and deleting data with the
 Expressions
 -----------
 
-Scalar (non-record, non-collection) values are representend by type
+Scalar (non-record, non-collection) values are represented by type
 ``Column[T]`` (a sub-type of ``Rep[T]``) where a ``TypedType[T]`` must
 exist. Only some special methods for internal use are defined directly in
 the ``Column`` class.
@@ -277,6 +277,12 @@ This works for all functions that take ``Column`` parameters (or
 :ref:`records <record-types>` of Columns) and return a ``Query`` object or a
 scalar query. See the API documentation for :api:`scala.slick.lifted.Compiled`
 and its subclasses for details on composing compiled queries.
+
+.. index:: take, drop
+
+Be aware that ``take`` and ``drop`` take ``ConstColumn[Long]`` parameters.
+
+.. includecode:: code/LiftedEmbedding.scala#compiled2
 
 You can use a compiled query for querying, updating and deleting data. (For inserts,
 you can cache the :api:`InsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@InsertInvokerDef[U]:JdbcDriver.InsertInvokerDef[U]>`

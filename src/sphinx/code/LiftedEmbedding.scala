@@ -377,6 +377,15 @@ object LiftedEmbedding extends App {
     }
 
     {
+      //#compiled2
+      val userPaged = Compiled((d: ConstColumn[Long], t: ConstColumn[Long]) => users.drop(d).take(t))
+
+      val users1 = userPaged(2, 1).run
+      val users2 = userPaged(1, 3).run
+      //#compiled2
+    }
+
+    {
       //#template1
       val userNameByID = for {
         id <- Parameters[Int]

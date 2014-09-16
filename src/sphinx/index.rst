@@ -17,8 +17,9 @@ User Manual
 
    introduction
    gettingstarted
-   migration
-   from-sql-to-slick
+   upgrade
+   orm-to-slick
+   sql-to-slick
    connection
    code-generation
    schemas

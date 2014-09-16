@@ -54,6 +54,14 @@ import scala.slick.model.Model
   *     is no native support for them (but there is work in progress: see
   *     <a href="https://issues.apache.org/jira/browse/DERBY-3155"
   *     target="_parent" >DERBY-3155</a>).</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.booleanMetaData]]:
+  *     Derby <= 10.6 doesn't have booleans, so Slick maps to SMALLINT instead.
+  *     Other jdbc drivers like MySQL map TINYINT(1) back to a Scala
+  *     Boolean. Derby maps SMALLINT to an Integer and that's how it shows
+  *     up in the jdbc meta data, thus the original type is lost.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
+  *     Derby doesn't have a corresponding type for Byte.
+  *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
   * </ul>
   */
 trait DerbyDriver extends JdbcDriver { driver =>
@@ -70,6 +78,8 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
     - RelationalProfile.capabilities.replace
     - RelationalProfile.capabilities.reverse
+    - JdbcProfile.capabilities.booleanMetaData
+    - JdbcProfile.capabilities.supportsByte
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
