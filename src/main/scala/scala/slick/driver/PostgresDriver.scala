@@ -24,6 +24,15 @@ import scala.slick.model.Model
   *     This is faster than a client-side emulation but may still fail due to
   *     concurrent updates. InsertOrUpdate operations with `returning` are
   *     emulated on the client side.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.nullableNoDefault]]:
+  *     Nullable columns always have NULL as a default according to the SQL
+  *     standard. Consequently Postgres treats no specifying a default value
+  *     just as specifying NULL and reports NULL as the default value.
+  *     Some other dbms treat queries with no default as NULL default, but
+  *     distinguish NULL from no default value in the meta data.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
+  *     Postgres doesn't have a corresponding type for Byte.
+  *     SMALLINT is used instead and mapped to Short in the Slick model.</li>
   * </ul>
   *
   * Notes:
@@ -40,16 +49,29 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.insertOrUpdate
+    - JdbcProfile.capabilities.nullableNoDefault
+    - JdbcProfile.capabilities.supportsByte
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
     override def Table = new Table(_){
       override def schema = super.schema.filter(_ != "public") // remove default schema
       override def Column = new Column(_){
+        val VarCharPattern = "^'(.*)'::character varying$".r
+        val IntPattern = "^\\((-?[0-9]*)\\)$".r
         override def default = meta.columnDef.map((_,tpe)).collect{
           case ("true","Boolean")  => Some(Some(true))
           case ("false","Boolean") => Some(Some(false))
-        }.getOrElse{super.default}
+          case (VarCharPattern(str),"String") => Some(Some(str))
+          case (IntPattern(v),"Int") => Some(Some(v.toInt))
+          case (IntPattern(v),"Long") => Some(Some(v.toLong))
+          case ("NULL::character varying","String") => Some(None)
+        }.getOrElse{
+          val d = super.default
+          if(meta.nullable == Some(true) && d == None){
+            Some(None)
+          } else d
+        }
       }
       override def Index = new Index(_){
         // FIXME: this needs a test

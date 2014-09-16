@@ -2,11 +2,10 @@ package scala.slick.ast
 
 import scala.language.existentials
 import scala.slick.SlickException
-import scala.slick.util.{Logging, Dumpable, DumpInfo}
+import scala.slick.util.{Logging, Dumpable, DumpInfo, GlobalConfig}
 import TypeUtil.typeToTypeUtil
 import Util._
 import scala.reflect.ClassTag
-import scala.sys.BooleanProp
 
 /**
  * A node in the query AST.
@@ -114,7 +113,7 @@ trait Node extends Dumpable {
     val tpe = nodePeekType
     val ch = this match {
       // Omit path details unless dumpPaths is set
-      case Path(l @ (_ :: _ :: _)) if !Node.dumpPaths => Vector.empty
+      case Path(l @ (_ :: _ :: _)) if !GlobalConfig.dumpPaths => Vector.empty
       case _ => nodeChildNames.zip(nodeChildren).toVector
     }
     DumpInfo(objName, mainInfo, if(tpe != UnassignedType) ": " + tpe.toString else "", ch)
@@ -139,8 +138,6 @@ trait SimplyTypedNode extends Node {
 object Node extends Logging {
   private def logType(n: Node): Unit =
     logger.debug("Assigned type "+n.nodePeekType+" to node "+n)
-
-  private val dumpPaths: Boolean = BooleanProp.valueIsTrue("scala.slick.dumpPaths")
 }
 
 trait TypedNode extends Node with Typed {
@@ -274,7 +271,7 @@ final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) ex
   def withComputedTypeNoRec: Self = nodeBuildTypedNode(this, buildType)
   protected def buildType =
     CollectionType(TypedCollectionTypeConstructor.seq,
-      NominalType(identity)(value.nodeType))
+      NominalType(identity, value.nodeType))
 }
 
 final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) extends UnaryNode with SimplyTypedNode {
@@ -370,7 +367,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node, identity: TypeSy
     val by2 = by.nodeWithComputedType(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
     nodeRebuildOrThis(Vector(from2, by2)).nodeTypedOrCopy(
       if(!nodeHasType || retype)
-        CollectionType(from2Type.cons, ProductType(IndexedSeq(NominalType(identity)(by2.nodeType), CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
+        CollectionType(from2Type.cons, ProductType(IndexedSeq(NominalType(identity, by2.nodeType), CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
       else nodeType)
   }
 }
@@ -540,7 +537,7 @@ object FwdPath {
 /** A Node representing a database table. */
 final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any, baseIdentity: TableIdentitySymbol) extends NullaryNode with TypedNode {
   type Self = TableNode
-  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity)(UnassignedStructuralType(identity)))
+  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedStructuralType(identity)))
   def nodeRebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(name = "Table", mainInfo = schemaName.map(_ + ".").getOrElse("") + tableName)
 }
