@@ -657,7 +657,7 @@ final case class InternalJoin(rightGen: Symbol, right: Node, jt: JoinType, on: N
 
 final case class SyntheticTableNode(tableName: String, identity: TableIdentitySymbol, columnsType: Type) extends NullaryNode with TypedNode {
   type Self = SyntheticTableNode
-  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity)(columnsType))
+  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, columnsType))
   def nodeRebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(name = "SyntheticTableNode", mainInfo = tableName)
 }

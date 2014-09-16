@@ -197,7 +197,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
             typedRootPure.value match {
               case ref@Ref(_) => {
                 ref.nodeType match {
-                  case CollectionType(_, elementType@NominalType(_)) => {
+                  case CollectionType(_, elementType@NominalType(_, _)) => {
                     elementType.structural match {
                       case typedType: TypedType[_] => {
                         val newFieldSymbol = FieldSymbol(f"col1")(Nil, typedType)
