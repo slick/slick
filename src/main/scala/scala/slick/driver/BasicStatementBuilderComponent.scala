@@ -420,8 +420,8 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
   /** Builder for INSERT statements. */
   class InsertBuilder(val node: Node) {
 
-    class PartsResult(val table: String, val fields: IndexedSeq[FieldSymbol]) {
-      def qtable = quoteTableName(node.asInstanceOf[TableNode])
+    class PartsResult(val table: String, val fields: IndexedSeq[FieldSymbol], tableNode: TableNode) {
+      def qtable = quoteTableName(tableNode)
       def qcolumns = fields.map(s => quoteIdentifier(s.name)).mkString(",")
       def qvalues = IndexedSeq.fill(fields.size)("?").mkString(",")
     }
@@ -452,18 +452,22 @@ trait BasicStatementBuilderComponent { driver: BasicDriver =>
     protected def buildParts(node: Node): PartsResult = {
       val cols = new ArrayBuffer[FieldSymbol]
       var table: String = null
+      var tableNode: TableNode = null
       def f(c: Any): Unit = c match {
         case ProductNode(ch) => ch.foreach(f)
         case t:TableNode => f(Node(t.nodeShaped_*.value))
         case Select(Ref(IntrinsicSymbol(t: TableNode)), field: FieldSymbol) =>
-          if(table eq null) table = t.tableName
+          if(table eq null) {
+            table = t.tableName
+            tableNode = t
+          }
           else if(table != t.tableName) throw new SlickException("Inserts must all be to the same table")
           cols += field
         case _ => throw new SlickException("Cannot use column "+c+" in INSERT statement")
       }
       f(node)
       if(table eq null) throw new SlickException("No table to insert into")
-      new PartsResult(table, cols)
+      new PartsResult(table, cols, tableNode)
     }
   }
 
