@@ -1,0 +1,7 @@
+Deploying to IV Repository
+==========================
+
+Configure your credentials as per http://confluence.insidevault.com/display/iv/Using+External+Libraries
+
+And then run:
+mvn deploy:deploy-file -Durl=http://nexus.insidevault.com/content/repositories/releases -DrepositoryId=myrepoid -Dfile=/Users/rleon/.ivy2/local/com.typesafe.slick/slick_2.10/1.0.2IV/jars/slick_2.10.jar -Dpackaging=jar -DgroupId=com.typesafe.slick -DartifactId=slick -Dversion=1.0.2IV
