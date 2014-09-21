@@ -79,9 +79,9 @@ More importantly, re-use is very hard. You would need to compose Strings in orde
 
 In Java and many other languages, strings are the only way to embed a concise query language. As we will see in the next sections, Scala is more flexible.
 
-Method based apis
+Method based APIs
 ^^^^^^^^^^^^^^^^^^^^^
-Instead of getting the ultimate flexibility for the embedded language, an alternative approach is to go with the extensibility features of the host language and use those. Object-oriented languages like Java and Scala allow extensibility throw the definition of apis consisting of objects and methods. Hibernate's Criteria Queries use this concept and so does Slick. This allows the host language tools to partially understand the embedded language and provide better support for the features mentioned earlier. Here is an example using Criteria Queries.
+Instead of getting the ultimate flexibility for the embedded language, an alternative approach is to go with the extensibility features of the host language and use those. Object-oriented languages like Java and Scala allow extensibility through the definition of APIs consisting of objects and methods. Hibernate's Criteria Queries use this concept and so does Slick. This allows the host language tools to partially understand the embedded language and provide better support for the features mentioned earlier. Here is an example using Criteria Queries.
 
 .. includecode:: code/OrmToSlick.scala#criteriaQuery
 
@@ -195,7 +195,7 @@ An alternative approach is giving your classes Option-typed members referring to
 
 Modifying relationships
 ________________________
-When manipulating relationships with ORMs you usually work on mutable collections of associated objects and inserts or remove related objects. Changes are written to the db immediately or recorded in a write cache and commited later. To avoid stateful caches and mutability, Slick handles relationship manipulations just like SQL - using foreign keys. Changing relationships means updating foreign key fields to new ids, just like updating any other field. As a bonus this allows establishing and removing associations with objects that have not been loaded into memory. Having their ids is sufficient.
+When manipulating relationships with ORMs you usually work on mutable collections of associated objects and inserts or remove related objects. Changes are written to the database immediately or recorded in a write cache and commited later. To avoid stateful caches and mutability, Slick handles relationship manipulations just like SQL - using foreign keys. Changing relationships means updating foreign key fields to new ids, just like updating any other field. As a bonus this allows establishing and removing associations with objects that have not been loaded into memory. Having their ids is sufficient.
 
 Inheritance
 -----------------
