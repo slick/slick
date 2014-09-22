@@ -148,33 +148,4 @@ class TypedStaticQueryTest {
 
     tsql"""drop table "SUPPLIERS2" """.execute
   }
-
-  @Test
-  @TSQLConfig(url = "jdbc:h2:mem:test1", driver = "org.h2.Driver", slickDriver = "scala.slick.driver.H2Driver")
-  def testAllConfigHandlerMacroStyles = {
-    testConfigHandlerMacro(getConfigHandler())
-    testConfigHandlerMacro(config)
-    testConfigHandlerMacro(TypedStaticQueryTest.chVal1)
-    testConfigHandlerMacro(TypedStaticQueryTest.chVal2)
-    testConfigHandlerMacro(TypedStaticQueryTest.chDef1)
-    testConfigHandlerMacro(TypedStaticQueryTest.chDef2)
-  }
-
-  def testConfigHandlerMacro(ch: ConfigHandler) = {
-    assertEquals("jdbc:h2:mem:test1", ch.url.get.take(17))
-    assertEquals(None, ch.user)
-    assertEquals(None, ch.password)
-    assertEquals("org.h2.Driver", ch.jdbcDriver.get)
-    assertEquals("scala.slick.driver.H2Driver", ch.slickDriver.get)
-  }
-}
-
-object TypedStaticQueryTest extends TypedStaticQuerySupport
-
-@TSQLConfig(url = "jdbc:h2:mem:test1", driver = "org.h2.Driver", slickDriver = "scala.slick.driver.H2Driver")
-trait TypedStaticQuerySupport {
-  def chDef1 = getConfigHandler()
-  @TSQLConfig("default") def chDef2 = getConfigHandler()
-  val chVal1 = getConfigHandler()
-  @TSQLConfig("default") val chVal2 = getConfigHandler()
 }
