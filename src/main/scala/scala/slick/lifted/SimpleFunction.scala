@@ -67,7 +67,9 @@ final case class SimpleLiteral(name: String)(val tpe: Type) extends NullaryNode 
   type Self = SimpleLiteral
   def nodeRebuild = copy()(tpe)
 }
-
+object SimpleLiteral{
+  def apply[T](name: String)(implicit tpe: TypedType[T]) = Column.forNode[T](new SimpleLiteral(name)(tpe))
+}
 /** A SimpleExpression allows arbitrary SQL code to be generated. */
 trait SimpleExpression extends Node {
   def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder): Unit
