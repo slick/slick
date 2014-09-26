@@ -72,3 +72,19 @@ final class ProductWrapper(val seq: IndexedSeq[Any]) extends Product {
   override def hashCode = seq.hashCode
   override def toString = seq.mkString("ProductWrapper(", ",", ")")
 }
+
+trait TupleInSet extends ExtensionMethodConversions{
+  self: slick.profile.RelationalProfile#Implicits =>
+<#list 2..22 as i>
+  implicit class Tuple${i}QueryExtensions
+    [<#list 1..i as j>T${j}: BaseTypedType<#if i != j>, </#if></#list>]
+    (t: (<#list 1..i as j>Rep[T${j}]<#if i != j>, </#if></#list>)){
+      /** inSet for Tuple${i}, does not support Option at the moment */
+      def inSet(set: Traversable[(<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)])
+        : Rep[Boolean]
+        = set.map(elem =>
+          <#list 1..i as j>t._${j} === elem._${j}<#if i != j> && </#if></#list>
+        ).reduce(_ || _)
+  }
+</#list>
+}

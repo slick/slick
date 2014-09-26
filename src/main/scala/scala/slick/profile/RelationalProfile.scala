@@ -31,7 +31,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandConditionals)
   }
 
-  trait Implicits extends super.Implicits with ImplicitColumnTypes {
+  trait Implicits extends super.Implicits with ImplicitColumnTypes with slick.util.TupleInSet{
     @deprecated("Use an explicit conversion to an Option column with `.?`", "2.2")
     implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)

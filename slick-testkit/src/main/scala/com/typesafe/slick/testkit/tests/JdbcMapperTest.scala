@@ -40,6 +40,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
 
     val lastNames = Set("Bouvier", "Ferdinand")
     assertEquals(1, users.filter(_.last inSet lastNames).list.size)
+    assertEquals(1, users.filter(p => (p.last,p.last) inSet (lastNames zip lastNames)).list.size)
 
     val updateQ = users.filter(_.id === 2.bind).map(_.forUpdate)
     println("Update: "+updateQ.updateStatement)
