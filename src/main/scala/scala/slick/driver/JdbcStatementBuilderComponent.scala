@@ -357,6 +357,16 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           case n => b" else $n"
         }
         b" end)"
+      case c: WindowExpr =>
+        expr(c.aggExpr)
+        b" over("
+        if(c.partitionBy.nonEmpty) { b" partition by "; b.sep(c.partitionBy, ",")(expr(_, true)) }
+        if(c.orderBy.nonEmpty) buildOrderByClause(c.orderBy)
+        c.frameDef.map {
+          case (mode, start, Some(end)) => b" $mode between $start and $end"
+          case (mode, start, None)      => b" $mode $start"
+        }
+        b") "
       case RowNumber(by) =>
         b"row_number() over("
         if(by.isEmpty) b"order by (select 1)"
