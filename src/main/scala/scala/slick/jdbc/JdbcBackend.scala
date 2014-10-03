@@ -43,8 +43,9 @@ trait JdbcBackend extends DatabaseComponent {
     protected[this] def asyncExecutionContext = executor.executionContext
 
     /** Free all resources allocated by Slick for this Database object. In particular, the
-      * [[AsyncExecutor]] with the thread pool for asynchronous execution is shut down. If this
-      * object represents a connection pool managed directly by Slick, it is also closed. */
+      * [[scala.slick.util.AsyncExecutor]] with the thread pool for asynchronous execution is shut
+      * down. If this object represents a connection pool managed directly by Slick, it is also
+      * closed. */
     def close(): Unit = try executor.close() finally source.close()
    }
 
@@ -87,12 +88,13 @@ trait JdbcBackend extends DatabaseComponent {
       *
       * The main config key to set is `pool`. It determines the connection pool implementation to
       * use (if any). The default is undefined/null (no pool, use the DriverManager directly).
-      * Slick comes with support for [[http://jolbox.com/ BoneCP]] which can be selected by setting
-      * `pool=BoneCP` (or the full object name `scala.slick.jdbc.BoneCPJdbcDataSource`).
+      * Slick comes with support for [[https://github.com/brettwooldridge/HikariCP HikariCP]] and
+      * [[http://jolbox.com/ BoneCP]] which can be selected by setting `pool=HikariCP` or `pool=BoneCP`
+      * respectively (or the full object name, e.g. `scala.slick.jdbc.HikariCPJdbcDataSource`).
       * 3rd-party connection pool implementations have to be specified with the fully qualified
       * name of an object implementing [[JdbcDataSourceFactory]].
       *
-      * The following config keys are supported for pool settings `null` and `BoneCP`:
+      * The following config keys are supported for pool settings `null`, `HikariCP` and `BoneCP`:
       * <ul>
       *   <li>`url` (String, required): JDBC URL</li>
       *   <li>`driver` (String, optional): JDBC driver class to load</li>
@@ -106,7 +108,7 @@ trait JdbcBackend extends DatabaseComponent {
       *   <li>`properties` (Map, optional): Properties to pass to the driver.</li>
       * </ul>
       *
-      * The following config keys are only supported for pool setting `BoneCP`:
+      * The following extra config keys are supported for pool setting `BoneCP`:
       * <ul>
       *   <li>`partitionCount` (Int, optional, default: 1): In order to reduce lock contention and
       *     thus improve performance, each incoming connection request picks off a connection from
@@ -156,17 +158,105 @@ trait JdbcBackend extends DatabaseComponent {
       *     instead that should work on all databases but is probably slower.</li>
       * </ul>
       *
+      * For pool setting `HikariCP`, all standard HikariCP configuration options are supported.
+      * In cases where they have different names than the traditional Play / BoneCP names, you
+      * can use both versions for compatibility (like in
+      * [[http://edulify.github.io/play-hikaricp.edulify.com/ play-hikaricp]]). In particular, the
+      * following config keys are supported for HikariCP:
+      *
+      * <ul>
+      *   <li>`dataSourceClassName` (String, optional): The name of the DataSource class provided
+      *     by the JDBC driver. When using HikariCP this is preferred over `driver`.
+      *   <li>`driverClassName` or `driver` (String, optional): JDBC driver class to load.</li>
+      *   <li>`jdbcUrl` or `url` (String, optional): The JDBC URL to be used with the driver.
+      *     Required when using a driver directly, ignored when using `dataSourceClassName`. In
+      *     this case you have to set the connection properties through `dataSource` or
+      *     `properties`.</li>
+      *   <li>`username` or `user` (String, optional): User name</li>
+      *   <li>`password` (String, optional): Password</li>
+      *   <li>`dataSource` or `properties` (Map, optional): Properties to pass to the Driver or
+      *     DataSource.</li>
+      *   <li>`connectionTimeout` (Duration, optional, default: 30s): The maximum time to wait
+      *     before a call to getConnection is timed out. If this time is exceeded without a
+      *     connection becoming available, a SQLException will be thrown. 100ms is the minimum
+      *     value.</li>
+      *   <li>`idleTimeout` or `idleMaxAge` (Duration, optional, default: 10m): The maximum amount
+      *     of time that a connection is allowed to sit idle in the pool. Whether a connection is
+      *     retired as idle or not is subject to a maximum variation of +30 seconds, and average
+      *     variation of +15 seconds. A connection will never be retired as idle before this
+      *     timeout. A value of 0 means that idle connections are never removed from the pool.</li>
+      *   <li>`maxLifetime` or `maxConnectionAge` (Duration, optional, default: 30min): The maximum
+      *     lifetime of a connection in the pool. When a connection reaches this timeout, even if
+      *     recently used, it will be retired from the pool. An in-use connection will never be
+      *     retired, only when it is idle will it be removed. A value of 0 indicates no maximum
+      *     lifetime.</li>
+      *   <li>`leakDetectionThreshold` (Duration, optional, default: 0): The amount of time that a
+      *     connection can be out of the pool before a message is logged indicating a possible
+      *     connection leak. A value of 0 means leak detection is disabled. Lowest acceptable value
+      *     for enabling leak detection is 10s.</li>
+      *   <li>`initializationFailFast` (Boolean, optional, default: false): Controls whether the
+      *     pool will "fail fast" if the pool cannot be seeded with initial connections
+      *     successfully. If connections cannot be created at pool startup time, a RuntimeException
+      *     will be thrown. This property has no effect if `minimumIdle` is 0.</li>
+      *   <li>`jdbc4ConnectionTest` (Boolean, optional, default: true): Determines whether the
+      *     JDBC4 Connection.isValid() method is used to check that a connection is still alive.
+      *     This value is mutually exclusive with the `connectionTestQuery` property, and this
+      *     method of testing connection validity should be preferred if supported by the JDBC
+      *     driver.</li>
+      *   <li>`connectionTestQuery` or `connectionTestStatement` (String, optional): This is for
+      *     "legacy" databases that do not support the JDBC4 Connection.isValid() API. This is the
+      *     query that will be executed just before a connection is given to you from the pool to
+      *     validate that the connection to the database is still alive. It is database dependent
+      *     and should be a query that takes very little processing by the database (eg.
+      *     "VALUES 1"). See the `jdbc4ConnectionTest` property for a more efficent alive test.
+      *     This must be set if `jdbc4ConnectionTest` is `false`.</li>
+      *   <li>`connectionInitSql` or `initSQL` (String, optional): A SQL statement that will be
+      *     executed after every new connection creation before adding it to the pool. If this SQL
+      *     is not valid or throws an exception, it will be treated as a connection failure and the
+      *     standard retry logic will be followed.</li>
+      *   <li>`maximumPoolSize` (Int, optional, default: 10): The maximum number of connections in
+      *     the pool. For compatibility with the BoneCP configuration, you can also specify this
+      *     as `maxConnectionsPerPartition` * `partitionCount` (where `partitionCount` defaults to
+      *     1).</li>
+      *   <li>`minimumIdle` (Int, optional, default: same as `maximumPoolSize`): The minimum number
+      *     of connections to keep in the pool. For compatibility with the BoneCP configuration,
+      *     you can also specify this as `minConnectionsPerPartition` * `partitionCount` (where
+      *     `partitionCount` defaults to 1).</li>
+      *   <li>`poolName` (String, optional): A user-defined name for the connection pool in logging
+      *     and JMX management consoles to identify pools and pool configurations. This defaults to
+      *     the config path, or an auto-generated name when creating the `Database` from the root
+      *     of a `Config` object.</li>
+      *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
+      *     Beans ("MBeans") are registered. For compatibility with the BoneCP configuration, you
+      *     can also speficy this via `disableJMX` (with the negated value).</li>
+      *   <li>`isolateInternalQueries` (Boolean, optional, default: false): Determines whether
+      *     HikariCP isolates internal pool queries, such as the connection alive test, in their
+      *     own transaction. Since these are typically read-only queries, it is rarely necessary to
+      *     encapsulate them in their own transaction. This property only applies if autoCommit is
+      *     disabled.</li>
+      *   <li>`autoCommit` or `autocommit` (Boolean, optional, default: true): Autocommit mode for
+      *     new connections.</li>
+      *   <li>`readOnly` (Boolean, optional, default: false): Read Only flag for new
+      *     connections.</li>
+      *   <li>`transactionIsolation` or `isolation` (String, optional): Isolation level for new
+      *     connections. Allowed values are: `NONE`, `TRANSACTION_READ_COMMITTED` or
+      *     `READ_COMMITTED`, `TRANSACTION_READ_UNCOMMITTED` or `READ_UNCOMMITTED`,
+      *     `TRANSACTION_REPEATABLE_READ` or `REPEATABLE_READ`, `TRANSACTION_SERIALIZABLE` or
+      *     `SERIALIZABLE`.</li>
+      *   <li>`catalog` or `defaultCatalog` (String, optional): Default catalog for new
+      *     connections.</li>
+      * </ul>
+      *
       * For asynchronous execution of database actions on top of JDBC, Slick needs to create a
       * thread pool for the database. It can be configured with the following keys:
       * <ul>
       *   <li>`threads.max` (Int, optional): The maximum number of concurrent threads. When using
-      *     BoneCP, this defaults to the maximum number of connections
-      *     (`partitionCount * maxConnectionsPerPartition`), otherwise to 30. It should be manually
-      *     set to the correct size when using an external connection pool. Note that the automatic
-      *     sizing assumes that the connection pool is used exclusively for asynchronous execution.
-      *     This limit should be set lower than the actual pool size if you expect to use the pool
-      *     for other calls, too</li>
-      *   <li>`threads.core` (Int, optional): The maximum number of concurrent threads after which
+      *     HikariCP or BoneCP, this defaults to the maximum number of connections, otherwise to
+      *     30. It should be manually set to the correct size when using an external connection
+      *     pool. Note that the automatic sizing assumes that the connection pool is used
+      *     exclusively for asynchronous execution. This limit should be set lower than the actual
+      *     pool size if you expect to use the pool for other calls, too.</li>
+      *   <li>threads.core` (Int, optional): The maximum number of concurrent threads after which
       *     queueing is preferred to spawning new threads. The pool will extend further up to
       *     `threads.max` size when the queue is full. If not set (or set to null), the same size
       *     as `threads.max` is used.</li>
@@ -182,14 +272,14 @@ trait JdbcBackend extends DatabaseComponent {
       * Unknown keys are ignored. Invalid values or missing mandatory keys will trigger a
       * [[SlickException]].
       *
-      * The configuration settings are very similar to the ones supported by
+      * The configuration settings for BoneCP are very similar to the ones supported by
       * [[http://www.playframework.com/documentation/2.4.x/SettingsJDBC Play 2.4]], with a few
       * notable differences:
       * <ul>
       *   <li>Play uses BoneCP by default. Slick requires `pool=BoneCP` to be set for that.</li>
       *   <li>Play always sets `autocommit`, `isolation` and `readOnly` when checking out a
-      *     connection, with suitable default values. Slick requires explicit settings for that,
-      *     otherwise new connections are not modified.</li>
+      *     connection, with suitable default values. Slick requires explicit settings for that
+      *     when using BoneCP, otherwise new connections are not modified.</li>
       *   <li>Slick has no special support for MySQL, PostgreSQL and H2 URLs. All URLs are passed
       *     directly to the pool or DriverManager.</li>
       *   <li>Slick does not support the `jndiName` setting.</li>
@@ -206,7 +296,7 @@ trait JdbcBackend extends DatabaseComponent {
       *               connection pools (in particular, the default [[BoneCPJdbcDataSource]]).
       */
     def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database = {
-      val source = JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver)
+      val source = JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver, path)
       val maxThreads = if(source.maxConnections == -1) 30 else source.maxConnections
       val executor = AsyncExecutor(path, config.getConfigOr("threads"), maxThreads)
       forSource(source, executor)

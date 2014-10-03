@@ -25,8 +25,11 @@ object SlickBuild extends Build {
     val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
     val logback = "ch.qos.logback" % "logback-classic" % "0.9.28"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
-    val boneCP = "com.jolbox" % "bonecp" % "0.8.0.RELEASE"
-    val mainDependencies = Seq(slf4j, typesafeConfig, boneCP % "optional")
+    val pools = Seq(
+      "com.zaxxer" % "HikariCP-java6" % "2.0.1",
+      "com.jolbox" % "bonecp" % "0.8.0.RELEASE"
+    )
+    val mainDependencies = Seq(slf4j, typesafeConfig) ++ pools.map(_ % "optional")
     val h2 = "com.h2database" % "h2" % "1.3.170"
     val testDBs = Seq(
       h2,

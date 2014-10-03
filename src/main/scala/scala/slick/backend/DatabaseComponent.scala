@@ -25,7 +25,7 @@ trait DatabaseComponent { self =>
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
-    /** The [[ExecutionContext]] to use for asynchronous I/O on this Database. */
+    /** The [[scala.concurrent.ExecutionContext]] to use for asynchronous I/O on this Database. */
     protected[this] def asyncExecutionContext: ExecutionContext
 
     /** Free all resources allocated by Slick for this Database. */

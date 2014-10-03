@@ -44,7 +44,7 @@ object AsyncExecutor extends Logging {
     }
   }
 
-  /** Create an [[AsyncExecutor]] from a [[Config]] object. See
+  /** Create an [[AsyncExecutor]] from a [[com.typesafe.config.Config]] object. See
     * [[scala.slick.jdbc.JdbcBackend.DatabaseFactoryDef.forConfig()]] for the supported
     * configuration keys. */
   def apply(name: String, config: Config, maxThreadsDefault: Int): AsyncExecutor = {

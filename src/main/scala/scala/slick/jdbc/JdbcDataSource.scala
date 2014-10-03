@@ -28,22 +28,23 @@ trait JdbcDataSource extends Closeable {
 object JdbcDataSource {
   /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
     * for documentation of the supported configuration parameters. */
-  def forConfig(c: Config, driver: Driver): JdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource = {
     val pf: JdbcDataSourceFactory = c.getStringOr("pool") match {
       case null => DriverJdbcDataSource
+      case "HikariCP" => HikariCPJdbcDataSource
       case "BoneCP" => BoneCPJdbcDataSource
       case name =>
         val clazz = Class.forName(name)
         clazz.getField("MODULE$").get(clazz).asInstanceOf[JdbcDataSourceFactory]
     }
-    pf.forConfig(c, driver)
+    pf.forConfig(c, driver, name)
   }
 }
 
 /** Create a [[JdbcDataSource]] from a `Config` object and an optional JDBC `Driver`.
   * This is used with the "pool" configuration option in [[JdbcBackend.DatabaseFactoryDef.forConfig]]. */
 trait JdbcDataSourceFactory {
-  def forConfig(c: Config, driver: Driver): JdbcDataSource
+  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource
 }
 
 /** A JdbcDataSource for a `DataSource` */
@@ -103,10 +104,67 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
 }
 
 object DriverJdbcDataSource extends JdbcDataSourceFactory {
-  def forConfig(c: Config, driver: Driver): DriverJdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String): DriverJdbcDataSource = {
     val cp = new ConnectionPreparer(c)
     new DriverJdbcDataSource(c.getString("url"), c.getStringOr("user"), c.getStringOr("password"),
       c.getPropertiesOr("properties"), c.getStringOr("driver"), driver, if(cp.isLive) cp else null)
+  }
+}
+
+/** A JdbcDataSource for a HikariCP connection pool */
+class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig) extends JdbcDataSource {
+  def createConnection(): Connection = ds.getConnection()
+  def close(): Unit = ds.close()
+  def maxConnections = hconf.getMaximumPoolSize
+}
+
+object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
+  import com.zaxxer.hikari._
+
+  def forConfig(c: Config, driver: Driver, name: String): HikariCPJdbcDataSource = {
+    if(driver ne null)
+      throw new SlickException("An explicit Driver object is not supported by HikariCPJdbcDataSource")
+    val hconf = new HikariConfig()
+
+    // Connection settings
+    hconf.setDataSourceClassName(c.getStringOr("dataSourceClassName", null))
+    hconf.setDriverClassName(c.getStringOr("driverClassName", c.getStringOr("driver")))
+    hconf.setJdbcUrl(c.getStringOr("jdbcUrl", c.getStringOr("url", null)))
+    c.getStringOpt("username").orElse(c.getStringOpt("user")).foreach(hconf.setUsername)
+    c.getStringOpt("password").foreach(hconf.setPassword)
+    c.getPropertiesOpt("dataSource").orElse(c.getPropertiesOpt("properties")).foreach(hconf.setDataSourceProperties)
+
+    // Pool configuration
+    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 30000))
+    hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", c.getMillisecondsOr("idleMaxAge", 600000)))
+    hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", c.getMillisecondsOr("maxConnectionAge", 1800000)))
+    hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
+    hconf.setInitializationFailFast(c.getBooleanOr("initializationFailFast", false))
+    hconf.setJdbc4ConnectionTest(c.getBooleanOr("jdbc4ConnectionTest", true))
+    c.getStringOpt("connectionTestQuery").orElse(c.getStringOpt("connectionTestStatement")).foreach(hconf.setConnectionTestQuery)
+    c.getStringOpt("connectionInitSql").orElse(c.getStringOpt("initSQL")).foreach(hconf.setConnectionInitSql)
+    val compatMaxPoolSize = c.getIntOpt("maxConnectionsPerPartition").map(_ * c.getIntOr("partitionCount", 1))
+    hconf.setMaximumPoolSize(c.getIntOr("maximumPoolSize", compatMaxPoolSize.getOrElse(10)))
+    val compatMinPoolSize = c.getIntOpt("minConnectionsPerPartition").map(_ * c.getIntOr("partitionCount", 1))
+    hconf.setMinimumIdle(c.getIntOr("minimumIdle", compatMinPoolSize.getOrElse(hconf.getMaximumPoolSize)))
+    c.getStringOpt("poolName").orElse(Option(name)).foreach(hconf.setPoolName)
+    hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", !c.getBooleanOr("disableJMX", true)))
+    hconf.setIsolateInternalQueries(c.getBooleanOr("isolateInternalQueries", false))
+
+    // Equivalent of ConnectionPreparer
+    hconf.setAutoCommit(c.getBooleanOr("autoCommit", c.getBooleanOr("autocommit", true)))
+    hconf.setReadOnly(c.getBooleanOr("readOnly", false))
+    c.getStringOpt("transactionIsolation").orElse(c.getStringOpt("isolation")).map {
+      case "READ_COMMITTED" => "TRANSACTION_READ_COMMITTED"
+      case "READ_UNCOMMITTED" => "TRANSACTION_READ_UNCOMMITTED"
+      case "REPEATABLE_READ" => "TRANSACTION_REPEATABLE_READ"
+      case "SERIALIZABLE" => "TRANSACTION_SERIALIZABLE"
+      case s => s
+    }.foreach(hconf.setTransactionIsolation)
+    hconf.setCatalog(c.getStringOr("catalog", c.getStringOr("defaultCatalog", null)))
+
+    val ds = new HikariDataSource(hconf)
+    new HikariCPJdbcDataSource(ds, hconf)
   }
 }
 
@@ -123,7 +181,7 @@ object BoneCPJdbcDataSource extends JdbcDataSourceFactory {
   import com.jolbox.bonecp._
   import com.jolbox.bonecp.hooks._
 
-  def forConfig(c: Config, driver: Driver): BoneCPJdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String): BoneCPJdbcDataSource = {
     if(driver ne null)
       throw new SlickException("An explicit Driver object is not supported by BoneCPJdbcDataSource")
     val ds = new BoneCPDataSource
@@ -163,8 +221,8 @@ object BoneCPJdbcDataSource extends JdbcDataSourceFactory {
   }
 }
 
-/** Set parameters on a new Connection. This is used by both,
-  * [[DriverJdbcDataSource]] and [[BoneCPJdbcDataSource]]. */
+/** Set parameters on a new Connection. This is used by [[DriverJdbcDataSource]]
+  * and [[BoneCPJdbcDataSource]]. */
 class ConnectionPreparer(c: Config) extends (Connection => Unit) {
   val autocommit = c.getBooleanOpt("autocommit")
   val isolation = c.getStringOpt("isolation").map {
