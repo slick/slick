@@ -8,7 +8,9 @@ import scala.slick.SlickException
 trait OutputHelpers{
   def code: String
 
-  /** Indents all but the first line of the given string */
+  /** Indents all but the first line of the given string.
+   *  No indent is added to empty lines.
+   */
   def indent(code: String): String
 
   /** Writes given content to a file
