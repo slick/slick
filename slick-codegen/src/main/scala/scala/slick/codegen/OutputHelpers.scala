@@ -13,8 +13,9 @@ trait OutputHelpers{
    */
   def indent(code: String): String
 
-  /** Writes given content to a file
-      @group Output */
+  /** Writes given content to a file.
+   *  @group Output
+   */
   def writeStringToFile(content: String, folder:String, pkg: String, fileName: String) {
     val folder2 : String = folder + "/" + (pkg.replace(".", "/")) + "/"
     new File(folder2).mkdirs()
