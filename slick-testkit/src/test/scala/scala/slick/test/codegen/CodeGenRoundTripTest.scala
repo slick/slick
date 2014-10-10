@@ -78,6 +78,8 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
       X.map(r =>{(r.index4: Index) == null})
 
       TypeTest.map(r =>{(r.pk: PrimaryKey) == null})
+      TypeTest.map(r =>{(r.javaUtilUuid: Column[java.util.UUID]) == null})
+      TypeTest.map(r =>{(r.optionJavaUtilUuid: Column[Option[java.util.UUID]]) == null})
     }
   }}
 }

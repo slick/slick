@@ -1,5 +1,7 @@
 package scala.slick.test.codegen
 
+import java.util.UUID
+
 import org.junit.Test
 import org.junit.Assert._
 import scala.slick.jdbc.meta._
@@ -224,6 +226,28 @@ class Db1 extends {
       }
       assertAll( A.run )
       assertAll( sql"""select * from "a" """.as[ARow].list ) ;
+    }
+  }
+
+  @Test def uuidTest() {
+    val Db1 = CG10
+    import Db1.driver.simple._
+    import Db1._
+    database.withSession { implicit session =>
+      val u1 = UUID.randomUUID()
+      val u2 = UUID.randomUUID()
+
+      Person.insert( PersonRow(1, u1) )
+      Person.insert( PersonRow(2, u2) )
+      def assertAll(all: Seq[PersonRow]) = {
+        assertEquals( 2, all.size )
+        assertEquals( Set(1,2), all.map(_.id).toSet )
+        assertEquals(Set(u1, u2), all.map(_.uuid).toSet)
+        //it should contain sample UUID
+        assert(all.forall(_.uuidDef == Some(defaultUUID)))
+      }
+      assertAll( Person.run )
+      assertAll( sql"""select * from "person" """.as[PersonRow].list ) ;
     }
   }
 
