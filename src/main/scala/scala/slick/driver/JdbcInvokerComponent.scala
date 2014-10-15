@@ -42,6 +42,14 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     protected def extractValue(pr: PositionedResult): R = converter.read(pr.rs)
     protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr.rs)
     def invoker: this.type = this
+
+    /** Replace the SQL query used by this invoker.
+      * This can be used as a workaround to replace
+      * non-optimal SQL produced by Slick's query compiler.
+      */
+    def hackSql(sql: String) = new QueryInvoker[R](tree, param){
+      override def getStatement = sql
+    }
   }
 
   class DDLInvoker(ddl: DDL) extends super.DDLInvoker {

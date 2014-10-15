@@ -18,6 +18,16 @@ trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
 
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
+    /** Replace the SQL query used by this invoker.
+      * This can be used as a workaround to replace
+      * non-optimal SQL produced by Slick's query compiler.
+      */
+    def hackSql(sql: String) = new QueryExecutorDef[R](tree, param){
+      override lazy val selectStatement = sql
+      override protected def createQueryInvoker[R](tree: Node, param: Any) = super.createQueryInvoker[R](tree, param).hackSql(sql)
+    }
+
+    protected def createQueryInvoker[R](tree: Node, param: Any) = driver.createQueryInvoker[R](tree, param)
 
     lazy val selectStatement =
       tree.findNode(_.isInstanceOf[CompiledStatement]).get

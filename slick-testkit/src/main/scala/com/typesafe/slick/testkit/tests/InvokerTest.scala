@@ -101,4 +101,33 @@ class InvokerTest extends TestkitTest[JdbcTestDB] {
     val it2 = f()
     it2.use { assertEquals((1 to 1000).toList, it2.toStream.toList) }
   }
+
+  def testHackSql = {
+    import tdb.driver.quoteIdentifier
+
+    class T(tag: Tag) extends Table[Int](tag, "T4") {
+      def a = column[Int]("A")
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    ts.ddl.create
+    ts.insertAll(2, 3, 1, 5, 4)
+
+    assertEquals(ts.map(_.a).run.to[Set], Set(1,2,3,4,5))
+    def q(s:String) = quoteIdentifier(s)
+    assertEquals(Set(1,2),ts.map(_.a).invoker.hackSql(
+      "select "+q("A")+" from "+q("T4")+" where "+q("A")+" < 3"
+    ).list.toSet)
+    assertEquals(Set(1,2),ts.map(_.a).executor.hackSql(
+      "select "+q("A")+" from "+q("T4")+" where "+q("A")+" < 3"
+    ).run.toSet)
+
+    val cq = Compiled( (v:Column[Int]) => ts.filter(_.a < v) )
+    assertEquals(Set(1,2,3,4),cq(5).run.toSet)
+    assertEquals(Set(1,2),cq(5).executor.hackSql(
+      "select "+q("A")+" from "+q("T4")+" where "+q("A")+" < 3 AND 5 = ?"
+    ).run.toSet)
+
+  }
 }
