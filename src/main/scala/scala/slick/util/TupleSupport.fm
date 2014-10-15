@@ -36,23 +36,23 @@ object TupleSupport {
 
 /** Extension methods for prepending and appending values to tuples */
 object TupleMethods {
-  implicit class ColumnTupleExtensionMethods[T](val c: Column[T]) extends AnyVal {
-    def ~ [U](c2: Column[U]): (Column[T], Column[U]) = (c, c2)
-    def ~: [U](c2: Column[U]): (Column[U], Column[T]) = (c2, c)
+  implicit class RepTupleExtensionMethods[T <: Rep[_]](val c: T with Rep[_]) extends AnyVal {
+    def ~ [U <: Rep[_]](c2: U with Rep[_]): (T, U) = (c, c2)
+    def ~: [U <: Rep[_]](c2: U with Rep[_]): (U, T) = (c2, c)
   }
 <#list 2..21 as i>
-  implicit class Tuple${i}ExtensionMethods[<#list 1..i as j>T${j}<#if i != j>, </#if></#list>](val t: (<#list 1..i as j>Column[T${j}]<#if i != j>, </#if></#list>)) extends AnyVal {
-    def ~ [U](c: Column[U]): (<#list 1..i as j>Column[T${j}], </#list>Column[U]) = (<#list 1..i as j>t._${j}, </#list>c)
-    def ~: [U](c: Column[U]): (Column[U]<#list 1..i as j>, Column[T${j}]</#list>) = (c<#list 1..i as j>, t._${j}</#list>)
+  implicit class Tuple${i}ExtensionMethods[<#list 1..i as j>T${j} <: Rep[_]<#if i != j>, </#if></#list>](val t: (<#list 1..i as j>T${j} with Rep[_]<#if i != j>, </#if></#list>)) extends AnyVal {
+    def ~ [U <: Rep[_]](c: U with Rep[_]): (<#list 1..i as j>T${j}, </#list>U) = (<#list 1..i as j>t._${j}, </#list>c)
+    def ~: [U <: Rep[_]](c: U with Rep[_]): (U<#list 1..i as j>, T${j}</#list>) = (c<#list 1..i as j>, t._${j}</#list>)
   }
 </#list>
 
   /** A chained extractor for tuples */
   object ~ {
-    def unapply[T1 <: Column[_], T2 <: Column[_]](p: (T1,T2)) =
+    def unapply[T1 <: Rep[_], T2 <: Rep[_]](p: (T1,T2)) =
       Some(p)
 <#list 3..22 as i>
-    def unapply[<#list 1..i as j>T${j} <: Column[_]<#if i != j>,</#if></#list>](p: (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)) =
+    def unapply[<#list 1..i as j>T${j} <: Rep[_]<#if i != j>,</#if></#list>](p: (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)) =
       Some((<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i})
 </#list>
   }

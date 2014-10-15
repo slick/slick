@@ -90,10 +90,12 @@ object QueryCompiler {
     Phase.assignUniqueSymbols,
     // Distribute and normalize
     Phase.inferTypes,
+    Phase.expandTables,
     Phase.createResultSetMapping,
     Phase.forceOuterBinds,
     // Convert to column form
-    Phase.expandTables,
+    Phase.expandSums,
+    Phase.expandConditionals,
     Phase.expandRecords,
     Phase.flattenProjections,
     Phase.relabelUnions,
@@ -135,10 +137,12 @@ object Phase {
   /** The standard phases of the query compiler */
   val assignUniqueSymbols = new AssignUniqueSymbols
   val inferTypes = new InferTypes
+  val expandTables = new ExpandTables
   val createResultSetMapping = new CreateResultSetMapping
   val forceOuterBinds = new ForceOuterBinds
-  val expandTables = new ExpandTables
+  val expandSums = new ExpandSums
   val expandRecords = new ExpandRecords
+  val expandConditionals = new ExpandConditionals
   val flattenProjections = new FlattenProjections
   val relabelUnions = new RelabelUnions
   val pruneFields = new PruneFields

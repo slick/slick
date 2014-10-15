@@ -8,22 +8,32 @@ import scala.reflect.{ClassTag, classTag => mkClassTag}
 import Util._
 import scala.collection.mutable.ArrayBuffer
 import scala.annotation.implicitNotFound
-import scala.slick.util.TupleSupport
+import scala.slick.util.{DumpInfo, Dumpable, TupleSupport}
 
 /** Super-trait for all types */
-trait Type {
+trait Type extends Dumpable {
   /** All children of this Type. */
   def children: Seq[Type]
   /** Apply a transformation to all type children and reconstruct this
     * type with the new children, or return the original object if no
     * child is changed. */
   def mapChildren(f: Type => Type): Type
-  def select(sym: Symbol): Type =
-    throw new SlickException("No type for symbol "+sym+" found in "+this)
+  def select(sym: Symbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
   /** The structural view of this type */
   def structural: Type = this
+  /** Remove all NominalTypes recursively from this Type */
+  def structuralRec: Type = structural.mapChildren(_.structuralRec)
   /** A ClassTag for the erased type of this type's Scala values */
   def classTag: ClassTag[_]
+  def getDumpInfo = DumpInfo(getClass.getName.replaceAll(".*\\.", ""), toString, "",
+    children.zipWithIndex.map { case (ch, i) => (i.toString, ch) })
+}
+
+object Type {
+  /** An extractor for strucural expansions of types */
+  object Structural {
+    def unapply(t: Type): Some[Type] = Some(t.structural)
+  }
 }
 
 /** An atomic type (i.e. a type which does not contain other types) */
@@ -54,18 +64,44 @@ trait OptionType extends Type {
   def elementType: Type
   def children: Seq[Type] = Seq(elementType)
   def classTag = OptionType.classTag
+  override def hashCode = elementType.hashCode() + 100
+  override def equals(o: Any) = o match {
+    case OptionType(elem) if elementType == elem => true
+    case _ => false
+  }
 }
 
 object OptionType {
-  def apply(tpe: Type): OptionType = new OptionType {
-    def elementType = tpe
-    def mapChildren(f: Type => Type): OptionType = {
-      val e2 = f(elementType)
-      if(e2 eq elementType) this
-      else OptionType(e2)
+  def apply(tpe: Type): OptionType = tpe match {
+    case t: TypedType[_] => t.optionType
+    case _ =>
+      new OptionType {
+        def elementType = tpe
+        def mapChildren(f: Type => Type): OptionType = {
+          val e2 = f(elementType)
+          if (e2 eq elementType) this
+          else OptionType(e2)
+        }
+      }
+  }
+  def unapply(tpe: OptionType) = Some(tpe.elementType)
+  private val classTag = mkClassTag[Option[_]]
+
+  /** An extractor for a non-nested Option type of a single column */
+  object Primitive {
+    def unapply(tpe: Type): Option[Type] = tpe.structural match {
+      case o: OptionType if o.elementType.structural.children.isEmpty => Some(o.elementType)
+      case _ => None
     }
   }
-  private val classTag = mkClassTag[Option[_]]
+
+  /** An extractor for a nested or multi-column Option type */
+  object NonPrimitive {
+    def unapply(tpe: Type): Option[Type] = tpe.structural match {
+      case o: OptionType if o.elementType.structural.children.nonEmpty => Some(o.elementType)
+      case _ => None
+    }
+  }
 }
 
 final case class ProductType(elements: IndexedSeq[Type]) extends Type {
@@ -119,7 +155,10 @@ trait CollectionTypeConstructor {
 
 @implicitNotFound("Cannot use collection in a query\n            collection type: ${C}[_]\n  requires implicit of type: scala.slick.ast.TypedCollectionTypeConstructor[${C}]")
 abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]) extends CollectionTypeConstructor {
-  override def toString = s"Coll[$classTag]"
+  override def toString = classTag.runtimeClass.getName
+    .replaceFirst("^scala.collection.immutable.", "")
+    .replaceFirst("^scala.collection.mutable.", "m.")
+    .replaceFirst("^scala.collection.generic.", "g.")
   def createBuilder[E : ClassTag]: Builder[E, C[E]]
 }
 
@@ -172,15 +211,14 @@ final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType {
   def classTag = throw new SlickException("UnassignedStructuralType does not have a ClassTag")
 }
 
-/* A type with a name, as used by tables.
+/** A type with a name, as used by tables.
  *
  * Compiler phases which change types may keep their own representation
  * of the structural view but must update the AST at the end of the phase
  * so that all NominalTypes with the same symbol have the same structural
  * view. */
 final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type {
-  def toShortString = s"NominalType($sym)"
-  override def toString = s"$toShortString($structuralView)"
+  override def toString = s"$sym<$structuralView>"
   def withStructuralView(t: Type): NominalType =
     if(t == structuralView) this else copy(structuralView = t)
   override def structural: Type = structuralView.structural
@@ -198,7 +236,7 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
   def classTag = structuralView.classTag
 }
 
-/** Something that has a type */
+/** Something that has a Type */
 trait Typed {
   def tpe: Type
 }
@@ -207,15 +245,15 @@ object Typed {
   def unapply(t: Typed) = Some(t.tpe)
 }
 
-/* A Type that carries a Scala type argument */
+/** A Type that carries a Scala type argument */
 trait TypedType[T] extends Type { self =>
   def optionType: OptionTypedType[T] = new OptionTypedType[T] {
     val elementType = self
     def scalaType = new ScalaOptionType[T](self.scalaType)
-    def mapChildren(f: Type => Type): OptionTypedType[T] = {
+    def mapChildren(f: Type => Type): Type = {
       val e2 = f(elementType)
       if(e2 eq elementType) this
-      else e2.asInstanceOf[TypedType[T]].optionType
+      else OptionType(e2)
     }
   }
   def scalaType: ScalaType[T]
@@ -260,7 +298,7 @@ class TypeUtil(val tpe: Type) extends AnyVal {
 object TypeUtil {
   implicit def typeToTypeUtil(tpe: Type) = new TypeUtil(tpe)
 
-  /* An extractor for node types */
+  /** An extractor for node types */
   object :@ {
     def unapply(n: Node) = Some((n, n.nodeType))
   }
@@ -313,7 +351,7 @@ trait ScalaType[T] extends TypedType[T] {
 }
 
 class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.math.Ordering[T]) extends ScalaType[T] with BaseTypedType[T] {
-  override def toString = "ScalaType[" + classTag.runtimeClass.getName + "]"
+  override def toString = classTag.toString.replaceFirst("^java.lang.", "")
   def nullable = false
   def ordered = ordering ne null
   def scalaOrderingFor(ord: Ordering) = {
@@ -336,6 +374,10 @@ class ScalaBaseType[T](implicit val classTag: ClassTag[T], val ordering: scala.m
   }
 }
 
+class ErasedScalaBaseType[T, E](implicit val erasure: ScalaBaseType[E], val ct: ClassTag[T]) extends ScalaBaseType[T]()(ct, null) {
+  override def toString = classTag.toString.replaceFirst("^scala.slick.ast.", "") + "/" + erasure
+}
+
 object ScalaBaseType {
   implicit val booleanType = new ScalaBaseType[Boolean]
   implicit val bigDecimalType = new ScalaNumericType[BigDecimal](BigDecimal.apply _)
@@ -348,10 +390,12 @@ object ScalaBaseType {
   implicit val nullType = new ScalaBaseType[Null]
   implicit val shortType = new ScalaNumericType[Short](_.toShort)
   implicit val stringType = new ScalaBaseType[String]
+  implicit val optionDiscType = new ErasedScalaBaseType[OptionDisc, Int]
 
   private[this] val all: Map[ClassTag[_], ScalaBaseType[_]] =
     Seq(booleanType, bigDecimalType, byteType, charType, doubleType,
-      floatType, intType, longType, nullType, shortType, stringType).map(s => (s.classTag, s)).toMap
+      floatType, intType, longType, nullType, shortType, stringType,
+      optionDiscType).map(s => (s.classTag, s)).toMap
 
   def apply[T](implicit classTag: ClassTag[T], ordering: scala.math.Ordering[T] = null): ScalaBaseType[T] =
     all.getOrElse(classTag, new ScalaBaseType[T]).asInstanceOf[ScalaBaseType[T]]
@@ -359,13 +403,16 @@ object ScalaBaseType {
   def unapply[T](t: ScalaBaseType[T]) = Some((t.classTag,t.ordering))
 }
 
+/** A phantom type for Option discriminator columns. Values are of type Int. */
+sealed trait OptionDisc
+
 class ScalaNumericType[T](val fromDouble: Double => T)(implicit tag: ClassTag[T], val numeric: Numeric[T])
   extends ScalaBaseType[T]()(tag, numeric) with NumericTypedType {
   def toDouble(v: T) = numeric.toDouble(v)
 }
 
 class ScalaOptionType[T](val elementType: ScalaType[T]) extends ScalaType[Option[T]] with OptionTypedType[T] {
-  override def toString = "ScalaOptionType[" + elementType + "]"
+  override def toString = "SOption[" + elementType + "]"
   def nullable = true
   def ordered = elementType.ordered
   def scalaOrderingFor(ord: Ordering) = {

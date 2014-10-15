@@ -107,7 +107,7 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
 
     println("=========================================================== q6")
     val q6 = (for {
-      (u, t) <- us leftJoin ts on (_.id === _.a)
+      (u, t) <- us joinLeft ts on (_.id === _.a)
     } yield (u, t)).groupBy(_._1.id).map {
       case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length)
     }
@@ -259,20 +259,20 @@ class AggregateTest extends TestkitTest[RelationalTestDB] {
     assert(q1.run.toList.isEmpty)
 
     val q2 =
-      (as leftJoin bs on (_.id === _.id)).map { case (c, s) =>
-        val name = s.b
-        (c, s, name)
+      (as joinLeft bs on (_.id === _.id)).map { case (c, so) =>
+        val nameo = so.map(_.b)
+        (c, so, nameo)
       }.groupBy { prop =>
         val c = prop._1
-        val s = prop._2
-        val name = prop._3
-        s.id
+        val so = prop._2
+        val nameo = prop._3
+        so.map(_.id)
       }.map { prop =>
         val supId = prop._1
         val c = prop._2.map(x => x._1)
         val s = prop._2.map(x => x._2)
         val name = prop._2.map(x => x._3)
-        (name.min, s.map(_.b).min, supId, c.length)
+        (name.min, s.map(_.map(_.b)).min, supId, c.length)
       }
     assert(q2.run.isEmpty)
 

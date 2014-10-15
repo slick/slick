@@ -14,7 +14,10 @@ import TypeUtil._
 class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) extends Phase {
   val name = "emulateOuterJoins"
 
-  def apply(state: CompilerState) = state.map(tree => ClientSideOp.mapServerSide(tree, true)(convert))
+  def apply(state: CompilerState) = state.map(tree => ClientSideOp.mapServerSide(tree, true){ n =>
+    val n2 = convert(n)
+    if(n2 eq n) n2 else Phase.forceOuterBinds.apply(n2)
+  })
 
   def convert(n: Node): Node = n match {
     case Join(leftGen, rightGen, left, right, JoinType.Left, on) if !useLeftJoin =>

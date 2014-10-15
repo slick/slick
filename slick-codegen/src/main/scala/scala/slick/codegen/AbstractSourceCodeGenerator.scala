@@ -103,12 +103,12 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
 
     trait TableClassDef extends super.TableClassDef{
       def star = {
-        val struct = compoundValue(columns.map(c=>if(c.fakeNullable)s"${c.name}.?" else s"${c.name}"))
+        val struct = compoundValue(columns.map(c=>if(c.fakeNullable)s"Rep.Some(${c.name})" else s"${c.name}"))
         val rhs = if(mappingEnabled) s"$struct <> ($factory, $extractor)" else struct
         s"def * = $rhs"
       }
       def option = {
-        val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"${c.name}.?"))
+        val struct = compoundValue(columns.map(c=>if(c.model.nullable)s"${c.name}" else s"Rep.Some(${c.name})"))
         val rhs = if(mappingEnabled) s"""$struct.shaped.<>($optionFactory, (_:Any) =>  throw new Exception("Inserting into ? projection not supported."))""" else struct
         s"def ? = $rhs"
       }
@@ -168,7 +168,7 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
       }
       // Explicit type to allow overloading existing Slick method names.
       // Explicit type argument for better error message when implicit type mapper not found.
-      def code = s"""val $name: Column[$actualType] = column[$actualType]("${model.name}"${options.map(", "+_).mkString("")})"""
+      def code = s"""val $name: Rep[$actualType] = column[$actualType]("${model.name}"${options.map(", "+_).mkString("")})"""
     }
 
     class PrimaryKeyDef(model: m.PrimaryKey) extends super.PrimaryKeyDef(model){
@@ -184,10 +184,15 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
         case ForeignKeyAction.SetDefault => "ForeignKeyAction.SetDefault"
       }
       def code = {
-        val fkColumns = compoundValue(referencingColumns.map(_.name))
         val pkTable = referencedTable.TableValue.name
-        val pkColumns = compoundValue(referencedColumns.map(c => s"r.${c.name}"))
-        s"""lazy val $name = foreignKey("$dbName", $fkColumns, $pkTable)(r => $pkColumns, onUpdate=${onUpdate}, onDelete=${onDelete})"""
+        val (pkColumns, fkColumns) = (referencedColumns, referencingColumns).zipped.map { (p, f) =>
+          val pk = s"r.${p.name}"
+          val fk = f.name
+          if(p.model.nullable && !f.model.nullable) (pk, s"Rep.Some($fk)")
+          else if(!p.model.nullable && f.model.nullable) (s"Rep.Some($pk)", fk)
+          else (pk, fk)
+        }.unzip
+        s"""lazy val $name = foreignKey("$dbName", ${compoundValue(fkColumns)}, $pkTable)(r => ${compoundValue(pkColumns)}, onUpdate=${onUpdate}, onDelete=${onDelete})"""
       }
     }
 

@@ -197,7 +197,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     class BRow(tag: Tag) extends Table[B](tag, "t5_b") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def data = column[String]("data")
-      def * = (id, data.?) <> (B.tupled, B.unapply _)
+      def * = (id, Rep.Some(data)) <> (B.tupled, B.unapply _)
     }
     val bs = TableQuery[BRow]
 
@@ -205,19 +205,28 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     as.map(_.data).insertAll(1, 2)
     bs.map(_.data).insertAll("a", "b")
 
-    val q = for {
+    val q1 = for {
       a <- as if a.data === 2
       b <- bs if b.id === a.id
     } yield (a, b)
+    val r1 = q1.to[Set].run
+    val r1t: Set[(A, B)] = r1
+    assertEquals(Set((A(2, 2), B(2, Some("b")))), r1)
 
-    val r = q.run.toList
-    val r2: List[(A, B)] = r
-    assertEquals(List((A(2, 2), B(2, Some("b")))), r2)
+    val q2 = as joinLeft bs
+    val r2 = q2.to[Set].run
+    val r2t: Set[(A, Option[B])] = r2
+    assertEquals(Set(
+      (A(1,1), Some(B(1,Some("a")))),
+      (A(1,1), Some(B(2,Some("b")))),
+      (A(2,2), Some(B(1,Some("a")))),
+      (A(2,2), Some(B(2,Some("b"))))
+    ), r2)
   }
 
   def testCaseClassShape {
     case class C(a: Int, b: String)
-    case class LiftedC(a: Column[Int], b: Column[String])
+    case class LiftedC(a: Rep[Int], b: Rep[String])
     implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
 
     class A(tag: Tag) extends Table[C](tag, "A_CaseClassShape") {
@@ -233,7 +242,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
   }
 
   def testProductClassShape {
-    def columnShape[T](implicit s: Shape[FlatShapeLevel, Column[T], T, Column[T]]) = s
+    def columnShape[T](implicit s: Shape[FlatShapeLevel, Rep[T], T, Rep[T]]) = s
     class C(val a: Int, val b: Option[String]) extends Product{
       def canEqual(that: Any): Boolean = that.isInstanceOf[C]
       def productArity: Int = 2
@@ -243,7 +252,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
         case _ => false
       }
     }
-    class LiftedC(val a: Column[Int], val b: Column[Option[String]]) extends Product{
+    class LiftedC(val a: Rep[Int], val b: Rep[Option[String]]) extends Product{
       def canEqual(that: Any): Boolean = that.isInstanceOf[LiftedC]
       def productArity: Int = 2
       def productElement(n: Int): Any = Seq(a, b)(n)
@@ -254,7 +263,7 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     }
     implicit object cShape extends ProductClassShape(
       Seq(columnShape[Int], columnShape[Option[String]]),
-      seq => new LiftedC(seq(0).asInstanceOf[Column[Int]], seq(1).asInstanceOf[Column[Option[String]]]),
+      seq => new LiftedC(seq(0).asInstanceOf[Rep[Int]], seq(1).asInstanceOf[Rep[Option[String]]]),
       seq => new C(seq(0).asInstanceOf[Int], seq(1).asInstanceOf[Option[String]])
     )
 

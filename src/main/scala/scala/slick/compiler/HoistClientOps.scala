@@ -12,8 +12,7 @@ class HoistClientOps extends Phase {
   val name = "hoistClientOps"
 
   def apply(state: CompilerState) = state.map { tree =>
-    ClientSideOp.mapResultSetMapping(tree, false) { rsm =>
-      val ResultSetMapping(_, comp: Comprehension, _) = rsm
+    ClientSideOp.mapResultSetMapping(tree, false) { case rsm @ ResultSetMapping(_, comp: Comprehension, _) =>
       /* Temporarily create a comprehension that selects a StructNode instead of
        * a ProductNode at the top level. This makes the actual hoisting simpler. */
       val withStruct = Phase.fuseComprehensions.ensureStruct(comp.asInstanceOf[Comprehension])
@@ -36,7 +35,7 @@ class HoistClientOps extends Phase {
             newProj.replace { case Select(in, f) if symMap.contains(f) => Select(in, symMap(f)) })
         }
       val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).nodeWithComputedType(SymbolScope.empty, false, true)
-      fuseResultSetMappings(rsm.copy(from = rsm2)).nodeWithComputedType(SymbolScope.empty, false, true)
+      fuseResultSetMappings(rsm.copy(from = rsm2)).nodeWithComputedType(retype = true)
     }
   }
 
@@ -46,10 +45,15 @@ class HoistClientOps extends Phase {
   def fuseResultSetMappings(rsm: ResultSetMapping): ResultSetMapping = rsm.from match {
     case ResultSetMapping(gen2, from2, ProductNode(ch2)) =>
       val ch2i = ch2.toIndexedSeq
-      val nmap = rsm.map.replace {
+      val nmap = rsm.map.replace({
         case Select(Ref(sym), ElementSymbol(idx)) if sym == rsm.generator =>
           ch2i(idx-1)
-      }
+        case n @ Library.SilentCast(ch :@ tpe2) :@ tpe =>
+          if(tpe.structural == tpe2.structural) ch else {
+            logger.debug(s"SilentCast cannot be elided: $tpe != $tpe2")
+            n
+          }
+      }, bottomUp = true)
       fuseResultSetMappings(ResultSetMapping(gen2, from2, nmap))
     case n => rsm
   }

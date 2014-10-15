@@ -134,6 +134,9 @@ trait DerbyDriver extends JdbcDriver { driver =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
         b"coalesce(cast($l as ${jdbcTypeFor(c.nodeType).sqlTypeName}),!$r)"
+      case Library.SilentCast(LiteralNode(None)) :@ JdbcType(ti, _) if currentPart == SelectPart =>
+        // Cast NULL to the correct type
+        b"cast(null as ${ti.sqlTypeName})"
       case LiteralNode(None) :@ JdbcType(ti, _) if currentPart == SelectPart =>
         // Cast NULL to the correct type
         b"cast(null as ${ti.sqlTypeName})"

@@ -188,7 +188,7 @@ class Tables(val profile: JdbcProfile){
   class SelfRef(tag: Tag) extends Table[(Int,Option[Int])](tag, "SELF_REF") {
     def id = column[Int]("id",O.AutoInc)
     def parent = column[Option[Int]]("parent")
-    def parentFK = foreignKey("parent_fk", parent, SelfRef)(_.id)
+    def parentFK = foreignKey("parent_fk", parent, SelfRef)(_.id.?)
     def * = (id,parent)
   }
   val SelfRef = TableQuery[SelfRef]
@@ -228,7 +228,7 @@ class Tables(val profile: JdbcProfile){
     def idx4 = index("bar",p,unique=true)
     def categoryFK1 = foreignKey("fk1", pk, categories)(_.id) // dup FK collision
     def categoryFK2 = foreignKey("fk2", pk2, categories)(_.id)
-    def postsFK = foreignKey("fk_to_posts", p, posts)(_.id) // fk column name collision
+    def postsFK = foreignKey("fk_to_posts", p, posts)(_.id.?) // fk column name collision
   }
   val X = TableQuery[X]
 
@@ -246,7 +246,7 @@ class Tables(val profile: JdbcProfile){
     def title = column[String]("title")
     def category = column[Option[Int]]("category")
     def * = (id, title, category)
-    def categoryFK = foreignKey("_", category, categories)(_.id)
+    def categoryFK = foreignKey("_", category, categories)(_.id.?)
   }
   val posts = TableQuery[Posts]
 

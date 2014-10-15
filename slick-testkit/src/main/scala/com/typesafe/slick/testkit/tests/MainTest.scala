@@ -101,7 +101,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
       Set(("Homer",2), ("Marge",4), ("Carl",6), ("Lenny",8), ("Santa's Little Helper",10)),
       q4.list.toSet)
 
-    def maxOfPer[T <: Table[_], C[_]](c: Query[T, _, C])(m: (T => Column[Int]), p: (T => Column[Int])) =
+    def maxOfPer[T <: Table[_], C[_]](c: Query[T, _, C])(m: (T => Rep[Int]), p: (T => Rep[Int])) =
       c filter { o => m(o) === (for { o2 <- c if p(o) === p(o2) } yield m(o2)).max }
 
     val q4b = for (
@@ -177,7 +177,7 @@ class MainTest extends TestkitTest[JdbcTestDB] { mainTest =>
     println("Users without Orders left: " + q6.first)
     assertEquals(0, q6.first)
 
-    val q7 = Compiled { (s: Column[String]) => users.filter(_.first === s).map(_.first) }
+    val q7 = Compiled { (s: Rep[String]) => users.filter(_.first === s).map(_.first) }
     println("q7: " + q7("Homer").updateStatement)
     val updated1 = q7("Homer").update("Homer Jay")
     println("Updated "+updated1+" row(s)")

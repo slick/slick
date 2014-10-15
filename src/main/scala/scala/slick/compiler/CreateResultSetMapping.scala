@@ -3,6 +3,8 @@ package scala.slick.compiler
 import scala.slick.ast._
 import Util._
 import TypeUtil._
+import scala.reflect.ClassTag
+import scala.slick.SlickException
 
 /** Create a ResultSetMapping root node, ensure that the top-level server-side
   * node returns a collection, and hoist client-side type conversions into the
@@ -16,14 +18,9 @@ class CreateResultSetMapping extends Phase {
     logger.debug("Removed type mapping:", n2)
     val n3 = toCollection(n2)
     logger.debug("Converted to collection:", n3)
-    val tables: Map[TypeSymbol, Node] = n.collect {
-      case TableExpansion(_, _, columns) :@ CollectionType(_, NominalType(ts, _)) =>
-        ts -> columns
-    }.toMap
-    logger.debug("Found tables: "+tables)
     ClientSideOp.mapServerSide(n3) { ch =>
       val gen = new AnonSymbol
-      ResultSetMapping(gen, ch, createResult(tables, gen, n.nodeType match {
+      ResultSetMapping(gen, ch, createResult(gen, n.nodeType match {
         case CollectionType(_, el) => el
         case t => t
       }))
@@ -64,24 +61,26 @@ class CreateResultSetMapping extends Phase {
     * those refs until the server-side tree has been flattened. In the future
     * we may want to create the real refs and rewrite them later in order to
     * gain the ability to optimize the set of columns in the result set. */
-  def createResult(tables: Map[TypeSymbol, Node], sym: Symbol, tpe: Type): Node = {
+  def createResult(sym: Symbol, tpe: Type): Node = {
     var curIdx = 0
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)
-      tpe match {
+      tpe.structural match {
         case ProductType(ch) =>
           ProductNode(ch.map(f))
         case StructType(ch) =>
           ProductNode(ch.map { case (_, t) => f(t) })
         case t: MappedScalaType =>
           TypeMapping(f(t.baseType), t.mapper, t.classTag)
-        case n @ NominalType(ts, _) => tables.get(ts) match {
-          case Some(n) => f(n.nodeType)
-          case None => f(n.structuralView)
-        }
+        case o @ OptionType(Type.Structural(el)) if el.children.nonEmpty =>
+          val discriminator = f(ScalaBaseType.intType.optionType)
+          val data = f(o.elementType)
+          RebuildOption(discriminator, data)
         case t =>
           curIdx += 1
-          Select(Ref(sym), ElementSymbol(curIdx))
+          // Assign the original type. Inside a RebuildOption the actual column type will always be
+          // Option-lifted but we can still treat it as the base type when the discriminator matches.
+          Library.SilentCast.typed(t.structuralRec, Select(Ref(sym), ElementSymbol(curIdx)))
       }
     }
     f(tpe)

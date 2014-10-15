@@ -1,6 +1,6 @@
 package scala.slick.lifted
 
-import scala.slick.ast.{LiteralNode, IfThen, Node, ConditionalExpr, BaseTypedType, OptionTypedType, TypedType}
+import scala.slick.ast.{LiteralNode, IfThenElse, Node, BaseTypedType, OptionTypedType, TypedType}
 import scala.slick.SlickException
 
 /** `Case` provides a DSL for conditional statements in the query language.
@@ -14,32 +14,20 @@ import scala.slick.SlickException
   * missing, the result is also an `Option`.  */
 object Case {
 
-  def If[C <: Column[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(cond.toNode)
+  def If[C <: Rep[_] : CanBeQueryCondition](cond: C) = new UntypedWhen(cond.toNode)
 
   final class UntypedWhen(cond: Node) {
-    def Then[B : BaseTypedType](res: Column[B]) = new TypedCase[B,B](IndexedSeq(new IfThen(cond, res.toNode)))
-
-    def Then[B](res: Column[Option[B]]) = res.tpe match {
-      case tmt: OptionTypedType[_] =>
-        new TypedCase[B,Option[B]](IndexedSeq(new IfThen(cond, res.toNode)))(tmt.elementType, tmt)
-      case tm => throw new SlickException("Unexpected non-Option TypedType "+tm+" for Option type")
-    }
+    def Then[P, B](res: Rep[P])(implicit om: OptionMapperDSL.arg[B, P]#to[B, P], bType: BaseTypedType[B]) =
+      new TypedCase[B, P](Vector(cond, res.toNode))(bType, om.liftedType(bType))
   }
 
-  final class TypedCase[B : TypedType, T : TypedType](clauses: IndexedSeq[Node])
-  extends Column[Option[B]] {
-    def toNode = ConditionalExpr(clauses, LiteralNode(null))
-
-    def If[C <: Column[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond.toNode, clauses)
-
-    def Else(res: Column[T]): Column[T] = new TypedCaseWithElse[T](clauses, res.toNode)
+  final class TypedCase[B : TypedType, T : TypedType](clauses: Vector[Node]) extends Rep.TypedRep[Option[B]] {
+    def toNode = IfThenElse(clauses :+ LiteralNode(null)).nullExtend
+    def If[C <: Rep[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond.toNode, clauses)
+    def Else(res: Rep[T]): Rep[T] = Rep.forNode(IfThenElse(clauses :+ res.toNode).nullExtend)
   }
 
-  final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: IndexedSeq[Node]) {
-    def Then(res: Column[T]) = new TypedCase[B,T](parentClauses :+ new IfThen(cond, res.toNode))
-  }
-
-  final class TypedCaseWithElse[T : TypedType](clauses: IndexedSeq[Node], elseClause: Node) extends Column[T] {
-    def toNode = ConditionalExpr(clauses, elseClause)
+  final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: Vector[Node]) {
+    def Then(res: Rep[T]) = new TypedCase[B,T](parentClauses ++ Vector(cond, res.toNode))
   }
 }

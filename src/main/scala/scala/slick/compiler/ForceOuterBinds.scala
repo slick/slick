@@ -9,11 +9,9 @@ import scala.slick.ast._
 class ForceOuterBinds extends Phase {
   val name = "forceOuterBinds"
 
-  def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n) { ch =>
-      wrap(ch).nodeWithComputedType(SymbolScope.empty, typeChildren = true, retype = false)
-    }
-  }
+  def apply(state: CompilerState): CompilerState = state.map { n => ClientSideOp.mapServerSide(n)(apply) }
+
+  def apply(n: Node): Node = wrap(n).nodeWithComputedType(SymbolScope.empty, typeChildren = true, retype = false)
 
   def idBind(n: Node): Bind = {
     val gen = new AnonSymbol
@@ -45,7 +43,7 @@ class ForceOuterBinds extends Phase {
   }
 
   def maybewrap(n: Node): Node = n match {
-    case _: Join | _: Pure | _: Union | _: FilteredQuery | _:TableExpansion => wrap(n)
+    case _: Join | _: Pure | _: Union | _: FilteredQuery | _:TableNode => wrap(n)
     case _ => nowrap(n)
   }
 }
