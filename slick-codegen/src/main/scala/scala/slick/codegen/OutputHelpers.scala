@@ -8,11 +8,15 @@ import scala.slick.SlickException
 trait OutputHelpers{
   def code: String
 
-  /** Indents all but the first line of the given string */
+  /** Indents all but the first line of the given string.
+   *  No indent is added to empty lines.
+   */
   def indent(code: String): String
 
-  /** Writes given content to a file
-      @group Output */
+  /** Writes given content to a file.
+   *  Ensures the file ends with a newline character.
+   *  @group Output
+   */
   def writeStringToFile(content: String, folder:String, pkg: String, fileName: String) {
     val folder2 : String = folder + "/" + (pkg.replace(".", "/")) + "/"
     new File(folder2).mkdirs()
@@ -23,6 +27,7 @@ trait OutputHelpers{
     val fw = new FileWriter(file.getAbsoluteFile());
     val bw = new BufferedWriter(fw);
     bw.write(content);
+    if (!content.endsWith("\n")) bw.write("\n");
     bw.close();
   }
 

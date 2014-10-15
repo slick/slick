@@ -383,7 +383,13 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
 
 /** Helper methods for code generation */
 trait GeneratorHelpers[Code,TermName,TypeName]{
-  def indent(code: String): String = code.split("\n").mkString("\n"+"  ")
+  def indent(code: String): String = {
+    val lines = code.split("\n")
+    lines.tail.foldLeft(lines.head) { (out, line) =>
+      out + '\n' +
+        (if (line.isEmpty) line else "  " + line)
+    }
+  }
 
   /** Assemble doc comment with scala code */
   def docWithCode(comment: String, code:Code): Code
