@@ -711,7 +711,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           case _:ColumnOption.Length[_] =>
         }.size > 1
       ){
-        throw new SlickException("Please specify either ColumnOption DBType or Length, not both for column ${column.name}.")
+        throw new SlickException(s"Please specify either ColumnOption DBType or Length, not both for column ${column.name}.")
       }
 
       for(o <- column.options) handleColumnOption(o)
