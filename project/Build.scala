@@ -5,7 +5,7 @@ import com.typesafe.sbt.site.SphinxSupport.{Sphinx, sphinxEnv, sphinxProperties}
 import com.typesafe.sbt.SbtSite.site
 import com.typesafe.sbt.SbtSite.SiteKeys.makeSite
 import com.typesafe.tools.mima.plugin.MimaPlugin.mimaDefaultSettings
-import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters}
+import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFilters, reportBinaryIssues}
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.sdlc.Plugin._
@@ -156,6 +156,16 @@ object SlickBuild extends Build {
     sdlc in slickCodegenProject
   )))
 
+  val computedPreviousArtifact = previousArtifact := {
+    val nameExt = // Workaround for shortcoming in MiMa
+      crossVersion.value match {
+        case _: CrossVersion.Full => s"_${scalaVersion.value}"
+        case _: CrossVersion.Binary => s"_${scalaBinaryVersion.value}"
+        case CrossVersion.Disabled => ""
+      }
+    Some(organization.value % (projectID.value.name + nameExt) % binaryCompatSlickVersion)
+  }
+
   /* Project Definitions */
   lazy val aRootProject = Project(id = "root", base = file("."),
     settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
@@ -184,7 +194,7 @@ object SlickBuild extends Build {
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
       test := (), // suppress test status output
       testOnly :=  (),
-      previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
+      computedPreviousArtifact,
       binaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
@@ -217,7 +227,7 @@ object SlickBuild extends Build {
   val testKitTestCodegenDependencies = Dependencies.logback +: Dependencies.testDBs
 
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Project.defaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
+    settings = Project.defaultSettings ++ mimaDefaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -248,6 +258,7 @@ object SlickBuild extends Build {
         IO.delete(products.get)
         a
       },
+      computedPreviousArtifact,
       buildCapabilitiesTable := {
         val logger = ConsoleLogger()
         Run.executeTrapExit({
@@ -275,6 +286,7 @@ object SlickBuild extends Build {
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-codegen/src/main€{FILE_PATH}.scala"
       )),
+      reportBinaryIssues := (), // disable MiMa for this project - required for TRP dbuild
       sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/codegen-api/",
       sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
@@ -299,6 +311,7 @@ object SlickBuild extends Build {
       osgiBundleFiles := Seq((OsgiKeys.bundle in slickProject).value),
       osgiBundleFiles ++= (dependencyClasspath in Compile in slickProject).value.map(_.data).filterNot(_.isDirectory),
       osgiBundleFiles ++= (dependencyClasspath in Test).value.map(_.data).filter(f => f.name.contains("logback-") || f.name.contains("h2")),
+      reportBinaryIssues := (), // disable MiMa for this project - required for TRP dbuild
       publishArtifact := false
     )
     dependsOn(slickProject % "test")
