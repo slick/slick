@@ -31,16 +31,16 @@ object GlobalConfig {
 class ConfigExtensionMethods(val c: Config) extends AnyVal {
   import scala.collection.JavaConverters._
 
-  def getBooleanOr(path: String, default: Boolean = false) = if(c.hasPath(path)) c.getBoolean(path) else default
-  def getIntOr(path: String, default: Int = 0) = if(c.hasPath(path)) c.getInt(path) else default
-  def getStringOr(path: String, default: String = null) = if(c.hasPath(path)) c.getString(path) else default
-  def getConfigOr(path: String, default: Config = ConfigFactory.empty()) = if(c.hasPath(path)) c.getConfig(path) else default
+  def getBooleanOr(path: String, default: => Boolean = false) = if(c.hasPath(path)) c.getBoolean(path) else default
+  def getIntOr(path: String, default: => Int = 0) = if(c.hasPath(path)) c.getInt(path) else default
+  def getStringOr(path: String, default: => String = null) = if(c.hasPath(path)) c.getString(path) else default
+  def getConfigOr(path: String, default: => Config = ConfigFactory.empty()) = if(c.hasPath(path)) c.getConfig(path) else default
 
-  def getMillisecondsOr(path: String, default: Long = 0L) = if(c.hasPath(path)) c.getDuration(path, TimeUnit.MILLISECONDS) else default
-  def getDurationOr(path: String, default: Duration = Duration.Zero) =
+  def getMillisecondsOr(path: String, default: => Long = 0L) = if(c.hasPath(path)) c.getDuration(path, TimeUnit.MILLISECONDS) else default
+  def getDurationOr(path: String, default: => Duration = Duration.Zero) =
     if(c.hasPath(path)) Duration(c.getDuration(path, TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS) else default
 
-  def getPropertiesOr(path: String, default: Properties = null) =
+  def getPropertiesOr(path: String, default: => Properties = null) =
     if (!c.hasPath(path)) default
     else {
       val props = new Properties(null)

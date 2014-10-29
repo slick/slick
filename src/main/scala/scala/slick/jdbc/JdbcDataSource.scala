@@ -8,6 +8,7 @@ import javax.sql.DataSource
 import com.typesafe.config.Config
 import scala.slick.util.ConfigExtensionMethods._
 import scala.slick.SlickException
+import scala.slick.util.Logging
 
 /** A `JdbcDataSource` provides a way to create a `Connection` object for a database. It is
   * similar to a `javax.sql.DataSource` but simpler. Unlike [[JdbcBackend.DatabaseDef]] it is not a
@@ -32,7 +33,6 @@ object JdbcDataSource {
     val pf: JdbcDataSourceFactory = c.getStringOr("pool") match {
       case null => DriverJdbcDataSource
       case "HikariCP" => HikariCPJdbcDataSource
-      case "BoneCP" => BoneCPJdbcDataSource
       case name =>
         val clazz = Class.forName(name)
         clazz.getField("MODULE$").get(clazz).asInstanceOf[JdbcDataSourceFactory]
@@ -106,8 +106,14 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
 object DriverJdbcDataSource extends JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String): DriverJdbcDataSource = {
     val cp = new ConnectionPreparer(c)
-    new DriverJdbcDataSource(c.getString("url"), c.getStringOr("user"), c.getStringOr("password"),
-      c.getPropertiesOr("properties"), c.getStringOr("driver"), driver, if(cp.isLive) cp else null)
+    new DriverJdbcDataSource(
+      c.getStringOr("url", c.getStringOr("jdbcUrl")),
+      c.getStringOr("user", c.getStringOr("username")),
+      c.getStringOr("password"),
+      c.getPropertiesOr("dataSource", c.getPropertiesOr("properties")),
+      c.getStringOr("driver", c.getStringOr("driverClassName")),
+      driver,
+      if(cp.isLive) cp else null)
   }
 }
 
@@ -136,112 +142,64 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     // Pool configuration
     hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 30000))
-    hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", c.getMillisecondsOr("idleMaxAge", 600000)))
-    hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", c.getMillisecondsOr("maxConnectionAge", 1800000)))
+    hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
+    hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
     hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
     hconf.setInitializationFailFast(c.getBooleanOr("initializationFailFast", false))
     hconf.setJdbc4ConnectionTest(c.getBooleanOr("jdbc4ConnectionTest", true))
-    c.getStringOpt("connectionTestQuery").orElse(c.getStringOpt("connectionTestStatement")).foreach(hconf.setConnectionTestQuery)
-    c.getStringOpt("connectionInitSql").orElse(c.getStringOpt("initSQL")).foreach(hconf.setConnectionInitSql)
-    val compatMaxPoolSize = c.getIntOpt("maxConnectionsPerPartition").map(_ * c.getIntOr("partitionCount", 1))
-    hconf.setMaximumPoolSize(c.getIntOr("maximumPoolSize", compatMaxPoolSize.getOrElse(10)))
-    val compatMinPoolSize = c.getIntOpt("minConnectionsPerPartition").map(_ * c.getIntOr("partitionCount", 1))
-    hconf.setMinimumIdle(c.getIntOr("minimumIdle", compatMinPoolSize.getOrElse(hconf.getMaximumPoolSize)))
+    c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
+    c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
+    hconf.setMaximumPoolSize(c.getIntOr("maximumPoolSize", 10))
+    hconf.setMinimumIdle(c.getIntOr("minimumIdle", hconf.getMaximumPoolSize))
     c.getStringOpt("poolName").orElse(Option(name)).foreach(hconf.setPoolName)
-    hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", !c.getBooleanOr("disableJMX", true)))
+    hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
     hconf.setIsolateInternalQueries(c.getBooleanOr("isolateInternalQueries", false))
 
     // Equivalent of ConnectionPreparer
-    hconf.setAutoCommit(c.getBooleanOr("autoCommit", c.getBooleanOr("autocommit", true)))
+    hconf.setAutoCommit(c.getBooleanOr("autoCommit", true))
     hconf.setReadOnly(c.getBooleanOr("readOnly", false))
-    c.getStringOpt("transactionIsolation").orElse(c.getStringOpt("isolation")).map {
+    c.getStringOpt("transactionIsolation").map {
       case "READ_COMMITTED" => "TRANSACTION_READ_COMMITTED"
       case "READ_UNCOMMITTED" => "TRANSACTION_READ_UNCOMMITTED"
       case "REPEATABLE_READ" => "TRANSACTION_REPEATABLE_READ"
       case "SERIALIZABLE" => "TRANSACTION_SERIALIZABLE"
+      case "NONE" => "TRANSACTION_NONE"
       case s => s
     }.foreach(hconf.setTransactionIsolation)
-    hconf.setCatalog(c.getStringOr("catalog", c.getStringOr("defaultCatalog", null)))
+    hconf.setCatalog(c.getStringOr("catalog", null))
 
     val ds = new HikariDataSource(hconf)
     new HikariCPJdbcDataSource(ds, hconf)
   }
 }
 
-/** A JdbcDataSource for a BoneCP connection pool */
-class BoneCPJdbcDataSource(val ds: com.jolbox.bonecp.BoneCPDataSource, driverName: String) extends DriverBasedJdbcDataSource {
-  registerDriver(driverName, ds.getJdbcUrl)
-
-  def createConnection(): Connection = ds.getConnection()
-  def close(): Unit = ds.close()
-  def maxConnections = ds.getPartitionCount * ds.getMaxConnectionsPerPartition
-}
-
-object BoneCPJdbcDataSource extends JdbcDataSourceFactory {
-  import com.jolbox.bonecp._
-  import com.jolbox.bonecp.hooks._
-
-  def forConfig(c: Config, driver: Driver, name: String): BoneCPJdbcDataSource = {
-    if(driver ne null)
-      throw new SlickException("An explicit Driver object is not supported by BoneCPJdbcDataSource")
-    val ds = new BoneCPDataSource
-
-    // Connection settings
-    ds.setJdbcUrl(c.getString("url"))
-    c.getStringOpt("user").foreach(ds.setUsername)
-    c.getStringOpt("password").foreach(ds.setPassword)
-    c.getPropertiesOpt("properties").foreach(ds.setDriverProperties)
-
-    // Pool configuration
-    ds.setPartitionCount(c.getIntOr("partitionCount", 1))
-    ds.setMaxConnectionsPerPartition(c.getIntOr("maxConnectionsPerPartition", 30))
-    ds.setMinConnectionsPerPartition(c.getIntOr("minConnectionsPerPartition", 5))
-    ds.setAcquireIncrement(c.getIntOr("acquireIncrement", 1))
-    ds.setAcquireRetryAttempts(c.getIntOr("acquireRetryAttempts", 10))
-    ds.setAcquireRetryDelayInMs(c.getMillisecondsOr("acquireRetryDelay", 1000))
-    ds.setConnectionTimeoutInMs(c.getMillisecondsOr("connectionTimeout", 1000))
-    ds.setIdleMaxAge(c.getMillisecondsOr("idleMaxAge", 1000 * 60 * 10), TimeUnit.MILLISECONDS)
-    ds.setMaxConnectionAge(c.getMillisecondsOr("maxConnectionAge", 1000 * 60 * 60), TimeUnit.MILLISECONDS)
-    ds.setDisableJMX(c.getBooleanOr("disableJMX", true))
-    ds.setStatisticsEnabled(c.getBooleanOr("statisticsEnabled"))
-    ds.setIdleConnectionTestPeriod(c.getMillisecondsOr("idleConnectionTestPeriod", 1000 * 60), TimeUnit.MILLISECONDS)
-    ds.setDisableConnectionTracking(c.getBooleanOr("disableConnectionTracking", true))
-    ds.setQueryExecuteTimeLimitInMs(c.getMillisecondsOr("queryExecuteTimeLimit"))
-    c.getStringOpt("initSQL").foreach(ds.setInitSQL)
-    ds.setLogStatementsEnabled(c.getBooleanOr("logStatements"))
-    c.getStringOpt("connectionTestStatement").foreach(ds.setConnectionTestStatement)
-
-    // Connection preparer
-    val cp = new ConnectionPreparer(c)
-    if(cp.isLive) ds.setConnectionHook(new AbstractConnectionHook {
-      override def onCheckOut(conn: ConnectionHandle) = cp(conn)
-    })
-
-    new BoneCPJdbcDataSource(ds, c.getStringOr("driver"))
+/** Set parameters on a new Connection. This is used by [[DriverJdbcDataSource]]. */
+class ConnectionPreparer(c: Config) extends (Connection => Unit) with Logging {
+  warnKey("autocommit", "autoCommit")
+  warnKey("isolation", "transactionIsolation")
+  warnKey("defaultCatalog", "catalog")
+  val autocommit = c.getBooleanOpt("autoCommit").orElse(c.getBooleanOpt("autocommit"))
+  val transactionIsolation = c.getStringOpt("transactionIsolation").orElse(c.getStringOpt("isolation")).map {
+    case "NONE" | "TRANSACTION_NONE" => Connection.TRANSACTION_NONE
+    case "READ_COMMITTED" | "TRANSACTION_READ_COMMITTED" => Connection.TRANSACTION_READ_COMMITTED
+    case "READ_UNCOMMITTED" | "TRANSACTION_READ_UNCOMMITTED" => Connection.TRANSACTION_READ_UNCOMMITTED
+    case "REPEATABLE_READ" | "TRANSACTION_REPEATABLE_READ" => Connection.TRANSACTION_REPEATABLE_READ
+    case "SERIALIZABLE" | "TRANSACTION_SERIALIZABLE" => Connection.TRANSACTION_SERIALIZABLE
+    case unknown => throw new SlickException(s"Unknown transaction isolation level [$unknown]")
   }
-}
-
-/** Set parameters on a new Connection. This is used by [[DriverJdbcDataSource]]
-  * and [[BoneCPJdbcDataSource]]. */
-class ConnectionPreparer(c: Config) extends (Connection => Unit) {
-  val autocommit = c.getBooleanOpt("autocommit")
-  val isolation = c.getStringOpt("isolation").map {
-    case "NONE" => Connection.TRANSACTION_NONE
-    case "READ_COMMITTED" => Connection.TRANSACTION_READ_COMMITTED
-    case "READ_UNCOMMITTED" => Connection.TRANSACTION_READ_UNCOMMITTED
-    case "REPEATABLE_READ" => Connection.TRANSACTION_REPEATABLE_READ
-    case "SERIALIZABLE" => Connection.TRANSACTION_SERIALIZABLE
-    case unknown => throw new SlickException(s"Unknown isolation level [$unknown]")
-  }
-  val catalog = c.getStringOpt("defaultCatalog")
+  val catalog = c.getStringOpt("catalog").orElse(c.getStringOpt("defaultCatalog"))
   val readOnly = c.getBooleanOpt("readOnly")
 
-  val isLive = autocommit.isDefined || isolation.isDefined || catalog.isDefined || readOnly.isDefined
+  val isLive = autocommit.isDefined || transactionIsolation.isDefined || catalog.isDefined || readOnly.isDefined
 
   def apply(c: Connection): Unit = if(isLive) {
     autocommit.foreach(c.setAutoCommit)
-    isolation.foreach(c.setTransactionIsolation)
+    transactionIsolation.foreach(c.setTransactionIsolation)
     readOnly.foreach(c.setReadOnly)
     catalog.foreach(c.setCatalog)
   }
+
+  def warnKey(oldKey: String, newKey: String): Unit =
+    if(c.hasPath(oldKey))
+      logger.warn(s"Config key '$oldKey' is deprecated and will be removed in a future version. Use '$newKey' instead")
 }

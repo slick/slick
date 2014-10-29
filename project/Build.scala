@@ -26,8 +26,7 @@ object SlickBuild extends Build {
     val logback = "ch.qos.logback" % "logback-classic" % "0.9.28"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
     val pools = Seq(
-      "com.zaxxer" % "HikariCP-java6" % "2.0.1",
-      "com.jolbox" % "bonecp" % "0.8.0.RELEASE"
+      "com.zaxxer" % "HikariCP-java6" % "2.0.1"
     )
     val mainDependencies = Seq(slf4j, typesafeConfig) ++ pools.map(_ % "optional")
     val h2 = "com.h2database" % "h2" % "1.3.170"
