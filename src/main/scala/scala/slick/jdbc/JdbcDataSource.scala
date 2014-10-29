@@ -153,10 +153,8 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     hconf.setMinimumIdle(c.getIntOr("minimumIdle", hconf.getMaximumPoolSize))
     c.getStringOpt("poolName").orElse(Option(name)).foreach(hconf.setPoolName)
     hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
-    hconf.setIsolateInternalQueries(c.getBooleanOr("isolateInternalQueries", false))
 
     // Equivalent of ConnectionPreparer
-    hconf.setAutoCommit(c.getBooleanOr("autoCommit", true))
     hconf.setReadOnly(c.getBooleanOr("readOnly", false))
     c.getStringOpt("transactionIsolation").map {
       case "READ_COMMITTED" => "TRANSACTION_READ_COMMITTED"
@@ -175,10 +173,10 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
 /** Set parameters on a new Connection. This is used by [[DriverJdbcDataSource]]. */
 class ConnectionPreparer(c: Config) extends (Connection => Unit) with Logging {
-  warnKey("autocommit", "autoCommit")
+  if(c.hasPath("autocommit"))
+    logger.error("Config key 'autocommit' is no longer supported (Connections for Slick must always be in auto-commit mode)")
   warnKey("isolation", "transactionIsolation")
   warnKey("defaultCatalog", "catalog")
-  val autocommit = c.getBooleanOpt("autoCommit").orElse(c.getBooleanOpt("autocommit"))
   val transactionIsolation = c.getStringOpt("transactionIsolation").orElse(c.getStringOpt("isolation")).map {
     case "NONE" | "TRANSACTION_NONE" => Connection.TRANSACTION_NONE
     case "READ_COMMITTED" | "TRANSACTION_READ_COMMITTED" => Connection.TRANSACTION_READ_COMMITTED
@@ -190,10 +188,9 @@ class ConnectionPreparer(c: Config) extends (Connection => Unit) with Logging {
   val catalog = c.getStringOpt("catalog").orElse(c.getStringOpt("defaultCatalog"))
   val readOnly = c.getBooleanOpt("readOnly")
 
-  val isLive = autocommit.isDefined || transactionIsolation.isDefined || catalog.isDefined || readOnly.isDefined
+  val isLive = transactionIsolation.isDefined || catalog.isDefined || readOnly.isDefined
 
   def apply(c: Connection): Unit = if(isLive) {
-    autocommit.foreach(c.setAutoCommit)
     transactionIsolation.foreach(c.setTransactionIsolation)
     readOnly.foreach(c.setReadOnly)
     catalog.foreach(c.setCatalog)

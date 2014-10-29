@@ -100,7 +100,6 @@ trait JdbcBackend extends DatabaseComponent {
       *   <li>`driver` or `driverClassName` (String, optional): JDBC driver class to load</li>
       *   <li>`user` or `username` (String, optional): User name</li>
       *   <li>`password` (String, optional): Password</li>
-      *   <li>`autoCommit` (Boolean, optional): Autocommit mode for new connections.</li>
       *   <li>`transactionIsolation` (String, optional): Isolation level for new connections.
       *     Allowed values are: `NONE`, `READ_COMMITTED`, `READ_UNCOMMITTED`, `REPEATABLE_READ`,
       *     `SERIALIZABLE` (optionally prefixed by `TRANSACTION_`).</li>
@@ -114,11 +113,13 @@ trait JdbcBackend extends DatabaseComponent {
       * The following additional keys are supported for pool setting `HikariCP`:
       * <ul>
       *   <li>`dataSourceClassName` (String, optional): The name of the DataSource class provided
-      *     by the JDBC driver. When using HikariCP this is preferred over `driver`.
-      *   <li>`jdbcUrl` or `url` (String, optional): The JDBC URL to be used with the driver.
-      *     Required when using a driver directly, ignored when using `dataSourceClassName`. In
-      *     this case you have to set the connection properties through `dataSource` or
-      *     `properties`.</li>
+      *     by the JDBC driver. This is preferred over using `driver`. Note that `jdbcUrl` and
+      *     `url` are ignored when this key is set. In this case you have to set the connection
+      *     properties through `dataSource` or `properties`.</li>
+      *   <li>`maximumPoolSize` (Int, optional, default: 10): The maximum number of connections in
+      *     the pool.</li>
+      *   <li>`minimumIdle` (Int, optional, default: same as `maximumPoolSize`): The minimum number
+      *     of connections to keep in the pool.</li>
       *   <li>`connectionTimeout` (Duration, optional, default: 30s): The maximum time to wait
       *     before a call to getConnection is timed out. If this time is exceeded without a
       *     connection becoming available, a SQLException will be thrown. 100ms is the minimum
@@ -157,21 +158,12 @@ trait JdbcBackend extends DatabaseComponent {
       *     executed after every new connection creation before adding it to the pool. If this SQL
       *     is not valid or throws an exception, it will be treated as a connection failure and the
       *     standard retry logic will be followed.</li>
-      *   <li>`maximumPoolSize` (Int, optional, default: 10): The maximum number of connections in
-      *     the pool.</li>
-      *   <li>`minimumIdle` (Int, optional, default: same as `maximumPoolSize`): The minimum number
-      *     of connections to keep in the pool.</li>
       *   <li>`poolName` (String, optional): A user-defined name for the connection pool in logging
       *     and JMX management consoles to identify pools and pool configurations. This defaults to
       *     the config path, or an auto-generated name when creating the `Database` from the root
       *     of a `Config` object.</li>
       *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
       *     Beans ("MBeans") are registered.</li>
-      *   <li>`isolateInternalQueries` (Boolean, optional, default: false): Determines whether
-      *     HikariCP isolates internal pool queries, such as the connection alive test, in their
-      *     own transaction. Since these are typically read-only queries, it is rarely necessary to
-      *     encapsulate them in their own transaction. This property only applies if autoCommit is
-      *     disabled.</li>
       * </ul>
       *
       * For asynchronous execution of database actions on top of JDBC, Slick needs to create a
