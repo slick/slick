@@ -8,7 +8,6 @@ import javax.sql.DataSource
 import com.typesafe.config.Config
 import scala.slick.util.ConfigExtensionMethods._
 import scala.slick.SlickException
-import scala.slick.util.Logging
 
 /** A `JdbcDataSource` provides a way to create a `Connection` object for a database. It is
   * similar to a `javax.sql.DataSource` but simpler. Unlike [[JdbcBackend.DatabaseDef]] it is not a
@@ -26,8 +25,8 @@ object JdbcDataSource {
   /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
     * for documentation of the supported configuration parameters. */
   def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource = {
-    val pf: JdbcDataSourceFactory = c.getStringOr("pool") match {
-      case null => DriverJdbcDataSource
+    val pf: JdbcDataSourceFactory = c.getStringOr("connectionPool", "HikariCP") match {
+      case "disabled" => DriverJdbcDataSource
       case "HikariCP" => HikariCPJdbcDataSource
       case name =>
         val clazz = Class.forName(name)
@@ -38,7 +37,8 @@ object JdbcDataSource {
 }
 
 /** Create a [[JdbcDataSource]] from a `Config` object and an optional JDBC `Driver`.
-  * This is used with the "pool" configuration option in [[JdbcBackend.DatabaseFactoryDef.forConfig]]. */
+  * This is used with the "connectionPool" configuration option in
+  * [[JdbcBackend.DatabaseFactoryDef.forConfig]]. */
 trait JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource
 }
@@ -160,10 +160,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 }
 
 /** Set parameters on a new Connection. This is used by [[DriverJdbcDataSource]]. */
-class ConnectionPreparer(c: Config) extends (Connection => Unit) with Logging {
-  if(c.hasPath("autocommit"))
-    logger.error("Config key 'autocommit' is no longer supported (Connections for Slick must always be in auto-commit mode)")
-  warnKey("defaultCatalog", "catalog")
+class ConnectionPreparer(c: Config) extends (Connection => Unit) {
   val isolation = c.getStringOpt("isolation").map {
     case "NONE" => Connection.TRANSACTION_NONE
     case "READ_COMMITTED" => Connection.TRANSACTION_READ_COMMITTED
@@ -182,8 +179,4 @@ class ConnectionPreparer(c: Config) extends (Connection => Unit) with Logging {
     readOnly.foreach(c.setReadOnly)
     catalog.foreach(c.setCatalog)
   }
-
-  def warnKey(oldKey: String, newKey: String): Unit =
-    if(c.hasPath(oldKey))
-      logger.warn(s"Config key '$oldKey' is deprecated and will be removed in a future version. Use '$newKey' instead")
 }

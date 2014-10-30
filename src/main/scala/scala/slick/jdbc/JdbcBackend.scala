@@ -86,15 +86,22 @@ trait JdbcBackend extends DatabaseComponent {
 
     /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
       *
-      * The main config key to set is `pool`. It determines the connection pool implementation to
-      * use (if any). The default is undefined/null (no pool, use the DriverManager directly).
-      * Slick comes with support for [[https://github.com/brettwooldridge/HikariCP HikariCP]] which
-      * can be selected by setting `pool=HikariCP` (or the full object name, e.g.
-      * `scala.slick.jdbc.HikariCPJdbcDataSource`).
-      * 3rd-party connection pool implementations have to be specified with the fully qualified
-      * name of an object implementing [[JdbcDataSourceFactory]].
+      * The main config key to set is `connectionPool`. It determines the connection pool
+      * implementation to use. The default is `HikariCP` (for
+      * [[https://github.com/brettwooldridge/HikariCP HikariCP]]). Use `disabled` to disable
+      * connection pooling (using the DriverManager directly). A third-party connection pool
+      * implementation can be selected by specifying the fully qualified name of an object
+      * implementing [[JdbcDataSourceFactory]].
       *
-      * The following config keys are supported for pool settings `null` and `HikariCP`:
+      * The pool is tuned for asynchronous execution by default. Apart from the connection
+      * parameters you should only have to set `numThreads` and `queueSize` in most cases. In this
+      * scenario there is contention over the thread pool (via its queue), not over the
+      * connections, so you can have a rather large limit on the maximum number of connections
+      * (based on what the database server can still handle, not what is most efficient). Slick
+      * will use more connections than there are threads in the pool when sequencing non-database
+      * actions inside a transaction.
+      *
+      * The following config keys are supported for HikariCP and direct connections:
       * <ul>
       *   <li>`url` (String, required): JDBC URL</li>
       *   <li>`driver` or `driverClassName` (String, optional): JDBC driver class to load</li>
@@ -109,14 +116,18 @@ trait JdbcBackend extends DatabaseComponent {
       *     to the [[javax.sql.DataSource]] when using HikariCP with a `dataSourceClass`
       *     instead of a driver).</li>
       *   <li>`numThreads` (Int, optional, default: 20): The number of concurrent threads in the
-      *     thread pool for asynchronous execution of database actions.</li>
+      *     thread pool for asynchronous execution of database actions. See the
+      *     [[https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing HikariCP wiki]]
+      *     for more imformation about sizing the thread pool correctly. Note that for asynchronous
+      *     execution in Slick you should tune the thread pool size (this parameter) accordingly
+      *     instead of the maximum connection pool size.</li>
       *   <li>`queueSize` (Int, optional, default: 1000): The size of the queue for database
       *     actions which cannot be executed immediately when all threads are busy. Beyond this
       *     limit new actions fail immediately. Set to 0 for no queue (direct hand-off) or to -1
       *     for an unlimited queue size (not recommended).</li>
       * </ul>
       *
-      * The following additional keys are supported for pool setting `HikariCP`:
+      * The following additional keys are supported for HikariCP:
       * <ul>
       *   <li>`dataSourceClass` (String, optional): The name of the DataSource class provided by
       *     the JDBC driver. This is preferred over using `driver`. Note that `url` is ignored when
@@ -157,14 +168,6 @@ trait JdbcBackend extends DatabaseComponent {
       *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
       *     Beans ("MBeans") are registered.</li>
       * </ul>
-      *
-      * By default the pool is tuned for asynchronous execution. Apart from the connection
-      * parameters you should only have to set `numThreads` and `queueSize` in most cases. In this
-      * scenario there is contention over the thread pool (via its queue), not over the
-      * connections, so you can have a rather large limit on the maximum number of connections
-      * (what the database server can still handle, not what is most efficient). Slick will use
-      * more connections than there are threads in the pool when sequencing non-database actions
-      * inside a transaction.
       *
       * Unknown keys are ignored. Invalid values or missing mandatory keys will trigger a
       * [[SlickException]].
