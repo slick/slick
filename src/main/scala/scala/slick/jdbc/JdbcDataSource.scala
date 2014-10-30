@@ -100,10 +100,10 @@ object DriverJdbcDataSource extends JdbcDataSourceFactory {
   def forConfig(c: Config, driver: Driver, name: String): DriverJdbcDataSource = {
     val cp = new ConnectionPreparer(c)
     new DriverJdbcDataSource(
-      c.getStringOr("url", c.getStringOr("jdbcUrl")),
-      c.getStringOr("user", c.getStringOr("username")),
+      c.getStringOr("url"),
+      c.getStringOr("user"),
       c.getStringOr("password"),
-      c.getPropertiesOr("dataSource", c.getPropertiesOr("properties")),
+      c.getPropertiesOr("properties"),
       c.getStringOr("driver", c.getStringOr("driverClassName")),
       driver,
       if(cp.isLive) cp else null)
@@ -125,38 +125,33 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     val hconf = new HikariConfig()
 
     // Connection settings
-    hconf.setDataSourceClassName(c.getStringOr("dataSourceClassName", null))
+    hconf.setDataSourceClassName(c.getStringOr("dataSourceClass", null))
     hconf.setDriverClassName(c.getStringOr("driverClassName", c.getStringOr("driver")))
-    hconf.setJdbcUrl(c.getStringOr("jdbcUrl", c.getStringOr("url", null)))
-    c.getStringOpt("username").orElse(c.getStringOpt("user")).foreach(hconf.setUsername)
+    hconf.setJdbcUrl(c.getStringOr("url", null))
+    c.getStringOpt("user").foreach(hconf.setUsername)
     c.getStringOpt("password").foreach(hconf.setPassword)
-    c.getPropertiesOpt("dataSource").orElse(c.getPropertiesOpt("properties")).foreach(hconf.setDataSourceProperties)
+    c.getPropertiesOpt("properties").foreach(hconf.setDataSourceProperties)
 
     // Pool configuration
-    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 30000))
+    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 1000))
     hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
     hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
     hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
     hconf.setInitializationFailFast(c.getBooleanOr("initializationFailFast", false))
-    hconf.setJdbc4ConnectionTest(c.getBooleanOr("jdbc4ConnectionTest", true))
-    c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
+    c.getStringOpt("connectionTestQuery").foreach { s =>
+      hconf.setJdbc4ConnectionTest(false)
+      hconf.setConnectionTestQuery(s)
+    }
     c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
     val numThreads = c.getIntOr("numThreads", 20)
-    hconf.setMaximumPoolSize(c.getIntOr("maximumPoolSize", numThreads * 5))
-    hconf.setMinimumIdle(c.getIntOr("minimumIdle", numThreads))
-    c.getStringOpt("poolName").orElse(Option(name)).foreach(hconf.setPoolName)
+    hconf.setMaximumPoolSize(c.getIntOr("maxConnections", numThreads * 5))
+    hconf.setMinimumIdle(c.getIntOr("minConnections", numThreads))
+    hconf.setPoolName(name)
     hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
 
     // Equivalent of ConnectionPreparer
     hconf.setReadOnly(c.getBooleanOr("readOnly", false))
-    c.getStringOpt("transactionIsolation").map {
-      case "READ_COMMITTED" => "TRANSACTION_READ_COMMITTED"
-      case "READ_UNCOMMITTED" => "TRANSACTION_READ_UNCOMMITTED"
-      case "REPEATABLE_READ" => "TRANSACTION_REPEATABLE_READ"
-      case "SERIALIZABLE" => "TRANSACTION_SERIALIZABLE"
-      case "NONE" => "TRANSACTION_NONE"
-      case s => s
-    }.foreach(hconf.setTransactionIsolation)
+    c.getStringOpt("isolation").map("TRANSACTION_" + _).foreach(hconf.setTransactionIsolation)
     hconf.setCatalog(c.getStringOr("catalog", null))
 
     val ds = new HikariDataSource(hconf)
@@ -168,23 +163,22 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 class ConnectionPreparer(c: Config) extends (Connection => Unit) with Logging {
   if(c.hasPath("autocommit"))
     logger.error("Config key 'autocommit' is no longer supported (Connections for Slick must always be in auto-commit mode)")
-  warnKey("isolation", "transactionIsolation")
   warnKey("defaultCatalog", "catalog")
-  val transactionIsolation = c.getStringOpt("transactionIsolation").orElse(c.getStringOpt("isolation")).map {
-    case "NONE" | "TRANSACTION_NONE" => Connection.TRANSACTION_NONE
-    case "READ_COMMITTED" | "TRANSACTION_READ_COMMITTED" => Connection.TRANSACTION_READ_COMMITTED
-    case "READ_UNCOMMITTED" | "TRANSACTION_READ_UNCOMMITTED" => Connection.TRANSACTION_READ_UNCOMMITTED
-    case "REPEATABLE_READ" | "TRANSACTION_REPEATABLE_READ" => Connection.TRANSACTION_REPEATABLE_READ
-    case "SERIALIZABLE" | "TRANSACTION_SERIALIZABLE" => Connection.TRANSACTION_SERIALIZABLE
+  val isolation = c.getStringOpt("isolation").map {
+    case "NONE" => Connection.TRANSACTION_NONE
+    case "READ_COMMITTED" => Connection.TRANSACTION_READ_COMMITTED
+    case "READ_UNCOMMITTED" => Connection.TRANSACTION_READ_UNCOMMITTED
+    case "REPEATABLE_READ" => Connection.TRANSACTION_REPEATABLE_READ
+    case "SERIALIZABLE" => Connection.TRANSACTION_SERIALIZABLE
     case unknown => throw new SlickException(s"Unknown transaction isolation level [$unknown]")
   }
   val catalog = c.getStringOpt("catalog").orElse(c.getStringOpt("defaultCatalog"))
   val readOnly = c.getBooleanOpt("readOnly")
 
-  val isLive = transactionIsolation.isDefined || catalog.isDefined || readOnly.isDefined
+  val isLive = isolation.isDefined || catalog.isDefined || readOnly.isDefined
 
   def apply(c: Connection): Unit = if(isLive) {
-    transactionIsolation.foreach(c.setTransactionIsolation)
+    isolation.foreach(c.setTransactionIsolation)
     readOnly.foreach(c.setReadOnly)
     catalog.foreach(c.setCatalog)
   }

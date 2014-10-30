@@ -96,17 +96,17 @@ trait JdbcBackend extends DatabaseComponent {
       *
       * The following config keys are supported for pool settings `null` and `HikariCP`:
       * <ul>
-      *   <li>`url` or `jdbcUrl` (String, required): JDBC URL</li>
+      *   <li>`url` (String, required): JDBC URL</li>
       *   <li>`driver` or `driverClassName` (String, optional): JDBC driver class to load</li>
-      *   <li>`user` or `username` (String, optional): User name</li>
+      *   <li>`user` (String, optional): User name</li>
       *   <li>`password` (String, optional): Password</li>
-      *   <li>`transactionIsolation` (String, optional): Isolation level for new connections.
+      *   <li>`isolation` (String, optional): Transaction isolation level for new connections.
       *     Allowed values are: `NONE`, `READ_COMMITTED`, `READ_UNCOMMITTED`, `REPEATABLE_READ`,
-      *     `SERIALIZABLE` (optionally prefixed by `TRANSACTION_`).</li>
+      *     `SERIALIZABLE`.</li>
       *   <li>`catalog` (String, optional): Default catalog for new connections.</li>
       *   <li>`readOnly` (Boolean, optional): Read Only flag for new connections.</li>
-      *   <li>`properties` or `dataSource` (Map, optional): Properties to pass to the driver (or
-      *     to the [[javax.sql.DataSource]] when using HikariCP with a `dataSourceClassName`
+      *   <li>`properties` (Map, optional): Properties to pass to the driver (or
+      *     to the [[javax.sql.DataSource]] when using HikariCP with a `dataSourceClass`
       *     instead of a driver).</li>
       *   <li>`numThreads` (Int, optional, default: 20): The number of concurrent threads in the
       *     thread pool for asynchronous execution of database actions.</li>
@@ -118,56 +118,42 @@ trait JdbcBackend extends DatabaseComponent {
       *
       * The following additional keys are supported for pool setting `HikariCP`:
       * <ul>
-      *   <li>`dataSourceClassName` (String, optional): The name of the DataSource class provided
-      *     by the JDBC driver. This is preferred over using `driver`. Note that `jdbcUrl` and
-      *     `url` are ignored when this key is set. In this case you have to set the connection
-      *     properties through `dataSource` or `properties`.</li>
-      *   <li>`maximumPoolSize` (Int, optional, default: `numThreads` * 5): The maximum number of
+      *   <li>`dataSourceClass` (String, optional): The name of the DataSource class provided by
+      *     the JDBC driver. This is preferred over using `driver`. Note that `url` is ignored when
+      *     this key is set (You have to use `properties` to configure the database
+      *     connection instead).</li>
+      *   <li>`maxConnections` (Int, optional, default: `numThreads` * 5): The maximum number of
       *     connections in the pool.</li>
-      *   <li>`minimumIdle` (Int, optional, default: same as `numThreads`): The minimum number
+      *   <li>`minConnections` (Int, optional, default: same as `numThreads`): The minimum number
       *     of connections to keep in the pool.</li>
-      *   <li>`connectionTimeout` (Duration, optional, default: 30s): The maximum time to wait
+      *   <li>`connectionTimeout` (Duration, optional, default: 1s): The maximum time to wait
       *     before a call to getConnection is timed out. If this time is exceeded without a
       *     connection becoming available, a SQLException will be thrown. 100ms is the minimum
       *     value.</li>
       *   <li>`idleTimeout` (Duration, optional, default: 10min): The maximum amount
-      *     of time that a connection is allowed to sit idle in the pool. Whether a connection is
-      *     retired as idle or not is subject to a maximum variation of +30 seconds, and average
-      *     variation of +15 seconds. A connection will never be retired as idle before this
-      *     timeout. A value of 0 means that idle connections are never removed from the pool.</li>
-      *   <li>`maxLifetime` (Duration, optional, default: 30min): The maximum
-      *     lifetime of a connection in the pool. When a connection reaches this timeout, even if
-      *     recently used, it will be retired from the pool. An in-use connection will never be
-      *     retired, only when it is idle will it be removed. A value of 0 indicates no maximum
+      *     of time that a connection is allowed to sit idle in the pool. A value of 0 means that
+      *     idle connections are never removed from the pool.</li>
+      *   <li>`maxLifetime` (Duration, optional, default: 30min): The maximum lifetime of a
+      *     connection in the pool. When an idle connection reaches this timeout, even if recently
+      *     used, it will be retired from the pool. A value of 0 indicates no maximum
       *     lifetime.</li>
-      *   <li>`leakDetectionThreshold` (Duration, optional, default: 0): The amount of time that a
-      *     connection can be out of the pool before a message is logged indicating a possible
-      *     connection leak. A value of 0 means leak detection is disabled. Lowest acceptable value
-      *     for enabling leak detection is 10s.</li>
-      *   <li>`initializationFailFast` (Boolean, optional, default: false): Controls whether the
-      *     pool will "fail fast" if the pool cannot be seeded with initial connections
-      *     successfully. If connections cannot be created at pool startup time, a RuntimeException
-      *     will be thrown. This property has no effect if `minimumIdle` is 0.</li>
-      *   <li>`jdbc4ConnectionTest` (Boolean, optional, default: true): Determines whether the
-      *     JDBC4 Connection.isValid() method is used to check that a connection is still alive.
-      *     This value is mutually exclusive with the `connectionTestQuery` property, and this
-      *     method of testing connection validity should be preferred if supported by the JDBC
-      *     driver.</li>
-      *   <li>`connectionTestQuery` (String, optional): This is for
-      *     "legacy" databases that do not support the JDBC4 Connection.isValid() API. This is the
-      *     query that will be executed just before a connection is given to you from the pool to
-      *     validate that the connection to the database is still alive. It is database dependent
-      *     and should be a query that takes very little processing by the database (eg.
-      *     "VALUES 1"). See the `jdbc4ConnectionTest` property for a more efficent alive test.
-      *     This must be set if `jdbc4ConnectionTest` is `false`.</li>
       *   <li>`connectionInitSql` (String, optional): A SQL statement that will be
       *     executed after every new connection creation before adding it to the pool. If this SQL
       *     is not valid or throws an exception, it will be treated as a connection failure and the
       *     standard retry logic will be followed.</li>
-      *   <li>`poolName` (String, optional): A user-defined name for the connection pool in logging
-      *     and JMX management consoles to identify pools and pool configurations. This defaults to
-      *     the config path, or an auto-generated name when creating the `Database` from the root
-      *     of a `Config` object.</li>
+      *   <li>`initializationFailFast` (Boolean, optional, default: false): Controls whether the
+      *     pool will "fail fast" if the pool cannot be seeded with initial connections
+      *     successfully. If connections cannot be created at pool startup time, a RuntimeException
+      *     will be thrown. This property has no effect if `minConnections` is 0.</li>
+      *   <li>`leakDetectionThreshold` (Duration, optional, default: 0): The amount of time that a
+      *     connection can be out of the pool before a message is logged indicating a possible
+      *     connection leak. A value of 0 means leak detection is disabled. Lowest acceptable value
+      *     for enabling leak detection is 10s.</li>
+      *   <li>`connectionTestQuery` (String, optional): A statement that will be executed just
+      *     before a connection is obtained from the pool to validate that the connection to the
+      *     database is still alive. It is database dependent and should be a query that takes very
+      *     little processing by the database (e.g. "VALUES 1"). When not set, the JDBC4
+      *     `Connection.isValid()` method is used instead (which is usually preferable).</li>
       *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
       *     Beans ("MBeans") are registered.</li>
       * </ul>
