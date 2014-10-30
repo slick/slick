@@ -108,6 +108,12 @@ trait JdbcBackend extends DatabaseComponent {
       *   <li>`properties` or `dataSource` (Map, optional): Properties to pass to the driver (or
       *     to the [[javax.sql.DataSource]] when using HikariCP with a `dataSourceClassName`
       *     instead of a driver).</li>
+      *   <li>`numThreads` (Int, optional, default: 20): The number of concurrent threads in the
+      *     thread pool for asynchronous execution of database actions.</li>
+      *   <li>`queueSize` (Int, optional, default: 1000): The size of the queue for database
+      *     actions which cannot be executed immediately when all threads are busy. Beyond this
+      *     limit new actions fail immediately. Set to 0 for no queue (direct hand-off) or to -1
+      *     for an unlimited queue size (not recommended).</li>
       * </ul>
       *
       * The following additional keys are supported for pool setting `HikariCP`:
@@ -116,15 +122,15 @@ trait JdbcBackend extends DatabaseComponent {
       *     by the JDBC driver. This is preferred over using `driver`. Note that `jdbcUrl` and
       *     `url` are ignored when this key is set. In this case you have to set the connection
       *     properties through `dataSource` or `properties`.</li>
-      *   <li>`maximumPoolSize` (Int, optional, default: 10): The maximum number of connections in
-      *     the pool.</li>
-      *   <li>`minimumIdle` (Int, optional, default: same as `maximumPoolSize`): The minimum number
+      *   <li>`maximumPoolSize` (Int, optional, default: `numThreads` * 5): The maximum number of
+      *     connections in the pool.</li>
+      *   <li>`minimumIdle` (Int, optional, default: same as `numThreads`): The minimum number
       *     of connections to keep in the pool.</li>
       *   <li>`connectionTimeout` (Duration, optional, default: 30s): The maximum time to wait
       *     before a call to getConnection is timed out. If this time is exceeded without a
       *     connection becoming available, a SQLException will be thrown. 100ms is the minimum
       *     value.</li>
-      *   <li>`idleTimeout` (Duration, optional, default: 10m): The maximum amount
+      *   <li>`idleTimeout` (Duration, optional, default: 10min): The maximum amount
       *     of time that a connection is allowed to sit idle in the pool. Whether a connection is
       *     retired as idle or not is subject to a maximum variation of +30 seconds, and average
       *     variation of +15 seconds. A connection will never be retired as idle before this
@@ -166,27 +172,13 @@ trait JdbcBackend extends DatabaseComponent {
       *     Beans ("MBeans") are registered.</li>
       * </ul>
       *
-      * For asynchronous execution of database actions on top of JDBC, Slick needs to create a
-      * thread pool for the database. It can be configured with the following keys:
-      * <ul>
-      *   <li>`threads.max` (Int, optional): The maximum number of concurrent threads. When using
-      *     HikariCP, this defaults to the maximum number of connections, otherwise to
-      *     30. It should be manually set to the correct size when using an external connection
-      *     pool. Note that the automatic sizing assumes that the connection pool is used
-      *     exclusively for asynchronous execution. This limit should be set lower than the actual
-      *     pool size if you expect to use the pool for other calls, too.</li>
-      *   <li>threads.core` (Int, optional): The maximum number of concurrent threads after which
-      *     queueing is preferred to spawning new threads. The pool will extend further up to
-      *     `threads.max` size when the queue is full. If not set (or set to null), the same size
-      *     as `threads.max` is used.</li>
-      *   <li>`threads.keepAlive` (Duration, optional, default: 1min): The time after which unused
-      *     threads are shut down and removed from the pool.
-      *   <li>`threads.queueSize` (Int, optional, default: 1000): The size of the queue for
-      *     database actions which cannot be executed immediately when all threads are busy. When
-      *     the queue is full, new threads are spawned up to `threads.max`. Beyond this limit new
-      *     actions fail immediately. Set to 0 for no queue (direct hand-off) or to -1 for an
-      *     unlimited queue size (not recommended).</li>
-      * </ul>
+      * By default the pool is tuned for asynchronous execution. Apart from the connection
+      * parameters you should only have to set `numThreads` and `queueSize` in most cases. In this
+      * scenario there is contention over the thread pool (via its queue), not over the
+      * connections, so you can have a rather large limit on the maximum number of connections
+      * (what the database server can still handle, not what is most efficient). Slick will use
+      * more connections than there are threads in the pool when sequencing non-database actions
+      * inside a transaction.
       *
       * Unknown keys are ignored. Invalid values or missing mandatory keys will trigger a
       * [[SlickException]].
@@ -202,8 +194,7 @@ trait JdbcBackend extends DatabaseComponent {
       */
     def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database = {
       val source = JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver, path)
-      val maxThreads = if(source.maxConnections == -1) 30 else source.maxConnections
-      val executor = AsyncExecutor(path, config.getConfigOr("threads"), maxThreads)
+      val executor = AsyncExecutor(path, config.getIntOr("numThreads", 20), config.getIntOr("queueSize", 1000))
       forSource(source, executor)
     }
   }

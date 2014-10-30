@@ -20,10 +20,6 @@ trait JdbcDataSource extends Closeable {
   /** If this object represents a connection pool managed directly by Slick, close it.
     * Otherwise no action is taken. */
   def close(): Unit
-
-  /** Return the maximum number of concurrent connections that can be used with this data source,
-    * or -1 if the number is unknown. */
-  def maxConnections: Int
 }
 
 object JdbcDataSource {
@@ -51,7 +47,6 @@ trait JdbcDataSourceFactory {
 class DataSourceJdbcDataSource(val ds: DataSource) extends JdbcDataSource {
   def createConnection(): Connection = ds.getConnection
   def close(): Unit = ()
-  def maxConnections = -1
 }
 
 /** A JdbcDataSource which can load a JDBC `Driver` from a class name */
@@ -99,8 +94,6 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
   }
 
   def close(): Unit = ()
-
-  def maxConnections = -1
 }
 
 object DriverJdbcDataSource extends JdbcDataSourceFactory {
@@ -121,7 +114,6 @@ object DriverJdbcDataSource extends JdbcDataSourceFactory {
 class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig) extends JdbcDataSource {
   def createConnection(): Connection = ds.getConnection()
   def close(): Unit = ds.close()
-  def maxConnections = hconf.getMaximumPoolSize
 }
 
 object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
@@ -149,8 +141,9 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     hconf.setJdbc4ConnectionTest(c.getBooleanOr("jdbc4ConnectionTest", true))
     c.getStringOpt("connectionTestQuery").foreach(hconf.setConnectionTestQuery)
     c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
-    hconf.setMaximumPoolSize(c.getIntOr("maximumPoolSize", 10))
-    hconf.setMinimumIdle(c.getIntOr("minimumIdle", hconf.getMaximumPoolSize))
+    val numThreads = c.getIntOr("numThreads", 20)
+    hconf.setMaximumPoolSize(c.getIntOr("maximumPoolSize", numThreads * 5))
+    hconf.setMinimumIdle(c.getIntOr("minimumIdle", numThreads))
     c.getStringOpt("poolName").orElse(Option(name)).foreach(hconf.setPoolName)
     hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
 
