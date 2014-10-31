@@ -8,14 +8,21 @@ import org.junit.runners.Parameterized.Parameters
 
 @RunWith(classOf[Parameterized])
 abstract class DBTest {
+  private[this] var dbInitialized = false
   val tdb: JdbcTestDB
 
-  lazy val db = tdb.createDB()
+  lazy val db = {
+    dbInitialized = true
+    tdb.createDB()
+  }
 
   println("[Using test database "+tdb+"]")
 
   @Before def beforeDBTest = tdb.cleanUpBefore()
-  @After def afterDBTest = tdb.cleanUpAfter()
+  @After def afterDBTest = {
+    if(dbInitialized) db.close()
+    tdb.cleanUpAfter()
+  }
 }
 
 abstract class DBTestObject(dbs: TestDB*) {

@@ -29,7 +29,7 @@ Using a JDBC URL
 ________________
 
 You can provide a JDBC URL to
-:api:`forURL <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forURL(String,String,String,Properties,String):DatabaseDef>`.
+:api:`forURL <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forURL(String,String,String,Properties,String,AsyncExecutor):DatabaseDef>`.
 (see your database's JDBC driver's documentation for the correct URL syntax).
 
 .. includecode:: code/Connection.scala#forURL
@@ -46,7 +46,7 @@ Using a DataSource
 __________________
 
 You can provide a :javaapi:`DataSource <javax/sql/DataSource>` object to
-:api:`forDataSource <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource):DatabaseDef>`.
+:api:`forDataSource <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor):DatabaseDef>`.
 If you got it  from the connection pool of your application framework, this
 plugs the pool into Slick.
 
@@ -62,7 +62,7 @@ Using a JNDI Name
 _________________
 
 If you are using :wikipedia:`JNDI` you can provide a JNDI name to
-:api:`forName <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forName(String):DatabaseDef>`
+:api:`forName <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forName(String,AsyncExecutor):DatabaseDef>`
 under which a
 :javaapi:`DataSource <javax/sql/DataSource>` object can be looked up.
 

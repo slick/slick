@@ -2,6 +2,7 @@ package scala.slick.memory
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
+import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.backend.DatabaseComponent
@@ -21,6 +22,8 @@ trait HeapBackend extends DatabaseComponent with Logging {
   class DatabaseDef extends super.DatabaseDef {
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new SessionDef(this)
+    protected[this] def asyncExecutionContext = ExecutionContext.global
+    def close(): Unit = ()
     def getTable(name: String): HeapTable = synchronized {
       tables.get(name).getOrElse(throw new SlickException(s"Table $name does not exist"))
     }

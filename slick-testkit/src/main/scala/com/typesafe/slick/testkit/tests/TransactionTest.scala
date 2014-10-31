@@ -16,18 +16,18 @@ class TransactionTest extends TestkitTest[JdbcTestDB] {
 
     ts.ddl.create
 
-    sharedSession withTransaction {
+    implicitSession withTransaction {
       ts.insert(42)
       assertEquals(Some(42), ts.firstOption)
-      sharedSession.rollback()
+      implicitSession.rollback()
     }
     assertEquals(None, ts.firstOption)
 
     ts.insert(1)
-    sharedSession withTransaction {
+    implicitSession withTransaction {
       ts.delete
       assertEquals(None, ts.firstOption)
-      sharedSession.rollback()
+      implicitSession.rollback()
     }
     assertEquals(Some(1), ts.firstOption)
   }
