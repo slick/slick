@@ -137,6 +137,32 @@ val  SimpleA = CustomTyping.SimpleA
           override def autoIncLastAsOption = true
         }
       }
+    ),
+    new H2Config("CG10", Seq("create-uuid.sql"),
+      config => session => new MySourceCodeGenerator(H2Driver.createModel(ignoreInvalidDefaults=false)(session),config) {
+        override def Table = new Table(_) {
+          override def Column = new Column(_){
+            override def defaultCode: (Any) => String = {
+              case v: java.util.UUID => s"""java.util.UUID.fromString("${v.toString}")"""
+              case v => super.defaultCode(v)
+            }
+          }
+          override def code = {
+            Seq("""
+                  /*default UUID, which is the same as for 'create-uuid.sql'*/
+                  val defaultUUID = java.util.UUID.fromString("2f3f866c-d8e6-11e2-bb56-50e549c9b654")
+                  /*convert UUID for H2*/
+                  implicit object GetUUID extends scala.slick.jdbc.GetResult[java.util.UUID] {
+                    def apply(rs: scala.slick.jdbc.PositionedResult) = rs.nextObject().asInstanceOf[java.util.UUID]
+                  }
+                  /*convert Option[UUID] for H2*/
+                  implicit object GetOptionUUID extends scala.slick.jdbc.GetResult[Option[java.util.UUID]] {
+                    def apply(rs: scala.slick.jdbc.PositionedResult) = Option(rs.nextObject().asInstanceOf[java.util.UUID])
+                  }
+                  """.trim) ++ super.code
+          }
+        }
+      }
     )
   )
   class MySourceCodeGenerator(model:Model, config: Config) extends SourceCodeGenerator(model){
@@ -252,10 +278,10 @@ class Tables(val profile: JdbcProfile){
 
   // Clob disabled because it fails in postgres and mysql, see https://github.com/slick/slick/issues/637
   class TypeTest(tag: Tag) extends Table[(
-    String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob//,java.sql.Clob
+    String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob,java.util.UUID//,java.sql.Clob
     ,Option[Int]
     ,(
-      Option[Boolean],Option[Byte],Option[Short],Option[Int],Option[Long],Option[Float],Option[Double],Option[String],Option[java.sql.Date],Option[java.sql.Time],Option[java.sql.Timestamp],Option[java.sql.Blob]//,Option[java.sql.Clob]
+      Option[Boolean],Option[Byte],Option[Short],Option[Int],Option[Long],Option[Float],Option[Double],Option[String],Option[java.sql.Date],Option[java.sql.Time],Option[java.sql.Timestamp],Option[java.sql.Blob],Option[java.util.UUID]//,Option[java.sql.Clob]
     )
   )](tag, "TYPE_TEST") {
     def `type` = column[String]("type") // <- test escaping of keywords
@@ -273,6 +299,7 @@ class Tables(val profile: JdbcProfile){
     def java_sql_Time = column[java.sql.Time]("java_sql_Time")
     def java_sql_Timestamp = column[java.sql.Timestamp]("java_sql_Timestamp")
     def java_sql_Blob = column[java.sql.Blob]("java_sql_Blob")
+    def java_util_UUID = column[java.util.UUID]("java_util_UUID")
     //def java_sql_Clob = column[java.sql.Clob]("java_sql_Clob")
     
     def None_Int = column[Option[Int]]("None_Int",O.Default(None))
@@ -291,14 +318,15 @@ class Tables(val profile: JdbcProfile){
     def Option_java_sql_Time = column[Option[java.sql.Time]]("Option_java_sql_Time")
     def Option_java_sql_Timestamp = column[Option[java.sql.Timestamp]]("Option_java_sql_Timestamp")
     def Option_java_sql_Blob = column[Option[java.sql.Blob]]("Option_java_sql_Blob")
+    def Option_java_util_UUID = column[Option[java.util.UUID]]("Option_java_util_UUID")
     def Option_java_sql_Option_Blob = column[Option[Option[java.sql.Blob]]]("Option_java_sql_Blob")
     //def Option_java_sql_Clob = column[Option[java.sql.Clob]]("Option_java_sql_Clob")
     def * = (
       `type`,
-      Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob//,java_sql_Clob
+      Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob, java_util_UUID//,java_sql_Clob
       ,None_Int
       ,(
-        Option_Boolean,Option_Byte,Option_Short,Option_Int,Option_Long,Option_Float,Option_Double,Option_String,Option_java_sql_Date,Option_java_sql_Time,Option_java_sql_Timestamp,Option_java_sql_Blob//,Option_java_sql_Clob
+        Option_Boolean,Option_Byte,Option_Short,Option_Int,Option_Long,Option_Float,Option_Double,Option_String,Option_java_sql_Date,Option_java_sql_Time,Option_java_sql_Timestamp,Option_java_sql_Blob, Option_java_util_UUID//,Option_java_sql_Clob
       )
     )
     def pk = primaryKey("PK", (Int,Long))
