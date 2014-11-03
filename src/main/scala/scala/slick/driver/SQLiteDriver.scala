@@ -65,6 +65,8 @@ import scala.slick.jdbc.meta.MTable
   *   <li>[[scala.slick.driver.JdbcProfile.capabilities.supportsByte]]:
   *     SQLite does not distinguish integer types and maps them all to Int
   *     in the meta data.</li>
+  *   <li>[[scala.slick.driver.JdbcProfile.capabilities.forUpdate]]:
+  *     SQLite does not support FOR UPDATE</li>
   * </ul>
   */
 trait SQLiteDriver extends JdbcDriver { driver =>
@@ -85,6 +87,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.booleanMetaData
     - JdbcProfile.capabilities.supportsByte
     - JdbcProfile.capabilities.distinguishesIntTypes
+    - JdbcProfile.capabilities.forUpdate
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
