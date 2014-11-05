@@ -66,7 +66,7 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
 }
 
 final class BaseColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with ColumnExtensionMethods[P1, P1] with BaseExtensionMethods[P1] {
-  /** Lift a column to an Option column. This is the same as calling [[scala.slick.lifted.Rep.Some()]]. */
+  /** Lift a column to an Option column. This is the same as calling [[scala.slick.lifted.Rep.Some]]. */
   def ? : Rep[Option[P1]] = Rep.forNode(OptionApply(c.toNode))(p1Type.optionType)
 }
 

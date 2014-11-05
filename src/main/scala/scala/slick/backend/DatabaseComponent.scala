@@ -1,35 +1,51 @@
 package scala.slick.backend
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.slick.action._
+import scala.slick.backend.DatabaseComponent.SimpleDatabaseAction
 import scala.util.DynamicVariable
 import scala.slick.SlickException
 import java.io.Closeable
-import scala.util.control.NonFatal
 
-/** Backend cake slice for the basic database and session handling features.
+/** Backend for the basic database and session handling features.
   * Concrete backends like `JdbcBackend` extend this type and provide concrete
   * types for `Database`, `DatabaseFactory` and `Session`. */
 trait DatabaseComponent { self =>
+  type This >: this.type <: DatabaseComponent
   /** The type of database objects used by this backend. */
   type Database <: DatabaseDef
   /** The type of the database factory used by this backend. */
   type DatabaseFactory <: DatabaseFactoryDef
   /** The type of session objects used by this backend. */
   type Session >: Null <: SessionDef
+  /** The action effects supported by this backend. */
+  type Effects <: Effect.Read with Effect.BackendType[This]
 
   /** The database factory */
   val Database: DatabaseFactory
 
   /** A database instance to which connections can be created. */
-  trait DatabaseDef {
+  trait DatabaseDef { this: Database =>
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
-    /** The [[scala.concurrent.ExecutionContext]] to use for asynchronous I/O on this Database. */
-    protected[this] def asyncExecutionContext: ExecutionContext
-
     /** Free all resources allocated by Slick for this Database. */
     def close(): Unit
+
+    /** Run an Action asynchronously and return the result as a Future. */
+    def run[R](a: Action[Effects, R]): Future[R] = a match { //TODO optimize execution
+      case ConstantAction(v) => Future.successful(v)
+      case FutureAction(f) => f
+      case FlatMapAction(base, f, ec) => run(base).flatMap(v => run(f(v)))(ec)
+      case AndThenAction(a1, a2) => run(a1).flatMap(_ => run(a2))(DatabaseComponent.sameThreadExecutionContext)
+      case a: DatabaseComponent.SimpleDatabaseAction[_, _, _] =>
+        runSimpleDatabaseAction(a.asInstanceOf[SimpleDatabaseAction[This, _, R]])
+      case a: DatabaseAction[_, _, _] =>
+        throw new SlickException(s"Unsupported database action $a for $this")
+    }
+
+    /** Run a `SimpleDatabaseAction` on this database. */
+    protected[this] def runSimpleDatabaseAction[R](a: SimpleDatabaseAction[This, _, R]): Future[R]
 
     /** Run the supplied function with a new session and automatically close the session at the end.
       * Exceptions thrown while closing the session are propagated, but only if the code block using the
@@ -66,9 +82,6 @@ trait DatabaseComponent { self =>
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
     def withDynTransaction[T](f: => T): T = withDynSession { Database.dynamicSession.withTransaction(f) }
-
-    /** Run an operation asynchronously on this Database. */
-    def runAsync[T](f: Session => T): Future[T] = Future(withSession[T](f))(asyncExecutionContext)
   }
 
   private[this] val dyn = new DynamicVariable[Session](null)
@@ -107,5 +120,32 @@ trait DatabaseComponent { self =>
     /** Force an actual database session to be opened. Slick sessions are lazy, so you do not
       * get a real database connection until you need it or you call force() on the session. */
     def force(): Unit
+  }
+}
+
+object DatabaseComponent {
+  /** An ExecutionContext used internally for executing plumbing operations during Action
+    * composition. */
+  private[slick] object sameThreadExecutionContext extends ExecutionContext {
+    override def execute(runnable: Runnable): Unit = runnable.run()
+    override def reportFailure(t: Throwable): Unit = throw t
+  }
+
+  /** A 'simple' database action provides a function from a `Session` to the result type.
+    * `DatabaseComponent.DatabaseDef.run` supports this kind of action out of the box through
+    * `DatabaseComponent.DatabaseDef.runSimpleDatabaseAction` so that `run` does not need to
+    * be extended if all primitive database actions can be expressed in this way. These actions
+    * also implement construction-time fusion. */
+  trait SimpleDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R] extends DatabaseAction[B, E, R] { self =>
+    def run(session: B#Session): R
+    override def andThen[E2 <: Effect, R2](a: Action[E2, R2]): Action[E with Effect.BackendType[B] with E2, R2] = a match {
+      case s2: SimpleDatabaseAction[_, _, _] => new SimpleDatabaseAction[B, Effect, R2] {
+        def run(s: B#Session): R2 = {
+          self.run(s)
+          s2.asInstanceOf[SimpleDatabaseAction[B, E2, R2]].run(s)
+        }
+      }
+      case a => AndThenAction(this, a)
+    }
   }
 }

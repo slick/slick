@@ -1,9 +1,12 @@
 package com.typesafe.slick.testkit.util
 
+import java.util.concurrent.TimeUnit
+
 import com.typesafe.config.{ConfigValueFactory, Config, ConfigFactory}
 import java.io.{FileInputStream, File}
 import java.util.Properties
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.Duration
 import scala.slick.SlickException
 
 /** Manages the configuration for TestKit tests.
@@ -54,6 +57,9 @@ object TestkitConfig {
   lazy val testClasses: Seq[Class[_ <: TestkitTest[_ >: Null <: TestDB]]] =
     getStrings(testkitConfig, "testClasses").getOrElse(Nil).
       map(n => Class.forName(n).asInstanceOf[Class[_ <: TestkitTest[_ >: Null <: TestDB]]])
+
+  /** The duration after which asynchronous tests should be aborted and failed */
+  lazy val asyncTimeout = Duration(testkitConfig.getDuration("asyncTimeout", TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS)
 
   def getStrings(config: Config, path: String): Option[Seq[String]] = {
     if(config.hasPath(path)) {

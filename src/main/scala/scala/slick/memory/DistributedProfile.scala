@@ -3,8 +3,11 @@ package scala.slick.memory
 import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.{Builder, HashMap}
 import scala.slick.SlickException
+import scala.slick.action.{DatabaseAction, Effect}
 import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
+import scala.slick.backend.DatabaseComponent
+import scala.slick.backend.DatabaseComponent.SimpleDatabaseAction
 import scala.slick.compiler._
 import scala.slick.relational.{ResultConverter, CompiledMapping}
 import scala.slick.profile.{RelationalDriver, RelationalProfile}
@@ -19,18 +22,21 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   val backend: Backend = DistributedBackend
   val simple: SimpleQL = new SimpleQL {}
   val Implicit: Implicits = simple
+  val api: API = new API {}
 
-  lazy val queryCompiler = compiler.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
+  lazy val queryCompiler = QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
   lazy val updateCompiler = ???
   lazy val deleteCompiler = ???
   lazy val insertCompiler = ???
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: Node): InsertInvoker[T] = ???
-  def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
-  def buildTableSchemaDescription(table: Table[_]): SchemaDescription = ???
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
   def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
+
+  type QueryActionExtensionMethods[R] = QueryActionExtensionMethodsImpl[R]
+  def createQueryActionExtensionMethods[R](tree: Node, param: Any): QueryActionExtensionMethods[R] =
+    new QueryActionExtensionMethods[R](tree, param)
 
   val emptyHeapDB = HeapBackend.createEmptyDatabase
 
@@ -43,6 +49,14 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R =
       createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
+  }
+
+  type DriverAction[-E <: Effect, +R] = DatabaseAction[Backend#This, E, R]
+
+  class QueryActionExtensionMethodsImpl[R](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R] {
+    protected[this] val exe = createQueryExecutor[R](tree, param)
+    def result: DriverAction[Effect.Read, R] =
+      new SimpleDatabaseAction[Backend#This, Effect.Read, R] { def run(s: Backend#Session) = exe.run(s) }
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {

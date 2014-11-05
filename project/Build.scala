@@ -32,7 +32,7 @@ object SlickBuild extends Build {
     val h2 = "com.h2database" % "h2" % "1.3.170"
     val testDBs = Seq(
       h2,
-      "org.xerial" % "sqlite-jdbc" % "3.7.2",
+      "org.xerial" % "sqlite-jdbc" % "3.8.7",
       "org.apache.derby" % "derby" % "10.9.1.0",
       "org.hsqldb" % "hsqldb" % "2.2.8"
     )

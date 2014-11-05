@@ -1,42 +1,32 @@
 package scala.slick.memory
 
+import scala.concurrent.Future
 import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.ArrayBuffer
-import scala.reflect.ClassTag
 import scala.slick.SlickException
 import scala.slick.ast._
 import scala.slick.compiler._
 import scala.slick.lifted._
 import scala.slick.relational._
-import scala.slick.profile.{RelationalDriver, RelationalProfile}
+import scala.slick.profile.{BasicDriver, BasicProfile}
 import TypeUtil._
 
 /** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
-trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDriver =>
+trait MemoryQueryingProfile extends BasicProfile { driver: MemoryQueryingDriver =>
 
   type ColumnType[T] = ScalaType[T]
   type BaseColumnType[T] = ScalaType[T] with BaseTypedType[T]
   def compileInsert(tree: Node) = insertCompiler.run(tree).tree
   type CompiledInsert = Node
-  val MappedColumnType = new MappedColumnTypeFactory
 
-  class MappedColumnTypeFactory extends super.MappedColumnTypeFactory {
-    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
-      assertNonNullType(implicitly[BaseColumnType[U]])
-      new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
-    }
-  }
+  protected trait CommonImplicits extends super.CommonImplicits with ImplicitColumnTypes
+  trait Implicits extends super.Implicits with CommonImplicits
+  trait SimpleQL extends super.SimpleQL with Implicits
+  trait API extends super.API with CommonImplicits
 
-  class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T)(implicit val classTag: ClassTag[T]) extends ScalaType[T] with BaseTypedType[T] {
-    def nullable: Boolean = baseType.nullable
-    def ordered: Boolean = baseType.ordered
-    def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T] = new scala.math.Ordering[T] {
-      val uOrdering = baseType.scalaOrderingFor(ord)
-      def compare(x: T, y: T): Int = uOrdering.compare(toBase(x), toBase(y))
-    }
-  }
-
-  trait Implicits extends super.Implicits with ImplicitColumnTypes
+  val Implicit: Implicits
+  val simple: SimpleQL
+  val api: API
 
   trait ImplicitColumnTypes {
     implicit def booleanColumnType = ScalaBaseType.booleanType
@@ -52,7 +42,7 @@ trait MemoryQueryingProfile extends RelationalProfile { driver: MemoryQueryingDr
   }
 }
 
-trait MemoryQueryingDriver extends RelationalDriver with MemoryQueryingProfile { driver =>
+trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driver =>
 
   /** The driver-specific representation of types */
   def typeInfoFor(t: Type): ScalaType[Any] = ((t.structural match {

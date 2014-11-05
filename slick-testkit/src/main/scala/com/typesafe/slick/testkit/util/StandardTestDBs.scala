@@ -3,6 +3,7 @@ package com.typesafe.slick.testkit.util
 import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
+import scala.concurrent.ExecutionContext
 import scala.slick.driver._
 import scala.slick.memory.MemoryDriver
 import scala.slick.jdbc.{ResultSetInvoker, StaticQuery => Q}
@@ -44,9 +45,8 @@ object StandardTestDBs {
     }
   }
 
-  lazy val SQLiteMem = new SQLiteTestDB("jdbc:sqlite::memory:", "sqlitemem") {
+  lazy val SQLiteMem = new SQLiteTestDB("jdbc:sqlite:file:slick_test?mode=memory&cache=shared", "sqlitemem") {
     override def isPersistent = false
-    override def isShared = false
   }
 
   lazy val SQLiteDisk = {

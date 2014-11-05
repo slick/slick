@@ -2,14 +2,18 @@ package scala.slick.memory
 
 import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.Builder
+import scala.reflect.ClassTag
+import scala.slick.action._
 import scala.slick.ast._
+import scala.slick.backend.DatabaseComponent
+import scala.slick.backend.DatabaseComponent.SimpleDatabaseAction
 import scala.slick.compiler._
-import scala.slick.profile.Capability
+import scala.slick.profile.{RelationalDriver, RelationalProfile, Capability}
 import scala.slick.relational.{ResultConverterCompiler, ResultConverter, CompiledMapping}
 import TypeUtil._
 
 /** A profile and driver for interpreted queries on top of the in-memory database. */
-trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
+trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { driver: MemoryDriver =>
 
   type SchemaDescription = SchemaDescriptionDef
   type InsertInvoker[T] = InsertInvokerDef[T]
@@ -18,6 +22,7 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
   val backend: Backend = HeapBackend
   val simple: SimpleQL = new SimpleQL {}
   val Implicit: Implicits = simple
+  val api: API = new API {}
 
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
@@ -28,15 +33,46 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
-  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
+  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = sd.asInstanceOf[DDLInvoker]
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new TableDDL(table)
 
-  trait Implicits extends super.Implicits {
-    implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker = d.asInstanceOf[DDLInvoker]
+  type QueryActionExtensionMethods[R] = QueryActionExtensionMethodsImpl[R]
+  type SchemaActionExtensionMethods = SchemaActionExtensionMethodsImpl
+  type InsertActionExtensionMethods[T] = InsertActionExtensionMethodsImpl[T]
+
+  def createQueryActionExtensionMethods[R](tree: Node, param: Any): QueryActionExtensionMethods[R] =
+    new QueryActionExtensionMethods[R](tree, param)
+  def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
+    new SchemaActionExtensionMethodsImpl(schema)
+  def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
+    new InsertActionExtensionMethodsImpl[T](compiled)
+
+  lazy val MappedColumnType = new MappedColumnTypeFactory
+
+  class MappedColumnTypeFactory extends super.MappedColumnTypeFactory {
+    def base[T : ClassTag, U : BaseColumnType](tmap: T => U, tcomap: U => T): BaseColumnType[T] = {
+      assertNonNullType(implicitly[BaseColumnType[U]])
+      new MappedColumnType(implicitly[BaseColumnType[U]], tmap, tcomap)
+    }
   }
 
-  trait SimpleQL extends super.SimpleQL with Implicits
+  class MappedColumnType[T, U](val baseType: ColumnType[U], toBase: T => U, toMapped: U => T)(implicit val classTag: ClassTag[T]) extends ScalaType[T] with BaseTypedType[T] {
+    def nullable: Boolean = baseType.nullable
+    def ordered: Boolean = baseType.ordered
+    def scalaOrderingFor(ord: Ordering): scala.math.Ordering[T] = new scala.math.Ordering[T] {
+      val uOrdering = baseType.scalaOrderingFor(ord)
+      def compare(x: T, y: T): Int = uOrdering.compare(toBase(x), toBase(y))
+    }
+  }
+
+  trait Implicits extends super[RelationalProfile].Implicits with super[MemoryQueryingProfile].Implicits {
+    implicit def ddlToDDLInvoker(sd: SchemaDescription): DDLInvoker = createDDLInvoker(sd)
+  }
+
+  trait SimpleQL extends super[RelationalProfile].SimpleQL with super[MemoryQueryingProfile].SimpleQL with Implicits
+
+  trait API extends super[RelationalProfile].API with super[MemoryQueryingProfile].API
 
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R = {
@@ -89,6 +125,29 @@ trait MemoryProfile extends MemoryQueryingProfile { driver: MemoryDriver =>
     def drop(implicit session: Backend#Session): Unit =
       session.database.dropTable(table.tableName)
   }
+
+  type DriverAction[-E <: Effect, +R] = DatabaseAction[Backend#This, E, R]
+  protected[this] def dbAction[E <: Effect, R](f: Backend#Session => R): DriverAction[E, R] = new SimpleDatabaseAction[Backend#This, E, R] {
+    def run(session: Backend#Session): R = f(session)
+  }
+
+  class QueryActionExtensionMethodsImpl[R](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R] {
+    protected[this] val exe = createQueryExecutor[R](tree, param)
+    def result = dbAction(exe.run(_))
+  }
+
+  class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
+    def create = dbAction(createDDLInvoker(schema).create(_))
+    def drop = dbAction(createDDLInvoker(schema).drop(_))
+  }
+
+  class InsertActionExtensionMethodsImpl[T](compiled: CompiledInsert) extends super.InsertActionExtensionMethodsImpl[T] {
+    protected[this] val inv = createInsertInvoker[T](compiled)
+    type SingleInsertResult = Unit
+    type MultiInsertResult = Unit
+    def += (value: T) = dbAction(inv.+=(value)(_))
+    def ++= (values: Iterable[T]) = dbAction(inv.++=(values)(_))
+  }
 }
 
 object MemoryProfile {
@@ -101,7 +160,7 @@ object MemoryProfile {
   }
 }
 
-trait MemoryDriver extends MemoryQueryingDriver with MemoryProfile { driver =>
+trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with MemoryProfile { driver =>
 
   override val profile: MemoryProfile = this
 

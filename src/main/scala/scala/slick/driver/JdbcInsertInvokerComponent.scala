@@ -109,7 +109,7 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
     def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertInvokerDef[U, RU]
   }
 
-  /** In InsertInvoker that returns generated keys or other columns. */
+  /** An InsertInvoker that returns generated keys or other columns. */
   trait ReturningInsertInvokerDef[U, RU] extends FullInsertInvokerDef[U] { self =>
     type SingleInsertResult = RU
     type MultiInsertResult = Seq[RU]

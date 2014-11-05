@@ -1,18 +1,20 @@
 package scala.slick.memory
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.slick.SlickException
-import scala.slick.backend.DatabaseComponent
+import scala.slick.action._
+import scala.slick.backend.{RelationalBackend, DatabaseComponent}
 import scala.slick.util.Logging
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Failure, Try}
 
 /** The backend for DistributedDriver */
-trait DistributedBackend extends DatabaseComponent with Logging {
-
+trait DistributedBackend extends RelationalBackend with Logging {
+  type This = DistributedBackend
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
+  type Effects = Effect.Read with Effect.Write with Effect.Schema with Effect.BackendType[This]
 
   val Database = new DatabaseFactoryDef
   val backend: DistributedBackend = this
@@ -28,7 +30,8 @@ trait DistributedBackend extends DatabaseComponent with Logging {
       new SessionDef(sessions.toVector)
     }
 
-    protected[this] def asyncExecutionContext = ExecutionContext.global
+    protected[this] def runSimpleDatabaseAction[R](a: DatabaseComponent.SimpleDatabaseAction[This, _, R]): Future[R] =
+      Future(blocking(withSession(s => a.run(s))))(ExecutionContext.global)
 
     def close(): Unit = ()
   }

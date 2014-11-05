@@ -275,7 +275,7 @@ ___________________
 Slick 1.0's ``MappedTypeMapper`` has been renamed to
 :api:`MappedColumnType <scala.slick.driver.JdbcTypesComponent@MappedColumnType:JdbcDriver.MappedColumnTypeFactory>`.
 Its basic form (using
-:api:`MappedColumnType.base <scala.slick.profile.RelationalTypesComponent$MappedColumnTypeFactory@base[T,U]((T)⇒U,(U)⇒T)(ClassTag[T],(RelationalTypesComponent.this)#BaseColumnType[U]):(RelationalTypesComponent.this)#BaseColumnType[T]>`)
+:api:`MappedColumnType.base <scala.slick.profile.RelationalTypesComponent$MappedColumnTypeFactory@base[T,U]((T)⇒U,(U)⇒T)(ClassTag[T],RelationalDriver.BaseColumnType[U]):RelationalDriver.BaseColumnType[T]>`)
 is now available at the :api:`scala.slick.profile.RelationalProfile` level (with
 more advanced uses still requiring :api:`scala.slick.driver.JdbcProfile`). The
 idiomatic use in Slick 1.0 was::

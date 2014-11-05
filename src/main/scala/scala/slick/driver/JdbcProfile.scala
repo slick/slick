@@ -9,14 +9,12 @@ import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 
 /** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
   * implement this profile. */
-trait JdbcProfile extends SqlProfile with JdbcTableComponent
+trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComponent
   with JdbcInvokerComponent with JdbcInsertInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent
   with JdbcModelComponent { driver: JdbcDriver =>
 
   type Backend = JdbcBackend
   val backend: Backend = JdbcBackend
-  val simple: SimpleQL = new SimpleQL {}
-  lazy val Implicit: Implicits = simple
   type ColumnType[T] = JdbcType[T]
   type BaseColumnType[T] = JdbcType[T] with BaseTypedType[T]
   val columnTypes = new JdbcTypes
@@ -39,12 +37,16 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   final def buildTableSchemaDescription(table: Table[_]): DDL = createTableDDLBuilder(table).buildDDL
   final def buildSequenceSchemaDescription(seq: Sequence[_]): DDL = createSequenceDDLBuilder(seq).buildDDL
 
-  trait LowPriorityImplicits {
+  protected trait CommonImplicits extends super.CommonImplicits with ImplicitColumnTypes {
+    implicit def jdbcFastPathExtensionMethods[T, P](mp: MappedProjection[T, P]) = new JdbcFastPathExtensionMethods[T, P](mp)
+  }
+
+  protected trait LowPriorityImplicits {
     implicit def queryToAppliedQueryInvoker[U, C[_]](q: Query[_,U, C]): QueryInvoker[U] = createQueryInvoker[U](queryCompiler.run(q.toNode).tree, ())
     implicit def queryToUpdateInvoker[U, C[_]](q: Query[_, U, C]): UpdateInvoker[U] = createUpdateInvoker(updateCompiler.run(q.toNode).tree, ())
   }
 
-  trait Implicits extends LowPriorityImplicits with super.Implicits with ImplicitColumnTypes {
+  trait Implicits extends LowPriorityImplicits with super.Implicits with CommonImplicits {
     implicit def ddlToDDLInvoker(d: DDL): DDLInvoker = createDDLInvoker(d)
     implicit def queryToDeleteInvoker[C[_]](q: Query[_ <: Table[_], _, C]): DeleteInvoker = createDeleteInvoker(deleteCompiler.run(q.toNode).tree, ())
     implicit def runnableCompiledToAppliedQueryInvoker[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): QueryInvoker[RU] = createQueryInvoker[RU](c.compiledQuery, c.param)
@@ -52,7 +54,6 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
       createUpdateInvoker(c.compiledUpdate, c.param)
     implicit def runnableCompiledToDeleteInvoker[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteInvoker =
       createDeleteInvoker(c.compiledDelete, c.param)
-    implicit def jdbcFastPathExtensionMethods[T, P](mp: MappedProjection[T, P]) = new JdbcFastPathExtensionMethods[T, P](mp)
 
     // This conversion only works for fully packed types
     implicit def productQueryToUpdateInvoker[T, C[_]](q: Query[_ <: Rep[T], T, C]): UpdateInvoker[T] =
@@ -62,6 +63,23 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent
   trait SimpleQL extends super.SimpleQL with Implicits {
     type FastPath[T] = JdbcFastPath[T]
   }
+
+  trait LowPriorityAPI {
+    implicit def queryUpdateActionExtensionMethods[U, C[_]](q: Query[_, U, C]): UpdateActionExtensionMethodsImpl[U] = createUpdateActionExtensionMethods(updateCompiler.run(q.toNode).tree, ())
+  }
+
+  trait API extends LowPriorityAPI with super.API with CommonImplicits {
+    implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: Table[_], _, C]): DeleteActionExtensionMethods = createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
+    implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteActionExtensionMethods =
+      createDeleteActionExtensionMethods(c.compiledDelete, c.param)
+
+    implicit def runnableCompiledUpdateActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): UpdateActionExtensionMethods[RU] =
+      createUpdateActionExtensionMethods(c.compiledUpdate, c.param)
+  }
+
+  val simple: SimpleQL = new SimpleQL {}
+  lazy val Implicit: Implicits = simple
+  val api: API = new API {}
 }
 
 object JdbcProfile {

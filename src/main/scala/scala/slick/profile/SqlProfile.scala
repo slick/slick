@@ -1,11 +1,13 @@
 package scala.slick.profile
 
 import scala.language.higherKinds
+import scala.slick.action.{DatabaseAction, Effect}
 import scala.slick.ast.{TableNode, Symbol, SymbolNamer, Node, ColumnOption}
 import scala.slick.lifted.AbstractTable
 
 /** Basic profile for SQL-based drivers. */
-trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTableComponent { driver: SqlDriver =>
+trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTableComponent
+  with SqlActionComponent { driver: SqlDriver =>
 
   override protected def computeCapabilities = super.computeCapabilities ++ SqlProfile.capabilities.all
 
@@ -145,4 +147,14 @@ trait SqlTableComponent extends RelationalTableComponent { driver: SqlDriver =>
   }
 
   override val columnOptions: ColumnOptions = new AnyRef with ColumnOptions
+}
+
+trait SqlActionComponent extends RelationalActionComponent { driver: SqlDriver =>
+
+  type DriverAction[-E <: Effect, +R] <: SqlAction[E, R]
+
+  trait SqlAction[-E <: Effect, +R] extends DatabaseAction[Backend#This, E, R] {
+    /** Return the SQL statements that will be executed for this Action */
+    def statements: Iterator[String]
+  }
 }

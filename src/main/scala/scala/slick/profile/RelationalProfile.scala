@@ -1,7 +1,9 @@
 package scala.slick.profile
 
 import scala.language.{implicitConversions, higherKinds, existentials}
+import scala.slick.action.Effect
 import scala.slick.ast._
+import scala.slick.backend.RelationalBackend
 import scala.slick.lifted._
 import scala.slick.relational._
 import scala.slick.util.{TupleMethods, TupleSupport}
@@ -14,12 +16,45 @@ import scala.slick.compiler.{Phase, EmulateOuterJoins, QueryCompiler}
   * of SQL (or any other text-based language for executing statements).
   * It requires a relational table structure as its basic model of data. */
 trait RelationalProfile extends BasicProfile with RelationalTableComponent
-  with RelationalSequenceComponent with RelationalTypesComponent { driver: RelationalDriver =>
+  with RelationalSequenceComponent with RelationalTypesComponent
+  with RelationalActionComponent { driver: RelationalDriver =>
+
+  type Backend <: RelationalBackend
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalProfile.capabilities.all
 
+  protected trait CommonImplicits extends super.CommonImplicits with ImplicitColumnTypes {
+    @deprecated("Use an explicit conversion to an Option column with `.?`", "2.2")
+    implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
+    implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
+    implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
+    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
+      new TableQueryExtensionMethods[T, U](q)
+  }
+
+  protected trait CommonAPI extends super.CommonAPI {
+    type Table[T] = driver.Table[T]
+    type Sequence[T] = driver.Sequence[T]
+    val Sequence = driver.Sequence
+    type ColumnType[T] = driver.ColumnType[T]
+    type BaseColumnType[T] = driver.BaseColumnType[T]
+    val MappedColumnType = driver.MappedColumnType
+  }
+
+  trait Implicits extends super.Implicits with CommonImplicits
+  trait SimpleQL extends super.SimpleQL with CommonAPI with Implicits
+
+  trait API extends super.API with CommonAPI with CommonImplicits {
+    implicit def streamableCompiledInsertActionExtensionMethods[EU](c: StreamableCompiled[_, _, EU]): InsertActionExtensionMethods[EU] = createInsertActionExtensionMethods[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
+    implicit def queryInsertActionExtensionMethods[U, C[_]](q: Query[_, U, C]) = createInsertActionExtensionMethods[U](compileInsert(q.toNode))
+
+    implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
+  }
+
   val Implicit: Implicits
   val simple: SimpleQL
+  val api: API
+
   final lazy val compiler = computeQueryCompiler
 
   protected def computeQueryCompiler: QueryCompiler = {
@@ -31,26 +66,12 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandConditionals)
   }
 
-  trait Implicits extends super.Implicits with ImplicitColumnTypes {
-    @deprecated("Use an explicit conversion to an Option column with `.?`", "2.2")
-    implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
-    implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
-    implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
-    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
-      new TableQueryExtensionMethods[T, U](q)
-  }
-
-  trait SimpleQL extends super.SimpleQL with Implicits {
-    type Table[T] = driver.Table[T]
-    type Sequence[T] = driver.Sequence[T]
-    val Sequence = driver.Sequence
-    type ColumnType[T] = driver.ColumnType[T]
-    type BaseColumnType[T] = driver.BaseColumnType[T]
-    val MappedColumnType = driver.MappedColumnType
-  }
-
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
+    //@deprecated("Use .schema instead of .ddl", "2.2")
     def ddl: SchemaDescription = buildTableSchemaDescription(q.shaped.value)
+
+    /** Get the schema description (DDL) for this table. */
+    def schema: SchemaDescription = buildTableSchemaDescription(q.shaped.value)
 
     /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
@@ -204,7 +225,7 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
   }
 }
 
-trait RelationalTypesComponent { driver: BasicDriver =>
+trait RelationalTypesComponent { driver: RelationalDriver =>
   type ColumnType[T] <: TypedType[T]
   type BaseColumnType[T] <: ColumnType[T] with BaseTypedType[T]
 
@@ -232,5 +253,42 @@ trait RelationalTypesComponent { driver: BasicDriver =>
     implicit def longColumnType: BaseColumnType[Long] with NumericTypedType
     implicit def shortColumnType: BaseColumnType[Short] with NumericTypedType
     implicit def stringColumnType: BaseColumnType[String]
+  }
+}
+
+trait RelationalActionComponent extends BasicActionComponent { driver: RelationalDriver =>
+
+  //////////////////////////////////////////////////////////// Insert Actions
+
+  type InsertActionExtensionMethods[T] <: InsertActionExtensionMethodsImpl[T]
+
+  def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T]
+
+  trait InsertActionExtensionMethodsImpl[T] {
+    /** The result type when inserting a single value. */
+    type SingleInsertResult
+
+    /** The result type when inserting a collection of values. */
+    type MultiInsertResult
+
+    /** An Action that inserts a single value. */
+    def += (value: T): DriverAction[Effect.Write, SingleInsertResult]
+
+    /** An Action that inserts a collection of values. */
+    def ++= (values: Iterable[T]): DriverAction[Effect.Write, MultiInsertResult]
+  }
+
+  //////////////////////////////////////////////////////////// Schema Actions
+
+  type SchemaActionExtensionMethods <: SchemaActionExtensionMethodsImpl
+
+  def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods
+
+  trait SchemaActionExtensionMethodsImpl {
+    /** Create an Action that creates the entities described by this schema description. */
+    def create: DriverAction[Effect.Schema, Unit]
+
+    /** Create an Action that drops the entities described by this schema description. */
+    def drop: DriverAction[Effect.Schema, Unit]
   }
 }

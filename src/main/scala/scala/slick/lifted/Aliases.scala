@@ -49,4 +49,9 @@ trait Aliases {
   type Column[T] = lifted.Rep[T]
   @deprecated("Use Rep[T : TypedType] instead of Column[T]", "2.2")
   val Column = lifted.Rep
+
+  type Action[-E <: action.Effect, +R] = action.Action[E, R]
+  val Action = action.Action
+  type Effect = action.Effect
+  val Effect = action.Effect
 }

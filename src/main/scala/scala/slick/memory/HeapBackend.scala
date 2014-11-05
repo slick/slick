@@ -2,27 +2,29 @@ package scala.slick.memory
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import scala.slick.SlickException
+import scala.slick.action._
 import scala.slick.ast._
-import scala.slick.backend.DatabaseComponent
+import scala.slick.backend.{DatabaseComponent, RelationalBackend}
 import scala.slick.lifted.{PrimaryKey, Constraint, Index}
 import scala.slick.util.Logging
 
 /** A simple database engine that stores data in heap data structures. */
-trait HeapBackend extends DatabaseComponent with Logging {
-
+trait HeapBackend extends RelationalBackend with Logging {
+  type This = HeapBackend
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
+  type Effects = Effect.Read with Effect.Write with Effect.Schema with Effect.BackendType[This]
 
   val Database = new DatabaseFactoryDef
   val backend: HeapBackend = this
 
-  class DatabaseDef extends super.DatabaseDef {
+  class DatabaseDef(protected val executionContext: ExecutionContext) extends super.DatabaseDef {
     protected val tables = new HashMap[String, HeapTable]
-    def createSession(): Session = new SessionDef(this)
-    protected[this] def asyncExecutionContext = ExecutionContext.global
+    protected val singletonSession = new SessionDef(this)
+    def createSession(): Session = singletonSession
     def close(): Unit = ()
     def getTable(name: String): HeapTable = synchronized {
       tables.get(name).getOrElse(throw new SlickException(s"Table $name does not exist"))
@@ -41,16 +43,22 @@ trait HeapBackend extends DatabaseComponent with Logging {
     def getTables: IndexedSeq[HeapTable] = synchronized {
       tables.values.toVector
     }
+
+    protected[this] def runSimpleDatabaseAction[R](a: DatabaseComponent.SimpleDatabaseAction[This, _, R]): Future[R] =
+      Future(withSession(s => a.run(s)))(executionContext)
   }
 
-  def createEmptyDatabase: Database = new DatabaseDef {
+  def createEmptyDatabase: Database = new DatabaseDef(ExecutionContext.global) {
     override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
                     indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]) =
       throw new SlickException("Cannot modify empty heap database")
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {
-    def apply(): Database = new DatabaseDef
+    /** Create a new heap database instance that uses the supplied ExecutionContext
+      * (or the default value `ExecutionContext.global`) for asynchronous execution of
+      * database actions. */
+    def apply(executionContext: ExecutionContext = ExecutionContext.global): Database = new DatabaseDef(executionContext)
   }
 
   class SessionDef(val database: Database) extends super.SessionDef {

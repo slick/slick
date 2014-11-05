@@ -8,7 +8,7 @@ import scala.concurrent.ExecutionContext
 /** A connection pool for asynchronous execution of blocking I/O actions.
   * This is used for the asynchronous query execution API on top of blocking back-ends like JDBC. */
 trait AsyncExecutor extends Closeable {
-  /** An [[scala.concurrent.ExecutionContext]] for running Futures. */
+  /** An ExecutionContext for running Futures. */
   def executionContext: ExecutionContext
   /** Shut the thread pool down and try to stop running computations. */
   def close(): Unit
