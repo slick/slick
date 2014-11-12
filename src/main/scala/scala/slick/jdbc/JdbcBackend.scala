@@ -42,8 +42,8 @@ trait JdbcBackend extends RelationalBackend {
 
     def createSession(): Session = new BaseSession(this)
 
-    protected[this] def runSimpleDatabaseAction[R](a: DatabaseComponent.SimpleDatabaseAction[This, _, R]): Future[R] =
-      Future(withSession(s => a.run(s)))(executor.executionContext)
+    protected[this] def scheduleSynchronousDatabaseAction[R](f: => R): Future[R] =
+      Future(f)(executor.executionContext)
 
     /** Free all resources allocated by Slick for this Database object. In particular, the
       * [[scala.slick.util.AsyncExecutor]] with the thread pool for asynchronous execution is shut

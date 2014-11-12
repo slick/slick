@@ -26,19 +26,46 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
-  def testSimpleActionAsAction = {
+  def testSessionPinning = {
     class T(tag: Tag) extends Table[Int](tag, u"t") {
       def a = column[Int]("a")
       def * = a
     }
     val ts = TableQuery[T]
 
-    for {
-      _ <- ts.schema.create
-      _ <- ts ++= Seq(2, 3, 1, 5, 4)
-      q1 = ts.sortBy(_.a).map(_.a)
-      r1 <- q1.result
-      _ = (r1 : Seq[Int]) shouldBe List(1, 2, 3, 4, 5)
+    val aSetup = ts.schema.create andThen (ts ++= Seq(2, 3, 1, 5, 4))
+
+    val aNotPinned = for {
+      p1 <- IsPinned
+      s1 <- GetSession
+      l <- ts.length.result
+      p2 <- IsPinned
+      s2 <- GetSession
+      _ = p1 shouldBe false
+      _ = p2 shouldBe false
+      _ = s1 shouldNotBe s2
     } yield ()
+
+    val aFused = for {
+      ((s1, l), s2) <- GetSession zip ts.length.result zip GetSession
+      _ = s1 shouldBe s2
+    } yield ()
+
+    val aPinned = for {
+      _ <- (for {
+        p1 <- IsPinned
+        s1 <- GetSession
+        l <- ts.length.result
+        p2 <- IsPinned
+        s2 <- GetSession
+        _ = p1 shouldBe true
+        _ = p2 shouldBe true
+        _ = s1 shouldBe s2
+      } yield ()).withPinnedSession
+      p3 <- IsPinned
+      _ = p3 shouldBe false
+    } yield ()
+
+    aSetup andThen aNotPinned andThen aFused andThen aPinned
   }
 }

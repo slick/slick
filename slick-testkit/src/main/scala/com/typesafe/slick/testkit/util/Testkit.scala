@@ -1,23 +1,24 @@
 package com.typesafe.slick.testkit.util
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import scala.language.existentials
 
 import scala.concurrent.{ExecutionContext, Await, Future}
 import scala.reflect.ClassTag
-import scala.slick.action.{Effect, Action}
-import scala.util.control.NonFatal
 
 import java.lang.reflect.Method
 import java.util.concurrent.{ExecutionException, TimeUnit}
+import java.util.concurrent.atomic.AtomicInteger
+
+import scala.slick.action._
+import scala.slick.util.DumpInfo
+import scala.util.control.NonFatal
+import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
+import scala.slick.driver.JdbcProfile
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert
-import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
-import scala.slick.driver.JdbcProfile
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
@@ -155,7 +156,9 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
         throw ex
     }
 
-    def shouldBe (o: Any): Unit = fixStack(Assert.assertEquals(o, v))
+    def shouldBe(o: Any): Unit = fixStack(Assert.assertEquals(o, v))
+
+    def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
   }
 
   implicit class StringContextExtensionMethods(s: StringContext) {
@@ -187,4 +190,14 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   final override val reuseInstance = true
 
   protected implicit def asyncTestExecutionContext = ExecutionContext.global
+
+  object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, TDB#Driver#Backend#Session] {
+    def run(context: ActionContext[TDB#Driver#Backend]) = context.session
+    def getDumpInfo = DumpInfo(name = "GetSession")
+  }
+
+  object IsPinned extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, Boolean] {
+    def run(context: ActionContext[TDB#Driver#Backend]) = context.isPinned
+    def getDumpInfo = DumpInfo(name = "IsPinned")
+  }
 }

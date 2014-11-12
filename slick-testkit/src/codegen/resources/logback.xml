@@ -7,6 +7,7 @@
     <root level="${log.root:-info}">
         <appender-ref ref="STDOUT" />
     </root>
+    <logger name="scala.slick.backend.DatabaseComponent.action"   level="${log.action:-info}" />
     <logger name="scala.slick.compiler"                           level="${log.qcomp:-info}" />
     <logger name="scala.slick.compiler.QueryCompiler"             level="${log.qcomp.phases:-inherited}" />
     <logger name="scala.slick.compiler.QueryCompilerBenchmark"    level="${log.qcomp.bench:-inherited}" />

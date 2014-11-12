@@ -23,8 +23,7 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   class DatabaseDef(protected val executionContext: ExecutionContext) extends super.DatabaseDef {
     protected val tables = new HashMap[String, HeapTable]
-    protected val singletonSession = new SessionDef(this)
-    def createSession(): Session = singletonSession
+    def createSession(): Session = new SessionDef(this)
     def close(): Unit = ()
     def getTable(name: String): HeapTable = synchronized {
       tables.get(name).getOrElse(throw new SlickException(s"Table $name does not exist"))
@@ -44,8 +43,8 @@ trait HeapBackend extends RelationalBackend with Logging {
       tables.values.toVector
     }
 
-    protected[this] def runSimpleDatabaseAction[R](a: DatabaseComponent.SimpleDatabaseAction[This, _, R]): Future[R] =
-      Future(withSession(s => a.run(s)))(executionContext)
+    protected[this] def scheduleSynchronousDatabaseAction[R](f: => R): Future[R] =
+      Future(f)(executionContext)
   }
 
   def createEmptyDatabase: Database = new DatabaseDef(ExecutionContext.global) {

@@ -25,7 +25,7 @@ trait ResultConverter[M <: ResultConverterDomain, @specialized T] extends Dumpab
   def width: Int
 
   override def getDumpInfo = {
-    val cln = getClass.getName.replaceAll(".*\\.", "")
+    val cln = DumpInfo.simpleNameFor(getClass)
     val sep = cln.indexOf("$mc")
     val name = if(sep == -1) cln else cln.substring(0, sep) + DumpInfo.highlight(cln.substring(sep))
     DumpInfo(name)

@@ -5,12 +5,11 @@ import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 import scala.slick.action._
 import scala.slick.ast._
-import scala.slick.backend.DatabaseComponent
-import scala.slick.backend.DatabaseComponent.SimpleDatabaseAction
 import scala.slick.compiler._
 import scala.slick.profile.{RelationalDriver, RelationalProfile, Capability}
 import scala.slick.relational.{ResultConverterCompiler, ResultConverter, CompiledMapping}
 import TypeUtil._
+import scala.slick.util.DumpInfo
 
 /** A profile and driver for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { driver: MemoryDriver =>
@@ -127,8 +126,9 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
   }
 
   type DriverAction[-E <: Effect, +R] = DatabaseAction[Backend#This, E, R]
-  protected[this] def dbAction[E <: Effect, R](f: Backend#Session => R): DriverAction[E, R] = new SimpleDatabaseAction[Backend#This, E, R] {
-    def run(session: Backend#Session): R = f(session)
+  protected[this] def dbAction[E <: Effect, R](f: Backend#Session => R): DriverAction[E, R] = new SynchronousDatabaseAction[Backend#This, E, R] {
+    def run(ctx: ActionContext[Backend]): R = f(ctx.session)
+    def getDumpInfo = DumpInfo("MemoryProfile.DriverAction")
   }
 
   class QueryActionExtensionMethodsImpl[R](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R] {

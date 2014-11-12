@@ -3,15 +3,13 @@ package scala.slick.memory
 import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.{Builder, HashMap}
 import scala.slick.SlickException
-import scala.slick.action.{DatabaseAction, Effect}
+import scala.slick.action._
 import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
-import scala.slick.backend.DatabaseComponent
-import scala.slick.backend.DatabaseComponent.SimpleDatabaseAction
 import scala.slick.compiler._
 import scala.slick.relational.{ResultConverter, CompiledMapping}
 import scala.slick.profile.{RelationalDriver, RelationalProfile}
-import scala.slick.util.RefId
+import scala.slick.util.{DumpInfo, RefId}
 
 /** A profile and driver for distributed queries. */
 trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriver =>
@@ -56,7 +54,10 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   class QueryActionExtensionMethodsImpl[R](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: DriverAction[Effect.Read, R] =
-      new SimpleDatabaseAction[Backend#This, Effect.Read, R] { def run(s: Backend#Session) = exe.run(s) }
+      new SynchronousDatabaseAction[Backend#This, Effect.Read, R] {
+        def run(ctx: ActionContext[Backend]) = exe.run(ctx.session)
+        def getDumpInfo = DumpInfo("DistributedProfile.DriverAction")
+      }
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {

@@ -4,6 +4,7 @@ import scala.language.higherKinds
 import scala.slick.action.{DatabaseAction, Effect}
 import scala.slick.ast.{TableNode, Symbol, SymbolNamer, Node, ColumnOption}
 import scala.slick.lifted.AbstractTable
+import scala.slick.util.DumpInfo
 
 /** Basic profile for SQL-based drivers. */
 trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTableComponent
@@ -156,5 +157,7 @@ trait SqlActionComponent extends RelationalActionComponent { driver: SqlDriver =
   trait SqlAction[-E <: Effect, +R] extends DatabaseAction[Backend#This, E, R] {
     /** Return the SQL statements that will be executed for this Action */
     def statements: Iterator[String]
+
+    def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), mainInfo = statements.mkString("[", "; ", "]"))
   }
 }
