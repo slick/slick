@@ -150,6 +150,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       buildGroupByClause(c.groupBy)
       buildOrderByClause(c.orderBy)
       if(!limit0) buildFetchOffsetClause(c.fetch, c.offset)
+      buildUnionNodes(c.unionNodes)
     }
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
@@ -217,6 +218,24 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
+    protected def convertUnionOperator(operator: InternalUnionOperatorType.Value): String = {
+      operator match {
+        case InternalUnionOperatorType.unionAll => "union all"
+        case InternalUnionOperatorType.union => "union"
+        case InternalUnionOperatorType.intersect => "intersect"
+        case InternalUnionOperatorType.except => "except"
+        case _ => throw new SlickException("Unknown union operator type.")
+      }
+    }
+
+    protected def buildUnionNodes(unionNodes: Seq[Node]) = building(OtherPart) {
+      unionNodes.foreach {
+        case InternalUnion(inner: Comprehension, operator) =>
+          operator.map(convertUnionOperator).foreach(x => b" $x ")
+          buildComprehension(inner)
+      }
+    }
+
     protected def buildSelectPart(n: Node): Unit = n match {
       case c: Comprehension =>
         b"("
@@ -241,10 +260,13 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
               if(!supportsEmptyJoinConditions) b" on 1=1"
             case _ => b" on !$on"
           }
-        case Union(left, right, all, _, _) =>
+        case Union(left, right, all, _, _, operator) =>
           b"\("
           buildFrom(left, None, true)
-          if(all) b" union all " else b" union "
+          if (operator.isEmpty)
+            if (all) b" union all " else b" union "
+          else
+            operator.map(convertUnionOperator).foreach(x => b" $x ")
           buildFrom(right, None, true)
           b"\)"
           addAlias
@@ -383,7 +405,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None) => select match {
+        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None, Nil) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -407,7 +429,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(from, where, _, _, Some(Pure(select, _)), fetch, offset) =>
+        case Comprehension(from, where, _, _, Some(Pure(select, _)), fetch, offset, Nil) =>
           if(fetch.isDefined || offset.isDefined) fail(".take and .drop are not supported")
           from match {
             case Seq((sym, from: TableNode)) => (sym, from, where)
@@ -492,7 +514,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   trait OracleStyleRowNum extends QueryBuilder {
     override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
       super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
+        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
           // Pull the SELECT clause with the ROWNUM up into a new query
           val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
           val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))

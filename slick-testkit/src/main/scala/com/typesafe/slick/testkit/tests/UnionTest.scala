@@ -1,9 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, RelationalTestDB, TestkitTest}
 
-class UnionTest extends TestkitTest[RelationalTestDB] {
+import scala.slick.driver.MySQLDriver
+
+class UnionTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
   override val reuseInstance = true
 
@@ -119,5 +121,55 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r2)
     val r3 = q3.run.toSet
     assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)), r3)
+  }
+
+  def testNoParenthesesUnion {
+    class Employees(tag: Tag) extends Table[(Int, String, Int)](tag, "emp_noparenthesesunion") {
+      def id = column[Int]("id")
+
+      def name = column[String]("name2")
+
+      def manager = column[Int]("manager")
+
+      def * = (id, name, manager)
+    }
+    (employees.ddl).create
+
+    val queryOne =
+      employees.filter(t => t.id < 10).
+        union(employees.filter(t => t.id < 10)).
+        union(employees.filter(t => t.id < 10)).
+        union(employees.filter(t => t.id < 10))
+    queryOne.list
+    val resultOne = queryOne.selectStatement
+    val queryTwo = employees.filter(t => t.id < 10).
+      union(employees.filter(t => t.id < 10).
+      union(employees.filter(t => t.id < 10).
+      union(employees.filter(t => t.id < 10))))
+    queryTwo.list
+    val resultTwo = queryTwo.selectStatement
+
+    assertEquals(true,
+      (resultOne.indexOf(')') :: resultOne.indexOf('(') :: resultTwo.indexOf(')') :: resultTwo.indexOf('(') :: Nil).forall(_ == -1))
+
+    (employees.ddl).drop
+  }
+
+  def testIntersect {
+    if (tdb.driver.isInstanceOf[MySQLDriver]) return
+    (managers.ddl).create
+
+    managers ++= Seq(
+      (1, "Peter", "HR"),
+      (2, "Amy", "IT"),
+      (3, "Steve", "IT")
+    )
+
+    val result = managers.filter(t => t.id =!= 1).intersect(managers.filter(t => t.id =!= 3)).run
+    val result2 = managers.except(managers.filter(t => t.id =!= 3)).run
+    assertEquals(1, result.length)
+    assertEquals(1, result2.length)
+
+    (managers.ddl).drop
   }
 }

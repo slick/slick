@@ -24,12 +24,12 @@ class HoistClientOps extends Phase {
       val (rsmFrom, rsmProj) =
         if(t3 eq t2) {
           // Use original ProductNode form
-          val Comprehension(_, _, _, _, Some(Pure(ProductNode(treeProjChildren), _)), _, _) = comp
+          val Comprehension(_, _, _, _, Some(Pure(ProductNode(treeProjChildren), _)), _, _, _) = comp
           val idxproj = ProductNode(1.to(treeProjChildren.length).map(i => Select(Ref(base), new ElementSymbol(i))))
           (comp, idxproj)
         } else {
           // Change it back to ProductNode form
-          val ResultSetMapping(_, newFrom @ Comprehension(_, _, _, _, Some(Pure(StructNode(str), _)), _, _), newProj) = t3
+          val ResultSetMapping(_, newFrom @ Comprehension(_, _, _, _, Some(Pure(StructNode(str), _)), _, _, _), newProj) = t3
           val symMap = ch.zipWithIndex.map { case ((sym, _), i) => (sym, ElementSymbol(i+1)) }.toMap
           (newFrom.copy(select = Some(Pure(ProductNode(str.map(_._2)).withComputedTypeNoRec).withComputedTypeNoRec)),
             newProj.replace { case Select(in, f) if symMap.contains(f) => Select(in, symMap(f)) })
