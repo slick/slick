@@ -3,8 +3,8 @@ package scala.slick.ast
 import scala.language.existentials
 import scala.slick.SlickException
 import scala.slick.util.{Logging, Dumpable, DumpInfo, GlobalConfig}
-import TypeUtil.typeToTypeUtil
 import Util._
+import TypeUtil._
 import scala.reflect.ClassTag
 
 /**
@@ -217,28 +217,30 @@ final case class StructNode(elements: IndexedSeq[(Symbol, Node)]) extends Produc
   })
 }
 
-/** A literal value expression. */
-trait LiteralNode extends NullaryNode with TypedNode {
+/** A literal value expression.
+  *
+  * @param volatileHint Indicates whether this value should be considered volatile, i.e. it
+  *                     contains user-generated data or may change in future executions of what
+  *                     is otherwise the same query. A database back-end should usually turn
+  *                     volatile constants into bind variables. */
+class LiteralNode(val tpe: Type, val value: Any, val volatileHint: Boolean = false) extends NullaryNode with TypedNode {
   type Self = LiteralNode
-  def value: Any
+  override def getDumpInfo = super.getDumpInfo.copy(name = "LiteralNode", mainInfo = s"$value (volatileHint=$volatileHint)")
+  protected[this] def nodeRebuild = new LiteralNode(tpe, value, volatileHint)
 
-  /** Indicates whether this value should be considered volatile, i.e. it
-    * contains user-generated data or may change in future executions of what
-    * is otherwise the same query. A database back-end should usually turn
-    * volatile constants into bind variables. */
-  def volatileHint: Boolean
+  override def hashCode = tpe.hashCode() + (if(value == null) 0 else value.asInstanceOf[AnyRef].hashCode)
+  override def equals(o: Any) = o match {
+    case l: LiteralNode => tpe == l.tpe && value == l.value
+    case _ => false
+  }
 }
 
 object LiteralNode {
-  def apply(tp: Type, v: Any, vol: Boolean = false): LiteralNode = new LiteralNode {
-    val value = v
-    val tpe = tp
-    def nodeRebuild = apply(tp, v, vol)
-    def volatileHint = vol
-    override def getDumpInfo = super.getDumpInfo.copy(name = "LiteralNode", mainInfo = s"$value (volatileHint=$volatileHint)")
-  }
+  def apply(tp: Type, v: Any, vol: Boolean = false): LiteralNode = new LiteralNode(tp, v, vol)
   def apply[T](v: T)(implicit tp: ScalaBaseType[T]): LiteralNode = apply(tp, v)
   def unapply(n: LiteralNode): Option[Any] = Some(n.value)
+
+  private[slick] val nullOption = LiteralNode(ScalaBaseType.nullType.optionType, None)
 }
 
 trait BinaryNode extends Node {
@@ -392,14 +394,20 @@ final case class Drop(from: Node, count: Node) extends FilteredQuery with Binary
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, count = right)
 }
 
-/** A join expression of type
-  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (t, u)). */
+/** A join expression. For joins without option extension, the type rule is
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (t, u)).
+  * Option-extended left outer joins are typed as
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (t, Option(u))),
+  * Option-extended right outer joins as
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (Option(t), u))
+  * and Option-extended full outer joins as
+  * (CollectionType(c, t), CollectionType(_, u)) => CollecionType(c, (Option(t), Option(u))). */
 final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node, jt: JoinType, on: Node) extends DefNode {
   type Self = Join
   lazy val nodeChildren = IndexedSeq(left, right, on)
   protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
   override def nodeChildNames = Seq("left "+leftGen, "right "+rightGen, "on")
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = jt.sqlName)
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = jt.toString)
   def nodeGenerators = Seq((leftGen, left), (rightGen, right))
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) =
     copy(leftGen = gen(0), rightGen = gen(1))
@@ -409,9 +417,14 @@ final case class Join(leftGen: Symbol, rightGen: Symbol, left: Node, right: Node
     val left2Type = left2.nodeType.asCollectionType
     val right2Type = right2.nodeType.asCollectionType
     val on2 = on.nodeWithComputedType(scope + (leftGen -> left2Type.elementType) + (rightGen -> right2Type.elementType), typeChildren, retype)
+    val (joinedLeftType, joinedRightType) = jt match {
+      case JoinType.LeftOption => (left2Type.elementType, OptionType(right2Type.elementType))
+      case JoinType.RightOption => (OptionType(left2Type.elementType), right2Type.elementType)
+      case JoinType.OuterOption => (OptionType(left2Type.elementType), OptionType(right2Type.elementType))
+      case _ => (left2Type.elementType, right2Type.elementType)
+    }
     nodeRebuildOrThis(Vector(left2, right2, on2)).nodeTypedOrCopy(
-      if(!nodeHasType || retype)
-        CollectionType(left2Type.cons, ProductType(IndexedSeq(left2Type.elementType, right2Type.elementType)))
+      if(!nodeHasType || retype) CollectionType(left2Type.cons, ProductType(IndexedSeq(joinedLeftType, joinedRightType)))
       else nodeType)
   }
 }
@@ -550,39 +563,76 @@ final case class RangeFrom(start: Long = 1L) extends NullaryNode with TypedNode 
   def nodeRebuild = copy()
 }
 
-/** An if-then part of a Conditional node */
-final case class IfThen(val left: Node, val right: Node) extends BinaryNode with SimplyTypedNode {
-  type Self = IfThen
-  protected[this] def nodeRebuild(left: Node, right: Node): Self = copy(left = left, right = right)
-  protected def buildType = right.nodeType
-}
-
-/** A conditional expression; all clauses should be IfThen nodes */
-final case class ConditionalExpr(val clauses: IndexedSeq[Node], val elseClause: Node) extends SimplyTypedNode {
-  type Self = ConditionalExpr
-  val nodeChildren = elseClause +: clauses
-  override def nodeChildNames = "else" +: (1 to clauses.length).map(_.toString)
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self =
-    copy(clauses = ch.tail, elseClause = ch.head)
-  protected def buildType = {
-    val isNullable = nodeChildren.exists(ch =>
-      ch.nodeType.isInstanceOf[OptionType] || ch.nodeType == ScalaBaseType.nullType)
-    val base = clauses.head.nodeType
-    if(isNullable && !base.isInstanceOf[OptionType]) OptionType(base) else base
-  }
+/** A conditional expression; The clauses should be: `(if then)+ else`.
+  * The result type is taken from the first `then` (i.e. the second clause). */
+final case class IfThenElse(clauses: IndexedSeq[Node]) extends SimplyTypedNode {
+  type Self = IfThenElse
+  val nodeChildren = clauses
+  override def nodeChildNames = (0 until clauses.length-1).map { i => if(i%2 == 0) "if" else "then" } :+ "else"
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = copy(clauses = ch)
+  protected def buildType = clauses(1).nodeType
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
+  private[this] def mapClauses(f: Node => Node, keepType: Boolean, pred: Int => Boolean): IfThenElse = {
+    var equal = true
+    val mapped = clauses.toIterator.zipWithIndex.map { case (n, i) =>
+      val n2 = if(pred(i)) f(n) else n
+      if(n2 ne n) equal = false
+      n2
+    }.toVector
+    val this2 = if(equal) this else nodeRebuild(mapped)
+    if(nodePeekType == UnassignedType || !keepType) this2
+    else nodeBuildTypedNode(this2, nodePeekType)
+  }
+  def mapConditionClauses(f: Node => Node, keepType: Boolean = false) =
+    mapClauses(f, keepType, (i => i%2 == 0 && i != clauses.length-1))
+  def mapResultClauses(f: Node => Node, keepType: Boolean = false) =
+    mapClauses(f, keepType, (i => i%2 == 1 || i == clauses.length-1))
+  def ifThenClauses: Iterator[(Node, Node)] =
+    clauses.iterator.grouped(2).withPartial(false).map { case List(i, t) => (i, t) }
+  def elseClause = clauses.last
+  /** Return a null-extended version of a single-column IfThenElse expression */
+  def nullExtend: IfThenElse = {
+    def isOpt(n: Node) = n match {
+      case LiteralNode(null) => true
+      case _ :@ OptionType(_) => true
+      case _ => false
+    }
+    val hasOpt = (ifThenClauses.map(_._2) ++ Iterator(elseClause)).exists(isOpt)
+    if(hasOpt) mapResultClauses(ch => if(isOpt(ch)) ch else OptionApply(ch)).nodeWithComputedType()
+    else this
+  }
 }
 
-final case class OptionApply(val child: Node) extends UnaryNode with SimplyTypedNode {
+/** Lift a value into an Option as Some (or None if the value is a `null` column). */
+final case class OptionApply(child: Node) extends UnaryNode with SimplyTypedNode {
   type Self = OptionApply
   protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
   protected def buildType = OptionType(nodeChildren.head.nodeType)
 }
 
-final case class GetOrElse(val child: Node, val default: () => Any) extends UnaryNode with SimplyTypedNode {
+/** The catamorphism of OptionType. */
+final case class OptionFold(from: Node, ifEmpty: Node, map: Node, gen: Symbol) extends DefNode {
+  type Self = OptionFold
+  def nodeChildren = IndexedSeq(from, ifEmpty, map)
+  def nodeGenerators = IndexedSeq((gen, from))
+  override def nodeChildNames = IndexedSeq("from "+gen, "ifEmpty", "map")
+  protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = copy(ch(0), ch(1), ch(2))
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(gen = gen(0))
+  protected[this] def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean) = {
+    val from2 = from.nodeWithComputedType(scope, typeChildren, retype)
+    val ifEmpty2 = ifEmpty.nodeWithComputedType(scope, typeChildren, retype)
+    val genScope = scope + (gen -> from2.nodeType.structural.asOptionType.elementType)
+    val map2 = map.nodeWithComputedType(genScope, typeChildren, retype)
+    nodeRebuildOrThis(IndexedSeq(from2, ifEmpty2, map2)).nodeTypedOrCopy(if(!nodeHasType || retype) map2.nodeType else nodeType)
+  }
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
+}
+
+final case class GetOrElse(child: Node, default: () => Any) extends UnaryNode with SimplyTypedNode {
   type Self = GetOrElse
   protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
-  protected def buildType = nodeChildren.head.nodeType.asOptionType.elementType
+  protected def buildType = nodeChildren.head.nodeType.structural.asOptionType.elementType
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }
 
 /** A compiled statement with a fixed type, a statement string and
@@ -594,15 +644,24 @@ final case class CompiledStatement(statement: String, extra: Any, tpe: Type) ext
 }
 
 /** A client-side type mapping */
-final case class TypeMapping(val child: Node, val mapper: MappedScalaType.Mapper, classTag: ClassTag[_]) extends UnaryNode with SimplyTypedNode { self =>
+final case class TypeMapping(child: Node, mapper: MappedScalaType.Mapper, classTag: ClassTag[_]) extends UnaryNode with SimplyTypedNode { self =>
   type Self = TypeMapping
   def nodeRebuild(ch: Node) = copy(child = ch)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected def buildType = new MappedScalaType(child.nodeType, mapper, classTag)
 }
 
+/** Rebuild an Option type on the client side */
+final case class RebuildOption(discriminator: Node, data: Node) extends BinaryNode with SimplyTypedNode { self =>
+  type Self = RebuildOption
+  def left = discriminator
+  def right = data
+  def nodeRebuild(left: Node, right: Node) = copy(left, right)
+  protected def buildType = OptionType(data.nodeType)
+}
+
 /** A parameter from a QueryTemplate which gets turned into a bind variable. */
-final case class QueryParameter(extractor: (Any => Any), val tpe: Type) extends NullaryNode with TypedNode {
+final case class QueryParameter(extractor: (Any => Any), tpe: Type) extends NullaryNode with TypedNode {
   type Self = QueryParameter
   def nodeRebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = extractor + "@" + System.identityHashCode(extractor))

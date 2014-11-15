@@ -36,7 +36,7 @@ class AnonTypeSymbol extends TypeSymbol {
 
 /** An anonymous TableIdentitySymbol. */
 class AnonTableIdentitySymbol extends AnonTypeSymbol with TableIdentitySymbol {
-  override def toString = "@("+SymbolNamer(this)+")"
+  override def toString = "@"+SymbolNamer(this)+""
 }
 
 /** An anonymous symbol defined in the AST. */

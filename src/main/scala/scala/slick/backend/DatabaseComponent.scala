@@ -1,5 +1,6 @@
 package scala.slick.backend
 
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.DynamicVariable
 import scala.slick.SlickException
 import java.io.Closeable
@@ -23,6 +24,12 @@ trait DatabaseComponent { self =>
   trait DatabaseDef {
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
+
+    /** The [[scala.concurrent.ExecutionContext]] to use for asynchronous I/O on this Database. */
+    protected[this] def asyncExecutionContext: ExecutionContext
+
+    /** Free all resources allocated by Slick for this Database. */
+    def close(): Unit
 
     /** Run the supplied function with a new session and automatically close the session at the end.
       * Exceptions thrown while closing the session are propagated, but only if the code block using the
@@ -59,6 +66,9 @@ trait DatabaseComponent { self =>
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
     def withDynTransaction[T](f: => T): T = withDynSession { Database.dynamicSession.withTransaction(f) }
+
+    /** Run an operation asynchronously on this Database. */
+    def runAsync[T](f: Session => T): Future[T] = Future(withSession[T](f))(asyncExecutionContext)
   }
 
   private[this] val dyn = new DynamicVariable[Session](null)

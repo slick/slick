@@ -14,13 +14,12 @@ class TableDump(maxColumnWidth: Int = 20) {
     (if(v == null) "NULL" else v.toString).replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t")
   }
 
-  def apply(header: IndexedSeq[String], data: IndexedSeq[IndexedSeq[Any]]): IndexedSeq[String] = {
-    val columns = header.length
-    val texts = formatLine(header) +: data.map(formatLine)
+  def apply(headers: IndexedSeq[IndexedSeq[String]], data: IndexedSeq[IndexedSeq[Any]]): IndexedSeq[String] = {
+    val columns = headers(0).length
+    val texts = headers.map(formatLine) ++ data.map(formatLine)
     val widths = 0.until(columns).map { idx => math.min(maxColumnWidth, texts.map(_.apply(idx).length).max) }
     val buf = new ArrayBuffer[String](data.length + 4)
     buf += TreeDump.blue + widths.map(l => dashes.substring(0, l+2)).mkString(box(1), box(2), box(3)) + TreeDump.normal
-    var first = true
     def pad(s: String, len: Int): String = {
       val slen = s.codePointCount(0, s.length)
       if(slen > maxColumnWidth) {
@@ -28,11 +27,12 @@ class TableDump(maxColumnWidth: Int = 20) {
       } + TreeDump.cyan+"..."
       else s + spaces.substring(0, len-slen)
     }
-    for(line <- texts) {
-      if(first) {
-        buf += (line, widths).zipped.map((s, len) => TreeDump.yellow+" "+pad(s, len)+" ").mkString(TreeDump.blue+box(10), TreeDump.blue+box(10), TreeDump.blue+box(10)+TreeDump.normal)
-        buf += TreeDump.blue + widths.map(l => dashes.substring(0, l+2)).mkString(box(4), box(5), box(6)) + TreeDump.normal
-        first = false
+    for((line, lno) <- texts.zipWithIndex) {
+      if(lno < headers.length) {
+        val color = if(lno % 2 == 0) TreeDump.yellow else TreeDump.green
+        buf += (line, widths).zipped.map((s, len) => color+" "+pad(s, len)+" ").mkString(TreeDump.blue+box(10), TreeDump.blue+box(10), TreeDump.blue+box(10)+TreeDump.normal)
+        if(lno == headers.length - 1)
+          buf += TreeDump.blue + widths.map(l => dashes.substring(0, l+2)).mkString(box(4), box(5), box(6)) + TreeDump.normal
       } else {
         buf += (line, widths).zipped.map((s, len) => TreeDump.normal+" "+pad(s, len)+" ").mkString(TreeDump.blue+box(10), TreeDump.blue+box(10), TreeDump.blue+box(10)+TreeDump.normal)
       }

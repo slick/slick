@@ -11,7 +11,7 @@ class ReverseOrder{
 */
 
 class ReverseOrder{
-  final case class Reversed[T](value:T)
+  case class Reversed[T](value:T)
   def reversed[T](t:T) : Reversed[T] = Reversed(t)  
   implicit def reversedOrdering[T:Ordering] : Ordering[Reversed[T]] = new Ordering[Reversed[T]]{
     def compare( a:Reversed[T], b:Reversed[T] ) = implicitly[Ordering[T]].reverse.compare( a.value, b.value )

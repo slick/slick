@@ -34,6 +34,8 @@ write your own wrapper function with the proper type-checking:
 flexibility (e.g. function-like expressions with unusual syntax), you can
 use :api:`scala.slick.lifted.SimpleExpression`.
 
+.. includecode:: code/LiftedEmbedding.scala#simpleliteral
+
 Other Database Functions And Stored Procedures
 ----------------------------------------------
 

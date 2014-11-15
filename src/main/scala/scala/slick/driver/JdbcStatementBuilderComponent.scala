@@ -284,7 +284,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b.sep(ch, ", ")(expr(_))
         b"\)"
       case RewriteBooleans.ToFakeBoolean(ch) =>
-        expr(ConditionalExpr(Vector(IfThen(ch, LiteralNode(1))), LiteralNode(0)), skipParens)
+        expr(IfThenElse(Vector(ch, LiteralNode(1), LiteralNode(0))), skipParens)
       case RewriteBooleans.ToRealBoolean(ch) =>
         expr(Library.==.typed[Boolean](ch, LiteralNode(true)), skipParens)
       case Library.Exists(c: Comprehension) if(!supportsTuples) =>
@@ -349,9 +349,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
         b")"
-      case c: ConditionalExpr =>
+      case c: IfThenElse =>
         b"(case"
-        c.clauses.foreach { case IfThen(l, r) => b" when $l then $r" }
+        c.ifThenClauses.foreach { case (l, r) => b" when $l then $r" }
         c.elseClause match {
           case LiteralNode(null) =>
           case n => b" else $n"

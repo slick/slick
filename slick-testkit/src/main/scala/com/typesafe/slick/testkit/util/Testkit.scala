@@ -85,7 +85,10 @@ abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TD
 
   private[this] var keepAliveSession: tdb.profile.Backend#Session = null
 
-  protected implicit def sharedSession: tdb.profile.Backend#Session = {
+  @deprecated("Use implicitSession instead of sharedSession", "2.2")
+  protected final def sharedSession: tdb.profile.Backend#Session = implicitSession
+
+  protected implicit def implicitSession: tdb.profile.Backend#Session = {
     db
     keepAliveSession
   }
@@ -100,12 +103,14 @@ abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TD
     db
   }
 
-  def cleanup() = if(keepAliveSession ne null) {
+  final def cleanup() = if(keepAliveSession ne null) {
     try if(tdb.isPersistent) tdb.dropUserArtifacts(keepAliveSession)
-    finally closeKeepAlive()
+    finally {
+      try db.close() finally closeKeepAlive()
+    }
   }
 
-  def closeKeepAlive() = {
+  final def closeKeepAlive() = {
     if(keepAliveSession ne null) keepAliveSession.close()
   }
 

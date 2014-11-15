@@ -167,13 +167,13 @@ trait AccessDriver extends JdbcDriver { driver =>
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case StarAnd(ch) => b"*, !$ch"
-      case c: ConditionalExpr => {
+      case c: IfThenElse => {
         b"switch("
         var first = true
-        c.clauses.foreach { case IfThen(l, r) =>
+        c.ifThenClauses.foreach { case (i, t) =>
           if(first) first = false
           else b","
-          b"$l,$r"
+          b"$i,$t"
         }
         c.elseClause match {
           case LiteralNode(null) =>

@@ -128,3 +128,22 @@ final case class TypeMappingResultConverter[M <: ResultConverterDomain, T, C](ch
   def width = child.width
   override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("child", child)))
 }
+
+final case class OptionRebuildingResultConverter[M <: ResultConverterDomain, T](discriminator: ResultConverter[M, Int], data: ResultConverter[M, T]) extends ResultConverter[M, Option[T]] {
+  def read(pr: Reader): Option[T] = discriminator.read(pr) match {
+    case 1 => Some(data.read(pr))
+    case _ => None
+  }
+  def update(value: Option[T], pr: Updater) =
+    value.fold(throw new SlickException("Cannot insert/update non-primitive Option value None")) { v =>
+      discriminator.update(1, pr)
+      data.update(v, pr)
+    }
+  def set(value: Option[T], pp: Writer) =
+    value.fold(throw new SlickException("Cannot insert/update non-primitive Option value None")) { v =>
+      discriminator.set(1, pp)
+      data.set(v, pp)
+    }
+  def width = discriminator.width + data.width
+  override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("discriminator", discriminator), ("data", data)))
+}

@@ -39,7 +39,10 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
         val rs = st.getResultSet
         val logHeader = if(doLogResult) {
           val meta = rs.getMetaData
-          1.to(meta.getColumnCount).map(idx => meta.getColumnLabel(idx)).to[ArrayBuffer]
+          Vector(
+            1.to(meta.getColumnCount).map(_.toString),
+            1.to(meta.getColumnCount).map(idx => meta.getColumnLabel(idx)).to[ArrayBuffer]
+          )
         } else null
         val logBuffer = if(doLogResult) new ArrayBuffer[ArrayBuffer[Any]] else null
         var rowCount = 0
@@ -57,7 +60,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
           def extractValue(pr: PositionedResult) = {
             if(doLogResult) {
               if(logBuffer.length < StatementInvoker.maxLogResults)
-                logBuffer += 1.to(logHeader.length).map(idx => rs.getObject(idx) : Any).to[ArrayBuffer]
+                logBuffer += 1.to(logHeader(0).length).map(idx => rs.getObject(idx) : Any).to[ArrayBuffer]
               rowCount += 1
             }
             self.extractValue(pr)

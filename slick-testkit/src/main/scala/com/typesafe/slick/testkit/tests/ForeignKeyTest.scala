@@ -25,7 +25,7 @@ class ForeignKeyTest extends TestkitTest[RelationalTestDB] {
       def title = column[String]("title")
       def category = column[Option[Int]]("category")
       def * = (id, title, category)
-      def categoryFK = foreignKey("category_fk", category, categories)(_.id)
+      def categoryFK = foreignKey("category_fk", category, categories)(_.id.?)
       def categoryJoin = categories.filter(_.id === category)
     }
     val posts = TableQuery[Posts]

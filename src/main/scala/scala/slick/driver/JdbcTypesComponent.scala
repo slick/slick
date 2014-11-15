@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
 
 trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =>
 
-  abstract class MappedJdbcType[T, U](implicit tmd: JdbcType[U], val classTag: ClassTag[T]) extends JdbcType[T] {
+  abstract class MappedJdbcType[T, U](implicit val tmd: JdbcType[U], val classTag: ClassTag[T]) extends JdbcType[T] {
     def map(t: T): U
     def comap(u: U): T
 
@@ -33,6 +33,12 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     def valueToSQLLiteral(value: T) = newValueToSQLLiteral(value).getOrElse(tmd.valueToSQLLiteral(map(value)))
     def hasLiteralForm = newHasLiteralForm.getOrElse(tmd.hasLiteralForm)
     def scalaType = ScalaBaseType[T]
+    override def toString = s"MappedJdbcType[${classTag.runtimeClass.getName} -> $tmd]"
+    override def hashCode = tmd.hashCode() + classTag.hashCode()
+    override def equals(o: Any) = o match {
+      case o: MappedJdbcType[_, _] => tmd == o.tmd && classTag == o.classTag
+      case _ => false
+    }
   }
 
   object MappedJdbcType extends MappedColumnTypeFactory {
@@ -49,7 +55,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     def unapply(t: Type) = Some((jdbcTypeFor(t), t.isInstanceOf[OptionType]))
   }
 
-  def jdbcTypeFor(t: Type): JdbcType[Any] = ((t match {
+  def jdbcTypeFor(t: Type): JdbcType[Any] = ((t.structural match {
     case tmd: JdbcType[_] => tmd
     case ScalaBaseType.booleanType => columnTypes.booleanJdbcType
     case ScalaBaseType.bigDecimalType => columnTypes.bigDecimalJdbcType
@@ -63,6 +69,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     case ScalaBaseType.shortType => columnTypes.shortJdbcType
     case ScalaBaseType.stringType => columnTypes.stringJdbcType
     case t: OptionType => jdbcTypeFor(t.elementType)
+    case t: ErasedScalaBaseType[_, _] => jdbcTypeFor(t.erasure)
     case t => throw new SlickException("JdbcProfile has no JdbcType for type "+t)
   }): JdbcType[_]).asInstanceOf[JdbcType[Any]]
 

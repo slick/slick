@@ -24,22 +24,23 @@ trait JdbcDataSource extends Closeable {
 object JdbcDataSource {
   /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
     * for documentation of the supported configuration parameters. */
-  def forConfig(c: Config, driver: Driver): JdbcDataSource = {
-    val pf: JdbcDataSourceFactory = c.getStringOr("pool") match {
-      case null => DriverJdbcDataSource
-      case "BoneCP" => BoneCPJdbcDataSource
+  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource = {
+    val pf: JdbcDataSourceFactory = c.getStringOr("connectionPool", "HikariCP") match {
+      case "disabled" => DriverJdbcDataSource
+      case "HikariCP" => HikariCPJdbcDataSource
       case name =>
         val clazz = Class.forName(name)
         clazz.getField("MODULE$").get(clazz).asInstanceOf[JdbcDataSourceFactory]
     }
-    pf.forConfig(c, driver)
+    pf.forConfig(c, driver, name)
   }
 }
 
 /** Create a [[JdbcDataSource]] from a `Config` object and an optional JDBC `Driver`.
-  * This is used with the "pool" configuration option in [[JdbcBackend.DatabaseFactoryDef.forConfig]]. */
+  * This is used with the "connectionPool" configuration option in
+  * [[JdbcBackend.DatabaseFactoryDef.forConfig]]. */
 trait JdbcDataSourceFactory {
-  def forConfig(c: Config, driver: Driver): JdbcDataSource
+  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource
 }
 
 /** A JdbcDataSource for a `DataSource` */
@@ -96,84 +97,84 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
 }
 
 object DriverJdbcDataSource extends JdbcDataSourceFactory {
-  def forConfig(c: Config, driver: Driver): DriverJdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String): DriverJdbcDataSource = {
     val cp = new ConnectionPreparer(c)
-    new DriverJdbcDataSource(c.getString("url"), c.getStringOr("user"), c.getStringOr("password"),
-      c.getPropertiesOr("properties"), c.getStringOr("driver"), driver, if(cp.isLive) cp else null)
+    new DriverJdbcDataSource(
+      c.getStringOr("url"),
+      c.getStringOr("user"),
+      c.getStringOr("password"),
+      c.getPropertiesOr("properties"),
+      c.getStringOr("driver", c.getStringOr("driverClassName")),
+      driver,
+      if(cp.isLive) cp else null)
   }
 }
 
-/** A JdbcDataSource for a BoneCP connection pool */
-class BoneCPJdbcDataSource(val ds: com.jolbox.bonecp.BoneCPDataSource, driverName: String) extends DriverBasedJdbcDataSource {
-  registerDriver(driverName, ds.getJdbcUrl)
-
+/** A JdbcDataSource for a HikariCP connection pool */
+class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig) extends JdbcDataSource {
   def createConnection(): Connection = ds.getConnection()
   def close(): Unit = ds.close()
 }
 
-object BoneCPJdbcDataSource extends JdbcDataSourceFactory {
-  import com.jolbox.bonecp._
-  import com.jolbox.bonecp.hooks._
+object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
+  import com.zaxxer.hikari._
 
-  def forConfig(c: Config, driver: Driver): BoneCPJdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String): HikariCPJdbcDataSource = {
     if(driver ne null)
-      throw new SlickException("An explicit Driver object is not supported by BoneCPJdbcDataSource")
-    val ds = new BoneCPDataSource
+      throw new SlickException("An explicit Driver object is not supported by HikariCPJdbcDataSource")
+    val hconf = new HikariConfig()
 
     // Connection settings
-    ds.setJdbcUrl(c.getString("url"))
-    c.getStringOpt("user").foreach(ds.setUsername)
-    c.getStringOpt("password").foreach(ds.setPassword)
-    c.getPropertiesOpt("properties").foreach(ds.setDriverProperties)
+    hconf.setDataSourceClassName(c.getStringOr("dataSourceClass", null))
+    hconf.setDriverClassName(c.getStringOr("driverClassName", c.getStringOr("driver")))
+    hconf.setJdbcUrl(c.getStringOr("url", null))
+    c.getStringOpt("user").foreach(hconf.setUsername)
+    c.getStringOpt("password").foreach(hconf.setPassword)
+    c.getPropertiesOpt("properties").foreach(hconf.setDataSourceProperties)
 
     // Pool configuration
-    ds.setPartitionCount(c.getIntOr("partitionCount", 1))
-    ds.setMaxConnectionsPerPartition(c.getIntOr("maxConnectionsPerPartition", 30))
-    ds.setMinConnectionsPerPartition(c.getIntOr("minConnectionsPerPartition", 5))
-    ds.setAcquireIncrement(c.getIntOr("acquireIncrement", 1))
-    ds.setAcquireRetryAttempts(c.getIntOr("acquireRetryAttempts", 10))
-    ds.setAcquireRetryDelayInMs(c.getMillisecondsOr("acquireRetryDelay", 1000))
-    ds.setConnectionTimeoutInMs(c.getMillisecondsOr("connectionTimeout", 1000))
-    ds.setIdleMaxAge(c.getMillisecondsOr("idleMaxAge", 1000 * 60 * 10), TimeUnit.MILLISECONDS)
-    ds.setMaxConnectionAge(c.getMillisecondsOr("maxConnectionAge", 1000 * 60 * 60), TimeUnit.MILLISECONDS)
-    ds.setDisableJMX(c.getBooleanOr("disableJMX", true))
-    ds.setStatisticsEnabled(c.getBooleanOr("statisticsEnabled"))
-    ds.setIdleConnectionTestPeriod(c.getMillisecondsOr("idleConnectionTestPeriod", 1000 * 60), TimeUnit.MILLISECONDS)
-    ds.setDisableConnectionTracking(c.getBooleanOr("disableConnectionTracking", true))
-    ds.setQueryExecuteTimeLimitInMs(c.getMillisecondsOr("queryExecuteTimeLimit"))
-    c.getStringOpt("initSQL").foreach(ds.setInitSQL)
-    ds.setLogStatementsEnabled(c.getBooleanOr("logStatements"))
-    c.getStringOpt("connectionTestStatement").foreach(ds.setConnectionTestStatement)
+    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 1000))
+    hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
+    hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
+    hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
+    hconf.setInitializationFailFast(c.getBooleanOr("initializationFailFast", false))
+    c.getStringOpt("connectionTestQuery").foreach { s =>
+      hconf.setJdbc4ConnectionTest(false)
+      hconf.setConnectionTestQuery(s)
+    }
+    c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
+    val numThreads = c.getIntOr("numThreads", 20)
+    hconf.setMaximumPoolSize(c.getIntOr("maxConnections", numThreads * 5))
+    hconf.setMinimumIdle(c.getIntOr("minConnections", numThreads))
+    hconf.setPoolName(name)
+    hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
 
-    // Connection preparer
-    val cp = new ConnectionPreparer(c)
-    if(cp.isLive) ds.setConnectionHook(new AbstractConnectionHook {
-      override def onCheckOut(conn: ConnectionHandle) = cp(conn)
-    })
+    // Equivalent of ConnectionPreparer
+    hconf.setReadOnly(c.getBooleanOr("readOnly", false))
+    c.getStringOpt("isolation").map("TRANSACTION_" + _).foreach(hconf.setTransactionIsolation)
+    hconf.setCatalog(c.getStringOr("catalog", null))
 
-    new BoneCPJdbcDataSource(ds, c.getStringOr("driver"))
+    val ds = new HikariDataSource(hconf)
+    new HikariCPJdbcDataSource(ds, hconf)
   }
 }
 
-/** Set parameters on a new Connection. This is used by both,
-  * [[DriverJdbcDataSource]] and [[BoneCPJdbcDataSource]]. */
+/** Set parameters on a new Connection. This is used by [[DriverJdbcDataSource]]. */
 class ConnectionPreparer(c: Config) extends (Connection => Unit) {
-  val autocommit = c.getBooleanOpt("autocommit")
   val isolation = c.getStringOpt("isolation").map {
     case "NONE" => Connection.TRANSACTION_NONE
     case "READ_COMMITTED" => Connection.TRANSACTION_READ_COMMITTED
     case "READ_UNCOMMITTED" => Connection.TRANSACTION_READ_UNCOMMITTED
     case "REPEATABLE_READ" => Connection.TRANSACTION_REPEATABLE_READ
     case "SERIALIZABLE" => Connection.TRANSACTION_SERIALIZABLE
-    case unknown => throw new SlickException(s"Unknown isolation level [$unknown]")
+    case unknown => throw new SlickException(s"Unknown transaction isolation level [$unknown]")
   }
-  val catalog = c.getStringOpt("defaultCatalog")
+  val catalog = c.getStringOpt("catalog").orElse(c.getStringOpt("defaultCatalog"))
   val readOnly = c.getBooleanOpt("readOnly")
 
-  val isLive = autocommit.isDefined || isolation.isDefined || catalog.isDefined || readOnly.isDefined
+  val isLive = isolation.isDefined || catalog.isDefined || readOnly.isDefined
 
   def apply(c: Connection): Unit = if(isLive) {
-    autocommit.foreach(c.setAutoCommit)
     isolation.foreach(c.setTransactionIsolation)
     readOnly.foreach(c.setReadOnly)
     catalog.foreach(c.setCatalog)

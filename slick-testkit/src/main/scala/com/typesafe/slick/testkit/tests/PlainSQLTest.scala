@@ -27,7 +27,7 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     val userForID = Q[Int, User] + "select id, name from USERS where id = ?"
     val userForIdAndName = Q[(Int, String), User] + "select id, name from USERS where id = ? and name = ?"
 
-    sharedSession.withTransaction {
+    implicitSession.withTransaction {
       println("Creating user table: "+createTable.first)
       println("Inserting users:")
       for(i <- populateUsers) println("  "+i.first)

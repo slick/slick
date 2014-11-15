@@ -45,11 +45,5 @@ trait JdbcType[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean
     * to treat LiteralNodes as volatile (i.e. using bind variables) as needed. */
   def hasLiteralForm: Boolean
 
-  override def toString = {
-    def cln = getClass.getName
-    val pos = cln.lastIndexOf("$JdbcTypes$")
-    val s = if(pos >= 0) cln.substring(pos+11) else cln
-    val s2 = if(s.endsWith("JdbcType")) s.substring(0, s.length-8) else s
-    s2 + "/" + sqlTypeName
-  }
+  override def toString = scalaType.toString + "'"
 }

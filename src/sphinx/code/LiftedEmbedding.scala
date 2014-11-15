@@ -411,7 +411,8 @@ object LiftedEmbedding extends App {
       def * = (day, count)
     }
     val salesPerDay = TableQuery[SalesPerDay]
-
+    salesPerDay.ddl.create
+    salesPerDay.insert( (new Date(999999999), 999) )
     //#simplefunction1
     // H2 has a day_of_week() function which extracts the day of week from a timestamp
     val dayOfWeek = SimpleFunction.unary[Date, Int]("day_of_week")
@@ -426,6 +427,14 @@ object LiftedEmbedding extends App {
     def dayOfWeek2(c: Column[Date]) =
       SimpleFunction[Int]("day_of_week").apply(Seq(c))
     //#simplefunction2
+
+    assert{
+    //#simpleliteral
+    val current_date = SimpleLiteral[java.sql.Date]("CURRENT_DATE")
+    salesPerDay.map(_ => current_date)
+    //#simpleliteral
+    .first.isInstanceOf[java.sql.Date]
+    }
   }
 
   db withDynSession {
