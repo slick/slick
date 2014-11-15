@@ -306,6 +306,8 @@ trait JdbcBackend extends RelationalBackend {
       def close() = self.close()
       def rollback() = self.rollback()
       def withTransaction[T](f: => T) = self.withTransaction(f)
+      private[slick] def startInTransaction: Unit = self.startInTransaction
+      private[slick] def endInTransaction: Unit = self.endInTransaction
     }
 
     protected def loggingStatement(st: Statement): Statement =
@@ -313,15 +315,18 @@ trait JdbcBackend extends RelationalBackend {
 
     protected def loggingPreparedStatement(st: PreparedStatement): PreparedStatement =
       if(statementLogger.isDebugEnabled || benchmarkLogger.isDebugEnabled) new LoggingPreparedStatement(st) else st
+
+    private[slick] def startInTransaction: Unit
+    private[slick] def endInTransaction: Unit
   }
 
   class BaseSession(val database: Database) extends SessionDef {
     protected var open = false
     protected var doRollback = false
-    protected var inTransaction = false
+    protected var inTransactionally = 0
 
     def isOpen = open
-    def isInTransaction = inTransaction
+    def isInTransaction = inTransactionally > 0
 
     lazy val conn = { open = true; database.source.createConnection }
     lazy val metaData = conn.getMetaData()
@@ -345,9 +350,8 @@ trait JdbcBackend extends RelationalBackend {
       doRollback = true
     }
 
-    def withTransaction[T](f: => T): T = if(inTransaction) f else {
-      conn.setAutoCommit(false)
-      inTransaction = true
+    def withTransaction[T](f: => T): T = if(isInTransaction) f else {
+      startInTransaction
       try {
         var done = false
         try {
@@ -358,11 +362,20 @@ trait JdbcBackend extends RelationalBackend {
           done = true
           res
         } finally if(!done) conn.rollback()
-      } finally {
-        conn.setAutoCommit(true)
-        inTransaction = false
-      }
+      } finally endInTransaction
     }
+
+    private[slick] def startInTransaction: Unit = {
+      if(!isInTransaction) conn.setAutoCommit(false)
+      inTransactionally += 1
+    }
+
+    private[slick] def endInTransaction: Unit = {
+      inTransactionally -= 1
+      if(!isInTransaction) conn.setAutoCommit(true)
+    }
+
+    def getTransactionality: (Int, Boolean) = (inTransactionally, conn.getAutoCommit)
   }
 
   /**

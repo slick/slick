@@ -6,6 +6,9 @@ import java.sql.{PreparedStatement, Statement}
 
 import scala.collection.mutable.Builder
 import scala.concurrent.Future
+import scala.util.Try
+import scala.util.control.NonFatal
+
 import scala.slick.SlickException
 import scala.slick.action._
 import scala.slick.ast._
@@ -22,6 +25,67 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
   type DriverAction[-E <: Effect, +R] = SqlAction[E, R]
   type JdbcDatabaseAction[+R] = SynchronousDatabaseAction[Backend#This, Effect, R]
+
+  class JdbcActionExtensionMethods[E <: Effect, R](a: Action[E, R]) {
+
+    /** Run this Action transactionally. This does not guarantee failures to be atomic in the
+      * presence of error handling combinators. If multiple `transactionally` combinators are
+      * nested, only the outermost one will be backed by an actual database transaction. Depending
+      * on the outcome of running the Action it surrounds, the transaction is committed if the
+      * wrapped Action succeeds, or rolled back if the wrapped Action fails. When called on a
+      * [[SynchronousDatabaseAction]], this combinator gets fused into the action. */
+    def transactionally: Action[E with Effect.BackendType[Backend#This] with Effect.Transactional, R] = {
+      def nonFused =
+        StartTransaction.andThen(a.asTry.flatMap(new EndTransaction(_))(Action.sameThreadExecutionContext))
+          .asInstanceOf[Action[E with Effect.Transactional, R]]
+      a match {
+        case a: SynchronousDatabaseAction[_, _, _] => new SynchronousDatabaseAction.Fused[Backend#This, E with Effect.Transactional, R] {
+          def run(context: ActionContext[Backend#This]): R = {
+            context.pin
+            context.session.startInTransaction
+            val res = try {
+              a.asInstanceOf[SynchronousDatabaseAction[Backend#This, E, R]].run(context)
+            } catch {
+              case NonFatal(ex) =>
+                try context.session.conn.rollback()
+                finally {
+                  try context.session.endInTransaction finally context.unpin
+                }
+                throw ex
+            }
+            try context.session.conn.commit()
+            finally {
+              try context.session.endInTransaction finally context.unpin
+            }
+            res
+          }
+          override def nonFusedEquivalentAction = nonFused
+        }
+        case a => nonFused
+      }
+    }
+
+    protected object StartTransaction extends JdbcDatabaseAction[Unit] {
+      def run(context: ActionContext[Backend#This]): Unit = {
+        context.pin
+        context.session.startInTransaction
+      }
+      def getDumpInfo = DumpInfo(name = "startTransaction")
+    }
+
+    protected class EndTransaction[T](v: Try[T]) extends JdbcDatabaseAction[T] {
+      def run(context: ActionContext[Backend#This]): T = {
+        try {
+          if(v.isSuccess) context.session.conn.commit()
+          else context.session.conn.rollback()
+        } finally {
+          try context.session.endInTransaction finally context.unpin
+        }
+        v.get
+      }
+      def getDumpInfo = DumpInfo(name = "endTransaction", attrInfo = (if(v.isSuccess) "commit" else "rollback"))
+    }
+  }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////// Query Actions
@@ -45,14 +109,14 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
               createQueryInvoker[Any](rsm, param).foreach({ x => b += x }, 0)(ctx.session)
               b.result()
             }
-            override def getDumpInfo = super.getDumpInfo.copy(name = "result")
+            override def getDumpInfo = super.getDumpInfo.copy(name = "query")
           }
         case First(rsm: ResultSetMapping) =>
           new DriverAction[Effect.Read, R] with JdbcDatabaseAction[R] {
             def statements = Iterator(sql)
             def run(ctx: ActionContext[Backend]): R =
               createQueryInvoker[R](rsm, param).first(ctx.session)
-            override def getDumpInfo = super.getDumpInfo.copy(name = "result")
+            override def getDumpInfo = super.getDumpInfo.copy(name = "query one")
           }
       }
     }
@@ -251,17 +315,17 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
     def insertStatement = inv.insertStatement
     def forceInsertStatement = inv.forceInsertStatement
-    def += (value: U) = wrapAction("+=", inv.insertStatement, inv.+=(value)(_))
-    def forceInsert(value: U) = wrapAction("forceInsert", inv.forceInsertStatement, inv.forceInsert(value)(_))
-    def ++= (values: Iterable[U]) = wrapAction("++=", inv.insertStatement, inv.++=(values)(_))
-    def forceInsertAll(values: Iterable[U]) = wrapAction("forceInsertAll", inv.forceInsertStatement, inv.forceInsertAll(values.toSeq: _*)(_))
-    def insertOrUpdate(value: U) = wrapAction("insertOrUpdate", inv.insertOrUpdate(value)(_))
+    def += (value: U): DriverAction[Effect.Write, SingleInsertResult] = wrapAction("+=", inv.insertStatement, inv.+=(value)(_))
+    def forceInsert(value: U): DriverAction[Effect.Write, SingleInsertResult] = wrapAction("forceInsert", inv.forceInsertStatement, inv.forceInsert(value)(_))
+    def ++= (values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult] = wrapAction("++=", inv.insertStatement, inv.++=(values)(_))
+    def forceInsertAll(values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult] = wrapAction("forceInsertAll", inv.forceInsertStatement, inv.forceInsertAll(values.toSeq: _*)(_))
+    def insertOrUpdate(value: U): SimpleInsertAction[SingleInsertOrUpdateResult] = wrapAction("insertOrUpdate", inv.insertOrUpdate(value)(_))
     def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) = inv.insertStatementFor(c)
     def insertStatementFor[TT, C[_]](query: Query[TT, U, C]) = inv.insertStatementFor(query)
     def insertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) = inv.insertStatementFor(compiledQuery)
-    def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) = wrapAction("insertExpr", inv.insertExpr(c)(shape, _))
-    def insert[TT, C[_]](query: Query[TT, U, C]) = wrapAction("insert(query)", inv.insert(query)(_))
-    def insert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) = wrapAction("insert(compiledQuery)", inv.insert(compiledQuery)(_))
+    def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): SimpleInsertAction[QueryInsertResult] = wrapAction("insertExpr", inv.insertExpr(c)(shape, _))
+    def insert[TT, C[_]](query: Query[TT, U, C]): SimpleInsertAction[QueryInsertResult] = wrapAction("insert(query)", inv.insert(query)(_))
+    def insert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): SimpleInsertAction[QueryInsertResult] = wrapAction("insert(compiledQuery)", inv.insert(compiledQuery)(_))
   }
 
   protected class CountingInsertActionComposerImpl[U](inv: CountingInsertInvokerDef[U]) extends InsertActionComposerImpl[U](inv) with CountingInsertActionComposer[U] {

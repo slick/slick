@@ -65,16 +65,21 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComp
   }
 
   trait LowPriorityAPI {
-    implicit def queryUpdateActionExtensionMethods[U, C[_]](q: Query[_, U, C]): UpdateActionExtensionMethodsImpl[U] = createUpdateActionExtensionMethods(updateCompiler.run(q.toNode).tree, ())
+    implicit def queryUpdateActionExtensionMethods[U, C[_]](q: Query[_, U, C]): UpdateActionExtensionMethodsImpl[U] =
+      createUpdateActionExtensionMethods(updateCompiler.run(q.toNode).tree, ())
   }
 
   trait API extends LowPriorityAPI with super.API with CommonImplicits {
-    implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: Table[_], _, C]): DeleteActionExtensionMethods = createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
+    implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: Table[_], _, C]): DeleteActionExtensionMethods =
+      createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
     implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(c.compiledDelete, c.param)
 
     implicit def runnableCompiledUpdateActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): UpdateActionExtensionMethods[RU] =
       createUpdateActionExtensionMethods(c.compiledUpdate, c.param)
+
+    implicit def jdbcActionExtensionMethods[E <: Effect, R](a: Action[E, R]): JdbcActionExtensionMethods[E, R] =
+      new JdbcActionExtensionMethods[E, R](a)
   }
 
   val simple: SimpleQL = new SimpleQL {}

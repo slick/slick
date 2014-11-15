@@ -5,7 +5,7 @@ import scala.language.existentials
 import scala.concurrent.{Promise, ExecutionContext, Future}
 import scala.slick.action._
 import scala.slick.util.{DumpInfo, TreeDump, SlickLogger}
-import scala.util.{Success, Failure, DynamicVariable}
+import scala.util.{Try, Success, Failure, DynamicVariable}
 import scala.util.control.NonFatal
 import scala.slick.SlickException
 import java.io.Closeable
@@ -46,7 +46,7 @@ trait DatabaseComponent { self =>
       * subclasses to support new DatabaseActions which cannot be expressed through
       * SynchronousDatabaseAction. */
     protected def runInContext[R](a: Action[Effects, R], ctx: DatabaseActionContext): Future[R] = {
-      if(actionLogger.isDebugEnabled && !a.isControlFlowAction && !a.isInstanceOf[ConstantAction[_]]) {
+      if(actionLogger.isDebugEnabled && a.isLogged) {
         ctx.sequenceCounter += 1
         val logA = a.nonFusedEquivalentAction
         val aPrefix = if(a eq logA) "" else "[fused] "
@@ -58,25 +58,32 @@ trait DatabaseComponent { self =>
         actionLogger.debug(msg)
       }
       a match {
-        case ConstantAction(v) => Future.successful(v)
+        case SuccessAction(v) => Future.successful(v)
+        case FailureAction(t) => Future.failed(t)
         case FutureAction(f) => f
         case FlatMapAction(base, f, ec) => runInContext(base, ctx).flatMap(v => runInContext(f(v), ctx))(ec)
         case AndThenAction(a1, a2) =>
-          runInContext(a1, ctx).flatMap(_ => runInContext(a2, ctx))(DatabaseComponent.sameThreadExecutionContext)
+          runInContext(a1, ctx).flatMap(_ => runInContext(a2, ctx))(Action.sameThreadExecutionContext)
         case ZipAction(a1, a2) =>
           runInContext(a1, ctx).flatMap { r1 =>
             runInContext(a2, ctx).map { r2 =>
               (r1, r2)
-            }(DatabaseComponent.sameThreadExecutionContext)
-          }(DatabaseComponent.sameThreadExecutionContext).asInstanceOf[Future[R]]
+            }(Action.sameThreadExecutionContext)
+          }(Action.sameThreadExecutionContext).asInstanceOf[Future[R]]
         case AndFinallyAction(a1, a2) =>
           val p = Promise[R]()
           runInContext(a1, ctx).onComplete { t1 =>
             runInContext(a2, ctx).onComplete { t2 =>
               if(t1.isFailure || t2.isSuccess) p.complete(t1)
               else p.complete(t2.asInstanceOf[Failure[R]])
-            } (DatabaseComponent.sameThreadExecutionContext)
-          } (DatabaseComponent.sameThreadExecutionContext)
+            } (Action.sameThreadExecutionContext)
+          } (Action.sameThreadExecutionContext)
+          p.future
+        case FailedAction(a) =>
+          runInContext(a, ctx).failed.asInstanceOf[Future[R]]
+        case AsTryAction(a) =>
+          val p = Promise[R]()
+          runInContext(a, ctx).onComplete(v => p.success(v.asInstanceOf[R]))(Action.sameThreadExecutionContext)
           p.future
         case a: SynchronousDatabaseAction[_, _, _] =>
           runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _, R]], ctx)
@@ -190,14 +197,5 @@ trait DatabaseComponent { self =>
     @volatile private[DatabaseComponent] var sequenceCounter = 0
 
     def session: Session = currentSession
-  }
-}
-
-object DatabaseComponent {
-  /** An ExecutionContext used internally for executing plumbing operations during Action
-    * composition. */
-  private[slick] object sameThreadExecutionContext extends ExecutionContext {
-    override def execute(runnable: Runnable): Unit = runnable.run()
-    override def reportFailure(t: Throwable): Unit = throw t
   }
 }

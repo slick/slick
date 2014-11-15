@@ -33,4 +33,7 @@ class UnmanagedSession(val conn: Connection) extends JdbcBackend.SessionDef {
       res
     } finally inTransaction = false
   }
+
+  private[slick] def startInTransaction: Unit = ???
+  private[slick] def endInTransaction: Unit = ???
 }

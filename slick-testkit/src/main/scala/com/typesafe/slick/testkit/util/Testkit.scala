@@ -10,6 +10,7 @@ import java.util.concurrent.{ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.slick.action._
+import scala.slick.jdbc.JdbcBackend
 import scala.slick.util.DumpInfo
 import scala.util.control.NonFatal
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
@@ -159,6 +160,8 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     def shouldBe(o: Any): Unit = fixStack(Assert.assertEquals(o, v))
 
     def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
+
+    def should(f: Any => Boolean): Unit = fixStack(Assert.assertTrue(f(v)))
   }
 
   implicit class StringContextExtensionMethods(s: StringContext) {
@@ -191,13 +194,22 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
   protected implicit def asyncTestExecutionContext = ExecutionContext.global
 
+  /** Test Action: Get the current database session */
   object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, TDB#Driver#Backend#Session] {
     def run(context: ActionContext[TDB#Driver#Backend]) = context.session
-    def getDumpInfo = DumpInfo(name = "GetSession")
+    def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
 
+  /** Test Action: Check if the current database session is pinned */
   object IsPinned extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, Boolean] {
     def run(context: ActionContext[TDB#Driver#Backend]) = context.isPinned
-    def getDumpInfo = DumpInfo(name = "IsPinned")
+    def getDumpInfo = DumpInfo(name = "<IsPinned>")
+  }
+
+  /** Test Action: Get the current transactionality level and autoCommit flag */
+  object GetTransactionality extends SynchronousDatabaseAction[JdbcBackend, Effect, (Int, Boolean)] {
+    def run(context: ActionContext[JdbcBackend]) =
+      context.session.asInstanceOf[JdbcBackend#BaseSession].getTransactionality
+    def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 }
