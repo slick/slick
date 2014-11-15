@@ -65,7 +65,7 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
     val codegen = Await.result(db.run((createA >> codegenA).withPinnedSession), Duration.Inf)
     codegen.writeToFile("slick.driver.H2Driver","target/slick-testkit-codegen-tests/","all.test",driverName+"Tables",driverName+".scala")
     /// test write to multiple files
-    codegen.writeToMultipleFiles("scala.slick.driver.H2Driver","target/slick-testkit-codegen-tests/","all.test.multiple",driverName+"Tables")
+    codegen.writeToMultipleFiles("slick.driver.H2Driver","target/slick-testkit-codegen-tests/","all.test.multiple",driverName+"Tables")
 
   }
 }
