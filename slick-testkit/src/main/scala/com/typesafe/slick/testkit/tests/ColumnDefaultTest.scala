@@ -1,10 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
 
-class ColumnDefaultTest extends TestkitTest[RelationalTestDB] {
-  import tdb.profile.simple._
+class ColumnDefaultTest extends AsyncTest[RelationalTestDB] {
+  import tdb.profile.api._
 
   class A(tag: Tag) extends Table[(Int, String, Option[Boolean])](tag, "a") {
     def id = column[Int]("id")
@@ -15,8 +14,10 @@ class ColumnDefaultTest extends TestkitTest[RelationalTestDB] {
   lazy val as = TableQuery[A]
 
   def test = ifCap(rcap.columnDefaults) {
-    as.ddl.create
-    as.map(_.id) += 42
-    assertEquals(List((42, "foo", Some(true))), as.run)
+    for {
+      _ <- as.schema.create
+      _ <- as.map(_.id) += 42
+      _ <- as.result.map(_ shouldBe List((42, "foo", Some(true))))
+    } yield ()
   }
 }

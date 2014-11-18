@@ -1,12 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
-class PrimaryKeyTest extends TestkitTest[RelationalTestDB] {
-  import tdb.profile.simple._
+class PrimaryKeyTest extends AsyncTest[RelationalTestDB] {
+  import tdb.profile.api._
 
-  def test {
+  def test = {
 
     class A(tag: Tag) extends Table[(Int, Int, String)](tag, "a") {
       def k1 = column[Int]("k1")
@@ -17,18 +16,17 @@ class PrimaryKeyTest extends TestkitTest[RelationalTestDB] {
     }
     val as = TableQuery[A]
 
-    as.baseTableRow.primaryKeys.foreach(println)
-    assertEquals(Set("pk_a"), as.baseTableRow.primaryKeys.map(_.name).toSet)
+    as.baseTableRow.primaryKeys.map(_.name).toSet shouldBe Set("pk_a")
 
-    as.ddl.create
-
-    as ++= Seq(
-      (1, 1, "a11"),
-      (1, 2, "a12"),
-      (2, 1, "a21"),
-      (2, 2, "a22")
+    seq(
+      as.schema.create,
+      as ++= Seq(
+        (1, 1, "a11"),
+        (1, 2, "a12"),
+        (2, 1, "a21"),
+        (2, 2, "a22")
+      ),
+      (as += (1, 1, "a11-conflict")).failed
     )
-
-    assertFail { as += (1, 1, "a11-conflict") }
   }
 }

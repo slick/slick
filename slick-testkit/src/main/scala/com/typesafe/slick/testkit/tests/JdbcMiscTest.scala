@@ -1,14 +1,11 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
-class JdbcMiscTest extends TestkitTest[JdbcTestDB] {
-  import tdb.profile.simple._
+class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
+  import tdb.profile.api._
 
-  override val reuseInstance = true
-
-  def testNullability {
+  def testNullability = {
     class T1(tag: Tag) extends Table[String](tag, "t1") {
       def a = column[String]("a")
       def * = a
@@ -33,30 +30,24 @@ class JdbcMiscTest extends TestkitTest[JdbcTestDB] {
     }
     val t4 = TableQuery[T4]
 
-    (t1.ddl ++ t2.ddl ++ t3.ddl ++ t4.ddl).create
-
-    t1.insert("a")
-    t2.insert("a")
-    t3.insert(Some("a"))
-    t4.insert(Some("a"))
-
-    t2.insert(null.asInstanceOf[String])
-    t3.insert(None)
-
-    assertFail { t1.insert(null.asInstanceOf[String]) }
-    assertFail { t4.insert(None) }
+    seq(
+      (t1.schema ++ t2.schema ++ t3.schema ++ t4.schema).create,
+      t1 += "a",
+      t2 += "a",
+      t3 += Some("a"),
+      t4 += Some("a"),
+      t2 += null.asInstanceOf[String],
+      t3 += None,
+      (t1 += null.asInstanceOf[String]).failed,
+      (t4 += None).failed
+    )
   }
 
-  def testColumnOptions{
+  def testColumnOptions = {
     class Foo(tag: Tag) extends Table[String](tag, "posts") {
       def bar = column[String]("s", O.Length(20,varying=true), O DBType "VARCHAR(20)" )        
       def * = bar
     }
-    try{
-      TableQuery[Foo].ddl.create
-      assert(false,"Length and DBType should not both be allowed at the same time")
-    }catch{
-      case _:SlickException =>
-    }    
+    Action.successful(()).flatMap { _ => TableQuery[Foo].schema.create }.failed.map(_.shouldBeA[SlickException])
   }
 }

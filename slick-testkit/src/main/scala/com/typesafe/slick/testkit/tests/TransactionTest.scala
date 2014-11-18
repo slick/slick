@@ -1,6 +1,5 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
 class TransactionTest extends AsyncTest[JdbcTestDB] {
@@ -15,7 +14,7 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
 
     class ExpectedException extends RuntimeException
 
-    ts.ddl.create andThen { // failed transaction
+    ts.schema.create andThen { // failed transaction
       (for {
         _ <- ts += 1
         _ <- ts.result.map(_ shouldBe Seq(1))

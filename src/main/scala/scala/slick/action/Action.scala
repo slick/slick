@@ -1,5 +1,9 @@
 package scala.slick.action
 
+import scala.language.higherKinds
+
+import scala.collection.generic.CanBuildFrom
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.slick.SlickException
 import scala.slick.backend.DatabaseComponent
@@ -42,7 +46,7 @@ sealed trait Action[-E <: Effect, +R] extends Dumpable {
   def andFinally[E2 <: Effect, R2](a: Action[E2, R2]): Action[E with E2, R] =
     AndFinallyAction[E with E2, R](this, a)
 
-  /** A shortcut for @andThen. */
+  /** A shortcut for `andThen`. */
   final def >> [E2 <: Effect, R2](a: Action[E2, R2]): Action[E with E2, R2] =
     andThen[E2, R2](a)
 
@@ -69,6 +73,10 @@ sealed trait Action[-E <: Effect, +R] extends Dumpable {
   def withPinnedSession: Action[E, R] =
     (Action.Pin andThen this andFinally Action.Unpin).asInstanceOf[Action[E, R]]
 
+  /** Get a wrapping Action which has a name that will be included in log output. */
+  def named(name: String): Action[E, R] =
+    NamedAction[E, R](this, name)
+
   /** Get the equivalent non-fused Action if this Action has been fused, otherwise this
     * Action is returned. */
   def nonFusedEquivalentAction: Action[E, R] = this
@@ -86,6 +94,20 @@ object Action {
 
   /** Create an [[Action]] that always fails. */
   def failed(t: Throwable): Action[Effect, Nothing] = FailureAction(t)
+
+  /** Transform a `TraversableOnce[Action[E, R]]` into an `Action[E, TraversableOnce[R]]`. */
+  def sequence[E <: Effect, R, M[_] <: TraversableOnce[_]](in: M[Action[E, R]])(implicit cbf: CanBuildFrom[M[Action[E, R]], R, M[R]]): Action[E, M[R]] = {
+    implicit val ec = Action.sameThreadExecutionContext
+    in.foldLeft(Action.successful(cbf(in)): Action[E, mutable.Builder[R, M[R]]]) { (ar, ae) =>
+      for (r <- ar; e <- ae.asInstanceOf[Action[E, R]]) yield (r += e)
+    } map (_.result)
+  }
+
+  /** A simpler version of `sequence` that takes a number of Actions with any return type as
+    * varargs and returns an Action that performs the individual Actions in sequence (using
+    * `andThen`), returning `()` in the end. */
+  def seq[E <: Effect](actions: Action[E, _]*): Action[E, Unit] =
+    (actions :+ Action.successful(())).reduceLeft(_ andThen _).asInstanceOf[Action[E, Unit]]
 
   /** An Action that pins the current session */
   private object Pin extends SynchronousDatabaseAction[DatabaseComponent, Effect, Unit] {
@@ -159,6 +181,12 @@ case class AsTryAction[-E <: Effect, +R](a: Action[E, R]) extends Action[E, Try[
   def getDumpInfo = DumpInfo("asTry")
 }
 
+/** An Action that attaches a name for logging purposes to another action. */
+case class NamedAction[-E <: Effect, +R](a: Action[E, R], name: String) extends Action[E, R] {
+  def getDumpInfo = DumpInfo("named", mainInfo = DumpInfo.highlight(name))
+  override def isLogged = true
+}
+
 /** The context object passed to database actions by the execution engine. */
 trait ActionContext[+B <: DatabaseComponent] {
   private[this] var stickiness = 0
@@ -186,8 +214,8 @@ trait ActionContext[+B <: DatabaseComponent] {
   * type. `DatabaseComponent.DatabaseDef.run` supports this kind of action out of the box
   * through `DatabaseComponent.DatabaseDef.runSynchronousDatabaseAction` so that `run` does not
   * need to be extended if all primitive database actions can be expressed in this way. These
-  * actions also implement construction-time fusion for the @andThen, @andFinally, @zip, @failed,
-  * @asTry and @withPinnedSession operations. */
+  * actions also implement construction-time fusion for the `andThen`, `andFinally`, `zip`,
+  * `failed`, `asTry` and `withPinnedSession` operations. */
 trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R] extends DatabaseAction[B, E, R] { self =>
   def run(context: ActionContext[B]): R
 

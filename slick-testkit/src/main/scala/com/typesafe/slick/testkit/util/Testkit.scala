@@ -134,6 +134,31 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     if(keepAliveSession ne null) keepAliveSession.close()
   }
 
+  implicit class StringContextExtensionMethods(s: StringContext) {
+    /** Generate a unique name suitable for a database entity */
+    def u(args: Any*) = s.standardInterpolator(identity, args) + "_" + unique.incrementAndGet()
+  }
+
+  def rcap = RelationalProfile.capabilities
+  def scap = SqlProfile.capabilities
+  def jcap = JdbcProfile.capabilities
+  def tcap = TestDB.capabilities
+}
+
+abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
+  @deprecated("Use implicitSession instead of sharedSession", "2.2")
+  protected final def sharedSession: tdb.profile.Backend#Session = implicitSession
+
+  protected implicit def implicitSession: tdb.profile.Backend#Session = {
+    db
+    keepAliveSession
+  }
+
+  def ifCap[T](caps: Capability*)(f: => T): Unit =
+    if(caps.forall(c => tdb.capabilities.contains(c))) f
+  def ifNotCap[T](caps: Capability*)(f: => T): Unit =
+    if(!caps.forall(c => tdb.capabilities.contains(c))) f
+
   def assertFail(f: =>Unit) = {
     var succeeded = false
     try {
@@ -147,45 +172,6 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
 
   def assertAllMatch[T](t: TraversableOnce[T])(f: PartialFunction[T, _]) = t.foreach { x =>
     if(!f.isDefinedAt(x)) Assert.fail("Expected shape not matched by: "+x)
-  }
-
-  implicit class AssertionExtensionMethods(v: Any) {
-    private[this] val cln = getClass.getName
-    private[this] def fixStack(f: => Unit): Unit = try f catch {
-      case ex: AssertionError =>
-        ex.setStackTrace(ex.getStackTrace.iterator.filterNot(_.getClassName.startsWith(cln)).toArray)
-        throw ex
-    }
-
-    def shouldBe(o: Any): Unit = fixStack(Assert.assertEquals(o, v))
-
-    def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
-
-    def should(f: Any => Boolean): Unit = fixStack(Assert.assertTrue(f(v)))
-  }
-
-  implicit class StringContextExtensionMethods(s: StringContext) {
-    /** Generate a unique name suitable for a database entity */
-    def u(args: Any*) = s.standardInterpolator(identity, args) + "_" + unique.incrementAndGet()
-  }
-
-  def rcap = RelationalProfile.capabilities
-  def scap = SqlProfile.capabilities
-  def jcap = JdbcProfile.capabilities
-  def tcap = TestDB.capabilities
-  def ifCap[T](caps: Capability*)(f: => T): Unit =
-    if(caps.forall(c => tdb.capabilities.contains(c))) f
-  def ifNotCap[T](caps: Capability*)(f: => T): Unit =
-    if(!caps.forall(c => tdb.capabilities.contains(c))) f
-}
-
-abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
-  @deprecated("Use implicitSession instead of sharedSession", "2.2")
-  protected final def sharedSession: tdb.profile.Backend#Session = implicitSession
-
-  protected implicit def implicitSession: tdb.profile.Backend#Session = {
-    db
-    keepAliveSession
   }
 }
 
@@ -211,5 +197,51 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def run(context: ActionContext[JdbcBackend]) =
       context.session.asInstanceOf[JdbcBackend#BaseSession].getTransactionality
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
+  }
+
+  def ifCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R]): Action[E, Unit] =
+    if(caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
+  def ifNotCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R]): Action[E, Unit] =
+    if(!caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
+
+  def asAction[R](f: tdb.profile.Backend#Session => R): Action[Effect.BackendType[tdb.profile.Backend], R] =
+    new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R] {
+      def run(context: ActionContext[tdb.profile.Backend]): R = f(context.session)
+      def getDumpInfo = DumpInfo(name = "<asAction>")
+    }
+
+  def seq[E <: Effect](actions: Action[E, _]*): Action[E, Unit] = Action.seq[E](actions: _*)
+
+  implicit class AssertionExtensionMethods[T](v: T) {
+    private[this] val cln = getClass.getName
+    private[this] def fixStack(f: => Unit): Unit = try f catch {
+      case ex: AssertionError =>
+        ex.setStackTrace(ex.getStackTrace.iterator.filterNot(_.getClassName.startsWith(cln)).toArray)
+        throw ex
+    }
+
+    def shouldBe(o: Any): Unit = fixStack(Assert.assertEquals(o, v))
+
+    def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
+
+    def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue(f(v)))
+
+    def shouldBeA[T](implicit ct: ClassTag[T]): Unit = {
+      if(!ct.runtimeClass.isInstance(v))
+        fixStack(Assert.fail("Expected value of type " + ct.runtimeClass.getName + ", got " + v.getClass.getName))
+    }
+  }
+
+  implicit class CollectionAssertionExtensionMethods[T](v: TraversableOnce[T]) {
+    private[this] val cln = getClass.getName
+    private[this] def fixStack(f: => Unit): Unit = try f catch {
+      case ex: AssertionError =>
+        ex.setStackTrace(ex.getStackTrace.iterator.filterNot(_.getClassName.startsWith(cln)).toArray)
+        throw ex
+    }
+
+    def shouldAllMatch(f: PartialFunction[T, _]) = v.foreach { x =>
+      if(!f.isDefinedAt(x)) fixStack(Assert.fail("Value does not match expected shape: "+x))
+    }
   }
 }

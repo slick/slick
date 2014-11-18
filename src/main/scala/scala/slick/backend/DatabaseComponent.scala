@@ -85,6 +85,8 @@ trait DatabaseComponent { self =>
           val p = Promise[R]()
           runInContext(a, ctx).onComplete(v => p.success(v.asInstanceOf[R]))(Action.sameThreadExecutionContext)
           p.future
+        case NamedAction(a, _) =>
+          runInContext(a, ctx)
         case a: SynchronousDatabaseAction[_, _, _] =>
           runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _, R]], ctx)
         case a: DatabaseAction[_, _, _] =>

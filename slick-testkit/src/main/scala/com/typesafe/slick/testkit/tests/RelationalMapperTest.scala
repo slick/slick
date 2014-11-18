@@ -1,25 +1,23 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
+import scala.language.existentials
 
-import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
-class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
-  import tdb.profile.simple._
+class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
+  import tdb.profile.api._
 
-  override val reuseInstance = true
-
-  def testMappedType {
+  def testMappedType = {
     sealed trait Bool
     case object True extends Bool
     case object False extends Bool
 
     implicit val boolTypeMapper = MappedColumnType.base[Bool, Int](
       { b =>
-        assertNotNull(b)
+        b shouldNotBe null
         if(b == True) 1 else 0
       }, { i =>
-        assertNotNull(i)
+        i shouldNotBe null
         if(i == 1) True else False
       }
     )
@@ -32,63 +30,67 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
     }
     val ts = TableQuery[T]
 
-    ts.ddl.create
-    ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True)))
-    assertEquals(ts.run.toSet, Set((1, False, None), (2, True, Some(True))))
-    assertEquals(ts.filter(_.b === (True:Bool)).run.toSet, Set((2, True, Some(True))))
-    assertEquals(ts.filter(_.b === (False:Bool)).run.toSet, Set((1, False, None)))
+    seq(
+      ts.schema.create,
+      ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
+      ts.to[Set].result.map(_ shouldBe Set((1, False, None), (2, True, Some(True)))),
+      ts.filter(_.b === (True:Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
+      ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
+    )
   }
 
-  def testMappedType2 {
-      sealed trait EnumType
-      case object EnumValue1 extends EnumType
-      case object EnumValue2 extends EnumType
-      case object EnumValue3 extends EnumType
+  def testMappedType2 = {
+    sealed trait EnumType
+    case object EnumValue1 extends EnumType
+    case object EnumValue2 extends EnumType
+    case object EnumValue3 extends EnumType
 
-      implicit val enumTypeMapper = MappedColumnType.base[EnumType, Char](
-        { t =>
-          assertNotNull(t)
-          t match {
-            case EnumValue1 => 'A'
-            case EnumValue2 => 'B'
-            case _ => 'C'
-          }
-        }, { c =>
-          assertNotNull(c)
-          c match {
-            case 'A' => EnumValue1
-            case 'B' => EnumValue2
-            case _ => EnumValue3
-          }
+    implicit val enumTypeMapper = MappedColumnType.base[EnumType, Char](
+      { t =>
+        t shouldNotBe null
+        t match {
+          case EnumValue1 => 'A'
+          case EnumValue2 => 'B'
+          case _ => 'C'
         }
-      )
-
-      class T(tag: Tag) extends Table[(Int, EnumType, Option[EnumType])](tag, "t32") {
-        def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
-        def b = column[EnumType]("b")
-        def c = column[Option[EnumType]]("c")
-        def * = (id, b, c)
+      }, { c =>
+        c shouldNotBe null
+        c match {
+          case 'A' => EnumValue1
+          case 'B' => EnumValue2
+          case _ => EnumValue3
+        }
       }
-      val ts = TableQuery[T]
+    )
 
-      ts.ddl.create
-      ts.map(t => (t.b, t.c)) ++= Seq((EnumValue1, None), (EnumValue1, Some(EnumValue2)), (EnumValue2, Some(EnumValue3)))
-      assertEquals(ts.run.toSet, Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)), (3, EnumValue2, Some(EnumValue3))))
-      assertEquals(ts.filter(_.b === (EnumValue1:EnumType)).run.toSet, Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2))))
-      assertEquals(ts.filter(_.b === (EnumValue2:EnumType)).run.toSet, Set((3, EnumValue2, Some(EnumValue3))))
+    class T(tag: Tag) extends Table[(Int, EnumType, Option[EnumType])](tag, "t32") {
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+      def b = column[EnumType]("b")
+      def c = column[Option[EnumType]]("c")
+      def * = (id, b, c)
     }
+    val ts = TableQuery[T]
 
-  def testMappedRefType {
+    seq(
+      ts.schema.create,
+      ts.map(t => (t.b, t.c)) ++= Seq((EnumValue1, None), (EnumValue1, Some(EnumValue2)), (EnumValue2, Some(EnumValue3))),
+      ts.to[Set].result.map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)), (3, EnumValue2, Some(EnumValue3)))),
+      ts.filter(_.b === (EnumValue1:EnumType)).to[Set].result.map(_ shouldBe Set((1, EnumValue1, None), (2, EnumValue1, Some(EnumValue2)))),
+      ts.filter(_.b === (EnumValue2:EnumType)).to[Set].result.map(_ shouldBe Set((3, EnumValue2, Some(EnumValue3))))
+    )
+  }
+
+  def testMappedRefType = {
     sealed trait Bool
     case object True extends Bool
     case object False extends Bool
 
     implicit val boolTypeMapper = MappedColumnType.base[Bool, String](
       { b =>
-        assertNotNull(b)
+        b shouldNotBe null
         if(b == True) "y" else "n"
       }, { i =>
-        assertNotNull(i)
+        i shouldNotBe null
         if(i == "y") True else False
       }
     )
@@ -101,14 +103,16 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
     }
     val ts = TableQuery[T]
 
-    ts.ddl.create
-    ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True)))
-    assertEquals(ts.run.toSet, Set((1, False, None), (2, True, Some(True))))
-    assertEquals(ts.filter(_.b === (True:Bool)).run.toSet, Set((2, True, Some(True))))
-    assertEquals(ts.filter(_.b === (False:Bool)).run.toSet, Set((1, False, None)))
+    seq(
+      ts.schema.create,
+      ts.map(t => (t.b, t.c)) ++= Seq((False, None), (True, Some(True))),
+      ts.to[Set].result.map(_ shouldBe Set((1, False, None), (2, True, Some(True)))),
+      ts.filter(_.b === (True:Bool)).to[Set].result.map(_ shouldBe Set((2, True, Some(True)))),
+      ts.filter(_.b === (False:Bool)).to[Set].result.map(_ shouldBe Set((1, False, None)))
+    )
   }
 
-  def testAutoMapped {
+  def testAutoMapped = {
 
     class T(tag: Tag) extends Table[(MyMappedID, Int)](tag, "t_automapped") {
       def id = column[MyMappedID]("id", O.PrimaryKey)
@@ -116,14 +120,16 @@ class RelationalMapperTest extends TestkitTest[RelationalTestDB] {
       def * = (id, v)
     }
     val ts = TableQuery[T]
-    ts.ddl.create
-    ts ++= Seq((MyMappedID(1), 2), (MyMappedID(3), 4))
 
-    assertEquals(Set((MyMappedID(1), 2), (MyMappedID(3), 4)), ts.run.toSet)
-    assertEquals(Set((MyMappedID(1), 2)), ts.filter(_.id === MyMappedID(1)).run.toSet)
+    seq(
+      ts.schema.create,
+      ts ++= Seq((MyMappedID(1), 2), (MyMappedID(3), 4)),
+      ts.to[Set].result.map(_ shouldBe Set((MyMappedID(1), 2), (MyMappedID(3), 4))),
+      ts.filter(_.id === MyMappedID(1)).to[Set].result.map(_ shouldBe Set((MyMappedID(1), 2)))
+    )
   }
 
-  def mappedToMacroCompilerBug {
+  def mappedToMacroCompilerBug = {
     case class MyId(val value: Int) extends MappedTo[Int]
 
     class MyTable(tag: Tag) extends Table[MyId](tag, "table") {

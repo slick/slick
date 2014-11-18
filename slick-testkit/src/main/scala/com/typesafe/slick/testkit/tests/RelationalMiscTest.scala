@@ -1,15 +1,13 @@
 package com.typesafe.slick.testkit.tests
 
 import scala.language.higherKinds
-import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
-class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
-  import tdb.profile.simple._
+import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
-  override val reuseInstance = true
+class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
+  import tdb.profile.api._
 
-  def isNotAndOrTest {
+  def isNotAndOrTest = {
     class T(tag: Tag) extends Table[(String, String)](tag, "users") {
       def a = column[String]("a")
       def b = column[String]("b")
@@ -17,45 +15,49 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     }
     val ts = TableQuery[T]
 
-    ts.ddl.create
-    ts ++= Seq(("1", "a"), ("2", "a"), ("3", "b"))
+    for {
+      _ <- ts.schema.create
+      _ <- ts ++= Seq(("1", "a"), ("2", "a"), ("3", "b"))
 
-    val q1 = for(t <- ts if t.a === "1" || t.a === "2") yield t
-    assertEquals(Set(("1", "a"), ("2", "a")), q1.run.toSet)
+      q1 = for(t <- ts if t.a === "1" || t.a === "2") yield t
+      _ <- q1.result.map(r => r.toSet shouldBe Set(("1", "a"), ("2", "a")))
 
-    val q2 = for(t <- ts if (t.a =!= "1") || (t.b =!= "a")) yield t
-    assertEquals(Set(("2", "a"), ("3", "b")), q2.run.toSet)
+      q2 = for(t <- ts if (t.a =!= "1") || (t.b =!= "a")) yield t
+      _ <- q2.result.map(r => r.toSet shouldBe Set(("2", "a"), ("3", "b")))
 
-    // No need to test that the unexpected result is actually unexpected
-    // now that the compiler prints a warning about it
+      // No need to test that the unexpected result is actually unexpected
+      // now that the compiler prints a warning about it
 
-    val q4 = for(t <- ts if t.a =!= "1" || t.b =!= "a") yield t
-    assertEquals(Set(("2", "a"), ("3", "b")), q4.run.toSet)
+      q4 = for(t <- ts if t.a =!= "1" || t.b =!= "a") yield t
+      _ <- q4.result.map(r => r.toSet shouldBe Set(("2", "a"), ("3", "b")))
+    } yield ()
   }
 
-  def testLike {
+  def testLike = {
     class T1(tag: Tag) extends Table[String](tag, "t1_2") {
       def a = column[String]("a")
       def * = a
     }
     val t1s = TableQuery[T1]
 
-    t1s.ddl.create
-    t1s ++= Seq("foo", "bar", "foobar", "foo%")
+    for {
+      _ <- t1s.schema.create
+      _ <- t1s ++= Seq("foo", "bar", "foobar", "foo%")
 
-    val q1 = for { t1 <- t1s if t1.a like "foo" } yield t1.a
-    assertEquals(List("foo"), q1.run)
+      q1 = for { t1 <- t1s if t1.a like "foo" } yield t1.a
+      _ <- q1.result.map(_ shouldBe List("foo"))
 
-    val q2 = for { t1 <- t1s if t1.a like "foo%" } yield t1.a
-    assertEquals(Set("foo", "foobar", "foo%"), q2.run.toSet)
+      q2 = for { t1 <- t1s if t1.a like "foo%" } yield t1.a
+      _ <- q2.to[Set].result.map(_ shouldBe Set("foo", "foobar", "foo%"))
 
-    ifCap(rcap.likeEscape) {
-      val q3 = for { t1 <- t1s if t1.a.like("foo^%", '^') } yield t1.a
-      assertEquals(List("foo%"), q3.run)
-    }
+      _ <- ifCap(rcap.likeEscape) {
+        val q3 = for { t1 <- t1s if t1.a.like("foo^%", '^') } yield t1.a
+        q3.result.map(_ shouldBe List("foo%"))
+      }
+    } yield ()
   }
 
-  def testSorting {
+  def testSorting = {
     import scala.slick.lifted.{Shape, ShapeLevel, Ordered}
 
     class T1(tag: Tag) extends Table[(String, String, String)](tag, "t1_3") {
@@ -66,43 +68,47 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     }
     val t1s = TableQuery[T1]
 
-    t1s.ddl.create
-    t1s ++= Seq(("a2", "b2", "c2"), ("a1", "b1", "c1"))
-
     implicit class TupledQueryExtensionMethods[E1, E2, U1, U2, C[_]](q: Query[(E1, E2), (U1, U2), C]) {
       def sortedValues(implicit ordered: (E1 => Ordered),
                        shape: Shape[FlatShapeLevel, E2, U2, E2]): Query[E2, U2, C] =
           q.sortBy(_._1).map(_._2)
     }
 
-    val q1 = (for {
-      t1 <- t1s
-    } yield t1.c -> (t1.a, t1.b)).sortedValues
+    for {
+      _ <- t1s.schema.create
+      _ <- t1s ++= Seq(("a2", "b2", "c2"), ("a1", "b1", "c1"))
 
-    assertEquals(List(("a1", "b1"), ("a2", "b2")), q1.run)
+      q1 = (for {
+        t1 <- t1s
+      } yield t1.c -> (t1.a, t1.b)).sortedValues
+
+      _ <- q1.result.map(_ shouldBe List(("a1", "b1"), ("a2", "b2")))
+    } yield ()
   }
 
-  def testConditional {
+  def testConditional = {
     class T1(tag: Tag) extends Table[Int](tag, "t1_conditional") {
       def a = column[Int]("a")
       def * = a
     }
     val t1s = TableQuery[T1]
 
-    t1s.ddl.create
-    t1s ++= Seq(1, 2, 3, 4)
+    for {
+      _ <- t1s.schema.create
+      _ <- t1s ++= Seq(1, 2, 3, 4)
 
-    val q1 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 Else 0) }
-    assertEquals(Set((1, 1), (2, 1), (3, 0), (4, 0)), q1.run.toSet)
+      q1 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 Else 0) }
+      _ <- q1.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 0), (4, 0)))
 
-    val q2 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1) }
-    assertEquals(Set((1, Some(1)), (2, Some(1)), (3, None), (4, None)), q2.run.toSet)
+      q2 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1) }
+      _ <- q2.to[Set].result.map(_ shouldBe Set((1, Some(1)), (2, Some(1)), (3, None), (4, None)))
 
-    val q3 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 If(t1.a < 4) Then 2 Else 0) }
-    assertEquals(Set((1, 1), (2, 1), (3, 2), (4, 0)), q3.run.toSet)
+      q3 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 If(t1.a < 4) Then 2 Else 0) }
+      _ <- q3.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 2), (4, 0)))
+    } yield ()
   }
 
-  def testCast {
+  def testCast = {
     class T1(tag: Tag) extends Table[(String, Int)](tag, "t1_4") {
       def a = column[String]("a")
       def b = column[Int]("b")
@@ -110,15 +116,16 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     }
     val t1s = TableQuery[T1]
 
-    t1s.ddl.create
-    t1s ++= Seq(("foo", 1), ("bar", 2))
+    for {
+      _ <- t1s.schema.create
+      _ <- t1s ++= Seq(("foo", 1), ("bar", 2))
 
-    val q1 = t1s.map(t1 => t1.a ++ t1.b.asColumnOf[String])
-    val r1 = q1.run.toSet
-    assertEquals(Set("foo1", "bar2"), r1)
+      q1 = t1s.map(t1 => t1.a ++ t1.b.asColumnOf[String])
+      _ <- q1.to[Set].result.map(_ shouldBe Set("foo1", "bar2"))
+    } yield ()
   }
 
-  def testOptionConversions {
+  def testOptionConversions = {
     class T1(tag: Tag) extends Table[(Int, Option[Int])](tag, "t1_optconv") {
       def a = column[Int]("a")
       def b = column[Option[Int]]("b")
@@ -126,23 +133,25 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     }
     val t1s = TableQuery[T1]
 
-    t1s.ddl.create
-    t1s ++= Seq((1, Some(10)), (2, None))
+    for {
+      _ <- t1s.schema.create
+      _ <- t1s ++= Seq((1, Some(10)), (2, None))
 
-    // GetOrElse in ResultSetMapping on client side
-    val q1 = for { t <- t1s } yield (t.a, t.b.getOrElse(0))
-    assertEquals(Set((1, 10), (2, 0)), q1.run.toSet)
+      // GetOrElse in ResultSetMapping on client side
+      q1 = for { t <- t1s } yield (t.a, t.b.getOrElse(0))
+      _ <- q1.result.map(r => r.toSet shouldBe Set((1, 10), (2, 0)))
 
-    // GetOrElse in query on the DB side
-    val q2 = for { t <- t1s } yield (t.a, t.b.getOrElse(0) + 1)
-    assertEquals(Set((1, 11), (2, 1)), q2.run.toSet)
+      // GetOrElse in query on the DB side
+      q2 = for { t <- t1s } yield (t.a, t.b.getOrElse(0) + 1)
+      _ <- q2.result.map(r => r.toSet shouldBe Set((1, 11), (2, 1)))
+    } yield ()
   }
 
-  def testInitErrors {
+  def testInitErrors = {
     case class Id(toInt: Int)
     case class Customer(id: Id)
     // Before making `shaped` and `toNode` in `TableQuery` lazy,
-    // putting `Tables before `A` caused a StackOverflowException
+    // putting `Tables` before `A` caused a StackOverflowException
     object Tables {
       val as = TableQuery[A]
       implicit val idMapper = MappedColumnType.base[Id, Int](_.toInt, Id)
@@ -152,7 +161,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       import Tables.idMapper
       def * = id.<>(Customer.apply, Customer.unapply)
     }
-    Tables.as.ddl
+    Tables.as.schema
 
     case class Id2(toInt: Int)
     implicit val id2Mapper = null.asInstanceOf[BaseColumnType[Id2]]
@@ -163,7 +172,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
     val bs = TableQuery[B]
     try {
       bs.map(_.id)
-      bs.ddl
+      bs.schema
       ???
     } catch {
       case t: NullPointerException if (t.getMessage ne null) && (t.getMessage contains "initialization order") =>
@@ -177,5 +186,7 @@ class RelationalMiscTest extends TestkitTest[RelationalTestDB] {
       case t: NullPointerException if (t.getMessage ne null) && (t.getMessage contains "initialization order") =>
       // This is the expected error message from RelationalTypesComponent.MappedColumnTypeFactory.assertNonNullType
     }
+
+    Action.successful(())
   }
 }
