@@ -30,8 +30,10 @@ trait DistributedBackend extends RelationalBackend with Logging {
       new SessionDef(sessions.toVector)
     }
 
-    protected[this] def scheduleSynchronousDatabaseAction[R](f: => R): Future[R] =
-      Future(blocking(f))(ExecutionContext.global)
+    protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
+      ExecutionContext.global.prepare.execute(new Runnable {
+        def run(): Unit = blocking(r.run)
+      })
 
     def close(): Unit = ()
   }

@@ -19,32 +19,34 @@ import scala.slick.jdbc.{JdbcResultConverterDomain, ResultSetInvoker, Invoker}
 import scala.slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
 import scala.slick.profile.SqlActionComponent
 import scala.slick.relational.{ResultConverter, CompiledMapping}
-import scala.slick.util.{DumpInfo, SQLBuilder}
+import scala.slick.util.{CloseableIterator, DumpInfo, SQLBuilder}
 
 trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
-  type DriverAction[-E <: Effect, +R] = SqlAction[E, R]
-  type JdbcDatabaseAction[+R] = SynchronousDatabaseAction[Backend#This, Effect, R]
+  type StreamingDriverAction[-E <: Effect, +R, +S <: NoStream] = SqlAction[E, R, S]
+  type StreamingJdbcDatabaseAction[+R, +S <: NoStream] = SynchronousDatabaseAction[Backend#This, Effect, R, S]
+  type JdbcDatabaseAction[+R] = StreamingJdbcDatabaseAction[R, NoStream]
 
-  class JdbcActionExtensionMethods[E <: Effect, R](a: Action[E, R]) {
+  class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: Action[E, R, S]) {
 
     /** Run this Action transactionally. This does not guarantee failures to be atomic in the
       * presence of error handling combinators. If multiple `transactionally` combinators are
       * nested, only the outermost one will be backed by an actual database transaction. Depending
       * on the outcome of running the Action it surrounds, the transaction is committed if the
       * wrapped Action succeeds, or rolled back if the wrapped Action fails. When called on a
-      * [[SynchronousDatabaseAction]], this combinator gets fused into the action. */
-    def transactionally: Action[E with Effect.BackendType[Backend#This] with Effect.Transactional, R] = {
+      * [[scala.slick.action.SynchronousDatabaseAction]], this combinator gets fused into the
+      * action. */
+    def transactionally: Action[E with Effect.BackendType[Backend#This] with Effect.Transactional, R, S] = {
       def nonFused =
         StartTransaction.andThen(a.asTry.flatMap(new EndTransaction(_))(Action.sameThreadExecutionContext))
-          .asInstanceOf[Action[E with Effect.Transactional, R]]
+          .asInstanceOf[Action[E with Effect.Transactional, R, S]]
       a match {
-        case a: SynchronousDatabaseAction[_, _, _] => new SynchronousDatabaseAction.Fused[Backend#This, E with Effect.Transactional, R] {
+        case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[Backend#This, E with Effect.Transactional, R, S] {
           def run(context: ActionContext[Backend#This]): R = {
             context.pin
             context.session.startInTransaction
             val res = try {
-              a.asInstanceOf[SynchronousDatabaseAction[Backend#This, E, R]].run(context)
+              a.asInstanceOf[SynchronousDatabaseAction[Backend#This, E, R, S]].run(context)
             } catch {
               case NonFatal(ex) =>
                 try context.session.conn.rollback()
@@ -91,28 +93,45 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   //////////////////////////////////////////////////////////// Query Actions
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
-  type QueryActionExtensionMethods[R] = QueryActionExtensionMethodsImpl[R]
+  type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
 
-  def createQueryActionExtensionMethods[R](tree: Node, param: Any): QueryActionExtensionMethods[R] =
-    new QueryActionExtensionMethods[R](tree, param)
+  def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
+    new QueryActionExtensionMethods[R, S](tree, param)
 
-  class QueryActionExtensionMethodsImpl[R](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R] {
-    def result: DriverAction[Effect.Read, R] = {
+  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
+    def result: StreamingDriverAction[Effect.Read, R, S] = {
       val sql = tree.findNode(_.isInstanceOf[CompiledStatement]).get
         .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
       tree match {
         case rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType)) :@ CollectionType(cons, el) =>
-          new DriverAction[Effect.Read, R] with JdbcDatabaseAction[R] {
+          new StreamingDriverAction[Effect.Read, R, S] with StreamingJdbcDatabaseAction[R, S] {
+            type StreamState = CloseableIterator[Any]
             def statements = Iterator(sql)
             def run(ctx: ActionContext[Backend]): R = {
               val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
               createQueryInvoker[Any](rsm, param).foreach({ x => b += x }, 0)(ctx.session)
               b.result()
             }
+            override def emitStream(ctx: StreamingActionContext[Backend], limit: Long, state: StreamState): StreamState = {
+              val it = if(state ne null) state else createQueryInvoker[Any](rsm, param).iterator(ctx.session)
+              var count = 0L
+              try {
+                while(count < limit && it.hasNext) {
+                  count += 1
+                  ctx.emit(it.next())
+                }
+              } catch {
+                case NonFatal(ex) =>
+                  try it.close() catch { case NonFatal(_) => }
+                  throw ex
+              }
+              if(it.hasNext) it else null
+            }
+            override def cancelStream(ctx: StreamingActionContext[Backend], state: StreamState): Unit = state.close()
             override def getDumpInfo = super.getDumpInfo.copy(name = "query")
           }
         case First(rsm: ResultSetMapping) =>
-          new DriverAction[Effect.Read, R] with JdbcDatabaseAction[R] {
+          new StreamingDriverAction[Effect.Read, R, S] with StreamingJdbcDatabaseAction[R, S] {
             def statements = Iterator(sql)
             def run(ctx: ActionContext[Backend]): R =
               createQueryInvoker[R](rsm, param).first(ctx.session)
@@ -209,7 +228,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new CountingInsertActionComposerImpl[T](createInsertInvoker(compiled))
 
-  type SimpleInsertAction[+R] = DatabaseAction[Backend#This, Effect.Write, R]
+  type SimpleInsertAction[+R] = DatabaseAction[Backend#This, Effect.Write, R, NoStream]
 
   //////////////////////////////////////////////////////////// InsertActionComposer Traits
 

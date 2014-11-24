@@ -48,7 +48,7 @@ class TemplateTest extends AsyncTest[RelationalTestDB] {
     val q5a = userNameByIDOrAll(Some(3))
     val q5b = userNameByIDOrAll(None)
 
-    def asAction[E <: Effect, R](a: Action[E, R]): Action[E, R] = a
+    def asAction[E <: Effect, R](a: Action[E, R, NoStream]): Action[E, R, NoStream] = a
 
     for {
       _ <- (users.schema ++ orders.schema).create

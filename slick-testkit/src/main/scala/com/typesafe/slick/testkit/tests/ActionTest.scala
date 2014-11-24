@@ -68,4 +68,24 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
 
     aSetup andThen aNotPinned andThen aFused andThen aPinned
   }
+
+  def testStreaming = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+    val q1 = ts.sortBy(_.a).map(_.a)
+
+    val p1 = db.stream {
+      ts.ddl.create >>
+      (ts ++= Seq(2, 3, 1, 5, 4)) >>
+      q1.result
+    }
+
+    for {
+      r1 <- materialize(p1)
+      _ = r1 shouldBe Vector(1, 2, 3, 4, 5)
+    } yield ()
+  }
 }

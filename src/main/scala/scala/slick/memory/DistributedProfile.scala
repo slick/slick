@@ -32,9 +32,9 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
   def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
 
-  type QueryActionExtensionMethods[R] = QueryActionExtensionMethodsImpl[R]
-  def createQueryActionExtensionMethods[R](tree: Node, param: Any): QueryActionExtensionMethods[R] =
-    new QueryActionExtensionMethods[R](tree, param)
+  type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
+  def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
+    new QueryActionExtensionMethods[R, S](tree, param)
 
   val emptyHeapDB = HeapBackend.createEmptyDatabase
 
@@ -49,12 +49,12 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
       createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
   }
 
-  type DriverAction[-E <: Effect, +R] = DatabaseAction[Backend#This, E, R]
+  type StreamingDriverAction[-E <: Effect, +R, +S <: NoStream] = DatabaseAction[Backend#This, E, R, S]
 
-  class QueryActionExtensionMethodsImpl[R](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R] {
+  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
-    def result: DriverAction[Effect.Read, R] =
-      new SynchronousDatabaseAction[Backend#This, Effect.Read, R] {
+    def result: StreamingDriverAction[Effect.Read, R, S] =
+      new SynchronousDatabaseAction[Backend#This, Effect.Read, R, S] {
         def run(ctx: ActionContext[Backend]) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.DriverAction")
       }

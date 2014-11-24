@@ -43,8 +43,8 @@ trait HeapBackend extends RelationalBackend with Logging {
       tables.values.toVector
     }
 
-    protected[this] def scheduleSynchronousDatabaseAction[R](f: => R): Future[R] =
-      Future(f)(executionContext)
+    protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
+      ExecutionContext.global.prepare.execute(r)
   }
 
   def createEmptyDatabase: Database = new DatabaseDef(ExecutionContext.global) {

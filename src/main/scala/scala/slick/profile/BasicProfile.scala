@@ -64,10 +64,12 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
   trait SimpleQL extends CommonAPI with Implicits
 
   trait API extends CommonAPI with CommonImplicits {
-    implicit def repQueryActionExtensionMethods[U](rep: Rep[U]): QueryActionExtensionMethods[U] = createQueryActionExtensionMethods[U](queryCompiler.run(rep.toNode).tree, ())
-    implicit def runnableCompiledQueryActionExtensionMethods[RU](c: RunnableCompiled[_, RU]): QueryActionExtensionMethods[RU] = createQueryActionExtensionMethods[RU](c.compiledQuery, c.param)
+    implicit def repQueryActionExtensionMethods[U](rep: Rep[U]): QueryActionExtensionMethods[U, NoStream] = createQueryActionExtensionMethods[U, NoStream](queryCompiler.run(rep.toNode).tree, ())
+    implicit def streamableQueryActionExtensionMethods[U, C[_]](q: Query[_,U, C]): QueryActionExtensionMethods[C[U], Streaming[U]] = createQueryActionExtensionMethods[C[U], Streaming[U]](queryCompiler.run(q.toNode).tree, ())
+    implicit def runnableCompiledQueryActionExtensionMethods[RU](c: RunnableCompiled[_, RU]): QueryActionExtensionMethods[RU, NoStream] = createQueryActionExtensionMethods[RU, NoStream](c.compiledQuery, c.param)
+    implicit def streamableCompiledQueryActionExtensionMethods[RU, EU](c: StreamableCompiled[_, RU, EU]): QueryActionExtensionMethods[RU, Streaming[EU]] = createQueryActionExtensionMethods[RU, Streaming[EU]](c.compiledQuery, c.param)
     // This only works on Scala 2.11 due to SI-3346:
-    implicit def recordQueryActionExtensionMethods[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryActionExtensionMethods[R] = createQueryActionExtensionMethods[R](queryCompiler.run(shape.toNode(q)).tree, ())
+    implicit def recordQueryActionExtensionMethods[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryActionExtensionMethods[R, NoStream] = createQueryActionExtensionMethods[R, NoStream](queryCompiler.run(shape.toNode(q)).tree, ())
   }
 
   /** A collection of values for using the query language with a single import
@@ -207,16 +209,17 @@ trait BasicExecutorComponent { driver: BasicDriver =>
 
 trait BasicActionComponent { driver: BasicDriver =>
 
-  type DriverAction[-E <: Effect, +R] <: DatabaseAction[Backend#This, E, R]
+  type StreamingDriverAction[-E <: Effect, +R, +S <: NoStream] <: DatabaseAction[Backend#This, E, R, S]
+  type DriverAction[-E <: Effect, +R] = StreamingDriverAction[E, R, NoStream]
 
   //////////////////////////////////////////////////////////// Query Actions
 
-  type QueryActionExtensionMethods[R] <: QueryActionExtensionMethodsImpl[R]
+  type QueryActionExtensionMethods[R, S <: NoStream] <: QueryActionExtensionMethodsImpl[R, S]
 
-  def createQueryActionExtensionMethods[R](tree: Node, param: Any): QueryActionExtensionMethods[R]
+  def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S]
 
-  trait QueryActionExtensionMethodsImpl[R] {
+  trait QueryActionExtensionMethodsImpl[R, S <: NoStream] {
     /** An Action that runs this query. */
-    def result: DriverAction[Effect.Read, R]
+    def result: StreamingDriverAction[Effect.Read, R, S]
   }
 }

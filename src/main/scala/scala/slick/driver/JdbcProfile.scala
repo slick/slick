@@ -78,8 +78,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComp
     implicit def runnableCompiledUpdateActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): UpdateActionExtensionMethods[RU] =
       createUpdateActionExtensionMethods(c.compiledUpdate, c.param)
 
-    implicit def jdbcActionExtensionMethods[E <: Effect, R](a: Action[E, R]): JdbcActionExtensionMethods[E, R] =
-      new JdbcActionExtensionMethods[E, R](a)
+    implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: Action[E, R, S]): JdbcActionExtensionMethods[E, R, S] =
+      new JdbcActionExtensionMethods[E, R, S](a)
   }
 
   val simple: SimpleQL = new SimpleQL {}

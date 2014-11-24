@@ -1,8 +1,10 @@
 package com.typesafe.slick.testkit.util
 
+import org.reactivestreams.{Subscription, Subscriber, Publisher}
+
 import scala.language.existentials
 
-import scala.concurrent.{ExecutionContext, Await, Future}
+import scala.concurrent.{Promise, ExecutionContext, Await, Future}
 import scala.reflect.ClassTag
 
 import java.lang.reflect.Method
@@ -90,7 +92,7 @@ case class TestMethod(name: String, desc: Description, method: Method, cl: Class
 
       case testObject: AsyncTest[_] =>
         if(r == classOf[Future[_]]) await(method.invoke(testObject).asInstanceOf[Future[Any]])
-        else if(r == classOf[Action[_, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[Action[Effect, Any]]))
+        else if(r == classOf[Action[_, _, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[Action[Effect, Any, NoStream]]))
         else throw new RuntimeException(s"Illegal return type: '${r.getName}' in test method '$name' -- AsyncTest methods must return Future or Action")
     }
   }
@@ -181,36 +183,49 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   protected implicit def asyncTestExecutionContext = ExecutionContext.global
 
   /** Test Action: Get the current database session */
-  object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, TDB#Driver#Backend#Session] {
+  object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, TDB#Driver#Backend#Session, NoStream] {
     def run(context: ActionContext[TDB#Driver#Backend]) = context.session
     def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
 
   /** Test Action: Check if the current database session is pinned */
-  object IsPinned extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, Boolean] {
+  object IsPinned extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, Boolean, NoStream] {
     def run(context: ActionContext[TDB#Driver#Backend]) = context.isPinned
     def getDumpInfo = DumpInfo(name = "<IsPinned>")
   }
 
   /** Test Action: Get the current transactionality level and autoCommit flag */
-  object GetTransactionality extends SynchronousDatabaseAction[JdbcBackend, Effect, (Int, Boolean)] {
+  object GetTransactionality extends SynchronousDatabaseAction[JdbcBackend, Effect, (Int, Boolean), NoStream] {
     def run(context: ActionContext[JdbcBackend]) =
       context.session.asInstanceOf[JdbcBackend#BaseSession].getTransactionality
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
-  def ifCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R]): Action[E, Unit] =
+  def ifCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R, NoStream]): Action[E, Unit, NoStream] =
     if(caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
-  def ifNotCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R]): Action[E, Unit] =
+  def ifNotCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R, NoStream]): Action[E, Unit, NoStream] =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
 
-  def asAction[R](f: tdb.profile.Backend#Session => R): Action[Effect.BackendType[tdb.profile.Backend], R] =
-    new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R] {
+  def asAction[R](f: tdb.profile.Backend#Session => R): Action[Effect.BackendType[tdb.profile.Backend], R, NoStream] =
+    new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R, NoStream] {
       def run(context: ActionContext[tdb.profile.Backend]): R = f(context.session)
       def getDumpInfo = DumpInfo(name = "<asAction>")
     }
 
-  def seq[E <: Effect](actions: Action[E, _]*): Action[E, Unit] = Action.seq[E](actions: _*)
+  def seq[E <: Effect](actions: Action[E, _, NoStream]*): Action[E, Unit, NoStream] = Action.seq[E](actions: _*)
+
+  /** Consume a Reactive Stream and materialize it as a Vector */
+  def materialize[T](p: Publisher[T]): Future[Vector[T]] = {
+    val builder = Vector.newBuilder[T]
+    val pr = Promise[Vector[T]]()
+    try p.subscribe(new Subscriber[T] {
+      def onSubscribe(s: Subscription): Unit = s.request(Long.MaxValue)
+      def onComplete(): Unit = pr.success(builder.synchronized(builder.result()))
+      def onError(t: Throwable): Unit = pr.failure(t)
+      def onNext(t: T): Unit = builder.synchronized(builder += t)
+    }) catch { case NonFatal(ex) => pr.failure(ex) }
+    pr.future
+  }
 
   implicit class AssertionExtensionMethods[T](v: T) {
     private[this] val cln = getClass.getName

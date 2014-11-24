@@ -9,6 +9,7 @@ import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFil
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.sdlc.Plugin._
+import de.johoop.testngplugin.TestNGPlugin._
 
 object SlickBuild extends Build {
 
@@ -22,13 +23,19 @@ object SlickBuild extends Build {
       "junit" % "junit-dep" % "4.10",
       "com.novocode" % "junit-interface" % "0.10-M4"
     )
+    val testngExtras = Seq(
+      "com.google.inject" % "guice" % "2.0"
+    )
     val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
     val logback = "ch.qos.logback" % "logback-classic" % "0.9.28"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
+    val reactiveStreamsVersion = "1.0.0.M1"
+    val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
+    val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
     val pools = Seq(
       "com.zaxxer" % "HikariCP-java6" % "2.0.1"
     )
-    val mainDependencies = Seq(slf4j, typesafeConfig) ++ pools.map(_ % "optional")
+    val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams) ++ pools.map(_ % "optional")
     val h2 = "com.h2database" % "h2" % "1.3.170"
     val testDBs = Seq(
       h2,
@@ -93,6 +100,7 @@ object SlickBuild extends Build {
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
+    //resolvers += Resolver.mavenLocal,
     scalacOptions ++= List("-deprecation", "-feature"),
     scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile,name).map((v,src,n) => Seq(
       "-doc-title", n,
@@ -154,13 +162,14 @@ object SlickBuild extends Build {
   def testAll = Command.command("testAll")(runTasksSequentially(List(
     test in (slickTestkitProject, Test),
     test in (slickTestkitProject, DocTest),
-    test in (osgiTestProject, Test),
+    //test in (osgiTestProject, Test), // Temporarily disabled until we get Reactive Streams OSGi bundles
+    test in (reactiveStreamsTestProject, Test),
     sdlc in slickProject,
     sdlc in slickCodegenProject
   )))
 
   /* Project Definitions */
-  lazy val aRootProject = Project(id = "root", base = file("."),
+  lazy val aRootProject: Project = Project(id = "root", base = file("."),
     settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
@@ -278,11 +287,24 @@ object SlickBuild extends Build {
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-codegen/src/main€{FILE_PATH}.scala"
       )),
+      unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/codegen-api/",
       sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
     )
   ) dependsOn(slickProject)
+
+  lazy val reactiveStreamsTestProject = Project(id = "reactive-streams-tests", base = file("reactive-streams-tests"),
+    settings = Project.defaultSettings ++ sharedSettings ++ testNGSettings ++ Seq(
+      name := "Slick-ReactiveStreamsTests",
+      unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
+      libraryDependencies ++=
+        (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
+        Dependencies.reactiveStreamsTCK +:
+        Dependencies.testngExtras,
+      testNGSuites := Seq("reactive-streams-tests/src/test/resources/testng.xml")
+    )
+  ) dependsOn(slickTestkitProject)
 
   lazy val osgiBundleFiles = taskKey[Seq[File]]("osgi-bundles that our tests rely on using.")
 
@@ -291,7 +313,8 @@ object SlickBuild extends Build {
     settings(sharedSettings:_*)
     settings(
       name := "Slick-OsgiTests",
-      libraryDependencies ++= (Dependencies.h2 +: Dependencies.logback +: Dependencies.junit ++: Dependencies.paxExam).map(_ % "test"),
+      libraryDependencies ++= (Dependencies.h2 +: Dependencies.logback +: Dependencies.junit ++: Dependencies.reactiveStreams +: Dependencies.paxExam).map(_ % "test"),
+      unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       fork in Test := true,
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       javaOptions in Test ++= Seq(
@@ -301,7 +324,7 @@ object SlickBuild extends Build {
       testGrouping <<= definedTests in Test map partitionTests,
       osgiBundleFiles := Seq((OsgiKeys.bundle in slickProject).value),
       osgiBundleFiles ++= (dependencyClasspath in Compile in slickProject).value.map(_.data).filterNot(_.isDirectory),
-      osgiBundleFiles ++= (dependencyClasspath in Test).value.map(_.data).filter(f => f.name.contains("logback-") || f.name.contains("h2")),
+      osgiBundleFiles ++= (dependencyClasspath in Test).value.map(_.data).filter(f => f.name.contains("logback-") || f.name.contains("h2") || f.name.contains("reactive-streams")),
       publishArtifact := false
     )
     dependsOn(slickProject % "test")
