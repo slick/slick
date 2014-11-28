@@ -14,7 +14,7 @@ import org.reactivestreams._
 
 import scala.slick.SlickException
 import scala.slick.action._
-import scala.slick.util.{DumpInfo, TreeDump, SlickLogger}
+import scala.slick.util.{GlobalConfig, DumpInfo, TreeDump, SlickLogger}
 
 /** Backend for the basic database and session handling features.
   * Concrete backends like `JdbcBackend` extend this type and provide concrete
@@ -192,34 +192,30 @@ trait DatabaseComponent { self =>
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
     protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingDatabaseActionContext)(initialState: a.StreamState): Unit =
       scheduleSynchronousDatabaseAction(new Runnable {
+        private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
+
         def run: Unit = try {
-          var totalSent = 0L
-          var sessionAcquired = initialState ne null
+          val debug = streamLogger.isDebugEnabled
           var state = initialState
+          ctx.sync
+          if(state eq null) acquireSession(ctx)
+          var demand = ctx.demand
+          var realDemand = if(demand < 0) demand - Long.MinValue else demand
           do {
-            totalSent = 0L
-            ctx.sync
             try {
-              if(!sessionAcquired) {
-                acquireSession(ctx)
-                sessionAcquired = true
-              }
-              var isFirst = state eq null
-              var newDemand = ctx.demand - totalSent
-              if(streamLogger.isDebugEnabled)
-                streamLogger.debug((if(isFirst) "Starting initial" else "Restarting ") + " streaming action, demand = " + ctx.demand)
-              while(((newDemand > 0 && (state ne null)) || isFirst) && !ctx.cancelled) {
+              if(debug)
+                streamLogger.debug((if(state eq null) "Starting initial" else "Restarting ") + " streaming action, realDemand = " + str(realDemand))
+              if(ctx.cancelled) {
+                if(ctx.deferredError ne null) throw ctx.deferredError
+                if(state ne null) { // streaming cancelled before finishing
+                  val oldState = state
+                  state = null
+                  a.cancelStream(ctx, oldState)
+                }
+              } else if((realDemand > 0 || (state eq null))) {
                 val oldState = state
                 state = null
-                state = a.emitStream(ctx, newDemand, oldState)
-                isFirst = false
-                totalSent += newDemand
-                newDemand = ctx.demand - totalSent
-              }
-              if(ctx.cancelled && (state ne null)) { // streaming cancelled before finishing
-                val oldState = state
-                state = null
-                a.cancelStream(ctx, oldState)
+                state = a.emitStream(ctx, realDemand, oldState)
               }
               if(state eq null) { // streaming finished and cleaned up
                 releaseSession(ctx, true)
@@ -227,15 +223,19 @@ trait DatabaseComponent { self =>
               }
             } catch { case NonFatal(ex) =>
               if(state ne null) try a.cancelStream(ctx, state) catch { case NonFatal(_) => }
-              if(sessionAcquired) releaseSession(ctx, true)
+              releaseSession(ctx, true)
               throw ex
-            } finally { ctx.sync = 0 }
-            if(streamLogger.isDebugEnabled) {
-              if(state eq null) streamLogger.debug(s"Sent up to $totalSent elements - Stream " + (if(ctx.cancelled) "cancelled" else "completely delivered"))
-              else streamLogger.debug(s"Sent $totalSent elements, more available - Performing atomic state transition")
+            } finally {
+              ctx.streamState = state
+              ctx.sync = 0
             }
-            ctx.setStreamState(state)
-          } while((state ne null) && ctx.delivered(totalSent))
+            if(debug) {
+              if(state eq null) streamLogger.debug(s"Sent up to ${str(realDemand)} elements - Stream " + (if(ctx.cancelled) "cancelled" else "completely delivered"))
+              else streamLogger.debug(s"Sent ${str(realDemand)} elements, more available - Performing atomic state transition")
+            }
+            demand = ctx.delivered(demand)
+            realDemand = demand
+          } while ((state ne null) && demand > 0)
           if(streamLogger.isDebugEnabled) {
             if(state ne null) streamLogger.debug("Suspending streaming action with continuation (more data available)")
             else streamLogger.debug("Finished streaming action")
@@ -244,8 +244,8 @@ trait DatabaseComponent { self =>
       })
 
 
-    /** Schedule a synchronous block of code from that runs a `SynchronousDatabaseAction` for
-      * asynchronous execution. */
+    /** Schedule a synchronous `Runnable` that runs a `SynchronousDatabaseAction` for asynchronous
+      * execution. */
     protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit
 
     protected[this] def logAction(a: Action[_ <: Effect, _, _ <: NoStream], ctx: DatabaseActionContext): Unit = {
@@ -355,7 +355,7 @@ trait DatabaseComponent { self =>
   /** A special DatabaseActionContext for streaming execution. */
   protected[this] class StreamingDatabaseActionContext(subscriber: Subscriber[_], database: Database) extends DatabaseActionContext with StreamingActionContext[This] with Subscription {
     /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
-    private[this] val finished = new AtomicBoolean
+    private[this] var finished = false
 
     /** The total number of elements requested. This variable is only used for ensuring that clause
       * 3.17 of the Reactive Streams spec is not violated. It is accessed from within `request`
@@ -367,26 +367,36 @@ trait DatabaseComponent { self =>
 
     /** The total number of elements requested and not yet marked as delivered by the synchronous
       * streaming action. Whenever this value drops to 0, streaming is suspended. When it is raised
-      * up from 0 in `request`, streaming is scheduled to be restarted. */
-    private[this] val remaining = new AtomicLong
+      * up from 0 in `request`, streaming is scheduled to be restarted. It is initially set to
+      * `Long.MinValue` when streaming starts. Any negative value above `Long.MinValue` indicates
+      * the actual demand at that point. It is reset to 0 when the initial streaming ends. */
+    private[this] val remaining = new AtomicLong(Long.MinValue)
 
-    /** The state for a suspended streaming action */
-    @volatile private[this] var streamState: AnyRef = null
+    /** An error that will be signaled to the Subscriber when the stream is cancelled or
+      * terminated. This is used for signaling demand overflow in `request()` while guaranteeing
+      * that the `onError` message does not overlap with an active `onNext` call. */
+    private[DatabaseComponent] var deferredError: Throwable = null
+
+    /** The state for a suspended streaming action. Must only be set from a synchronous action
+      * context. */
+    private[DatabaseComponent] var streamState: AnyRef = null
 
     /** The streaming action which may need to be continued with the suspended state */
-    @volatile private[DatabaseComponent] var streamingAction: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream] = null
+    private[DatabaseComponent] var streamingAction: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream] = null
 
     @volatile private[this] var cancelRequested = false
 
     /** The Promise to complete when streaming has finished. */
     val streamingResultPromise = Promise[Null]()
 
-    /** Indicate that the specified number of elements has been delivered. Returns true if there
-      * is more demand, false if streaming should be suspended. This is an atomic operation. It
-      * must only be called from the synchronous action context which performs the streaming. */
-    def delivered(num: Long): Boolean = remaining.addAndGet(-num) > 0
+    /** Indicate that the specified number of elements has been delivered. Returns the remaining
+      * demand. This is an atomic operation. It must only be called from the synchronous action
+      * context which performs the streaming. */
+    def delivered(num: Long): Long = remaining.addAndGet(-num)
 
-    /** Get the current demand that has not yet been marked as delivered. */
+    /** Get the current demand that has not yet been marked as delivered. When this value is
+      * negative, the initial streaming action is still running and the real demand can be
+      * computed by subtracting `Long.MinValue` from the returned value. */
     def demand: Long = remaining.get()
 
     /** Whether the stream has been cancelled by the Subscriber */
@@ -394,26 +404,29 @@ trait DatabaseComponent { self =>
 
     def emit(v: Any): Unit = subscriber.asInstanceOf[Subscriber[Any]].onNext(v)
 
-    def tryOnComplete: Unit = if(!finished.getAndSet(true) && !cancelRequested) {
+    /** Finish the stream with `onComplete` if it is not finished yet. May only be called from a
+      * synchronous action context. */
+    def tryOnComplete: Unit = if(!finished && !cancelRequested) {
       if(streamLogger.isDebugEnabled) streamLogger.debug("Signaling onComplete()")
+      finished = true
       try subscriber.onComplete() catch {
         case NonFatal(ex) => streamLogger.warn("Subscriber.onComplete failed unexpectedly", ex)
       }
     }
 
-    def tryOnError(t: Throwable): Unit = if(!finished.getAndSet(true)) {
+    /** Finish the stream with `onError` if it is not finished yet. May only be called from a
+      * synchronous action context. */
+    def tryOnError(t: Throwable): Unit = if(!finished) {
       if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onError($t)")
+      finished = true
       try subscriber.onError(t) catch {
         case NonFatal(ex) => streamLogger.warn("Subscriber.onError failed unexpectedly", ex)
       }
     }
 
-    /** Set a stream state for continuing the streaming operation. Must only be called from a
-      * synchronous action context. */
-    def setStreamState(s: AnyRef): Unit = streamState = s
-
     /** Restart a suspended streaming action. Must only be called from the Subscriber context. */
     def restartStreaming: Unit = {
+      sync
       val s = streamState
       if(s ne null) {
         streamState = null
@@ -430,9 +443,10 @@ trait DatabaseComponent { self =>
     def request(l: Long): Unit = if(!cancelRequested) {
       if(l <= 0)
         throw new IllegalArgumentException("Requested count must not be <= 0 (see Reactive Streams spec, 3.9)")
-      else if(requested + l < 0)
-        tryOnError(new IllegalStateException("Total requested count must not exceed 2^63-1 (see Reactive Streams spec, 3.17)"))
-      else {
+      else if(requested + l < 0) {
+        deferredError = new IllegalStateException("Total requested count must not exceed 2^63-1 (see Reactive Streams spec, 3.17)")
+        cancel
+      } else {
         requested += l
         if(!cancelRequested && remaining.getAndAdd(l) == 0L) restartStreaming
       }
