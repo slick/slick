@@ -13,7 +13,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   // Create the different invokers -- these methods should be overridden by drivers as needed
   def createUpdateInvoker[T](tree: Node, param: Any) = new UpdateInvoker[T](tree, param)
   def createDeleteInvoker(tree: Node, param: Any) = new DeleteInvoker(tree, param)
-  def createQueryInvoker[R](tree: Node, param: Any): QueryInvoker[R] = new QueryInvoker[R](tree, param)
+  def createQueryInvoker[R](tree: Node, param: Any): QueryInvokerImpl[R] = new QueryInvokerImpl[R](tree, param)
   def createDDLInvoker(ddl: SchemaDescription) = new DDLInvoker(ddl)
 
   // Parameters for invokers -- can be overridden by drivers as needed
@@ -22,7 +22,11 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   protected val invokerPreviousAfterDelete = false
 
   /** An Invoker for queries. */
-  class QueryInvoker[R](tree: Node, param: Any) extends MutatingStatementInvoker[R] {
+  trait QueryInvoker[R] extends MutatingStatementInvoker[R] {
+    def invoker: this.type = this
+  }
+
+  class QueryInvokerImpl[R](tree: Node, param: Any) extends QueryInvoker[R] {
     override protected val mutateConcurrency = invokerMutateConcurrency
     override protected val mutateType = invokerMutateType
     override protected val previousAfterDelete = invokerPreviousAfterDelete
@@ -39,9 +43,8 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
 
     protected def getStatement = sres.sql
     protected def setParam(st: PreparedStatement): Unit = sres.setter(st, 1, param)
-    protected def extractValue(pr: PositionedResult): R = converter.read(pr.rs)
-    protected def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr.rs)
-    def invoker: this.type = this
+    def extractValue(pr: PositionedResult): R = converter.read(pr.rs)
+    def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr.rs)
   }
 
   class DDLInvoker(ddl: DDL) extends super.DDLInvoker {

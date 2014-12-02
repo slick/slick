@@ -1,7 +1,7 @@
 package scala.slick.profile
 
 import scala.language.higherKinds
-import scala.slick.action.{DatabaseAction, Effect, NoStream}
+import scala.slick.action._
 import scala.slick.ast.{TableNode, Symbol, SymbolNamer, Node, ColumnOption}
 import scala.slick.lifted.AbstractTable
 import scala.slick.util.DumpInfo
@@ -152,9 +152,10 @@ trait SqlTableComponent extends RelationalTableComponent { driver: SqlDriver =>
 
 trait SqlActionComponent extends RelationalActionComponent { driver: SqlDriver =>
 
-  type StreamingDriverAction[-E <: Effect, +R, +S <: NoStream] <: SqlAction[E, R, S]
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] <: DriverActionDef[E, R, S]
+  type StreamingDriverAction[-E <: Effect, +R, +T] <: StreamingDriverActionDef[E, R, T] with DriverAction[E, R, Streaming[T]]
 
-  trait SqlAction[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[Backend#This, E, R, S] {
+  trait DriverActionDef[-E <: Effect, +R, +S <: NoStream] extends super.DriverActionDef[E, R, S] {
     /** Return the SQL statements that will be executed for this Action */
     def statements: Iterator[String]
 

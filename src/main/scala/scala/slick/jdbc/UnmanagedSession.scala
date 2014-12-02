@@ -2,6 +2,7 @@ package scala.slick.jdbc
 
 import java.sql.Connection
 import scala.slick.SlickException
+import scala.slick.util.??
 
 /** A JDBC Session which is not managed by Slick. You can use this to wrap an
   * existing JDBC Connection. Override 'database' and 'performRollback'
@@ -34,6 +35,6 @@ class UnmanagedSession(val conn: Connection) extends JdbcBackend.SessionDef {
     } finally inTransaction = false
   }
 
-  private[slick] def startInTransaction: Unit = ???
-  private[slick] def endInTransaction: Unit = ???
+  private[slick] def startInTransaction: Unit = ??
+  private[slick] def endInTransaction(f: => Unit): Unit = ??
 }

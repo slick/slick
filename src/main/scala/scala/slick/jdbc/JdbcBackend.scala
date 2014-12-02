@@ -1,6 +1,8 @@
 package scala.slick.jdbc
 
-import scala.concurrent.Future
+import org.reactivestreams.Subscriber
+
+import scala.concurrent.{ExecutionContext, Future}
 
 import java.util.Properties
 import java.sql.{Array => _, _}
@@ -8,7 +10,7 @@ import javax.sql.DataSource
 import javax.naming.InitialContext
 
 import scala.slick.action._
-import scala.slick.backend.{DatabaseComponent, RelationalBackend}
+import scala.slick.backend.{DatabasePublisher, DatabaseComponent, RelationalBackend}
 import scala.slick.SlickException
 import scala.slick.util.{SlickLogger, AsyncExecutor}
 import scala.slick.util.ConfigExtensionMethods._
@@ -42,8 +44,28 @@ trait JdbcBackend extends RelationalBackend {
 
     def createSession(): Session = new BaseSession(this)
 
+    /** Like `stream(Action)` but you can disable pre-buffering of the next row by setting
+      * `bufferNext = false`. The ResultSet will not advance to the next row until you
+      * `request()` more data. This allows you to process LOBs asynchronously by requesting only
+      * one single element at a time after processing the current one, so that the proper
+      * sequencing is preserved even though processing may happen on a different thread. */
+    final def stream[T](a: Action[Effects, _, Streaming[T]], bufferNext: Boolean): DatabasePublisher[T] =
+      createPublisher(a, s => new JdbcStreamingDatabaseActionContext(s, DatabaseDef.this, bufferNext))
+
+    override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T]): StreamingDatabaseActionContext =
+      new JdbcStreamingDatabaseActionContext(s, DatabaseDef.this, true)
+
     protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
       executor.executionContext.prepare.execute(r)
+
+    /** Run some code on the [[ioExecutionContext]]. */
+    final def io[T](thunk: => T): Future[T] = Future(thunk)(ioExecutionContext)
+
+    /** The `ExecutionContext` which is used for performing blocking database I/O, similar to how
+      * `run` or `stream` would run it. This can be used for calling back into blocking JDBC APIs
+      * (e.g. for materializing a LOB or mutating a result set row) from asynchronous processors of
+      * unbuffered streams. */
+    final def ioExecutionContext: ExecutionContext = executor.executionContext
 
     /** Free all resources allocated by Slick for this Database object. In particular, the
       * [[scala.slick.util.AsyncExecutor]] with the thread pool for asynchronous execution is shut
@@ -307,7 +329,7 @@ trait JdbcBackend extends RelationalBackend {
       def rollback() = self.rollback()
       def withTransaction[T](f: => T) = self.withTransaction(f)
       private[slick] def startInTransaction: Unit = self.startInTransaction
-      private[slick] def endInTransaction: Unit = self.endInTransaction
+      private[slick] def endInTransaction(f: => Unit): Unit = self.endInTransaction(f)
     }
 
     protected def loggingStatement(st: Statement): Statement =
@@ -316,8 +338,10 @@ trait JdbcBackend extends RelationalBackend {
     protected def loggingPreparedStatement(st: PreparedStatement): PreparedStatement =
       if(statementLogger.isDebugEnabled || benchmarkLogger.isDebugEnabled) new LoggingPreparedStatement(st) else st
 
+    /** Start a `transactionally` block */
     private[slick] def startInTransaction: Unit
-    private[slick] def endInTransaction: Unit
+    /** End a `transactionally` block, running the specified function first if it is the outermost one. */
+    private[slick] def endInTransaction(f: => Unit): Unit
   }
 
   class BaseSession(val database: Database) extends SessionDef {
@@ -362,7 +386,7 @@ trait JdbcBackend extends RelationalBackend {
           done = true
           res
         } finally if(!done) conn.rollback()
-      } finally endInTransaction
+      } finally endInTransaction()
     }
 
     private[slick] def startInTransaction: Unit = {
@@ -370,9 +394,9 @@ trait JdbcBackend extends RelationalBackend {
       inTransactionally += 1
     }
 
-    private[slick] def endInTransaction: Unit = {
+    private[slick] def endInTransaction(f: => Unit): Unit = {
       inTransactionally -= 1
-      if(!isInTransaction) conn.setAutoCommit(true)
+      if(!isInTransaction) try f finally conn.setAutoCommit(true)
     }
 
     def getTransactionality: (Int, Boolean) = (inTransactionally, conn.getAutoCommit)
@@ -385,6 +409,8 @@ trait JdbcBackend extends RelationalBackend {
   class DatabaseCapabilities(session: Session) {
     val supportsBatchUpdates = session.metaData.supportsBatchUpdates
   }
+
+  class JdbcStreamingDatabaseActionContext(subscriber: Subscriber[_], database: Database, val bufferNext: Boolean) extends StreamingDatabaseActionContext(subscriber, database)
 }
 
 object JdbcBackend extends JdbcBackend

@@ -16,7 +16,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
 
     for {
       _ <- db.run {
-        ts.ddl.create >>
+        ts.schema.create >>
         (ts ++= Seq(2, 3, 1, 5, 4))
       }
       q1 = ts.sortBy(_.a).map(_.a)
@@ -78,7 +78,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     val q1 = ts.sortBy(_.a).map(_.a)
 
     val p1 = db.stream {
-      ts.ddl.create >>
+      ts.schema.create >>
       (ts ++= Seq(2, 3, 1, 5, 4)) >>
       q1.result
     }
@@ -86,6 +86,10 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     for {
       r1 <- materialize(p1)
       _ = r1 shouldBe Vector(1, 2, 3, 4, 5)
+      r2 <- db.run(q1.result.head)
+      _ = r2 shouldBe 1
+      r3 <- db.run(q1.result.headOption)
+      _ = r3 shouldBe Some(1)
     } yield ()
   }
 }

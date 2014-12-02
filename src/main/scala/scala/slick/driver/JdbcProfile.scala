@@ -70,6 +70,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComp
   }
 
   trait API extends LowPriorityAPI with super.API with CommonImplicits {
+    type FastPath[T] = JdbcFastPath[T]
+
     implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: Table[_], _, C]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
     implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteActionExtensionMethods =

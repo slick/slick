@@ -9,6 +9,7 @@ import scala.slick.compiler._
 import scala.slick.lifted._
 import scala.slick.relational._
 import scala.slick.profile.{BasicDriver, BasicProfile}
+import scala.slick.util.??
 import TypeUtil._
 
 /** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
@@ -100,8 +101,8 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
         if(!nullable && v.isInstanceOf[Option[_]]) v.asInstanceOf[Option[_]].get
         else v
       }
-      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
-      def set(value: Any, pp: MemoryResultConverterDomain#Writer) = ???
+      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ??
+      def set(value: Any, pp: MemoryResultConverterDomain#Writer) = ??
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"ridx=$ridx, nullable=$nullable")
       def width = 1
     }

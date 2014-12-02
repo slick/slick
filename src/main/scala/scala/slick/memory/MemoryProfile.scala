@@ -3,14 +3,15 @@ package scala.slick.memory
 import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
+import scala.util.control.NonFatal
+
 import scala.slick.action._
 import scala.slick.ast._
+import TypeUtil._
 import scala.slick.compiler._
 import scala.slick.profile.{RelationalDriver, RelationalProfile, Capability}
 import scala.slick.relational.{ResultConverterCompiler, ResultConverter, CompiledMapping}
-import TypeUtil._
-import scala.slick.util.DumpInfo
-import scala.util.control.NonFatal
+import scala.slick.util.{DumpInfo, ??}
 
 /** A profile and driver for interpreted queries on top of the in-memory database. */
 trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { driver: MemoryDriver =>
@@ -34,15 +35,18 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
   def createDDLInvoker(sd: SchemaDescription): DDLInvoker = sd.asInstanceOf[DDLInvoker]
-  def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
+  def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ??
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new TableDDL(table)
 
   type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
   type SchemaActionExtensionMethods = SchemaActionExtensionMethodsImpl
   type InsertActionExtensionMethods[T] = InsertActionExtensionMethodsImpl[T]
 
   def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
     new QueryActionExtensionMethods[R, S](tree, param)
+  def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
+    new StreamingQueryActionExtensionMethods[R, T](tree, param)
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
     new SchemaActionExtensionMethodsImpl(schema)
   def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
@@ -125,34 +129,54 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
       session.database.dropTable(table.tableName)
   }
 
-  type StreamingDriverAction[-E <: Effect, +R, +S <: NoStream] = DatabaseAction[Backend#This, E, R, S]
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] = DriverActionDef[E, R, S]
+  type StreamingDriverAction[-E <: Effect, +R, +T] = StreamingDriverActionDef[E, R, T]
 
-  protected[this] def dbAction[E <: Effect, R, S <: NoStream](f: Backend#Session => R): StreamingDriverAction[E, R, S] = new SynchronousDatabaseAction[Backend#This, E, R, S] {
+  protected[this] def dbAction[E <: Effect, R, S <: NoStream](f: Backend#Session => R): DriverAction[E, R, S] = new DriverAction[E, R, S] with SynchronousDatabaseAction[Backend#This, E, R, S] {
     def run(ctx: ActionContext[Backend]): R = f(ctx.session)
     def getDumpInfo = DumpInfo("MemoryProfile.DriverAction")
   }
 
-  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
-    def result: StreamingDriverAction[Effect, R, S] = new SynchronousDatabaseAction[Backend#This, Effect, R, S] {
-      type StreamState = Iterator[Any]
-      def run(ctx: ActionContext[Backend]): R = {
-        createInterpreter(ctx.session.database, param).run(tree).asInstanceOf[R]
-      }
-      override def emitStream(ctx: StreamingActionContext[Backend], limit: Long, state: StreamState): StreamState = {
-        val inter = createInterpreter(ctx.session.database, param)
-        val ResultSetMapping(gen, from, CompiledMapping(converter, tpe)) = tree
-        val it = if(state ne null) state else inter.run(from).asInstanceOf[TraversableOnce[Any]].toIterator
-        var count = 0L
-        while(count < limit && it.hasNext) {
-          count += 1
-          val pv = it.next()
-          val v = converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, _]].read(pv.asInstanceOf[QueryInterpreter.ProductValue])
-          ctx.emit(v)
-        }
-        if(it.hasNext) it else null
-      }
-      def getDumpInfo = DumpInfo("MemoryProfile.Query")
+  class StreamingQueryAction[R, T](tree: Node, param: Any) extends StreamingDriverAction[Effect.Read, R, T] with SynchronousDatabaseAction[Backend#This, Effect.Read, R, Streaming[T]] {
+    type StreamState = Iterator[T]
+    protected[this] def getIterator(ctx: ActionContext[Backend]): Iterator[T] = {
+      val inter = createInterpreter(ctx.session.database, param)
+      val ResultSetMapping(_, from, CompiledMapping(converter, _)) = tree
+      val pvit = inter.run(from).asInstanceOf[TraversableOnce[QueryInterpreter.ProductValue]].toIterator
+      pvit.map(converter.asInstanceOf[ResultConverter[MemoryResultConverterDomain, T]].read _)
     }
+    def run(ctx: ActionContext[Backend]): R =
+      createInterpreter(ctx.session.database, param).run(tree).asInstanceOf[R]
+    override def emitStream(ctx: StreamingActionContext[Backend], limit: Long, state: StreamState): StreamState = {
+      val it = if(state ne null) state else getIterator(ctx)
+      var count = 0L
+      while(count < limit && it.hasNext) {
+        count += 1
+        ctx.emit(it.next)
+      }
+      if(it.hasNext) it else null
+    }
+    def head: DriverAction[Effect.Read, T, NoStream] = new DriverAction[Effect.Read, T, NoStream] with SynchronousDatabaseAction[Backend#This, Effect.Read, T, NoStream] {
+      def run(ctx: ActionContext[Backend]): T = getIterator(ctx).next
+      def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
+    }
+    def headOption: DriverAction[Effect.Read, Option[T], NoStream] = new DriverAction[Effect.Read, Option[T], NoStream] with SynchronousDatabaseAction[Backend#This, Effect.Read, Option[T], NoStream] {
+      def run(ctx: ActionContext[Backend]): Option[T] = {
+        val it = getIterator(ctx)
+        if(it.hasNext) Some(it.next) else None
+      }
+      def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.firstOption")
+    }
+    def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction")
+  }
+
+  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
+    def result: DriverAction[Effect.Read, R, S] =
+      new StreamingQueryAction[R, Nothing](tree, param).asInstanceOf[DriverAction[Effect.Read, R, S]]
+  }
+
+  class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
+    override def result: StreamingDriverAction[Effect.Read, R, T] = super.result.asInstanceOf[StreamingDriverAction[Effect.Read, R, T]]
   }
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
@@ -191,8 +215,8 @@ trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with Memor
       new InsertResultConverter(tableColumnIdxs(column.get))
 
     class InsertResultConverter(tidx: Int) extends ResultConverter[MemoryResultConverterDomain, Any] {
-      def read(pr: MemoryResultConverterDomain#Reader) = ???
-      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ???
+      def read(pr: MemoryResultConverterDomain#Reader) = ??
+      def update(value: Any, pr: MemoryResultConverterDomain#Updater) = ??
       def set(value: Any, pp: MemoryResultConverterDomain#Writer) = pp(tidx) = value
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"tidx=$tidx")
       def width = 1

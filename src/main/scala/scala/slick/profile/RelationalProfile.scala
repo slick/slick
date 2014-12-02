@@ -1,7 +1,7 @@
 package scala.slick.profile
 
 import scala.language.{implicitConversions, higherKinds, existentials}
-import scala.slick.action.Effect
+import scala.slick.action._
 import scala.slick.ast._
 import scala.slick.backend.RelationalBackend
 import scala.slick.lifted._
@@ -275,10 +275,10 @@ trait RelationalActionComponent extends BasicActionComponent { driver: Relationa
     type MultiInsertResult
 
     /** An Action that inserts a single value. */
-    def += (value: T): DriverAction[Effect.Write, SingleInsertResult]
+    def += (value: T): DriverAction[Effect.Write, SingleInsertResult, NoStream]
 
     /** An Action that inserts a collection of values. */
-    def ++= (values: Iterable[T]): DriverAction[Effect.Write, MultiInsertResult]
+    def ++= (values: Iterable[T]): DriverAction[Effect.Write, MultiInsertResult, NoStream]
   }
 
   //////////////////////////////////////////////////////////// Schema Actions
@@ -289,9 +289,9 @@ trait RelationalActionComponent extends BasicActionComponent { driver: Relationa
 
   trait SchemaActionExtensionMethodsImpl {
     /** Create an Action that creates the entities described by this schema description. */
-    def create: DriverAction[Effect.Schema, Unit]
+    def create: DriverAction[Effect.Schema, Unit, NoStream]
 
     /** Create an Action that drops the entities described by this schema description. */
-    def drop: DriverAction[Effect.Schema, Unit]
+    def drop: DriverAction[Effect.Schema, Unit, NoStream]
   }
 }

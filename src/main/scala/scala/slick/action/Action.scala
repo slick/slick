@@ -7,7 +7,7 @@ import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 import scala.slick.SlickException
 import scala.slick.backend.DatabaseComponent
-import scala.slick.util.{DumpInfo, Dumpable}
+import scala.slick.util.{DumpInfo, Dumpable, ignoreFollowOnError}
 import scala.util.{Try, Failure, Success}
 import scala.util.control.NonFatal
 
@@ -54,14 +54,27 @@ sealed trait Action[-E <: Effect, +R, +S <: NoStream] extends Dumpable {
     * result of the first action. If the first action fails, its failure is propagated, whether
     * the second action fails or succeeds. If the first action succeeds, a failure of the second
     * action is propagated. */
-  def andFinally[E2 <: Effect, R2](a: Action[E2, R2, NoStream]): Action[E with E2, R, S] =
-    AndFinallyAction[E with E2, R, S](this, a)
+  def andFinally[E2 <: Effect](a: Action[E2, _, NoStream]): Action[E with E2, R, S] =
+    cleanUp[E2](_ => a)(Action.sameThreadExecutionContext)
+
+  /** Run another action after this action, whether it succeeds or fails, in order to clean up or
+    * transform an error produced by this action. The clean-up action is computed from the failure
+    * of this action, wrapped in `Some`, or `None` if this action succeeded.
+    *
+    * @param keepFailure If this action returns successfully, the resulting action also returns
+    *                    successfully unless the clean-up action fails. If this action fails and
+    *                    `keepFailure` is set to `true` (the default), the resulting action fails
+    *                    with the same error, no matter whether the clean-up action succeeds or
+    *                    fails. If the clean-up action. If `keepFailure` is set to `false`, an
+    *                    error from the clean-up action will override the error from this action. */
+  def cleanUp[E2 <: Effect](f: Option[Throwable] => Action[E2, _, NoStream], keepFailure: Boolean = true)(implicit executor: ExecutionContext): Action[E with E2, R, S] =
+    CleanUpAction[E with E2, R, S](this, f, keepFailure, executor)
 
   /** A shortcut for `andThen`. */
   final def >> [E2 <: Effect, R2, S2 <: NoStream](a: Action[E2, R2, S2]): Action[E with E2, R2, S2] =
     andThen[E2, R2, S2](a)
 
-  /** Filter the result of this Action with the given predicate If the predicate matches, the
+  /** Filter the result of this Action with the given predicate. If the predicate matches, the
     * original result is returned, otherwise the resulting Action fails with a
     * NoSuchElementException. */
   final def filter(p: R => Boolean)(implicit executor: ExecutionContext): Action[E, R, NoStream] =
@@ -177,9 +190,9 @@ case class ZipAction[-E <: Effect, +R1, +R2](a1: Action[E, R1, NoStream], a2: Ac
   def getDumpInfo = DumpInfo("zip", children = Vector(("1", a1), ("2", a2)))
 }
 
-/** An Action that represents an `andFinally` operation for sequencing in the Action monad. */
-case class AndFinallyAction[-E <: Effect, +R, +S <: NoStream](a1: Action[E, R, S], a2: Action[E, _, NoStream]) extends Action[E, R, S] {
-  def getDumpInfo = DumpInfo("andFinally", children = Vector(("try", a1), ("finally", a2)))
+/** An Action that represents a `cleanUp` operation for sequencing in the Action monad. */
+case class CleanUpAction[-E <: Effect, +R, +S <: NoStream](base: Action[E, R, S], f: Option[Throwable] => Action[E, _, NoStream], keepFailure: Boolean, executor: ExecutionContext) extends Action[E, R, S] {
+  def getDumpInfo = DumpInfo("cleanUp", children = Vector(("try", base)))
 }
 
 /** An Action that represents a `failed` operation. */
@@ -202,22 +215,24 @@ case class NamedAction[-E <: Effect, +R, +S <: NoStream](a: Action[E, R, S], nam
 trait ActionContext[+B <: DatabaseComponent] {
   private[this] var stickiness = 0
 
-  /** Check if the session is pinned */
+  /** Check if the session is pinned. May only be called from a synchronous action context. */
   final def isPinned = stickiness > 0
 
   /** Pin the current session. Multiple calls to `pin` may be nested. The same number of calls
     * to `unpin` is required in order to mark the session as not pinned anymore. A pinned
     * session will not be released at the end of a primitive database action. Instead, the same
     * pinned session is passed to all subsequent actions until it is unpinned. Note that pinning
-    * does not force an actual database connection to be opened. This still happens on demand. */
+    * does not force an actual database connection to be opened. This still happens on demand.
+    * May only be called from a synchronous action context. */
   final def pin: Unit = stickiness += 1
 
-  /** Unpin this session once. */
+  /** Unpin this session once. May only be called from a synchronous action context. */
   final def unpin: Unit = stickiness -= 1
 
   /** Get the current database session for this context. Inside a single action this value will
     * never change. If the session has not been pinned, a subsequent action will see a different
-    * session (unless the actions have been fused). */
+    * session (unless the actions have been fused). May only be called from a synchronous action
+    * context. */
   def session: B#Session
 }
 
@@ -232,8 +247,8 @@ trait StreamingActionContext[+B <: DatabaseComponent] extends ActionContext[B] {
   * type. `DatabaseComponent.DatabaseDef.run` supports this kind of action out of the box
   * through `DatabaseComponent.DatabaseDef.runSynchronousDatabaseAction` so that `run` does not
   * need to be extended if all primitive database actions can be expressed in this way. These
-  * actions also implement construction-time fusion for the `andThen`, `andFinally`, `zip`,
-  * `failed`, `asTry` and `withPinnedSession` operations.
+  * actions also implement construction-time fusion for the `andFinally`, `andThen`, `asTry`,
+  * `failed`, `withPinnedSession` and `zip` operations.
   *
   * The execution engine ensures that an [[ActionContext]] is never used concurrently and that
   * all state changes performed by one invocation of a SynchronousDatabaseAction are visible
@@ -293,16 +308,16 @@ trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: 
     case a => superZip(a)
   }
 
-  private[this] def superAndFinally[E2 <: Effect, R2](a: Action[E2, R2, NoStream]) = super.andFinally[E2, R2](a)
-  override def andFinally[E2 <: Effect, R2](a: Action[E2, R2, NoStream]): Action[E with Effect.BackendType[B] with E2, R, S] = a match {
+  private[this] def superAndFinally[E2 <: Effect](a: Action[E2, _, NoStream]) = super.andFinally[E2](a)
+  override def andFinally[E2 <: Effect](a: Action[E2, _, NoStream]): Action[E with Effect.BackendType[B] with E2, R, S] = a match {
     case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[B, E with E2, R, S] {
       def run(context: ActionContext[B]): R = {
         val res = try self.run(context) catch {
           case NonFatal(ex) =>
-            try a.asInstanceOf[SynchronousDatabaseAction[B, E2, R2, NoStream]].run(context) catch { case NonFatal(_) => }
+            try a.asInstanceOf[SynchronousDatabaseAction[B, E2, Any, NoStream]].run(context) catch ignoreFollowOnError
             throw ex
         }
-        a.asInstanceOf[SynchronousDatabaseAction[B, E2, R2, S]].run(context)
+        a.asInstanceOf[SynchronousDatabaseAction[B, E2, Any, S]].run(context)
         res
       }
       override def nonFusedEquivalentAction: Action[E with Effect.BackendType[B] with E2, R, S] = superAndFinally(a)

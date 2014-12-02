@@ -3,6 +3,7 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
 
+@deprecated("Using deprecated .simple API", "2.2")
 class ExecutorTest extends TestkitTest[RelationalTestDB] {
   import tdb.profile.simple._
   override val reuseInstance = true

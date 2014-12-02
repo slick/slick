@@ -1,20 +1,20 @@
 package com.typesafe.slick.testkit.util
 
-import org.reactivestreams.{Subscription, Subscriber, Publisher}
-
 import scala.language.existentials
 
-import scala.concurrent.{Promise, ExecutionContext, Await, Future}
+import scala.concurrent.{Promise, ExecutionContext, Await, Future, blocking}
+import scala.concurrent.duration.Duration
 import scala.reflect.ClassTag
+import scala.util.{Failure, Success}
+import scala.util.control.NonFatal
 
 import java.lang.reflect.Method
-import java.util.concurrent.{ExecutionException, TimeUnit}
+import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.slick.action._
 import scala.slick.jdbc.JdbcBackend
 import scala.slick.util.DumpInfo
-import scala.util.control.NonFatal
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.driver.JdbcProfile
 
@@ -22,6 +22,8 @@ import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert
+
+import org.reactivestreams.{Subscription, Subscriber, Publisher}
 
 /** JUnit runner for the Slick driver test kit. */
 class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) extends SimpleParentRunner[TestMethod](clazz) {
@@ -206,6 +208,11 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   def ifNotCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R, NoStream]): Action[E, Unit, NoStream] =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
 
+  def ifCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
+    if(caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
+  def ifNotCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
+    if(!caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
+
   def asAction[R](f: tdb.profile.Backend#Session => R): Action[Effect.BackendType[tdb.profile.Backend], R, NoStream] =
     new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R, NoStream] {
       def run(context: ActionContext[tdb.profile.Backend]): R = f(context.session)
@@ -214,17 +221,74 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
   def seq[E <: Effect](actions: Action[E, _, NoStream]*): Action[E, Unit, NoStream] = Action.seq[E](actions: _*)
 
-  /** Consume a Reactive Stream and materialize it as a Vector */
+  /** Synchronously consume a Reactive Stream and materialize it as a Vector. */
   def materialize[T](p: Publisher[T]): Future[Vector[T]] = {
     val builder = Vector.newBuilder[T]
     val pr = Promise[Vector[T]]()
     try p.subscribe(new Subscriber[T] {
       def onSubscribe(s: Subscription): Unit = s.request(Long.MaxValue)
-      def onComplete(): Unit = pr.success(builder.synchronized(builder.result()))
+      def onComplete(): Unit = pr.success(builder.result())
       def onError(t: Throwable): Unit = pr.failure(t)
-      def onNext(t: T): Unit = builder.synchronized(builder += t)
+      def onNext(t: T): Unit = builder += t
     }) catch { case NonFatal(ex) => pr.failure(ex) }
     pr.future
+  }
+
+  /** Iterate synchronously over a Reactive Stream. */
+  def foreach[T](p: Publisher[T])(f: T => Any): Future[Unit] = {
+    val pr = Promise[Unit]()
+    try p.subscribe(new Subscriber[T] {
+      def onSubscribe(s: Subscription): Unit = s.request(Long.MaxValue)
+      def onComplete(): Unit = pr.success(())
+      def onError(t: Throwable): Unit = pr.failure(t)
+      def onNext(t: T): Unit = f(t)
+    }) catch { case NonFatal(ex) => pr.failure(ex) }
+    pr.future
+  }
+
+
+  /** Asynchronously consume a Reactive Stream and materialize it as a Vector, requesting new
+    * elements one by one and transforming them after the specified delay. This ensures that the
+    * transformation does not run in the synchronous database context but still preserves
+    * proper sequencing. */
+  def materializeAsync[T, R](p: Publisher[T], tr: T => Future[R], delay: Duration = Duration(100L, TimeUnit.MILLISECONDS)): Future[Vector[R]] = {
+    val exe = new ThreadPoolExecutor(1, 1, 1L, TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable]())
+    val ec = ExecutionContext.fromExecutor(exe)
+    val builder = Vector.newBuilder[R]
+    val pr = Promise[Vector[R]]()
+    var sub: Subscription = null
+    def async[T](thunk: => T): Future[T] = {
+      val f = Future {
+        Thread.sleep(delay.toMillis)
+        thunk
+      }(ec)
+      f.onFailure { case t =>
+        pr.tryFailure(t)
+        sub.cancel()
+      }
+      f
+    }
+    try p.subscribe(new Subscriber[T] {
+      def onSubscribe(s: Subscription): Unit = async {
+        sub = s
+        sub.request(1L)
+      }
+      def onComplete(): Unit = async(pr.trySuccess(builder.result()))
+      def onError(t: Throwable): Unit = async(pr.tryFailure(t))
+      def onNext(t: T): Unit = async {
+        tr(t).onComplete {
+          case Success(r) =>
+            builder += r
+            sub.request(1L)
+          case Failure(t) =>
+            pr.tryFailure(t)
+            sub.cancel()
+        }(ec)
+      }
+    }) catch { case NonFatal(ex) => pr.tryFailure(ex) }
+    val f = pr.future
+    f.onComplete(_ => exe.shutdown())
+    f
   }
 
   implicit class AssertionExtensionMethods[T](v: T) {

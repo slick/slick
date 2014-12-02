@@ -2,15 +2,13 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
 
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 import scala.reflect.ClassTag
 
-class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
-  import tdb.profile.simple._
+class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
+  import tdb.profile.api._
 
-  override val reuseInstance = true
-
-  def testMappedEntity {
+  def testMappedEntity = {
     import TupleMethods._
 
     case class User(id: Option[Int], first: String, last: String)
@@ -30,48 +28,33 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       val byID = this.findBy(_.id)
     }
 
-    users.ddl.create
-    users.map(_.baseProjection).insert("Homer", "Simpson")
-    users.insertAll(
-      User(None, "Marge", "Bouvier"),
-      User(None, "Carl", "Carlson")
-    )
-    users.map(_.asFoo) += Foo(User(None, "Lenny", "Leonard"))
-
-    val lastNames = Set("Bouvier", "Ferdinand")
-    assertEquals(1, users.filter(_.last inSet lastNames).list.size)
-
     val updateQ = users.filter(_.id === 2.bind).map(_.forUpdate)
-    println("Update: "+updateQ.updateStatement)
-    updateQ.update(User(None, "Marge", "Simpson"))
-
-    assertTrue(Query(users.filter(_.id === 1).exists).first)
-
-    users.filter(_.id between(1, 2)).foreach(println)
-    println("ID 3 -> " + users.byID(3).first)
-
-    assertEquals(
-      Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson")),
-      users.filter(_.id between(1, 2)).list.toSet
-    )
-    assertEquals(
-      Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson"))),
-      users.filter(_.id between(1, 2)).map(_.asFoo).list.toSet
-    )
-    assertEquals(
-      User(Some(3), "Carl", "Carlson"),
-      users.byID(3).first
-    )
+    updateQ.updateStatement.length.should(_ > 0)
 
     val q1 = for {
       u <- users
       u2 <- users
     } yield u2
-    val r1 = q1.run.head
-    assertTrue("Element class: "+r1.getClass, r1.isInstanceOf[User])
+
+    seq(
+      users.schema.create,
+      users.map(_.baseProjection) += ("Homer", "Simpson"),
+      users ++= Seq(
+        User(None, "Marge", "Bouvier"),
+        User(None, "Carl", "Carlson")
+      ),
+      users.map(_.asFoo) += Foo(User(None, "Lenny", "Leonard")),
+      users.filter(_.last inSet Set("Bouvier", "Ferdinand")).size.result.map(_ shouldBe 1),
+      updateQ.update(User(None, "Marge", "Simpson")),
+      Query(users.filter(_.id === 1).exists).result.head.map(_ shouldBe true),
+      users.filter(_.id between(1, 2)).to[Set].result.map(_ shouldBe Set(User(Some(1), "Homer", "Simpson"), User(Some(2), "Marge", "Simpson"))),
+      users.filter(_.id between(1, 2)).map(_.asFoo).to[Set].result.map(_ shouldBe Set(Foo(User(None, "Homer", "Simpson")), Foo(User(None, "Marge", "Simpson")))),
+      users.byID(3).result.head.map(_ shouldBe User(Some(3), "Carl", "Carlson")),
+      q1.result.head.map(_.should(_.isInstanceOf[User]))
+    )
   }
 
-  def testUpdate {
+  def testUpdate = {
     case class Data(a: Int, b: Int)
 
     class T(tag: Tag) extends Table[Data](tag, "T") {
@@ -81,22 +64,19 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    ts.ddl.create
-    ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
-
     val updateQ = ts.filter(_.a === 1)
-    updateQ.update(Data(7, 8))
-
     val updateQ2 = ts.filter(_.a === 3).map(identity)
-    updateQ2.update(Data(9, 10))
 
-    assertEquals(
-      Set(Data(7, 8), Data(9, 10), Data(5, 6)),
-      ts.list.toSet
+    seq(
+      ts.schema.create,
+      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
+      updateQ.update(Data(7, 8)),
+      updateQ2.update(Data(9, 10)),
+      ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
     )
   }
 
-  def testWideMappedEntity {
+  def testWideMappedEntity = {
     case class Part(i1: Int, i2: Int, i3: Int, i4: Int, i5: Int, i6: Int)
     case class Whole(id: Int, p1: Part, p2: Part, p3: Part, p4: Part)
 
@@ -149,13 +129,14 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       Part(41, 42, 43, 44, 45, 46)
     )
 
-    ts.ddl.create
-    ts.insert(oData)
-
-    assertEquals(oData, ts.first)
+    seq(
+      ts.schema.create,
+      ts += oData,
+      ts.result.head.map(_ shouldBe oData)
+    )
   }
 
-  def testNestedMappedEntity {
+  def testNestedMappedEntity = {
     case class Part1(i1: Int, i2: String)
     case class Part2(i1: String, i2: Int)
     case class Whole(p1: Part1, p2: Part2)
@@ -178,12 +159,10 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       )
     )
 
-    T.ddl.create
-    T.insertAll(data:_*)
-
-    assertEquals(data, T.run)
+    T.schema.create >> (T ++= data) >> T.result.map(_ shouldBe data)
   }
-  def testMappedJoin {
+
+  def testMappedJoin = {
     case class A(id: Int, value: Int)
     case class B(id: Int, value: Option[String])
 
@@ -201,30 +180,30 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     }
     val bs = TableQuery[BRow]
 
-    (as.ddl ++ bs.ddl).create
-    as.map(_.data).insertAll(1, 2)
-    bs.map(_.data).insertAll("a", "b")
-
     val q1 = for {
       a <- as if a.data === 2
       b <- bs if b.id === a.id
     } yield (a, b)
-    val r1 = q1.to[Set].run
-    val r1t: Set[(A, B)] = r1
-    assertEquals(Set((A(2, 2), B(2, Some("b")))), r1)
 
     val q2 = as joinLeft bs
-    val r2 = q2.to[Set].run
-    val r2t: Set[(A, Option[B])] = r2
-    assertEquals(Set(
-      (A(1,1), Some(B(1,Some("a")))),
-      (A(1,1), Some(B(2,Some("b")))),
-      (A(2,2), Some(B(1,Some("a")))),
-      (A(2,2), Some(B(2,Some("b"))))
-    ), r2)
+
+    for {
+      _ <- (as.schema ++ bs.schema).create
+      _ <- as.map(_.data) ++= Seq(1, 2)
+      _ <- bs.map(_.data) ++= Seq("a", "b")
+      r1: Set[(A, B)] <- q1.to[Set].result
+      _ = r1 shouldBe Set((A(2, 2), B(2, Some("b"))))
+      r2: Set[(A, Option[B])] <- q2.to[Set].result
+      _ = r2 shouldBe Set(
+        (A(1,1), Some(B(1,Some("a")))),
+        (A(1,1), Some(B(2,Some("b")))),
+        (A(2,2), Some(B(1,Some("a")))),
+        (A(2,2), Some(B(2,Some("b"))))
+      )
+    } yield ()
   }
 
-  def testCaseClassShape {
+  def testCaseClassShape = {
     case class C(a: Int, b: String)
     case class LiftedC(a: Rep[Int], b: Rep[String])
     implicit object cShape extends CaseClassShape(LiftedC.tupled, C.tupled)
@@ -235,13 +214,12 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       def * = LiftedC(id, s)
     }
     val as = TableQuery[A]
-    as.ddl.create
     val data = Seq(C(1, "a"), C(2, "b"))
-    as ++= data
-    assertEquals(as.sortBy(_.id).run, data)
+
+    as.schema.create >> (as ++= data) >> as.sortBy(_.id).result.map(_ shouldBe data)
   }
 
-  def testProductClassShape {
+  def testProductClassShape = {
     def columnShape[T](implicit s: Shape[FlatShapeLevel, Rep[T], T, Rep[T]]) = s
     class C(val a: Int, val b: Option[String]) extends Product{
       def canEqual(that: Any): Boolean = that.isInstanceOf[C]
@@ -273,13 +251,12 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       def * = new LiftedC(id, s)
     }
     val as = TableQuery[A]
-    as.ddl.create
     val data = Seq(new C(1, Some("a")), new C(2, Some("b")))
-    as ++= data
-    assertEquals(as.sortBy(_.id).run, data)
+
+    as.schema.create >> (as ++= data) >> as.sortBy(_.id).result.map(_ shouldBe data)
   }
 
-  def testCustomShape {
+  def testCustomShape = {
     // A custom record class
     case class Pair[A, B](a: A, b: B)
 
@@ -298,12 +275,6 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       def * = Pair(id, s)
     }
     val as = TableQuery[A]
-    as.ddl.create
-
-    // Insert data with the custom shape
-    as += Pair(1, "a")
-    as += Pair(2, "c")
-    as += Pair(3, "b")
 
     // Use it for returning data from a query
     val q2 = as
@@ -311,10 +282,18 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       .filter { case Pair(id, _) => id =!= 1 }
       .sortBy { case Pair(_, ss) => ss }
       .map { case Pair(id, ss) => Pair(id, Pair(42 , ss)) }
-    assertEquals(Vector(Pair(3, Pair(42, "bb")), Pair(2, Pair(42, "cc"))), q2.run)
+
+    seq(
+      as.schema.create,
+      // Insert data with the custom shape
+      as += Pair(1, "a"),
+      as += Pair(2, "c"),
+      as += Pair(3, "b"),
+      q2.result.map(_ shouldBe Vector(Pair(3, Pair(42, "bb")), Pair(2, Pair(42, "cc"))))
+    )
   }
 
-  def testHList {
+  def testHList = {
     import scala.slick.collection.heterogenous._
     import scala.slick.collection.heterogenous.syntax._
 
@@ -325,28 +304,29 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       def * = id :: b :: s :: HNil
     }
     val bs = TableQuery[B]
-    bs.ddl.create
-
-    bs += (1 :: true :: "a" :: HNil)
-    bs += (2 :: false :: "c" :: HNil)
-    bs += (3 :: false :: "b" :: HNil)
 
     val q1 = (for {
       id :: b :: s :: HNil <- (for { b <- bs } yield b.id :: b.b :: b.s :: HNil) if !b
     } yield id :: b :: (s ++ s) :: HNil).sortBy(h => h(2)).map {
       case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil
     }
-    assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q1.run)
-
     val q2 = bs
       .map { case b => b.id :: b.b :: (b.s ++ b.s) :: HNil }
       .filter { h => !h(1) }
       .sortBy { case _ :: _ :: ss :: HNil => ss }
       .map { case id :: b :: ss :: HNil => id :: ss :: (42 :: HNil) :: HNil }
-    assertEquals(Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil), q2.run)
+
+    seq(
+      bs.schema.create,
+      bs += (1 :: true :: "a" :: HNil),
+      bs += (2 :: false :: "c" :: HNil),
+      bs += (3 :: false :: "b" :: HNil),
+      q1.result.map(_ shouldBe Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil)),
+      q1.result.map(_ shouldBe Vector(3 :: "bb" :: (42 :: HNil) :: HNil, 2 :: "cc" :: (42 :: HNil) :: HNil))
+    )
   }
 
-  def testSingleElement {
+  def testSingleElement = {
     import scala.slick.collection.heterogenous._
     import scala.slick.collection.heterogenous.syntax._
 
@@ -355,38 +335,40 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
       def * = b
     }
     val as = TableQuery[A]
-    as.ddl.create
-    as += "Foo"
-    val ares: String = as.run.head
-    assertEquals("Foo", ares)
-    as.update("Foo")
-
-    assertEquals("Foo" :: "Foo" :: HNil, as.map(a => a :: a :: HNil).run.head)
 
     class B(tag: Tag) extends Table[Tuple1[String]](tag, "single_b") {
       def b = column[String]("b")
       def * = Tuple1(b)
     }
     val bs = TableQuery[B]
-    bs.ddl.create
-    bs += Tuple1("Foo")
-    bs.update(Tuple1("Foo"))
-    val Tuple1(bres) = bs.run.head
-    assertEquals("Foo", bres)
 
     class C(tag: Tag) extends Table[String :: HNil](tag, "single_c") {
       def b = column[String]("b")
       def * = b :: HNil
     }
     val cs = TableQuery[C]
-    cs.ddl.create
-    cs += ("Foo" :: HNil)
-    cs.update("Foo" :: HNil)
-    val cres :: HNil = cs.run.head
-    assertEquals("Foo", cres)
+
+    for {
+      _ <- as.schema.create
+      _ <- as += "Foo"
+      ares: String <- as.result.head
+      _ = ares shouldBe "Foo"
+      _ <- as.update("Foo")
+      _ <- as.map(a => a :: a :: HNil).result.head.map(_ shouldBe "Foo" :: "Foo" :: HNil)
+      _ <- bs.schema.create
+      _ <- bs += Tuple1("Foo")
+      _ <- bs.update(Tuple1("Foo"))
+      Tuple1(bres) <- bs.result.head
+      _ = bres shouldBe "Foo"
+      _ <- cs.schema.create
+      _ <- cs += ("Foo" :: HNil)
+      _ <- cs.update("Foo" :: HNil)
+      cres :: HNil <- cs.result.head
+      _ = cres shouldBe "Foo"
+    } yield ()
   }
 
-  def testFastPath {
+  def testFastPath = {
     case class Data(a: Int, b: Int)
 
     class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
@@ -399,18 +381,12 @@ class JdbcMapperTest extends TestkitTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    ts.ddl.create
-    ts.insertAll(new Data(1, 2), new Data(3, 4), new Data(5, 6))
-
-    val updateQ = ts.filter(_.a === 1)
-    updateQ.update(Data(7, 8))
-
-    val updateQ2 = ts.filter(_.a === 3).map(identity)
-    updateQ2.update(Data(9, 10))
-
-    assertEquals(
-      Set(Data(7, 8), Data(9, 10), Data(5, 6)),
-      ts.list.toSet
+    seq(
+      ts.schema.create,
+      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
+      ts.filter(_.a === 1).update(Data(7, 8)),
+      ts.filter(_.a === 3).map(identity).update(Data(9, 10)),
+      ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
     )
   }
 }

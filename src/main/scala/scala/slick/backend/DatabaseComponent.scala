@@ -1,6 +1,6 @@
 package scala.slick.backend
 
-import java.util.concurrent.atomic.{AtomicLong, AtomicBoolean}
+import java.util.concurrent.atomic.AtomicLong
 
 import scala.language.existentials
 
@@ -14,7 +14,7 @@ import org.reactivestreams._
 
 import scala.slick.SlickException
 import scala.slick.action._
-import scala.slick.util.{GlobalConfig, DumpInfo, TreeDump, SlickLogger}
+import scala.slick.util.{GlobalConfig, DumpInfo, TreeDump, SlickLogger, ignoreFollowOnError}
 
 /** Backend for the basic database and session handling features.
   * Concrete backends like `JdbcBackend` extend this type and provide concrete
@@ -68,32 +68,36 @@ trait DatabaseComponent { self =>
       * from within `onNext`. If streaming is interrupted due to back-pressure signaling, the next
       * row will be prefetched (in order to buffer the next result page from the server when a page
       * boundary has been reached). */
-    final def stream[T](a: Action[Effects, _, Streaming[T]]): Publisher[T] = new Publisher[T] {
-      private[this] val used = new AtomicBoolean()
-      def subscribe(s: Subscriber[_ >: T]) =
-        if(used.getAndSet(true))
-          s.onError(new IllegalStateException("Database Action Publisher may not be subscribed to more than once"))
-        else {
-          val ctx = new StreamingDatabaseActionContext(s, DatabaseDef.this)
-          val subscribed = try { s.onSubscribe(ctx); true } catch {
+    final def stream[T](a: Action[Effects, _, Streaming[T]]): DatabasePublisher[T] =
+      createPublisher(a, s => createStreamingDatabaseActionContext(s))
+
+    /** Create a Reactive Streams `Publisher` using the given context factory. */
+    protected[this] def createPublisher[T](a: Action[Effects, _, Streaming[T]], createCtx: Subscriber[_ >: T] => StreamingDatabaseActionContext): DatabasePublisher[T] = new DatabasePublisher[T] {
+      def subscribe(s: Subscriber[_ >: T]) = if(allowSubscriber(s)) {
+        val ctx = createCtx(s)
+        val subscribed = try { s.onSubscribe(ctx); true } catch {
+          case NonFatal(ex) =>
+            streamLogger.warn("Subscriber.onSubscribe failed unexpectedly", ex)
+            false
+        }
+        if(subscribed) {
+          try {
+            runInContext(a, ctx, true).onComplete {
+              case Success(_) => ctx.tryOnComplete
+              case Failure(t) => ctx.tryOnError(t)
+            }(Action.sameThreadExecutionContext)
+          } catch {
             case NonFatal(ex) =>
-              streamLogger.warn("Subscriber.onSubscribe failed unexpectedly", ex)
-              false
-          }
-          if(subscribed) {
-            try {
-              runInContext(a, ctx, true).onComplete {
-                case Success(_) => ctx.tryOnComplete
-                case Failure(t) => ctx.tryOnError(t)
-              }(Action.sameThreadExecutionContext)
-            } catch {
-              case NonFatal(ex) =>
-                streamLogger.warn("Database.streamInContext failed unexpectedly", ex)
-                ctx.tryOnError(ex)
-            }
+              streamLogger.warn("Database.streamInContext failed unexpectedly", ex)
+              ctx.tryOnError(ex)
           }
         }
+      }
     }
+
+    /** Create the default StreamingDatabaseActionContext for this backend. */
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T]): StreamingDatabaseActionContext =
+      new StreamingDatabaseActionContext(s, DatabaseDef.this)
 
     /** Run an Action in an existing DatabaseActionContext. This method can be overridden in
       * subclasses to support new DatabaseActions which cannot be expressed through
@@ -119,14 +123,26 @@ trait DatabaseComponent { self =>
               (r1, r2)
             }(Action.sameThreadExecutionContext)
           }(Action.sameThreadExecutionContext).asInstanceOf[Future[R]]
-        case AndFinallyAction(a1, a2) =>
+        case CleanUpAction(base, f, keepFailure, ec) =>
           val p = Promise[R]()
-          runInContext(a1, ctx, streaming).onComplete { t1 =>
-            runInContext(a2, ctx, false).onComplete { t2 =>
-              if(t1.isFailure || t2.isSuccess) p.complete(t1)
-              else p.complete(t2.asInstanceOf[Failure[R]])
-            } (Action.sameThreadExecutionContext)
-          } (Action.sameThreadExecutionContext)
+          runInContext(base, ctx, streaming).onComplete { t1 =>
+            try {
+              val a2 = f(t1 match {
+                case Success(_) => None
+                case Failure(t) => Some(t)
+              })
+              runInContext(a2, ctx, false).onComplete { t2 =>
+                if(t2.isFailure && (t1.isSuccess || !keepFailure)) p.complete(t2.asInstanceOf[Failure[R]])
+                else p.complete(t1)
+              } (Action.sameThreadExecutionContext)
+            } catch {
+              case NonFatal(ex) =>
+                throw (t1 match {
+                  case Failure(t) if keepFailure => t
+                  case _ => ex
+                })
+            }
+          } (ec)
           p.future
         case FailedAction(a) =>
           runInContext(a, ctx, false).failed.asInstanceOf[Future[R]]
@@ -139,7 +155,7 @@ trait DatabaseComponent { self =>
         case a: SynchronousDatabaseAction[_, _, _, _] =>
           if(streaming) {
             if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream]], ctx.asInstanceOf[StreamingDatabaseActionContext]).asInstanceOf[Future[R]]
-            else runInContext(AndFinallyAction(AndThenAction(Action.Pin, a.nonFusedEquivalentAction), Action.Unpin), ctx, streaming)
+            else runInContext(CleanUpAction(AndThenAction(Action.Pin, a.nonFusedEquivalentAction), _ => Action.Unpin, true, Action.sameThreadExecutionContext), ctx, streaming)
           } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _, R, NoStream]], ctx)
         case a: DatabaseAction[_, _, _, _] =>
           throw new SlickException(s"Unsupported database action $a for $this")
@@ -222,7 +238,7 @@ trait DatabaseComponent { self =>
                 ctx.streamingResultPromise.success(null)
               }
             } catch { case NonFatal(ex) =>
-              if(state ne null) try a.cancelStream(ctx, state) catch { case NonFatal(_) => }
+              if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
               releaseSession(ctx, true)
               throw ex
             } finally {
