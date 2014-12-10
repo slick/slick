@@ -70,6 +70,8 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     //@deprecated("Use .schema instead of .ddl", "2.2")
     final def ddl: SchemaDescription = schema
 
+    final def truncate: DriverAction[Effect.Write, Unit] = truncateTableAction(q.shaped.value)
+
     /** Get the schema description (DDL) for this table. */
     def schema: SchemaDescription = buildTableSchemaDescription(q.shaped.value)
 
@@ -149,6 +151,7 @@ trait RelationalDriver extends BasicDriver with RelationalProfile {
 trait RelationalTableComponent { driver: RelationalDriver =>
 
   def buildTableSchemaDescription(table: Table[_]): SchemaDescription
+  def truncateTableAction(table: Table[_]): DriverAction[Effect.Write, Unit]
 
   trait ColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey

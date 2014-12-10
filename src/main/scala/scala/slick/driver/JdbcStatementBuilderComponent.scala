@@ -610,6 +610,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def dropPhase1 = foreignKeys.map(dropForeignKey)
     protected def dropPhase2 = primaryKeys.map(dropPrimaryKey) ++ Iterable(dropTable)
 
+    def truncateStatement = "truncate table " + quoteTableName(tableNode)
+
     protected def createTable: String = {
       val b = new StringBuilder append "create table " append quoteTableName(tableNode) append " ("
       var first = true

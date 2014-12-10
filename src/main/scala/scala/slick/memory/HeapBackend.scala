@@ -39,6 +39,11 @@ trait HeapBackend extends RelationalBackend with Logging {
       if(!tables.remove(name).isDefined)
         throw new SlickException(s"Table $name does not exist")
     }
+    def truncateTable(name: String): Unit = synchronized {
+      if(!tables.isDefinedAt(name))
+        throw new SlickException(s"Table $name does not exist")
+      tables(name).truncate
+    }
     def getTables: IndexedSeq[HeapTable] = synchronized {
       tables.values.toVector
     }
@@ -85,6 +90,11 @@ trait HeapBackend extends RelationalBackend with Logging {
       data.append(row)
       verifier.inserted(row)
       logger.debug("Inserted ("+row.mkString(", ")+") into "+this)
+    }
+
+    def truncate: Unit = synchronized {
+      data.clear()
+      logger.debug("Truncated "+this)
     }
 
     def createInsertRow: ArrayBuffer[Any] = columns.map(_.createDefault)(collection.breakOut)
