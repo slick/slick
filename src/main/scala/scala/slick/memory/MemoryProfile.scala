@@ -155,6 +155,8 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
     }
   }
 
+  def truncateTableAction(table: Table[_]) = dbAction(_.database.truncateTable(table.tableName))
+
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
     def create = dbAction(createDDLInvoker(schema).create(_))
     def drop = dbAction(createDDLInvoker(schema).drop(_))

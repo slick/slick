@@ -193,6 +193,8 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     override protected val foreignKeys = Nil // handled directly in addTableOptions
     override protected val primaryKeys = Nil // handled directly in addTableOptions
 
+    override def truncateStatement = "delete from " + quoteTableName(tableNode)
+
     override protected def addTableOptions(b: StringBuilder) {
       for(pk <- table.primaryKeys) {
         b append ","

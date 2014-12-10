@@ -174,20 +174,26 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   def createSchemaActionExtensionMethods(schema: SchemaDescription): SchemaActionExtensionMethods =
     new SchemaActionExtensionMethodsImpl(schema)
 
-  class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
-    def create: DriverAction[Effect.Schema, Unit] = new DriverAction[Effect.Schema, Unit] with JdbcDatabaseAction[Unit] {
-      def statements = schema.createStatements
+  private def mkAction[E <: Effect](dumpInfoKey: String, _statements: Iterator[String])
+    = new DriverAction[E, Unit] with JdbcDatabaseAction[Unit] {
+      def statements = _statements
       def run(ctx: ActionContext[Backend]): Unit =
         for(s <- statements) ctx.session.withPreparedStatement(s)(_.execute)
-      override def getDumpInfo = super.getDumpInfo.copy(name = "schema.create")
+      override def getDumpInfo = super.getDumpInfo.copy(name = dumpInfoKey)
     }
 
-    def drop: DriverAction[Effect.Schema, Unit] = new DriverAction[Effect.Schema, Unit] with JdbcDatabaseAction[Unit] {
-      def statements = schema.dropStatements
-      def run(ctx: ActionContext[Backend]): Unit =
-        for(s <- statements) ctx.session.withPreparedStatement(s)(_.execute)
-      override def getDumpInfo = super.getDumpInfo.copy(name = "schema.drop")
-    }
+  final def truncateTableAction(table: Table[_]): DriverAction[Effect.Write,Unit]
+    = mkAction[Effect.Write](
+        "write.truncate",
+        Seq(createTableDDLBuilder(table).truncateStatement).iterator
+      )
+
+  class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
+    def create: DriverAction[Effect.Schema, Unit]
+      = mkAction[Effect.Schema]("schema.create", schema.createStatements)
+
+    def drop: DriverAction[Effect.Schema, Unit]
+      = mkAction[Effect.Schema]("schema.drop", schema.dropStatements)
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////

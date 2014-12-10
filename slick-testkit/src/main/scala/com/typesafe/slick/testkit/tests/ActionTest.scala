@@ -88,4 +88,23 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       _ = r1 shouldBe Vector(1, 2, 3, 4, 5)
     } yield ()
   }
+
+  def testTruncate = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+    for{
+      _ <- ts.ddl.create
+      initial <- ts.result
+      _ = assert(initial.toSet == Set())
+      res <- (ts ++= Seq(2, 3, 1, 5, 4)) >>
+             ts.result
+      _ = assert(res.toSet == Set(2, 3, 1, 5, 4))
+      newRes <- ts.truncate >>
+                ts.result
+      _ = assert(newRes.toSet == Set())
+    } yield ()
+  }
 }
