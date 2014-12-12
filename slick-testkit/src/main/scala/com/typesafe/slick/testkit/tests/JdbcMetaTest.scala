@@ -29,7 +29,7 @@ class JdbcMetaTest extends TestkitTest[JdbcTestDB] {
   lazy val orders = TableQuery[Orders]
 
   def testMeta = ifCap(tcap.jdbcMeta) {
-    val ddl = (users.ddl ++ orders.ddl)
+    val ddl = (users.schema ++ orders.schema)
     println("DDL used to create tables:")
     for(s <- ddl.createStatements) println("  "+s)
     ddl.create

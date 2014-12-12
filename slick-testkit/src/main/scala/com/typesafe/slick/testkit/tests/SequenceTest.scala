@@ -15,7 +15,7 @@ class SequenceTest extends AsyncTest[JdbcTestDB] {
     val users = TableQuery[Users]
 
     val mySequence = Sequence[Int]("mysequence") start 200 inc 10
-    val ddl = users.schema ++ mySequence.ddl
+    val ddl = users.schema ++ mySequence.schema
     val q1 = for(u <- users) yield (mySequence.next, u.id)
     q1.result.statements
     ddl.createStatements

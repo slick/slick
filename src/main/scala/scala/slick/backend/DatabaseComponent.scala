@@ -215,7 +215,7 @@ trait DatabaseComponent { self =>
           var state = initialState
           ctx.sync
           if(state eq null) acquireSession(ctx)
-          var demand = ctx.demand
+          var demand = ctx.demandBatch
           var realDemand = if(demand < 0) demand - Long.MinValue else demand
           do {
             try {
@@ -355,7 +355,9 @@ trait DatabaseComponent { self =>
 
   /** The context object passed to database actions by the execution engine. */
   protected[this] class DatabaseActionContext extends ActionContext[This] {
-    /** A volatile variable to enforce the happens-before relationship when executing something in
+    /** A volatile variable to enforce the happens-before relationship (see
+      * [[https://docs.oracle.com/javase/specs/jls/se7/html/jls-17.html]] and
+      * [[http://gee.cs.oswego.edu/dl/jmm/cookbook.html]]) when executing something in
       * a synchronous action context. It is read when entering the context and written when leaving
       * so that all writes to non-volatile variables within the context are visible to the next
       * synchronous execution. */
@@ -363,6 +365,8 @@ trait DatabaseComponent { self =>
 
     private[DatabaseComponent] var currentSession: Session = null
 
+    /** Used for the sequence counter in Action debug output. This variable is volatile because it
+      * is only updated sequentially but not protected by a synchronous action context. */
     @volatile private[DatabaseComponent] var sequenceCounter = 0
 
     def session: Session = currentSession
@@ -373,20 +377,17 @@ trait DatabaseComponent { self =>
     /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
     private[this] var finished = false
 
-    /** The total number of elements requested. This variable is only used for ensuring that clause
-      * 3.17 of the Reactive Streams spec is not violated. It is accessed from within `request`
-      * which may be called from `onNext` and `onSubscribe` (3.2) which both run in a synchronous
-      * action context and are therefore safe to be called without external synchronization. If
-      * `request` is not only called from event handling methods or, alternatively, from a single
-      * client thread, the client must synchronize access on its own (2.7). */
-    private[this] var requested = 0L
-
     /** The total number of elements requested and not yet marked as delivered by the synchronous
       * streaming action. Whenever this value drops to 0, streaming is suspended. When it is raised
       * up from 0 in `request`, streaming is scheduled to be restarted. It is initially set to
       * `Long.MinValue` when streaming starts. Any negative value above `Long.MinValue` indicates
       * the actual demand at that point. It is reset to 0 when the initial streaming ends. */
     private[this] val remaining = new AtomicLong(Long.MinValue)
+
+    /** The number of remaining elements that are not in the current batch. Unlike `remaining`,
+      * which is decremented at the end of the batch, this is decremented at the beginning. It is
+      * only used for overflow detection according to Reactive Streams spec, 3.17. */
+    private[this] val remainingNotInBatch = new AtomicLong(0L)
 
     /** An error that will be signaled to the Subscriber when the stream is cancelled or
       * terminated. This is used for signaling demand overflow in `request()` while guaranteeing
@@ -410,10 +411,16 @@ trait DatabaseComponent { self =>
       * context which performs the streaming. */
     def delivered(num: Long): Long = remaining.addAndGet(-num)
 
-    /** Get the current demand that has not yet been marked as delivered. When this value is
-      * negative, the initial streaming action is still running and the real demand can be
-      * computed by subtracting `Long.MinValue` from the returned value. */
-    def demand: Long = remaining.get()
+    /** Get the current demand that has not yet been marked as delivered and mark it as being in
+      * the current batch. When this value is negative, the initial streaming action is still
+      * running and the real demand can be computed by subtracting `Long.MinValue` from the
+      * returned value. */
+    def demandBatch: Long = {
+      val demand = remaining.get()
+      val realDemand = if(demand < 0L) demand - Long.MinValue else demand
+      remainingNotInBatch.addAndGet(-realDemand)
+      demand
+    }
 
     /** Whether the stream has been cancelled by the Subscriber */
     def cancelled: Boolean = cancelRequested
@@ -457,13 +464,13 @@ trait DatabaseComponent { self =>
     ////////////////////////////////////////////////////////////////////////// Subscription methods
 
     def request(l: Long): Unit = if(!cancelRequested) {
-      if(l <= 0)
-        throw new IllegalArgumentException("Requested count must not be <= 0 (see Reactive Streams spec, 3.9)")
-      else if(requested + l < 0) {
-        deferredError = new IllegalStateException("Total requested count must not exceed 2^63-1 (see Reactive Streams spec, 3.17)")
+      if(l <= 0) {
+        deferredError = new IllegalArgumentException("Requested count must not be <= 0 (see Reactive Streams spec, 3.9)")
+        cancel
+      } else if(remainingNotInBatch.addAndGet(l) < 0) {
+        deferredError = new IllegalStateException("Pending element count must not exceed 2^63-1 (see Reactive Streams spec, 3.17)")
         cancel
       } else {
-        requested += l
         if(!cancelRequested && remaining.getAndAdd(l) == 0L) restartStreaming
       }
     }

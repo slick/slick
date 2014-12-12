@@ -49,7 +49,7 @@ object FirstExample extends App {
 
 //#create
     // Create the tables, including primary and foreign keys
-    (suppliers.ddl ++ coffees.ddl).create
+    (suppliers.schema ++ coffees.schema).create
 
     // Insert some suppliers
     suppliers += (101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")

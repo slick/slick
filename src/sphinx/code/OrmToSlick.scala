@@ -43,8 +43,8 @@ object OrmToSlick extends App {
   val dbUrl = "jdbc:h2:mem:ormtoslick;DB_CLOSE_DELAY=-1"
 
   Database.forURL(dbUrl,driver=jdbcDriver) withSession { implicit s =>
-    addresses.ddl.create
-    people.ddl.create
+    addresses.schema.create
+    people.schema.create
       
     import scala.slick.jdbc.StaticQuery.interpolation
     sql"ALTER TABLE PERSON ALTER COLUMN NAME VARCHAR(255) DEFAULT('')".as[Int].list
@@ -114,8 +114,8 @@ object OrmToSlick extends App {
       val q = (people: Query[People, Person, Seq]).filter(
         (p: People) => 
           (
-            ((p.age: Column[Int]) < 5 || p.age > 65)
-            : Column[Boolean]
+            ((p.age: Rep[Int]) < 5 || p.age > 65)
+            : Rep[Boolean]
           )
       )
       //#slickQueryWithTypes

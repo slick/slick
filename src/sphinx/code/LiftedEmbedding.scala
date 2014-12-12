@@ -151,7 +151,7 @@ object LiftedEmbedding extends App {
 
   val db: Database = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
 //#ddl
-  val ddl = coffees.ddl ++ suppliers.ddl
+  val ddl = coffees.schema ++ suppliers.schema
   db withDynSession {
     ddl.create
     //...
@@ -163,7 +163,7 @@ object LiftedEmbedding extends App {
   ddl.createStatements.foreach(println)
   ddl.dropStatements.foreach(println)
 //#ddl2
-  TableQuery[A].ddl.createStatements.foreach(println)
+  TableQuery[A].schema.createStatements.foreach(println)
 
   db withDynSession {
     //#filtering
@@ -303,7 +303,7 @@ object LiftedEmbedding extends App {
     //#insert1
     println(statement)
 
-    users.ddl.create
+    users.schema.create
 
     //#insert3
     val userId =
@@ -327,7 +327,7 @@ object LiftedEmbedding extends App {
     }
     val users2 = TableQuery[Users2]
 
-    users2.ddl.create
+    users2.schema.create
 
     users2 insert (users.map { u => (u.id, u.first ++ " " ++ u.last) })
 
@@ -336,8 +336,8 @@ object LiftedEmbedding extends App {
   }
 
   db withDynSession {
-    suppliers.ddl.create
-    coffees.ddl.create
+    suppliers.schema.create
+    coffees.schema.create
     suppliers += (101, "", "", "", "", "")
     coffees += ("Espresso", 101, 0, 0, 0)
     //#update1
@@ -354,7 +354,7 @@ object LiftedEmbedding extends App {
   }
 
   db withDynSession {
-    users.ddl.create
+    users.schema.create
     usersForInsert ++= Seq(
       User(None,"",""),
       User(None,"","")
@@ -362,7 +362,7 @@ object LiftedEmbedding extends App {
 
     {
       //#compiled1
-      def userNameByIDRange(min: Column[Int], max: Column[Int]) =
+      def userNameByIDRange(min: Rep[Int], max: Rep[Int]) =
         for {
           u <- users if u.id >= min && u.id < max
         } yield u.first
@@ -411,7 +411,7 @@ object LiftedEmbedding extends App {
       def * = (day, count)
     }
     val salesPerDay = TableQuery[SalesPerDay]
-    salesPerDay.ddl.create
+    salesPerDay.schema.create
     salesPerDay.insert( (new Date(999999999), 999) )
     //#simplefunction1
     // H2 has a day_of_week() function which extracts the day of week from a timestamp
@@ -424,7 +424,7 @@ object LiftedEmbedding extends App {
     //#simplefunction1
 
     //#simplefunction2
-    def dayOfWeek2(c: Column[Date]) =
+    def dayOfWeek2(c: Rep[Date]) =
       SimpleFunction[Int]("day_of_week").apply(Seq(c))
     //#simplefunction2
 
@@ -494,7 +494,7 @@ object LiftedEmbedding extends App {
       def * = Pair(id, s)
     }
     val as = TableQuery[A]
-    as.ddl.create
+    as.schema.create
 
     // Insert data with the custom shape
     as += Pair(1, "a")
@@ -513,7 +513,7 @@ object LiftedEmbedding extends App {
 
     //#case-class-shape
     // two custom case class variants
-    case class LiftedB(a: Column[Int], b: Column[String])
+    case class LiftedB(a: Rep[Int], b: Rep[String])
     case class B(a: Int, b: String)
 
     // custom case class mapping
@@ -525,7 +525,7 @@ object LiftedEmbedding extends App {
       def * = LiftedB(id, s)
     }
     val bs = TableQuery[BRow]
-    bs.ddl.create
+    bs.schema.create
 
     bs += B(1, "a")
     bs.map(b => (b.id, b.s)) += ((2, "c"))
@@ -541,7 +541,7 @@ object LiftedEmbedding extends App {
 
     //#combining-shapes
     // Combining multiple mapped types
-    case class LiftedC(p: Pair[Column[Int],Column[String]], b: LiftedB)
+    case class LiftedC(p: Pair[Rep[Int],Rep[String]], b: LiftedB)
     case class C(p: Pair[Int,String], b: B)
 
     implicit object CShape extends CaseClassShape(LiftedC.tupled, C.tupled)
@@ -556,7 +556,7 @@ object LiftedEmbedding extends App {
       def * = projection
     }
     val cs = TableQuery[CRow]
-    cs.ddl.create
+    cs.schema.create
 
     cs += C(Pair(7,"x"), B(1,"a"))
     cs += C(Pair(8,"y"), B(2,"c"))

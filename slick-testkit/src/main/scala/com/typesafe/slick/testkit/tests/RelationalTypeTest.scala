@@ -18,10 +18,10 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
       val data = values.zipWithIndex.map { case (d, i) => (i+1, d) }
       val q = tbl.sortBy(_.id)
       seq(
-        tbl.ddl.create,
+        tbl.schema.create,
         tbl ++= data,
         q.result.map(_ shouldBe data),
-        tbl.ddl.drop
+        tbl.schema.drop
       )
     }
 
@@ -48,7 +48,7 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
     val t1 = TableQuery[T1]
 
     seq(
-      t1.ddl.create,
+      t1.schema.create,
       t1 += (1, v),
       t1.map(_.data).result.map(_ shouldBe Seq(v)),
       t1.filter(_.data === v).map(_.id).result.map(_ shouldBe Seq(1)),
@@ -70,7 +70,7 @@ class RelationalTypeTest extends AsyncTest[RelationalTestDB] {
     }
     val ts = TableQuery[T]
     seq(
-      ts.ddl.create,
+      ts.schema.create,
       ts += 42,
       ts.map(_ => ()).result.map(_ shouldBe Seq(())),
       ts.map(a => ((), a)).result.map(_ shouldBe Seq(((), 42))),

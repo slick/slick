@@ -44,20 +44,28 @@ trait HeapBackend extends RelationalBackend with Logging {
     }
 
     protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
-      ExecutionContext.global.prepare.execute(r)
+      executionContext.prepare.execute(r)
   }
 
-  def createEmptyDatabase: Database = new DatabaseDef(ExecutionContext.global) {
-    override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
-                    indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]) =
-      throw new SlickException("Cannot modify empty heap database")
+  def createEmptyDatabase: Database = {
+    def err = throw new SlickException("Unsupported operation for empty heap database")
+    new DatabaseDef(new ExecutionContext {
+      def reportFailure(t: Throwable) = err
+      def execute(runnable: Runnable) = err
+    }) {
+      override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
+                               indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]) = err
+    }
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {
-    /** Create a new heap database instance that uses the supplied ExecutionContext
-      * (or the default value `ExecutionContext.global`) for asynchronous execution of
-      * database actions. */
-    def apply(executionContext: ExecutionContext = ExecutionContext.global): Database = new DatabaseDef(executionContext)
+    /** Create a new heap database instance that uses the global ExecutionContext. */
+    @deprecated("You should explicitly speficy an ExecutionContext in Database.apply()", "2.2")
+    def apply(): Database = new DatabaseDef(ExecutionContext.global)
+
+    /** Create a new heap database instance that uses the supplied ExecutionContext for
+      * asynchronous execution of database actions. */
+    def apply(executionContext: ExecutionContext): Database = new DatabaseDef(executionContext)
   }
 
   class SessionDef(val database: Database) extends super.SessionDef {

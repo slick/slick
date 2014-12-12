@@ -31,7 +31,7 @@ object Connection extends App {
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
     //#forURL
   }
-  val db = Database.forURL("jdbc:h2:mem:test2;INIT="+coffees.ddl.createStatements.mkString("\\;"), driver="org.h2.Driver")
+  val db = Database.forURL("jdbc:h2:mem:test2;INIT="+coffees.schema.createStatements.mkString("\\;"), driver="org.h2.Driver")
   ;{
     //#withSession
     val query = for (c <- coffees) yield c.name

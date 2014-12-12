@@ -28,7 +28,7 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
     }
     val posts = TableQuery[Posts]
 
-    (categories.ddl ++ posts.ddl).create 
+    (categories.schema ++ posts.schema).create
 
     import scala.slick.jdbc.meta.createModel
     // fetch data model

@@ -106,7 +106,7 @@ object StandardTestDBs {
     type Driver = MemoryDriver
     val driver: Driver = MemoryDriver
     val confName: String = "heap"
-    def createDB: profile.Backend#Database = profile.backend.Database()
+    def createDB: profile.Backend#Database = profile.backend.Database(ExecutionContext.global)
     def dropUserArtifacts(implicit session: profile.Backend#Session) {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))

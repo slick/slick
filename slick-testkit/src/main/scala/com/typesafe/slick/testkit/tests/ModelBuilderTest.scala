@@ -111,7 +111,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
     }
     val typeTest = TableQuery[TypeTest]
 
-    val ddl = posts.ddl ++ categories.ddl ++ defaultTest.ddl ++ noDefaultTest.ddl ++ typeTest.ddl
+    val ddl = posts.schema ++ categories.schema ++ defaultTest.schema ++ noDefaultTest.schema ++ typeTest.schema
     ddl.create
     //println(ddl.createStatements.toList.toString)
 

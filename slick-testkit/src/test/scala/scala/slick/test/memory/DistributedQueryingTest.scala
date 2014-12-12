@@ -3,6 +3,7 @@ package scala.slick.test.memory
 import org.junit.Test
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.StandardTestDBs
+import scala.concurrent.ExecutionContext
 import scala.slick.memory.{DistributedDriver, DistributedBackend}
 
 /** Test for the DistributedDriver */
@@ -43,7 +44,7 @@ class DistributedQueryingTest {
         try {
           val db2 = tdb2.createDB()
           try {
-            val db = DistributedBackend.Database(db1, db2)
+            val db = DistributedBackend.Database(Seq(db1, db2), ExecutionContext.global)
             db.withSession { s =>
               f(s.sessions(0).asInstanceOf[tdb1.profile.Backend#Session], s.sessions(1).asInstanceOf[tdb2.profile.Backend#Session], s)
             }
@@ -58,7 +59,7 @@ class DistributedQueryingTest {
     {
       import tdb1.profile.simple._
       implicit val session = s1
-      ts.ddl.create
+      ts.schema.create
       ts ++= tData
       assertEquals(tData.toSet, ts.run.toSet)
     }
@@ -66,7 +67,7 @@ class DistributedQueryingTest {
     {
       import tdb2.profile.simple._
       implicit val session = s2
-      us.ddl.create
+      us.schema.create
       us ++= uData
       assertEquals(uData.toSet, us.run.toSet)
     }

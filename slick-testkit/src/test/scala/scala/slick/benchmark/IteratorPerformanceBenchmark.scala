@@ -13,7 +13,7 @@ object IteratorPerformanceBenchmark {
     val props = TableQuery[Props]
 
     Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession { implicit session =>
-      props.ddl.create
+      props.schema.create
       val count = 10000
       val size = 1000
       for (i <- 1 to size) props.insert("k" + i, "v" + i)

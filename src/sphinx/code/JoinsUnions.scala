@@ -54,14 +54,14 @@ object JoinsUnions extends App{
 
     //#explicit
     val explicitCrossJoin = for {
-      (c, s) <- coffees innerJoin suppliers
+      (c, s) <- coffees join suppliers
     } yield (c.name, s.name)
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     inner join "SUPPLIERS" x3
 
     val explicitInnerJoin = for {
-      (c, s) <- coffees innerJoin suppliers on (_.supID === _.id)
+      (c, s) <- coffees join suppliers on (_.supID === _.id)
     } yield (c.name, s.name)
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
@@ -69,24 +69,24 @@ object JoinsUnions extends App{
     //     on x2."SUP_ID" = x3."SUP_ID"
 
     val explicitLeftOuterJoin = for {
-      (c, s) <- coffees leftJoin suppliers on (_.supID === _.id)
-    } yield (c.name, s.name.?)
+      (c, s) <- coffees joinLeft suppliers on (_.supID === _.id)
+    } yield (c.name, s.map(_.name))
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     left outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
 
     val explicitRightOuterJoin = for {
-      (c, s) <- coffees rightJoin suppliers on (_.supID === _.id)
-    } yield (c.name.?, s.name)
+      (c, s) <- coffees joinRight suppliers on (_.supID === _.id)
+    } yield (c.map(_.name), s.name)
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     right outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
 
     val explicitFullOuterJoin = for {
-      (c, s) <- coffees outerJoin suppliers on (_.supID === _.id)
-    } yield (c.name.?, s.name.?)
+      (c, s) <- coffees joinFull suppliers on (_.supID === _.id)
+    } yield (c.map(_.name), s.map(_.name))
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     full outer join "SUPPLIERS" x3

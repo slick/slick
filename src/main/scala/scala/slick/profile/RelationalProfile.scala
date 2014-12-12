@@ -67,7 +67,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   }
 
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
-    //@deprecated("Use .schema instead of .ddl", "2.2")
+    @deprecated("Use .schema instead of .ddl", "2.2")
     final def ddl: SchemaDescription = schema
 
     /** Get the schema description (DDL) for this table. */
@@ -217,7 +217,7 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
 
     def toNode = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
 
-    //@deprecated("Use .schema instead of .ddl", "2.2")
+    @deprecated("Use .schema instead of .ddl", "2.2")
     final def ddl: SchemaDescription = schema
 
     def schema: SchemaDescription = buildSequenceSchemaDescription(this)

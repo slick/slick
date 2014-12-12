@@ -19,7 +19,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
   val Database = new DatabaseFactoryDef
   val backend: DistributedBackend = this
 
-  class DatabaseDef(val dbs: Vector[DatabaseComponent#DatabaseDef]) extends super.DatabaseDef {
+  class DatabaseDef(val dbs: Vector[DatabaseComponent#DatabaseDef], val executionContext: ExecutionContext) extends super.DatabaseDef {
     def createSession(): Session = {
       val sessions = new ArrayBuffer[DatabaseComponent#Session]
       for(db <- dbs)
@@ -31,7 +31,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
     }
 
     protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
-      ExecutionContext.global.prepare.execute(new Runnable {
+      executionContext.prepare.execute(new Runnable {
         def run(): Unit = blocking(r.run)
       })
 
@@ -39,7 +39,14 @@ trait DistributedBackend extends RelationalBackend with Logging {
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {
-    def apply(dbs: DatabaseComponent#DatabaseDef*): Database = new DatabaseDef(dbs.toVector)
+    /** Create a new distributed database instance that uses the global ExecutionContext. */
+    @deprecated("You should explicitly speficy an ExecutionContext in Database.apply()", "2.2")
+    def apply(dbs: DatabaseComponent#DatabaseDef*): Database = apply(dbs, ExecutionContext.global)
+
+    /** Create a new distributed database instance that uses the supplied ExecutionContext for
+      * asynchronous execution of database actions. */
+    def apply(dbs: TraversableOnce[DatabaseComponent#DatabaseDef], executionContext: ExecutionContext): Database =
+      new DatabaseDef(dbs.toVector, executionContext)
   }
 
   class SessionDef(val sessions: Vector[DatabaseComponent#Session]) extends super.SessionDef {

@@ -28,7 +28,7 @@ import scala.slick.driver.H2Driver.simple._
   Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
     implicit session =>
 //#quick-query
-    coffees.ddl.create
+    coffees.schema.create
 //#quick-query
     ( for( c <- coffees; if c.price < 10.0 ) yield c.name ).list
     // or
@@ -39,7 +39,7 @@ import scala.slick.driver.H2Driver.simple._
   import scala.slick.jdbc.StaticQuery.interpolation
   Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
     implicit session =>
-    coffees.ddl.create
+    coffees.schema.create
     //#what-is-slick-micro-example
     val limit = 10.0
     
@@ -56,7 +56,7 @@ import scala.slick.driver.H2Driver.simple._
 
   Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
     implicit session =>
-    coffees.ddl.create
+    coffees.schema.create
     //#features-scala-collections
     // Query that only returns the "name" column
     coffees.map(_.name)
@@ -68,7 +68,7 @@ import scala.slick.driver.H2Driver.simple._
 
   Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
     implicit session =>
-    coffees.ddl.create
+    coffees.schema.create
     //#features-type-safe
     // The result of "select PRICE from COFFEES" is a Seq of Double
     // because of the type safe column definitions
@@ -82,7 +82,7 @@ import scala.slick.driver.H2Driver.simple._
 
   Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
     implicit session =>
-    coffees.ddl.create
+    coffees.schema.create
     //#features-composable
     // Create a query for coffee names with a price less than 10, sorted by name
     coffees.filter(_.price < 10.0).sortBy(_.name).map(_.name)
