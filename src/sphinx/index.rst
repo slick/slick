@@ -20,7 +20,7 @@ User Manual
    upgrade
    orm-to-slick
    sql-to-slick
-   connection
+   database
    code-generation
    schemas
    queries

@@ -50,6 +50,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val as = TableQuery[A]
     def ins1 = as.map(a => (a.s1, a.s2)) returning as.map(_.id)
     def ins2 = as.map(a => (a.s1, a.s2)) returning as.map(a => (a.id, a.s1))
+    def ins3 = as.map(a => (a.s1, a.s2)) returning as.map(_.id) into ((v, i) => (i, v._1, v._2))
     def ins4 = as.map(a => (a.s1, a.s2)) returning as.map(a => a)
 
     for {
@@ -62,8 +63,9 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         (ins1 += ("c", "d")) map { id2: Int => id2 shouldBe 2 }
       }
       _ <- (ins1 ++= Seq(("e", "f"), ("g", "h"))) map (_ shouldBe Seq(3, 4))
+      _ <- (ins3 += ("i", "j")) map (_ shouldBe (5, "i", "j"))
       _ <- ifCap(jcap.returnInsertOther) {
-        (ins4 += ("k", "l")) map { id5: (Int, String, String) => id5 shouldBe (5, "k", "l") }
+        (ins4 += ("k", "l")) map { id5: (Int, String, String) => id5 shouldBe (6, "k", "l") }
       }
     } yield ()
   }

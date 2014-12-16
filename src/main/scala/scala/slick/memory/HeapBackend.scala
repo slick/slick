@@ -16,12 +16,12 @@ trait HeapBackend extends RelationalBackend with Logging {
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
-  type Effects = Effect.Read with Effect.Write with Effect.Schema with Effect.BackendType[This]
+  type Effects = Effect.Read with Effect.Write with Effect.Schema
 
   val Database = new DatabaseFactoryDef
   val backend: HeapBackend = this
 
-  class DatabaseDef(protected val executionContext: ExecutionContext) extends super.DatabaseDef {
+  class DatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends super.DatabaseDef {
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new SessionDef(this)
     def close(): Unit = ()
@@ -42,9 +42,6 @@ trait HeapBackend extends RelationalBackend with Logging {
     def getTables: IndexedSeq[HeapTable] = synchronized {
       tables.values.toVector
     }
-
-    protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
-      executionContext.prepare.execute(r)
   }
 
   def createEmptyDatabase: Database = {

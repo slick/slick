@@ -145,7 +145,3 @@ is hardcoded to return an ``Int`` value so it does not need the extra ``.as``
 call:
 
 .. includecode:: code/PlainSQL.scala#interpolate.sqlu
-
-Other JDBC features
--------------------
-For accessing other JDBC features like OUT parameters or ``getGeneratedKeys`` you need to use JDBC directly, see :ref:`jdbc-interop`.

@@ -1,17 +1,22 @@
 package com.typesafe.slick.docs
 
-import scala.language.higherKinds
-import scala.slick.driver.H2Driver.simple._
+import java.sql.Blob
 
-/**
- * A simple example that uses statically typed queries against an in-memory
- * H2 database. The example data comes from Oracle's JDBC tutorial at
- * http://download.oracle.com/javase/tutorial/jdbc/basics/tables.html.
- */
+import org.reactivestreams.Publisher
+
+import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{Future, Await}
+import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.language.higherKinds
+import scala.slick.backend.DatabasePublisher
+import scala.slick.driver.H2Driver.api._
+
 object Connection extends App {
-  class Coffees(tag: Tag) extends Table[String](tag, "COFFEES") {
+  class Coffees(tag: Tag) extends Table[(String, Blob)](tag, "COFFEES") {
     def name = column[String]("COF_NAME", O.PrimaryKey)
-    def * = name
+    def image = column[Blob]("IMAGE")
+    def * = (name, image)
   }
   val coffees = TableQuery[Coffees]
   if (false){
@@ -20,104 +25,82 @@ object Connection extends App {
     val db = Database.forDataSource(dataSource: javax.sql.DataSource)
     //#forDataSource
   }
-  if (false){ 
+  if(false) {
     val jndiName = ""
     //#forName
     val db = Database.forName(jndiName: String)
     //#forName
   }
   ;{
+    //#forConfig
+    val db = Database.forConfig("mydb")
+    //#forConfig
+    db.close
+  }
+  ;{
     //#forURL
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
     //#forURL
+    db.close
+  }
+  ;{
+    //#forURL2
+    val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver",
+      executor = AsyncExecutor("test1", numThreads=10, queueSize=1000))
+    //#forURL2
+    db.close
   }
   val db = Database.forURL("jdbc:h2:mem:test2;INIT="+coffees.schema.createStatements.mkString("\\;"), driver="org.h2.Driver")
-  ;{
-    //#withSession
-    val query = for (c <- coffees) yield c.name
-    val result = db.withSession {
-      session =>
-      query.list(session)
-    }
-    //#withSession
-  };{
-    //#withSession-implicit
-    val query = for (c <- coffees) yield c.name
-    val result = db.withSession {
-      implicit session =>
-      query.list // <- takes session implicitly
-    }
-    // query.list // <- would not compile, no implicit value of type Session
-    //#withSession-implicit
-  }
-  //#independentTransaction
-  db.withTransaction{
-    implicit session =>
-    // your queries go here
-  }
-  //#independentTransaction
-  db.withSession {
-    session : Session =>
-    //#transaction
-    session.withTransaction {
-      // your queries go here
+  try {
+    val lines = new ArrayBuffer[Any]()
+    def println(s: Any) = lines += s
+    ;{
+      //#materialize
+      val q = for (c <- coffees) yield c.name
+      val a = q.result
+      val f: Future[Seq[String]] = db.run(a)
 
-      if (/* some failure */ false){
-        session.rollback // signals Slick to rollback later
+      f.onSuccess { case s => println(s"Result: $s") }
+      //#materialize
+      Await.result(f, Duration.Inf)
+    };{
+      //#stream
+      val q = for (c <- coffees) yield c.name
+      val a = q.result
+      val p: DatabasePublisher[String] = db.stream(a)
+
+      // .foreach is a convenience method on DatabasePublisher.
+      // Use Akka Streams for more elaborate stream processing.
+      //#stream
+      val f =
+      //#stream
+      p.foreach { s => println(s"Element: $s") }
+      //#stream
+      Await.result(f, Duration.Inf)
+    };{
+      //#streamblob
+      val q = for (c <- coffees) yield c.image
+      val a = q.result
+      val p1: DatabasePublisher[Blob] = db.stream(a)
+      val p2: DatabasePublisher[Array[Byte]] = p1.mapResult { b =>
+        b.getBytes(0, b.length().toInt)
       }
+      //#streamblob
+    };{
+      //#transaction
+      val a = (for {
+        ns <- coffees.filter(_.name.startsWith("ESPRESSO")).map(_.name).result
+        _ <- Action.seq(ns.map(n => coffees.filter(_.name === n).delete): _*)
+      } yield ()).transactionally
 
-    } // <- rollback happens here, if an exception was thrown or session.rollback was called
-    //#transaction
-  }
-  ;{
-    //#manual-session
-    val query = for (c <- coffees) yield c.name
-    val session : Session = db.createSession
-    val result  = query.list(session)
-    session.close
-    //#manual-session
-  }
-  ;{
-    //#helpers
-    class Helpers(implicit session: Session){
-      def execute[T, C[_]](query: Query[T,_, C]) = query.list
-      // ... place further helpers methods here
+      val f: Future[Unit] = db.run(a)
+      //#transaction
+      Await.result(f, Duration.Inf)
     }
-    val query = for (c <- coffees) yield c.name
-    db.withSession {
-      implicit session =>
-      val helpers = (new Helpers)
-      import helpers._
-      execute(query)
-    }
-    // (new Helpers).execute(query) // <- Would not compile here (no implicit session)
-    //#helpers
-  }
-  ;{
-    //coffees.ddl.create(session)
-    //#dynamicSession
-    //#dynamicSession-import
-    import Database.dynamicSession // <- implicit def dynamicSession : Session
-    //#dynamicSession-import
-    object helpers{
-      def execute[T, C[_]](query: Query[T,_, C]) = query.list // uses dynamicSession to try to get the Session
-    }
-    val query = for (c <- coffees) yield c.name
-    db.withDynSession { // <- creates a Session and stores it as dynamicSession
-      helpers.execute(query)
-    }
-    try{
-      helpers.execute(query) // <- leads to an exception, because execute requires an available session
-    }catch{
-      case e:SlickException =>
-    }
-    //#dynamicSession
-  }
-  ;{
-    //#withSession-empty
-    db.withDynSession {
-      // your queries go here
-    }
-    //#withSession-empty
-  }
+    lines.foreach(Predef.println _)
+  } finally db.close
+
+  //#simpleaction
+  val getAutoCommit = SimpleAction[Boolean](_.session.conn.getAutoCommit)
+  //#simpleaction
 }

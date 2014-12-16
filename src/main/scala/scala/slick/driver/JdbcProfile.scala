@@ -4,7 +4,7 @@ import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast.{BaseTypedType, Node}
 import scala.slick.compiler.{Phase, QueryCompiler, InsertCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{JdbcMappingCompilerComponent, JdbcBackend, Invoker, JdbcType, JdbcFastPath}
+import scala.slick.jdbc._
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 
 /** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
@@ -71,6 +71,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComp
 
   trait API extends LowPriorityAPI with super.API with CommonImplicits {
     type FastPath[T] = JdbcFastPath[T]
+    type SimpleAction[+R] = SimpleJdbcAction[R]
+    val SimpleAction = SimpleJdbcAction
 
     implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: Table[_], _, C]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
@@ -82,6 +84,8 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComp
 
     implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: Action[E, R, S]): JdbcActionExtensionMethods[E, R, S] =
       new JdbcActionExtensionMethods[E, R, S](a)
+
+    implicit def actionBasedSQLInterpolation(s: StringContext) = new ActionBasedSQLInterpolation(s)
   }
 
   val simple: SimpleQL = new SimpleQL {}

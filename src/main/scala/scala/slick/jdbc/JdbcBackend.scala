@@ -28,7 +28,7 @@ trait JdbcBackend extends RelationalBackend {
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
-  type Effects = Effect.Read with Effect.Write with Effect.Schema with Effect.Transactional with Effect.BackendType[This]
+  type Effects = Effect.Read with Effect.Write with Effect.Schema with Effect.Transactional
 
   val Database = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
@@ -50,13 +50,12 @@ trait JdbcBackend extends RelationalBackend {
       * one single element at a time after processing the current one, so that the proper
       * sequencing is preserved even though processing may happen on a different thread. */
     final def stream[T](a: Action[Effects, _, Streaming[T]], bufferNext: Boolean): DatabasePublisher[T] =
-      createPublisher(a, s => new JdbcStreamingDatabaseActionContext(s, DatabaseDef.this, bufferNext))
+      createPublisher(a, s => new JdbcStreamingDatabaseActionContext(s, false, DatabaseDef.this, bufferNext))
 
-    override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T]): StreamingDatabaseActionContext =
-      new JdbcStreamingDatabaseActionContext(s, DatabaseDef.this, true)
+    override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingDatabaseActionContext =
+      new JdbcStreamingDatabaseActionContext(s, useSameThread, DatabaseDef.this, true)
 
-    protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
-      executor.executionContext.prepare.execute(r)
+    protected[this] def synchronousExecutionContext = executor.executionContext
 
     /** Run some code on the [[ioExecutionContext]]. */
     final def io[T](thunk: => T): Future[T] = Future(thunk)(ioExecutionContext)
@@ -152,7 +151,7 @@ trait JdbcBackend extends RelationalBackend {
       *     for an unlimited queue size (not recommended).</li>
       * </ul>
       *
-      * The following additional keys are supported for HikariCP:
+      * The following additional keys are supported for HikariCP only:
       * <ul>
       *   <li>`dataSourceClass` (String, optional): The name of the DataSource class provided by
       *     the JDBC driver. This is preferred over using `driver`. Note that `url` is ignored when
@@ -192,6 +191,14 @@ trait JdbcBackend extends RelationalBackend {
       *     `Connection.isValid()` method is used instead (which is usually preferable).</li>
       *   <li>`registerMbeans` (Boolean, optional, default: false): Whether or not JMX Management
       *     Beans ("MBeans") are registered.</li>
+      * </ul>
+      *
+      * The following additional keys are supported for direct connections only:
+      * <ul>
+      *   <li>`keepAliveConnection` (Boolean, optional, default: false): If this is set to true,
+      *     one extra connection will be opened as soon as the database is accessed for the first
+      *     time, and kept open until `close()` is called. This is useful for named in-memory
+      *     databases in test environments.</li>
       * </ul>
       *
       * Unknown keys are ignored. Invalid values or missing mandatory keys will trigger a
@@ -410,7 +417,7 @@ trait JdbcBackend extends RelationalBackend {
     val supportsBatchUpdates = session.metaData.supportsBatchUpdates
   }
 
-  class JdbcStreamingDatabaseActionContext(subscriber: Subscriber[_], database: Database, val bufferNext: Boolean) extends StreamingDatabaseActionContext(subscriber, database)
+  class JdbcStreamingDatabaseActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends StreamingDatabaseActionContext(subscriber, useSameThread, database)
 }
 
 object JdbcBackend extends JdbcBackend

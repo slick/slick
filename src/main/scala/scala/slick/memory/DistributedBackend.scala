@@ -14,7 +14,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
-  type Effects = Effect.Read with Effect.Write with Effect.Schema with Effect.BackendType[This]
+  type Effects = Effect.Read with Effect.Write with Effect.Schema
 
   val Database = new DatabaseFactoryDef
   val backend: DistributedBackend = this
@@ -30,10 +30,12 @@ trait DistributedBackend extends RelationalBackend with Logging {
       new SessionDef(sessions.toVector)
     }
 
-    protected[this] def scheduleSynchronousDatabaseAction(r: Runnable): Unit =
-      executionContext.prepare.execute(new Runnable {
-        def run(): Unit = blocking(r.run)
+    protected[this] val synchronousExecutionContext: ExecutionContext = new ExecutionContext {
+      def reportFailure(t: Throwable): Unit = executionContext.reportFailure(t)
+      def execute(runnable: Runnable): Unit = executionContext.execute(new Runnable {
+        def run(): Unit = blocking(runnable.run)
       })
+    }
 
     def close(): Unit = ()
   }

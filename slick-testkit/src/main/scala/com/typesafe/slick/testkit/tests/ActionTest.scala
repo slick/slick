@@ -2,6 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
 
 class ActionTest extends AsyncTest[RelationalTestDB] {
@@ -91,5 +92,24 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       r3 <- db.run(q1.result.headOption)
       _ = r3 shouldBe Some(1)
     } yield ()
+  }
+
+  def testUnsafe = {
+    import scala.slick.action.Unsafe._
+
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+
+    runBlocking(db, ts.schema.create >> (ts ++= Seq(2, 3, 1, 5, 4)))
+
+    val q1 = ts.sortBy(_.a).map(_.a)
+    val r1 = ArrayBuffer[Int]()
+    blockingIterator(db, q1.result).foreach { r1 += _ }
+    r1 shouldBe List(1, 2, 3, 4, 5)
+
+    Future.successful(())
   }
 }

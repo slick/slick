@@ -2,8 +2,14 @@ package com.typesafe.slick.examples.lifted
 
 //#imports
 // Use H2Driver to connect to an H2 database
-import scala.slick.driver.H2Driver.simple._
+import scala.slick.driver.H2Driver.api._
+
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 //#imports
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
  * A simple example that uses statically typed queries against an in-memory
@@ -11,6 +17,8 @@ import scala.slick.driver.H2Driver.simple._
  * http://download.oracle.com/javase/tutorial/jdbc/basics/tables.html.
  */
 object FirstExample extends App {
+  val lines = new ArrayBuffer[Any]()
+  def println(s: Any) = lines += s
 
 //#tables
   // Definition of the SUPPLIERS table
@@ -42,39 +50,42 @@ object FirstExample extends App {
 
   // Connect to the database and execute the following block within a session
 //#setup
-  Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver") withSession {
-    implicit session =>
-    // <- write queries here
+  val db = Database.forConfig("h2mem1")
+  try {
+    // ...
 //#setup
 
 //#create
-    // Create the tables, including primary and foreign keys
-    (suppliers.schema ++ coffees.schema).create
+    val setup = Action.seq(
+      // Create the tables, including primary and foreign keys
+      (suppliers.schema ++ coffees.schema).create,
 
-    // Insert some suppliers
-    suppliers += (101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199")
-    suppliers += ( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460")
-    suppliers += (150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966")
+      // Insert some suppliers
+      suppliers += (101, "Acme, Inc.",      "99 Market Street", "Groundsville", "CA", "95199"),
+      suppliers += ( 49, "Superior Coffee", "1 Party Place",    "Mendocino",    "CA", "95460"),
+      suppliers += (150, "The High Ground", "100 Coffee Lane",  "Meadows",      "CA", "93966"),
 
-    // Insert some coffees (using JDBC's batch insert feature, if supported by the DB)
-    coffees ++= Seq(
-      ("Colombian",         101, 7.99, 0, 0),
-      ("French_Roast",       49, 8.99, 0, 0),
-      ("Espresso",          150, 9.99, 0, 0),
-      ("Colombian_Decaf",   101, 8.99, 0, 0),
-      ("French_Roast_Decaf", 49, 9.99, 0, 0)
+      // Insert some coffees (using JDBC's batch insert feature, if supported by the DB)
+      coffees ++= Seq(
+        ("Colombian",         101, 7.99, 0, 0),
+        ("French_Roast",       49, 8.99, 0, 0),
+        ("Espresso",          150, 9.99, 0, 0),
+        ("Colombian_Decaf",   101, 8.99, 0, 0),
+        ("French_Roast_Decaf", 49, 9.99, 0, 0)
+      )
     )
+
+    Await.result(db.run(setup), Duration.Inf)
 //#create
 
-//#foreach
-    // Iterate through all coffees and output them
-//#foreach
+//#readall
+    // Read all coffees and print them to the console
     println("Coffees:")
-//#foreach
-    coffees foreach { case (name, supID, price, sales, total) =>
-      println("  " + name + "\t" + supID + "\t" + price + "\t" + sales + "\t" + total)
+    Await.result(db.run(coffees.result), Duration.Inf).foreach {
+      case (name, supID, price, sales, total) =>
+        println("  " + name + "\t" + supID + "\t" + price + "\t" + sales + "\t" + total)
     }
-//#foreach
+//#readall
 
 //#projection
     // Why not let the database do the string conversion and concatenation?
@@ -87,7 +98,9 @@ object FirstExample extends App {
         "\t" ++ c.total.asColumnOf[String]
     // The first string constant needs to be lifted manually to a LiteralColumn
     // so that the proper ++ operator is found
-    q1 foreach println
+
+    val f = db.stream(q1.result).foreach(println)
+    Await.result(f, Duration.Inf)
 //#projection
 
 //#join
@@ -101,7 +114,9 @@ object FirstExample extends App {
       s <- suppliers if s.id === c.supID
     } yield (c.name, s.name)
 //#join
-    for(t <- q2) println("  " + t._1 + " supplied by " + t._2)
+    Await.result(db.run(q2.result), Duration.Inf).foreach(t =>
+      println("  " + t._1 + " supplied by " + t._2)
+    )
 
     // Do the same thing using the navigable foreign key
     println("Join by foreign key:")
@@ -111,28 +126,10 @@ object FirstExample extends App {
       s <- c.supplier
     } yield (c.name, s.name)
 //#fkjoin
-    // This time we read the result set into a List
-    val l3: List[(String, String)] = q3.list
-    for((s1, s2) <- l3) println("  " + s1 + " supplied by " + s2)
+    Await.result(db.run(q3.result), Duration.Inf).foreach { case (s1, s2) => println("  " + s1 + " supplied by " + s2) }
 
-    // Check the SELECT statement for that query
-    println(q3.selectStatement)
-
-    // Compute the number of coffees by each supplier
-    println("Coffees per supplier:")
-    val q4 = (for {
-      c <- coffees
-      s <- c.supplier
-    } yield (c, s)).groupBy(_._2.id).map {
-      case (_, q) => (q.map(_._2.name).min.get, q.length)
-    }
-    // .get is needed because Slick cannot enforce statically that
-    // the supplier is always available (being a non-nullable foreign key),
-    // thus wrapping it in an Option
-    q4 foreach { case (name, count) =>
-      println("  " + name + ": " + count)
-    }
+    lines.foreach(Predef.println _)
 //#setup
-  }
+  } finally db.close
 //#setup
 }

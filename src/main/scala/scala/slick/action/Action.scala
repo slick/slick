@@ -131,7 +131,12 @@ object Action {
     * varargs and returns an Action that performs the individual Actions in sequence (using
     * `andThen`), returning `()` in the end. */
   def seq[E <: Effect](actions: Action[E, _, NoStream]*): Action[E, Unit, NoStream] =
-    (actions :+ Action.successful(())).reduceLeft(_ andThen _).asInstanceOf[Action[E, Unit, NoStream]]
+    (actions :+ SuccessAction(())).reduceLeft(_ andThen _).asInstanceOf[Action[E, Unit, NoStream]]
+
+  /** Create an Action that runs some other actions in sequence and combines their results
+    * with the given function. */
+  def fold[E <: Effect, T](actions: Seq[Action[E, T, NoStream]], zero: T)(f: (T, T) => T)(implicit ec: ExecutionContext): Action[E, T, NoStream] =
+    actions.foldLeft[Action[E, T, NoStream]](Action.successful(zero)) { (za, va) => za.flatMap(z => va.map(v => f(z, v))) }
 
   /** An Action that pins the current session */
   private[slick] object Pin extends SynchronousDatabaseAction[DatabaseComponent, Effect, Unit, NoStream] {
@@ -153,20 +158,21 @@ object Action {
   }
 }
 
-/** An Action that represents a database operation. Concrete implementations are backend-specific
-  * and therefore carry a `BackendType` effect. */
-trait DatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: NoStream] extends Action[E with Effect.BackendType[B], R, S] {
+/** An Action that represents a database operation. Concrete implementations are backend-specific. */
+trait DatabaseAction[-E <: Effect, +R, +S <: NoStream] extends Action[E, R, S] {
   override def isLogged = true
 }
 
 /** An Action that returns a constant value. */
-case class SuccessAction[+R](value: R) extends Action[Effect, R, NoStream] {
+case class SuccessAction[+R](value: R) extends SynchronousDatabaseAction[Nothing, Effect, R, NoStream] {
   def getDumpInfo = DumpInfo("success", String.valueOf(value))
+  def run(ctx: ActionContext[Nothing]): R = value
 }
 
 /** An Action that fails. */
-case class FailureAction(t: Throwable) extends Action[Effect, Nothing, NoStream] {
+case class FailureAction(t: Throwable) extends SynchronousDatabaseAction[Nothing, Effect, Nothing, NoStream] {
   def getDumpInfo = DumpInfo("failure", String.valueOf(t))
+  def run(ctx: ActionContext[Nothing]): Nothing = throw t
 }
 
 /** An asynchronous Action that returns the result of a Future. */
@@ -253,7 +259,7 @@ trait StreamingActionContext[+B <: DatabaseComponent] extends ActionContext[B] {
   * The execution engine ensures that an [[ActionContext]] is never used concurrently and that
   * all state changes performed by one invocation of a SynchronousDatabaseAction are visible
   * to the next invocation of the same or a different SynchronousDatabaseAction. */
-trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: NoStream] extends DatabaseAction[B, E, R, S] { self =>
+trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: NoStream] extends DatabaseAction[E, R, S] { self =>
   /** The type used by this action for the state of a suspended stream. A call to `emitStream`
     * produces such a state which is then fed back into the next call. */
   type StreamState >: Null <: AnyRef
@@ -284,32 +290,32 @@ trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: 
   def supportsStreaming: Boolean = true
 
   private[this] def superAndThen[E2 <: Effect, R2, S2 <: NoStream](a: Action[E2, R2, S2]) = super.andThen[E2, R2, S2](a)
-  override def andThen[E2 <: Effect, R2, S2 <: NoStream](a: Action[E2, R2, S2]): Action[E with Effect.BackendType[B] with E2, R2, S2] = a match {
+  override def andThen[E2 <: Effect, R2, S2 <: NoStream](a: Action[E2, R2, S2]): Action[E with E2, R2, S2] = a match {
     case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[B, E with E2, R2, S2] {
       def run(context: ActionContext[B]): R2 = {
         self.run(context)
         a.asInstanceOf[SynchronousDatabaseAction[B, E2, R2, S2]].run(context)
       }
-      override def nonFusedEquivalentAction: Action[E with Effect.BackendType[B] with E2, R2, S2] = superAndThen(a)
+      override def nonFusedEquivalentAction: Action[E with E2, R2, S2] = superAndThen(a)
     }
     case a => superAndThen(a)
   }
 
   private[this] def superZip[E2 <: Effect, R2](a: Action[E2, R2, NoStream]) = super.zip[E2, R2](a)
-  override def zip[E2 <: Effect, R2](a: Action[E2, R2, NoStream]): Action[E with Effect.BackendType[B] with E2, (R, R2), NoStream] = a match {
+  override def zip[E2 <: Effect, R2](a: Action[E2, R2, NoStream]): Action[E with E2, (R, R2), NoStream] = a match {
     case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[B, E with E2, (R, R2), NoStream] {
       def run(context: ActionContext[B]): (R, R2) = {
         val r1 = self.run(context)
         val r2 = a.asInstanceOf[SynchronousDatabaseAction[B, E2, R2, NoStream]].run(context)
         (r1, r2)
       }
-      override def nonFusedEquivalentAction: Action[E with Effect.BackendType[B] with E2, (R, R2), NoStream] = superZip(a)
+      override def nonFusedEquivalentAction: Action[E with E2, (R, R2), NoStream] = superZip(a)
     }
     case a => superZip(a)
   }
 
   private[this] def superAndFinally[E2 <: Effect](a: Action[E2, _, NoStream]) = super.andFinally[E2](a)
-  override def andFinally[E2 <: Effect](a: Action[E2, _, NoStream]): Action[E with Effect.BackendType[B] with E2, R, S] = a match {
+  override def andFinally[E2 <: Effect](a: Action[E2, _, NoStream]): Action[E with E2, R, S] = a match {
     case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[B, E with E2, R, S] {
       def run(context: ActionContext[B]): R = {
         val res = try self.run(context) catch {
@@ -320,13 +326,13 @@ trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: 
         a.asInstanceOf[SynchronousDatabaseAction[B, E2, Any, S]].run(context)
         res
       }
-      override def nonFusedEquivalentAction: Action[E with Effect.BackendType[B] with E2, R, S] = superAndFinally(a)
+      override def nonFusedEquivalentAction: Action[E with E2, R, S] = superAndFinally(a)
     }
     case a => superAndFinally(a)
   }
 
   private[this] def superWithPinnedSession = super.withPinnedSession
-  override def withPinnedSession: Action[E with Effect.BackendType[B], R, S] = new SynchronousDatabaseAction.Fused[B, E, R, S] {
+  override def withPinnedSession: Action[E, R, S] = new SynchronousDatabaseAction.Fused[B, E, R, S] {
     def run(context: ActionContext[B]): R = {
       context.pin
       val res = try self.run(context) catch {
@@ -340,8 +346,8 @@ trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: 
     override def nonFusedEquivalentAction = superWithPinnedSession
   }
 
-  private[this] def superFailed: Action[E with Effect.BackendType[B], Throwable, NoStream] = super.failed
-  override def failed: Action[E with Effect.BackendType[B], Throwable, NoStream] = new SynchronousDatabaseAction.Fused[B, E, Throwable, NoStream] {
+  private[this] def superFailed: Action[E, Throwable, NoStream] = super.failed
+  override def failed: Action[E, Throwable, NoStream] = new SynchronousDatabaseAction.Fused[B, E, Throwable, NoStream] {
     def run(context: ActionContext[B]): Throwable = {
       var ok = false
       try {
@@ -355,8 +361,8 @@ trait SynchronousDatabaseAction[B <: DatabaseComponent, -E <: Effect, +R, +S <: 
     override def nonFusedEquivalentAction = superFailed
   }
 
-  private[this] def superAsTry: Action[E with Effect.BackendType[B], Try[R], NoStream] = super.asTry
-  override def asTry: Action[E with Effect.BackendType[B], Try[R], NoStream] = new SynchronousDatabaseAction.Fused[B, E, Try[R], NoStream] {
+  private[this] def superAsTry: Action[E, Try[R], NoStream] = super.asTry
+  override def asTry: Action[E, Try[R], NoStream] = new SynchronousDatabaseAction.Fused[B, E, Try[R], NoStream] {
     def run(context: ActionContext[B]): Try[R] = {
       try Success(self.run(context)) catch {
         case NonFatal(ex) => Failure(ex)
@@ -391,10 +397,6 @@ object Effect {
   trait Schema extends Effect
   /** Effect for transactional Actions ("DTL") */
   trait Transactional extends Effect
-  /** This effect ties an Action to a specific backend. All primitive database Actions carry this
-    * effect to prevent execution on the wrong backend. The generic Action combinators do not have
-    * this effect because they must be supported by all backends. */
-  trait BackendType[+B <: DatabaseComponent] extends Effect
 }
 
 /** A phantom type used as the streaming result type for Actions that do not support streaming.

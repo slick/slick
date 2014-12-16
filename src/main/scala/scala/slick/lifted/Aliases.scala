@@ -56,4 +56,6 @@ trait Aliases {
   val Effect = action.Effect
   type NoStream = action.NoStream
   type Streaming[+T] = action.Streaming[T]
+  type AsyncExecutor = util.AsyncExecutor
+  val AsyncExecutor = util.AsyncExecutor
 }

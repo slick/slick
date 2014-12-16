@@ -273,7 +273,9 @@ object SlickBuild extends Build {
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test")
     ))
   ).configs(DocTest).settings(inConfig(DocTest)(Defaults.testSettings): _*).settings(
-    unmanagedSourceDirectories in DocTest <+= (baseDirectory in slickProject) { _ / "src/sphinx/code" }
+    unmanagedSourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/code",
+    unmanagedResourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/resources",
+    libraryDependencies ++= Dependencies.pools.map(_ % "test")
     //resourceDirectory in DocTest <<= baseDirectory { _ / "src/test/resources" }
     //test <<= Seq(test in Test, test in DocTest).dependOn,
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),

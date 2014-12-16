@@ -50,4 +50,9 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     }
     Action.successful(()).flatMap { _ => TableQuery[Foo].schema.create }.failed.map(_.shouldBeA[SlickException])
   }
+
+  def testSimpleAction = {
+    val getAutoCommit = SimpleAction[Boolean](_.session.conn.getAutoCommit)
+    getAutoCommit.map(_ shouldBe true)
+  }
 }

@@ -71,7 +71,10 @@ trait DriverBasedJdbcDataSource extends JdbcDataSource {
 /** A JdbcDataSource for lookup via a `Driver` or the `DriverManager` */
 class DriverJdbcDataSource(url: String, user: String, password: String, prop: Properties,
                            driverName: String = null, driver: Driver = null,
-                           connectionPreparer: ConnectionPreparer = null) extends DriverBasedJdbcDataSource {
+                           connectionPreparer: ConnectionPreparer = null,
+                           keepAliveConnection: Boolean = false) extends DriverBasedJdbcDataSource {
+  private[this] var openedKeepAliveConnection: Connection = null
+
   registerDriver(driverName, url)
 
   val connectionProps = if(prop.ne(null) && user.eq(null) && password.eq(null)) prop else {
@@ -82,6 +85,16 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
   }
 
   def createConnection(): Connection = {
+    if(keepAliveConnection) {
+      synchronized {
+        if(openedKeepAliveConnection eq null)
+          openedKeepAliveConnection = internalCreateConnection()
+      }
+    }
+    internalCreateConnection()
+  }
+
+  protected[this] def internalCreateConnection(): Connection = {
     val conn = (if(driver eq null) DriverManager.getConnection(url, connectionProps)
     else {
       val conn = driver.connect(url, connectionProps)
@@ -93,7 +106,9 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
     conn
   }
 
-  def close(): Unit = ()
+  def close(): Unit = if(keepAliveConnection) {
+    if(openedKeepAliveConnection ne null) openedKeepAliveConnection.close()
+  }
 }
 
 object DriverJdbcDataSource extends JdbcDataSourceFactory {
@@ -106,7 +121,8 @@ object DriverJdbcDataSource extends JdbcDataSourceFactory {
       c.getPropertiesOr("properties"),
       c.getStringOr("driver", c.getStringOr("driverClassName")),
       driver,
-      if(cp.isLive) cp else null)
+      if(cp.isLive) cp else null,
+      c.getBooleanOr("keepAliveConnection"))
   }
 }
 
@@ -126,7 +142,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     // Connection settings
     hconf.setDataSourceClassName(c.getStringOr("dataSourceClass", null))
-    hconf.setDriverClassName(c.getStringOr("driverClassName", c.getStringOr("driver")))
+    Option(c.getStringOr("driverClassName", c.getStringOr("driver"))).map(hconf.setDriverClassName _)
     hconf.setJdbcUrl(c.getStringOr("url", null))
     c.getStringOpt("user").foreach(hconf.setUsername)
     c.getStringOpt("password").foreach(hconf.setPassword)

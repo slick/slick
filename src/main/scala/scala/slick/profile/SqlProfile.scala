@@ -157,7 +157,7 @@ trait SqlActionComponent extends RelationalActionComponent { driver: SqlDriver =
 
   trait DriverActionDef[-E <: Effect, +R, +S <: NoStream] extends super.DriverActionDef[E, R, S] {
     /** Return the SQL statements that will be executed for this Action */
-    def statements: Iterator[String]
+    def statements: Iterable[String]
 
     def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), mainInfo = statements.mkString("[", "; ", "]"))
   }

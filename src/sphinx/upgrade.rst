@@ -1,30 +1,60 @@
 .. index:: migration, 1.0, upgrading
 
 Upgrade guides
-==========================================
+##############
+
+Upgrade from 2.1 to 2.2
+=======================
+
+Actions
+-------
+
+The ``simple`` and ``Implicits`` imports from drivers are deprecated. You should use ``api`` instead, which will give
+you the same features, except for the old ``Invoker`` and ``Executor`` APIs for blocking execution of database calls.
+These have been replaced by a new monadic database actions API. See :doc:`Databases & Actions <database>` for details
+of the new API.
+
+Join Operators
+--------------
+
+The old outer join operators did not handle ``null`` values correctly, requiring complicated mappings in user code,
+especially when using nested outer joins or outer joins over mapped entities. This is no longer necessary with the
+new outer join operators that lift one (left or right outer join) or both sides (full outer join) of the join into an
+``Option``. This is made possible by the new nested Options and non-primitive Options support in Slick.
+
+The old operators are deprecated but still available. Deprecation warnings will point you to the right replacement:
+
+- leftJoin -> joinLeft
+- rightJoin -> joinRight
+- outerJoin -> joinFull
+- innerJoin -> join
+
+Passing an explicit ``JoinType`` to the generic ``join`` operator does not make sense anymore with the new join
+semantics and is therefore deprecated, too. ``join`` is now used exclusively for inner joins.
 
 Upgrade from 2.0 to 2.1
--------------------------------------
+=======================
+
 Query type parameters
-_____________________
+---------------------
 :api:`Query <scala.slick.lifted.Query>` now takes 3 type parameters instead of two. 2.0's ``Query[T,E]`` is equivalent to Slick 2.1's ``Query[T,E,Seq]``. The third parameter is the collection type to be returned when executing the query using ``.run``, which always returned a ``Seq`` in Slick 2.0. This is the only place where it is used right now. In the future we will work on making queries correspond to the behavior of the corresponding Scala collection types, i.e. ``Query[_,_,Set]`` having the uniqueness property, ``Query[_,_,List]`` being order preserving, etc. The collecton type can be changed to ``C`` by calling ``.to[C]`` on a query.
 
 To upgrade your code to 2.1 you can either rename the new Query type to something else in the import, i.e. ``import ....simple.{Query=>NewQuery,_}`` and then write a type alias ``type Query[T,E] = NewQuery[T,E,Seq]``. Or you can add ``Seq`` as the third type argument in your code. This regex should work for most places: replace ``([^a-zA-Z])Query\[([^\]]+), ?([^\]]+)\]`` with ``\1Query[\2, \3, Seq]``.
 
 ``.list`` and ``.first``
-___________________________
+------------------------
 These methods had an empty argument list before the implicit argument list in 2.0. This has been dropped for uniformity. Calls like ``.list()`` need to be replaced with ``.list`` and ``.first()`` by ``.first``.
 
 ``.where``
-__________
+----------
 This method has been deprecated in favor of the Scala collections conformant ``.filter`` method.
 
 ``.isNull`` and ``.isNotNull``
-__________________________________
+------------------------------
 These methods have been deprecated in favor of new Scala standard library conformant ``isEmpty`` and ``isDefined`` methods. They can now only be used on Option columns. Otherwise you get a type error. A quick workaround for using them on non-Option columns is casting them into Option columns using ``.?``, e.g. ``someCol.?.isDefined``. The reason that you have to do this points to using a wrong type for your column however, i.e. non-Option for a nullable column and should really be fixed in your Table definition.
 
 Static Plain SQL Queries
-________________________
+------------------------
 The interface for using argument placeholders has been changed. Where in 2.0 you could write
 
 ``StaticQuery.query[T,…]("select ...").list(someT)``
@@ -34,7 +64,7 @@ you now have to write
 ``StaticQuery.query[T,…]("select ...").apply(someT).list``
 
 Slick code generator / Slick model
-__________________________________
+----------------------------------
 The code generator has been moved into a separate artifact in order to evolve it faster than Slick core. it moved from package ``scala.slick.model.codegen`` to package ``scala.slick.codegen``. Binary compatibility will not be guaranteed, as it is supposed to be used before compile time. Add
 
 .. parsed-literal::
@@ -54,14 +84,14 @@ will embed the portable length into generated code and can optionally embed the 
 The new ``ModelBuilder`` can be extended to customize model creation from jdbc meta data, similar to how the code generator can be customized. This allows working around differences and bugs in jdbc drivers, when creating the model or making up for missing features in Slick, e.g supporting specific types of your dbms of choice.
 
 Upgrade from 1.0 to 2.0
--------------------------------------
+=======================
 
 Slick 2.0 contains some improvements which are not source compatible with Slick
 1.0. When migrating your application from 1.0 to 2.0, you will likely need to
 perform changes in the following areas.
 
 Code Generation
-_______________
+---------------
 
 Instead of writing your table descriptions or plain SQL mappers by hand, in 2.0 you can
 now automatically generate them from your database schema. The code-generator
@@ -71,7 +101,7 @@ is flexible enough to customize it's output to fit exactly what you need.
 .. index:: table object, ~, tuple
 
 Table Descriptions
-__________________
+------------------
 
 In Slick 1.0 tables were defined by a single ``val`` or ``object`` (called the
 *table object*) and the ``*`` projection was limited to a flat tuple of columns
@@ -113,7 +143,7 @@ to ``findBy``. It is defined as an *extension method* for ``TableQuery``, so
 you have to prefix the call with ``this.`` (see code snippet above).
 
 Mapped Tables
-_____________
+-------------
 
 In 1.0 the ``<>`` method for bidirectional mappings was overloaded for
 different arities so you could directly pass a case class's ``apply`` method to
@@ -149,7 +179,7 @@ function and then call ``.tupled``:
 .. index:: profile, BasicProfile, ExtendedProfile, JdbcProfile
 
 Profile Hierarchy
-_________________
+-----------------
 
 Slick 1.0 provided two *profiles*, ``BasicProfile`` and ``ExtendedProfile``.
 These two have been unified in 2.0 as ``JdbcProfile``. Slick now provides
@@ -161,7 +191,7 @@ drivers. In particular, pay attention to the fact that ``BasicProfile``
 in 2.0 is very different from ``BasicProfile`` in 1.0.
 
 Inserting
-_________
+---------
 
 In Slick 1.0 you used to construct a projection for inserting from the
 *table object*::
@@ -210,7 +240,7 @@ If you really want to insert into an ``AutoInc`` field, you can use the new
 methods ``forceInsert`` and ``forceInsertAll``.
 
 Pre-compiled Updates
-____________________
+--------------------
 Slick now supports pre-compilation of updates in the same manner like selects, see
 :ref:`compiled-queries`.
 
@@ -218,7 +248,7 @@ Slick now supports pre-compilation of updates in the same manner like selects, s
    pair: session; package
 
 Database and Session Handling
-_____________________________
+-----------------------------
 
 In Slick 1.0, the common JDBC-based ``Database`` and ``Session`` types, as well
 as the ``Database`` factory object, could be found in the package
@@ -232,7 +262,7 @@ importing ``simple._`` from a driver will automatically bring these types into
 scope.
 
 Dynamically and Statically Scoped Sessions
-__________________________________________
+------------------------------------------
 
 Slick 2.0 still supports both, thread-local dynamic sessions and statically
 scoped sessions, but the syntax has changed to make the recommended way of
@@ -270,7 +300,7 @@ Static sessions are safer.
 .. index:: MappedTypeMapper
 
 Mapped Column Types
-___________________
+-------------------
 
 Slick 1.0's ``MappedTypeMapper`` has been renamed to
 :api:`MappedColumnType <scala.slick.driver.JdbcTypesComponent@MappedColumnType:JdbcDriver.MappedColumnTypeFactory>`.

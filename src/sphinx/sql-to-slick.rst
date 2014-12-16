@@ -99,11 +99,6 @@ More information can be found in the chapter about :ref:`Scalar database functio
 
 You can however not add operators operating on queries using database functions. The Slick Scala-to-SQL compiler requires knowledge about the structure of the query in order to compile it to the most simple SQL query it can produce. It currently couldn't handle custom query operators in that context. (There are some ideas how this restriction can be somewhat lifted in the future, but it needs more investigation). An example for such operator is a MySQL index hint, which is not supported by Slick's type-safe api and it cannot be added by users. If you require such an operator you have to write your whole query using Plain SQL. If the operator does not change the return type of the query you could alternatively use the workaround described in the following section.
 
-Unsupported JDBC features
-________________________________________________________
-
-There are some JDBC feature Slick simply doesn't currently support. Some of these are OUT-Parameters, stored procedures returning tables, multiple result sets. Often you can still use them by simply accessing the JDBC connection underlying a Slick session. More info can be found in the section about :ref:`JDBC interop <jdbc-interop>`. 
-
 Non-optimal SQL code
 ________________________________________________________
 

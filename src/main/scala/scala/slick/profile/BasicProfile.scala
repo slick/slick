@@ -221,7 +221,7 @@ trait BasicActionComponent { driver: BasicDriver =>
   type DriverAction[-E <: Effect, +R, +S <: NoStream] <: DriverActionDef[E, R, S]
   type StreamingDriverAction[-E <: Effect, +R, +T] <: StreamingDriverActionDef[E, R, T] with DriverAction[E, R, Streaming[T]]
 
-  trait DriverActionDef[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[Backend#This, E, R, S]
+  trait DriverActionDef[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[E, R, S]
 
   trait StreamingDriverActionDef[-E <: Effect, +R, +T] extends DriverActionDef[E, R, Streaming[T]] {
     /** Create an Action that returns only the first value of this stream of data. The Action will

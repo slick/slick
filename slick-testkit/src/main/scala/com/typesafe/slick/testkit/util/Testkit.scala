@@ -213,7 +213,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   def ifNotCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
 
-  def asAction[R](f: tdb.profile.Backend#Session => R): Action[Effect.BackendType[tdb.profile.Backend], R, NoStream] =
+  def asAction[R](f: tdb.profile.Backend#Session => R): Action[Effect, R, NoStream] =
     new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R, NoStream] {
       def run(context: ActionContext[tdb.profile.Backend]): R = f(context.session)
       def getDumpInfo = DumpInfo(name = "<asAction>")
