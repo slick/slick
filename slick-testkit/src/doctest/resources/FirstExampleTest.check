@@ -18,8 +18,3 @@ Join by foreign key:
   Colombian supplied by Acme, Inc.
   French_Roast supplied by Superior Coffee
   Colombian_Decaf supplied by Acme, Inc.
-select...
-Coffees per supplier:
-  Superior Coffee: 2
-  Acme, Inc.: 2
-  The High Ground: 1

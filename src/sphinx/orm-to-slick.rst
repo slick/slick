@@ -13,7 +13,7 @@ In practice, ORMs often suffer from conceptual problems of what they try to achi
 
 Configuration
 -------------
-Some ORMs use extensive configuration files. Slick is configured using small amounts of Scala code. You have to provide information about how to :doc:`connect to the database <connection>` and write or auto-generate a :doc:`database-schema <schemas>` description if you want Slick to type-check your queries. Everything else like :ref:`relationship definitions <orm-relationships>` beyond foreign keys are ordinary Scala code, which can use familiar abstraction methods for re-use.
+Some ORMs use extensive configuration files. Slick is configured using small amounts of Scala code. You have to provide information about how to :doc:`connect to the database <database>` and write or auto-generate a :doc:`database-schema <schemas>` description if you want Slick to type-check your queries. Everything else like :ref:`relationship definitions <orm-relationships>` beyond foreign keys are ordinary Scala code, which can use familiar abstraction methods for re-use.
 
 Mapping configuration.
 --------------------------------

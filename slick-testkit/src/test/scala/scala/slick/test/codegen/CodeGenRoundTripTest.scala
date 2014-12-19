@@ -19,9 +19,9 @@ class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
     import Tables._
     //println(ddl.createStatements.mkString("\n"))
     try{
-      ddl.create
+      schema.create
     } catch {
-      case e:java.sql.SQLSyntaxErrorException => println(ddl.createStatements.mkString("\n")); throw e
+      case e:java.sql.SQLSyntaxErrorException => println(schema.createStatements.mkString("\n")); throw e
     }
     Categories.insert( CategoriesRow(1,"cat") )
     Posts.insertAll(

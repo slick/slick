@@ -1,0 +1,14 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="ReactiveStreams" verbose="0" >
+    <test name="ReactiveStreams">
+        <classes>
+            <class name="scala.slick.test.stream.JdbcPublisherTest"/>
+            <class name="scala.slick.test.stream.HeapPublisherTest"/>
+        </classes>
+    </test>
+
+    <listeners>
+        <listener class-name="scala.slick.test.stream.TestNGConsoleListener" />
+    </listeners>
+</suite>

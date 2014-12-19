@@ -1,0 +1,46 @@
+<configuration>
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>*** \(%logger{30}\) %msg%n</pattern>
+        </encoder>
+    </appender>
+    <root level="${log.root:-info}">
+        <appender-ref ref="STDOUT" />
+    </root>
+    <logger name="scala.slick.backend.DatabaseComponent.action"   level="${log.action:-info}" />
+    <logger name="scala.slick.backend.DatabaseComponent.stream"   level="${log.stream:-info}" />
+    <logger name="scala.slick.compiler"                           level="${log.qcomp:-info}" />
+    <logger name="scala.slick.compiler.QueryCompiler"             level="${log.qcomp.phases:-inherited}" />
+    <logger name="scala.slick.compiler.QueryCompilerBenchmark"    level="${log.qcomp.bench:-inherited}" />
+    <logger name="scala.slick.compiler.Inline"                    level="${log.qcomp.inline:-inherited}" />
+    <logger name="scala.slick.compiler.AssignUniqueSymbols"       level="${log.qcomp.assignUniqueSymbols:-inherited}" />
+    <logger name="scala.slick.compiler.InferTypes"                level="${log.qcomp.inferTypes:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandTables"              level="${log.qcomp.expandTables:-inherited}" />
+    <logger name="scala.slick.compiler.CreateResultSetMapping"    level="${log.qcomp.createResultSetMapping:-inherited}" />
+    <logger name="scala.slick.compiler.EmulateOuterJoins"         level="${log.qcomp.emulateOuterJoins:-inherited}" />
+    <logger name="scala.slick.compiler.ForceOuterBinds"           level="${log.qcomp.forceOuterBinds:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandSums"                level="${log.qcomp.expandSums:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandRecords"             level="${log.qcomp.expandRecords:-inherited}" />
+    <logger name="scala.slick.compiler.ExpandConditionals"        level="${log.qcomp.expandConditionals:-inherited}" />
+    <logger name="scala.slick.compiler.FlattenProjections"        level="${log.qcomp.flattenProjections:-inherited}" />
+    <logger name="scala.slick.compiler.RelabelUnions"             level="${log.qcomp.relabelUnions:-inherited}" />
+    <logger name="scala.slick.compiler.PruneFields"               level="${log.qcomp.pruneFields:-inherited}" />
+    <logger name="scala.slick.compiler.ResolveZipJoins"           level="${log.qcomp.resolveZipJoins:-inherited}" />
+    <logger name="scala.slick.compiler.ConvertToComprehensions"   level="${log.qcomp.convertToComprehensions:-inherited}" />
+    <logger name="scala.slick.compiler.FuseComprehensions"        level="${log.qcomp.fuseComprehensions:-inherited}" />
+    <logger name="scala.slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
+    <logger name="scala.slick.compiler.HoistClientOps"            level="${log.qcomp.hoistClientOps:-inherited}" />
+    <logger name="scala.slick.compiler.RewriteBooleans"           level="${log.qcomp.rewriteBooleans:-inherited}" />
+    <logger name="scala.slick.compiler.SpecializeParameters"      level="${log.qcomp.specializeParameters:-inherited}" />
+    <logger name="scala.slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />
+    <logger name="scala.slick.compiler.InsertCompiler"            level="${log.qcomp.insertCompiler:-inherited}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.jdbc.statement:-info}" />
+    <logger name="scala.slick.jdbc.JdbcBackend.benchmark"         level="${log.jdbc.bench:-info}" />
+    <logger name="scala.slick.jdbc.StatementInvoker.result"       level="${log.jdbc.result:-info}" />
+    <logger name="scala.slick.jdbc.meta"                          level="${log.createModel:-info}" />
+    <logger name="scala.slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
+    <logger name="scala.slick.memory.HeapBackend$"                level="${log.heap:-inherited}" />
+    <logger name="scala.slick.memory.QueryInterpreter"            level="${log.interpreter:-inherited}" />
+    <logger name="scala.slick.relational.ResultConverterCompiler" level="${log.resultConverter:-inherited}" />
+    <logger name="scala.slick.util.AsyncExecutor$"                level="${log.asyncExecutor:-inherited}" />
+</configuration>

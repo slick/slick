@@ -1,7 +1,7 @@
 package com.typesafe.slick.docsnippets
 
-import scala.slick.driver.H2Driver.simple._
-import Database.dynamicSession
+import scala.slick.action.Unsafe
+import scala.slick.driver.H2Driver.api._
 import java.sql.Date
 import scala.reflect.ClassTag
 
@@ -151,21 +151,21 @@ object LiftedEmbedding extends App {
 
   val db: Database = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
 //#ddl
-  val ddl = coffees.ddl ++ suppliers.ddl
-  db withDynSession {
-    ddl.create
+  val schema = coffees.schema ++ suppliers.schema
+  db.run(Action.seq(
+    schema.create,
     //...
-    ddl.drop
-  }
+    schema.drop
+  ))
 //#ddl
 
 //#ddl2
-  ddl.createStatements.foreach(println)
-  ddl.dropStatements.foreach(println)
+  schema.create.statements.foreach(println)
+  schema.drop.statements.foreach(println)
 //#ddl2
-  TableQuery[A].ddl.createStatements.foreach(println)
+  TableQuery[A].schema.create.statements.foreach(println)
 
-  db withDynSession {
+  ;{
     //#filtering
     val q1 = coffees.filter(_.supID === 101)
     // compiles to SQL (simplified):
@@ -185,12 +185,12 @@ object LiftedEmbedding extends App {
     //     from "COFFEES"
     //     order by "COF_NAME" desc nulls first
     //#filtering
-    println(q1.selectStatement)
-    println(q2.selectStatement)
-    println(q3.selectStatement)
+    println(q1.result.statements.head)
+    println(q2.result.statements.head)
+    println(q3.result.statements.head)
   }
 
-  db withDynSession {
+  ;{
     //#aggregation1
     val q = coffees.map(_.price)
 
@@ -210,15 +210,15 @@ object LiftedEmbedding extends App {
     // compiles to SQL (simplified):
     //   select avg(x4."PRICE") from "COFFEES" x4
     //#aggregation1
-    println(q.selectStatement)
-    println(q1.shaped.selectStatement)
-    println(q2.shaped.selectStatement)
-    println(q3.shaped.selectStatement)
-    println(q4.shaped.selectStatement)
+    println(q.result.statements.head)
+    println(q1.shaped.result.statements.head)
+    println(q2.shaped.result.statements.head)
+    println(q3.shaped.result.statements.head)
+    println(q4.shaped.result.statements.head)
   }
 
-  db withDynSession {
-    ddl.create
+  ;{
+    Unsafe.runBlocking(db, schema.create)
     //#aggregation2
     val q1 = coffees.length
     // compiles to SQL (simplified):
@@ -228,10 +228,10 @@ object LiftedEmbedding extends App {
     // compiles to SQL (simplified):
     //   select exists(select * from "COFFEES")
     //#aggregation2
-    println(q1.shaped.selectStatement)
-    println(q2.shaped.selectStatement)
+    println(q1.shaped.result.statements.head)
+    println(q2.shaped.result.statements.head)
 
-    {
+    /*TODO {
       //#invoker
       val l = q.list
       val v = q.buildColl[Vector]
@@ -254,10 +254,10 @@ object LiftedEmbedding extends App {
       val l = q.list(session)
       //#invoker_explicit
       ()
-    }
+    }*/
   }
 
-  db withDynSession {
+  ;{
     //#aggregation3
     val q = (for {
       c <- coffees
@@ -273,37 +273,39 @@ object LiftedEmbedding extends App {
     //     where x3."SUP_ID" = x2."SUP_ID"
     //     group by x2."SUP_ID"
     //#aggregation3
-    println(q2.selectStatement)
+    println(q2.result.statements.head)
   }
 
-  db withDynSession {
-    ddl.create
-    suppliers ++= Seq(
-      (101, "", "", "", "", ""),
-      (49, "", "", "", "", ""),
-      (150, "", "", "", "", "")
-    )
-
+  ;{
     //#insert1
-    coffees += ("Colombian", 101, 7.99, 0, 0)
+    val insertActions = Action.seq(
+      coffees += ("Colombian", 101, 7.99, 0, 0),
 
-    coffees ++= Seq(
-      ("French_Roast", 49, 8.99, 0, 0),
-      ("Espresso",    150, 9.99, 0, 0)
+      coffees ++= Seq(
+        ("French_Roast", 49, 8.99, 0, 0),
+        ("Espresso",    150, 9.99, 0, 0)
+      ),
+
+      // "sales" and "total" will use the default value 0:
+      coffees.map(c => (c.name, c.supID, c.price)) += ("Colombian_Decaf", 101, 8.99)
     )
-
-    // "sales" and "total" will use the default value 0:
-    coffees.map(c => (c.name, c.supID, c.price)) += ("Colombian_Decaf", 101, 8.99)
 
     val statement = coffees.insertStatement
-    val invoker = coffees.insertInvoker
 
     // compiles to SQL:
     //   INSERT INTO "COFFEES" ("COF_NAME","SUP_ID","PRICE","SALES","TOTAL") VALUES (?,?,?,?,?)
     //#insert1
     println(statement)
 
-    users.ddl.create
+    Unsafe.runBlocking(db, Action.seq(
+      schema.create,
+      (suppliers ++= Seq(
+        (101, "", "", "", "", ""),
+        (49, "", "", "", "", ""),
+        (150, "", "", "", "", "")
+      )),
+      insertActions
+    ))
 
     //#insert3
     val userId =
@@ -317,7 +319,8 @@ object LiftedEmbedding extends App {
              into ((user,id) => user.copy(id=Some(id)))
       ) += User(None, "Stefan", "Zeiger")
     //#insert3b
-    println(userWithId)
+    val userWithIdRes = Unsafe.runBlocking(db, users.schema.create >> userWithId)
+    println(userWithIdRes)
 
     //#insert4
     class Users2(tag: Tag) extends Table[(Int, String)](tag, "users2") {
@@ -327,25 +330,29 @@ object LiftedEmbedding extends App {
     }
     val users2 = TableQuery[Users2]
 
-    users2.ddl.create
+    val actions = Action.seq(
+      users2.schema.create,
 
-    users2 insert (users.map { u => (u.id, u.first ++ " " ++ u.last) })
+      users2 insert (users.map { u => (u.id, u.first ++ " " ++ u.last) }),
 
-    users2 insertExpr (users.length + 1, "admin")
+      users2 insertExpr (users.length + 1, "admin")
+    )
     //#insert4
+    Unsafe.runBlocking(db, users.schema.create >> actions)
   }
 
-  db withDynSession {
-    suppliers.ddl.create
-    coffees.ddl.create
-    suppliers += (101, "", "", "", "", "")
-    coffees += ("Espresso", 101, 0, 0, 0)
+  ;{
+    Unsafe.runBlocking(db, Action.seq(
+      suppliers.schema.create,
+      coffees.schema.create,
+      suppliers += (101, "", "", "", "", ""),
+      coffees += ("Espresso", 101, 0, 0, 0)
+    ))
     //#update1
     val q = for { c <- coffees if c.name === "Espresso" } yield c.price
-    q.update(10.49)
+    val updateAction = q.update(10.49)
 
     val statement = q.updateStatement
-    val invoker = q.updateInvoker
 
     // compiles to SQL:
     //   update "COFFEES" set "PRICE" = ? where "COFFEES"."COF_NAME" = 'Espresso'
@@ -353,16 +360,18 @@ object LiftedEmbedding extends App {
     println(statement)
   }
 
-  db withDynSession {
-    users.ddl.create
-    usersForInsert ++= Seq(
-      User(None,"",""),
-      User(None,"","")
-    )
+  ;{
+    Unsafe.runBlocking(db, Action.seq(
+      users.schema.create,
+      usersForInsert ++= Seq(
+        User(None,"",""),
+        User(None,"","")
+      )
+    ))
 
     {
       //#compiled1
-      def userNameByIDRange(min: Column[Int], max: Column[Int]) =
+      def userNameByIDRange(min: Rep[Int], max: Rep[Int]) =
         for {
           u <- users if u.id >= min && u.id < max
         } yield u.first
@@ -370,8 +379,8 @@ object LiftedEmbedding extends App {
       val userNameByIDRangeCompiled = Compiled(userNameByIDRange _)
 
       // The query will be compiled only once:
-      val names1 = userNameByIDRangeCompiled(2, 5).run
-      val names2 = userNameByIDRangeCompiled(1, 3).run
+      val namesAction1 = userNameByIDRangeCompiled(2, 5).result
+      val namesAction2 = userNameByIDRangeCompiled(1, 3).result
       // Also works for .update and .delete
       //#compiled1
     }
@@ -380,8 +389,8 @@ object LiftedEmbedding extends App {
       //#compiled2
       val userPaged = Compiled((d: ConstColumn[Long], t: ConstColumn[Long]) => users.drop(d).take(t))
 
-      val users1 = userPaged(2, 1).run
-      val users2 = userPaged(1, 3).run
+      val usersAction1 = userPaged(2, 1).result
+      val usersAction2 = userPaged(1, 3).result
       //#compiled2
     }
 
@@ -392,27 +401,25 @@ object LiftedEmbedding extends App {
         u <- users if u.id === id
       } yield u.first
 
-      val name = userNameByID(2).first
+      val nameAction = userNameByID(2).result.head
 
       val userNameByIDRange = for {
         (min, max) <- Parameters[(Int, Int)]
         u <- users if u.id >= min && u.id < max
       } yield u.first
 
-      val names = userNameByIDRange(2, 5).list
+      val namesAction = userNameByIDRange(2, 5).result
       //#template1
     }
   }
 
-  db withDynSession {
+  ;{
     class SalesPerDay(tag: Tag) extends Table[(Date, Int)](tag, "SALES_PER_DAY") {
       def day = column[Date]("DAY", O.PrimaryKey)
       def count = column[Int]("COUNT")
       def * = (day, count)
     }
     val salesPerDay = TableQuery[SalesPerDay]
-    salesPerDay.ddl.create
-    salesPerDay.insert( (new Date(999999999), 999) )
     //#simplefunction1
     // H2 has a day_of_week() function which extracts the day of week from a timestamp
     val dayOfWeek = SimpleFunction.unary[Date, Int]("day_of_week")
@@ -424,16 +431,21 @@ object LiftedEmbedding extends App {
     //#simplefunction1
 
     //#simplefunction2
-    def dayOfWeek2(c: Column[Date]) =
+    def dayOfWeek2(c: Rep[Date]) =
       SimpleFunction[Int]("day_of_week").apply(Seq(c))
     //#simplefunction2
 
     assert{
-    //#simpleliteral
-    val current_date = SimpleLiteral[java.sql.Date]("CURRENT_DATE")
-    salesPerDay.map(_ => current_date)
-    //#simpleliteral
-    .first.isInstanceOf[java.sql.Date]
+      Unsafe.runBlocking(db,
+        salesPerDay.schema.create >>
+        (salesPerDay += ( (new Date(999999999), 999) )) >>
+        {
+          //#simpleliteral
+          val current_date = SimpleLiteral[java.sql.Date]("CURRENT_DATE")
+          salesPerDay.map(_ => current_date)
+          //#simpleliteral
+        }.result.head
+      ).isInstanceOf[java.sql.Date]
     }
   }
 
@@ -468,7 +480,7 @@ object LiftedEmbedding extends App {
     //#mappedtype2
   }
 
-  db withDynSession {
+  ;{
     //#recordtype1
     // A custom record class
     case class Pair[A, B](a: A, b: B)
@@ -494,12 +506,13 @@ object LiftedEmbedding extends App {
       def * = Pair(id, s)
     }
     val as = TableQuery[A]
-    as.ddl.create
 
     // Insert data with the custom shape
-    as += Pair(1, "a")
-    as += Pair(2, "c")
-    as += Pair(3, "b")
+    val insertAction = Action.seq(
+      as += Pair(1, "a"),
+      as += Pair(2, "c"),
+      as += Pair(3, "b")
+    )
 
     // Use it for returning data from a query
     val q2 = as
@@ -507,13 +520,14 @@ object LiftedEmbedding extends App {
       .filter { case Pair(id, _) => id =!= 1 }
       .sortBy { case Pair(_, ss) => ss }
       .map { case Pair(id, ss) => Pair(id, Pair(42 , ss)) }
-
-    assert(q2.run == Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc"))))
+    // returns: Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc")))
     //#recordtype2
+
+    assert(Unsafe.runBlocking(db, as.schema.create >> insertAction >> q2.result) == Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc"))))
 
     //#case-class-shape
     // two custom case class variants
-    case class LiftedB(a: Column[Int], b: Column[String])
+    case class LiftedB(a: Rep[Int], b: Rep[String])
     case class B(a: Int, b: String)
 
     // custom case class mapping
@@ -525,23 +539,25 @@ object LiftedEmbedding extends App {
       def * = LiftedB(id, s)
     }
     val bs = TableQuery[BRow]
-    bs.ddl.create
 
-    bs += B(1, "a")
-    bs.map(b => (b.id, b.s)) += ((2, "c"))
-    bs += B(3, "b")
+    val insertActions = Action.seq(
+      bs += B(1, "a"),
+      bs.map(b => (b.id, b.s)) += ((2, "c")),
+      bs += B(3, "b")
+    )
 
     val q3 = bs
       .map { case b => LiftedB(b.id, (b.s ++ b.s)) }
       .filter { case LiftedB(id, _) => id =!= 1 }
       .sortBy { case LiftedB(_, ss) => ss }
 
-    assert(q3.run == Vector(B(3,"bb"), B(2,"cc")))
+    // returns: Vector(B(3,"bb"), B(2,"cc"))
     //#case-class-shape
+    assert(Unsafe.runBlocking(db, bs.schema.create >> insertActions >> q3.result) == Vector(B(3,"bb"), B(2,"cc")))
 
     //#combining-shapes
     // Combining multiple mapped types
-    case class LiftedC(p: Pair[Column[Int],Column[String]], b: LiftedB)
+    case class LiftedC(p: Pair[Rep[Int],Rep[String]], b: LiftedB)
     case class C(p: Pair[Int,String], b: B)
 
     implicit object CShape extends CaseClassShape(LiftedC.tupled, C.tupled)
@@ -556,19 +572,21 @@ object LiftedEmbedding extends App {
       def * = projection
     }
     val cs = TableQuery[CRow]
-    cs.ddl.create
 
-    cs += C(Pair(7,"x"), B(1,"a"))
-    cs += C(Pair(8,"y"), B(2,"c"))
-    cs += C(Pair(9,"z"), B(3,"b"))
+    val insertActions2 = Action.seq(
+      cs += C(Pair(7,"x"), B(1,"a")),
+      cs += C(Pair(8,"y"), B(2,"c")),
+      cs += C(Pair(9,"z"), B(3,"b"))
+    )
 
     val q4 = cs
       .map { case c => LiftedC(c.projection.p, LiftedB(c.id,(c.s ++ c.s))) }
       .filter { case LiftedC(_, LiftedB(id,_)) => id =!= 1 }
       .sortBy { case LiftedC(Pair(_,p2), LiftedB(_,ss)) => ss++p2 }
 
-    assert(q4.run == Vector(C(Pair(9,"z"),B(3,"bb")), C(Pair(8,"y"),B(2,"cc"))))
+    // returns: Vector(C(Pair(9,"z"),B(3,"bb")), C(Pair(8,"y"),B(2,"cc")))
     //#combining-shapes
+    assert(Unsafe.runBlocking(db, cs.schema.create >> insertActions2 >> q4.result) == Vector(C(Pair(9,"z"),B(3,"bb")), C(Pair(8,"y"),B(2,"cc"))))
 
     ()
   }

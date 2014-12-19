@@ -29,7 +29,7 @@ object CodeGeneratorTest {
       object Tables extends Tables(driver)
       import Tables._
       import Tables.profile.simple._
-      val ddl = posts.ddl ++ categories.ddl ++ typeTest.ddl ++ large.ddl ++ `null`.ddl ++ X.ddl ++ SingleNonOptionColumn.ddl ++ SelfRef.ddl
+      val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
       //println(ddl.createStatements.mkString("\n"))
       val db = Database.forURL(url=url,driver=jdbcDriver)
       val (gen,gen2) = db.withSession{ implicit session =>

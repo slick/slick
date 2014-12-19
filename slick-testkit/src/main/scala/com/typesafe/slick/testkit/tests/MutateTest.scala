@@ -1,54 +1,35 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
-class MutateTest extends TestkitTest[JdbcTestDB] {
-  import tdb.profile.simple._
+class MutateTest extends AsyncTest[JdbcTestDB] {
+  import tdb.profile.api._
 
-  override val reuseInstance = true
-
-  def testMutate = ifCap(jcap.mutable) {
-
-    class Users(tag: Tag) extends Table[(Int,String,String)](tag, "USERS") {
+  def testMutate = ifCapF(jcap.mutable) {
+    class Data(tag: Tag) extends Table[(Int,String)](tag, "DATA") {
       def id = column[Int]("ID", O.PrimaryKey)
-      def first = column[String]("FIRST")
-      def last = column[String]("LAST")
-      def * = (id, first, last)
+      def data = column[String]("DATA")
+      def * = (id, data)
     }
-    val users = TableQuery[Users]
+    val data = TableQuery[Data]
 
-    users.ddl.create
-    users insertAll(
-      (1, "Marge", "Bouvier"),
-      (2, "Homer", "Simpson"),
-      (3, "Bart", "Simpson"),
-      (4, "Carl", "Carlson")
-    )
-
-    println("Before mutating:")
-    users.foreach(u => println("  "+u))
-
-    val q1 = for(u <- users if u.last === "Simpson" || u.last === "Bouvier") yield u
-    q1.mutate { m =>
-      println("***** Row: "+m.row)
-      if(m.row._3 == "Bouvier") m.row = m.row.copy(_3 = "Simpson")
-      else if(m.row._2 == "Homer") m.delete()
-      else if(m.row._2 == "Bart") m.insert((42, "Lisa", "Simpson"))
+    var seenEndMarker = false
+    db.run(data.schema.create >> (data ++= Seq((1, "a"), (2, "b"), (3, "c"), (4, "d")))).flatMap { _ =>
+      foreach(db.stream(data.mutate.transactionally)) { m =>
+        if(!m.end) {
+          if(m.row._1 == 1) m.row = m.row.copy(_2 = "aa")
+          else if(m.row._1 == 2) m.delete
+          else if(m.row._1 == 3) m += ((5, "ee"))
+        } else seenEndMarker = true
+      }
+    }.flatMap { _ =>
+      seenEndMarker shouldBe false
+      db.run(data.sortBy(_.id).result).map(_ shouldBe Seq((1, "aa"), (3, "c"), (4, "d"), (5, "ee")))
     }
-
-    println("After mutating:")
-    users.foreach(u => println("  "+u))
-
-/*
-    // FIXME: broken in DB2, which does not seem to support nested {fn ...} calls
-    assertEquals(
-      Set("Marge Simpson", "Bart Simpson", "Lisa Simpson", "Carl Carlson"),
-      (for(u <- users) yield u.first ++ " " ++ u.last).list.toSet
-    )*/
   }
 
-  def testDeleteMutate = ifCap(jcap.mutable) {
+  def testDeleteMutate = ifCapF(jcap.mutable) {
     class T(tag: Tag) extends Table[(Int, Int)](tag, "T_DELMUTABLE") {
       def a = column[Int]("A")
       def b = column[Int]("B", O.PrimaryKey)
@@ -57,12 +38,22 @@ class MutateTest extends TestkitTest[JdbcTestDB] {
     val ts = TableQuery[T]
     def tsByA = ts.findBy(_.a)
 
-    ts.ddl.create
-    ts.insertAll((1,1), (1,2), (1,3), (1,4))
-    ts.insertAll((2,5), (2,6), (2,7), (2,8))
+    var seenEndMarker = false
+    val a = seq(
+      ts.schema.create,
+      ts ++= Seq((1,1), (1,2), (1,3), (1,4)),
+      ts ++= Seq((2,5), (2,6), (2,7), (2,8))
+    ) andThen runnableStreamableCompiledQueryActionExtensionMethods(tsByA(1)).mutate(sendEndMarker = true).transactionally
 
-    tsByA(1).mutate(_.delete)
-
-    assertEquals(Set((2,5), (2,6), (2,7), (2,8)), ts.buildColl[Set])
+    foreach(db.stream(a)){ m =>
+      if(!m.end) m.delete
+      else {
+        seenEndMarker = true
+        m += ((3,9))
+      }
+    }.flatMap { _ =>
+      seenEndMarker shouldBe true
+      db.run(ts.to[Set].result).map(_ shouldBe Set((2,5), (2,6), (2,7), (2,8), (3,9)))
+    }
   }
 }

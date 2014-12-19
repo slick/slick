@@ -1,6 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
+import scala.slick.driver.SQLiteDriver
 import scala.slick.model._
 import scala.slick.ast.ColumnOption
 import scala.slick.jdbc.meta.MTable
@@ -10,7 +11,7 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
-  def test { ifCap(jcap.createModel){
+  def test: Unit = ifCap(jcap.createModel) {
     class Categories(tag: Tag) extends Table[(Int, String)](tag, "categories") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def name = column[String]("name", O.DBType("VARCHAR(123)"))
@@ -110,7 +111,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
     }
     val typeTest = TableQuery[TypeTest]
 
-    val ddl = posts.ddl ++ categories.ddl ++ defaultTest.ddl ++ noDefaultTest.ddl ++ typeTest.ddl
+    val ddl = posts.schema ++ categories.schema ++ defaultTest.schema ++ noDefaultTest.schema ++ typeTest.schema
     ddl.create
     //println(ddl.createStatements.toList.toString)
 
@@ -176,7 +177,12 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
       val posts = model.tables.filter(_.name.table.toUpperCase=="POSTS").head
       assertEquals( 5, posts.columns.size )
       assertEquals( posts.indices.toString, 0, posts.indices.size )
-      assertEquals( 2, posts.primaryKey.get.columns.size )
+      if(tdb.driver != SQLiteDriver) {
+        // Reporting of multi-column primary keys through JDBC metadata is broken in Xerial SQLite 3.8:
+        // https://bitbucket.org/xerial/sqlite-jdbc/issue/107/databasemetadatagetprimarykeys-does-not
+        assertEquals( Some(2), posts.primaryKey.map(_.columns.size) )
+        assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
+      }
       assertEquals( 1, posts.foreignKeys.size )
       if(tdb.profile != slick.driver.SQLiteDriver){
         assertEquals( "CATEGORY_FK", posts.foreignKeys.head.name.get.toUpperCase )
@@ -208,7 +214,6 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
         posts.columns.filter(_.name == "some_string").head
              .options.collect{case ColumnOption.Length(length,varying) => (length,varying)}.head
       )
-      assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
       posts.columns.foreach{
         _.options.foreach{
           case ColumnOption.Length(length,varying) => length < 256
@@ -378,5 +383,5 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
         assertEquals( None, noDefaultTest.map(_.stringOption).first )
       }
     }
-  }}
+  }
 }

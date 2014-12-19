@@ -5,7 +5,11 @@
 .. _JDBC: http://en.wikipedia.org/wiki/Java_Database_Connectivity
 .. _Typesafe Subscription Agreement: http://typesafe.com/public/legal/TypesafeSubscriptionAgreement.pdf
 .. _ScalaQuery: http://scalaquery.org
-.. _DBCP: http://commons.apache.org/proper/commons-dbcp/
-.. _c3p0: http://sourceforge.net/projects/c3p0/
-.. _BoneCP: http://jolbox.com/
 .. _Activator: https://typesafe.com/activator
+.. _HikariCP: http://brettwooldridge.github.io/HikariCP/
+.. _Typesafe Config: https://github.com/typesafehub/config
+.. _Play: https://playframework.com/
+.. _Akka: http://akka.io/
+.. _Akka Streams: http://akka.io/docs/
+.. _About Pool Sizing: https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
+.. _Reactive Streams: http://www.reactive-streams.org/

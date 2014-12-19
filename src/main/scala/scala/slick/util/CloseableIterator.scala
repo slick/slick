@@ -73,7 +73,7 @@ object CloseableIterator {
     def after[T](f: C => CloseableIterator[T]) = {
       val c = makeC
       (try f(c) catch { case NonFatal(e) =>
-        try c.close() catch { case NonFatal(_) => }
+        try c.close() catch ignoreFollowOnError
         throw e
       }) thenClose c
     }

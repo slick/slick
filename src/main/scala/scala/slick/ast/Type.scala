@@ -25,7 +25,7 @@ trait Type extends Dumpable {
   def structuralRec: Type = structural.mapChildren(_.structuralRec)
   /** A ClassTag for the erased type of this type's Scala values */
   def classTag: ClassTag[_]
-  def getDumpInfo = DumpInfo(getClass.getName.replaceAll(".*\\.", ""), toString, "",
+  def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), toString, "",
     children.zipWithIndex.map { case (ch, i) => (i.toString, ch) })
 }
 

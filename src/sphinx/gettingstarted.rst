@@ -1,7 +1,7 @@
 .. index:: Activator, template
 
 Getting Started
-===============
+###############
 
 The easiest way to get started is with a working application in Typesafe Activator_. The following
 templates are created by the Slick team, with updated versions being made for new Slick releases:
@@ -37,7 +37,8 @@ following to your build definition - ``build.sbt`` or ``project/Build.scala``:
     "org.slf4j" % "slf4j-nop" % "1.6.4"
   )
 
-For Maven projects add the following to your ``<dependencies>``:
+For Maven projects add the following to your ``<dependencies>`` (make sure to use the correct Scala
+version prefix, ``_2.10`` or ``_2.11``, to match your project's Scala version):
 
 .. parsed-literal::
   <dependency>
@@ -58,6 +59,11 @@ implementation. Here we are using ``slf4j-nop`` to disable logging. You have
 to replace this with a real logging framework like Logback_ if you want to see
 log output.
 
+The Reactive Streams API is pulled in automatically as a transitive dependency.
+
+If you want to use Slick's connection pool support, you need to add HikariCP_
+as a dependency.
+
 Quick Introduction
 ==================
 
@@ -70,28 +76,30 @@ To use Slick you first need to import the API for the database you will be using
 .. includecode:: code/FirstExample.scala#imports
 
 Since we are using H2_ as our database system, we need to import features
-from Slick's ``H2Driver``. A driver's ``simple`` object contains all commonly
+from Slick's ``H2Driver``. A driver's ``api`` object contains all commonly
 needed imports from the driver and other parts of Slick such as
-:doc:`session handling <connection>`.
+:doc:`database handling <database>`.
+
+Slick's API is fully asynchronous, so we also import some features from
+``scala.util.concurrent`` that we will use for working with the resulting *Futures*.
 
 .. _gettingstarted-dbconnection:
 
-Database Connection
--------------------
+Database Configuration
+----------------------
 
-In the body of the application we create a ``Database`` object which specifies
-how to connect to a database, and then immediately open a session, running all
-code within the following block inside that session:
+In the body of the application we create a ``Database`` object which specifies how to connect to a
+database. In most cases you will want to configure database connections with `Typesafe Config`_ in
+your ``application.conf``, which is also used by Play_ and Akka_ for their configuration:
+
+.. includecode:: resources/application.conf#h2mem1
+
+For the purpose of this example we disable the connection pool (there is no point in using one for
+an embedded in-memory database) and request a keep-alive connection (which ensures that the
+database does not get dropped while we are using it). The database can be easily instantiated from
+the configuration like this:
 
 .. includecode:: code/FirstExample.scala#setup
-
-In a Java SE environment, database sessions are usually created by connecting
-to a JDBC URL using a JDBC driver class (see the JDBC driver's documentation
-for the correct URL syntax). If you are only using
-:doc:`plain SQL queries <sql>`, nothing more is required, but when Slick is
-generating SQL code for you (using the :doc:`direct embedding <direct-embedding>`
-or the :ref:`lifted embedding <lifted-embedding>`), you need to make sure to use
-a matching Slick driver (in our case the ``H2Driver`` import above).
 
 Schema
 ------
@@ -135,24 +143,30 @@ allow all entities to be created and dropped in the correct order, even when
 they have circular dependencies on each other.
 
 Inserting the tuples of data is done with the ``+=`` and ``++=`` methods,
-similar to how you add data to mutable Scala collections. Note that by default
-a database ``Session`` is in *auto-commit* mode.
-Each call to the database like ``+=`` or ``++=`` executes atomically
-in its own transaction (i.e. it succeeds or fails completely but can never
-leave the database in an inconsistent state somewhere in between). In this
-mode we have to populate the ``suppliers`` table first because the
-``coffees`` data can only refer to valid supplier IDs.
+similar to how you add data to mutable Scala collections.
 
-We could also use an explicit transaction bracket encompassing all these
-statements. Then the order would not matter because the constraints are only
-enforced at the end when the transaction is committed.
+The ``create``, ``+=`` and ``++=`` methods return an ``Action`` which can be executed on a database
+at a later time to produce a result. There are several different combinators for combining multiple
+Actions into sequences, yielding another Action. Here we use the simplest one, ``Action.seq``, which
+can concatenate any number of Actions, discarding the return values (i.e. the resulting Action
+produces a result of type ``Unit``). We then execute the setup Action asynchronously with
+``db.run``, yielding a ``Future[Unit]``. For the purpose of this example, we use ``Await`` to
+block the current thread and wait for the database result. This is not something you should do in
+a real application.
+
+Note that database connections and transactions are managed automatically by Slick. By default
+connections are acquired and released on demand and used in *auto-commit* mode. In this mode we
+have to populate the ``suppliers`` table first because the ``coffees`` data can only refer to valid
+supplier IDs. We could also use an explicit transaction bracket encompassing all these statements
+("``db.run(setup.transactionally)``"). Then the order would not matter because the constraints are
+only enforced at the end when the transaction is committed.
 
 Querying
 --------
 
 The simplest kind of query iterates over all the data in a table:
 
-.. includecode:: code/FirstExample.scala#foreach
+.. includecode:: code/FirstExample.scala#readall
 
 This corresponds to a ``SELECT * FROM COFFEES`` in SQL (except that the ``*``
 is the table's ``*`` projection we defined earlier and not whatever the
@@ -172,6 +186,10 @@ avoid Scala's ``+`` operator (which is already heavily overloaded) in favor of
 ``++`` (commonly used for sequence concatenation). Also, there is no automatic
 conversion of other argument types to strings. This has to be done explicitly
 with the type conversion method ``asColumnOf``.
+
+This time we also use `Reactive Streams`_ to get a streaming result from the
+database and print the elements as they come in instead of materializing the
+whole result set upfront.
 
 Joining and filtering tables is done the same way as when working with Scala
 collections:

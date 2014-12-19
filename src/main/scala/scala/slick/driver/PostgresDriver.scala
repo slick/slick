@@ -9,7 +9,7 @@ import scala.slick.ast.Util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.{Invoker, JdbcType}
+import scala.slick.jdbc.JdbcType
 import scala.slick.model.Model
 
 /** Slick driver for PostgreSQL.

@@ -104,8 +104,8 @@ trait Node extends Dumpable {
   def getDumpInfo = {
     val (objName, mainInfo) = this match {
       case p: Product =>
-        val cln = getClass.getName.replaceFirst(".*\\.", "")
-        val n = if (cln.endsWith("$")) cln.substring(0, cln.length - 1) else cln.replaceFirst(".*\\$", "")
+        val cln = DumpInfo.simpleNameFor(getClass)
+        val n = if(cln.endsWith("$")) cln.substring(0, cln.length - 1) else cln.replaceFirst(".*\\$", "")
         val args = p.productIterator.filterNot(_.isInstanceOf[Node]).mkString(", ")
         (n, args)
       case _ => (super.toString, "")

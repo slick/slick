@@ -12,14 +12,15 @@ object TreeDump {
     if(GlobalConfig.unicodeDump) ("\u2523 ", "\u2503 ", "\u2517 ", "  ")
     else ("  ", "  ", "  ", "  ")
 
-  def get(n: Dumpable, name: String = "", prefix: String = "") = {
+  def get(n: Dumpable, name: String = "", prefix: String = "", firstPrefix: String = null, narrow: (Dumpable => Dumpable) = identity) = {
     val buf = new StringWriter
-    apply(n, name, prefix, new PrintWriter(buf))
+    apply(n, name, prefix, firstPrefix, new PrintWriter(buf), narrow)
     buf.getBuffer.toString
   }
 
-  def apply(n: Dumpable, name: String = "", prefix: String = "", out: PrintWriter = new PrintWriter(new OutputStreamWriter(System.out))) {
-    def dump(value: Dumpable, prefix1: String, prefix2: String, name: String, level: Int) {
+  def apply(n: Dumpable, name: String = "", prefix: String = "", firstPrefix: String = null, out: PrintWriter = new PrintWriter(new OutputStreamWriter(System.out)), narrow: (Dumpable => Dumpable) = identity) {
+    def dump(baseValue: Dumpable, prefix1: String, prefix2: String, name: String, level: Int) {
+      val value = narrow(baseValue)
       val di = value.getDumpInfo
       out.println(
         prefix1 +
@@ -35,7 +36,7 @@ object TreeDump {
         dump(value, prefix2 + cp1, prefix2 + cp2, name, level + 1)
       }
     }
-    dump(n, prefix, prefix, name, 0)
+    dump(n, if(firstPrefix ne null) firstPrefix else prefix, prefix, name, 0)
     out.flush()
   }
 }
@@ -53,4 +54,6 @@ case class DumpInfo(name: String, mainInfo: String = "", attrInfo: String = "", 
 
 object DumpInfo {
   def highlight(s: String) = TreeDump.green + s + TreeDump.normal
+
+  def simpleNameFor(cl: Class[_]): String = cl.getName.replaceFirst(".*\\.", "")
 }

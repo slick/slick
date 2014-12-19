@@ -103,17 +103,18 @@ trait MutatingStatementInvoker[R] extends StatementInvoker[R] with MutatingInvok
               updateRowValues(pr, value)
               rs.updateRow()
             }
-            def insert(value: R) {
+            def += (value: R) {
               rs.moveToInsertRow()
               pr.restart
               updateRowValues(pr, value)
               rs.insertRow()
               rs.moveToCurrentRow()
             }
-            def delete() {
+            def delete {
               rs.deleteRow()
               if(previousAfterDelete) rs.previous()
             }
+            def end = false
           }
           while(pr.nextRow) {
             current = extractValue(pr)
@@ -123,13 +124,14 @@ trait MutatingStatementInvoker[R] extends StatementInvoker[R] with MutatingInvok
             end(new ResultSetMutator[R] {
               def row = throw new SlickException("After end of result set")
               def row_=(value: R) = throw new SlickException("After end of result set")
-              def delete() = throw new SlickException("After end of result set")
-              def insert(value: R) {
+              def delete = throw new SlickException("After end of result set")
+              def += (value: R) {
                 rs.moveToInsertRow()
                 pr.restart
                 updateRowValues(pr, value)
                 rs.insertRow()
               }
+              def end = true
             })
           }
         } finally { prit.close() }

@@ -1,11 +1,9 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{RelationalTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
-class UnionTest extends TestkitTest[RelationalTestDB] {
-  import tdb.profile.simple._
-  override val reuseInstance = true
+class UnionTest extends AsyncTest[RelationalTestDB] {
+  import tdb.profile.api._
 
   class Managers(tag: Tag) extends Table[(Int, String, String)](tag, "managers") {
     def id = column[Int]("id")
@@ -26,63 +24,52 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
   }
   lazy val employees = TableQuery[Employees]
 
-  def testBasic {
-    (managers.ddl ++ employees.ddl).create
-
-    managers ++= Seq(
-      (1, "Peter", "HR"),
-      (2, "Amy", "IT"),
-      (3, "Steve", "IT")
-    )
-
-    employees ++= Seq(
-      (4, "Jennifer", 1),
-      (5, "Tom", 1),
-      (6, "Leonard", 2),
-      (7, "Ben", 2),
-      (8, "Greg", 3)
-    )
-
+  def testBasic = {
     val q1 = for(m <- managers filter { _.department === "IT" }) yield (m.id, m.name)
-    println("Managers in IT")
-    q1.run.foreach(o => println("  "+o))
-    assertEquals(Set((2,"Amy"), (3,"Steve")), q1.run.toSet)
-
     val q2 = for(e <- employees filter { _.departmentIs("IT") }) yield (e.id, e.name)
-    println("Employees in IT")
-    q2.run.foreach(o => println("  "+o))
-    assertEquals(Set((7,"Ben"), (8,"Greg"), (6,"Leonard")), q2.run.toSet)
-
     val q3 = (q1 union q2).sortBy(_._2.asc)
-    println("Combined and sorted")
-    q3.run.foreach(o => println("  "+o))
-    assertEquals(List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")), q3.run)
-
     val q4 = managers.map(_.id)
     val q4b = q4 union q4
-    assertEquals(Set(1, 2, 3), q4b.run.to[Set])
     val q4c = q4 union q4 union q4
-    assertEquals(Set(1, 2, 3), q4c.run.to[Set])
 
-    (managers.ddl ++ employees.ddl).drop
+    seq(
+      (managers.schema ++ employees.schema).create,
+      managers ++= Seq(
+        (1, "Peter", "HR"),
+        (2, "Amy", "IT"),
+        (3, "Steve", "IT")
+      ),
+      employees ++= Seq(
+        (4, "Jennifer", 1),
+        (5, "Tom", 1),
+        (6, "Leonard", 2),
+        (7, "Ben", 2),
+        (8, "Greg", 3)
+      ),
+      q1.result.map(r => r.toSet shouldBe Set((2,"Amy"), (3,"Steve"))),
+      q2.result.map(r => r.toSet shouldBe Set((7,"Ben"), (8,"Greg"), (6,"Leonard"))),
+      q3.result.map(_ shouldBe List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve"))),
+      q4b.result.map(r => r.toSet shouldBe Set(1, 2, 3)),
+      q4c.result.map(r => r.toSet shouldBe Set(1, 2, 3))
+    ) andFinally (managers.schema ++ employees.schema).drop
   }
 
-  def testUnionWithoutProjection {
-    managers.ddl.create
-    managers ++= Seq(
-      (1, "Peter", "HR"),
-      (2, "Amy", "IT"),
-      (3, "Steve", "IT")
-    )
-
+  def testUnionWithoutProjection = {
     def f (s: String) = managers filter { _.name === s}
     val q = f("Peter") union f("Amy")
-    assertEquals(Set((1, "Peter", "HR"), (2, "Amy", "IT")), q.run.toSet)
 
-    managers.ddl.drop
+    seq(
+      managers.schema.create,
+      managers ++= Seq(
+        (1, "Peter", "HR"),
+        (2, "Amy", "IT"),
+        (3, "Steve", "IT")
+      ),
+      q.result.map(r => r.toSet shouldBe Set((1, "Peter", "HR"), (2, "Amy", "IT")))
+    ) andFinally managers.schema.drop
   }
 
-  def testUnionOfJoins {
+  def testUnionOfJoins = {
     class Drinks(tag: Tag, tableName: String) extends Table[(Long, Long)](tag, tableName) {
       def pk = column[Long]("pk")
       def pkCup = column[Long]("pkCup")
@@ -90,18 +77,6 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     }
     val coffees = TableQuery(new Drinks(_, "Coffee"))
     val teas = TableQuery(new Drinks(_, "Tea"))
-
-    (coffees.ddl ++ teas.ddl).create
-    coffees ++= Seq(
-      (10L, 1L),
-      (20L, 2L),
-      (30L, 3L)
-    )
-    teas ++= Seq(
-      (100L, 1L),
-      (200L, 2L),
-      (300L, 3L)
-    )
 
     val q1 = for {
       coffee <- coffees
@@ -113,11 +88,21 @@ class UnionTest extends TestkitTest[RelationalTestDB] {
     } yield (tea.pk, tea.pkCup)
     val q3 = q1 union q2
 
-    val r1 = q1.run.toSet
-    assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L)), r1)
-    val r2 = q2.run.toSet
-    assertEquals(Set((100L, 1L), (200L, 2L), (300L, 3L)), r2)
-    val r3 = q3.run.toSet
-    assertEquals(Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)), r3)
+    seq(
+      (coffees.schema ++ teas.schema).create,
+      coffees ++= Seq(
+        (10L, 1L),
+        (20L, 2L),
+        (30L, 3L)
+      ),
+      teas ++= Seq(
+        (100L, 1L),
+        (200L, 2L),
+        (300L, 3L)
+      ),
+      q1.result.map(r => r.toSet shouldBe Set((10L, 1L), (20L, 2L), (30L, 3L))),
+      q2.result.map(r => r.toSet shouldBe Set((100L, 1L), (200L, 2L), (300L, 3L))),
+      q3.result.map(r => r.toSet shouldBe Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)))
+    )
   }
 }

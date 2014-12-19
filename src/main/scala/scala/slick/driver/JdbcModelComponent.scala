@@ -1,14 +1,16 @@
 package scala.slick.driver
 
-import scala.slick.jdbc.meta._
-import scala.slick.jdbc._
-import slick.util.SlickLogger
-import org.slf4j.LoggerFactory
 import scala.reflect.ClassTag
+import java.sql.DatabaseMetaData
+
 import scala.slick.SlickException
 import scala.slick.ast.ColumnOption
-import java.sql.DatabaseMetaData
+import scala.slick.jdbc._
+import scala.slick.jdbc.meta._
 import scala.slick.model.Model
+import scala.slick.util.{SlickLogger, ??}
+
+import org.slf4j.LoggerFactory
 
 trait JdbcModelComponent{ driver: JdbcDriver =>
     @deprecated("use defaultTables instead","2.1")
@@ -59,7 +61,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
     final lazy val tablesByMQName: Map[MQName,Table] = tables.map(t => t.meta.name -> t).toMap
 
     /** currently unused */
-    def includeJdbcMetaData: Boolean = ???
+    def includeJdbcMetaData: Boolean = ??
 
     /** Table model builder factory. Override for customization.
         @group Basic customization overrides */
@@ -162,7 +164,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
           * for other types it should */
         def dbType: Option[String] = Some(meta.typeName)
         /** currently unused */
-        def ansiType: Option[String] = ???
+        def ansiType: Option[String] = ??
         /** Column length of string types */
         def length: Option[Int] = if(tpe == "String") meta.size else None // Only valid for strings!
         /** Indicates wether this should be a varchar in case of a string column.

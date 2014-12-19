@@ -1,34 +1,62 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
-import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
-class TransactionTest extends TestkitTest[JdbcTestDB] {
-  import tdb.profile.simple._
+class TransactionTest extends AsyncTest[JdbcTestDB] {
+  import tdb.profile.api._
 
-  def test {
-
+  def testTransactions = {
     class T(tag: Tag) extends Table[Int](tag, "t") {
-      def a = column[Int]("a")
+      def a = column[Int]("a", O.PrimaryKey)
       def * = a
     }
     val ts = TableQuery[T]
 
-    ts.ddl.create
+    class ExpectedException extends RuntimeException
 
-    implicitSession withTransaction {
-      ts.insert(42)
-      assertEquals(Some(42), ts.firstOption)
-      implicitSession.rollback()
+    ts.schema.create andThen { // failed transaction
+      (for {
+        _ <- ts += 1
+        _ <- ts.result.map(_ shouldBe Seq(1))
+        _ <- GetTransactionality.map(_ shouldBe (1, false))
+        _ = throw new ExpectedException
+      } yield ()).transactionally.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+    } andThen {
+       ts.result.map(_ shouldBe Nil) andThen
+         GetTransactionality.map(_ shouldBe (0, true))
+    } andThen { // successful transaction
+      (for {
+        _ <- ts += 2
+        _ <- ts.result.map(_ shouldBe Seq(2))
+        _ <- GetTransactionality.map(_ shouldBe (1, false))
+      } yield ()).transactionally
+    } andThen {
+      ts.result.map(_ shouldBe Seq(2))
+    } andThen { // nested successful transaction
+      (for {
+        _ <- ts += 3
+        _ <- ts.to[Set].result.map(_ shouldBe Set(2, 3))
+        _ <- GetTransactionality.map(_ shouldBe (2, false))
+      } yield ()).transactionally.transactionally
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(2, 3))
+    } andThen { // failed nested transaction
+      (for {
+        _ <- ts += 4
+        _ <- ts.to[Set].result.map(_ shouldBe Set(2, 3, 4))
+        _ <- GetTransactionality.map(_ shouldBe (2, false))
+        _ = throw new ExpectedException
+      } yield ()).transactionally.transactionally.failed.map(_ should (_.isInstanceOf[ExpectedException]))
+    } andThen { // fused successful transaction
+      (ts += 5).andThen(ts += 6).transactionally
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6)) andThen
+        GetTransactionality.map(_ shouldBe (0, true))
+    } andThen { // fused failed transaction
+      (ts += 7).andThen(ts += 6).transactionally.failed
+    } andThen {
+      ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6)) andThen
+        GetTransactionality.map(_ shouldBe (0, true))
     }
-    assertEquals(None, ts.firstOption)
-
-    ts.insert(1)
-    implicitSession withTransaction {
-      ts.delete
-      assertEquals(None, ts.firstOption)
-      implicitSession.rollback()
-    }
-    assertEquals(Some(1), ts.firstOption)
   }
 }

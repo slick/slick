@@ -3,12 +3,13 @@ package scala.slick.memory
 import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.{Builder, HashMap}
 import scala.slick.SlickException
+import scala.slick.action._
 import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
 import scala.slick.compiler._
 import scala.slick.relational.{ResultConverter, CompiledMapping}
 import scala.slick.profile.{RelationalDriver, RelationalProfile}
-import scala.slick.util.RefId
+import scala.slick.util.{DumpInfo, RefId, ??}
 
 /** A profile and driver for distributed queries. */
 trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriver =>
@@ -19,30 +20,52 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   val backend: Backend = DistributedBackend
   val simple: SimpleQL = new SimpleQL {}
   val Implicit: Implicits = simple
+  val api: API = new API {}
 
-  lazy val queryCompiler = compiler.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
-  lazy val updateCompiler = ???
-  lazy val deleteCompiler = ???
-  lazy val insertCompiler = ???
+  lazy val queryCompiler = QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) + new MemoryCodeGen
+  lazy val updateCompiler = ??
+  lazy val deleteCompiler = ??
+  lazy val insertCompiler = ??
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
-  def createInsertInvoker[T](tree: Node): InsertInvoker[T] = ???
-  def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ???
-  def buildTableSchemaDescription(table: Table[_]): SchemaDescription = ???
+  def createInsertInvoker[T](tree: Node): InsertInvoker[T] = ??
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
-  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ???
+  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ??
+
+  type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
+
+  def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S] =
+    new QueryActionExtensionMethods[R, S](tree, param)
+  def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
+    new StreamingQueryActionExtensionMethods[R, T](tree, param)
 
   val emptyHeapDB = HeapBackend.createEmptyDatabase
 
   trait SimpleQL extends super.SimpleQL with Implicits
 
   trait Implicits extends super.Implicits {
-    implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker = ???
+    implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker = ??
   }
 
   class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R =
       createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
+  }
+
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] = DriverActionDef[E, R, S]
+
+  class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
+    protected[this] val exe = createQueryExecutor[R](tree, param)
+    def result: DriverAction[Effect.Read, R, S] =
+      new DriverAction[Effect.Read, R, S] with SynchronousDatabaseAction[Backend#This, Effect.Read, R, S] {
+        def run(ctx: ActionContext[Backend]) = exe.run(ctx.session)
+        def getDumpInfo = DumpInfo("DistributedProfile.DriverAction")
+      }
+  }
+
+  class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
+    override def result: StreamingDriverAction[Effect.Read, R, T] = super.result.asInstanceOf[StreamingDriverAction[Effect.Read, R, T]]
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {

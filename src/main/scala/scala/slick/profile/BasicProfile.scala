@@ -1,8 +1,10 @@
 package scala.slick.profile
 
 import scala.language.{higherKinds, implicitConversions, existentials}
+import scala.slick.SlickException
 import scala.slick.compiler.QueryCompiler
 import scala.slick.backend.DatabaseComponent
+import scala.slick.action._
 import scala.slick.ast._
 import scala.slick.lifted._
 import com.typesafe.config.{ConfigFactory, Config}
@@ -11,7 +13,7 @@ import scala.slick.util.GlobalConfig
 /**
  * The basic functionality that has to be implemented by all drivers.
  */
-trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponent with BasicExecutorComponent { driver: BasicDriver =>
+trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponent with BasicExecutorComponent with BasicActionComponent { driver: BasicDriver =>
 
   /** The back-end type required by this profile */
   type Backend <: DatabaseComponent
@@ -35,19 +37,21 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
     def ++(other: SchemaDescription): SchemaDescription
   }
 
-  /** A collection of values for using the query language with a single import
-    * statement. This provides the driver's implicits, the Database and
-    * Session objects for DB connections, and commonly used query language
-    * types and objects. */
-  val simple: SimpleQL
-
-  /** The implicit values and conversions provided by this driver.
-    * This is a subset of ``simple``. You usually want to import
-    * `simple._` instead of using `Implicit`. */
-  val Implicit: Implicits
-
-  trait Implicits extends ExtensionMethodConversions {
+  protected trait CommonImplicits extends ExtensionMethodConversions {
     implicit val slickDriver: driver.type = driver
+
+    // Work-around for SI-3346
+    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
+  }
+
+  protected trait CommonAPI extends Aliases {
+    type Database = Backend#Database
+    val Database = backend.Database
+    type Session = Backend#Session
+    type SlickException = scala.slick.SlickException
+  }
+
+  trait Implicits extends CommonImplicits {
     implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker
 
     implicit def repToQueryExecutor[U](rep: Rep[U]): QueryExecutor[U] = createQueryExecutor[U](queryCompiler.run(rep.toNode).tree, ())
@@ -56,17 +60,45 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
     // This only works on Scala 2.11 due to SI-3346:
     implicit def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(shape.toNode(q)).tree, ())
     implicit def queryToInsertInvoker[U, C[_]](q: Query[_, U, C]) = createInsertInvoker[U](compileInsert(q.toNode))
-
-    // Work-around for SI-3346
-    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
   }
 
-  trait SimpleQL extends Implicits with scala.slick.lifted.Aliases {
-    type Database = Backend#Database
-    val Database = backend.Database
-    type Session = Backend#Session
-    type SlickException = scala.slick.SlickException
+  trait SimpleQL extends CommonAPI with Implicits
+
+  trait API extends CommonAPI with CommonImplicits {
+    implicit def repQueryActionExtensionMethods[U](rep: Rep[U]): QueryActionExtensionMethods[U, NoStream] =
+      createQueryActionExtensionMethods[U, NoStream](queryCompiler.run(rep.toNode).tree, ())
+    implicit def streamableQueryActionExtensionMethods[U, C[_]](q: Query[_,U, C]): StreamingQueryActionExtensionMethods[C[U], U] =
+      createStreamingQueryActionExtensionMethods[C[U], U](queryCompiler.run(q.toNode).tree, ())
+    implicit def runnableCompiledQueryActionExtensionMethods[RU](c: RunnableCompiled[_, RU]): QueryActionExtensionMethods[RU, NoStream] =
+      createQueryActionExtensionMethods[RU, NoStream](c.compiledQuery, c.param)
+    implicit def streamableCompiledQueryActionExtensionMethods[RU, EU](c: StreamableCompiled[_, RU, EU]): StreamingQueryActionExtensionMethods[RU, EU] =
+      createStreamingQueryActionExtensionMethods[RU, EU](c.compiledQuery, c.param)
+    // Applying a CompiledFunction always results in only a RunnableCompiled, not a StreamableCompiled, so we need this:
+    implicit def runnableStreamableCompiledQueryActionExtensionMethods[R, RU, EU, C[_]](c: RunnableCompiled[Query[R, EU, C], RU]): StreamingQueryActionExtensionMethods[RU, EU] =
+      createStreamingQueryActionExtensionMethods[RU, EU](c.compiledQuery, c.param)
+    // This only works on Scala 2.11 due to SI-3346:
+    implicit def recordQueryActionExtensionMethods[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryActionExtensionMethods[R, NoStream] =
+      createQueryActionExtensionMethods[R, NoStream](queryCompiler.run(shape.toNode(q)).tree, ())
   }
+
+  /** A collection of values for using the query language with a single import
+    * statement. This provides the driver's implicits, the Database and
+    * Session objects for DB connections, and commonly used query language
+    * types and objects. */
+  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "2.2")
+  val simple: SimpleQL
+
+  /** The implicit values and conversions provided by this driver.
+    * This is a subset of ``simple``. You usually want to import
+    * `simple._` instead of using `Implicit`. */
+  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "2.2")
+  val Implicit: Implicits
+
+  /** The API for using the query language with a single import
+    * statement. This provides the driver's implicits, the Database and
+    * Session objects for DB connections, and commonly used query language
+    * types and objects. */
+  val api: API
 
   /** The compiler used for queries */
   def queryCompiler: QueryCompiler
@@ -181,5 +213,40 @@ trait BasicExecutorComponent { driver: BasicDriver =>
   trait QueryExecutorDef[R] {
     def run(implicit session: Backend#Session): R
     def executor: this.type = this
+  }
+}
+
+trait BasicActionComponent { driver: BasicDriver =>
+
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] <: DriverActionDef[E, R, S]
+  type StreamingDriverAction[-E <: Effect, +R, +T] <: StreamingDriverActionDef[E, R, T] with DriverAction[E, R, Streaming[T]]
+
+  trait DriverActionDef[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[E, R, S]
+
+  trait StreamingDriverActionDef[-E <: Effect, +R, +T] extends DriverActionDef[E, R, Streaming[T]] {
+    /** Create an Action that returns only the first value of this stream of data. The Action will
+      * fail if the stream is empty. Only available on streaming Actions. */
+    def head: DriverAction[E, T, NoStream]
+
+    /** Create an Action that returns only the first value of this stream of data as an `Option`.
+      * Only available on streaming Actions. */
+    def headOption: DriverAction[E, Option[T], NoStream]
+  }
+
+  //////////////////////////////////////////////////////////// Query Actions
+
+  type QueryActionExtensionMethods[R, S <: NoStream] <: QueryActionExtensionMethodsImpl[R, S]
+  type StreamingQueryActionExtensionMethods[R, T] <: StreamingQueryActionExtensionMethodsImpl[R, T]
+
+  def createQueryActionExtensionMethods[R, S <: NoStream](tree: Node, param: Any): QueryActionExtensionMethods[R, S]
+  def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T]
+
+  trait QueryActionExtensionMethodsImpl[R, S <: NoStream] {
+    /** An Action that runs this query. */
+    def result: DriverAction[Effect.Read, R, S]
+  }
+
+  trait StreamingQueryActionExtensionMethodsImpl[R, T] extends QueryActionExtensionMethodsImpl[R, Streaming[T]] {
+    def result: StreamingDriverAction[Effect.Read, R, T]
   }
 }

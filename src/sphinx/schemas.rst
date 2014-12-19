@@ -185,16 +185,14 @@ can be customized by overriding the ``tableConstraints`` method.
 Data Definition Language
 ------------------------
 
-DDL statements for a table can be created with its ``TableQuery``"s ``ddl``
-method. Multiple
-``DDL`` objects can be concatenated with ``++`` to get a compound ``DDL``
-object which can create and drop all entities in the correct order, even in
-the presence of cyclic dependencies between tables. The statements are
-executed with the ``create`` and ``drop`` methods:
+DDL statements for a table can be created with its ``TableQuery``'s ``schema`` method. Multiple
+``DDL`` objects can be concatenated with ``++`` to get a compound ``DDL`` object which can create
+and drop all entities in the correct order, even in the presence of cyclic dependencies between
+tables. The ``create`` and ``drop`` methods produce the Actions for executing the DDL statements:
 
 .. includecode:: code/LiftedEmbedding.scala#ddl
 
-You can use the ``createStatements`` and ``dropStatements`` methods to get
-the SQL code:
+You can use the the ``statements`` method to get the SQL code, like for most other SQL-based
+Actions. Schema Actions are currently the only Actions that can produce more than one statement.
 
 .. includecode:: code/LiftedEmbedding.scala#ddl2

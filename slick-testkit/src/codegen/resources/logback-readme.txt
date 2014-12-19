@@ -1,1 +1,0 @@
-Logback looks for a file logback-test.xml or logback.xml in the classpath. As config test depends on config codegen and we want to set the logging configuration for both, we place logback.xml in codegen/resources/ .

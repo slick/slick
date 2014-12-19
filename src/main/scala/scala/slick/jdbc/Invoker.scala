@@ -110,12 +110,20 @@ trait MutatingInvoker[R] extends Invoker[R] { self =>
 }
 
 trait ResultSetMutator[T] {
-  /** Get the current row's value. */
+  /** Get the current row's value. Throws a [[scala.slick.SlickException]] when positioned after
+    * the end of the result set. */
   def row: T
   /** Update the current row. */
   def row_=(value: T)
   /** Insert a new row. */
-  def insert(value: T)
+  @deprecated("Use `+=` instead of `insert`", "2.2")
+  final def insert(value: T) = += (value)
+  /** Insert a new row. */
+  def += (value: T): Unit
+  /** Insert multiple new rows. */
+  def ++= (values: Seq[T]): Unit = values.foreach(v => += (v))
   /** Delete the current row. */
-  def delete(): Unit
+  def delete: Unit
+  /** Check if the end of the result set has been reached. */
+  def end: Boolean
 }

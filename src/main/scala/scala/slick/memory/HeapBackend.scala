@@ -2,27 +2,28 @@ package scala.slick.memory
 
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Future, ExecutionContext}
 import scala.slick.SlickException
+import scala.slick.action._
 import scala.slick.ast._
-import scala.slick.backend.DatabaseComponent
+import scala.slick.backend.{DatabaseComponent, RelationalBackend}
 import scala.slick.lifted.{PrimaryKey, Constraint, Index}
 import scala.slick.util.Logging
 
 /** A simple database engine that stores data in heap data structures. */
-trait HeapBackend extends DatabaseComponent with Logging {
-
+trait HeapBackend extends RelationalBackend with Logging {
+  type This = HeapBackend
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
+  type Effects = Effect.Read with Effect.Write with Effect.Schema
 
   val Database = new DatabaseFactoryDef
   val backend: HeapBackend = this
 
-  class DatabaseDef extends super.DatabaseDef {
+  class DatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends super.DatabaseDef {
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new SessionDef(this)
-    protected[this] def asyncExecutionContext = ExecutionContext.global
     def close(): Unit = ()
     def getTable(name: String): HeapTable = synchronized {
       tables.get(name).getOrElse(throw new SlickException(s"Table $name does not exist"))
@@ -43,14 +44,25 @@ trait HeapBackend extends DatabaseComponent with Logging {
     }
   }
 
-  def createEmptyDatabase: Database = new DatabaseDef {
-    override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
-                    indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]) =
-      throw new SlickException("Cannot modify empty heap database")
+  def createEmptyDatabase: Database = {
+    def err = throw new SlickException("Unsupported operation for empty heap database")
+    new DatabaseDef(new ExecutionContext {
+      def reportFailure(t: Throwable) = err
+      def execute(runnable: Runnable) = err
+    }) {
+      override def createTable(name: String, columns: IndexedSeq[HeapBackend.Column],
+                               indexes: IndexedSeq[Index], constraints: IndexedSeq[Constraint]) = err
+    }
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {
-    def apply(): Database = new DatabaseDef
+    /** Create a new heap database instance that uses the global ExecutionContext. */
+    @deprecated("You should explicitly speficy an ExecutionContext in Database.apply()", "2.2")
+    def apply(): Database = new DatabaseDef(ExecutionContext.global)
+
+    /** Create a new heap database instance that uses the supplied ExecutionContext for
+      * asynchronous execution of database actions. */
+    def apply(executionContext: ExecutionContext): Database = new DatabaseDef(executionContext)
   }
 
   class SessionDef(val database: Database) extends super.SessionDef {

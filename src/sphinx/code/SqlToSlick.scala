@@ -40,8 +40,8 @@ object SqlToSlick extends App {
   }
 
   Database.forURL(dbUrl,driver=jdbcDriver) withSession { implicit s =>
-    addresses.ddl.create
-    people.ddl.create
+    addresses.schema.create
+    people.schema.create
     inserts
   }
 
@@ -116,7 +116,7 @@ object SqlToSlick extends App {
 
     db.withSession{ implicit session =>
       //#slickFunction
-      implicit class MyStringColumnExtensions(i: Column[Int]){
+      implicit class MyStringColumnExtensions(i: Rep[Int]){
         def squared = i * i
       }
       //#slickFunction
@@ -310,8 +310,8 @@ object SqlToSlick extends App {
           //#sqlQueryLeftJoin
         val slick =
           //#slickQueryLeftJoin
-          (addresses leftJoin people on (_.id === _.addressId))
-            .map{ case (a, p) => (p.name.?, a.city) }.run
+          (addresses joinLeft people on (_.id === _.addressId))
+            .map{ case (a, p) => (p.map(_.name), a.city) }.run
           //#slickQueryLeftJoin
         assert(sql == slick,(sql,slick).toString)
         assert(sql.size > 0)
