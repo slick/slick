@@ -92,8 +92,8 @@ trait JdbcBackend extends RelationalBackend {
     }
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url:String, user:String = null, password:String = null, prop: Properties = null, driver:String = null, executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
-      forSource(new DriverJdbcDataSource(url, user, password, prop, driverName = driver), executor)
+    def forURL(url:String, user:String = null, password:String = null, prop: Properties = null, driver:String = null, executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false): DatabaseDef =
+      forSource(new DriverJdbcDataSource(url, user, password, prop, driverName = driver, keepAliveConnection = keepAliveConnection), executor)
 
     /** Create a Database that uses the DriverManager to open new connections. */
     def forURL(url:String, prop: Map[String, String]): Database = {

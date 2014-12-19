@@ -241,6 +241,7 @@ object SlickBuild extends Build {
         ("postgresql" % "postgresql" % "9.1-901.jdbc4" % "test") +:
         ("mysql" % "mysql-connector-java" % "5.1.23" % "test") +:
         Dependencies.junit ++:
+        Dependencies.reactiveStreamsTCK % "test" +:
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
       // Run the Queryable tests (which need macros) on a forked JVM

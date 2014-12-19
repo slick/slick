@@ -46,7 +46,7 @@ Using a JDBC URL
 ________________
 
 You can provide a JDBC URL to
-:api:`forURL <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forURL(String,String,String,Properties,String,AsyncExecutor):DatabaseDef>`.
+:api:`forURL <scala.slick.jdbc.JdbcBackend$DatabaseFactoryDef@forURL(String,String,String,Properties,String,AsyncExecutor,Boolean):DatabaseDef>`.
 (see your database's JDBC driver's documentation for the correct URL syntax).
 
 .. includecode:: code/Connection.scala#forURL
