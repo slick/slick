@@ -1,8 +1,9 @@
 package scala.slick.jdbc
 
+import scala.language.experimental.macros
 import scala.language.implicitConversions
+import scala.reflect.macros.Context
 import java.sql.PreparedStatement
-import collection.mutable.ArrayBuffer
 
 /** A builder for Plain SQL queries. */
 class StaticQuery[-P,+R](query: String, pconv: SetParameter[P], rconv: GetResult[R]) extends (P => Invoker[R]) {
@@ -52,44 +53,99 @@ class StaticQueryInvoker[-P, +R](val getStatement: String, pconv: SetParameter[P
 
 class SQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLInterpolationResult via string interpolation */
-  def sql[P](param: P)(implicit pconv: SetParameter[P]) =
-    new SQLInterpolationResult[P](s.parts, param, pconv)
+  def sql(param: Any*) = macro SQLInterpolation.sqlImpl
   /** Build a StaticQuery for an UPDATE statement via string interpolation */
-  def sqlu[P](param: P)(implicit pconv: SetParameter[P]) = sql(param).asUpdate
+  def sqlu(param: Any*) = macro SQLInterpolation.sqluImpl
+  /** Build an Invoker for a statement with computed types via string interpolation */
+  def tsql(param: Any*) = macro SQLInterpolation.tsqlImpl
 }
 
-case class SQLInterpolationResult[P](strings: Seq[String], param: P, pconv: SetParameter[P]) {
-  def as[R](implicit rconv: GetResult[R]): StaticQuery[Unit, R] = {
-    if(strings.length == 1)
-      new StaticQuery[Unit, R](strings(0), SetParameter.SetUnit, rconv)
-    else {
-      val (convs, params) = pconv match {
-        case pconv: SetTupleParameter[_] =>
-          (pconv.children.iterator, param.asInstanceOf[Product].productIterator)
-        case _ => (Iterator(pconv), Iterator(param))
-      }
-      val b = new StringBuilder
-      val remaining = new ArrayBuffer[SetParameter[Unit]]
-      convs.zip(params).zip(strings.iterator).foreach { zipped =>
-        val p = zipped._1._2
-        var literal = false
-        def decode(s: String): String =
-          if(s.endsWith("##")) decode(s.substring(0, s.length-2)) + "#"
-          else if(s.endsWith("#")) { literal = true; s.substring(0, s.length-1) }
-          else s
-        b.append(decode(zipped._2))
-        if(literal) b.append(p.toString)
-        else {
-          b.append('?')
-          remaining += zipped._1._1.asInstanceOf[SetParameter[Any]].applied(p)
-        }
-      }
-      b.append(strings.last)
-      new StaticQuery[Unit, R](b.toString, new SetParameter[Unit] {
-        def apply(u: Unit, pp: PositionedParameters): Unit =
-          remaining.foreach(_.apply(u, pp))
-      }, rconv)
+/**
+ * Implementation of SQLInterpolation macros based on code in TypedStaticQuery object
+ */
+object SQLInterpolation {
+  def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLInterpolationResult] = {
+    import ctxt.universe._
+    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
+
+    val macroConnHelper = new MacroConnectionHelper(ctxt)
+
+    val macroTreeBuilder = new {
+      val c: ctxt.type = ctxt
+      val resultTypes = Nil
+      val paramsList = param.toList
+      val queryParts = macroConnHelper.queryParts
+    } with MacroTreeBuilderHelper
+
+    reify {
+      SQLInterpolationResult(
+        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
+      )
     }
   }
+
+  def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[StaticQuery[Unit, Int]] = {
+    import ctxt.universe._
+    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
+
+    val macroConnHelper = new MacroConnectionHelper(ctxt)
+
+    val macroTreeBuilder = new {
+      val c: ctxt.type = ctxt
+      val resultTypes = Nil
+      val paramsList = param.toList
+      val queryParts = macroConnHelper.queryParts
+    } with MacroTreeBuilderHelper
+
+    reify {
+      val res: SQLInterpolationResult = SQLInterpolationResult(
+        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
+      )
+      res.asUpdate
+    }
+  }
+
+  def tsqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[Invoker[Any]] = {
+    import ctxt.universe._
+    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
+
+    val macroConnHelper = new MacroConnectionHelper(ctxt)
+
+    val rTypes = macroConnHelper.configHandler.connection withSession {
+      _.withPreparedStatement(macroConnHelper.rawQuery) {
+        _.getMetaData match {
+          case null => List()
+          case resultMeta => List.tabulate(resultMeta.getColumnCount) { i =>
+            meta.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+          }
+        }
+      }
+    }
+
+    val macroTreeBuilder = new {
+      val c: ctxt.type = ctxt
+      val resultTypes = rTypes
+      val paramsList = param.toList
+      val queryParts = macroConnHelper.queryParts
+    } with MacroTreeBuilderHelper
+
+    reify {
+      val rconv = ctxt.Expr[GetResult[Any]](macroTreeBuilder.rconvTree).splice
+      val res: SQLInterpolationResult = SQLInterpolationResult(
+        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
+      )
+      res.as(rconv).apply(())
+    }
+  }
+}
+
+/**
+ * Results of SQLInterpolation macros is SQLInterpolationResult objects
+ */
+case class SQLInterpolationResult(query: String, sp: SetParameter[Unit]) {
+  def as[R](implicit rconv: GetResult[R]): StaticQuery[Unit, R] = new StaticQuery[Unit, R](query, sp, rconv)
   def asUpdate = as[Int](GetResult.GetUpdateValue)
 }

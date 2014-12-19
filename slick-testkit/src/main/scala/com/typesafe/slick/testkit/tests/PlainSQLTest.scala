@@ -108,15 +108,55 @@ class PlainSQLTest extends TestkitTest[JdbcTestDB] {
     println("User for ID 2: "+res)
     assertEquals(User(2,"guest"), res)
 
-    val s1 = sql"select id from USERS where name = ${"szeiger"}".as[Int]
-    val s2 = sql"select id from USERS where name = '#${"guest"}'".as[Int]
-    assertEquals("select id from USERS where name = ?", s1.getStatement)
+    val s1 = sql"select id from USERS where name = '${"szeiger"}'".as[Int]
+    val s2 = sql"select id from USERS where name = '${"guest"}'".as[Int]
+    assertEquals("select id from USERS where name = 'szeiger'", s1.getStatement)
     assertEquals("select id from USERS where name = 'guest'", s2.getStatement)
     assertEquals(List(1), s1.list)
     assertEquals(List(2), s2.list)
 
     assertEquals(User(2,"guest"), userForIdAndName(2, "guest").first)
     assertEquals(None, userForIdAndName(2, "foo").firstOption)
+
+    sqlu"""create table LONGTABLE( 
+      VAL1  int not null, VAL2  int not null, VAL3  int not null, VAL4  int not null, 
+      VAL5  int not null, VAL6  int not null, VAL7  int not null, VAL8  int not null, 
+      VAL9  int not null, VAL10 int not null, VAL11 int not null, VAL12 int not null, 
+      VAL13 int not null, VAL14 int not null, VAL15 int not null, VAL16 int not null, 
+      VAL17 int not null, VAL18 int not null, VAL19 int not null, VAL20 int not null, 
+      VAL21 int not null, VAL22 int not null, VAL23 int not null, VAL24 int not null)""".execute
+
+    val s3 = sqlu"""insert into LONGTABLE values ( 
+      ${100}, ${101}, ${102}, ${103}, ${104}, ${105}, ${106}, ${107},
+      ${108}, ${109}, ${110}, ${111}, ${112}, ${113}, ${114}, ${115},
+      ${116}, ${117}, ${118}, ${119}, ${120}, ${121}, ${122}, ${123}) """
+    val s4 = sqlu"""insert into LONGTABLE values ( 
+      ${200}, ${201}, ${202}, ${203}, ${204}, ${205}, ${206}, ${207},
+      ${208}, ${209}, ${210}, ${211}, ${212}, ${213}, ${214}, ${215},
+      ${216}, ${217}, ${218}, ${219}, ${220}, ${221}, ${222}, ${223}) """
+    assertEquals("""insert into LONGTABLE values ( 
+      100, 101, 102, 103, 104, 105, 106, 107,
+      108, 109, 110, 111, 112, 113, 114, 115,
+      116, 117, 118, 119, 120, 121, 122, 123) """, s3.getStatement)
+    s3.execute
+    assertEquals("""insert into LONGTABLE values ( 
+      200, 201, 202, 203, 204, 205, 206, 207,
+      208, 209, 210, 211, 212, 213, 214, 215,
+      216, 217, 218, 219, 220, 221, 222, 223) """, s4.getStatement)
+    s4.execute
+
+    val s5 = sql"""select VAL24 from LONGTABLE WHERE VAL1=${100} AND VAL2=${101} AND VAL3=${102} 
+      AND VAL4=${103} AND VAL5=${104} AND VAL6=${105} AND VAL7=${106} AND VAL8=${107} 
+      AND VAL9=${108} AND VAL10=${109} AND VAL11=${110} AND VAL12=${111} AND VAL13=${112} 
+      AND VAL14=${113} AND VAL15=${114} AND VAL16=${115} AND VAL17=${116} AND VAL18=${117} 
+      AND VAL19=${118} AND VAL20=${119} AND VAL21=${120} AND VAL22=${121} AND VAL23=${122}""".as[Int]
+    val s6 = sql"""select VAL24 from LONGTABLE WHERE VAL1=${200} AND VAL2=${201} AND VAL3=${202} 
+      AND VAL4=${203} AND VAL5=${204} AND VAL6=${205} AND VAL7=${206} AND VAL8=${207} 
+      AND VAL9=${208} AND VAL10=${209} AND VAL11=${210} AND VAL12=${211} AND VAL13=${212} 
+      AND VAL14=${213} AND VAL15=${214} AND VAL16=${215} AND VAL17=${216} AND VAL18=${217} 
+      AND VAL19=${218} AND VAL20=${219} AND VAL21=${220} AND VAL22=${221} AND VAL23=${222}""".as[Int]
+    assertEquals(123, s5.first)
+    assertEquals(223, s6.first)
   }
 
   def assertUnquotedTablesExist(tables: String*) {
