@@ -42,7 +42,7 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {
     /** Create a new distributed database instance that uses the global ExecutionContext. */
-    @deprecated("You should explicitly speficy an ExecutionContext in Database.apply()", "2.2")
+    @deprecated("You should explicitly speficy an ExecutionContext in Database.apply()", "3.0")
     def apply(dbs: DatabaseComponent#DatabaseDef*): Database = apply(dbs, ExecutionContext.global)
 
     /** Create a new distributed database instance that uses the supplied ExecutionContext for

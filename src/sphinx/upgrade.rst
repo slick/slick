@@ -3,7 +3,7 @@
 Upgrade guides
 ##############
 
-Upgrade from 2.1 to 2.2
+Upgrade from 2.1 to 3.0
 =======================
 
 Actions

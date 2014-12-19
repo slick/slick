@@ -3,7 +3,7 @@ package com.typesafe.slick.testkit.tests
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import org.junit.Assert._
 
-@deprecated("Using deprecated .simple API", "2.2")
+@deprecated("Using deprecated .simple API", "3.0")
 class OldTransactionTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 

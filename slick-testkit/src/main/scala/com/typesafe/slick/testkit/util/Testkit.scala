@@ -150,7 +150,7 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
 }
 
 abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
-  @deprecated("Use implicitSession instead of sharedSession", "2.2")
+  @deprecated("Use implicitSession instead of sharedSession", "3.0")
   protected final def sharedSession: tdb.profile.Backend#Session = implicitSession
 
   protected implicit def implicitSession: tdb.profile.Backend#Session = {

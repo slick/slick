@@ -85,13 +85,13 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
     * statement. This provides the driver's implicits, the Database and
     * Session objects for DB connections, and commonly used query language
     * types and objects. */
-  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "2.2")
+  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
   val simple: SimpleQL
 
   /** The implicit values and conversions provided by this driver.
     * This is a subset of ``simple``. You usually want to import
     * `simple._` instead of using `Implicit`. */
-  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "2.2")
+  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
   val Implicit: Implicits
 
   /** The API for using the query language with a single import

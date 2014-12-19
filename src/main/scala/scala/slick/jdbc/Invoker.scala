@@ -116,7 +116,7 @@ trait ResultSetMutator[T] {
   /** Update the current row. */
   def row_=(value: T)
   /** Insert a new row. */
-  @deprecated("Use `+=` instead of `insert`", "2.2")
+  @deprecated("Use `+=` instead of `insert`", "3.0")
   final def insert(value: T) = += (value)
   /** Insert a new row. */
   def += (value: T): Unit

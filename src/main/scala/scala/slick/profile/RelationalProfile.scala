@@ -24,7 +24,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalProfile.capabilities.all
 
   protected trait CommonImplicits extends super.CommonImplicits with ImplicitColumnTypes {
-    @deprecated("Use an explicit conversion to an Option column with `.?`", "2.2")
+    @deprecated("Use an explicit conversion to an Option column with `.?`", "3.0")
     implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
     implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
     implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
@@ -67,7 +67,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   }
 
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
-    @deprecated("Use .schema instead of .ddl", "2.2")
+    @deprecated("Use .schema instead of .ddl", "3.0")
     final def ddl: SchemaDescription = schema
 
     /** Get the schema description (DDL) for this table. */
@@ -217,7 +217,7 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
 
     def toNode = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
 
-    @deprecated("Use .schema instead of .ddl", "2.2")
+    @deprecated("Use .schema instead of .ddl", "3.0")
     final def ddl: SchemaDescription = schema
 
     def schema: SchemaDescription = buildSequenceSchemaDescription(this)
