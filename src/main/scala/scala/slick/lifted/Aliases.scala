@@ -45,9 +45,9 @@ trait Aliases {
   val ForeignKeyAction = scala.slick.model.ForeignKeyAction
   type ForeignKeyAction = scala.slick.model.ForeignKeyAction
 
-  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "2.2")
+  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "3.0")
   type Column[T] = lifted.Rep[T]
-  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "2.2")
+  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "3.0")
   val Column = lifted.Rep
 
   type Action[-E <: action.Effect, +R, +S <: action.NoStream] = action.Action[E, R, S]

@@ -5,7 +5,7 @@ import org.junit.Assert._
 import scala.slick.util.CloseableIterator
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-@deprecated("Using deprecated .simple API", "2.2")
+@deprecated("Using deprecated .simple API", "3.0")
 class InvokerTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 

@@ -6,7 +6,7 @@ import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 class JoinTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
-  @deprecated("Using deprecated join operators", "2.2")
+  @deprecated("Using deprecated join operators", "3.0")
   def testJoin = {
     class Categories(tag: Tag) extends Table[(Int, String)](tag, "cat_j") {
       def id = column[Int]("id")

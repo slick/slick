@@ -13,9 +13,9 @@ import de.johoop.testngplugin.TestNGPlugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "2.2.0-SNAPSHOT"
-  val binaryCompatSlickVersion = "2.2.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.10.4", "2.11.2")
+  val slickVersion = "3.0.0-M1"
+  val binaryCompatSlickVersion = "3.0.0" // Slick base version for binary compatibility checks
+  val scalaVersions = Seq("2.10.4", "2.11.4")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {

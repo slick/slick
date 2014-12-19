@@ -7,7 +7,7 @@ import org.junit.Assert._
 import scala.slick.jdbc.StaticQuery.interpolation
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 
-@deprecated("Using deprecated old Plain SQL API", "2.2")
+@deprecated("Using deprecated old Plain SQL API", "3.0")
 class OldPlainSQLTest extends TestkitTest[JdbcTestDB] {
 
   implicit val getUserResult = GetResult(r => new User(r.<<, r.<<))
