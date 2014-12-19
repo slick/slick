@@ -5,7 +5,7 @@ import org.testng.annotations.{AfterClass, BeforeClass}
 import scala.concurrent.ExecutionContext
 import scala.slick.memory.MemoryDriver
 
-class HeapPublisherTest extends RelationalPublisherTest[MemoryDriver](MemoryDriver) {
+class HeapPublisherTest extends RelationalPublisherTest[MemoryDriver](MemoryDriver, 300L) {
   import driver.api._
 
   @BeforeClass def setUpDB: Unit =

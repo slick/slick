@@ -80,6 +80,7 @@ trait DatabaseComponent { self =>
     protected[this] def createPublisher[T](a: Action[Effects, _, Streaming[T]], createCtx: Subscriber[_ >: T] => StreamingDatabaseActionContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
       def subscribe(s: Subscriber[_ >: T]) = if(allowSubscriber(s)) {
         val ctx = createCtx(s)
+        if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
         val subscribed = try { s.onSubscribe(ctx); true } catch {
           case NonFatal(ex) =>
             streamLogger.warn("Subscriber.onSubscribe failed unexpectedly", ex)
@@ -198,7 +199,7 @@ trait DatabaseComponent { self =>
               res
             } finally { ctx.sync = 0 }
             promise.success(res)
-          } catch { case NonFatal(ex) => promise.failure(ex) }
+          } catch { case NonFatal(ex) => promise.tryFailure(ex) }
       })
       promise.future
     }
@@ -211,7 +212,7 @@ trait DatabaseComponent { self =>
     }
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingDatabaseActionContext)(initialState: a.StreamState): Unit =
+    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingDatabaseActionContext)(initialState: a.StreamState): Unit = try {
       ctx.getEC(synchronousExecutionContext).prepare.execute(new Runnable {
         private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
 
@@ -257,12 +258,17 @@ trait DatabaseComponent { self =>
             demand = ctx.delivered(demand)
             realDemand = demand
           } while ((state ne null) && demand > 0)
-          if(streamLogger.isDebugEnabled) {
+          if(debug) {
             if(state ne null) streamLogger.debug("Suspending streaming action with continuation (more data available)")
             else streamLogger.debug("Finished streaming action")
           }
         } catch { case NonFatal(ex) => ctx.streamingResultPromise.failure(ex) }
       })
+    } catch { case NonFatal(ex) =>
+      streamLogger.warn("Error scheduling synchronous streaming", ex)
+      throw ex
+    }
+
 
 
     /** Return the default ExecutionContet for this Database which should be used for running

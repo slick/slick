@@ -13,25 +13,28 @@ object StreamsStressTest extends App {
   val driver = "org.h2.Driver"
 
   val repeats = 10000
-  val numThreads = 16
+  val numThreads = 500
 
-  val env = new TestEnvironment(10000)
+  val env = new TestEnvironment(30000)
   val entityNum = new AtomicInteger()
   val db = Database.forURL(url, driver = driver, keepAliveConnection = true)
   try {
     val threads = 1.to(numThreads).toVector.map { i =>
       new Thread(new Runnable {
         def run(): Unit = {
-          for(j <- 1 to repeats) {
-            run1
-            if(j % 100 == 0) println(s"Thread $i: Stream $j successful")
-          }
+          try {
+            for(j <- 1 to repeats) {
+              run1
+              if(j % 100 == 0) println(s"Thread $i: Stream $j successful")
+            }
+          } catch { case t: Throwable => env.flop(t, t.toString) }
         }
       })
     }
     threads.foreach(_.start())
     threads.foreach(_.join())
     println("All threads finished")
+    env.verifyNoAsyncErrors()
   } finally db.close
 
   def run1: Unit = {
