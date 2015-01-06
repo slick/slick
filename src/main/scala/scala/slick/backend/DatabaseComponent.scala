@@ -30,8 +30,6 @@ trait DatabaseComponent { self =>
   type DatabaseFactory <: DatabaseFactoryDef
   /** The type of session objects used by this backend. */
   type Session >: Null <: SessionDef
-  /** The action effects supported by this backend. */
-  type Effects <: Effect.Read
 
   /** The database factory */
   val Database: DatabaseFactory
@@ -45,9 +43,9 @@ trait DatabaseComponent { self =>
     def close(): Unit
 
     /** Run an Action asynchronously and return the result as a Future. */
-    final def run[R](a: Action[Effects, R, NoStream]): Future[R] = runInternal(a, false)
+    final def run[R](a: Action[R]): Future[R] = runInternal(a, false)
 
-    private[slick] final def runInternal[R](a: Action[Effects, R, NoStream], useSameThread: Boolean): Future[R] =
+    private[slick] final def runInternal[R](a: Action[R], useSameThread: Boolean): Future[R] =
       runInContext(a, new DatabaseActionContext(useSameThread), false)
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
@@ -71,13 +69,13 @@ trait DatabaseComponent { self =>
       * from within `onNext`. If streaming is interrupted due to back-pressure signaling, the next
       * row will be prefetched (in order to buffer the next result page from the server when a page
       * boundary has been reached). */
-    final def stream[T](a: Action[Effects, _, Streaming[T]]): DatabasePublisher[T] = streamInternal(a, false)
+    final def stream[T](a: StreamingAction[_, T]): DatabasePublisher[T] = streamInternal(a, false)
 
-    private[slick] final def streamInternal[T](a: Action[Effects, _, Streaming[T]], useSameThread: Boolean): DatabasePublisher[T] =
+    private[slick] final def streamInternal[T](a: StreamingAction[_, T], useSameThread: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => createStreamingDatabaseActionContext(s, useSameThread))
 
     /** Create a Reactive Streams `Publisher` using the given context factory. */
-    protected[this] def createPublisher[T](a: Action[Effects, _, Streaming[T]], createCtx: Subscriber[_ >: T] => StreamingDatabaseActionContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
+    protected[this] def createPublisher[T](a: StreamingAction[_, T], createCtx: Subscriber[_ >: T] => StreamingDatabaseActionContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
       def subscribe(s: Subscriber[_ >: T]) = if(allowSubscriber(s)) {
         val ctx = createCtx(s)
         if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
@@ -113,7 +111,7 @@ trait DatabaseComponent { self =>
       *                  be a `StreamingDatabaseActionContext` and the Future result should be
       *                  completed with `null` or failed after streaming has finished. This
       *                  method should not call any `Subscriber` method other than `onNext`. */
-    protected[this] def runInContext[R](a: Action[Effects, R, NoStream], ctx: DatabaseActionContext, streaming: Boolean): Future[R] = {
+    protected[this] def runInContext[R](a: Action[R], ctx: DatabaseActionContext, streaming: Boolean): Future[R] = {
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
@@ -275,13 +273,13 @@ trait DatabaseComponent { self =>
       * SynchronousDatabaseActions for asynchronous execution. */
     protected[this] def synchronousExecutionContext: ExecutionContext
 
-    protected[this] def logAction(a: Action[_ <: Effect, _, _ <: NoStream], ctx: DatabaseActionContext): Unit = {
+    protected[this] def logAction(a: Action[_], ctx: DatabaseActionContext): Unit = {
       if(actionLogger.isDebugEnabled && a.isLogged) {
         ctx.sequenceCounter += 1
         val logA = a.nonFusedEquivalentAction
         val aPrefix = if(a eq logA) "" else "[fused] "
         val dump = TreeDump.get(logA, prefix = "    ", firstPrefix = aPrefix, narrow = {
-          case a: Action[_, _, _] => a.nonFusedEquivalentAction
+          case a: Action[_] => a.nonFusedEquivalentAction
           case o => o
         })
         val msg = DumpInfo.highlight("#" + ctx.sequenceCounter) + ": " + dump.substring(0, dump.length-1)

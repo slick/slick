@@ -11,14 +11,13 @@ object Unsafe {
   /** Run an Action and block the current thread until the result is ready. If the Database uses
     * synchronous, blocking excution, it is performed on the current thread in order to avoid any
     * context switching, otherwise execution happens asynchronously. */
-  def runBlocking[R](db: DatabaseComponent#DatabaseDef, a: Action[Nothing, R, NoStream]): R =
-    db.runInternal(a.asInstanceOf[Action[Effect, R, NoStream]], true).value.get.get
+  def runBlocking[R](db: DatabaseComponent#DatabaseDef, a: Action[R]): R = db.runInternal(a, true).value.get.get
 
   /** Run a streaming Action and return an `Iterator` which performs blocking I/O on the current
     * thread (if supported by the Database) or blocks the current thread while waiting for the
     * next result. */
-  def blockingIterator[S](db: DatabaseComponent#DatabaseDef, a: Action[Nothing, Any, Streaming[S]]): CloseableIterator[S] = new CloseableIterator[S] {
-    val p = db.streamInternal(a.asInstanceOf[Action[Effect, Any, Streaming[S]]], true)
+  def blockingIterator[S](db: DatabaseComponent#DatabaseDef, a: StreamingAction[Any, S]): CloseableIterator[S] = new CloseableIterator[S] {
+    val p = db.streamInternal(a, true)
     var error: Throwable = null
     var sub: Subscription = null
     var value: AnyRef = null

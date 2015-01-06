@@ -82,7 +82,7 @@ trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComp
     implicit def runnableCompiledUpdateActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): UpdateActionExtensionMethods[RU] =
       createUpdateActionExtensionMethods(c.compiledUpdate, c.param)
 
-    implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: Action[E, R, S]): JdbcActionExtensionMethods[E, R, S] =
+    implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: EffectfulAction[E, R, S]): JdbcActionExtensionMethods[E, R, S] =
       new JdbcActionExtensionMethods[E, R, S](a)
 
     implicit def actionBasedSQLInterpolation(s: StringContext) = new ActionBasedSQLInterpolation(s)

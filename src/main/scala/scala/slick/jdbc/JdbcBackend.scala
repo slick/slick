@@ -28,7 +28,6 @@ trait JdbcBackend extends RelationalBackend {
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
-  type Effects = Effect.Read with Effect.Write with Effect.Schema with Effect.Transactional
 
   val Database = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
@@ -44,12 +43,12 @@ trait JdbcBackend extends RelationalBackend {
 
     def createSession(): Session = new BaseSession(this)
 
-    /** Like `stream(Action)` but you can disable pre-buffering of the next row by setting
+    /** Like `stream(StreamingAction)` but you can disable pre-buffering of the next row by setting
       * `bufferNext = false`. The ResultSet will not advance to the next row until you
       * `request()` more data. This allows you to process LOBs asynchronously by requesting only
       * one single element at a time after processing the current one, so that the proper
       * sequencing is preserved even though processing may happen on a different thread. */
-    final def stream[T](a: Action[Effects, _, Streaming[T]], bufferNext: Boolean): DatabasePublisher[T] =
+    final def stream[T](a: StreamingAction[_, T], bufferNext: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => new JdbcStreamingDatabaseActionContext(s, false, DatabaseDef.this, bufferNext))
 
     override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingDatabaseActionContext =
