@@ -8,7 +8,7 @@ import org.testng.annotations.{AfterClass, BeforeClass}
 
 import scala.slick.profile.RelationalProfile
 
-abstract class RelationalPublisherTest[P <: RelationalProfile](val driver: P) extends PublisherVerification[Int](new TestEnvironment(300L), 1000L) {
+abstract class RelationalPublisherTest[P <: RelationalProfile](val driver: P, timeout: Long) extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L) {
   import driver.api._
 
   var db: Database = _
