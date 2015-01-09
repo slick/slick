@@ -37,7 +37,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def getDumpInfo = DumpInfo(name = "StartTransaction")
   }
 
-  case class SimpleJdbcAction[+R](f: ActionContext[Backend#This] => R) extends SynchronousDatabaseAction[Backend#This, Effect, R, NoStream] {
+  case class SimpleJdbcAction[+R](f: ActionContext[Backend#This] => R) extends SynchronousDatabaseAction[Backend#This, Nothing, R, NoStream] {
     def run(context: ActionContext[Backend#This]): R = f(context)
     def getDumpInfo = DumpInfo(name = "SimpleJdbcAction")
   }
@@ -54,7 +54,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def getDumpInfo = DumpInfo(name = "Rollback")
   }
 
-  class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: Action[E, R, S]) {
+  class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: EffectfulAction[E, R, S]) {
 
     /** Run this Action transactionally. This does not guarantee failures to be atomic in the
       * presence of error handling combinators. If multiple `transactionally` combinators are
@@ -63,10 +63,10 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       * wrapped Action succeeds, or rolled back if the wrapped Action fails. When called on a
       * [[scala.slick.action.SynchronousDatabaseAction]], this combinator gets fused into the
       * action. */
-    def transactionally: Action[E with Effect.Transactional, R, S] = {
+    def transactionally: EffectfulAction[E with Effect.Transactional, R, S] = {
       def nonFused =
         StartTransaction.andThen(a).cleanUp(eo => if(eo.isEmpty) Commit else Rollback)(Action.sameThreadExecutionContext)
-          .asInstanceOf[Action[E with Effect.Transactional, R, S]]
+          .asInstanceOf[EffectfulAction[E with Effect.Transactional, R, S]]
       a match {
         case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[Backend#This, E with Effect.Transactional, R, S] {
           def run(context: ActionContext[Backend#This]): R = {

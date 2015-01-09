@@ -7,15 +7,13 @@ This chapter describes how to write type-safe queries for selecting,
 inserting, updating and deleting data with the
 :ref:`Lifted Embedding <lifted-embedding>` API.
 
-.. index:: expression, Column, scalar, collection-valued, Rep, Seq, extension method, select, projection, view
+.. index:: expression, scalar, collection-valued, Rep, Seq, extension method, select, projection, view
 
 Expressions
 -----------
 
-Scalar (non-record, non-collection) values are represented by type
-``Column[T]`` (a sub-type of ``Rep[T]``) where a ``TypedType[T]`` must
-exist. Only some special methods for internal use are defined directly in
-the ``Column`` class.
+Scalar (non-record, non-collection) values are represented by type ``Rep[T]`` where a
+``TypedType[T]`` must exist.
 
 The operators and other methods which are commonly used in the lifted
 embedding are added through implicit conversions defined in
@@ -54,8 +52,7 @@ Joins are used to combine two different tables or queries into a single query.
 
 There are two different ways of writing joins: *Explicit* joins are performed
 by calling a method that joins two queries into a single query of a tuple of
-the individual results. *Implicit* joins arise from a specific shape of a query
-without calling a special method.
+the individual results. *Implicit* joins arise from the use of ``flatMap``.
 
 .. index::
    pair: join; implicit
@@ -82,10 +79,10 @@ Explicit joins are created by calling one of the available join methods:
 
 .. includecode:: code/JoinsUnions.scala#explicit
 
-Note the use of ``.?`` in the outer joins. Since these joins can
-introduce additional NULL values (on the right-hand side for a left outer join,
-on the left-hand sides for a right outer join, and on both sides for a full
-outer join), you have to make sure to retrieve ``Option`` values from them.
+Note the use of ``map`` in the ``yield`` clauses of the outer joins. Since these joins can
+introduce additional NULL values (on the right-hand side for a left outer join, on the left-hand
+sides for a right outer join, and on both sides for a full outer join), the respective sides of
+the join are wrapped in an ``Option`` (with ``None`` representing a row that was not matched).
 
 In addition to the usual join operators supported by relational databases
 (which are based off a cross join or outer join), Slick also has *zip joins*
@@ -153,26 +150,14 @@ as done in ``q2``.
 Querying
 --------
 
-Queries are executed using methods defined in the :api:`scala.slick.jdbc.Invoker`
-trait. There is an implicit conversion from ``Query``, so you can execute any
-``Query`` directly. The most common usage scenario is reading a complete
-result set into a strict collection with a specialized method such as ``list``
-or the generic method ``to`` which can build any kind of collection:
+A Query can be converted into an :api:`Action <scala.slick.action.EffectfulAction>` by calling its
+``result`` method. The Action can then be :ref:`executed <executing-actions>` directly in a
+streaming or fully materialized way, or composed further with other Actions:
 
-.. includecode:: code/LiftedEmbedding.scala#invoker
+.. includecode:: code/LiftedEmbedding.scala#result
 
-This snippet also shows how you can get a reference to the invoker without
-having to call the implicit conversion method manually.
-
-All methods that execute a query take an implicit ``Session`` value. Of
-course, you can also pass a session explicitly if you prefer:
-
-.. includecode:: code/LiftedEmbedding.scala#invoker_explicit
-
-If you only want a single result value, you can use ``first`` or
-``firstOption``. The methods ``foreach``, ``foldLeft`` and ``elements`` can be
-used to iterate over the result set without first copying all data into a
-Scala collection.
+If you only want a single result value, you can call ``head`` or
+``headOption`` on the ``result`` Action.
 
 .. index:: delete, DeleteInvoker, deleteStatement
 
@@ -180,10 +165,7 @@ Deleting
 --------
 
 Deleting works very similarly to querying. You write a query which selects the
-rows to delete and then call the ``delete`` method on it. There is again an
-implicit conversion from ``Query`` to the special
-:api:`DeleteInvoker <scala.slick.driver.JdbcInvokerComponent@DeleteInvoker:JdbcDriver.DeleteInvoker>` which provides
-the ``delete`` method and a self-reference ``deleteInvoker``:
+rows to delete and then get an Action by calling the ``delete`` method on it:
 
 .. includecode:: code/LiftedEmbedding.scala#delete
 
@@ -195,14 +177,13 @@ ignored (it always deletes full rows).
 Inserting
 ---------
 
-Inserts are done based on a projection of columns from a single table. When
-you use the table directly, the insert is performed against its ``*``
-projection. Omitting some of a table's columns when inserting causes the
-database to use the default values specified in the table definition, or
-a type-specific default in case no explicit default was given. All methods
-for inserting are defined in
-:api:`InsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@InsertInvokerDef[U]:JdbcDriver.InsertInvokerDef[U]>` and
-:api:`FullInsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@FullInsertInvokerDef[U]:JdbcDriver.FullInsertInvokerDef[U]>`.
+Inserts are done based on a projection of columns from a single table. When you use the table
+directly, the insert is performed against its ``*`` projection. Omitting some of a table's columns
+when inserting causes the database to use the default values specified in the table definition, or
+a type-specific default in case no explicit default was given. All methods for building insert
+Actions are defined in
+:api:`CountingInsertActionComposer <scala.slick.driver.JdbcActionComponent@CountingInsertActionComposer[U]:JdbcDriver.CountingInsertActionComposer[U]>` and
+:api:`ReturningInsertActionComposer <scala.slick.driver.JdbcActionComponent@ReturningInsertActionComposer[U,RU]:JdbcDriver.ReturningInsertActionComposer[U,RU]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
 
@@ -248,7 +229,7 @@ Updates are performed by writing a query that selects the data to update and
 then replacing it with new data. The query must only return raw columns (no
 computed values) selected from a single table. The relevant methods for
 updating are defined in
-:api:`UpdateInvoker <scala.slick.driver.JdbcInvokerComponent@UpdateInvoker[T]:JdbcDriver.UpdateInvoker[T]>`.
+:api:`UpdateExtensionMethods <scala.slick.driver.JdbcActionComponent@UpdateActionExtensionMethodsImpl[T]:JdbcDriver.UpdateActionExtensionMethodsImpl[T]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#update1
 
@@ -273,26 +254,22 @@ query functions:
 
 .. includecode:: code/LiftedEmbedding.scala#compiled1
 
-This works for all functions that take ``Column`` parameters (or
-:ref:`records <record-types>` of Columns) and return a ``Query`` object or a
+This works for all functions that take parameters consisting only of individual columns or
+or :ref:`records <record-types>` of columns and return a ``Query`` object or a
 scalar query. See the API documentation for :api:`scala.slick.lifted.Compiled`
 and its subclasses for details on composing compiled queries.
 
 .. index:: take, drop
 
-Be aware that ``take`` and ``drop`` take ``ConstColumn[Long]`` parameters.
+Be aware that ``take`` and ``drop`` take ``ConstColumn[Long]`` parameters. Unlike ``Rep[Long]]``,
+which could be substituted by another value computed by a query, a ConstColumn can only be literal
+value or a parameter of a compiled query. This is necessary because the actual value has to be
+known by the time the query is prepared for execution by Slick.
 
 .. includecode:: code/LiftedEmbedding.scala#compiled2
 
-You can use a compiled query for querying, updating and deleting data. (For inserts,
-you can cache the :api:`InsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@InsertInvokerDef[U]:JdbcDriver.InsertInvokerDef[U]>`
-and re-use it instead. To get it, call a query's
-:api:`insertInvoker <scala.slick.profile.BasicInsertInvokerComponent$InsertInvokerDef@insertInvoker:InsertInvokerDef.this.type>`
-method, which is added by the
-:api:`createInsertInvoker <scala.slick.driver.JdbcInsertInvokerComponent@createInsertInvoker[U](tree:JdbcInsertInvokerComponent.this.CompiledInsert):JdbcInsertInvokerComponent.this.CountingInsertInvokerDef[U]>`
-implicit conversion.)
-
-For backwards-compatibility with Slick 1.0 you can still create a compiled
+You can use a compiled query for querying, inserting, updating and deleting data. For
+backwards-compatibility with Slick 1.0 you can still create a compiled
 query by calling ``flatMap`` on a :api:`scala.slick.lifted.Parameters` object.
 In many cases this enables you to write a single *for comprehension* for a
 compiled query:

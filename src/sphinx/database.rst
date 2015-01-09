@@ -4,11 +4,11 @@ Databases & Actions
 Anything that you can execute on a database, whether it is a getting the result of a query
 ("``myQuery.result``"), creating a table ("``myTable.schema.create``"), inserting data
 ("``myTable += item``") or something else, is an instance of
-:api:`scala.slick.action.Action`, parameterized by the result type it will produce when you
+:api:`scala.slick.action.EffectfulAction`, parameterized by the result type it will produce when you
 execute it.
 
 Actions can be combined with several different combinators (see the
-:api:`Action class <scala.slick.action.Action>` and :api:`object <scala.slick.action.Action$>` for
+:api:`EffectfulAction class <scala.slick.action.EffectfulAction>` and :api:`Action object <scala.slick.action.EffectfulAction>` for
 details), but they will always be executed strictly sequentially and (at least conceptually) in a
 single database session.
 
@@ -120,6 +120,8 @@ should therefore enable prepared statement caching in the connection pool's conf
 .. index::
    pair: execute; Action
 
+.. _executing-actions:
+
 Executing Actions
 -----------------
 
@@ -179,19 +181,19 @@ When executing an Action that is composed of several smaller Actions, Slick acqu
 the connection pool and releases them again as needed so that a session is not kept in use
 unnecessarily while waiting for the result from a non-database computation (e.g. the function
 passed to
-:api:`flatMap <scala.slick.action.Action@flatMap[E2<:Effect,R2,S2<:NoStream]((R)⇒Action[E2,R2,S2])(ExecutionContext):Action[EwithE2,R2,S2]>`
-that determines the next Action to run). All :api:`Action combinators <scala.slick.action.Action>`
+:api:`flatMap <scala.slick.action.EffectfulAction@flatMap[E2<:Effect,R2,S2<:NoStream]((R)⇒EffectfulAction[E2,R2,S2])(ExecutionContext):EffectfulAction[EwithE2,R2,S2]>`
+that determines the next Action to run). All :api:`Action combinators <scala.slick.action.EffectfulAction>`
 which combine two database Actions without any non-database computations in between (e.g.
-:api:`andThen <scala.slick.action.Action@andThen[E2<:Effect,R2,S2<:NoStream](Action[E2,R2,S2]):Action[EwithE2,R2,S2]>`
-or :api:`zip <scala.slick.action.Action@zip[E2<:Effect,R2](Action[E2,R2,NoStream]):Action[EwithE2,(R,R2),NoStream]>`)
+:api:`andThen <scala.slick.action.EffectfulAction@andThen[E2<:Effect,R2,S2<:NoStream](EffectfulAction[E2,R2,S2]):EffectfulAction[EwithE2,R2,S2]>`
+or :api:`zip <scala.slick.action.EffectfulAction@zip[E2<:Effect,R2](EffectfulAction[E2,R2,NoStream]):EffectfulAction[EwithE2,(R,R2),NoStream]>`)
 can fuse these Actions for more efficient execution, with the side-effect that the fused Action
 runs inside a single session. You can use
-:api:`withPinnedSession <scala.slick.action.Action@withPinnedSession:Action[E,R,S]>` to force the
+:api:`withPinnedSession <scala.slick.action.EffectfulAction@withPinnedSession:EffectfulAction[E,R,S]>` to force the
 use of a single session, keeping the existing session open even when waiting for non-database
 computations.
 
 There is a similar combinator
-:api:`transactionally <scala.slick.driver.JdbcActionComponent$JdbcActionExtensionMethods@transactionally:Action[EwithTransactional,R,S]>`
+:api:`transactionally <scala.slick.driver.JdbcActionComponent$JdbcActionExtensionMethods@transactionally:EffectfulAction[EwithTransactional,R,S]>`
 to force the use of a transaction. This guarantees that the entire Action that is executed will
 either succeed or fail atomically.  Note that failure is not guaranteed to be atomic at the level
 of an individual Action that is wrapped with ``.transactionally``, so you should not apply error

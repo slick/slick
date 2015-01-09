@@ -1,5 +1,9 @@
 package com.typesafe.slick.docs
-import scala.slick.driver.H2Driver.simple._
+
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future}
+import scala.slick.driver.H2Driver.api._
+import scala.slick.action.Unsafe
 
 object OrmToSlick extends App {
   import SqlToSlick.Tables._
@@ -39,19 +43,17 @@ object OrmToSlick extends App {
     def disjunction = new Criteria
   }
 
-  val jdbcDriver = "org.h2.Driver"  
-  val dbUrl = "jdbc:h2:mem:ormtoslick;DB_CLOSE_DELAY=-1"
-
-  Database.forURL(dbUrl,driver=jdbcDriver) withSession { implicit s =>
-    addresses.schema.create
-    people.schema.create
-      
-    import scala.slick.jdbc.StaticQuery.interpolation
-    sql"ALTER TABLE PERSON ALTER COLUMN NAME VARCHAR(255) DEFAULT('')".as[Int].list
-    sql"ALTER TABLE PERSON ALTER COLUMN AGE INT DEFAULT(-1)".as[Int].list
-    sql"ALTER TABLE PERSON ALTER COLUMN ADDRESS_ID INT DEFAULT(1)".as[Int].list
-
-    SqlToSlick.inserts
+  val db = Database.forConfig("h2mem1")
+  try {
+    val setup = Action.seq(
+      addresses.schema.create,
+      people.schema.create,
+      sql"ALTER TABLE PERSON ALTER COLUMN NAME VARCHAR(255) DEFAULT('')".as[Int],
+      sql"ALTER TABLE PERSON ALTER COLUMN AGE INT DEFAULT(-1)".as[Int],
+      sql"ALTER TABLE PERSON ALTER COLUMN ADDRESS_ID INT DEFAULT(1)".as[Int],
+      SqlToSlick.inserts
+    )
+    Unsafe.runBlocking(db, setup)
 
     ;{
       //#ormObjectNavigation
@@ -72,8 +74,10 @@ object OrmToSlick extends App {
       val addressesQuery: Query[Addresses,Address,Seq] = peopleQuery.flatMap(_.address)
       //#slickNavigation
       //#slickExecution
-      val addresses: Seq[Address] = addressesQuery.run
+      val addressesAction: Action[Seq[Address]] = addressesQuery.result
+      val addresses: Future[Seq[Address]] = db.run(addressesAction)
       //#slickExecution
+      Await.result(addresses, Duration.Inf)
     };{
       type Query = HqlQuery
       //#hqlQuery
@@ -136,9 +140,11 @@ object OrmToSlick extends App {
       PeopleFinder.getById(5)
       //#ormGetById
     };{
-      //#slickRun
-      people.filter(_.id === 5).run
-      //#slickRun
+      Await.result(
+        //#slickRun
+        db.run(people.filter(_.id === 5).result)
+        //#slickRun
+      , Duration.Inf)
     };{
       //#ormWriteCaching
       val person = PeopleFinder.getById(5)
@@ -157,7 +163,7 @@ object OrmToSlick extends App {
     };{
       //#slickUpdate
       val personQuery = people.filter(_.id === 5)
-      personQuery.map(p => (p.name,p.age)).update("C. Vogt",12345)
+      personQuery.map(p => (p.name,p.age)).update("C. Vogt", 12345)
       //#slickUpdate
 
       //#slickDelete
@@ -165,7 +171,7 @@ object OrmToSlick extends App {
       //#slickDelete
     };{
       //#slickInsert
-      people.map(p => (p.name,p.age)).insert("S. Zeiger",54321)
+      people.map(p => (p.name,p.age)) += ("S. Zeiger", 54321)
       //#slickInsert
     };{
       import scala.language.higherKinds
@@ -181,9 +187,13 @@ object OrmToSlick extends App {
       val chrisQuery = people.filter(_.id === 2)
       val stefanQuery = people.filter(_.id === 3)
 
-      val chrisWithAddress: (Person, Address) = chrisQuery.withAddress.first
-      val stefanWithAddress: (Person, Address) = stefanQuery.withAddress.first
+      val chrisWithAddress: Future[(Person, Address)] =
+        db.run(chrisQuery.withAddress.result.head)
+      val stefanWithAddress: Future[(Person, Address)] =
+        db.run(stefanQuery.withAddress.result.head)
       //#slickRelationships
+      Await.result(chrisWithAddress, Duration.Inf)
+      Await.result(stefanWithAddress, Duration.Inf)
       };{
         //#relationshipNavigation
         val chris: Person = PeopleFinder.getById(2)
@@ -200,17 +210,19 @@ object OrmToSlick extends App {
         //#slickRelationships2
         val chrisQuery: Query[People,Person,Seq] = people.filter(_.id === 2)
         val addressQuery: Query[Addresses,Address,Seq] = chrisQuery.withAddress.map(_._2)
-        val address = addressQuery.first
+        val address = db.run(addressQuery.result.head)
         //#slickRelationships2
+        Await.result(address, Duration.Inf)
       };{
+        import scala.concurrent.ExecutionContext.Implicits.global
         //#associationTuple
         val tupledJoin: Query[(People,Addresses),(Person,Address), Seq]
               = people join addresses on (_.addressId === _.id)
 
         case class PersonWithAddress(person: Person, address: Address)
-        val caseClassJoinResults = tupledJoin.run map PersonWithAddress.tupled
+        val caseClassJoinResults = db.run(tupledJoin.result).map(_.map(PersonWithAddress.tupled))
         //#associationTuple
       }
     }
-  }
+  } finally db.close
 }

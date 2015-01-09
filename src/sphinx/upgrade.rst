@@ -32,6 +32,26 @@ The old operators are deprecated but still available. Deprecation warnings will 
 Passing an explicit ``JoinType`` to the generic ``join`` operator does not make sense anymore with the new join
 semantics and is therefore deprecated, too. ``join`` is now used exclusively for inner joins.
 
+first
+-----
+
+The old Invoker API used the ``first`` and ``firstOption`` methods to get the first element of a collection-valued
+query. The same operations for streaming Actions in the new API are called ``head`` and ``headOption`` respectively,
+consistent with the names used by the Scala Collections API.
+
+Column Type
+-----------
+
+The type ``Column[T]`` has been subsumed into its supertype ``Rep[T]``. For operations which are only available for
+individual columns, an implicit ``TypedType[T]`` evidence is required. The more flexible handling of Option columns
+requires Option and non-Option columns to be treated differently when creating an implicit ``Shape``. In this case a
+the evidence needs to be of type ``OptionTypedType[T]`` or ``BaseTypedType[T]``, respectively. If you want to abstract
+over both, it may be more convenient to pass the required ``Shape`` as an implicit parameter and let it be instantiated
+at the call site where the concrete type is known.
+
+``Column[T]`` is still available as a deprecated alias for ``Rep[T]``. Due to the required implicit evidence, it
+cannot provide complete backwards compatibility in all cases.
+
 Upgrade from 2.0 to 2.1
 =======================
 

@@ -94,7 +94,7 @@ case class TestMethod(name: String, desc: Description, method: Method, cl: Class
 
       case testObject: AsyncTest[_] =>
         if(r == classOf[Future[_]]) await(method.invoke(testObject).asInstanceOf[Future[Any]])
-        else if(r == classOf[Action[_, _, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[Action[Effect, Any, NoStream]]))
+        else if(r == classOf[EffectfulAction[_, _, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[Action[Any]]))
         else throw new RuntimeException(s"Illegal return type: '${r.getName}' in test method '$name' -- AsyncTest methods must return Future or Action")
     }
   }
@@ -203,9 +203,9 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
-  def ifCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R, NoStream]): Action[E, Unit, NoStream] =
+  def ifCap[E <: Effect, R](caps: Capability*)(f: => EffectfulAction[E, R, NoStream]): EffectfulAction[E, Unit, NoStream] =
     if(caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
-  def ifNotCap[E <: Effect, R](caps: Capability*)(f: => Action[E, R, NoStream]): Action[E, Unit, NoStream] =
+  def ifNotCap[E <: Effect, R](caps: Capability*)(f: => EffectfulAction[E, R, NoStream]): EffectfulAction[E, Unit, NoStream] =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
 
   def ifCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
@@ -213,13 +213,13 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   def ifNotCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
 
-  def asAction[R](f: tdb.profile.Backend#Session => R): Action[Effect, R, NoStream] =
+  def asAction[R](f: tdb.profile.Backend#Session => R): EffectfulAction[Effect, R, NoStream] =
     new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R, NoStream] {
       def run(context: ActionContext[tdb.profile.Backend]): R = f(context.session)
       def getDumpInfo = DumpInfo(name = "<asAction>")
     }
 
-  def seq[E <: Effect](actions: Action[E, _, NoStream]*): Action[E, Unit, NoStream] = Action.seq[E](actions: _*)
+  def seq[E <: Effect](actions: EffectfulAction[E, _, NoStream]*): EffectfulAction[E, Unit, NoStream] = Action.seq[E](actions: _*)
 
   /** Synchronously consume a Reactive Stream and materialize it as a Vector. */
   def materialize[T](p: Publisher[T]): Future[Vector[T]] = {
