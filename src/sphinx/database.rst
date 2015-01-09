@@ -120,6 +120,8 @@ should therefore enable prepared statement caching in the connection pool's conf
 .. index::
    pair: execute; Action
 
+.. _executing-actions:
+
 Executing Actions
 -----------------
 

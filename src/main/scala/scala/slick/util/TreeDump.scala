@@ -21,7 +21,9 @@ object TreeDump {
   def apply(n: Dumpable, name: String = "", prefix: String = "", firstPrefix: String = null, out: PrintWriter = new PrintWriter(new OutputStreamWriter(System.out)), narrow: (Dumpable => Dumpable) = identity) {
     def dump(baseValue: Dumpable, prefix1: String, prefix2: String, name: String, level: Int) {
       val value = narrow(baseValue)
-      val di = value.getDumpInfo
+      val di =
+        if(value eq null) DumpInfo("<error: narrowed to null>", "baseValue = "+baseValue)
+        else value.getDumpInfo
       out.println(
         prefix1 +
         cyan + (if(name.nonEmpty) name + ": " else "") +

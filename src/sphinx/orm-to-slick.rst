@@ -51,13 +51,18 @@ Slick works differently. To do the same in Slick you would write the following. 
 
 .. includecode:: code/OrmToSlick.scala#slickNavigation
 
-As we can see it looks very much like collection operations but the values we get are of type ``Query``. They do not store results, only a plan of the operations that are needed to create a SQL query that produces the results when needed. No database round trips happen at all in our example. To actually fetch results, we can use the ``.run`` method on one of our values.
+As we can see it looks very much like collection operations but the values we get are of type ``Query``. They do not
+store results, only a plan of the operations that are needed to create a SQL query that produces the results when
+needed. No database round trips happen at all in our example. To actually fetch results, we can have to compile the
+query to a :doc:`database Action <database>` with ``.result`` and then ``run`` it on the Database.
 
 .. includecode:: code/OrmToSlick.scala#slickExecution
 
 A single query is executed and the results returned. This makes database round trips very explicit and easy to reason about. Achieving few database round trips is easy.
 
-As you can see with Slick we do not navigate the object graph (i.e. results) directly. We navigate it by composing queries instead, which are just place-holder values for potential database round trip yet to happen. We can lazily compose queries until they describe exactly what we need and then use a single ``.run`` call for execution.
+As you can see with Slick we do not navigate the object graph (i.e. results) directly. We navigate it by composing
+queries instead, which are just place-holder values for potential database round trip yet to happen. We can lazily
+compose queries until they describe exactly what we need and then use a single ``Database.run`` call for execution.
 
 Navigating the object graph directly in an ORM is problematic as explained earlier. Slick gets away without that feature. ORMs often solve the problem by offering a declarative query language as an alternative, which is similar to how you work with Slick.
 
@@ -187,7 +192,7 @@ A variant of this question Slick new comers often ask is how they can do somethi
 
 .. includecode:: code/OrmToSlick.scala#relationshipNavigation2
 
-The problem is that this hard-codes that to exist a Person requires an Address. It can not be loaded without it. This does't fit to Slick's philosophy of giving you fine-grained control over what you load exactly. With Slick it is advised to map one table to a tuple or case class without them having object references to related objects. Instead you can write a function that joins two tables and returns them as a tuple or association case class instance, providing an association externally, not strongly tied one of the classes.
+The problem is that this hard-codes that a Person requires an Address. It can not be loaded without it. This does't fit to Slick's philosophy of giving you fine-grained control over what you load exactly. With Slick it is advised to map one table to a tuple or case class without them having object references to related objects. Instead you can write a function that joins two tables and returns them as a tuple or association case class instance, providing an association externally, not strongly tied one of the classes.
 
 .. includecode:: code/OrmToSlick.scala#associationTuple
 

@@ -1,7 +1,16 @@
 Coming from SQL to Slick
 =========================
 
-Coming from JDBC/SQL to Slick is pretty straight forward in many ways. Slick can be considered as a drop-in replacement with a nicer API for handling connections, fetching results and using a query language, which is integrated more nicely into Scala than writing queries as Strings. The main obstacle for developers coming from SQL to Slick seems to be the semantic differences of seemingly similar operations between SQL and Scala's collections API which Slick's API imitates. The following sections give a quick overview over the differences. They start with conceptual differences and then list examples of many :ref:`SQL operators and their Slick equivalents <sql-to-slick-operators>`. For a more detailed explanations of Slick's API please refer to :doc:`chapter queries <queries>` and the equivalent methods in the :scalaapi:`the Scala collections API <scala.collection.immutable.Seq>`.
+Coming from JDBC/SQL to Slick is pretty straight forward in many ways. Slick can be considered as a
+drop-in replacement with a nicer API for handling connections, fetching results and using a query
+language, which is integrated more nicely into Scala than writing queries as Strings. The main
+obstacle for developers coming from SQL to Slick seems to be the semantic differences of seemingly
+similar operations between SQL and Scala's collections API which Slick's API imitates. The
+following sections give a quick overview over the differences. They start with conceptual
+differences and then list examples of many :ref:`SQL operators and their Slick equivalents
+<sql-to-slick-operators>`. For a more detailed explanations of Slick's API please refer to
+:doc:`chapter queries <queries>` and the equivalent methods in the
+:scalaapi:`the Scala collections API <scala.collection.immutable.Seq>`.
 
 .. _sql-schema:
 
@@ -26,7 +35,7 @@ Queries in comparison
 JDBC Query
 ___________
 
-A jdbc query could with error handling look like this
+A JDBC query with error handling could look like this:
 
 .. includecode:: code/SqlToSlick.scala#jdbc
 
@@ -35,7 +44,9 @@ Slick gives us two choices how to write queries. One is SQL strings just like JD
 Slick Plain SQL queries
 _________________________
 
-This is useful if you either want to continue writing queries in SQL or if you need a feature not (yet) supported by Slick otherwise. Executing the same query using Slick Plain SQL, which has built-in error-handling and closing of resources looks like this:
+This is useful if you either want to continue writing queries in SQL or if you need a feature not (yet) supported by
+Slick otherwise. Executing the same query using Slick Plain SQL, which has built-in error-handling and resource
+management optimized for asynchronous execution, looks like this:
 
 .. includecode:: code/SqlToSlick.scala#SlickPlainSQL
 
@@ -62,7 +73,8 @@ It is important to note that Slick needs the type-information to type-check thes
 Main obstacle: Semantic API differences
 ---------------------------------------------------------
 
-Some methods of the Scala collections work a bit differently than their SQL counter parts. This seems to be one of the main causes of confusion for people newly coming from SQL to Slick. Especially `groupBy`_ seems to be tricky. Also `leftJoin`_ because of some complications with Slick's current integration.
+Some methods of the Scala collections work a bit differently than their SQL counter parts. This seems to be one of the
+main causes of confusion for people newly coming from SQL to Slick. Especially `groupBy`_ seems to be tricky.
 
 The best approach to write queries using Slick's type-safe api is thinking in terms of Scala collections. What would the code be if you had a Seq of tuples or case classes instead of a Slick TableQuery object. Use that exact code. If needed adapt it with workarounds where a Scala library feature is currently not supported by Slick or if Slick is slightly different. Some operations are more strongly typed in Slick than in Scala for example. Arithmetic operation in different types require explicit casts using ``.asColumnOf[T]``. Also Slick uses 3-valued logic for Option inference.
 
@@ -111,7 +123,7 @@ Slick generates SQL code and tries to make it as simple as possible. The algorit
 SQL vs. Slick examples
 --------------------------------
 
-This sections shows an overview over the most important types of SQL queries and a corresponding type-safe Slick query.
+This section shows an overview over the most important types of SQL queries and a corresponding type-safe Slick query.
 
 .. index:: SELECT, map, projection, *
 
@@ -126,7 +138,7 @@ SQL
 
 Slick
 ^^^^^^
-The Slick equivalent of ``SELECT *`` is just calling ``run`` on a table.
+The Slick equivalent of ``SELECT *`` is the ``result`` of the plain TableQuery:
 
 .. includecode:: code/SqlToSlick.scala#slickQueryProjection*
 
@@ -193,7 +205,7 @@ SQL
 
 Slick
 ^^^^^^
-Aggregations are collection methods in Scala. In SQL they are called on a column, but in Slick they are called on collection-like value e.g. a complete query, which people coming from SQL easily trip over. They return a scalar value, which can be run individually. Aggregation methods such as ``max`` that can return ``NULL`` return Options in Slick.
+Aggregations are collection methods in Scala. In SQL they are called on a column, but in Slick they are called on a collection-like value e.g. a complete query, which people coming from SQL easily trip over. They return a scalar value, which can be run individually. Aggregation methods such as ``max`` that can return ``NULL`` return Options in Slick.
 
 .. includecode:: code/SqlToSlick.scala#slickQueryAggregate
 
@@ -220,7 +232,7 @@ Scala's groupBy returns a Map of grouping keys to Lists of the rows for each gro
 
 .. includecode:: code/SqlToSlick.scala#slickQueryGroupBy
 
-SQL requires to aggregate grouped values. We require the same in Slick for now. This means a ``groupBy`` call must be followed by a ``map`` call or will fail with an Exception. This makes Slick's grouping syntax a bit more complicated than SQL's. We may lift this restriction by providing an alternative method with a different signature at some point.
+SQL requires to aggregate grouped values. We require the same in Slick for now. This means a ``groupBy`` call must be followed by a ``map`` call or will fail with an Exception. This makes Slick's grouping syntax a bit more complicated than SQL's.
 
 .. index:: HAVING
 
@@ -241,8 +253,8 @@ Slick does not have different methods for ``WHERE`` and ``HAVING``. For achievin
 
 .. index:: join, implicit join, flatMap
 
-Implicit join
-______________
+Implicit inner joins
+____________________
 
 
 SQL
@@ -258,8 +270,8 @@ Slick generates SQL using implicit joins for ``flatMap`` and ``map`` or the corr
 
 .. index:: explicit join
 
-Explicit join
-________________
+Explicit inner joins
+____________________
 
 
 SQL
@@ -277,8 +289,8 @@ Slick offers a small DSL for explicit joins.
 
 .. _leftJoin:
 
-left/right/outer join
-_______________________
+Outer joins (left/right/full)
+_____________________________
 
 
 SQL
@@ -288,7 +300,11 @@ SQL
 
 Slick
 ^^^^^^
-Outer joins are done using Slick's explicit join DSL. Be aware that in case of an outer join SQL changes the type of outer joined, non-nullable columns into nullable columns. Slick isn't aware of this, which is a known limitation at the moment. When Slick encounters a null for an originally non-nullable column when fetching outer join results, a ``Read NULL value for column`` SlickException is thrown. In order to avoid this, you need to tell Slick explicitly using the ``.?`` which columns can now be nullable, which are all originally non-nullable columns that were outer-joined. Slick currently supports ``.?`` only for individual columns, not tuples or rows. The Slick code generator generates ``.?`` methods for complete rows of the handled tables, which eases the situation a bit.
+Outer joins are done using Slick's explicit join DSL. Be aware that in case of an outer join SQL changes the type of
+outer joined, non-nullable columns into nullable columns. In order to represent this in a clean way even in the
+presence of mapped types, Slick lifts the whole side of the join into an ``Option``. This goes a bit further than the
+SQL semantics because it allows you to distinguish a row which was not matched in the join from a row that was
+matched but already contained nothign but NULL values.
 
 .. includecode:: code/SqlToSlick.scala#slickQueryLeftJoin
 
@@ -325,7 +341,7 @@ SQL
 
 Slick
 ^^^^^^
-This code shows a subquery computing a single value in combination with a :doc:`user defined database function <userdefined>`.
+This code shows a subquery computing a single value in combination with a :doc:`user-defined database function <userdefined>`.
 
 .. includecode:: code/SqlToSlick.scala#slickQuerySemiRandomChoose
 
@@ -345,7 +361,12 @@ SQL
 
 Slick
 ^^^^^^
-Inserts can be a bit surprising at first, when coming from SQL, because unlike SQL, Slick re-uses the same syntax that is used for querying to select which columns should be inserted into. So basically, you first write a query and instead of running it you call ``.insert`` on it, passing in the values to be inserted. ``insertAll`` allows insertion of a Seq of rows at once. Columns that are auto incremented are automatically ignored, so inserting into them has no effect. Using ``.forceInsert`` allows actual insertion into auto incremented columns.
+Inserts can be a bit surprising at first, when coming from SQL, because unlike SQL, Slick re-uses the same syntax that
+is used for querying to select which columns should be inserted into. So basically, you first write a query and instead
+of creating an Action that gets the result of this query, you call ``+=`` on with value to be inserted, which gives you
+an Action that performs the insert. ``++=`` allows insertion of a Seq of rows at once. Columns that are auto-incremented
+are automatically ignored, so inserting into them has no effect. Using ``forceInsert`` allows actual insertion into
+auto-incremented columns.
 
 .. includecode:: code/SqlToSlick.scala#slickQueryInsert
 
@@ -383,7 +404,8 @@ SQL
 
 Slick
 ^^^^^^
-Just like inserts, deletes are based on queries that filter what should be deleted. Instead of running the query ``.delete`` is used to delete the rows.
+Just like inserts, deletes are based on queries that filter what should be deleted. Instead of getting the query result
+of the query, ``.delete`` is used to obtain an Action that deletes the selected rows.
 
 .. includecode:: code/SqlToSlick.scala#slickQueryDelete
 

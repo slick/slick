@@ -154,14 +154,14 @@ class PlainSQLAction[P, T, E <: Effect](pconv: SetParameter[P], rconv: GetResult
   }
   override def cancelStream(ctx: StreamingActionContext[JdbcBackend], state: StreamState): Unit = state.close()
   def getDumpInfo = new DumpInfo("PlainSQLAction")
-  /*
-  override def head: DriverAction[Effect, T, NoStream] = new JdbcDriverAction[T, NoStream] {
-    def statements = streamingAction.statements
-    def run(ctx: ActionContext[Backend]): T = createInvoker[T](rsm, param).first(ctx.session)
+
+  def head: SynchronousDatabaseAction[JdbcBackend, E, T, NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, T, NoStream] {
+    def run(ctx: ActionContext[JdbcBackend]): T = createInvoker.first(ctx.session)
+    def getDumpInfo = new DumpInfo("PlainSQLAction.head")
   }
-  override def headOption: DriverAction[Effect, Option[T], NoStream] = new JdbcDriverAction[Option[T], NoStream] {
-    def statements = streamingAction.statements
-    def run(ctx: ActionContext[Backend]): Option[T] = createInvoker[T](rsm, param).firstOption(ctx.session)
+
+  def headOption: SynchronousDatabaseAction[JdbcBackend, E, Option[T], NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, Option[T], NoStream] {
+    def run(ctx: ActionContext[JdbcBackend]): Option[T] = createInvoker.firstOption(ctx.session)
+    def getDumpInfo = new DumpInfo("PlainSQLAction.headOption")
   }
-  */
 }
