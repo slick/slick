@@ -1,4 +1,6 @@
 package scala.slick.test.direct
+
+import scala.slick.action.Unsafe
 import scala.slick.direct.order._
 
 import scala.language.{reflectiveCalls,implicitConversions}
@@ -9,13 +11,12 @@ import scala.slick.ast
 import scala.slick.direct._
 import scala.slick.direct.AnnotationMapper._
 import scala.slick.testutil._
-import slick.jdbc.StaticQuery.interpolation
 import scala.reflect.runtime.universe.TypeTag
 import scala.reflect.ClassTag
 import scala.slick.SlickException
 import com.typesafe.slick.testkit.util.{StandardTestDBs, DBTest, DBTestObject, JdbcTestDB}
 
-object QueryableTest extends DBTestObject(StandardTestDBs.H2Mem)
+object QueryableTest extends DBTestObject(StandardTestDBs.H2MemKeepAlive)
 
 class Foo[T]( val q : Queryable[T] )
 
@@ -42,7 +43,6 @@ object Singleton{
 }
 
 class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
-  import tdb.driver.backend.Database.dynamicSession
 
   object backend extends SlickBackend(tdb.driver,AnnotationMapper)
 
@@ -50,8 +50,8 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
     def enableAssertQuery[T:TypeTag:ClassTag]( q:Queryable[T] ) = new{
       def assertQuery( matcher : ast.Node => Unit ) = {
         //backend.dump(q)
-        println( backend.toSql(q,dynamicSession) )
-        println( backend.result(q,dynamicSession) )
+        println( backend.toSql(q) )
+        println( Unsafe.runBlocking(db, backend.result(q)) )
         try{
           matcher( backend.toQuery( q )._2.node : @unchecked ) : @unchecked
           print(".")
@@ -84,16 +84,20 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
     }
     def fail : Unit = fail()
     def success{ print(".") }
-    def assertEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( rhs.groupBy(x=>x), lhs.groupBy(x=>x) )
-    def assertMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEqualMultiSet( backend.result(queryable,dynamicSession), expected)
-    def assertNotEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) = assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
-    def assertNoMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = try{
-      assertEqualMultiSet( backend.result(queryable,dynamicSession), expected)
+    def assertEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) =
+      assertEquals( rhs.groupBy(x=>x), lhs.groupBy(x=>x) )
+    def assertMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) =
+      assertEqualMultiSet( Unsafe.runBlocking(db, backend.result(queryable)), expected)
+    def assertNotEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) =
+      assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
+    def assertNoMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = try {
+      assertEqualMultiSet( Unsafe.runBlocking(db, backend.result(queryable)), expected)
     } catch {
       case e:AssertionError => 
       case e:Throwable => throw e
     }
-    def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = assertEquals( expected, backend.result(queryable,dynamicSession) )
+    def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) =
+      assertEquals( expected, Unsafe.runBlocking(db, backend.result(queryable)) )
   }
 
   object SingletonInClass{
@@ -117,314 +121,315 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
       ("Colombian_Decaf",    3, Some("White Chocolate")),
       ("French_Roast_Decaf", 5, None)
     )
-    
-    db withDynSession {
-      // create test table
-      sqlu"create table COFFEES(COF_NAME varchar(255), SALES int, FLAVOR varchar(255) NULL)".execute
-      (for {
-        (name, sales, flavor) <- coffees_data
-      } yield sqlu"insert into COFFEES values ($name, $sales, $flavor)".first).sum
 
-      // FIXME: reflective typecheck failed:  backend.result(Queryable[Coffee].map(x=>x))
-      
-      // setup query and equivalent inMemory data structure
-      val inMem = coffees_data.map{ case (name, sales,flavor) => Coffee(name, sales,flavor) }
-      val query : Queryable[Coffee] = Queryable[Coffee]
+    import tdb.driver.api.actionBasedSQLInterpolation
 
-      // test framework sanity checks
-      assertNoMatch(query, inMem ++ inMem)
-      assertNoMatch(query, List())
+    // create test table
+    Unsafe.runBlocking(db, sqlu"create table COFFEES(COF_NAME varchar(255), SALES int, FLAVOR varchar(255) NULL)")
+    (for {
+      (name, sales, flavor) <- coffees_data
+    } yield Unsafe.runBlocking(db, sqlu"insert into COFFEES values ($name, $sales, $flavor)".head)).sum
 
-      // fetch whole table
-      assertMatch( query, inMem )
+    // FIXME: reflective typecheck failed:  backend.result(Queryable[Coffee].map(x=>x))
 
-      // FIXME: make this test less artificial
-      class MyQuerycollection{
-        def findUserByName( name:String ) = query.filter( _.name == name )
-      }  
-      val qc = new MyQuerycollection
-      qc.findUserByName("some value")
-      
-      // test singleton object
+    // setup query and equivalent inMemory data structure
+    val inMem = coffees_data.map{ case (name, sales,flavor) => Coffee(name, sales,flavor) }
+    val query : Queryable[Coffee] = Queryable[Coffee]
+
+    // test framework sanity checks
+    assertNoMatch(query, inMem ++ inMem)
+    assertNoMatch(query, List())
+
+    // fetch whole table
+    assertMatch( query, inMem )
+
+    // FIXME: make this test less artificial
+    class MyQuerycollection{
+      def findUserByName( name:String ) = query.filter( _.name == name )
+    }
+    val qc = new MyQuerycollection
+    qc.findUserByName("some value")
+
+    // test singleton object
+    assertMatch(
+      Singleton.q1,
+      inMem.map( _.sales + 5 )
+    )
+
+    // test singleton in package
+    assertMatch(
+      Singleton.q1,
+      inMem.map( _.sales + 5 )
+    )
+
+    // test singleton in singleton in package
+    assertMatch(
+      Singleton.Singleton.q1,
+      inMem.map( _.sales + 5 )
+    )
+
+    // test singleton in singleton in singleton in package
+    assertMatch(
+      Singleton.Singleton.Singleton.q1,
+      inMem.map( _.sales + 5 )
+    )
+
+    // test singleton in class (not supported (yet?))
+    try{
       assertMatch(
-        Singleton.q1,
+        SingletonInClass.q1,
         inMem.map( _.sales + 5 )
       )
-      
-      // test singleton in package
-      assertMatch(
-        Singleton.q1,
-        inMem.map( _.sales + 5 )
-      )
-      
-      // test singleton in singleton in package
-      assertMatch(
-        Singleton.Singleton.q1,
-        inMem.map( _.sales + 5 )
-      )
+      fail()
+    }catch{
+      case _:SlickException =>
+    }
 
-      // test singleton in singleton in singleton in package
-      assertMatch(
-        Singleton.Singleton.Singleton.q1,
-        inMem.map( _.sales + 5 )
-      )
+    // simple map
+    assertMatch(
+      query.map( (_:Coffee).sales + 5 ),
+      inMem.map( (_:Coffee).sales + 5 )
+    )
 
-      // test singleton in class (not supported (yet?))
-      try{
-        assertMatch(
-          SingletonInClass.q1,
-          inMem.map( _.sales + 5 )
-        )
-        fail()
-      }catch{
-        case _:SlickException => 
-      }
+    // left-hand-side coming from attribute
+    val foo = new Foo(query)
+    assertMatch(
+      foo.q.map( (_:Coffee).sales + 5 ),
+      inMem.map( (_:Coffee).sales + 5 )
+    )
 
-      // simple map
-      assertMatch(
-        query.map( (_:Coffee).sales + 5 ),
-        inMem.map( (_:Coffee).sales + 5 )
-      )
-      
-      // left-hand-side coming from attribute
-      val foo = new Foo(query)
-      assertMatch(
-        foo.q.map( (_:Coffee).sales + 5 ),
-        inMem.map( (_:Coffee).sales + 5 )
-      )
-  
-      // map with string concatenation
-      assertMatch(
-        query.map( _.name + "." ),
-        inMem.map( _.name + "." )
-      )
-  
-      // filter with more complex condition
-      assertMatch(
-        query.filter( c => c.sales > 2 || "Colombian_Decaf" == c.name ),
-        inMem.filter( c => c.sales > 2 || "Colombian_Decaf" == c.name )
-      )
+    // map with string concatenation
+    assertMatch(
+      query.map( _.name + "." ),
+      inMem.map( _.name + "." )
+    )
 
-      assertMatch(
-        query.filter( c => c.sales > 2 && "Colombian_Decaf" == c.name ),
-        inMem.filter( c => c.sales > 2 && "Colombian_Decaf" == c.name )
-      )
+    // filter with more complex condition
+    assertMatch(
+      query.filter( c => c.sales > 2 || "Colombian_Decaf" == c.name ),
+      inMem.filter( c => c.sales > 2 || "Colombian_Decaf" == c.name )
+    )
 
-      // type annotations FIXME canBuildFrom
-      assertMatch(
-        query.map[String]( (_:Coffee).name : String ),
-        inMem.map        ( (_:Coffee).name : String )
-      )
+    assertMatch(
+      query.filter( c => c.sales > 2 && "Colombian_Decaf" == c.name ),
+      inMem.filter( c => c.sales > 2 && "Colombian_Decaf" == c.name )
+    )
 
-      // chaining
-      assertMatch(
-        query.map( _.name ).filter(_ == ""),
-        inMem.map( _.name ).filter(_ == "")
-      )
-  
-      // referenced values are inlined as constants using reflection
-      val o = 2 + 3
-      assertMatch(
-        query.filter( _.sales > o ),
-        inMem.filter( _.sales > o )
-      )
+    // type annotations FIXME canBuildFrom
+    assertMatch(
+      query.map[String]( (_:Coffee).name : String ),
+      inMem.map        ( (_:Coffee).name : String )
+    )
 
-      // nesting (not supported yet: query.map(e1 => query.map(e2=>e1))) 
-      assertMatch(
-        query.flatMap(e1 => query.map(e2=>e1)),
-        inMem.flatMap(e1 => inMem.map(e2=>e1))
-      )
-  
-      // query scope
-      {
-        val inMemResult = inMem.filter( _.sales > 5 )
-        List(
-          query.filter( _.sales > 5 ),
-          Queryable( query.filter( _.sales > 5 ) ),
-          Queryable{
-            val foo = query
-            val bar = foo.filter( _.sales > 5 )
-            bar  
-          }
-        ).foreach{
-          query_ => assertMatch( query_, inMemResult )
+    // chaining
+    assertMatch(
+      query.map( _.name ).filter(_ == ""),
+      inMem.map( _.name ).filter(_ == "")
+    )
+
+    // referenced values are inlined as constants using reflection
+    val o = 2 + 3
+    assertMatch(
+      query.filter( _.sales > o ),
+      inMem.filter( _.sales > o )
+    )
+
+    // nesting (not supported yet: query.map(e1 => query.map(e2=>e1)))
+    assertMatch(
+      query.flatMap(e1 => query.map(e2=>e1)),
+      inMem.flatMap(e1 => inMem.map(e2=>e1))
+    )
+
+    // query scope
+    {
+      val inMemResult = inMem.filter( _.sales > 5 )
+      List(
+        query.filter( _.sales > 5 ),
+        Queryable( query.filter( _.sales > 5 ) ),
+        Queryable{
+          val foo = query
+          val bar = foo.filter( _.sales > 5 )
+          bar
         }
+      ).foreach{
+        query_ => assertMatch( query_, inMemResult )
       }
+    }
 
-      // comprehension with map
-      assertMatch(
-        for( c <- query ) yield c.name,
-        for( c <- inMem ) yield c.name
-      )
-  
-      // nesting with flatMap
-      {
-        val inMemResult = for( o <- inMem; i <- inMem ) yield i.name
-        List(
-                   query.flatMap( o => query.map(i => i.name) ),
-                    for( o <- query; i <- query ) yield i.name ,
-          Queryable(for( o <- query; i <- query ) yield i.name)
-        ).foreach{
-          query_ => assertMatch( query_, inMemResult )
-        }
+    // comprehension with map
+    assertMatch(
+      for( c <- query ) yield c.name,
+      for( c <- inMem ) yield c.name
+    )
+
+    // nesting with flatMap
+    {
+      val inMemResult = for( o <- inMem; i <- inMem ) yield i.name
+      List(
+                 query.flatMap( o => query.map(i => i.name) ),
+                  for( o <- query; i <- query ) yield i.name ,
+        Queryable(for( o <- query; i <- query ) yield i.name)
+      ).foreach{
+        query_ => assertMatch( query_, inMemResult )
       }
+    }
 
-      assertMatch(
-        query.flatMap(e1 => query.map(e2=>e1).map(e2=>e1)),
-        inMem.flatMap(e1 => inMem.map(e2=>e1).map(e2=>e1))
-      ) 
+    assertMatch(
+      query.flatMap(e1 => query.map(e2=>e1).map(e2=>e1)),
+      inMem.flatMap(e1 => inMem.map(e2=>e1).map(e2=>e1))
+    )
 
-      // nesting with outer macro reference
-      {
-        val inMemResult = for( o <- inMem; i <- inMem ) yield o.name
-        List(
-                   query.flatMap( o => query.map(i => o.name) ),
-                   for( o <- query; i <- query ) yield o.name ,
-          Queryable(for( o <- query; i <- query ) yield o.name)
-        ).foreach{
-          query_ => assertMatch( query_, inMemResult )
-        }
+    // nesting with outer macro reference
+    {
+      val inMemResult = for( o <- inMem; i <- inMem ) yield o.name
+      List(
+                 query.flatMap( o => query.map(i => o.name) ),
+                 for( o <- query; i <- query ) yield o.name ,
+        Queryable(for( o <- query; i <- query ) yield o.name)
+      ).foreach{
+        query_ => assertMatch( query_, inMemResult )
       }
-  
-      // nesting with chaining / comprehension with cartesian product and if
-      {
-        val inMemResult = for( o <- inMem; i <- inMem; if i.sales == o.sales ) yield i.name
-        List(
-          query.flatMap(o => query.filter( i => i.sales == o.sales ).map(i => i.name)),
-                    for( o <- query; i <- query; if i.sales == o.sales ) yield i.name ,
-          Queryable(for( o <- query; i <- query; if i.sales == o.sales ) yield i.name)
-        ).foreach{
-          query_ => assertMatch( query_, inMemResult )
-        }
+    }
+
+    // nesting with chaining / comprehension with cartesian product and if
+    {
+      val inMemResult = for( o <- inMem; i <- inMem; if i.sales == o.sales ) yield i.name
+      List(
+        query.flatMap(o => query.filter( i => i.sales == o.sales ).map(i => i.name)),
+                  for( o <- query; i <- query; if i.sales == o.sales ) yield i.name ,
+        Queryable(for( o <- query; i <- query; if i.sales == o.sales ) yield i.name)
+      ).foreach{
+        query_ => assertMatch( query_, inMemResult )
       }
+    }
 
-      // tuples
-      assertMatch(
-        query.map( c=> (c.name,c.sales) ),
-        inMem.map( c=> (c.name,c.sales) )
-      )
-      
-      // nested structures (here tuples and case classes)
-      assertMatch(
-        query.map( c=> (c.name,c.sales,c) ),
-        inMem.map( c=> (c.name,c.sales,c) )
-      )
-      // length
-      assertEquals( backend.result(query.length,dynamicSession), inMem.length )
+    // tuples
+    assertMatch(
+      query.map( c=> (c.name,c.sales) ),
+      inMem.map( c=> (c.name,c.sales) )
+    )
 
-      val iquery = ImplicitQueryable( query, backend, dynamicSession )
-      assertEquals( iquery.length, inMem.length )
-      
-      // iquery.filter( _.sales > 10.0 ).map( _.name ) // currently crashed compiler
-      
+    // nested structures (here tuples and case classes)
+    assertMatch(
+      query.map( c=> (c.name,c.sales,c) ),
+      inMem.map( c=> (c.name,c.sales,c) )
+    )
+    // length
+    assertEquals( Unsafe.runBlocking(db, backend.result(query.length)), inMem.length )
+
+    val iquery = ImplicitQueryable( query, backend, db )
+    assertEquals( iquery.length, inMem.length )
+
+    // iquery.filter( _.sales > 10.0 ).map( _.name ) // currently crashed compiler
+
+    assertMatch(
+      query.map( c=>c ),
+      iquery.map( c=>c ).toSeq
+    )
+
+    ({
+      import ImplicitQueryable.implicitExecution._
       assertMatch(
         query.map( c=>c ),
-        iquery.map( c=>c ).toSeq
+        iquery.map( c=>c )
       )
-      
-      ({
-        import ImplicitQueryable.implicitExecution._
-        assertMatch(
-          query.map( c=>c ),
-          iquery.map( c=>c )
-        )
-      })
-   
-      assertMatch(
-           for( o <-  query; i <-  query; if i.sales == o.sales  ) yield i.name,
-          (for( o <- iquery; i <- iquery; if i.sales == o.sales ) yield i.name).toSeq
-      )
-      
-      assertMatch(
-        for( v1<-query;v2<-query; if !(v1.name == v2.name)) yield (v1.name,v2.name)
-        ,for( v1<-inMem;v2<-inMem; if !(v1.name == v2.name)) yield (v1.name,v2.name)
-      )
-      
-      assertMatch(
-        for( v1<-query;v2<-query; if v1.name != v2.name) yield (v1.name,v2.name)
-        ,for( v1<-inMem;v2<-inMem; if v1.name != v2.name) yield (v1.name,v2.name)
-      )
-      
-      assertMatch(
-        query.take(2)
-        ,inMem.take(2)
-      )
-      
-      assertMatch(
-        query.drop(2)
-        ,inMem.drop(2)
-      )
-      
-      assertMatchOrdered(
-        query.sortBy(_.name)
-        ,inMem.sortBy(_.name)
-      )
-      
-      assertMatchOrdered(
-        query.sortBy(c=>(c.name,c.flavor))
-        ,inMem.sortBy(c=>(c.name,c.flavor))
-      )
-      
-      assertMatchOrdered(
-        query.sortBy(c => reversed(c.name))
-        ,inMem.sortBy(c => reversed(c.name))
-      )      
-      
-      assertMatchOrdered(
-        query.sortBy(c => (c.name,reversed(c.sales)))
-        ,inMem.sortBy(c => (c.name,reversed(c.sales)))
-      )
-      
-      def nullOrdering( x:Int, y:Int ) = new scala.math.Ordering[Option[String]]{
-        def compare(a:Option[String],b:Option[String]) = {
-          if( a == None && b == None ) 0
-          else if( a == None ) x * -1
-          else if( b == None ) x * 1
-          else y * (a.get compare b.get)
-        }
+    })
+
+    assertMatch(
+         for( o <-  query; i <-  query; if i.sales == o.sales  ) yield i.name,
+        (for( o <- iquery; i <- iquery; if i.sales == o.sales ) yield i.name).toSeq
+    )
+
+    assertMatch(
+      for( v1<-query;v2<-query; if !(v1.name == v2.name)) yield (v1.name,v2.name)
+      ,for( v1<-inMem;v2<-inMem; if !(v1.name == v2.name)) yield (v1.name,v2.name)
+    )
+
+    assertMatch(
+      for( v1<-query;v2<-query; if v1.name != v2.name) yield (v1.name,v2.name)
+      ,for( v1<-inMem;v2<-inMem; if v1.name != v2.name) yield (v1.name,v2.name)
+    )
+
+    assertMatch(
+      query.take(2)
+      ,inMem.take(2)
+    )
+
+    assertMatch(
+      query.drop(2)
+      ,inMem.drop(2)
+    )
+
+    assertMatchOrdered(
+      query.sortBy(_.name)
+      ,inMem.sortBy(_.name)
+    )
+
+    assertMatchOrdered(
+      query.sortBy(c=>(c.name,c.flavor))
+      ,inMem.sortBy(c=>(c.name,c.flavor))
+    )
+
+    assertMatchOrdered(
+      query.sortBy(c => reversed(c.name))
+      ,inMem.sortBy(c => reversed(c.name))
+    )
+
+    assertMatchOrdered(
+      query.sortBy(c => (c.name,reversed(c.sales)))
+      ,inMem.sortBy(c => (c.name,reversed(c.sales)))
+    )
+
+    def nullOrdering( x:Int, y:Int ) = new scala.math.Ordering[Option[String]]{
+      def compare(a:Option[String],b:Option[String]) = {
+        if( a == None && b == None ) 0
+        else if( a == None ) x * -1
+        else if( b == None ) x * 1
+        else y * (a.get compare b.get)
       }
-
-      stringOptionOrdering = nullOrdering(-1,1)
-      assertMatchOrdered(
-        query.sortBy(c=>(nonesLast(c.flavor),c.name))
-        ,inMem.sortBy(c=>(c.flavor,c.name))
-      )
-
-      stringOptionOrdering = nullOrdering(1,1)
-      assertMatchOrdered(
-        query.sortBy(c=>(nonesFirst(c.flavor),c.name))
-        ,inMem.sortBy(c=>(c.flavor,c.name))
-      )
-
-      stringOptionOrdering = nullOrdering(-1,-1)
-      assertMatchOrdered(
-        query.sortBy(c=>(nonesLast(reversed(c.flavor)),c.name))
-        ,inMem.sortBy(c=>(c.flavor,c.name))
-      )
-
-      stringOptionOrdering = nullOrdering(1,-1)
-      assertMatchOrdered(
-        query.sortBy(c=>(nonesFirst(reversed(c.flavor)),c.name))
-        ,inMem.sortBy(c=>(c.flavor,c.name))
-      )
-      
-      stringOptionOrdering = initialStringOptionOrdering
-      assertMatchOrdered(
-        query.sortBy( c => (
-          c.name
-          ,reversed(c.sales)
-          ,reversed(c.flavor)
-        ))
-        ,inMem.sortBy( c => (
-          c.name
-          ,reversed(c.sales)
-          ,reversed(c.flavor)
-        ))
-      )
     }
+
+    stringOptionOrdering = nullOrdering(-1,1)
+    assertMatchOrdered(
+      query.sortBy(c=>(nonesLast(c.flavor),c.name))
+      ,inMem.sortBy(c=>(c.flavor,c.name))
+    )
+
+    stringOptionOrdering = nullOrdering(1,1)
+    assertMatchOrdered(
+      query.sortBy(c=>(nonesFirst(c.flavor),c.name))
+      ,inMem.sortBy(c=>(c.flavor,c.name))
+    )
+
+    stringOptionOrdering = nullOrdering(-1,-1)
+    assertMatchOrdered(
+      query.sortBy(c=>(nonesLast(reversed(c.flavor)),c.name))
+      ,inMem.sortBy(c=>(c.flavor,c.name))
+    )
+
+    stringOptionOrdering = nullOrdering(1,-1)
+    assertMatchOrdered(
+      query.sortBy(c=>(nonesFirst(reversed(c.flavor)),c.name))
+      ,inMem.sortBy(c=>(c.flavor,c.name))
+    )
+
+    stringOptionOrdering = initialStringOptionOrdering
+    assertMatchOrdered(
+      query.sortBy( c => (
+        c.name
+        ,reversed(c.sales)
+        ,reversed(c.flavor)
+      ))
+      ,inMem.sortBy( c => (
+        c.name
+        ,reversed(c.sales)
+        ,reversed(c.flavor)
+      ))
+    )
   }
-  @Test def sortingTest(){
-//    def assertEquals[T]( a:T, b:T ) = assert( a == b)
+
+  @Test def sortingTest() {
+    //def assertEquals[T]( a:T, b:T ) = assert( a == b)
     val cA0 = Coffee("A",0,None)
     val cA1 = Coffee("A",1,None)
     val cB0 = Coffee("B",0,None)
