@@ -230,7 +230,7 @@ Slick does not provide a connection pool implementation of its own. When you
 run a managed application in some container (e.g. JEE or Spring), you should
 generally use the connection pool provided by the container. For stand-alone
 applications you can use an external pool implementation like DBCP_, c3p0_
-or BoneCP_.
+or HikariCP_.
 
 Note that Slick uses *prepared* statements wherever possible but it does not
 cache them on its own. You should therefore enable prepared statement caching
