@@ -257,9 +257,10 @@ extlinks = {
 }
 
 apilinks = {
-  'api': 'http://slick.typesafe.com/doc/'+release+'/api/#%s',
-  'codegenapi': 'http://slick.typesafe.com/doc/'+release+'/codegen-api/#%s',
-  'blockingapi': 'http://slick.typesafe.com/doc/'+release+'/blocking-api/#%s',
+  'api': 'api/index.html#%s',
+  'codegenapi': 'codegen-api/index.html#%s',
+  'blockingapi': 'blocking-api/index.html#%s',
+  'directapi': 'direct-api/index.html#%s',
   'scalaapi': 'http://www.scala-lang.org/api/'+scala_version+'/#%s'
 }
 

@@ -190,7 +190,12 @@ object SlickBuild extends Build {
         ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
       makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
-      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/api/",
+      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickProject, "api"),
+      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickBlockingProject, "blocking-api"),
+      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickDirectProject, "direct-api"),
+      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickCodegenProject, "codegen-api"),
+      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickTestkitProject, "testkit-api"),
+      sdlcBase := "api/",
       sdlcCheckDir := (target in com.typesafe.sbt.SbtSite.SiteKeys.makeSite).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
       test := (), testOnly :=  (), // suppress test status output
@@ -290,7 +295,7 @@ object SlickBuild extends Build {
       )),
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       test := (), testOnly :=  (), // suppress test status output
-      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/codegen-api/",
+      sdlcBase := "codegen-api/",
       sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
     )
@@ -304,7 +309,7 @@ object SlickBuild extends Build {
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-blocking/src/main€{FILE_PATH}.scala"
       )),
       test := (), testOnly :=  (), // suppress test status output
-      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/blocking-api/",
+      sdlcBase := "blocking-api/",
       sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject),
       OsgiKeys.exportPackage := Seq("scala.slick.blocking"),
@@ -326,7 +331,7 @@ object SlickBuild extends Build {
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-direct/src/main€{FILE_PATH}.scala"
       )),
       test := (), testOnly :=  (), // suppress test status output
-      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/direct-api/",
+      sdlcBase := "direct-api/",
       sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
     )

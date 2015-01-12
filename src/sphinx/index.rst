@@ -4,12 +4,12 @@ Slick - Scala Language Integrated Connection Kit
 API Documentation (scaladoc)
 ----------------------------
 
-* `Slick Core <api/>`_ (slick)
-* `TestKit <testkit-api/>`_ (slick-testkit)
-* `Code Generator <codegen-api/>`_ (slick-codegen)
-* `Blocking API <blocking-api/>`_ (slick-blocking)
-* `Direct Embedding <direct-api/>`_ (slick-direct)
-* `Slick Extensions <extensions-api/>`_ (slick-extensions)
+* `Slick Core <api/index.html>`_ (slick)
+* `TestKit <testkit-api/index.html>`_ (slick-testkit)
+* `Code Generator <codegen-api/index.html>`_ (slick-codegen)
+* `Blocking API <blocking-api/index.html>`_ (slick-blocking)
+* `Direct Embedding <direct-api/index.html>`_ (slick-direct)
+* `Slick Extensions <extensions-api/index.html>`_ (slick-extensions)
 
 User Manual
 -----------
