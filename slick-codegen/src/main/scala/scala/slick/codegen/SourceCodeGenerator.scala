@@ -52,16 +52,11 @@ class SourceCodeGenerator(model: m.Model)
 /** A runnable class to execute the code generator without further setup */
 object SourceCodeGenerator{
   import scala.slick.driver.JdbcProfile
-  import scala.reflect.runtime.currentMirror
   def main(args: Array[String]) = {
     args.toList match {
       case slickDriver :: jdbcDriver :: url :: outputFolder :: pkg :: tail if tail.size == 0 || tail.size == 2 => {
-        val driver: JdbcProfile = {
-          val module = currentMirror.staticModule(slickDriver)
-          val reflectedModule = currentMirror.reflectModule(module)
-          val driver = reflectedModule.instance.asInstanceOf[JdbcProfile]
-          driver
-        }
+        val driver: JdbcProfile =
+          Class.forName(slickDriver + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
         val db = driver.simple.Database
         (tail match{
           case user :: password :: Nil => db.forURL(url, driver = jdbcDriver, user=user, password=password)

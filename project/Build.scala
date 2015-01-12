@@ -59,9 +59,7 @@ object SlickBuild extends Build {
 
   val publishedScalaSettings = Seq(
     scalaVersion := scalaVersions.head,
-    crossScalaVersions := scalaVersions,
-    //scalaBinaryVersion <<= scalaVersion,
-    libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "optional")
+    crossScalaVersions := scalaVersions
   )
 
   def localScalaSettings(path: String): Seq[Setting[_]] = Seq(
@@ -158,14 +156,16 @@ object SlickBuild extends Build {
     case Nil => state
   }
 
-  /* A command that runs 'testkit/test:test' and 'testkit/doctest:test' sequentially */
+  /* A command that runs all tests sequentially */
   def testAll = Command.command("testAll")(runTasksSequentially(List(
     test in (slickTestkitProject, Test),
     test in (slickTestkitProject, DocTest),
     //test in (osgiTestProject, Test), // Temporarily disabled until we get Reactive Streams OSGi bundles
     test in (reactiveStreamsTestProject, Test),
     sdlc in slickProject,
-    sdlc in slickCodegenProject
+    sdlc in slickCodegenProject,
+    sdlc in slickBlockingProject,
+    sdlc in slickDirectProject
   )))
 
   /* Project Definitions */
@@ -173,10 +173,9 @@ object SlickBuild extends Build {
     settings = Project.defaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
-      test := (), // suppress test status output
-      testOnly :=  (),
+      test := (), testOnly :=  (), // suppress test status output
       commands += testAll
-    )).aggregate(slickProject, slickCodegenProject, slickTestkitProject)
+    )).aggregate(slickProject, slickCodegenProject, slickBlockingProject, slickDirectProject, slickTestkitProject)
 
   lazy val slickProject: Project = Project(id = "slick", base = file("."),
     settings = Project.defaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
@@ -194,8 +193,7 @@ object SlickBuild extends Build {
       sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/api/",
       sdlcCheckDir := (target in com.typesafe.sbt.SbtSite.SiteKeys.makeSite).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
-      test := (), // suppress test status output
-      testOnly :=  (),
+      test := (), testOnly :=  (), // suppress test status output
       previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
       binaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
@@ -271,7 +269,7 @@ object SlickBuild extends Build {
         }, logger)
       }
     ) ++ ifPublished(Seq(
-      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "test")
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _% "provided")
     ))
   ).configs(DocTest).settings(inConfig(DocTest)(Defaults.testSettings): _*).settings(
     unmanagedSourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/code",
@@ -281,7 +279,7 @@ object SlickBuild extends Build {
     //test <<= Seq(test in Test, test in DocTest).dependOn,
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
-  ) dependsOn(slickProject, slickCodegenProject)
+  ) dependsOn(slickProject, slickCodegenProject % "test->compile", slickDirectProject % "test->compile", slickBlockingProject)
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
     settings = Project.defaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen", None) ++ Seq(
@@ -291,11 +289,48 @@ object SlickBuild extends Build {
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-codegen/src/main€{FILE_PATH}.scala"
       )),
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
+      test := (), testOnly :=  (), // suppress test status output
       sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/codegen-api/",
       sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
     )
   ) dependsOn(slickProject)
+
+  lazy val slickBlockingProject = Project(id = "blocking", base = file("slick-blocking"),
+    settings = Project.defaultSettings ++ sdlcSettings ++ sharedSettings ++ osgiSettings ++ extTarget("blocking", None) ++ Seq(
+      name := "Slick-Blocking",
+      description := "Blocking API for Slick (Scala Language-Integrated Connection Kit)",
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-blocking/src/main€{FILE_PATH}.scala"
+      )),
+      test := (), testOnly :=  (), // suppress test status output
+      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/blocking-api/",
+      sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
+      sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject),
+      OsgiKeys.exportPackage := Seq("scala.slick.blocking"),
+      OsgiKeys.importPackage := Seq(
+        osgiImport("scala.slick*", slickVersion),
+        osgiImport("scala*", scalaVersion.value),
+        "*"
+      ),
+      OsgiKeys.privatePackage := Nil
+    )
+  ) dependsOn(slickProject)
+
+  lazy val slickDirectProject = Project(id = "direct", base = file("slick-direct"),
+    settings = Project.defaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("direct", None) ++ Seq(
+      name := "Slick-Direct",
+      description := "Direct Embedding for Slick (Scala Language-Integrated Connection Kit)",
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-direct/src/main€{FILE_PATH}.scala"
+      )),
+      test := (), testOnly :=  (), // suppress test status output
+      sdlcBase := s"http://slick.typesafe.com/doc/${version.value}/direct-api/",
+      sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
+      sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
+    )
+  ) dependsOn(slickProject, slickBlockingProject)
 
   lazy val reactiveStreamsTestProject = Project(id = "reactive-streams-tests", base = file("reactive-streams-tests"),
     settings = Project.defaultSettings ++ sharedSettings ++ testNGSettings ++ Seq(

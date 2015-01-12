@@ -2,7 +2,7 @@ package com.typesafe.slick.docsnippets
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
-import scala.slick.action.Unsafe
+import scala.slick.blocking.Blocking
 import scala.slick.driver.H2Driver.api._
 import java.sql.Date
 import scala.reflect.ClassTag
@@ -225,7 +225,7 @@ object LiftedEmbedding extends App {
     }
 
     ;{
-      Unsafe.runBlocking(db, schema.create)
+      Blocking.run(db, schema.create)
       //#aggregation2
       val q1 = coffees.length
       // compiles to SQL (simplified):
@@ -299,7 +299,7 @@ object LiftedEmbedding extends App {
       //#insert1
       println(sql)
 
-      Unsafe.runBlocking(db, Action.seq(
+      Blocking.run(db, Action.seq(
         (suppliers ++= Seq(
           (101, "", "", "", "", ""),
           (49, "", "", "", "", ""),
@@ -320,7 +320,7 @@ object LiftedEmbedding extends App {
                into ((user,id) => user.copy(id=Some(id)))
         ) += User(None, "Stefan", "Zeiger")
       //#insert3b
-      val userWithIdRes = Unsafe.runBlocking(db, users.schema.create >> userWithId)
+      val userWithIdRes = Blocking.run(db, users.schema.create >> userWithId)
       println(userWithIdRes)
 
       //#insert4
@@ -337,7 +337,7 @@ object LiftedEmbedding extends App {
         users2 insertExpr (users.length + 1, "admin")
       )
       //#insert4
-      Unsafe.runBlocking(db, actions)
+      Blocking.run(db, actions)
     }
 
     ;{
@@ -355,7 +355,7 @@ object LiftedEmbedding extends App {
     }
 
     ;{
-      Unsafe.runBlocking(db,
+      Blocking.run(db,
         usersForInsert ++= Seq(
           User(None,"",""),
           User(None,"","")
@@ -429,7 +429,7 @@ object LiftedEmbedding extends App {
       //#simplefunction2
 
       assert{
-        Unsafe.runBlocking(db,
+        Blocking.run(db,
           salesPerDay.schema.create >>
           (salesPerDay += ( (new Date(999999999), 999) )) >>
           {
@@ -516,7 +516,7 @@ object LiftedEmbedding extends App {
       // returns: Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc")))
       //#recordtype2
 
-      assert(Unsafe.runBlocking(db, as.schema.create >> insertAction >> q2.result) == Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc"))))
+      assert(Blocking.run(db, as.schema.create >> insertAction >> q2.result) == Vector(Pair(3,Pair(42,"bb")), Pair(2,Pair(42,"cc"))))
 
       //#case-class-shape
       // two custom case class variants
@@ -546,7 +546,7 @@ object LiftedEmbedding extends App {
 
       // returns: Vector(B(3,"bb"), B(2,"cc"))
       //#case-class-shape
-      assert(Unsafe.runBlocking(db, bs.schema.create >> insertActions >> q3.result) == Vector(B(3,"bb"), B(2,"cc")))
+      assert(Blocking.run(db, bs.schema.create >> insertActions >> q3.result) == Vector(B(3,"bb"), B(2,"cc")))
 
       //#combining-shapes
       // Combining multiple mapped types
@@ -579,7 +579,7 @@ object LiftedEmbedding extends App {
 
       // returns: Vector(C(Pair(9,"z"),B(3,"bb")), C(Pair(8,"y"),B(2,"cc")))
       //#combining-shapes
-      assert(Unsafe.runBlocking(db, cs.schema.create >> insertActions2 >> q4.result) == Vector(C(Pair(9,"z"),B(3,"bb")), C(Pair(8,"y"),B(2,"cc"))))
+      assert(Blocking.run(db, cs.schema.create >> insertActions2 >> q4.result) == Vector(C(Pair(9,"z"),B(3,"bb")), C(Pair(8,"y"),B(2,"cc"))))
 
       ()
     }

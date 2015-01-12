@@ -8,7 +8,7 @@ import scala.slick.SlickException
 import scala.reflect.runtime.{universe => ru}
 import scala.reflect.ClassTag
 import ru.TypeTag
-import scala.slick.action.Unsafe
+import scala.slick.blocking.Blocking
 
 
 object ImplicitQueryable extends BaseQueryableFactory{
@@ -34,7 +34,7 @@ object ImplicitQueryableMacros{
     val utils = new ImplicitQueryableUtils[c.type](c)
     import utils._
     c.universe.reify{
-      Unsafe.runBlocking(database.splice,
+      Blocking.run(database.splice,
         backend.splice.result( new QueryableValue(
           select[Int](queryable, name).splice
         ))
@@ -67,7 +67,7 @@ object ImplicitQueryableMacros{
 class ImplicitQueryable[T]( val queryable_ : BaseQueryable[T], val backend: SlickBackend, val database : SlickBackend#Database ) extends BaseQueryable[T]( queryable_.expr_or_typetag ){
   import scala.collection._
   import scala.collection.generic._
-  def toSeq : Seq[T] = Unsafe.runBlocking(database, backend.result(queryable))
+  def toSeq : Seq[T] = Blocking.run(database, backend.result(queryable))
   def map[S]( projection: T => S )                   : ImplicitQueryable[S] = macro ImplicitQueryableMacros.map[T,S]
   def flatMap[S]( projection: T => ImplicitQueryable[S] ) : ImplicitQueryable[S] = macro ImplicitQueryableMacros.flatMap[T,S]
   def filter    ( projection: T => Boolean )              : ImplicitQueryable[T] = macro ImplicitQueryableMacros.filter[T]

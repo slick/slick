@@ -95,7 +95,7 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testUnsafe = {
-    import scala.slick.action.Unsafe._
+    import scala.slick.blocking.Blocking
 
     class T(tag: Tag) extends Table[Int](tag, u"t") {
       def a = column[Int]("a")
@@ -103,11 +103,11 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     }
     val ts = TableQuery[T]
 
-    runBlocking(db, ts.schema.create >> (ts ++= Seq(2, 3, 1, 5, 4)))
+    Blocking.run(db, ts.schema.create >> (ts ++= Seq(2, 3, 1, 5, 4)))
 
     val q1 = ts.sortBy(_.a).map(_.a)
     val r1 = ArrayBuffer[Int]()
-    blockingIterator(db, q1.result).foreach { r1 += _ }
+    Blocking.iterator(db, q1.result).foreach { r1 += _ }
     r1 shouldBe List(1, 2, 3, 4, 5)
 
     Future.successful(())

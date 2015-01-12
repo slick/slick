@@ -4,10 +4,12 @@ Slick - Scala Language Integrated Connection Kit
 API Documentation (scaladoc)
 ----------------------------
 
-* `Slick <api/>`_
-* `Slick TestKit <testkit-api/>`_
-* `Slick Code Generator <codegen-api/>`_
-* `Slick Extensions <extensions-api/>`_
+* `Slick Core <api/>`_ (slick)
+* `TestKit <testkit-api/>`_ (slick-testkit)
+* `Code Generator <codegen-api/>`_ (slick-codegen)
+* `Blocking API <blocking-api/>`_ (slick-blocking)
+* `Direct Embedding <direct-api/>`_ (slick-direct)
+* `Slick Extensions <extensions-api/>`_ (slick-extensions)
 
 User Manual
 -----------
@@ -27,5 +29,13 @@ User Manual
    userdefined
    sql
    extensions
+
+Appendix
+________
+
+.. toctree::
+   :maxdepth: 3
+
+   blocking
    direct-embedding
    testkit
