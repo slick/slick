@@ -12,12 +12,16 @@ import scala.slick.jdbc.meta.MTable
 import org.junit.Assert
 
 object StandardTestDBs {
-  lazy val H2Mem = new H2TestDB("h2mem") {
+  lazy val H2Mem = new H2TestDB("h2mem", false) {
     val url = "jdbc:h2:mem:test1"
     override def isPersistent = false
   }
 
-  lazy val H2Disk = new H2TestDB("h2disk") {
+  lazy val H2MemKeepAlive = new H2TestDB("h2mem", true) {
+    val url = "jdbc:h2:mem:test1"
+  }
+
+  lazy val H2Disk = new H2TestDB("h2disk", false) {
     val dbName = "h2-"+confName
     val url = "jdbc:h2:"+TestkitConfig.testDBPath+"/"+dbName
     override def cleanUpBefore() = TestDB.deleteDBFiles(dbName)
@@ -126,10 +130,11 @@ object StandardTestDBs {
   }
 }
 
-abstract class H2TestDB(confName: String) extends InternalJdbcTestDB(confName) {
+abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJdbcTestDB(confName) {
   val driver = H2Driver
   val jdbcDriver = "org.h2.Driver"
   override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
+  override def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver, keepAliveConnection = keepAlive)
 }
 
 class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(confName) {

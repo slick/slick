@@ -171,7 +171,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   def canGetLocalTables = true
 }
 
-abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) {
+abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) { self =>
   val url: String
   def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver)
   override def toString = url

@@ -1,9 +1,10 @@
 package com.typesafe.slick.examples.direct
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 //#imports
 import scala.slick.driver.H2Driver
-import H2Driver.simple.Database
-import Database.{dynamicSession => session}
+import H2Driver.api.{Database, Action}
 import scala.slick.direct._
 import scala.slick.direct.AnnotationMapper._
 //#imports
@@ -21,8 +22,8 @@ import scala.slick.direct.AnnotationMapper._
 
 object DirectEmbedding extends App {
     //#result
-  val db = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
-  db withDynSession {
+  val db = Database.forConfig("h2mem1")
+  try {
     //#result
     //#inserts
       // fill database with test data (using plain SQL)
@@ -34,12 +35,15 @@ object DirectEmbedding extends App {
         ("French_Roast_Decaf", 5.0)
       )
       // create test table
-      import scala.slick.jdbc.StaticQuery.interpolation
-      sqlu"create table COFFEES(NAME varchar(255), PRICE double)".execute
-      (for {
-        (name, sales) <- coffees_data
-      } yield sqlu"insert into COFFEES values ($name, $sales)".first).sum
+      import H2Driver.api.actionBasedSQLInterpolation
+      val setup = sqlu"create table COFFEES(NAME varchar(255), PRICE double)" >>
+        Action.seq(
+          (for {
+            (name, sales) <- coffees_data
+          } yield sqlu"insert into COFFEES values ($name, $sales)"): _*
+        )
     //#inserts
+      Await.result(db.run(setup), Duration.Inf)
 
     //#query
       // query database using direct embedding
@@ -50,13 +54,13 @@ object DirectEmbedding extends App {
     //#result
       // execute query using a chosen db backend
       val backend = new SlickBackend( H2Driver, AnnotationMapper )
-      println( backend.result( q2, session ) )
-      println( backend.result( q2.length, session ) )
+      println( Await.result(db.run(backend.result(q2)), Duration.Inf) )
+      println( Await.result(db.run(backend.result(q2.length)), Duration.Inf) )
     //#result
 
     //#implicitqueryable
       //
-      val iq1 = ImplicitQueryable( q1, backend, session )
+      val iq1 = ImplicitQueryable( q1, backend, db )
       val iq2 = iq1.filter( c => c.price > 3.0 )
       println( iq2.toSeq ) //  <- triggers execution 
       println( iq2.length ) // <- triggers execution
@@ -66,6 +70,6 @@ object DirectEmbedding extends App {
       q1.map( c => (c.name, (c, c.price)) )
     //#nesting
     //#result
-  }
+  } finally db.close
     //#result
 }

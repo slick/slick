@@ -3,11 +3,15 @@ package scala.slick.direct
 import language.existentials
 import scala.slick.SlickException
 import scala.language.implicitConversions
+import scala.slick.action.{Streaming, Effect, EffectfulAction, NoStream, ActionContext}
 import scala.slick.driver._
+import scala.slick.relational.CompiledMapping
 import scala.slick.{ast => sq}
 import scala.slick.ast.{Library, FunctionSymbol, ColumnOption}
+import scala.slick.ast.Util._
+import scala.slick.ast.TypeUtil._
 import scala.slick.compiler.CompilerState
-import scala.slick.util.TreeDump
+import scala.slick.util.{TreeDump, SQLBuilder}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
@@ -85,7 +89,7 @@ import CustomNodes._
 class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
   import scala.reflect.runtime.universe.{Scope => _, _}
   import compat._
-  type Session = JdbcDriver#Backend#Session
+  type Database = JdbcDriver#Backend#Database
   val columnTypes = {
     Map( // FIXME use symbols instead of strings for type names here
        typeOf[Int].typeSymbol     -> sq.ScalaBaseType.intType
@@ -413,31 +417,40 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   import scala.slick.jdbc.{PositionedParameters, PositionedResult}
   import scala.slick.ast.Node
 
-  private def queryable2cstate[R]( queryable:BaseQueryable[R], session: driver.Backend#Session ) : (Type,CompilerState) = {
-    val (tpe,query) = this.toQuery(queryable)
-    (tpe,driver.queryCompiler.run(query.node))
+  private def queryable2cstate[R]( queryable:BaseQueryable[R] ) : CompilerState = {
+    val query = this.toQuery(queryable)._2
+    driver.queryCompiler.run(query.node)
   }
   
-  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session ) : (Type,CompilerState) = {
-    val (tpe,query) = this.toQuery(queryablevalue.value.tree)
-    (tpe,driver.queryCompiler.run(query.node))
+  private def queryablevalue2cstate[R]( queryablevalue:QueryableValue[R] ) : CompilerState = {
+    val query = this.toQuery(queryablevalue.value.tree)._2
+    driver.queryCompiler.run(query.node)
   }
-  def result[R]( queryable:BaseQueryable[R], session:driver.Backend#Session) : Vector[R] = {
-    val (tpe,query) = queryable2cstate( queryable, session )
-    result(tpe,query, session)
-  }
-  def result[R]( queryablevalue:QueryableValue[R], session:driver.Backend#Session) : R = {
-    val (tpe,query) = queryablevalue2cstate( queryablevalue, session )
-    val res = result(tpe,query, session)
-    res(0)
-  }
-  def result[R]( tpe:Type, cstate:CompilerState, session:driver.Backend#Session) : Vector[R] =
-    new driver.QueryExecutor[Vector[R]](cstate.tree, ()).run(session)
 
-  protected[slick] def toSql( queryable:BaseQueryable[_], session:driver.Backend#Session ) = {
-    val (_,cstate) = queryable2cstate( queryable, session )
-    val builder = driver.createQueryBuilder(cstate.tree, cstate)
-    builder.buildSelect.sql
+  def result[R]( queryable:BaseQueryable[R]) : driver.DriverAction[Effect.Read, Vector[R], Streaming[R]] = {
+    val cstate = queryable2cstate(queryable)
+    val sql = cstate.tree.findNode(_.isInstanceOf[sq.CompiledStatement]).get
+      .asInstanceOf[sq.CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
+    val (rsm @ sq.ResultSetMapping(_, _, CompiledMapping(_, elemType))) :@ (ct: sq.CollectionType) = cstate.tree
+    (new driver.StreamingResultAction[Vector[R], Streaming[R]](rsm, elemType, ct, sql, ()))
+      .asInstanceOf[driver.DriverAction[Effect.Read, Vector[R], Streaming[R]]]
+  }
+  def result[R]( queryablevalue:QueryableValue[R]) : driver.DriverAction[Effect.Read, R, NoStream] = {
+    val cstate = queryablevalue2cstate(queryablevalue)
+    val sql = cstate.tree.findNode(_.isInstanceOf[sq.CompiledStatement]).get
+      .asInstanceOf[sq.CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
+    val rsm = cstate.tree.asInstanceOf[sq.ResultSetMapping]
+    new driver.JdbcDriverAction[R, NoStream] {
+      def statements = List(sql)
+      def run(ctx: ActionContext[driver.Backend]): R =
+        driver.createQueryInvoker[R](rsm, ()).first(ctx.session)
+    }
+  }
+
+  protected[slick] def toSql( queryable:BaseQueryable[_] ) = {
+    val cstate = queryable2cstate(queryable)
+    cstate.tree.findNode(_.isInstanceOf[sq.CompiledStatement]).get
+      .asInstanceOf[sq.CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
   }
   protected[slick] def toQuery(queryable:BaseQueryable[_]) : (Type,this.Query) = queryable.expr_or_typetag match {
     case Right((typetag,classtag)) => (typetag.tpe, this.typetagToQuery( typetag ))
