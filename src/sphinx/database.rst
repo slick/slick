@@ -8,8 +8,8 @@ Anything that you can execute on a database, whether it is a getting the result 
 execute it.
 
 Actions can be combined with several different combinators (see the
-:api:`EffectfulAction class <scala.slick.action.EffectfulAction>` and :api:`Action object <scala.slick.action.EffectfulAction>` for
-details), but they will always be executed strictly sequentially and (at least conceptually) in a
+:api:`EffectfulAction class <scala.slick.action.EffectfulAction>` and :api:`Action object <scala.slick.action.Action$>`
+for details), but they will always be executed strictly sequentially and (at least conceptually) in a
 single database session.
 
 .. index::
