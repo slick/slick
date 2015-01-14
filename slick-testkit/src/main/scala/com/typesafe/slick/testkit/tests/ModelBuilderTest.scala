@@ -8,6 +8,7 @@ import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.meta
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
+@deprecated("Using deprecated .simple API", "3.0")
 class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 

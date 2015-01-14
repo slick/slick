@@ -3,6 +3,7 @@ package scala.slick.benchmark
 import collection.mutable.ArrayBuffer
 import scala.slick.driver.H2Driver.simple._
 
+@deprecated("Using deprecated .simple API", "3.0")
 object IteratorPerformanceBenchmark {
   def main(args: Array[String]) {
     class Props(tag: Tag) extends Table[(String, String)](tag, "properties") {

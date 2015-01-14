@@ -5,6 +5,8 @@ import scala.slick.testutil._
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 
 object ExecutorTest extends DBTestObject()
+
+@deprecated("Using deprecated .simple API", "3.0")
 class ExecutorTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.backend.Database.dynamicSession
   import tdb.profile.simple._

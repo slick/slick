@@ -4,6 +4,7 @@ import org.junit.Test
 import org.junit.Assert._
 
 /** Test case for the listing of constraints in table definitions */
+@deprecated("Using deprecated .simple API", "3.0")
 class TableConstraintsTest {
 
   @Test def testConstraintsOrdering {

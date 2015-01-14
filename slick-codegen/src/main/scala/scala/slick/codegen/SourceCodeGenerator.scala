@@ -57,7 +57,7 @@ object SourceCodeGenerator{
       case slickDriver :: jdbcDriver :: url :: outputFolder :: pkg :: tail if tail.size == 0 || tail.size == 2 => {
         val driver: JdbcProfile =
           Class.forName(slickDriver + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
-        val db = driver.simple.Database
+        val db = driver.api.Database
         (tail match{
           case user :: password :: Nil => db.forURL(url, driver = jdbcDriver, user=user, password=password)
           case Nil => db.forURL(url, driver = jdbcDriver)

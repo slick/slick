@@ -8,12 +8,13 @@ import scala.slick.jdbc.meta.{MTable,createModel}
 import scala.slick.model.Model
 
 /** Generates files for GeneratedCodeTest */
+@deprecated("Using deprecated .simple API", "3.0")
 object CodeGeneratorTest {
   val testdbLocation = "slick-testkit/src/codegen/resources/dbs/"
   def main(args: Array[String]) {
     for( config <- configurations ){
       import config._
-      val db = slickDriverObject.simple.Database.forURL(url=url,driver=jdbcDriver,user="",password="")
+      val db = slickDriverObject.api.Database.forURL(url=url,driver=jdbcDriver,user="",password="")
       db.withSession{ implicit session =>
         generator(config)(session).writeToFile(profile=slickDriver, folder=args(0), pkg="scala.slick.test.codegen.generated", objectName, fileName=objectName+".scala" )
       }
@@ -175,6 +176,8 @@ val database = Database.forURL(url=""\"$url""\",driver="$jdbcDriver",user="",pas
     generator
   )
 }
+
+@deprecated("Using deprecated .simple API", "3.0")
 class Tables(val profile: JdbcProfile){
   import profile.simple._
   /** Tests single column table, scala keyword type name and all nullable columns table*/

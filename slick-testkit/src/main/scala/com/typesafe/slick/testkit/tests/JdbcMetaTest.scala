@@ -6,6 +6,7 @@ import scala.slick.jdbc.meta._
 import scala.slick.jdbc.StaticQuery
 import com.typesafe.slick.testkit.util.{TestDB, JdbcTestDB, TestkitTest}
 
+@deprecated("Using deprecated .simple API", "3.0")
 class JdbcMetaTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
