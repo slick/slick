@@ -1,6 +1,8 @@
 scalacOptions += "-deprecation"
 
-addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "0.7.1")
+scalacOptions += "-feature"
+
+addSbtPlugin("com.typesafe.sbt" % "sbt-site" % "0.8.1")
 
 addSbtPlugin("com.typesafe" % "sbt-mima-plugin" % "0.1.6")
 

@@ -1,22 +1,25 @@
-package scala.slick.action
+package scala.slick.blocking
 
-import org.reactivestreams.{Subscription, Subscriber}
+import scala.language.implicitConversions
 
+import scala.slick.action._
 import scala.slick.backend.DatabaseComponent
 import scala.slick.util.{CloseableIterator, ignoreFollowOnError}
 
+import org.reactivestreams.{Subscription, Subscriber}
+
 /** Some utility methods for working with database results in a synchronous or blocking way that
   * can be detrimental to performance when used incorrectly. */
-object Unsafe {
+object Blocking {
   /** Run an Action and block the current thread until the result is ready. If the Database uses
     * synchronous, blocking excution, it is performed on the current thread in order to avoid any
     * context switching, otherwise execution happens asynchronously. */
-  def runBlocking[R](db: DatabaseComponent#DatabaseDef, a: Action[R]): R = db.runInternal(a, true).value.get.get
+  def run[R](db: DatabaseComponent#DatabaseDef, a: Action[R]): R = db.runInternal(a, true).value.get.get
 
   /** Run a streaming Action and return an `Iterator` which performs blocking I/O on the current
     * thread (if supported by the Database) or blocks the current thread while waiting for the
     * next result. */
-  def blockingIterator[S](db: DatabaseComponent#DatabaseDef, a: StreamingAction[Any, S]): CloseableIterator[S] = new CloseableIterator[S] {
+  def iterator[S](db: DatabaseComponent#DatabaseDef, a: StreamingAction[Any, S]): CloseableIterator[S] = new CloseableIterator[S] {
     val p = db.streamInternal(a, true)
     var error: Throwable = null
     var sub: Subscription = null
@@ -56,7 +59,7 @@ object Unsafe {
         sub.request(1L)
         if(!complete && !cached) {
           try close() catch ignoreFollowOnError
-          throw new IllegalStateException("Unepected missing result after request()")
+          throw new IllegalStateException("Unexpected missing result after request()")
         }
       }
     }

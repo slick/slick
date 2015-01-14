@@ -1,6 +1,5 @@
 package scala.slick.test.direct
 
-import scala.slick.action.Unsafe
 import scala.slick.direct.order._
 
 import scala.language.{reflectiveCalls,implicitConversions}
@@ -8,6 +7,7 @@ import org.junit.Test
 import org.junit.Assert._
 import scala.slick.lifted._
 import scala.slick.ast
+import scala.slick.blocking.Blocking
 import scala.slick.direct._
 import scala.slick.direct.AnnotationMapper._
 import scala.slick.testutil._
@@ -51,7 +51,7 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
       def assertQuery( matcher : ast.Node => Unit ) = {
         //backend.dump(q)
         println( backend.toSql(q) )
-        println( Unsafe.runBlocking(db, backend.result(q)) )
+        println( Blocking.run(db, backend.result(q)) )
         try{
           matcher( backend.toQuery( q )._2.node : @unchecked ) : @unchecked
           print(".")
@@ -87,17 +87,17 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
     def assertEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) =
       assertEquals( rhs.groupBy(x=>x), lhs.groupBy(x=>x) )
     def assertMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) =
-      assertEqualMultiSet( Unsafe.runBlocking(db, backend.result(queryable)), expected)
+      assertEqualMultiSet( Blocking.run(db, backend.result(queryable)), expected)
     def assertNotEqualMultiSet[T]( lhs:scala.collection.Traversable[T], rhs:scala.collection.Traversable[T] ) =
       assertEquals( lhs.groupBy(x=>x), rhs.groupBy(x=>x) )
     def assertNoMatch[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) = try {
-      assertEqualMultiSet( Unsafe.runBlocking(db, backend.result(queryable)), expected)
+      assertEqualMultiSet( Blocking.run(db, backend.result(queryable)), expected)
     } catch {
       case e:AssertionError => 
       case e:Throwable => throw e
     }
     def assertMatchOrdered[T:TypeTag:ClassTag]( queryable:Queryable[T], expected: Traversable[T] ) =
-      assertEquals( expected, Unsafe.runBlocking(db, backend.result(queryable)) )
+      assertEquals( expected, Blocking.run(db, backend.result(queryable)) )
   }
 
   object SingletonInClass{
@@ -125,10 +125,10 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
     import tdb.driver.api.actionBasedSQLInterpolation
 
     // create test table
-    Unsafe.runBlocking(db, sqlu"create table COFFEES(COF_NAME varchar(255), SALES int, FLAVOR varchar(255) NULL)")
+    Blocking.run(db, sqlu"create table COFFEES(COF_NAME varchar(255), SALES int, FLAVOR varchar(255) NULL)")
     (for {
       (name, sales, flavor) <- coffees_data
-    } yield Unsafe.runBlocking(db, sqlu"insert into COFFEES values ($name, $sales, $flavor)".head)).sum
+    } yield Blocking.run(db, sqlu"insert into COFFEES values ($name, $sales, $flavor)".head)).sum
 
     // FIXME: reflective typecheck failed:  backend.result(Queryable[Coffee].map(x=>x))
 
@@ -315,7 +315,7 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
       inMem.map( c=> (c.name,c.sales,c) )
     )
     // length
-    assertEquals( Unsafe.runBlocking(db, backend.result(query.length)), inMem.length )
+    assertEquals( Blocking.run(db, backend.result(query.length)), inMem.length )
 
     val iquery = ImplicitQueryable( query, backend, db )
     assertEquals( iquery.length, inMem.length )

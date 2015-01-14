@@ -2,7 +2,7 @@ package scala.slick.test.stream
 
 import org.testng.annotations.{AfterClass, BeforeClass}
 
-import scala.slick.action.Unsafe
+import scala.slick.blocking.Blocking
 import scala.slick.driver.{H2Driver, JdbcProfile}
 import scala.util.control.NonFatal
 
@@ -13,7 +13,7 @@ class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Driver, 5
     db = Database.forURL("jdbc:h2:mem:DatabasePublisherTest", driver = "org.h2.Driver")
     //db = Database.forURL("jdbc:derby:memory:JdbcPublisherTest;create=true", driver = "org.apache.derby.jdbc.EmbeddedDriver")
     // Wait until the database has been initialized and can process queries:
-    try { Unsafe.runBlocking(db, sql"select 1".as[Int]) } catch { case NonFatal(ex) => }
+    try { Blocking.run(db, sql"select 1".as[Int]) } catch { case NonFatal(ex) => }
   }
 
   @AfterClass def tearDownDB: Unit =
