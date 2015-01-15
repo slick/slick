@@ -86,6 +86,7 @@ trait MutatingStatementInvoker[R] extends StatementInvoker[R] with MutatingInvok
   protected val mutateType: ResultSetType = ResultSetType.Auto
   protected val previousAfterDelete = false
 
+  @deprecated("Use the new Action-based API instead", "3.0")
   def mutate(f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit)(implicit session: JdbcBackend#Session): Unit =
     session.withTransaction {
       /* Hsqldb forces ResultSets to be read-only in auto-commit mode, so we

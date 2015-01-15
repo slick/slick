@@ -32,16 +32,24 @@ trait Invoker[+R] { self =>
 
   /** Execute the statement and return the first row of the result set.
     * If the result set is empty, a NoSuchElementException is thrown. */
-  final def first(implicit session: JdbcBackend#Session): R =
-    firstOption.getOrElse(throw new NoSuchElementException("Invoker.first"))
+  final def first(implicit session: JdbcBackend#Session): R = {
+    val it = iterator
+    try {
+      if(it.hasNext) it.next()
+      else throw new NoSuchElementException("Invoker.first")
+    } finally it.close
+  }
 
   /** Execute the statement and return an immutable and fully materialized list of the results. */
+  @deprecated("Invoker convenience features will be removed. Invoker is intended for low-level JDBC use only.", "3.0")
   final def list(implicit session: JdbcBackend#Session) = build[List[R]]
 
+  @deprecated("Invoker convenience features will be removed. Invoker is intended for low-level JDBC use only.", "3.0")
   final def toMap[T, U](implicit session: JdbcBackend#Session, ev: R <:< (T, U)): Map[T, U] =
     build[Map[T, U]](session, implicitly[CanBuildFrom[Nothing, (T, U), Map[T, U]]].asInstanceOf[CanBuildFrom[Nothing, R, Map[T, U]]])
 
   /** Execute the statement and return a fully materialized collection of the specified type. */
+  @deprecated("Invoker convenience features will be removed. Invoker is intended for low-level JDBC use only.", "3.0")
   final def build[To](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, To]): To = {
     val b = canBuildFrom()
     foreach({ x => b += x }, 0)
@@ -49,23 +57,21 @@ trait Invoker[+R] { self =>
   }
 
   /** Execute the statement and return a fully materialized collection. */
-  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] =
-    build[C[R]](session, canBuildFrom)
-
-  /** Execute the statement and call f for each converted row of the result set. */
-  final def foreach(f: R => Unit)(implicit session: JdbcBackend#Session) {
-    val it = iterator
-    try { it.foreach(f) } finally { it.close() }
+  final def buildColl[C[_]](implicit session: JdbcBackend#Session, canBuildFrom: CanBuildFrom[Nothing, R, C[R @uV]]): C[R @uV] = {
+    val b = canBuildFrom()
+    foreach({ x => b += x }, 0)
+    b.result()
   }
 
   /** Execute the statement and call f for each converted row of the result set.
    * @param maxRows Maximum number of rows to read from the result (0 for unlimited). */
-  final def foreach(f: R => Unit, maxRows: Int)(implicit session: JdbcBackend#Session) {
+  final def foreach(f: R => Unit, maxRows: Int = 0)(implicit session: JdbcBackend#Session) {
     val it = iteratorTo(maxRows)
     try { it.foreach(f) } finally { it.close() }
   }
 
   /** Execute the statement and left-fold the converted rows of the result set. */
+  @deprecated("Invoker convenience features will be removed. Invoker is intended for low-level JDBC use only.", "3.0")
   final def foldLeft[B](z: B)(op: (B, R) => B)(implicit session: JdbcBackend#Session): B = {
     var _z = z
     foreach({ e => _z = op(_z, e) })(session)
@@ -73,6 +79,7 @@ trait Invoker[+R] { self =>
   }
 
   /** Execute the statement and feed the converted rows of the result set into an iteratee. */
+  @deprecated("Use Reactive Streams in the new Action-based API instead of Slick iteratees", "3.0")
   final def enumerate[B, RR >: R](iter: IterV[RR,B])(implicit session: JdbcBackend#Session): IterV[RR, B] = {
     var _iter = iter
     val it = iterator(session)
@@ -86,6 +93,7 @@ trait Invoker[+R] { self =>
   }
 
   /** Create a new Invoker which applies the mapping function f to each row of the result set. */
+  @deprecated("Invoker convenience features will be removed. Invoker is intended for low-level JDBC use only.", "3.0")
   def mapResult[U](f: (R => U)): Invoker[U] = new Invoker[U] {
     def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session) = self.iteratorTo(maxRows).map(f)
   }
@@ -98,6 +106,7 @@ trait Invoker[+R] { self =>
 }
 
 object Invoker {
+  @deprecated("Invoker convenience features will be removed. Invoker is intended for low-level JDBC use only.", "3.0")
   val empty: Invoker[Nothing] = new Invoker[Nothing] {
     def iteratorTo(maxRows: Int)(implicit session: JdbcBackend#Session) = CloseableIterator.empty
   }
@@ -106,6 +115,7 @@ object Invoker {
 /** A special kind of invoker that allows the result data to be mutated .*/
 trait MutatingInvoker[R] extends Invoker[R] { self =>
   /** Transform a query's results with an updatable result set. */
+  @deprecated("Use the new Action-based API instead", "3.0")
   def mutate(f: ResultSetMutator[R] => Unit, end: ResultSetMutator[R] => Unit = null)(implicit session: JdbcBackend#Session): Unit
 }
 

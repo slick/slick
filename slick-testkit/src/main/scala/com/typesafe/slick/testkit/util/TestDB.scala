@@ -141,11 +141,11 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   val jdbcDriver: String
   def getLocalTables(implicit session: profile.Backend#Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
-    tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+    tables.buildColl[List].filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
   }
   def getLocalSequences(implicit session: profile.Backend#Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
-    tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
+    tables.buildColl[List].filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
   }
   def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     for(t <- getLocalTables)
@@ -155,7 +155,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   }
   def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
     for(t <- tables) {
-      try ((Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").list) catch { case _: Exception =>
+      try ((Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").buildColl[List]) catch { case _: Exception =>
         Assert.fail("Table "+t+" should exist")
       }
     }
@@ -163,7 +163,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
     for(t <- tables) {
       try {
-        (Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").list
+        (Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").buildColl[List]
         Assert.fail("Table "+t+" should not exist")
       } catch { case _: Exception => }
     }

@@ -86,11 +86,11 @@ object StandardTestDBs {
     val driver = PostgresDriver
     override def getLocalTables(implicit session: profile.Backend#Session) = {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+      tables.buildColl[List].filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
     }
     override def getLocalSequences(implicit session: profile.Backend#Session) = {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
+      tables.buildColl[List].filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
     override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
   }
@@ -171,7 +171,7 @@ class AccessDB(confName: String) extends ExternalJdbcTestDB(confName) {
   /* Works in some situations but fails with "Optional feature not implemented" in others */
   override def canGetLocalTables = false
   override def getLocalTables(implicit session: profile.Backend#Session) =
-    MTable.getTables.list.map(_.name.name).sorted
+    MTable.getTables.buildColl[List].map(_.name.name).sorted
   override def capabilities = super.capabilities - TestDB.capabilities.jdbcMeta
 }
 
@@ -181,7 +181,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
   override def getLocalTables(implicit session: profile.Backend#Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
-    tables.list.map(_._3).sorted
+    tables.buildColl[List].map(_._3).sorted
   }
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     try {
@@ -191,7 +191,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
             select c.constraintname, t.tablename
             from sys.sysconstraints c, sys.sysschemas s, sys.systables t
             where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
-                                             """).list
+                                             """).buildColl[List]
       for((c, t) <- constraints if !c.startsWith("SQL"))
         (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute
       for(t <- getLocalTables)
@@ -216,7 +216,7 @@ abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
   val jdbcDriver = "org.hsqldb.jdbcDriver"
   override def getLocalTables(implicit session: profile.Backend#Session): List[String] = {
     val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null))
-    tables.list.map(_._3).sorted
+    tables.buildColl[List].map(_._3).sorted
   }
   override def cleanUpBefore() {
     // Try to turn Hsqldb logging off -- does not work :(

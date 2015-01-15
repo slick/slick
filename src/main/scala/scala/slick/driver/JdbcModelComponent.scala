@@ -17,7 +17,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
   final def getTables: Invoker[MTable] = MTable.getTables
 
   /** Jdbc meta data for all tables included in the Slick model by default */
-  def defaultTables(implicit session: Backend#Session): Seq[MTable] = MTable.getTables.list
+  def defaultTables(implicit session: Backend#Session): Seq[MTable] = MTable.getTables.buildColl[List]
 
   @deprecated("use createModel() instead (appending parenthesis)","2.1")
   def createModel(implicit session: Backend#Session): Model = createModel(Some(defaultTables))
@@ -73,10 +73,10 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
       // meta data
       /** cached primary key meta data and in key sequence order */
       final lazy val mPrimaryKeys: Seq[MPrimaryKey]
-        = meta.getPrimaryKeys.list.sortBy(_.keySeq)
+        = meta.getPrimaryKeys.buildColl[List].sortBy(_.keySeq)
       /** cached foreign key meta data grouped by name and in key sequence order */
       final lazy val mForeignKeys: Seq[Seq[MForeignKey]]
-        = meta.getImportedKeys.list
+        = meta.getImportedKeys.buildColl[List]
               // remove foreign keys pointing to tables which were not included
               .filter(fk => tablesByMQName.isDefinedAt(fk.pkTable))
               .groupBy(fk => (fk.pkTable,fk.fkName,fk.pkName,fk.fkTable))
@@ -86,7 +86,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
       /** cached index meta data grouped by name and in ordinal position order */
       final lazy val mIndices
         = try{
-          meta.getIndexInfo().list
+          meta.getIndexInfo().buildColl[List]
               .groupBy(_.indexName)
               .toSeq
               .sortBy(_._1)
@@ -109,7 +109,7 @@ trait JdbcModelComponent{ driver: JdbcDriver =>
       /** Column models in ordinal position order */
       final lazy val columns: Seq[m.Column]
         = meta.getColumns
-              .list
+              .buildColl[List]
               .sortBy(_.ordinalPosition)
               .map(c => Column(c).model)
       /** Column models by name */

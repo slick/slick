@@ -124,8 +124,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
   /** Jdbc meta data for all tables included in the Slick model by default */
   override def defaultTables(implicit session: Backend#Session): Seq[MTable]
     = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
-            .list
-            .filter(_.name.name.toLowerCase != "sqlite_sequence")
+            .buildColl[List].filter(_.name.name.toLowerCase != "sqlite_sequence")
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

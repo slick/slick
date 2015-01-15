@@ -80,11 +80,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
     }
   }
 
-  override def defaultTables(implicit session: Backend#Session) = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+  override def defaultTables(implicit session: Backend#Session) =
+    MTable.getTables(None, None, None, Some(Seq("TABLE"))).buildColl[List]
 
   override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
-                          (implicit session: Backend#Session)
-                          : Model
+                          (implicit session: Backend#Session) : Model
     = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
   override val columnTypes = new JdbcTypes

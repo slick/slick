@@ -48,7 +48,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
   override def defaultTables(implicit session: Backend#Session)
-    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).buildColl[List]
 
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.specializeParameters
   override val columnTypes = new JdbcTypes

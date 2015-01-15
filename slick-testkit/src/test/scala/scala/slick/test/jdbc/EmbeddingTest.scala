@@ -32,7 +32,7 @@ class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
       select u.NAME, p.NAME
       from USERS u left join POSTS p on u.ID = p.UID
       order by u.NAME, p.NAME
-    """).list
+    """).buildColl[List]
     l1 foreach println
     assertEquals(List(
       ("u1", "p1u1"),
@@ -48,7 +48,7 @@ class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
         left join (select *, 0 as r0 from POSTS order by NAME) p
         on u.ID = p.UID
       order by u.r0
-    """).list
+    """).buildColl[List]
     l2 foreach println
     assertEquals(List(
       ("u1", List("p1u1", "p2u1", "p3u1")),
