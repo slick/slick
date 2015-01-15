@@ -1,6 +1,8 @@
 package scala.slick.jdbc
 
 import java.sql.ResultSet
+import scala.slick.action.{Effect, NoStream, SynchronousDatabaseAction}
+import scala.slick.profile.BasicStreamingAction
 import scala.slick.util.CloseableIterator
 
 /** An invoker which calls a function to retrieve a ResultSet. This can be used
@@ -32,6 +34,14 @@ abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
 object ResultSetInvoker {
   def apply[R](f: JdbcBackend#Session => ResultSet)(implicit conv: PositionedResult => R): Invoker[R] = new ResultSetInvoker[R] {
     def createResultSet(session: JdbcBackend#Session) = f(session)
-    def extractValue(pr: PositionedResult) = conv (pr)
+    def extractValue(pr: PositionedResult) = conv(pr)
+  }
+}
+
+object ResultSetAction {
+  def apply[E <: Effect, R](f: JdbcBackend#Session => ResultSet)(implicit conv: PositionedResult => R): BasicStreamingAction[E, Vector[R], R] = new StreamingInvokerAction[E, Vector[R], R] {
+    protected[this] val invoker = ResultSetInvoker(f)(conv)
+    protected[this] def createBuilder = Vector.newBuilder[R]
+    def statements = Nil
   }
 }

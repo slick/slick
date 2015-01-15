@@ -2,12 +2,11 @@ package scala.slick.jdbc
 
 import scala.language.implicitConversions
 import scala.collection.mutable.ArrayBuffer
-import scala.util.control.NonFatal
 
 import java.sql.PreparedStatement
 
-import scala.slick.action._
-import scala.slick.util.{DumpInfo, CloseableIterator, ignoreFollowOnError}
+import scala.slick.action.Effect
+import scala.slick.profile.SqlStreamingAction
 
 
 ///////////////////////////////////////////////////////////////////////////////// Invoker-based API
@@ -120,48 +119,11 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
 }
 
 case class SQLActionBuilder[P](strings: Seq[String], param: P, pconv: SetParameter[P]) {
-  def as[R](implicit rconv: GetResult[R]): PlainSQLAction[Unit, R, Effect] = {
+  def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Effect, Vector[R], R] = new StreamingInvokerAction[Effect, Vector[R], R] {
     val (sql, unitPConv) = SQLInterpolation.parse(strings, param, pconv)
-    new PlainSQLAction[Unit, R, Effect](unitPConv, rconv, sql, (), true)
+    def statements = List(sql)
+    protected[this] val invoker = new StaticQueryInvoker[Unit, R](sql, unitPConv, (), rconv)
+    protected[this] def createBuilder = Vector.newBuilder[R]
   }
   def asUpdate = as[Int](GetResult.GetUpdateValue)
-}
-
-class PlainSQLAction[P, T, E <: Effect](pconv: SetParameter[P], rconv: GetResult[T], sql: String, param: P, bufferNext: Boolean) extends SynchronousDatabaseAction[JdbcBackend, E, Seq[T], Streaming[T]] { self =>
-  type StreamState = CloseableIterator[T]
-  def statement: String = sql
-  def createInvoker: Invoker[T] = new StaticQueryInvoker[P, T](sql, pconv, param, rconv)
-
-  def run(ctx: ActionContext[JdbcBackend]): Seq[T] = {
-    val b = Vector.newBuilder[T]
-    createInvoker.foreach(x => b += x)(ctx.session)
-    b.result()
-  }
-  override def emitStream(ctx: StreamingActionContext[JdbcBackend], limit: Long, state: StreamState): StreamState = {
-    val it = if(state ne null) state else createInvoker.iterator(ctx.session)
-    var count = 0L
-    try {
-      while(if(bufferNext) it.hasNext && count < limit else count < limit && it.hasNext) {
-        count += 1
-        ctx.emit(it.next())
-      }
-    } catch {
-      case NonFatal(ex) =>
-        try it.close() catch ignoreFollowOnError
-        throw ex
-    }
-    if(if(bufferNext) it.hasNext else count == limit) it else null
-  }
-  override def cancelStream(ctx: StreamingActionContext[JdbcBackend], state: StreamState): Unit = state.close()
-  def getDumpInfo = new DumpInfo("PlainSQLAction")
-
-  def head: SynchronousDatabaseAction[JdbcBackend, E, T, NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, T, NoStream] {
-    def run(ctx: ActionContext[JdbcBackend]): T = createInvoker.first(ctx.session)
-    def getDumpInfo = new DumpInfo("PlainSQLAction.head")
-  }
-
-  def headOption: SynchronousDatabaseAction[JdbcBackend, E, Option[T], NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, Option[T], NoStream] {
-    def run(ctx: ActionContext[JdbcBackend]): Option[T] = createInvoker.firstOption(ctx.session)
-    def getDumpInfo = new DumpInfo("PlainSQLAction.headOption")
-  }
 }

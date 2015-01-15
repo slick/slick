@@ -218,20 +218,8 @@ trait BasicExecutorComponent { driver: BasicDriver =>
 
 trait BasicActionComponent { driver: BasicDriver =>
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] <: DriverActionDef[E, R, S]
-  type StreamingDriverAction[-E <: Effect, +R, +T] <: StreamingDriverActionDef[E, R, T] with DriverAction[E, R, Streaming[T]]
-
-  trait DriverActionDef[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[E, R, S]
-
-  trait StreamingDriverActionDef[-E <: Effect, +R, +T] extends DriverActionDef[E, R, Streaming[T]] {
-    /** Create an Action that returns only the first value of this stream of data. The Action will
-      * fail if the stream is empty. Only available on streaming Actions. */
-    def head: DriverAction[E, T, NoStream]
-
-    /** Create an Action that returns only the first value of this stream of data as an `Option`.
-      * Only available on streaming Actions. */
-    def headOption: DriverAction[E, Option[T], NoStream]
-  }
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] <: BasicAction[E, R, S]
+  type StreamingDriverAction[-E <: Effect, +R, +T] <: BasicStreamingAction[E, R, T] with DriverAction[E, R, Streaming[T]]
 
   //////////////////////////////////////////////////////////// Query Actions
 
@@ -250,3 +238,23 @@ trait BasicActionComponent { driver: BasicDriver =>
     def result: StreamingDriverAction[Effect.Read, R, T]
   }
 }
+
+trait BasicAction[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[E, R, S] {
+  type ResultAction[-E <: Effect, +R, +S <: NoStream] <: BasicAction[E, R, S]
+}
+
+trait BasicStreamingAction[-E <: Effect, +R, +T] extends BasicAction[E, R, Streaming[T]] {
+  /** Create an Action that returns only the first value of this stream of data. The Action will
+    * fail if the stream is empty. Only available on streaming Actions. */
+  def head: ResultAction[E, T, NoStream]
+
+  /** Create an Action that returns only the first value of this stream of data as an `Option`.
+    * Only available on streaming Actions. */
+  def headOption: ResultAction[E, Option[T], NoStream]
+}
+
+trait FixedBasicAction[-E <: Effect, +R, +S <: NoStream] extends BasicAction[E, R, S] {
+  type ResultAction[-E <: Effect, +R, +S <: NoStream] = BasicAction[E, R, S]
+}
+
+trait FixedBasicStreamingAction[-E <: Effect, +R, +T] extends BasicStreamingAction[E, R, T] with FixedBasicAction[E, R, Streaming[T]]

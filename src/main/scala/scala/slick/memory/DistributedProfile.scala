@@ -8,7 +8,7 @@ import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
 import scala.slick.compiler._
 import scala.slick.relational.{ResultConverter, CompiledMapping}
-import scala.slick.profile.{RelationalDriver, RelationalProfile}
+import scala.slick.profile.{FixedBasicAction, RelationalDriver, RelationalProfile}
 import scala.slick.util.{DumpInfo, RefId, ??}
 
 /** A profile and driver for distributed queries. */
@@ -53,7 +53,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
       createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
   }
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] = DriverActionDef[E, R, S]
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] = FixedBasicAction[E, R, S]
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)

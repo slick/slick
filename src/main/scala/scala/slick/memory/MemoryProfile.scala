@@ -9,7 +9,7 @@ import scala.slick.action._
 import scala.slick.ast._
 import TypeUtil._
 import scala.slick.compiler._
-import scala.slick.profile.{RelationalDriver, RelationalProfile, Capability}
+import scala.slick.profile._
 import scala.slick.relational.{ResultConverterCompiler, ResultConverter, CompiledMapping}
 import scala.slick.util.{DumpInfo, ??}
 
@@ -129,8 +129,8 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
       session.database.dropTable(table.tableName)
   }
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] = DriverActionDef[E, R, S]
-  type StreamingDriverAction[-E <: Effect, +R, +T] = StreamingDriverActionDef[E, R, T]
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] = FixedBasicAction[E, R, S]
+  type StreamingDriverAction[-E <: Effect, +R, +T] = FixedBasicStreamingAction[E, R, T]
 
   protected[this] def dbAction[E <: Effect, R, S <: NoStream](f: Backend#Session => R): DriverAction[E, R, S] = new DriverAction[E, R, S] with SynchronousDatabaseAction[Backend#This, E, R, S] {
     def run(ctx: ActionContext[Backend]): R = f(ctx.session)

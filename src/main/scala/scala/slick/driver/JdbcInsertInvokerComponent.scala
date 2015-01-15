@@ -67,6 +67,8 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
       * otherwise update the existing record. */
     def insertOrUpdate(value: U)(implicit session: Backend#Session): SingleInsertOrUpdateResult
 
+    private[slick] def insertOrUpdateStatement(value: U): String
+
     final def += (value: U)(implicit session: Backend#Session): SingleInsertResult = insert(value)
     final def ++= (values: Iterable[U])(implicit session: Backend#Session): MultiInsertResult = insertAll(values.toSeq: _*)
   }
@@ -96,6 +98,10 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
 
     /** Insert data produced by another query */
     def insert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _])(implicit session: Backend#Session): QueryInsertResult
+
+    private[slick] def insertExprStatement[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String
+    private[slick] def insertStatement[TT, C[_]](query: Query[TT, U, C]): String
+    private[slick] def insertStatement[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String
   }
 
   /** An InsertInvoker that returns the number of affected rows. */
@@ -126,6 +132,7 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
       def insert(value: U)(implicit session: Backend#Session): R = f(value, self.insert(value))
       def insertAll(values: U*)(implicit session: Backend#Session): Seq[R] = (values, self.insertAll(values: _*)).zipped.map(f)
       def insertOrUpdate(value: U)(implicit session: Backend#Session): Option[R] = self.insertOrUpdate(value).map(ru => f(value, ru))
+      private[slick] def insertOrUpdateStatement(value: U): String = self.insertOrUpdateStatement(value)
       def insertStatement: String = self.insertStatement
       def insertStatementFor[TT, C[_]](query: Query[TT, U, C]): String = self.insertStatementFor[TT, C](query)
       def insertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String = self.insertStatementFor[TT, C](compiledQuery)
@@ -216,6 +223,9 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
       if(useTransactionForUpsert) session.withTransaction(f()) else f()
     }
 
+    private[slick] def insertOrUpdateStatement(value: U): String =
+      if(useServerSideUpsert) compiled.upsert.sql else null
+
     protected def internalInsertOrUpdateEmulation(value: U)(implicit session: Backend#Session): SingleInsertOrUpdateResult = {
       val found = preparedOther(compiled.checkInsert.sql) { st =>
         st.clearParameters()
@@ -255,6 +265,15 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
         retQuery(st, count)
       }
     }
+
+    private[slick] def insertExprStatement[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String =
+      insertStatement(Query(c)(shape))
+
+    private[slick] def insertStatement[TT, C[_]](query: Query[TT, U, C]): String =
+      buildSubquery(query).sql
+
+    private[slick] def insertStatement[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String =
+      buildSubquery(compiledQuery).sql
   }
 
   protected class CountingInsertInvoker[U](compiled: CompiledInsert) extends BaseInsertInvoker[U](compiled) with CountingInsertInvokerDef[U] {

@@ -152,13 +152,24 @@ trait SqlTableComponent extends RelationalTableComponent { driver: SqlDriver =>
 
 trait SqlActionComponent extends RelationalActionComponent { driver: SqlDriver =>
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] <: DriverActionDef[E, R, S]
-  type StreamingDriverAction[-E <: Effect, +R, +T] <: StreamingDriverActionDef[E, R, T] with DriverAction[E, R, Streaming[T]]
-
-  trait DriverActionDef[-E <: Effect, +R, +S <: NoStream] extends super.DriverActionDef[E, R, S] {
-    /** Return the SQL statements that will be executed for this Action */
-    def statements: Iterable[String]
-
-    def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), mainInfo = statements.mkString("[", "; ", "]"))
-  }
+  type DriverAction[-E <: Effect, +R, +S <: NoStream] <: SqlAction[E, R, S]
+  type StreamingDriverAction[-E <: Effect, +R, +T] <: SqlStreamingAction[E, R, T] with DriverAction[E, R, Streaming[T]]
 }
+
+trait SqlAction[-E <: Effect, +R, +S <: NoStream] extends BasicAction[E, R, S] {
+
+  type ResultAction[-E <: Effect, +R, +S <: NoStream] <: SqlAction[E, R, S]
+
+  /** Return the SQL statements that will be executed for this Action */
+  def statements: Iterable[String]
+
+  def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), mainInfo = statements.mkString("[", "; ", "]"))
+}
+
+trait SqlStreamingAction[-E <: Effect, +R, +T] extends BasicStreamingAction[E, R, T] with SqlAction[E, R, Streaming[T]]
+
+trait FixedSqlAction[-E <: Effect, +R, +S <: NoStream] extends SqlAction[E, R, S] {
+  type ResultAction[-E <: Effect, +R, +S <: NoStream] = SqlAction[E, R, S]
+}
+
+trait FixedSqlStreamingAction[-E <: Effect, +R, +T] extends SqlStreamingAction[E, R, T] with FixedSqlAction[E, R, Streaming[T]]

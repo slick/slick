@@ -101,8 +101,8 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
 
     val s1 = sql"select id from USERS where name = ${"szeiger"}".as[Int]
     val s2 = sql"select id from USERS where name = '#${"guest"}'".as[Int]
-    s1.statement shouldBe "select id from USERS where name = ?"
-    s2.statement shouldBe "select id from USERS where name = 'guest'"
+    s1.statements.head shouldBe "select id from USERS where name = ?"
+    s2.statements.head shouldBe "select id from USERS where name = 'guest'"
 
     seq(
       sqlu"create table USERS(ID int not null primary key, NAME varchar(255))",

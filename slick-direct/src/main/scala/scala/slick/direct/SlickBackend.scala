@@ -5,6 +5,7 @@ import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.action.{Streaming, Effect, EffectfulAction, NoStream, ActionContext}
 import scala.slick.driver._
+import scala.slick.profile.{SqlStreamingAction, SqlAction}
 import scala.slick.relational.CompiledMapping
 import scala.slick.{ast => sq}
 import scala.slick.ast.{Library, FunctionSymbol, ColumnOption}
@@ -427,25 +428,10 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     driver.queryCompiler.run(query.node)
   }
 
-  def result[R]( queryable:BaseQueryable[R]) : driver.DriverAction[Effect.Read, Vector[R], Streaming[R]] = {
-    val cstate = queryable2cstate(queryable)
-    val sql = cstate.tree.findNode(_.isInstanceOf[sq.CompiledStatement]).get
-      .asInstanceOf[sq.CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
-    val (rsm @ sq.ResultSetMapping(_, _, CompiledMapping(_, elemType))) :@ (ct: sq.CollectionType) = cstate.tree
-    (new driver.StreamingResultAction[Vector[R], Streaming[R]](rsm, elemType, ct, sql, ()))
-      .asInstanceOf[driver.DriverAction[Effect.Read, Vector[R], Streaming[R]]]
-  }
-  def result[R]( queryablevalue:QueryableValue[R]) : driver.DriverAction[Effect.Read, R, NoStream] = {
-    val cstate = queryablevalue2cstate(queryablevalue)
-    val sql = cstate.tree.findNode(_.isInstanceOf[sq.CompiledStatement]).get
-      .asInstanceOf[sq.CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
-    val rsm = cstate.tree.asInstanceOf[sq.ResultSetMapping]
-    new driver.JdbcDriverAction[R, NoStream] {
-      def statements = List(sql)
-      def run(ctx: ActionContext[driver.Backend]): R =
-        driver.createQueryInvoker[R](rsm, ()).first(ctx.session)
-    }
-  }
+  def result[R]( queryable:BaseQueryable[R]) : SqlStreamingAction[Effect.Read, Vector[R], R] =
+    driver.createStreamingQueryActionExtensionMethods[Vector[R], R](queryable2cstate(queryable).tree, ()).result
+  def result[R]( queryablevalue:QueryableValue[R]) : SqlAction[Effect.Read, R, NoStream] =
+    driver.createStreamingQueryActionExtensionMethods[Vector[R], R](queryablevalue2cstate(queryablevalue).tree, ()).result.head
 
   protected[slick] def toSql( queryable:BaseQueryable[_] ) = {
     val cstate = queryable2cstate(queryable)
