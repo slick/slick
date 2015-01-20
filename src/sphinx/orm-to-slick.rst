@@ -96,7 +96,7 @@ A method based embedding makes queries compositional. Factoring out filtering by
 
 Of course ids are a trivial example, but this becomes very useful for more complex queries.
 
-Java APIs like Hibernate Criteria Queries do no use Scala's operator overloading capabilities. This can lead to more cumbersome and less familiar code when expressing queries. Let's query for all people younger 5 or older than 65 for example.
+Java APIs like Hibernate Criteria Queries do not use Scala's operator overloading capabilities. This can lead to more cumbersome and less familiar code when expressing queries. Let's query for all people younger 5 or older than 65 for example.
 
 .. includecode:: code/OrmToSlick.scala#criteriaComposition
 
