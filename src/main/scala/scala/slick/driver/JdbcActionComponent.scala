@@ -36,11 +36,6 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def getDumpInfo = DumpInfo(name = "StartTransaction")
   }
 
-  case class SimpleJdbcAction[+R](f: ActionContext[Backend#This] => R) extends SynchronousDatabaseAction[Backend#This, Nothing, R, NoStream] {
-    def run(context: ActionContext[Backend#This]): R = f(context)
-    def getDumpInfo = DumpInfo(name = "SimpleJdbcAction")
-  }
-
   protected object Commit extends SynchronousDatabaseAction[Backend#This, Effect, Unit, NoStream] {
     def run(context: ActionContext[Backend#This]): Unit =
       try context.session.endInTransaction(context.session.conn.commit()) finally context.unpin

@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getFunctionColumns(). */
@@ -16,7 +16,7 @@ case class MFunctionColumn(
 
 object MFunctionColumn {
   def getFunctionColumns(functionPattern: MQName, columnNamePattern: String = "%") = {
-    ResultSetInvoker[MFunctionColumn] { s =>
+    ResultSetAction[MFunctionColumn] { s =>
       try s.metaData.getFunctionColumns(functionPattern.catalog_?, functionPattern.schema_?,
                                        functionPattern.name, columnNamePattern)
       catch { case _: AbstractMethodError => null }

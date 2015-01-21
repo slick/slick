@@ -1,6 +1,8 @@
 package scala.slick.driver
 
+import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
+import scala.slick.jdbc.JdbcModelBuilder
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Util._
@@ -10,7 +12,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.model.Model
-import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
 
 /** Slick driver for MySQL.
   *
@@ -48,31 +50,27 @@ trait MySQLDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.nullableNoDefault
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
-    override def Table = new Table(_){
-      override def PrimaryKey = new PrimaryKey(_){
-        // TODO: this needs a test
-        override def name = super.name.filter(_ != "PRIMARY")
-      }
-      override def Column = new Column(_){
-        override def default = meta.columnDef.map((_,tpe)).collect{
-          case (v,"String")    => Some(Some(v))
-          case ("1","Boolean") => Some(Some(true))
-          case ("0","Boolean") => Some(Some(false))
-        }.getOrElse{
-          val d = super.default
-          if(meta.nullable == Some(true) && d == None){
-            Some(None)
-          } else d
-        }
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
+      // TODO: this needs a test
+      override def name = super.name.filter(_ != "PRIMARY")
+    }
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+      override def default = meta.columnDef.map((_,tpe)).collect{
+        case (v,"String")    => Some(Some(v))
+        case ("1","Boolean") => Some(Some(true))
+        case ("0","Boolean") => Some(Some(false))
+      }.getOrElse{
+        val d = super.default
+        if(meta.nullable == Some(true) && d == None){
+          Some(None)
+        } else d
       }
     }
   }
-  
-  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
-                          (implicit session: Backend#Session)
-                          : Model
-    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

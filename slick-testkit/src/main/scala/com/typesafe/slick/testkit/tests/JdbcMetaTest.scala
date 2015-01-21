@@ -4,11 +4,10 @@ import org.junit.{Test, Assert}
 import org.junit.Assert._
 import scala.slick.jdbc.meta._
 import scala.slick.jdbc.StaticQuery
-import com.typesafe.slick.testkit.util.{TestDB, JdbcTestDB, TestkitTest}
+import com.typesafe.slick.testkit.util.{TestDB, JdbcTestDB, AsyncTest}
 
-@deprecated("Using deprecated .simple API", "3.0")
-class JdbcMetaTest extends TestkitTest[JdbcTestDB] {
-  import tdb.profile.simple._
+class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
+  import tdb.profile.api._
 
   class Users(tag: Tag) extends Table[(Int, String, Option[String])](tag, "users_xx") {
     def id = column[Int]("id", O.PrimaryKey)
@@ -29,64 +28,54 @@ class JdbcMetaTest extends TestkitTest[JdbcTestDB] {
   }
   lazy val orders = TableQuery[Orders]
 
-  def testMeta = ifCap(tcap.jdbcMeta) {
-    val ddl = (users.schema ++ orders.schema)
-    println("DDL used to create tables:")
-    for(s <- ddl.createStatements) println("  "+s)
-    ddl.create
+  def testMeta = ifCap(tcap.jdbcMeta)(Action.seq(
+    (users.schema ++ orders.schema).create.named("DDL used to create tables"),
 
-    println("Type info from DatabaseMetaData:")
-    for(t <- MTypeInfo.getTypeInfo) println("  "+t)
+    MTypeInfo.getTypeInfo.named("Type info from DatabaseMetaData"),
 
     ifCap(tcap.jdbcMetaGetFunctions) {
       /* Not supported by PostgreSQL and H2. */
-      println("Functions from DatabaseMetaData:")
-      for(f <- MFunction.getFunctions(MQName.local("%"))) {
-        println("  "+f)
-        for(c <- f.getFunctionColumns()) println("    "+c)
+      MFunction.getFunctions(MQName.local("%")).flatMap { fs =>
+        Action.sequence(fs.map(_.getFunctionColumns()))
       }
-    }
+    }.named("Functions from DatabaseMetaData"),
 
-    println("UDTs from DatabaseMetaData:")
-    for(u <- MUDT.getUDTs(MQName.local("%"))) println("  "+u)
+    MUDT.getUDTs(MQName.local("%")).named("UDTs from DatabaseMetaData"),
 
-    println("Procedures from DatabaseMetaData:")
-    MProcedure.getProcedures(MQName.local("%")).foreach({ p =>
-      println("  "+p)
-      for(c <- p.getProcedureColumns()) println("    "+c)
-    }, 3)
+    MProcedure.getProcedures(MQName.local("%")).flatMap { ps =>
+      Action.sequence(ps.map(_.getProcedureColumns()))
+    }.named("Procedures from DatabaseMetaData"),
 
-    println("Tables from DatabaseMetaData:")
-    for(t <- MTable.getTables(None, None, None, None).list if Set("users", "orders") contains t.name.name) {
-      println("  "+t)
-      for(c <- t.getColumns) {
-        println("    "+c)
-        for(p <- c.getColumnPrivileges) println("      "+p)
-      }
-      for(v <- t.getVersionColumns) println("    "+v)
-      for(k <- t.getPrimaryKeys) println("    "+k)
-      for(k <- t.getImportedKeys) println("    Imported "+k)
-      for(k <- t.getExportedKeys) println("    Exported "+k)
-      ifCap(tcap.jdbcMetaGetIndexInfo) {
-        for(i <- t.getIndexInfo()) println("    "+i)
-      }
-      for(p <- t.getTablePrivileges) println("    "+p)
-      for(c <- t.getBestRowIdentifier(MBestRowIdentifierColumn.Scope.Session))
-        println("    Row identifier for session: "+c)
-    }
+    MTable.getTables(None, None, None, None).flatMap { ts =>
+      Action.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
+        Action.seq(
+          t.getColumns.flatMap { cs =>
+            val as = cs.map(_.getColumnPrivileges)
+            Action.sequence(as)
+          },
+          t.getVersionColumns,
+          t.getPrimaryKeys,
+          t.getImportedKeys,
+          t.getExportedKeys,
+          ifCap(tcap.jdbcMetaGetIndexInfo)(t.getIndexInfo()),
+          t.getTablePrivileges,
+          t.getBestRowIdentifier(MBestRowIdentifierColumn.Scope.Session)
+        )
+      })
+    }.named("Tables from DatabaseMetaData"),
 
-    println("Schemas from DatabaseMetaData:")
-    for(t <- MSchema.getSchemas) println("  "+t)
+    MSchema.getSchemas.named("Schemas from DatabaseMetaData"),
 
-    ifCap(tcap.jdbcMetaGetClientInfoProperties) {
-      println("Client Info Properties from DatabaseMetaData:")
-      for(t <- MClientInfoProperty.getClientInfoProperties) println("  "+t)
-    }
+    ifCap(tcap.jdbcMetaGetClientInfoProperties)(MClientInfoProperty.getClientInfoProperties)
+      .named("Client Info Properties from DatabaseMetaData"),
 
-    assertTrue("Tables before deleting",
-      Set("orders_xx", "users_xx") subsetOf MTable.getTables(None, None, None, None).list.map(_.name.name).toSet)
+    MTable.getTables(None, None, None, None).map(_.should(ts =>
+      Set("orders_xx", "users_xx") subsetOf ts.map(_.name.name).toSet
+    )).named("Tables before deleting")
 
+    /* ,
     if(tdb.canGetLocalTables) {
+
       for (t <- tdb.getLocalTables.sorted) {
         val st = "drop table " + tdb.driver.quoteIdentifier(t)
         println("Executing statement: " + st)
@@ -96,6 +85,8 @@ class JdbcMetaTest extends TestkitTest[JdbcTestDB] {
       println(newTables)
       assertTrue("Tables after deleting",
         (Set("orders_xx", "users_xx") intersect newTables).isEmpty)
-    }
-  }
+
+    } else Action.successful(())
+    */
+  ))
 }

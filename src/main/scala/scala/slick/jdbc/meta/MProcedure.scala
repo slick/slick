@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getProcedures(). */
 case class MProcedure(name: MQName, remarks: String, returnsResult: Option[Boolean], specificName: Option[String]) {
@@ -10,7 +10,7 @@ case class MProcedure(name: MQName, remarks: String, returnsResult: Option[Boole
 }
 
 object MProcedure {
-  def getProcedures(namePattern: MQName) = ResultSetInvoker[MProcedure](
+  def getProcedures(namePattern: MQName) = ResultSetAction[MProcedure](
       _.metaData.getProcedures(namePattern.catalog_?, namePattern.schema_?, namePattern.name) ) { r =>
       MProcedure(MQName.from(r), r.skip.skip.skip.<<, r.nextShort match {
           case DatabaseMetaData.procedureNoResult => Some(false)

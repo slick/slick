@@ -1,6 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getUDTs(). */
@@ -13,7 +13,7 @@ case class MUDT(
 }
 
 object MUDT {
-  def getUDTs(typeNamePattern: MQName, types: Option[Seq[Int]] = None) = ResultSetInvoker[MUDT](
+  def getUDTs(typeNamePattern: MQName, types: Option[Seq[Int]] = None) = ResultSetAction[MUDT](
       _.metaData.getUDTs(typeNamePattern.catalog_?, typeNamePattern.schema_?,
                          typeNamePattern.name, types.map(_.toArray)getOrElse(null))) { r =>
       MUDT(MQName.from(r), r.<<, r.<<, r.<<, r.<<)

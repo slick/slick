@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getProcedureColumns(). */
@@ -15,7 +15,7 @@ case class MProcedureColumn(
 }
 
 object MProcedureColumn {
-  def getProcedureColumns(procedurePattern: MQName, columnNamePattern: String = "%") = ResultSetInvoker[MProcedureColumn](
+  def getProcedureColumns(procedurePattern: MQName, columnNamePattern: String = "%") = ResultSetAction[MProcedureColumn](
       _.metaData.getProcedureColumns(procedurePattern.catalog_?, procedurePattern.schema_?,
                                      procedurePattern.name, columnNamePattern) ) { r =>
       MProcedureColumn(MQName.from(r), r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextShort match {

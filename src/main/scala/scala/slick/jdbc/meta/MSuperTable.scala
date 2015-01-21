@@ -1,6 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getSuperTables(). */
 case class MSuperTable(table: MQName, superTable: String) {
@@ -8,7 +8,7 @@ case class MSuperTable(table: MQName, superTable: String) {
 }
 
 object MSuperTable {
-  def getSuperTables(tablePattern: MQName) = ResultSetInvoker[MSuperTable](
+  def getSuperTables(tablePattern: MQName) = ResultSetAction[MSuperTable](
       _.metaData.getSuperTables(tablePattern.catalog_?, tablePattern.schema_?, tablePattern.name) ) { r =>
       MSuperTable(MQName.from(r), r.<<)
   }

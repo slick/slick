@@ -1,7 +1,7 @@
 package scala.slick
 
 package object action {
-  type StreamingAction[+R, +T] = EffectfulAction[Nothing, R, Streaming[T]]
+  type StreamingAction[+R, +T] = EffectfulAction[Effect.All, R, Streaming[T]]
 
-  type Action[+R] = EffectfulAction[Nothing, R, NoStream]
+  type Action[+R] = EffectfulAction[Effect.All, R, NoStream]
 }

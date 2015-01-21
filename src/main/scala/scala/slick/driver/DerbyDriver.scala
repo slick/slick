@@ -1,14 +1,16 @@
 package scala.slick.driver
 
+import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
 import scala.slick.lifted._
+import scala.slick.action._
 import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.{Phase, QueryCompiler, CompilerState}
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.JdbcType
+import scala.slick.jdbc.{JdbcModelBuilder, JdbcType}
 import scala.slick.model.Model
 
 /** Slick driver for Derby/JavaDB.
@@ -82,19 +84,17 @@ trait DerbyDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.supportsByte
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
-    override def Table = new Table(_){
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "APP") // remove default schema
     }
   }
 
-  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
-                          (implicit session: Backend#Session)
-                          : Model
-    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit session: Backend#Session)
-    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).buildColl[List]
+  override def defaultTables(implicit ec: ExecutionContext): Action[Seq[MTable]] =
+    MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
   override val columnTypes = new JdbcTypes

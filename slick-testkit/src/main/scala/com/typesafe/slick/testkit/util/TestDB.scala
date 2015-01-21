@@ -2,16 +2,21 @@ package com.typesafe.slick.testkit.util
 
 import java.io._
 import java.net.{URL, URLClassLoader}
-import java.sql.Driver
+import java.sql.{Connection, Driver}
 import java.util.Properties
 import java.util.zip.GZIPInputStream
 import scala.collection.mutable
-import scala.slick.jdbc.{StaticQuery => Q, ResultSetInvoker}
+import scala.concurrent.ExecutionContext
+import scala.slick.SlickException
+import scala.slick.action.{NoStream, EffectfulAction, Action}
+import scala.slick.jdbc.{StaticQuery => Q, ResultSetAction, JdbcDataSource, SimpleJdbcAction, ResultSetInvoker}
 import scala.slick.jdbc.GetResult._
 import scala.slick.driver._
 import scala.slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
 import org.junit.Assert
 import com.typesafe.config.Config
+
+import scala.slick.util.AsyncExecutor
 
 object TestDB {
   object capabilities {
@@ -139,10 +144,13 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   type Driver = JdbcDriver
   lazy val database = profile.backend.Database
   val jdbcDriver: String
-  def getLocalTables(implicit session: profile.Backend#Session) = {
-    val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
-    tables.buildColl[List].filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
-  }
+  final def getLocalTables(implicit session: profile.Backend#Session) =
+    blockingRunOnSession(ec => localTables(ec))
+  def canGetLocalTables = true
+  def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+    ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null)).map { ts =>
+      ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+    }
   def getLocalSequences(implicit session: profile.Backend#Session) = {
     val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
     tables.buildColl[List].filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
@@ -168,7 +176,26 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
       } catch { case _: Exception => }
     }
   }
-  def canGetLocalTables = true
+  def createSingleSessionDatabase(implicit session: profile.Backend#Session, executor: AsyncExecutor = AsyncExecutor.default()): profile.Backend#Database = {
+    val wrappedConn = new DelegateConnection(session.conn) {
+      override def close(): Unit = ()
+    }
+    profile.backend.Database.forSource(new JdbcDataSource {
+      def createConnection(): Connection = wrappedConn
+      def close(): Unit = ()
+    }, executor)
+  }
+  final def blockingRunOnSession[R](f: ExecutionContext => EffectfulAction[Nothing, R, NoStream])(implicit session: profile.Backend#Session): R = {
+    val ec = new ExecutionContext {
+      def execute(runnable: Runnable): Unit = runnable.run()
+      def reportFailure(t: Throwable): Unit = throw t
+    }
+    val db = createSingleSessionDatabase(session, new AsyncExecutor {
+      def executionContext: ExecutionContext = ec
+      def close(): Unit = ()
+    })
+    db.run(f(ec)).value.get.get
+  }
 }
 
 abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) { self =>

@@ -5,7 +5,7 @@ import scala.util.control.NonFatal
 
 import scala.slick.action._
 import scala.slick.profile.{FixedSqlAction, FixedSqlStreamingAction}
-import scala.slick.util.{CloseableIterator, ignoreFollowOnError}
+import scala.slick.util.{DumpInfo, CloseableIterator, ignoreFollowOnError}
 
 /** A streaming Action that wraps an Invoker.
   * It is used for the Lifted Embedding, Direct Embedding, Plain SQL queries, and JDBC metadata.
@@ -53,4 +53,10 @@ trait StreamingInvokerAction[-E <: Effect, R, T] extends SynchronousDatabaseActi
     def statements = self.statements
     def run(ctx: ActionContext[JdbcBackend]): Option[T] = invoker.firstOption(ctx.session)
   }
+}
+
+/** A non-streaming Action that wraps a JDBC call. */
+case class SimpleJdbcAction[+R](f: ActionContext[JdbcBackend] => R) extends SynchronousDatabaseAction[JdbcBackend, Effect.All, R, NoStream] {
+  def run(context: ActionContext[JdbcBackend]): R = f(context)
+  def getDumpInfo = DumpInfo(name = "SimpleJdbcAction")
 }

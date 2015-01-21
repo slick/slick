@@ -1,6 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getSuperTypes(). */
 case class MSuperType(typeName: MQName, superType: MQName) {
@@ -8,7 +8,7 @@ case class MSuperType(typeName: MQName, superType: MQName) {
 }
 
 object MSuperType {
-  def getSuperTypes(typePattern: MQName) = ResultSetInvoker[MSuperType](
+  def getSuperTypes(typePattern: MQName) = ResultSetAction[MSuperType](
       _.metaData.getSuperTypes(typePattern.catalog_?, typePattern.schema_?, typePattern.name) ) { r =>
       MSuperType(MQName.from(r), MQName.from(r))
   }

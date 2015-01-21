@@ -1,17 +1,20 @@
 package scala.slick.test.codegen
 
 import org.junit.Test
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 import scala.slick.codegen.SourceCodeGenerator
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 
 object CodeGeneratorAllTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
 
-@deprecated("Using deprecated .simple API", "3.0")
 class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
-  import tdb.profile.simple._
-  @Test def test { db.withSession{ implicit session =>
+  import tdb.profile.api._
 
+  @Test
+  def test {
     case class Category(id: Int, name: String)
     class Categories(tag: Tag) extends Table[Category](tag, "categories") {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -30,13 +33,12 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
     }
     val posts = TableQuery[Posts]
 
-    (categories.schema ++ posts.schema).create
+    val createA = (categories.schema ++ posts.schema).create
 
-    import scala.slick.jdbc.meta.createModel
     // fetch data model
-    val model = tdb.profile.createModel()
+    val modelA = tdb.profile.createModel()
     // customize code generator
-    val codegen = new SourceCodeGenerator(model){
+    val codegenA = modelA.map(m => new SourceCodeGenerator(m) {
       // override mapped table and class name
       override def entityName = dbTableName => dbTableName.dropRight(1).toLowerCase.toCamelCase
       override def tableName  = dbTableName => dbTableName.toLowerCase.toCamelCase
@@ -57,8 +59,10 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
           override def rawType = if(model.name == "SOME_SPECIAL_COLUMN_NAME") "MyCustomType" else super.rawType
         }
       }
-    }
+    })
     val driverName = tdb.driver.getClass.toString.dropRight(1).split("[\\. ]").last
+
+    val codegen = Await.result(db.run((createA >> codegenA).withPinnedSession), Duration.Inf)
     codegen.writeToFile("scala.slick.driver.H2Driver","target/slick-testkit-codegen-tests/","all.test",driverName+"Tables",driverName+".scala")
-  }}
+  }
 }

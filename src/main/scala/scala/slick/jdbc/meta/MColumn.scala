@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getColumns(). */
@@ -16,7 +16,7 @@ case class MColumn(
 }
 
 object MColumn {
-  def getColumns(tablePattern: MQName, columnPattern: String) = ResultSetInvoker[MColumn](
+  def getColumns(tablePattern: MQName, columnPattern: String) = ResultSetAction[MColumn](
       _.metaData.getColumns(tablePattern.catalog_?, tablePattern.schema_?, tablePattern.name, columnPattern)) { r =>
       MColumn(MQName.from(r), r.<<, r.<<, r.<<, r.<<, r.skip.<<, r.<<, r.nextInt match {
           case DatabaseMetaData.columnNoNulls => Some(false)

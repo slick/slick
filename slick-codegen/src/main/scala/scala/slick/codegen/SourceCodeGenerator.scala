@@ -1,5 +1,7 @@
 package scala.slick.codegen
 
+import scala.concurrent.{ExecutionContext, Await}
+import scala.concurrent.duration.Duration
 import scala.slick.{model => m}
 
 /**
@@ -57,14 +59,16 @@ object SourceCodeGenerator{
       case slickDriver :: jdbcDriver :: url :: outputFolder :: pkg :: tail if tail.size == 0 || tail.size == 2 => {
         val driver: JdbcProfile =
           Class.forName(slickDriver + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
-        val db = driver.api.Database
-        (tail match{
-          case user :: password :: Nil => db.forURL(url, driver = jdbcDriver, user=user, password=password)
-          case Nil => db.forURL(url, driver = jdbcDriver)
+        val dbFactory = driver.api.Database
+        val db = (tail match{
+          case user :: password :: Nil => dbFactory.forURL(url, driver = jdbcDriver, user=user, password=password, keepAliveConnection=true)
+          case Nil => dbFactory.forURL(url, driver = jdbcDriver)
           case _ => throw new Exception("This should never happen.")
-        }).withSession{ implicit session =>
-          new SourceCodeGenerator(driver.createModel()).writeToFile(slickDriver,outputFolder,pkg)
-        }
+        })
+        try {
+          val m = Await.result(db.run(driver.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
+          new SourceCodeGenerator(m).writeToFile(slickDriver,outputFolder,pkg)
+        } finally db.close
       }
       case _ => {
         println("""

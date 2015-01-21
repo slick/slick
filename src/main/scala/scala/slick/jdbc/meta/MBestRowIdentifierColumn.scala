@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.{ResultSetInvoker, Invoker}
+import scala.slick.jdbc.{ResultSetAction, Invoker}
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getBestRowIdentifier(). */
@@ -14,7 +14,7 @@ case class MBestRowIdentifierColumn(
 
 object MBestRowIdentifierColumn {
   def getBestRowIdentifier(table: MQName, scope: Scope, nullable: Boolean = false) =
-    ResultSetInvoker[MBestRowIdentifierColumn](
+    ResultSetAction[MBestRowIdentifierColumn](
       _.metaData.getBestRowIdentifier(table.catalog_?, table.schema_?, table.name, scope.value, nullable)) { r =>
       MBestRowIdentifierColumn(Scope(r.<<), r.<<, r.<<, r.<<, r.<<, r.skip.<<, r.nextShort match {
           case DatabaseMetaData.bestRowNotPseudo => Some(false)

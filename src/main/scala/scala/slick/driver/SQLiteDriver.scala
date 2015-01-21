@@ -1,15 +1,17 @@
 package scala.slick.driver
 
 import java.sql.{Timestamp, Time, Date}
+import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
+import scala.slick.action._
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
 import scala.slick.model.Model
-import scala.slick.jdbc.JdbcType
-import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.{JdbcModelBuilder, JdbcType}
+import scala.slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
 
 /** Slick driver for SQLite.
   *
@@ -87,44 +89,40 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.distinguishesIntTypes
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
-    override def Table = new Table(_){
-      override def Column = new Column(_){
-        /** Regex matcher to extract name and length out of a db type name with length ascription */
-        final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
-        private val (_dbType,_size) = meta.typeName match {
-          case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
-        }
-        override def dbType = Some(_dbType)
-        override def length = _size
-        override def varying = dbType == Some("VARCHAR")
-        override def default = meta.columnDef.map((_,tpe)).collect{
-          case ("null",_)  => Some(None) // 3.7.15-M1
-        }.getOrElse{super.default}
-        override def tpe = dbType match {
-          case Some("DOUBLE") => "Double"
-          case Some("DATE") => "java.sql.Date"
-          case Some("TIME") => "java.sql.Time"
-          case Some("TIMESTAMP") => "java.sql.Timestamp"
-          case Some("BLOB") => "java.sql.Blob"
-          case _ => super.tpe
-        }
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+      /** Regex matcher to extract name and length out of a db type name with length ascription */
+      final val TypePattern = "^([A-Z]+)(\\(([0-9]+)\\))?$".r
+      private val (_dbType,_size) = meta.typeName match {
+        case TypePattern(d,_,s) => (d, Option(s).map(_.toInt))
       }
-      override def PrimaryKey = new PrimaryKey(_){
-        // in 3.7.15-M1:
-        override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
+      override def dbType = Some(_dbType)
+      override def length = _size
+      override def varying = dbType == Some("VARCHAR")
+      override def default = meta.columnDef.map((_,tpe)).collect{
+        case ("null",_)  => Some(None) // 3.7.15-M1
+      }.getOrElse{super.default}
+      override def tpe = dbType match {
+        case Some("DOUBLE") => "Double"
+        case Some("DATE") => "java.sql.Date"
+        case Some("TIME") => "java.sql.Time"
+        case Some("TIMESTAMP") => "java.sql.Timestamp"
+        case Some("BLOB") => "java.sql.Blob"
+        case _ => super.tpe
       }
     }
+    override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
+      // in 3.7.15-M1:
+      override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
+    }
   }
-  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
-                          (implicit session: Backend#Session)
-                          : Model
-    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
 
-  /** Jdbc meta data for all tables included in the Slick model by default */
-  override def defaultTables(implicit session: Backend#Session): Seq[MTable]
-    = MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
-            .buildColl[List].filter(_.name.name.toLowerCase != "sqlite_sequence")
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreInvalidDefaults)
+
+  override def defaultTables(implicit ec: ExecutionContext): Action[Seq[MTable]] =
+    MTable.getTables(Some(""), Some(""), None, Some(Seq("TABLE")))
+      .map(_.filter(_.name.name.toLowerCase != "sqlite_sequence"))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

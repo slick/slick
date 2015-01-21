@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTypeInfo(). */
@@ -15,7 +15,7 @@ case class MTypeInfo(
 }
 
 object MTypeInfo {
-  def getTypeInfo = ResultSetInvoker[MTypeInfo](_.metaData.getTypeInfo()) { r =>
+  def getTypeInfo = ResultSetAction[MTypeInfo](_.metaData.getTypeInfo()) { r =>
       MTypeInfo(r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextInt match {
           case DatabaseMetaData.columnNoNulls => Some(false)
           case DatabaseMetaData.columnNullable => Some(true)

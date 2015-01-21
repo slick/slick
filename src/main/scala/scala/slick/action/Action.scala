@@ -125,7 +125,7 @@ object Action {
   def failed(t: Throwable): EffectfulAction[Effect, Nothing, NoStream] = FailureAction(t)
 
   /** Transform a `TraversableOnce[EffectfulAction[E, R, NoStream]]` into an `EffectfulAction[E, TraversableOnce[R], NoStream]`. */
-  def sequence[E <: Effect, R, M[_] <: TraversableOnce[_]](in: M[EffectfulAction[E, R, NoStream]])(implicit cbf: CanBuildFrom[M[EffectfulAction[E, R, NoStream]], R, M[R]]): EffectfulAction[E, M[R], NoStream] = {
+  def sequence[E <: Effect, R, M[+_] <: TraversableOnce[_]](in: M[EffectfulAction[E, R, NoStream]])(implicit cbf: CanBuildFrom[M[EffectfulAction[E, R, NoStream]], R, M[R]]): EffectfulAction[E, M[R], NoStream] = {
     implicit val ec = Action.sameThreadExecutionContext
     in.foldLeft(Action.successful(cbf(in)): EffectfulAction[E, mutable.Builder[R, M[R]], NoStream]) { (ar, ae) =>
       for (r <- ar; e <- ae.asInstanceOf[EffectfulAction[E, R, NoStream]]) yield (r += e)
@@ -402,6 +402,13 @@ object Effect {
   trait Schema extends Effect
   /** Effect for transactional Actions ("DTL") */
   trait Transactional extends Effect
+
+  /** The bottom type of all standard effects. It is used by the `Action` and `StreamingAction`
+    * type aliases instead of `Nothing` because the compiler does not properly infer `Nothing`
+    * where needed. You can still introduce your own custom effect types but they will not be
+    * used by `Action` and `StreamingAction`, so you either have to define your own type aliases
+    * or spell out the proper `EffectfulAction` types in type annotations. */
+  trait All extends Read with Write with Schema with Transactional
 }
 
 /** A phantom type used as the streaming result type for Actions that do not support streaming.

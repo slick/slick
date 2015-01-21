@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getVersionColumns(). */
@@ -13,7 +13,7 @@ case class MVersionColumn(
 }
 
 object MVersionColumn {
-  def getVersionColumns(table: MQName) = ResultSetInvoker[MVersionColumn](
+  def getVersionColumns(table: MQName) = ResultSetAction[MVersionColumn](
       _.metaData.getVersionColumns(table.catalog_?, table.schema_?, table.name) ) { r =>
       MVersionColumn(r.skip.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextInt match {
           case DatabaseMetaData.versionColumnPseudo => Some(true)

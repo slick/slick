@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.{JdbcBackend, ResultSetInvoker, Invoker}
+import scala.slick.jdbc.{JdbcBackend, ResultSetAction, Invoker}
 import scala.slick.model.ForeignKeyAction
 
 /** A wrapper for a row in the ResultSet returned by
@@ -13,18 +13,18 @@ case class MForeignKey(
 
 object MForeignKey {
 
-  def getImportedKeys(table: MQName): Invoker[MForeignKey] =
-    createInvoker(_.metaData.getImportedKeys(table.catalog_?, table.schema_?, table.name))
+  def getImportedKeys(table: MQName) =
+    createAction(_.metaData.getImportedKeys(table.catalog_?, table.schema_?, table.name))
 
-  def getExportedKeys(table: MQName): Invoker[MForeignKey] =
-    createInvoker(_.metaData.getExportedKeys(table.catalog_?, table.schema_?, table.name))
+  def getExportedKeys(table: MQName) =
+    createAction(_.metaData.getExportedKeys(table.catalog_?, table.schema_?, table.name))
 
-  def getCrossReference(parentTable: MQName, foreignTable: MQName): Invoker[MForeignKey] =
-    createInvoker(_.metaData.getCrossReference(
+  def getCrossReference(parentTable: MQName, foreignTable: MQName) =
+    createAction(_.metaData.getCrossReference(
       parentTable.catalog_?, parentTable.schema_?, parentTable.name,
       foreignTable.catalog_?, foreignTable.schema_?, foreignTable.name))
 
-  private[this] def createInvoker(f: JdbcBackend#Session => ResultSet) = ResultSetInvoker[MForeignKey](f) { r =>
+  private[this] def createAction(f: JdbcBackend#Session => ResultSet) = ResultSetAction[MForeignKey](f) { r =>
     MForeignKey(MQName.from(r), r.<<, MQName.from(r), r.<<, r.<<, fkActionFor(r.<<), fkActionFor(r.<<), r.<<, r.<<, r.<<)
   }
 

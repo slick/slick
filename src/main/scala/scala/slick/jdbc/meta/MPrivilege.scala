@@ -1,6 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.{PositionedResult, ResultSetInvoker}
+import scala.slick.jdbc.{PositionedResult, ResultSetAction}
 
 /** A common privilege type which is used by MTablePrivilege and MColumnPrivilege. */
 case class MPrivilege(grantor: Option[String], grantee: String, privilege: String, grantable: Option[Boolean])
@@ -13,7 +13,7 @@ object MPrivilege {
 case class MTablePrivilege(table: MQName, privilege: MPrivilege)
 
 object MTablePrivilege {
-  def getTablePrivileges(tablePattern: MQName) = ResultSetInvoker[MTablePrivilege](
+  def getTablePrivileges(tablePattern: MQName) = ResultSetAction[MTablePrivilege](
       _.metaData.getTablePrivileges(tablePattern.catalog_?, tablePattern.schema_?, tablePattern.name)) { r =>
       MTablePrivilege(MQName.from(r), MPrivilege.from(r))
   }
@@ -23,7 +23,7 @@ object MTablePrivilege {
 case class MColumnPrivilege(table: MQName, column: String, privilege: MPrivilege)
 
 object MColumnPrivilege {
-  def getColumnPrivileges(tablePattern: MQName, columnPattern: String) = ResultSetInvoker[MColumnPrivilege](
+  def getColumnPrivileges(tablePattern: MQName, columnPattern: String) = ResultSetAction[MColumnPrivilege](
       _.metaData.getColumnPrivileges(tablePattern.catalog_?, tablePattern.schema_?, tablePattern.name, columnPattern)) { r =>
       MColumnPrivilege(MQName.from(r), r.<<, MPrivilege.from(r))
   }

@@ -1,6 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.{PositionedResult, ResultSetInvoker}
+import scala.slick.jdbc.{PositionedResult, ResultSetAction}
 import scala.slick.jdbc.GetResult.GetString
 
 /**
@@ -8,9 +8,9 @@ import scala.slick.jdbc.GetResult.GetString
  */
 object DatabaseMeta {
 
-  def getCatalogs = ResultSetInvoker[String](_.metaData.getCatalogs())
+  def getCatalogs = ResultSetAction[String](_.metaData.getCatalogs())
 
-  def getTableTypes = ResultSetInvoker[String](_.metaData.getTableTypes())
+  def getTableTypes = ResultSetAction[String](_.metaData.getTableTypes())
 
   private[meta] def yesNoOpt(r: PositionedResult) = if(r.hasMoreColumns) r.nextString match {
     case "YES" => Some(true)

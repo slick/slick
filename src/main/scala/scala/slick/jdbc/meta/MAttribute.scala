@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 import scala.slick.driver.JdbcTypesComponent
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getAttributes(). */
@@ -15,7 +15,7 @@ case class MAttribute(typeName: MQName, attrName: String, sqlType: Int, attrType
 }
 
 object MAttribute {
-  def getAttributes(typePattern: MQName, attributeNamePattern: String = "%") = ResultSetInvoker[MAttribute](
+  def getAttributes(typePattern: MQName, attributeNamePattern: String = "%") = ResultSetAction[MAttribute](
       _.metaData.getAttributes(typePattern.catalog_?, typePattern.schema_?, typePattern.name, attributeNamePattern)) { r =>
       MAttribute(MQName.from(r), r.<<, r.<<, r.<<, r.<<, r.<<, r.<<, r.nextInt match {
           case DatabaseMetaData.attributeNoNulls => Some(false)

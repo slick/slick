@@ -1,4 +1,6 @@
 package com.typesafe.slick.docs
+
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.slick.driver.H2Driver.simple._
 import scala.slick.driver.H2Driver
 
@@ -23,14 +25,12 @@ object CodeGenerator extends App {
     )
     //#default-runner-with-auth
     //#customization
-    import scala.slick.jdbc.meta.createModel
     import scala.slick.codegen.SourceCodeGenerator
     // fetch data model
-    val model = db.withSession{ implicit session =>
-      createModel(H2Driver.getTables.list,H2Driver) // you can filter specific tables here
-    }
+    val modelAction = H2Driver.createModel(Some(H2Driver.defaultTables)) // you can filter specific tables here
+    val modelFuture = db.run(modelAction)
     // customize code generator
-    val codegen = new SourceCodeGenerator(model){
+    val codegenFuture = modelFuture.map(model => new SourceCodeGenerator(model) {
       // override mapped table and class name
       override def entityName =
         dbTableName => dbTableName.dropRight(1).toLowerCase.toCamelCase
@@ -55,10 +55,12 @@ object CodeGenerator extends App {
             if(model.name == "SOME_SPECIAL_COLUMN_NAME") "MyCustomType" else super.rawType
         }
       }
+    })
+    codegenFuture.onSuccess { case codegen =>
+      codegen.writeToFile(
+        "scala.slick.driver.H2Driver","some/folder/","some.packag","Tables","Tables.scala"
+      )
     }
-    codegen.writeToFile(
-      "scala.slick.driver.H2Driver","some/folder/","some.packag","Tables","Tables.scala"
-    )
     //#customization
   }
 }
