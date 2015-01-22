@@ -2,6 +2,8 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
+import scala.slick.jdbc.{ResultSetHoldability, ResultSetConcurrency, ResultSetType, JdbcBackend}
+
 class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
@@ -54,5 +56,21 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
   def testSimpleAction = {
     val getAutoCommit = SimpleAction[Boolean](_.session.conn.getAutoCommit)
     getAutoCommit.map(_ shouldBe true)
+  }
+
+  def testStatementParameters = {
+    def check(sp: JdbcBackend.StatementParameters) =
+      GetStatementParameters.map { csp => csp shouldBe sp }
+
+    Action.seq(
+      check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)),
+      Action.seq(
+        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)),
+        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.HoldCursorsOverCommit)).
+          withStatementParameters(rsHoldability = ResultSetHoldability.HoldCursorsOverCommit),
+        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.Auto))
+      ).withStatementParameters(rsType = ResultSetType.ScrollInsensitive),
+      check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto))
+    )
   }
 }

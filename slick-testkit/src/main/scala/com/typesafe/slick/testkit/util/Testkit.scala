@@ -203,6 +203,15 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
+  /** Test Action: Get the current statement parameters */
+  object GetStatementParameters extends SynchronousDatabaseAction[JdbcBackend, Effect, JdbcBackend.StatementParameters, NoStream] {
+    def run(context: ActionContext[JdbcBackend]) = {
+      val s = context.session.asInstanceOf[JdbcBackend#Session]
+      JdbcBackend.StatementParameters(s.resultSetType, s.resultSetConcurrency, s.resultSetHoldability)
+    }
+    def getDumpInfo = DumpInfo(name = "<GetStatementParameters>")
+  }
+
   def ifCap[E <: Effect, R](caps: Capability*)(f: => EffectfulAction[E, R, NoStream]): EffectfulAction[E, Unit, NoStream] =
     if(caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
   def ifNotCap[E <: Effect, R](caps: Capability*)(f: => EffectfulAction[E, R, NoStream]): EffectfulAction[E, Unit, NoStream] =

@@ -46,7 +46,7 @@ trait DatabaseComponent { self =>
     final def run[R](a: EffectfulAction[Nothing, R, NoStream]): Future[R] = runInternal(a, false)
 
     private[slick] final def runInternal[R](a: EffectfulAction[Nothing, R, NoStream], useSameThread: Boolean): Future[R] =
-      runInContext(a, new DatabaseActionContext(useSameThread), false)
+      runInContext(a, createDatabaseActionContext(useSameThread), false)
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
       * Action and return the result directly as a stream without buffering everything first. This
@@ -98,6 +98,10 @@ trait DatabaseComponent { self =>
         }
       }
     }
+
+    /** Create the default DatabaseActionContext for this backend. */
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): DatabaseActionContext =
+      new DatabaseActionContext { val useSameThread = _useSameThread }
 
     /** Create the default StreamingDatabaseActionContext for this backend. */
     protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingDatabaseActionContext =
@@ -311,6 +315,7 @@ trait DatabaseComponent { self =>
       * The session is stored in a dynamic (inheritable thread-local) variable
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def withDynSession[T](f: => T): T = withSession { s: Session => withDynamicSession(s)(f) }
 
     /** Run the supplied function with a new session in a transaction and automatically close the session at the end. */
@@ -321,17 +326,20 @@ trait DatabaseComponent { self =>
       * The session is stored in a dynamic (inheritable thread-local) variable
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def withDynTransaction[T](f: => T): T = withDynSession { Database.dynamicSession.withTransaction(f) }
   }
 
   private[this] val dyn = new DynamicVariable[Session](null)
 
   /** Run a block of code with the specified `Session` bound to the thread-local `dynamicSession`. */
+  @deprecated("Use the new Action-based API instead", "3.0")
   protected def withDynamicSession[T](s: Session)(f: => T): T = dyn.withValue(s)(f)
 
   /** Factory methods for creating `Database` instances. */
   trait DatabaseFactoryDef {
     /** An implicit function that returns the thread-local session in a withSession block. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     implicit def dynamicSession: Session = {
       val s = dyn.value
       if(s eq null)
@@ -355,6 +363,7 @@ trait DatabaseComponent { self =>
     def withTransaction[T](f: => T): T
 
     /** Use this Session as the `dynamicSession` for running the supplied thunk. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def asDynamicSession[T](f: => T): T = withDynamicSession[T](this.asInstanceOf[Session])(f)
 
     /** Force an actual database session to be opened. Slick sessions are lazy, so you do not
@@ -362,11 +371,12 @@ trait DatabaseComponent { self =>
     def force(): Unit
   }
 
-  /** The context object passed to database actions by the execution engine.
-    *
-    * @param useSameThread Whether to run all operations on the current thread or schedule
-    *   them normally on the appropriate ExecutionContext. This is used by the blocking API. */
-  protected[this] class DatabaseActionContext(val useSameThread: Boolean) extends ActionContext[This] {
+  /** The context object passed to database actions by the execution engine. */
+  protected[this] trait DatabaseActionContext extends ActionContext[This] {
+    /** Whether to run all operations on the current thread or schedule them normally on the
+      * appropriate ExecutionContext. This is used by the blocking API. */
+    val useSameThread: Boolean
+
     /** Return the specified ExecutionContext unless running in same-thread mode, in which case
       * `Action.sameThreadExecutionContext` is returned instead. */
     def getEC(ec: ExecutionContext): ExecutionContext =
@@ -390,7 +400,7 @@ trait DatabaseComponent { self =>
   }
 
   /** A special DatabaseActionContext for streaming execution. */
-  protected[this] class StreamingDatabaseActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database) extends DatabaseActionContext(useSameThread) with StreamingActionContext[This] with Subscription {
+  protected[this] class StreamingDatabaseActionContext(subscriber: Subscriber[_], val useSameThread: Boolean, database: Database) extends DatabaseActionContext with StreamingActionContext[This] with Subscription {
     /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
     private[this] var finished = false
 

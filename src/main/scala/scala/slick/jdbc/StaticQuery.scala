@@ -57,6 +57,7 @@ class StaticQueryInvoker[-P, +R](val getStatement: String, pconv: SetParameter[P
   protected def extractValue(rs: PositionedResult): R = rconv(rs)
 }
 
+@deprecated("Use the new Action-based Plain SQL API from driver.api instead", "3.0")
 class SQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLInterpolationResult via string interpolation */
   def sql[P](param: P)(implicit pconv: SetParameter[P]) =
@@ -99,6 +100,7 @@ object SQLInterpolation {
   }
 }
 
+@deprecated("Use the new Action-based Plain SQL API from driver.api instead", "3.0")
 case class SQLInterpolationResult[P](strings: Seq[String], param: P, pconv: SetParameter[P]) {
   def as[R](implicit rconv: GetResult[R]): StaticQuery[Unit, R] = {
     val (sql, unitPConv) = SQLInterpolation.parse(strings, param, pconv)

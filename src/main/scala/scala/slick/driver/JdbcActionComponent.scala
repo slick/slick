@@ -48,6 +48,18 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def getDumpInfo = DumpInfo(name = "Rollback")
   }
 
+  protected class PushStatementParameters(p: JdbcBackend.StatementParameters) extends SynchronousDatabaseAction[Backend#This, Effect, Unit, NoStream] {
+    def run(context: ActionContext[Backend#This]): Unit =
+      context.asInstanceOf[JdbcBackend#JdbcDatabaseActionContext].pushStatementParameters(p)
+    def getDumpInfo = DumpInfo(name = "PushStatementParameters", mainInfo = p.toString)
+  }
+
+  protected object PopStatementParameters extends SynchronousDatabaseAction[Backend#This, Effect, Unit, NoStream] {
+    def run(context: ActionContext[Backend#This]): Unit =
+      context.asInstanceOf[JdbcBackend#JdbcDatabaseActionContext].popStatementParameters
+    def getDumpInfo = DumpInfo(name = "PopStatementParameters")
+  }
+
   class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: EffectfulAction[E, R, S]) {
 
     /** Run this Action transactionally. This does not guarantee failures to be atomic in the
@@ -81,6 +93,12 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
         case a => nonFused
       }
     }
+
+    def withStatementParameters(rsType: ResultSetType = null,
+                                rsConcurrency: ResultSetConcurrency = null,
+                                rsHoldability: ResultSetHoldability = null): EffectfulAction[E, R, S] =
+      (new PushStatementParameters(new JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability))).
+        andThen(a).andFinally(PopStatementParameters)
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////

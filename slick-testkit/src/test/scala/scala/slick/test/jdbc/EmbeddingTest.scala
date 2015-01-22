@@ -8,6 +8,7 @@ import com.typesafe.slick.testkit.util.StandardTestDBs._
 
 object EmbeddingTest extends DBTestObject(H2Mem)
 
+@deprecated("Using deprecated API", "3.0")
 class EmbeddingTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.backend.Database.dynamicSession
 
