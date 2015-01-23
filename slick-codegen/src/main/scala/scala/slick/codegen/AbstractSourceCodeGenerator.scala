@@ -212,6 +212,12 @@ trait StringGeneratorHelpers extends scala.slick.codegen.GeneratorHelpers[String
   def docWithCode(doc: String, code:String): String = (if(doc != "") "/** "+doc.split("\n").mkString("\n *  ")+" */\n" else "") + code
   final def optionType(t: String) = s"Option[$t]"
   def parseType(tpe: String): String = tpe
-  def termName( name: String ) = if(scalaKeywords.contains(name)) "`"+name+"`" else name
-  def typeName( name: String ) = if(scalaKeywords.contains(name)) "`"+name+"`" else name
+  def shouldQuoteIdentifier(s: String) = {
+    def isIdent =
+      if(s.isEmpty) false
+      else Character.isJavaIdentifierStart(s.head) && s.tail.forall(Character.isJavaIdentifierPart)
+    scalaKeywords.contains(s) || !isIdent
+  }
+  def termName( name: String ) = if(shouldQuoteIdentifier(name)) "`"+name+"`" else name
+  def typeName( name: String ) = if(shouldQuoteIdentifier(name)) "`"+name+"`" else name
 }
