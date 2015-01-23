@@ -44,7 +44,7 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
     /** Column code generators in the order they appear in the model. */
     final lazy val columnsPositional: IndexedSeq[Column] = model.columns.map(Column).toIndexedSeq
     /** Database column positions in the desired user-facing order. Currently just moves the positions of AutoInc columns to the end if autoIncLastAsOption is enabled. */
-    final lazy val desiredColumnOrder: Seq[Int] = {
+    lazy val desiredColumnOrder: Seq[Int] = {
       val withIndex = columnsPositional.zipWithIndex
       if(autoIncLastAsOption)
         // put auto inc column last
