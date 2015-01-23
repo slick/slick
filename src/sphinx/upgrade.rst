@@ -52,6 +52,22 @@ at the call site where the concrete type is known.
 ``Column[T]`` is still available as a deprecated alias for ``Rep[T]``. Due to the required implicit evidence, it
 cannot provide complete backwards compatibility in all cases.
 
+Closing Databases
+-----------------
+
+Since a ``Database`` instance can now have an associated connection pool and thread pool, it is important to call
+``close`` when you are done using it, so that these pools can be shut down properly. You should take care to do this
+wen you migrate to the new Action-based API. As long as you exclusively use the old API (and do not configure a
+session pool), it is not strictly necessary.
+
+Metadata API and Code Generator
+-------------------------------
+
+The JDBC metadata API in package ``scala.slick.jdbc.meta`` has been switched to the new API, producing Actions instead
+of Invokers. The code generator, which uses this API, has been completely rewritten for the asynchronous API. It still
+supports the same functionality and the same concepts but any customization of the code generator will have to be
+changed. See the code generator tests and the :doc:`code-generation` chapter for examples.
+
 Upgrade from 2.0 to 2.1
 =======================
 

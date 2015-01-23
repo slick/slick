@@ -7,6 +7,7 @@ import scala.concurrent.ExecutionContext
 import scala.slick.memory.{DistributedDriver, DistributedBackend}
 
 /** Test for the DistributedDriver */
+@deprecated("Using deprecated .simple API", "3.0")
 class DistributedQueryingTest {
   val tdb1 = StandardTestDBs.H2Mem
   val tdb2 = StandardTestDBs.DerbyMem

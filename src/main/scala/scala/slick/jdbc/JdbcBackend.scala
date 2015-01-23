@@ -51,6 +51,9 @@ trait JdbcBackend extends RelationalBackend {
     final def stream[T](a: StreamingAction[_, T], bufferNext: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => new JdbcStreamingDatabaseActionContext(s, false, DatabaseDef.this, bufferNext))
 
+    override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): DatabaseActionContext =
+      new JdbcDatabaseActionContext { val useSameThread = _useSameThread }
+
     override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingDatabaseActionContext =
       new JdbcStreamingDatabaseActionContext(s, useSameThread, DatabaseDef.this, true)
 
@@ -322,8 +325,13 @@ trait JdbcBackend extends RelationalBackend {
      * Create a new Slick Session wrapping the same JDBC connection, but using the given values as defaults for
      * resultSetType, resultSetConcurrency and resultSetHoldability.
      */
-    def forParameters(rsType: ResultSetType = resultSetType, rsConcurrency: ResultSetConcurrency = resultSetConcurrency,
-                      rsHoldability: ResultSetHoldability = resultSetHoldability): Session = new Session {
+    @deprecated("Use the new Action-based API instead", "3.0")
+    final def forParameters(rsType: ResultSetType = resultSetType, rsConcurrency: ResultSetConcurrency = resultSetConcurrency,
+                      rsHoldability: ResultSetHoldability = resultSetHoldability): Session =
+      internalForParameters(rsType, rsConcurrency, rsHoldability)
+
+    private[slick] final def internalForParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
+                      rsHoldability: ResultSetHoldability): Session = new Session {
       override def resultSetType = rsType
       override def resultSetConcurrency = rsConcurrency
       override def resultSetHoldability = rsHoldability
@@ -416,7 +424,41 @@ trait JdbcBackend extends RelationalBackend {
     val supportsBatchUpdates = session.metaData.supportsBatchUpdates
   }
 
-  class JdbcStreamingDatabaseActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends StreamingDatabaseActionContext(subscriber, useSameThread, database)
+  trait JdbcDatabaseActionContext extends DatabaseActionContext {
+    private[JdbcBackend] var statementParameters: List[JdbcBackend.StatementParameters] = null
+
+    def pushStatementParameters(p: JdbcBackend.StatementParameters): Unit = {
+      val p2 = if((p.rsType eq null) || (p.rsConcurrency eq null) || (p.rsHoldability eq null)) {
+        val curr = if(statementParameters eq null) JdbcBackend.defaultStatementParameters else statementParameters.head
+        JdbcBackend.StatementParameters(
+          if(p.rsType eq null) curr.rsType else p.rsType,
+          if(p.rsConcurrency eq null) curr.rsConcurrency else p.rsConcurrency,
+          if(p.rsHoldability eq null) curr.rsHoldability else p.rsHoldability
+        )
+      } else p
+      statementParameters = p2 :: (if(statementParameters eq null) Nil else statementParameters)
+    }
+
+    def popStatementParameters: Unit = {
+      val p = statementParameters.tail
+      if(p.isEmpty) statementParameters = null else statementParameters = p
+    }
+
+    /* TODO: Creating a new Session here for parameter overrides is not the most efficient solution
+       but it provides compatibility with the old Session-based API. This should be changed once
+       the old API has been removed. */
+    override def session: Session =
+      if(statementParameters eq null) super.session
+      else {
+        val p = statementParameters.head
+        super.session.internalForParameters(p.rsType, p.rsConcurrency, p.rsHoldability)
+      }
+  }
+
+  class JdbcStreamingDatabaseActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends StreamingDatabaseActionContext(subscriber, useSameThread, database) with JdbcDatabaseActionContext
 }
 
-object JdbcBackend extends JdbcBackend
+object JdbcBackend extends JdbcBackend {
+  case class StatementParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency, rsHoldability: ResultSetHoldability)
+  val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)
+}

@@ -1,6 +1,6 @@
 package com.typesafe.slick.docs
 
-import scala.slick.driver.H2Driver.simple._
+import scala.slick.driver.H2Driver.api._
 
 //#caseclassextends
 case class Supplier(id: Int, name: String, street: String)
@@ -50,7 +50,7 @@ class MigrationGuide {
     //#insert2
     val mySupplier: Supplier = null
     //#insert2
-    suppliers.insert(mySupplier)
+    suppliers += mySupplier
     //#insert2
   }
 

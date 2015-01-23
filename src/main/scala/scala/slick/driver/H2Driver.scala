@@ -1,11 +1,12 @@
 package scala.slick.driver
 
+import scala.concurrent.ExecutionContext
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
 import scala.slick.compiler.CompilerState
-import scala.slick.jdbc.JdbcType
-import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.{JdbcModelBuilder, JdbcType}
+import scala.slick.jdbc.meta.{MColumn, MTable}
 import scala.slick.model.Model
 
 /** Slick driver for H2.
@@ -44,19 +45,17 @@ trait H2Driver extends JdbcDriver { driver =>
     - RelationalProfile.capabilities.reverse
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
-    override def Table = new Table(_){
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
-      override def Column = new Column(_){
-        override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
-      }
+    }
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+      override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
     }
   }
-   
-  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
-                          (implicit session: Backend#Session)
-                          : Model
-    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)

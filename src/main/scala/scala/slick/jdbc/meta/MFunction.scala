@@ -1,7 +1,7 @@
 package scala.slick.jdbc.meta
 
 import java.sql._
-import scala.slick.jdbc.ResultSetInvoker
+import scala.slick.jdbc.ResultSetAction
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getFunctions(). */
 case class MFunction(name: MQName, remarks: String, returnsTable: Option[Boolean], specificName: String) {
@@ -11,7 +11,7 @@ case class MFunction(name: MQName, remarks: String, returnsTable: Option[Boolean
 
 object MFunction {
   def getFunctions(namePattern: MQName) = {
-    ResultSetInvoker[MFunction] { s =>
+    ResultSetAction[MFunction] { s =>
       try s.metaData.getFunctions(namePattern.catalog_?, namePattern.schema_?, namePattern.name)
       catch { case _: AbstractMethodError => null }
     } { r => MFunction(MQName.from(r), r.<<, r.nextShort match {

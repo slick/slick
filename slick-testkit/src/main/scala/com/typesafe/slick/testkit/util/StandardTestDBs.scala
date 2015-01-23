@@ -4,9 +4,10 @@ import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
 import scala.concurrent.ExecutionContext
+import scala.slick.action._
 import scala.slick.driver._
 import scala.slick.memory.MemoryDriver
-import scala.slick.jdbc.{ResultSetInvoker, StaticQuery => Q}
+import scala.slick.jdbc.{StaticQuery => Q, ResultSetAction, ResultSetInvoker}
 import scala.slick.jdbc.GetResult._
 import scala.slick.jdbc.meta.MTable
 import org.junit.Assert
@@ -84,13 +85,13 @@ object StandardTestDBs {
 
   lazy val Postgres = new ExternalJdbcTestDB("postgres") {
     val driver = PostgresDriver
-    override def getLocalTables(implicit session: profile.Backend#Session) = {
-      val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
-    }
+    override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+      ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
+        ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+      }
     override def getLocalSequences(implicit session: profile.Backend#Session) = {
       val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
+      tables.buildColl[List].filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
     override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
   }
@@ -141,8 +142,8 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
   val driver = SQLiteDriver
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
-  override def getLocalTables(implicit session: profile.Backend#Session) =
-    super.getLocalTables.filter(s => !s.toLowerCase.contains("sqlite_"))
+  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+    super.localTables.map(_.filter(s => !s.toLowerCase.contains("sqlite_")))
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     for(t <- getLocalTables)
       (Q.u+"drop table if exists "+driver.quoteIdentifier(t)).execute
@@ -170,8 +171,8 @@ class AccessDB(confName: String) extends ExternalJdbcTestDB(confName) {
   }
   /* Works in some situations but fails with "Optional feature not implemented" in others */
   override def canGetLocalTables = false
-  override def getLocalTables(implicit session: profile.Backend#Session) =
-    MTable.getTables.list.map(_.name.name).sorted
+  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+    MTable.getTables.map(_.map(_.name.name).sorted)
   override def capabilities = super.capabilities - TestDB.capabilities.jdbcMeta
 }
 
@@ -179,10 +180,10 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
   val driver = DerbyDriver
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
-  override def getLocalTables(implicit session: profile.Backend#Session): List[String] = {
-    val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "APP", null, null))
-    tables.list.map(_._3).sorted
-  }
+  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+    ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "APP", null, null)).map { ts =>
+      ts.map(_._3).sorted
+    }
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     try {
       try { (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute }
@@ -191,7 +192,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
             select c.constraintname, t.tablename
             from sys.sysconstraints c, sys.sysschemas s, sys.systables t
             where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
-                                             """).list
+                                             """).buildColl[List]
       for((c, t) <- constraints if !c.startsWith("SQL"))
         (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute
       for(t <- getLocalTables)
@@ -214,10 +215,10 @@ object DerbyDB {
 abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
   val driver = HsqldbDriver
   val jdbcDriver = "org.hsqldb.jdbcDriver"
-  override def getLocalTables(implicit session: profile.Backend#Session): List[String] = {
-    val tables = ResultSetInvoker[(String,String,String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null))
-    tables.list.map(_._3).sorted
-  }
+  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+    ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null)).map { ts =>
+      ts.map(_._3).sorted
+    }
   override def cleanUpBefore() {
     // Try to turn Hsqldb logging off -- does not work :(
     System.setProperty("hsqldb.reconfig_logging", "false")

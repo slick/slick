@@ -7,6 +7,7 @@ import scala.slick.util.??
 /** A JDBC Session which is not managed by Slick. You can use this to wrap an
   * existing JDBC Connection. Override 'database' and 'performRollback'
   * as needed. */
+@deprecated("Use the new Action-based API instead", "3.0")
 class UnmanagedSession(val conn: Connection) extends JdbcBackend.SessionDef {
   protected var open = true
   protected var doRollback = false

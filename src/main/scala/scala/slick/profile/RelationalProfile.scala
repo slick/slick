@@ -51,7 +51,9 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
   }
 
+  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
   val Implicit: Implicits
+  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
   val simple: SimpleQL
   val api: API
 
@@ -76,7 +78,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     /** Create a `Compiled` query which selects all rows where the specified
       * key matches the parameter value. */
     def findBy[P](f: (T => Rep[P]))(implicit ashape: Shape[ColumnsShapeLevel, Rep[P], P, Rep[P]], pshape: Shape[ColumnsShapeLevel, P, P, _]): CompiledFunction[Rep[P] => Query[T, U, Seq], Rep[P], P, Query[T, U, Seq], Seq[U]] = {
-      import driver.Implicit._
+      import driver.api._
       Compiled { (p: Rep[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
     }
     /*def findBy[P](f: (T => Rep[P]))(implicit tm: TypedType[P]): CompiledFunction[Rep[P] => Query[T, U, Seq], Rep[P], P, Query[T, U, Seq], Seq[U]] = {

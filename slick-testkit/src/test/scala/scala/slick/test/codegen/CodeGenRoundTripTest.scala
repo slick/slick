@@ -8,6 +8,8 @@ import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
 
 object CodeGeneratorRoundTripTest extends DBTestObject(H2Mem, SQLiteMem, Postgres, MySQL, DerbyMem, HsqldbMem)
+
+@deprecated("Using deprecated .simple API", "3.0")
 class CodeGeneratorRoundTripTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
   import tdb.driver.quoteIdentifier

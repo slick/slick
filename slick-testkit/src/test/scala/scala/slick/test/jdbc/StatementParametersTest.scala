@@ -9,6 +9,7 @@ import scala.slick.jdbc.{ResultSetType, ResultSetHoldability, ResultSetConcurren
 
 object StatementParametersTest extends DBTestObject(H2Mem)
 
+@deprecated("Using deprecated Session-based API", "3.0")
 class StatementParametersTest(val tdb: JdbcTestDB) extends DBTest {
   import tdb.profile.simple._
 

@@ -1,6 +1,6 @@
 package scala.slick.benchmark
 
-import scala.slick.driver.JdbcDriver.simple._
+import scala.slick.driver.JdbcDriver.api._
 
 object Benchmark {
 
@@ -44,11 +44,11 @@ object Benchmark {
         filter { o => o.orderID === (for { o2 <- orders filter(o.userID === _.userID) } yield o2.orderID).max }
     ) yield o.orderID
 
-    val s1 = q1.selectStatement
-    val s2 = q2.selectStatement
-    val s3 = q3.selectStatement
-    val s4 = q4.selectStatement
-    val s5 = q5.selectStatement
+    val s1 = q1.result.statements
+    val s2 = q2.result.statements
+    val s3 = q3.result.statements
+    val s4 = q4.result.statements
+    val s5 = q5.result.statements
 
     if(print) {
       println("q1: " + s1)

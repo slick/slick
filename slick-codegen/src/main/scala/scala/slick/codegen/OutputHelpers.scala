@@ -65,7 +65,7 @@ object ${container} extends {
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
 trait ${container} {
   val profile: scala.slick.driver.JdbcProfile
-  import profile.simple._
+  import profile.api._
   ${indent(code)}
 }
       """.trim()

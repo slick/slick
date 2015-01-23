@@ -2,25 +2,29 @@ package scala.slick.test.jdbc
 
 import org.junit.Test
 import org.junit.Assert._
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 import scala.slick.testutil._
 import com.typesafe.slick.testkit.util.{DBTest, DBTestObject, JdbcTestDB}
 import com.typesafe.slick.testkit.util.StandardTestDBs._
-import scala.slick.jdbc.StaticQuery.interpolation
+
+import scala.util.Failure
 
 object ModelBuilderTest extends DBTestObject(H2Mem)
 
 class ModelBuilderTest(val tdb: JdbcTestDB) extends DBTest {
-  @Test def test(): Unit = db withSession { implicit s =>
-    // test timestamps don't fail
-    sqlu"""create table BAR (FOO TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""".execute
-    tdb.profile.createModel(ignoreInvalidDefaults=false)
+  import tdb.driver.api._
 
-    sqlu"""create table BAZ (FOO VARCHAR(255) DEFAULT CURRENT_USER)""".execute
-    try{
-      tdb.profile.createModel(ignoreInvalidDefaults=false)
-      assert(false)
-    } catch {
-      case e:scala.slick.SlickException if e.getMessage.contains("not parse default") =>
-    }
+  @Test
+  def test(): Unit = {
+    // test timestamps don't fail
+    val a =
+      sqlu"""create table BAR (FOO TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""" >>
+      tdb.profile.createModel(ignoreInvalidDefaults=false) >>
+      sqlu"""create table BAZ (FOO VARCHAR(255) DEFAULT CURRENT_USER)""" >>
+      tdb.profile.createModel(ignoreInvalidDefaults=false).asTry
+    val mt = Await.result(db.run(a.withPinnedSession), Duration.Inf)
+    assertTrue(mt.asInstanceOf[Failure[_]].exception.asInstanceOf[SlickException].getMessage.contains("not parse default"))
   }
 }

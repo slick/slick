@@ -1,6 +1,6 @@
 package com.typesafe.slick.docsnippets
 
-import scala.slick.driver.H2Driver.simple._
+import scala.slick.driver.H2Driver.api._
 import Database.dynamicSession
 
 object JoinsUnions extends App{
@@ -38,7 +38,7 @@ object JoinsUnions extends App{
     //   select x2."COF_NAME", x3."SUP_NAME"
     //     from "COFFEES" x2, "SUPPLIERS" x3
     //#implicitCross
-    println(implicitCrossJoin.selectStatement)
+    println(implicitCrossJoin.result.statements.head)
 
     //#implicitInner
     val implicitInnerJoin = for {
@@ -50,7 +50,7 @@ object JoinsUnions extends App{
     //     from "COFFEES" x2, "SUPPLIERS" x3
     //     where x2."SUP_ID" = x3."SUP_ID"
     //#implicitInner
-    println(implicitInnerJoin.selectStatement)
+    println(implicitInnerJoin.result.statements.head)
 
     //#explicit
     val explicitCrossJoin = for {
@@ -92,11 +92,11 @@ object JoinsUnions extends App{
     //     full outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
     //#explicit
-    println(explicitCrossJoin.selectStatement)
-    println(explicitInnerJoin.selectStatement)
-    println(explicitLeftOuterJoin.selectStatement)
-    println(explicitRightOuterJoin.selectStatement)
-    println(explicitFullOuterJoin.selectStatement)
+    println(explicitCrossJoin.result.statements.head)
+    println(explicitInnerJoin.result.statements.head)
+    println(explicitLeftOuterJoin.result.statements.head)
+    println(explicitRightOuterJoin.result.statements.head)
+    println(explicitFullOuterJoin.result.statements.head)
 
     //#zip
     val zipJoinQuery = for {
@@ -107,15 +107,15 @@ object JoinsUnions extends App{
       res <- coffees.zipWith(suppliers, (c: Coffees, s: Suppliers) => (c.name, s.name))
     } yield res
     //#zip
-    //println(zipJoinQuery.selectStatement)
-    //println(zipWithJoin.selectStatement)
+    //println(zipJoinQuery.result.statements.head)
+    //println(zipWithJoin.result.statements.head)
 
     //#zipWithIndex
     val zipWithIndexJoin = for {
       (c, idx) <- coffees.zipWithIndex
     } yield (c.name, idx)
     //#zipWithIndex
-    //println(zipWithIndexJoin.selectStatement)
+    //println(zipWithIndexJoin.result.statements.head)
 
     //#union
     val q1 = coffees.filter(_.price < 8.0)
@@ -139,7 +139,7 @@ object JoinsUnions extends App{
     //     from "COFFEES" x9
     //     where x9."PRICE" > 9.0
     //#union
-    println(unionQuery.selectStatement)
-    println(unionAllQuery.selectStatement)
+    println(unionQuery.result.statements.head)
+    println(unionAllQuery.result.statements.head)
   }
 }

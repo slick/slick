@@ -6,6 +6,7 @@ import scala.slick.relational._
 import scala.slick.util.TreeDump
 import com.typesafe.slick.testkit.util.DelegateResultSet
 
+@deprecated("Using deprecated .simple API", "3.0")
 object UnboxedBenchmark extends App {
 
   val driver = scala.slick.driver.H2Driver

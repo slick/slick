@@ -1,6 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
+import scala.concurrent.{ExecutionContext, Await}
+import scala.concurrent.duration.Duration
 import scala.slick.driver.SQLiteDriver
 import scala.slick.model._
 import scala.slick.ast.ColumnOption
@@ -8,6 +10,7 @@ import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.meta
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
+@deprecated("Using deprecated .simple API", "3.0")
 class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
@@ -115,9 +118,11 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
     ddl.create
     //println(ddl.createStatements.toList.toString)
 
-    import tdb.profile.createModel
+    def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true): Model =
+      tdb.blockingRunOnSession(ec => tdb.profile.createModel(tables.map(Action.successful), ignoreInvalidDefaults)(ec))
+
     createModel(ignoreInvalidDefaults=false).assertConsistency
-    val tables = tdb.profile.defaultTables
+    val tables = tdb.blockingRunOnSession(ec => tdb.profile.defaultTables(ec))
     createModel(Some(tables), ignoreInvalidDefaults = false).assertConsistency
     ;{
       // checks that createModel filters out foreign keys pointing out
@@ -148,7 +153,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
     val DBTypePattern = "^[a-zA-Z][a-zA-Z0-9 ]*$".r
 
     // check that the model matches the table classes
-    val model = tdb.profile.createModel(ignoreInvalidDefaults=false)
+    val model = createModel(ignoreInvalidDefaults=false)
     //println(model)
     assertEquals( model.tables.toString, 5, model.tables.size )
     ;{

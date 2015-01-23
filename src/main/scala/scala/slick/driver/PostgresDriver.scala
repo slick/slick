@@ -2,14 +2,16 @@ package scala.slick.driver
 
 import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
+import scala.concurrent.ExecutionContext
+import scala.slick.action._
 import scala.slick.lifted._
 import scala.slick.profile.{SqlProfile, RelationalProfile, Capability}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node, Insert, InsertColumn, Select, ElementSymbol, ColumnOption }
 import scala.slick.ast.Util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
-import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.JdbcType
+import scala.slick.jdbc.meta.{MIndexInfo, MColumn, MTable}
+import scala.slick.jdbc.{JdbcModelBuilder, JdbcType}
 import scala.slick.model.Model
 
 /** Slick driver for PostgreSQL.
@@ -53,39 +55,38 @@ trait PostgresDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.supportsByte
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
-    override def Table = new Table(_){
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "public") // remove default schema
-      override def Column = new Column(_){
-        val VarCharPattern = "^'(.*)'::character varying$".r
-        val IntPattern = "^\\((-?[0-9]*)\\)$".r
-        override def default = meta.columnDef.map((_,tpe)).collect{
-          case ("true","Boolean")  => Some(Some(true))
-          case ("false","Boolean") => Some(Some(false))
-          case (VarCharPattern(str),"String") => Some(Some(str))
-          case (IntPattern(v),"Int") => Some(Some(v.toInt))
-          case (IntPattern(v),"Long") => Some(Some(v.toLong))
-          case ("NULL::character varying","String") => Some(None)
-        }.getOrElse{
-          val d = super.default
-          if(meta.nullable == Some(true) && d == None){
-            Some(None)
-          } else d
-        }
+    }
+    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+      val VarCharPattern = "^'(.*)'::character varying$".r
+      val IntPattern = "^\\((-?[0-9]*)\\)$".r
+      override def default = meta.columnDef.map((_,tpe)).collect{
+        case ("true","Boolean")  => Some(Some(true))
+        case ("false","Boolean") => Some(Some(false))
+        case (VarCharPattern(str),"String") => Some(Some(str))
+        case (IntPattern(v),"Int") => Some(Some(v.toInt))
+        case (IntPattern(v),"Long") => Some(Some(v.toLong))
+        case ("NULL::character varying","String") => Some(None)
+      }.getOrElse{
+        val d = super.default
+        if(meta.nullable == Some(true) && d == None){
+          Some(None)
+        } else d
       }
-      override def Index = new Index(_){
-        // FIXME: this needs a test
-        override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
-      }
+    }
+    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta) {
+      // FIXME: this needs a test
+      override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
   }
 
-  override def defaultTables(implicit session: Backend#Session) = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
-                          (implicit session: Backend#Session)
-                          : Model
-    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+  override def defaultTables(implicit ec: ExecutionContext): Action[Seq[MTable]] =
+    MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

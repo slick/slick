@@ -1,6 +1,8 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.jdbc.{ResultSetInvoker, Invoker}
+import scala.slick.action.Effect
+import scala.slick.jdbc.{ResultSetAction, Invoker}
+import scala.slick.profile.BasicStreamingAction
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getTables(). */
 case class MTable(
@@ -22,11 +24,11 @@ case class MTable(
 
 object MTable {
   def getTables(cat: Option[String], schemaPattern: Option[String], namePattern: Option[String],
-    types: Option[Seq[String]]) = ResultSetInvoker[MTable](
+    types: Option[Seq[String]]) = ResultSetAction[MTable](
       _.metaData.getTables(cat.orNull, schemaPattern.orNull, namePattern.orNull, types.map(_.toArray).orNull) ) { r =>
       if(r.numColumns > 5) MTable(MQName.from(r), r.<<, r.<<, MQName.optionalFrom(r), r.<<, r.<<)
       else MTable(MQName.from(r), r.<<, r.<<, None, None, None)
   }
-  def getTables(namePattern: String): Invoker[MTable] = getTables(Some(""), Some(""), Some(namePattern), None)
-  def getTables: Invoker[MTable] = getTables(Some(""), Some(""), None, None)
+  def getTables(namePattern: String): BasicStreamingAction[Effect.Read, Vector[MTable], MTable] = getTables(Some(""), Some(""), Some(namePattern), None)
+  def getTables: BasicStreamingAction[Effect.Read, Vector[MTable], MTable] = getTables(Some(""), Some(""), None, None)
 }

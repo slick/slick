@@ -1,7 +1,9 @@
 package scala.slick.driver
 
 import java.sql.Types
+import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
+import scala.slick.action._
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
@@ -9,7 +11,7 @@ import scala.slick.profile.{SqlProfile, Capability}
 import scala.slick.compiler.{Phase, CompilerState}
 import scala.slick.model.Model
 import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.Invoker
+import scala.slick.jdbc.{JdbcModelBuilder, Invoker}
 
 /** Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
   * (starting with version 2.0).
@@ -35,20 +37,18 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean = true)(implicit session: Backend#Session) extends super.ModelBuilder(mTables, ignoreInvalidDefaults){
-    override def Table = new Table(_){
+  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
       override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
     }
   }
 
-  override def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true)
-                          (implicit session: Backend#Session)
-                          : Model
-    = new ModelBuilder(tables.getOrElse(defaultTables), ignoreInvalidDefaults).model
+  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+    new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit session: Backend#Session)
-    = MTable.getTables(None, None, None, Some(Seq("TABLE"))).list
+  override def defaultTables(implicit ec: ExecutionContext): Action[Seq[MTable]] =
+    MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.specializeParameters
   override val columnTypes = new JdbcTypes

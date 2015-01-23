@@ -43,10 +43,10 @@ trait DatabaseComponent { self =>
     def close(): Unit
 
     /** Run an Action asynchronously and return the result as a Future. */
-    final def run[R](a: Action[R]): Future[R] = runInternal(a, false)
+    final def run[R](a: EffectfulAction[Nothing, R, NoStream]): Future[R] = runInternal(a, false)
 
-    private[slick] final def runInternal[R](a: Action[R], useSameThread: Boolean): Future[R] =
-      runInContext(a, new DatabaseActionContext(useSameThread), false)
+    private[slick] final def runInternal[R](a: EffectfulAction[Nothing, R, NoStream], useSameThread: Boolean): Future[R] =
+      runInContext(a, createDatabaseActionContext(useSameThread), false)
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
       * Action and return the result directly as a stream without buffering everything first. This
@@ -69,13 +69,13 @@ trait DatabaseComponent { self =>
       * from within `onNext`. If streaming is interrupted due to back-pressure signaling, the next
       * row will be prefetched (in order to buffer the next result page from the server when a page
       * boundary has been reached). */
-    final def stream[T](a: StreamingAction[_, T]): DatabasePublisher[T] = streamInternal(a, false)
+    final def stream[T](a: EffectfulAction[Nothing, _, Streaming[T]]): DatabasePublisher[T] = streamInternal(a, false)
 
-    private[slick] final def streamInternal[T](a: StreamingAction[_, T], useSameThread: Boolean): DatabasePublisher[T] =
+    private[slick] final def streamInternal[T](a: EffectfulAction[Nothing, _, Streaming[T]], useSameThread: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => createStreamingDatabaseActionContext(s, useSameThread))
 
     /** Create a Reactive Streams `Publisher` using the given context factory. */
-    protected[this] def createPublisher[T](a: StreamingAction[_, T], createCtx: Subscriber[_ >: T] => StreamingDatabaseActionContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
+    protected[this] def createPublisher[T](a: EffectfulAction[Nothing, _, Streaming[T]], createCtx: Subscriber[_ >: T] => StreamingDatabaseActionContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
       def subscribe(s: Subscriber[_ >: T]) = if(allowSubscriber(s)) {
         val ctx = createCtx(s)
         if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
@@ -99,6 +99,10 @@ trait DatabaseComponent { self =>
       }
     }
 
+    /** Create the default DatabaseActionContext for this backend. */
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): DatabaseActionContext =
+      new DatabaseActionContext { val useSameThread = _useSameThread }
+
     /** Create the default StreamingDatabaseActionContext for this backend. */
     protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingDatabaseActionContext =
       new StreamingDatabaseActionContext(s, useSameThread, DatabaseDef.this)
@@ -111,7 +115,7 @@ trait DatabaseComponent { self =>
       *                  be a `StreamingDatabaseActionContext` and the Future result should be
       *                  completed with `null` or failed after streaming has finished. This
       *                  method should not call any `Subscriber` method other than `onNext`. */
-    protected[this] def runInContext[R](a: Action[R], ctx: DatabaseActionContext, streaming: Boolean): Future[R] = {
+    protected[this] def runInContext[R](a: EffectfulAction[Nothing, R, NoStream], ctx: DatabaseActionContext, streaming: Boolean): Future[R] = {
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
@@ -273,13 +277,13 @@ trait DatabaseComponent { self =>
       * SynchronousDatabaseActions for asynchronous execution. */
     protected[this] def synchronousExecutionContext: ExecutionContext
 
-    protected[this] def logAction(a: Action[_], ctx: DatabaseActionContext): Unit = {
+    protected[this] def logAction(a: EffectfulAction[Nothing, _, NoStream], ctx: DatabaseActionContext): Unit = {
       if(actionLogger.isDebugEnabled && a.isLogged) {
         ctx.sequenceCounter += 1
         val logA = a.nonFusedEquivalentAction
         val aPrefix = if(a eq logA) "" else "[fused] "
         val dump = TreeDump.get(logA, prefix = "    ", firstPrefix = aPrefix, narrow = {
-          case a: Action[_] => a.nonFusedEquivalentAction
+          case a: EffectfulAction[_, _, _] => a.nonFusedEquivalentAction
           case o => o
         })
         val msg = DumpInfo.highlight("#" + ctx.sequenceCounter) + ": " + dump.substring(0, dump.length-1)
@@ -311,6 +315,7 @@ trait DatabaseComponent { self =>
       * The session is stored in a dynamic (inheritable thread-local) variable
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def withDynSession[T](f: => T): T = withSession { s: Session => withDynamicSession(s)(f) }
 
     /** Run the supplied function with a new session in a transaction and automatically close the session at the end. */
@@ -321,17 +326,20 @@ trait DatabaseComponent { self =>
       * The session is stored in a dynamic (inheritable thread-local) variable
       * which can be accessed with the implicit function in
       * Database.dynamicSession. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def withDynTransaction[T](f: => T): T = withDynSession { Database.dynamicSession.withTransaction(f) }
   }
 
   private[this] val dyn = new DynamicVariable[Session](null)
 
   /** Run a block of code with the specified `Session` bound to the thread-local `dynamicSession`. */
+  @deprecated("Use the new Action-based API instead", "3.0")
   protected def withDynamicSession[T](s: Session)(f: => T): T = dyn.withValue(s)(f)
 
   /** Factory methods for creating `Database` instances. */
   trait DatabaseFactoryDef {
     /** An implicit function that returns the thread-local session in a withSession block. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     implicit def dynamicSession: Session = {
       val s = dyn.value
       if(s eq null)
@@ -355,6 +363,7 @@ trait DatabaseComponent { self =>
     def withTransaction[T](f: => T): T
 
     /** Use this Session as the `dynamicSession` for running the supplied thunk. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def asDynamicSession[T](f: => T): T = withDynamicSession[T](this.asInstanceOf[Session])(f)
 
     /** Force an actual database session to be opened. Slick sessions are lazy, so you do not
@@ -362,11 +371,12 @@ trait DatabaseComponent { self =>
     def force(): Unit
   }
 
-  /** The context object passed to database actions by the execution engine.
-    *
-    * @param useSameThread Whether to run all operations on the current thread or schedule
-    *   them normally on the appropriate ExecutionContext. This is used by the blocking API. */
-  protected[this] class DatabaseActionContext(val useSameThread: Boolean) extends ActionContext[This] {
+  /** The context object passed to database actions by the execution engine. */
+  protected[this] trait DatabaseActionContext extends ActionContext[This] {
+    /** Whether to run all operations on the current thread or schedule them normally on the
+      * appropriate ExecutionContext. This is used by the blocking API. */
+    val useSameThread: Boolean
+
     /** Return the specified ExecutionContext unless running in same-thread mode, in which case
       * `Action.sameThreadExecutionContext` is returned instead. */
     def getEC(ec: ExecutionContext): ExecutionContext =
@@ -390,7 +400,7 @@ trait DatabaseComponent { self =>
   }
 
   /** A special DatabaseActionContext for streaming execution. */
-  protected[this] class StreamingDatabaseActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database) extends DatabaseActionContext(useSameThread) with StreamingActionContext[This] with Subscription {
+  protected[this] class StreamingDatabaseActionContext(subscriber: Subscriber[_], val useSameThread: Boolean, database: Database) extends DatabaseActionContext with StreamingActionContext[This] with Subscription {
     /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
     private[this] var finished = false
 
