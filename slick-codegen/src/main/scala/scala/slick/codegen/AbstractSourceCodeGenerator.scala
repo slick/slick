@@ -23,8 +23,13 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         "import scala.slick.jdbc.{GetResult => GR}\n"
       } else ""
     ) +
-    "\n/** DDL for all tables. Call .create to execute. */"+
-    "\nlazy val schema = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ") +
+    "\n/** DDL for all tables. Call .create to execute. */" +
+    (
+      if(tables.length > 5)
+        "\nlazy val schema = Array(" + tables.map(_.TableValue.name + ".schema").mkString(", ") + ").reduceLeft(_ ++ _)"
+      else
+        "\nlazy val schema = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ")
+    ) +
     "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")"+
     "\ndef ddl = schema" +
     "\n\n" +
