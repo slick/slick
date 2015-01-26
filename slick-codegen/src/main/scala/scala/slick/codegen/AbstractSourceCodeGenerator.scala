@@ -23,8 +23,13 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
         "import scala.slick.jdbc.{GetResult => GR}\n"
       } else ""
     ) +
-    "\n/** DDL for all tables. Call .create to execute. */"+
-    "\nlazy val schema = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ") +
+    "\n/** DDL for all tables. Call .create to execute. */" +
+    (
+      if(tables.length > 5)
+        "\nlazy val schema = Array(" + tables.map(_.TableValue.name + ".schema").mkString(", ") + ").reduceLeft(_ ++ _)"
+      else
+        "\nlazy val schema = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ")
+    ) +
     "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")"+
     "\ndef ddl = schema" +
     "\n\n" +
@@ -212,6 +217,12 @@ trait StringGeneratorHelpers extends scala.slick.codegen.GeneratorHelpers[String
   def docWithCode(doc: String, code:String): String = (if(doc != "") "/** "+doc.split("\n").mkString("\n *  ")+" */\n" else "") + code
   final def optionType(t: String) = s"Option[$t]"
   def parseType(tpe: String): String = tpe
-  def termName( name: String ) = if(scalaKeywords.contains(name)) "`"+name+"`" else name
-  def typeName( name: String ) = if(scalaKeywords.contains(name)) "`"+name+"`" else name
+  def shouldQuoteIdentifier(s: String) = {
+    def isIdent =
+      if(s.isEmpty) false
+      else Character.isJavaIdentifierStart(s.head) && s.tail.forall(Character.isJavaIdentifierPart)
+    scalaKeywords.contains(s) || !isIdent
+  }
+  def termName( name: String ) = if(shouldQuoteIdentifier(name)) "`"+name+"`" else name
+  def typeName( name: String ) = if(shouldQuoteIdentifier(name)) "`"+name+"`" else name
 }

@@ -176,9 +176,9 @@ lazy val database = Database.forURL(url=""\"$url""\",driver="$jdbcDriver",user="
 
 class Tables(val profile: JdbcProfile){
   import profile.api._
-  /** Tests single column table, scala keyword type name and all nullable columns table*/
+  /** Tests single column table, scala keyword type name, non-dentifier column name and all nullable columns table*/
   class `null`(tag: Tag) extends Table[Option[String]](tag, "null") {
-    def name = column[Option[String]]("name")
+    def name = column[Option[String]]("na me")
     def * = name
   }
   val `null` = TableQuery[`null`]
