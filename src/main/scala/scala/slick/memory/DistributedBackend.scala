@@ -1,5 +1,7 @@
 package scala.slick.memory
 
+import org.reactivestreams.Subscriber
+
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.slick.SlickException
 import scala.slick.action._
@@ -14,11 +16,19 @@ trait DistributedBackend extends RelationalBackend with Logging {
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
+  type Context = BasicActionContext
+  type StreamingContext = BasicStreamingActionContext
 
   val Database = new DatabaseFactoryDef
   val backend: DistributedBackend = this
 
   class DatabaseDef(val dbs: Vector[DatabaseComponent#DatabaseDef], val executionContext: ExecutionContext) extends super.DatabaseDef {
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
+      new BasicActionContext { val useSameThread = _useSameThread }
+
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
+      new BasicStreamingActionContext(s, useSameThread, DatabaseDef.this)
+
     def createSession(): Session = {
       val sessions = new ArrayBuffer[DatabaseComponent#Session]
       for(db <- dbs)

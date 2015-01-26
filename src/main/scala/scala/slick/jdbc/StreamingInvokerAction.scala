@@ -17,14 +17,14 @@ trait StreamingInvokerAction[-E <: Effect, R, T] extends SynchronousDatabaseActi
 
   type StreamState = CloseableIterator[T]
 
-  def run(ctx: ActionContext[JdbcBackend]): R = {
+  def run(ctx: JdbcBackend#Context): R = {
     val b = createBuilder
     invoker.foreach(x => b += x)(ctx.session)
     b.result()
   }
 
-  override def emitStream(ctx: StreamingActionContext[JdbcBackend], limit: Long, state: StreamState): StreamState = {
-    val bufferNext = ctx.asInstanceOf[JdbcBackend#JdbcStreamingDatabaseActionContext].bufferNext
+  override def emitStream(ctx: JdbcBackend#StreamingContext, limit: Long, state: StreamState): StreamState = {
+    val bufferNext = ctx.bufferNext
     val it = if(state ne null) state else invoker.iterator(ctx.session)
     var count = 0L
     try {
@@ -40,23 +40,23 @@ trait StreamingInvokerAction[-E <: Effect, R, T] extends SynchronousDatabaseActi
     if(if(bufferNext) it.hasNext else count == limit) it else null
   }
 
-  override def cancelStream(ctx: StreamingActionContext[JdbcBackend], state: StreamState): Unit = state.close()
+  override def cancelStream(ctx: JdbcBackend#StreamingContext, state: StreamState): Unit = state.close()
 
   override def getDumpInfo = super.getDumpInfo.copy(name = "StreamingResultAction")
 
   override def head: FixedSqlAction[E, T, NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, T, NoStream] with FixedSqlAction[E, T, NoStream] {
     def statements = self.statements
-    def run(ctx: ActionContext[JdbcBackend]): T = invoker.first(ctx.session)
+    def run(ctx: JdbcBackend#Context): T = invoker.first(ctx.session)
   }
 
   override def headOption: FixedSqlAction[E, Option[T], NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, Option[T], NoStream] with FixedSqlAction[E, Option[T], NoStream] {
     def statements = self.statements
-    def run(ctx: ActionContext[JdbcBackend]): Option[T] = invoker.firstOption(ctx.session)
+    def run(ctx: JdbcBackend#Context): Option[T] = invoker.firstOption(ctx.session)
   }
 }
 
 /** A non-streaming Action that wraps a JDBC call. */
-case class SimpleJdbcAction[+R](f: ActionContext[JdbcBackend] => R) extends SynchronousDatabaseAction[JdbcBackend, Effect.All, R, NoStream] {
-  def run(context: ActionContext[JdbcBackend]): R = f(context)
+case class SimpleJdbcAction[+R](f: JdbcBackend#Context => R) extends SynchronousDatabaseAction[JdbcBackend, Effect.All, R, NoStream] {
+  def run(context: JdbcBackend#Context): R = f(context)
   def getDumpInfo = DumpInfo(name = "SimpleJdbcAction")
 }

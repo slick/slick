@@ -28,6 +28,8 @@ trait JdbcBackend extends RelationalBackend {
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
+  type Context = JdbcActionContext
+  type StreamingContext = JdbcStreamingActionContext
 
   val Database = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
@@ -49,13 +51,13 @@ trait JdbcBackend extends RelationalBackend {
       * one single element at a time after processing the current one, so that the proper
       * sequencing is preserved even though processing may happen on a different thread. */
     final def stream[T](a: StreamingAction[_, T], bufferNext: Boolean): DatabasePublisher[T] =
-      createPublisher(a, s => new JdbcStreamingDatabaseActionContext(s, false, DatabaseDef.this, bufferNext))
+      createPublisher(a, s => new JdbcStreamingActionContext(s, false, DatabaseDef.this, bufferNext))
 
-    override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): DatabaseActionContext =
-      new JdbcDatabaseActionContext { val useSameThread = _useSameThread }
+    override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
+      new JdbcActionContext { val useSameThread = _useSameThread }
 
-    override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingDatabaseActionContext =
-      new JdbcStreamingDatabaseActionContext(s, useSameThread, DatabaseDef.this, true)
+    override protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
+      new JdbcStreamingActionContext(s, useSameThread, DatabaseDef.this, true)
 
     protected[this] def synchronousExecutionContext = executor.executionContext
 
@@ -424,7 +426,7 @@ trait JdbcBackend extends RelationalBackend {
     val supportsBatchUpdates = session.metaData.supportsBatchUpdates
   }
 
-  trait JdbcDatabaseActionContext extends DatabaseActionContext {
+  trait JdbcActionContext extends BasicActionContext {
     private[JdbcBackend] var statementParameters: List[JdbcBackend.StatementParameters] = null
 
     def pushStatementParameters(p: JdbcBackend.StatementParameters): Unit = {
@@ -455,7 +457,7 @@ trait JdbcBackend extends RelationalBackend {
       }
   }
 
-  class JdbcStreamingDatabaseActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends StreamingDatabaseActionContext(subscriber, useSameThread, database) with JdbcDatabaseActionContext
+  class JdbcStreamingActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends BasicStreamingActionContext(subscriber, useSameThread, database) with JdbcActionContext
 }
 
 object JdbcBackend extends JdbcBackend {

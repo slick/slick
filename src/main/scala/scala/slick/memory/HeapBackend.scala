@@ -1,6 +1,8 @@
 package scala.slick.memory
 
 import java.util.concurrent.atomic.AtomicLong
+import org.reactivestreams.Subscriber
+
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.{Future, ExecutionContext}
 import scala.slick.SlickException
@@ -16,11 +18,19 @@ trait HeapBackend extends RelationalBackend with Logging {
   type Database = DatabaseDef
   type Session = SessionDef
   type DatabaseFactory = DatabaseFactoryDef
+  type Context = BasicActionContext
+  type StreamingContext = BasicStreamingActionContext
 
   val Database = new DatabaseFactoryDef
   val backend: HeapBackend = this
 
   class DatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends super.DatabaseDef {
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
+      new BasicActionContext { val useSameThread = _useSameThread }
+
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext =
+      new BasicStreamingActionContext(s, useSameThread, DatabaseDef.this)
+
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new SessionDef(this)
     def close(): Unit = ()
