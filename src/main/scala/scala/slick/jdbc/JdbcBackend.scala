@@ -235,12 +235,14 @@ trait JdbcBackend extends RelationalBackend {
     def resultSetConcurrency: ResultSetConcurrency = ResultSetConcurrency.Auto
     def resultSetHoldability: ResultSetHoldability = ResultSetHoldability.Auto
 
+    def decorateStatement[S <: Statement](statement: S): S = statement
+
     final def prepareStatement(sql: String,
                                defaultType: ResultSetType = ResultSetType.ForwardOnly,
                                defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                                defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): PreparedStatement = {
       statementLogger.debug("Preparing statement: "+sql)
-      loggingPreparedStatement(resultSetHoldability.withDefault(defaultHoldability) match {
+      loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
           conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
             resultSetConcurrency.withDefault(defaultConcurrency).intValue)
@@ -248,23 +250,23 @@ trait JdbcBackend extends RelationalBackend {
           conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
             resultSetConcurrency.withDefault(defaultConcurrency).intValue,
             h.intValue)
-      })
+      }))
     }
 
     final def prepareInsertStatement(sql: String, columnNames: Array[String] = new Array[String](0)): PreparedStatement = {
       statementLogger.debug("Preparing insert statement: "+sql+", returning: "+columnNames.mkString(","))
-      loggingPreparedStatement(conn.prepareStatement(sql, columnNames))
+      loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnNames)))
     }
 
     final def prepareInsertStatement(sql: String, columnIndexes: Array[Int]): PreparedStatement = {
       statementLogger.debug("Preparing insert statement: "+sql+", returning indexes: "+columnIndexes.mkString(","))
-      loggingPreparedStatement(conn.prepareStatement(sql, columnIndexes))
+      loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnIndexes)))
     }
 
     final def createStatement(defaultType: ResultSetType = ResultSetType.ForwardOnly,
                               defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                               defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): Statement = {
-      loggingStatement(resultSetHoldability.withDefault(defaultHoldability) match {
+      loggingStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
           conn.createStatement(resultSetType.withDefault(defaultType).intValue,
             resultSetConcurrency.withDefault(defaultConcurrency).intValue)
@@ -272,7 +274,7 @@ trait JdbcBackend extends RelationalBackend {
           conn.createStatement(resultSetType.withDefault(defaultType).intValue,
             resultSetConcurrency.withDefault(defaultConcurrency).intValue,
             h.intValue)
-      })
+      }))
     }
 
     /** A wrapper around the JDBC Connection's prepareStatement method, that automatically closes the statement. */
@@ -330,13 +332,17 @@ trait JdbcBackend extends RelationalBackend {
     @deprecated("Use the new Action-based API instead", "3.0")
     final def forParameters(rsType: ResultSetType = resultSetType, rsConcurrency: ResultSetConcurrency = resultSetConcurrency,
                       rsHoldability: ResultSetHoldability = resultSetHoldability): Session =
-      internalForParameters(rsType, rsConcurrency, rsHoldability)
+      internalForParameters(rsType, rsConcurrency, rsHoldability, null)
 
     private[slick] final def internalForParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
-                      rsHoldability: ResultSetHoldability): Session = new Session {
+                      rsHoldability: ResultSetHoldability, statementInit: Statement => Unit): Session = new Session {
       override def resultSetType = rsType
       override def resultSetConcurrency = rsConcurrency
       override def resultSetHoldability = rsHoldability
+      override def decorateStatement[S <: Statement](statement: S): S = {
+        if(statementInit ne null) statementInit(statement)
+        statement
+      }
       def database = self.database
       def conn = self.conn
       def metaData = self.metaData
@@ -430,12 +436,15 @@ trait JdbcBackend extends RelationalBackend {
     private[JdbcBackend] var statementParameters: List[JdbcBackend.StatementParameters] = null
 
     def pushStatementParameters(p: JdbcBackend.StatementParameters): Unit = {
-      val p2 = if((p.rsType eq null) || (p.rsConcurrency eq null) || (p.rsHoldability eq null)) {
+      val p2 = if((p.rsType eq null) || (p.rsConcurrency eq null) || (p.rsHoldability eq null) || (p.statementInit eq null)) {
         val curr = if(statementParameters eq null) JdbcBackend.defaultStatementParameters else statementParameters.head
         JdbcBackend.StatementParameters(
           if(p.rsType eq null) curr.rsType else p.rsType,
           if(p.rsConcurrency eq null) curr.rsConcurrency else p.rsConcurrency,
-          if(p.rsHoldability eq null) curr.rsHoldability else p.rsHoldability
+          if(p.rsHoldability eq null) curr.rsHoldability else p.rsHoldability,
+          if(p.statementInit eq null) curr.statementInit
+          else if(curr.statementInit eq null) p.statementInit
+          else { s => curr.statementInit(s); p.statementInit(s) }
         )
       } else p
       statementParameters = p2 :: (if(statementParameters eq null) Nil else statementParameters)
@@ -453,7 +462,7 @@ trait JdbcBackend extends RelationalBackend {
       if(statementParameters eq null) super.session
       else {
         val p = statementParameters.head
-        super.session.internalForParameters(p.rsType, p.rsConcurrency, p.rsHoldability)
+        super.session.internalForParameters(p.rsType, p.rsConcurrency, p.rsHoldability, p.statementInit)
       }
   }
 
@@ -461,6 +470,7 @@ trait JdbcBackend extends RelationalBackend {
 }
 
 object JdbcBackend extends JdbcBackend {
-  case class StatementParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency, rsHoldability: ResultSetHoldability)
-  val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)
+  case class StatementParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
+                                 rsHoldability: ResultSetHoldability, statementInit: Statement => Unit)
+  val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null)
 }

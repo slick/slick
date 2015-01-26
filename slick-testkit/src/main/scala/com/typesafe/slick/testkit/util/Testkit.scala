@@ -203,11 +203,11 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
-  /** Test Action: Get the current statement parameters */
+  /** Test Action: Get the current statement parameters, except for `statementInit` which is always set to null */
   object GetStatementParameters extends SynchronousDatabaseAction[JdbcBackend, Effect, JdbcBackend.StatementParameters, NoStream] {
     def run(context: JdbcBackend#Context) = {
-      val s = context.session.asInstanceOf[JdbcBackend#Session]
-      JdbcBackend.StatementParameters(s.resultSetType, s.resultSetConcurrency, s.resultSetHoldability)
+      val s = context.session
+      JdbcBackend.StatementParameters(s.resultSetType, s.resultSetConcurrency, s.resultSetHoldability, null)
     }
     def getDumpInfo = DumpInfo(name = "<GetStatementParameters>")
   }

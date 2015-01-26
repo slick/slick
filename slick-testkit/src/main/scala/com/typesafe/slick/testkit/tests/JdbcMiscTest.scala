@@ -63,14 +63,14 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       GetStatementParameters.map { csp => csp shouldBe sp }
 
     Action.seq(
-      check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)),
+      check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null)),
       Action.seq(
-        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.Auto)),
-        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.HoldCursorsOverCommit)).
+        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null)),
+        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.HoldCursorsOverCommit, null)).
           withStatementParameters(rsHoldability = ResultSetHoldability.HoldCursorsOverCommit),
-        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.Auto))
+        check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null))
       ).withStatementParameters(rsType = ResultSetType.ScrollInsensitive),
-      check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto))
+      check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null))
     )
   }
 }

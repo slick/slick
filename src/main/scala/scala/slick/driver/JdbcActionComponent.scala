@@ -91,10 +91,22 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       }
     }
 
+      /** Run this Action with the given statement parameters. Any unset parameter will use the
+        * current value. The following parameters can be set:
+        *
+        * @param rsType The JDBC `ResultSetType`
+        * @param rsConcurrency The JDBC `ResultSetConcurrency`
+        * @param rsHoldability The JDBC `ResultSetHoldability`
+        * @param statementInit A function which is run on every `Statement` or `PreparedStatement`
+        *                      directly after creating it. This can be used to set additional
+        *                      statement parameters (e.g. `setQueryTimeout`). When multuple
+        *                      `withStatementParameters` Actions are nested, all init functions
+        *                      are run, starting with the outermost one. */
     def withStatementParameters(rsType: ResultSetType = null,
                                 rsConcurrency: ResultSetConcurrency = null,
-                                rsHoldability: ResultSetHoldability = null): EffectfulAction[E, R, S] =
-      (new PushStatementParameters(new JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability))).
+                                rsHoldability: ResultSetHoldability = null,
+                                statementInit: Statement => Unit = null): EffectfulAction[E, R, S] =
+      (new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit))).
         andThen(a).andFinally(PopStatementParameters)
   }
 
