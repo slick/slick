@@ -26,7 +26,14 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   type DriverAction[-E <: Effect, +R, +S <: NoStream] = FixedSqlAction[E, R, S]
   type StreamingDriverAction[-E <: Effect, +R, +T] = FixedSqlStreamingAction[E, R, T]
 
-  trait JdbcDriverAction[+R, +S <: NoStream] extends SynchronousDatabaseAction[Backend, Effect, R, S] with DriverAction[Effect, R, S]
+  abstract class SimpleJdbcDriverAction[+R](_name: String, val statements: Iterable[String]) extends SynchronousDatabaseAction[Backend, Effect, R, NoStream] with DriverAction[Effect, R, NoStream] { self =>
+    def run(ctx: Backend#Context, sql: Iterable[String]): R
+    final override def getDumpInfo = super.getDumpInfo.copy(name = _name)
+    final def run(ctx: Backend#Context): R = run(ctx, statements)
+    final def overrideStatements(_statements: Iterable[String]): DriverAction[Effect, R, NoStream] = new SimpleJdbcDriverAction[R](_name, _statements) {
+      def run(ctx: Backend#Context, sql: Iterable[String]): R = self.run(ctx, statements)
+    }
+  }
 
   protected object StartTransaction extends SynchronousDatabaseAction[Backend, Effect, Unit, NoStream] {
     def run(ctx: Backend#Context): Unit = {
@@ -122,7 +129,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
 
-  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends JdbcDriverAction[Nothing, Streaming[ResultSetMutator[T]]] { streamingAction =>
+  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Backend, Effect, Nothing, Streaming[ResultSetMutator[T]]] with DriverAction[Effect, Nothing, Streaming[ResultSetMutator[T]]] { streamingAction =>
     class Mutator(val prit: PositionedResultIterator[T], val bufferNext: Boolean, val inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
       val pr = prit.pr
       val rs = pr.rs
@@ -179,7 +186,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       throw new SlickException("The result of .mutate can only be used in a streaming way")
     override def emitStream(ctx: Backend#StreamingContext, limit: Long, state: StreamState): StreamState = {
       val mu = if(state ne null) state else {
-        val inv = createQueryInvoker[T](rsm, param)
+        val inv = createQueryInvoker[T](rsm, param, sql)
         new Mutator(
           inv.results(0, defaultConcurrency = invokerMutateConcurrency, defaultType = invokerMutateType)(ctx.session).right.get,
           ctx.bufferNext,
@@ -189,28 +196,33 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     }
     override def cancelStream(ctx: Backend#StreamingContext, state: StreamState): Unit = state.prit.close()
     override def getDumpInfo = super.getDumpInfo.copy(name = "mutate")
+    def overrideStatements(_statements: Iterable[String]): MutatingResultAction[T] =
+      new MutatingResultAction[T](rsm, elemType, collectionType, _statements.head, param, sendEndMarker)
   }
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
     def result: DriverAction[Effect.Read, R, S] = {
-      val sql = tree.findNode(_.isInstanceOf[CompiledStatement]).get
-        .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
-      tree match {
-        case (rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType))) :@ (ct: CollectionType) =>
-          (new StreamingInvokerAction[Effect, R, Any] { streamingAction =>
-            protected[this] val invoker = createQueryInvoker(rsm, param)
+      def findSql(n: Node): String = n match {
+        case c: CompiledStatement => c.extra.asInstanceOf[SQLBuilder.Result].sql
+        case ParameterSwitch(cases, default) =>
+          findSql(cases.find { case (f, n) => f(param) }.map(_._2).getOrElse(default))
+      }
+      (tree match {
+        case (rsm @ ResultSetMapping(_, compiled, CompiledMapping(_, elemType))) :@ (ct: CollectionType) =>
+          val sql = findSql(compiled)
+          new StreamingInvokerAction[Effect, R, Any] { streamingAction =>
+            protected[this] def createInvoker(sql: Iterable[String]) = createQueryInvoker(rsm, param, sql.head)
             protected[this] def createBuilder = ct.cons.createBuilder(ct.elementType.classTag).asInstanceOf[Builder[Any, R]]
             def statements = List(sql)
             override def getDumpInfo = super.getDumpInfo.copy(name = "result")
-          }).asInstanceOf[DriverAction[Effect.Read, R, S]]
-        case First(rsm: ResultSetMapping) =>
-          new JdbcDriverAction[R, S] {
-            def statements = List(sql)
-            def run(ctx: Backend#Context): R =
-              createQueryInvoker[R](rsm, param).first(ctx.session)
-            override def getDumpInfo = super.getDumpInfo.copy(name = "result")
           }
-      }
+        case First(rsm @ ResultSetMapping(_, compiled, _)) =>
+          val sql = findSql(compiled)
+          new SimpleJdbcDriverAction[R]("result", List(sql)) {
+            def run(ctx: Backend#Context, sql: Iterable[String]): R =
+              createQueryInvoker[R](rsm, param, sql.head).first(ctx.session)
+          }
+      }).asInstanceOf[DriverAction[Effect.Read, R, S]]
     }
   }
 
@@ -250,13 +262,11 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     /** An Action that deletes the data selected by this query. */
     def delete: DriverAction[Effect.Write, Int, NoStream] = {
       val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
-      new JdbcDriverAction[Int, NoStream] {
-        def statements = List(sres.sql)
-        def run(ctx: Backend#Context): Int = ctx.session.withPreparedStatement(sres.sql) { st =>
+      new SimpleJdbcDriverAction[Int]("delete", List(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Iterable[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           sres.setter(st, 1, param)
           st.executeUpdate
         }
-        override def getDumpInfo = super.getDumpInfo.copy(name = "delete")
       }
     }
   }
@@ -271,18 +281,14 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     new SchemaActionExtensionMethodsImpl(schema)
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
-    def create: DriverAction[Effect.Schema, Unit, NoStream] = new JdbcDriverAction[Unit, NoStream] {
-      def statements = schema.createStatements.toSeq
-      def run(ctx: Backend#Context): Unit =
-        for(s <- statements) ctx.session.withPreparedStatement(s)(_.execute)
-      override def getDumpInfo = super.getDumpInfo.copy(name = "schema.create")
+    def create: DriverAction[Effect.Schema, Unit, NoStream] = new SimpleJdbcDriverAction[Unit]("schema.create", schema.createStatements.toSeq) {
+      def run(ctx: Backend#Context, sql: Iterable[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
 
-    def drop: DriverAction[Effect.Schema, Unit, NoStream] = new JdbcDriverAction[Unit, NoStream] {
-      def statements = schema.dropStatements.toSeq
-      def run(ctx: Backend#Context): Unit =
-        for(s <- statements) ctx.session.withPreparedStatement(s)(_.execute)
-      override def getDumpInfo = super.getDumpInfo.copy(name = "schema.drop")
+    def drop: DriverAction[Effect.Schema, Unit, NoStream] = new SimpleJdbcDriverAction[Unit]("schema.drop", schema.dropStatements.toSeq) {
+      def run(ctx: Backend#Context, sql: Iterable[String]): Unit =
+        for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
   }
 
@@ -303,15 +309,13 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
     /** An Action that updates the data selected by this query. */
     def update(value: T): DriverAction[Effect.Write, Int, NoStream] = {
-      new JdbcDriverAction[Int, NoStream] {
-        def statements = List(sres.sql)
-        def run(ctx: Backend#Context): Int = ctx.session.withPreparedStatement(sres.sql) { st =>
+      new SimpleJdbcDriverAction[Int]("update", List(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Iterable[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters
           converter.set(value, st)
           sres.setter(st, converter.width+1, param)
           st.executeUpdate
         }
-        override def getDumpInfo = super.getDumpInfo.copy(name = "update")
       }
     }
     /** Get the statement usd by `update` */
@@ -435,10 +439,12 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   protected class InsertActionComposerImpl[U](inv: InsertInvokerDef[U]) extends InsertActionComposer[U] {
     private[this] def fullInv = inv.asInstanceOf[FullInsertInvokerDef[U]]
     protected[this] def wrapAction[E <: Effect, T](name: String, sql: String, f: Backend#Session => Any): DriverAction[E, T, NoStream] =
-      new JdbcDriverAction[T, NoStream] {
+      new SynchronousDatabaseAction[Backend, E, T, NoStream] with DriverAction[E, T, NoStream] {
         def statements = if(sql eq null) Nil else List(sql)
         def run(ctx: Backend#Context) = f(ctx.session).asInstanceOf[T]
         override def getDumpInfo = super.getDumpInfo.copy(name = name)
+        def overrideStatements(_statements: Iterable[String]) =
+          throw new SlickException("overrideStatements is not supported for insert operations")
       }
 
     def insertStatement = inv.insertStatement

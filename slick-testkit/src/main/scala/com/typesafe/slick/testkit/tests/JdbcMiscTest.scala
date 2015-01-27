@@ -73,4 +73,24 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
       check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null))
     )
   }
+
+  def testOverrideStatements = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def id = column[Int]("a")
+      def * = id
+    }
+    val t = TableQuery[T]
+
+    val a1 = t.filter(_.id === 1)
+    val a2 = t.filter(_.id === 2)
+
+    seq(
+      t.schema.create,
+      t ++= Seq(1, 2, 3),
+      a1.result.map(_ shouldBe Seq(1)),
+      a1.result.overrideStatements(a2.result.statements).map(_ shouldBe Seq(2)),
+      a1.result.head.map(_ shouldBe 1),
+      a1.result.head.overrideStatements(a2.result.head.statements).map(_ shouldBe 2)
+    )
+  }
 }

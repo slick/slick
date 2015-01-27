@@ -26,10 +26,10 @@ trait JdbcExecutorComponent extends SqlExecutorComponent { driver: JdbcDriver =>
     def run(implicit session: Backend#Session): R = tree match {
       case rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType)) :@ CollectionType(cons, el) =>
         val b = cons.createBuilder(el.classTag).asInstanceOf[Builder[Any, R]]
-        createQueryInvoker[Any](rsm, param).foreach({ x => b += x }, 0)(session)
+        createQueryInvoker[Any](rsm, param, null).foreach({ x => b += x }, 0)(session)
         b.result()
       case First(rsm: ResultSetMapping) =>
-        createQueryInvoker[R](rsm, param).first
+        createQueryInvoker[R](rsm, param, null).first
     }
   }
 }

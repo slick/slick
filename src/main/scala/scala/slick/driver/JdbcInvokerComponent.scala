@@ -13,7 +13,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
   // Create the different invokers -- these methods should be overridden by drivers as needed
   def createUpdateInvoker[T](tree: Node, param: Any) = new UpdateInvoker[T](tree, param)
   def createDeleteInvoker(tree: Node, param: Any) = new DeleteInvoker(tree, param)
-  def createQueryInvoker[R](tree: Node, param: Any): QueryInvokerImpl[R] = new QueryInvokerImpl[R](tree, param)
+  def createQueryInvoker[R](tree: Node, param: Any, sql: String): QueryInvokerImpl[R] = new QueryInvokerImpl[R](tree, param, sql)
   def createDDLInvoker(ddl: SchemaDescription) = new DDLInvoker(ddl)
 
   // Parameters for invokers -- can be overridden by drivers as needed
@@ -26,7 +26,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
     def invoker: this.type = this
   }
 
-  class QueryInvokerImpl[R](tree: Node, param: Any) extends QueryInvoker[R] {
+  class QueryInvokerImpl[R](tree: Node, param: Any, overrideSql: String) extends QueryInvoker[R] {
     override protected val mutateConcurrency = invokerMutateConcurrency
     override protected val mutateType = invokerMutateType
     override protected val previousAfterDelete = invokerPreviousAfterDelete
@@ -41,7 +41,7 @@ trait JdbcInvokerComponent extends BasicInvokerComponent{ driver: JdbcDriver =>
         findCompiledStatement(cases.find { case (f, n) => f(param) }.map(_._2).getOrElse(default))
     }
 
-    protected def getStatement = sres.sql
+    protected def getStatement = if(overrideSql ne null) overrideSql else sres.sql
     protected def setParam(st: PreparedStatement): Unit = sres.setter(st, 1, param)
     def extractValue(pr: PositionedResult): R = converter.read(pr.rs)
     def updateRowValues(pr: PositionedResult, value: R) = converter.update(value, pr.rs)
