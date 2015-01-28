@@ -74,29 +74,10 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       * wrapped Action succeeds, or rolled back if the wrapped Action fails. When called on a
       * [[scala.slick.action.SynchronousDatabaseAction]], this combinator gets fused into the
       * action. */
-    def transactionally: EffectfulAction[E with Effect.Transactional, R, S] = {
-      def nonFused =
-        StartTransaction.andThen(a).cleanUp(eo => if(eo.isEmpty) Commit else Rollback)(Action.sameThreadExecutionContext)
-          .asInstanceOf[EffectfulAction[E with Effect.Transactional, R, S]]
-      a match {
-        case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[Backend, E with Effect.Transactional, R, S] {
-          def run(ctx: Backend#Context): R = {
-            StartTransaction.run(ctx)
-            val res = try {
-              a.asInstanceOf[SynchronousDatabaseAction[Backend, E, R, S]].run(ctx)
-            } catch {
-              case NonFatal(ex) =>
-                Rollback.run(ctx)
-                throw ex
-            }
-            Commit.run(ctx)
-            res
-          }
-          override def nonFusedEquivalentAction = nonFused
-        }
-        case a => nonFused
-      }
-    }
+    def transactionally: EffectfulAction[E with Effect.Transactional, R, S] = SynchronousDatabaseAction.fuseUnsafe(
+      StartTransaction.andThen(a).cleanUp(eo => if(eo.isEmpty) Commit else Rollback)(Action.sameThreadExecutionContext)
+        .asInstanceOf[EffectfulAction[E with Effect.Transactional, R, S]]
+    )
 
       /** Run this Action with the given statement parameters. Any unset parameter will use the
         * current value. The following parameters can be set:

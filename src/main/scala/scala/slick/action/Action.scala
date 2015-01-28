@@ -73,8 +73,8 @@ sealed trait EffectfulAction[-E <: Effect, +R, +S <: NoStream] extends Dumpable 
     *                    successfully unless the clean-up action fails. If this action fails and
     *                    `keepFailure` is set to `true` (the default), the resulting action fails
     *                    with the same error, no matter whether the clean-up action succeeds or
-    *                    fails. If the clean-up action. If `keepFailure` is set to `false`, an
-    *                    error from the clean-up action will override the error from this action. */
+    *                    fails. If `keepFailure` is set to `false`, an error from the clean-up
+    *                    action will override the error from this action. */
   def cleanUp[E2 <: Effect](f: Option[Throwable] => EffectfulAction[E2, _, NoStream], keepFailure: Boolean = true)(implicit executor: ExecutionContext): EffectfulAction[E with E2, R, S] =
     CleanUpAction[E with E2, R, S](this, f, keepFailure, executor)
 
@@ -384,6 +384,45 @@ object SynchronousDatabaseAction {
   trait Fused[B <: DatabaseComponent, -E <: Effect, +R, +S <: NoStream] extends SynchronousDatabaseAction[B, E, R, S] {
     def getDumpInfo = DumpInfo(name = "SynchronousDatabaseAction.Fused", children = Vector(("non-fused", nonFusedEquivalentAction)))
     override def supportsStreaming: Boolean = false
+  }
+
+  /** Fuse `flatMap` / `map`, `cleanUp` and `filter` / `withFilter` combinators if they use
+    * `Action.sameThreadExecutionContext` and produce a `SynchronousDatabaseAction` in their
+    * evaluation function (where applicable). This cannot be verified at fusion time, so a wrongly
+    * fused Action can fail with a `ClassCastException` during evaluation. */
+  private[slick] def fuseUnsafe[E <: Effect, R, S <: NoStream](a: EffectfulAction[E, R, S]): EffectfulAction[E, R, S] = {
+    a match {
+      case FlatMapAction(base: SynchronousDatabaseAction[_, _, _, _], f, ec) if ec eq Action.sameThreadExecutionContext =>
+        new SynchronousDatabaseAction.Fused[DatabaseComponent, E, R, S] {
+          def run(context: DatabaseComponent#Context): R = {
+            val b = base.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, Any, NoStream]].run(context)
+            val a2 = f(b)
+            a2.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, E, R, S]].run(context)
+          }
+          override def nonFusedEquivalentAction = a
+        }
+
+      case CleanUpAction(base: SynchronousDatabaseAction[_, _, _, _], f, keepFailure, ec) if ec eq Action.sameThreadExecutionContext =>
+        new SynchronousDatabaseAction.Fused[DatabaseComponent, E, R, S] {
+          def run(context: DatabaseComponent#Context): R = {
+            val res = try {
+              base.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, R, S]].run(context)
+            } catch { case NonFatal(ex) =>
+              try {
+                val a2 = f(Some(ex))
+                a2.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, Any, NoStream]].run(context)
+              } catch { case NonFatal(_) if keepFailure => () }
+              throw ex
+            }
+            val a2 = f(None)
+            a2.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, Any, NoStream]].run(context)
+            res
+          }
+          override def nonFusedEquivalentAction = a
+        }
+
+      case a => a
+    }
   }
 }
 
