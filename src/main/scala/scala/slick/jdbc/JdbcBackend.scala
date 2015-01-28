@@ -244,8 +244,12 @@ trait JdbcBackend extends RelationalBackend {
       statementLogger.debug("Preparing statement: "+sql)
       loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
-          conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
-            resultSetConcurrency.withDefault(defaultConcurrency).intValue)
+          val rsType = resultSetType.withDefault(defaultType).intValue
+          val rsConc = resultSetConcurrency.withDefault(defaultConcurrency).intValue
+          if(rsType == ResultSet.TYPE_FORWARD_ONLY && rsConc == ResultSet.CONCUR_READ_ONLY)
+            conn.prepareStatement(sql)
+          else
+            conn.prepareStatement(sql, rsType, rsConc)
         case h =>
           conn.prepareStatement(sql, resultSetType.withDefault(defaultType).intValue,
             resultSetConcurrency.withDefault(defaultConcurrency).intValue,
