@@ -65,6 +65,16 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def getDumpInfo = DumpInfo(name = "PopStatementParameters")
   }
 
+  protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Backend, Effect, Int, NoStream] {
+    def run(ctx: Backend#Context): Int = {
+      val c = ctx.session.conn
+      val old = c.getTransactionIsolation
+      c.setTransactionIsolation(ti)
+      old
+    }
+    def getDumpInfo = DumpInfo(name = "SetTransactionIsolation")
+  }
+
   class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: EffectfulAction[E, R, S]) {
 
     /** Run this Action transactionally. This does not guarantee failures to be atomic in the
@@ -79,17 +89,29 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
         .asInstanceOf[EffectfulAction[E with Effect.Transactional, R, S]]
     )
 
-      /** Run this Action with the given statement parameters. Any unset parameter will use the
-        * current value. The following parameters can be set:
-        *
-        * @param rsType The JDBC `ResultSetType`
-        * @param rsConcurrency The JDBC `ResultSetConcurrency`
-        * @param rsHoldability The JDBC `ResultSetHoldability`
-        * @param statementInit A function which is run on every `Statement` or `PreparedStatement`
-        *                      directly after creating it. This can be used to set additional
-        *                      statement parameters (e.g. `setQueryTimeout`). When multuple
-        *                      `withStatementParameters` Actions are nested, all init functions
-        *                      are run, starting with the outermost one. */
+    /** Run this Action with the specified transaction isolation level. This should be used around
+      * the outermost `transactionally` Action. The semantics of using it inside a transaction are
+      * database-dependent. It does not create a transaction by itself but it pins the session. */
+    def withTransactionIsolation(ti: TransactionIsolation): EffectfulAction[E, R, S] = {
+      val isolated =
+        (new SetTransactionIsolation(ti.intValue)).flatMap(old => a.andFinally(new SetTransactionIsolation(old)))(Action.sameThreadExecutionContext)
+      val fused =
+        if(a.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) SynchronousDatabaseAction.fuseUnsafe(isolated)
+        else isolated
+      fused.withPinnedSession
+    }
+
+    /** Run this Action with the given statement parameters. Any unset parameter will use the
+      * current value. The following parameters can be set:
+      *
+      * @param rsType The JDBC `ResultSetType`
+      * @param rsConcurrency The JDBC `ResultSetConcurrency`
+      * @param rsHoldability The JDBC `ResultSetHoldability`
+      * @param statementInit A function which is run on every `Statement` or `PreparedStatement`
+      *                      directly after creating it. This can be used to set additional
+      *                      statement parameters (e.g. `setQueryTimeout`). When multuple
+      *                      `withStatementParameters` Actions are nested, all init functions
+      *                      are run, starting with the outermost one. */
     def withStatementParameters(rsType: ResultSetType = null,
                                 rsConcurrency: ResultSetConcurrency = null,
                                 rsHoldability: ResultSetHoldability = null,

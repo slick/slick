@@ -30,8 +30,10 @@ object TestDB {
     val jdbcMetaGetFunctions = new Capability("test.jdbcMetaGetFunctions")
     /** Supports JDBC metadata getIndexInfo method */
     val jdbcMetaGetIndexInfo = new Capability("test.jdbcMetaGetIndexInfo")
+    /** Supports all tested transaction isolation levels */
+    val transactionIsolation = new Capability("test.transactionIsolation")
 
-    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo)
+    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo, transactionIsolation)
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */

@@ -2,6 +2,8 @@ package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
+import scala.slick.jdbc.TransactionIsolation
+
 class TransactionTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
@@ -11,6 +13,8 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
       def * = a
     }
     val ts = TableQuery[T]
+
+    val getTI = SimpleAction(_.session.conn.getTransactionIsolation)
 
     class ExpectedException extends RuntimeException
 
@@ -57,6 +61,16 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
     } andThen {
       ts.to[Set].result.map(_ shouldBe Set(2, 3, 5, 6)) andThen
         GetTransactionality.map(_ shouldBe (0, true))
-    }
+    } andThen { ifCap(tcap.transactionIsolation) {
+      (for {
+        ti1 <- getTI
+        _ <- (for {
+          _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
+          _ <- getTI.withTransactionIsolation(TransactionIsolation.Serializable).map(_ should(_ >= TransactionIsolation.Serializable.intValue))
+          _ <- getTI.map(_ should(_ >= TransactionIsolation.ReadUncommitted.intValue))
+        } yield ()).withTransactionIsolation(TransactionIsolation.ReadUncommitted)
+        _ <- getTI.map(_ shouldBe ti1)
+      } yield ()).withPinnedSession
+    }}
   }
 }
