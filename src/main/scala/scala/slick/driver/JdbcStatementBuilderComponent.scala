@@ -103,7 +103,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val pi = "3.1415926535897932384626433832795"
 
     // Mutable state accessible to subclasses
-    protected val b = new SQLBuilder
+    private val currentSqlIndent = GlobalConfig.sqlIndent
+    protected val b = new SQLBuilder(currentSqlIndent)
     protected var currentPart: StatementPart = OtherPart
     protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new HashMap[Symbol, Join]
@@ -145,7 +146,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       scanJoins(c.from)
       buildSelectClause(c)
       buildFromClause(c.from)
-      if(limit0) b" where 1=0"
+      if(limit0) b"${sqlIndentPrefix}where 1=0"
       else buildWhereClause(c.where)
       buildGroupByClause(c.groupBy)
       buildOrderByClause(c.orderBy)
@@ -181,28 +182,36 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
+    protected def sqlIndentPrefix: String = {
+      if (currentSqlIndent) {
+        b.newLine()
+        ""
+      }
+      else " "
+    }
+
     protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
-      if(from.isEmpty) scalarFrom.foreach { s => b" from $s" }
+      if(from.isEmpty) scalarFrom.foreach { s => b"${sqlIndentPrefix}from $s" }
       else {
-        b" from "
-        b.sep(from, ", ") { case (sym, n) => buildFrom(n, Some(sym)) }
+        b"${sqlIndentPrefix}from "
+        b.sep(from, f", ") { case (sym, n) => buildFrom(n, Some(sym)) }
       }
     }
 
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
-        b" where "
+        b"${sqlIndentPrefix}where "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
     }
 
     protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
-      groupBy.foreach { e => b" group by !$e" }
+      groupBy.foreach { e => b"${sqlIndentPrefix}group by !$e" }
     }
 
     protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
       if(!order.isEmpty) {
-        b" order by "
+        b"${sqlIndentPrefix}order by "
         b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
       }
     }
@@ -210,9 +219,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = building(OtherPart) {
       (fetch, offset) match {
         /* SQL:2008 syntax */
-        case (Some(t), Some(d)) => b" offset $d row fetch next $t row only"
-        case (Some(t), None) => b" fetch next $t row only"
-        case (None, Some(d)) => b" offset $d row"
+        case (Some(t), Some(d)) => b"${sqlIndentPrefix}offset $d row fetch next $t row only"
+        case (Some(t), None) => b"${sqlIndentPrefix}fetch next $t row only"
+        case (None, Some(d)) => b"${sqlIndentPrefix}offset $d row"
         case _ =>
       }
     }
@@ -220,7 +229,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildSelectPart(n: Node): Unit = n match {
       case c: Comprehension =>
         b"("
+        b.addIndentLevel().newLine()
         buildComprehension(c)
+        b.removeIndentLevel().newLine()
         b")"
       case n =>
         expr(n, true)
@@ -234,23 +245,27 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
-          b" ${jt.sqlName} join "
+          b"${sqlIndentPrefix}${jt.sqlName} join "
           buildFrom(right, Some(rightGen))
           on match {
             case LiteralNode(true) =>
-              if(!supportsEmptyJoinConditions) b" on 1=1"
-            case _ => b" on !$on"
+              if(!supportsEmptyJoinConditions) b"${sqlIndentPrefix}on 1=1"
+            case _ => b"${sqlIndentPrefix}on !$on"
           }
         case Union(left, right, all, _, _) =>
           b"\("
+          b.addIndentLevel().newLine()
           buildFrom(left, None, true)
-          if(all) b" union all " else b" union "
+          if(all) b"${sqlIndentPrefix}union all " else b"${sqlIndentPrefix}union "
           buildFrom(right, None, true)
+          b.removeIndentLevel().newLine()
           b"\)"
           addAlias
         case n =>
           b"\("
+          b.addIndentLevel().newLine()
           buildComprehension(toComprehension(n, true))
+          b.removeIndentLevel().newLine()
           b"\)"
           addAlias
       }
@@ -370,7 +385,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case OptionApply(ch) => expr(ch, skipParens)
       case n => // try to build a sub-query
         b"\("
+        b.addIndentLevel().newLine()
         buildComprehension(toComprehension(n))
+        b.removeIndentLevel().newLine()
         b"\)"
     }
 

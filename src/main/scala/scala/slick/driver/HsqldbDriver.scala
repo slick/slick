@@ -83,9 +83,9 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b" limit $t offset $d"
-      case (Some(t), None   ) => b" limit $t"
-      case (None, Some(d)   ) => b" offset $d"
+      case (Some(t), Some(d)) => b"${sqlIndentPrefix}limit $t offset $d"
+      case (Some(t), None   ) => b"${sqlIndentPrefix}limit $t"
+      case (None, Some(d)   ) => b"${sqlIndentPrefix}offset $d"
       case _ =>
     }
   }
