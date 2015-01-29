@@ -163,6 +163,10 @@ trait SqlAction[-E <: Effect, +R, +S <: NoStream] extends BasicAction[E, R, S] {
   /** Return the SQL statements that will be executed for this Action */
   def statements: Iterable[String]
 
+  /** Create an Action that uses the specified SQL statement(s) but otherwise
+    * behaves the same as this Action. */
+  def overrideStatements(statements: Iterable[String]): ResultAction[E, R, S]
+
   def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), mainInfo = statements.mkString("[", "; ", "]"))
 }
 

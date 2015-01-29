@@ -124,7 +124,7 @@ case class SQLActionBuilder[P](strings: Seq[String], param: P, pconv: SetParamet
   def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Effect, Vector[R], R] = new StreamingInvokerAction[Effect, Vector[R], R] {
     val (sql, unitPConv) = SQLInterpolation.parse(strings, param, pconv)
     def statements = List(sql)
-    protected[this] val invoker = new StaticQueryInvoker[Unit, R](sql, unitPConv, (), rconv)
+    protected[this] def createInvoker(statements: Iterable[String]) = new StaticQueryInvoker[Unit, R](statements.head, unitPConv, (), rconv)
     protected[this] def createBuilder = Vector.newBuilder[R]
   }
   def asUpdate = as[Int](GetResult.GetUpdateValue)

@@ -30,6 +30,10 @@ trait DatabaseComponent { self =>
   type DatabaseFactory <: DatabaseFactoryDef
   /** The type of session objects used by this backend. */
   type Session >: Null <: SessionDef
+  /** The type of the context used for running SynchronousDatabaseActions */
+  type Context >: Null <: BasicActionContext
+  /** The type of the context used for streaming SynchronousDatabaseActions */
+  type StreamingContext >: Null <: Context with BasicStreamingActionContext
 
   /** The database factory */
   val Database: DatabaseFactory
@@ -75,11 +79,11 @@ trait DatabaseComponent { self =>
       createPublisher(a, s => createStreamingDatabaseActionContext(s, useSameThread))
 
     /** Create a Reactive Streams `Publisher` using the given context factory. */
-    protected[this] def createPublisher[T](a: EffectfulAction[Nothing, _, Streaming[T]], createCtx: Subscriber[_ >: T] => StreamingDatabaseActionContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
+    protected[this] def createPublisher[T](a: EffectfulAction[Nothing, _, Streaming[T]], createCtx: Subscriber[_ >: T] => StreamingContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
       def subscribe(s: Subscriber[_ >: T]) = if(allowSubscriber(s)) {
         val ctx = createCtx(s)
         if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
-        val subscribed = try { s.onSubscribe(ctx); true } catch {
+        val subscribed = try { s.onSubscribe(ctx.subscription); true } catch {
           case NonFatal(ex) =>
             streamLogger.warn("Subscriber.onSubscribe failed unexpectedly", ex)
             false
@@ -100,12 +104,10 @@ trait DatabaseComponent { self =>
     }
 
     /** Create the default DatabaseActionContext for this backend. */
-    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): DatabaseActionContext =
-      new DatabaseActionContext { val useSameThread = _useSameThread }
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context
 
     /** Create the default StreamingDatabaseActionContext for this backend. */
-    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingDatabaseActionContext =
-      new StreamingDatabaseActionContext(s, useSameThread, DatabaseDef.this)
+    protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext
 
     /** Run an Action in an existing DatabaseActionContext. This method can be overridden in
       * subclasses to support new DatabaseActions which cannot be expressed through
@@ -115,7 +117,7 @@ trait DatabaseComponent { self =>
       *                  be a `StreamingDatabaseActionContext` and the Future result should be
       *                  completed with `null` or failed after streaming has finished. This
       *                  method should not call any `Subscriber` method other than `onNext`. */
-    protected[this] def runInContext[R](a: EffectfulAction[Nothing, R, NoStream], ctx: DatabaseActionContext, streaming: Boolean): Future[R] = {
+    protected[this] def runInContext[R](a: EffectfulAction[Nothing, R, NoStream], ctx: Context, streaming: Boolean): Future[R] = {
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
@@ -162,7 +164,7 @@ trait DatabaseComponent { self =>
           runInContext(a, ctx, streaming)
         case a: SynchronousDatabaseAction[_, _, _, _] =>
           if(streaming) {
-            if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream]], ctx.asInstanceOf[StreamingDatabaseActionContext]).asInstanceOf[Future[R]]
+            if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream]], ctx.asInstanceOf[StreamingContext]).asInstanceOf[Future[R]]
             else runInContext(CleanUpAction(AndThenAction(Action.Pin, a.nonFusedEquivalentAction), _ => Action.Unpin, true, Action.sameThreadExecutionContext), ctx, streaming)
           } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _, R, NoStream]], ctx)
         case a: DatabaseAction[_, _, _] =>
@@ -171,21 +173,21 @@ trait DatabaseComponent { self =>
     }
 
     /** Within a synchronous execution, ensure that a Session is available. */
-    protected[this] final def acquireSession(ctx: DatabaseActionContext): Unit =
+    protected[this] final def acquireSession(ctx: Context): Unit =
       if(!ctx.isPinned) ctx.currentSession = createSession()
 
     /** Within a synchronous execution, close the current Session unless it is pinned.
       *
       * @param discardErrors If set to true, swallow all non-fatal errors that arise while
       *        closing the Session. */
-    protected[this] final def releaseSession(ctx: DatabaseActionContext, discardErrors: Boolean): Unit =
+    protected[this] final def releaseSession(ctx: Context, discardErrors: Boolean): Unit =
       if(!ctx.isPinned) {
         try ctx.currentSession.close() catch { case NonFatal(ex) if(discardErrors) => }
         ctx.currentSession = null
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
-    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[This, _, R, NoStream], ctx: DatabaseActionContext): Future[R] = {
+    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[This, _, R, NoStream], ctx: Context): Future[R] = {
       val promise = Promise[R]()
       ctx.getEC(synchronousExecutionContext).prepare.execute(new Runnable {
         def run: Unit =
@@ -207,14 +209,14 @@ trait DatabaseComponent { self =>
     }
 
     /** Stream a `SynchronousDatabaseAction` on this database. */
-    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingDatabaseActionContext): Future[Null] = {
+    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingContext): Future[Null] = {
       ctx.streamingAction = a
       scheduleSynchronousStreaming(a, ctx)(null)
       ctx.streamingResultPromise.future
     }
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingDatabaseActionContext)(initialState: a.StreamState): Unit = try {
+    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingContext)(initialState: a.StreamState): Unit = try {
       ctx.getEC(synchronousExecutionContext).prepare.execute(new Runnable {
         private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
 
@@ -277,7 +279,7 @@ trait DatabaseComponent { self =>
       * SynchronousDatabaseActions for asynchronous execution. */
     protected[this] def synchronousExecutionContext: ExecutionContext
 
-    protected[this] def logAction(a: EffectfulAction[Nothing, _, NoStream], ctx: DatabaseActionContext): Unit = {
+    protected[this] def logAction(a: EffectfulAction[Nothing, _, NoStream], ctx: Context): Unit = {
       if(actionLogger.isDebugEnabled && a.isLogged) {
         ctx.sequenceCounter += 1
         val logA = a.nonFusedEquivalentAction
@@ -319,6 +321,7 @@ trait DatabaseComponent { self =>
     def withDynSession[T](f: => T): T = withSession { s: Session => withDynamicSession(s)(f) }
 
     /** Run the supplied function with a new session in a transaction and automatically close the session at the end. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def withTransaction[T](f: Session => T): T = withSession { s => s.withTransaction(f(s)) }
 
     /** Run the supplied thunk with a new session in a transaction and
@@ -355,11 +358,13 @@ trait DatabaseComponent { self =>
 
     /** Call this method within a `withTransaction` call to roll back the current
       * transaction after `withTransaction` returns. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def rollback(): Unit
 
     /** Run the supplied function within a transaction. If the function throws an Exception
       * or the session's `rollback()` method is called, the transaction is rolled back,
       * otherwise it is committed when the function returns. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def withTransaction[T](f: => T): T
 
     /** Use this Session as the `dynamicSession` for running the supplied thunk. */
@@ -372,14 +377,14 @@ trait DatabaseComponent { self =>
   }
 
   /** The context object passed to database actions by the execution engine. */
-  protected[this] trait DatabaseActionContext extends ActionContext[This] {
+  trait BasicActionContext extends ActionContext {
     /** Whether to run all operations on the current thread or schedule them normally on the
       * appropriate ExecutionContext. This is used by the blocking API. */
-    val useSameThread: Boolean
+    protected[DatabaseComponent] val useSameThread: Boolean
 
     /** Return the specified ExecutionContext unless running in same-thread mode, in which case
       * `Action.sameThreadExecutionContext` is returned instead. */
-    def getEC(ec: ExecutionContext): ExecutionContext =
+    private[DatabaseComponent] def getEC(ec: ExecutionContext): ExecutionContext =
       if(useSameThread) Action.sameThreadExecutionContext else ec
 
     /** A volatile variable to enforce the happens-before relationship (see
@@ -400,7 +405,7 @@ trait DatabaseComponent { self =>
   }
 
   /** A special DatabaseActionContext for streaming execution. */
-  protected[this] class StreamingDatabaseActionContext(subscriber: Subscriber[_], val useSameThread: Boolean, database: Database) extends DatabaseActionContext with StreamingActionContext[This] with Subscription {
+  protected[this] class BasicStreamingActionContext(subscriber: Subscriber[_], protected[DatabaseComponent] val useSameThread: Boolean, database: Database) extends BasicActionContext with StreamingActionContext with Subscription {
     /** Whether the Subscriber has been signaled with `onComplete` or `onError`. */
     private[this] var finished = false
 
@@ -482,11 +487,13 @@ trait DatabaseComponent { self =>
         streamState = null
         if(streamLogger.isDebugEnabled) streamLogger.debug("Scheduling stream continuation after transition from demand = 0")
         val a = streamingAction
-        database.scheduleSynchronousStreaming(a, this)(s.asInstanceOf[a.StreamState])
+        database.scheduleSynchronousStreaming(a, this.asInstanceOf[StreamingContext])(s.asInstanceOf[a.StreamState])
       } else {
         if(streamLogger.isDebugEnabled) streamLogger.debug("Saw transition from demand = 0, but no stream continuation available")
       }
     }
+
+    def subscription = this
 
     ////////////////////////////////////////////////////////////////////////// Subscription methods
 

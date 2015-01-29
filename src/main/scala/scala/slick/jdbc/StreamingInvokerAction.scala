@@ -12,20 +12,20 @@ import scala.slick.util.{DumpInfo, CloseableIterator, ignoreFollowOnError}
   */
 trait StreamingInvokerAction[-E <: Effect, R, T] extends SynchronousDatabaseAction[JdbcBackend, E, R, Streaming[T]] with FixedSqlStreamingAction[E, R, T] { self =>
 
-  protected[this] val invoker: Invoker[T]
+  protected[this] def createInvoker(sql: Iterable[String]): Invoker[T]
   protected[this] def createBuilder: Builder[T, R]
 
   type StreamState = CloseableIterator[T]
 
-  def run(ctx: ActionContext[JdbcBackend]): R = {
+  final def run(ctx: JdbcBackend#Context): R = {
     val b = createBuilder
-    invoker.foreach(x => b += x)(ctx.session)
+    createInvoker(statements).foreach(x => b += x)(ctx.session)
     b.result()
   }
 
-  override def emitStream(ctx: StreamingActionContext[JdbcBackend], limit: Long, state: StreamState): StreamState = {
-    val bufferNext = ctx.asInstanceOf[JdbcBackend#JdbcStreamingDatabaseActionContext].bufferNext
-    val it = if(state ne null) state else invoker.iterator(ctx.session)
+  override final def emitStream(ctx: JdbcBackend#StreamingContext, limit: Long, state: StreamState): StreamState = {
+    val bufferNext = ctx.bufferNext
+    val it = if(state ne null) state else createInvoker(statements).iterator(ctx.session)
     var count = 0L
     try {
       while(if(bufferNext) it.hasNext && count < limit else count < limit && it.hasNext) {
@@ -40,23 +40,33 @@ trait StreamingInvokerAction[-E <: Effect, R, T] extends SynchronousDatabaseActi
     if(if(bufferNext) it.hasNext else count == limit) it else null
   }
 
-  override def cancelStream(ctx: StreamingActionContext[JdbcBackend], state: StreamState): Unit = state.close()
+  override final def cancelStream(ctx: JdbcBackend#StreamingContext, state: StreamState): Unit = state.close()
 
   override def getDumpInfo = super.getDumpInfo.copy(name = "StreamingResultAction")
 
-  override def head: FixedSqlAction[E, T, NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, T, NoStream] with FixedSqlAction[E, T, NoStream] {
-    def statements = self.statements
-    def run(ctx: ActionContext[JdbcBackend]): T = invoker.first(ctx.session)
+  final def head: FixedSqlAction[E, T, NoStream] = new HeadAction(statements)
+
+  final def headOption: FixedSqlAction[E, Option[T], NoStream] = new HeadOptionAction(statements)
+
+  private[this] class HeadAction(val statements: Iterable[String]) extends SynchronousDatabaseAction[JdbcBackend, E, T, NoStream] with FixedSqlAction[E, T, NoStream] {
+    def run(ctx: JdbcBackend#Context): T = createInvoker(statements).first(ctx.session)
+    def overrideStatements(_statements: Iterable[String]) = new HeadAction(_statements)
   }
 
-  override def headOption: FixedSqlAction[E, Option[T], NoStream] = new SynchronousDatabaseAction[JdbcBackend, E, Option[T], NoStream] with FixedSqlAction[E, Option[T], NoStream] {
-    def statements = self.statements
-    def run(ctx: ActionContext[JdbcBackend]): Option[T] = invoker.firstOption(ctx.session)
+  private[this] class HeadOptionAction(val statements: Iterable[String]) extends SynchronousDatabaseAction[JdbcBackend, E, Option[T], NoStream] with FixedSqlAction[E, Option[T], NoStream] {
+    def run(ctx: JdbcBackend#Context): Option[T] = createInvoker(statements).firstOption(ctx.session)
+    def overrideStatements(_statements: Iterable[String]) = new HeadOptionAction(_statements)
+  }
+
+  final def overrideStatements(_statements: Iterable[String]): FixedSqlAction[E, R, Streaming[T]] = new StreamingInvokerAction[E, R, T] {
+    def statements = _statements
+    protected[this] def createInvoker(sql: Iterable[String]): Invoker[T] = self.createInvoker(sql)
+    protected[this] def createBuilder: Builder[T, R] = self.createBuilder
   }
 }
 
 /** A non-streaming Action that wraps a JDBC call. */
-case class SimpleJdbcAction[+R](f: ActionContext[JdbcBackend] => R) extends SynchronousDatabaseAction[JdbcBackend, Effect.All, R, NoStream] {
-  def run(context: ActionContext[JdbcBackend]): R = f(context)
+case class SimpleJdbcAction[+R](f: JdbcBackend#Context => R) extends SynchronousDatabaseAction[JdbcBackend, Effect.All, R, NoStream] {
+  def run(context: JdbcBackend#Context): R = f(context)
   def getDumpInfo = DumpInfo(name = "SimpleJdbcAction")
 }

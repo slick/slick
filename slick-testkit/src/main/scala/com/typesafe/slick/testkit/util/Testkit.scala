@@ -186,28 +186,28 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
   /** Test Action: Get the current database session */
   object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, TDB#Driver#Backend#Session, NoStream] {
-    def run(context: ActionContext[TDB#Driver#Backend]) = context.session
+    def run(context: TDB#Driver#Backend#Context) = context.session
     def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
 
   /** Test Action: Check if the current database session is pinned */
   object IsPinned extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, Boolean, NoStream] {
-    def run(context: ActionContext[TDB#Driver#Backend]) = context.isPinned
+    def run(context: TDB#Driver#Backend#Context) = context.isPinned
     def getDumpInfo = DumpInfo(name = "<IsPinned>")
   }
 
   /** Test Action: Get the current transactionality level and autoCommit flag */
   object GetTransactionality extends SynchronousDatabaseAction[JdbcBackend, Effect, (Int, Boolean), NoStream] {
-    def run(context: ActionContext[JdbcBackend]) =
+    def run(context: JdbcBackend#Context) =
       context.session.asInstanceOf[JdbcBackend#BaseSession].getTransactionality
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
-  /** Test Action: Get the current statement parameters */
+  /** Test Action: Get the current statement parameters, except for `statementInit` which is always set to null */
   object GetStatementParameters extends SynchronousDatabaseAction[JdbcBackend, Effect, JdbcBackend.StatementParameters, NoStream] {
-    def run(context: ActionContext[JdbcBackend]) = {
-      val s = context.session.asInstanceOf[JdbcBackend#Session]
-      JdbcBackend.StatementParameters(s.resultSetType, s.resultSetConcurrency, s.resultSetHoldability)
+    def run(context: JdbcBackend#Context) = {
+      val s = context.session
+      JdbcBackend.StatementParameters(s.resultSetType, s.resultSetConcurrency, s.resultSetHoldability, null)
     }
     def getDumpInfo = DumpInfo(name = "<GetStatementParameters>")
   }
@@ -224,7 +224,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
   def asAction[R](f: tdb.profile.Backend#Session => R): EffectfulAction[Effect, R, NoStream] =
     new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R, NoStream] {
-      def run(context: ActionContext[tdb.profile.Backend]): R = f(context.session)
+      def run(context: tdb.profile.Backend#Context): R = f(context.session)
       def getDumpInfo = DumpInfo(name = "<asAction>")
     }
 

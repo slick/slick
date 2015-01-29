@@ -59,7 +59,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: DriverAction[Effect.Read, R, S] =
       new DriverAction[Effect.Read, R, S] with SynchronousDatabaseAction[Backend#This, Effect.Read, R, S] {
-        def run(ctx: ActionContext[Backend]) = exe.run(ctx.session)
+        def run(ctx: Backend#Context) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.DriverAction")
       }
   }
