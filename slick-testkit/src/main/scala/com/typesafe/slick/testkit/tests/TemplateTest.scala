@@ -55,10 +55,10 @@ class TemplateTest extends AsyncTest[RelationalTestDB] {
       _ <- Action.seq(uids.map(uid => orders.map(o => (o.userID, o.product)) += (uid, if(uid < 4) "Product A" else "Product B")): _*)
       _ <- q1.result.map(_ shouldBe List("Apu"))
       _ <- q2.result.map(_ shouldBe List("Apu"))
-      _ <- q3.result.map(_ shouldBe List("Marge","Apu","Carl","Lenny"))
-      _ <- q4.result.map(_ shouldBe List("Marge", "Apu"))
+      _ <- q3.result.map(_.toSet shouldBe Set("Marge","Apu","Carl","Lenny"))
+      _ <- q4.result.map(_.toSet shouldBe Set("Marge", "Apu"))
       _ <- q5a.result.map(_ shouldBe List("Apu"))
-      _ <- q5b.result.map(_ shouldBe List("Homer","Marge","Apu","Carl","Lenny"))
+      _ <- q5b.result.map(_.toSet shouldBe Set("Homer","Marge","Apu","Carl","Lenny"))
     } yield ()
   }
 
