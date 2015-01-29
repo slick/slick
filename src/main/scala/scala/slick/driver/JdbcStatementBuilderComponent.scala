@@ -11,7 +11,7 @@ import scala.slick.compiler.{RewriteBooleans, CodeGen, Phase, CompilerState, Que
 import scala.slick.util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.lifted._
-import scala.slick.profile.RelationalProfile
+import scala.slick.profile.{RelationalProfile, SqlProfile}
 import scala.slick.relational.{ResultConverter, CompiledMapping}
 import scala.slick.jdbc.JdbcResultConverterDomain
 import scala.slick.util.SQLBuilder.Result
@@ -707,8 +707,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def init() {
       if(
         column.options.collect{
-          case _:ColumnOption.DBType =>
-          case _:ColumnOption.Length[_] =>
+          case _: SqlProfile.ColumnOption.SqlType =>
+          case _: RelationalProfile.ColumnOption.Length[_] =>
         }.size > 1
       ){
         throw new SlickException("Please specify either ColumnOption DBType or Length, not both for column ${column.name}.")
@@ -720,15 +720,15 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
-      case ColumnOption.DBType(s) => sqlType = s
-      case ColumnOption.Length(s,v) =>
+      case SqlProfile.ColumnOption.SqlType(s) => sqlType = s
+      case RelationalProfile.ColumnOption.Length(s,v) =>
         size = Some(s)
         varying = v
-      case ColumnOption.NotNull => notNull = true
-      case ColumnOption.Nullable => notNull = false
+      case SqlProfile.ColumnOption.NotNull => notNull = true
+      case SqlProfile.ColumnOption.Nullable => notNull = false
       case ColumnOption.AutoInc => autoIncrement = true
       case ColumnOption.PrimaryKey => primaryKey = true
-      case ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
+      case RelationalProfile.ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
     }
 
     def appendType(sb: StringBuilder): Unit = {

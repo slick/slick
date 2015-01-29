@@ -4,6 +4,7 @@ import org.slf4j.LoggerFactory
 
 import scala.reflect.ClassTag
 import scala.concurrent.{ExecutionContext, Future}
+import scala.slick.profile.{RelationalProfile, SqlProfile}
 import scala.util.{Failure, Success}
 import java.sql.DatabaseMetaData
 
@@ -242,20 +243,20 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       *
       * If `ignoreInvalidDefaults = true`, Slick catches scala.MatchError and java.lang.NumberFormatException thrown by
       * this method, logs the message and treats it as no default value for convenience. */
-    def defaultColumnOption: Option[ColumnOption.Default[_]] = rawDefault.map(v => (v,tpe)).collect {
+    def defaultColumnOption: Option[RelationalProfile.ColumnOption.Default[_]] = rawDefault.map(v => (v,tpe)).collect {
       case (v,_) if Seq("NOW","CURRENT_TIMESTAMP","CURRENT_DATE","CURRENT_TIME").contains(v.stripSuffix("()").toUpperCase) =>
         logger.debug(s"Ignoring"+formatDefault(v))
         None
     }.getOrElse {
       default.map( d =>
-        ColumnOption.Default(
+        RelationalProfile.ColumnOption.Default(
           if(nullable) d
           else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${tableBuilder.namer.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
         )
       )
     }
 
-    private def convenientDefault: Option[ColumnOption.Default[_]] =
+    private def convenientDefault: Option[RelationalProfile.ColumnOption.Default[_]] =
       try defaultColumnOption catch {
         case e: java.lang.NumberFormatException if ignoreInvalidDefaults =>
           logger.debug(s"NumberFormatException: Could not parse"+formatDefault(rawDefault))
@@ -270,10 +271,10 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
 
     def model = m.Column(name=name, table=tableBuilder.namer.qualifiedName, tpe=tpe, nullable=nullable,
       options = Set() ++
-        dbType.map(ColumnOption.DBType) ++
+        dbType.map(SqlProfile.ColumnOption.SqlType) ++
         (if(autoInc) Some(ColumnOption.AutoInc) else None) ++
         (if(createPrimaryKeyColumnOption) Some(ColumnOption.PrimaryKey) else None) ++
-        length.map(ColumnOption.Length.apply(_,varying=varying)) ++
+        length.map(RelationalProfile.ColumnOption.Length.apply(_,varying=varying)) ++
         (if(!autoInc) convenientDefault else None) )
   }
 

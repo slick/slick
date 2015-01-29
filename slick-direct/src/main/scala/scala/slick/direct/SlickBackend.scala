@@ -5,7 +5,7 @@ import scala.slick.SlickException
 import scala.language.implicitConversions
 import scala.slick.action.{Streaming, Effect, EffectfulAction, NoStream, ActionContext}
 import scala.slick.driver._
-import scala.slick.profile.{SqlStreamingAction, SqlAction}
+import scala.slick.profile.{SqlProfile, SqlStreamingAction, SqlAction}
 import scala.slick.relational.CompiledMapping
 import scala.slick.{ast => sq}
 import scala.slick.ast.{Library, FunctionSymbol, ColumnOption}
@@ -189,7 +189,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   private def columnField( sym:Symbol ) = 
     sq.FieldSymbol( columnName(sym) )(
       if( isNullable(sym) )
-        List(ColumnOption.Nullable)
+        List(SqlProfile.ColumnOption.Nullable)
       else
         List()
       , columnType(sym.typeSignature)

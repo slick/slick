@@ -142,6 +142,20 @@ object RelationalProfile {
       pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
       zip, replace, reverse, indexOf)
   }
+
+  /** Extra column options for RelationalProfile */
+  object ColumnOption {
+    /** Default value for the column. Needs to wrap an Option for nullable Columns. */
+    case class Default[T](val defaultValue: T) extends ColumnOption[T]
+
+    /** Number of unicode characters for string-like types. Unlike DBType this is portable
+      * between different DBMS. Note that for DDL Slick currently picks type CHAR when
+      * varying=false and VARCHAR when varying=true. Slick uses VARCHAR or VARCHAR(254) in DDL for
+      * String columns if neither ColumnOption DBType nor Length are given.
+      *
+      * @param varying indicates wether this is just the maximum length of a varying */
+    case class Length[T <: String](length: Int, varying: Boolean) extends ColumnOption[T]
+  }
 }
 
 trait RelationalDriver extends BasicDriver with RelationalProfile {
@@ -154,12 +168,12 @@ trait RelationalTableComponent { driver: RelationalDriver =>
 
   trait ColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
-    def Default[T](defaultValue: T) = ColumnOption.Default[T](defaultValue)
+    def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
-    val Length = ColumnOption.Length
+    val Length = RelationalProfile.ColumnOption.Length
   }
 
-  val columnOptions: ColumnOptions = new AnyRef with ColumnOptions
+  val columnOptions: ColumnOptions = new ColumnOptions {}
 
   abstract class Table[T](_tableTag: Tag, _schemaName: Option[String], _tableName: String) extends AbstractTable[T](_tableTag, _schemaName, _tableName) { table =>
     final type TableElementType = T

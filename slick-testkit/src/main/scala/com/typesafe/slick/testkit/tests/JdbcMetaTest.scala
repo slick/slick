@@ -11,7 +11,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
 
   class Users(tag: Tag) extends Table[(Int, String, Option[String])](tag, "users_xx") {
     def id = column[Int]("id", O.PrimaryKey)
-    def first = column[String]("first", O Default "NFN", O DBType "varchar(64)")
+    def first = column[String]("first", O Default "NFN", O SqlType "varchar(64)")
     def last = column[Option[String]]("last")
     def * = (id, first, last)
   }

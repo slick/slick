@@ -141,7 +141,7 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
   def testOverrideIdentityType = {
     class T1(tag: Tag) extends Table[Int](tag, "t1") {
-      def id = column[Int]("id", O.PrimaryKey, O.AutoInc, O.DBType("_FOO_BAR_"))
+      def id = column[Int]("id", O.PrimaryKey, O.AutoInc, O.SqlType("_FOO_BAR_"))
       def * = id
     }
     val t1 = TableQuery[T1]
