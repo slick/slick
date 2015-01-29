@@ -156,7 +156,7 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
       def columnOptionCode = {
         case ColumnOption.PrimaryKey => Some(s"O.PrimaryKey")
         case Default(value)     => Some(s"O.Default(${default.get})") // .get is safe here
-        case SqlType(dbType)    => Some(s"O.SqlType($dbType)")
+        case SqlType(dbType)    => Some(s"""O.SqlType("$dbType")""")
         case Length(length,varying) => Some(s"O.Length($length,varying=$varying)")
         case AutoInc            => Some(s"O.AutoInc")
         case NotNull|Nullable   => throw new SlickException( s"Please don't use Nullable or NotNull column options. Use an Option type, respectively the nullable flag in Slick's model model Column." )
