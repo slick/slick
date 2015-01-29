@@ -7,6 +7,7 @@ import scala.slick.jdbc.{ResultSetHoldability, ResultSetConcurrency, ResultSetTy
 class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
   import tdb.profile.api._
 
+  @deprecated("Testing deprecated O.Nullable / O.NotNull column options", "3.0")
   def testNullability = {
     class T1(tag: Tag) extends Table[String](tag, "t1") {
       def a = column[String]("a")
@@ -47,7 +48,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
 
   def testColumnOptions = {
     class Foo(tag: Tag) extends Table[String](tag, "posts") {
-      def bar = column[String]("s", O.Length(20,varying=true), O DBType "VARCHAR(20)" )        
+      def bar = column[String]("s", O.Length(20,varying=true), O SqlType "VARCHAR(20)" )
       def * = bar
     }
     Action.successful(()).flatMap { _ => TableQuery[Foo].schema.create }.failed.map(_.shouldBeA[SlickException])

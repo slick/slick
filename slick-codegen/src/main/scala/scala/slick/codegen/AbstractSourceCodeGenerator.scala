@@ -1,5 +1,6 @@
 package scala.slick.codegen
 
+import scala.slick.profile.{SqlProfile, RelationalProfile}
 import scala.slick.{model => m}
 import scala.slick.model.ForeignKeyAction
 import scala.slick.ast.ColumnOption
@@ -150,10 +151,12 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
 
     class ColumnDef(model: m.Column) extends super.ColumnDef(model){
       import ColumnOption._
+      import RelationalProfile.ColumnOption._
+      import SqlProfile.ColumnOption._
       def columnOptionCode = {
         case ColumnOption.PrimaryKey => Some(s"O.PrimaryKey")
         case Default(value)     => Some(s"O.Default(${default.get})") // .get is safe here
-        case DBType(dbType)     => Some(s"O.DBType($dbType)")
+        case SqlType(dbType)    => Some(s"""O.SqlType("$dbType")""")
         case Length(length,varying) => Some(s"O.Length($length,varying=$varying)")
         case AutoInc            => Some(s"O.AutoInc")
         case NotNull|Nullable   => throw new SlickException( s"Please don't use Nullable or NotNull column options. Use an Option type, respectively the nullable flag in Slick's model model Column." )

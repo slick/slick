@@ -10,6 +10,8 @@ import scala.slick.jdbc.meta.MTable
 import scala.slick.jdbc.meta
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
+import scala.slick.profile.{SqlProfile, RelationalProfile}
+
 @deprecated("Using deprecated .simple API", "3.0")
 class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
@@ -165,15 +167,15 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
       assertEquals(
         (123,true),
         categories.columns.filter(_.name == "name").head
-                  .options.collect{case ColumnOption.Length(length,varying) => (length,varying)}.head
+                  .options.collect{case RelationalProfile.ColumnOption.Length(length,varying) => (length,varying)}.head
       )
       //assertEquals( categories.indices.toString, 1, categories.indices.size ) // Removed until made sure all dbs actually produce indices model
       //assertEquals( "IDX_NAME", categories.indices.head.name.get.toUpperCase )
       categories.columns.foreach{
         _.options.foreach{
-          case ColumnOption.Length(length,varying) => length < 256
-          case ColumnOption.DBType(DBTypePattern()) => 
-          case ColumnOption.DBType(dbType) => assert(false, "invalid DBType: "+dbType)
+          case RelationalProfile.ColumnOption.Length(length,varying) => length < 256
+          case SqlProfile.ColumnOption.SqlType(DBTypePattern()) =>
+          case SqlProfile.ColumnOption.SqlType(dbType) => assert(false, "invalid DBType: "+dbType)
           case _ =>
         }
       }
@@ -193,7 +195,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
         assertEquals( "CATEGORY_FK", posts.foreignKeys.head.name.get.toUpperCase )
       }
       def tpe(col:String) = posts.columns.filter(_.name == col).head
-               .options.collect{case ColumnOption.DBType(tpe) => tpe}.head
+               .options.collect{case SqlProfile.ColumnOption.SqlType(tpe) => tpe}.head
       assert(
         Seq(
           "CHAR","CHARACTER",
@@ -212,18 +214,18 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
       assertEquals(
         (99,false),
         posts.columns.filter(_.name == "title").head
-             .options.collect{case ColumnOption.Length(length,varying) => (length,varying)}.head
+             .options.collect{case RelationalProfile.ColumnOption.Length(length,varying) => (length,varying)}.head
       )
       assertEquals(
         (111,true),
         posts.columns.filter(_.name == "some_string").head
-             .options.collect{case ColumnOption.Length(length,varying) => (length,varying)}.head
+             .options.collect{case RelationalProfile.ColumnOption.Length(length,varying) => (length,varying)}.head
       )
       posts.columns.foreach{
         _.options.foreach{
-          case ColumnOption.Length(length,varying) => length < 256
-          case ColumnOption.DBType(DBTypePattern()) => 
-          case ColumnOption.DBType(dbType) => assert(false, "invalid DBType: "+dbType)
+          case RelationalProfile.ColumnOption.Length(length,varying) => length < 256
+          case SqlProfile.ColumnOption.SqlType(DBTypePattern()) =>
+          case SqlProfile.ColumnOption.SqlType(dbType) => assert(false, "invalid DBType: "+dbType)
           case _ =>
         }
       }
@@ -236,7 +238,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
           = defaultTest.columns.filter(_.name == name).head
         def columnDefault(name: String)
           = column(name)
-             .options.collect{case ColumnOption.Default(v) => v}
+             .options.collect{case RelationalProfile.ColumnOption.Default(v) => v}
              .headOption
         assertEquals(None, columnDefault("some_bool"))
         ifCap(jcap.booleanMetaData){
@@ -290,7 +292,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
         = typeTest.columns.filter(_.name.toUpperCase == name.toUpperCase).head
       def columnDefault(name: String)
         = column(name)
-           .options.collect{case ColumnOption.Default(v) => v}
+           .options.collect{case RelationalProfile.ColumnOption.Default(v) => v}
            .headOption
 
       ifCap(jcap.booleanMetaData){
@@ -377,7 +379,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
           = typeTest.columns.filter(_.name.toUpperCase == name.toUpperCase).head
         def columnDefault(name: String)
           = column(name)
-             .options.collect{case ColumnOption.Default(v) => v}
+             .options.collect{case RelationalProfile.ColumnOption.Default(v) => v}
              .headOption
 
         ifCap(jcap.nullableNoDefault){

@@ -96,6 +96,22 @@ object SqlProfile {
     val all = Set(other, sequence, sequenceCurr, sequenceCycle,
       sequenceLimited, sequenceMax, sequenceMin)
   }
+
+  /** Extra column options for SqlProfile */
+  object ColumnOption {
+    case object NotNull extends ColumnOption[Nothing]
+    case object Nullable extends ColumnOption[Nothing]
+
+    /** Type as expected by the DBMS, e.g. VARCHAR or VARCHAR(254). Note that Slick's model omits
+      * the optional length ascription for string columns here and carries the length in the
+      * separate ColumnOption Length instead. A length ascription for string column is allowed
+      * though and can be used in a Slick Table subclass to pass it to the DBMS. As this is the
+      * type of the underlying DBMS it may not be portable to other DBMS.
+      *
+      * Note that Slick uses VARCHAR or VARCHAR(254) in DDL for String columns if neither
+      * ColumnOption DBType nor Length are given. */
+    case class SqlType(val typeName: String) extends ColumnOption[Nothing]
+  }
 }
 
 trait SqlDriver extends RelationalDriver with SqlProfile with SqlUtilsComponent {
@@ -144,10 +160,16 @@ trait SqlExecutorComponent extends BasicExecutorComponent { driver: SqlDriver =>
 trait SqlTableComponent extends RelationalTableComponent { driver: SqlDriver =>
 
   trait ColumnOptions extends super.ColumnOptions {
-    def DBType(dbType: String) = ColumnOption.DBType(dbType)
+    @deprecated("Use SqlType instead of DBType", "3.0")
+    def DBType(dbType: String) = SqlProfile.ColumnOption.SqlType(dbType)
+    def SqlType(typeName: String) = SqlProfile.ColumnOption.SqlType(typeName)
+    @deprecated("Use a non-Option type for the column definition", "3.0")
+    val NotNull = SqlProfile.ColumnOption.NotNull
+    @deprecated("Use an Option type for the column definition", "3.0")
+    val Nullable = SqlProfile.ColumnOption.Nullable
   }
 
-  override val columnOptions: ColumnOptions = new AnyRef with ColumnOptions
+  override val columnOptions: ColumnOptions = new ColumnOptions {}
 }
 
 trait SqlActionComponent extends RelationalActionComponent { driver: SqlDriver =>

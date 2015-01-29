@@ -9,7 +9,7 @@ import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 
 /** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
   * implement this profile. */
-trait JdbcProfile extends SqlProfile with JdbcTableComponent with JdbcActionComponent
+trait JdbcProfile extends SqlProfile with JdbcActionComponent
   with JdbcInvokerComponent with JdbcInsertInvokerComponent with JdbcExecutorComponent with JdbcTypesComponent
   with JdbcModelComponent { driver: JdbcDriver =>
 
