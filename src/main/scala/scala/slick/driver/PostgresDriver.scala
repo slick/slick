@@ -98,6 +98,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
   override protected lazy val useServerSideUpsertReturning = false
 
   override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
+    case java.sql.Types.VARCHAR => "VARCHAR"
     case java.sql.Types.BLOB => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
