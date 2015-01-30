@@ -3,7 +3,7 @@ package scala.slick.driver
 import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
 import scala.concurrent.ExecutionContext
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.lifted._
 import scala.slick.profile.{SqlProfile, RelationalProfile, Capability}
 import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node, Insert, InsertColumn, Select, ElementSymbol, ColumnOption }
@@ -85,7 +85,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): Action[Seq[MTable]] =
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes

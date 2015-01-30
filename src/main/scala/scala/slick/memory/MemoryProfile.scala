@@ -5,7 +5,7 @@ import scala.collection.mutable.Builder
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast._
 import TypeUtil._
 import scala.slick.compiler._

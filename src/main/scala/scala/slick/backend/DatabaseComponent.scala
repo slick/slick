@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory
 import org.reactivestreams._
 
 import scala.slick.SlickException
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.util.{GlobalConfig, DumpInfo, TreeDump, SlickLogger, ignoreFollowOnError}
 
 /** Backend for the basic database and session handling features.
@@ -47,9 +47,9 @@ trait DatabaseComponent { self =>
     def close(): Unit
 
     /** Run an Action asynchronously and return the result as a Future. */
-    final def run[R](a: EffectfulAction[Nothing, R, NoStream]): Future[R] = runInternal(a, false)
+    final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, false)
 
-    private[slick] final def runInternal[R](a: EffectfulAction[Nothing, R, NoStream], useSameThread: Boolean): Future[R] =
+    private[slick] final def runInternal[R](a: DBIOAction[R, NoStream, Nothing], useSameThread: Boolean): Future[R] =
       runInContext(a, createDatabaseActionContext(useSameThread), false)
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
@@ -73,13 +73,13 @@ trait DatabaseComponent { self =>
       * from within `onNext`. If streaming is interrupted due to back-pressure signaling, the next
       * row will be prefetched (in order to buffer the next result page from the server when a page
       * boundary has been reached). */
-    final def stream[T](a: EffectfulAction[Nothing, _, Streaming[T]]): DatabasePublisher[T] = streamInternal(a, false)
+    final def stream[T](a: DBIOAction[_, Streaming[T], Nothing]): DatabasePublisher[T] = streamInternal(a, false)
 
-    private[slick] final def streamInternal[T](a: EffectfulAction[Nothing, _, Streaming[T]], useSameThread: Boolean): DatabasePublisher[T] =
+    private[slick] final def streamInternal[T](a: DBIOAction[_, Streaming[T], Nothing], useSameThread: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => createStreamingDatabaseActionContext(s, useSameThread))
 
     /** Create a Reactive Streams `Publisher` using the given context factory. */
-    protected[this] def createPublisher[T](a: EffectfulAction[Nothing, _, Streaming[T]], createCtx: Subscriber[_ >: T] => StreamingContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
+    protected[this] def createPublisher[T](a: DBIOAction[_, Streaming[T], Nothing], createCtx: Subscriber[_ >: T] => StreamingContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
       def subscribe(s: Subscriber[_ >: T]) = if(allowSubscriber(s)) {
         val ctx = createCtx(s)
         if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
@@ -93,7 +93,7 @@ trait DatabaseComponent { self =>
             runInContext(a, ctx, true).onComplete {
               case Success(_) => ctx.tryOnComplete
               case Failure(t) => ctx.tryOnError(t)
-            }(Action.sameThreadExecutionContext)
+            }(DBIO.sameThreadExecutionContext)
           } catch {
             case NonFatal(ex) =>
               streamLogger.warn("Database.streamInContext failed unexpectedly", ex)
@@ -117,7 +117,7 @@ trait DatabaseComponent { self =>
       *                  be a `StreamingDatabaseActionContext` and the Future result should be
       *                  completed with `null` or failed after streaming has finished. This
       *                  method should not call any `Subscriber` method other than `onNext`. */
-    protected[this] def runInContext[R](a: EffectfulAction[Nothing, R, NoStream], ctx: Context, streaming: Boolean): Future[R] = {
+    protected[this] def runInContext[R](a: DBIOAction[R, NoStream, Nothing], ctx: Context, streaming: Boolean): Future[R] = {
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
@@ -126,13 +126,13 @@ trait DatabaseComponent { self =>
         case FlatMapAction(base, f, ec) =>
           runInContext(base, ctx, false).flatMap(v => runInContext(f(v), ctx, streaming))(ctx.getEC(ec))
         case AndThenAction(a1, a2) =>
-          runInContext(a1, ctx, false).flatMap(_ => runInContext(a2, ctx, streaming))(Action.sameThreadExecutionContext)
+          runInContext(a1, ctx, false).flatMap(_ => runInContext(a2, ctx, streaming))(DBIO.sameThreadExecutionContext)
         case ZipAction(a1, a2) =>
           runInContext(a1, ctx, false).flatMap { r1 =>
             runInContext(a2, ctx, false).map { r2 =>
               (r1, r2)
-            }(Action.sameThreadExecutionContext)
-          }(Action.sameThreadExecutionContext).asInstanceOf[Future[R]]
+            }(DBIO.sameThreadExecutionContext)
+          }(DBIO.sameThreadExecutionContext).asInstanceOf[Future[R]]
         case CleanUpAction(base, f, keepFailure, ec) =>
           val p = Promise[R]()
           runInContext(base, ctx, streaming).onComplete { t1 =>
@@ -144,7 +144,7 @@ trait DatabaseComponent { self =>
               runInContext(a2, ctx, false).onComplete { t2 =>
                 if(t2.isFailure && (t1.isSuccess || !keepFailure)) p.complete(t2.asInstanceOf[Failure[R]])
                 else p.complete(t1)
-              } (Action.sameThreadExecutionContext)
+              } (DBIO.sameThreadExecutionContext)
             } catch {
               case NonFatal(ex) =>
                 throw (t1 match {
@@ -158,14 +158,14 @@ trait DatabaseComponent { self =>
           runInContext(a, ctx, false).failed.asInstanceOf[Future[R]]
         case AsTryAction(a) =>
           val p = Promise[R]()
-          runInContext(a, ctx, false).onComplete(v => p.success(v.asInstanceOf[R]))(Action.sameThreadExecutionContext)
+          runInContext(a, ctx, false).onComplete(v => p.success(v.asInstanceOf[R]))(DBIO.sameThreadExecutionContext)
           p.future
         case NamedAction(a, _) =>
           runInContext(a, ctx, streaming)
         case a: SynchronousDatabaseAction[_, _, _, _] =>
           if(streaming) {
             if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream]], ctx.asInstanceOf[StreamingContext]).asInstanceOf[Future[R]]
-            else runInContext(CleanUpAction(AndThenAction(Action.Pin, a.nonFusedEquivalentAction), _ => Action.Unpin, true, Action.sameThreadExecutionContext), ctx, streaming)
+            else runInContext(CleanUpAction(AndThenAction(DBIO.Pin, a.nonFusedEquivalentAction), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming)
           } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _, R, NoStream]], ctx)
         case a: DatabaseAction[_, _, _] =>
           throw new SlickException(s"Unsupported database action $a for $this")
@@ -279,13 +279,13 @@ trait DatabaseComponent { self =>
       * SynchronousDatabaseActions for asynchronous execution. */
     protected[this] def synchronousExecutionContext: ExecutionContext
 
-    protected[this] def logAction(a: EffectfulAction[Nothing, _, NoStream], ctx: Context): Unit = {
+    protected[this] def logAction(a: DBIOAction[_, NoStream, Nothing], ctx: Context): Unit = {
       if(actionLogger.isDebugEnabled && a.isLogged) {
         ctx.sequenceCounter += 1
         val logA = a.nonFusedEquivalentAction
         val aPrefix = if(a eq logA) "" else "[fused] "
         val dump = TreeDump.get(logA, prefix = "    ", firstPrefix = aPrefix, narrow = {
-          case a: EffectfulAction[_, _, _] => a.nonFusedEquivalentAction
+          case a: DBIOAction[_, _, _] => a.nonFusedEquivalentAction
           case o => o
         })
         val msg = DumpInfo.highlight("#" + ctx.sequenceCounter) + ": " + dump.substring(0, dump.length-1)
@@ -385,7 +385,7 @@ trait DatabaseComponent { self =>
     /** Return the specified ExecutionContext unless running in same-thread mode, in which case
       * `Action.sameThreadExecutionContext` is returned instead. */
     private[DatabaseComponent] def getEC(ec: ExecutionContext): ExecutionContext =
-      if(useSameThread) Action.sameThreadExecutionContext else ec
+      if(useSameThread) DBIO.sameThreadExecutionContext else ec
 
     /** A volatile variable to enforce the happens-before relationship (see
       * [[https://docs.oracle.com/javase/specs/jls/se7/html/jls-17.html]] and

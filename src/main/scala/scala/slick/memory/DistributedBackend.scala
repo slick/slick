@@ -4,7 +4,7 @@ import org.reactivestreams.Subscriber
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.slick.SlickException
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.backend.{RelationalBackend, DatabaseComponent}
 import scala.slick.util.Logging
 import scala.collection.mutable.ArrayBuffer

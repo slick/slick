@@ -1,6 +1,6 @@
 package scala.slick.jdbc.meta
 
-import scala.slick.action.Effect
+import scala.slick.dbio.Effect
 import scala.slick.jdbc.{ResultSetAction, Invoker}
 import scala.slick.profile.BasicStreamingAction
 

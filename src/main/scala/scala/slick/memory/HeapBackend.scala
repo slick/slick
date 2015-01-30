@@ -6,7 +6,7 @@ import org.reactivestreams.Subscriber
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.concurrent.{Future, ExecutionContext}
 import scala.slick.SlickException
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast._
 import scala.slick.backend.{DatabaseComponent, RelationalBackend}
 import scala.slick.lifted.{PrimaryKey, Constraint, Index}

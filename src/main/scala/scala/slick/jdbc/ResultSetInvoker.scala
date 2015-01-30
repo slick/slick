@@ -1,7 +1,7 @@
 package scala.slick.jdbc
 
 import java.sql.ResultSet
-import scala.slick.action.{Effect, NoStream, SynchronousDatabaseAction}
+import scala.slick.dbio.{Effect, NoStream, SynchronousDatabaseAction}
 import scala.slick.profile.BasicStreamingAction
 import scala.slick.util.CloseableIterator
 

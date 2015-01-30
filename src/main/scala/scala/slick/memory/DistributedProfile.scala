@@ -3,7 +3,7 @@ package scala.slick.memory
 import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.{Builder, HashMap}
 import scala.slick.SlickException
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
 import scala.slick.compiler._

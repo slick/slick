@@ -12,7 +12,7 @@ import java.lang.reflect.Method
 import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.jdbc.JdbcBackend
 import scala.slick.util.DumpInfo
 import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
@@ -94,7 +94,7 @@ case class TestMethod(name: String, desc: Description, method: Method, cl: Class
 
       case testObject: AsyncTest[_] =>
         if(r == classOf[Future[_]]) await(method.invoke(testObject).asInstanceOf[Future[Any]])
-        else if(r == classOf[EffectfulAction[_, _, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[Action[Any]]))
+        else if(r == classOf[DBIOAction[_, _, _]]) await(testObject.db.run(method.invoke(testObject).asInstanceOf[DBIO[Any]]))
         else throw new RuntimeException(s"Illegal return type: '${r.getName}' in test method '$name' -- AsyncTest methods must return Future or Action")
     }
   }
@@ -212,23 +212,23 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def getDumpInfo = DumpInfo(name = "<GetStatementParameters>")
   }
 
-  def ifCap[E <: Effect, R](caps: Capability*)(f: => EffectfulAction[E, R, NoStream]): EffectfulAction[E, Unit, NoStream] =
-    if(caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
-  def ifNotCap[E <: Effect, R](caps: Capability*)(f: => EffectfulAction[E, R, NoStream]): EffectfulAction[E, Unit, NoStream] =
-    if(!caps.forall(c => tdb.capabilities.contains(c))) f.andThen(Action.successful(())) else Action.successful(())
+  def ifCap[E <: Effect, R](caps: Capability*)(f: => DBIOAction[R, NoStream, E]): DBIOAction[Unit, NoStream, E] =
+    if(caps.forall(c => tdb.capabilities.contains(c))) f.andThen(DBIO.successful(())) else DBIO.successful(())
+  def ifNotCap[E <: Effect, R](caps: Capability*)(f: => DBIOAction[R, NoStream, E]): DBIOAction[Unit, NoStream, E] =
+    if(!caps.forall(c => tdb.capabilities.contains(c))) f.andThen(DBIO.successful(())) else DBIO.successful(())
 
   def ifCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
     if(caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
   def ifNotCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
 
-  def asAction[R](f: tdb.profile.Backend#Session => R): EffectfulAction[Effect, R, NoStream] =
+  def asAction[R](f: tdb.profile.Backend#Session => R): DBIOAction[R, NoStream, Effect] =
     new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R, NoStream] {
       def run(context: tdb.profile.Backend#Context): R = f(context.session)
       def getDumpInfo = DumpInfo(name = "<asAction>")
     }
 
-  def seq[E <: Effect](actions: EffectfulAction[E, _, NoStream]*): EffectfulAction[E, Unit, NoStream] = Action.seq[E](actions: _*)
+  def seq[E <: Effect](actions: DBIOAction[_, NoStream, E]*): DBIOAction[Unit, NoStream, E] = DBIO.seq[E](actions: _*)
 
   /** Synchronously consume a Reactive Stream and materialize it as a Vector. */
   def materialize[T](p: Publisher[T]): Future[Vector[T]] = {

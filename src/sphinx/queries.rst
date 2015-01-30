@@ -150,7 +150,7 @@ as done in ``q2``.
 Querying
 --------
 
-A Query can be converted into an :api:`Action <scala.slick.action.EffectfulAction>` by calling its
+A Query can be converted into an :api:`Action <scala.slick.dbio.DBIOAction>` by calling its
 ``result`` method. The Action can then be :ref:`executed <executing-actions>` directly in a
 streaming or fully materialized way, or composed further with other Actions:
 

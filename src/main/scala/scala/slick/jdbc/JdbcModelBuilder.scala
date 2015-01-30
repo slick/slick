@@ -9,7 +9,7 @@ import scala.util.{Failure, Success}
 import java.sql.DatabaseMetaData
 
 import scala.slick.SlickException
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast.ColumnOption
 import scala.slick.jdbc.meta._
 import scala.slick.{model => m}
@@ -32,13 +32,13 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
   ////////////////////////////////////////////////////////////////////// Actions for reading the required JDBC metadata
 
   /** Read the column metadata for a table in ordinal position order */
-  def readColumns(t: MTable): Action[Vector[MColumn]] = t.getColumns.map(_.sortBy(_.ordinalPosition))
+  def readColumns(t: MTable): DBIO[Vector[MColumn]] = t.getColumns.map(_.sortBy(_.ordinalPosition))
 
   /** Read the primary key metadata for a table in key sequence order */
-  def readPrimaryKeys(t: MTable): Action[Vector[MPrimaryKey]] = t.getPrimaryKeys.map(_.sortBy(_.keySeq))
+  def readPrimaryKeys(t: MTable): DBIO[Vector[MPrimaryKey]] = t.getPrimaryKeys.map(_.sortBy(_.keySeq))
 
   /** Read the foreign key metadata for a table grouped by name and in key sequence order */
-  def readForeignKeys(t: MTable): Action[Seq[Seq[MForeignKey]]] = t.getImportedKeys.map(
+  def readForeignKeys(t: MTable): DBIO[Seq[Seq[MForeignKey]]] = t.getImportedKeys.map(
     // remove foreign keys pointing to tables which were not included
     _.filter(fk => tableNamersByQName.isDefinedAt(fk.pkTable))
     .groupBy(fk => (fk.pkTable,fk.fkName,fk.pkName,fk.fkTable))
@@ -48,7 +48,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
   )
 
   /** Read the index metadata grouped by name and in ordinal position order */
-  def readIndices(t: MTable): Action[Seq[Seq[MIndexInfo]]] = t.getIndexInfo().asTry.map {
+  def readIndices(t: MTable): DBIO[Seq[Seq[MIndexInfo]]] = t.getIndexInfo().asTry.map {
     case Success(iis) =>
       iis.groupBy(_.indexName).toSeq.sortBy(_._1).map(_._2.sortBy(_.ordinalPosition)) // respect order
     case Failure(e: java.sql.SQLException) => // TODO: this needs a test!
@@ -78,7 +78,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
 
   /** Table model builder factory. Override for customization.
     * @group Basic customization overrides */
-  def createTableBuilder(namer: TableNamer): Action[TableBuilder] = for {
+  def createTableBuilder(namer: TableNamer): DBIO[TableBuilder] = for {
     cs <- readColumns(namer.meta)
     pks <- readPrimaryKeys(namer.meta)
     fks <- readForeignKeys(namer.meta)
@@ -87,8 +87,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
 
   /** Creates a Slick data model from jdbc meta data. Foreign keys pointing out of the given tables
     * are not included. */
-  def buildModel: Action[m.Model] = for {
-    ts <- Action.sequence(tableNamers.map(createTableBuilder))
+  def buildModel: DBIO[m.Model] = for {
+    ts <- DBIO.sequence(tableNamers.map(createTableBuilder))
     tablesByQName = ts.map(t => t.meta.name -> t).toMap
     builders = createBuilders(tablesByQName)
   } yield m.Model(ts.sortBy(_.meta.name.name).map(_.buildModel(builders)))

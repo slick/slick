@@ -9,7 +9,7 @@ import java.sql.{Array => _, _}
 import javax.sql.DataSource
 import javax.naming.InitialContext
 
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.backend.{DatabasePublisher, DatabaseComponent, RelationalBackend}
 import scala.slick.SlickException
 import scala.slick.util.{LogUtil, GlobalConfig, SlickLogger, AsyncExecutor}
@@ -47,7 +47,7 @@ trait JdbcBackend extends RelationalBackend {
       * `request()` more data. This allows you to process LOBs asynchronously by requesting only
       * one single element at a time after processing the current one, so that the proper
       * sequencing is preserved even though processing may happen on a different thread. */
-    final def stream[T](a: StreamingAction[_, T], bufferNext: Boolean): DatabasePublisher[T] =
+    final def stream[T](a: StreamingDBIO[_, T], bufferNext: Boolean): DatabasePublisher[T] =
       createPublisher(a, s => new JdbcStreamingActionContext(s, false, DatabaseDef.this, bufferNext))
 
     override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
@@ -467,6 +467,9 @@ trait JdbcBackend extends RelationalBackend {
         val p = statementParameters.head
         super.session.internalForParameters(p.rsType, p.rsConcurrency, p.rsHoldability, p.statementInit)
       }
+
+    /** The current JDBC Connection */
+    def connection: Connection = session.conn
   }
 
   class JdbcStreamingActionContext(subscriber: Subscriber[_], useSameThread: Boolean, database: Database, val bufferNext: Boolean) extends BasicStreamingActionContext(subscriber, useSameThread, database) with JdbcActionContext

@@ -50,14 +50,14 @@ trait Aliases {
   @deprecated("Use Rep[T : TypedType] instead of Column[T]", "3.0")
   val Column = lifted.Rep
 
-  type Action[+R] = action.Action[R]
-  type StreamingAction[+R, +T] = action.StreamingAction[R, T]
-  type EffectfulAction[-E <: action.Effect, +R, +S <: action.NoStream] = action.EffectfulAction[E, R, S]
-  val Action = action.Action
-  type Effect = action.Effect
-  val Effect = action.Effect
-  type NoStream = action.NoStream
-  type Streaming[+T] = action.Streaming[T]
+  type Action[+R] = dbio.DBIO[R]
+  type StreamingAction[+R, +T] = dbio.StreamingDBIO[R, T]
+  type DBIOAction[+R, +S <: dbio.NoStream, -E <: dbio.Effect] = dbio.DBIOAction[R, S, E]
+  val Action = dbio.DBIO
+  type Effect = dbio.Effect
+  val Effect = dbio.Effect
+  type NoStream = dbio.NoStream
+  type Streaming[+T] = dbio.Streaming[T]
   type AsyncExecutor = util.AsyncExecutor
   val AsyncExecutor = util.AsyncExecutor
 }

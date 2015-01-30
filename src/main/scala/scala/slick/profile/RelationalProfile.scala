@@ -1,7 +1,7 @@
 package scala.slick.profile
 
 import scala.language.{implicitConversions, higherKinds, existentials}
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast._
 import scala.slick.backend.RelationalBackend
 import scala.slick.lifted._
