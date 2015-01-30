@@ -20,7 +20,7 @@ object GlobalConfig {
   /** Use Unixode box characters in table dumps */
   val unicodeDump = config.getBoolean("slick.unicodeDump")
 
-  // Determine whether use SQL Indentation.
+  /** Use multi-line, indented formatting for SQL statements */
   val sqlIndent = config.getBoolean("slick.sqlIndent")
 
   /** Get a `Config` object for a Slick driver */

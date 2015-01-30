@@ -3,34 +3,18 @@ package scala.slick.util
 import java.sql.PreparedStatement
 import scala.collection.mutable.ArrayBuffer
 
-final class SQLBuilder(var sqlIndent: Boolean = false) extends SQLBuilder.Segment { self =>
+final class SQLBuilder { self =>
   import SQLBuilder._
 
-  private val segments = new ArrayBuffer[Segment]
-  private var currentStringSegment: StringSegment = null
+  private val sb = new StringBuilder(128)
+  private val setters = new ArrayBuffer[Setter]
+  private var currentIndentLevel: Int = 0
 
-  private def ss = {
-    if(currentStringSegment eq null) {
-      if(segments.isEmpty || segments.last.isInstanceOf[SQLBuilder]) {
-        currentStringSegment = new StringSegment
-        segments += currentStringSegment
-      }
-      else currentStringSegment = segments.last.asInstanceOf[StringSegment]
-    }
-    currentStringSegment
-  }
+  def +=(s: String) = { sb append s; this }
 
-  def +=(s: String) = { ss.sb append s; this }
+  def +=(c: Char) = { sb append c; this }
 
-  def +=(i: Int) = { ss.sb append i; this }
-
-  def +=(l: Long) = { ss.sb append l; this }
-
-  def +=(c: Char) = { ss.sb append c; this }
-
-  def +=(s: SQLBuilder) = { ss.sb append s; this }
-
-  def +?=(f: Setter) = { ss.setters append f; ss.sb append '?'; this }
+  def +?=(f: Setter) = { setters append f; sb append '?'; this }
 
   def sep[T](sequence: Traversable[T], separator: String)(f: T => Unit) {
     var first = true
@@ -40,83 +24,35 @@ final class SQLBuilder(var sqlIndent: Boolean = false) extends SQLBuilder.Segmen
     }
   }
 
-  def isEmpty = ss.sb.isEmpty
-
-  def createSlot = {
-    val s = new SQLBuilder(sqlIndent)
-    segments += s
-    currentStringSegment = null
-    s
-  }
-
-  def appendTo(res: StringBuilder, setters: ArrayBuffer[Setter]): Unit =
-    for(s <- segments) s.appendTo(res, setters)
-
-  def build = {
-    val sb = new StringBuilder(64)
-    val setters = new ArrayBuffer[Setter]
-    appendTo(sb, setters)
-    Result(sb.toString, new CombinedSetter(setters))
-  }
-
-  private var currentIndentLevel: Int = 0
-
-  def addIndentLevel(): SQLBuilder = {
-    if (sqlIndent) currentIndentLevel += 1
-    this
-  }
-
-  def removeIndentLevel(): SQLBuilder = {
-    if (sqlIndent) currentIndentLevel -= 1
-    this
-  }
-
-  def getIndentLevel: Int = currentIndentLevel
-
-  def newLine(): SQLBuilder = {
-    if (sqlIndent) {
-      this.+=("\n")
-      if (1 <= currentIndentLevel) 1.to(currentIndentLevel).foreach(_ => this.+=("  "))
+  def build = Result(sb.toString, { (p: PreparedStatement, idx: Int, param: Any) =>
+    var i = idx
+    for(s <- setters) {
+      s(p, i, param)
+      i += 1
     }
-    this
+  })
+
+  def newLineIndent(): Unit = {
+    currentIndentLevel += 1
+    newLine()
   }
 
-  def newLineStr: String = {
-    if ((sqlIndent) && (1 <= currentIndentLevel)) {
-      "\n" + 1.to(currentIndentLevel).map(_ => this.+=("  "))
-    }
-    else " "
+  def newLineDedent(): Unit = {
+    currentIndentLevel -= 1
+    newLine()
+  }
+
+  def newLineOrSpace(): Unit =
+    if(GlobalConfig.sqlIndent) newLine() else this += " "
+
+  private def newLine(): Unit = if(GlobalConfig.sqlIndent) {
+    this += "\n"
+    if (1 <= currentIndentLevel) 1.to(currentIndentLevel).foreach(_ => this += "  ")
   }
 }
 
 object SQLBuilder {
   final type Setter = ((PreparedStatement, Int, Any) => Unit)
 
-  val EmptySetter: Setter = (_: PreparedStatement, _: Int, _: Any) => ()
-
   final case class Result(sql: String, setter: Setter)
-
-  private class CombinedSetter(children: Seq[Setter]) extends Setter {
-    def apply(p: PreparedStatement, idx: Int, param: Any): Unit = {
-      var i = idx
-      for(s <- children) {
-        s(p, i, param)
-        i += 1
-      }
-    }
-  }
-
-  trait Segment {
-    def appendTo(res: StringBuilder, setters: ArrayBuffer[Setter]): Unit
-  }
-
-  class StringSegment extends Segment {
-    val sb = new StringBuilder(32)
-    val setters = new ArrayBuffer[Setter]
-
-    def appendTo(res: StringBuilder, setters: ArrayBuffer[Setter]) {
-      res append sb
-      setters ++= this.setters
-    }
-  }
 }

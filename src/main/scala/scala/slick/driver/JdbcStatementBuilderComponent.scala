@@ -103,8 +103,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val pi = "3.1415926535897932384626433832795"
 
     // Mutable state accessible to subclasses
-    private val currentSqlIndent = GlobalConfig.sqlIndent
-    protected val b = new SQLBuilder(currentSqlIndent)
+    protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
     protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
     protected val joins = new HashMap[Symbol, Join]
@@ -146,7 +145,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       scanJoins(c.from)
       buildSelectClause(c)
       buildFromClause(c.from)
-      if(limit0) b"${sqlIndentPrefix}where 1=0"
+      if(limit0) b"\nwhere 1=0"
       else buildWhereClause(c.where)
       buildGroupByClause(c.groupBy)
       buildOrderByClause(c.orderBy)
@@ -182,36 +181,28 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
-    protected def sqlIndentPrefix: String = {
-      if (currentSqlIndent) {
-        b.newLine()
-        ""
-      }
-      else " "
-    }
-
     protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
-      if(from.isEmpty) scalarFrom.foreach { s => b"${sqlIndentPrefix}from $s" }
+      if(from.isEmpty) scalarFrom.foreach { s => b"\nfrom $s" }
       else {
-        b"${sqlIndentPrefix}from "
-        b.sep(from, f", ") { case (sym, n) => buildFrom(n, Some(sym)) }
+        b"\nfrom "
+        b.sep(from, ", ") { case (sym, n) => buildFrom(n, Some(sym)) }
       }
     }
 
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
-        b"${sqlIndentPrefix}where "
+        b"\nwhere "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
     }
 
     protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
-      groupBy.foreach { e => b"${sqlIndentPrefix}group by !$e" }
+      groupBy.foreach { e => b"\ngroup by !$e" }
     }
 
     protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
       if(!order.isEmpty) {
-        b"${sqlIndentPrefix}order by "
+        b"\norder by "
         b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
       }
     }
@@ -219,20 +210,18 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = building(OtherPart) {
       (fetch, offset) match {
         /* SQL:2008 syntax */
-        case (Some(t), Some(d)) => b"${sqlIndentPrefix}offset $d row fetch next $t row only"
-        case (Some(t), None) => b"${sqlIndentPrefix}fetch next $t row only"
-        case (None, Some(d)) => b"${sqlIndentPrefix}offset $d row"
+        case (Some(t), Some(d)) => b"\noffset $d row fetch next $t row only"
+        case (Some(t), None) => b"\nfetch next $t row only"
+        case (None, Some(d)) => b"\noffset $d row"
         case _ =>
       }
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
       case c: Comprehension =>
-        b"("
-        b.addIndentLevel().newLine()
+        b"\["
         buildComprehension(c)
-        b.removeIndentLevel().newLine()
-        b")"
+        b"\]"
       case n =>
         expr(n, true)
     }
@@ -245,28 +234,24 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
-          b"${sqlIndentPrefix}${jt.sqlName} join "
+          b"\n${jt.sqlName} join "
           buildFrom(right, Some(rightGen))
           on match {
             case LiteralNode(true) =>
-              if(!supportsEmptyJoinConditions) b"${sqlIndentPrefix}on 1=1"
-            case _ => b"${sqlIndentPrefix}on !$on"
+              if(!supportsEmptyJoinConditions) b"\non 1=1"
+            case _ => b"\non !$on"
           }
         case Union(left, right, all, _, _) =>
-          b"\("
-          b.addIndentLevel().newLine()
+          b"\{"
           buildFrom(left, None, true)
-          if(all) b"${sqlIndentPrefix}union all " else b"${sqlIndentPrefix}union "
+          if(all) b"\nunion all " else b"\nunion "
           buildFrom(right, None, true)
-          b.removeIndentLevel().newLine()
-          b"\)"
+          b"\}"
           addAlias
         case n =>
-          b"\("
-          b.addIndentLevel().newLine()
+          b"\{"
           buildComprehension(toComprehension(n, true))
-          b.removeIndentLevel().newLine()
-          b"\)"
+          b"\}"
           addAlias
       }
     }
@@ -302,11 +287,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         expr(IfThenElse(Vector(ch, LiteralNode(1), LiteralNode(0))), skipParens)
       case RewriteBooleans.ToRealBoolean(ch) =>
         expr(Library.==.typed[Boolean](ch, LiteralNode(true)), skipParens)
-      case Library.Exists(c: Comprehension) if(!supportsTuples) =>
+      case Library.Exists(c: Comprehension) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite
          * such sub-queries to "select *". */
-        b"exists(!${c.copy(select = None)})"
+        b"exists\[!${(if(supportsTuples) c else c.copy(select = None)): Node}\]"
       case Library.Concat(l, r) if concatOperator.isDefined =>
         b"\($l${concatOperator.get}$r\)"
       case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
@@ -384,11 +369,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b += symbolName(struct) += '.' += symbolName(field)
       case OptionApply(ch) => expr(ch, skipParens)
       case n => // try to build a sub-query
-        b"\("
-        b.addIndentLevel().newLine()
+        b"\{"
         buildComprehension(toComprehension(n))
-        b.removeIndentLevel().newLine()
-        b"\)"
+        b"\}"
     }
 
     protected def buildOrdering(n: Node, o: Ordering) {

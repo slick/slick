@@ -12,7 +12,7 @@ import javax.naming.InitialContext
 import scala.slick.action._
 import scala.slick.backend.{DatabasePublisher, DatabaseComponent, RelationalBackend}
 import scala.slick.SlickException
-import scala.slick.util.{SlickLogger, AsyncExecutor}
+import scala.slick.util.{LogUtil, GlobalConfig, SlickLogger, AsyncExecutor}
 import scala.slick.util.ConfigExtensionMethods._
 
 import org.slf4j.LoggerFactory
@@ -21,9 +21,6 @@ import com.typesafe.config.{ConfigFactory, Config}
 /** A JDBC-based database back-end which can be used for <em>Plain SQL</em> queries
   * and with all [[scala.slick.driver.JdbcProfile]]-based drivers. */
 trait JdbcBackend extends RelationalBackend {
-  protected[jdbc] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
-  protected[jdbc] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))
-
   type This = JdbcBackend
   type Database = DatabaseDef
   type Session = SessionDef
@@ -241,7 +238,7 @@ trait JdbcBackend extends RelationalBackend {
                                defaultType: ResultSetType = ResultSetType.ForwardOnly,
                                defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                                defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): PreparedStatement = {
-      statementLogger.debug("Preparing statement: "+sql)
+      JdbcBackend.logStatement("Preparing statement", sql)
       loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
           val rsType = resultSetType.withDefault(defaultType).intValue
@@ -258,12 +255,14 @@ trait JdbcBackend extends RelationalBackend {
     }
 
     final def prepareInsertStatement(sql: String, columnNames: Array[String] = new Array[String](0)): PreparedStatement = {
-      statementLogger.debug("Preparing insert statement: "+sql+", returning: "+columnNames.mkString(","))
+      if(JdbcBackend.statementLogger.isDebugEnabled)
+        JdbcBackend.logStatement("Preparing insert statement (returning: "+columnNames.mkString(",")+")", sql)
       loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnNames)))
     }
 
     final def prepareInsertStatement(sql: String, columnIndexes: Array[Int]): PreparedStatement = {
-      statementLogger.debug("Preparing insert statement: "+sql+", returning indexes: "+columnIndexes.mkString(","))
+      if(JdbcBackend.statementLogger.isDebugEnabled)
+        JdbcBackend.logStatement("Preparing insert statement (returning indexes: "+columnIndexes.mkString(",")+")", sql)
       loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnIndexes)))
     }
 
@@ -359,10 +358,10 @@ trait JdbcBackend extends RelationalBackend {
     }
 
     protected def loggingStatement(st: Statement): Statement =
-      if(statementLogger.isDebugEnabled || benchmarkLogger.isDebugEnabled) new LoggingStatement(st) else st
+      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled) new LoggingStatement(st) else st
 
     protected def loggingPreparedStatement(st: PreparedStatement): PreparedStatement =
-      if(statementLogger.isDebugEnabled || benchmarkLogger.isDebugEnabled) new LoggingPreparedStatement(st) else st
+      if(JdbcBackend.statementLogger.isDebugEnabled || JdbcBackend.benchmarkLogger.isDebugEnabled) new LoggingPreparedStatement(st) else st
 
     /** Start a `transactionally` block */
     private[slick] def startInTransaction: Unit
@@ -477,4 +476,12 @@ object JdbcBackend extends JdbcBackend {
   case class StatementParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
                                  rsHoldability: ResultSetHoldability, statementInit: Statement => Unit)
   val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null)
+
+  protected[jdbc] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
+  protected[jdbc] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))
+
+  protected[jdbc] def logStatement(msg: String, stmt: String) = if(statementLogger.isDebugEnabled) {
+    val s = if(GlobalConfig.sqlIndent) msg + ":\n" + LogUtil.multilineBorder(stmt) else msg + ": " + stmt
+    statementLogger.debug(s)
+  }
 }
