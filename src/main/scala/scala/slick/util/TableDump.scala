@@ -1,6 +1,7 @@
 package scala.slick.util
 
 import scala.collection.mutable.ArrayBuffer
+import LogUtil._
 
 /** Utility methods for creating result set debug output. */
 class TableDump(maxColumnWidth: Int = 20) {
@@ -19,25 +20,25 @@ class TableDump(maxColumnWidth: Int = 20) {
     val texts = headers.map(formatLine) ++ data.map(formatLine)
     val widths = 0.until(columns).map { idx => math.min(maxColumnWidth, texts.map(_.apply(idx).length).max) }
     val buf = new ArrayBuffer[String](data.length + 4)
-    buf += TreeDump.blue + widths.map(l => dashes.substring(0, l+2)).mkString(box(1), box(2), box(3)) + TreeDump.normal
+    buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(1), box(2), box(3)) + cNormal
     def pad(s: String, len: Int): String = {
       val slen = s.codePointCount(0, s.length)
       if(slen > maxColumnWidth) {
         if(slen == s.length) s.substring(0, maxColumnWidth-3) else limitCodepoints(s, maxColumnWidth-3)
-      } + TreeDump.cyan+"..."
+      } + cCyan+"..."
       else s + spaces.substring(0, len-slen)
     }
     for((line, lno) <- texts.zipWithIndex) {
       if(lno < headers.length) {
-        val color = if(lno % 2 == 0) TreeDump.yellow else TreeDump.green
-        buf += (line, widths).zipped.map((s, len) => color+" "+pad(s, len)+" ").mkString(TreeDump.blue+box(10), TreeDump.blue+box(10), TreeDump.blue+box(10)+TreeDump.normal)
+        val color = if(lno % 2 == 0) cYellow else cGreen
+        buf += (line, widths).zipped.map((s, len) => color+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
         if(lno == headers.length - 1)
-          buf += TreeDump.blue + widths.map(l => dashes.substring(0, l+2)).mkString(box(4), box(5), box(6)) + TreeDump.normal
+          buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(4), box(5), box(6)) + cNormal
       } else {
-        buf += (line, widths).zipped.map((s, len) => TreeDump.normal+" "+pad(s, len)+" ").mkString(TreeDump.blue+box(10), TreeDump.blue+box(10), TreeDump.blue+box(10)+TreeDump.normal)
+        buf += (line, widths).zipped.map((s, len) => cNormal+" "+pad(s, len)+" ").mkString(cBlue+box(10), cBlue+box(10), cBlue+box(10)+cNormal)
       }
     }
-    buf += TreeDump.blue + widths.map(l => dashes.substring(0, l+2)).mkString(box(7), box(8), box(9)) + TreeDump.normal
+    buf += cBlue + widths.map(l => dashes.substring(0, l+2)).mkString(box(7), box(8), box(9)) + cNormal
     buf
   }
 

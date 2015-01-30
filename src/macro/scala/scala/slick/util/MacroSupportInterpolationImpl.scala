@@ -25,26 +25,60 @@ object MacroSupportInterpolationImpl {
       val sb = new StringBuilder
       val len = str.length
       var pos = 0
+      def flushSB: Unit = if(!sb.isEmpty) {
+        exprs += append(Literal(Constant(sb.toString)))
+        sb.clear()
+      }
       while(pos < len) {
-        val c = str.charAt(pos)
-        if(c == '\\') {
-          pos += 1
-          if(pos < len) {
-            val c2 = str.charAt(pos)
-            if(c2 == '(' || c2 == ')') {
-              if(!sb.isEmpty) {
-                exprs += append(Literal(Constant(sb.toString)))
-                sb.clear()
+        str.charAt(pos) match {
+          case '\\' =>
+            pos += 1
+            if(pos < len) {
+              str.charAt(pos) match {
+                case c2 @ ('(' | ')') => // optional parentheses
+                  flushSB
+                  exprs += If(
+                    Select(skipParens, newTermName(NameTransformer.encode("unary_!"))),
+                    append(Literal(Constant(c2))),
+                    ctx.universe.EmptyTree
+                  )
+                case '{' => // optional open parentheses with indent
+                  flushSB
+                  exprs += If(
+                    Select(skipParens, newTermName(NameTransformer.encode("unary_!"))),
+                    Block(List(
+                      append(Literal(Constant('('))),
+                      Select(sqlBuilder, newTermName("newLineIndent"))
+                    ), Literal(Constant(()))),
+                    ctx.universe.EmptyTree
+                  )
+                case '}' => // optional close parentheses with dedent
+                  flushSB
+                  exprs += If(
+                    Select(skipParens, newTermName(NameTransformer.encode("unary_!"))),
+                    Block(List(
+                      Select(sqlBuilder, newTermName("newLineDedent")),
+                      append(Literal(Constant(')')))
+                    ), Literal(Constant(()))),
+                    ctx.universe.EmptyTree
+                  )
+                case '[' => // open parenthesis with indent
+                  sb append '('
+                  flushSB
+                  exprs += Select(sqlBuilder, newTermName("newLineIndent"))
+                case ']' => // close parenthesis with dedent
+                  flushSB
+                  exprs += Select(sqlBuilder, newTermName("newLineDedent"))
+                  sb append ')'
+                case 'n' =>
+                  flushSB
+                  exprs += Select(sqlBuilder, newTermName("newLineOrSpace"))
+                case c2 =>
+                  ctx.abort(ctx.enclosingPosition, "Invalid escaped character '"+c2+"' in literal \""+str+"\"")
               }
-              exprs += If(
-                Select(skipParens, newTermName(NameTransformer.encode("unary_!"))),
-                append(Literal(Constant(c2))),
-                ctx.universe.EmptyTree
-              )
-            } else sb append c
-            //else ctx.abort(ctx.enclosingPosition, "Invalid escaped character '"+c2+"' in literal \""+str+"\"")
-          }
-        } else sb append c
+            }
+          case c => sb append c
+        }
         pos += 1
       }
       if(!sb.isEmpty)

@@ -145,9 +145,9 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
-      case (Some(t), Some(d)) => b" limit $d,$t"
-      case (Some(t), None   ) => b" limit $t"
-      case (None,    Some(d)) => b" limit $d,-1"
+      case (Some(t), Some(d)) => b"\nlimit $d,$t"
+      case (Some(t), None   ) => b"\nlimit $t"
+      case (None,    Some(d)) => b"\nlimit $d,-1"
       case _ =>
     }
 

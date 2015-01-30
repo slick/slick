@@ -145,7 +145,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       scanJoins(c.from)
       buildSelectClause(c)
       buildFromClause(c.from)
-      if(limit0) b" where 1=0"
+      if(limit0) b"\nwhere 1=0"
       else buildWhereClause(c.where)
       buildGroupByClause(c.groupBy)
       buildOrderByClause(c.orderBy)
@@ -182,27 +182,27 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
-      if(from.isEmpty) scalarFrom.foreach { s => b" from $s" }
+      if(from.isEmpty) scalarFrom.foreach { s => b"\nfrom $s" }
       else {
-        b" from "
+        b"\nfrom "
         b.sep(from, ", ") { case (sym, n) => buildFrom(n, Some(sym)) }
       }
     }
 
     protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
       if(!where.isEmpty) {
-        b" where "
+        b"\nwhere "
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
     }
 
     protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
-      groupBy.foreach { e => b" group by !$e" }
+      groupBy.foreach { e => b"\ngroup by !$e" }
     }
 
     protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
       if(!order.isEmpty) {
-        b" order by "
+        b"\norder by "
         b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
       }
     }
@@ -210,18 +210,18 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = building(OtherPart) {
       (fetch, offset) match {
         /* SQL:2008 syntax */
-        case (Some(t), Some(d)) => b" offset $d row fetch next $t row only"
-        case (Some(t), None) => b" fetch next $t row only"
-        case (None, Some(d)) => b" offset $d row"
+        case (Some(t), Some(d)) => b"\noffset $d row fetch next $t row only"
+        case (Some(t), None) => b"\nfetch next $t row only"
+        case (None, Some(d)) => b"\noffset $d row"
         case _ =>
       }
     }
 
     protected def buildSelectPart(n: Node): Unit = n match {
       case c: Comprehension =>
-        b"("
+        b"\["
         buildComprehension(c)
-        b")"
+        b"\]"
       case n =>
         expr(n, true)
     }
@@ -234,24 +234,24 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           addAlias
         case j @ Join(leftGen, rightGen, left, right, jt, on) =>
           buildFrom(left, Some(leftGen))
-          b" ${jt.sqlName} join "
+          b"\n${jt.sqlName} join "
           buildFrom(right, Some(rightGen))
           on match {
             case LiteralNode(true) =>
-              if(!supportsEmptyJoinConditions) b" on 1=1"
-            case _ => b" on !$on"
+              if(!supportsEmptyJoinConditions) b"\non 1=1"
+            case _ => b"\non !$on"
           }
         case Union(left, right, all, _, _) =>
-          b"\("
+          b"\{"
           buildFrom(left, None, true)
-          if(all) b" union all " else b" union "
+          if(all) b"\nunion all " else b"\nunion "
           buildFrom(right, None, true)
-          b"\)"
+          b"\}"
           addAlias
         case n =>
-          b"\("
+          b"\{"
           buildComprehension(toComprehension(n, true))
-          b"\)"
+          b"\}"
           addAlias
       }
     }
@@ -287,11 +287,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         expr(IfThenElse(Vector(ch, LiteralNode(1), LiteralNode(0))), skipParens)
       case RewriteBooleans.ToRealBoolean(ch) =>
         expr(Library.==.typed[Boolean](ch, LiteralNode(true)), skipParens)
-      case Library.Exists(c: Comprehension) if(!supportsTuples) =>
+      case Library.Exists(c: Comprehension) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite
          * such sub-queries to "select *". */
-        b"exists(!${c.copy(select = None)})"
+        b"exists\[!${(if(supportsTuples) c else c.copy(select = None)): Node}\]"
       case Library.Concat(l, r) if concatOperator.isDefined =>
         b"\($l${concatOperator.get}$r\)"
       case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
@@ -369,9 +369,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b += symbolName(struct) += '.' += symbolName(field)
       case OptionApply(ch) => expr(ch, skipParens)
       case n => // try to build a sub-query
-        b"\("
+        b"\{"
         buildComprehension(toComprehension(n))
-        b"\)"
+        b"\}"
     }
 
     protected def buildOrdering(n: Node, o: Ordering) {

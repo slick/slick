@@ -20,6 +20,9 @@ object GlobalConfig {
   /** Use Unixode box characters in table dumps */
   val unicodeDump = config.getBoolean("slick.unicodeDump")
 
+  /** Use multi-line, indented formatting for SQL statements */
+  val sqlIndent = config.getBoolean("slick.sqlIndent")
+
   /** Get a `Config` object for a Slick driver */
   def driverConfig(name: String): Config = {
     val path = "slick.driver." + name

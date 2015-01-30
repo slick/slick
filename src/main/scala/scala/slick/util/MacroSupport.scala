@@ -16,7 +16,15 @@ class MacroSupportInterpolation(context: StringContext) {
    * <ul>
    *   <li>'(': if(!skipParens) sqlBuilder += '('</li>
    *   <li>')': if(!skipParens) sqlBuilder += ')'</li>
+   *   <li>'[': Add a '(' plus newline and increase indentation</li>
+   *   <li>'[': Decrease indentation and add a newline plus ')'</li>
+   *   <li>'{': Like '[' but only if(!skipParens)</li>
+   *   <li>'}': Like ']' but only if(!skipParens)</li>
+   *   <li>'n': Add a newline plus indentation</li>
    * </ul>
+   *
+   * If 'slick.sqlIndent' is not set in application.conf, no newlines are inserted and indentation
+   * is replaced by a single space character.
    *
    * Variables inside the string can be prefixed by another symbol before the
    * standard '$' escape character to modify their meaning:
