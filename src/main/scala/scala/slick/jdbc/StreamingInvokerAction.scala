@@ -3,7 +3,7 @@ package scala.slick.jdbc
 import scala.collection.mutable.Builder
 import scala.util.control.NonFatal
 
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.profile.{FixedSqlAction, FixedSqlStreamingAction}
 import scala.slick.util.{DumpInfo, CloseableIterator, ignoreFollowOnError}
 

@@ -3,7 +3,7 @@ package scala.slick.direct
 import language.existentials
 import scala.slick.SlickException
 import scala.language.implicitConversions
-import scala.slick.action.{Streaming, Effect, EffectfulAction, NoStream, ActionContext}
+import scala.slick.dbio.{Streaming, Effect, NoStream, ActionContext}
 import scala.slick.driver._
 import scala.slick.profile.{SqlProfile, SqlStreamingAction, SqlAction}
 import scala.slick.relational.CompiledMapping

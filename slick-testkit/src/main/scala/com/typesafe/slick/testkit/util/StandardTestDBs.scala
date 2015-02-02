@@ -4,7 +4,7 @@ import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
 import scala.concurrent.ExecutionContext
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.driver._
 import scala.slick.memory.MemoryDriver
 import scala.slick.jdbc.{StaticQuery => Q, ResultSetAction, ResultSetInvoker}
@@ -85,7 +85,7 @@ object StandardTestDBs {
 
   lazy val Postgres = new ExternalJdbcTestDB("postgres") {
     val driver = PostgresDriver
-    override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
       ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
         ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
       }
@@ -142,7 +142,7 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
   val driver = SQLiteDriver
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
-  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     super.localTables.map(_.filter(s => !s.toLowerCase.contains("sqlite_")))
   override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
     for(t <- getLocalTables)
@@ -171,7 +171,7 @@ class AccessDB(confName: String) extends ExternalJdbcTestDB(confName) {
   }
   /* Works in some situations but fails with "Optional feature not implemented" in others */
   override def canGetLocalTables = false
-  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     MTable.getTables.map(_.map(_.name.name).sorted)
   override def capabilities = super.capabilities - TestDB.capabilities.jdbcMeta
 }
@@ -180,7 +180,7 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
   val driver = DerbyDriver
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
-  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "APP", null, null)).map { ts =>
       ts.map(_._3).sorted
     }
@@ -215,7 +215,7 @@ object DerbyDB {
 abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
   val driver = HsqldbDriver
   val jdbcDriver = "org.hsqldb.jdbcDriver"
-  override def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null)).map { ts =>
       ts.map(_._3).sorted
     }

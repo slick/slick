@@ -6,13 +6,13 @@ Upgrade guides
 Upgrade from 2.1 to 3.0
 =======================
 
-Actions
--------
+Database I/O Actions
+--------------------
 
 The ``simple`` and ``Implicits`` imports from drivers are deprecated. You should use ``api`` instead, which will give
 you the same features, except for the old ``Invoker`` and ``Executor`` APIs for blocking execution of database calls.
-These have been replaced by a new monadic database actions API. See :doc:`Databases & Actions <database>` for details
-of the new API.
+These have been replaced by a new monadic database I/O actions API. See :doc:`Databases & I/O Actions <database>` for
+details of the new API.
 
 Join Operators
 --------------

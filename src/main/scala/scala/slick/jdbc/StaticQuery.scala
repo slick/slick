@@ -5,7 +5,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import java.sql.PreparedStatement
 
-import scala.slick.action.Effect
+import scala.slick.dbio.Effect
 import scala.slick.profile.SqlStreamingAction
 
 

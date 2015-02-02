@@ -8,7 +8,7 @@ import java.util.zip.GZIPInputStream
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
-import scala.slick.action.{NoStream, EffectfulAction, Action}
+import scala.slick.dbio.{NoStream, DBIOAction, DBIO}
 import scala.slick.jdbc.{StaticQuery => Q, ResultSetAction, JdbcDataSource, SimpleJdbcAction, ResultSetInvoker}
 import scala.slick.jdbc.GetResult._
 import scala.slick.driver._
@@ -149,7 +149,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
   final def getLocalTables(implicit session: profile.Backend#Session) =
     blockingRunOnSession(ec => localTables(ec))
   def canGetLocalTables = true
-  def localTables(implicit ec: ExecutionContext): Action[Vector[String]] =
+  def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null)).map { ts =>
       ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
     }
@@ -187,7 +187,7 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
       def close(): Unit = ()
     }, executor)
   }
-  final def blockingRunOnSession[R](f: ExecutionContext => EffectfulAction[Nothing, R, NoStream])(implicit session: profile.Backend#Session): R = {
+  final def blockingRunOnSession[R](f: ExecutionContext => DBIOAction[R, NoStream, Nothing])(implicit session: profile.Backend#Session): R = {
     val ec = new ExecutionContext {
       def execute(runnable: Runnable): Unit = runnable.run()
       def reportFailure(t: Throwable): Unit = throw t

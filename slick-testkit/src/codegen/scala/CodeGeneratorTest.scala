@@ -3,7 +3,7 @@ package scala.slick.test.codegen
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.slick.action.Action
+import scala.slick.dbio.DBIO
 import scala.slick.codegen.SourceCodeGenerator
 import scala.slick.driver._
 import scala.slick.jdbc.JdbcBackend
@@ -157,12 +157,12 @@ lazy val database = Database.forURL(url=""\"$url""\",driver="$jdbcDriver",user="
     slickDriverObject: JdbcDriver,
     slickDriver: String,
     jdbcDriver: String,
-    generator: Config => Action[SourceCodeGenerator]
+    generator: Config => DBIO[SourceCodeGenerator]
   )
   class H2Config(
     objectName: String,
     inits: Seq[String],
-    generator: Config => Action[SourceCodeGenerator]
+    generator: Config => DBIO[SourceCodeGenerator]
       = config => H2Driver.createModel(ignoreInvalidDefaults=false).map(m => new MySourceCodeGenerator(m, config))
   ) extends Config(
     objectName,

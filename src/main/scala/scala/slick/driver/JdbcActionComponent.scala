@@ -10,7 +10,7 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 import scala.slick.SlickException
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast._
 import scala.slick.ast.Util._
 import scala.slick.ast.TypeUtil.:@
@@ -75,26 +75,26 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def getDumpInfo = DumpInfo(name = "SetTransactionIsolation")
   }
 
-  class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: EffectfulAction[E, R, S]) {
+  class JdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: DBIOAction[R, S, E]) {
 
     /** Run this Action transactionally. This does not guarantee failures to be atomic in the
       * presence of error handling combinators. If multiple `transactionally` combinators are
       * nested, only the outermost one will be backed by an actual database transaction. Depending
       * on the outcome of running the Action it surrounds, the transaction is committed if the
       * wrapped Action succeeds, or rolled back if the wrapped Action fails. When called on a
-      * [[scala.slick.action.SynchronousDatabaseAction]], this combinator gets fused into the
+      * [[scala.slick.dbio.SynchronousDatabaseAction]], this combinator gets fused into the
       * action. */
-    def transactionally: EffectfulAction[E with Effect.Transactional, R, S] = SynchronousDatabaseAction.fuseUnsafe(
-      StartTransaction.andThen(a).cleanUp(eo => if(eo.isEmpty) Commit else Rollback)(Action.sameThreadExecutionContext)
-        .asInstanceOf[EffectfulAction[E with Effect.Transactional, R, S]]
+    def transactionally: DBIOAction[R, S, E with Effect.Transactional] = SynchronousDatabaseAction.fuseUnsafe(
+      StartTransaction.andThen(a).cleanUp(eo => if(eo.isEmpty) Commit else Rollback)(DBIO.sameThreadExecutionContext)
+        .asInstanceOf[DBIOAction[R, S, E with Effect.Transactional]]
     )
 
     /** Run this Action with the specified transaction isolation level. This should be used around
       * the outermost `transactionally` Action. The semantics of using it inside a transaction are
       * database-dependent. It does not create a transaction by itself but it pins the session. */
-    def withTransactionIsolation(ti: TransactionIsolation): EffectfulAction[E, R, S] = {
+    def withTransactionIsolation(ti: TransactionIsolation): DBIOAction[R, S, E] = {
       val isolated =
-        (new SetTransactionIsolation(ti.intValue)).flatMap(old => a.andFinally(new SetTransactionIsolation(old)))(Action.sameThreadExecutionContext)
+        (new SetTransactionIsolation(ti.intValue)).flatMap(old => a.andFinally(new SetTransactionIsolation(old)))(DBIO.sameThreadExecutionContext)
       val fused =
         if(a.isInstanceOf[SynchronousDatabaseAction[_, _, _, _]]) SynchronousDatabaseAction.fuseUnsafe(isolated)
         else isolated
@@ -115,7 +115,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def withStatementParameters(rsType: ResultSetType = null,
                                 rsConcurrency: ResultSetConcurrency = null,
                                 rsHoldability: ResultSetHoldability = null,
-                                statementInit: Statement => Unit = null): EffectfulAction[E, R, S] =
+                                statementInit: Statement => Unit = null): DBIOAction[R, S, E] =
       (new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit))).
         andThen(a).andFinally(PopStatementParameters)
   }

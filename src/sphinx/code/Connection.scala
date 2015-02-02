@@ -101,6 +101,6 @@ object Connection extends App {
   } finally db.close
 
   //#simpleaction
-  val getAutoCommit = SimpleAction[Boolean](_.session.conn.getAutoCommit)
+  val getAutoCommit = SimpleDBIO[Boolean](_.connection.getAutoCommit)
   //#simpleaction
 }

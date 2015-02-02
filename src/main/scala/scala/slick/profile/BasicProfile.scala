@@ -4,7 +4,7 @@ import scala.language.{higherKinds, implicitConversions, existentials}
 import scala.slick.SlickException
 import scala.slick.compiler.QueryCompiler
 import scala.slick.backend.DatabaseComponent
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast._
 import scala.slick.lifted._
 import com.typesafe.config.{ConfigFactory, Config}
@@ -239,7 +239,7 @@ trait BasicActionComponent { driver: BasicDriver =>
   }
 }
 
-trait BasicAction[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[E, R, S] {
+trait BasicAction[-E <: Effect, +R, +S <: NoStream] extends DatabaseAction[R, S, E] {
   type ResultAction[-E <: Effect, +R, +S <: NoStream] <: BasicAction[E, R, S]
 }
 

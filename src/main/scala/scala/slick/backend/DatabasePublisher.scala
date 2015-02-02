@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.reactivestreams._
 
 import scala.concurrent.{Promise, Future, ExecutionContext}
-import scala.slick.action.Action
+import scala.slick.dbio.DBIO
 import scala.util.{Failure, Success}
 
 /** A Reactive Streams `Publisher` for database Actions. */
@@ -38,12 +38,12 @@ abstract class DatabasePublisher[T] extends Publisher[T] { self =>
         if(l ne null) l.onComplete {
           case Success(_) => p.trySuccess(())
           case Failure(t) => p.tryFailure(t)
-        }(Action.sameThreadExecutionContext)
+        }(DBIO.sameThreadExecutionContext)
         else p.trySuccess(())
       }
       def onError(t: Throwable): Unit = {
         val l = lastMsg
-        if(l ne null) l.onComplete(_ => p.tryFailure(t))(Action.sameThreadExecutionContext)
+        if(l ne null) l.onComplete(_ => p.tryFailure(t))(DBIO.sameThreadExecutionContext)
         else p.tryFailure(t)
       }
       def onNext(t: T): Unit = {

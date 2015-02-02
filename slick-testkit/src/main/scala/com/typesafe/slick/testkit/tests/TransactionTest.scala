@@ -14,7 +14,7 @@ class TransactionTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    val getTI = SimpleAction(_.session.conn.getTransactionIsolation)
+    val getTI = SimpleDBIO(_.connection.getTransactionIsolation)
 
     class ExpectedException extends RuntimeException
 

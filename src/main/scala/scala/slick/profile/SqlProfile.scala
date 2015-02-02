@@ -1,7 +1,7 @@
 package scala.slick.profile
 
 import scala.language.higherKinds
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast.{TableNode, Symbol, SymbolNamer, Node, ColumnOption}
 import scala.slick.lifted.AbstractTable
 import scala.slick.util.DumpInfo

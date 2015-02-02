@@ -3,7 +3,7 @@ package scala.slick.driver
 import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
 import scala.slick.lifted._
-import scala.slick.action._
+import scala.slick.dbio._
 import scala.slick.ast._
 import scala.slick.ast.TypeUtil._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
@@ -93,7 +93,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): Action[Seq[MTable]] =
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.rewriteBooleans + Phase.specializeParameters
