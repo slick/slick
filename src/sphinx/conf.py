@@ -259,7 +259,6 @@ extlinks = {
 apilinks = {
   'api': 'api/index.html#%s',
   'codegenapi': 'codegen-api/index.html#%s',
-  'blockingapi': 'blocking-api/index.html#%s',
   'directapi': 'direct-api/index.html#%s',
   'scalaapi': 'http://www.scala-lang.org/api/'+scala_version+'/#%s'
 }

@@ -8,7 +8,6 @@ import scala.slick.SlickException
 import scala.reflect.runtime.{universe => ru}
 import scala.reflect.ClassTag
 import ru.TypeTag
-import scala.slick.blocking.Blocking
 
 
 object ImplicitQueryable extends BaseQueryableFactory{
@@ -34,11 +33,7 @@ object ImplicitQueryableMacros{
     val utils = new ImplicitQueryableUtils[c.type](c)
     import utils._
     c.universe.reify{
-      Blocking.run(database.splice,
-        backend.splice.result( new QueryableValue(
-          select[Int](queryable, name).splice
-        ))
-      )
+      ImplicitQueryableMacros._run(backend.splice, database.splice, new QueryableValue(select[Int](queryable, name).splice))
     }
   }
   private def _helper[C <: Context,S:c.WeakTypeTag,T]( c:C )( name:String, projection:c.Expr[_] ) : c.Expr[ImplicitQueryable[S]] = {
@@ -50,6 +45,8 @@ object ImplicitQueryableMacros{
       , backend.splice, database.splice )
     }
   }
+  def _run[T](backend: SlickBackend, db: SlickBackend#Database, qv: QueryableValue[T]): T =
+    Blocking.run(db, backend.result(qv))
   def flatMap[T,S:c.WeakTypeTag]
     (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => ImplicitQueryable[S]]): c.Expr[ImplicitQueryable[S]] = _helper[c.type,S,T]( c )( "flatMap", projection )

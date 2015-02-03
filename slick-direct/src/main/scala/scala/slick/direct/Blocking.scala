@@ -1,16 +1,18 @@
-package scala.slick.blocking
+package scala.slick.direct
 
+import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 
 import scala.slick.dbio._
 import scala.slick.backend.DatabaseComponent
+import scala.slick.jdbc.JdbcBackend
 import scala.slick.util.{CloseableIterator, ignoreFollowOnError}
 
 import org.reactivestreams.{Subscription, Subscriber}
 
 /** Some utility methods for working with database results in a synchronous or blocking way that
   * can be detrimental to performance when used incorrectly. */
-object Blocking {
+private[direct] object Blocking {
   /** Run an Action and block the current thread until the result is ready. If the Database uses
     * synchronous, blocking excution, it is performed on the current thread in order to avoid any
     * context switching, otherwise execution happens asynchronously. */

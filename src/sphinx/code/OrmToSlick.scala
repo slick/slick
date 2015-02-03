@@ -3,7 +3,6 @@ package com.typesafe.slick.docs
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.slick.driver.H2Driver.api._
-import scala.slick.blocking.Blocking
 
 object OrmToSlick extends App {
   import SqlToSlick.Tables._
@@ -53,7 +52,7 @@ object OrmToSlick extends App {
       sql"ALTER TABLE PERSON ALTER COLUMN ADDRESS_ID INT DEFAULT(1)".as[Int],
       SqlToSlick.inserts
     )
-    Blocking.run(db, setup)
+    Await.result(db.run(setup), Duration.Inf)
 
     ;{
       //#ormObjectNavigation
