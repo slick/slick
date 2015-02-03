@@ -20,6 +20,7 @@ import scala.slick.direct.AnnotationMapper._
   )
 //#schema
 
+@deprecated("Testing the deprecated Direct Embedding API", "3.0")
 object DirectEmbedding extends App {
     //#result
   val db = Database.forConfig("h2mem1")

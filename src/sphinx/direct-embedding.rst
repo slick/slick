@@ -1,12 +1,12 @@
 .. index:: direct
 
-Direct Embedding (Experimental Feature)
-=======================================
+Direct Embedding (Experimental, Deprecated)
+===========================================
 
-The direct embedding is a new, still incomplete, experimental Query API under development.
-It may change without deprecation period in any release during its experimental status.
-There is no plan to replace the stable :ref:`Lifted Embedding <lifted-embedding>` Query API,
-which you can safely bet on for production use. The direct embedding co-exists.
+The direct embedding is an experimental Query API that was added in Slick 1.0. It is deprecated
+in 3.0 and will be removed. You should only use the stable :ref:`Lifted Embedding <lifted-embedding>`
+Query API for any kind of production use.
+
 Unlike the lifted embedding, the direct embedding uses macros instead of operator overloading and implicit conversions for its implementation.
 For a user the difference in the code is small, but queries using the direct embedding work with ordinary Scala types,
 which can make error messages easier to understand. 

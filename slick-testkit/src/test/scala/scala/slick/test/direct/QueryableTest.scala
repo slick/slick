@@ -43,6 +43,7 @@ object Singleton{
   }
 }
 
+@deprecated("Testing the deprecated Direct Embedding API", "3.0")
 class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
 
   object backend extends SlickBackend(tdb.driver,AnnotationMapper)
