@@ -63,7 +63,8 @@ class RelationalScalarFunctionTest extends AsyncTest[RelationalTestDB] {
       ifCap(rcap.indexOf)(seq(
         check(LiteralColumn(s).indexOf("o"), s.indexOf("o")),
         check(LiteralColumn(s).indexOf("7"), s.indexOf("7"))
-      ))
+      )),
+      ifCap(rcap.repeat)(check(LiteralColumn(s) * 2, s * 2))
     )
   }
 }

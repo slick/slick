@@ -102,6 +102,8 @@ object RelationalProfile {
     val functionUser = Capability("relational.functionUser")
     /** Supports indexOf method on string columns */
     val indexOf = Capability("relational.indexOf")
+    /** Supports repeat method on string columns */
+    val repeat = Capability("relational.repeat") 
     /** Supports full outer joins */
     val joinFull = Capability("relational.joinFull")
     /** Supports left outer joins */
@@ -140,7 +142,7 @@ object RelationalProfile {
     val all = Set(other, columnDefaults, foreignKeyActions, functionDatabase,
       functionUser, joinFull, joinLeft, joinRight, likeEscape, pagingDrop, pagingNested,
       pagingPreciseTake, setByteArrayNull, typeBigDecimal, typeBlob, typeLong,
-      zip, replace, reverse, indexOf)
+      zip, replace, reverse, indexOf, repeat)
   }
 
   /** Extra column options for RelationalProfile */
