@@ -148,6 +148,8 @@ final class StringColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal with
     om.column(Library.Replace, n, target.toNode, replacement.toNode)
   def indexOf[P2, R](str: Rep[P2])(implicit om: o#arg[String, P2]#to[Int, R]) =
     om.column(Library.IndexOf, n, str.toNode)
+  def *[P1, R](i: Rep[P1])(implicit om: o#arg[Int, P1]#to[String, R]) =
+    om.column(Library.Repeat, n, i.toNode)
 }
 
 /** Extension methods for all columns and all primitive values that can be lifted to columns */
