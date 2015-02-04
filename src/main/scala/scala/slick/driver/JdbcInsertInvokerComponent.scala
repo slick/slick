@@ -168,10 +168,10 @@ trait JdbcInsertInvokerComponent extends BasicInsertInvokerComponent{ driver: Jd
     def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String = insertStatementFor(Query(c)(shape))
 
     protected def buildSubquery[TT, C[_]](query: Query[TT, U, C]): SQLBuilder.Result =
-      compiled.standardInsert.ibr.buildInsert(queryCompiler.run(query.toNode).tree)
+      compiled.forceInsert.ibr.buildInsert(queryCompiler.run(query.toNode).tree)
 
     protected def buildSubquery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): SQLBuilder.Result =
-      compiled.standardInsert.ibr.buildInsert(compiledQuery.compiledQuery)
+      compiled.forceInsert.ibr.buildInsert(compiledQuery.compiledQuery)
 
     protected def preparedInsert[T](sql: String)(f: PreparedStatement => T)(implicit session: Backend#Session) =
       session.withPreparedStatement(sql)(f)

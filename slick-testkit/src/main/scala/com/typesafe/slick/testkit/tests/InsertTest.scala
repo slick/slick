@@ -19,9 +19,9 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val dst3 = TableQuery(new TestTable(_, "dst3_q"))
 
     val q2 = for(s <- src1 if s.id <= 2) yield s
-    println("Insert 2: "+dst2.insertStatementFor(q2))
+    println("Insert 2: "+dst2.forceInsertStatementFor(q2))
     val q3 = (42, "X".bind)
-    println("Insert 3: "+dst2.insertStatementFor(q3))
+    println("Insert 3: "+dst2.forceInsertStatementFor(q3))
     val q4comp = Compiled { dst2.filter(_.id < 10) }
     val dst3comp = Compiled { dst3 }
 
@@ -29,13 +29,13 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       (src1.schema ++ dst1.schema ++ dst2.schema ++ dst3.schema).create,
       src1 += (1, "A"),
       src1.map(_.ins) ++= Seq((2, "B"), (3, "C")),
-      dst1.insert(src1),
+      dst1.forceInsertQuery(src1),
       dst1.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"), (3,"C"))),
-      dst2.insert(q2),
+      dst2.forceInsertQuery(q2),
       dst2.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"))),
-      dst2.insertExpr(q3),
+      dst2.forceInsertExpr(q3),
       dst2.to[Set].result.map(_ shouldBe Set((1,"A"), (2,"B"), (42,"X"))),
-      dst3comp.insert(q4comp),
+      dst3comp.forceInsertQuery(q4comp),
       dst3comp.result.map(v => v.to[Set] shouldBe Set((1,"A"), (2,"B")))
     ))
   }
@@ -71,16 +71,17 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testForced = {
-    class T(tag: Tag) extends Table[(Int, String)](tag, "t_forced") {
+    class T(tname: String)(tag: Tag) extends Table[(Int, String)](tag, tname) {
       def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
       def name = column[String]("name")
       def * = (id, name)
       def ins = (id, name)
     }
-    val ts = TableQuery[T]
+    val ts = TableQuery(new T("t_forced")(_))
+    val src = TableQuery(new T("src_forced")(_))
 
     seq(
-      ts.schema.create,
+      (ts.schema ++ src.schema).create,
       ts += (101, "A"),
       ts.map(_.ins) ++= Seq((102, "B"), (103, "C")),
       ts.filter(_.id > 100).length.result.map(_ shouldBe 0),
@@ -89,7 +90,10 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
         ts.map(_.ins).forceInsertAll(Seq((105, "B"), (106, "C"))),
         ts.filter(_.id > 100).length.result.map(_ shouldBe 3),
         ts.map(_.ins).forceInsertAll(Seq((111, "D"))),
-        ts.filter(_.id > 100).length.result.map(_ shouldBe 4)
+        ts.filter(_.id > 100).length.result.map(_ shouldBe 4),
+        src.forceInsert(90, "X"),
+        ts.forceInsertQuery(src).map(_ shouldBe 1),
+        ts.filter(_.id.between(90, 99)).map(_.name).result.map(_ shouldBe Seq("X"))
       ))
     )
   }

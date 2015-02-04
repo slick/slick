@@ -382,22 +382,22 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     type QueryInsertResult
 
     /** Get the SQL statement for inserting a single row from a scalar expression */
-    def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String
+    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): String
 
     /** Get the SQL statement for inserting data produced by another query */
-    def insertStatementFor[TT, C[_]](query: Query[TT, U, C]): String
+    def forceInsertStatementFor[TT, C[_]](query: Query[TT, U, C]): String
 
     /** Get the SQL statement for inserting data produced by another query */
-    def insertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String
+    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String
 
     /** Insert a single row from a scalar expression */
-    def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
+    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
 
     /** Insert data produced by another query */
-    def insert[TT, C[_]](query: Query[TT, U, C]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
+    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
 
     /** Insert data produced by another query */
-    def insert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
+    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
   }
 
   /** An InsertInvoker that returns the number of affected rows. */
@@ -457,12 +457,12 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def ++= (values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult, NoStream] = wrapAction("++=", inv.insertStatement, inv.++=(values)(_))
     def forceInsertAll(values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult, NoStream] = wrapAction("forceInsertAll", inv.forceInsertStatement, inv.forceInsertAll(values.toSeq: _*)(_))
     def insertOrUpdate(value: U): DriverAction[Effect.Write, SingleInsertOrUpdateResult, NoStream] = wrapAction("insertOrUpdate", inv.insertOrUpdateStatement(value), inv.insertOrUpdate(value)(_))
-    def insertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) = fullInv.insertStatementFor(c)
-    def insertStatementFor[TT, C[_]](query: Query[TT, U, C]) = fullInv.insertStatementFor(query)
-    def insertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) = fullInv.insertStatementFor(compiledQuery)
-    def insertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("insertExpr", fullInv.insertExprStatement(c), fullInv.insertExpr(c)(shape, _))
-    def insert[TT, C[_]](query: Query[TT, U, C]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("insert(query)", fullInv.insertStatement(query), fullInv.insert(query)(_))
-    def insert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("insert(compiledQuery)", fullInv.insertStatement(compiledQuery), fullInv.insert(compiledQuery)(_))
+    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) = fullInv.insertStatementFor(c)
+    def forceInsertStatementFor[TT, C[_]](query: Query[TT, U, C]) = fullInv.insertStatementFor(query)
+    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) = fullInv.insertStatementFor(compiledQuery)
+    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("forceInsertExpr", fullInv.insertExprStatement(c), fullInv.insertExpr(c)(shape, _))
+    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("insert(query)", fullInv.insertStatement(query), fullInv.insert(query)(_))
+    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("insert(compiledQuery)", fullInv.insertStatement(compiledQuery), fullInv.insert(compiledQuery)(_))
   }
 
   protected class CountingInsertActionComposerImpl[U](inv: CountingInsertInvokerDef[U]) extends InsertActionComposerImpl[U](inv) with CountingInsertActionComposer[U] {
