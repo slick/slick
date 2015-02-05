@@ -66,12 +66,18 @@ trait PostgresDriver extends JdbcDriver { driver =>
           case (IntPattern(v),"Int") => Some(Some(v.toInt))
           case (IntPattern(v),"Long") => Some(Some(v.toLong))
           case ("NULL::character varying","String") => Some(None)
+          case (v,"java.util.UUID")  => Some(Some(java.util.UUID.fromString(v.replaceAll("[\'\"]", "")))) //strip quotes
         }.getOrElse{
           val d = super.default
           if(meta.nullable == Some(true) && d == None){
             Some(None)
           } else d
         }
+        override def tpe = dbType match {
+          case Some("UUID") => "java.util.UUID"
+          case _ => super.tpe
+        }
+
       }
       override def Index = new Index(_){
         // FIXME: this needs a test
