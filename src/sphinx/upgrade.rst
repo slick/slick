@@ -68,6 +68,13 @@ of Invokers. The code generator, which uses this API, has been completely rewrit
 supports the same functionality and the same concepts but any customization of the code generator will have to be
 changed. See the code generator tests and the :doc:`code-generation` chapter for examples.
 
+Inserting from Queries and Expressions
+--------------------------------------
+
+In Slick 2.0, soft inserts became the default for inserting raw values. Inserting from another query or a computed
+expression still uses force-insert semantics. The new DBIO API properly reflects this by renaming ``insert(Query)``
+to ``forceInsertQuery(Query)`` and ``insertExpr`` to ``forceInsertExpr``.
+
 Upgrade from 2.0 to 2.1
 =======================
 

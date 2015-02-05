@@ -333,8 +333,8 @@ object LiftedEmbedding extends App {
 
       val actions = Action.seq(
         users2.schema.create,
-        users2 insert (users.map { u => (u.id, u.first ++ " " ++ u.last) }),
-        users2 insertExpr (users.length + 1, "admin")
+        users2 forceInsertQuery (users.map { u => (u.id, u.first ++ " " ++ u.last) }),
+        users2 forceInsertExpr (users.length + 1, "admin")
       )
       //#insert4
       Blocking.run(db, actions)
