@@ -111,12 +111,14 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       *                      directly after creating it. This can be used to set additional
       *                      statement parameters (e.g. `setQueryTimeout`). When multuple
       *                      `withStatementParameters` Actions are nested, all init functions
-      *                      are run, starting with the outermost one. */
+      *                      are run, starting with the outermost one.
+      * @param fetchSize The fetch size for all statements or 0 for the default. */
     def withStatementParameters(rsType: ResultSetType = null,
                                 rsConcurrency: ResultSetConcurrency = null,
                                 rsHoldability: ResultSetHoldability = null,
-                                statementInit: Statement => Unit = null): DBIOAction[R, S, E] =
-      (new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit))).
+                                statementInit: Statement => Unit = null,
+                                fetchSize: Int = 0): DBIOAction[R, S, E] =
+      (new PushStatementParameters(JdbcBackend.StatementParameters(rsType, rsConcurrency, rsHoldability, statementInit, fetchSize))).
         andThen(a).andFinally(PopStatementParameters)
   }
 

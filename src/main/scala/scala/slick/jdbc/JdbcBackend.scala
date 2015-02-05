@@ -231,15 +231,15 @@ trait JdbcBackend extends RelationalBackend {
     def resultSetType: ResultSetType = ResultSetType.Auto
     def resultSetConcurrency: ResultSetConcurrency = ResultSetConcurrency.Auto
     def resultSetHoldability: ResultSetHoldability = ResultSetHoldability.Auto
-
     def decorateStatement[S <: Statement](statement: S): S = statement
+    def fetchSize: Int = 0
 
     final def prepareStatement(sql: String,
                                defaultType: ResultSetType = ResultSetType.ForwardOnly,
                                defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                                defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): PreparedStatement = {
       JdbcBackend.logStatement("Preparing statement", sql)
-      loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
+      val s = loggingPreparedStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
           val rsType = resultSetType.withDefault(defaultType).intValue
           val rsConc = resultSetConcurrency.withDefault(defaultConcurrency).intValue
@@ -252,24 +252,30 @@ trait JdbcBackend extends RelationalBackend {
             resultSetConcurrency.withDefault(defaultConcurrency).intValue,
             h.intValue)
       }))
+      if(fetchSize != 0) s.setFetchSize(fetchSize)
+      s
     }
 
     final def prepareInsertStatement(sql: String, columnNames: Array[String] = new Array[String](0)): PreparedStatement = {
       if(JdbcBackend.statementLogger.isDebugEnabled)
         JdbcBackend.logStatement("Preparing insert statement (returning: "+columnNames.mkString(",")+")", sql)
-      loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnNames)))
+      val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnNames)))
+      if(fetchSize != 0) s.setFetchSize(fetchSize)
+      s
     }
 
     final def prepareInsertStatement(sql: String, columnIndexes: Array[Int]): PreparedStatement = {
       if(JdbcBackend.statementLogger.isDebugEnabled)
         JdbcBackend.logStatement("Preparing insert statement (returning indexes: "+columnIndexes.mkString(",")+")", sql)
-      loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnIndexes)))
+      val s = loggingPreparedStatement(decorateStatement(conn.prepareStatement(sql, columnIndexes)))
+      if(fetchSize != 0) s.setFetchSize(fetchSize)
+      s
     }
 
     final def createStatement(defaultType: ResultSetType = ResultSetType.ForwardOnly,
                               defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
                               defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default): Statement = {
-      loggingStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
+      val s = loggingStatement(decorateStatement(resultSetHoldability.withDefault(defaultHoldability) match {
         case ResultSetHoldability.Default =>
           conn.createStatement(resultSetType.withDefault(defaultType).intValue,
             resultSetConcurrency.withDefault(defaultConcurrency).intValue)
@@ -278,6 +284,8 @@ trait JdbcBackend extends RelationalBackend {
             resultSetConcurrency.withDefault(defaultConcurrency).intValue,
             h.intValue)
       }))
+      if(fetchSize != 0) s.setFetchSize(fetchSize)
+      s
     }
 
     /** A wrapper around the JDBC Connection's prepareStatement method, that automatically closes the statement. */
@@ -335,13 +343,14 @@ trait JdbcBackend extends RelationalBackend {
     @deprecated("Use the new Action-based API instead", "3.0")
     final def forParameters(rsType: ResultSetType = resultSetType, rsConcurrency: ResultSetConcurrency = resultSetConcurrency,
                       rsHoldability: ResultSetHoldability = resultSetHoldability): Session =
-      internalForParameters(rsType, rsConcurrency, rsHoldability, null)
+      internalForParameters(rsType, rsConcurrency, rsHoldability, null, 0)
 
     private[slick] final def internalForParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
-                      rsHoldability: ResultSetHoldability, statementInit: Statement => Unit): Session = new Session {
+                      rsHoldability: ResultSetHoldability, statementInit: Statement => Unit, _fetchSize: Int): Session = new Session {
       override def resultSetType = rsType
       override def resultSetConcurrency = rsConcurrency
       override def resultSetHoldability = rsHoldability
+      override def fetchSize = _fetchSize
       override def decorateStatement[S <: Statement](statement: S): S = {
         if(statementInit ne null) statementInit(statement)
         statement
@@ -447,7 +456,8 @@ trait JdbcBackend extends RelationalBackend {
           if(p.rsHoldability eq null) curr.rsHoldability else p.rsHoldability,
           if(p.statementInit eq null) curr.statementInit
           else if(curr.statementInit eq null) p.statementInit
-          else { s => curr.statementInit(s); p.statementInit(s) }
+          else { s => curr.statementInit(s); p.statementInit(s) },
+          p.fetchSize
         )
       } else p
       statementParameters = p2 :: (if(statementParameters eq null) Nil else statementParameters)
@@ -465,7 +475,7 @@ trait JdbcBackend extends RelationalBackend {
       if(statementParameters eq null) super.session
       else {
         val p = statementParameters.head
-        super.session.internalForParameters(p.rsType, p.rsConcurrency, p.rsHoldability, p.statementInit)
+        super.session.internalForParameters(p.rsType, p.rsConcurrency, p.rsHoldability, p.statementInit, p.fetchSize)
       }
 
     /** The current JDBC Connection */
@@ -477,8 +487,8 @@ trait JdbcBackend extends RelationalBackend {
 
 object JdbcBackend extends JdbcBackend {
   case class StatementParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
-                                 rsHoldability: ResultSetHoldability, statementInit: Statement => Unit)
-  val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null)
+                                 rsHoldability: ResultSetHoldability, statementInit: Statement => Unit, fetchSize: Int)
+  val defaultStatementParameters = StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null, 0)
 
   protected[jdbc] lazy val statementLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".statement"))
   protected[jdbc] lazy val benchmarkLogger = new SlickLogger(LoggerFactory.getLogger(classOf[JdbcBackend].getName+".benchmark"))
