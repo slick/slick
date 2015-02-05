@@ -156,7 +156,7 @@ object RelationalProfile {
       * String columns if neither ColumnOption DBType nor Length are given.
       *
       * @param varying indicates wether this is just the maximum length of a varying */
-    case class Length[T <: String](length: Int, varying: Boolean) extends ColumnOption[T]
+    case class Length(length: Int, varying: Boolean = true) extends ColumnOption[Nothing]
   }
 }
 

@@ -71,9 +71,20 @@ changed. See the code generator tests and the :doc:`code-generation` chapter for
 Inserting from Queries and Expressions
 --------------------------------------
 
-In Slick 2.0, soft inserts became the default for inserting raw values. Inserting from another query or a computed
-expression still uses force-insert semantics. The new DBIO API properly reflects this by renaming ``insert(Query)``
-to ``forceInsertQuery(Query)`` and ``insertExpr`` to ``forceInsertExpr``.
+In Slick 2.0, soft inserts (where auto-incrementing columns are ignored) became the default for inserting raw values.
+Inserting from another query or a computed expression still uses force-insert semantics (i.e. trying to insert even into
+auto-incrementing columns, whether or not the database supports it). The new DBIO API properly reflects this by renaming
+``insert(Query)`` to ``forceInsertQuery(Query)`` and ``insertExpr`` to ``forceInsertExpr``.
+
+Default String Types
+--------------------
+
+The default type for ``String`` columns of unconstrained length in JdbcProfile has traditionally been ``VARCHAR(254)``.
+Some drivers (like H2Driver) already changed it into an unconstrained string type. Slick 3.0 now also uses ``VARCHAR``
+on PostgreSQL and ``TEXT`` on MySQL. The former should be harmless but MySQL's ``TEXT`` type is similar to ``CLOB`` and
+has some limitations (e.g. no default values and no index without a prefix length). You can use an explicit
+``O.Length(254)`` column option to go back to the previous behavior or change the default in the application.conf key
+``slick.driver.MySQL.defaultStringType``.
 
 Upgrade from 2.0 to 2.1
 =======================

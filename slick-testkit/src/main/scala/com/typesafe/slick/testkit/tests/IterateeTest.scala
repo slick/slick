@@ -9,7 +9,7 @@ class IterateeTest extends TestkitTest[JdbcTestDB] {
   import tdb.profile.simple._
 
   class A(tag: Tag) extends Table[(String, Int)](tag, "a") {
-    def s = column[String]("s", O.PrimaryKey)
+    def s = column[String]("s", O.PrimaryKey, O.Length(254))
     def i = column[Int]("i")
     def * = (s, i)
   }

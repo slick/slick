@@ -75,6 +75,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
           Some(None)
         } else d
       }
+      override def length: Option[Int] = {
+        val l = super.length
+        if(tpe == "String" && varying && l == Some(2147483647)) None
+        else l
+      }
     }
     override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta) {
       // FIXME: this needs a test
@@ -97,13 +102,14 @@ trait PostgresDriver extends JdbcDriver { driver =>
   override protected lazy val useTransactionForUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
-  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
-    case java.sql.Types.VARCHAR => "VARCHAR"
+  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+    case java.sql.Types.VARCHAR =>
+      size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
     case java.sql.Types.BLOB => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
-    case _ => super.defaultSqlTypeName(tmd)
+    case _ => super.defaultSqlTypeName(tmd, size)
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -181,11 +187,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
     class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
-      override val sqlTypeName = "BYTEA"
+      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "BYTEA"
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
-      override def sqlTypeName = "UUID"
+      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "UUID"
       override def setValue(v: UUID, p: PreparedStatement, idx: Int) = p.setObject(idx, v, sqlType)
       override def getValue(r: ResultSet, idx: Int) = r.getObject(idx).asInstanceOf[UUID]
       override def updateValue(v: UUID, r: ResultSet, idx: Int) = r.updateObject(idx, v)

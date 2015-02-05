@@ -7,7 +7,7 @@ import scala.slick.dbio._
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
-import scala.slick.profile.{SqlProfile, Capability}
+import scala.slick.profile.{SqlProfile, Capability, RelationalProfile}
 import scala.slick.compiler.{Phase, CompilerState}
 import scala.slick.model.Model
 import scala.slick.jdbc.meta.MTable
@@ -92,11 +92,11 @@ trait HsqldbDriver extends JdbcDriver { driver =>
 
   class JdbcTypes extends super.JdbcTypes {
     override val byteArrayJdbcType = new ByteArrayJdbcType {
-      override val sqlTypeName = "LONGVARBINARY"
+      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "LONGVARBINARY"
     }
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName = "BINARY(16)"
+      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "BINARY(16)"
     }
   }
 

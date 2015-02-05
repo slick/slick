@@ -108,11 +108,11 @@ trait DerbyDriver extends JdbcDriver { driver =>
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "SMALLINT"
     /* Derby does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
-    case _ => super.defaultSqlTypeName(tmd)
+    case _ => super.defaultSqlTypeName(tmd, size)
   }
 
   override val scalarFrom = Some("sysibm.sysdummy1")
@@ -127,8 +127,8 @@ trait DerbyDriver extends JdbcDriver { driver =>
         val (toVarchar, tn) = {
           val tn =
             (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-            else jdbcTypeFor(c.nodeType).sqlTypeName).toLowerCase
-          if(tn == "varchar") (true, columnTypes.stringJdbcType.sqlTypeName)
+            else jdbcTypeFor(c.nodeType).sqlTypeName(None)).toLowerCase
+          if(tn == "varchar") (true, columnTypes.stringJdbcType.sqlTypeName(None))
           else if(tn.startsWith("varchar")) (true, tn)
           else (false, tn)
         }
@@ -138,13 +138,13 @@ trait DerbyDriver extends JdbcDriver { driver =>
       case Library.IfNull(l, r) =>
         /* Derby does not support IFNULL so we use COALESCE instead,
          * and it requires NULLs to be casted to a suitable type */
-        b"coalesce(cast($l as ${jdbcTypeFor(c.nodeType).sqlTypeName}),!$r)"
+        b"coalesce(cast($l as ${jdbcTypeFor(c.nodeType).sqlTypeName(None)}),!$r)"
       case Library.SilentCast(LiteralNode(None)) :@ JdbcType(ti, _) if currentPart == SelectPart =>
         // Cast NULL to the correct type
-        b"cast(null as ${ti.sqlTypeName})"
+        b"cast(null as ${ti.sqlTypeName(None)})"
       case LiteralNode(None) :@ JdbcType(ti, _) if currentPart == SelectPart =>
         // Cast NULL to the correct type
-        b"cast(null as ${ti.sqlTypeName})"
+        b"cast(null as ${ti.sqlTypeName(None)})"
       case (c @ LiteralNode(v)) :@ JdbcType(ti, option) if currentPart == SelectPart =>
         /* The Derby embedded driver has a bug (DERBY-4671) which results in a
          * NullPointerException when using bind variables in a SELECT clause.
@@ -153,7 +153,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
         if(c.volatileHint || !ti.hasLiteralForm) {
           b"cast("
           b +?= { (p, idx, param) => if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx) else ti.setValue(v, p, idx) }
-          b" as ${ti.sqlTypeName})"
+          b" as ${ti.sqlTypeName(None)})"
         } else super.expr(c, skipParens)
       case Library.NextValue(SequenceNode(name)) => b"(next value for `$name)"
       case Library.CurrentValue(_*) => throw new SlickException("Derby does not support CURRVAL")
@@ -218,7 +218,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName = "CHAR(16) FOR BIT DATA"
+      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "CHAR(16) FOR BIT DATA"
     }
   }
 }
