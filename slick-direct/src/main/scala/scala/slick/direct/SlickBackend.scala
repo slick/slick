@@ -87,6 +87,7 @@ object CustomNodes{
 }
 import CustomNodes._
 
+@deprecated("The Direct Embedding will be removed. Use the Lifted Embedding instead.", "3.0")
 class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBackend{
   import scala.reflect.runtime.universe.{Scope => _, _}
   import compat._

@@ -8,9 +8,9 @@ import scala.slick.SlickException
 import scala.reflect.runtime.{universe => ru}
 import scala.reflect.ClassTag
 import ru.TypeTag
-import scala.slick.blocking.Blocking
 
 
+@deprecated("The Direct Embedding will be removed. Use the Lifted Embedding instead.", "3.0")
 object ImplicitQueryable extends BaseQueryableFactory{
   object implicitExecution{
     import language.implicitConversions
@@ -21,6 +21,7 @@ object ImplicitQueryable extends BaseQueryableFactory{
     ImplicitQueryable( Queryable.factory[S]( projection ), backend, database )
   }
 }
+@deprecated("The Direct Embedding will be removed. Use the Lifted Embedding instead.", "3.0")
 class ImplicitQueryableUtils[C <: Context]( context_ :C ) extends QueryableUtils[C]( context_ ) {
   import context.universe._
   import context._
@@ -29,16 +30,13 @@ class ImplicitQueryableUtils[C <: Context]( context_ :C ) extends QueryableUtils
   val queryable = Select( prefix.tree, newTermName("queryable") )
 }
 
+@deprecated("The Direct Embedding will be removed. Use the Lifted Embedding instead.", "3.0")
 object ImplicitQueryableMacros{
   private def _scalar_helper[C <: Context, R]( c:C )( name:String ) = {
     val utils = new ImplicitQueryableUtils[c.type](c)
     import utils._
     c.universe.reify{
-      Blocking.run(database.splice,
-        backend.splice.result( new QueryableValue(
-          select[Int](queryable, name).splice
-        ))
-      )
+      ImplicitQueryableMacros._run(backend.splice, database.splice, new QueryableValue(select[Int](queryable, name).splice))
     }
   }
   private def _helper[C <: Context,S:c.WeakTypeTag,T]( c:C )( name:String, projection:c.Expr[_] ) : c.Expr[ImplicitQueryable[S]] = {
@@ -50,6 +48,8 @@ object ImplicitQueryableMacros{
       , backend.splice, database.splice )
     }
   }
+  def _run[T](backend: SlickBackend, db: SlickBackend#Database, qv: QueryableValue[T]): T =
+    Blocking.run(db, backend.result(qv))
   def flatMap[T,S:c.WeakTypeTag]
     (c: scala.reflect.macros.Context)
     (projection: c.Expr[T => ImplicitQueryable[S]]): c.Expr[ImplicitQueryable[S]] = _helper[c.type,S,T]( c )( "flatMap", projection )
@@ -64,6 +64,7 @@ object ImplicitQueryableMacros{
     (projection: c.Expr[T => Boolean]): c.Expr[ImplicitQueryable[T]] = _helper[c.type,T,T]( c )( "filter", projection )
 }
 
+@deprecated("The Direct Embedding will be removed. Use the Lifted Embedding instead.", "3.0")
 class ImplicitQueryable[T]( val queryable_ : BaseQueryable[T], val backend: SlickBackend, val database : SlickBackend#Database ) extends BaseQueryable[T]( queryable_.expr_or_typetag ){
   import scala.collection._
   import scala.collection.generic._
