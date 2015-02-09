@@ -55,9 +55,9 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     def check(sp: JdbcBackend.StatementParameters) =
       GetStatementParameters.map { csp => csp shouldBe sp }
 
-    Action.seq(
+    DBIO.seq(
       check(JdbcBackend.StatementParameters(ResultSetType.Auto, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null, 0)),
-      Action.seq(
+      DBIO.seq(
         check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.Auto, null, 0)),
         check(JdbcBackend.StatementParameters(ResultSetType.ScrollInsensitive, ResultSetConcurrency.Auto, ResultSetHoldability.HoldCursorsOverCommit, null, 100)).
           withStatementParameters(rsHoldability = ResultSetHoldability.HoldCursorsOverCommit, fetchSize = 100),

@@ -106,7 +106,7 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
 
     seq(
       sqlu"create table USERS(ID int not null primary key, NAME varchar(255))",
-      Action.fold((for {
+      DBIO.fold((for {
         (id, name) <- List((1, "szeiger"), (0, "admin"), (2, "guest"), (3, "foo"))
       } yield sqlu"insert into USERS values ($id, $name)".map(_.head)), 0)(_ + _).map(_ shouldBe 4),
       sql"select id from USERS".as[Int].map(_.toSet shouldBe Set(0,1,2,3)), //TODO Support `to` in Plain SQL Actions

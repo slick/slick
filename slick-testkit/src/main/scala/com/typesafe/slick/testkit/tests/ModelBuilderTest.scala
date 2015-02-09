@@ -121,7 +121,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
     //println(ddl.createStatements.toList.toString)
 
     def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true): Model =
-      tdb.blockingRunOnSession(ec => tdb.profile.createModel(tables.map(Action.successful), ignoreInvalidDefaults)(ec))
+      tdb.blockingRunOnSession(ec => tdb.profile.createModel(tables.map(DBIO.successful), ignoreInvalidDefaults)(ec))
 
     createModel(ignoreInvalidDefaults=false).assertConsistency
     val tables = tdb.blockingRunOnSession(ec => tdb.profile.defaultTables(ec))

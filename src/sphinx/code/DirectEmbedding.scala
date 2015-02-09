@@ -4,7 +4,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 //#imports
 import scala.slick.driver.H2Driver
-import H2Driver.api.{Database, Action}
+import H2Driver.api.{Database, DBIO}
 import scala.slick.direct._
 import scala.slick.direct.AnnotationMapper._
 //#imports
@@ -38,7 +38,7 @@ object DirectEmbedding extends App {
       // create test table
       import H2Driver.api.actionBasedSQLInterpolation
       val setup = sqlu"create table COFFEES(NAME varchar(255), PRICE double)" >>
-        Action.seq(
+        DBIO.seq(
           (for {
             (name, sales) <- coffees_data
           } yield sqlu"insert into COFFEES values ($name, $sales)"): _*

@@ -56,7 +56,7 @@ object FirstExample extends App {
 //#setup
 
 //#create
-    val setup = Action.seq(
+    val setup = DBIO.seq(
       // Create the tables, including primary and foreign keys
       (suppliers.schema ++ coffees.schema).create,
 

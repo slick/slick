@@ -90,7 +90,7 @@ object Connection extends App {
       //#transaction
       val a = (for {
         ns <- coffees.filter(_.name.startsWith("ESPRESSO")).map(_.name).result
-        _ <- Action.seq(ns.map(n => coffees.filter(_.name === n).delete): _*)
+        _ <- DBIO.seq(ns.map(n => coffees.filter(_.name === n).delete): _*)
       } yield ()).transactionally
 
       val f: Future[Unit] = db.run(a)
