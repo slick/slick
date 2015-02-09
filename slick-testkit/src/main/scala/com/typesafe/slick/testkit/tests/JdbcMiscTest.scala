@@ -46,14 +46,6 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
-  def testColumnOptions = {
-    class Foo(tag: Tag) extends Table[String](tag, "posts") {
-      def bar = column[String]("s", O.Length(20,varying=true), O SqlType "VARCHAR(20)" )
-      def * = bar
-    }
-    Action.successful(()).flatMap { _ => TableQuery[Foo].schema.create }.failed.map(_.shouldBeA[SlickException])
-  }
-
   def testSimpleDBIO = {
     val getAutoCommit = SimpleDBIO[Boolean](_.connection.getAutoCommit)
     getAutoCommit.map(_ shouldBe true)

@@ -61,9 +61,10 @@ trait H2Driver extends JdbcDriver { driver =>
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
 
-  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
-    case java.sql.Types.VARCHAR => "VARCHAR"
-    case _ => super.defaultSqlTypeName(tmd)
+  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+    case java.sql.Types.VARCHAR =>
+      size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
+    case _ => super.defaultSqlTypeName(tmd, size)
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state)  with OracleStyleRowNum {

@@ -234,7 +234,7 @@ class Tables(val profile: JdbcProfile){
   case class Category(id: Int, name: String)
   class Categories(tag: Tag) extends Table[Category](tag, "categories") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
-    def name = column[String]("name")
+    def name = column[String]("name", O.Length(254))
     def * = (id, name) <> (Category.tupled,Category.unapply)
     def idx = index("IDX_NAME",name)
   }
@@ -267,7 +267,7 @@ class Tables(val profile: JdbcProfile){
     def Float = column[Float]("Float",O.Default(9.999F))
     def Double = column[Double]("Double",O.Default(9.999))
     //def java_math_BigDecimal = column[java.math.BigDecimal]("java_math_BigDecimal")
-    def String = column[String]("String",O.Default("someDefaultString"))
+    def String = column[String]("String",O.Default("someDefaultString"),O.Length(254))
     def java_sql_Date = column[java.sql.Date]("java_sql_Date")
     def java_sql_Time = column[java.sql.Time]("java_sql_Time")
     def java_sql_Timestamp = column[java.sql.Timestamp]("java_sql_Timestamp")
@@ -285,7 +285,7 @@ class Tables(val profile: JdbcProfile){
     def Option_Float = column[Option[Float]]("Option_Float",O.Default(Some(9.999F)))
     def Option_Double = column[Option[Double]]("Option_Double",O.Default(Some(9.999)))
     //def java_math_BigDecimal = column[Option[java.math.BigDecimal]]("java_math_BigDecimal")
-    def Option_String = column[Option[String]]("Option_String",O.Default(Some("someDefaultString")))
+    def Option_String = column[Option[String]]("Option_String",O.Default(Some("someDefaultString")),O.Length(254))
     def Option_java_sql_Date = column[Option[java.sql.Date]]("Option_java_sql_Date")
     def Option_java_sql_Time = column[Option[java.sql.Time]]("Option_java_sql_Time")
     def Option_java_sql_Timestamp = column[Option[java.sql.Timestamp]]("Option_java_sql_Timestamp")
@@ -363,4 +363,3 @@ class Tables(val profile: JdbcProfile){
   }
   val large = TableQuery[Large]
 }
-

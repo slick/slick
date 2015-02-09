@@ -2,7 +2,7 @@ package scala.slick.driver
 
 import scala.concurrent.ExecutionContext
 import scala.slick.SlickException
-import scala.slick.jdbc.JdbcModelBuilder
+import scala.slick.jdbc.{JdbcType, JdbcModelBuilder}
 import scala.slick.lifted._
 import scala.slick.ast._
 import scala.slick.ast.Util._
@@ -40,6 +40,10 @@ import scala.slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
   * be created by Slick. You can also use an existing schema with your own
   * sequence emulation if you provide for each sequence ''s'' a pair of
   * functions <code>s_nextval</code> and <code>s_currval</code>.
+  *
+  * The default type for strings of unlimited length is "TEXT". This can be
+  * changed by overriding <code>slick.driver.MySQL.defaultStringType</code>
+  * in application.conf.
   */
 trait MySQLDriver extends JdbcDriver { driver =>
 
@@ -66,6 +70,11 @@ trait MySQLDriver extends JdbcDriver { driver =>
           Some(None)
         } else d
       }
+      override def length: Option[Int] = {
+        val l = super.length
+        if(tpe == "String" && varying && l == Some(65535)) None
+        else l
+      }
     }
   }
 
@@ -82,6 +91,14 @@ trait MySQLDriver extends JdbcDriver { driver =>
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
   override val scalarFrom = Some("DUAL")
+
+  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+    case java.sql.Types.VARCHAR =>
+      size.fold(defaultStringType)(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
+    case _ => super.defaultSqlTypeName(tmd, size)
+  }
+
+  protected lazy val defaultStringType = driverConfig.getString("defaultStringType")
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsCast = false
@@ -120,7 +137,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
-        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName
+        val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName(None)
         b"{fn convert(!${ch},$tn)}"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
@@ -177,7 +194,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
   class SequenceDDLBuilder[T](seq: Sequence[T]) extends super.SequenceDDLBuilder(seq) {
     override def buildDDL: DDL = {
       import seq.integral._
-      val sqlType = driver.jdbcTypeFor(seq.tpe).sqlTypeName
+      val sqlType = driver.jdbcTypeFor(seq.tpe).sqlTypeName(None)
       val t = sqlType + " not null"
       val increment = seq._increment.getOrElse(one)
       val desc = increment < zero
@@ -235,7 +252,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName = "BINARY(16)"
+      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "BINARY(16)"
 
       override def valueToSQLLiteral(value: UUID): String =
         "x'"+value.toString.replace("-", "")+"'"

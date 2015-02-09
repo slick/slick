@@ -7,7 +7,7 @@ class ColumnDefaultTest extends AsyncTest[RelationalTestDB] {
 
   class A(tag: Tag) extends Table[(Int, String, Option[Boolean])](tag, "a") {
     def id = column[Int]("id")
-    def a = column[String]("a", O Default "foo")
+    def a = column[String]("a", O Default "foo", O Length 254)
     def b = column[Option[Boolean]]("b", O Default Some(true))
     def * = (id, a, b)
   }

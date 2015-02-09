@@ -330,7 +330,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case Library.Cast(ch @ _*) =>
         val tn =
           if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else jdbcTypeFor(n.nodeType).sqlTypeName
+          else jdbcTypeFor(n.nodeType).sqlTypeName(None)
         if(supportsCast) b"cast(${ch(0)} as $tn)"
         else b"{fn convert(!${ch(0)},$tn)}"
       case Library.SilentCast(ch) => b"$ch"
@@ -705,18 +705,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     init()
 
     protected def init() {
-      if(
-        column.options.collect{
-          case _: SqlProfile.ColumnOption.SqlType =>
-          case _: RelationalProfile.ColumnOption.Length[_] =>
-        }.size > 1
-      ){
-        throw new SlickException("Please specify either ColumnOption DBType or Length, not both for column ${column.name}.")
-      }
-
       for(o <- column.options) handleColumnOption(o)
-      if(sqlType eq null) sqlType = jdbcType.sqlTypeName
-      else customSqlType = true
+      if(sqlType ne null) {
+        size.foreach(l => sqlType += s"($l)")
+        customSqlType = true
+      } else sqlType = jdbcType.sqlTypeName(size.map(l => RelationalProfile.ColumnOption.Length(l, varying)))
     }
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {
@@ -731,19 +724,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case RelationalProfile.ColumnOption.Default(v) => defaultLiteral = valueToSQLLiteral(v, column.tpe)
     }
 
-    def appendType(sb: StringBuilder): Unit = {
-      if(size == None){
-        sb append sqlType
-      }
-      size.foreach{ s =>
-        // TODO: this probably needs to be generalized and unified with defaultSqlTypeName
-        if(varying)
-          sb append "VARCHAR"
-        else
-          sb append "CHAR"
-        sb append "("+s+")"
-      }
-    }
+    def appendType(sb: StringBuilder): Unit = sb append sqlType
 
     def appendColumn(sb: StringBuilder) {
       sb append quoteIdentifier(column.name) append ' '

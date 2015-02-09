@@ -106,13 +106,13 @@ trait AccessDriver extends JdbcDriver { driver =>
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
 
-  override def defaultSqlTypeName(tmd: JdbcType[_]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "YESNO"
     case java.sql.Types.BLOB => "LONGBINARY"
     case java.sql.Types.SMALLINT => "INTEGER"
     case java.sql.Types.BIGINT => "LONG"
     case java.sql.Types.TINYINT => "BYTE"
-    case _ => super.defaultSqlTypeName(tmd)
+    case _ => super.defaultSqlTypeName(tmd, size)
   }
 
   /* Using Auto or ForwardOnly causes a NPE in the JdbcOdbcDriver */
@@ -186,7 +186,7 @@ trait AccessDriver extends JdbcDriver { driver =>
       case Library.IfNull(l, r) => b"iif(isnull($l),$r,$l)"
       case Library.Cast(ch @ _*) =>
         (if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else jdbcTypeFor(c.nodeType).sqlTypeName
+          else jdbcTypeFor(c.nodeType).sqlTypeName(None)
         ).toLowerCase match {
           case "boolean" => b"cbool(${ch(0)})"
           case "double" => b"cdbl(${ch(0)})"

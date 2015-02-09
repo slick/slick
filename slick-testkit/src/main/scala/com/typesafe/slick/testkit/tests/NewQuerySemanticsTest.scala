@@ -19,7 +19,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val suppliersStd = TableQuery[SuppliersStd]
 
     class CoffeesStd(tag: Tag) extends Table[(String, Int, Int, Int, Int)](tag, "COFFEES") {
-      def name = column[String]("COF_NAME", O.PrimaryKey)
+      def name = column[String]("COF_NAME", O.PrimaryKey, O.Length(254))
       def supID = column[Int]("SUP_ID")
       def price = column[Int]("PRICE")
       def sales = column[Int]("SALES")
