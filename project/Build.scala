@@ -41,7 +41,9 @@ object SlickBuild extends Build {
       h2,
       "org.xerial" % "sqlite-jdbc" % "3.8.7",
       "org.apache.derby" % "derby" % "10.9.1.0",
-      "org.hsqldb" % "hsqldb" % "2.2.8"
+      "org.hsqldb" % "hsqldb" % "2.2.8",
+      "postgresql" % "postgresql" % "9.1-901.jdbc4",
+      "mysql" % "mysql-connector-java" % "5.1.23"
     )
     val paxExamVersion = "2.6.0"
     val paxExam = Seq(
@@ -239,8 +241,6 @@ object SlickBuild extends Build {
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a", "-Djava.awt.headless=true"),
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
-        ("postgresql" % "postgresql" % "9.1-901.jdbc4" % "test") +:
-        ("mysql" % "mysql-connector-java" % "5.1.23" % "test") +:
         Dependencies.junit ++:
         Dependencies.reactiveStreamsTCK % "test" +:
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:

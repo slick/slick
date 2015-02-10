@@ -1,6 +1,7 @@
 package scala.slick.test.codegen
 
 import java.io.File
+import java.sql.Blob
 
 import com.typesafe.slick.testkit.util.{InternalJdbcTestDB, StandardTestDBs, JdbcTestDB}
 
@@ -76,12 +77,35 @@ val  SimpleA = CustomTyping.SimpleA
           override def autoIncLastAsOption = true
         }
       })
+    },
+    new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
+      import tdb.driver.api._
+      class A(tag: Tag) extends Table[(Int, Array[Byte], Blob)](tag, "a") {
+        def id = column[Int]("id")
+        def ba = column[Array[Byte]]("ba")
+        def blob = column[Blob]("blob")
+        def * = (id, ba, blob)
+      }
+      override def generator =
+        TableQuery[A].schema.create >>
+        tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+      override def testCode =
+        """
+          |  import java.sql.Blob
+          |  import javax.sql.rowset.serial.SerialBlob
+          |  val a1 = ARow(1, Array[Byte](1,2,3), new SerialBlob(Array[Byte](4,5,6)))
+          |  DBIO.seq(
+          |    schema.create,
+          |    A += a1,
+          |    A.result.map { case Seq(ARow(id, ba, blob)) => assertEquals("1123", ""+id+ba.mkString) }
+          |  ).transactionally
+        """.stripMargin
     }
   )
 
   def packageName = "scala.slick.test.codegen.generated"
 
-  def main(args: Array[String]): Unit = {
+  def main(args: Array[String]): Unit = try {
     val clns = configurations.flatMap(_.generate(args(0)).toSeq)
     new OutputHelpers {
       def indent(code: String): String = code
@@ -93,7 +117,10 @@ val  SimpleA = CustomTyping.SimpleA
          |  val clns = Seq(${clns.map("\"" + _ + "\"").mkString(", ")})
          |}
        """.stripMargin, args(0), packageName, "AllTests.scala"
-      )
+    )
+  } catch { case ex: Throwable =>
+    ex.printStackTrace(System.err)
+    System.exit(1)
   }
 
   class Config(val objectName: String, val tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String]) { self =>
