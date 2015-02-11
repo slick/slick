@@ -2,6 +2,8 @@ package scala.slick.backend
 
 import java.util.concurrent.atomic.AtomicLong
 
+import com.typesafe.config.Config
+
 import scala.language.existentials
 
 import scala.concurrent.{Promise, ExecutionContext, Future}
@@ -37,6 +39,14 @@ trait DatabaseComponent { self =>
 
   /** The database factory */
   val Database: DatabaseFactory
+
+  /** Create a Database instance through [[https://github.com/typesafehub/config Typesafe Config]].
+    * The supported config keys are backend-specific. This method is used by `DatabaseConfig`.
+    * @param path The path in the configuration file for the database configuration, or an empty
+    *             string for the top level of the `Config` object.
+    * @param config The `Config` object to read from.
+    */
+  def createDatabase(config: Config, path: String): Database
 
   /** A database instance to which connections can be created. */
   trait DatabaseDef { this: Database =>

@@ -1,5 +1,6 @@
 package scala.slick.memory
 
+import com.typesafe.config.Config
 import org.reactivestreams.Subscriber
 
 import scala.concurrent.{ExecutionContext, Future, blocking}
@@ -21,6 +22,9 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
   val Database = new DatabaseFactoryDef
   val backend: DistributedBackend = this
+
+  def createDatabase(config: Config, path: String): Database =
+    throw new SlickException("DistributedBackend cannot be configured with an external config file")
 
   class DatabaseDef(val dbs: Vector[DatabaseComponent#DatabaseDef], val executionContext: ExecutionContext) extends super.DatabaseDef {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =
