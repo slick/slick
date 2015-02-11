@@ -80,6 +80,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
         if(tpe == "String" && varying && l == Some(2147483647)) None
         else l
       }
+      override def tpe = meta.typeName match {
+        case "bytea" => "Array[Byte]"
+        case "lo" if meta.sqlType == java.sql.Types.DISTINCT => "java.sql.Blob"
+        case _ => super.tpe
+      }
     }
     override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta) {
       // FIXME: this needs a test

@@ -44,7 +44,7 @@ object OrmToSlick extends App {
 
   val db = Database.forConfig("h2mem1")
   try {
-    val setup = Action.seq(
+    val setup = DBIO.seq(
       addresses.schema.create,
       people.schema.create,
       sql"ALTER TABLE PERSON ALTER COLUMN NAME VARCHAR(255) DEFAULT('')".as[Int],
@@ -73,7 +73,7 @@ object OrmToSlick extends App {
       val addressesQuery: Query[Addresses,Address,Seq] = peopleQuery.flatMap(_.address)
       //#slickNavigation
       //#slickExecution
-      val addressesAction: Action[Seq[Address]] = addressesQuery.result
+      val addressesAction: DBIO[Seq[Address]] = addressesQuery.result
       val addresses: Future[Seq[Address]] = db.run(addressesAction)
       //#slickExecution
       Await.result(addresses, Duration.Inf)

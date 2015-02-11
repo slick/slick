@@ -8,6 +8,9 @@ import scala.slick.SlickException
 trait OutputHelpers{
   def code: String
 
+  /** The parent type of the generated main trait. This can be overridden in subclasses. */
+  def parentType: Option[String] = None
+
   /** Indents all but the first line of the given string.
    *  No indent is added to empty lines.
    */
@@ -43,7 +46,7 @@ trait OutputHelpers{
    * @param fileName Name of the output file, to which the code will be written
    */
   def writeToFile(profile: String, folder:String, pkg: String, container:String="Tables", fileName: String="Tables.scala") {
-    writeStringToFile(packageCode(profile, pkg, container), folder, pkg, fileName)
+    writeStringToFile(packageCode(profile, pkg, container, parentType), folder, pkg, fileName)
   }
 
   /**
@@ -53,7 +56,7 @@ trait OutputHelpers{
    * @param pkg Scala package the generated code is placed in
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    */
-    def packageCode(profile: String, pkg: String, container:String="Tables") : String = {
+  def packageCode(profile: String, pkg: String, container: String, parentType: Option[String]) : String = {
       s"""
 package ${pkg}
 // AUTO-GENERATED Slick data model
@@ -63,7 +66,7 @@ object ${container} extends {
 } with ${container}
 
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
-trait ${container} {
+trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
   val profile: scala.slick.driver.JdbcProfile
   import profile.api._
   ${indent(code)}

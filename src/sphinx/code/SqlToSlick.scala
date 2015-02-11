@@ -32,7 +32,7 @@ object SqlToSlick extends App {
   }
   import Tables._
 
-  lazy val inserts = Action.seq(
+  lazy val inserts = DBIO.seq(
     addresses += (0,"station 14","Lausanne"),
     addresses += (0,"Grand Central 1","New York City"),
     people += (0,"C. Vogt",999,1),
@@ -43,7 +43,7 @@ object SqlToSlick extends App {
   val db = Database.forConfig("h2mem1")
   try {
 
-    Await.result(db.run(Action.seq(
+    Await.result(db.run(DBIO.seq(
       addresses.schema.create,
       people.schema.create,
       inserts

@@ -41,7 +41,9 @@ object SlickBuild extends Build {
       h2,
       "org.xerial" % "sqlite-jdbc" % "3.8.7",
       "org.apache.derby" % "derby" % "10.9.1.0",
-      "org.hsqldb" % "hsqldb" % "2.2.8"
+      "org.hsqldb" % "hsqldb" % "2.2.8",
+      "postgresql" % "postgresql" % "9.1-901.jdbc4",
+      "mysql" % "mysql-connector-java" % "5.1.23"
     )
     val paxExamVersion = "2.6.0"
     val paxExam = Seq(
@@ -239,8 +241,6 @@ object SlickBuild extends Build {
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a", "-Djava.awt.headless=true"),
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
-        ("postgresql" % "postgresql" % "9.1-901.jdbc4" % "test") +:
-        ("mysql" % "mysql-connector-java" % "5.1.23" % "test") +:
         Dependencies.junit ++:
         Dependencies.reactiveStreamsTCK % "test" +:
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
@@ -411,6 +411,7 @@ object SlickBuild extends Build {
 
       (compile in Test) <<= (compile in Test) dependsOn (compile in typeProvidersConfig),
 
+      unmanagedClasspath in typeProvidersConfig <++= fullClasspath in config("compile"),
       unmanagedClasspath in typeProvidersConfig <++= fullClasspath in (slickCodegenProject, Test),
       unmanagedClasspath in Test <++= fullClasspath in typeProvidersConfig,
       //mappings in (Test, packageSrc) <++= mappings in (typeProvidersConfig, packageSrc),
@@ -432,7 +433,8 @@ object SlickBuild extends Build {
       val inFiles = (src ** "*.scala").get.toSet ++ (slickSrc / "main/scala/scala/slick/codegen" ** "*.scala").get.toSet ++ (slickSrc / "main/scala/scala/slick/jdbc/meta" ** "*.scala").get.toSet
       val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", outStyle = FilesInfo.exists) { (in: Set[File]) =>
         IO.delete((output ** "*.scala").get)
-        toError(r.run("scala.slick.test.codegen.CodeGeneratorTest", cp.files, Array(outDir, "scala.slick.test.codegen.generated"), s.log))
+        toError(r.run("scala.slick.test.codegen.GenerateMainSources", cp.files, Array(outDir), s.log))
+        toError(r.run("scala.slick.test.codegen.GenerateRoundtripSources", cp.files, Array(outDir), s.log))
         (output ** "*.scala").get.toSet
       }
       cachedFun(inFiles).toSeq

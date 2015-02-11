@@ -28,7 +28,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
   }
   lazy val orders = TableQuery[Orders]
 
-  def testMeta = ifCap(tcap.jdbcMeta)(Action.seq(
+  def testMeta = ifCap(tcap.jdbcMeta)(DBIO.seq(
     (users.schema ++ orders.schema).create.named("DDL used to create tables"),
 
     MTypeInfo.getTypeInfo.named("Type info from DatabaseMetaData"),
@@ -36,22 +36,22 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     ifCap(tcap.jdbcMetaGetFunctions) {
       /* Not supported by PostgreSQL and H2. */
       MFunction.getFunctions(MQName.local("%")).flatMap { fs =>
-        Action.sequence(fs.map(_.getFunctionColumns()))
+        DBIO.sequence(fs.map(_.getFunctionColumns()))
       }
     }.named("Functions from DatabaseMetaData"),
 
     MUDT.getUDTs(MQName.local("%")).named("UDTs from DatabaseMetaData"),
 
     MProcedure.getProcedures(MQName.local("%")).flatMap { ps =>
-      Action.sequence(ps.map(_.getProcedureColumns()))
+      DBIO.sequence(ps.map(_.getProcedureColumns()))
     }.named("Procedures from DatabaseMetaData"),
 
     MTable.getTables(None, None, None, None).flatMap { ts =>
-      Action.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
-        Action.seq(
+      DBIO.sequence(ts.filter(t => Set("users", "orders") contains t.name.name).map { t =>
+        DBIO.seq(
           t.getColumns.flatMap { cs =>
             val as = cs.map(_.getColumnPrivileges)
-            Action.sequence(as)
+            DBIO.sequence(as)
           },
           t.getVersionColumns,
           t.getPrimaryKeys,

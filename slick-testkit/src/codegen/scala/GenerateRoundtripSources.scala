@@ -1,177 +1,43 @@
 package scala.slick.test.codegen
 
-import scala.concurrent.{Future, Await}
+import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.slick.dbio.DBIO
 import scala.slick.codegen.SourceCodeGenerator
 import scala.slick.driver._
-import scala.slick.jdbc.JdbcBackend
-import scala.slick.driver.JdbcDriver
-import scala.slick.jdbc.meta.MTable
-import scala.slick.model.Model
 
-/** Generates files for GeneratedCodeTest */
-object CodeGeneratorTest {
-  val testdbLocation = "slick-testkit/src/codegen/resources/dbs/"
+/** Generates code for CodeGenRoundTripTest.
+  *
+  * This is generated using Derby currently because Derby strips column size of some columns, which
+  * works with all backends. If the code was generated using model data where the size is included
+  * it would fail in derby and hsqldb. The code is tested using all enabled drivers. We should also
+  * diversify generation as well at some point. */
+object GenerateRoundtripSources {
   def main(args: Array[String]) {
-    for( config <- configurations ){
-      import config._
-      val db = slickDriverObject.api.Database.forURL(url=url, driver=jdbcDriver, user="", password="")
-      try {
-        val m = Await.result(db.run(generator(config)), Duration.Inf)
-        m.writeToFile(profile=slickDriver, folder=args(0), pkg="scala.slick.test.codegen.generated", objectName, fileName=objectName+".scala" )
-      } finally db.close
-    }
-    ;{
-      // generates code for CodeGenRoundTripTest
-      // This is generated using Derby currently because Derby strips column size of some columns,
-      // which works with all backend. If the code was generated using model data where the size is included it would fail in derby and hsqldb.
-      // The code is tested using all enabled drivers. We should also diversify generation as well at some point.
-      val driver = scala.slick.driver.H2Driver
-      val url = "jdbc:h2:mem:test4"
-      val jdbcDriver = "org.h2.Driver"
-      object Tables extends Tables(driver)
-      import Tables._
-      import Tables.profile.api._
-      val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
-      val a1 = driver.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
-        override def tableName = {
-          case n if n.toLowerCase == "null" => "null" // testing null as table name
-          case n => super.tableName(n)
-        }
-      })
-      val a2 = driver.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
-        override def Table = new Table(_){
-          override def autoIncLastAsOption = true
-        }
-      })
-      val db = Database.forURL(url=url, driver=jdbcDriver, keepAliveConnection=true)
-      val (gen,gen2) = try Await.result(db.run(ddl.create >> (a1 zip a2)), Duration.Inf) finally db.close
-      val pkg = "scala.slick.test.codegen.roundtrip"
-      gen.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg )
-      gen2.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg+"2" )
-    }
+    val driver = scala.slick.driver.H2Driver
+    val url = "jdbc:h2:mem:test4"
+    val jdbcDriver = "org.h2.Driver"
+    object Tables extends Tables(driver)
+    import Tables._
+    import Tables.profile.api._
+    val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
+    val a1 = driver.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+      override def tableName = {
+        case n if n.toLowerCase == "null" => "null" // testing null as table name
+        case n => super.tableName(n)
+      }
+    })
+    val a2 = driver.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+      override def Table = new Table(_){
+        override def autoIncLastAsOption = true
+      }
+    })
+    val db = Database.forURL(url=url, driver=jdbcDriver, keepAliveConnection=true)
+    val (gen,gen2) = try Await.result(db.run(ddl.create >> (a1 zip a2)), Duration.Inf) finally db.close
+    val pkg = "scala.slick.test.codegen.roundtrip"
+    gen.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg )
+    gen2.writeToFile( "scala.slick.driver.H2Driver", args(0), pkg+"2" )
   }
-
-  lazy val configurations = Seq(
-    new H2Config("CG1", Seq("create.sql","populate.sql")),
-    Config(
-      "CG2",
-      "jdbc:hsqldb:"+testdbLocation+"hsql/supp;shutdown=true",
-      HsqldbDriver, "scala.slick.driver.HsqldbDriver", "org.hsqldb.jdbcDriver",
-      config => HsqldbDriver.createModel(ignoreInvalidDefaults=false).map(m => new MySourceCodeGenerator(m, config))
-    ),
-    Config("CG3", "jdbc:sqlite:"+testdbLocation+"sqlite/sqlite-supp.db",
-      SQLiteDriver, "scala.slick.driver.SQLiteDriver", "org.sqlite.JDBC",
-      config => SQLiteDriver.createModel(ignoreInvalidDefaults=false).map(m => new MySourceCodeGenerator(m, config))
-    ),
-    new H2Config("CG4", Seq("create-fk-1.sql")),
-    new H2Config("CG5", Seq("create-fk-2.sql")),
-    // CG5b tests that foreign keys to not included tables are removed
-    new H2Config("CG5b", Seq("create-fk-2.sql"),
-      config =>
-        H2Driver.createModel(
-          Some(H2Driver.defaultTables.map(_.filter(_.name.name == "a")))
-        ).map(m => new MySourceCodeGenerator(m, config))
-    ),
-    new H2Config("CG6", Seq("create-ainc.sql")),
-    new H2Config("CG7", Seq("create.sql","populate.sql"),
-      config => H2Driver.createModel(ignoreInvalidDefaults=false).map(m => new MySourceCodeGenerator(m, config) {
-        override def entityName = {
-          case "COFFEES" => "Coff"
-          case other => super.entityName(other)
-        }
-        override def tableName = {
-          case "COFFEES" => "Coffs"
-          case "SUPPLIERS" => "Supps"
-          case other => super.tableName(other)
-        }
-        override def code = {
-          """
-trait A
-trait B
-          """.trim + "\n" + super.code
-        }
-        override def Table = new Table(_){
-          override def EntityType = new EntityType{
-            override def parents = Seq("A","B")
-          }
-          override def TableClass = new TableClass{
-            override def parents = Seq("A","B")
-          }
-        }
-      })
-    ),
-    new H2Config("CG8", Seq("create-simple.sql"),
-      config => H2Driver.createModel(ignoreInvalidDefaults=false).map(m => new MySourceCodeGenerator(m, config) {
-        override def Table = new Table(_){
-          override def EntityType = new EntityType{
-            override def enabled = false
-          }
-          override def mappingEnabled     = true
-          override def code = {
-            if(model.name.table == "SIMPLE_AS"){
-              Seq("""
-import scala.slick.test.codegen.CustomTyping._
-import scala.slick.test.codegen.CustomTyping
-type SimpleA = CustomTyping.SimpleA
-val  SimpleA = CustomTyping.SimpleA
-                """.trim) ++ super.code
-            } else super.code
-          }
-          override def Column = new Column(_){
-            override def rawType = model.name match {
-              case "A1" => "Bool"
-              case _ => super.rawType
-            }
-          }
-        }
-      })
-    ),
-    new H2Config("CG9", Seq("create-ainc.sql"),
-      config => H2Driver.createModel(ignoreInvalidDefaults=false).map(m => new MySourceCodeGenerator(m, config) {
-        override def Table = new Table(_){
-          override def autoIncLastAsOption = true
-        }
-      })
-    )
-  )
-  class MySourceCodeGenerator(model:Model, config: Config) extends SourceCodeGenerator(model){
-    override def entityName = sqlName => {
-      val baseName = super.entityName(sqlName)
-      if(baseName.dropRight(3).last == 's') baseName.dropRight(4)
-      else baseName
-    }
-    override def code = {
-      import config._
-      s"""
-lazy val driver = $slickDriver
-lazy val database = Database.forURL(url=""\"$url""\",driver="$jdbcDriver",user="",password="")
-      """.trim() + "\n" + super.code
-    }
-  }
-  case class Config(
-    objectName: String,
-    url: String,
-    slickDriverObject: JdbcDriver,
-    slickDriver: String,
-    jdbcDriver: String,
-    generator: Config => DBIO[SourceCodeGenerator]
-  )
-  class H2Config(
-    objectName: String,
-    inits: Seq[String],
-    generator: Config => DBIO[SourceCodeGenerator]
-      = config => H2Driver.createModel(ignoreInvalidDefaults=false).map(m => new MySourceCodeGenerator(m, config))
-  ) extends Config(
-    objectName,
-    "jdbc:h2:mem:test3;INIT="+inits.map("runscript from '"+testdbLocation+"h2mem/"+_+"'").mkString("\\;"),
-    H2Driver,
-    "scala.slick.driver.H2Driver",
-    "org.h2.Driver",
-    generator
-  )
 }
 
 class Tables(val profile: JdbcProfile){
@@ -252,11 +118,11 @@ class Tables(val profile: JdbcProfile){
   // Clob disabled because it fails in postgres and mysql, see https://github.com/slick/slick/issues/637
   class TypeTest(tag: Tag) extends Table[(
     String,Boolean,Byte,Short,Int,Long,Float,Double,String,java.sql.Date,java.sql.Time,java.sql.Timestamp,java.sql.Blob//,java.sql.Clob
-    ,Option[Int]
-    ,(
+      ,Option[Int]
+      ,(
       Option[Boolean],Option[Byte],Option[Short],Option[Int],Option[Long],Option[Float],Option[Double],Option[String],Option[java.sql.Date],Option[java.sql.Time],Option[java.sql.Timestamp],Option[java.sql.Blob]//,Option[java.sql.Clob]
-    )
-  )](tag, "TYPE_TEST") {
+      )
+    )](tag, "TYPE_TEST") {
     def `type` = column[String]("type") // <- test escaping of keywords
     def Boolean = column[Boolean]("Boolean",O.Default(true))
     def Byte = column[Byte]("Byte")
@@ -273,7 +139,7 @@ class Tables(val profile: JdbcProfile){
     def java_sql_Timestamp = column[java.sql.Timestamp]("java_sql_Timestamp")
     def java_sql_Blob = column[java.sql.Blob]("java_sql_Blob")
     //def java_sql_Clob = column[java.sql.Clob]("java_sql_Clob")
-    
+
     def None_Int = column[Option[Int]]("None_Int",O.Default(None))
 
     def Option_Boolean = column[Option[Boolean]]("Option_Boolean",O.Default(Some(true)))
@@ -297,9 +163,9 @@ class Tables(val profile: JdbcProfile){
       Boolean,Byte,Short,Int,Long,Float,Double,String,java_sql_Date,java_sql_Time,java_sql_Timestamp,java_sql_Blob//,java_sql_Clob
       ,None_Int
       ,(
-        Option_Boolean,Option_Byte,Option_Short,Option_Int,Option_Long,Option_Float,Option_Double,Option_String,Option_java_sql_Date,Option_java_sql_Time,Option_java_sql_Timestamp,Option_java_sql_Blob//,Option_java_sql_Clob
+      Option_Boolean,Option_Byte,Option_Short,Option_Int,Option_Long,Option_Float,Option_Double,Option_String,Option_java_sql_Date,Option_java_sql_Time,Option_java_sql_Timestamp,Option_java_sql_Blob//,Option_java_sql_Clob
       )
-    )
+      )
     def pk = primaryKey("PK", (Int,Long))
   }
   val typeTest = TableQuery[TypeTest]
@@ -353,7 +219,7 @@ class Tables(val profile: JdbcProfile){
       (p4i1, p4i2, p4i3, p4i4, p4i5, p4i6),
       (p5i1, p5i2, p5i3, p5i4, p5i5, p5i6),
       (p6i1, p6i2, p6i3, p6i4, p6i5, p6i6)
-    ).shaped <> ({ case (id, p1, p2, p3, p4, p5, p6) =>
+      ).shaped <> ({ case (id, p1, p2, p3, p4, p5, p6) =>
       // We could do this without .shaped but then we'd have to write a type annotation for the parameters
       Whole(id, Part.tupled.apply(p1), Part.tupled.apply(p2), Part.tupled.apply(p3), Part.tupled.apply(p4), Part.tupled.apply(p5), Part.tupled.apply(p6))
     }, { w: Whole =>

@@ -25,7 +25,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     val q4comp = Compiled { dst2.filter(_.id < 10) }
     val dst3comp = Compiled { dst3 }
 
-    Action.sequence(Seq(
+    DBIO.sequence(Seq(
       (src1.schema ++ dst1.schema ++ dst2.schema ++ dst3.schema).create,
       src1 += (1, "A"),
       src1.map(_.ins) ++= Seq((2, "B"), (3, "C")),

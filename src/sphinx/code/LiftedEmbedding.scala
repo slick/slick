@@ -157,7 +157,7 @@ object LiftedEmbedding extends App {
   //#ddl
     Await.result(
   //#ddl
-    db.run(Action.seq(
+    db.run(DBIO.seq(
       schema.create,
       //...
       schema.drop
@@ -297,7 +297,7 @@ object LiftedEmbedding extends App {
 
     ;{
       //#insert1
-      val insertActions = Action.seq(
+      val insertActions = DBIO.seq(
         coffees += ("Colombian", 101, 7.99, 0, 0),
 
         coffees ++= Seq(
@@ -317,7 +317,7 @@ object LiftedEmbedding extends App {
       //#insert1
       println(sql)
 
-      Await.result(db.run(Action.seq(
+      Await.result(db.run(DBIO.seq(
         (suppliers ++= Seq(
           (101, "", "", "", "", ""),
           (49, "", "", "", "", ""),
@@ -349,7 +349,7 @@ object LiftedEmbedding extends App {
       }
       val users2 = TableQuery[Users2]
 
-      val actions = Action.seq(
+      val actions = DBIO.seq(
         users2.schema.create,
         users2 forceInsertQuery (users.map { u => (u.id, u.first ++ " " ++ u.last) }),
         users2 forceInsertExpr (users.length + 1, "admin")
@@ -519,7 +519,7 @@ object LiftedEmbedding extends App {
       val as = TableQuery[A]
 
       // Insert data with the custom shape
-      val insertAction = Action.seq(
+      val insertAction = DBIO.seq(
         as += Pair(1, "a"),
         as += Pair(2, "c"),
         as += Pair(3, "b")
@@ -551,7 +551,7 @@ object LiftedEmbedding extends App {
       }
       val bs = TableQuery[BRow]
 
-      val insertActions = Action.seq(
+      val insertActions = DBIO.seq(
         bs += B(1, "a"),
         bs.map(b => (b.id, b.s)) += ((2, "c")),
         bs += B(3, "b")
@@ -584,7 +584,7 @@ object LiftedEmbedding extends App {
       }
       val cs = TableQuery[CRow]
 
-      val insertActions2 = Action.seq(
+      val insertActions2 = DBIO.seq(
         cs += C(Pair(7,"x"), B(1,"a")),
         cs += C(Pair(8,"y"), B(2,"c")),
         cs += C(Pair(9,"z"), B(3,"b"))

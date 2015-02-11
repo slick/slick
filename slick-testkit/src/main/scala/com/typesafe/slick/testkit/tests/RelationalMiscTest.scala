@@ -187,6 +187,6 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
       // This is the expected error message from RelationalTypesComponent.MappedColumnTypeFactory.assertNonNullType
     }
 
-    Action.successful(())
+    DBIO.successful(())
   }
 }
