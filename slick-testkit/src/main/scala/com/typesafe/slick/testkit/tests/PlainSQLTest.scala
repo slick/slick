@@ -99,10 +99,12 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
     def userForID(id: Int) = sql"select id, name from USERS where id = $id".as[User]
     def userForIdAndName(id: Int, name: String) = sql"select id, name from USERS where id = $id and name = $name".as[User]
 
-    val s1 = sql"select id from USERS where name = ${"szeiger"}".as[Int]
-    val s2 = sql"select id from USERS where name = '#${"guest"}'".as[Int]
+    val param = "szeiger"
+    
+    val s1 = sql"select id from USERS where name = ${param}".as[Int]
+    val s2 = sql"select id from USERS where name = ${"guest"}".as[Int]
     s1.statements.head shouldBe "select id from USERS where name = ?"
-    s2.statements.head shouldBe "select id from USERS where name = 'guest'"
+    s2.statements.head shouldBe "select id from USERS where name = ?"
 
     seq(
       sqlu"create table USERS(ID int not null primary key, NAME varchar(255))",
