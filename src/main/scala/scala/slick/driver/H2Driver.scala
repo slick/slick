@@ -51,12 +51,20 @@ trait H2Driver extends JdbcDriver { driver =>
     }
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
+      override def default = rawDefault.map((_,tpe)).collect{
+          case (v,"java.util.UUID") => Some(Some(java.util.UUID.fromString(v.replaceAll("[\'\"]", "")))) //strip quotes
+        }.getOrElse{super.default}
+      override def tpe = dbType match {
+        case Some("UUID") => "java.util.UUID"
+        case _ => super.tpe
+      }
     }
   }
 
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
+  override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
@@ -81,6 +89,12 @@ trait H2Driver extends JdbcDriver { driver =>
       case (Some(t), None   ) => b"\nlimit $t"
       case (None, Some(d)   ) => b"\nlimit -1 offset $d"
       case _ =>
+    }
+  }
+
+  class JdbcTypes extends super.JdbcTypes {
+    override val uuidJdbcType = new UUIDJdbcType {
+      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "UUID"
     }
   }
 
