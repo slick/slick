@@ -10,6 +10,8 @@ import java.sql.PreparedStatement
 import scala.slick.dbio.Effect
 import scala.slick.profile.SqlStreamingAction
 
+import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilder}
+
 
 ///////////////////////////////////////////////////////////////////////////////// Invoker-based API
 
@@ -73,20 +75,11 @@ class SQLInterpolation(val s: StringContext) extends AnyVal {
 object SQLInterpolation {
   def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLInterpolationResult] = {
     import ctxt.universe._
-    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
-
     val macroConnHelper = new MacroConnectionHelper(ctxt)
-
-    val macroTreeBuilder = new {
-      val c: ctxt.type = ctxt
-      val resultTypes = Nil
-      val paramsList = param.toList
-      val queryParts = macroConnHelper.queryParts
-    } with MacroTreeBuilderHelper
-
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
     reify {
       SQLInterpolationResult(
-        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
         ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
       )
     }
@@ -94,20 +87,11 @@ object SQLInterpolation {
 
   def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[StaticQuery[Unit, Int]] = {
     import ctxt.universe._
-    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
-
     val macroConnHelper = new MacroConnectionHelper(ctxt)
-
-    val macroTreeBuilder = new {
-      val c: ctxt.type = ctxt
-      val resultTypes = Nil
-      val paramsList = param.toList
-      val queryParts = macroConnHelper.queryParts
-    } with MacroTreeBuilderHelper
-
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
     reify {
       val res: SQLInterpolationResult = SQLInterpolationResult(
-        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
         ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
       )
       res.asUpdate
@@ -119,7 +103,10 @@ object SQLInterpolation {
  * Results of SQLInterpolation macros is SQLInterpolationResult objects
  */
 @deprecated("Use the new Action-based Plain SQL API from driver.api instead", "3.0")
-case class SQLInterpolationResult(query: String, sp: SetParameter[Unit]) {
+case class SQLInterpolationResult(queryParts: Seq[Any], sp: SetParameter[Unit]) {
+  private[this] val query =
+    if(queryParts.length == 1 && queryParts(0).isInstanceOf[String]) queryParts(0).asInstanceOf[String]
+    else queryParts.iterator.map(String.valueOf).mkString
   def as[R](implicit rconv: GetResult[R]): StaticQuery[Unit, R] = new StaticQuery[Unit, R](query, sp, rconv)
   def asUpdate = as[Int](GetResult.GetUpdateValue)
 }
@@ -140,20 +127,11 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
 object ActionBasedSQLInterpolation {
   def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
     import ctxt.universe._
-    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
-
     val macroConnHelper = new MacroConnectionHelper(ctxt)
-
-    val macroTreeBuilder = new {
-      val c: ctxt.type = ctxt
-      val resultTypes = Nil
-      val paramsList = param.toList
-      val queryParts = macroConnHelper.queryParts
-    } with MacroTreeBuilderHelper
-
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
     reify {
       SQLActionBuilder(
-        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
         ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
       )
     }
@@ -161,20 +139,11 @@ object ActionBasedSQLInterpolation {
 
   def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Effect, Vector[Int], Int]] = {
     import ctxt.universe._
-    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
-
     val macroConnHelper = new MacroConnectionHelper(ctxt)
-
-    val macroTreeBuilder = new {
-      val c: ctxt.type = ctxt
-      val resultTypes = Nil
-      val paramsList = param.toList
-      val queryParts = macroConnHelper.queryParts
-    } with MacroTreeBuilderHelper
-
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
     reify {
       val res: SQLActionBuilder = SQLActionBuilder(
-        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
         ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
       )
       res.asUpdate
@@ -182,15 +151,14 @@ object ActionBasedSQLInterpolation {
   }
   def tsqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Effect, Vector[Any], Any]] = {
     import ctxt.universe._
-    import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilderHelper}
-
     val macroConnHelper = new MacroConnectionHelper(ctxt)
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
 
     val rTypes = macroConnHelper.configHandler.connection withSession {
-      _.withPreparedStatement(macroConnHelper.rawQuery) {
+      _.withPreparedStatement(macroTreeBuilder.staticQueryString) {
         _.getMetaData match {
-          case null => List()
-          case resultMeta => List.tabulate(resultMeta.getColumnCount) { i =>
+          case null => Vector()
+          case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
               val configHandler = macroConnHelper.configHandler
 //              val driver = if (configHandler.slickDriver.isDefined) configHandler.SlickDriver else scala.slick.driver.JdbcDriver
               val driver = scala.slick.driver.JdbcDriver
@@ -201,17 +169,10 @@ object ActionBasedSQLInterpolation {
       }
     }
 
-    val macroTreeBuilder = new {
-      val c: ctxt.type = ctxt
-      val resultTypes = rTypes
-      val paramsList = param.toList
-      val queryParts = macroConnHelper.queryParts
-    } with MacroTreeBuilderHelper
-
     reify {
-      val rconv = ctxt.Expr[GetResult[Any]](macroTreeBuilder.rconvTree).splice
+      val rconv = ctxt.Expr[GetResult[Any]](macroTreeBuilder.rconvTree(rTypes)).splice
       val res: SQLActionBuilder = SQLActionBuilder(
-        ctxt.Expr[String]            (macroTreeBuilder.query    ).splice,
+        ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
         ctxt.Expr[SetParameter[Unit]](macroTreeBuilder.pconvTree).splice
       )
       res.as(rconv)
@@ -219,10 +180,13 @@ object ActionBasedSQLInterpolation {
   }
 }
 
-case class SQLActionBuilder(sql: String, unitPConv: SetParameter[Unit]) {
+case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit]) {
   def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Effect, Vector[R], R] = {
+    val query =
+      if(queryParts.length == 1 && queryParts(0).isInstanceOf[String]) queryParts(0).asInstanceOf[String]
+      else queryParts.iterator.map(String.valueOf).mkString
     new StreamingInvokerAction[Effect, Vector[R], R] {
-      def statements = List(sql)
+      def statements = List(query)
       protected[this] def createInvoker(statements: Iterable[String]) = new StaticQueryInvoker[Unit, R](statements.head, unitPConv, (), rconv)
       protected[this] def createBuilder = Vector.newBuilder[R]
     }
