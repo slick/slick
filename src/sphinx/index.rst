@@ -18,4 +18,4 @@ You can find the API documentation `here <api/>`_.
    sql
    extensions
    direct-embedding
-   testkit
+   developers
