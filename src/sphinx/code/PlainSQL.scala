@@ -1,7 +1,7 @@
 package com.typesafe.slick.examples.jdbc
 
 //#imports
-import scala.slick.driver.JdbcDriver.backend.Database
+import scala.slick.driver.FallbackJdbcDriver.backend.Database
 import Database.dynamicSession
 import scala.slick.jdbc.{GetResult, StaticQuery => Q}
 //#imports

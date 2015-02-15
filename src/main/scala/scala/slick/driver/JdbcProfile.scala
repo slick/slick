@@ -145,6 +145,11 @@ trait JdbcDriver extends SqlDriver
   override val profile: JdbcProfile = this
 }
 
-/** A generic driver for JDBC-based databases. This can be used as a fallback
-  * when a specific driver for a database is not available. */
+@deprecated("Use FallbackJdbcDriver instead of this.", "3.0")
 object JdbcDriver extends JdbcDriver
+
+/** A best-effort driver for JDBC-based databases not officially
+  * supported by Slick. This can be used as a fallback. It may
+  * not work and requires the DBMS to be SQL standard conformant.
+  * You can for example use this fallback with the Firebird database. */
+object FallbackJdbcDriver extends JdbcDriver

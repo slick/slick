@@ -5,7 +5,7 @@ import org.junit.Assert._
 import scala.slick.collection.heterogenous.HNil
 import scala.slick.collection.heterogenous.syntax._
 import scala.slick.dbio.DBIO
-import scala.slick.driver.JdbcDriver.api._
+import scala.slick.driver.FallbackJdbcDriver.api._
 
 @TSQLConfig("default")
 class TypedStaticQueryTest {

@@ -160,8 +160,8 @@ object ActionBasedSQLInterpolation {
           case null => Vector()
           case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
               val configHandler = macroConnHelper.configHandler
-//              val driver = if (configHandler.slickDriver.isDefined) configHandler.SlickDriver else scala.slick.driver.JdbcDriver
-              val driver = scala.slick.driver.JdbcDriver
+//              val driver = if (configHandler.slickDriver.isDefined) configHandler.SlickDriver else scala.slick.driver.FallbackJdbcDriver
+              val driver = scala.slick.driver.FallbackJdbcDriver
               val modelBuilder = driver.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
               modelBuilder.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
           }
