@@ -10,7 +10,7 @@ import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.profile.{SqlProfile, Capability, RelationalProfile}
 import scala.slick.compiler.{Phase, CompilerState}
 import scala.slick.model.Model
-import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.meta.{MTable, MTableExtended}
 import scala.slick.jdbc.{JdbcModelBuilder, Invoker}
 
 /** Slick driver for <a href="http://www.hsqldb.org/">HyperSQL</a>
@@ -37,18 +37,18 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.insertOrUpdate
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
+  class ModelBuilder(mTables: Seq[MTableExtended], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def Table = new Table(_){
       override def schema = super.schema.filter(_ != "PUBLIC") // remove default schema
       override def catalog = super.catalog.filter(_ != "PUBLIC") // remove default catalog
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTableExtended], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
-    MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTableExtended]] =
+    MTable.getExtendedTables(None, None, None, Some(Seq("TABLE")))
 
   override protected def computeQueryCompiler = super.computeQueryCompiler + Phase.specializeParameters
   override val columnTypes = new JdbcTypes

@@ -37,7 +37,8 @@
     <logger name="scala.slick.jdbc.JdbcBackend.statement"         level="${log.jdbc.statement:-info}" />
     <logger name="scala.slick.jdbc.JdbcBackend.benchmark"         level="${log.jdbc.bench:-info}" />
     <logger name="scala.slick.jdbc.StatementInvoker.result"       level="${log.jdbc.result:-info}" />
-    <logger name="scala.slick.jdbc.meta"                          level="${log.createModel:-info}" />
+    <logger name="scala.slick.jdbcJdbcModelBuilder"               level="${log.buildModel:-info}" />
+    <logger name="scala.slick.jdbc.meta.MTable"                   level="${log.buildModel:-info}" />
     <logger name="scala.slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
     <logger name="scala.slick.memory.HeapBackend$"                level="${log.heap:-inherited}" />
     <logger name="scala.slick.memory.QueryInterpreter"            level="${log.interpreter:-inherited}" />

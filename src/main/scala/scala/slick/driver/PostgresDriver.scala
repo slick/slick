@@ -10,7 +10,7 @@ import scala.slick.ast.{SequenceNode, Library, FieldSymbol, Node, Insert, Insert
 import scala.slick.ast.Util._
 import scala.slick.util.MacroSupport.macroSupportInterpolation
 import scala.slick.compiler.CompilerState
-import scala.slick.jdbc.meta.{MIndexInfo, MColumn, MTable}
+import scala.slick.jdbc.meta.{MIndexInfo, MColumn, MTable, MTableExtended}
 import scala.slick.jdbc.{JdbcModelBuilder, JdbcType}
 import scala.slick.model.Model
 
@@ -55,48 +55,48 @@ trait PostgresDriver extends JdbcDriver { driver =>
     - JdbcProfile.capabilities.supportsByte
   )
 
-  class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
-    override def createTableNamer(mTable: MTable): TableNamer = new TableNamer(mTable) {
+  class ModelBuilder(mTables: Seq[MTableExtended], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
+    override def Table = new Table(_){
       override def schema = super.schema.filter(_ != "public") // remove default schema
-    }
-    override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
-      val VarCharPattern = "^'(.*)'::character varying$".r
-      val IntPattern = "^\\((-?[0-9]*)\\)$".r
-      override def default = meta.columnDef.map((_,tpe)).collect{
-        case ("true","Boolean")  => Some(Some(true))
-        case ("false","Boolean") => Some(Some(false))
-        case (VarCharPattern(str),"String") => Some(Some(str))
-        case (IntPattern(v),"Int") => Some(Some(v.toInt))
-        case (IntPattern(v),"Long") => Some(Some(v.toLong))
-        case ("NULL::character varying","String") => Some(None)
-      }.getOrElse{
-        val d = super.default
-        if(meta.nullable == Some(true) && d == None){
-          Some(None)
-        } else d
+      override def Column = new Column(_) {
+        val VarCharPattern = "^'(.*)'::character varying$".r
+        val IntPattern = "^\\((-?[0-9]*)\\)$".r
+        override def default = meta.columnDef.map((_,tpe)).collect{
+          case ("true","Boolean")  => Some(Some(true))
+          case ("false","Boolean") => Some(Some(false))
+          case (VarCharPattern(str),"String") => Some(Some(str))
+          case (IntPattern(v),"Int") => Some(Some(v.toInt))
+          case (IntPattern(v),"Long") => Some(Some(v.toLong))
+          case ("NULL::character varying","String") => Some(None)
+        }.getOrElse{
+          val d = super.default
+          if(meta.nullable == Some(true) && d == None){
+            Some(None)
+          } else d
+        }
+        override def length: Option[Int] = {
+          val l = super.length
+          if(tpe == "String" && varying && l == Some(2147483647)) None
+          else l
+        }
+        override def tpe = meta.typeName match {
+          case "bytea" => "Array[Byte]"
+          case "lo" if meta.sqlType == java.sql.Types.DISTINCT => "java.sql.Blob"
+          case _ => super.tpe
+        }
       }
-      override def length: Option[Int] = {
-        val l = super.length
-        if(tpe == "String" && varying && l == Some(2147483647)) None
-        else l
+      override def Index = new Index(_) {
+        // FIXME: this needs a test
+        override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
       }
-      override def tpe = meta.typeName match {
-        case "bytea" => "Array[Byte]"
-        case "lo" if meta.sqlType == java.sql.Types.DISTINCT => "java.sql.Blob"
-        case _ => super.tpe
-      }
-    }
-    override def createIndexBuilder(tableBuilder: TableBuilder, meta: Seq[MIndexInfo]): IndexBuilder = new IndexBuilder(tableBuilder, meta) {
-      // FIXME: this needs a test
-      override def columns = super.columns.map(_.stripPrefix("\"").stripSuffix("\""))
     }
   }
 
-  override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
+  override def createModelBuilder(tables: Seq[MTableExtended], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
-    MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTableExtended]] =
+    MTable.getExtendedTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)

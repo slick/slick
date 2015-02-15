@@ -63,10 +63,18 @@ session pool), it is not strictly necessary.
 Metadata API and Code Generator
 -------------------------------
 
-The JDBC metadata API in package ``scala.slick.jdbc.meta`` has been switched to the new API, producing Actions instead
-of Invokers. The code generator, which uses this API, has been completely rewritten for the asynchronous API. It still
-supports the same functionality and the same concepts but any customization of the code generator will have to be
-changed. See the code generator tests and the :doc:`code-generation` chapter for examples.
+The JDBC metadata API in package ``scala.slick.jdbc.meta`` has been switched to the new API,
+producing Actions instead of Invokers. 
+
+    scala.slick.jdbc.meta.createModel(tables,driver)
+
+has been removed in favor of
+
+    driver.createModel(tables)
+
+The code generator has also been updated for the asynchronous API.
+See the code generator tests and the :doc:`code-generation` chapter for examples.
+
 
 Inserting from Queries and Expressions
 --------------------------------------
