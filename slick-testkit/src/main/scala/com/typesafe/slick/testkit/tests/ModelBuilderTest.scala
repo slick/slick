@@ -6,7 +6,7 @@ import scala.concurrent.duration.Duration
 import scala.slick.driver.SQLiteDriver
 import scala.slick.model._
 import scala.slick.ast.ColumnOption
-import scala.slick.jdbc.meta.MTable
+import scala.slick.jdbc.meta.{MTable, MTableExtended}
 import scala.slick.jdbc.meta
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
@@ -120,7 +120,7 @@ class ModelBuilderTest extends TestkitTest[JdbcTestDB] {
     ddl.create
     //println(ddl.createStatements.toList.toString)
 
-    def createModel(tables: Option[Seq[MTable]] = None, ignoreInvalidDefaults: Boolean = true): Model =
+    def createModel(tables: Option[Seq[MTableExtended]] = None, ignoreInvalidDefaults: Boolean = true): Model =
       tdb.blockingRunOnSession(ec => tdb.profile.createModel(tables.map(DBIO.successful), ignoreInvalidDefaults)(ec))
 
     createModel(ignoreInvalidDefaults=false).assertConsistency
