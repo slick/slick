@@ -13,7 +13,6 @@ import scala.slick.dbio.DBIO
 import scala.slick.codegen.{OutputHelpers, SourceCodeGenerator}
 import scala.slick.driver._
 import scala.slick.jdbc.JdbcBackend
-import scala.slick.driver.JdbcDriver
 import scala.slick.jdbc.meta.MTable
 import scala.slick.model.Model
 

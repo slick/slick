@@ -1,6 +1,6 @@
 package scala.slick.benchmark
 
-import scala.slick.driver.JdbcDriver.api._
+import scala.slick.driver.FallbackJdbcDriver.api._
 
 object Benchmark {
 
