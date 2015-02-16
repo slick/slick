@@ -1,6 +1,6 @@
 package scala.slick.backend
 
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
 
 import com.typesafe.config.Config
 
@@ -89,8 +89,10 @@ trait DatabaseComponent { self =>
       createPublisher(a, s => createStreamingDatabaseActionContext(s, useSameThread))
 
     /** Create a Reactive Streams `Publisher` using the given context factory. */
-    protected[this] def createPublisher[T](a: DBIOAction[_, Streaming[T], Nothing], createCtx: Subscriber[_ >: T] => StreamingContext): DatabasePublisher[T] = new DatabasePublisherSupport[T] {
-      def subscribe(s: Subscriber[_ >: T]) = if(allowSubscriber(s)) {
+    protected[this] def createPublisher[T](a: DBIOAction[_, Streaming[T], Nothing], createCtx: Subscriber[_ >: T] => StreamingContext): DatabasePublisher[T] = new DatabasePublisher[T] {
+      private[this] val used = new AtomicBoolean()
+      def subscribe(s: Subscriber[_ >: T]) = {
+        if(s eq null) throw new NullPointerException("Subscriber is null")
         val ctx = createCtx(s)
         if(streamLogger.isDebugEnabled) streamLogger.debug(s"Signaling onSubscribe($ctx)")
         val subscribed = try { s.onSubscribe(ctx.subscription); true } catch {
@@ -99,15 +101,19 @@ trait DatabaseComponent { self =>
             false
         }
         if(subscribed) {
-          try {
-            runInContext(a, ctx, true).onComplete {
-              case Success(_) => ctx.tryOnComplete
-              case Failure(t) => ctx.tryOnError(t)
-            }(DBIO.sameThreadExecutionContext)
-          } catch {
-            case NonFatal(ex) =>
-              streamLogger.warn("Database.streamInContext failed unexpectedly", ex)
-              ctx.tryOnError(ex)
+          if(used.getAndSet(true)) {
+            ctx.tryOnError(new IllegalStateException("Database Action Publisher may not be subscribed to more than once"))
+          } else {
+            try {
+              runInContext(a, ctx, true).onComplete {
+                case Success(_) => ctx.tryOnComplete
+                case Failure(t) => ctx.tryOnError(t)
+              }(DBIO.sameThreadExecutionContext)
+            } catch {
+              case NonFatal(ex) =>
+                streamLogger.warn("Database.streamInContext failed unexpectedly", ex)
+                ctx.tryOnError(ex)
+            }
           }
         }
       }

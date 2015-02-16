@@ -1,7 +1,5 @@
 package scala.slick.backend
 
-import java.util.concurrent.atomic.AtomicBoolean
-
 import org.reactivestreams._
 
 import scala.concurrent.{Promise, Future, ExecutionContext}
@@ -57,16 +55,5 @@ abstract class DatabasePublisher[T] extends Publisher[T] { self =>
       }
     })
     p.future
-  }
-}
-
-abstract class DatabasePublisherSupport[T] extends DatabasePublisher[T] {
-  private[this] val used = new AtomicBoolean()
-
-  protected[this] def allowSubscriber(s: Subscriber[_ >: T]): Boolean = {
-    if(used.getAndSet(true)) {
-      s.onError(new IllegalStateException("Database Action Publisher may not be subscribed to more than once"))
-      false
-    } else true
   }
 }
