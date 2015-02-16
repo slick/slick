@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.util
 
-import scala.slick.profile.{SqlProfile, RelationalProfile, BasicProfile}
-import scala.slick.driver.JdbcProfile
+import slick.profile.{SqlProfile, RelationalProfile, BasicProfile}
+import slick.driver.JdbcProfile
 import java.io.{PrintWriter, OutputStreamWriter, BufferedWriter, FileOutputStream, FileWriter}
 
 /** Build a table of supported capability flags for the user manual. */
@@ -13,13 +13,13 @@ object BuildCapabilitiesTable extends App {
   }
 
   val driverNames = if(args.length > 1) args(1).split(",") else Array(
-    "scala.slick.driver.DerbyDriver",
-    "scala.slick.driver.H2Driver",
-    "scala.slick.driver.HsqldbDriver",
-    "scala.slick.driver.AccessDriver",
-    "scala.slick.driver.MySQLDriver",
-    "scala.slick.driver.PostgresDriver",
-    "scala.slick.driver.SQLiteDriver"
+    "slick.driver.DerbyDriver",
+    "slick.driver.H2Driver",
+    "slick.driver.HsqldbDriver",
+    "slick.driver.AccessDriver",
+    "slick.driver.MySQLDriver",
+    "slick.driver.PostgresDriver",
+    "slick.driver.SQLiteDriver"
   )
 
   val drivers = driverNames.map { n =>
@@ -27,15 +27,15 @@ object BuildCapabilitiesTable extends App {
   }
 
   val profiles = Vector(
-    RelationalProfile.capabilities.all -> "scala.slick.profile.RelationalProfile$$capabilities$@",
-    SqlProfile.capabilities.all -> "scala.slick.profile.SqlProfile$$capabilities$@",
-    JdbcProfile.capabilities.all -> "scala.slick.driver.JdbcProfile$$capabilities$@"
+    RelationalProfile.capabilities.all -> "slick.profile.RelationalProfile$$capabilities$@",
+    SqlProfile.capabilities.all -> "slick.profile.SqlProfile$$capabilities$@",
+    JdbcProfile.capabilities.all -> "slick.driver.JdbcProfile$$capabilities$@"
   )
 
   val capabilities = for {
     (caps, linkBase) <- profiles
     cap <- caps.toVector.sortBy(c => if(c.toString.endsWith(".other")) "" else c.toString)
-  } yield (cap, linkBase + cap.toString.replaceFirst(".*\\.", "") + ":scala.slick.profile.Capability")
+  } yield (cap, linkBase + cap.toString.replaceFirst(".*\\.", "") + ":slick.profile.Capability")
 
   val out = new FileOutputStream(args(0))
   try {

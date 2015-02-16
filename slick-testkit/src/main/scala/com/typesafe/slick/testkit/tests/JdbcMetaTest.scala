@@ -2,8 +2,8 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.{Test, Assert}
 import org.junit.Assert._
-import scala.slick.jdbc.meta._
-import scala.slick.jdbc.StaticQuery
+import slick.jdbc.meta._
+import slick.jdbc.StaticQuery
 import com.typesafe.slick.testkit.util.{TestDB, JdbcTestDB, AsyncTest}
 
 class JdbcMetaTest extends AsyncTest[JdbcTestDB] {

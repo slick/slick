@@ -3,14 +3,14 @@ package com.typesafe.slick.testkit.tests
 import org.junit.Assert._
 import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration.Duration
-import scala.slick.driver.SQLiteDriver
-import scala.slick.model._
-import scala.slick.ast.ColumnOption
-import scala.slick.jdbc.meta.MTable
-import scala.slick.jdbc.meta
+import slick.driver.SQLiteDriver
+import slick.model._
+import slick.ast.ColumnOption
+import slick.jdbc.meta.MTable
+import slick.jdbc.meta
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
-import scala.slick.profile.{SqlProfile, RelationalProfile}
+import slick.profile.{SqlProfile, RelationalProfile}
 
 @deprecated("Using deprecated .simple API", "3.0")
 class ModelBuilderTest extends TestkitTest[JdbcTestDB] {

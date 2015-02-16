@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert._
-import scala.slick.util.iter._
+import slick.util.iter._
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
 @deprecated("Testing deprecated iteratee API", "3.0")

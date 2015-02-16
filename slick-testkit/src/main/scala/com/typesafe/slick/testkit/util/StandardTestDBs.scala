@@ -4,12 +4,12 @@ import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
 import scala.concurrent.ExecutionContext
-import scala.slick.dbio._
-import scala.slick.driver._
-import scala.slick.memory.MemoryDriver
-import scala.slick.jdbc.{StaticQuery => Q, ResultSetAction, ResultSetInvoker}
-import scala.slick.jdbc.GetResult._
-import scala.slick.jdbc.meta.MTable
+import slick.dbio._
+import slick.driver._
+import slick.memory.MemoryDriver
+import slick.jdbc.{StaticQuery => Q, ResultSetAction, ResultSetInvoker}
+import slick.jdbc.GetResult._
+import slick.jdbc.meta.MTable
 import org.junit.Assert
 
 object StandardTestDBs {

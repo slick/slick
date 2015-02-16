@@ -7,16 +7,16 @@ import java.util.Properties
 import java.util.zip.GZIPInputStream
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
-import scala.slick.SlickException
-import scala.slick.dbio.{NoStream, DBIOAction, DBIO}
-import scala.slick.jdbc.{StaticQuery => Q, ResultSetAction, JdbcDataSource, SimpleJdbcAction, ResultSetInvoker}
-import scala.slick.jdbc.GetResult._
-import scala.slick.driver._
-import scala.slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
+import slick.SlickException
+import slick.dbio.{NoStream, DBIOAction, DBIO}
+import slick.jdbc.{StaticQuery => Q, ResultSetAction, JdbcDataSource, SimpleJdbcAction, ResultSetInvoker}
+import slick.jdbc.GetResult._
+import slick.driver._
+import slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
 import org.junit.Assert
 import com.typesafe.config.Config
 
-import scala.slick.util.AsyncExecutor
+import slick.util.AsyncExecutor
 
 object TestDB {
   object capabilities {

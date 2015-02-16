@@ -1,0 +1,74 @@
+package slick.util
+
+import scala.language.implicitConversions
+import scala.reflect.{ClassTag, classTag}
+import slick.ast._
+import slick.lifted._
+
+/** Utility functions for working with tuples of different arities */
+object TupleSupport {
+  /** Build a Tuple for the supported arities, otherwise a ProductWrapper. */
+  def buildTuple(s: IndexedSeq[Any]): Product = s.length match {
+<#list 1..22 as i>
+    case ${i} => new Tuple${i}(<#list 1..i as j>s(${j-1})<#if i != j>, </#if></#list>)
+</#list>
+    case _ => new ProductWrapper(s)
+  }
+
+  /** Build an IndexedSeq from a Product */
+  def buildIndexedSeq(p: Product): IndexedSeq[Any] = p match {
+    case p: ProductWrapper => p.seq
+    case p => p.productIterator.toIndexedSeq
+  }
+
+  private[this] val tupleClassTags = Vector[ClassTag[_]](
+    classTag[Unit],
+<#list 1..22 as i>
+    classTag[Tuple${i}[<#list 1..i as j>_<#if i != j>, </#if></#list>]]<#if i != 22>,</#if>
+</#list>
+  )
+  private[this] val productWrapperTag = classTag[ProductWrapper]
+
+  /** Return a ClassTag for a tuple of the given arity */
+  def classTagForArity(i: Int): ClassTag[_] =
+    if(i < tupleClassTags.length) tupleClassTags(i) else productWrapperTag
+}
+
+/** Extension methods for prepending and appending values to tuples */
+object TupleMethods {
+  implicit class RepTupleExtensionMethods[T <: Rep[_]](val c: T with Rep[_]) extends AnyVal {
+    def ~ [U <: Rep[_]](c2: U with Rep[_]): (T, U) = (c, c2)
+    def ~: [U <: Rep[_]](c2: U with Rep[_]): (U, T) = (c2, c)
+  }
+<#list 2..21 as i>
+  implicit class Tuple${i}ExtensionMethods[<#list 1..i as j>T${j} <: Rep[_]<#if i != j>, </#if></#list>](val t: (<#list 1..i as j>T${j} with Rep[_]<#if i != j>, </#if></#list>)) extends AnyVal {
+    def ~ [U <: Rep[_]](c: U with Rep[_]): (<#list 1..i as j>T${j}, </#list>U) = (<#list 1..i as j>t._${j}, </#list>c)
+    def ~: [U <: Rep[_]](c: U with Rep[_]): (U<#list 1..i as j>, T${j}</#list>) = (c<#list 1..i as j>, t._${j}</#list>)
+  }
+</#list>
+
+  /** A chained extractor for tuples */
+  object ~ {
+    def unapply[T1 <: Rep[_], T2 <: Rep[_]](p: (T1,T2)) =
+      Some(p)
+<#list 3..22 as i>
+    def unapply[<#list 1..i as j>T${j} <: Rep[_]<#if i != j>,</#if></#list>](p: (<#list 1..i as j>T${j}<#if i != j>,</#if></#list>)) =
+      Some((<#list 1..i-1 as j>p._${j}<#if i-1 != j>,</#if></#list>), p._${i})
+</#list>
+  }
+}
+
+/** A Product to represent larger arities than Tuple22 */
+final class ProductWrapper(val seq: IndexedSeq[Any]) extends Product {
+  def productArity = seq.length
+  def productElement(idx: Int) = seq(idx)
+  override def productIterator = seq.iterator
+  def canEqual(that: Any) = that.isInstanceOf[ProductWrapper]
+  override def equals(that: Any) = that match {
+    case p: ProductWrapper => productArity == p.productArity &&
+      (0 until productArity).forall(i => productElement(i) == p.productElement(i))
+    case _ => false
+  }
+  override def hashCode = seq.hashCode
+  override def toString = seq.mkString("ProductWrapper(", ",", ")")
+}

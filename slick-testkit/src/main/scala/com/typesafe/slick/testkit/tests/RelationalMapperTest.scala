@@ -141,4 +141,4 @@ class RelationalMapperTest extends AsyncTest[RelationalTestDB] {
   }
 }
 
-case class MyMappedID(value: Int) extends AnyVal with scala.slick.lifted.MappedTo[Int]
+case class MyMappedID(value: Int) extends AnyVal with slick.lifted.MappedTo[Int]

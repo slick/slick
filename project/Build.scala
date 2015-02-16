@@ -88,9 +88,9 @@ object SlickBuild extends Build {
   def ifPublished(s: Seq[Setting[_]]): Seq[Setting[_]] =
     if(scalaSettings eq publishedScalaSettings) s else Nil
 
-  def extTarget(extName: String, t: Option[String]): Seq[Setting[File]] = {
+  def extTarget(extName: String): Seq[Setting[File]] = {
     sys.props("slick.build.target") match {
-      case null => t.map(f => Seq(target := file(f))).getOrElse(Seq.empty)
+      case null => Seq.empty
       case path => Seq(target := file(path + "/" + extName))
     }
   }
@@ -169,7 +169,7 @@ object SlickBuild extends Build {
 
   /* Project Definitions */
   lazy val aRootProject: Project = Project(id = "root", base = file("."),
-    settings = Defaults.coreDefaultSettings ++ sharedSettings ++ extTarget("root", Some("target/root")) ++ Seq(
+    settings = Defaults.coreDefaultSettings ++ sharedSettings ++ extTarget("root") ++ Seq(
       sourceDirectory := file("target/root-src"),
       publishArtifact := false,
       test := (), testOnly :=  (), // suppress test status output
@@ -178,8 +178,8 @@ object SlickBuild extends Build {
       sdlc <<= sdlc dependsOn (sdlc in slickProject, sdlc in slickCodegenProject, sdlc in slickDirectProject)
     )).aggregate(slickProject, slickCodegenProject, slickDirectProject, slickTestkitProject)
 
-  lazy val slickProject: Project = Project(id = "slick", base = file("."),
-    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick", None) ++ osgiSettings ++ Seq(
+  lazy val slickProject: Project = Project(id = "slick", base = file("slick"),
+    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick") ++ osgiSettings ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -201,14 +201,14 @@ object SlickBuild extends Build {
       test := (), testOnly :=  (), // suppress test status output
       previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
       binaryIssueFilters ++= Seq(
-        ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl$"),
-        ProblemFilters.exclude[MissingClassProblem]("scala.slick.util.MacroSupportInterpolationImpl")
+        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
+        ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl")
       ),
       ivyConfigurations += config("macro").hide.extend(Compile),
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin),
-      OsgiKeys.exportPackage := Seq("scala.slick", "scala.slick.*"),
+      OsgiKeys.exportPackage := Seq("slick", "slick.*"),
       OsgiKeys.importPackage := Seq(
         osgiImport("scala*", scalaVersion.value),
         "*"
@@ -232,7 +232,7 @@ object SlickBuild extends Build {
   val testKitTestCodegenDependencies = Dependencies.logback +: Dependencies.testDBs
 
   lazy val slickTestkitProject = Project(id = "testkit", base = file("slick-testkit"),
-    settings = Defaults.coreDefaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit", None) ++ Seq(
+    settings = Defaults.coreDefaultSettings ++ typeProvidersSettings ++ sharedSettings ++ extTarget("testkit") ++ Seq(
       name := "Slick-TestKit",
       description := "Test Kit for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -256,7 +256,7 @@ object SlickBuild extends Build {
       javaOptions in run += "-Dslick.ansiDump=true",
       //javaOptions in run += "-verbose:gc",
       compile in Test ~= { a =>
-        // Delete classes in "compile" packages after compiling. (Currently only scala.slick.test.compile.NestedShapeTest)
+        // Delete classes in "compile" packages after compiling. (Currently only slick.test.compile.NestedShapeTest)
         // These are used for compile-time tests and should be recompiled every time.
         val products = a.relations.allProducts.toSeq ** new SimpleFileFilter(_.getParentFile.getName == "compile")
         IO.delete(products.get)
@@ -266,7 +266,7 @@ object SlickBuild extends Build {
         val logger = ConsoleLogger()
         Run.run( "com.typesafe.slick.testkit.util.BuildCapabilitiesTable",
           (fullClasspath in Compile).value.map(_.data),
-          Seq("src/sphinx/capabilities.csv"),
+          Seq("slick/src/sphinx/capabilities.csv"),
           logger)(runner.value)
       }
     ) ++ ifPublished(Seq(
@@ -283,7 +283,7 @@ object SlickBuild extends Build {
   ) dependsOn(slickProject, slickCodegenProject % "test->compile", slickDirectProject % "test->compile")
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
-    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen", None) ++ Seq(
+    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen") ++ Seq(
       name := "Slick-CodeGen",
       description := "Code Generator for Slick (Scala Language-Integrated Connection Kit)",
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
@@ -298,7 +298,7 @@ object SlickBuild extends Build {
   ) dependsOn(slickProject)
 
   lazy val slickDirectProject = Project(id = "direct", base = file("slick-direct"),
-    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("direct", None) ++ Seq(
+    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("direct") ++ Seq(
       name := "Slick-Direct",
       description := "Direct Embedding for Slick (Scala Language-Integrated Connection Kit)",
       libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
@@ -430,11 +430,11 @@ object SlickBuild extends Build {
     (fullClasspath in typeProvidersConfig, runner in typeProviders, sourceManaged in Test, streams, sourceDirectory, sourceDirectory in slickProject) map { (cp, r, output, s, srcDir, slickSrc) =>
       val src = srcDir / "codegen"
       val outDir = (output/"slick-codegen").getPath 
-      val inFiles = (src ** "*.scala").get.toSet ++ (slickSrc / "main/scala/scala/slick/codegen" ** "*.scala").get.toSet ++ (slickSrc / "main/scala/scala/slick/jdbc/meta" ** "*.scala").get.toSet
+      val inFiles = (src ** "*.scala").get.toSet ++ (slickSrc / "main/scala/slick/codegen" ** "*.scala").get.toSet ++ (slickSrc / "main/scala/slick/jdbc/meta" ** "*.scala").get.toSet
       val cachedFun = FileFunction.cached(s.cacheDirectory / "type-providers", outStyle = FilesInfo.exists) { (in: Set[File]) =>
         IO.delete((output ** "*.scala").get)
-        toError(r.run("scala.slick.test.codegen.GenerateMainSources", cp.files, Array(outDir), s.log))
-        toError(r.run("scala.slick.test.codegen.GenerateRoundtripSources", cp.files, Array(outDir), s.log))
+        toError(r.run("slick.test.codegen.GenerateMainSources", cp.files, Array(outDir), s.log))
+        toError(r.run("slick.test.codegen.GenerateRoundtripSources", cp.files, Array(outDir), s.log))
         (output ** "*.scala").get.toSet
       }
       cachedFun(inFiles).toSeq

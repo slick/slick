@@ -2,7 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import scala.collection.mutable.ArrayBuffer
 import org.junit.Assert._
-import scala.slick.util.CloseableIterator
+import slick.util.CloseableIterator
 import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 
 @deprecated("Using deprecated .simple API", "3.0")
