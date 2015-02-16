@@ -78,6 +78,7 @@ val  SimpleA = CustomTyping.SimpleA
         }
       })
     },
+    new UUIDConfig("CG10", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql")),
     new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
       import tdb.driver.api._
       class A(tag: Tag) extends Table[(Int, Array[Byte], Blob)](tag, "a") {
@@ -100,7 +101,8 @@ val  SimpleA = CustomTyping.SimpleA
           |    A.result.map { case Seq(ARow(id, ba, blob)) => assertEquals("1123", ""+id+ba.mkString) }
           |  ).transactionally
         """.stripMargin
-    }
+    },
+    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql"))
   )
 
   def packageName = "scala.slick.test.codegen.generated"
@@ -179,4 +181,54 @@ val  SimpleA = CustomTyping.SimpleA
       }
     }
   }
+
+  //Unified UUID config
+  class UUIDConfig(objectName: String, tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String])
+    extends Config(objectName, tdb, tdbName, initScripts) {
+      override def generator =tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+        override def Table = new Table(_) {
+          override def Column = new Column(_){
+            override def defaultCode: (Any) => String = {
+              case v: java.util.UUID => s"""java.util.UUID.fromString("${v.toString}")"""
+              case v => super.defaultCode(v)
+            }
+          }
+          override def code = {
+            Seq("""
+                    /*default UUID, which is the same as for 'create-uuid.sql'*/
+                    val defaultUUID = java.util.UUID.fromString("2f3f866c-d8e6-11e2-bb56-50e549c9b654")
+                    /*convert UUID for H2*/
+                    implicit object GetUUID extends scala.slick.jdbc.GetResult[java.util.UUID] {
+                      def apply(rs: scala.slick.jdbc.PositionedResult) = rs.nextObject().asInstanceOf[java.util.UUID]
+                    }
+                    /*convert Option[UUID] for H2*/
+                    implicit object GetOptionUUID extends scala.slick.jdbc.GetResult[Option[java.util.UUID]] {
+                      def apply(rs: scala.slick.jdbc.PositionedResult) = Option(rs.nextObject().asInstanceOf[java.util.UUID])
+                    }
+                """.trim) ++ super.code
+          }
+        }
+      })
+      override def testCode =
+        """
+          |  import java.util.UUID
+          |  val u1 = UUID.randomUUID()
+          |  val u2 = UUID.randomUUID()
+          |  val p1 = PersonRow(1, u1)
+          |  val p2 = PersonRow(2, u2)
+          |  DBIO.seq(
+          |    schema.create,
+          |    Person += p1,
+          |    Person += p2,
+          |    Person.result.map { case all => {
+          |       assertEquals( 2, all.size )
+          |       assertEquals( Set(1,2), all.map(_.id).toSet )
+          |       assertEquals( Set(u1, u2), all.map(_.uuid).toSet )
+          |       //it should contain sample UUID
+          |       assert(all.forall(_.uuidDef == Some(defaultUUID)))
+          |     }
+          |    }
+          |  ).transactionally
+        """.stripMargin
+    }
 }

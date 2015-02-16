@@ -69,6 +69,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
         case (IntPattern(v),"Int") => Some(Some(v.toInt))
         case (IntPattern(v),"Long") => Some(Some(v.toLong))
         case ("NULL::character varying","String") => Some(None)
+        case (v,"java.util.UUID") => {
+          val uuid = v.replaceAll("[\'\"]", "") //strip quotes
+                      .stripSuffix("::uuid") //strip suffix
+          Some(Some(java.util.UUID.fromString(uuid)))
+        }
       }.getOrElse{
         val d = super.default
         if(meta.nullable == Some(true) && d == None){
@@ -83,6 +88,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
       override def tpe = meta.typeName match {
         case "bytea" => "Array[Byte]"
         case "lo" if meta.sqlType == java.sql.Types.DISTINCT => "java.sql.Blob"
+        case "uuid" => "java.util.UUID"
         case _ => super.tpe
       }
     }
