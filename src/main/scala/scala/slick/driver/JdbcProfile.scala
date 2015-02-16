@@ -4,7 +4,7 @@ import scala.language.{implicitConversions, higherKinds}
 import scala.slick.ast.{BaseTypedType, Node}
 import scala.slick.compiler.{Phase, QueryCompiler, InsertCompiler}
 import scala.slick.lifted._
-import scala.slick.jdbc.{TypedStaticQuery => TSQ, _}
+import scala.slick.jdbc._
 import scala.slick.profile.{SqlDriver, SqlProfile, Capability}
 
 /** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
@@ -86,8 +86,6 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
       new JdbcActionExtensionMethods[E, R, S](a)
 
     implicit def actionBasedSQLInterpolation(s: StringContext) = new ActionBasedSQLInterpolation(s)
-    val TypedStaticQuery = TSQ
-    type TSQLConfig = TSQ.TSQLConfig
   }
 
   @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")

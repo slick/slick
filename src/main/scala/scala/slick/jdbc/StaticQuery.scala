@@ -1,16 +1,22 @@
 package scala.slick.jdbc
 
+import java.net.URI
+
+import com.typesafe.config.ConfigException
+
 import scala.language.experimental.macros
 import scala.language.implicitConversions
+import scala.reflect.ClassTag
 import scala.reflect.macros.Context
 import scala.collection.mutable.ArrayBuffer
 
 import java.sql.PreparedStatement
 
+import scala.slick.SlickException
+import scala.slick.backend.{DatabaseConfig, StaticDatabaseConfigMacros, StaticDatabaseConfig}
 import scala.slick.dbio.Effect
+import scala.slick.driver.JdbcProfile
 import scala.slick.profile.SqlStreamingAction
-
-import TypedStaticQuery.{MacroConnectionHelper, MacroTreeBuilder}
 
 
 ///////////////////////////////////////////////////////////////////////////////// Invoker-based API
@@ -75,8 +81,7 @@ class SQLInterpolation(val s: StringContext) extends AnyVal {
 object SQLInterpolation {
   def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLInterpolationResult] = {
     import ctxt.universe._
-    val macroConnHelper = new MacroConnectionHelper(ctxt)
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
       SQLInterpolationResult(
         ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
@@ -87,8 +92,7 @@ object SQLInterpolation {
 
   def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[StaticQuery[Unit, Int]] = {
     import ctxt.universe._
-    val macroConnHelper = new MacroConnectionHelper(ctxt)
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
       val res: SQLInterpolationResult = SQLInterpolationResult(
         ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
@@ -127,8 +131,7 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
 object ActionBasedSQLInterpolation {
   def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
     import ctxt.universe._
-    val macroConnHelper = new MacroConnectionHelper(ctxt)
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
       SQLActionBuilder(
         ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
@@ -139,8 +142,7 @@ object ActionBasedSQLInterpolation {
 
   def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Effect, Vector[Int], Int]] = {
     import ctxt.universe._
-    val macroConnHelper = new MacroConnectionHelper(ctxt)
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
       val res: SQLActionBuilder = SQLActionBuilder(
         ctxt.Expr[Seq[Any]]          (macroTreeBuilder.queryParts).splice,
@@ -151,23 +153,28 @@ object ActionBasedSQLInterpolation {
   }
   def tsqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Effect, Vector[Any], Any]] = {
     import ctxt.universe._
-    val macroConnHelper = new MacroConnectionHelper(ctxt)
-    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList, macroConnHelper.rawQueryParts)
+    val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
 
-    val rTypes = macroConnHelper.configHandler.connection withSession {
-      _.withPreparedStatement(macroTreeBuilder.staticQueryString) {
-        _.getMetaData match {
-          case null => Vector()
-          case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
-              val configHandler = macroConnHelper.configHandler
-//              val driver = if (configHandler.slickDriver.isDefined) configHandler.SlickDriver else scala.slick.driver.JdbcDriver
-              val driver = scala.slick.driver.JdbcDriver
-              val modelBuilder = driver.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
+    val uri = StaticDatabaseConfigMacros.getURI(ctxt)
+    //TODO The database configuration and connection should be cached for subsequent macro invocations
+    val dc =
+      try DatabaseConfig.forURI[JdbcProfile](new URI((uri))) catch {
+        case ex @ (_: ConfigException | _: SlickException) =>
+          ctxt.abort(ctxt.enclosingPosition, s"""Cannot load @StaticDatabaseConfig("$uri"): ${ex.getMessage}""")
+      }
+    val rTypes = try {
+      dc.db withSession {
+        _.withPreparedStatement(macroTreeBuilder.staticQueryString) {
+          _.getMetaData match {
+            case null => Vector()
+            case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
+              val modelBuilder = dc.driver.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
               modelBuilder.jdbcTypeToScala(resultMeta.getColumnType(i + 1))
+            }
           }
         }
       }
-    }
+    } finally dc.db.close()
 
     reify {
       val rconv = ctxt.Expr[GetResult[Any]](macroTreeBuilder.rconvTree(rTypes)).splice

@@ -31,6 +31,8 @@ trait JdbcBackend extends RelationalBackend {
   val Database = new DatabaseFactoryDef {}
   val backend: JdbcBackend = this
 
+  def createDatabase(config: Config, path: String): Database = Database.forConfig(path, config)
+
   class DatabaseDef(val source: JdbcDataSource, val executor: AsyncExecutor) extends super.DatabaseDef {
     /** The DatabaseCapabilities, accessed through a Session and created by the
       * first Session that needs them. Access does not need to be synchronized
@@ -206,7 +208,8 @@ trait JdbcBackend extends RelationalBackend {
       * [[SlickException]].
       *
       * @param path The path in the configuration file for the database configuration (e.g. `foo.bar`
-      *             would find a database URL at config key `foo.bar.url`)
+      *             would find a database URL at config key `foo.bar.url`) or an empty string for
+      *             the top level of the `Config` object.
       * @param config The `Config` object to read from. This defaults to the global app config
       *               (e.g. in `application.conf` at the root of the class path) if not specified.
       * @param driver An optional JDBC driver to call directly. If this is set to a non-null value,

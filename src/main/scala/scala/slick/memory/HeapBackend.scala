@@ -1,6 +1,7 @@
 package scala.slick.memory
 
 import java.util.concurrent.atomic.AtomicLong
+import com.typesafe.config.Config
 import org.reactivestreams.Subscriber
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
@@ -24,6 +25,8 @@ trait HeapBackend extends RelationalBackend with Logging {
 
   val Database = new DatabaseFactoryDef
   val backend: HeapBackend = this
+
+  def createDatabase(config: Config, path: String): Database = Database.apply(ExecutionContext.global)
 
   class DatabaseDef(protected val synchronousExecutionContext: ExecutionContext) extends super.DatabaseDef {
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context =

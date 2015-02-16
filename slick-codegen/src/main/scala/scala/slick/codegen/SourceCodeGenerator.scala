@@ -1,8 +1,13 @@
 package scala.slick.codegen
 
+import java.net.URI
+
 import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration.Duration
+import scala.slick.backend.DatabaseConfig
 import scala.slick.{model => m}
+import scala.slick.driver.JdbcProfile
+import scala.slick.util.ConfigExtensionMethods.configExtensionMethods
 
 /**
  * A customizable code generator for working with Slick.
@@ -52,45 +57,64 @@ class SourceCodeGenerator(model: m.Model)
 }
 
 /** A runnable class to execute the code generator without further setup */
-object SourceCodeGenerator{
-  import scala.slick.driver.JdbcProfile
-  def main(args: Array[String]) = {
+object SourceCodeGenerator {
+
+  def run(slickDriver: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String]): Unit = {
+    val driver: JdbcProfile =
+      Class.forName(slickDriver + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
+    val dbFactory = driver.api.Database
+    val db = dbFactory.forURL(url, driver = jdbcDriver,
+      user = user.getOrElse(null), password = password.getOrElse(null), keepAliveConnection = true)
+    try {
+      val m = Await.result(db.run(driver.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
+      new SourceCodeGenerator(m).writeToFile(slickDriver,outputDir,pkg)
+    } finally db.close
+  }
+
+  def run(uri: URI, outputDir: Option[String]): Unit = {
+    val dc = DatabaseConfig.forURI[JdbcProfile](uri)
+    val pkg = dc.config.getString("codegen.package")
+    val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
+    val slickDriver = if(dc.driverIsObject) dc.driverName else "new " + dc.driverName
+    try {
+      val m = Await.result(dc.db.run(dc.driver.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
+      new SourceCodeGenerator(m).writeToFile(slickDriver, out, pkg)
+    } finally dc.db.close
+  }
+
+  def main(args: Array[String]): Unit = {
     args.toList match {
-      case slickDriver :: jdbcDriver :: url :: outputFolder :: pkg :: tail if tail.size == 0 || tail.size == 2 => {
-        val driver: JdbcProfile =
-          Class.forName(slickDriver + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
-        val dbFactory = driver.api.Database
-        val db = (tail match{
-          case user :: password :: Nil => dbFactory.forURL(url, driver = jdbcDriver, user=user, password=password, keepAliveConnection=true)
-          case Nil => dbFactory.forURL(url, driver = jdbcDriver)
-          case _ => throw new Exception("This should never happen.")
-        })
-        try {
-          val m = Await.result(db.run(driver.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
-          new SourceCodeGenerator(m).writeToFile(slickDriver,outputFolder,pkg)
-        } finally db.close
-      }
+      case uri :: Nil =>
+        run(new URI(uri), None)
+      case uri :: outputDir :: Nil =>
+        run(new URI(uri), Some(outputDir))
+      case slickDriver :: jdbcDriver :: url :: outputDir :: pkg :: Nil =>
+        run(slickDriver, jdbcDriver, url, outputDir, pkg, None, None)
+      case slickDriver :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: Nil =>
+        run(slickDriver, jdbcDriver, url, outputDir, pkg, Some(user), Some(password))
       case _ => {
         println("""
-Usage:
-  SourceCodeGenerator.main(Array(slickDriver, jdbcDriver, url, outputFolder, pkg))
-  SourceCodeGenerator.main(Array(slickDriver, jdbcDriver, url, outputFolder, pkg, user, password))
-
-slickDriver: Fully qualified name of Slick driver class, e.g. "scala.slick.driver.H2Driver"
-
-jdbcDriver: Fully qualified name of jdbc driver class, e.g. "org.h2.Driver"
-
-url: jdbc url, e.g. "jdbc:postgresql://localhost/test"
-
-outputFolder: Place where the package folder structure should be put
-
-pkg: Scala package the generated code should be places in
-
-user: database connection user name
-
-password: database connection password
-            """.trim
-        )
+            |Usage:
+            |  SourceCodeGenerator configURI [outputDir]
+            |  SourceCodeGenerator slickDriver jdbcDriver url outputDir pkg [user password]
+            |
+            |Options:
+            |  configURI: A URL pointing to a standard database config file (a fragment is
+            |    resolved as a path in the config), or just a fragment used as a path in
+            |    application.conf on the class path
+            |  slickDriver: Fully qualified name of Slick driver class, e.g. "scala.slick.driver.H2Driver"
+            |  jdbcDriver: Fully qualified name of jdbc driver class, e.g. "org.h2.Driver"
+            |  url: JDBC URL, e.g. "jdbc:postgresql://localhost/test"
+            |  outputDir: Place where the package folder structure should be put
+            |  pkg: Scala package the generated code should be places in
+            |  user: database connection user name
+            |  password: database connection password
+            |
+            |When using a config file, in addition to the standard config parameters from
+            |scala.slick.backend.DatabaseConfig you can set "codegen.package" and
+            |"codegen.outputDir". The latter can be overridden on the command line.
+          """.stripMargin.trim)
+        System.exit(1)
       }
     }
   }
