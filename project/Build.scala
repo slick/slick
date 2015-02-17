@@ -29,7 +29,7 @@ object SlickBuild extends Build {
     val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
     val logback = "ch.qos.logback" % "logback-classic" % "0.9.28"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
-    val reactiveStreamsVersion = "1.0.0.RC2"
+    val reactiveStreamsVersion = "1.0.0.RC3"
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
     val pools = Seq(
@@ -242,7 +242,7 @@ object SlickBuild extends Build {
       //scalacOptions in Compile += "-Yreify-copypaste",
       libraryDependencies ++=
         Dependencies.junit ++:
-        (Dependencies.reactiveStreamsTCK % "test").intransitive() +:
+        (Dependencies.reactiveStreamsTCK % "test") +:
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
       // Run the Queryable tests (which need macros) on a forked JVM
@@ -318,7 +318,7 @@ object SlickBuild extends Build {
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       libraryDependencies ++=
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
-        Dependencies.reactiveStreamsTCK.intransitive() +:
+        Dependencies.reactiveStreamsTCK +:
         Dependencies.testngExtras,
       testNGSuites := Seq("reactive-streams-tests/src/test/resources/testng.xml")
     )

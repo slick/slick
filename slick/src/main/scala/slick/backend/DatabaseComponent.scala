@@ -432,11 +432,6 @@ trait DatabaseComponent { self =>
       * the actual demand at that point. It is reset to 0 when the initial streaming ends. */
     private[this] val remaining = new AtomicLong(Long.MinValue)
 
-    /** The number of remaining elements that are not in the current batch. Unlike `remaining`,
-      * which is decremented at the end of the batch, this is decremented at the beginning. It is
-      * only used for overflow detection according to Reactive Streams spec, 3.17. */
-    private[this] val remainingNotInBatch = new AtomicLong(0L)
-
     /** An error that will be signaled to the Subscriber when the stream is cancelled or
       * terminated. This is used for signaling demand overflow in `request()` while guaranteeing
       * that the `onError` message does not overlap with an active `onNext` call. */
@@ -463,12 +458,7 @@ trait DatabaseComponent { self =>
       * the current batch. When this value is negative, the initial streaming action is still
       * running and the real demand can be computed by subtracting `Long.MinValue` from the
       * returned value. */
-    def demandBatch: Long = {
-      val demand = remaining.get()
-      val realDemand = if(demand < 0L) demand - Long.MinValue else demand
-      remainingNotInBatch.addAndGet(-realDemand)
-      demand
-    }
+    def demandBatch: Long = remaining.get()
 
     /** Whether the stream has been cancelled by the Subscriber */
     def cancelled: Boolean = cancelRequested
@@ -516,9 +506,6 @@ trait DatabaseComponent { self =>
     def request(l: Long): Unit = if(!cancelRequested) {
       if(l <= 0) {
         deferredError = new IllegalArgumentException("Requested count must not be <= 0 (see Reactive Streams spec, 3.9)")
-        cancel
-      } else if(remainingNotInBatch.addAndGet(l) < 0) {
-        deferredError = new IllegalStateException("Pending element count must not exceed 2^63-1 (see Reactive Streams spec, 3.17)")
         cancel
       } else {
         if(!cancelRequested && remaining.getAndAdd(l) == 0L) restartStreaming
