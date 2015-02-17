@@ -7,7 +7,7 @@ import java.io.{FileInputStream, File}
 import java.util.Properties
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
-import scala.slick.SlickException
+import slick.SlickException
 
 /** Manages the configuration for TestKit tests.
   *

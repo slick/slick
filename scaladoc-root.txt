@@ -8,4 +8,4 @@ Further documentation for Slick can be found on the
 <a href="http://slick.typesafe.com/docs/" target="_top">documentation pages</a>.
 
 
-<a href="scala/slick/package.html">To the slick package list...</a>
+<a href="slick/package.html">To the slick package list...</a>

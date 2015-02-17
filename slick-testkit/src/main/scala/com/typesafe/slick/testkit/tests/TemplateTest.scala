@@ -81,12 +81,12 @@ class TemplateTest extends AsyncTest[RelationalTestDB] {
     val countBelowC = Compiled(countBelow)
     val joinC = Compiled { id: Rep[Int] => ts.filter(_.id === id).join(ts.filter(_.id === id)) }
 
-    implicitly[scala.slick.lifted.Executable[(Rep[Int], Rep[Int]), _]]
-    implicitly[scala.slick.lifted.Compilable[(Rep[Int], Rep[Int]), _]]
+    implicitly[slick.lifted.Executable[(Rep[Int], Rep[Int]), _]]
+    implicitly[slick.lifted.Compilable[(Rep[Int], Rep[Int]), _]]
     val impShaped = (ts.length, ts.length)
     val impShapedC = Compiled(impShaped)
-    implicitly[scala.slick.lifted.Executable[scala.slick.lifted.ShapedValue[(Rep[Int], Rep[Int]), (Int, Int)], _]]
-    implicitly[scala.slick.lifted.Compilable[scala.slick.lifted.ShapedValue[(Rep[Int], Rep[Int]), (Int, Int)], _]]
+    implicitly[slick.lifted.Executable[slick.lifted.ShapedValue[(Rep[Int], Rep[Int]), (Int, Int)], _]]
+    implicitly[slick.lifted.Compilable[slick.lifted.ShapedValue[(Rep[Int], Rep[Int]), (Int, Int)], _]]
     val expShaped = impShaped.shaped
     val expShapedC = Compiled(expShaped)
 

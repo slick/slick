@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import scala.slick.ast.NumericTypedType
+import slick.ast.NumericTypedType
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
 /** Data type related test cases for RelationalProfile */

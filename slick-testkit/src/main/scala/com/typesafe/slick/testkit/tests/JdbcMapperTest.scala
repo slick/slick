@@ -294,8 +294,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testHList = {
-    import scala.slick.collection.heterogenous._
-    import scala.slick.collection.heterogenous.syntax._
+    import slick.collection.heterogeneous._
+    import slick.collection.heterogeneous.syntax._
 
     class B(tag: Tag) extends Table[Int :: Boolean :: String :: HNil](tag, "hlist_b") {
       def id = column[Int]("id", O.PrimaryKey)
@@ -327,8 +327,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testSingleElement = {
-    import scala.slick.collection.heterogenous._
-    import scala.slick.collection.heterogenous.syntax._
+    import slick.collection.heterogeneous._
+    import slick.collection.heterogeneous.syntax._
 
     class A(tag: Tag) extends Table[String](tag, "single_a") {
       def b = column[String]("b")

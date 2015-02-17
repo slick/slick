@@ -4,8 +4,8 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, TestkitTest}
 import org.junit.Assert
 import org.junit.Assert._
 
-import scala.slick.jdbc.StaticQuery.interpolation
-import scala.slick.jdbc.{GetResult, StaticQuery => Q}
+import slick.jdbc.StaticQuery.interpolation
+import slick.jdbc.{GetResult, StaticQuery => Q}
 
 @deprecated("Using deprecated old Plain SQL API", "3.0")
 class OldPlainSQLTest extends TestkitTest[JdbcTestDB] {

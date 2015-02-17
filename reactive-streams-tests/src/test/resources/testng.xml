@@ -3,12 +3,12 @@
 <suite name="ReactiveStreams" verbose="0" >
     <test name="ReactiveStreams">
         <classes>
-            <class name="scala.slick.test.stream.JdbcPublisherTest"/>
-            <class name="scala.slick.test.stream.HeapPublisherTest"/>
+            <class name="slick.test.stream.JdbcPublisherTest"/>
+            <class name="slick.test.stream.HeapPublisherTest"/>
         </classes>
     </test>
 
     <listeners>
-        <listener class-name="scala.slick.test.stream.TestNGConsoleListener" />
+        <listener class-name="slick.test.stream.TestNGConsoleListener" />
     </listeners>
 </suite>

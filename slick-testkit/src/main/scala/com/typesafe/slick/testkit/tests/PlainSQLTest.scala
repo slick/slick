@@ -2,7 +2,7 @@ package com.typesafe.slick.testkit.tests
 
 import org.junit.Assert
 import org.junit.Assert._
-import scala.slick.jdbc.GetResult
+import slick.jdbc.GetResult
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class PlainSQLTest extends AsyncTest[JdbcTestDB] {

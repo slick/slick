@@ -12,11 +12,11 @@ import java.lang.reflect.Method
 import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.slick.dbio._
-import scala.slick.jdbc.JdbcBackend
-import scala.slick.util.DumpInfo
-import scala.slick.profile.{RelationalProfile, SqlProfile, Capability}
-import scala.slick.driver.JdbcProfile
+import slick.dbio._
+import slick.jdbc.JdbcBackend
+import slick.util.DumpInfo
+import slick.profile.{RelationalProfile, SqlProfile, Capability}
+import slick.driver.JdbcProfile
 
 import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier

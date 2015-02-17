@@ -7,6 +7,6 @@
     <root level="${log.root:-info}">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="scala.slick.backend.DatabaseComponent.action"   level="${log.action:-info}" />
-    <logger name="scala.slick.backend.DatabaseComponent.stream"   level="${log.stream:-info}" />
+    <logger name="slick.backend.DatabaseComponent.action"   level="${log.action:-info}" />
+    <logger name="slick.backend.DatabaseComponent.stream"   level="${log.stream:-info}" />
 </configuration>
