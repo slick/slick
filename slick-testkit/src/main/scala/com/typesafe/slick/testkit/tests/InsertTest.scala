@@ -53,7 +53,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     def ins3 = as.map(a => (a.s1, a.s2)) returning as.map(_.id) into ((v, i) => (i, v._1, v._2))
     def ins4 = as.map(a => (a.s1, a.s2)) returning as.map(a => a)
 
-    for {
+    (for {
       _ <- as.schema.create
       _ <- (ins1 += ("a", "b")) map { id1: Int => id1 shouldBe 1 }
       _ <- ifCap(jcap.returnInsertOther) {
@@ -67,7 +67,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
       _ <- ifCap(jcap.returnInsertOther) {
         (ins4 += ("k", "l")) map { id5: (Int, String, String) => id5 shouldBe (6, "k", "l") }
       }
-    } yield ()
+    } yield ()).withPinnedSession // Some database servers (e.g. DB2) preallocate ID blocks per session
   }
 
   def testForced = {
@@ -125,7 +125,7 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    for {
+    (for {
       _ <- ts.schema.create
       _ <- ts ++= Seq((1, "a"), (2, "b"))
       _ <- ts.insertOrUpdate((0, "c")).map(_ shouldBe 1)
@@ -139,6 +139,6 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
           _ <- ts.sortBy(_.id).result.map(_ shouldBe Seq((1, "f"), (2, "b"), (3, "c"), (4, "e")))
         } yield ()
       }
-    } yield ()
+    } yield ()).withPinnedSession
   }
 }

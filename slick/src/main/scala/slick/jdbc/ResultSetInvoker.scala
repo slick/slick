@@ -22,7 +22,7 @@ abstract class ResultSetInvoker[+R] extends Invoker[R] { self =>
       val pr = new PositionedResult(rs) {
         def close() = rs.close()
       }
-      new PositionedResultIterator[R](pr, maxRows) {
+      new PositionedResultIterator[R](pr, maxRows, true) {
         def extractValue(pr: PositionedResult) = self.extractValue(pr)
       }
     }

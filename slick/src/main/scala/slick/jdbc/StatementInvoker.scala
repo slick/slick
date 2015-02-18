@@ -25,7 +25,8 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
   def results(maxRows: Int,
               defaultType: ResultSetType = ResultSetType.ForwardOnly,
               defaultConcurrency: ResultSetConcurrency = ResultSetConcurrency.ReadOnly,
-              defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default)
+              defaultHoldability: ResultSetHoldability = ResultSetHoldability.Default,
+              autoClose: Boolean = true)
              (implicit session: JdbcBackend#Session): Either[Int, PositionedResultIterator[R]] = {
     //TODO Support multiple results
     val statement = getStatement
@@ -56,7 +57,7 @@ abstract class StatementInvoker[+R] extends Invoker[R] { self =>
             }
           }
         }
-        val pri = new PositionedResultIterator[R](pr, maxRows) {
+        val pri = new PositionedResultIterator[R](pr, maxRows, autoClose) {
           def extractValue(pr: PositionedResult) = {
             if(doLogResult) {
               if(logBuffer.length < StatementInvoker.maxLogResults)

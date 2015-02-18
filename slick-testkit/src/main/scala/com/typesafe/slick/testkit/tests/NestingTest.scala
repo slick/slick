@@ -67,16 +67,16 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testNestedOptions = {
-    class X(tag: Tag) extends Table[(Int, String, Option[String])](tag, "X_OPT") {
+    class X(tag: Tag) extends Table[(Int, String, Option[Int])](tag, "X_OPT") {
       def a = column[Int]("A")
       def b = column[String]("B")
-      def c = column[Option[String]]("C")
+      def c = column[Option[Int]]("C")
       def * = (a, b, c)
     }
     val xs = TableQuery[X]
 
     val q = xs.sortBy(_.a)
-    val r = Vector((1, "1", Some("a")), (2, "2", Some("b")), (3, "3", None))
+    val r = Vector((1, "1", Some(1)), (2, "2", Some(2)), (3, "3", None))
 
     val setup = xs.schema.create >> (xs ++= r)
 
@@ -99,9 +99,9 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q1a2t: Query[Rep[Option[Option[X]]], _, Seq] = q1a2
     val q2t: Query[Rep[Option[Int]], _, Seq] = q2
     val q2a2t: Query[Rep[Option[Option[Int]]], _, Seq] = q2a2
-    val q3t: Query[Rep[Option[String]], _, Seq] = q3
-    val q4t: Query[Rep[Option[Option[String]]], _, Seq] = q4
-    val q5t: Query[(Rep[Option[String]], Rep[Option[String]]), _, Seq] = q5
+    val q3t: Query[Rep[Option[Int]], _, Seq] = q3
+    val q4t: Query[Rep[Option[Option[Int]]], _, Seq] = q4
+    val q5t: Query[(Rep[Option[Int]], Rep[Option[String]]), _, Seq] = q5
 
     val t1 = seq(
       q1.result.map(_ shouldBe r.map(t => Some(t))),
@@ -114,14 +114,14 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     )
 
     // Get plain values out
-    val q1b = q1.map(_.map(x => (x.a, x.b, x.c)).getOrElse((0, "", None: Option[String])))
+    val q1b = q1.map(_.map(x => (x.a, x.b, x.c)).getOrElse((0, "", None: Option[Int])))
     val q2b = q2.map(_.get)
     val q3b = q3.filter(_.isDefined).map(_.get)
-    val q4b = q4.map(_.getOrElse(None: Option[String]))
-    val q1bt: Query[(Rep[Int], Rep[String], Rep[Option[String]]), _, Seq] = q1b
+    val q4b = q4.map(_.getOrElse(None: Option[Int]))
+    val q1bt: Query[(Rep[Int], Rep[String], Rep[Option[Int]]), _, Seq] = q1b
     val q2bt: Query[Rep[Int], _, Seq] = q2b
-    val q3bt: Query[Rep[String], _, Seq] = q3b
-    val q4bt: Query[Rep[Option[String]], _, Seq] = q4b
+    val q3bt: Query[Rep[Int], _, Seq] = q3b
+    val q4bt: Query[Rep[Option[Int]], _, Seq] = q4b
 
     val t2 = seq(
       q1b.result.map(_ shouldBe r.map(t => Some(t)).map(_.getOrElse((0, "", None: Option[String])))),
@@ -131,19 +131,19 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     )
 
     // Unpack result types
-    def r1: Future[Seq[Option[(Int, String, Option[String])]]] = db.run(q1.result)
+    def r1: Future[Seq[Option[(Int, String, Option[Int])]]] = db.run(q1.result)
     def r2: Future[Seq[Option[Int]]] = db.run(q2.result)
-    def r3: Future[Seq[Option[String]]] = db.run(q3.result)
+    def r3: Future[Seq[Option[Int]]] = db.run(q3.result)
     def r2b: Future[Seq[Int]] = db.run(q2b.result)
-    def r3b: Future[Seq[String]] = db.run(q3b.result)
+    def r3b: Future[Seq[Int]] = db.run(q3b.result)
 
     // Perform Option-mapped operations
     val q2c = q2.map(io => io + 42)
-    val q3c = q3.map(so => so ++ "x")
+    val q3c = q3.map(so => so + 10)
 
     val t3 = seq(
       q2c.result.map(_ shouldBe r.map(t => Some(t._1)).map(_.map(_ + 42))),
-      q3c.result.map(_ shouldBe r.map(t => t._3).map(_.map(_ + "x")))
+      q3c.result.map(_ shouldBe r.map(t => t._3).map(_.map(_ + 10)))
     )
 
     // Use Option.map
@@ -155,12 +155,12 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
       }
     }
     val q3d = q3.map(_.map(s => (s, s, 1)))
-    val q4d = q4.map(_.filter(_.isDefined).map(_.getOrElse("")))
+    val q4d = q4.map(_.filter(_.isDefined).map(_.getOrElse(0)))
     val q1dt: Query[Rep[Option[Int]], _, Seq] = q1d
-    val q1d2t: Query[Rep[Option[(Rep[Int], Rep[String], Rep[Option[String]])]], _, Seq] = q1d2
+    val q1d2t: Query[Rep[Option[(Rep[Int], Rep[String], Rep[Option[Int]])]], _, Seq] = q1d2
     val q2dt: Query[Rep[Option[Int]], _, Seq] = q2d
-    val q3dt: Query[Rep[Option[(Rep[String], Rep[String], ConstColumn[Int])]], _, Seq] = q3d
-    val q4dt: Query[Rep[Option[String]], _, Seq] = q4d
+    val q3dt: Query[Rep[Option[(Rep[Int], Rep[Int], ConstColumn[Int])]], _, Seq] = q3d
+    val q4dt: Query[Rep[Option[Int]], _, Seq] = q4d
 
     val t4 = seq(
       q1d.result.map(_ shouldBe r.map(t => Some(t)).map(_.map(_._1))),
@@ -176,7 +176,7 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q1e3 = q1.map(to => Rep.Some(to)).map(_.flatMap(identity))
     val q2e = q2.map { io => io.flatMap { i => Rep.Some(i) }}
     val q1e1t: Query[Rep[Option[String]], _, Seq] = q1e1
-    val q1e2t: Query[Rep[Option[String]], _, Seq] = q1e2
+    val q1e2t: Query[Rep[Option[Int]], _, Seq] = q1e2
     val q2et: Query[Rep[Option[Int]], _, Seq] = q2e
 
     val t5 = seq(
@@ -201,7 +201,7 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q2f3t: Query[Rep[Option[Int]], _, Seq] = q2f3
 
     val t6 = seq(
-      q1f1.result.map(_ shouldBe Vector(Some(Some((1,"1",Some("a")))), Some(Some((2,"2",Some("b")))), Some(Some((3,"3",None))))),
+      q1f1.result.map(_ shouldBe Vector(Some(Some((1,"1",Some(1)))), Some(Some((2,"2",Some(2)))), Some(Some((3,"3",None))))),
       q1f2.result.map(_ shouldBe r.map(t => Some(t)).map { to => Some(to).flatten }),
       q1f3.result.map(_ shouldBe r.map(t => Some(t)).map { to => Some(to) }.map(_.flatten)),
       q2f1.result.map(_ shouldBe r.map(t => Some(t._1)).map { io => Some(io) }),

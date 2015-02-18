@@ -131,6 +131,9 @@ trait TestDB {
   def confOptionalString(path: String) = if(config.hasPath(path)) Some(config.getString(path)) else None
   def confString(path: String) = confOptionalString(path).getOrElse(null)
   def confStrings(path: String) = TestkitConfig.getStrings(config, path).getOrElse(Nil)
+
+  /** The tests to run for this configuration. */
+  def testClasses: Seq[Class[_ <: GenericTest[_ >: Null <: TestDB]]] = TestkitConfig.testClasses
 }
 
 trait RelationalTestDB extends TestDB {
@@ -217,6 +220,11 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   override def toString = confString("testConn.url")
 
   override def isEnabled = super.isEnabled && config.getBoolean("enabled")
+
+  override lazy val testClasses: Seq[Class[_ <: GenericTest[_ >: Null <: TestDB]]] =
+    TestkitConfig.getStrings(config, "testClasses")
+      .map(_.map(n => Class.forName(n).asInstanceOf[Class[_ <: GenericTest[_ >: Null <: TestDB]]]))
+      .getOrElse(super.testClasses)
 
   def databaseFor(path: String) = database.forConfig(path, config, loadCustomDriver().getOrElse(null))
 
