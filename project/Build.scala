@@ -280,7 +280,7 @@ object SlickBuild extends Build {
     //test <<= Seq(test in Test, test in DocTest).dependOn,
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
-  ) dependsOn(slickProject, slickCodegenProject % "test->compile", slickDirectProject % "test->compile")
+  ) dependsOn(slickProject, slickCodegenProject % "compile->compile", slickDirectProject % "test->compile")
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
     settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen") ++ Seq(

@@ -3,7 +3,7 @@ package slick.test.codegen
 import java.io.File
 import java.sql.Blob
 
-import com.typesafe.slick.testkit.util.{InternalJdbcTestDB, StandardTestDBs, JdbcTestDB}
+import com.typesafe.slick.testkit.util.{TestCodeGenerator, InternalJdbcTestDB, StandardTestDBs, JdbcTestDB}
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
@@ -18,7 +18,10 @@ import slick.jdbc.meta.MTable
 import slick.model.Model
 
 /** Generates files for GeneratedCodeTest */
-object GenerateMainSources {
+object GenerateMainSources extends TestCodeGenerator {
+  def packageName = "slick.test.codegen.generated"
+  def defaultTestCode(c: Config): String = "slick.test.codegen.GeneratedCodeTest.test" + c.objectName
+
   lazy val configurations = Seq(
     new Config("CG1", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")),
     new Config("CG2", StandardTestDBs.HsqldbMem, "HsqldbMem", Seq("/dbs/hsqldb.sql")),
@@ -104,83 +107,6 @@ val  SimpleA = CustomTyping.SimpleA
     },
     new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql"))
   )
-
-  def packageName = "slick.test.codegen.generated"
-
-  def main(args: Array[String]): Unit = try {
-    val clns = configurations.flatMap(_.generate(args(0)).toSeq)
-    new OutputHelpers {
-      def indent(code: String): String = code
-      def code: String = ""
-    }.writeStringToFile(
-      s"""
-         |package $packageName
-         |object AllTests {
-         |  val clns = Seq(${clns.map("\"" + _ + "\"").mkString(", ")})
-         |}
-       """.stripMargin, args(0), packageName, "AllTests.scala"
-    )
-  } catch { case ex: Throwable =>
-    ex.printStackTrace(System.err)
-    System.exit(1)
-  }
-
-  class Config(val objectName: String, val tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String]) { self =>
-
-    def slickDriver = tdb.driver.getClass.getName.replaceAll("\\$", "")
-
-    def fullTdbName = StandardTestDBs.getClass.getName.replaceAll("\\$", "") + "." + tdbName
-
-    def generate(dir: String): Option[String] = if(tdb.isEnabled || tdb.isInstanceOf[InternalJdbcTestDB]) {
-      tdb.cleanUpBefore()
-      try {
-        var init: DBIO[Any] = DBIO.successful(())
-        var current: String = null
-        initScripts.foreach { initScript =>
-          import tdb.driver.api._
-          Source.fromURL(self.getClass.getResource(initScript))(Codec.UTF8).getLines().foreach { s =>
-            if(current eq null) current = s else current = current + "\n" + s
-            if(s.trim.endsWith(";")) {
-              init = init >> sqlu"#$current"
-              current = null
-            }
-          }
-          if(current ne null) init = init >> sqlu"#$current"
-        }
-        val db = tdb.createDB()
-        try {
-          val m = Await.result(db.run((init >> generator).withPinnedSession), Duration.Inf)
-          m.writeToFile(profile=slickDriver, folder=dir, pkg=packageName, objectName, fileName=objectName+".scala" )
-        } finally db.close
-      }
-      finally tdb.cleanUpAfter()
-      Some(s"$packageName.$objectName")
-    } else None
-
-    def generator: DBIO[SourceCodeGenerator] =
-      tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
-
-    def testCode: String = "slick.test.codegen.GeneratedCodeTest.test" + objectName
-
-    class MyGen(model:Model) extends SourceCodeGenerator(model) {
-      override def entityName = sqlName => {
-        val baseName = super.entityName(sqlName)
-        if(baseName.dropRight(3).last == 's') baseName.dropRight(4)
-        else baseName
-      }
-      override def parentType = Some("slick.test.codegen.GeneratedCodeTest.TestCase")
-      override def code = {
-        s"""
-           |lazy val tdb = $fullTdbName
-           |def test = {
-           |  import org.junit.Assert._
-           |  import scala.concurrent.ExecutionContext.Implicits.global
-           |  $testCode
-           |}
-         """.stripMargin + super.code
-      }
-    }
-  }
 
   //Unified UUID config
   class UUIDConfig(objectName: String, tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String])
