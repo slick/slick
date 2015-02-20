@@ -164,6 +164,10 @@ object SlickBuild extends Build {
     test in (slickTestkitProject, DocTest),
     test in (osgiTestProject, Test), // Temporarily disabled until we get Reactive Streams OSGi bundles
     test in (reactiveStreamsTestProject, Test),
+    packageDoc in Compile in slickProject,
+    packageDoc in Compile in slickDirectProject,
+    packageDoc in Compile in slickCodegenProject,
+    packageDoc in Compile in slickTestkitProject,
     sdlc in aRootProject
   )))
 
