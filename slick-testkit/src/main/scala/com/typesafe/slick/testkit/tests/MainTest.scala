@@ -52,7 +52,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
       (7,"Snowball",None)
     )
 
-    val p1 = db.stream((for {
+    val p1 = db.stream(((for {
       _ <- ddl.create
       ins1 <- users.map(u => (u.first, u.last)) += ("Homer", Some("Simpson"))
       ins2 <- users.map(u => (u.first, u.last)) ++= Seq(
@@ -63,7 +63,7 @@ class MainTest extends AsyncTest[JdbcTestDB] { mainTest =>
       _ = total.map(_ shouldBe 7)
       r1 <- q1.result
       _ = r1 shouldBe expectedUserTuples
-    } yield ()) andThen q1.result)
+    } yield ()) andThen q1.result).withPinnedSession)
 
     materialize(p1.mapResult { case (id,f,l) => User(id,f,l.orNull) }).flatMap { allUsers =>
       allUsers shouldBe expectedUserTuples.map{ case (id,f,l) => User(id,f,l.orNull) }

@@ -26,7 +26,7 @@ class PositionedResultTest {
       override def wasNull(): Boolean = false
     }
     val pr = new PositionedResult(fakeRS) { def close() {} }
-    new PositionedResultIterator[Int](pr, limit) {
+    new PositionedResultIterator[Int](pr, limit, true) {
       def extractValue(pr: PositionedResult) = pr.nextInt()
     }
   }

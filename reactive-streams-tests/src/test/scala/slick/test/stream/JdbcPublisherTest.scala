@@ -7,7 +7,7 @@ import scala.concurrent.duration.Duration
 import slick.driver.{H2Driver, JdbcProfile}
 import scala.util.control.NonFatal
 
-class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Driver, 500L) {
+class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Driver, 1000L) {
   import driver.api._
 
   @BeforeClass def setUpDB: Unit = {

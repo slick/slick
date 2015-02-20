@@ -75,7 +75,7 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
                            keepAliveConnection: Boolean = false) extends DriverBasedJdbcDataSource {
   private[this] var openedKeepAliveConnection: Connection = null
 
-  registerDriver(driverName, url)
+  if(driver eq null) registerDriver(driverName, url)
 
   val connectionProps = if(prop.ne(null) && user.eq(null) && password.eq(null)) prop else {
     val p = new Properties(prop)

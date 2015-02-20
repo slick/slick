@@ -77,7 +77,7 @@ class Testkit(clazz: Class[_ <: DriverTest], runnerBuilder: RunnerBuilder) exten
 }
 
 abstract class DriverTest(val tdb: TestDB) {
-  def tests = TestkitConfig.testClasses
+  def tests = tdb.testClasses
 }
 
 case class TestMethod(name: String, desc: Description, method: Method, cl: Class[_ <: GenericTest[_ >: Null <: TestDB]]) {

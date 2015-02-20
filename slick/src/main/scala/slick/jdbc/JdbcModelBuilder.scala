@@ -178,7 +178,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     final val StringPattern = """^'(.*)'$""".r
     /** Scala type this column is mapped to */
     def tpe = jdbcTypeToScala(meta.sqlType).toString match {
-      case "java.lang.String" => "String"
+      case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
       case t => t
     }
     def name = meta.name
@@ -221,8 +221,11 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
           case (v,"Double") => v.toDouble
           case (v,"Float")  => v.toFloat
           case (v,"Char")   =>
-            assert(v.size == 1, "char has unexpected size: "+v)
-            v.head
+            v.length match {
+              case 1 => v(0)
+              case 3 => v(1) // quoted character
+              case n => throw new SlickException(s"""Default value "$v" for Char column "$name" has wrong size""")
+            }
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
           case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
           case (StringPattern(str),"String") => str
