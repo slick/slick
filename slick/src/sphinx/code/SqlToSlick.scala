@@ -389,19 +389,19 @@ object SqlToSlick extends App {
           //#sqlQueryInsert
           sqlu"""
             insert into PERSON (NAME, AGE, ADDRESS_ID) values ('M Odersky', 12345, 1)
-          """.head
+          """
           //#sqlQueryInsert
         val sqlUpdate =
           //#sqlQueryUpdate
           sqlu"""
             update PERSON set NAME='M. Odersky', AGE=54321 where NAME='M Odersky'
-          """.head
+          """
           //#sqlQueryUpdate
         val sqlDelete =
           //#sqlQueryDelete
           sqlu"""
             delete PERSON where NAME='M. Odersky'
-          """.head
+          """
           //#sqlQueryDelete
 
         val slickInsert = {

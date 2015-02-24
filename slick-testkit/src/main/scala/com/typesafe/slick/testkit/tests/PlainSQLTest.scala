@@ -109,11 +109,13 @@ class PlainSQLTest extends AsyncTest[JdbcTestDB] {
     s3.statements.head shouldBe "select id from USERS where name = ?"
     s4.statements.head shouldBe "select id from USERS where name = 'foo'"
 
+    val create: DBIO[Int] = sqlu"create table USERS(ID int not null primary key, NAME varchar(255))"
+
     seq(
-      sqlu"create table USERS(ID int not null primary key, NAME varchar(255))",
+      create.map(_ shouldBe 0),
       DBIO.fold((for {
         (id, name) <- List((1, "szeiger"), (0, "admin"), (2, "guest"), (3, "foo"))
-      } yield sqlu"insert into USERS values ($id, $name)".map(_.head)), 0)(_ + _).map(_ shouldBe 4),
+      } yield sqlu"insert into USERS values ($id, $name)"), 0)(_ + _).map(_ shouldBe 4),
       sql"select id from USERS".as[Int].map(_.toSet shouldBe Set(0,1,2,3)), //TODO Support `to` in Plain SQL Actions
       userForID(2).map(_.head shouldBe User(2,"guest")), //TODO Support `head` and `headOption` in Plain SQL Actions
       s1.map(_ shouldBe List(1)),

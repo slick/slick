@@ -14,9 +14,9 @@ import java.sql.PreparedStatement
 
 import slick.SlickException
 import slick.backend.{DatabaseConfig, StaticDatabaseConfigMacros, StaticDatabaseConfig}
-import slick.dbio.Effect
+import slick.dbio.{NoStream, Effect}
 import slick.driver.JdbcProfile
-import slick.profile.SqlStreamingAction
+import slick.profile.{SqlAction, SqlStreamingAction}
 
 
 ///////////////////////////////////////////////////////////////////////////////// Invoker-based API
@@ -123,7 +123,7 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLActionBuilder via string interpolation */
   def sql(param: Any*): SQLActionBuilder = macro sqlImpl
   /** Build an Action for an UPDATE statement via string interpolation */
-  def sqlu(param: Any*): SqlStreamingAction[Effect, Vector[Int], Int] = macro sqluImpl
+  def sqlu(param: Any*): SqlAction[Effect, Int, NoStream] = macro sqluImpl
   /** Build an Invoker for a statement with computed types via string interpolation */
   def tsql(param: Any*): SqlStreamingAction[Effect, Vector[Any], Any] = macro tsqlImpl
 }
@@ -140,7 +140,7 @@ object ActionBasedSQLInterpolation {
     }
   }
 
-  def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Effect, Vector[Int], Int]] = {
+  def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlAction[Effect, Int, NoStream]] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
@@ -198,5 +198,5 @@ case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit])
       protected[this] def createBuilder = Vector.newBuilder[R]
     }
   }
-  def asUpdate = as[Int](GetResult.GetUpdateValue)
+  def asUpdate = as[Int](GetResult.GetUpdateValue).head
 }
