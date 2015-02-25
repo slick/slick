@@ -147,13 +147,13 @@ object DBIO {
     actions.foldLeft[DBIOAction[T, NoStream, E]](DBIO.successful(zero)) { (za, va) => za.flatMap(z => va.map(v => f(z, v))) }
 
   /** A DBIOAction that pins the current session */
-  private[slick] object Pin extends SynchronousDatabaseAction[DatabaseComponent, Effect, Unit, NoStream] {
+  private[slick] object Pin extends SynchronousDatabaseAction[Unit, NoStream, DatabaseComponent, Effect] {
     def run(context: DatabaseComponent#Context): Unit = context.pin
     def getDumpInfo = DumpInfo(name = "SynchronousDatabaseAction.Pin")
   }
 
   /** A DBIOAction that unpins the current session */
-  private[slick] object Unpin extends SynchronousDatabaseAction[DatabaseComponent, Effect, Unit, NoStream] {
+  private[slick] object Unpin extends SynchronousDatabaseAction[Unit, NoStream, DatabaseComponent, Effect] {
     def run(context: DatabaseComponent#Context): Unit = context.unpin
     def getDumpInfo = DumpInfo(name = "SynchronousDatabaseAction.Unpin")
   }
@@ -172,13 +172,13 @@ trait DatabaseAction[+R, +S <: NoStream, -E <: Effect] extends DBIOAction[R, S, 
 }
 
 /** A DBIOAction that returns a constant value. */
-case class SuccessAction[+R](value: R) extends SynchronousDatabaseAction[DatabaseComponent, Effect, R, NoStream] {
+case class SuccessAction[+R](value: R) extends SynchronousDatabaseAction[R, NoStream, DatabaseComponent, Effect] {
   def getDumpInfo = DumpInfo("success", String.valueOf(value))
   def run(ctx: DatabaseComponent#Context): R = value
 }
 
 /** A DBIOAction that fails. */
-case class FailureAction(t: Throwable) extends SynchronousDatabaseAction[DatabaseComponent, Effect, Nothing, NoStream] {
+case class FailureAction(t: Throwable) extends SynchronousDatabaseAction[Nothing, NoStream, DatabaseComponent, Effect] {
   def getDumpInfo = DumpInfo("failure", String.valueOf(t))
   def run(ctx: DatabaseComponent#Context): Nothing = throw t
 }
@@ -265,7 +265,7 @@ trait StreamingActionContext extends ActionContext {
   * The execution engine ensures that an [[ActionContext]] is never used concurrently and that
   * all state changes performed by one invocation of a SynchronousDatabaseAction are visible
   * to the next invocation of the same or a different SynchronousDatabaseAction. */
-trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <: NoStream] extends DatabaseAction[R, S, E] { self =>
+trait SynchronousDatabaseAction[+R, +S <: NoStream, -B <: DatabaseComponent, -E <: Effect] extends DatabaseAction[R, S, E] { self =>
   /** The type used by this action for the state of a suspended stream. A call to `emitStream`
     * produces such a state which is then fed back into the next call. */
   type StreamState >: Null <: AnyRef
@@ -297,10 +297,10 @@ trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <:
 
   private[this] def superAndThen[R2, S2 <: NoStream, E2 <: Effect](a: DBIOAction[R2, S2, E2]) = super.andThen[R2, S2, E2](a)
   override def andThen[R2, S2 <: NoStream, E2 <: Effect](a: DBIOAction[R2, S2, E2]): DBIOAction[R2, S2, E with E2] = a match {
-    case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[B, E with E2, R2, S2] {
+    case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[R2, S2, B, E with E2] {
       def run(context: B#Context): R2 = {
         self.run(context)
-        a.asInstanceOf[SynchronousDatabaseAction[B, E2, R2, S2]].run(context)
+        a.asInstanceOf[SynchronousDatabaseAction[R2, S2, B, E2]].run(context)
       }
       override def nonFusedEquivalentAction: DBIOAction[R2, S2, E with E2] = superAndThen(a)
     }
@@ -309,10 +309,10 @@ trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <:
 
   private[this] def superZip[R2, E2 <: Effect](a: DBIOAction[R2, NoStream, E2]) = super.zip[R2, E2](a)
   override def zip[R2, E2 <: Effect](a: DBIOAction[R2, NoStream, E2]): DBIOAction[(R, R2), NoStream, E with E2] = a match {
-    case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[B, E with E2, (R, R2), NoStream] {
+    case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[(R, R2), NoStream, B, E with E2] {
       def run(context: B#Context): (R, R2) = {
         val r1 = self.run(context)
-        val r2 = a.asInstanceOf[SynchronousDatabaseAction[B, E2, R2, NoStream]].run(context)
+        val r2 = a.asInstanceOf[SynchronousDatabaseAction[R2, NoStream, B, E2]].run(context)
         (r1, r2)
       }
       override def nonFusedEquivalentAction: DBIOAction[(R, R2), NoStream, E with E2] = superZip(a)
@@ -322,14 +322,14 @@ trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <:
 
   private[this] def superAndFinally[E2 <: Effect](a: DBIOAction[_, NoStream, E2]) = super.andFinally[E2](a)
   override def andFinally[E2 <: Effect](a: DBIOAction[_, NoStream, E2]): DBIOAction[R, S, E with E2] = a match {
-    case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[B, E with E2, R, S] {
+    case a: SynchronousDatabaseAction[_, _, _, _] => new SynchronousDatabaseAction.Fused[R, S, B, E with E2] {
       def run(context: B#Context): R = {
         val res = try self.run(context) catch {
           case NonFatal(ex) =>
-            try a.asInstanceOf[SynchronousDatabaseAction[B, E2, Any, NoStream]].run(context) catch ignoreFollowOnError
+            try a.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, B, E2]].run(context) catch ignoreFollowOnError
             throw ex
         }
-        a.asInstanceOf[SynchronousDatabaseAction[B, E2, Any, S]].run(context)
+        a.asInstanceOf[SynchronousDatabaseAction[Any, S, B, E2]].run(context)
         res
       }
       override def nonFusedEquivalentAction: DBIOAction[R, S, E with E2] = superAndFinally(a)
@@ -338,7 +338,7 @@ trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <:
   }
 
   private[this] def superWithPinnedSession = super.withPinnedSession
-  override def withPinnedSession: DBIOAction[R, S, E] = new SynchronousDatabaseAction.Fused[B, E, R, S] {
+  override def withPinnedSession: DBIOAction[R, S, E] = new SynchronousDatabaseAction.Fused[R, S, B, E] {
     def run(context: B#Context): R = {
       context.pin
       val res = try self.run(context) catch {
@@ -353,7 +353,7 @@ trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <:
   }
 
   private[this] def superFailed: DBIOAction[Throwable, NoStream, E] = super.failed
-  override def failed: DBIOAction[Throwable, NoStream, E] = new SynchronousDatabaseAction.Fused[B, E, Throwable, NoStream] {
+  override def failed: DBIOAction[Throwable, NoStream, E] = new SynchronousDatabaseAction.Fused[Throwable, NoStream, B, E] {
     def run(context: B#Context): Throwable = {
       var ok = false
       try {
@@ -368,7 +368,7 @@ trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <:
   }
 
   private[this] def superAsTry: DBIOAction[Try[R], NoStream, E] = super.asTry
-  override def asTry: DBIOAction[Try[R], NoStream, E] = new SynchronousDatabaseAction.Fused[B, E, Try[R], NoStream] {
+  override def asTry: DBIOAction[Try[R], NoStream, E] = new SynchronousDatabaseAction.Fused[Try[R], NoStream, B, E] {
     def run(context: B#Context): Try[R] = {
       try Success(self.run(context)) catch {
         case NonFatal(ex) => Failure(ex)
@@ -380,7 +380,7 @@ trait SynchronousDatabaseAction[-B <: DatabaseComponent, -E <: Effect, +R, +S <:
 
 object SynchronousDatabaseAction {
   /** A fused SynchronousDatabaseAction */
-  trait Fused[B <: DatabaseComponent, -E <: Effect, +R, +S <: NoStream] extends SynchronousDatabaseAction[B, E, R, S] {
+  trait Fused[+R, +S <: NoStream, B <: DatabaseComponent, -E <: Effect] extends SynchronousDatabaseAction[R, S, B, E] {
     def getDumpInfo = DumpInfo(name = "SynchronousDatabaseAction.Fused", children = Vector(("non-fused", nonFusedEquivalentAction)))
     override def supportsStreaming: Boolean = false
   }
@@ -392,29 +392,29 @@ object SynchronousDatabaseAction {
   private[slick] def fuseUnsafe[R, S <: NoStream, E <: Effect](a: DBIOAction[R, S, E]): DBIOAction[R, S, E] = {
     a match {
       case FlatMapAction(base: SynchronousDatabaseAction[_, _, _, _], f, ec) if ec eq DBIO.sameThreadExecutionContext =>
-        new SynchronousDatabaseAction.Fused[DatabaseComponent, E, R, S] {
+        new SynchronousDatabaseAction.Fused[R, S, DatabaseComponent, E] {
           def run(context: DatabaseComponent#Context): R = {
-            val b = base.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, Any, NoStream]].run(context)
+            val b = base.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, DatabaseComponent, Effect]].run(context)
             val a2 = f(b)
-            a2.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, E, R, S]].run(context)
+            a2.asInstanceOf[SynchronousDatabaseAction[R, S, DatabaseComponent, E]].run(context)
           }
           override def nonFusedEquivalentAction = a
         }
 
       case CleanUpAction(base: SynchronousDatabaseAction[_, _, _, _], f, keepFailure, ec) if ec eq DBIO.sameThreadExecutionContext =>
-        new SynchronousDatabaseAction.Fused[DatabaseComponent, E, R, S] {
+        new SynchronousDatabaseAction.Fused[R, S, DatabaseComponent, E] {
           def run(context: DatabaseComponent#Context): R = {
             val res = try {
-              base.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, R, S]].run(context)
+              base.asInstanceOf[SynchronousDatabaseAction[R, S, DatabaseComponent, Effect]].run(context)
             } catch { case NonFatal(ex) =>
               try {
                 val a2 = f(Some(ex))
-                a2.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, Any, NoStream]].run(context)
+                a2.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, DatabaseComponent, Effect]].run(context)
               } catch { case NonFatal(_) if keepFailure => () }
               throw ex
             }
             val a2 = f(None)
-            a2.asInstanceOf[SynchronousDatabaseAction[DatabaseComponent, Effect, Any, NoStream]].run(context)
+            a2.asInstanceOf[SynchronousDatabaseAction[Any, NoStream, DatabaseComponent, Effect]].run(context)
             res
           }
           override def nonFusedEquivalentAction = a

@@ -129,15 +129,15 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
       session.database.dropTable(table.tableName)
   }
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] = FixedBasicAction[E, R, S]
-  type StreamingDriverAction[-E <: Effect, +R, +T] = FixedBasicStreamingAction[E, R, T]
+  type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
+  type StreamingDriverAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
 
-  protected[this] def dbAction[E <: Effect, R, S <: NoStream](f: Backend#Session => R): DriverAction[E, R, S] = new DriverAction[E, R, S] with SynchronousDatabaseAction[Backend#This, E, R, S] {
+  protected[this] def dbAction[R, S <: NoStream, E <: Effect](f: Backend#Session => R): DriverAction[R, S, E] = new DriverAction[R, S, E] with SynchronousDatabaseAction[R, S, Backend#This, E] {
     def run(ctx: Backend#Context): R = f(ctx.session)
     def getDumpInfo = DumpInfo("MemoryProfile.DriverAction")
   }
 
-  class StreamingQueryAction[R, T](tree: Node, param: Any) extends StreamingDriverAction[Effect.Read, R, T] with SynchronousDatabaseAction[Backend#This, Effect.Read, R, Streaming[T]] {
+  class StreamingQueryAction[R, T](tree: Node, param: Any) extends StreamingDriverAction[R, T, Effect.Read] with SynchronousDatabaseAction[R, Streaming[T], Backend#This, Effect.Read] {
     type StreamState = Iterator[T]
     protected[this] def getIterator(ctx: Backend#Context): Iterator[T] = {
       val inter = createInterpreter(ctx.session.database, param)
@@ -156,11 +156,11 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
       }
       if(it.hasNext) it else null
     }
-    def head: DriverAction[Effect.Read, T, NoStream] = new DriverAction[Effect.Read, T, NoStream] with SynchronousDatabaseAction[Backend#This, Effect.Read, T, NoStream] {
+    def head: DriverAction[T, NoStream, Effect.Read] = new DriverAction[T, NoStream, Effect.Read] with SynchronousDatabaseAction[T, NoStream, Backend#This, Effect.Read] {
       def run(ctx: Backend#Context): T = getIterator(ctx).next
       def getDumpInfo = DumpInfo("MemoryProfile.StreamingQueryAction.first")
     }
-    def headOption: DriverAction[Effect.Read, Option[T], NoStream] = new DriverAction[Effect.Read, Option[T], NoStream] with SynchronousDatabaseAction[Backend#This, Effect.Read, Option[T], NoStream] {
+    def headOption: DriverAction[Option[T], NoStream, Effect.Read] = new DriverAction[Option[T], NoStream, Effect.Read] with SynchronousDatabaseAction[Option[T], NoStream, Backend#This, Effect.Read] {
       def run(ctx: Backend#Context): Option[T] = {
         val it = getIterator(ctx)
         if(it.hasNext) Some(it.next) else None
@@ -171,12 +171,12 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
   }
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
-    def result: DriverAction[Effect.Read, R, S] =
-      new StreamingQueryAction[R, Nothing](tree, param).asInstanceOf[DriverAction[Effect.Read, R, S]]
+    def result: DriverAction[R, S, Effect.Read] =
+      new StreamingQueryAction[R, Nothing](tree, param).asInstanceOf[DriverAction[R, S, Effect.Read]]
   }
 
   class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingDriverAction[Effect.Read, R, T] = super.result.asInstanceOf[StreamingDriverAction[Effect.Read, R, T]]
+    override def result: StreamingDriverAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingDriverAction[R, T, Effect.Read]]
   }
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {

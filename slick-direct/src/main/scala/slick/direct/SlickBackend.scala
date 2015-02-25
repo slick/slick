@@ -429,9 +429,9 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     driver.queryCompiler.run(query.node)
   }
 
-  def result[R]( queryable:BaseQueryable[R]) : SqlStreamingAction[Effect.Read, Vector[R], R] =
+  def result[R]( queryable:BaseQueryable[R]) : SqlStreamingAction[Vector[R], R, Effect.Read] =
     driver.createStreamingQueryActionExtensionMethods[Vector[R], R](queryable2cstate(queryable).tree, ()).result
-  def result[R]( queryablevalue:QueryableValue[R]) : SqlAction[Effect.Read, R, NoStream] =
+  def result[R]( queryablevalue:QueryableValue[R]) : SqlAction[R, NoStream, Effect.Read] =
     driver.createStreamingQueryActionExtensionMethods[Vector[R], R](queryablevalue2cstate(queryablevalue).tree, ()).result.head
 
   protected[slick] def toSql( queryable:BaseQueryable[_] ) = {

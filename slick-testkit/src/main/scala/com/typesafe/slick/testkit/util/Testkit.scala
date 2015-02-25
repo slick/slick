@@ -185,26 +185,26 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   protected implicit def asyncTestExecutionContext = ExecutionContext.global
 
   /** Test Action: Get the current database session */
-  object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, TDB#Driver#Backend#Session, NoStream] {
+  object GetSession extends SynchronousDatabaseAction[TDB#Driver#Backend#Session, NoStream, TDB#Driver#Backend, Effect] {
     def run(context: TDB#Driver#Backend#Context) = context.session
     def getDumpInfo = DumpInfo(name = "<GetSession>")
   }
 
   /** Test Action: Check if the current database session is pinned */
-  object IsPinned extends SynchronousDatabaseAction[TDB#Driver#Backend, Effect, Boolean, NoStream] {
+  object IsPinned extends SynchronousDatabaseAction[Boolean, NoStream, TDB#Driver#Backend, Effect] {
     def run(context: TDB#Driver#Backend#Context) = context.isPinned
     def getDumpInfo = DumpInfo(name = "<IsPinned>")
   }
 
   /** Test Action: Get the current transactionality level and autoCommit flag */
-  object GetTransactionality extends SynchronousDatabaseAction[JdbcBackend, Effect, (Int, Boolean), NoStream] {
+  object GetTransactionality extends SynchronousDatabaseAction[(Int, Boolean), NoStream, JdbcBackend, Effect] {
     def run(context: JdbcBackend#Context) =
       context.session.asInstanceOf[JdbcBackend#BaseSession].getTransactionality
     def getDumpInfo = DumpInfo(name = "<GetTransactionality>")
   }
 
   /** Test Action: Get the current statement parameters, except for `statementInit` which is always set to null */
-  object GetStatementParameters extends SynchronousDatabaseAction[JdbcBackend, Effect, JdbcBackend.StatementParameters, NoStream] {
+  object GetStatementParameters extends SynchronousDatabaseAction[JdbcBackend.StatementParameters, NoStream, JdbcBackend, Effect] {
     def run(context: JdbcBackend#Context) = {
       val s = context.session
       JdbcBackend.StatementParameters(s.resultSetType, s.resultSetConcurrency, s.resultSetHoldability, null, s.fetchSize)
@@ -223,7 +223,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
 
   def asAction[R](f: tdb.profile.Backend#Session => R): DBIOAction[R, NoStream, Effect] =
-    new SynchronousDatabaseAction[tdb.profile.Backend, Effect, R, NoStream] {
+    new SynchronousDatabaseAction[R, NoStream, tdb.profile.Backend, Effect] {
       def run(context: tdb.profile.Backend#Context): R = f(context.session)
       def getDumpInfo = DumpInfo(name = "<asAction>")
     }
