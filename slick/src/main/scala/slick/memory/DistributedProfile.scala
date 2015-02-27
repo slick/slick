@@ -53,19 +53,19 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
       createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
   }
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] = FixedBasicAction[E, R, S]
+  type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
-    def result: DriverAction[Effect.Read, R, S] =
-      new DriverAction[Effect.Read, R, S] with SynchronousDatabaseAction[Backend#This, Effect.Read, R, S] {
+    def result: DriverAction[R, S, Effect.Read] =
+      new DriverAction[R, S, Effect.Read] with SynchronousDatabaseAction[R, S, Backend#This, Effect.Read] {
         def run(ctx: Backend#Context) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.DriverAction")
       }
   }
 
   class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingDriverAction[Effect.Read, R, T] = super.result.asInstanceOf[StreamingDriverAction[Effect.Read, R, T]]
+    override def result: StreamingDriverAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingDriverAction[R, T, Effect.Read]]
   }
 
   class DistributedQueryInterpreter(param: Any, session: Backend#Session) extends QueryInterpreter(emptyHeapDB, param) {

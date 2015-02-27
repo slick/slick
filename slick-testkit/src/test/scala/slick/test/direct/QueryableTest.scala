@@ -130,7 +130,7 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
     Await.result(db.run(sqlu"create table COFFEES(COF_NAME varchar(255), SALES int, FLAVOR varchar(255) NULL)"), Duration.Inf)
     (for {
       (name, sales, flavor) <- coffees_data
-    } yield Await.result(db.run(sqlu"insert into COFFEES values ($name, $sales, $flavor)".head), Duration.Inf)).sum
+    } yield Await.result(db.run(sqlu"insert into COFFEES values ($name, $sales, $flavor)"), Duration.Inf)).sum
 
     // FIXME: reflective typecheck failed:  backend.result(Queryable[Coffee].map(x=>x))
 

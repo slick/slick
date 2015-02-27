@@ -29,6 +29,6 @@ object MTable {
       if(r.numColumns > 5) MTable(MQName.from(r), r.<<, r.<<, MQName.optionalFrom(r), r.<<, r.<<)
       else MTable(MQName.from(r), r.<<, r.<<, None, None, None)
   }
-  def getTables(namePattern: String): BasicStreamingAction[Effect.Read, Vector[MTable], MTable] = getTables(Some(""), Some(""), Some(namePattern), None)
-  def getTables: BasicStreamingAction[Effect.Read, Vector[MTable], MTable] = getTables(Some(""), Some(""), None, None)
+  def getTables(namePattern: String): BasicStreamingAction[Vector[MTable], MTable, Effect.Read] = getTables(Some(""), Some(""), Some(namePattern), None)
+  def getTables: BasicStreamingAction[Vector[MTable], MTable, Effect.Read] = getTables(Some(""), Some(""), None, None)
 }

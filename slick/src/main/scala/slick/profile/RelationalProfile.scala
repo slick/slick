@@ -293,10 +293,10 @@ trait RelationalActionComponent extends BasicActionComponent { driver: Relationa
     type MultiInsertResult
 
     /** An Action that inserts a single value. */
-    def += (value: T): DriverAction[Effect.Write, SingleInsertResult, NoStream]
+    def += (value: T): DriverAction[SingleInsertResult, NoStream, Effect.Write]
 
     /** An Action that inserts a collection of values. */
-    def ++= (values: Iterable[T]): DriverAction[Effect.Write, MultiInsertResult, NoStream]
+    def ++= (values: Iterable[T]): DriverAction[MultiInsertResult, NoStream, Effect.Write]
   }
 
   //////////////////////////////////////////////////////////// Schema Actions
@@ -307,9 +307,9 @@ trait RelationalActionComponent extends BasicActionComponent { driver: Relationa
 
   trait SchemaActionExtensionMethodsImpl {
     /** Create an Action that creates the entities described by this schema description. */
-    def create: DriverAction[Effect.Schema, Unit, NoStream]
+    def create: DriverAction[Unit, NoStream, Effect.Schema]
 
     /** Create an Action that drops the entities described by this schema description. */
-    def drop: DriverAction[Effect.Schema, Unit, NoStream]
+    def drop: DriverAction[Unit, NoStream, Effect.Schema]
   }
 }

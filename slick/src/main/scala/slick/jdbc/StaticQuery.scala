@@ -14,9 +14,9 @@ import java.sql.PreparedStatement
 
 import slick.SlickException
 import slick.backend.{DatabaseConfig, StaticDatabaseConfigMacros, StaticDatabaseConfig}
-import slick.dbio.Effect
+import slick.dbio.{NoStream, Effect}
 import slick.driver.JdbcProfile
-import slick.profile.SqlStreamingAction
+import slick.profile.{SqlAction, SqlStreamingAction}
 
 
 ///////////////////////////////////////////////////////////////////////////////// Invoker-based API
@@ -123,9 +123,9 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   /** Build a SQLActionBuilder via string interpolation */
   def sql(param: Any*): SQLActionBuilder = macro sqlImpl
   /** Build an Action for an UPDATE statement via string interpolation */
-  def sqlu(param: Any*): SqlStreamingAction[Effect, Vector[Int], Int] = macro sqluImpl
+  def sqlu(param: Any*): SqlAction[Int, NoStream, Effect] = macro sqluImpl
   /** Build an Invoker for a statement with computed types via string interpolation */
-  def tsql(param: Any*): SqlStreamingAction[Effect, Vector[Any], Any] = macro tsqlImpl
+  def tsql(param: Any*): SqlStreamingAction[Vector[Any], Any, Effect] = macro tsqlImpl
 }
 
 object ActionBasedSQLInterpolation {
@@ -140,7 +140,7 @@ object ActionBasedSQLInterpolation {
     }
   }
 
-  def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Effect, Vector[Int], Int]] = {
+  def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlAction[Int, NoStream, Effect]] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
@@ -151,7 +151,7 @@ object ActionBasedSQLInterpolation {
       res.asUpdate
     }
   }
-  def tsqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Effect, Vector[Any], Any]] = {
+  def tsqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Vector[Any], Any, Effect]] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
 
@@ -188,15 +188,15 @@ object ActionBasedSQLInterpolation {
 }
 
 case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit]) {
-  def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Effect, Vector[R], R] = {
+  def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect] = {
     val query =
       if(queryParts.length == 1 && queryParts(0).isInstanceOf[String]) queryParts(0).asInstanceOf[String]
       else queryParts.iterator.map(String.valueOf).mkString
-    new StreamingInvokerAction[Effect, Vector[R], R] {
+    new StreamingInvokerAction[Vector[R], R, Effect] {
       def statements = List(query)
       protected[this] def createInvoker(statements: Iterable[String]) = new StaticQueryInvoker[Unit, R](statements.head, unitPConv, (), rconv)
       protected[this] def createBuilder = Vector.newBuilder[R]
     }
   }
-  def asUpdate = as[Int](GetResult.GetUpdateValue)
+  def asUpdate = as[Int](GetResult.GetUpdateValue).head
 }

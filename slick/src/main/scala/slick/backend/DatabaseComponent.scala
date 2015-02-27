@@ -180,9 +180,9 @@ trait DatabaseComponent { self =>
           runInContext(a, ctx, streaming)
         case a: SynchronousDatabaseAction[_, _, _, _] =>
           if(streaming) {
-            if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream]], ctx.asInstanceOf[StreamingContext]).asInstanceOf[Future[R]]
+            if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]], ctx.asInstanceOf[StreamingContext]).asInstanceOf[Future[R]]
             else runInContext(CleanUpAction(AndThenAction(DBIO.Pin, a.nonFusedEquivalentAction), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming)
-          } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[This, _, R, NoStream]], ctx)
+          } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, _]], ctx)
         case a: DatabaseAction[_, _, _] =>
           throw new SlickException(s"Unsupported database action $a for $this")
       }
@@ -203,7 +203,7 @@ trait DatabaseComponent { self =>
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
-    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[This, _, R, NoStream], ctx: Context): Future[R] = {
+    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context): Future[R] = {
       val promise = Promise[R]()
       ctx.getEC(synchronousExecutionContext).prepare.execute(new Runnable {
         def run: Unit =
@@ -225,14 +225,14 @@ trait DatabaseComponent { self =>
     }
 
     /** Stream a `SynchronousDatabaseAction` on this database. */
-    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingContext): Future[Null] = {
+    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext): Future[Null] = {
       ctx.streamingAction = a
       scheduleSynchronousStreaming(a, ctx)(null)
       ctx.streamingResultPromise.future
     }
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream], ctx: StreamingContext)(initialState: a.StreamState): Unit = try {
+    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext)(initialState: a.StreamState): Unit = try {
       ctx.getEC(synchronousExecutionContext).prepare.execute(new Runnable {
         private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
 
@@ -442,7 +442,7 @@ trait DatabaseComponent { self =>
     private[DatabaseComponent] var streamState: AnyRef = null
 
     /** The streaming action which may need to be continued with the suspended state */
-    private[DatabaseComponent] var streamingAction: SynchronousDatabaseAction[This, _ <: Effect, _, _ <: NoStream] = null
+    private[DatabaseComponent] var streamingAction: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect] = null
 
     @volatile private[this] var cancelRequested = false
 

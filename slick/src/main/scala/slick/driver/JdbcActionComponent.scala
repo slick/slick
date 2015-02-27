@@ -23,19 +23,19 @@ import slick.util.{CloseableIterator, DumpInfo, SQLBuilder, ignoreFollowOnError}
 
 trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] = FixedSqlAction[E, R, S]
-  type StreamingDriverAction[-E <: Effect, +R, +T] = FixedSqlStreamingAction[E, R, T]
+  type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedSqlAction[R, S, E]
+  type StreamingDriverAction[+R, +T, -E <: Effect] = FixedSqlStreamingAction[R, T, E]
 
-  abstract class SimpleJdbcDriverAction[+R](_name: String, val statements: Iterable[String]) extends SynchronousDatabaseAction[Backend, Effect, R, NoStream] with DriverAction[Effect, R, NoStream] { self =>
+  abstract class SimpleJdbcDriverAction[+R](_name: String, val statements: Iterable[String]) extends SynchronousDatabaseAction[R, NoStream, Backend, Effect] with DriverAction[R, NoStream, Effect] { self =>
     def run(ctx: Backend#Context, sql: Iterable[String]): R
     final override def getDumpInfo = super.getDumpInfo.copy(name = _name)
     final def run(ctx: Backend#Context): R = run(ctx, statements)
-    final def overrideStatements(_statements: Iterable[String]): DriverAction[Effect, R, NoStream] = new SimpleJdbcDriverAction[R](_name, _statements) {
+    final def overrideStatements(_statements: Iterable[String]): DriverAction[R, NoStream, Effect] = new SimpleJdbcDriverAction[R](_name, _statements) {
       def run(ctx: Backend#Context, sql: Iterable[String]): R = self.run(ctx, statements)
     }
   }
 
-  protected object StartTransaction extends SynchronousDatabaseAction[Backend, Effect, Unit, NoStream] {
+  protected object StartTransaction extends SynchronousDatabaseAction[Unit, NoStream, Backend, Effect] {
     def run(ctx: Backend#Context): Unit = {
       ctx.pin
       ctx.session.startInTransaction
@@ -43,29 +43,29 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def getDumpInfo = DumpInfo(name = "StartTransaction")
   }
 
-  protected object Commit extends SynchronousDatabaseAction[Backend, Effect, Unit, NoStream] {
+  protected object Commit extends SynchronousDatabaseAction[Unit, NoStream, Backend, Effect] {
     def run(ctx: Backend#Context): Unit =
       try ctx.session.endInTransaction(ctx.session.conn.commit()) finally ctx.unpin
     def getDumpInfo = DumpInfo(name = "Commit")
   }
 
-  protected object Rollback extends SynchronousDatabaseAction[Backend, Effect, Unit, NoStream] {
+  protected object Rollback extends SynchronousDatabaseAction[Unit, NoStream, Backend, Effect] {
     def run(ctx: Backend#Context): Unit =
       try ctx.session.endInTransaction(ctx.session.conn.rollback()) finally ctx.unpin
     def getDumpInfo = DumpInfo(name = "Rollback")
   }
 
-  protected class PushStatementParameters(p: JdbcBackend.StatementParameters) extends SynchronousDatabaseAction[Backend, Effect, Unit, NoStream] {
+  protected class PushStatementParameters(p: JdbcBackend.StatementParameters) extends SynchronousDatabaseAction[Unit, NoStream, Backend, Effect] {
     def run(ctx: Backend#Context): Unit = ctx.pushStatementParameters(p)
     def getDumpInfo = DumpInfo(name = "PushStatementParameters", mainInfo = p.toString)
   }
 
-  protected object PopStatementParameters extends SynchronousDatabaseAction[Backend, Effect, Unit, NoStream] {
+  protected object PopStatementParameters extends SynchronousDatabaseAction[Unit, NoStream, Backend, Effect] {
     def run(ctx: Backend#Context): Unit = ctx.popStatementParameters
     def getDumpInfo = DumpInfo(name = "PopStatementParameters")
   }
 
-  protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Backend, Effect, Int, NoStream] {
+  protected class SetTransactionIsolation(ti: Int) extends SynchronousDatabaseAction[Int, NoStream, Backend, Effect] {
     def run(ctx: Backend#Context): Int = {
       val c = ctx.session.conn
       val old = c.getTransactionIsolation
@@ -134,7 +134,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   def createStreamingQueryActionExtensionMethods[R, T](tree: Node, param: Any): StreamingQueryActionExtensionMethods[R, T] =
     new StreamingQueryActionExtensionMethods[R, T](tree, param)
 
-  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Backend, Effect, Nothing, Streaming[ResultSetMutator[T]]] with DriverAction[Effect, Nothing, Streaming[ResultSetMutator[T]]] { streamingAction =>
+  class MutatingResultAction[T](rsm: ResultSetMapping, elemType: Type, collectionType: CollectionType, sql: String, param: Any, sendEndMarker: Boolean) extends SynchronousDatabaseAction[Nothing, Streaming[ResultSetMutator[T]], Backend, Effect] with DriverAction[Nothing, Streaming[ResultSetMutator[T]], Effect] { streamingAction =>
     class Mutator(val prit: PositionedResultIterator[T], val bufferNext: Boolean, val inv: QueryInvokerImpl[T]) extends ResultSetMutator[T] {
       val pr = prit.pr
       val rs = pr.rs
@@ -206,7 +206,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   }
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
-    def result: DriverAction[Effect.Read, R, S] = {
+    def result: DriverAction[R, S, Effect.Read] = {
       def findSql(n: Node): String = n match {
         case c: CompiledStatement => c.extra.asInstanceOf[SQLBuilder.Result].sql
         case ParameterSwitch(cases, default) =>
@@ -215,7 +215,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       (tree match {
         case (rsm @ ResultSetMapping(_, compiled, CompiledMapping(_, elemType))) :@ (ct: CollectionType) =>
           val sql = findSql(compiled)
-          new StreamingInvokerAction[Effect, R, Any] { streamingAction =>
+          new StreamingInvokerAction[R, Any, Effect] { streamingAction =>
             protected[this] def createInvoker(sql: Iterable[String]) = createQueryInvoker(rsm, param, sql.head)
             protected[this] def createBuilder = ct.cons.createBuilder(ct.elementType.classTag).asInstanceOf[Builder[Any, R]]
             def statements = List(sql)
@@ -227,15 +227,15 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
             def run(ctx: Backend#Context, sql: Iterable[String]): R =
               createQueryInvoker[R](rsm, param, sql.head).first(ctx.session)
           }
-      }).asInstanceOf[DriverAction[Effect.Read, R, S]]
+      }).asInstanceOf[DriverAction[R, S, Effect.Read]]
     }
   }
 
   class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
-    override def result: StreamingDriverAction[Effect.Read, R, T] = super.result.asInstanceOf[StreamingDriverAction[Effect.Read, R, T]]
+    override def result: StreamingDriverAction[R, T, Effect.Read] = super.result.asInstanceOf[StreamingDriverAction[R, T, Effect.Read]]
 
     /** Same as `mutate(sendEndMarker = false)`. */
-    def mutate: DriverAction[Effect.Read with Effect.Write, Nothing, Streaming[ResultSetMutator[T]]] = mutate(false)
+    def mutate: DriverAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = mutate(false)
 
     /** Create an Action that can be streamed in order to modify a mutable result set. All stream
       * elements will be the same [[slick.jdbc.ResultSetMutator]] object but it is in a different state each
@@ -246,7 +246,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       *                      set, poviding you with a chance to insert additional rows after
       *                      seeing all results. Only `end` (to check for this special event) and
       *                      `insert` may be called in the ResultSetMutator in this case. */
-    def mutate(sendEndMarker: Boolean = false): DriverAction[Effect.Read with Effect.Write, Nothing, Streaming[ResultSetMutator[T]]] = {
+    def mutate(sendEndMarker: Boolean = false): DriverAction[Nothing, Streaming[ResultSetMutator[T]], Effect.Read with Effect.Write] = {
       val sql = tree.findNode(_.isInstanceOf[CompiledStatement]).get
         .asInstanceOf[CompiledStatement].extra.asInstanceOf[SQLBuilder.Result].sql
       val (rsm @ ResultSetMapping(_, _, CompiledMapping(_, elemType))) :@ (ct: CollectionType) = tree
@@ -265,7 +265,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
   class DeleteActionExtensionMethodsImpl(tree: Node, param: Any) {
     /** An Action that deletes the data selected by this query. */
-    def delete: DriverAction[Effect.Write, Int, NoStream] = {
+    def delete: DriverAction[Int, NoStream, Effect.Write] = {
       val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
       new SimpleJdbcDriverAction[Int]("delete", List(sres.sql)) {
         def run(ctx: Backend#Context, sql: Iterable[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
@@ -286,12 +286,12 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     new SchemaActionExtensionMethodsImpl(schema)
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
-    def create: DriverAction[Effect.Schema, Unit, NoStream] = new SimpleJdbcDriverAction[Unit]("schema.create", schema.createStatements.toSeq) {
+    def create: DriverAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcDriverAction[Unit]("schema.create", schema.createStatements.toSeq) {
       def run(ctx: Backend#Context, sql: Iterable[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
 
-    def drop: DriverAction[Effect.Schema, Unit, NoStream] = new SimpleJdbcDriverAction[Unit]("schema.drop", schema.dropStatements.toSeq) {
+    def drop: DriverAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcDriverAction[Unit]("schema.drop", schema.dropStatements.toSeq) {
       def run(ctx: Backend#Context, sql: Iterable[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
@@ -313,7 +313,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
 
     /** An Action that updates the data selected by this query. */
-    def update(value: T): DriverAction[Effect.Write, Int, NoStream] = {
+    def update(value: T): DriverAction[Int, NoStream, Effect.Write] = {
       new SimpleJdbcDriverAction[Int]("update", List(sres.sql)) {
         def run(ctx: Backend#Context, sql: Iterable[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters
@@ -350,19 +350,19 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def forceInsertStatement: String
 
     /** Insert a single row, skipping AutoInc columns. */
-    def += (value: U): DriverAction[Effect.Write, SingleInsertResult, NoStream]
+    def += (value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write]
 
     /** Insert a single row, including AutoInc columns. This is not supported
       * by all database engines (see
       * [[slick.driver.JdbcProfile.capabilities.forceInsert]]). */
-    def forceInsert(value: U): DriverAction[Effect.Write, SingleInsertResult, NoStream]
+    def forceInsert(value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write]
 
     /** Insert multiple rows, skipping AutoInc columns.
       * Uses JDBC's batch update feature if supported by the JDBC driver.
       * Returns Some(rowsAffected), or None if the database returned no row
       * count for some part of the batch. If any part of the batch fails, an
       * exception is thrown. */
-    def ++= (values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult, NoStream]
+    def ++= (values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write]
 
     /** Insert multiple rows, including AutoInc columns.
       * This is not supported by all database engines (see
@@ -371,11 +371,11 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       * Returns Some(rowsAffected), or None if the database returned no row
       * count for some part of the batch. If any part of the batch fails, an
       * exception is thrown. */
-    def forceInsertAll(values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult, NoStream]
+    def forceInsertAll(values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write]
 
     /** Insert a single row if its primary key does not exist in the table,
       * otherwise update the existing record. */
-    def insertOrUpdate(value: U): DriverAction[Effect.Write, SingleInsertOrUpdateResult, NoStream]
+    def insertOrUpdate(value: U): DriverAction[SingleInsertOrUpdateResult, NoStream, Effect.Write]
   }
 
   /** Extension methods to generate the JDBC-specific insert actions. */
@@ -393,13 +393,13 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): String
 
     /** Insert a single row from a scalar expression */
-    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
+    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write]
 
     /** Insert data produced by another query */
-    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
+    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[QueryInsertResult, NoStream, Effect.Write]
 
     /** Insert data produced by another query */
-    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream]
+    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write]
   }
 
   /** An InsertInvoker that returns the number of affected rows. */
@@ -443,8 +443,8 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
   protected class InsertActionComposerImpl[U](inv: InsertInvokerDef[U]) extends InsertActionComposer[U] {
     private[this] def fullInv = inv.asInstanceOf[FullInsertInvokerDef[U]]
-    protected[this] def wrapAction[E <: Effect, T](name: String, sql: String, f: Backend#Session => Any): DriverAction[E, T, NoStream] =
-      new SynchronousDatabaseAction[Backend, E, T, NoStream] with DriverAction[E, T, NoStream] {
+    protected[this] def wrapAction[E <: Effect, T](name: String, sql: String, f: Backend#Session => Any): DriverAction[T, NoStream, E] =
+      new SynchronousDatabaseAction[T, NoStream, Backend, E] with DriverAction[T, NoStream, E] {
         def statements = if(sql eq null) Nil else List(sql)
         def run(ctx: Backend#Context) = f(ctx.session).asInstanceOf[T]
         override def getDumpInfo = super.getDumpInfo.copy(name = name)
@@ -454,17 +454,17 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
     def insertStatement = inv.insertStatement
     def forceInsertStatement = inv.forceInsertStatement
-    def += (value: U): DriverAction[Effect.Write, SingleInsertResult, NoStream] = wrapAction("+=", inv.insertStatement, inv.+=(value)(_))
-    def forceInsert(value: U): DriverAction[Effect.Write, SingleInsertResult, NoStream] = wrapAction("forceInsert", inv.forceInsertStatement, inv.forceInsert(value)(_))
-    def ++= (values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult, NoStream] = wrapAction("++=", inv.insertStatement, inv.++=(values)(_))
-    def forceInsertAll(values: Iterable[U]): DriverAction[Effect.Write, MultiInsertResult, NoStream] = wrapAction("forceInsertAll", inv.forceInsertStatement, inv.forceInsertAll(values.toSeq: _*)(_))
-    def insertOrUpdate(value: U): DriverAction[Effect.Write, SingleInsertOrUpdateResult, NoStream] = wrapAction("insertOrUpdate", inv.insertOrUpdateStatement(value), inv.insertOrUpdate(value)(_))
+    def += (value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write] = wrapAction("+=", inv.insertStatement, inv.+=(value)(_))
+    def forceInsert(value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write] = wrapAction("forceInsert", inv.forceInsertStatement, inv.forceInsert(value)(_))
+    def ++= (values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write] = wrapAction("++=", inv.insertStatement, inv.++=(values)(_))
+    def forceInsertAll(values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write] = wrapAction("forceInsertAll", inv.forceInsertStatement, inv.forceInsertAll(values.toSeq: _*)(_))
+    def insertOrUpdate(value: U): DriverAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] = wrapAction("insertOrUpdate", inv.insertOrUpdateStatement(value), inv.insertOrUpdate(value)(_))
     def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) = fullInv.insertStatementFor(c)
     def forceInsertStatementFor[TT, C[_]](query: Query[TT, U, C]) = fullInv.insertStatementFor(query)
     def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) = fullInv.insertStatementFor(compiledQuery)
-    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("forceInsertExpr", fullInv.insertExprStatement(c), fullInv.insertExpr(c)(shape, _))
-    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("insert(query)", fullInv.insertStatement(query), fullInv.insert(query)(_))
-    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[Effect.Write, QueryInsertResult, NoStream] = wrapAction("insert(compiledQuery)", fullInv.insertStatement(compiledQuery), fullInv.insert(compiledQuery)(_))
+    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write] = wrapAction("forceInsertExpr", fullInv.insertExprStatement(c), fullInv.insertExpr(c)(shape, _))
+    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[QueryInsertResult, NoStream, Effect.Write] = wrapAction("insert(query)", fullInv.insertStatement(query), fullInv.insert(query)(_))
+    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write] = wrapAction("insert(compiledQuery)", fullInv.insertStatement(compiledQuery), fullInv.insert(compiledQuery)(_))
   }
 
   protected class CountingInsertActionComposerImpl[U](inv: CountingInsertInvokerDef[U]) extends InsertActionComposerImpl[U](inv) with CountingInsertActionComposer[U] {

@@ -174,28 +174,28 @@ trait SqlTableComponent extends RelationalTableComponent { driver: SqlDriver =>
 
 trait SqlActionComponent extends RelationalActionComponent { driver: SqlDriver =>
 
-  type DriverAction[-E <: Effect, +R, +S <: NoStream] <: SqlAction[E, R, S]
-  type StreamingDriverAction[-E <: Effect, +R, +T] <: SqlStreamingAction[E, R, T] with DriverAction[E, R, Streaming[T]]
+  type DriverAction[+R, +S <: NoStream, -E <: Effect] <: SqlAction[R, S, E]
+  type StreamingDriverAction[+R, +T, -E <: Effect] <: SqlStreamingAction[R, T, E] with DriverAction[R, Streaming[T], E]
 }
 
-trait SqlAction[-E <: Effect, +R, +S <: NoStream] extends BasicAction[E, R, S] {
+trait SqlAction[+R, +S <: NoStream, -E <: Effect] extends BasicAction[R, S, E] {
 
-  type ResultAction[-E <: Effect, +R, +S <: NoStream] <: SqlAction[E, R, S]
+  type ResultAction[+R, +S <: NoStream, -E <: Effect] <: SqlAction[R, S, E]
 
   /** Return the SQL statements that will be executed for this Action */
   def statements: Iterable[String]
 
   /** Create an Action that uses the specified SQL statement(s) but otherwise
     * behaves the same as this Action. */
-  def overrideStatements(statements: Iterable[String]): ResultAction[E, R, S]
+  def overrideStatements(statements: Iterable[String]): ResultAction[R, S, E]
 
   def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), mainInfo = statements.mkString("[", "; ", "]"))
 }
 
-trait SqlStreamingAction[-E <: Effect, +R, +T] extends BasicStreamingAction[E, R, T] with SqlAction[E, R, Streaming[T]]
+trait SqlStreamingAction[+R, +T, -E <: Effect] extends BasicStreamingAction[R, T, E] with SqlAction[R, Streaming[T], E]
 
-trait FixedSqlAction[-E <: Effect, +R, +S <: NoStream] extends SqlAction[E, R, S] {
-  type ResultAction[-E <: Effect, +R, +S <: NoStream] = SqlAction[E, R, S]
+trait FixedSqlAction[+R, +S <: NoStream, -E <: Effect] extends SqlAction[R, S, E] {
+  type ResultAction[+R, +S <: NoStream, -E <: Effect] = SqlAction[R, S, E]
 }
 
-trait FixedSqlStreamingAction[-E <: Effect, +R, +T] extends SqlStreamingAction[E, R, T] with FixedSqlAction[E, R, Streaming[T]]
+trait FixedSqlStreamingAction[+R, +T, -E <: Effect] extends SqlStreamingAction[R, T, E] with FixedSqlAction[R, Streaming[T], E]
