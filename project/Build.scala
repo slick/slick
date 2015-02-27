@@ -212,7 +212,7 @@ object SlickBuild extends Build {
       unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin),
-      OsgiKeys.exportPackage := Seq("slick", "slick.*"),
+      OsgiKeys.exportPackage := Seq("slick", "slick.*", "scala.slick", "scala.slick.*"),
       OsgiKeys.importPackage := Seq(
         osgiImport("scala*", scalaVersion.value),
         "*"
