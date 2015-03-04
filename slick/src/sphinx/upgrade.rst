@@ -63,8 +63,11 @@ Closing Databases
 
 Since a ``Database`` instance can now have an associated connection pool and thread pool, it is important to call
 ``close`` when you are done using it, so that these pools can be shut down properly. You should take care to do this
-wen you migrate to the new Action-based API. As long as you exclusively use the old API (and do not configure a
-session pool), it is not strictly necessary.
+wen you migrate to the new Action-based API. As long as you exclusively use the deprecated synchronous API, it is not
+strictly necessary.
+
+.. warning::
+   Do not rely on the lazy initialization! Slick 3.1 will require ``Database`` objects to always be closed.
 
 Metadata API and Code Generator
 -------------------------------
