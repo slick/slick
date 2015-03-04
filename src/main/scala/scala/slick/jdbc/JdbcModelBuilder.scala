@@ -3,14 +3,12 @@ package scala.slick.jdbc
 import org.slf4j.LoggerFactory
 
 import scala.reflect.ClassTag
-import scala.concurrent.{ExecutionContext, Future}
 import scala.slick.profile.{RelationalProfile, SqlProfile}
 import RelationalProfile.ColumnOption
 import scala.util.{Failure, Success}
 import java.sql.DatabaseMetaData
 
 import scala.slick.SlickException
-import scala.slick.dbio._
 import scala.slick.jdbc.meta._
 import scala.slick.{model => m}
 import scala.slick.util.Logging
@@ -29,7 +27,7 @@ import scala.language.existentials
   *
   * @param ignoreInvalidDefaults see ModelBuilder#Table#Column#default
   */
-class JdbcModelBuilder(mTables: Seq[MTableExtended], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends Logging {
+class JdbcModelBuilder(mTables: Seq[MTableExtended], ignoreInvalidDefaults: Boolean) extends Logging {
   /** Table model builders */
   final lazy val tables: Seq[Table] = mTables.map(Table)
   /** Table model builders indexed by meta data qualified name */
@@ -46,38 +44,32 @@ class JdbcModelBuilder(mTables: Seq[MTableExtended], ignoreInvalidDefaults: Bool
   class Table(val meta: MTableExtended){
     table =>
 
-    /*
-    val meta = _meta.copy(
-      primaryKeys = _meta.primaryKeys.sortBy(_.keySeq),
-    )
-    */
+    // meta data
+    /** cached primary key meta data and in key sequence order */
+    final lazy val mPrimaryKeys: Seq[MPrimaryKey]
+      = meta.primaryKeys.sortBy(_.keySeq)
+    /** cached foreign key meta data grouped by name and in key sequence order */
+    final lazy val mForeignKeys: Seq[Seq[MForeignKey]]
+      = meta.importedKeys
+            // remove foreign keys pointing to tables which were not included
+            .filter(fk => tablesByMQName.isDefinedAt(fk.pkTable))
+            .groupBy(fk => (fk.pkTable,fk.fkName,fk.pkName,fk.fkTable))
+            .toSeq
+            .sortBy{case (key,_) => (key._1.name,key._2,key._3,key._4.name)}
+            .map(_._2.sortBy(_.keySeq)) // respect order
 
-  // meta data
-  /** cached primary key meta data and in key sequence order */
-  final lazy val mPrimaryKeys: Seq[MPrimaryKey]
-    = meta.primaryKeys.sortBy(_.keySeq)
-  /** cached foreign key meta data grouped by name and in key sequence order */
-  final lazy val mForeignKeys: Seq[Seq[MForeignKey]]
-    = meta.importedKeys
-          // remove foreign keys pointing to tables which were not included
-          .filter(fk => tablesByMQName.isDefinedAt(fk.pkTable))
-          .groupBy(fk => (fk.pkTable,fk.fkName,fk.pkName,fk.fkTable))
-          .toSeq
-          .sortBy{case (key,_) => (key._1.name,key._2,key._3,key._4.name)}
-          .map(_._2.sortBy(_.keySeq)) // respect order
+    /** cached index meta data grouped by name and in ordinal position order */
+    final lazy val mIndices: Seq[Seq[MIndexInfo]]
+      = meta.indexInfo
+            .groupBy(_.indexName)
+            .toSeq
+            .sortBy(_._1)
+            .map(_._2.sortBy(_.ordinalPosition)) // respect order
+    /** Column models in ordinal position order */
+    final lazy val mColumns: Seq[MColumn]
+      = meta.columns.sortBy(_.ordinalPosition)
 
-  /** cached index meta data grouped by name and in ordinal position order */
-  final lazy val mIndices: Seq[Seq[MIndexInfo]]
-    = meta.indexInfo
-          .groupBy(_.indexName)
-          .toSeq
-          .sortBy(_._1)
-          .map(_._2.sortBy(_.ordinalPosition)) // respect order
-  /** Column models in ordinal position order */
-  final lazy val mColumns: Seq[MColumn]
-    = meta.columns.sortBy(_.ordinalPosition)
-
-  // models
+    // models
     
     def createModel = m.Table(
       qualifiedName,
