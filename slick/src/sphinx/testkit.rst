@@ -5,9 +5,10 @@
 Slick TestKit
 =============
 
-*Note:* This chapter is based on the `Slick TestKit Example template`_.
-The prefered way of reading this introduction is in Activator_, where you can
-edit and run the code directly while reading the tutorial.
+.. note::
+   This chapter is based on the `Slick TestKit Example template`_.
+   The prefered way of reading this introduction is in Activator_, where you can
+   edit and run the code directly while reading the tutorial.
 
 When you write your own database driver for Slick, you need a way to run all
 the standard unit tests on it (in addition to any custom tests you may want to

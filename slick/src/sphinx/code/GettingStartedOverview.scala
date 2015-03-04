@@ -50,26 +50,29 @@ import slick.driver.H2Driver.api._
 
       // Your query could look like this:
       ( for( c <- coffees; if c.price < limit ) yield c.name ).result
+
+      // Equivalent SQL: select COF_NAME from COFFEES where PRICE < 10.0
       //#what-is-slick-micro-example
     } andThen {
+      //#what-is-slick-micro-example-plainsql
       val limit = 10.0
-      //#what-is-slick-micro-example
 
-      // Or using Plain SQL String Interpolation:
       sql"select COF_NAME from COFFEES where PRICE < $limit".as[String]
 
-      // Both queries result in SQL equivalent to:
-      // select COF_NAME from COFFEES where PRICE < 10.0
-      //#what-is-slick-micro-example
+      // Automatically using a bind variable to be safe from SQL injection:
+      // select COF_NAME from COFFEES where PRICE < ?
+      //#what-is-slick-micro-example-plainsql
     }
   )
   Await.result(f2, Duration.Inf)
 
   //#features-scala-collections
   // Query that only returns the "name" column
+  // Equivalent SQL: select NAME from COFFEES
   coffees.map(_.name)
 
-  // Query that does a "where price < 10.0"
+  // Query that limits results by price < 10.0
+  // Equivalent SQL: select * from COFFEES where PRICE < 10.0
   coffees.filter(_.price < 10.0)
   //#features-scala-collections
 

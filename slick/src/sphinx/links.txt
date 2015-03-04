@@ -4,6 +4,7 @@
 .. _H2: http://h2database.com/
 .. _JDBC: http://en.wikipedia.org/wiki/Java_Database_Connectivity
 .. _Typesafe Subscription Agreement: http://typesafe.com/public/legal/TypesafeSubscriptionAgreement.pdf
+.. _Typesafe Subscription: http://typesafe.com/subscription
 .. _ScalaQuery: http://scalaquery.org
 .. _Activator: https://typesafe.com/activator
 .. _HikariCP: http://brettwooldridge.github.io/HikariCP/
@@ -13,3 +14,5 @@
 .. _Akka Streams: http://akka.io/docs/
 .. _About Pool Sizing: https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
 .. _Reactive Streams: http://www.reactive-streams.org/
+.. _JPA: http://en.wikipedia.org/wiki/Java_Persistence_API
+.. _Reactive Manifesto: http://www.reactivemanifesto.org/

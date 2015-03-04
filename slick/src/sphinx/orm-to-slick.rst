@@ -3,7 +3,7 @@ Coming from ORM to Slick
 
 Introduction
 -------------
-Slick is not an object-relational mapper (ORM) like Hibernate or others. Slick is a data persistence solution like ORMs and naturally shares some concepts, but it also has significant differences. This chapter explains the differences in order to help you get the best out of Slick and avoid confusion for those familiar with ORMs. We explain how Slick manages to avoid many of the problems often referred to as the object-relational impedance mismatch.
+Slick is not an object-relational mapper (ORM) like Hibernate or other JPA_-based products. Slick is a data persistence solution like ORMs and naturally shares some concepts, but it also has significant differences. This chapter explains the differences in order to help you get the best out of Slick and avoid confusion for those familiar with ORMs. We explain how Slick manages to avoid many of the problems often referred to as the object-relational impedance mismatch.
 
 A good term to describe Slick is functional-relational mapper. Slick allows working with relational data much like with immutable collections and focuses on flexible query composition and strongly controlled side-effects. ORMs usually expose mutable object-graphs, use side-effects like read- and write-caches and hard-code support for anticipated use-cases like inheritance or relationships via association tables. Slick focuses on getting the best out of accessing a relational data store. ORMs focus on persisting an object-graph.
 
@@ -68,7 +68,7 @@ Navigating the object graph directly in an ORM is problematic as explained earli
 
 Query languages
 _______________________
-ORMs often come with declarative query languages like Hibernate's HQL or Criteria Queries. Similar to SQL or Slick, they allow expressing queries yet to happen and make execution explicit.
+ORMs often come with declarative query languages like JPA's JQL or Criteria API. Similar to SQL or Slick, they allow expressing queries yet to happen and make execution explicit.
 
 String based embeddings
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -86,7 +86,7 @@ In Java and many other languages, strings are the only way to embed a concise qu
 
 Method based APIs
 ^^^^^^^^^^^^^^^^^^^^^
-Instead of getting the ultimate flexibility for the embedded language, an alternative approach is to go with the extensibility features of the host language and use those. Object-oriented languages like Java and Scala allow extensibility through the definition of APIs consisting of objects and methods. Hibernate's Criteria Queries use this concept and so does Slick. This allows the host language tools to partially understand the embedded language and provide better support for the features mentioned earlier. Here is an example using Criteria Queries.
+Instead of getting the ultimate flexibility for the embedded language, an alternative approach is to go with the extensibility features of the host language and use those. Object-oriented languages like Java and Scala allow extensibility through the definition of APIs consisting of objects and methods. JPA's Criteria API use this concept and so does Slick. This allows the host language tools to partially understand the embedded language and provide better support for the features mentioned earlier. Here is an example using Criteria Queries.
 
 .. includecode:: code/OrmToSlick.scala#criteriaQuery
 
@@ -96,7 +96,7 @@ A method based embedding makes queries compositional. Factoring out filtering by
 
 Of course ids are a trivial example, but this becomes very useful for more complex queries.
 
-Java APIs like Hibernate Criteria Queries do not use Scala's operator overloading capabilities. This can lead to more cumbersome and less familiar code when expressing queries. Let's query for all people younger 5 or older than 65 for example.
+Java APIs like JPA's Criteria API do not use Scala's operator overloading capabilities. This can lead to more cumbersome and less familiar code when expressing queries. Let's query for all people younger 5 or older than 65 for example.
 
 .. includecode:: code/OrmToSlick.scala#criteriaComposition
 
@@ -110,9 +110,9 @@ As already mentioned, we are working with placeholder values, merely describing 
 
 .. includecode:: code/OrmToSlick.scala#slickQueryWithTypes
 
-``Query`` marks collection-like query expressions, e.g. a whole table. ``People`` is the Slick Table subclass defined for table person. In this context it may be confusing that the value is used rather as a prototype for a row here. It has members of type ``Column`` representing the individual columns. Expressions based on these columns result in other expressions of type ``Column``. Here we are using several ``Column[Int]`` to compute a ``Column[Boolean]``, which we are using as the filter expression. Internally, Slick builds a tree from this, which represents the operations and is used to produce the corresponding SQL code. We often call this process of building up expression trees encapsulated in place-holder values as lifting expressions, which is why we also call this query interface the lifted embedding in Slick. 
+``Query`` marks collection-like query expressions, e.g. a whole table. ``People`` is the Slick Table subclass defined for table person. In this context it may be confusing that the value is used rather as a prototype for a row here. It has members of type ``Rep`` representing the individual columns. Expressions based on these columns result in other expressions of type ``Rep``. Here we are using several ``Rep[Int]`` to compute a ``Rep[Boolean]``, which we are using as the filter expression. Internally, Slick builds a tree from this, which represents the operations and is used to produce the corresponding SQL code. We often call this process of building up expression trees encapsulated in place-holder values as lifting expressions, which is why we also call this query interface the *lifted embedding* in Slick.
 
-It is important to note that Scala allows to be very type-safe here. E.g. Slick supports a method ``.substring`` for ``Column[String]`` but not for ``Column[Int]``. This is impossible in Java and Java APIs like Criteria Queries, but possible in Scala using type-parameter based method extensions via implicits. This allows tools like the Scala compiler and IDEs to understand the code much more precisely and offer better checking and support.
+It is important to note that Scala allows to be very type-safe here. E.g. Slick supports a method ``.substring`` for ``Rep[String]`` but not for ``Rep[Int]``. This is impossible in Java and Java APIs like Criteria Queries, but possible in Scala using type-parameter based method extensions via implicits. This allows tools like the Scala compiler and IDEs to understand the code much more precisely and offer better checking and support.
 
 A nice property of a Slick-like query language is, that it can be used with Scala's comprehension syntax, which is just Scala-builtin syntactic sugar for collections operations. The above example can alternatively be written as
 
@@ -128,7 +128,7 @@ It is important to note that the problems of method-based query apis like Criter
 
 Macro-based embeddings
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-Scala macros allow other approaches for embedding queries. They can be used to check queries embedded as Strings at compile time. They can also be used to translate Scala code written without Query and Column place holder types to SQL. Both approaches are being prototyped and evaluated for Slick but are not ready for prime-time yet. There are other database libraries out there that already use macros for their query language.
+Scala macros allow other approaches for embedding queries. They can be used to check queries embedded as Strings at compile time. They can also be used to translate Scala code written without Query and Rep place holder types to SQL. Both approaches are being prototyped and evaluated for Slick but are not ready for prime-time yet. There are other database libraries out there that already use macros for their query language.
 
 Query granularity
 ---------------------
@@ -210,10 +210,3 @@ Code-generation
 -----------------
 
 Many of the concepts described above can be abstracted over using Scala code to avoid repetition. There cases however, where you reach the limits of Scala's type system's abstraction capabilities. Code generation offers a solution to this. Slick comes with a very flexible and fully customizable :doc:`code generator <code-generation>`, which can be used to avoid repetition in these cases. The code generator operates on the meta data of the database. Combine it with your own extra meta data if needed and use it to generate Slick types, relationship accessors, association classes, etc. For more info see our Scala Days 2014 talk at http://slick.typesafe.com/docs/ .
-
-Related talks
---------------------------
-The talks at Scala Days 2013 and Scala eXchange 2013 also cover related topics: http://slick.typesafe.com/docs/
-
-
-

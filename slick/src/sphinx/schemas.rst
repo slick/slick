@@ -3,18 +3,17 @@
 Schemas
 =======
 
-This chapter describes how to work with database schemas in the
-:ref:`Lifted Embedding <lifted-embedding>` API. This explains
-how you can write schema descriptions by hand. Instead you 
-can also use the :doc:`code generator <code-generation>` to 
-take this work off your hands.
+This chapter describes how to work with database schemas in Scala code, in particular how to write
+them manually, which is useful when you start writing an application without a pre-existing database.
+If you already have a schema in the database, you can also use the :doc:`code generator <code-generation>`
+to take this work off your hands.
 
 .. index:: table, row
 
 Table Rows
 ----------
 
-In order to use the *Lifted Embedding* API for type-safe queries, you need to
+In order to use the Scala API for type-safe queries, you need to
 define ``Table`` row classes for your database schema. These describe the
 structure of the tables:
 
@@ -35,10 +34,12 @@ individual database drivers):
 - java.util.UUID
 
 Nullable columns are represented by ``Option[T]`` where ``T`` is one of the
-supported primitive types. Note that all operations on Option values are
-currently using the database's null propagation semantics which may differ
-from Scala's Option semantics. In particular, ``None === None`` evaluates
-to ``None``. This behaviour may change in a future major release of Slick.
+supported primitive types.
+
+.. note::
+   Currently all operations on Option values use the database's null propagation semantics
+   which may differ from Scala's Option semantics. In particular, ``None === None`` evaluates
+   to ``None``. This behaviour may change in a future major release of Slick.
 
 .. index:: ColumnOption
 
@@ -85,7 +86,7 @@ object. The following ones are defined for ``JdbcProfile``:
 
 .. index:: *, star projection
 
-Every table requires a ``*`` method contatining a default projection.
+Every table requires a ``*`` method containing a default projection.
 This describes what you get back when you return rows (in the form of a
 table row object) from a query. Slick's ``*`` projection does not have to match
 the one in the database. You can add new columns (e.g. with computed values)

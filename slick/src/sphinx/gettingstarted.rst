@@ -14,9 +14,6 @@ templates are created by the Slick team, with updated versions being made for ne
 * The `Slick Multi-DB Patterns template`_ shows you how to write Slick applications that can use
   different database systems and how to use custom database functions in Slick queries.
 
-* The `Slick Direct Embedding template`_ shows you how to use Slick's experimental Direct Embedding
-  query API.
-
 * The `Slick TestKit Example template`_ shows you how to use Slick TestKit to test your own Slick drivers.
 
 There are more Slick templates created by the community, as well as versions of our own templates for other
@@ -67,9 +64,10 @@ as a dependency.
 Quick Introduction
 ==================
 
-*Note:* The rest of this chapter is based on the `Hello Slick template`_. The prefered
-way of reading this introduction is in Activator_, where you can edit and run the code
-directly while reading the tutorial.
+.. note::
+   The rest of this chapter is based on the `Hello Slick template`_. The prefered
+   way of reading this introduction is in Activator_, where you can edit and run the code
+   directly while reading the tutorial.
 
 To use Slick you first need to import the API for the database you will be using, like:
 
@@ -80,8 +78,10 @@ from Slick's ``H2Driver``. A driver's ``api`` object contains all commonly
 needed imports from the driver and other parts of Slick such as
 :doc:`database handling <database>`.
 
-Slick's API is fully asynchronous, so we also import some features from
-``scala.util.concurrent`` that we will use for working with the resulting *Futures*.
+Slick's API is fully asynchronous and runs database call in a separate thread pool. For running
+user code in composition of ``DBIOAction`` and ``Future`` values, we import the global
+``ExecutionContext``. When using Slick as part of a larger application (e.g. with Play_ or
+Akka_) the framework may provide a better alternative to this default ``ExecutionContext``.
 
 .. _gettingstarted-dbconnection:
 
@@ -101,14 +101,16 @@ the configuration like this:
 
 .. includecode:: code/FirstExample.scala#setup
 
+.. note::
+   A ``Database`` object usually manages a thread pool and a connection pool. You should always
+   shut it down properly when it is no longer needed (unless the JVM process terminates anyway).
+
 Schema
 ------
 
-We are using the :ref:`lifted embedding <lifted-embedding>` in this
-application, so we need ``Table`` row classes and ``TableQuery``
-values for our database tables. You can either use the :doc:`code generator <code-generation>`
-to automatically create them for your database schema or you
-can write them by hand:
+Before we can write Slick queries, we need to describe a database schema with ``Table`` row classes
+and ``TableQuery`` values for our tables. You can either use the :doc:`code generator <code-generation>`
+to automatically create them for your database schema or you can write them by hand:
 
 .. includecode:: code/FirstExample.scala#tables
 
@@ -150,16 +152,15 @@ at a later time to produce a result. There are several different combinators for
 Actions into sequences, yielding another Action. Here we use the simplest one, ``Action.seq``, which
 can concatenate any number of Actions, discarding the return values (i.e. the resulting Action
 produces a result of type ``Unit``). We then execute the setup Action asynchronously with
-``db.run``, yielding a ``Future[Unit]``. For the purpose of this example, we use ``Await`` to
-block the current thread and wait for the database result. This is not something you should do in
-a real application.
+``db.run``, yielding a ``Future[Unit]``.
 
-Note that database connections and transactions are managed automatically by Slick. By default
-connections are acquired and released on demand and used in *auto-commit* mode. In this mode we
-have to populate the ``suppliers`` table first because the ``coffees`` data can only refer to valid
-supplier IDs. We could also use an explicit transaction bracket encompassing all these statements
-("``db.run(setup.transactionally)``"). Then the order would not matter because the constraints are
-only enforced at the end when the transaction is committed.
+.. note::
+   Database connections and transactions are managed automatically by Slick. By default
+   connections are acquired and released on demand and used in *auto-commit* mode. In this mode we
+   have to populate the ``suppliers`` table first because the ``coffees`` data can only refer to valid
+   supplier IDs. We could also use an explicit transaction bracket encompassing all these statements
+   (``db.run(setup.transactionally)``). Then the order would not matter because the constraints are
+   only enforced at the end when the transaction is committed.
 
 Querying
 --------
@@ -196,10 +197,12 @@ collections:
 
 .. includecode:: code/FirstExample.scala#join
 
-Note the use of ``===`` instead of ``==`` for comparing two values for
-equality. Similarly, the lifted embedding uses ``=!=`` instead of ``!=`` for
-inequality. (The other comparison operators are the same as in Scala:
-``<``, ``<=``, ``>=``, ``>``.)
+.. warning::
+   Note the use of ``===`` instead of ``==`` for comparing two values for equality and ``=!=``
+   instead of ``!=`` for inequality. This is necessary because these operators are already defined
+   (with unsuitable types and semantics) on the base type ``Any``, so they cannot be replaced by
+   extension methods. The other comparison operators are the same as in standard Scala code:
+   ``<``, ``<=``, ``>=``, ``>``.
 
 The generator expression ``suppliers if s.id === c.supID`` follows the
 relationship established by the foreign key ``Coffees.supplier``. Instead of

@@ -33,7 +33,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Slick'
-copyright = u'2011-2014 Typesafe, Inc'
+copyright = u'2011-2015 Typesafe, Inc'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -205,7 +205,7 @@ latex_documents = [
 epub_title = u"Slick"
 epub_author = u'Slick Team'
 epub_publisher = u'Typesafe, Inc.'
-epub_copyright = u'2011-2014 Typesafe, Inc.'
+epub_copyright = u'2011-2015 Typesafe, Inc.'
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.

@@ -1,5 +1,5 @@
-Schema code generation
-=============================================
+Schema Code Generation
+======================
 
 The Slick code generator is a convenient tool for working
 with an existing or evolving database schema. It can be run
@@ -8,19 +8,11 @@ code Slick needs to work.
 
 Overview
 --------
-By default, the code generator generates Table classes, corresponding TableQuery values, which
+By default, the code generator generates ``Table`` classes, corresponding ``TableQuery`` values, which
 can be used in a collection-like manner, as well as case classes for holding complete
-rows of values. For Tables with more than 22 columns the generator automatically switches
-to Slick's experimental HList implementation for overcoming Scala's tuple size limit. (In Scala
+rows of values. For tables with more than 22 columns the generator automatically switches
+to Slick's experimental ``HList`` implementation for overcoming Scala's tuple size limit. (In Scala
 <= 2.10.3 use ``HCons`` instead of ``::`` as a type contructor due to performance issues during compilation, which are fixed in 2.10.4 and later.)
-
-The implementation is ready for practical use, but since it is new in
-Slick 2.0 we consider it experimental and reserve the right to remove features
-without a deprecation cycle if we think that it is necessary. It would be only
-a small effort to run an old generator against a future version of Slick though,
-if necessary, as it's implementation is rather isolated from the rest of Slick.
-We are interested in hearing about people's experiences with
-using it in practice.
 
 Parts of the generator are also explained in our `talk at Scala eXchange 2013 <http://slick.typesafe.com/docs/#20131203_patterns_for_slick_database_applications_at_scala_exchange_2013>`_.
 
@@ -46,8 +38,8 @@ and provide the following values
 
 Integrated into sbt
 -------------------
-The code generator can be run before every compilation or manually.
-An example project showing both can be `found here <https://github.com/slick/slick-codegen-example/tree/master>`_.
+The code generator can be run before every compilation or manually in sbt_.
+An example project showing both can be `found here <https://github.com/slick/slick-codegen-example>`_.
 
 Generated Code
 --------------
@@ -56,28 +48,30 @@ to the package. The file contains an ``object Tables`` from which the code
 can be imported for use right away. Make sure you use the same Slick driver.
 The file also contains a ``trait Tables`` which can be used in the cake pattern.
 
-Warning
--------
-When using the generated code, be careful **not** to mix different database drivers accidentally. The default ``object Tables`` uses the driver used during code generation. Using it together with a different driver for queries will lead to runtime errors. The generated ``trait Tables`` can be used with a different driver, but be aware, that this is currently untested and not officially supported. It may or may not work in your case. We will officially support this at some point in the future.
+.. warning::
+   When using the generated code, be careful **not** to mix different database drivers accidentally. The
+   default ``object Tables`` uses the driver used during code generation. Using it together with a different
+   driver for queries will lead to runtime errors. The generated ``trait Tables`` can be used with a
+   different driver, but be aware, that this is currently untested and not officially supported. It may or
+   may not work in your case. We will officially support this at some point in the future.
 
 Customization
 -------------
 The generator can be flexibly customized by overriding methods to programmatically
 generate any code based on the data model. This can be used for minor customizations
-as well as heavy, model driven code generation, e.g. for framework bindings (Play,...),
-other data-related, repetetive sections of applications, etc.
+as well as heavy, model driven code generation, e.g. for framework bindings in Play_,
+other data-related, repetitive sections of applications, etc.
 
-`This example <https://github.com/slick/slick-codegen-customization-example/tree/master>`_
+`This example <https://github.com/slick/slick-codegen-customization-example>`_
 shows a customized code-generator and how to setup
 up a multi-project sbt build, which compiles and runs it
 before compiling the main sources.
 
-The implementation of the code generator
-is structured into a small hierarchy of sub-generators responsible
-for different fragments of the complete output. The implementation of each
-sub-generator can be swapped out for a customized one by overriding the corresponding
-factory method. SourceCodeGenerator contains a factory method Table, which it uses to
-generate a sub-generator for each table. The sub-generator Table in turn contains
+The implementation of the code generator is structured into a small hierarchy of sub-generators responsible
+for different fragments of the complete output. The implementation of each sub-generator can be swapped out
+for a customized one by overriding the corresponding factory method.
+:codegenapi:`SourceCodeGenerator <slick.codegen.SourceCodeGenerator>` contains a factory method Table,
+which it uses to generate a sub-generator for each table. The sub-generator Table in turn contains
 sub-generators for Table classes, entity case classes, columns, key, indices, etc.
 Custom sub-generators can easily be added as well.
 

@@ -1,5 +1,7 @@
-Slick - Scala Language Integrated Connection Kit
-################################################
+Slick
+#####
+
+Reactive Functional Relational Mapping for Scala
 
 API Documentation (scaladoc)
 ----------------------------
@@ -7,7 +9,7 @@ API Documentation (scaladoc)
 * `Slick Core <api/index.html>`_ (slick)
 * `TestKit <testkit-api/index.html>`_ (slick-testkit)
 * `Code Generator <codegen-api/index.html>`_ (slick-codegen)
-* `Direct Embedding <direct-api/index.html>`_ (slick-direct)
+* `Direct Embedding <direct-api/index.html>`_ (slick-direct) (Deprecated)
 * `Slick Extensions <extensions-api/index.html>`_ (slick-extensions)
 
 User Manual
@@ -17,16 +19,18 @@ User Manual
    :maxdepth: 3
 
    introduction
+   supported-databases
    gettingstarted
-   upgrade
-   orm-to-slick
-   sql-to-slick
    database
-   code-generation
+   dbio
    schemas
    queries
+   code-generation
    userdefined
    sql
+   orm-to-slick
+   sql-to-slick
+   upgrade
    extensions
 
 Appendix
