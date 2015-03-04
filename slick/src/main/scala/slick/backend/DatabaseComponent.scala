@@ -60,7 +60,8 @@ trait DatabaseComponent { self =>
     final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, false)
 
     private[slick] final def runInternal[R](a: DBIOAction[R, NoStream, Nothing], useSameThread: Boolean): Future[R] =
-      runInContext(a, createDatabaseActionContext(useSameThread), false)
+      try runInContext(a, createDatabaseActionContext(useSameThread), false)
+      catch { case NonFatal(ex) => Future.failed(ex) }
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
       * Action and return the result directly as a stream without buffering everything first. This
@@ -109,11 +110,7 @@ trait DatabaseComponent { self =>
                 case Success(_) => ctx.tryOnComplete
                 case Failure(t) => ctx.tryOnError(t)
               }(DBIO.sameThreadExecutionContext)
-            } catch {
-              case NonFatal(ex) =>
-                streamLogger.warn("Database.streamInContext failed unexpectedly", ex)
-                ctx.tryOnError(ex)
-            }
+            } catch { case NonFatal(ex) => ctx.tryOnError(ex) }
           }
         }
       }
