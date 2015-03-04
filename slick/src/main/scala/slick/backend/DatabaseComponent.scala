@@ -312,6 +312,7 @@ trait DatabaseComponent { self =>
     /** Run the supplied function with a new session and automatically close the session at the end.
       * Exceptions thrown while closing the session are propagated, but only if the code block using the
       * session terminated normally. Otherwise the first exception wins. */
+    @deprecated("Use the new Action-based API instead", "3.0")
     def withSession[T](f: Session => T): T = {
       val s = createSession()
       var ok = false

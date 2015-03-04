@@ -4,6 +4,8 @@ import java.net.URI
 
 import com.typesafe.config.ConfigException
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -163,8 +165,8 @@ object ActionBasedSQLInterpolation {
           ctxt.abort(ctxt.enclosingPosition, s"""Cannot load @StaticDatabaseConfig("$uri"): ${ex.getMessage}""")
       }
     val rTypes = try {
-      dc.db withSession {
-        _.withPreparedStatement(macroTreeBuilder.staticQueryString) {
+      val a = SimpleJdbcAction { ctx =>
+        ctx.session.withPreparedStatement(macroTreeBuilder.staticQueryString) {
           _.getMetaData match {
             case null => Vector()
             case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
@@ -174,6 +176,7 @@ object ActionBasedSQLInterpolation {
           }
         }
       }
+      Await.result(dc.db.run(a), Duration.Inf)
     } finally dc.db.close()
 
     reify {
