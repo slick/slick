@@ -28,7 +28,13 @@ object AsyncExecutor extends Logging {
         val queue = queueSize match {
           case 0 => new SynchronousQueue[Runnable]
           case -1 => new LinkedBlockingQueue[Runnable]
-          case n => new ArrayBlockingQueue[Runnable](n)
+          case n =>
+            new ManagedArrayBlockingQueue[Runnable](n * 2) {
+              def accept(r: Runnable, size: Int) = r match {
+                case pr: PrioritizedRunnable if pr.highPriority => true
+                case _ => size < n
+              }
+            }
         }
         val tf = new DaemonThreadFactory(name + "-")
         executor = new ThreadPoolExecutor(numThreads, numThreads, 1, TimeUnit.MINUTES, queue, tf)
@@ -40,6 +46,11 @@ object AsyncExecutor extends Logging {
 
   def default(name: String = "AsyncExecutor.default"): AsyncExecutor =
     apply(name, 20, 1000)
+
+
+  trait PrioritizedRunnable extends Runnable {
+    def highPriority: Boolean
+  }
 
   private class DaemonThreadFactory(namePrefix: String) extends ThreadFactory {
     private[this] val group = Option(System.getSecurityManager).fold(Thread.currentThread.getThreadGroup)(_.getThreadGroup)
