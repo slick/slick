@@ -1,5 +1,7 @@
 package slick.driver
 
+import java.util.UUID
+
 import scala.concurrent.ExecutionContext
 import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -95,6 +97,8 @@ trait H2Driver extends JdbcDriver { driver =>
   class JdbcTypes extends super.JdbcTypes {
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "UUID"
+      override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
+      override def hasLiteralForm = true
     }
   }
 
