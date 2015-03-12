@@ -3,14 +3,15 @@ package com.typesafe.slick.testkit.util
 import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
-import scala.concurrent.ExecutionContext
 import slick.dbio._
 import slick.driver._
 import slick.memory.MemoryDriver
-import slick.jdbc.{StaticQuery => Q, ResultSetAction, ResultSetInvoker}
+import slick.jdbc.{StaticQuery => Q, SimpleJdbcAction, ResultSetAction, ResultSetInvoker}
 import slick.jdbc.GetResult._
 import slick.jdbc.meta.MTable
 import org.junit.Assert
+
+import scala.concurrent.ExecutionContext
 
 object StandardTestDBs {
   lazy val H2Mem = new H2TestDB("h2mem", false) {
@@ -67,7 +68,7 @@ object StandardTestDBs {
     val url = "jdbc:derby:memory:"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:memory:"+dbName+";drop=true"
-      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession(_.conn) }
+      try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
       catch { case e: SQLException => }
     }
   }
@@ -77,7 +78,7 @@ object StandardTestDBs {
     val url = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";create=true"
     override def cleanUpBefore() = {
       val dropUrl = "jdbc:derby:"+TestkitConfig.testDBPath+"/"+dbName+";shutdown=true"
-      try { profile.backend.Database.forURL(dropUrl, driver = jdbcDriver) withSession(_.conn) }
+      try { await(profile.backend.Database.forURL(dropUrl, driver = jdbcDriver).run(SimpleJdbcAction(_.connection))) }
       catch { case e: SQLException => }
       TestDB.deleteDBFiles(dbName)
     }

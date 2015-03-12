@@ -4,9 +4,10 @@ import java.io._
 import java.net.{URL, URLClassLoader}
 import java.sql.{Connection, Driver}
 import java.util.Properties
+import java.util.concurrent.ExecutionException
 import java.util.zip.GZIPInputStream
 import scala.collection.mutable
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{Await, Future, ExecutionContext}
 import slick.SlickException
 import slick.dbio.{NoStream, DBIOAction, DBIO}
 import slick.jdbc.{StaticQuery => Q, ResultSetAction, JdbcDataSource, SimpleJdbcAction, ResultSetInvoker}
@@ -201,6 +202,9 @@ abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
     })
     db.run(f(ec)).value.get.get
   }
+  protected[this] def await[T](f: Future[T]): T =
+    try Await.result(f, TestkitConfig.asyncTimeout)
+    catch { case ex: ExecutionException => throw ex.getCause }
 }
 
 abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) { self =>
@@ -210,6 +214,8 @@ abstract class InternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
 }
 
 abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName) {
+  import driver.api.actionBasedSQLInterpolation
+
   val jdbcDriver = confString("driver")
   val testDB = confString("testDB")
 
@@ -233,24 +239,23 @@ abstract class ExternalJdbcTestDB(confName: String) extends JdbcTestDB(confName)
   override def cleanUpBefore() {
     if(!drop.isEmpty || !create.isEmpty) {
       println("[Creating test database "+this+"]")
-      databaseFor("adminConn") withSession { implicit session =>
-        for(s <- drop) (Q.u + s).execute
-        for(s <- create) (Q.u + s).execute
-      }
+      await(databaseFor("adminConn").run(
+        DBIO.seq((drop ++ create).map(s => sqlu"#$s"): _*).withPinnedSession
+      ))
     }
     if(!postCreate.isEmpty) {
-      createDB() withSession { implicit session  =>
-        for(s <- postCreate) (Q.u + s).execute
-      }
+      await(createDB().run(
+        DBIO.seq(postCreate.map(s => sqlu"#$s"): _*).withPinnedSession
+      ))
     }
   }
 
   override def cleanUpAfter() {
     if(!drop.isEmpty) {
       println("[Dropping test database "+this+"]")
-      databaseFor("adminConn") withSession { implicit session =>
-        for(s <- drop) (Q.u + s).execute
-      }
+      await(databaseFor("adminConn").run(
+        DBIO.seq(drop.map(s => sqlu"#$s"): _*).withPinnedSession
+      ))
     }
   }
 
