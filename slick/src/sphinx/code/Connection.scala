@@ -35,20 +35,20 @@ object Connection extends App {
     //#forConfig
     val db = Database.forConfig("mydb")
     //#forConfig
-    db.close
+    Await.ready(db.shutdown, Duration.Inf)
   }
   ;{
     //#forURL
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
     //#forURL
-    db.close
+    Await.ready(db.shutdown, Duration.Inf)
   }
   ;{
     //#forURL2
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver",
       executor = AsyncExecutor("test1", numThreads=10, queueSize=1000))
     //#forURL2
-    db.close
+    Await.ready(db.shutdown, Duration.Inf)
   }
   val db = Database.forURL("jdbc:h2:mem:test2;INIT="+coffees.schema.createStatements.mkString("\\;"), driver="org.h2.Driver")
   try {
@@ -98,7 +98,7 @@ object Connection extends App {
       Await.result(f, Duration.Inf)
     }
     lines.foreach(Predef.println _)
-  } finally db.close
+  } finally Await.ready(db.shutdown, Duration.Inf)
 
   //#simpleaction
   val getAutoCommit = SimpleDBIO[Boolean](_.connection.getAutoCommit)

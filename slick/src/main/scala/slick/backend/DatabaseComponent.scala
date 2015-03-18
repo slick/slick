@@ -53,8 +53,10 @@ trait DatabaseComponent { self =>
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
-    /** Free all resources allocated by Slick for this Database. */
-    def close(): Unit
+    /** Free all resources allocated by Slick for this Database. This is done asynchronously, so
+      * you need to wait for the returned `Future` to complete in order to ensure that everything
+      * has been shut down. */
+    def shutdown: Future[Unit]
 
     /** Run an Action asynchronously and return the result as a Future. */
     final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, false)

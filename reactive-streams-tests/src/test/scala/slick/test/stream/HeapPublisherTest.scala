@@ -2,7 +2,8 @@ package slick.test.stream
 
 import org.testng.annotations.{AfterClass, BeforeClass}
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext}
 import slick.memory.MemoryDriver
 
 class HeapPublisherTest extends RelationalPublisherTest[MemoryDriver](MemoryDriver, 300L) {
@@ -12,5 +13,5 @@ class HeapPublisherTest extends RelationalPublisherTest[MemoryDriver](MemoryDriv
     db = Database(ExecutionContext.global)
 
   @AfterClass def tearDownDB: Unit =
-    db.close()
+    Await.ready(db.shutdown, Duration.Inf)
 }

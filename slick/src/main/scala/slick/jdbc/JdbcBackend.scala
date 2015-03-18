@@ -1,5 +1,7 @@
 package slick.jdbc
 
+import java.util.concurrent.Executors
+
 import org.reactivestreams.Subscriber
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -73,7 +75,10 @@ trait JdbcBackend extends RelationalBackend {
       * [[slick.util.AsyncExecutor]] with the thread pool for asynchronous execution is shut
       * down. If this object represents a connection pool managed directly by Slick, it is also
       * closed. */
-    def close(): Unit = try executor.close() finally source.close()
+    def shutdown: Future[Unit] = Future {
+      try executor.close()
+      finally source.close()
+    }(ExecutionContext.fromExecutor(AsyncExecutor.shutdownExecutor))
    }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef {

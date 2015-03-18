@@ -4,6 +4,9 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import org.reactivestreams.tck.TestEnvironment
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 object StreamsStressTest extends App {
   /*import slick.driver.DerbyDriver.api._
   val url = "jdbc:derby:memory:StreamsStressTest;create=true"
@@ -35,7 +38,7 @@ object StreamsStressTest extends App {
     threads.foreach(_.join())
     println("All threads finished")
     env.verifyNoAsyncErrors()
-  } finally db.close
+  } finally Await.ready(db.shutdown, Duration.Inf)
 
   def run1: Unit = {
     val sub = env.newManualSubscriber(createPublisher(1L))

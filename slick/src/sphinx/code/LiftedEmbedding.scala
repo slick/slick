@@ -601,5 +601,5 @@ object LiftedEmbedding extends App {
 
       ()
     }
-  } finally db.close
+  } finally Await.ready(db.shutdown, Duration.Inf)
 }

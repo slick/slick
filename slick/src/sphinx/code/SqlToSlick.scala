@@ -454,5 +454,5 @@ object SqlToSlick extends App {
         assert(sqlRes == slickRes)
       }
     }
-  } finally db.close
+  } finally Await.ready(db.shutdown, Duration.Inf)
 }

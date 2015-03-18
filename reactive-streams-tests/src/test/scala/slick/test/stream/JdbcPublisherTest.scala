@@ -18,5 +18,5 @@ class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Driver, 1
   }
 
   @AfterClass def tearDownDB: Unit =
-    db.close()
+    Await.ready(db.shutdown, Duration.Inf)
 }

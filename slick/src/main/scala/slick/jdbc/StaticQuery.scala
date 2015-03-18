@@ -177,7 +177,7 @@ object ActionBasedSQLInterpolation {
         }
       }
       Await.result(dc.db.run(a), Duration.Inf)
-    } finally dc.db.close()
+    } finally Await.ready(dc.db.shutdown, Duration.Inf)
 
     reify {
       val rconv = ctxt.Expr[GetResult[Any]](macroTreeBuilder.rconvTree(rTypes)).splice
