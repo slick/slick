@@ -83,7 +83,7 @@ trait JdbcBackend extends RelationalBackend {
 
     /** Create a Database based on a DataSource. */
     def forDataSource(ds: DataSource, executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
-      forSource(new DataSourceJdbcDataSource(ds))
+      forSource(new DataSourceJdbcDataSource(ds), executor)
 
     /** Create a Database based on the JNDI name of a DataSource. */
     def forName(name: String, executor: AsyncExecutor = null) = new InitialContext().lookup(name) match {

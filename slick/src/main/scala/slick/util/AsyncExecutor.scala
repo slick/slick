@@ -22,21 +22,35 @@ object AsyncExecutor extends Logging {
     * @param numThreads The number of threads in the pool.
     * @param queueSize The size of the job queue, 0 for direct hand-off or -1 for unlimited size. */
   def apply(name: String, numThreads: Int, queueSize: Int): AsyncExecutor = {
-    val queue = queueSize match {
-      case 0 => new SynchronousQueue[Runnable]
-      case -1 => new LinkedBlockingQueue[Runnable]
-      case n => new ArrayBlockingQueue[Runnable](n)
-    }
-    val tf = new DaemonThreadFactory(name + "-")
-    val executor = new ThreadPoolExecutor(numThreads, numThreads, 1, TimeUnit.MINUTES, queue, tf)
     new AsyncExecutor {
-      val executionContext = ExecutionContext.fromExecutorService(executor, loggingReporter)
-      def close(): Unit = executor.shutdownNow()
+      private[this] var executor: ThreadPoolExecutor = _
+      lazy val executionContext = {
+        val queue = queueSize match {
+          case 0 => new SynchronousQueue[Runnable]
+          case -1 => new LinkedBlockingQueue[Runnable]
+          case n =>
+            new ManagedArrayBlockingQueue[Runnable](n * 2) {
+              def accept(r: Runnable, size: Int) = r match {
+                case pr: PrioritizedRunnable if pr.highPriority => true
+                case _ => size < n
+              }
+            }
+        }
+        val tf = new DaemonThreadFactory(name + "-")
+        executor = new ThreadPoolExecutor(numThreads, numThreads, 1, TimeUnit.MINUTES, queue, tf)
+        ExecutionContext.fromExecutorService(executor, loggingReporter)
+      }
+      def close(): Unit = if(executor ne null) executor.shutdownNow()
     }
   }
 
   def default(name: String = "AsyncExecutor.default"): AsyncExecutor =
     apply(name, 20, 1000)
+
+
+  trait PrioritizedRunnable extends Runnable {
+    def highPriority: Boolean
+  }
 
   private class DaemonThreadFactory(namePrefix: String) extends ThreadFactory {
     private[this] val group = Option(System.getSecurityManager).fold(Thread.currentThread.getThreadGroup)(_.getThreadGroup)

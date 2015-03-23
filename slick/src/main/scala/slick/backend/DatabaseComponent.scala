@@ -16,7 +16,7 @@ import org.reactivestreams._
 
 import slick.SlickException
 import slick.dbio._
-import slick.util.{GlobalConfig, DumpInfo, TreeDump, SlickLogger, ignoreFollowOnError}
+import slick.util._
 
 /** Backend for the basic database and session handling features.
   * Concrete backends like `JdbcBackend` extend this type and provide concrete
@@ -60,7 +60,8 @@ trait DatabaseComponent { self =>
     final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, false)
 
     private[slick] final def runInternal[R](a: DBIOAction[R, NoStream, Nothing], useSameThread: Boolean): Future[R] =
-      runInContext(a, createDatabaseActionContext(useSameThread), false)
+      try runInContext(a, createDatabaseActionContext(useSameThread), false, true)
+      catch { case NonFatal(ex) => Future.failed(ex) }
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
       * Action and return the result directly as a stream without buffering everything first. This
@@ -105,15 +106,11 @@ trait DatabaseComponent { self =>
             ctx.tryOnError(new IllegalStateException("Database Action Publisher may not be subscribed to more than once"))
           } else {
             try {
-              runInContext(a, ctx, true).onComplete {
+              runInContext(a, ctx, true, true).onComplete {
                 case Success(_) => ctx.tryOnComplete
                 case Failure(t) => ctx.tryOnError(t)
               }(DBIO.sameThreadExecutionContext)
-            } catch {
-              case NonFatal(ex) =>
-                streamLogger.warn("Database.streamInContext failed unexpectedly", ex)
-                ctx.tryOnError(ex)
-            }
+            } catch { case NonFatal(ex) => ctx.tryOnError(ex) }
           }
         }
       }
@@ -133,31 +130,31 @@ trait DatabaseComponent { self =>
       *                  be a `StreamingDatabaseActionContext` and the Future result should be
       *                  completed with `null` or failed after streaming has finished. This
       *                  method should not call any `Subscriber` method other than `onNext`. */
-    protected[this] def runInContext[R](a: DBIOAction[R, NoStream, Nothing], ctx: Context, streaming: Boolean): Future[R] = {
+    protected[this] def runInContext[R](a: DBIOAction[R, NoStream, Nothing], ctx: Context, streaming: Boolean, topLevel: Boolean): Future[R] = {
       logAction(a, ctx)
       a match {
         case SuccessAction(v) => Future.successful(v)
         case FailureAction(t) => Future.failed(t)
         case FutureAction(f) => f
         case FlatMapAction(base, f, ec) =>
-          runInContext(base, ctx, false).flatMap(v => runInContext(f(v), ctx, streaming))(ctx.getEC(ec))
+          runInContext(base, ctx, false, topLevel).flatMap(v => runInContext(f(v), ctx, streaming, false))(ctx.getEC(ec))
         case AndThenAction(a1, a2) =>
-          runInContext(a1, ctx, false).flatMap(_ => runInContext(a2, ctx, streaming))(DBIO.sameThreadExecutionContext)
+          runInContext(a1, ctx, false, topLevel).flatMap(_ => runInContext(a2, ctx, streaming, false))(DBIO.sameThreadExecutionContext)
         case ZipAction(a1, a2) =>
-          runInContext(a1, ctx, false).flatMap { r1 =>
-            runInContext(a2, ctx, false).map { r2 =>
+          runInContext(a1, ctx, false, topLevel).flatMap { r1 =>
+            runInContext(a2, ctx, false, false).map { r2 =>
               (r1, r2)
             }(DBIO.sameThreadExecutionContext)
           }(DBIO.sameThreadExecutionContext).asInstanceOf[Future[R]]
         case CleanUpAction(base, f, keepFailure, ec) =>
           val p = Promise[R]()
-          runInContext(base, ctx, streaming).onComplete { t1 =>
+          runInContext(base, ctx, streaming, topLevel).onComplete { t1 =>
             try {
               val a2 = f(t1 match {
                 case Success(_) => None
                 case Failure(t) => Some(t)
               })
-              runInContext(a2, ctx, false).onComplete { t2 =>
+              runInContext(a2, ctx, false, false).onComplete { t2 =>
                 if(t2.isFailure && (t1.isSuccess || !keepFailure)) p.complete(t2.asInstanceOf[Failure[R]])
                 else p.complete(t1)
               } (DBIO.sameThreadExecutionContext)
@@ -171,18 +168,18 @@ trait DatabaseComponent { self =>
           } (ctx.getEC(ec))
           p.future
         case FailedAction(a) =>
-          runInContext(a, ctx, false).failed.asInstanceOf[Future[R]]
+          runInContext(a, ctx, false, topLevel).failed.asInstanceOf[Future[R]]
         case AsTryAction(a) =>
           val p = Promise[R]()
-          runInContext(a, ctx, false).onComplete(v => p.success(v.asInstanceOf[R]))(DBIO.sameThreadExecutionContext)
+          runInContext(a, ctx, false, topLevel).onComplete(v => p.success(v.asInstanceOf[R]))(DBIO.sameThreadExecutionContext)
           p.future
         case NamedAction(a, _) =>
-          runInContext(a, ctx, streaming)
+          runInContext(a, ctx, streaming, topLevel)
         case a: SynchronousDatabaseAction[_, _, _, _] =>
           if(streaming) {
-            if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]], ctx.asInstanceOf[StreamingContext]).asInstanceOf[Future[R]]
-            else runInContext(CleanUpAction(AndThenAction(DBIO.Pin, a.nonFusedEquivalentAction), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming)
-          } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, _]], ctx)
+            if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]], ctx.asInstanceOf[StreamingContext], !topLevel).asInstanceOf[Future[R]]
+            else runInContext(CleanUpAction(AndThenAction(DBIO.Pin, a.nonFusedEquivalentAction), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming, topLevel)
+          } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, _]], ctx, !topLevel)
         case a: DatabaseAction[_, _, _] =>
           throw new SlickException(s"Unsupported database action $a for $this")
       }
@@ -203,9 +200,10 @@ trait DatabaseComponent { self =>
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
-    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context): Future[R] = {
+    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context, highPrio: Boolean): Future[R] = {
       val promise = Promise[R]()
-      ctx.getEC(synchronousExecutionContext).prepare.execute(new Runnable {
+      ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
+        def highPriority = highPrio
         def run: Unit =
           try {
             ctx.sync
@@ -225,16 +223,18 @@ trait DatabaseComponent { self =>
     }
 
     /** Stream a `SynchronousDatabaseAction` on this database. */
-    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext): Future[Null] = {
+    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, highPrio: Boolean): Future[Null] = {
       ctx.streamingAction = a
-      scheduleSynchronousStreaming(a, ctx)(null)
+      scheduleSynchronousStreaming(a, ctx, highPrio)(null)
       ctx.streamingResultPromise.future
     }
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext)(initialState: a.StreamState): Unit = try {
-      ctx.getEC(synchronousExecutionContext).prepare.execute(new Runnable {
+    protected[DatabaseComponent] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, highPrio: Boolean)(initialState: a.StreamState): Unit = try {
+      ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
         private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
+
+        def highPriority = highPrio
 
         def run: Unit = try {
           val debug = streamLogger.isDebugEnabled
@@ -261,7 +261,7 @@ trait DatabaseComponent { self =>
               }
               if(state eq null) { // streaming finished and cleaned up
                 releaseSession(ctx, true)
-                ctx.streamingResultPromise.success(null)
+                ctx.streamingResultPromise.trySuccess(null)
               }
             } catch { case NonFatal(ex) =>
               if(state ne null) try a.cancelStream(ctx, state) catch ignoreFollowOnError
@@ -282,7 +282,7 @@ trait DatabaseComponent { self =>
             if(state ne null) streamLogger.debug("Suspending streaming action with continuation (more data available)")
             else streamLogger.debug("Finished streaming action")
           }
-        } catch { case NonFatal(ex) => ctx.streamingResultPromise.failure(ex) }
+        } catch { case NonFatal(ex) => ctx.streamingResultPromise.tryFailure(ex) }
       })
     } catch { case NonFatal(ex) =>
       streamLogger.warn("Error scheduling synchronous streaming", ex)
@@ -494,7 +494,7 @@ trait DatabaseComponent { self =>
         streamState = null
         if(streamLogger.isDebugEnabled) streamLogger.debug("Scheduling stream continuation after transition from demand = 0")
         val a = streamingAction
-        database.scheduleSynchronousStreaming(a, this.asInstanceOf[StreamingContext])(s.asInstanceOf[a.StreamState])
+        database.scheduleSynchronousStreaming(a, this.asInstanceOf[StreamingContext], highPrio = true)(s.asInstanceOf[a.StreamState])
       } else {
         if(streamLogger.isDebugEnabled) streamLogger.debug("Saw transition from demand = 0, but no stream continuation available")
       }
