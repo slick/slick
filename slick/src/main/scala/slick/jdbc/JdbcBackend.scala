@@ -75,10 +75,7 @@ trait JdbcBackend extends RelationalBackend {
       * [[slick.util.AsyncExecutor]] with the thread pool for asynchronous execution is shut
       * down. If this object represents a connection pool managed directly by Slick, it is also
       * closed. */
-    def shutdown: Future[Unit] = Future {
-      try executor.close()
-      finally source.close()
-    }(ExecutionContext.fromExecutor(AsyncExecutor.shutdownExecutor))
+    def close: Unit = try executor.close() finally source.close()
    }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef {

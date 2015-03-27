@@ -71,7 +71,7 @@ trait TestCodeGenerator {
         try {
           val m = Await.result(db.run((init >> generator).withPinnedSession), Duration.Inf)
           m.writeToFile(profile=slickDriver, folder=dir, pkg=packageName, objectName, fileName=objectName+".scala" )
-        } finally Await.ready(db.shutdown, Duration.Inf)
+        } finally db.close
       }
       finally tdb.cleanUpAfter()
       Some(s"$packageName.$objectName")
@@ -115,7 +115,7 @@ class TestCodeRunner(tests: TestCodeRunner.AllTests) {
         val db = tdb.createDB()
         try Await.result(db.run(a.withPinnedSession), Duration.Inf)
         catch { case e: ExecutionException => throw e.getCause }
-        finally Await.ready(db.shutdown, Duration.Inf)
+        finally db.close()
       } finally tdb.cleanUpAfter()
     } else println("- Test database is disabled")
   }

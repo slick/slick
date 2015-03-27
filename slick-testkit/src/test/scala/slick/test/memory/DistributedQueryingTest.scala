@@ -3,8 +3,7 @@ package slick.test.memory
 import org.junit.Test
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.StandardTestDBs
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext}
+import scala.concurrent.ExecutionContext
 import slick.memory.{DistributedDriver, DistributedBackend}
 
 /** Test for the DistributedDriver */
@@ -50,9 +49,9 @@ class DistributedQueryingTest {
             db.withSession { s =>
               f(s.sessions(0).asInstanceOf[tdb1.profile.Backend#Session], s.sessions(1).asInstanceOf[tdb2.profile.Backend#Session], s)
             }
-          } finally Await.ready(db2.shutdown, Duration.Inf)
+          } finally db2.close()
         } finally tdb2.cleanUpAfter()
-      } finally Await.ready(db1.shutdown, Duration.Inf)
+      } finally db1.close()
     } finally tdb1.cleanUpAfter()
   }
 

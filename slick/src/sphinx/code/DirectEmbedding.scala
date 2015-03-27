@@ -71,6 +71,6 @@ object DirectEmbedding extends App {
       q1.map( c => (c.name, (c, c.price)) )
     //#nesting
     //#result
-  } finally Await.ready(db.shutdown, Duration.Inf)
+  } finally db.close
     //#result
 }

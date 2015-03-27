@@ -68,7 +68,7 @@ object SourceCodeGenerator {
     try {
       val m = Await.result(db.run(driver.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
       new SourceCodeGenerator(m).writeToFile(slickDriver,outputDir,pkg)
-    } finally Await.ready(db.shutdown, Duration.Inf)
+    } finally db.close
   }
 
   def run(uri: URI, outputDir: Option[String]): Unit = {
@@ -79,7 +79,7 @@ object SourceCodeGenerator {
     try {
       val m = Await.result(dc.db.run(dc.driver.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
       new SourceCodeGenerator(m).writeToFile(slickDriver, out, pkg)
-    } finally Await.ready(dc.db.shutdown, Duration.Inf)
+    } finally dc.db.close
   }
 
   def main(args: Array[String]): Unit = {

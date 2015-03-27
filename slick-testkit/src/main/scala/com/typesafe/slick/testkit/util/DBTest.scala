@@ -6,9 +6,6 @@ import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import org.junit.runners.Parameterized.Parameters
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-
 @RunWith(classOf[Parameterized])
 abstract class DBTest {
   private[this] var dbInitialized = false
@@ -23,7 +20,7 @@ abstract class DBTest {
 
   @Before def beforeDBTest = tdb.cleanUpBefore()
   @After def afterDBTest = {
-    if(dbInitialized) Await.ready(db.shutdown, Duration.Inf)
+    if(dbInitialized) db.close()
     tdb.cleanUpAfter()
   }
 }

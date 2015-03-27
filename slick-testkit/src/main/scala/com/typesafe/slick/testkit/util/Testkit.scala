@@ -130,7 +130,7 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
   final def cleanup() = if(keepAliveSession ne null) {
     try if(tdb.isPersistent) tdb.dropUserArtifacts(keepAliveSession)
     finally {
-      try closeKeepAlive() finally Await.ready(db.shutdown, Duration.Inf)
+      try db.close() finally closeKeepAlive()
     }
   }
 

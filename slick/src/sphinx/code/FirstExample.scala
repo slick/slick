@@ -130,6 +130,6 @@ object FirstExample extends App {
 
     lines.foreach(Predef.println _)
 //#setup
-  } finally Await.ready(db.shutdown, Duration.Inf)
+  } finally db.close
 //#setup
 }

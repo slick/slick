@@ -223,5 +223,5 @@ object OrmToSlick extends App {
         //#associationTuple
       }
     }
-  } finally Await.ready(db.shutdown, Duration.Inf)
+  } finally db.close
 }
