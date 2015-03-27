@@ -49,12 +49,23 @@ trait DatabaseComponent { self =>
   def createDatabase(config: Config, path: String): Database
 
   /** A database instance to which connections can be created. */
-  trait DatabaseDef { this: Database =>
+  trait DatabaseDef extends Closeable { this: Database =>
     /** Create a new session. The session needs to be closed explicitly by calling its close() method. */
     def createSession(): Session
 
-    /** Free all resources allocated by Slick for this Database. */
-    def close(): Unit
+    /** Free all resources allocated by Slick for this Database. This is done asynchronously, so
+      * you need to wait for the returned `Future` to complete in order to ensure that everything
+      * has been shut down. */
+    def shutdown: Future[Unit] = Future(close)(ExecutionContext.fromExecutor(AsyncExecutor.shutdownExecutor))
+
+    /** Free all resources allocated by Slick for this Database, blocking the current thread until
+      * everything has been shut down.
+      *
+      * Backend implementations which are based on a naturally blocking shutdown procedure can
+      * simply implement this method and get `shutdown` as an asynchronous wrapper for free. If
+      * the underlying shutdown procedure is asynchronous, you should implement `shutdown` instead
+      * and wrap it with `Await.result` in this method. */
+    def close: Unit
 
     /** Run an Action asynchronously and return the result as a Future. */
     final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, false)

@@ -50,7 +50,8 @@ trait DistributedBackend extends RelationalBackend with Logging {
       })
     }
 
-    def close(): Unit = ()
+    override def shutdown: Future[Unit] = Future.successful(())
+    def close: Unit = ()
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {

@@ -37,7 +37,8 @@ trait HeapBackend extends RelationalBackend with Logging {
 
     protected val tables = new HashMap[String, HeapTable]
     def createSession(): Session = new SessionDef(this)
-    def close(): Unit = ()
+    override def shutdown: Future[Unit] = Future.successful(())
+    def close: Unit = ()
     def getTable(name: String): HeapTable = synchronized {
       tables.get(name).getOrElse(throw new SlickException(s"Table $name does not exist"))
     }
