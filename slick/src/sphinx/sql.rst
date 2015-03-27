@@ -8,140 +8,141 @@ not well supported at a higher level of abstraction. Instead of falling back
 to the low level of JDBC_, you can use Slick's *Plain SQL* queries with a much
 nicer Scala-based API.
 
-*Note:* The rest of this chapter is based on the `Slick Plain SQL Queries template`_.
-The prefered way of reading this introduction is in Activator_, where you can edit and
-run the code directly while reading the tutorial.
+.. note::
+   The rest of this chapter is based on the `Slick Plain SQL Queries template`_.
+   The prefered way of reading this introduction is in Activator_, where you can edit and
+   run the code directly while reading the tutorial.
 
-.. index:: StaticQuery, GetResult
 
 Scaffolding
 -----------
 
-The imports you need for Plain SQL queries are different from what you're used to for the
-:ref:`lifted embedding <lifted-embedding>` or :doc:`direct embedding <direct-embedding>`:
-
-.. includecode:: code/PlainSQL.scala#imports
-
-First of all, there is no *Slick driver* being imported. The JDBC-based APIs
-in Slick depend only on JDBC itself and do not implement any database-specific
-abstractions. All we need for the database connection is ``Database``, plus
-the ``dynamicSession`` to simplify session handling.
-
-The most important class for *Plain SQL* queries is
-``slick.jdbc.StaticQuery`` which gets imported as ``Q`` for more
-convenient use.
-
 The database connection is opened
-:ref:`in the usual way <gettingstarted-dbconnection>`. We are also defining
-some case classes for our data:
-
-.. includecode:: code/PlainSQL.scala#setup
-
-.. index:: updateNA
-.. index::
-   pair: update; Plain SQL
-
-DDL/DML Statements
-------------------
-
-The simplest ``StaticQuery`` method is ``updateNA`` which creates a
-parameterless (*NA = no args*) ``StaticQuery[Unit, Int]`` that is supposed to
-return the row count from a DDL statement instead of a result set. It can be
-executed the same way as a query that uses the :ref:`lifted embedding
-<lifted-embedding>`. Here we are using ``.execute`` to run the query without
-getting the results:
-
-.. includecode:: code/PlainSQL.scala#updateNA
-
-You can append a ``String`` to an existing ``StaticQuery`` object with ``+``,
-yielding a new ``StaticQuery`` with the same types. The convenience method
-``StaticQuery.u`` constructs an empty *update* query to start with (identical
-to ``StaticQuery.updateNA("")``). We are using it to insert some data into the
-``SUPPLIERS`` table:
-
-.. includecode:: code/PlainSQL.scala#Q.u
-
-.. index:: +?
-
-Embedding literals into SQL code is generally not recommended for security and
-performance reasons, especially if they are to be filled at run-time with
-user-provided data. You can use the special concatenation operator ``+?`` to
-add a bind variable to a query string and instantiate it with the provided
-value when the statement gets executed:
-
-.. includecode:: code/PlainSQL.scala#bindConcat
-
-The SQL statement is the same for all calls:
-``insert into coffees values (?,?,?,?,?)``
-
-.. index:: queryNA, PositionedResult
-.. index::
-   pair: query; Plain SQL
-
-Query Statements
-----------------
-
-Similar to ``updateNA``, there is a ``queryNA`` method which takes a type
-parameter for the rows of the result set. You can use it to execute a
-*select* statement and iterate over the results:
-
-.. includecode:: code/PlainSQL.scala#queryNA
-
-In order for this to work, Slick needs to know how to read ``Coffee`` values
-from a ``PositionedResult`` object. This is done with an implicit
-``GetResult`` value. There are predefined ``GetResult`` implicits for the
-standard JDBC types, for Options of those (to represent nullable columns) and
-for tuples of types which have a ``GetResult``. For the ``Supplier`` and
-``Coffee`` classes in this example we have to write our own:
-
-.. includecode:: code/PlainSQL.scala#GetResult
-
-``GetResult[T]`` is simply a wrapper for a function ``PositionedResult => T``.
-The first one above uses the explicit ``PositionedResult`` methods ``getInt``
-and ``getString`` to read the next ``Int`` or ``String`` value in the current
-row. The second one uses the shortcut method ``<<`` which returns a value of
-whatever type is expected at this place. (Of course you can only use it when
-the type is actually known like in this constructor call.)
-
-The ``queryNA`` method for parameterless queries is complemented by ``query``
-which takes two type parameters, one for the query parameters and one for the
-result set rows. Similarly, there is a matching ``update`` for ``updateNA``.
-The execution methods of the resulting ``StaticQuery`` need to be called with
-the query parameters, as seen here in the call to ``.list``:
-
-.. includecode:: code/PlainSQL.scala#query
-
-As an alternative, you can apply the parameters directly to the query, thus
-reducing it to a parameterless query. This makes the syntax for parameterized
-queries the same as for normal function application:
-
-.. includecode:: code/PlainSQL.scala#applyQuery
+:ref:`in the usual way <gettingstarted-dbconnection>`. All *Plain SQL* queries result in
+:api:`DBIOActions <slick.dbio.DBIOAction>` that can be composed and run like any other action.
 
 .. index:: interpolation
 .. index::
-   pair: sql; interpolator
    pair: sqlu; interpolator
+   pair: update; Plain SQL
 
 String Interpolation
 --------------------
 
-In order to use the *string interpolation* prefixes ``sql`` and ``sqlu``,
-you need to add one more import statement:
+*Plain SQL* queries in Slick are built via string interpolation using the ``sql``, ``sqlu`` and
+``tsql`` interpolators. They are available through the standard ``api._`` import from a Slick driver:
 
-.. includecode:: code/PlainSQL.scala#imports.interpolation
+.. includecode:: code/PlainSQL.scala#imports
 
-As long as you don't want function-like reusable queries, interpolation is the
-easiest and syntactically nicest way of building a parameterized query. Any
-variable or expression injected into a query gets turned into a bind variable
-in the resulting query string. (You can use ``#$`` instead of ``$`` to get the
-literal value inserted directly into the query.) The result type is specified
-in a call to ``.as`` which turns the object produced by the ``sql``
-interpolator into a ``StaticQuery``:
+You can see the simplest use case in the following methods where the ``sqlu`` interpolator is used
+with a literal SQL string:
 
-.. includecode:: code/PlainSQL.scala#interpolate.sql
+.. includecode:: code/PlainSQL.scala#sqlu
 
-There is a similar interpolator ``sqlu`` for building *update* statements. It
-is hardcoded to return an ``Int`` value so it does not need the extra ``.as``
-call:
+The ``sqlu`` interpolator is used for DML statements which produce a row count instead of a result
+set. Therefore they are of type ``DBIO[Int]``.
 
-.. includecode:: code/PlainSQL.scala#interpolate.sqlu
+Any variable or expression injected into a query gets turned into a bind variable in the resulting
+query string. It is not inserted directly into a query string, so there is no danger of SQL
+injection attacks. You can see this used in here:
+
+.. includecode:: code/PlainSQL.scala#bind
+
+The SQL statement produced by this method is always the same::
+
+    insert into coffees values (?, ?, ?, ?, ?)
+
+Note the use of the
+:api:`DBIO.sequence <slick.dbio.DBIO$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
+combinator which is useful for this kind of code:
+
+.. includecode:: code/PlainSQL.scala#sequence
+
+Unlike the simpler
+:api:`DBIO.seq <slick.dbio.DBIO$@seq[E<:Effect](DBIOAction[_,NoStream,E]*):DBIOAction[Unit,NoStream,E]>`
+combinator which runs a (varargs) sequence of database I/O actions in the given order and discards
+the return values,
+:api:`DBIO.sequence <slick.dbio.DBIO$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
+turns a ``Seq[DBIO[T]]`` into a ``DBIO[Seq[T]]``, thus preserving the results of all individual
+actions. It is used here to sum up the affected row counts of all inserts.
+
+.. index:: GetResult
+.. index::
+   pair: sqlu; interpolator
+   pair: query; Plain SQL
+
+Result Sets
+-----------
+
+The following code uses tbe ``sql`` interpolator which returns a result set produced by a
+statement. The interpolator by itself does not produce a ``DBIO`` value. It needs to be
+followed by a call to ``.as`` to define the row type:
+
+.. includecode:: code/PlainSQL.scala#sql
+
+This results in a ``DBIO[Seq[(String, String)]]``. The call to ``as`` takes an implicit
+:api:`slick.jdbc.GetResult` parameter which extracts data of the requested type from a result set.
+There are predefined ``GetResult`` implicits for the standard JDBC types, for Options of those (to
+represent nullable columns) and for tuples of types which have a ``GetResult``. For non-standard
+return types you have to define your own converters:
+
+.. includecode:: code/PlainSQL.scala#getresult
+
+``GetResult[T]`` is simply a wrapper for a function ``PositionedResult => T``. The implicit val for
+``Supplier`` uses the explicit ``PositionedResult`` methods ``getInt`` and ``getString`` to read
+the next ``Int`` or ``String`` value in the current row. The second one uses the shortcut method
+``<<`` which returns a value of whatever type is expected at this place. (Of course you can only
+use it when the type is actually known like in this constructor call.
+
+Splicing Literal Values
+-----------------------
+
+While most parameters should be inserted into SQL statements as bind variables, sometimes you need
+to splice literal values directly into the statement, for example to abstract over table names or
+to run dynamically generated SQL code. You can use ``#$`` instead of ``$`` in all interpolators for
+this purpose, as shown in the following piece of code:
+
+.. includecode:: code/PlainSQL.scala#literal
+
+.. index::
+   pair: tsql; interpolator
+
+Type-Checked SQL Statements
+---------------------------
+
+The interpolators you have seen so far only construct a SQL statement at runtime. This provides a
+safe and easy way of building statements but they are still just embedded strings. If you have a
+syntax error in a statement or the types don't match up between the database and your Scala code,
+this cannot be detected at compile-time. You can use the ``tsql`` interpolator instead of ``sql``
+to get just that:
+
+.. includecode:: code/PlainSQL.scala#tsql
+
+Note that ``tsql`` directly produces a ``DBIOAction`` of the correct type without requiring a call
+to ``.as``.
+
+In order to give the compiler access to the database, you have to provide a configuration that can
+be resolved at compile-time. This is done with the :api:`slick.backend.StaticDatabaseConfig`
+annotation::
+
+    @StaticDatabaseConfig("file:src/main/resources/application.conf#tsql")
+
+In this case it points to the path "tsql" in a local ``application.conf`` file, which must contain
+an appropriate configiration for a :api:`slick.backend.StaticDatabaseConfig` object, not just a
+``Database``.
+
+.. note::
+   You can get ``application.conf`` resolved via the classpath (as usual) by omitting the path and
+   only specifying a fragment in the URL, or you can use a ``resource:`` URL scheme for referencing
+   an arbitrary classpath resouce, but in both cases, they have to be on the *compiler's* own
+   classpath, not just the source path or the runtime classpath. Depending on the build tool this
+   may not be possible, so it's usually better to use a relative ``file:`` URL.
+
+You can also retrieve the statically configured :api:`slick.backend.DatabaseConfig` at runtime:
+
+.. includecode:: code/PlainSQL.scala#staticdatabaseconfig
+
+This gives you the Slick driver for the standard ``api._`` import and the ``Database``. Note that
+it is not mandatory to use the same configuration. You can get a Slick driver and ``Database`` at
+runtime in any other way you like and only use the ``StaticDatabaseConfig`` for compile-time
+checking.

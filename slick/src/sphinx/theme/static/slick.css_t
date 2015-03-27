@@ -100,6 +100,7 @@ table.docutils {
   margin-left: auto;
   margin-right: auto;
   width: 0;
+  margin-top: 12em;
 }
 table.docutils th, table.docutils td {
   text-align: center;
@@ -116,4 +117,30 @@ table.docutils caption {
   font-size: 13pt;
   font-weight: bold;
   color: rgba(218, 56, 48, 0.9);
+}
+.admonition, .deprecated {
+  background-transparency: 50%;
+  border: 1px solid #15a9ce !important;
+  padding: 0.5em;
+}
+.admonition {
+  background-color: rgba(115, 203, 226, 0.40);
+}
+.warning {
+  background-color: rgba(240, 101, 101, 0.40);
+  border: 1px solid #e25758 !important;
+}
+.admonition p.admonition-title {
+  font-weight: bold;
+  margin-bottom: 0.2em;
+}
+.deprecated {
+  background-color: rgba(206, 174, 0, 0.40);
+  border: 1px solid #CEA700 !important;
+  padding-bottom: 0;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+.deprecated p span {
+  font-weight: bold;
 }

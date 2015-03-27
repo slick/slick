@@ -4,7 +4,7 @@ User-Defined Features
 =====================
 
 This chapter describes how to use custom data types and database functions
-in the :ref:`Lifted Embedding <lifted-embedding>` API.
+with Slick's Scala API.
 
 .. index::
    triple: user-defined; scalar; function

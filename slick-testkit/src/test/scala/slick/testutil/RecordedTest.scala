@@ -8,6 +8,10 @@ import scala.Console
  * A JUnit test which compares the console output against a recorded test run.
  */
 abstract class RecordedTest {
+  private[this] var _out: PrintStream = _
+
+  def out = _out
+
   def run: Unit
 
   def basename: String
@@ -17,7 +21,9 @@ abstract class RecordedTest {
   @Test def test() {
     val logData = {
       val log = new ByteArrayOutputStream()
-      Console.withOut(log)(run)
+      val logP = new PrintStream(log)
+      _out = logP
+      Console.withOut(logP)(run)
       val logA = log.toByteArray
       Console.out.write(logA)
       val r = new BufferedReader(new InputStreamReader(new ByteArrayInputStream(logA)))
@@ -48,7 +54,7 @@ abstract class RecordedTest {
 
     check.foreach { checkData =>
       val matched = logData == checkData
-      if(!matched) Assert.fail("Output does not match: See "+basename+"(.check,-log.txt)")
+      if(!matched) Assert.fail("Output does not match: See "+basename+"(.check,-run.log)")
     }
   }
 

@@ -1,34 +1,60 @@
+.. _lifted-embedding:
+.. index:: lifted
 .. index:: Query
 
 Queries
 =======
 
-This chapter describes how to write type-safe queries for selecting,
-inserting, updating and deleting data with the
-:ref:`Lifted Embedding <lifted-embedding>` API.
+This chapter describes how to write type-safe queries for selecting, inserting, updating and
+deleting data with Slick's Scala-based query API.
+
+It is also called the *Lifted Embedding*, due to the fact that you are not
+working with standard Scala types but with types that are *lifted* into a :api:`slick.lifted.Rep`
+type constructor. This becomes clearer when you compare the types of a simple
+Scala collections example
+
+.. includecode:: code/LiftedEmbedding.scala#plaintypes
+
+... with the types of similar code in Slick:
+
+.. includecode:: code/LiftedEmbedding.scala#reptypes
+
+All plain types are lifted into ``Rep``. The same is true for the table row
+type ``Coffees`` which is a subtype of ``Rep[(String, Double)]``.
+Even the literal ``8.0`` is automatically lifted to a ``Rep[Double]`` by an
+implicit conversion because that is what the ``>`` operator on
+``Rep[Double]`` expects for the right-hand side. This lifting is necessary
+because the lifted types allow us to generate a syntax tree that captures
+the query computations. Getting plain Scala functions and values would not
+give us enough information for translating those computations to SQL.
 
 .. index:: expression, scalar, collection-valued, Rep, Seq, extension method, select, projection, view
 
 Expressions
 -----------
 
-Scalar (non-record, non-collection) values are represented by type ``Rep[T]`` where a
-``TypedType[T]`` must exist.
+Scalar (non-record, non-collection) values are represented by type ``Rep[T]`` for which an implicit
+``TypedType[T]`` exists.
 
-The operators and other methods which are commonly used in the lifted
-embedding are added through implicit conversions defined in
+The operators and other methods which are commonly used in queries
+are added through implicit conversions defined in
 ``ExtensionMethodConversions``. The actual methods can be found in
 the classes ``AnyExtensionMethods``, ``ColumnExtensionMethods``,
 ``NumericColumnExtensionMethods``, ``BooleanColumnExtensionMethods`` and
 ``StringColumnExtensionMethods``
 (cf. :slick:`ExtensionMethods <src/main/scala/slick/lifted/ExtensionMethods.scala>`).
 
-Collection values are represented by the ``Query`` class (a ``Rep[Seq[T]]``)
-which contains many standard collection methods like ``flatMap``,
-``filter``, ``take`` and ``groupBy``. Due to the two different component
-types of a ``Query`` (lifted and plain), the signatures for these methods are
-very complex but the semantics are essentially the same as for Scala
-collections.
+.. warning::
+   Most operators mimic the plain Scala equivalents, but you have to use ``===`` instead of
+   ``==`` for comparing two values for equality and ``=!=`` instead of ``!=`` for inequality.
+   This is necessary because these operators are already defined (with unsuitable types and
+   semantics) on the base type ``Any``, so they cannot be replaced by extension methods.
+
+Collection values are represented by the ``Query`` class (a ``Rep[Seq[T]]``) which contains many
+standard collection methods like ``flatMap``, ``filter``, ``take`` and ``groupBy``. Due to the two
+different component types of a ``Query`` (lifted and plain, e.g. ``Query[(Rep[Int), Rep[String]),
+(Int, String), Seq]``), the signatures for these methods are very complex but the semantics are
+essentially the same as for Scala collections.
 
 Additional methods for queries of scalar values are added via an
 implicit conversion to ``SingleColumnQueryExtensionMethods``.
@@ -49,33 +75,19 @@ Joining and Zipping
 -------------------
 
 Joins are used to combine two different tables or queries into a single query.
-
-There are two different ways of writing joins: *Explicit* joins are performed
-by calling a method that joins two queries into a single query of a tuple of
-the individual results. *Implicit* joins arise from the use of ``flatMap``.
-
-.. index::
-   pair: join; implicit
-   pair: join; inner
-   pair: join; cross
-
-An *implicit cross-join* is created with a ``flatMap`` operation on a ``Query``
-(i.e. by introducing more than one generator in a for-comprehension):
-
-.. includecode:: code/JoinsUnions.scala#implicitCross
-
-If you add a filter expression, it becomes an *implicit inner join*:
-
-.. includecode:: code/JoinsUnions.scala#implicitInner
-
-The semantics of these implicit joins are the same as when you are using
-``flatMap`` on Scala collections.
+There are two different ways of writing joins: *Applicative* and *monadic*.
 
 .. index::
    pair: join; outer
-   pair: join; explicit
+   pair: join; applicative
 
-Explicit joins are created by calling one of the available join methods:
+Applicative joins
+_________________
+
+*Applicative* joins are performed by calling a method that joins two queries into a single query
+of a tuple of the individual results. They have the same restrictions as joins in SQL, i.e. the
+right-hand side may not depend on the left-hand side. This is enforced naturally through Scala's
+scoping rules.
 
 .. includecode:: code/JoinsUnions.scala#explicit
 
@@ -84,7 +96,49 @@ introduce additional NULL values (on the right-hand side for a left outer join, 
 sides for a right outer join, and on both sides for a full outer join), the respective sides of
 the join are wrapped in an ``Option`` (with ``None`` representing a row that was not matched).
 
-In addition to the usual join operators supported by relational databases
+.. index::
+   pair: join; monadic
+   pair: join; inner
+   pair: join; cross
+
+Monadic joins
+_____________
+
+*Monadic* joins are created with ``flatMap``. They are theoretically more powerful than
+applicative joins because the right-hand side may depend on the left-hand side. However, this is
+not possible in standard SQL, so Slick has to compile them down to applicative joins, which is
+possible in many useful cases but not in all of them (and there are cases where it is possible in
+theory but Slick cannot perform the required transformation yet). If a monadic join cannot be
+properly translated, it will fail at runtime.
+
+A *cross-join* is created with a ``flatMap`` operation on a ``Query``
+(i.e. by introducing more than one generator in a for-comprehension):
+
+.. includecode:: code/JoinsUnions.scala#implicitCross
+
+If you add a filter expression, it becomes an *inner join*:
+
+.. includecode:: code/JoinsUnions.scala#implicitInner
+
+The semantics of these monadic joins are the same as when you are using
+``flatMap`` on Scala collections.
+
+.. index::
+   pair: join; implicit
+   pair: join; explicit
+
+.. note::
+   Slick currently generates *implicit* joins in SQL (``select ... from a, b where ...``) for
+   monadic joins, and *explicit* joins (``select ... from a join b on ...``) for applicative joins.
+   This is subject to change in future versions.
+
+.. index::
+   pair: join; zip
+
+Zip joins
+_________
+
+In addition to the usual applicative join operators supported by relational databases
 (which are based off a cross join or outer join), Slick also has *zip joins*
 which create a pairwise join of two queries. The semantics are again the same
 as for Scala collections, using the ``zip`` and ``zipWith`` methods:
@@ -136,7 +190,7 @@ Scala collections:
 
 .. includecode:: code/LiftedEmbedding.scala#aggregation3
 
-Note that the intermediate query ``q`` contains nested values of type ``Query``.
+The intermediate query ``q`` contains nested values of type ``Query``.
 These would turn into nested collections when executing the query, which is
 not supported at the moment. Therefore it is necessary to flatten the nested
 queries immediately by aggregating their values (or individual columns)
@@ -201,10 +255,11 @@ tuple from ``+=`` and a ``Seq`` of such values from ``++=``):
 
 .. includecode:: code/LiftedEmbedding.scala#insert3
 
-Note that many database systems only allow a single column to be returned
-which must be the table's auto-incrementing primary key. If you ask for
-other columns a ``SlickException`` is thrown at runtime (unless the database
-actually supports it).
+.. note::
+   Many database systems only allow a single column to be returned
+   which must be the table's auto-incrementing primary key. If you ask for
+   other columns a ``SlickException`` is thrown at runtime (unless the database
+   actually supports it).
 
 You can follow the ``returning`` method with the ``into`` method to map
 the inserted values and the generated keys (specified in returning) to a desired value.

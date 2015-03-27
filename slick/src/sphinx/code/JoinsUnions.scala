@@ -30,7 +30,7 @@ object JoinsUnions extends App{
   val db: Database = Database.forURL("jdbc:h2:mem:test1", driver = "org.h2.Driver")
   db withDynSession {
     //#implicitCross
-    val implicitCrossJoin = for {
+    val monadicCrossJoin = for {
       c <- coffees
       s <- suppliers
     } yield (c.name, s.name)
@@ -38,10 +38,10 @@ object JoinsUnions extends App{
     //   select x2."COF_NAME", x3."SUP_NAME"
     //     from "COFFEES" x2, "SUPPLIERS" x3
     //#implicitCross
-    println(implicitCrossJoin.result.statements.head)
+    println(monadicCrossJoin.result.statements.head)
 
     //#implicitInner
-    val implicitInnerJoin = for {
+    val monadicInnerJoin = for {
       c <- coffees
       s <- suppliers if c.supID === s.id
     } yield (c.name, s.name)
@@ -50,17 +50,17 @@ object JoinsUnions extends App{
     //     from "COFFEES" x2, "SUPPLIERS" x3
     //     where x2."SUP_ID" = x3."SUP_ID"
     //#implicitInner
-    println(implicitInnerJoin.result.statements.head)
+    println(monadicInnerJoin.result.statements.head)
 
     //#explicit
-    val explicitCrossJoin = for {
+    val crossJoin = for {
       (c, s) <- coffees join suppliers
     } yield (c.name, s.name)
     // compiles to SQL (simplified):
     //   select x2."COF_NAME", x3."SUP_NAME" from "COFFEES" x2
     //     inner join "SUPPLIERS" x3
 
-    val explicitInnerJoin = for {
+    val innerJoin = for {
       (c, s) <- coffees join suppliers on (_.supID === _.id)
     } yield (c.name, s.name)
     // compiles to SQL (simplified):
@@ -68,7 +68,7 @@ object JoinsUnions extends App{
     //     inner join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
 
-    val explicitLeftOuterJoin = for {
+    val leftOuterJoin = for {
       (c, s) <- coffees joinLeft suppliers on (_.supID === _.id)
     } yield (c.name, s.map(_.name))
     // compiles to SQL (simplified):
@@ -76,7 +76,7 @@ object JoinsUnions extends App{
     //     left outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
 
-    val explicitRightOuterJoin = for {
+    val rightOuterJoin = for {
       (c, s) <- coffees joinRight suppliers on (_.supID === _.id)
     } yield (c.map(_.name), s.name)
     // compiles to SQL (simplified):
@@ -84,7 +84,7 @@ object JoinsUnions extends App{
     //     right outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
 
-    val explicitFullOuterJoin = for {
+    val fullOuterJoin = for {
       (c, s) <- coffees joinFull suppliers on (_.supID === _.id)
     } yield (c.map(_.name), s.map(_.name))
     // compiles to SQL (simplified):
@@ -92,11 +92,11 @@ object JoinsUnions extends App{
     //     full outer join "SUPPLIERS" x3
     //     on x2."SUP_ID" = x3."SUP_ID"
     //#explicit
-    println(explicitCrossJoin.result.statements.head)
-    println(explicitInnerJoin.result.statements.head)
-    println(explicitLeftOuterJoin.result.statements.head)
-    println(explicitRightOuterJoin.result.statements.head)
-    println(explicitFullOuterJoin.result.statements.head)
+    println(crossJoin.result.statements.head)
+    println(innerJoin.result.statements.head)
+    println(leftOuterJoin.result.statements.head)
+    println(rightOuterJoin.result.statements.head)
+    println(fullOuterJoin.result.statements.head)
 
     //#zip
     val zipJoinQuery = for {

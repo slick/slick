@@ -8,12 +8,12 @@ Introduction
 What is Slick?
 --------------
 
-Slick is `Typesafe <http://www.typesafe.com>`_'s Functional Relational Mapping (FRM) library for
-Scala that makes it easy to work with relational databases. It allows you to work with stored
-data almost as if you were using Scala collections while at the same time giving you full control
-over when a database access happens and which data is transferred. You can also use SQL directly.
-Execution of database actions is done asynchronously, making Slick a perfect fit for your reactive
-applications based on Play_ and Akka_.
+Slick ("Scala Language-Integrated Connection Kit") is `Typesafe <http://www.typesafe.com>`_'s
+Functional Relational Mapping (FRM) library for Scala that makes it easy to work with relational
+databases. It allows you to work with stored data almost as if you were using Scala collections
+while at the same time giving you full control over when a database access happens and which data
+is transferred. You can also use SQL directly. Execution of database actions is done
+asynchronously, making Slick a perfect fit for your reactive applications based on Play_ and Akka_.
 
 .. includecode:: code/GettingStartedOverview.scala#what-is-slick-micro-example
 
@@ -22,31 +22,68 @@ and compositionality. Slick can generate queries for different back-end database
 your own, using its extensible query compiler.
 
 Get started learning Slick in minutes using the `Hello Slick template`_ in Typesafe Activator_.
+See :doc:`here <supported-databases>` for an overview of the supported database systems for which
+Slick can generate code.
 
+Functional Relational Mapping
+-----------------------------
 
-Features
---------
+Functional programmers have long suffered Object-Relational and Object-Math impedance mismatches
+when connecting to relational databases. Slick's new Functional Relational Mapping (FRM) paradigm
+allows mapping to be completed within Scala, with loose-coupling, minimal configuration requirements,
+and a number of other major advantages that abstract the complexities away from connecting with
+relational databases.
 
-Scala
-_____
-* Queries, Table & Column Mappings, and types are plain Scala
+We don't try to fight the relational model, we embrace it through a functional paradigm. Instead of
+trying to bridge the gap between the object model and the database model, we've brought the database
+model into Scala so developers don't need to write SQL code.
 
 .. includecode:: code/GettingStartedOverview.scala#quick-schema
 
-* Data access APIs similar to Scala collections
+Slick integrates databases directly into Scala, allowing stored and remote data to be queried and
+processed in the same way as in-memory data, using ordinary Scala classes and collections.
 
 .. includecode:: code/GettingStartedOverview.scala#features-scala-collections
 
-Type-Safe
-_________
-* Let your IDE help you write your code
-* Find problems at compile-time instead of at runtime
+This enables full control over when a database is accessed and which data is transferred. The
+language integrated query model in Slick's FRM is inspired by the LINQ project at Microsoft
+and leverages concepts tracing all the way back to the early work of Mnesia at Ericsson.
+
+Some of the key benefits of Slick's FRM approach for functional programming include:
+
+* Efficiency with Pre-Optimization
+
+FRM is more efficient way to connect; unlike ORM it has the ability to pre-optimize its
+communication with the database - and with FRM you get this out of the box. The road to making an
+app faster is much shorter with FRM than ORM.
+
+* No More Tedious Troubleshooting with Type Safety
+
+FRM brings type safety to building database queries. Developers are more productive because the
+compiler finds errors automatically versus the typical tedious troubleshooting required of finding
+errors in untyped strings.
 
 .. includecode:: code/GettingStartedOverview.scala#features-type-safe
 
-Composable
-__________
-* Queries are functions that can be composed and reused
+Misspelled the column name ``price``? The compiler will tell you::
+
+    GettingStartedOverview.scala:89: value prices is not a member of com.typesafe.slick.docs.GettingStartedOverview.Coffees
+            coffees.map(_.prices).result
+                          ^
+
+The same goes for type errors::
+
+    GettingStartedOverview.scala:89: type mismatch;
+     found   : slick.driver.H2Driver.StreamingDriverAction[Seq[String],String,slick.dbio.Effect.Read]
+        (which expands to)  slick.profile.FixedSqlStreamingAction[Seq[String],String,slick.dbio.Effect.Read]
+     required: slick.dbio.DBIOAction[Seq[Double],slick.dbio.NoStream,Nothing]
+            coffees.map(_.name).result
+                                ^
+
+* A More Productive, Composable Model for Building Queries
+
+FRM supports a composable model for building queries. It's a very natural model to compose pieces
+together to build a query, and then reuse pieces across your code base.
 
 .. includecode:: code/GettingStartedOverview.scala#features-composable
 
@@ -56,32 +93,40 @@ __________
    pair: database; supported
 .. index:: Derby, JavaDB, H2, HSQLDB, HyperSQL, Access, MySQL, PostgreSQL, SQLite
 
-Supported database systems
---------------------------
+Reactive Applications
+---------------------
 
-* DB2 (via :doc:`slick-extensions <extensions>`)
-* Derby/JavaDB
-* H2
-* HSQLDB/HyperSQL
-* Microsoft Access
-* Microsoft SQL Server (via :doc:`slick-extensions <extensions>`)
-* MySQL
-* Oracle (via :doc:`slick-extensions <extensions>`)
-* PostgreSQL
-* SQLite
+Slick is easy to use in asynchronous, non-blocking application designs, and supports building
+applications according to the `Reactive Manifesto`_. Unlike simple wrappers around traditional,
+blocking database APIs, Slick gives you:
 
-Other SQL databases can be accessed right away with a reduced feature set.
-Writing a fully featured plugin for your own SQL-based backend can be achieved
-with a reasonable amount of work. Support for other backends (like NoSQL) is
-under development but not yet available.
+* Clean separation of I/O and CPU-intensive code: Isolating I/O allows you to keep your main
+  thread pool busy with CPU-intensive parts of the application while waiting for I/O in the
+  background.
 
-The following capabilities are supported by the drivers. "Yes" means that a
-capability is fully supported. In other cases it may be partially supported or
-not at all. See the individual driver's API documentation for details.
+* Resilience under load: When a database cannot keep up with the load of your application,
+  Slick will not create more and more threads (thus making the situation worse) or lock out all
+  kinds of I/O. Back-pressure is controlled efficiently through a queue (of configurable size)
+  for database I/O actions, allowing a certain number of requests to build up with very little
+  resource usage and failing immediately once this limit has been reached.
 
-.. csv-table:: Driver Capabilities
-   :header-rows: 1
-   :file: capabilities.csv
+* `Reactive Streams`_ for asynchronous streaming.
+
+* Efficient utilization of database resources: Slick can be tuned easily and precisely for the
+  parallelism (number of concurrent active jobs) and resource ussage (number of currently
+  suspended database sessions) of your database server.
+
+Plain SQL Support
+-----------------
+
+The Scala-based query API for Slick allows you to write database queries like queries for
+Scala collections. Please see :doc:`gettingstarted` for an introduction. Most of this
+user manual focuses on this API.
+
+If you want to write your own SQL statements and still execute them asynchronously like a
+normal Slick queries, you can use the :doc:`Plain SQL<sql>` API:
+
+.. includecode:: code/GettingStartedOverview.scala#what-is-slick-micro-example-plainsql
 
 .. index:: license
 
@@ -93,71 +138,12 @@ See the chapter on the commercial :doc:`Slick Extensions <extensions>` add-on
 package for details on licensing the Slick drivers for the big commercial
 database systems.
 
-.. index::
-   pair: source; compatibility
-   pair: binary; compatibility
-
-Compatibility Policy
---------------------
-
-Slick requires Scala 2.10 or 2.11. (For Scala 2.9 please use ScalaQuery_, the predecessor of Slick).
-
-Slick version numbers consist of an epoch, a major and minor version, and possibly a qualifier
-(for milestone, RC and SNAPSHOT versions).
-
-For release versions (i.e. versions without a qualifier), backward binary compatibility is
-guaranteed between releases with the same epoch and major version (e.g. you could use 2.1.2 as a
-drop-in relacement for 2.1.0 but not for 2.0.0). :doc:`Slick Extensions <extensions>` requires at
-least the same minor version of Slick (e.g. Slick Extensions 2.1.2 can be used with Slick 2.1.2 but
-not with Slick 2.1.1). Binary compatibility is not preserved for `slick-codegen`, which is generally
-used at compile-time.
-
-We do not guarantee source compatibility but we try to preserve it within the same major release.
-Upgrading to a new major release may require some changes to your sources. We generally deprecate
-old features and keep them around for a full major release cycle (i.e. features which become
-deprecated in 2.1.0 will not be removed before 2.2.0) but this is not possible for all kinds of
-changes.
-
-Release candidates have the same compatibility guarantees as the final versions to which they
-lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
-
 .. index:: APIs
 
-Query APIs
+Next Steps
 ----------
 
-The *Lifted Embedding* is the standard API for type-safe queries and updates
-in Slick. Please see :doc:`gettingstarted` for an introduction. Most of this
-user manual focuses on the *Lifted Embedding*.
-
-For writing your own SQL statements you can use the :doc:`Plain SQL<sql>` API.
-
-The experimental :doc:`Direct Embedding <direct-embedding>` is available as an
-alternative to the *Lifted Embedding*.
-
-.. _lifted-embedding:
-.. index:: lifted
-
-Lifted Embedding
-----------------
-
-The name *Lifted Embedding* refers to the fact that you are not working with
-standard Scala types (as in the :doc:`direct embedding <direct-embedding>`)
-but with types that are *lifted* into a :api:`slick.lifted.Rep` type
-constructor. This becomes clear when you compare the types of a simple
-Scala collections example
-
-.. includecode:: code/LiftedEmbedding.scala#plaintypes
-
-... with the types of similar code using the lifted embedding:
-
-.. includecode:: code/LiftedEmbedding.scala#reptypes
-
-All plain types are lifted into ``Rep``. The same is true for the table row
-type ``Coffees`` which is a subtype of ``Rep[(String, Double)]``.
-Even the literal ``8.0`` is automatically lifted to a ``Rep[Double]`` by an
-implicit conversion because that is what the ``>`` operator on
-``Rep[Double]`` expects for the right-hand side. This lifting is necessary
-because the lifted types allow us to generate a syntax tree that captures
-the query computations. Getting plain Scala functions and values would not
-give us enough information for translating those computations to SQL.
+* If you are new to Slick, continue to :doc:`Getting Started <gettingstarted>`
+* If you have used an older version of Slick, make sure to read the :doc:`Upgrade Guides <upgrade>`
+* If you have used an ORM before, see :doc:`Coming from ORM to Slick <orm-to-slick>`
+* If you are familiar with SQL, see :doc:`Coming from SQL to Slick <sql-to-slick>`
