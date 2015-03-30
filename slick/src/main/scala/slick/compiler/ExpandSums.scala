@@ -79,7 +79,8 @@ class ExpandSums extends Phase {
 
   /** Translate an Option-extended left outer, right outer or full outer join */
   def translateJoin(bind: Bind): Bind = {
-    val Bind(bsym, (join @ Join(lsym, rsym, left :@ CollectionType(_, leftElemType), right :@ CollectionType(_, rightElemType), jt, on)) :@ CollectionType(cons, elemType), pure: Pure) = bind
+    logger.debug("translateJoin", bind)
+    val Bind(bsym, (join @ Join(lsym, rsym, left :@ CollectionType(_, leftElemType), right :@ CollectionType(_, rightElemType), jt, on)) :@ CollectionType(cons, elemType), pure) = bind
     val lComplex = leftElemType.structural.children.nonEmpty
     val rComplex = rightElemType.structural.children.nonEmpty
     logger.debug(s"Translating join ($jt, complex: $lComplex, $rComplex):", bind)
