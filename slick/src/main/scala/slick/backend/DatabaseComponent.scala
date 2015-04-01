@@ -1,9 +1,10 @@
 package slick.backend
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong}
+import java.util.concurrent.atomic.{AtomicReferenceArray, AtomicBoolean, AtomicLong}
 
 import com.typesafe.config.Config
 
+import scala.collection.mutable.ArrayBuffer
 import scala.language.existentials
 
 import scala.concurrent.{Promise, ExecutionContext, Future}
@@ -151,12 +152,25 @@ trait DatabaseComponent { self =>
           runInContext(base, ctx, false, topLevel).flatMap(v => runInContext(f(v), ctx, streaming, false))(ctx.getEC(ec))
         case AndThenAction(a1, a2) =>
           runInContext(a1, ctx, false, topLevel).flatMap(_ => runInContext(a2, ctx, streaming, false))(DBIO.sameThreadExecutionContext)
-        case ZipAction(a1, a2) =>
-          runInContext(a1, ctx, false, topLevel).flatMap { r1 =>
-            runInContext(a2, ctx, false, false).map { r2 =>
-              (r1, r2)
-            }(DBIO.sameThreadExecutionContext)
-          }(DBIO.sameThreadExecutionContext).asInstanceOf[Future[R]]
+        case sa @ SequenceAction(actions) =>
+          val len = actions.length
+          val results = new AtomicReferenceArray[Any](len)
+          def run(pos: Int): Future[Any] = {
+            if(pos == len) Future.successful {
+              val b = sa.cbf()
+              var i = 0
+              while(i < len) {
+                b += results.get(i)
+                i += 1
+              }
+              b.result()
+            }
+            else runInContext(actions(pos), ctx, false, pos == 0).flatMap { (v: Any) =>
+              results.set(pos, v)
+              run(pos + 1)
+            } (DBIO.sameThreadExecutionContext)
+          }
+          run(0).asInstanceOf[Future[R]]
         case CleanUpAction(base, f, keepFailure, ec) =>
           val p = Promise[R]()
           runInContext(base, ctx, streaming, topLevel).onComplete { t1 =>
