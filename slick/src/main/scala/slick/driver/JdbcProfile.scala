@@ -145,4 +145,5 @@ trait JdbcDriver extends SqlDriver
 
 /** A generic driver for JDBC-based databases. This can be used as a fallback
   * when a specific driver for a database is not available. */
+@deprecated("JdbcDriver provides a generic implementation that needs to be customized for specific database systems; Use a concrete driver or implement and customize JdbcDriver yourself", "3.0.0")
 object JdbcDriver extends JdbcDriver
