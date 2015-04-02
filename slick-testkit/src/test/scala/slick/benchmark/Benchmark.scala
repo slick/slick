@@ -1,9 +1,8 @@
 package slick.benchmark
 
-import slick.driver.JdbcDriver.api._
+import slick.driver.H2Driver.api._
 
 object Benchmark {
-
   val COUNT = 2000
 
   def main(args: Array[String]) {

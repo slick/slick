@@ -1,7 +1,7 @@
 package slick.test.compile
 
 import com.typesafe.slick.testkit.util.ShouldNotTypecheck
-import slick.driver.JdbcDriver.api._
+import slick.driver.H2Driver.api._
 import slick.lifted.{Shape, ShapeLevel}
 
 class NestedShapesTest {
