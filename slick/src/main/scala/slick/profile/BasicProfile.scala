@@ -123,7 +123,7 @@ trait BasicDriver extends BasicProfile {
   override def toString = {
     val cl = getClass.getName
     if(cl.startsWith("slick.driver.") && cl.endsWith("$"))
-      cl.substring(19, cl.length-1)
+      cl.substring(13, cl.length-1)
     else super.toString
   }
 
