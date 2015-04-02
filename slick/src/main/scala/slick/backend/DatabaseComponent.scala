@@ -76,20 +76,19 @@ trait DatabaseComponent { self =>
       catch { case NonFatal(ex) => Future.failed(ex) }
 
     /** Create a `Publisher` for Reactive Streams which, when subscribed to, will run the specified
-      * Action and return the result directly as a stream without buffering everything first. This
-      * method is only supported for streaming Actions.
+      * `DBIOAction` and return the result directly as a stream without buffering everything first.
+      * This method is only supported for streaming actions.
       *
-      * The Publisher itself is just a stub that holds a reference to the Action and this Database.
-      * The Action does not actually start to run until the call to `onSubscribe` returns, after
+      * The Publisher itself is just a stub that holds a reference to the action and this Database.
+      * The action does not actually start to run until the call to `onSubscribe` returns, after
       * which the Subscriber is responsible for reading the full response or cancelling the
-      * Subscription. The created Publisher will only serve a single Subscriber and cannot be
-      * reused (because multiple runs of an Action can produce different results, which is not
-      * allowed for a Publisher).
+      * Subscription. The created Publisher can be reused to serve a multiple Subscribers,
+      * each time triggering a new execution of the action.
       *
-      * For the purpose of combinators such as `andFinally` which can run after a stream has been
-      * produced, consuming the stream is always considered to be successful, even when cancelled
-      * by the Subscriber. For example, there is no way for the Subscriber to cause a rollback when
-      * streaming the results of `someQuery.result.transactionally`.
+      * For the purpose of combinators such as `cleanup` which can run after a stream has been
+      * produced, cancellation of a stream by the Subscriber is not considered an error. For
+      * example, there is no way for the Subscriber to cause a rollback when streaming the
+      * results of `someQuery.result.transactionally`.
       *
       * When using a JDBC back-end, all `onNext` calls are done synchronously and the ResultSet row
       * is not advanced before `onNext` returns. This allows the Subscriber to access LOB pointers
@@ -103,7 +102,6 @@ trait DatabaseComponent { self =>
 
     /** Create a Reactive Streams `Publisher` using the given context factory. */
     protected[this] def createPublisher[T](a: DBIOAction[_, Streaming[T], Nothing], createCtx: Subscriber[_ >: T] => StreamingContext): DatabasePublisher[T] = new DatabasePublisher[T] {
-      private[this] val used = new AtomicBoolean()
       def subscribe(s: Subscriber[_ >: T]) = {
         if(s eq null) throw new NullPointerException("Subscriber is null")
         val ctx = createCtx(s)
@@ -114,16 +112,12 @@ trait DatabaseComponent { self =>
             false
         }
         if(subscribed) {
-          if(used.getAndSet(true)) {
-            ctx.tryOnError(new IllegalStateException("Database Action Publisher may not be subscribed to more than once"))
-          } else {
-            try {
-              runInContext(a, ctx, true, true).onComplete {
-                case Success(_) => ctx.tryOnComplete
-                case Failure(t) => ctx.tryOnError(t)
-              }(DBIO.sameThreadExecutionContext)
-            } catch { case NonFatal(ex) => ctx.tryOnError(ex) }
-          }
+          try {
+            runInContext(a, ctx, true, true).onComplete {
+              case Success(_) => ctx.tryOnComplete
+              case Failure(t) => ctx.tryOnError(t)
+            }(DBIO.sameThreadExecutionContext)
+          } catch { case NonFatal(ex) => ctx.tryOnError(ex) }
         }
       }
     }
@@ -301,8 +295,8 @@ trait DatabaseComponent { self =>
               else streamLogger.debug(s"Sent ${str(realDemand)} elements, more available - Performing atomic state transition")
             }
             demand = ctx.delivered(demand)
-            realDemand = demand
-          } while ((state ne null) && demand > 0)
+            realDemand = if(demand < 0) demand - Long.MinValue else demand
+          } while ((state ne null) && realDemand > 0)
           if(debug) {
             if(state ne null) streamLogger.debug("Suspending streaming action with continuation (more data available)")
             else streamLogger.debug("Finished streaming action")

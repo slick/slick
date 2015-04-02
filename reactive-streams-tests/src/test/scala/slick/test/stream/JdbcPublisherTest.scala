@@ -2,21 +2,18 @@ package slick.test.stream
 
 import org.testng.annotations.{AfterClass, BeforeClass}
 
+import slick.driver.{H2Driver, JdbcProfile}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import slick.driver.{H2Driver, JdbcProfile}
 import scala.util.control.NonFatal
 
 class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Driver, 1000L) {
   import driver.api._
 
-  @BeforeClass def setUpDB: Unit = {
-    db = Database.forURL("jdbc:h2:mem:DatabasePublisherTest", driver = "org.h2.Driver")
-    //db = Database.forURL("jdbc:derby:memory:JdbcPublisherTest;create=true", driver = "org.apache.derby.jdbc.EmbeddedDriver")
+  def createDB = {
+    val db = Database.forURL("jdbc:h2:mem:DatabasePublisherTest", driver = "org.h2.Driver", keepAliveConnection = true)
     // Wait until the database has been initialized and can process queries:
     try { Await.result(db.run(sql"select 1".as[Int]), Duration.Inf) } catch { case NonFatal(ex) => }
+    db
   }
-
-  @AfterClass def tearDownDB: Unit =
-    db.close()
 }

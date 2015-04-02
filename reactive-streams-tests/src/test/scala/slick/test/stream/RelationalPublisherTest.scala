@@ -8,35 +8,39 @@ import org.testng.annotations.{AfterClass, BeforeClass}
 
 import slick.profile.RelationalProfile
 
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.util.control.NonFatal
+
 abstract class RelationalPublisherTest[P <: RelationalProfile](val driver: P, timeout: Long) extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L) {
   import driver.api._
+
+  override def maxElementsFromPublisher = 73L
+  override def boundedDepthOfOnNextAndRequestRecursion = 1
+
+  class Data(tableName: String)(tag: Tag) extends Table[Int](tag, tableName) {
+    def id = column[Int]("id")
+    def * = id
+  }
+  lazy val data = TableQuery(new Data("data")(_))
+  lazy val dataErr = TableQuery(new Data("data_err")(_))
 
   var db: Database = _
   val entityNum = new AtomicInteger()
 
-  def createPublisher(elements: Long) = {
-    val tableName = "data_" + elements + "_" + entityNum.incrementAndGet()
-    class Data(tag: Tag) extends Table[Int](tag, tableName) {
-      def id = column[Int]("id")
-      def * = id
-    }
-    val data = TableQuery[Data]
-    val a = data.schema.create >> (data ++= Range.apply(0, elements.toInt)) >> data.sortBy(_.id).map(_.id).result
-    db.stream(a.withPinnedSession)
+  def createDB: Database
+
+  @BeforeClass def setUpDB: Unit = {
+    db = createDB
+    Await.result(db.run(data.schema.create >> (data ++= (1 to maxElementsFromPublisher.toInt))), Duration.Inf)
   }
 
-  def createErrorStatePublisher = {
-    val p = createPublisher(0)
-    p.subscribe(new Subscriber[Int] {
-      def onSubscribe(s: Subscription): Unit = s.cancel
-      def onComplete(): Unit = ()
-      def onError(t: Throwable): Unit = ()
-      def onNext(t: Int): Unit = ()
-    })
-    p
-  }
+  @AfterClass def tearDownDB: Unit =
+    db.close()
 
-  override def maxElementsFromPublisher = 73L
+  def createPublisher(elements: Long) =
+    db.stream(data.filter(_.id <= elements.toInt).sortBy(_.id).result)
 
-  override def boundedDepthOfOnNextAndRequestRecursion = 1
+  def createFailedPublisher =
+    db.stream(dataErr.result)
 }
