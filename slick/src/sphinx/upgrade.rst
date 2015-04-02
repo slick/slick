@@ -46,7 +46,7 @@ Database I/O Actions
 The ``simple`` and ``Implicits`` imports from drivers are deprecated and will be removed in Slick 3.1.
 You should use ``api`` instead, which will give
 you the same features, except for the old ``Invoker`` and ``Executor`` APIs for blocking execution of database calls.
-These have been replaced by a new monadic database I/O actions API. See :doc:`Databases & I/O Actions <database>` for
+These have been replaced by a new monadic database I/O actions API. See :doc:`Database I/O Actions <dbio>` for
 details of the new API.
 
 Join Operators
@@ -124,6 +124,11 @@ on PostgreSQL and ``TEXT`` on MySQL. The former should be harmless but MySQL's `
 has some limitations (e.g. no default values and no index without a prefix length). You can use an explicit
 ``O.Length(254)`` column option to go back to the previous behavior or change the default in the application.conf key
 ``slick.driver.MySQL.defaultStringType``.
+
+JdbcDriver
+----------
+
+The ``JdbcDriver`` object has been deprecated. You should always use the correct driver for your database system.
 
 Upgrade from 2.0 to 2.1
 =======================
