@@ -18,13 +18,28 @@ Parts of the generator are also explained in our `talk at Scala eXchange 2013 <h
 
 Standalone use
 ---------------------------------------
+To include Slick's code generator use the published library. For sbt projects add following to your build definition -
+``build.sbt`` or ``project/Build.scala``:
+
+.. parsed-literal::
+  libraryDependencies += "com.typesafe.slick" %% "slick-codegen" % "|release|"
+
+For Maven projects add the following to your ``<dependencies>``:
+
+.. parsed-literal::
+  <dependency>
+    <groupId>com.typesafe.slick</groupId>
+    <artifactId>slick-codegen_2.10</artifactId>
+    <version>\ |release|\ </version>
+  </dependency>
+
 Slick's code generator comes with a default runner that can be used from the command line or from Java/Scala. You can simply execute
 
-   .. includecode:: code/CodeGenerator.scala#default-runner
+.. includecode:: code/CodeGenerator.scala#default-runner
 
 or
 
-   .. includecode:: code/CodeGenerator.scala#default-runner-with-auth
+.. includecode:: code/CodeGenerator.scala#default-runner-with-auth
 
 and provide the following values
 
@@ -82,4 +97,5 @@ Please see the :codegenapi:`api documentation <slick.codegen.SourceCodeGenerator
 on all of the methods that can be overridden for customization.
 
 Here is an example for customizing the generator:
-   .. includecode:: code/CodeGenerator.scala#customization
+
+.. includecode:: code/CodeGenerator.scala#customization
