@@ -62,50 +62,49 @@ In order to run the TestKit tests, you need to add a class that extends
 how to connect to a test database, get a list of tables, clean up between
 tests, etc.
 
-In the case of the PostgreSQL test harness (in
-``src/test/scala/slick/driver/test/MyPostgresTest.scala``) most of the
-default implementations can be used out of the box::
+In the case of the PostgreSQL test harness (in ``src/test/slick/driver/test/MyPostgresTest.scala``)
+most of the default implementations can be used out of the box. Only ``localTables`` and
+``getLocalSequences`` require custom implementations. We also modify the driver's ``capabilities``
+to indicate that our driver does not support the JDBC ``getFunctions`` call::
 
   @RunWith(classOf[Testkit])
   class MyPostgresTest extends DriverTest(MyPostgresTest.tdb)
 
   object MyPostgresTest {
-    def tdb(cname: String) = new ExternalTestDB("mypostgres", MyPostgresDriver) {
-      override def getLocalTables(implicit session: Session) = {
-        val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData()
-                      .getTables("", "public", null, null))
-        tables.list.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+    def tdb = new ExternalJdbcTestDB("mypostgres") {
+      val driver = MyPostgresDriver
+      override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+        ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
+          ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
+        }
+      override def getLocalSequences(implicit session: profile.Backend#Session) = {
+        val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
+        tables.buildColl[List].filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
       }
-      override def getLocalSequences(implicit session: Session) = {
-        val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData()
-                      .getTables("", "public", null, null))
-        tables.list.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
-      }
-      override lazy val capabilities = driver.capabilities + TestDB.plainSql
+      override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
     }
   }
 
-.. index:: databases.properties, ExternalTestDB, test-dbs
+.. index:: testkit.conf, ExternalTestDB, test-dbs
+
+The name of a configuration prefix, in this case ``mypostgres``, is passed to ``ExternalJdbcTestDB``::
+
+  def tdb =
+    new ExternalJdbcTestDB("mypostgres") ...
 
 Database Configuration
 ----------------------
 
-Since the PostgreSQL test harness is based on ``ExternalTestDB``, it needs to
-be configured in ``test-dbs/databases.properties``::
+Since the PostgreSQL test harness is based on ``ExternalJdbcTestDB``, it needs to be configured in
+``test-dbs/testkit.conf``::
 
-  # PostgreSQL quick setup:
-  # - Install PostgreSQL server with default options
-  # - Change password in mypostgres.password
-  # - Set mypostgres.enabled = true
-  mypostgres.enabled = false
-  mypostgres.url = jdbc:postgresql:[DB]
-  mypostgres.user = postgres
+  mypostgres.enabled = true
+  mypostgres.user = myuser
   mypostgres.password = secret
-  mypostgres.adminDB = postgres
-  mypostgres.testDB = slick-test
-  mypostgres.create = CREATE TABLESPACE slick_test LOCATION '[DBPATH]'; CREATE DATABASE "[DB]" TEMPLATE = template0 TABLESPACE slick_test
-  mypostgres.drop = DROP DATABASE IF EXISTS "[DB]"; DROP TABLESPACE IF EXISTS slick_test
-  mypostgres.driver = org.postgresql.Driver
+
+There are several other configuration options that need to be set for an ``ExternalJdbcTestDB``.
+These are defined with suitable defaults in ``testkit-reference.conf`` so that ``testkit.conf`` can
+be kept very simple in most cases.
 
 Testing
 -------
