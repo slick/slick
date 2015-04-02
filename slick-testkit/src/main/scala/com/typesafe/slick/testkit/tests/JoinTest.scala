@@ -286,4 +286,46 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       _ <- q3.result
     } yield ()
   }
+
+  def testMixedJoin = {
+    class A(tag: Tag) extends Table[Int](tag, "a_mixedjoin") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    lazy val as = TableQuery[A]
+    class B(tag: Tag) extends Table[Int](tag, "b_mixedjoin") {
+      def foreignId = column[Int]("foreignId")
+      def * = foreignId
+    }
+    lazy val bs = TableQuery[B]
+    class C(tag: Tag) extends Table[Int](tag, "c_mixedjoin") {
+      def foreignId = column[Int]("foreignId")
+      def * = foreignId
+    }
+    lazy val cs = TableQuery[C]
+
+    val q1 = for {
+      (a, b) <- as joinLeft bs on (_.id === _.foreignId)
+    } yield (a, b)
+
+    val q2 = for {
+      (a, b) <- q1
+      c <- cs if c.foreignId === a.id
+    } yield (a, c)
+
+    val q3 = for {
+      (a, b) <- as joinLeft bs on (_.id === _.foreignId)
+      c <- cs if c.foreignId === a.id
+    } yield (a, c)
+
+    DBIO.seq(
+      (as.schema ++ bs.schema ++ cs.schema).create,
+      as ++= Seq(1,2,3),
+      bs ++= Seq(1,2,4,5),
+      cs ++= Seq(1,2,4,6),
+      q1.result.map(_.toSet shouldBe Set((1, Some(1)), (2, Some(2)), (3, None))),
+      q2.result.map(_.toSet shouldBe Set((1,1), (2,2))),
+      q3.result.map(_.toSet shouldBe Set((1,1), (2,2)))
+    )
+  }
 }
