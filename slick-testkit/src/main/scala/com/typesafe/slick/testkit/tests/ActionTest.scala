@@ -93,4 +93,16 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       _ = r3 shouldBe Some(1)
     } yield ()
   }
+
+  def testDeepRecursion = {
+    val a1 = DBIO.sequence((1 to 5000).toSeq.map(i => LiteralColumn(i).result))
+    val a2 = DBIO.sequence((1 to 20).toSeq.map(i => if(i%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
+    val a3 = DBIO.sequence((1 to 20).toSeq.map(i => if((i/4)%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
+
+    DBIO.seq(
+      a1.map(_ shouldBe (1 to 5000).toSeq),
+      a2.map(_ shouldBe (1 to 20).toSeq),
+      a3.map(_ shouldBe (1 to 20).toSeq)
+    )
+  }
 }
