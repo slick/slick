@@ -60,15 +60,25 @@ trait PostgresDriver extends JdbcDriver { driver =>
       override def schema = super.schema.filter(_ != "public") // remove default schema
     }
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
+      val BpCharPattern = "^'(.*)'::bpchar$".r
       val VarCharPattern = "^'(.*)'::character varying$".r
       val IntPattern = "^\\((-?[0-9]*)\\)$".r
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("true","Boolean")  => Some(Some(true))
         case ("false","Boolean") => Some(Some(false))
+        case (BpCharPattern(str), "Char") =>
+          str.length match {
+            case 0 => Some(Some(' ')) // Default to one space, as the char will be space padded anyway
+            case 1 => Some(Some(str.head))
+            case _ => None // This is invalid, so let's not supply any default
+          }
+        case (BpCharPattern(str), "String") => Some(Some(str))
         case (VarCharPattern(str),"String") => Some(Some(str))
         case (IntPattern(v),"Int") => Some(Some(v.toInt))
         case (IntPattern(v),"Long") => Some(Some(v.toLong))
         case ("NULL::character varying","String") => Some(None)
+        case ("NULL::bpchar","String") => Some(None)
+        case ("NULL::bpchar","Char") => Some(None)
         case (v,"java.util.UUID") => {
           val uuid = v.replaceAll("[\'\"]", "") //strip quotes
                       .stripSuffix("::uuid") //strip suffix

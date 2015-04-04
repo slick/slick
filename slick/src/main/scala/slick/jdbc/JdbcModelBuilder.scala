@@ -224,7 +224,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
             v.length match {
               case 1 => v(0)
               case 3 => v(1) // quoted character
-              case n => throw new SlickException(s"""Default value "$v" for Char column "$name" has wrong size""")
+              case n if !ignoreInvalidDefaults => throw new SlickException(s"""Default value "$v" for Char column "$name" has wrong size""")
             }
           case (v,"String") if meta.typeName == "CHAR" => v.head // FIXME: check length
           case (v,"scala.math.BigDecimal") => v // FIXME: probably we shouldn't use a string here
@@ -254,13 +254,18 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       default.map( d =>
         RelationalProfile.ColumnOption.Default(
           if(nullable) d
-          else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${tableBuilder.namer.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
+          else d.getOrElse(throw new InvalidDefaultException(s"Invalid default value $d for non-nullable column ${tableBuilder.namer.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
         )
       )
     }
 
+    class InvalidDefaultException(msg: String) extends SlickException(msg)
+
     private def convenientDefault: Option[RelationalProfile.ColumnOption.Default[_]] =
       try defaultColumnOption catch {
+        case e: InvalidDefaultException if ignoreInvalidDefaults =>
+          logger.debug(s"InvalidDefaultException: ${e.getMessage}")
+          None
         case e: java.lang.NumberFormatException if ignoreInvalidDefaults =>
           logger.debug(s"NumberFormatException: Could not parse"+formatDefault(rawDefault))
           None
