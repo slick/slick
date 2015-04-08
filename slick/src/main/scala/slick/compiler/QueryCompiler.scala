@@ -91,8 +91,8 @@ object QueryCompiler {
     // Distribute and normalize
     Phase.inferTypes,
     Phase.expandTables,
-    Phase.createResultSetMapping,
     Phase.forceOuterBinds,
+    Phase.createResultSetMapping,
     // Convert to column form
     Phase.expandSums,
     Phase.expandConditionals,

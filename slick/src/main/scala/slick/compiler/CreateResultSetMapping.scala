@@ -16,9 +16,7 @@ class CreateResultSetMapping extends Phase {
     logger.debug("Client-side result type: "+n.nodeType)
     val n2 = removeTypeMapping(n)
     logger.debug("Removed type mapping:", n2)
-    val n3 = toCollection(n2)
-    logger.debug("Converted to collection:", n3)
-    ClientSideOp.mapServerSide(n3) { ch =>
+    ClientSideOp.mapServerSide(n2) { ch =>
       val gen = new AnonSymbol
       ResultSetMapping(gen, ch, createResult(gen, n.nodeType match {
         case CollectionType(_, el) => el
@@ -35,16 +33,6 @@ class CreateResultSetMapping extends Phase {
       val tpe = n2.nodeType
       val tpe2 = removeMappedType(tpe)
       if(tpe2 eq tpe) n2 else n2.nodeTypedOrCopy(tpe2)
-  }
-
-  /** Force collection return type. This might get more complicated in the
-    * future. For now, all primitive types should be set (but collection-typed
-    * nodes and product nodes may have UnassignedType) and ProductNodes cannot
-    * contain nested collections. */
-  def toCollection(n: Node): Node = n match {
-    case _: Apply | _: ProductNode => First(Pure(n))
-    case n if n.nodeType != UnassignedType && !n.nodeType.isInstanceOf[CollectionType] => First(Pure(n))
-    case n => n
   }
 
   /** Remove MappedTypes from a Type */

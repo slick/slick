@@ -9,9 +9,15 @@ import slick.ast._
 class ForceOuterBinds extends Phase {
   val name = "forceOuterBinds"
 
-  def apply(state: CompilerState): CompilerState = state.map { n => ClientSideOp.mapServerSide(n)(apply) }
+  def apply(state: CompilerState): CompilerState = state.map(apply)
 
-  def apply(n: Node): Node = wrap(n).nodeWithComputedType(SymbolScope.empty, typeChildren = true, retype = false)
+  def apply(n: Node): Node = {
+    val t = n.nodeType.structuralRec
+    val n2 =
+      if(t != UnassignedType && !t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))
+      else wrap(n)
+    n2.nodeWithComputedType(SymbolScope.empty, typeChildren = true, retype = false)
+  }
 
   def idBind(n: Node): Bind = {
     val gen = new AnonSymbol
