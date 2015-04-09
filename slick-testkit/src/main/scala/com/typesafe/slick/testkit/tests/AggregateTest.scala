@@ -175,12 +175,12 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       def * = id
     }
     val as = TableQuery[A]
-    for {
-      _ <- as.schema.create
-      _ <- as += 1
-      q1 = as.groupBy(_.id).map { case (_, q) => (q.map(_.id).min, q.length) }
-      _ <- q1.result
-    } yield ()
+    val q1 = as.groupBy(_.id).map { case (_, q) => (q.map(_.id).min, q.length) }
+    DBIO.seq(
+      as.schema.create,
+      as += 1,
+      q1.result
+    )
   }
 
   def testGroup3 = {

@@ -1,7 +1,7 @@
 package slick.compiler
 
 import scala.collection.mutable.{HashMap, ArrayBuffer}
-import slick.SlickException
+import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
 import ExtraUtil._
@@ -210,6 +210,13 @@ class FuseComprehensions extends Phase {
       liftAggregates(fixConstantGrouping(fused)).nodeWithComputedType(SymbolScope.empty, false, true)
     case g: GroupBy =>
       throw new SlickException("Unsupported query shape containing .groupBy without subsequent .map")
+    // Rewrite left-over aggregations
+    case ap @ Apply(s: Library.AggregateFunctionSymbol, Seq(c @ Comprehension(_, _, _, _, Some(Pure(p, ts)), _, _))) :@ tpe =>
+      val agg = s match {
+        case Library.CountAll => Apply(Library.Count, Vector(LiteralNode(1)))(tpe)
+        case s => Apply(s, Vector(p))(tpe)
+      }
+      c.copy(select = Some(Pure(agg, ts)), orderBy = Nil).nodeWithComputedType()
     case n => n
   }
 

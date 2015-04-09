@@ -96,10 +96,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     // Immutable config options (to be overridden by subclasses)
     protected val supportsTuples = true
     protected val supportsCast = true
-    protected val supportsEmptyJoinConditions = true
     protected val concatOperator: Option[String] = None
     protected val hasPiFunction = true
     protected val hasRadDegConversion = true
+    protected val parenthesizeNestedRHSJoin = false
     protected val pi = "3.1415926535897932384626433832795"
 
     // Mutable state accessible to subclasses
@@ -232,15 +232,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         case t: TableNode =>
           b += quoteTableName(t)
           addAlias
-        case j @ Join(leftGen, rightGen, left, right, jt, on) =>
-          buildFrom(left, Some(leftGen))
-          b"\n${jt.sqlName} join "
-          buildFrom(right, Some(rightGen))
-          on match {
-            case LiteralNode(true) =>
-              if(!supportsEmptyJoinConditions) b"\non 1=1"
-            case _ => b"\non !$on"
-          }
+        case j: Join =>
+          buildJoin(j)
         case Union(left, right, all, _, _) =>
           b"\{"
           buildFrom(left, None, true)
@@ -253,6 +246,24 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           buildComprehension(toComprehension(n, true))
           b"\}"
           addAlias
+      }
+    }
+
+    protected def buildJoin(j: Join): Unit = {
+      buildFrom(j.left, Some(j.leftGen))
+      val op = j.on match {
+        case LiteralNode(true) if j.jt == JoinType.Inner => "cross"
+        case _ => j.jt.sqlName
+      }
+      b"\n$op join "
+      if(j.right.isInstanceOf[Join] && parenthesizeNestedRHSJoin) {
+        b"\["
+        buildFrom(j.right, Some(j.rightGen))
+        b"\]"
+      } else buildFrom(j.right, Some(j.rightGen))
+      if(op != "cross") j.on match {
+        case LiteralNode(true) => b"\non 1=1"
+        case on => b"\non !$on"
       }
     }
 

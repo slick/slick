@@ -9,7 +9,7 @@ import TypeUtil._
 class ExpandSums extends Phase {
   val name = "expandSums"
 
-  def apply(state: CompilerState) = state.map(n => ClientSideOp.mapServerSide(n)(tr))
+  def apply(state: CompilerState) = state.map(tr)
 
   val Disc1 = LiteralNode(ScalaBaseType.optionDiscType.optionType, Option(1))
   val DiscNone = LiteralNode(ScalaBaseType.optionDiscType.optionType, None)

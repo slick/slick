@@ -16,13 +16,15 @@
     <logger name="slick.compiler.AssignUniqueSymbols"       level="${log.qcomp.assignUniqueSymbols:-inherited}" />
     <logger name="slick.compiler.InferTypes"                level="${log.qcomp.inferTypes:-inherited}" />
     <logger name="slick.compiler.ExpandTables"              level="${log.qcomp.expandTables:-inherited}" />
-    <logger name="slick.compiler.CreateResultSetMapping"    level="${log.qcomp.createResultSetMapping:-inherited}" />
     <logger name="slick.compiler.EmulateOuterJoins"         level="${log.qcomp.emulateOuterJoins:-inherited}" />
     <logger name="slick.compiler.ForceOuterBinds"           level="${log.qcomp.forceOuterBinds:-inherited}" />
+    <logger name="slick.compiler.RemoveMappedTypes"         level="${log.qcomp.removeMappedTypes:-inherited}" />
+    <logger name="slick.compiler.CreateResultSetMapping"    level="${log.qcomp.createResultSetMapping:-inherited}" />
     <logger name="slick.compiler.ExpandSums"                level="${log.qcomp.expandSums:-inherited}" />
     <logger name="slick.compiler.ExpandRecords"             level="${log.qcomp.expandRecords:-inherited}" />
     <logger name="slick.compiler.ExpandConditionals"        level="${log.qcomp.expandConditionals:-inherited}" />
     <logger name="slick.compiler.FlattenProjections"        level="${log.qcomp.flattenProjections:-inherited}" />
+    <logger name="slick.compiler.RewriteJoins"              level="${log.qcomp.rewriteJoins:-inherited}" />
     <logger name="slick.compiler.RelabelUnions"             level="${log.qcomp.relabelUnions:-inherited}" />
     <logger name="slick.compiler.PruneFields"               level="${log.qcomp.pruneFields:-inherited}" />
     <logger name="slick.compiler.ResolveZipJoins"           level="${log.qcomp.resolveZipJoins:-inherited}" />

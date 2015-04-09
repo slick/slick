@@ -51,9 +51,9 @@ class ExpandTables extends Phase {
 class ExpandRecords extends Phase {
   val name = "expandRecords"
 
-  def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n){ tree =>
+  def apply(state: CompilerState) = state.map { tree =>
     tree.replace({ case n @ Path(_) => expandPath(n) }, keepType = true)
-  }}
+  }
 
   def expandPath(n: Node): Node = n.nodeType.structural match {
     case StructType(ch) =>
@@ -72,7 +72,7 @@ class ExpandRecords extends Phase {
 class FlattenProjections extends Phase {
   val name = "flattenProjections"
 
-  def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n){ tree =>
+  def apply(state: CompilerState) = state.map { tree =>
     val translations = new HashMap[TypeSymbol, (Map[List[Symbol], Symbol], StructType)]
     def tr(n: Node): Node = n match {
       case Pure(v, ts) =>
@@ -101,7 +101,7 @@ class FlattenProjections extends Phase {
       case n => n.nodeMapChildren(tr)
     }
     tr(tree).nodeWithComputedType(typeChildren = true)
-  }}
+  }
 
   /** Split a path into the shortest part with a NominalType and the rest on
     * top of it. Returns `None` if there is no NominalType with one of the
@@ -152,9 +152,7 @@ class FlattenProjections extends Phase {
 class RelabelUnions extends Phase {
   val name = "relabelUnions"
 
-  def apply(state: CompilerState) = state.map { n =>
-    ClientSideOp.mapServerSide(n)(relabelUnions)
-  }
+  def apply(state: CompilerState) = state.map(relabelUnions)
 
   def relabelUnions(n: Node): Node = n match {
     case u @ Union(BindTarget(Pure(StructNode(ls), lts)), rb @ BindTarget(Pure(StructNode(rs), _)), _, _, _) =>
@@ -185,8 +183,11 @@ class RelabelUnions extends Phase {
 class PruneFields extends Phase {
   val name = "pruneFields"
 
-  def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n){ n =>
-    val top = n.nodeType.asCollectionType.elementType.asInstanceOf[NominalType].sym
+  def apply(state: CompilerState) = state.map { n =>
+    val top = n.nodeType match {
+      case CollectionType(_, NominalType(sym, _)) => sym
+      case NominalType(sym, _) => sym
+    }
     val referenced = n.collect[(TypeSymbol, Symbol)] { case Select(_ :@ NominalType(s, _), f) => (s, f) }.toSet
     val allTSyms = n.collect[TypeSymbol] { case Pure(_, _) :@ CollectionType(_, NominalType(ts, _)) => ts }.toSet
     val unrefTSyms = allTSyms -- referenced.map(_._1)
@@ -203,5 +204,5 @@ class PruneFields extends Phase {
         }
     }
     tr(n)
-  }}
+  }
 }

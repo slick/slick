@@ -134,6 +134,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
     override protected val concatOperator = Some("||")
+    override protected val parenthesizeNestedRHSJoin = true
 
     override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc)

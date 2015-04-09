@@ -13,32 +13,14 @@ class CreateResultSetMapping extends Phase {
   val name = "createResultSetMapping"
 
   def apply(state: CompilerState) = state.map { n =>
-    logger.debug("Client-side result type: "+n.nodeType)
-    val n2 = removeTypeMapping(n)
-    logger.debug("Removed type mapping:", n2)
-    ClientSideOp.mapServerSide(n2) { ch =>
+    val tpe = state.get(Phase.removeMappedTypes).get
+    ClientSideOp.mapServerSide(n) { ch =>
       val gen = new AnonSymbol
-      ResultSetMapping(gen, ch, createResult(gen, n.nodeType match {
+      ResultSetMapping(gen, ch, createResult(gen, tpe match {
         case CollectionType(_, el) => el
         case t => t
       }))
     }
-  }
-
-  /** Remove TypeMapping nodes and MappedTypes */
-  def removeTypeMapping(n: Node): Node = n match {
-    case t: TypeMapping => removeTypeMapping(t.child)
-    case n =>
-      val n2 = n.nodeMapChildren(removeTypeMapping)
-      val tpe = n2.nodeType
-      val tpe2 = removeMappedType(tpe)
-      if(tpe2 eq tpe) n2 else n2.nodeTypedOrCopy(tpe2)
-  }
-
-  /** Remove MappedTypes from a Type */
-  def removeMappedType(tpe: Type): Type = tpe match {
-    case m: MappedScalaType => removeMappedType(m.baseType)
-    case t => t.mapChildren(removeMappedType)
   }
 
   /** Create a structured return value for the client side, based on the
@@ -72,5 +54,33 @@ class CreateResultSetMapping extends Phase {
       }
     }
     f(tpe)
+  }
+}
+
+/** Remove all mapped types from the tree and store the original top-level type as the phase state
+  * to be used later for building the ResultSetMapping. */
+class RemoveMappedTypes extends Phase {
+  val name = "removeMappedTypes"
+  type State = Type
+
+  def apply(state: CompilerState) = {
+    val tpe = state.tree.nodeType
+    state.withNode(removeTypeMapping(state.tree)) + (this -> tpe)
+  }
+
+  /** Remove TypeMapping nodes and MappedTypes */
+  def removeTypeMapping(n: Node): Node = n match {
+    case t: TypeMapping => removeTypeMapping(t.child)
+    case n =>
+      val n2 = n.nodeMapChildren(removeTypeMapping)
+      val tpe = n2.nodeType
+      val tpe2 = removeMappedType(tpe)
+      if(tpe2 eq tpe) n2 else n2.nodeTypedOrCopy(tpe2)
+  }
+
+  /** Remove MappedTypes from a Type */
+  def removeMappedType(tpe: Type): Type = tpe match {
+    case m: MappedScalaType => removeMappedType(m.baseType)
+    case t => t.mapChildren(removeMappedType)
   }
 }

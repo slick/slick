@@ -63,7 +63,6 @@ trait HsqldbDriver extends JdbcDriver { driver =>
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) with OracleStyleRowNum {
     override protected val concatOperator = Some("||")
-    override protected val supportsEmptyJoinConditions = false
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.tpe).sqlType != Types.CHAR =>
@@ -80,6 +79,22 @@ trait HsqldbDriver extends JdbcDriver { driver =>
       case Library.CurrentValue(_*) => throw new SlickException("Hsqldb does not support CURRVAL")
       case RowNumber(_) => b"rownum()" // Hsqldb uses Oracle ROWNUM semantics but needs parens
       case _ => super.expr(c, skipParens)
+    }
+
+    override protected def buildJoin(j: Join): Unit = {
+      /* Re-balance inner joins to the left because Hsqldb does not supported RHS nesting. Paths
+       * into joined views have already been mapped to unique identifiers at this point, so we can
+       * safely rearrange views. */
+      j match {
+        case Join(ls, rs, l, Join(ls2, rs2, l2, r2, JoinType.Inner, on2), JoinType.Inner, on) =>
+          val on3 = (on, on2) match {
+            case (a, LiteralNode(true)) => a
+            case (LiteralNode(true), b) => b
+            case (a, b) => Apply(Library.And, Vector(a, b))(UnassignedType)
+          }
+          buildJoin(Join(rs, rs2, Join(ls, ls2, l, l2, JoinType.Inner, LiteralNode(true)), r2, JoinType.Inner, on3))
+        case j => super.buildJoin(j)
+      }
     }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {

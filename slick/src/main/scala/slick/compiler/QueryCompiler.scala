@@ -92,14 +92,19 @@ object QueryCompiler {
     Phase.inferTypes,
     Phase.expandTables,
     Phase.forceOuterBinds,
-    Phase.createResultSetMapping,
+    Phase.removeMappedTypes,
     // Convert to column form
     Phase.expandSums,
     Phase.expandConditionals,
     Phase.expandRecords,
     Phase.flattenProjections,
+    // Optimize for SQL
+    Phase.rewriteJoins,
+    Phase.verifySymbols,
     Phase.relabelUnions,
     Phase.pruneFields,
+    // Combine with client-side mapping and retype
+    Phase.createResultSetMapping,
     Phase.assignTypes
   )
 
@@ -138,12 +143,15 @@ object Phase {
   val assignUniqueSymbols = new AssignUniqueSymbols
   val inferTypes = new InferTypes
   val expandTables = new ExpandTables
-  val createResultSetMapping = new CreateResultSetMapping
   val forceOuterBinds = new ForceOuterBinds
+  val removeMappedTypes = new RemoveMappedTypes
+  val createResultSetMapping = new CreateResultSetMapping
   val expandSums = new ExpandSums
-  val expandRecords = new ExpandRecords
   val expandConditionals = new ExpandConditionals
+  val expandRecords = new ExpandRecords
   val flattenProjections = new FlattenProjections
+  val rewriteJoins = new RewriteJoins
+  val verifySymbols = new VerifySymbols
   val relabelUnions = new RelabelUnions
   val pruneFields = new PruneFields
   val resolveZipJoins = new ResolveZipJoins

@@ -9,7 +9,7 @@ import TypeUtil._
 class ExpandConditionals extends Phase {
   val name = "expandConditionals"
 
-  def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n)(tr) }
+  def apply(state: CompilerState) = state.map(tr)
 
   def tr(n: Node): Node = n.nodeMapChildren(tr, keepType = true) match {
     // Expand multi-column SilentCasts

@@ -84,6 +84,8 @@ trait Node extends Dumpable {
     else nodeTyped(tpe)
   }
 
+  final def :@ (tpe: Type): Self = nodeTypedOrCopy(tpe)
+
   def nodeBuildTypedNode[T >: this.type <: Node](newNode: T, newType: Type): T =
     if(newNode ne this) newNode.nodeTyped(newType)
     else if(newType == _nodeType) this
@@ -514,7 +516,8 @@ final case class Ref(sym: Symbol) extends NullaryNode {
   def nodeRebuild = copy()
 }
 
-/** A constructor/extractor for nested Selects starting at a Ref. */
+/** A constructor/extractor for nested Selects starting at a Ref so that, for example,
+  * `c :: b :: a :: Nil` corresponds to path `a.b.c`. */
 object Path {
   def apply(l: List[Symbol]): Node = l match {
     case s :: Nil => Ref(s)
@@ -532,6 +535,8 @@ object Path {
   }
 }
 
+/** A constructor/extractor for nested Selects starting at a Ref so that, for example,
+  * `a :: b :: c :: Nil` corresponds to path `a.b.c`. */
 object FwdPath {
   def apply(ch: List[Symbol]) = Path(ch.reverse)
   def unapply(n: Node): Option[List[Symbol]] = Path.unapply(n).map(_.reverse)

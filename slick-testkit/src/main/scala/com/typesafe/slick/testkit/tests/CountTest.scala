@@ -69,27 +69,24 @@ class CountTest extends AsyncTest[RelationalTestDB] {
       def * = (aId, data)
     }
     lazy val bs = TableQuery[B]
-    for {
-      _ <- (as.schema ++ bs.schema).create
-      _ <- as ++= Seq(1L, 2L)
-      _ <- bs ++= Seq((1L, "1a"), (1L, "1b"), (2L, "2"))
-      qDirectLength = for {
+    DBIO.seq(
+      (as.schema ++ bs.schema).create,
+      as ++= Seq(1L, 2L),
+      bs ++= Seq((1L, "1a"), (1L, "1b"), (2L, "2")),
+      (for {
         a <- as if a.id === 1L
       } yield (a, (for {
           b <- bs if b.aId === a.id
-        } yield b).length)
-      _ <- qDirectLength.result.map(_ shouldBe Seq((1L, 2)))
-      qJoinLength = for {
+        } yield b).length)).result.named("directLength").map(_ shouldBe Seq((1L, 2))),
+      (for {
         a <- as if a.id === 1L
         l <- Query((for {
           b <- bs if b.aId === a.id
         } yield b).length)
-      } yield (a, l)
-      _ <- qJoinLength.result.map(_ shouldBe Seq((1L, 2)))
-      qOuterJoinLength = (for {
+      } yield (a, l)).result.named("joinLength").map(_ shouldBe Seq((1L, 2))),
+      (for {
         (a, b) <- as joinLeft bs on (_.id === _.aId)
-      } yield (a.id, b.map(_.data))).length
-      _ <- qOuterJoinLength.result.map(_ shouldBe 3)
-    } yield ()
+      } yield (a.id, b.map(_.data))).length.result.named("outerJoinLength").map(_ shouldBe 3)
+    )
   }
 }

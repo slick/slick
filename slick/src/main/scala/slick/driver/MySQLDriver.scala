@@ -102,7 +102,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsCast = false
-    override protected val supportsEmptyJoinConditions = false
+    override protected val parenthesizeNestedRHSJoin = true
 
     final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
       type Self = RowNum

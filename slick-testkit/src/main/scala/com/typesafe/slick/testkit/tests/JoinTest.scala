@@ -304,16 +304,16 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     }
     lazy val cs = TableQuery[C]
 
-    val q1 = for {
+    def q1 = for {
       (a, b) <- as joinLeft bs on (_.id === _.foreignId)
     } yield (a, b)
 
-    val q2 = for {
+    def q2 = for {
       (a, b) <- q1
       c <- cs if c.foreignId === a.id
     } yield (a, c)
 
-    val q3 = for {
+    def q3 = for {
       (a, b) <- as joinLeft bs on (_.id === _.foreignId)
       c <- cs if c.foreignId === a.id
     } yield (a, c)
@@ -323,9 +323,9 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       as ++= Seq(1,2,3),
       bs ++= Seq(1,2,4,5),
       cs ++= Seq(1,2,4,6),
-      q1.result.map(_.toSet shouldBe Set((1, Some(1)), (2, Some(2)), (3, None))),
-      q2.result.map(_.toSet shouldBe Set((1,1), (2,2))),
-      q3.result.map(_.toSet shouldBe Set((1,1), (2,2)))
+      q1.result.named("q1").map(_.toSet shouldBe Set((1, Some(1)), (2, Some(2)), (3, None))),
+      q2.result.named("q2").map(_.toSet shouldBe Set((1,1), (2,2))),
+      q3.result.named("q3").map(_.toSet shouldBe Set((1,1), (2,2)))
     )
   }
 }

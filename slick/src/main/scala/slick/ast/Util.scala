@@ -36,7 +36,8 @@ object Scope {
 final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
 
-  @inline def collect[T](pf: PartialFunction[Node, T]): Seq[T] = NodeOps.collect(tree, pf)
+  @inline def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): Seq[T] =
+    NodeOps.collect(tree, pf, stopOnMatch)
 
   def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Seq[T] = collect[Seq[T]](pf).flatten
 
@@ -75,6 +76,16 @@ final class NodeOps(val tree: Node) extends AnyVal {
     case (s: ElementSymbol, ProductNode(ch)) => ch(s.idx-1)
     case (s, n) => Select(n, s)
   }
+
+  def hasRefTo(s: Symbol): Boolean = findNode {
+    case Ref(s2) if s2 == s => true
+    case _ => false
+  }.isDefined
+
+  def hasRefToOneOf(s: Set[Symbol]): Boolean = findNode {
+    case Ref(s2) if s contains s2 => true
+    case _ => false
+  }.isDefined
 }
 
 object NodeOps {
@@ -83,9 +94,15 @@ object NodeOps {
   // These methods should be in the class but 2.10.0-RC1 took away the ability
   // to use closures in value classes
 
-  def collect[T](tree: Node, pf: PartialFunction[Node, T]): Seq[T] = {
+  def collect[T](tree: Node, pf: PartialFunction[Node, T], stopOnMatch: Boolean): Seq[T] = {
     val b = new ArrayBuffer[T]
-    tree.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Node, Unit]{ case _ => () })
+    def f(n: Node): Unit = pf.andThen[Unit] { case t =>
+      b += t
+      if(!stopOnMatch) n.nodeChildren.foreach(f)
+    }.orElse[Node, Unit]{ case _ =>
+      n.nodeChildren.foreach(f)
+    }.apply(n)
+    f(tree)
     b
   }
 

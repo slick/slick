@@ -112,7 +112,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       (c2, s2) <- q1b_0
     } yield (c.name, s.city, c2.name)
 
-    val a2 = seq(
+    def a2 = seq(
       q0.result.named("Plain table").map(_.toSet).map { r0 =>
         r0 shouldBe Set(
           ("Colombian",         101, 799, 1, 0),
@@ -181,7 +181,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       d <- q4b_0
     } yield (c,d)
 
-    val a3 = seq(
+    def a3 = seq(
       q2.result.named("More elaborate query").map(_.toSet).map { r2 =>
         r2 shouldBe Set(
           ("Colombian","Acme, Inc."),
@@ -229,7 +229,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     // Unused outer query result, unbound TableQuery
     val q6 = coffees.flatMap(c => suppliers)
 
-    val a4 = seq(
+    def a4 = seq(
       q5.result.map(_.toSet).map { r5 =>
         r5 shouldBe Set(
           (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
@@ -268,7 +268,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       c <- coffees.filter(_.price < 800).map((_, 1))
     } yield (c._1.name, c._1.supID, c._2)
 
-    val a5 = seq(
+    def a5 = seq(
       q7a.result.named("Simple union").map(_.toSet).map { r7a =>
         r7a shouldBe Set(
           ("Colombian",101,0),
@@ -306,7 +306,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       t <- coffees.sortBy(_.sales).take(1) joinLeft coffees.sortBy(_.sales).take(2) on (_.name === _.name) joinLeft coffees.sortBy(_.sales).take(4) on (_._1.supID === _.supID)
     } yield (t._1, t._2)
 
-    val a6 = seq(
+    def a6 = seq(
       q7b.result.named("Union with filter on the outside").map(_.toSet).map { r7b =>
         r7b shouldBe Set(
           ("French_Roast",49,1),
