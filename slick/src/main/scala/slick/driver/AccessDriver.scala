@@ -97,7 +97,7 @@ trait AccessDriver extends JdbcDriver { driver =>
   )
 
   override protected def computeQueryCompiler =
-    super.computeQueryCompiler.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
+    super.computeQueryCompiler.addBefore(new ExistsToCount, QueryCompiler.sqlPhases.head)
 
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)

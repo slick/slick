@@ -4,7 +4,7 @@ package slick.ast
  * The standard library for query operators.
  */
 object Library {
-  trait AggregateFunctionSymbol extends Symbol
+  trait AggregateFunctionSymbol extends TermSymbol
   class JdbcFunction(name: String) extends FunctionSymbol(name)
   class SqlFunction(name: String) extends FunctionSymbol(name)
   class SqlOperator(name: String) extends FunctionSymbol(name)
@@ -91,7 +91,7 @@ object Library {
 }
 
 /** A Symbol that represents a library function or operator */
-class FunctionSymbol(val name: String) extends Symbol {
+class FunctionSymbol(val name: String) extends TermSymbol {
 
   /** Create an untyped Apply of this Symbol */
   //def apply(ch: Node*): Apply = Apply(this, ch)

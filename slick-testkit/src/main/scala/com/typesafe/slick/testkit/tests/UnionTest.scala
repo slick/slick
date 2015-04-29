@@ -32,26 +32,26 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     val q4b = q4 union q4
     val q4c = q4 union q4 union q4
 
-    seq(
-      (managers.schema ++ employees.schema).create,
-      managers ++= Seq(
+    (for {
+      _ <- (managers.schema ++ employees.schema).create
+      _ <- managers ++= Seq(
         (1, "Peter", "HR"),
         (2, "Amy", "IT"),
         (3, "Steve", "IT")
-      ),
-      employees ++= Seq(
+      )
+      _ <- employees ++= Seq(
         (4, "Jennifer", 1),
         (5, "Tom", 1),
         (6, "Leonard", 2),
         (7, "Ben", 2),
         (8, "Greg", 3)
-      ),
-      q1.result.map(r => r.toSet shouldBe Set((2,"Amy"), (3,"Steve"))),
-      q2.result.map(r => r.toSet shouldBe Set((7,"Ben"), (8,"Greg"), (6,"Leonard"))),
-      q3.result.map(_ shouldBe List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve"))),
-      q4b.result.map(r => r.toSet shouldBe Set(1, 2, 3)),
-      q4c.result.map(r => r.toSet shouldBe Set(1, 2, 3))
-    ) andFinally (managers.schema ++ employees.schema).drop
+      )
+      _ <- mark("q1", q1.result).map(r => r.toSet shouldBe Set((2,"Amy"), (3,"Steve")))
+      _ <- mark("q2", q2.result).map(r => r.toSet shouldBe Set((7,"Ben"), (8,"Greg"), (6,"Leonard")))
+      _ <- mark("q3", q3.result).map(_ shouldBe List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")))
+      _ <- mark("q4b", q4b.result).map(r => r.toSet shouldBe Set(1, 2, 3))
+      _ <- mark("q4c", q4c.result).map(r => r.toSet shouldBe Set(1, 2, 3))
+    } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 
   def testUnionWithoutProjection = {

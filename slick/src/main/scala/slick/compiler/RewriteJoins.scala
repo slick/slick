@@ -16,6 +16,10 @@ class RewriteJoins extends Phase {
   def apply(state: CompilerState) = state.map(tr _)
 
   def tr(n: Node): Node = n.nodeMapChildren(tr, keepType = true) match {
+    case n @ Bind(s1, f1, Bind(s2, Pure(StructNode(Seq()), _), select)) =>
+      logger.debug("Eliminating unnecessary Bind from:", Ellipsis(n, List(0), List(1, 1)))
+      Bind(s1, f1, select) :@ n.nodeType
+
     case Bind(s1, f1, Bind(s2, Filter(s3, f2, pred), select)) =>
       logger.debug("Hoisting flatMapped Filter from:", Ellipsis(n, List(0), List(1, 0, 0)))
       val sn, sj1, sj2 = new AnonSymbol
@@ -77,7 +81,7 @@ class RewriteJoins extends Phase {
       logger.debug("Unnested Bind in:", Ellipsis(res, List(0, 0)))
       flattenAliasingMap(res)
 
-    case n @ Bind(s1, p @ Pure(f1, _), sel1) =>
+    case n @ Bind(s1, p @ Pure(f1, _), sel1) if !f1.isInstanceOf[Aggregate] =>
       logger.debug("Inlining Pure 'from' in:", n)
       val res = Bind(s1, Pure(StructNode(Vector.empty)).nodeWithComputedType(), sel1.replace({
         case FwdPath(s :: rest) if s == s1 => rest.foldLeft(f1) { case (n, s) => n.select(s) }

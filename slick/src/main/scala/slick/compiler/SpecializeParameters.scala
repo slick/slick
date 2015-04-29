@@ -13,9 +13,9 @@ class SpecializeParameters extends Phase {
     state.map(ClientSideOp.mapServerSide(_, keepType = true)(transformServerSide))
 
   def transformServerSide(n: Node): Node = {
-    val cs = n.collect { case c @ Comprehension(_, _, _, _, _, Some(_: QueryParameter), _) => c }
+    val cs = n.collect { case c @ Comprehension(_, _, _, _, _, _, _, Some(_: QueryParameter), _) => c }
     logger.debug("Affected fetch clauses in: "+cs.mkString(", "))
-    cs.foldLeft(n) { case (n, c @ Comprehension(_, _, _, _, _, Some(fetch: QueryParameter), _)) =>
+    cs.foldLeft(n) { case (n, c @ Comprehension(_, _, _, _, _, _, _, Some(fetch: QueryParameter), _)) =>
       val compiledFetchParam = QueryParameter(fetch.extractor, ScalaBaseType.longType)
       val guarded = n.replace({ case c2: Comprehension if c2 == c => c2.copy(fetch = Some(LiteralNode(0L))) }, keepType = true)
       val fallback = n.replace({ case c2: Comprehension if c2 == c => c2.copy(fetch = Some(compiledFetchParam)) }, keepType = true)

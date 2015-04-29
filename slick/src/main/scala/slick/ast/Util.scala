@@ -41,7 +41,8 @@ final class NodeOps(val tree: Node) extends AnyVal {
 
   def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Seq[T] = collect[Seq[T]](pf).flatten
 
-  def replace(f: PartialFunction[Node, Node], keepType: Boolean = false, bottomUp: Boolean = false): Node = NodeOps.replace(tree, f, keepType, bottomUp)
+  def replace(f: PartialFunction[Node, Node], keepType: Boolean = false, bottomUp: Boolean = false, retype: Boolean = false): Node =
+    NodeOps.replace(tree, f, keepType, bottomUp, retype)
 
   def foreach[U](f: (Node => U)) {
     def g(n: Node) {
@@ -106,9 +107,18 @@ object NodeOps {
     b
   }
 
-  def replace(tree: Node, f: PartialFunction[Node, Node], keepType: Boolean, bottomUp: Boolean): Node =
-    if(bottomUp) f.applyOrElse(tree.nodeMapChildren(_.replace(f, keepType, bottomUp), keepType), identity[Node])
-    else f.applyOrElse(tree, ({ case n: Node => n.nodeMapChildren(_.replace(f, keepType, bottomUp), keepType) }): PartialFunction[Node, Node])
+  def replace(tree: Node, f: PartialFunction[Node, Node], keepType: Boolean, bottomUp: Boolean, retype: Boolean): Node =
+    if(bottomUp) {
+      val t2 = tree.nodeMapChildren(n => replace(n, f, keepType, bottomUp, retype), keepType && !retype)
+      val t3 = if(retype) t2.nodeWithComputedType() else t2
+      f.applyOrElse(t2, identity[Node])
+    } else {
+      def g(n: Node) = {
+        val n2 = n.nodeMapChildren(n => replace(n, f, keepType, bottomUp, retype), keepType && !retype)
+        if(retype) n2.nodeWithComputedType() else n2
+      }
+      f.applyOrElse(tree, g)
+    }
 }
 
 /** Some less general but still useful methods for the code generators. */
@@ -122,18 +132,6 @@ object ExtraUtil {
     }
     f(n)
     b.toSet
-  }
-
-  def hasRowNumber(n: Node): Boolean = n match {
-    case c: Comprehension => false
-    case r: RowNumber => true
-    case n => n.nodeChildren.exists(hasRowNumber)
-  }
-
-  def replaceRowNumber(n: Node)(f: RowNumber => Node): Node = n match {
-    case c: Comprehension => c
-    case r: RowNumber => f(r)
-    case n => n.nodeMapChildren(ch => replaceRowNumber(ch)(f))
   }
 
   def linearizeFieldRefs(n: Node): IndexedSeq[Node] = {

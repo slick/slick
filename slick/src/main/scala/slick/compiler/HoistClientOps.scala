@@ -1,7 +1,7 @@
 package slick.compiler
 
 import scala.util.control.NonFatal
-import slick.SlickException
+import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
 import TypeUtil._
@@ -12,30 +12,23 @@ class HoistClientOps extends Phase {
   val name = "hoistClientOps"
 
   def apply(state: CompilerState) = state.map { tree =>
-    ClientSideOp.mapResultSetMapping(tree, false) { case rsm @ ResultSetMapping(_, comp: Comprehension, _) =>
-      /* Temporarily create a comprehension that selects a StructNode instead of
-       * a ProductNode at the top level. This makes the actual hoisting simpler. */
-      val withStruct = Phase.fuseComprehensions.ensureStruct(comp.asInstanceOf[Comprehension])
-      val Some(Pure(StructNode(ch), _)) = withStruct.select
+    ClientSideOp.mapResultSetMapping(tree, false) { case rsm @ ResultSetMapping(_, ss, _) =>
+      val (comp, cons) = ss match {
+        case CollectionCast(comp: Comprehension, cons) => (comp, Some(cons))
+        case comp: Comprehension => (comp, None)
+        case n => throw new SlickTreeException("Expected Comprehension at top level of ResultSetMapping", rsm, mark = (_ eq n))
+      }
+      val Some(Pure(StructNode(defs1), _)) = comp.select
       val base = new AnonSymbol
-      val proj = ProductNode(ch.map { case (sym, _) => Select(Ref(base), sym) })
-      val t2 = ResultSetMapping(base, withStruct, proj)
-      val t3 = hoist(t2)
-      val (rsmFrom, rsmProj) =
-        if(t3 eq t2) {
-          // Use original ProductNode form
-          val Comprehension(_, _, _, _, Some(Pure(ProductNode(treeProjChildren), _)), _, _) = comp
-          val idxproj = ProductNode(1.to(treeProjChildren.length).map(i => Select(Ref(base), new ElementSymbol(i))))
-          (comp, idxproj)
-        } else {
-          // Change it back to ProductNode form
-          val ResultSetMapping(_, newFrom @ Comprehension(_, _, _, _, Some(Pure(StructNode(str), _)), _, _), newProj) = t3
-          val symMap = ch.zipWithIndex.map { case ((sym, _), i) => (sym, ElementSymbol(i+1)) }.toMap
-          (newFrom.copy(select = Some(Pure(ProductNode(str.map(_._2)).withComputedTypeNoRec).withComputedTypeNoRec)),
-            newProj.replace { case Select(in, f) if symMap.contains(f) => Select(in, symMap(f)) })
-        }
+      val proj = StructNode(defs1.map { case (s, _) => (s, Select(Ref(base), s)) })
+      val ResultSetMapping(_, rsmFrom, rsmProj) = hoist(ResultSetMapping(base, comp, proj))
       val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).nodeWithComputedType(SymbolScope.empty, false, true)
-      fuseResultSetMappings(rsm.copy(from = rsm2)).nodeWithComputedType(retype = true)
+      val rsm3 = fuseResultSetMappings(rsm.copy(from = rsm2)).nodeWithComputedType(retype = true)
+      cons match {
+        case Some(cons) =>
+          rsm3 :@ CollectionType(cons, rsm3.nodeType.asCollectionType.elementType)
+        case None => rsm3
+      }
     }
   }
 
@@ -43,11 +36,12 @@ class HoistClientOps extends Phase {
     * structures. Inner ResultSetMappings must produce a linearized
     * ProductNode. */
   def fuseResultSetMappings(rsm: ResultSetMapping): ResultSetMapping = rsm.from match {
-    case ResultSetMapping(gen2, from2, ProductNode(ch2)) =>
-      val ch2i = ch2.toIndexedSeq
+    case ResultSetMapping(gen2, from2, StructNode(ch2)) =>
+      logger.debug("Fusing ResultSetMapping:", rsm)
+      val ch2m = ch2.toMap
       val nmap = rsm.map.replace({
-        case Select(Ref(sym), ElementSymbol(idx)) if sym == rsm.generator =>
-          ch2i(idx-1)
+        case Select(Ref(sym), ElementSymbol(idx)) if sym == rsm.generator => ch2(idx-1)._2
+        case Select(Ref(sym), f) if sym == rsm.generator => ch2m(f)
         case n @ Library.SilentCast(ch :@ tpe2) :@ tpe =>
           if(tpe.structural == tpe2.structural) ch else {
             logger.debug(s"SilentCast cannot be elided: $tpe != $tpe2")
@@ -85,8 +79,8 @@ class HoistClientOps extends Phase {
   }
 
   def rewriteDBSide(tree: Node): Node = tree match {
-    case CollectionCast(ch, _) :@ tpe =>
-      rewriteDBSide(ch).nodeTypedOrCopy(tpe)
+    //case CollectionCast(ch, _) :@ tpe =>
+    //  rewriteDBSide(ch).nodeTypedOrCopy(tpe)
     case GetOrElse(ch, default) =>
       val ch2 = rewriteDBSide(ch)
       val tpe = ch2.nodeType.asOptionType.elementType

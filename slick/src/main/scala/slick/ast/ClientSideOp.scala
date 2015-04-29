@@ -7,8 +7,8 @@ import slick.SlickException
 /**
  * An operation which is expected to be run on the client side.
  */
-trait ClientSideOp {
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node): Node
+trait ClientSideOp { this: Node =>
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self
 }
 
 object ClientSideOp {
@@ -83,7 +83,7 @@ final case class ParameterSwitch(cases: Seq[((Any => Boolean), Node)], default: 
   def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
     val this2 = mapOrNone(nodeChildren)(r).map(nodeRebuild).getOrElse(this)
     if(keepType && nodeHasType) this2.nodeTyped(nodeType)
-    else this
+    else this2
   }
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }

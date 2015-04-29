@@ -86,35 +86,47 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 object QueryCompiler {
   /** The standard phases of the query compiler */
   val standardPhases = Vector(
-    // Clean up trees from the lifted embedding
+    /* Clean up trees from the lifted embedding */
     Phase.assignUniqueSymbols,
-    // Distribute and normalize
+    /* Distribute and normalize */
     Phase.inferTypes,
     Phase.expandTables,
     Phase.forceOuterBinds,
     Phase.removeMappedTypes,
-    // Convert to column form
+    /* Convert to column form */
     Phase.expandSums,
+    // optional emulateOuterJoins goes here
     Phase.expandConditionals,
     Phase.expandRecords,
     Phase.flattenProjections,
-    // Optimize for SQL
+    /* Optimize for SQL */
+    Phase.createAggregates,
     Phase.rewriteJoins,
     Phase.verifySymbols,
-    Phase.relabelUnions,
-    Phase.pruneFields,
-    // Combine with client-side mapping and retype
-    Phase.createResultSetMapping,
-    Phase.assignTypes
+    Phase.assignTypes,
+    Phase.relabelUnions
   )
 
   /** Extra phases for translation to SQL comprehensions */
-  val relationalPhases = Vector(
+  val sqlPhases = Vector(
+    // optional access:existsToCount goes here
     Phase.resolveZipJoins,
-    Phase.convertToComprehensions,
-    Phase.fuseComprehensions,
+    Phase.pruneProjections,
+    Phase.mergeToComprehensions,
     Phase.fixRowNumberOrdering,
-    Phase.hoistClientOps
+    Phase.createResultSetMapping,
+    Phase.hoistClientOps,
+    Phase.removeFieldNames
+    // optional rewriteBooleans goes here
+    // optional specializeParameters goes here
+  )
+
+  /** Extra phases needed for the QueryInterpreter */
+  val interpreterPhases = Vector(
+    // remove createAggregates from standard phases
+    Phase.pruneProjections,
+    Phase.createResultSetMapping,
+    Phase.removeFieldNames
   )
 
   /** The default compiler */
@@ -139,7 +151,7 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
 /** The `Phase` companion objects contains ready-to-use `Phase` objects for
   * the standard phases of the query compiler */
 object Phase {
-  /** The standard phases of the query compiler */
+  /* The standard phases of the query compiler */
   val assignUniqueSymbols = new AssignUniqueSymbols
   val inferTypes = new InferTypes
   val expandTables = new ExpandTables
@@ -150,16 +162,17 @@ object Phase {
   val expandConditionals = new ExpandConditionals
   val expandRecords = new ExpandRecords
   val flattenProjections = new FlattenProjections
+  val createAggregates = new CreateAggregates
   val rewriteJoins = new RewriteJoins
   val verifySymbols = new VerifySymbols
-  val relabelUnions = new RelabelUnions
-  val pruneFields = new PruneFields
   val resolveZipJoins = new ResolveZipJoins
   val assignTypes = new AssignTypes
-  val convertToComprehensions = new ConvertToComprehensions
-  val fuseComprehensions = new FuseComprehensions
+  val relabelUnions = new RelabelUnions
+  val mergeToComprehensions = new MergeToComprehensions
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val hoistClientOps = new HoistClientOps
+  val pruneProjections = new PruneProjections
+  val removeFieldNames = new RemoveFieldNames
 
   /* Extra phases that are not enabled by default */
   val rewriteBooleans = new RewriteBooleans

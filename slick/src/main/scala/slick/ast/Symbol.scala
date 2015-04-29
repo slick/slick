@@ -4,22 +4,25 @@ import Util._
 import scala.collection.mutable.HashMap
 import scala.util.DynamicVariable
 
-/** A symbol which can be used in the AST. */
-trait Symbol {
+/** A symbol which can be used in the AST. It can be either a TypeSymbol or a TermSymbol. */
+sealed trait Symbol {
   def name: String
   override def toString = SymbolNamer(this)
 }
 
-/** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends Symbol with Typed
-
-/** An element of a ProductNode (using a 1-based index) */
-case class ElementSymbol(idx: Int) extends Symbol {
-  def name = "_" + idx
-}
-
 /** The symbol of a nominal type */
 trait TypeSymbol extends Symbol
+
+/** A symbol representing a variable */
+trait TermSymbol extends Symbol
+
+/** A named symbol which refers to an (aliased or unaliased) field. */
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol with Typed
+
+/** An element of a ProductNode (using a 1-based index) */
+case class ElementSymbol(idx: Int) extends TermSymbol {
+  def name = "_" + idx
+}
 
 /** A TypeSymbol which uniquely identifies a table type */
 trait TableIdentitySymbol extends TypeSymbol
@@ -40,7 +43,7 @@ class AnonTableIdentitySymbol extends AnonTypeSymbol with TableIdentitySymbol {
 }
 
 /** An anonymous symbol defined in the AST. */
-class AnonSymbol extends Symbol {
+class AnonSymbol extends TermSymbol {
   def name = "@"+System.identityHashCode(this)
 }
 

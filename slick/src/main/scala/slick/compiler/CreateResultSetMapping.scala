@@ -1,10 +1,9 @@
 package slick.compiler
 
+import slick.SlickException
 import slick.ast._
 import Util._
 import TypeUtil._
-import scala.reflect.ClassTag
-import slick.SlickException
 
 /** Create a ResultSetMapping root node, ensure that the top-level server-side
   * node returns a collection, and hoist client-side type conversions into the
@@ -15,23 +14,29 @@ class CreateResultSetMapping extends Phase {
   def apply(state: CompilerState) = state.map { n =>
     val tpe = state.get(Phase.removeMappedTypes).get
     ClientSideOp.mapServerSide(n) { ch =>
+      val syms = ch.nodeType.structural match {
+        case StructType(defs) => defs.map(_._1)
+        case CollectionType(_, Type.Structural(StructType(defs))) => defs.map(_._1)
+        case t => throw new SlickException("No StructType found at top level: "+t)
+      }
       val gen = new AnonSymbol
-      ResultSetMapping(gen, ch, createResult(gen, tpe match {
-        case CollectionType(_, el) => el
-        case t => t
-      }))
+      (tpe match {
+        case CollectionType(cons, el) =>
+          ResultSetMapping(gen, collectionCast(ch, cons), createResult(gen, el, syms))
+        case t =>
+          ResultSetMapping(gen, ch, createResult(gen, t, syms))
+      }).nodeWithComputedType()
     }
   }
 
+  def collectionCast(ch: Node, cons: CollectionTypeConstructor): Node = ch.nodeType match {
+    case CollectionType(c, _) if c == cons => ch
+    case _ => CollectionCast(ch, cons).nodeWithComputedType()
+  }
+
   /** Create a structured return value for the client side, based on the
-    * result type (which may contain MappedTypes). References are created
-    * to linearized columns and not to the real structure. This keeps further
-    * compiler phases simple because we don't have to do any rewriting here. We
-    * just need to be careful not to typecheck the resulting tree or resolve
-    * those refs until the server-side tree has been flattened. In the future
-    * we may want to create the real refs and rewrite them later in order to
-    * gain the ability to optimize the set of columns in the result set. */
-  def createResult(sym: Symbol, tpe: Type): Node = {
+    * result type (which may contain MappedTypes). */
+  def createResult(sym: Symbol, tpe: Type, syms: IndexedSeq[Symbol]): Node = {
     var curIdx = 0
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)
@@ -50,7 +55,7 @@ class CreateResultSetMapping extends Phase {
           curIdx += 1
           // Assign the original type. Inside a RebuildOption the actual column type will always be
           // Option-lifted but we can still treat it as the base type when the discriminator matches.
-          Library.SilentCast.typed(t.structuralRec, Select(Ref(sym), ElementSymbol(curIdx)))
+          Library.SilentCast.typed(t.structuralRec, Select(Ref(sym), syms(curIdx-1)))
       }
     }
     f(tpe)

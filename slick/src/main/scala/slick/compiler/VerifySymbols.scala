@@ -18,6 +18,9 @@ class VerifySymbols extends Phase {
       case Bind(s, from, sel: Pure) =>
         verifyScoping(from, syms)
         verifyScoping(sel, syms + s)
+      case Aggregate(s, from, sel) =>
+        verifyScoping(from, syms)
+        verifyScoping(sel, syms + s)
       case b @ Bind(s, _, sel) =>
         throw new SlickTreeException("Unresolved monadic join: Non-Pure select clause in Bind "+s, b, mark = (_ eq sel))
       case f: FilteredQuery =>

@@ -22,6 +22,10 @@ class ExpandSums extends Phase {
       case IfThenElse(IndexedSeq(pred, then1 :@ tpe, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType))) =>
         IfThenElse(Vector(pred, then1, buildMultiColumnNone(tpe))).nodeTyped(tpe)
 
+      // Primitive OptionFold representing GetOrElse -> translate to GetOrElse
+      case OptionFold(from :@ OptionType.Primitive(_), LiteralNode(v), Ref(s), gen) if s == gen =>
+        GetOrElse(from, () => v).nodeWithComputedType()
+
       // Primitive OptionFold -> translate to null check
       case OptionFold(from :@ OptionType.Primitive(_), ifEmpty, map, gen) =>
         val pred = Library.==.typed[Boolean](from, LiteralNode(null))

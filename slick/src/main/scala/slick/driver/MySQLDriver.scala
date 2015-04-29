@@ -115,25 +115,37 @@ trait MySQLDriver extends JdbcDriver { driver =>
       def nodeRebuild = copy()
     }
 
-    override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
-      super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if hasRowNumber(sel) =>
-          // MySQL does not support ROW_NUMBER() but you can manually increment
-          // a variable in the SELECT clause to emulate it.
-          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
-          val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
-          val gen, rownumSym, rownumGen = new AnonSymbol
-          var inc = true
-          val newSel = replaceRowNumber(sel.replace {
-            case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
-          }){ _ =>
-            val r = RowNum(rownumSym, inc)
-            inc = false
-            r
-          }
-          Comprehension(Seq(gen -> inner, rownumGen -> RowNumGen(rownumSym)), select = Some(newSel))
-        case c => c
-      }
+    //TODO integrate into new compiler
+    override protected def transformComprehension(c: Comprehension) = c match {
+      case c @ Comprehension(sym, _, Some(sel), _, None, orderBy, Nil, _, _) if hasRowNumber(sel) =>
+        // MySQL does not support ROW_NUMBER() but you can manually increment
+        // a variable in the SELECT clause to emulate it.
+        val paths = findPaths(Set(sym), sel).map(p => (p, new AnonSymbol)).toMap
+        val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
+        val gen, rownumSym, rownumGen = new AnonSymbol
+        var inc = true
+        val newSel = replaceRowNumber(sel.replace {
+          case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
+        }){ _ =>
+          val r = RowNum(rownumSym, inc)
+          inc = false
+          r
+        }
+        Comprehension(sym, Join(gen, rownumGen, inner, RowNumGen(rownumSym), JoinType.Inner, LiteralNode(true)), select = Some(newSel))
+      case c => c
+    }
+
+    def hasRowNumber(n: Node): Boolean = n match {
+      case c: Comprehension => false
+      case r: RowNumber => true
+      case n => n.nodeChildren.exists(hasRowNumber)
+    }
+
+    def replaceRowNumber(n: Node)(f: RowNumber => Node): Node = n match {
+      case c: Comprehension => c
+      case r: RowNumber => f(r)
+      case n => n.nodeMapChildren(ch => replaceRowNumber(ch)(f))
+    }
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>

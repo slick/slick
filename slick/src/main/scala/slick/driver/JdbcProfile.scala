@@ -20,7 +20,6 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   val columnTypes = new JdbcTypes
   lazy val MappedColumnType = MappedJdbcType
 
-  override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.relationalPhases
   override protected def computeCapabilities = super.computeCapabilities ++ JdbcProfile.capabilities.all
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)

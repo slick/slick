@@ -31,7 +31,7 @@ trait Node extends Dumpable {
 
   /** Rebuild this node with a new list of children unless all children are
     * identical to the current ones. */
-  protected[this] final def nodeRebuildOrThis(ch: IndexedSeq[Node]): Self = {
+  final def nodeRebuildOrThis(ch: IndexedSeq[Node]): Self = {
     if((nodeChildren, ch).zipped.forall(_ eq _)) this
     else nodeRebuild(ch)
   }
@@ -278,11 +278,12 @@ final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) ex
       NominalType(identity, value.nodeType))
 }
 
-final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) extends UnaryNode with SimplyTypedNode {
+final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) extends UnaryNode with SimplyTypedNode with ClientSideOp {
   type Self = CollectionCast
   protected[this] def nodeRebuild(child: Node) = copy(child = child)
   protected def buildType =
     CollectionType(cons, child.nodeType.asCollectionType.elementType)
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = nodeMapChildren(r, keepType)
 }
 
 /** Common superclass for expressions of type
@@ -364,7 +365,7 @@ final case class GroupBy(fromGen: Symbol, from: Node, by: Node, identity: TypeSy
   protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, by = right)
   protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(fromGen = gen(0))
   def nodeGenerators = Seq((fromGen, from))
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = identity.toString)
   def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 = from.nodeWithComputedType(scope, typeChildren, retype)
     val from2Type = from2.nodeType.asCollectionType
@@ -462,6 +463,26 @@ final case class Bind(generator: Symbol, from: Node, select: Node) extends Binar
       if(!nodeHasType || retype)
         CollectionType(from2Type.cons, select2.nodeType.asCollectionType.elementType)
       else nodeType)
+  }
+}
+
+/** An aggregation function application which is similar to a Bind(_, _, Pure(_)) where the
+  * projection contains a mapping function application. The return type is an aggregated
+  * scalar value though, not a collection. */
+final case class Aggregate(sym: Symbol, from: Node, select: Node) extends BinaryNode with DefNode {
+  type Self = Aggregate
+  def left = from
+  def right = select
+  override def nodeChildNames = Seq("from "+sym, "select")
+  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, select = right)
+  def nodeGenerators = Seq((sym, from))
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
+  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(sym = gen(0))
+  def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+    val from2 :@ CollectionType(_, el) = from.nodeWithComputedType(scope, typeChildren, retype)
+    val select2 = select.nodeWithComputedType(scope + (sym -> el), typeChildren, retype)
+    nodeRebuildOrThis(Vector(from2, select2))
+      .nodeTypedOrCopy(if(!nodeHasType || retype) select2.nodeType else nodeType)
   }
 }
 
@@ -645,7 +666,8 @@ final case class GetOrElse(child: Node, default: () => Any) extends UnaryNode wi
 final case class CompiledStatement(statement: String, extra: Any, tpe: Type) extends NullaryNode with TypedNode {
   type Self = CompiledStatement
   def nodeRebuild = copy()
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "\"" + statement + "\"")
+  override def getDumpInfo =
+    super.getDumpInfo.copy(mainInfo = if(statement contains '\n') statement else ("\"" + statement + "\""))
 }
 
 /** A client-side type mapping */

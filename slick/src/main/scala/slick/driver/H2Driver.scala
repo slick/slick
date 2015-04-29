@@ -79,6 +79,8 @@ trait H2Driver extends JdbcDriver { driver =>
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state)  with OracleStyleRowNum {
     override protected val concatOperator = Some("||")
+    override protected val alwaysAliasSubqueries = false
+    override protected val supportsLiteralGroupBy = true
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"

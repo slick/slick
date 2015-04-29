@@ -5,7 +5,7 @@ import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 class CountTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
-  def test = {
+  def testSimple = {
     class TestTable(tag: Tag) extends Table[Int](tag, "TEST") {
       def id = column[Int]("ID")
       def * = id
