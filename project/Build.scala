@@ -209,7 +209,8 @@ object SlickBuild extends Build {
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl")
       ),
       ivyConfigurations += config("macro").hide.extend(Compile),
-      unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
+      unmanagedClasspath in Compile <++= products in config("macro"),
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "provided"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin),
       OsgiKeys.exportPackage := Seq("slick", "slick.*", "scala.slick", "scala.slick.*"),
