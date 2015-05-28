@@ -3,6 +3,7 @@ package slick.jdbc
 import java.net.URI
 
 import com.typesafe.config.ConfigException
+import slick.util.ClassLoaderUtil
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -160,7 +161,7 @@ object ActionBasedSQLInterpolation {
     val uri = StaticDatabaseConfigMacros.getURI(ctxt)
     //TODO The database configuration and connection should be cached for subsequent macro invocations
     val dc =
-      try DatabaseConfig.forURI[JdbcProfile](new URI((uri))) catch {
+      try DatabaseConfig.forURI[JdbcProfile](new URI(uri), ClassLoaderUtil.defaultClassLoader) catch {
         case ex @ (_: ConfigException | _: SlickException) =>
           ctxt.abort(ctxt.enclosingPosition, s"""Cannot load @StaticDatabaseConfig("$uri"): ${ex.getMessage}""")
       }
