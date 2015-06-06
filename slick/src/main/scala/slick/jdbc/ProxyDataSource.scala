@@ -4,7 +4,9 @@ import java.net.InetSocketAddress
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
+import org.slf4j.LoggerFactory
 import slick.dbio.DBIO
+import slick.util.SlickLogger
 
 import scala.beans.BeanProperty
 
@@ -13,17 +15,18 @@ import java.sql._
 import java.util.logging.Logger
 import javax.sql.DataSource
 
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{ExecutionContext, Await, Future}
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success}
 
 abstract class ProxyDataSource extends DataSource with Closeable {
+  protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[ProxyDataSource]))
 
   private[this] val defaultLoginTimeout = 5 // seconds
   private[this] var driverClass: Class[_] = _
   private[this] var state = 0 // 0 = not initialized, 1 = initialized, 2 = shutting down
   private[this] var registeredDriver: Driver = _
-  private[this] var cachedEndpoint: Future[(Option[InetSocketAddress], Option[Long])] = _
+  private[this] var cachedEndpoint: Future[Option[(InetSocketAddress, Option[Long])]] = Future.successful(None)
 
   @BeanProperty var url: String = _
   @BeanProperty var user: String = _
@@ -48,21 +51,26 @@ abstract class ProxyDataSource extends DataSource with Closeable {
 
   private[this] def currentEndpoint: InetSocketAddress = {
     val ce = synchronized {
-      val valid =
-        if(cachedEndpoint eq null) false else cachedEndpoint.value match {
-          case None => true
-          case Some(Success((_, Some(until)))) => System.currentTimeMillis <= until
-          case Some(Success((_, None))) => true
-          case Some(Failure(ex)) => false
-        }
-      if(!valid)
-        cachedEndpoint = lookup(serviceName).map { case (addrOpt, ttlOpt) =>
+      val oldCached = cachedEndpoint
+      val valid = cachedEndpoint.value match {
+        case None => true
+        case Some(Success(Some((_, Some(until))))) => System.currentTimeMillis <= until
+        case Some(Success(Some((_, None)))) => true
+        case Some(Success(None)) => false
+        case Some(Failure(ex)) => false
+      }
+      if(!valid) {
+        cachedEndpoint = lookup(serviceName).map(_.map { case (addrOpt, ttlOpt) =>
           (addrOpt, ttlOpt.map(ttl => System.currentTimeMillis + ttl.toMillis))
-        }(DBIO.sameThreadExecutionContext)
+        })(DBIO.sameThreadExecutionContext)
+        logger.debug("Requested new endpoint for service \""+serviceName+"\" (cached endpoint: "+oldCached.value+")")
+      }
       cachedEndpoint
     }
-    val (addrOpt, _) = Await.result(ce, loginTimeoutDuration)
-    addrOpt.getOrElse(throw new SQLException("No binding available for service \""+serviceName+"\""))
+    Await.result(ce, loginTimeoutDuration) match {
+      case Some((addr, _)) => addr
+      case None => throw new SQLException("No binding available for service \""+serviceName+"\"")
+    }
   }
 
   private[this] def getRealConnection(endpoint: InetSocketAddress, props: Properties): Connection = {
@@ -78,8 +86,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
     DriverManager.getConnection(realUrl, props)
   }
 
-  def lookup(serviceName: String): Future[(Option[InetSocketAddress], Option[FiniteDuration])]
-
+  def lookup(serviceName: String): Future[Option[(InetSocketAddress, Option[FiniteDuration])]]
 
   private[this] var loginTimeout: Int = 0
   private[this] var loginTimeoutDuration: FiniteDuration = _
@@ -117,13 +124,9 @@ abstract class ProxyDataSource extends DataSource with Closeable {
 
   def close(): Unit = synchronized {
     if(state == 1) {
+      logger.debug("Shutting down ProxyDataSource")
       deregisterDriver()
       state = 2
     }
   }
-}
-
-
-class ConductrProxyDataSource extends ProxyDataSource {
-  def lookup(serviceName: String): Future[(Option[InetSocketAddress], Option[FiniteDuration])] = ???
 }
