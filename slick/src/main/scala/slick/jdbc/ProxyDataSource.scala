@@ -35,7 +35,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
   @BeanProperty var driver: String = _
   @BeanProperty var properties: Properties = _
 
-  final def getConnection: Connection = getConnection(properties, null, null)
+  final def getConnection: Connection = getConnection(properties, user, password)
 
   final def getConnection(username: String, password: String): Connection = getConnection(properties, username, password)
 
