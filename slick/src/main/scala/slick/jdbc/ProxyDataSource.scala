@@ -16,17 +16,39 @@ import java.util.logging.Logger
 import javax.sql.DataSource
 
 import scala.concurrent.{ExecutionContext, Await, Future}
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.util.{Failure, Success}
 
-abstract class ProxyDataSource extends DataSource with Closeable {
-  protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[ProxyDataSource]))
+object ProxyDataSource {
+  private[jdbc] final val LoginTimeout = 5.seconds
+}
 
-  private[this] val defaultLoginTimeout = 5 // seconds
-  private[this] var driverClass: Class[_] = _
-  private[this] var state = 0 // 0 = not initialized, 1 = initialized, 2 = shutting down
-  private[this] var registeredDriver: Driver = _
-  private[this] var cachedEndpoint: Future[Option[InetSocketAddress]] = Future.successful(None)
+/**
+ * A ProxyDataSource looks up a connection on demand via an implementor's lookup function.
+ * Resolving a connection this way supports the use-case where the address of a database
+ * may change at any time, or indeed be or become unknown. This use-case is quite common
+ * for reactive systems that require resiliency i.e. most systems. Its use is therefore
+ * encouraged.
+ * 
+ * A lookup method is required to be implemented with its purpose being to resolve the 
+ * location of a database.
+ */
+abstract class ProxyDataSource extends DataSource with Closeable {
+  
+  /**
+   * Override this function in order to resolve some address. If the address
+   * cannot be obtained for whatever reason then return None. The function
+   * is expected to be re-entrant.
+   */
+  def lookup(serviceName: String): Future[Option[InetSocketAddress]]
+  
+  import ProxyDataSource._
+
+  protected val logger = new SlickLogger(LoggerFactory.getLogger(classOf[ProxyDataSource]))
+
+  private var state = 0 // 0 = not initialized, 1 = initialized, 2 = shutting down
+  private var registeredDriver: Driver = _
+  private var cachedEndpoint: Future[Option[InetSocketAddress]] = Future.successful(None)
 
   @BeanProperty var url: String = _
   @BeanProperty var user: String = _
@@ -35,42 +57,43 @@ abstract class ProxyDataSource extends DataSource with Closeable {
   @BeanProperty var driver: String = _
   @BeanProperty var properties: Properties = _
 
-  final def getConnection: Connection = getConnection(properties, user, password)
+  override final def getConnection: Connection = getConnection(properties, user, password)
 
-  final def getConnection(username: String, password: String): Connection = getConnection(properties, username, password)
+  override final def getConnection(username: String, password: String): Connection = 
+    getConnection(properties, username, password)
 
-  private[this] def getConnection(prop: Properties, user: String, password: String): Connection = {
+  private def getConnection(prop: Properties, user: String, password: String): Connection = {
     val connectionProps = if(prop.ne(null) && user.eq(null) && password.eq(null)) prop else {
       val p = new Properties(prop)
       if(user ne null) p.setProperty("user", user)
       if(password ne null) p.setProperty("password", password)
       p
     }
-    getRealConnection(currentEndpoint, connectionProps)
+    getConnection(currentEndpoint, connectionProps)
   }
 
-  private[this] def currentEndpoint: InetSocketAddress = {
+  private def currentEndpoint: InetSocketAddress = {
     val ce = synchronized {
       val oldCached = cachedEndpoint
       val valid = cachedEndpoint.value match {
-        case None => true
+        case None => false
         case Some(Success(Some(_))) => true
         case Some(Success(None)) => false
         case Some(Failure(ex)) => false
       }
       if(!valid) {
         cachedEndpoint = lookup(serviceName)
-        logger.debug("Requested new endpoint for service \""+serviceName+"\" (cached endpoint: "+oldCached.value+")")
+        logger.debug(s"""Requested new endpoint for service "$serviceName" (cached endpoint: ${oldCached.value})""")
       }
       cachedEndpoint
     }
-    Await.result(ce, loginTimeoutDuration) match {
+    Await.result(ce, loginTimeout) match {
       case Some(addr) => addr
-      case None => throw new SQLException("No binding available for service \""+serviceName+"\"")
+      case None => throw new SQLException(s"""No binding available for service "$serviceName"""")
     }
   }
 
-  private[this] def getRealConnection(endpoint: InetSocketAddress, props: Properties): Connection = {
+  private def getConnection(endpoint: InetSocketAddress, props: Properties): Connection = {
     val realUrl = url.replace("{host}", endpoint.getHostString).replace("{port}", String.valueOf(endpoint.getPort))
     val st = synchronized {
       if((driver ne null) && state == 0) {
@@ -79,23 +102,18 @@ abstract class ProxyDataSource extends DataSource with Closeable {
       }
       state
     }
-    if(state == 2) throw new SQLException("ProxyDataSource is shutting down")
+    if(st == 2) throw new SQLException("ProxyDataSource is shutting down")
     DriverManager.getConnection(realUrl, props)
   }
 
-  def lookup(serviceName: String): Future[Option[InetSocketAddress]]
+  private var loginTimeout: FiniteDuration = LoginTimeout
+  def getLoginTimeout: Int = loginTimeout.toSeconds.toInt
+  def setLoginTimeout(s: Int): Unit =
+    loginTimeout = 
+      if(s==0) LoginTimeout 
+      else FiniteDuration(s, TimeUnit.SECONDS)
 
-  private[this] var loginTimeout: Int = 0
-  private[this] var loginTimeoutDuration: FiniteDuration = _
-  def getLoginTimeout: Int = loginTimeout
-  def setLoginTimeout(s: Int): Unit = {
-    loginTimeout = s
-    loginTimeoutDuration =
-      new FiniteDuration(if(s == 0) defaultLoginTimeout else s, TimeUnit.SECONDS)
-  }
-  setLoginTimeout(0)
-
-  private[this] var logWriter: PrintWriter = _
+  private var logWriter: PrintWriter = _
   def setLogWriter(out: PrintWriter): Unit = logWriter = out
   def getLogWriter: PrintWriter = logWriter
 
@@ -103,11 +121,11 @@ abstract class ProxyDataSource extends DataSource with Closeable {
 
   def isWrapperFor(iface: Class[_]): Boolean = false
 
-  def unwrap[T](iface: Class[T]): T =
+  override def unwrap[T](iface: Class[T]): T =
     if(iface.isInstance(this)) this.asInstanceOf[T]
     else throw new SQLException(getClass.getName+" is not a wrapper for "+iface)
 
-  protected[this] def registerDriver(driverName: String, url: String): Unit = if(driverName ne null) {
+  private def registerDriver(driverName: String, url: String): Unit = if(driverName ne null) {
     val oldDriver = try DriverManager.getDriver(url) catch { case ex: SQLException if "08001" == ex.getSQLState => null }
     if(oldDriver eq null) {
       Class.forName(driverName)
@@ -115,14 +133,10 @@ abstract class ProxyDataSource extends DataSource with Closeable {
     }
   }
 
-  def deregisterDriver(): Boolean =
-    if(registeredDriver ne null) { DriverManager.deregisterDriver(registeredDriver); true }
-    else false
-
-  def close(): Unit = synchronized {
+  override protected def close(): Unit = synchronized {
     if(state == 1) {
       logger.debug("Shutting down ProxyDataSource")
-      deregisterDriver()
+      if(registeredDriver ne null) DriverManager.deregisterDriver(registeredDriver)
       state = 2
     }
   }
