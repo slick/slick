@@ -3,7 +3,7 @@ package slick.benchmark
 import slick.ast._
 import slick.jdbc._
 import slick.relational._
-import slick.util.TreeDump
+import slick.util.TreePrinter
 import com.typesafe.slick.testkit.util.DelegateResultSet
 
 @deprecated("Using deprecated .simple API", "3.0")
@@ -55,7 +55,7 @@ object UnboxedBenchmark extends App {
 
   def runTest(n: Node) {
     val rsm = driver.queryCompiler.run(n).tree
-    TreeDump(rsm)
+    TreePrinter.default.print(rsm)
     val ResultSetMapping(_, _, CompiledMapping(converter, _)) = rsm
     for(i <- 1 to 5) {
       val pr = createFakePR(10000000, converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]])
