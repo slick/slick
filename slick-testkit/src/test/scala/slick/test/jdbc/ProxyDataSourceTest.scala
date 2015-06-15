@@ -58,7 +58,7 @@ class ProxyDataSourceTest {
 }
 
 class NoBindingProxyDataSource extends ProxyDataSource {
-  def lookup(serviceName: String): Future[Option[(InetSocketAddress, Option[FiniteDuration])]] =
+  def lookup(serviceName: String): Future[Option[InetSocketAddress]] =
     Future.successful(None)
 }
 
@@ -67,11 +67,11 @@ class InitialDelayProxyDataSource extends ProxyDataSource {
   @BeanProperty var host: String = "localhost"
   @BeanProperty var port: Int = 0
 
-  private[this] var f: Future[Option[(InetSocketAddress, Option[FiniteDuration])]] = _
+  private[this] var f: Future[Option[InetSocketAddress]] = _
 
-  def lookup(serviceName: String): Future[Option[(InetSocketAddress, Option[FiniteDuration])]] = synchronized {
+  def lookup(serviceName: String): Future[Option[InetSocketAddress]] = synchronized {
     if(f eq null)
-      f = Future(blocking { Thread.sleep(delay); Some((new InetSocketAddress(host, port), None)) })(ExecutionContext.global)
+      f = Future(blocking { Thread.sleep(delay); Some(new InetSocketAddress(host, port)) })(ExecutionContext.global)
     f
   }
 }

@@ -26,7 +26,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
   private[this] var driverClass: Class[_] = _
   private[this] var state = 0 // 0 = not initialized, 1 = initialized, 2 = shutting down
   private[this] var registeredDriver: Driver = _
-  private[this] var cachedEndpoint: Future[Option[(InetSocketAddress, Option[Long])]] = Future.successful(None)
+  private[this] var cachedEndpoint: Future[Option[InetSocketAddress]] = Future.successful(None)
 
   @BeanProperty var url: String = _
   @BeanProperty var user: String = _
@@ -54,21 +54,18 @@ abstract class ProxyDataSource extends DataSource with Closeable {
       val oldCached = cachedEndpoint
       val valid = cachedEndpoint.value match {
         case None => true
-        case Some(Success(Some((_, Some(until))))) => System.currentTimeMillis <= until
-        case Some(Success(Some((_, None)))) => true
+        case Some(Success(Some(_))) => true
         case Some(Success(None)) => false
         case Some(Failure(ex)) => false
       }
       if(!valid) {
-        cachedEndpoint = lookup(serviceName).map(_.map { case (addrOpt, ttlOpt) =>
-          (addrOpt, ttlOpt.map(ttl => System.currentTimeMillis + ttl.toMillis))
-        })(DBIO.sameThreadExecutionContext)
+        cachedEndpoint = lookup(serviceName)
         logger.debug("Requested new endpoint for service \""+serviceName+"\" (cached endpoint: "+oldCached.value+")")
       }
       cachedEndpoint
     }
     Await.result(ce, loginTimeoutDuration) match {
-      case Some((addr, _)) => addr
+      case Some(addr) => addr
       case None => throw new SQLException("No binding available for service \""+serviceName+"\"")
     }
   }
@@ -86,7 +83,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
     DriverManager.getConnection(realUrl, props)
   }
 
-  def lookup(serviceName: String): Future[Option[(InetSocketAddress, Option[FiniteDuration])]]
+  def lookup(serviceName: String): Future[Option[InetSocketAddress]]
 
   private[this] var loginTimeout: Int = 0
   private[this] var loginTimeoutDuration: FiniteDuration = _
