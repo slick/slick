@@ -1,6 +1,5 @@
 package slick.jdbc
 
-import java.net.InetSocketAddress
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
@@ -40,7 +39,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
    * cannot be obtained for whatever reason then return None. The function
    * is expected to be re-entrant.
    */
-  def lookup(serviceName: String): Future[Option[InetSocketAddress]]
+  def lookup(serviceName: String): Future[Option[(String, Int)]]
   
   import ProxyDataSource._
 
@@ -48,7 +47,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
 
   private var state = 0 // 0 = not initialized, 1 = initialized, 2 = shutting down
   private var registeredDriver: Driver = _
-  private var cachedEndpoint: Future[Option[InetSocketAddress]] = Future.successful(None)
+  private var cachedEndpoint: Future[Option[(String, Int)]] = Future.successful(None)
 
   @BeanProperty var url: String = _
   @BeanProperty var user: String = _
@@ -72,7 +71,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
     getConnection(currentEndpoint, connectionProps)
   }
 
-  private def currentEndpoint: InetSocketAddress = {
+  private def currentEndpoint: (String, Int) = {
     val ce = synchronized {
       val oldCached = cachedEndpoint
       val valid = cachedEndpoint.value match {
@@ -83,7 +82,7 @@ abstract class ProxyDataSource extends DataSource with Closeable {
       }
       if(!valid) {
         cachedEndpoint = lookup(serviceName)
-        logger.debug(s"""Requested new endpoint for service "$serviceName" (cached endpoint: ${oldCached.value})""")
+        logger.debug(s"""Requested new host and port for service "$serviceName" (cached: ${oldCached.value})""")
       }
       cachedEndpoint
     }
@@ -93,8 +92,9 @@ abstract class ProxyDataSource extends DataSource with Closeable {
     }
   }
 
-  private def getConnection(endpoint: InetSocketAddress, props: Properties): Connection = {
-    val realUrl = url.replace("{host}", endpoint.getHostString).replace("{port}", String.valueOf(endpoint.getPort))
+  private def getConnection(hostAndPort: (String, Int), props: Properties): Connection = {
+    val (host, port) = hostAndPort
+    val realUrl = url.replace("{host}", host).replace("{port}", port.toString)
     val st = synchronized {
       if((driver ne null) && state == 0) {
         registerDriver(driver, realUrl)

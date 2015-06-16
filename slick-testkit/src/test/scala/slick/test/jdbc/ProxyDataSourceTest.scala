@@ -1,6 +1,5 @@
 package slick.test.jdbc
 
-import java.net.InetSocketAddress
 import java.sql.SQLException
 
 import org.junit.{Assert, Test}
@@ -58,7 +57,7 @@ class ProxyDataSourceTest {
 }
 
 class NoBindingProxyDataSource extends ProxyDataSource {
-  def lookup(serviceName: String): Future[Option[InetSocketAddress]] =
+  def lookup(serviceName: String): Future[Option[(String, Int)]] =
     Future.successful(None)
 }
 
@@ -67,11 +66,11 @@ class InitialDelayProxyDataSource extends ProxyDataSource {
   @BeanProperty var host: String = "localhost"
   @BeanProperty var port: Int = 0
 
-  private[this] var f: Future[Option[InetSocketAddress]] = _
+  private[this] var f: Future[Option[(String, Int)]] = _
 
-  def lookup(serviceName: String): Future[Option[InetSocketAddress]] = synchronized {
+  def lookup(serviceName: String): Future[Option[(String, Int)]] = synchronized {
     if(f eq null)
-      f = Future(blocking { Thread.sleep(delay); Some(new InetSocketAddress(host, port)) })(ExecutionContext.global)
+      f = Future(blocking { Thread.sleep(delay); Some((host, port)) })(ExecutionContext.global)
     f
   }
 }
