@@ -51,7 +51,7 @@ class Tables(val profile: JdbcProfile){
 
   /** Tests table with self-referring foreign key */
   class SelfRef(tag: Tag) extends Table[(Int,Option[Int])](tag, "SELF_REF") {
-    def id = column[Int]("id",O.AutoInc)
+    def id = column[Int]("id",O.PrimaryKey,O.AutoInc)
     def parent = column[Option[Int]]("parent")
     def parentFK = foreignKey("parent_fk", parent, SelfRef)(_.id.?)
     def * = (id,parent)
