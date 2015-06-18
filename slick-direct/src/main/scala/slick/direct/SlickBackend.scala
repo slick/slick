@@ -12,7 +12,7 @@ import slick.ast.{Library, FunctionSymbol, ColumnOption}
 import slick.ast.Util._
 import slick.ast.TypeUtil._
 import slick.compiler.CompilerState
-import slick.util.{TreeDump, SQLBuilder}
+import slick.util.{TreePrinter, SQLBuilder}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe.TypeRef
 import scala.annotation.StaticAnnotation
@@ -413,7 +413,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
   }
   protected[slick] def dump( queryable:BaseQueryable[_] ) = {
     val (_,query) = this.toQuery(queryable)
-    TreeDump(query.node)
+    TreePrinter.default.print(query.node)
   }
   import scala.collection.generic.CanBuildFrom
   import slick.jdbc.{PositionedParameters, PositionedResult}

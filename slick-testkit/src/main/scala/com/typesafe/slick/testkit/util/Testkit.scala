@@ -1,5 +1,7 @@
 package com.typesafe.slick.testkit.util
 
+import org.slf4j.MDC
+
 import scala.language.existentials
 
 import scala.concurrent.{Promise, ExecutionContext, Await, Future, blocking}
@@ -142,6 +144,20 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
     /** Generate a unique name suitable for a database entity */
     def u(args: Any*) = s.standardInterpolator(identity, args) + "_" + unique.incrementAndGet()
   }
+
+  final def mark[T](id: String, f: => T): T = {
+    def set(id: String): Unit =
+      if(id eq null) MDC.remove("debugId")
+      else MDC.put("debugId", id)
+    val old = MDC.get("debugId")
+    try {
+      set(if(id eq null) id else s" [$id]")
+      f
+    } finally set(old)
+  }
+
+  final def mark[R, S <: NoStream, E <: Effect](id: String, f: => DBIOAction[R, S, E]): DBIOAction[R, S, E] =
+    mark[DBIOAction[R, S, E]](id, f.named(id))
 
   def rcap = RelationalProfile.capabilities
   def scap = SqlProfile.capabilities

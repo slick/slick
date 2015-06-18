@@ -319,10 +319,10 @@ trait DatabaseComponent { self =>
         ctx.sequenceCounter += 1
         val logA = a.nonFusedEquivalentAction
         val aPrefix = if(a eq logA) "" else "[fused] "
-        val dump = TreeDump.get(logA, prefix = "    ", firstPrefix = aPrefix, narrow = {
+        val dump = new TreePrinter(prefix = "    ", firstPrefix = aPrefix, narrow = {
           case a: DBIOAction[_, _, _] => a.nonFusedEquivalentAction
           case o => o
-        })
+        }).get(logA)
         val msg = DumpInfo.highlight("#" + ctx.sequenceCounter) + ": " + dump.substring(0, dump.length-1)
         actionLogger.debug(msg)
       }

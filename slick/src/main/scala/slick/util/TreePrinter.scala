@@ -4,29 +4,30 @@ import java.io.{OutputStreamWriter, StringWriter, PrintWriter}
 import LogUtil._
 
 /** Create a readable printout of a tree. */
-object TreeDump {
-  private[this] val (childPrefix1, childPrefix2, lastChildPrefix1, lastChildPrefix2, multi1, multi2) =
-    if(GlobalConfig.unicodeDump) ("\u2523 ", "\u2503 ", "\u2517 ", "  ", "\u250f ", "\u2507 ")
-    else ("  ", "  ", "  ", "  ", ": ", ": ")
+case class TreePrinter(name: String = "", prefix: String = "", firstPrefix: String = null,
+                       narrow: (Dumpable => Dumpable) = identity, mark: (Dumpable => Boolean) = (_ => false)) {
+  import TreePrinter._
 
-  def get(n: Dumpable, name: String = "", prefix: String = "", firstPrefix: String = null, narrow: (Dumpable => Dumpable) = identity) = {
+  def get(n: Dumpable) = {
     val buf = new StringWriter
-    apply(n, name, prefix, firstPrefix, new PrintWriter(buf), narrow)
+    print(n, new PrintWriter(buf))
     buf.getBuffer.toString
   }
 
-  def apply(n: Dumpable, name: String = "", prefix: String = "", firstPrefix: String = null, out: PrintWriter = new PrintWriter(new OutputStreamWriter(System.out)), narrow: (Dumpable => Dumpable) = identity) {
+  def print(n: Dumpable, out: PrintWriter = new PrintWriter(new OutputStreamWriter(System.out))) {
     def dump(baseValue: Dumpable, prefix1: String, prefix2: String, name: String, level: Int) {
       val value = narrow(baseValue)
       val di =
         if(value eq null) DumpInfo("<error: narrowed to null>", "baseValue = "+baseValue)
         else value.getDumpInfo
       val multiLine = di.mainInfo contains '\n'
+      val marked = mark(value)
+      val markedDiName = if(marked) "< " + di.name + " >" else di.name
       out.print(
         prefix1 +
-        cCyan + (if(name.nonEmpty) name + ": " else "") +
-        cYellow + (if(multiLine) multi1 else "") + di.name + (if(di.name.nonEmpty && di.mainInfo.nonEmpty) " " else "") +
-        cNormal
+          cCyan + (if(name.nonEmpty) name + ": " else "") +
+          (if(marked) cNormal+bYellow+cBlack else cYellow) + (if(multiLine) multi1 else "") + markedDiName +
+          cNormal + (if(di.name.nonEmpty && di.mainInfo.nonEmpty) " " else "")
       )
       if(multiLine) {
         val lines = di.mainInfo.replace("\r", "").split('\n')
@@ -46,6 +47,28 @@ object TreeDump {
     dump(n, if(firstPrefix ne null) firstPrefix else prefix, prefix, name, 0)
     out.flush()
   }
+
+  def findMarkedTop(n: Dumpable): Dumpable = {
+    def find(n: Dumpable): Option[Dumpable] = {
+      val value = narrow(n)
+      if(mark(value)) Some(n) else {
+        val children = value.getDumpInfo.children.map(_._2).toVector
+        val markedChildren = children.map(find).collect { case Some(d) => d }
+        if(markedChildren.length > 1) Some(n)
+        else if(markedChildren.length == 1) Some(markedChildren.head)
+        else None
+      }
+    }
+    find(n).getOrElse(n)
+  }
+}
+
+object TreePrinter {
+  def default = new TreePrinter
+
+  private[TreePrinter] val (childPrefix1, childPrefix2, lastChildPrefix1, lastChildPrefix2, multi1, multi2) =
+    if(GlobalConfig.unicodeDump) ("\u2523 ", "\u2503 ", "\u2517 ", "  ", "\u250f ", "\u2507 ")
+    else ("  ", "  ", "  ", "  ", ": ", ": ")
 }
 
 /** Interface for types that can be used in a tree dump */
@@ -63,4 +86,19 @@ object DumpInfo {
   def simpleNameFor(cl: Class[_]): String = cl.getName.replaceFirst(".*\\.", "")
 
   def highlight(s: String) = cGreen + s + cNormal
+}
+
+/** Create a wrapper for a `Dumpable` to omit some nodes. */
+object Ellipsis {
+  def apply(n: Dumpable, poss: List[Int]*): Dumpable = new Dumpable {
+    def getDumpInfo = {
+      val parent = n.getDumpInfo
+      if(poss.isEmpty) parent
+      else if(poss contains Nil) DumpInfo("...")
+      else parent.copy(children = parent.children.zipWithIndex.map { case ((name, ch), idx) =>
+        val chposs = poss.filter(_.head == idx).map(_.tail)
+        (name, apply(ch, chposs: _*))
+      })
+    }
+  }
 }

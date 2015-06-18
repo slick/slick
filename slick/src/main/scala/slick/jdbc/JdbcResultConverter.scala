@@ -5,7 +5,6 @@ import java.sql.{PreparedStatement, ResultSet}
 import slick.relational._
 import slick.SlickException
 import slick.ast.ScalaBaseType
-import slick.util.{TreeDump => Dump} //--
 
 /** Specialized JDBC ResultConverter for non-`Option` values. */
 class BaseResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](val ti: JdbcType[T], val name: String, val idx: Int) extends ResultConverter[JdbcResultConverterDomain, T] {

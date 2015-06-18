@@ -27,7 +27,7 @@ object SlickBuild extends Build {
       "com.google.inject" % "guice" % "2.0"
     )
     val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
-    val logback = "ch.qos.logback" % "logback-classic" % "0.9.28"
+    val logback = "ch.qos.logback" % "logback-classic" % "1.1.3"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
     val reactiveStreamsVersion = "1.0.0.RC4"
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion

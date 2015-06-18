@@ -1,7 +1,7 @@
 <configuration>
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>*** \(%logger{30}\) %msg%n</pattern>
+            <pattern>*** \(%logger{30}\)%green(%X{debugId}) %msg%n</pattern>
         </encoder>
     </appender>
     <root level="${log.root:-info}">
@@ -37,10 +37,10 @@
     <logger name="slick.jdbc.JdbcBackend.statement"         level="${log.jdbc.statement:-info}" />
     <logger name="slick.jdbc.JdbcBackend.benchmark"         level="${log.jdbc.bench:-info}" />
     <logger name="slick.jdbc.StatementInvoker.result"       level="${log.jdbc.result:-info}" />
-    <logger name="slick.jdbc.meta"                          level="${log.createModel:-info}" />
-    <logger name="slick.ast.Node$"                          level="${log.qcomp.assignTypes:-inherited}" />
-    <logger name="slick.memory.HeapBackend$"                level="${log.heap:-inherited}" />
+    <logger name="slick.jdbcJdbcModelBuilder"               level="${log.createModel:-info}" />
+    <logger name="slick.ast.Node"                           level="${log.qcomp.assignTypes:-inherited}" />
+    <logger name="slick.memory.HeapBackend"                 level="${log.heap:-inherited}" />
     <logger name="slick.memory.QueryInterpreter"            level="${log.interpreter:-inherited}" />
     <logger name="slick.relational.ResultConverterCompiler" level="${log.resultConverter:-inherited}" />
-    <logger name="slick.util.AsyncExecutor$"                level="${log.asyncExecutor:-inherited}" />
+    <logger name="slick.util.AsyncExecutor"                 level="${log.asyncExecutor:-inherited}" />
 </configuration>
