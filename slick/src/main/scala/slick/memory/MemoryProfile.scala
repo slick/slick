@@ -207,8 +207,7 @@ trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with Memor
 
   override val profile: MemoryProfile = this
 
-  override def computeQueryCompiler =
-    super.computeQueryCompiler ++ QueryCompiler.interpreterPhases - Phase.createAggregates
+  override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
     val Insert(_, table: TableNode, ProductNode(cols)) = insert

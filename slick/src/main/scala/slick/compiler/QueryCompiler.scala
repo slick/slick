@@ -100,16 +100,15 @@ object QueryCompiler {
     Phase.expandRecords,
     Phase.flattenProjections,
     /* Optimize for SQL */
-    Phase.createAggregates,
     Phase.rewriteJoins,
     Phase.verifySymbols,
-    Phase.assignTypes,
     Phase.relabelUnions
   )
 
   /** Extra phases for translation to SQL comprehensions */
   val sqlPhases = Vector(
     // optional access:existsToCount goes here
+    Phase.createAggregates,
     Phase.resolveZipJoins,
     Phase.pruneProjections,
     Phase.mergeToComprehensions,
@@ -123,7 +122,6 @@ object QueryCompiler {
 
   /** Extra phases needed for the QueryInterpreter */
   val interpreterPhases = Vector(
-    // remove createAggregates from standard phases
     Phase.pruneProjections,
     Phase.createResultSetMapping,
     Phase.removeFieldNames
@@ -166,7 +164,6 @@ object Phase {
   val rewriteJoins = new RewriteJoins
   val verifySymbols = new VerifySymbols
   val resolveZipJoins = new ResolveZipJoins
-  val assignTypes = new AssignTypes
   val relabelUnions = new RelabelUnions
   val mergeToComprehensions = new MergeToComprehensions
   val fixRowNumberOrdering = new FixRowNumberOrdering

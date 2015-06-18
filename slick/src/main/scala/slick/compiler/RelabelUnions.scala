@@ -9,12 +9,9 @@ import Util._
 class RelabelUnions extends Phase {
   val name = "relabelUnions"
 
-  def apply(state: CompilerState) = state.map(relabelUnions)
-
-  def relabelUnions(n: Node): Node = n.replace({
+  def apply(state: CompilerState) = state.map(_.replace({
     case u @ Union(Bind(_, _, Pure(StructNode(ls), lts)), rb @ Bind(_, _, Pure(StructNode(rs), _)), _, _, _) =>
       val rs2 = (ls, rs).zipped.map { case ((s, _), (_, n)) => (s, n) }
-      val u2 = u.copy(right = rb.copy(select = Pure(StructNode(rs2), lts)))
-      u2.nodeMapChildren(relabelUnions).nodeWithComputedType()
-  }, keepType = true)
+      u.copy(right = rb.copy(select = Pure(StructNode(rs2), lts))).nodeWithComputedType()
+  }, keepType = true, bottomUp = true))
 }

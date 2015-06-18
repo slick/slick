@@ -205,12 +205,6 @@ case object UnassignedType extends AtomicType {
   def classTag = throw new SlickException("UnassignedType does not have a ClassTag")
 }
 
-/** The type of a structural view of a NominalType before computing the
-  * proper type in the `inferTypes` phase. */
-final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType {
-  def classTag = throw new SlickException("UnassignedStructuralType does not have a ClassTag")
-}
-
 /** A type with a name, as used by tables.
  *
  * Compiler phases which change types may keep their own representation

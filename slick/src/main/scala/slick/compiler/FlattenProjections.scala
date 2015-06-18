@@ -5,69 +5,6 @@ import slick.ast._
 import Util._
 import TypeUtil._
 
-/** Expand table-valued expressions in the result type to their star projection. */
-class ExpandTables extends Phase {
-  val name = "expandTables"
-
-  def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n) { tree =>
-    // Check for table types
-    val tsyms: Set[TableIdentitySymbol] =
-      tree.nodeType.collect { case NominalType(sym: TableIdentitySymbol, _) => sym }.toSet
-    logger.debug("Tables for expansion in result type: " + tsyms.mkString(", "))
-    val tree2 = tree.replace({ case TableExpansion(_, t, _) => t }, keepType = true)
-    if(tsyms.isEmpty) tree2 else {
-      // Find the corresponding TableExpansions
-      val tables: Map[TableIdentitySymbol, (Symbol, Node)] = tree.collect {
-        case TableExpansion(s, TableNode(_, _, ts, _, _), ex) if tsyms contains ts => ts -> (s, ex)
-      }.toMap
-      logger.debug("Table expansions: " + tables.mkString(", "))
-      // Create a mapping that expands the tables
-      val sym = new AnonSymbol
-      val mapping = createResult(tables, Ref(sym), tree.nodeType.asCollectionType.elementType)
-        .nodeWithComputedType(SymbolScope.empty + (sym -> tree.nodeType.asCollectionType.elementType), typeChildren = true)
-      Bind(sym, tree2, Pure(mapping)).nodeWithComputedType()
-    }
-  }}
-
-  /** Create an expression that copies a structured value, expanding tables in it. */
-  def createResult(expansions: Map[TableIdentitySymbol, (Symbol, Node)], path: Node, tpe: Type): Node = tpe match {
-    case p: ProductType =>
-      ProductNode(p.numberedElements.map { case (s, t) => createResult(expansions, Select(path, s), t) }.toVector)
-    case NominalType(tsym: TableIdentitySymbol, _) if expansions contains tsym =>
-      val (sym, exp) = expansions(tsym)
-      exp.replace { case Ref(s) if s == sym => path }
-    case tpe: NominalType => createResult(expansions, path, tpe.structuralView)
-    case m: MappedScalaType =>
-      TypeMapping(createResult(expansions, path, m.baseType), m.mapper, m.classTag)
-    case OptionType(el) =>
-      val gen = new AnonSymbol
-      OptionFold(path, LiteralNode.nullOption, OptionApply(createResult(expansions, Ref(gen), el)), gen)
-    case _ => path
-  }
-}
-
-/** Expand paths of record types to reference all fields individually and
-  * recreate the record structure at the call site. */
-class ExpandRecords extends Phase {
-  val name = "expandRecords"
-
-  def apply(state: CompilerState) = state.map { tree =>
-    tree.replace({ case n @ Path(_) => expandPath(n) }, keepType = true)
-  }
-
-  def expandPath(n: Node): Node = n.nodeType.structural match {
-    case StructType(ch) =>
-      StructNode(ch.map { case (s, t) =>
-        (s, expandPath(n.select(s).nodeTypedOrCopy(t)))
-      }(collection.breakOut)).nodeTyped(n.nodeType)
-    case p: ProductType =>
-      ProductNode(p.numberedElements.map { case (s, t) =>
-        expandPath(n.select(s).nodeTypedOrCopy(t))
-      }.toVector).nodeTyped(n.nodeType)
-    case t => n
-  }
-}
-
 /** Flatten all Pure node contents into a single StructNode. */
 class FlattenProjections extends Phase {
   val name = "flattenProjections"

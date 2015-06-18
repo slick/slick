@@ -500,7 +500,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         val rn = symbolName(r)
         val tn = symbolName(newSym)
         val c2 = makeSelectPageable(c, r)
-        val c3 = Phase.fixRowNumberOrdering.fixRowNumberOrdering(c2, None).asInstanceOf[Comprehension]
+        val c3 = Phase.fixRowNumberOrdering.fix(c2, None).asInstanceOf[Comprehension]
         b"select "
         buildSelectModifiers(c)
         c3.select match {

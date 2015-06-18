@@ -23,7 +23,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   val api: API = new API {}
 
   lazy val queryCompiler =
-    QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) ++ QueryCompiler.interpreterPhases - Phase.createAggregates + new MemoryCodeGen
+    QueryCompiler.standard.addAfter(new Distribute, Phase.assignUniqueSymbols) ++ QueryCompiler.interpreterPhases + new MemoryCodeGen
   lazy val updateCompiler = ??
   lazy val deleteCompiler = ??
   lazy val insertCompiler = ??

@@ -1,10 +1,7 @@
 package slick.compiler
 
-import scala.collection.mutable.{HashMap, ArrayBuffer}
-import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
-import ExtraUtil._
 import TypeUtil._
 
 /** Rewrite zip joins into a form suitable for SQL (using inner joins and
@@ -14,12 +11,12 @@ import TypeUtil._
   * Binds need to select Pure(StructNode(...)) which should be the outcome
   * of Phase.flattenProjections. */
 class ResolveZipJoins extends Phase {
-  type State = ResolveZipJoinsState
+  type State = Boolean
   val name = "resolveZipJoins"
 
   def apply(state: CompilerState) = {
     val n2 = resolveZipJoins(state.tree)
-    state + (this -> new State(n2 ne state.tree)) withNode n2
+    state + (this -> (n2 ne state.tree)) withNode n2
   }
 
   def resolveZipJoins(n: Node): Node = (n match {
@@ -59,32 +56,4 @@ class ResolveZipJoins extends Phase {
 
     case n => n
   }).nodeMapChildren(resolveZipJoins, keepType = true)
-}
-
-class ResolveZipJoinsState(val hasRowNumber: Boolean)
-
-/** Inject the proper orderings into the RowNumber nodes produced earlier by
-  * the resolveFixJoins phase. */
-class FixRowNumberOrdering extends Phase {
-  val name = "fixRowNumberOrdering"
-
-  def apply(state: CompilerState) = state.map { n =>
-    if(state.get(Phase.resolveZipJoins).map(_.hasRowNumber).getOrElse(true))
-      fixRowNumberOrdering(n)
-    else {
-      logger.debug("No row numbers to fix")
-      n
-    }
-  }
-
-  /** Push ORDER BY into RowNumbers in ordered Comprehensions. */
-  def fixRowNumberOrdering(n: Node, parent: Option[Comprehension] = None): Node = (n, parent) match {
-    case (r @ RowNumber(_), Some(c)) if !c.orderBy.isEmpty =>
-      RowNumber(c.orderBy).nodeTyped(r.nodeType)
-    case (c: Comprehension, _) => c.nodeMapScopedChildren {
-      case (Some(gen), ch) => fixRowNumberOrdering(ch, None)
-      case (None, ch) => fixRowNumberOrdering(ch, Some(c))
-    }.nodeWithComputedType()
-    case (n, _) => n.nodeMapChildren(ch => fixRowNumberOrdering(ch, parent), keepType = true)
-  }
 }

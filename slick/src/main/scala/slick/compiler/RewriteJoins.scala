@@ -23,19 +23,19 @@ class RewriteJoins extends Phase {
     case Bind(s1, f1, Bind(s2, Filter(s3, f2, pred), select)) =>
       logger.debug("Hoisting flatMapped Filter from:", Ellipsis(n, List(0), List(1, 0, 0)))
       val sn, sj1, sj2 = new AnonSymbol
-      val j = Join(sj1, sj2, f1, f2.replace {
+      val j = Join(sj1, sj2, f1, f2.replace({
         case Ref(s) if s == s1 => Ref(sj1) :@ f1.nodeType.asCollectionType.elementType
-      }, JoinType.Inner, pred.replace {
+      }, retype = true, bottomUp = true), JoinType.Inner, pred.replace({
         case Ref(s) if s == s1 => Ref(sj1) :@ f1.nodeType.asCollectionType.elementType
         case Ref(s) if s == s3 => Ref(sj2) :@ f2.nodeType.asCollectionType.elementType
-      }).nodeWithComputedType()
+      }, retype = true, bottomUp = true)).nodeWithComputedType()
       val refSn = Ref(sn) :@ j.nodeType.asCollectionType.elementType
       val ref1 = Select(refSn, ElementSymbol(1))
       val ref2 = Select(refSn, ElementSymbol(2))
-      val sel2 = select.replace {
+      val sel2 = select.replace({
         case Ref(s) :@ tpe if s == s1 => ref1 :@ tpe
         case Ref(s) :@ tpe if s == s2 => ref2 :@ tpe
-      }
+      }, retype = true, bottomUp = true)
       val res = Bind(sn, hoistFilters(j), sel2).nodeWithComputedType()
       logger.debug("Hoisted flatMapped Filter in:", Ellipsis(res, List(0, 0), List(0, 1)))
       flattenAliasingMap(res)
