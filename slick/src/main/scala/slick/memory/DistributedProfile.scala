@@ -133,7 +133,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
           case n =>
             var nnd = Set.empty[RelationalDriver]
             var ntt = Set.empty[RelationalDriver]
-            n.mapChildrenWithScope({ (_, n, sc) =>
+            mapChildrenWithScope(n, { (n, sc) =>
               val (nd, tt) = collect(n, sc)
               nnd ++= nd
               ntt ++= tt
@@ -145,7 +145,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
         taints += RefId(n) -> tt
         (dr, tt)
       }
-      collect(tree, Scope.empty)
+      collect(tree, Scope(Map()))
       def transform(n: Node): Node = {
         val dr = needed(RefId(n))
         val tt = taints(RefId(n))
@@ -154,10 +154,26 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
           val substituteType = compiled.nodeType.replace {
             case CollectionType(cons, el) => CollectionType(cons.iterableSubstitute, el)
           }
-          DriverComputation(compiled.nodeTypedOrCopy(substituteType), dr.head, substituteType)
-        } else n.nodeMapChildren(transform)
+          DriverComputation(compiled :@ substituteType, dr.head, substituteType)
+        } else n.mapChildren(transform)
       }
       transform(tree)
+    }
+
+    def mapChildrenWithScope(tree: Node, f: (Node, Scope) => Node, scope: Scope): Node = tree match {
+      case d: DefNode =>
+        var local = scope
+        d.mapScopedChildren { (symO, ch) =>
+          val r = f(ch, local)
+          symO.foreach(sym => local = local + (sym, r))
+          r
+        }
+      case n => n.mapChildren(ch => f(ch, scope))
+    }
+
+    case class Scope(m: Map[TermSymbol, (Node, Scope)]) {
+      def get(s: TermSymbol) = m.get(s)
+      def + (s: TermSymbol, n: Node) = Scope(m + (s -> (n, this)))
     }
   }
 }
@@ -167,6 +183,6 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
   * should be opaque to the query compiler. */
 final case class DriverComputation(compiled: Node, driver: RelationalDriver, tpe: Type) extends NullaryNode with TypedNode {
   type Self = DriverComputation
-  protected[this] def nodeRebuild = copy()
+  protected[this] def rebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = driver.toString)
 }

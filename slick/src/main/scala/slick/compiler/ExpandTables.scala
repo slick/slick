@@ -11,7 +11,7 @@ class ExpandTables extends Phase {
 
   def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n) { tree =>
     // Find table fields
-    val structs = tree.collect[(TypeSymbol, (Symbol, Type))] {
+    val structs = tree.collect[(TypeSymbol, (TermSymbol, Type))] {
       case s @ Select(_ :@ (n: NominalType), sym) => n.sourceNominalType.sym -> (sym -> s.nodeType)
     }.groupBy(_._1).mapValues(v => StructType(v.map(_._2).toMap.toIndexedSeq))
     logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
@@ -28,20 +28,20 @@ class ExpandTables extends Phase {
 
     if(tsyms.isEmpty) tree2 else {
       // Find the corresponding TableExpansions
-      val tables: Map[TableIdentitySymbol, (Symbol, Node)] = tree.collect {
+      val tables: Map[TableIdentitySymbol, (TermSymbol, Node)] = tree.collect {
         case TableExpansion(s, TableNode(_, _, ts, _, _), ex) if tsyms contains ts => ts -> (s, ex)
       }.toMap
       logger.debug("Table expansions: " + tables.mkString(", "))
       // Create a mapping that expands the tables
       val sym = new AnonSymbol
       val mapping = createResult(tables, Ref(sym), tree2.nodeType.asCollectionType.elementType)
-        .nodeWithComputedType(SymbolScope.empty + (sym -> tree2.nodeType.asCollectionType.elementType), typeChildren = true)
-      Bind(sym, tree2, Pure(mapping)).nodeWithComputedType()
+        .infer(SymbolScope.empty + (sym -> tree2.nodeType.asCollectionType.elementType), typeChildren = true)
+      Bind(sym, tree2, Pure(mapping)).infer()
     }
   }}
 
   /** Create an expression that copies a structured value, expanding tables in it. */
-  def createResult(expansions: Map[TableIdentitySymbol, (Symbol, Node)], path: Node, tpe: Type): Node = tpe match {
+  def createResult(expansions: Map[TableIdentitySymbol, (TermSymbol, Node)], path: Node, tpe: Type): Node = tpe match {
     case p: ProductType =>
       ProductNode(p.numberedElements.map { case (s, t) => createResult(expansions, Select(path, s), t) }.toVector)
     case NominalType(tsym: TableIdentitySymbol, _) if expansions contains tsym =>

@@ -1,7 +1,7 @@
 package slick.lifted
 
 import annotation.implicitNotFound
-import slick.ast.{OptionType, FieldSymbol, Typed, OptionApply, FunctionSymbol, BaseTypedType, Node, TypedType}
+import slick.ast.{OptionType, FieldSymbol, OptionApply, FunctionSymbol, BaseTypedType, Node, TypedType}
 
 trait OptionMapper[BR, R] extends (Rep[BR] => Rep[R]) {
   def lift: Boolean
@@ -25,7 +25,7 @@ object OptionMapper2 {
     override def toString = "OptionMapper2.plain"
   }
   val option = new OptionMapper2[Any,Any,Any,Any,Any,Option[Any]] {
-    def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Typed].tpe.asInstanceOf[TypedType[Any]].optionType)
+    def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Rep.TypedRep[Any]].tpe.optionType)
     def lift = true
     override def toString = "OptionMapper2.option"
   }
@@ -46,7 +46,7 @@ object OptionMapper3 {
     override def toString = "OptionMapper3.plain"
   }
   val option = new OptionMapper3[Any,Any,Any,Any,Any,Any,Any,Option[Any]] {
-    def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Typed].tpe.asInstanceOf[TypedType[Any]].optionType)
+    def apply(n: Rep[Any]): Rep[Option[Any]] = Rep.forNode(OptionApply(n.toNode))(n.asInstanceOf[Rep.TypedRep[Any]].tpe.optionType)
     def lift = true
     override def toString = "OptionMapper3.option"
   }
@@ -85,7 +85,7 @@ object OptionLift extends OptionLiftLowPriority {
       val n = OptionApply(v.toNode)
       val packed = shape.pack(v)
       packed match {
-        case r: (Rep[_] with Typed) if r.tpe.isInstanceOf[TypedType[_]] && !r.tpe.isInstanceOf[OptionType] /* An primitive column */ =>
+        case r: Rep.TypedRep[_] if !r.tpe.isInstanceOf[OptionType] /* An primitive column */ =>
           Rep.forNode[Option[P]](n)(r.tpe.asInstanceOf[TypedType[P]].optionType)
         case _ =>
           RepOption[P](ShapedValue(packed, shape.packedShape), n)
@@ -103,7 +103,7 @@ sealed trait OptionLiftLowPriority {
   /** Get a suitably typed base value for a `Rep[Option[_]]` */
   def baseValue[M, O](v: O, path: Node): M = v match {
     case RepOption(base, _) => base.asInstanceOf[ShapedValue[M, _]].encodeRef(path).value
-    case r: (Rep[_] with Typed) if r.tpe.isInstanceOf[TypedType[_]] /* An Option column */ =>
+    case r: Rep.TypedRep[_] /* An Option column */ =>
       Rep.columnPlaceholder[Any](r.tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[Any]]).encodeRef(path).asInstanceOf[M]
   }
 }

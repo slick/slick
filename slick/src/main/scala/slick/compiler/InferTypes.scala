@@ -9,5 +9,5 @@ class InferTypes extends Phase {
   val name = "inferTypes"
 
   def apply(state: CompilerState) =
-    state.map(_.nodeWithComputedType(new DefaultSymbolScope(Map.empty), typeChildren = true))
+    state.map(_.infer(new DefaultSymbolScope(Map.empty), typeChildren = true))
 }

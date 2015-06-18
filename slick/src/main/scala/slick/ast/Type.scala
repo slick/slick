@@ -18,7 +18,7 @@ trait Type extends Dumpable {
     * type with the new children, or return the original object if no
     * child is changed. */
   def mapChildren(f: Type => Type): Type
-  def select(sym: Symbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
+  def select(sym: TermSymbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
   /** The structural view of this type */
   def structural: Type = this
   /** Remove all NominalTypes recursively from this Type */
@@ -42,9 +42,9 @@ trait AtomicType extends Type {
   def children: Seq[Type] = Seq.empty
 }
 
-final case class StructType(elements: IndexedSeq[(Symbol, Type)]) extends Type {
+final case class StructType(elements: IndexedSeq[(TermSymbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
-  lazy val symbolToIndex: Map[Symbol, Int] =
+  lazy val symbolToIndex: Map[TermSymbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
   def children: IndexedSeq[Type] = elements.map(_._2)
   def mapChildren(f: Type => Type): StructType =
@@ -52,7 +52,7 @@ final case class StructType(elements: IndexedSeq[(Symbol, Type)]) extends Type {
       case Some(types2) => StructType((elements, types2).zipped.map((e, t) => (e._1, t)))
       case None => this
     }
-  override def select(sym: Symbol) = sym match {
+  override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(idx) => elements(idx-1)._2
     case _ => elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
   }
@@ -111,7 +111,7 @@ final case class ProductType(elements: IndexedSeq[Type]) extends Type {
       case Some(e2) => ProductType(e2)
       case None => this
     }
-  override def select(sym: Symbol) = sym match {
+  override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(i) if i <= elements.length => elements(i-1)
     case _ => super.select(sym)
   }
@@ -193,7 +193,7 @@ final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapp
     else new MappedScalaType(e2, mapper, classTag)
   }
   def children: Seq[Type] = Seq(baseType)
-  override def select(sym: Symbol) = baseType.select(sym)
+  override def select(sym: TermSymbol) = baseType.select(sym)
 }
 
 object MappedScalaType {
@@ -216,7 +216,7 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
   def withStructuralView(t: Type): NominalType =
     if(t == structuralView) this else copy(structuralView = t)
   override def structural: Type = structuralView.structural
-  override def select(sym: Symbol): Type = structuralView.select(sym)
+  override def select(sym: TermSymbol): Type = structuralView.select(sym)
   def mapChildren(f: Type => Type): NominalType = {
     val struct2 = f(structuralView)
     if(struct2 eq structuralView) this
@@ -228,15 +228,6 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
     case _ => this
   }
   def classTag = structuralView.classTag
-}
-
-/** Something that has a Type */
-trait Typed {
-  def tpe: Type
-}
-
-object Typed {
-  def unapply(t: Typed) = Some(t.tpe)
 }
 
 /** A Type that carries a Scala type argument */
@@ -312,19 +303,19 @@ object TypeUtilOps {
 }
 
 trait SymbolScope {
-  def + (entry: (Symbol, Type)): SymbolScope
-  def get(sym: Symbol): Option[Type]
-  def withDefault(f: (Symbol => Type)): SymbolScope
+  def + (entry: (TermSymbol, Type)): SymbolScope
+  def get(sym: TermSymbol): Option[Type]
+  def withDefault(f: (TermSymbol => Type)): SymbolScope
 }
 
 object SymbolScope {
   val empty = new DefaultSymbolScope(Map.empty)
 }
 
-class DefaultSymbolScope(val m: Map[Symbol, Type]) extends SymbolScope {
-  def + (entry: (Symbol, Type)) = new DefaultSymbolScope(m + entry)
-  def get(sym: Symbol): Option[Type] = m.get(sym)
-  def withDefault(f: (Symbol => Type)) = new DefaultSymbolScope(m.withDefault(f))
+class DefaultSymbolScope(val m: Map[TermSymbol, Type]) extends SymbolScope {
+  def + (entry: (TermSymbol, Type)) = new DefaultSymbolScope(m + entry)
+  def get(sym: TermSymbol): Option[Type] = m.get(sym)
+  def withDefault(f: (TermSymbol => Type)) = new DefaultSymbolScope(m.withDefault(f))
 }
 
 /** A Slick Type encoding of plain Scala types.

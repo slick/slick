@@ -15,7 +15,7 @@ class RewriteJoins extends Phase {
 
   def apply(state: CompilerState) = state.map(tr _)
 
-  def tr(n: Node): Node = n.nodeMapChildren(tr, keepType = true) match {
+  def tr(n: Node): Node = n.mapChildren(tr, keepType = true) match {
     case n @ Bind(s1, f1, Bind(s2, Pure(StructNode(Seq()), _), select)) =>
       logger.debug("Eliminating unnecessary Bind from:", Ellipsis(n, List(0), List(1, 1)))
       Bind(s1, f1, select) :@ n.nodeType
@@ -28,7 +28,7 @@ class RewriteJoins extends Phase {
       }, retype = true, bottomUp = true), JoinType.Inner, pred.replace({
         case Ref(s) if s == s1 => Ref(sj1) :@ f1.nodeType.asCollectionType.elementType
         case Ref(s) if s == s3 => Ref(sj2) :@ f2.nodeType.asCollectionType.elementType
-      }, retype = true, bottomUp = true)).nodeWithComputedType()
+      }, retype = true, bottomUp = true)).infer()
       val refSn = Ref(sn) :@ j.nodeType.asCollectionType.elementType
       val ref1 = Select(refSn, ElementSymbol(1))
       val ref2 = Select(refSn, ElementSymbol(2))
@@ -36,7 +36,7 @@ class RewriteJoins extends Phase {
         case Ref(s) :@ tpe if s == s1 => ref1 :@ tpe
         case Ref(s) :@ tpe if s == s2 => ref2 :@ tpe
       }, retype = true, bottomUp = true)
-      val res = Bind(sn, hoistFilters(j), sel2).nodeWithComputedType()
+      val res = Bind(sn, hoistFilters(j), sel2).infer()
       logger.debug("Hoisted flatMapped Filter in:", Ellipsis(res, List(0, 0), List(0, 1)))
       flattenAliasingMap(res)
 
@@ -46,7 +46,7 @@ class RewriteJoins extends Phase {
       val j2 = j.replace {
         case Ref(s) :@ tpe if s == s1 => Ref(sj1) :@ tpe
       }
-      val oj = Join(sj1, sj2, f1, j2, JoinType.Inner, LiteralNode(true)).nodeWithComputedType()
+      val oj = Join(sj1, sj2, f1, j2, JoinType.Inner, LiteralNode(true)).infer()
       val refSn = Ref(sn) :@ oj.nodeType.asCollectionType.elementType
       val ref1 = Select(refSn, ElementSymbol(1))
       val ref2 = Select(refSn, ElementSymbol(2))
@@ -60,7 +60,7 @@ class RewriteJoins extends Phase {
       val sel3 = if(m.isEmpty) sel2 else sel2.replace {
         case p @ FwdPath(r1 :: rest) if r1 == sn && m.contains(rest) => m(rest)
       }
-      val res = Bind(sn, oj4, sel3).nodeWithComputedType()
+      val res = Bind(sn, oj4, sel3).infer()
       logger.debug("Hoisted flatMapped Join in:", Ellipsis(res, List(0, 0)))
       flattenAliasingMap(res)
 
@@ -69,7 +69,7 @@ class RewriteJoins extends Phase {
       val sn, sj1, sj2 = new AnonSymbol
       val j = Join(sj1, sj2, f1, f2.replace {
         case Ref(s) if s == s1 => Ref(sj1) :@ f1.nodeType.asCollectionType.elementType
-      }, JoinType.Inner, LiteralNode(true)).nodeWithComputedType()
+      }, JoinType.Inner, LiteralNode(true)).infer()
       val refSn = Ref(sn) :@ j.nodeType.asCollectionType.elementType
       val ref1 = Select(refSn, ElementSymbol(1))
       val ref2 = Select(refSn, ElementSymbol(2))
@@ -77,13 +77,13 @@ class RewriteJoins extends Phase {
         case Ref(s) :@ tpe if s == s1 => ref1 :@ tpe
         case Ref(s) :@ tpe if s == s2 => ref2 :@ tpe
       }
-      val res = Bind(sn, hoistFilters(j), sel2).nodeWithComputedType()
+      val res = Bind(sn, hoistFilters(j), sel2).infer()
       logger.debug("Unnested Bind in:", Ellipsis(res, List(0, 0)))
       flattenAliasingMap(res)
 
     case n @ Bind(s1, p @ Pure(f1, _), sel1) if !f1.isInstanceOf[Aggregate] =>
       logger.debug("Inlining Pure 'from' in:", n)
-      val res = Bind(s1, Pure(StructNode(Vector.empty)).nodeWithComputedType(), sel1.replace({
+      val res = Bind(s1, Pure(StructNode(Vector.empty)).infer(), sel1.replace({
         case FwdPath(s :: rest) if s == s1 => rest.foldLeft(f1) { case (n, s) => n.select(s) }
       }, keepType = true)) :@ n.nodeType
       logger.debug("Inlined Pure 'from' in:", res)
@@ -96,7 +96,7 @@ class RewriteJoins extends Phase {
 
   /** Hoist `Filter` nodes in `Join` generators into join predicates. */
   def hoistFilters(j: Join): Join = {
-    def hoist(ts: Symbol, n: Node): (Node, Option[Node]) = (n match {
+    def hoist(ts: TermSymbol, n: Node): (Node, Option[Node]) = (n match {
       case b: Bind => hoistFilterFromBind(b)._1
       case n => n
     }) match {
@@ -144,7 +144,7 @@ class RewriteJoins extends Phase {
         val pred = pred1.replace {
           case p : Select => allRefs.get(p).map(s => Select(Ref(fs) :@ b.nodeType.asCollectionType.elementType, s) :@ p.nodeType).getOrElse(p)
         }
-        val res = Filter(fs, Bind(b.generator, from1, sel), pred).nodeWithComputedType()
+        val res = Filter(fs, Bind(b.generator, from1, sel), pred).infer()
         logger.debug("Hoisted Filter out of Bind (invalidated: "+tss.mkString(", ")+") in:", res)
         (res, tss)
       case _ => (b, Set.empty)
@@ -157,11 +157,11 @@ class RewriteJoins extends Phase {
     * paths into it.
     *
     * TODO: If the remainder of the mapping Bind is purely aliasing, eliminate it entirely. */
-  def eliminateIllegalRefs(j: Join, illegal: Set[Symbol], outsideRef: Symbol): (Join, Map[List[Symbol], Node]) = {
+  def eliminateIllegalRefs(j: Join, illegal: Set[TermSymbol], outsideRef: TermSymbol): (Join, Map[List[TermSymbol], Node]) = {
     logger.debug("Trying to eliminate illegal refs ["+illegal.mkString(", ")+"] from:", j)
     // Pull defs to one of `illegal` out of `sn`, creating required refs to `ok` instead
-    def pullOut(sn: StructNode, ok: Symbol, illegal: Set[Symbol]): (StructNode, Map[Symbol, Node]) = {
-      val (illegalDefs, legalDefs) = sn.elements.partition(_._2.hasRefToOneOf(illegal))
+    def pullOut(sn: StructNode, ok: TermSymbol, illegal: Set[TermSymbol]): (StructNode, Map[TermSymbol, Node]) = {
+      val (illegalDefs, legalDefs) = sn.elements.partition(t => hasRefTo(t._2, illegal))
       if(illegalDefs.isEmpty) (sn, Map.empty)
       else {
         logger.debug("Pulling refs to ["+illegal.mkString(", ")+"] with OK base "+ok+" out of:", sn)
@@ -179,13 +179,13 @@ class RewriteJoins extends Phase {
         (sn2, rebasedIllegalDefs.toMap)
       }
     }
-    def trChild(n: Node, illegal: Set[Symbol], outsideRef: Symbol): (Node, Map[List[Symbol], Node]) = n match {
+    def trChild(n: Node, illegal: Set[TermSymbol], outsideRef: TermSymbol): (Node, Map[List[TermSymbol], Node]) = n match {
       case jch: Join => eliminateIllegalRefs(jch, illegal, outsideRef)
       case b @ Bind(s1, from, Pure(sn1 @ StructNode(defs), ts)) =>
         val (sn2, pulled) = pullOut(sn1, s1, illegal)
         if(sn2 eq sn1) (b, Map.empty)
         else {
-          val b2 = b.copy(select = Pure(sn2, ts)).nodeWithComputedType()
+          val b2 = b.copy(select = Pure(sn2, ts)).infer()
           (b2, pulled.map { case (s, n) => (s :: Nil, n) })
         }
       case n => (n, Map.empty)
@@ -198,7 +198,7 @@ class RewriteJoins extends Phase {
         case p @ FwdPath(r1 :: rest) if r1 == j.leftGen && l1m.contains(rest) => l1m(rest)
         case p @ FwdPath(r1 :: rest) if r1 == j.rightGen && r1m.contains(rest) => r1m(rest)
       }, keepType = true, bottomUp = true)
-      val j2 = j.copy(left = l1, right = r1, on = on1).nodeWithComputedType()
+      val j2 = j.copy(left = l1, right = r1, on = on1).infer()
       logger.debug("Eliminated illegal refs ["+illegal.mkString(", ")+"] in:", j2)
       val m = l1m.map { case (p, n) => (ElementSymbol(1) :: p, n) } ++
         r1m.map { case (p, n) => (ElementSymbol(2) :: p, n) }
@@ -220,8 +220,8 @@ class RewriteJoins extends Phase {
   def rearrangeJoinConditions(j: Join): Join = j match {
     case Join(s1, s2, _, j2a @ Join(_, _, _, _, JoinType.Inner, _), JoinType.Inner, on1) =>
       val j2b = rearrangeJoinConditions(j2a)
-      val (on1Down, on1Keep) = splitConjunctions(on1).partition(p => p.hasRefTo(s2) && !p.hasRefTo(s1))
-      val (on2Up, on2Keep) = splitConjunctions(j2b.on).partition(_.hasRefTo(s1))
+      val (on1Down, on1Keep) = splitConjunctions(on1).partition(p => hasRefTo(p, Set(s2)) && !hasRefTo(p, Set(s1)))
+      val (on2Up, on2Keep) = splitConjunctions(j2b.on).partition(p => hasRefTo(p, Set(s1)))
       if(on1Down.nonEmpty || on2Up.nonEmpty) {
         val refS2 = Ref(s2) :@ j2b.nodeType.asCollectionType.elementType
         val on1b = and(on1Keep ++ on2Up.map(_.replace({
@@ -247,7 +247,7 @@ class RewriteJoins extends Phase {
     * tree smaller to speed up subsequent phases. */
   def flattenAliasingMap(b: Bind): Bind = b match {
     case Bind(s1, Bind(s2, f, Pure(StructNode(p1), ts1)), Pure(StructNode(p2), ts2)) =>
-      def isAliasing(s: Seq[(Symbol, Node)]) = s.forall { case (_, n) =>
+      def isAliasing(s: Seq[(TermSymbol, Node)]) = s.forall { case (_, n) =>
         n.collect({ case Path(_) => true }, stopOnMatch = true).length <= 1
       }
       val a1 = isAliasing(p1)
@@ -258,7 +258,7 @@ class RewriteJoins extends Phase {
           case (f1, n) => (f1, n.replace({
             case Select(Ref(s), f2) if s == s1 => m(f2)
           }, keepType = true))
-        }), ts2)).nodeWithComputedType()
+        }), ts2)).infer()
       } else b
     case b => b
   }
@@ -293,4 +293,9 @@ class RewriteJoins extends Phase {
       Library.And.typed(tpe, p1, p2)
     case None => p2
   }
+
+  def hasRefTo(n: Node, s: Set[TermSymbol]): Boolean = n.findNode {
+    case Ref(s2) if s contains s2 => true
+    case _ => false
+  }.isDefined
 }

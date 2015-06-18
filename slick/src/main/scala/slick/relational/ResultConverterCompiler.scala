@@ -19,7 +19,7 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
       if(pathConvs.length == 1) pathConvs.head else CompoundResultConverter(1, pathConvs: _*)
     case Select(_, ElementSymbol(idx)) => createColumnConverter(n, idx, None)
     case cast @ Library.SilentCast(sel @ Select(_, ElementSymbol(idx))) =>
-      createColumnConverter(sel.nodeTypedOrCopy(cast.nodeType), idx, None)
+      createColumnConverter(sel :@ cast.nodeType, idx, None)
     case OptionApply(Select(_, ElementSymbol(idx))) => createColumnConverter(n, idx, None)
     case ProductNode(ch) =>
       if(ch.isEmpty) new UnitResultConverter
@@ -61,7 +61,7 @@ object ResultConverterCompiler {
 /** A node that wraps a ResultConverter */
 final case class CompiledMapping(converter: ResultConverter[_ <: ResultConverterDomain, _], tpe: Type) extends NullaryNode with TypedNode {
   type Self = CompiledMapping
-  def nodeRebuild = copy()
+  def rebuild = copy()
   override def getDumpInfo = {
     val di = super.getDumpInfo
     di.copy(mainInfo = "", children = di.children ++ Vector(("converter", converter)))

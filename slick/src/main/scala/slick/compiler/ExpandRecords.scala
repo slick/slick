@@ -13,13 +13,9 @@ class ExpandRecords extends Phase {
 
   def expandPath(n: Node): Node = n.nodeType.structural match {
     case StructType(ch) =>
-      StructNode(ch.map { case (s, t) =>
-        (s, expandPath(n.select(s).nodeTypedOrCopy(t)))
-      }(collection.breakOut)).nodeTyped(n.nodeType)
+      StructNode(ch.map { case (s, t) => (s, expandPath(n.select(s) :@ t)) }(collection.breakOut)) :@ n.nodeType
     case p: ProductType =>
-      ProductNode(p.numberedElements.map { case (s, t) =>
-        expandPath(n.select(s).nodeTypedOrCopy(t))
-      }.toVector).nodeTyped(n.nodeType)
+      ProductNode(p.numberedElements.map { case (s, t) => expandPath(n.select(s) :@ t) }.toVector) :@ n.nodeType
     case t => n
   }
 }

@@ -82,7 +82,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     * key column but this method allows you to define compound primary keys
     * or give them user-defined names (when defining the database schema
     * with Slick). */
-  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]): PrimaryKey = PrimaryKey(name, ExtraUtil.linearizeFieldRefs(shape.toNode(sourceColumns)))
+  def primaryKey[T](name: String, sourceColumns: T)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]): PrimaryKey = PrimaryKey(name, ForeignKey.linearizeFieldRefs(shape.toNode(sourceColumns)))
 
   def tableConstraints: Iterator[Constraint] = for {
       m <- getClass().getMethods.iterator
@@ -97,7 +97,7 @@ abstract class AbstractTable[T](val tableTag: Tag, val schemaName: Option[String
     tableConstraints.collect{ case k: PrimaryKey => k }.toIndexedSeq.sortBy(_.name)
 
   /** Define an index or a unique constraint. */
-  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]) = new Index(name, this, ExtraUtil.linearizeFieldRefs(shape.toNode(on)), unique)
+  def index[T](name: String, on: T, unique: Boolean = false)(implicit shape: Shape[_ <: FlatShapeLevel, T, _, _]) = new Index(name, this, ForeignKey.linearizeFieldRefs(shape.toNode(on)), unique)
 
   def indexes: Iterable[Index] = (for {
       m <- getClass().getMethods.view

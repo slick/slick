@@ -33,14 +33,14 @@ class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) ext
             Library.Not.typed(on.nodeType, Library.Exists.typed(on.nodeType, Filter(rgen2, right, on2)))
           ),
           Pure(ProductNode(Seq(Ref(bgen), nullStructFor(right.nodeType.structural.asCollectionType.elementType))))
-        ), true).nodeWithComputedType())
+        ), true).infer())
     case Join(leftGen, rightGen, left, right, JoinType.Right, on) if !useRightJoin =>
       // as rightJoin bs on e => bs leftJoin as on { (b, a) => e(a, b) } map { case (b, a) => (a, b) }
       val bgen = new AnonSymbol
       convert(Bind(bgen,
         Join(rightGen, leftGen, right, left, JoinType.Left, on),
         Pure(ProductNode(Seq(Select(Ref(bgen), ElementSymbol(2)), Select(Ref(bgen), ElementSymbol(1)))))
-      ).nodeWithComputedType())
+      ).infer())
     case Join(leftGen, rightGen, left, right, JoinType.Outer, on) =>
       // as fullJoin bs on e => (as leftJoin bs on e) unionAll bs.filter(b => !exists(as.filter(a => e(a, b)))).map(b => (nulls, b))
       val lgen2, rgen2, bgen = new AnonSymbol
@@ -54,8 +54,8 @@ class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) ext
             Library.Not.typed(on.nodeType, Library.Exists.typed(on.nodeType, Filter(lgen2, left, on2)))
           ),
           Pure(ProductNode(Seq(nullStructFor(left.nodeType.structural.asCollectionType.elementType), Ref(bgen))))
-        ), true).nodeWithComputedType())
-    case n => n.nodeMapChildren(convert, true)
+        ), true).infer())
+    case n => n.mapChildren(convert, true)
   }
 
   /** Create a structure of the given type where all columns are NULL. */

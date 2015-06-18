@@ -16,15 +16,15 @@ class ExpandSums extends Phase {
 
   /** Perform the sum expansion on a Node */
   def tr(tree: Node): Node = {
-    val tree2 = tree.nodeMapChildren(tr, keepType = true)
+    val tree2 = tree.mapChildren(tr, keepType = true)
     val tree3 = tree2 match {
       // Expand multi-column null values in ELSE branches (used by Rep[Option].filter) with correct type
       case IfThenElse(IndexedSeq(pred, then1 :@ tpe, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType))) =>
-        IfThenElse(Vector(pred, then1, buildMultiColumnNone(tpe))).nodeTyped(tpe)
+        IfThenElse(Vector(pred, then1, buildMultiColumnNone(tpe))) :@ tpe
 
       // Primitive OptionFold representing GetOrElse -> translate to GetOrElse
       case OptionFold(from :@ OptionType.Primitive(_), LiteralNode(v), Ref(s), gen) if s == gen =>
-        GetOrElse(from, () => v).nodeWithComputedType()
+        GetOrElse(from, () => v).infer()
 
       // Primitive OptionFold -> translate to null check
       case OptionFold(from :@ OptionType.Primitive(_), ifEmpty, map, gen) =>
@@ -35,33 +35,33 @@ class ExpandSums extends Phase {
           case _ =>
             val ifDefined = map.replace({
               case Ref(s) :@ tpe if s == gen => silentCast(tpe, from)
-            }, keepType = true).nodeWithComputedType()
+            }, keepType = true).infer()
             val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
             IfThenElse(Vector(pred, ifEmpty2, ifDefined))
         }
-        n2.nodeWithComputedType()
+        n2.infer()
 
       // Other OptionFold -> translate to discriminator check
       case OptionFold(from, ifEmpty, map, gen) =>
-        val left = from.select(ElementSymbol(1)).nodeWithComputedType()
+        val left = from.select(ElementSymbol(1)).infer()
         val pred = Library.==.typed[Boolean](left, Disc1)
         val n2 = (ifEmpty, map) match {
           case (LiteralNode(true), LiteralNode(false)) => Library.Not.typed[Boolean](pred)
           case (LiteralNode(false), LiteralNode(true)) => pred
           case _ =>
             val ifDefined = map.replace({
-              case Ref(s) :@ tpe if s == gen => silentCast(tpe, from.select(ElementSymbol(2)).nodeWithComputedType())
-            }, keepType = true).nodeWithComputedType()
+              case Ref(s) :@ tpe if s == gen => silentCast(tpe, from.select(ElementSymbol(2)).infer())
+            }, keepType = true).infer()
             val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
             if(left == Disc1) ifDefined else IfThenElse(IndexedSeq(pred, ifDefined, ifEmpty2))
         }
-        n2.nodeWithComputedType()
+        n2.infer()
 
       // Primitive OptionApply -> leave unchanged
       case n @ OptionApply(_) :@ OptionType.Primitive(_) => n
 
       // Other OptionApply -> translate to product form
-      case n @ OptionApply(ch) => ProductNode(Vector(Disc1, silentCast(toOptionColumns(ch.nodeType), ch))).nodeWithComputedType()
+      case n @ OptionApply(ch) => ProductNode(Vector(Disc1, silentCast(toOptionColumns(ch.nodeType), ch))).infer()
 
       // Non-primitive GetOrElse
       // (.get is only defined on primitive Options, but this can occur inside of HOFs like .map)
@@ -78,7 +78,7 @@ class ExpandSums extends Phase {
       case n => n
     }
     val tree4 = fuse(tree3)
-    tree4.nodeTypedOrCopy(trType(tree4.nodeType))
+    tree4 :@ trType(tree4.nodeType)
   }
 
   /** Translate an Option-extended left outer, right outer or full outer join */
@@ -90,13 +90,13 @@ class ExpandSums extends Phase {
     logger.debug(s"Translating join ($jt, complex: $lComplex, $rComplex):", bind)
 
     // Option-extend one side of the join with a discriminator column
-    def extend(side: Node, sym: Symbol, on: Node): (Node, Node) = {
+    def extend(side: Node, sym: TermSymbol, on: Node): (Node, Node) = {
       val extendGen = new AnonSymbol
-      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(Vector(Disc1, Ref(extendGen))))).nodeWithComputedType()
-      val sideInCondition = Select(Ref(sym).nodeTyped(extendedElementType), ElementSymbol(2)).nodeWithComputedType()
+      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(Vector(Disc1, Ref(extendGen))))).infer()
+      val sideInCondition = Select(Ref(sym) :@ extendedElementType, ElementSymbol(2)).infer()
       val on2 = on.replace({
         case Ref(s) if s == sym => sideInCondition
-        case n @ Select(in, _) => n.nodeWithComputedType(retype = true)  //if !in.nodeHasType => n.nodeUntypedOrCopy
+        case n @ Select(in, _) => n.infer(retype = true)  //if !in.hasType => n.nodeUntypedOrCopy
       }, bottomUp = true)
       (extend, on2)
     }
@@ -116,20 +116,20 @@ class ExpandSums extends Phase {
     }
 
     // Cast to translated Option type in outer bind
-    val join2 :@ CollectionType(_, elemType2) = Join(lsym, rsym, left2, right2, jt2, on2).nodeWithComputedType()
-    val ref = silentCast(trType(elemType), Ref(bsym).nodeTyped(elemType2))
+    val join2 :@ CollectionType(_, elemType2) = Join(lsym, rsym, left2, right2, jt2, on2).infer()
+    val ref = silentCast(trType(elemType), Ref(bsym) :@ elemType2)
     val pure2 = pure.replace({
       case Ref(s) if s == bsym => ref
-      case n @ Select(in, _) if !in.nodeHasType => n.nodeUntypedOrCopy
+      case n @ Select(in, _) if !in.hasType => n.untyped
 
       // Hoist SilentCasts and remove unnecessary ones
-      case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => silentCast(tpe, ch.nodeWithComputedType())
-      case Select(Library.SilentCast(ch), s) :@ tpe => silentCast(tpe, ch.select(s).nodeWithComputedType())
+      case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => silentCast(tpe, ch.infer())
+      case Select(Library.SilentCast(ch), s) :@ tpe => silentCast(tpe, ch.select(s).infer())
 
       // Ensure that the child is typed
-      case Library.SilentCast(ch) :@ tpe => silentCast(tpe, ch.nodeWithComputedType())
+      case Library.SilentCast(ch) :@ tpe => silentCast(tpe, ch.infer())
     }, bottomUp = true)
-    val res = Bind(bsym, join2, pure2).nodeWithComputedType()
+    val res = Bind(bsym, join2, pure2).infer()
     logger.debug("Translated join:", res)
     res
   }
@@ -147,7 +147,7 @@ class ExpandSums extends Phase {
     case StructType(ch) => StructNode(ch.map { case (sym, t) => (sym, buildMultiColumnNone(t)) })
     case OptionType(ch) => LiteralNode(tpe, None)
     case t => throw new SlickException("Unexpected non-Option type in multi-column None")
-  }).nodeTypedOrCopy(tpe)
+  }) :@ tpe
 
   /** Perform the sum expansion on a Type */
   def trType(tpe: Type): Type = {
@@ -173,7 +173,7 @@ class ExpandSums extends Phase {
   def fuse(n: Node): Node = n match {
     // Option.map
     case IfThenElse(IndexedSeq(Library.==(disc, Disc1), ProductNode(Seq(Disc1, map)), ProductNode(Seq(DiscNone, _)))) =>
-      ProductNode(Vector(disc, map)).nodeWithComputedType()
+      ProductNode(Vector(disc, map)).infer()
     case n => n
   }
 }

@@ -22,8 +22,8 @@ class HoistClientOps extends Phase {
       val base = new AnonSymbol
       val proj = StructNode(defs1.map { case (s, _) => (s, Select(Ref(base), s)) })
       val ResultSetMapping(_, rsmFrom, rsmProj) = hoist(ResultSetMapping(base, comp, proj))
-      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).nodeWithComputedType(SymbolScope.empty, false, true)
-      val rsm3 = fuseResultSetMappings(rsm.copy(from = rsm2)).nodeWithComputedType(retype = true)
+      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).infer(SymbolScope.empty, false, true)
+      val rsm3 = fuseResultSetMappings(rsm.copy(from = rsm2)).infer(retype = true)
       cons match {
         case Some(cons) =>
           rsm3 :@ CollectionType(cons, rsm3.nodeType.asCollectionType.elementType)
@@ -54,7 +54,7 @@ class HoistClientOps extends Phase {
 
   def hoist(tree: Node): Node = {
     logger.debug("Hoisting in:", tree)
-    val defs = tree.collectAll[(Symbol, Option[(Node, (Node => Node))])] { case StructNode(ch) =>
+    val defs = tree.collectAll[(TermSymbol, Option[(Node, (Node => Node))])] { case StructNode(ch) =>
       ch.map { case (s, n) =>
         val u = unwrap(n)
         logger.debug("Unwrapped "+n+" to "+u)
@@ -68,7 +68,7 @@ class HoistClientOps extends Phase {
         case p @ Path(h :: _) if defs.contains(h) =>
           val (_, wrap) = defs(h)
           wrap(p)
-        case d: DefNode => d.nodeMapScopedChildren {
+        case d: DefNode => d.mapScopedChildren {
           case (Some(sym), n) if defs.contains(sym) =>
             unwrap(n)._1.replace(tr)
           case (_, n) => n.replace(tr)
@@ -90,16 +90,16 @@ class HoistClientOps extends Phase {
             "This cannot be done lazily when the value is needed on the database side", ex)
       }
       Library.IfNull.typed(tpe, ch2, LiteralNode.apply(tpe, d))
-    case n => n.nodeMapChildren(rewriteDBSide, keepType = true)
+    case n => n.mapChildren(rewriteDBSide, keepType = true)
   }
 
   def unwrap(n: Node): (Node, (Node => Node)) = n match {
     case r @ GetOrElse(ch, default) =>
       val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => GetOrElse(recTr(sym), default).nodeTyped(r.nodeType) })
+      (recCh, { sym => GetOrElse(recTr(sym), default) :@ r.nodeType })
     case r @ OptionApply(ch) =>
       val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => OptionApply(recTr(sym)).nodeTyped(r.nodeType) })
+      (recCh, { sym => OptionApply(recTr(sym)) :@ r.nodeType })
     case n => (n, identity)
   }
 }

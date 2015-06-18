@@ -11,14 +11,14 @@ class ExpandConditionals extends Phase {
 
   def apply(state: CompilerState) = state.map(tr)
 
-  def tr(n: Node): Node = n.nodeMapChildren(tr, keepType = true) match {
+  def tr(n: Node): Node = n.mapChildren(tr, keepType = true) match {
     // Expand multi-column SilentCasts
     case cast @ Library.SilentCast(ch) :@ Type.Structural(ProductType(typeCh)) =>
-      val elems = typeCh.zipWithIndex.map { case (t, idx) => tr(Library.SilentCast.typed(t, ch.select(ElementSymbol(idx+1)).nodeWithComputedType())) }
-      ProductNode(elems).nodeWithComputedType()
+      val elems = typeCh.zipWithIndex.map { case (t, idx) => tr(Library.SilentCast.typed(t, ch.select(ElementSymbol(idx+1)).infer())) }
+      ProductNode(elems).infer()
     case Library.SilentCast(ch) :@ Type.Structural(StructType(typeCh)) =>
-      val elems = typeCh.map { case (sym, t) => (sym, tr(Library.SilentCast.typed(t, ch.select(sym).nodeWithComputedType()))) }
-      StructNode(elems).nodeWithComputedType()
+      val elems = typeCh.map { case (sym, t) => (sym, tr(Library.SilentCast.typed(t, ch.select(sym).infer()))) }
+      StructNode(elems).infer()
 
     // Optimize trivial SilentCasts
     case Library.SilentCast(v :@ tpe) :@ tpe2 if tpe.structural == tpe2.structural => v
@@ -29,14 +29,14 @@ class ExpandConditionals extends Phase {
     case (cond @ IfThenElse(_)) :@ Type.Structural(ProductType(chTypes)) =>
       val ch = (1 to chTypes.length).map { idx =>
         val sym = ElementSymbol(idx)
-        tr(cond.mapResultClauses(n => n.select(sym)).nodeWithComputedType())
+        tr(cond.mapResultClauses(n => n.select(sym)).infer())
       }
-      ProductNode(ch).nodeWithComputedType()
+      ProductNode(ch).infer()
     case (cond @ IfThenElse(_)) :@ Type.Structural(StructType(chTypes)) =>
       val ch = chTypes.map { case (sym, _) =>
-        (sym, tr(cond.mapResultClauses(n => n.select(sym)).nodeWithComputedType()))
+        (sym, tr(cond.mapResultClauses(n => n.select(sym)).infer()))
       }
-      StructNode(ch).nodeWithComputedType()
+      StructNode(ch).infer()
 
     // Optimize null-propagating single-column IfThenElse
     case IfThenElse(Seq(Library.==(r, LiteralNode(null)), Library.SilentCast(LiteralNode(None)), c @ Library.SilentCast(r2))) if r == r2 => c

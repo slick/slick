@@ -7,7 +7,6 @@ import slick.lifted._
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.ast.ExtraUtil._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.profile.{RelationalProfile, SqlProfile, Capability}
 import slick.compiler.CompilerState
@@ -107,12 +106,12 @@ trait MySQLDriver extends JdbcDriver { driver =>
     final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
       type Self = RowNum
       def tpe = ScalaBaseType.longType
-      def nodeRebuild = copy()
+      def rebuild = copy()
     }
     final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
       type Self = RowNumGen
       def tpe = ScalaBaseType.longType
-      def nodeRebuild = copy()
+      def rebuild = copy()
     }
 
     //TODO integrate into new compiler
@@ -120,7 +119,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
       case c @ Comprehension(sym, _, Some(sel), _, None, orderBy, Nil, _, _) if hasRowNumber(sel) =>
         // MySQL does not support ROW_NUMBER() but you can manually increment
         // a variable in the SELECT clause to emulate it.
-        val paths = findPaths(Set(sym), sel).map(p => (p, new AnonSymbol)).toMap
+        val paths = sel.collect({ case p @ FwdPath(s :: _) if s == sym => (p, new AnonSymbol) }, stopOnMatch = true).toMap
         val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
         val gen, rownumSym, rownumGen = new AnonSymbol
         var inc = true
@@ -138,13 +137,13 @@ trait MySQLDriver extends JdbcDriver { driver =>
     def hasRowNumber(n: Node): Boolean = n match {
       case c: Comprehension => false
       case r: RowNumber => true
-      case n => n.nodeChildren.exists(hasRowNumber)
+      case n => n.children.exists(hasRowNumber)
     }
 
     def replaceRowNumber(n: Node)(f: RowNumber => Node): Node = n match {
       case c: Comprehension => c
       case r: RowNumber => f(r)
-      case n => n.nodeMapChildren(ch => replaceRowNumber(ch)(f))
+      case n => n.mapChildren(ch => replaceRowNumber(ch)(f))
     }
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {

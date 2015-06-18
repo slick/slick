@@ -25,18 +25,18 @@ class CreateResultSetMapping extends Phase {
           ResultSetMapping(gen, collectionCast(ch, cons), createResult(gen, el, syms))
         case t =>
           ResultSetMapping(gen, ch, createResult(gen, t, syms))
-      }).nodeWithComputedType()
+      }).infer()
     }
   }
 
   def collectionCast(ch: Node, cons: CollectionTypeConstructor): Node = ch.nodeType match {
     case CollectionType(c, _) if c == cons => ch
-    case _ => CollectionCast(ch, cons).nodeWithComputedType()
+    case _ => CollectionCast(ch, cons).infer()
   }
 
   /** Create a structured return value for the client side, based on the
     * result type (which may contain MappedTypes). */
-  def createResult(sym: Symbol, tpe: Type, syms: IndexedSeq[Symbol]): Node = {
+  def createResult(sym: TermSymbol, tpe: Type, syms: IndexedSeq[TermSymbol]): Node = {
     var curIdx = 0
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)
@@ -77,10 +77,10 @@ class RemoveMappedTypes extends Phase {
   def removeTypeMapping(n: Node): Node = n match {
     case t: TypeMapping => removeTypeMapping(t.child)
     case n =>
-      val n2 = n.nodeMapChildren(removeTypeMapping)
+      val n2 = n.mapChildren(removeTypeMapping)
       val tpe = n2.nodeType
       val tpe2 = removeMappedType(tpe)
-      if(tpe2 eq tpe) n2 else n2.nodeTypedOrCopy(tpe2)
+      if(tpe2 eq tpe) n2 else n2 :@ tpe2
   }
 
   /** Remove MappedTypes from a Type */

@@ -12,6 +12,6 @@ class RelabelUnions extends Phase {
   def apply(state: CompilerState) = state.map(_.replace({
     case u @ Union(Bind(_, _, Pure(StructNode(ls), lts)), rb @ Bind(_, _, Pure(StructNode(rs), _)), _, _, _) =>
       val rs2 = (ls, rs).zipped.map { case ((s, _), (_, n)) => (s, n) }
-      u.copy(right = rb.copy(select = Pure(StructNode(rs2), lts))).nodeWithComputedType()
+      u.copy(right = rb.copy(select = Pure(StructNode(rs2), lts))).infer()
   }, keepType = true, bottomUp = true))
 }

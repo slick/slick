@@ -20,7 +20,7 @@ class RewriteBooleans extends Phase {
     state.map { n => ClientSideOp.mapServerSide(n)(rewriteRec) }
 
   def rewriteRec(n: Node): Node = {
-    val n2 = n.nodeMapChildren(rewriteRec, true)
+    val n2 = n.mapChildren(rewriteRec, true)
     val n3 = rewrite(n2)
     if(n3 ne n2) logger.debug(s"Rewriting $n2 to $n3")
     n3
@@ -37,9 +37,9 @@ class RewriteBooleans extends Phase {
       toFake(Apply(sym, ch)(n.nodeType))
     // Where clauses, join conditions and case clauses need real boolean predicates
     case n @ Comprehension(_, _, _, where, _, _, having, _, _) =>
-      n.copy(where = where.map(toReal), having = having.map(toReal)).nodeTyped(n.nodeType)
+      n.copy(where = where.map(toReal), having = having.map(toReal)) :@ n.nodeType
     case n @ Join(_, _, _, _, _, on) =>
-      n.copy(on = toReal(on)).nodeTyped(n.nodeType)
+      n.copy(on = toReal(on)) :@ n.nodeType
     case cond @ IfThenElse(_) =>
       cond.mapConditionClauses(toReal)
     case n => n

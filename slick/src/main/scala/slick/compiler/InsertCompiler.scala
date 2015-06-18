@@ -20,7 +20,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
     val rref = Ref(linearSym)
 
     var tableExpansion: TableExpansion = null
-    var expansionRef: Symbol = null
+    var expansionRef: TermSymbol = null
     val cols = new ArrayBuffer[Select]
     def setTable(te: TableExpansion) {
       if(tableExpansion eq null) {
@@ -31,15 +31,15 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
     }
 
     def tr(n: Node): Node = n match {
-      case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.nodeMapChildren(tr, keepType = true)
+      case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.mapChildren(tr, keepType = true)
       case te @ TableExpansion(_, _, expansion) =>
         setTable(te)
         tr(expansion)
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
         val ch =
           if(mode(fs)) {
-            cols += Select(tref, fs).nodeTyped(sel.nodeType)
-            IndexedSeq(Select(rref, ElementSymbol(cols.size)).nodeTyped(sel.nodeType))
+            cols += Select(tref, fs) :@ sel.nodeType
+            IndexedSeq(Select(rref, ElementSymbol(cols.size)) :@ sel.nodeType)
           } else IndexedSeq.empty[Node]
         InsertColumn(ch, fs, sel.nodeType)
       case Ref(s) if s == expansionRef =>
@@ -49,10 +49,10 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
         tr(sel.replace({ case Ref(s) if s == gen => Ref(expansionRef) }, keepType = true))
       case _ => throw new SlickException("Cannot use node "+n+" for inserting data")
     }
-    val tree2 = tr(tree).nodeWithComputedType()
+    val tree2 = tr(tree).infer()
     if(tableExpansion eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).nodeWithComputedType(retype = true)
-    ResultSetMapping(linearSym, ins, tree2).nodeTyped(CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType))
+    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).infer(retype = true)
+    ResultSetMapping(linearSym, ins, tree2) :@ CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType)
   }
 }
 

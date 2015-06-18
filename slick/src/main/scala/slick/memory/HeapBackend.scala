@@ -110,7 +110,7 @@ trait HeapBackend extends RelationalBackend with Logging {
 
     override def toString = name + "(" + columns.map(_.sym.name).mkString(", ") + ")"
 
-    lazy val columnIndexes: Map[Symbol, Int] = columns.map(_.sym).zipWithIndex.toMap
+    lazy val columnIndexes: Map[TermSymbol, Int] = columns.map(_.sym).zipWithIndex.toMap
 
     val verifier = {
       val v1 = indexes.foldLeft(Verifier.empty) { case (z, i) => z andThen createIndexVerifier(i) }

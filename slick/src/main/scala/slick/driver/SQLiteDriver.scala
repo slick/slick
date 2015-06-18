@@ -176,7 +176,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
         /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
          * unescaped function calls by default */
         b"${s.name}("
-        b.sep(s.nodeChildren, ",")(expr(_, true))
+        b.sep(s.children, ",")(expr(_, true))
         b")"
       case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
       // https://github.com/jOOQ/jOOQ/issues/1595

@@ -29,15 +29,15 @@ class ResolveZipJoins extends Phase {
       val idxExpr =
         if(offset == 1L) RowNumber()
         else Library.-.typed[Long](RowNumber(), LiteralNode(1L - offset))
-      val innerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (idxSym, idxExpr)))).nodeWithComputedType()
+      val innerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (idxSym, idxExpr)))).infer()
       val bindSym = new AnonSymbol
       val OldBindRef = Ref(oldBindSym)
       val bindRef = Ref(bindSym) :@ innerBind.nodeType.asCollectionType.elementType
       val newOuterSel = sel.replace {
         case Select(OldBindRef, ElementSymbol(1)) => bindRef
-        case Select(OldBindRef, ElementSymbol(2)) => Select(bindRef, idxSym).nodeWithComputedType()
+        case Select(OldBindRef, ElementSymbol(2)) => Select(bindRef, idxSym).infer()
       }
-      Bind(bindSym, innerBind, Pure(newOuterSel)).nodeWithComputedType(SymbolScope.empty, false, true)
+      Bind(bindSym, innerBind, Pure(newOuterSel)).infer(SymbolScope.empty, false, true)
 
     // zip with another query
     case b @ Bind(_, Join(jlsym, jrsym,
@@ -45,15 +45,15 @@ class ResolveZipJoins extends Phase {
         r @ Bind(rsym, rfrom, Pure(StructNode(rstruct), ts2)),
         JoinType.Zip, LiteralNode(true)), _) =>
       val lIdxSym, rIdxSym = new AnonSymbol
-      val lInnerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (lIdxSym, RowNumber())), ts1)).nodeWithComputedType(retype = true)
-      val rInnerBind = Bind(rsym, rfrom, Pure(StructNode(rstruct :+ (rIdxSym, RowNumber())), ts2)).nodeWithComputedType(retype = true)
+      val lInnerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (lIdxSym, RowNumber())), ts1)).infer(retype = true)
+      val rInnerBind = Bind(rsym, rfrom, Pure(StructNode(rstruct :+ (rIdxSym, RowNumber())), ts2)).infer(retype = true)
       val jlRef = Ref(jlsym) :@ lInnerBind.nodeType.asCollectionType.elementType
       val jrRef = Ref(jrsym) :@ rInnerBind.nodeType.asCollectionType.elementType
       val join = Join(jlsym, jrsym, lInnerBind, rInnerBind, JoinType.Inner,
-        Library.==.typed[Boolean](Select(jlRef, lIdxSym).nodeWithComputedType(), Select(jrRef, rIdxSym).nodeWithComputedType())
+        Library.==.typed[Boolean](Select(jlRef, lIdxSym).infer(), Select(jrRef, rIdxSym).infer())
       )
       b.copy(from = join)
 
     case n => n
-  }).nodeMapChildren(resolveZipJoins, keepType = true)
+  }).mapChildren(resolveZipJoins, keepType = true)
 }

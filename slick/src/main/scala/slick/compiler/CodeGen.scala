@@ -28,7 +28,7 @@ abstract class CodeGen extends Phase {
         logger.debug("Compiled server-side to:", nss)
         nss
       }
-      rsm.copy(from = nfrom, map = nmap.get).nodeTyped(rsm.nodeType)
+      rsm.copy(from = nfrom, map = nmap.get) :@ rsm.nodeType
     }
 
   def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState): (Node, Option[Node])

@@ -35,7 +35,7 @@ object Rep {
   def forNode[T : TypedType](n: Node): Rep[T] = new TypedRep[T] { def toNode = n }
   def forNodeUntyped[T](n: Node): Rep[T] = new UntypedRep[T] { def toNode = n }
 
-  abstract class TypedRep[T](implicit final val tpe: TypedType[T]) extends Rep[T] with Typed {
+  abstract class TypedRep[T](implicit final val tpe: TypedType[T]) extends Rep[T] {
     def encodeRef(path: Node): Rep[T] = forNode(path)
   }
 

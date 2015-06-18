@@ -18,8 +18,8 @@ class RemoveFieldNames extends Phase {
       val unrefTSyms = allTSyms -- refTSyms
       def tr(n: Node): Node =  n.replace({
         case (p @ Pure(s: StructNode, pts)) :@ CollectionType(_, NominalType(ts, _)) if unrefTSyms contains ts =>
-          val ch2 = s.nodeChildren.map(tr)
-          Pure(if(ch2.length == 1 && ts != top) ch2(0) else ProductNode(ch2), pts).nodeWithComputedType()
+          val ch2 = s.children.map(tr)
+          Pure(if(ch2.length == 1 && ts != top) ch2(0) else ProductNode(ch2), pts).infer()
       }, retype = true)
       tr(n)
     })
@@ -28,7 +28,7 @@ class RemoveFieldNames extends Phase {
     val baseRef = Ref(rsm.generator) :@ fType
     rsm2.copy(map = rsm2.map.replace({
       case Select(Ref(s), f) if s == rsm.generator =>
-        Select(baseRef, indexes(f)).nodeWithComputedType()
+        Select(baseRef, indexes(f)).infer()
     }, keepType = true)) :@ rsm.nodeType
   }}
 }
