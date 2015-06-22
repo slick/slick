@@ -124,10 +124,10 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
     val q4bt: Query[Rep[Option[Int]], _, Seq] = q4b
 
     val t2 = seq(
-      q1b.result.named("q1b").map(_ shouldBe r.map(t => Some(t)).map(_.getOrElse((0, "", None: Option[String])))),
-      q2b.result.named("q2b").map(_ shouldBe r.map(t => Some(t._1)).map(_.get)),
-      q3b.result.named("q3b").map(_ shouldBe r.map(t => t._3).filter(_.isDefined).map(_.get)),
-      q4b.result.named("q4b").map(_ shouldBe r.map(t => Some(t._3)).map(_.getOrElse(None: Option[String])))
+      mark("q1b", q1b.result).map(_ shouldBe r.map(t => Some(t)).map(_.getOrElse((0, "", None: Option[String])))),
+      mark("q2b", q2b.result).map(_ shouldBe r.map(t => Some(t._1)).map(_.get)),
+      mark("q3b", q3b.result).map(_ shouldBe r.map(t => t._3).filter(_.isDefined).map(_.get)),
+      mark("a4b", q4b.result).map(_ shouldBe r.map(t => Some(t._3)).map(_.getOrElse(None: Option[String])))
     )
 
     // Unpack result types

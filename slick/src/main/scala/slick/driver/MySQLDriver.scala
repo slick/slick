@@ -103,14 +103,14 @@ trait MySQLDriver extends JdbcDriver { driver =>
     override protected val supportsCast = false
     override protected val parenthesizeNestedRHSJoin = true
 
-    final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
+    final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with SimplyTypedNode {
       type Self = RowNum
-      def tpe = ScalaBaseType.longType
+      def buildType = ScalaBaseType.longType
       def rebuild = copy()
     }
-    final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
+    final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with SimplyTypedNode {
       type Self = RowNumGen
-      def tpe = ScalaBaseType.longType
+      def buildType = ScalaBaseType.longType
       def rebuild = copy()
     }
 

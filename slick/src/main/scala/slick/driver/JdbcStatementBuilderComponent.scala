@@ -329,9 +329,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b.sep(ch, ", ")(expr(_))
         b"\)"
       case RewriteBooleans.ToFakeBoolean(ch) =>
-        expr(IfThenElse(Vector(ch, LiteralNode(1), LiteralNode(0))), skipParens)
+        expr(IfThenElse(Vector(ch, LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
       case RewriteBooleans.ToRealBoolean(ch) =>
-        expr(Library.==.typed[Boolean](ch, LiteralNode(true)), skipParens)
+        expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
       case Library.Exists(c: Comprehension) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite
@@ -369,9 +369,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
       case Library.Substring(n, start, end) =>
-        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})}\)"
+        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})}\)"
       case Library.Substring(n, start) =>
-        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))})}\)"
+        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())})}\)"
       case Library.IndexOf(n, str) => b"\({fn locate($str, $n)} - 1\)"
       case Library.Cast(ch @ _*) =>
         val tn =
@@ -514,7 +514,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         super.buildComprehension(c3)
         b") $tn where $rn"
         (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b" between ${QueryParameter.constOp[Long]("+")(_ + _)(d, LiteralNode(1L))} and ${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}"
+          case (Some(t), Some(d)) => b" between ${QueryParameter.constOp[Long]("+")(_ + _)(d, LiteralNode(1L).infer())} and ${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}"
           case (Some(t), None   ) => b" between 1 and $t"
           case (None,    Some(d)) => b" > $d"
           case _ => throw new SlickException("Unexpected empty fetch/offset")
@@ -597,10 +597,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def reorderColumns(n: Node, order: IndexedSeq[FieldSymbol]): Node = {
       val newIndices = order.zipWithIndex.groupBy(_._1)
       lazy val reordering: IndexedSeq[IndexedSeq[Int]] = syms.map(fs => newIndices(fs).map(_._2 + 1))
-      n.replace { case InsertColumn(IndexedSeq(Select(ref, ElementSymbol(idx))), fs, tpe) =>
+      n.replace({ case InsertColumn(IndexedSeq(Select(ref, ElementSymbol(idx))), fs, tpe) =>
         val newPaths = reordering(idx-1).map(i => Select(ref, ElementSymbol(i)))
-        InsertColumn(newPaths, fs, tpe).infer()
-      }
+        InsertColumn(newPaths, fs, tpe) :@ tpe
+      }, keepType = true)
     }
   }
 

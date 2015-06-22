@@ -5,7 +5,7 @@ import slick.ast._
 import slick.util._
 
 /** Base class for SimpleFunction/BinaryOperator/Expression implementations. */
-private[lifted] abstract class SimpleFeatureNode[T](implicit val tpe: TypedType[T]) extends TypedNode {
+private[lifted] abstract class SimpleFeatureNode[T](implicit val buildType: TypedType[T]) extends SimplyTypedNode {
   type Self = SimpleFeatureNode[T]
 }
 
@@ -63,9 +63,9 @@ object SimpleBinaryOperator {
 /** A SimpleLiteral is inserted verbatim into a SQL query string. For the
   * purpose of handling it in the query compiler it is assumed to be an
   * expression of the specified type. */
-final case class SimpleLiteral(name: String)(val tpe: Type) extends NullaryNode with TypedNode {
+final case class SimpleLiteral(name: String)(val buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = SimpleLiteral
-  def rebuild = copy()(tpe)
+  def rebuild = copy()(buildType)
 }
 object SimpleLiteral{
   def apply[T](name: String)(implicit tpe: TypedType[T]) = Rep.forNode[T](new SimpleLiteral(name)(tpe))

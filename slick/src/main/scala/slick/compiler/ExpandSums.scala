@@ -1,6 +1,6 @@
 package slick.compiler
 
-import slick.SlickException
+import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
 import TypeUtil._
@@ -97,7 +97,7 @@ class ExpandSums extends Phase {
       val on2 = on.replace({
         case Ref(s) if s == sym => sideInCondition
         case n @ Select(in, _) => n.infer(retype = true)  //if !in.hasType => n.nodeUntypedOrCopy
-      }, bottomUp = true)
+      }, bottomUp = true, retype = true)
       (extend, on2)
     }
 
@@ -128,7 +128,7 @@ class ExpandSums extends Phase {
 
       // Ensure that the child is typed
       case Library.SilentCast(ch) :@ tpe => silentCast(tpe, ch.infer())
-    }, bottomUp = true)
+    }, bottomUp = true, keepType = true)
     val res = Bind(bsym, join2, pure2).infer()
     logger.debug("Translated join:", res)
     res
@@ -138,7 +138,9 @@ class ExpandSums extends Phase {
   def silentCast(tpe: Type, n: Node): Node = n match {
     case LiteralNode(None) :@ OptionType(ScalaBaseType.nullType) => buildMultiColumnNone(tpe)
     case n :@ tpe2 if tpe2 == tpe => n
-    case n => Library.SilentCast.typed(tpe, n)
+    case n =>
+      if(tpe == UnassignedType) throw new SlickTreeException("Unexpected UnassignedType for:", n)
+      Library.SilentCast.typed(tpe, n).infer()
   }
 
   /** Create a Node representing a structure of null values of the given Type */

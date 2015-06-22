@@ -2,7 +2,7 @@ package slick.compiler
 
 import slick.ast._
 import scala.collection.mutable.ArrayBuffer
-import slick.SlickException
+import slick.{SlickTreeException, SlickException}
 import slick.util.SlickLogger
 import org.slf4j.LoggerFactory
 import Util._
@@ -27,7 +27,9 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
         tableExpansion = te
         expansionRef = te.generator
       }
-      else if(tableExpansion.table ne te.table) throw new SlickException("Cannot insert into more than one table at once")
+      else if(tableExpansion.table ne te.table)
+        throw new SlickTreeException("Cannot insert into more than one table at once", tree, removeUnmarked = false,
+          mark = (n => (n eq tableExpansion.table) || (n eq te.table)))
     }
 
     def tr(n: Node): Node = n match {
@@ -41,7 +43,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
             cols += Select(tref, fs) :@ sel.nodeType
             IndexedSeq(Select(rref, ElementSymbol(cols.size)) :@ sel.nodeType)
           } else IndexedSeq.empty[Node]
-        InsertColumn(ch, fs, sel.nodeType)
+        InsertColumn(ch, fs, sel.nodeType).infer()
       case Ref(s) if s == expansionRef =>
         tr(tableExpansion.columns)
       case Bind(gen, te @ TableExpansion(_, t: TableNode, _), Pure(sel, _)) =>
@@ -51,7 +53,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
     }
     val tree2 = tr(tree).infer()
     if(tableExpansion eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).infer(retype = true)
+    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).infer()
     ResultSetMapping(linearSym, ins, tree2) :@ CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType)
   }
 }

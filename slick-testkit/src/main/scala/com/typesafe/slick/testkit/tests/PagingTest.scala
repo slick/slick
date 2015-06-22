@@ -24,11 +24,11 @@ class PagingTest extends AsyncTest[RelationalTestDB] {
       _ <- ids ++= (1 to 10)
       _ <- mark("q1", q1.result).map(_ shouldBe (1 to 10).toList)
       _ <- mark("q2", q2.result).map(_ shouldBe (1 to 5).toList)
-      _ <- ifCap(rcap.pagingDrop)(seq(
-        q3.result.map(_ shouldBe (6 to 10).toList),
-        q4.result.map(_ shouldBe (6 to 8).toList),
-        q5.result.map(_ shouldBe (4 to 5).toList)
-      ))
+      _ <- ifCap(rcap.pagingDrop)(for {
+        _ <- mark("q3", q3.result).map(_ shouldBe (6 to 10).toList)
+        _ <- mark("q4", q4.result).map(_ shouldBe (6 to 8).toList)
+        _ <- mark("q5", q5.result).map(_ shouldBe (4 to 5).toList)
+      } yield ())
       _ <- mark("q6", q6.result).map(_ shouldBe Nil)
     } yield ()
   }

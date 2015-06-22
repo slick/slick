@@ -54,9 +54,9 @@ class MergeToComprehensions extends Phase {
         val count2 = applyReplacements(count1, replacements1, c1)
         val (fetch2, offset2) = (c1.fetch, c1.offset) match {
           case (None,    None   ) => (None, Some(count2))
-          case (Some(t), None   ) => (Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, count2))), Some(count2))
+          case (Some(t), None   ) => (Some(constOp[Long]("max")(math.max)(LiteralNode(0L).infer(), constOp[Long]("-")(_ - _)(t, count2))), Some(count2))
           case (None,    Some(d)) => (None, Some(constOp[Long]("+")(_ + _)(d, count2)))
-          case (Some(t), Some(d)) => (Some(constOp[Long]("max")(math.max)(LiteralNode(0L), constOp[Long]("-")(_ - _)(t, count2))), Some(constOp[Long]("+")(_ + _)(d, count2)))
+          case (Some(t), Some(d)) => (Some(constOp[Long]("max")(math.max)(LiteralNode(0L).infer(), constOp[Long]("-")(_ - _)(t, count2))), Some(constOp[Long]("+")(_ + _)(d, count2)))
         }
         val c2 = c1.copy(fetch = fetch2, offset = offset2) :@ c1.nodeType
         logger.debug("Merged Drop into Comprehension:", c2)
@@ -166,7 +166,7 @@ class MergeToComprehensions extends Phase {
         val (l2 @ (_ :@ CollectionType(_, ltpe)), lmap) = dealias(l1)(createSourceOrTopLevel)
         val (r2 @ (_ :@ CollectionType(_, rtpe)), rmap) = dealias(r1)(createSourceOrTopLevel)
         // Detect and remove empty join sides
-        val noCondition = on1 == LiteralNode(true)
+        val noCondition = on1 == LiteralNode(true).infer()
         val noLeft = l2 match {
           case Pure(StructNode(Seq()), _) => true
           case _ => false

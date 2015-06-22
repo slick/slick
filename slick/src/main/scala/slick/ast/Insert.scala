@@ -18,7 +18,7 @@ final case class Insert(tableSym: TermSymbol, table: Node, linear: Node) extends
 }
 
 /** A column in an Insert operation. */
-final case class InsertColumn(children: IndexedSeq[Node], fs: FieldSymbol, tpe: Type) extends Node with TypedNode {
+final case class InsertColumn(children: IndexedSeq[Node], fs: FieldSymbol, buildType: Type) extends Node with SimplyTypedNode {
   type Self = InsertColumn
   protected[this] def rebuild(ch: IndexedSeq[Node]) = copy(children = ch)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = fs.toString)

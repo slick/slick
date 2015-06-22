@@ -47,7 +47,7 @@ class HoistClientOps extends Phase {
             logger.debug(s"SilentCast cannot be elided: $tpe != $tpe2")
             n
           }
-      }, bottomUp = true)
+      }, bottomUp = true, keepType = true)
       fuseResultSetMappings(ResultSetMapping(gen2, from2, nmap))
     case n => rsm
   }

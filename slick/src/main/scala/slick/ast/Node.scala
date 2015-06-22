@@ -7,11 +7,8 @@ import slick.util.{Logging, Dumpable, DumpInfo, GlobalConfig}
 import Util._
 import TypeUtil._
 
-/**
- * A node in the Slick AST.
- *
- * Every Node has a number of child nodes and an optional type annotation.
- */
+/** A node in the Slick AST.
+  * Every Node has a number of child nodes and an optional type annotation. */
 trait Node extends Dumpable {
   type Self >: this.type <: Node
 
@@ -37,7 +34,7 @@ trait Node extends Dumpable {
   /** Apply a mapping function to all children of this node and recreate the node with the new
     * children. If all new children are identical to the old ones, this node is returned. If
     * ``keepType`` is true, the type of this node is kept even when the children have changed. */
-  final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = {
+  final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = if(isInstanceOf[NullaryNode]) this else {
     val n: Self = mapOrNone(children)(f).map(rebuild).getOrElse(this)
     if(_type == UnassignedType || !keepType) n else (n :@ _type).asInstanceOf[Self]
   }
@@ -59,9 +56,9 @@ trait Node extends Dumpable {
     if(seenType || _type != UnassignedType) rebuild(children.toIndexedSeq) else this
 
   /** Return this Node with a Type assigned (if no other type has been seen for it yet) or a typed copy. */
-  final def :@ (tpe: Type): Self = {
-    val n: Self = if(seenType && tpe != _type) rebuild(children.toIndexedSeq) else this
-    n._type = tpe
+  final def :@ (newType: Type): Self = {
+    val n: Self = if(seenType && newType != _type) rebuild(children.toIndexedSeq) else this
+    n._type = newType
     n
   }
 
@@ -83,20 +80,20 @@ trait Node extends Dumpable {
         (n, args)
       case _ => (super.toString, "")
     }
-    val tpe = peekType
+    val t = peekType
     val ch = this match {
       // Omit path details unless dumpPaths is set
       case Path(l @ (_ :: _ :: _)) if !GlobalConfig.dumpPaths => Vector.empty
       case _ => childNames.zip(children).toVector
     }
-    DumpInfo(objName, mainInfo, if(tpe != UnassignedType) ": " + tpe.toString else "", ch)
+    DumpInfo(objName, mainInfo, if(t != UnassignedType) ": " + t.toString else "", ch)
   }
 
   override final def toString = getDumpInfo.getNamePlusMainInfo
 }
 
-/** A Node whose children can be typed independently of each other and which can be typed without
-  * access to its scope. */
+/** A Node which can be typed without access to its scope, and whose children can be typed
+  * independently of each other. */
 trait SimplyTypedNode extends Node {
   type Self >: this.type <: SimplyTypedNode
 
@@ -105,22 +102,6 @@ trait SimplyTypedNode extends Node {
   final def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
     val this2: Self = mapChildren(_.infer(scope, typeChildren, retype), !retype)
     if(!hasType || retype) (this2 :@ this2.buildType).asInstanceOf[Self] else this2
-  }
-}
-
-/** A Node with a fixed type that cannot be overridden or removed. */
-trait TypedNode extends Node {
-  def tpe: Type
-  override def nodeType: Type = {
-    val t = super.nodeType
-    if(t eq UnassignedType) tpe else t
-  }
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
-    mapChildren(_.infer(scope, typeChildren, retype), !retype)
-  override def hasType = (tpe ne UnassignedType) || super.hasType
-  override protected[this] def peekType: Type = super.peekType match {
-    case UnassignedType => tpe
-    case t => t
   }
 }
 
@@ -171,14 +152,14 @@ final case class StructNode(elements: IndexedSeq[(TermSymbol, Node)]) extends Si
   *                     contains user-generated data or may change in future executions of what
   *                     is otherwise the same query. A database back-end should usually turn
   *                     volatile constants into bind variables. */
-class LiteralNode(val tpe: Type, val value: Any, val volatileHint: Boolean = false) extends NullaryNode with TypedNode {
+class LiteralNode(val buildType: Type, val value: Any, val volatileHint: Boolean = false) extends NullaryNode with SimplyTypedNode {
   type Self = LiteralNode
   override def getDumpInfo = super.getDumpInfo.copy(name = "LiteralNode", mainInfo = s"$value (volatileHint=$volatileHint)")
-  protected[this] def rebuild = new LiteralNode(tpe, value, volatileHint)
+  protected[this] def rebuild = new LiteralNode(buildType, value, volatileHint)
 
-  override def hashCode = tpe.hashCode() + (if(value == null) 0 else value.asInstanceOf[AnyRef].hashCode)
+  override def hashCode = buildType.hashCode() + (if(value == null) 0 else value.asInstanceOf[AnyRef].hashCode)
   override def equals(o: Any) = o match {
-    case l: LiteralNode => tpe == l.tpe && value == l.value
+    case l: LiteralNode => buildType == l.buildType && value == l.value
     case _ => false
   }
 }
@@ -456,9 +437,9 @@ final case class Select(in: Node, field: TermSymbol) extends UnaryNode with Simp
 }
 
 /** A function call expression. */
-final case class Apply(sym: TermSymbol, children: Seq[Node])(val tpe: Type) extends TypedNode {
+final case class Apply(sym: TermSymbol, children: Seq[Node])(val buildType: Type) extends SimplyTypedNode {
   type Self = Apply
-  protected[this] def rebuild(ch: IndexedSeq[slick.ast.Node]) = copy(children = ch)(tpe)
+  protected[this] def rebuild(ch: IndexedSeq[slick.ast.Node]) = copy(children = ch)(buildType)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = sym.toString)
 }
 
@@ -503,17 +484,17 @@ object FwdPath {
 }
 
 /** A Node representing a database table. */
-final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any, baseIdentity: TableIdentitySymbol) extends NullaryNode with TypedNode {
+final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any, baseIdentity: TableIdentitySymbol) extends NullaryNode with SimplyTypedNode {
   type Self = TableNode
-  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedType))
+  def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedType))
   def rebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(name = "Table", mainInfo = schemaName.map(_ + ".").getOrElse("") + tableName)
 }
 
 /** A node that represents an SQL sequence. */
-final case class SequenceNode(name: String)(val increment: Long) extends NullaryNode with TypedNode {
+final case class SequenceNode(name: String)(val increment: Long) extends NullaryNode with SimplyTypedNode {
   type Self = SequenceNode
-  def tpe = ScalaBaseType.longType
+  def buildType = ScalaBaseType.longType
   def rebuild = copy()(increment)
 }
 
@@ -521,9 +502,9 @@ final case class SequenceNode(name: String)(val increment: Long) extends Nullary
   * numbers starting at the given number. This is used as an operand for
   * zipWithIndex. It is not exposed directly in the query language because it
   * cannot be represented in SQL outside of a 'zip' operation. */
-final case class RangeFrom(start: Long = 1L) extends NullaryNode with TypedNode {
+final case class RangeFrom(start: Long = 1L) extends NullaryNode with SimplyTypedNode {
   type Self = RangeFrom
-  def tpe = CollectionType(TypedCollectionTypeConstructor.seq, ScalaBaseType.longType)
+  def buildType = CollectionType(TypedCollectionTypeConstructor.seq, ScalaBaseType.longType)
   def rebuild = copy()
 }
 
@@ -600,7 +581,7 @@ final case class GetOrElse(child: Node, default: () => Any) extends UnaryNode wi
 
 /** A compiled statement with a fixed type, a statement string and
   * driver-specific extra data. */
-final case class CompiledStatement(statement: String, extra: Any, tpe: Type) extends NullaryNode with TypedNode {
+final case class CompiledStatement(statement: String, extra: Any, buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = CompiledStatement
   def rebuild = copy()
   override def getDumpInfo =
@@ -625,7 +606,7 @@ final case class RebuildOption(discriminator: Node, data: Node) extends BinaryNo
 }
 
 /** A parameter from a QueryTemplate which gets turned into a bind variable. */
-final case class QueryParameter(extractor: (Any => Any), tpe: Type) extends NullaryNode with TypedNode {
+final case class QueryParameter(extractor: (Any => Any), buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = QueryParameter
   def rebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = extractor + "@" + System.identityHashCode(extractor))
@@ -638,7 +619,7 @@ object QueryParameter {
     * on two primitive values. The given Nodes must also be of type `LiteralNode` or
     * `QueryParameter`. */
   def constOp[T](name: String)(op: (T, T) => T)(l: Node, r: Node)(implicit tpe: ScalaBaseType[T]): Node = (l, r) match {
-    case (LiteralNode(lv) :@ (lt: TypedType[_]), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe => LiteralNode[T](op(lv.asInstanceOf[T], rv.asInstanceOf[T]))
+    case (LiteralNode(lv) :@ (lt: TypedType[_]), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe => LiteralNode[T](op(lv.asInstanceOf[T], rv.asInstanceOf[T])).infer()
     case (LiteralNode(lv) :@ (lt: TypedType[_]), QueryParameter(re, rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
       QueryParameter(new (Any => T) {
         def apply(param: Any) = op(lv.asInstanceOf[T], re(param).asInstanceOf[T])

@@ -82,9 +82,9 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Option[Node]
 }
 
 /** The row_number window function */
-final case class RowNumber(by: Seq[(Node, Ordering)] = Seq.empty) extends TypedNode {
+final case class RowNumber(by: Seq[(Node, Ordering)] = Seq.empty) extends SimplyTypedNode {
   type Self = RowNumber
-  def tpe = ScalaBaseType.longType
+  def buildType = ScalaBaseType.longType
   lazy val children = by.map(_._1)
   protected[this] def rebuild(ch: IndexedSeq[Node]) =
     copy(by = by.zip(ch).map{ case ((_, o), n) => (n, o) })

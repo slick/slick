@@ -181,7 +181,7 @@ class DistributedDriver(val drivers: RelationalProfile*) extends MemoryQueryingD
 /** Represents a computation that needs to be performed by another driver.
   * Despite having a child it is a NullaryNode because the sub-computation
   * should be opaque to the query compiler. */
-final case class DriverComputation(compiled: Node, driver: RelationalDriver, tpe: Type) extends NullaryNode with TypedNode {
+final case class DriverComputation(compiled: Node, driver: RelationalDriver, buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = DriverComputation
   protected[this] def rebuild = copy()
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = driver.toString)

@@ -14,15 +14,15 @@ class ExpandConditionals extends Phase {
   def tr(n: Node): Node = n.mapChildren(tr, keepType = true) match {
     // Expand multi-column SilentCasts
     case cast @ Library.SilentCast(ch) :@ Type.Structural(ProductType(typeCh)) =>
-      val elems = typeCh.zipWithIndex.map { case (t, idx) => tr(Library.SilentCast.typed(t, ch.select(ElementSymbol(idx+1)).infer())) }
+      val elems = typeCh.zipWithIndex.map { case (t, idx) => tr(Library.SilentCast.typed(t, ch.select(ElementSymbol(idx+1)).infer()).infer()) }
       ProductNode(elems).infer()
     case Library.SilentCast(ch) :@ Type.Structural(StructType(typeCh)) =>
-      val elems = typeCh.map { case (sym, t) => (sym, tr(Library.SilentCast.typed(t, ch.select(sym).infer()))) }
+      val elems = typeCh.map { case (sym, t) => (sym, tr(Library.SilentCast.typed(t, ch.select(sym).infer()).infer())) }
       StructNode(elems).infer()
 
     // Optimize trivial SilentCasts
     case Library.SilentCast(v :@ tpe) :@ tpe2 if tpe.structural == tpe2.structural => v
-    case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => tr(Library.SilentCast.typed(tpe, ch))
+    case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => tr(Library.SilentCast.typed(tpe, ch).infer())
     case Library.SilentCast(LiteralNode(None)) :@ (tpe @ OptionType.Primitive(_)) => LiteralNode(tpe, None)
 
     // Expand multi-column IfThenElse
