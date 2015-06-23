@@ -168,8 +168,10 @@ trait JdbcBackend extends RelationalBackend {
       *     of connections to keep in the pool.</li>
       *   <li>`connectionTimeout` (Duration, optional, default: 1s): The maximum time to wait
       *     before a call to getConnection is timed out. If this time is exceeded without a
-      *     connection becoming available, a SQLException will be thrown. 100ms is the minimum
+      *     connection becoming available, a SQLException will be thrown. 1000ms is the minimum
       *     value.</li>
+      *   <li>`validationTimeout` (Duration, optional, default: 1s): The maximum amount of time
+      *     that a connection will be tested for aliveness. 1000ms is the minimum value.</li>
       *   <li>`idleTimeout` (Duration, optional, default: 10min): The maximum amount
       *     of time that a connection is allowed to sit idle in the pool. A value of 0 means that
       *     idle connections are never removed from the pool.</li>
