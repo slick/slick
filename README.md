@@ -1,6 +1,8 @@
 Slick
 =====
 
+[![Join the chat at https://gitter.im/slick/slick](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/slick/slick?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 [![Build Status](https://travis-ci.org/slick/slick.png?branch=master)](https://travis-ci.org/slick/slick) [![Stories in Ready](https://badge.waffle.io/slick/slick.png?label=1%20-%20Ready)](https://waffle.io/slick/slick)
 
 Slick is a modern database query and access library for Scala. It allows you
