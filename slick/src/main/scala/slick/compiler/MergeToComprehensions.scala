@@ -232,6 +232,9 @@ class MergeToComprehensions extends Phase {
         logger.debug("Converted Union:", u2)
         (u2, rep1)
 
+      case Subquery(n, _) =>
+        createTopLevel(n)
+
       case n =>
         val (c, rep) = mergeTakeDrop(n, false)
         val mappings = rep.mapValues(_ :: Nil).toSeq

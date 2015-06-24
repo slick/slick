@@ -541,35 +541,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
   }
 
-  /** QueryBuilder mix-in for Oracle-style ROWNUM (applied before ORDER BY
-    * and GROUP BY) instead of the standard SQL ROWNUMBER(). */
-  trait OracleStyleRowNum extends QueryBuilder {
-    def hasRowNumber(n: Node): Boolean = n match {
-      case c: Comprehension => false
-      case r: RowNumber => true
-      case n => n.children.exists(hasRowNumber)
-    }
-
-    //TODO integrate into new compiler
-    override protected def transformComprehension(c: Comprehension) = c match {
-      case c @ Comprehension(sym, _, Some(sel), _, None, orderBy, Nil, _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
-        // Pull the SELECT clause with the ROWNUM up into a new query
-        val paths = sel.collect({ case p @ FwdPath(s :: _) if s == sym => (p, new AnonSymbol) }, stopOnMatch = true).toMap
-        val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
-        val gen = new AnonSymbol
-        val newSel = sel.replace {
-          case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
-        }
-        Comprehension(gen, inner, select = Some(newSel))
-      case c => c
-    }
-
-    override def expr(n: Node, skipParens: Boolean = false) = n match {
-      case RowNumber(_) => b"rownum"
-      case _ => super.expr(n, skipParens)
-    }
-  }
-
   /** Builder for INSERT statements. */
   class InsertBuilder(val ins: Insert) {
     protected val Insert(_, table: TableNode, ProductNode(rawColumns)) = ins

@@ -27,6 +27,7 @@ object Util {
 /** Extra methods for Nodes. */
 final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
+  import NodeOps._
 
   @inline def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): Seq[T] = {
     val b = new ArrayBuffer[T]
@@ -68,14 +69,17 @@ final class NodeOps(val tree: Node) extends AnyVal {
     * to the invalidated TypeSymbols have their types unassigned, so that the whole tree can be
     * retyped afterwards to get the correct new TypeSymbols in. */
   def replaceInvalidate(f: PartialFunction[(Node, Set[TypeSymbol], Node), (Node, Set[TypeSymbol])]): Node = {
-    def containsTS(t: Type, invalid: Set[TypeSymbol]): Boolean = t match {
-      case NominalType(ts, exp) => invalid.contains(ts) || containsTS(exp, invalid)
-      case t => t.children.exists(ch => containsTS(ch, invalid))
-    }
     replaceFold(Set.empty[TypeSymbol])(f.orElse {
       case ((n: Ref), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
       case ((n: Select), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
     })._1
+  }
+
+  def untypeReferences(invalid: Set[TypeSymbol]): Node = {
+    if(invalid.isEmpty) tree else replace({
+      case n: Ref if containsTS(n.nodeType, invalid) => n.untyped
+      case n: Select if containsTS(n.nodeType, invalid) => n.untyped
+    }, bottomUp = true)
   }
 
   def foreach[U](f: (Node => U)): Unit = {
@@ -99,5 +103,14 @@ final class NodeOps(val tree: Node) extends AnyVal {
     case (s: FieldSymbol, StructNode(ch)) => ch.find{ case (s2,_) => s == s2 }.get._2
     case (s: ElementSymbol, ProductNode(ch)) => ch(s.idx-1)
     case (s, n) => Select(n, s)
+  }
+}
+
+private object NodeOps {
+  private def containsTS(t: Type, invalid: Set[TypeSymbol]): Boolean = {
+    if(invalid.isEmpty) false else t match {
+      case NominalType(ts, exp) => invalid.contains(ts) || containsTS(exp, invalid)
+      case t => t.children.exists(ch => containsTS(ch, invalid))
+    }
   }
 }

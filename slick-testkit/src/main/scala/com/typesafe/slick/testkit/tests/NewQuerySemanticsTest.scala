@@ -180,44 +180,40 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     } yield (c._1, c._3)
 
     // Map to tuple, then filter, with self-join
-    val q4b_0 = coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 800)
-    val q4b = for {
+    def q4b_0 = coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 800)
+    def q4b = for {
       c <- q4b_0
       d <- q4b_0
     } yield (c,d)
 
-    def a3 = seq(
-      q2.result.named("More elaborate query").map(_.toSet).map { r2 =>
+    def a3 = for {
+      _ <- q2.result.named("More elaborate query").map(_.toSet).map { r2 =>
         r2 shouldBe Set(
           ("Colombian","Acme, Inc."),
           ("French_Roast","Superior Coffee"),
           ("Colombian_Decaf","Acme, Inc.")
         )
-      },
-      q3.result.named("Lifting scalar values").map(_.toSet).map { r3 =>
+      }
+      _ <- q3.result.named("Lifting scalar values").map(_.toSet).map { r3 =>
         r3 shouldBe Set(("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396))
-      },
-      q3b.result.named("Lifting scalar values, with extra tuple").map(_.toSet).map { r3b =>
+      }
+      _ <- q3b.result.named("Lifting scalar values, with extra tuple").map(_.toSet).map { r3b =>
         r3b shouldBe Set(
           ("Colombian","Acme, Inc.","Colombian",0,799,42),
           ("French_Roast","Superior Coffee","French_Roast",0,1598,42),
           ("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396,42)
         )
-      },
-      ifCap(rcap.pagingNested) {
-        q4.result.named("Map to tuple, then filter").map { r4 =>
-          r4.toSet shouldBe Set(("Colombian",42))
-        }
-      },
-      q4b.result.map(_.toSet).map { r4b =>
-        r4b shouldBe Set(
-          (("Colombian",799,42),("Colombian",799,42)),
-          (("Colombian",799,42),("French_Roast",799,42)),
-          (("French_Roast",799,42),("Colombian",799,42)),
-          (("French_Roast",799,42),("French_Roast",799,42))
-        )
       }
-    )
+      _ <- ifCap(rcap.pagingNested) {
+        mark("q4", q4.result).named("q4: Map to tuple, then filter").map(_.toSet shouldBe Set(("Colombian",42)))
+      }
+      _ <- mark("q4b", q4b.result).map(_.toSet shouldBe Set(
+        (("Colombian",799,42),("Colombian",799,42)),
+        (("Colombian",799,42),("French_Roast",799,42)),
+        (("French_Roast",799,42),("Colombian",799,42)),
+        (("French_Roast",799,42),("French_Roast",799,42))
+      ))
+    } yield ()
 
     // Implicit self-join
     val q5_0 = coffees.sortBy(_.price).take(2)

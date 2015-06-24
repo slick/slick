@@ -36,7 +36,7 @@ object SlickBuild extends Build {
       "com.zaxxer" % "HikariCP-java6" % "2.0.1"
     )
     val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams) ++ pools.map(_ % "optional")
-    val h2 = "com.h2database" % "h2" % "1.3.170"
+    val h2 = "com.h2database" % "h2" % "1.4.187"
     val testDBs = Seq(
       h2,
       "org.xerial" % "sqlite-jdbc" % "3.8.7",

@@ -104,6 +104,7 @@ object QueryCompiler {
     Phase.removeMappedTypes,
     /* Convert to column form */
     Phase.expandSums,
+    // optional removeTakeDrop goes here
     // optional emulateOuterJoins goes here
     Phase.expandConditionals,
     Phase.expandRecords,
@@ -172,6 +173,7 @@ object Phase {
   val createAggregates = new CreateAggregates
   val rewriteJoins = new RewriteJoins
   val verifySymbols = new VerifySymbols
+  val removeTakeDrop = new RemoveTakeDrop
   val resolveZipJoins = new ResolveZipJoins
   val relabelUnions = new RelabelUnions
   val mergeToComprehensions = new MergeToComprehensions
@@ -181,6 +183,7 @@ object Phase {
   val removeFieldNames = new RemoveFieldNames
 
   /* Extra phases that are not enabled by default */
+  val resolveZipJoinsRownumStyle = new ResolveZipJoins(rownumStyle = true)
   val rewriteBooleans = new RewriteBooleans
   val specializeParameters = new SpecializeParameters
   val verifyTypes = new VerifyTypes

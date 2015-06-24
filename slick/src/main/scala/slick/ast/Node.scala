@@ -209,6 +209,23 @@ final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) ex
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
 }
 
+/** Forces a subquery to be created in `mergeToComprehension` if it occurs between two other
+  * collection-valued operations that would otherwise be fused, and the subquery condition
+  * is true. */
+final case class Subquery(child: Node, condition: Subquery.Condition) extends UnaryNode with SimplyTypedNode {
+  type Self = Subquery
+  protected[this] def rebuild(child: Node) = copy(child = child)
+  protected def buildType = child.nodeType
+}
+
+object Subquery {
+  sealed trait Condition
+  /** Always create a subquery */
+  case object Always extends Condition
+  /** Create a subquery if the current Comprehension contains a GROUP BY, ORDER BY or HAVING clause */
+  case object AboveGroupBy extends Condition
+}
+
 /** Common superclass for expressions of type (CollectionType(c, t), _) => CollectionType(c, t). */
 abstract class FilteredQuery extends Node {
   protected[this] def generator: TermSymbol
