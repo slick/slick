@@ -428,7 +428,7 @@ final case class Select(in: Node, field: TermSymbol) extends UnaryNode with Simp
   type Self = Select
   def child = in
   override def childNames = Seq("in")
-  protected[this] def rebuild(child: Node) = copy(in = child) :@ nodeType
+  protected[this] def rebuild(child: Node) = copy(in = child)
   override def getDumpInfo = Path.unapply(this) match {
     case Some(l) => super.getDumpInfo.copy(name = "Path", mainInfo = l.reverseIterator.mkString("."))
     case None => super.getDumpInfo

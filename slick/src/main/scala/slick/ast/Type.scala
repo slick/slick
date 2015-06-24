@@ -160,6 +160,11 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]
     .replaceFirst("^scala.collection.mutable.", "m.")
     .replaceFirst("^scala.collection.generic.", "g.")
   def createBuilder[E : ClassTag]: Builder[E, C[E]]
+  override def hashCode = classTag.hashCode() * 10
+  override def equals(o: Any) = o match {
+    case o: TypedCollectionTypeConstructor[_] => classTag == o.classTag
+    case _ => false
+  }
 }
 
 class ErasedCollectionTypeConstructor[C[_]](canBuildFrom: CanBuild[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
@@ -194,6 +199,11 @@ final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapp
   }
   def children: Seq[Type] = Seq(baseType)
   override def select(sym: TermSymbol) = baseType.select(sym)
+  override def hashCode = baseType.hashCode() + mapper.hashCode() + classTag.hashCode()
+  override def equals(o: Any) = o match {
+    case o: MappedScalaType => baseType == o.baseType && mapper == o.mapper && classTag == o.classTag
+    case _ => false
+  }
 }
 
 object MappedScalaType {
@@ -258,6 +268,8 @@ object TypedType {
 }
 
 class TypeUtil(val tpe: Type) extends AnyVal {
+  import TypeUtil.typeToTypeUtil
+
   def asCollectionType: CollectionType = tpe match {
     case c: CollectionType => c
     case _ => throw new SlickException("Expected a collection type, found "+tpe)
@@ -275,30 +287,24 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     g(tpe)
   }
 
-  @inline def replace(f: PartialFunction[Type, Type]): Type = TypeUtilOps.replace(tpe, f)
-  @inline def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = TypeUtilOps.collect(tpe, pf)
-  @inline def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
+  def replace(f: PartialFunction[Type, Type]): Type =
+    f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
+
+  def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = {
+    val b = new ArrayBuffer[T]
+    tpe.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () })
+    b
+  }
+
+  def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
 }
 
 object TypeUtil {
-  implicit def typeToTypeUtil(tpe: Type) = new TypeUtil(tpe)
+  implicit def typeToTypeUtil(tpe: Type): TypeUtil = new TypeUtil(tpe)
 
   /** An extractor for node types */
   object :@ {
     def unapply(n: Node) = Some((n, n.nodeType))
-  }
-}
-
-object TypeUtilOps {
-  import TypeUtil.typeToTypeUtil
-
-  def replace(tpe: Type, f: PartialFunction[Type, Type]): Type =
-    f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
-
-  def collect[T](tpe: Type, pf: PartialFunction[Type, T]): Iterable[T] = {
-    val b = new ArrayBuffer[T]
-    tpe.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () })
-    b
   }
 }
 

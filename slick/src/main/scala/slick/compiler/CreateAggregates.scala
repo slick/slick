@@ -39,12 +39,6 @@ class CreateAggregates extends Phase {
           case Vector((s, n)) => Map(s -> List(s1))
           case _ =>
             val len = sources.length
-            // Join(1, Join(2, Join(3, Join(4, 5))))
-            // 1 -> s1._1
-            // 2 -> s1._2._1
-            // 3 -> s1._2._2._1
-            // 4 -> s1._2._2._2._1
-            // 5 -> s1._2._2._2._2
             val it = Iterator.iterate(s1)(_ => ElementSymbol(2))
             sources.zipWithIndex.map { case ((s, _), i) =>
               val l = List.iterate(s1, i+1)(_ => ElementSymbol(2))
@@ -61,7 +55,6 @@ class CreateAggregates extends Phase {
         n2
       }
 
-    //FilteredQuery (Filter, SortBy, Take, Drop) -- GroupBy, Join, Union, Bind
     case n => n
   }
 

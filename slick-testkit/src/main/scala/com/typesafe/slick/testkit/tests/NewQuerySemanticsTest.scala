@@ -72,27 +72,29 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val qa = for {
       c <- coffees.take(3)
     } yield (c.supID, (c.name, 42))
+    val qa2 = coffees.take(3).map(_.name).take(2)
     val qb = qa.take(2).map(_._2)
     val qb2 = qa.map(n => n).take(2).map(_._2)
     val qc = qa.map(_._2).take(2)
 
     val a1 = seq(
-      qa.result.map(_.toSet).map { ra =>
+      mark("qa", qa.result).map(_.toSet).map { ra =>
         ra.size shouldBe 3
         // No sorting, so result contents can vary
         ra shouldAllMatch { case (s: Int, (i: String, 42)) => () }
       },
-      qb.result.map(_.toSet).map { rb =>
+      mark("qa2", qa2.result).map(_.toSet).map(_.size shouldBe 2),
+      mark("qb", qb.result).map(_.toSet).map { rb =>
         rb.size shouldBe 2
         // No sorting, so result contents can vary
         rb shouldAllMatch { case (i: String, 42) => () }
       },
-      qb2.result.map(_.toSet).map { rb2 =>
+      mark("qb2", qb2.result).map(_.toSet).map { rb2 =>
         rb2.size shouldBe 2
         // No sorting, so result contents can vary
         rb2 shouldAllMatch { case (i: String, 42) => () }
       },
-      qc.result.map(_.toSet).map { rc =>
+      mark("qc", qc.result).map(_.toSet).map { rc =>
         rc.size shouldBe 2
         // No sorting, so result contents can vary
         rc shouldAllMatch { case (i: String, 42) => () }
@@ -116,7 +118,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     } yield (c.name, s.city, c2.name)
 
     def a2 = seq(
-      q0.result.named("Plain table").map(_.toSet).map { r0 =>
+      mark("q0", q0.result).named("q0: Plain table").map(_.toSet).map { r0 =>
         r0 shouldBe Set(
           ("Colombian",         101, 799, 1, 0),
           ("French_Roast",       49, 799, 2, 0),
@@ -125,7 +127,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
           ("French_Roast_Decaf", 49, 999, 5, 0)
         )
       },
-      q1.result.named("Plain implicit join").map(_.toSet).map { r1 =>
+      mark("q1", q1.result).named("q1: Plain implicit join").map(_.toSet).map { r1 =>
        r1 shouldBe Set(
           (("Colombian","Groundsville:"),("Colombian",101,799,1,0),(101,"Acme, Inc.","99 Market Street"),799),
           (("Colombian","Mendocino:"),("Colombian",101,799,1,0),(49,"Superior Coffee","1 Party Place"),799),
@@ -136,7 +138,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
         )
       },
       ifCap(rcap.pagingNested) {
-        q1b.result.named("Explicit join with condition").map { r1b =>
+        mark("q1b", q1b.result).named("q1b: Explicit join with condition").map { r1b =>
           r1b.toSet shouldBe Set(
             ("French_Roast","Mendocino","Colombian"),
             ("French_Roast","Mendocino","French_Roast"),
@@ -233,7 +235,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val q6 = coffees.flatMap(c => suppliers)
 
     def a4 = seq(
-      q5.result.map(_.toSet).map { r5 =>
+      mark("q5", q5.result).named("q5: Implicit self-join").map(_.toSet).map { r5 =>
         r5 shouldBe Set(
           (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
           (("Colombian",101,799,1,0),("French_Roast",49,799,2,0)),
@@ -241,13 +243,13 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
           (("French_Roast",49,799,2,0),("French_Roast",49,799,2,0))
         )
       },
-      q5b.result.named("Explicit self-join with condition").map(_.toSet).map { r5b =>
+      mark("q5b", q5b.result).named("q5b: Explicit self-join with condition").map(_.toSet).map { r5b =>
         r5b shouldBe Set(
           (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
           (("French_Roast",49,799,2,0),("French_Roast",49,799,2,0))
         )
       },
-      q6.result.named("Unused outer query result, unbound TableQuery").map(_.toSet).map { r6 =>
+      mark("q6", q6.result).named("q6: Unused outer query result, unbound TableQuery").map(_.toSet).map { r6 =>
         r6 shouldBe Set(
           (101,"Acme, Inc.","99 Market Street"),
           (49,"Superior Coffee","1 Party Place"),

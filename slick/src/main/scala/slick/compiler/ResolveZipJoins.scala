@@ -19,31 +19,35 @@ class ResolveZipJoins extends Phase {
     state + (this -> (n2 ne state.tree)) withNode n2
   }
 
-  def resolveZipJoins(n: Node): Node = (n match {
+  def resolveZipJoins(n: Node): Node = n.replaceInvalidate {
     // zip with index
-    case Bind(oldBindSym, Join(_, _,
+    case (b @ Bind(oldBindSym, Join(_, _,
         l @ Bind(lsym, lfrom, Pure(StructNode(lstruct), _)),
         RangeFrom(offset),
-        JoinType.Zip, LiteralNode(true)), Pure(sel, _)) =>
+        JoinType.Zip, LiteralNode(true)), Pure(sel, ts)), invalid, _) =>
+      logger.debug("Resolving zipWithIndex:", b)
       val idxSym = new AnonSymbol
       val idxExpr =
         if(offset == 1L) RowNumber()
         else Library.-.typed[Long](RowNumber(), LiteralNode(1L - offset))
-      val innerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (idxSym, idxExpr)))).infer()
+      val innerBind :@ CollectionType(_, el) = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (idxSym, idxExpr)))).infer()
       val bindSym = new AnonSymbol
       val OldBindRef = Ref(oldBindSym)
-      val bindRef = Ref(bindSym) :@ innerBind.nodeType.asCollectionType.elementType
+      val bindRef = Ref(bindSym) :@ el
       val newOuterSel = sel.replace {
         case Select(OldBindRef, ElementSymbol(1)) => bindRef
         case Select(OldBindRef, ElementSymbol(2)) => Select(bindRef, idxSym).infer()
       }
-      Bind(bindSym, innerBind, Pure(newOuterSel)).infer(SymbolScope.empty, false, true)
+      val b2 = Bind(bindSym, innerBind, Pure(newOuterSel)).infer(retype = true)
+      logger.debug("Resolved zipWithIndex:", b2)
+      (b2, invalid + ts)
 
     // zip with another query
-    case b @ Bind(_, Join(jlsym, jrsym,
+    case (b @ Bind(s1, Join(jlsym, jrsym,
         l @ Bind(lsym, lfrom, Pure(StructNode(lstruct), ts1)),
         r @ Bind(rsym, rfrom, Pure(StructNode(rstruct), ts2)),
-        JoinType.Zip, LiteralNode(true)), _) =>
+        JoinType.Zip, LiteralNode(true)), _), invalid, _) =>
+      logger.debug("Resolving zip:", b)
       val lIdxSym, rIdxSym = new AnonSymbol
       val lInnerBind = Bind(lsym, lfrom, Pure(StructNode(lstruct :+ (lIdxSym, RowNumber())), ts1)).infer(retype = true)
       val rInnerBind = Bind(rsym, rfrom, Pure(StructNode(rstruct :+ (rIdxSym, RowNumber())), ts2)).infer(retype = true)
@@ -52,8 +56,10 @@ class ResolveZipJoins extends Phase {
       val join = Join(jlsym, jrsym, lInnerBind, rInnerBind, JoinType.Inner,
         Library.==.typed[Boolean](Select(jlRef, lIdxSym).infer(), Select(jrRef, rIdxSym).infer())
       )
-      b.copy(from = join)
-
-    case n => n
-  }).mapChildren(resolveZipJoins, keepType = true)
+      val b2 = b.copy(from = join, select = b.select.replace {
+        case r @ Ref(s) if s == s1 => r.untyped
+      })
+      logger.debug("Resolved zip:", b2)
+      (b2, invalid)
+  }.infer()
 }

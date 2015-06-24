@@ -5,7 +5,10 @@ import slick.ast._
 import Util._
 import TypeUtil._
 
-/** Flatten all Pure node contents into a single StructNode. */
+/** Flatten all `Pure` node contents into a single `StructNode`.
+  *
+  * After this phase, all `Pure` nodes produce a `StructNode` of primitive fields. As a
+  * side-effect, nested NominalTypes are eliminated. */
 class FlattenProjections extends Phase {
   val name = "flattenProjections"
 
@@ -16,25 +19,29 @@ class FlattenProjections extends Phase {
         logger.debug(s"Flattening projection $ts")
         val (newV, newTranslations) = flattenProjection(tr(v))
         translations += ts -> (newTranslations, newV.nodeType.asInstanceOf[StructType])
+        logger.debug(s"Adding translation for $ts: ($newTranslations, ${newV.nodeType})")
         val res = Pure(newV, ts).infer()
         logger.debug("Flattened projection to", res)
         res
       case p @ Path(path) =>
         logger.debug("Analyzing "+Path.toString(path)+" with symbols "+translations.keySet.mkString(", "), p)
-        splitPath(n, translations.keySet) match {
+        def retype(n: Node): Node = n.mapChildren(retype, keepType = true) :@ (n.nodeType.replace {
+          case t @ NominalType(tsym, _) if translations.contains(tsym) => t.withStructuralView(translations(tsym)._2)
+          case NominalType(tsym, exp) => NominalType(tsym, exp.structuralRec)
+        })
+        val p2 = splitPath(n, translations.keySet) match {
           case Some((base, rest, tsym)) =>
             logger.debug("Found "+Path.toString(path)+" with local part "+rest.map(Path.toString _)+" over "+tsym)
             val (paths, tpe) = translations(tsym)
             logger.debug(s"  Translation for $tsym: ($paths, $tpe)")
-            def retype(n: Node): Node = n.mapChildren(retype, keepType = true) :@ (n.nodeType.replace {
-              case t @ NominalType(tsym, _) if translations.contains(tsym) => t.withStructuralView(tpe)
-            })
             rest match {
               case Some(r) => Select(retype(base), paths(r)).infer()
               case None => retype(base)
             }
-          case None => n
+          case None => retype(n)
         }
+        logger.debug("Translated "+Path.toString(path)+" to:", p2)
+        p2
       case n => n.mapChildren(tr)
     }
     tr(tree).infer(typeChildren = true)

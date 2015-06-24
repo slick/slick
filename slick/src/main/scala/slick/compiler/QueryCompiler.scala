@@ -2,7 +2,7 @@ package slick.compiler
 
 import scala.collection.immutable.HashMap
 import slick.SlickException
-import slick.util.{SlickLogger, Logging}
+import slick.util.{GlobalConfig, SlickLogger, Logging}
 import slick.ast.{SymbolNamer, Node}
 import org.slf4j.LoggerFactory
 
@@ -77,7 +77,16 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 
   protected[this] def runPhase(p: Phase, state: CompilerState): CompilerState = state.symbolNamer.use {
     val s2 = p(state)
-    if(s2.tree ne state.tree) logger.debug("After phase "+p.name+":", s2.tree)
+    if(s2.tree ne state.tree) {
+      logger.debug("After phase "+p.name+":", s2.tree)
+      if(GlobalConfig.verifyTypes) {
+        s2.wellTyped match {
+          case WellTyped.All => Phase.verifyTypes(s2)
+          case WellTyped.ServerSide => Phase.verifyTypesServerSide(s2)
+          case WellTyped.None =>
+        }
+      }
+    }
     else logger.debug("After phase "+p.name+": (no change)")
     s2
   }
@@ -174,6 +183,8 @@ object Phase {
   /* Extra phases that are not enabled by default */
   val rewriteBooleans = new RewriteBooleans
   val specializeParameters = new SpecializeParameters
+  val verifyTypes = new VerifyTypes
+  val verifyTypesServerSide = new VerifyTypes(onlyServerSide = true)
 }
 
 /** The current state of a compiler run, consisting of the current AST and
@@ -181,20 +192,31 @@ object Phase {
   * to the SymbolNamer. The state is tied to a specific compiler instance so
   * that phases can call back into the compiler. */
 class CompilerState private (val compiler: QueryCompiler, val symbolNamer: SymbolNamer,
-                             val tree: Node, state: HashMap[String, Any]) {
+                             val tree: Node, state: HashMap[String, Any], val wellTyped: WellTyped) {
   def this(compiler: QueryCompiler, tree: Node) =
-    this(compiler, new SymbolNamer("s", "t"), tree, new HashMap)
+    this(compiler, new SymbolNamer("s", "t"), tree, new HashMap, WellTyped.None)
 
   /** Get the phase state for a phase */
   def get[P <: Phase](p: P): Option[p.State] = state.get(p.name).asInstanceOf[Option[p.State]]
 
   /** Return a new `CompilerState` with the given mapping of phase to phase state */
   def + [S, P <: Phase { type State = S }](t: (P, S)) =
-    new CompilerState(compiler, symbolNamer, tree, state + (t._1.name -> t._2))
+    new CompilerState(compiler, symbolNamer, tree, state + (t._1.name -> t._2), wellTyped)
 
   /** Return a new `CompilerState` which encapsulates the specified AST */
-  def withNode(n: Node) = new CompilerState(compiler, symbolNamer, n, state)
+  def withNode(tree: Node) = new CompilerState(compiler, symbolNamer, tree, state, wellTyped)
+
+  /** Return a new `CompilerState` with the specified `WellTyped` option */
+  def withWellTyped(wellTyped: WellTyped) = new CompilerState(compiler, symbolNamer, tree, state, wellTyped)
 
   /** Return a new `CompilerState` with a transformed AST */
   def map(f: Node => Node) = withNode(f(tree))
+}
+
+/** Indicates which parts of the AST are well-typed after a phase. */
+sealed trait WellTyped
+object WellTyped {
+  case object None extends WellTyped
+  case object ServerSide extends WellTyped
+  case object All extends WellTyped
 }

@@ -7,21 +7,30 @@ import java.util.concurrent.TimeUnit
 import java.util.Properties
 
 /** Singleton object with Slick's configuration, loaded from the application config.
-  * This includes configuration for the global driver objects and settings for debug logging. */
+  * This includes configuration for the global driver objects and settings for debug logging.
+  *
+  * In addition to being listed in reference.conf, all essential config options also have their
+  * default values hardcoded here because we cannot rely on getting reference.conf on the classpath
+  * in all cases (e.g. the `tsql` macro). */
 object GlobalConfig {
+  import ConfigExtensionMethods._
+
   private[this] val config = ConfigFactory.load()
 
   /** Dump individual `Select` and `Ref` nodes instead of a single `Path` */
-  val dumpPaths = config.getBoolean("slick.dumpPaths")
+  val dumpPaths = config.getBooleanOr("slick.dumpPaths", false)
 
   /** Use ANSI color sequences in tree dumps */
-  val ansiDump = config.getBoolean("slick.ansiDump")
+  val ansiDump = config.getBooleanOr("slick.ansiDump", false)
 
   /** Use Unixode box characters in table dumps */
-  val unicodeDump = config.getBoolean("slick.unicodeDump")
+  val unicodeDump = config.getBooleanOr("slick.unicodeDump", false)
 
   /** Use multi-line, indented formatting for SQL statements */
-  val sqlIndent = config.getBoolean("slick.sqlIndent")
+  val sqlIndent = config.getBooleanOr("slick.sqlIndent", false)
+
+  /** Verify types after every query compiler phase */
+  val verifyTypes = config.getBooleanOr("slick.verifyTypes", false)
 
   /** Get a `Config` object for a Slick driver */
   def driverConfig(name: String): Config = {

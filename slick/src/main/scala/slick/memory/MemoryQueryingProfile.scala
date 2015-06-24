@@ -54,7 +54,8 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
   }): ScalaType[_]).asInstanceOf[ScalaType[Any]]
 
   class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
-    override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
+    override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state))).withWellTyped(WellTyped.None)
+
     def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = (serverSide, mapping.map(compileMapping))
 
     def retype(n: Node): Node = {

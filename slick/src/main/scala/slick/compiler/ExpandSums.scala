@@ -97,7 +97,7 @@ class ExpandSums extends Phase {
       val on2 = on.replace({
         case Ref(s) if s == sym => sideInCondition
         case n @ Select(in, _) => n.infer(retype = true)  //if !in.hasType => n.nodeUntypedOrCopy
-      }, bottomUp = true, retype = true)
+      }, bottomUp = true).infer()
       (extend, on2)
     }
 

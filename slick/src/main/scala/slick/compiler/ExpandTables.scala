@@ -5,7 +5,8 @@ import Util._
 import TypeUtil._
 
 /** Expand table-valued expressions in the result type to their star projection and compute the
-  * missing structural expansions of table types. */
+  * missing structural expansions of table types. After this phase the server side of the AST
+  * should always be well-typed. */
 class ExpandTables extends Phase {
   val name = "expandTables"
 
@@ -25,6 +26,7 @@ class ExpandTables extends Phase {
       case TableExpansion(_, t, _) => t
       case n => n :@ n.nodeType.replace { case NominalType(tsym, UnassignedType) => NominalType(tsym, structs(tsym)) }
     }, keepType = true, bottomUp = true)
+    logger.debug("With correct table types:", tree2)
 
     if(tsyms.isEmpty) tree2 else {
       // Find the corresponding TableExpansions
@@ -38,7 +40,7 @@ class ExpandTables extends Phase {
         .infer(SymbolScope.empty + (sym -> tree2.nodeType.asCollectionType.elementType), typeChildren = true)
       Bind(sym, tree2, Pure(mapping)).infer()
     }
-  }}
+  }}.withWellTyped(WellTyped.ServerSide)
 
   /** Create an expression that copies a structured value, expanding tables in it. */
   def createResult(expansions: Map[TableIdentitySymbol, (TermSymbol, Node)], path: Node, tpe: Type): Node = tpe match {

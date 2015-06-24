@@ -248,7 +248,7 @@ class MergeToComprehensions extends Phase {
         val sel2 = applyReplacements(a.select, rep, c1)
         val c2 = c1.copy(select = Some(Pure(sel2))).infer()
         val c3 = convertOnlyInScalar(c2)
-        val res = Library.SilentCast.typed(a.nodeType, c3)
+        val res = Library.SilentCast.typed(a.nodeType, c3).infer()
         logger.debug("Merged Aggregate into Comprehension as:", res)
         res
       case n =>

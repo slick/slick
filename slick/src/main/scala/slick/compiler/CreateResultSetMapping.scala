@@ -5,15 +5,16 @@ import slick.ast._
 import Util._
 import TypeUtil._
 
-/** Create a ResultSetMapping root node, ensure that the top-level server-side
-  * node returns a collection, and hoist client-side type conversions into the
-  * ResultSetMapping. */
+/** Create a ResultSetMapping root node, ensure that the top-level server-side node returns a
+  * collection, and hoist client-side type conversions into the ResultSetMapping. The original
+  * result type (which was removed by `removeMappedTypes`) is assigned back to the top level,
+  * so the client side is no longer well-typed after this phase. */
 class CreateResultSetMapping extends Phase {
   val name = "createResultSetMapping"
 
   def apply(state: CompilerState) = state.map { n =>
     val tpe = state.get(Phase.removeMappedTypes).get
-    ClientSideOp.mapServerSide(n) { ch =>
+    ClientSideOp.mapServerSide(n, keepType = false) { ch =>
       val syms = ch.nodeType.structural match {
         case StructType(defs) => defs.map(_._1)
         case CollectionType(_, Type.Structural(StructType(defs))) => defs.map(_._1)
@@ -25,9 +26,9 @@ class CreateResultSetMapping extends Phase {
           ResultSetMapping(gen, collectionCast(ch, cons), createResult(gen, el, syms))
         case t =>
           ResultSetMapping(gen, ch, createResult(gen, t, syms))
-      }).infer()
-    }
-  }
+      })
+    }.infer()
+  }.withWellTyped(WellTyped.ServerSide)
 
   def collectionCast(ch: Node, cons: CollectionTypeConstructor): Node = ch.nodeType match {
     case CollectionType(c, _) if c == cons => ch
@@ -63,24 +64,23 @@ class CreateResultSetMapping extends Phase {
 }
 
 /** Remove all mapped types from the tree and store the original top-level type as the phase state
-  * to be used later for building the ResultSetMapping. */
+  * to be used later for building the ResultSetMapping. After this phase the entire AST should be
+  * well-typed until `createResultSetMapping`. */
 class RemoveMappedTypes extends Phase {
   val name = "removeMappedTypes"
   type State = Type
 
   def apply(state: CompilerState) = {
     val tpe = state.tree.nodeType
-    state.withNode(removeTypeMapping(state.tree)) + (this -> tpe)
+    state.withNode(removeTypeMapping(state.tree)).withWellTyped(WellTyped.All) + (this -> tpe)
   }
 
   /** Remove TypeMapping nodes and MappedTypes */
   def removeTypeMapping(n: Node): Node = n match {
     case t: TypeMapping => removeTypeMapping(t.child)
     case n =>
-      val n2 = n.mapChildren(removeTypeMapping)
-      val tpe = n2.nodeType
-      val tpe2 = removeMappedType(tpe)
-      if(tpe2 eq tpe) n2 else n2 :@ tpe2
+      val n2 = n.mapChildren(removeTypeMapping, keepType = true)
+      n2 :@ removeMappedType(n2.nodeType)
   }
 
   /** Remove MappedTypes from a Type */

@@ -52,6 +52,7 @@ class AssignUniqueSymbols extends Phase {
             case a: AnonSymbol => defs.getOrElse(a, a)
             case s => s
           }
+        case n: Select => n.mapChildren(tr(_, replace)) :@ n.nodeType
         case n => n.mapChildren(tr(_, replace))
       }
     }

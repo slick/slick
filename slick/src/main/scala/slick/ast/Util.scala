@@ -1,5 +1,7 @@
 package slick.ast
 
+import slick.ast.TypeUtil.:@
+
 import scala.language.implicitConversions
 import scala.collection.mutable.ArrayBuffer
 
@@ -26,13 +28,55 @@ object Util {
 final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
 
-  @inline def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): Seq[T] =
-    NodeOps.collect(tree, pf, stopOnMatch)
+  @inline def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): Seq[T] = {
+    val b = new ArrayBuffer[T]
+    def f(n: Node): Unit = pf.andThen[Unit] { case t =>
+      b += t
+      if(!stopOnMatch) n.children.foreach(f)
+    }.orElse[Node, Unit]{ case _ =>
+      n.children.foreach(f)
+    }.apply(n)
+    f(tree)
+    b
+  }
 
   def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Seq[T] = collect[Seq[T]](pf).flatten
 
-  def replace(f: PartialFunction[Node, Node], keepType: Boolean = false, bottomUp: Boolean = false, retype: Boolean = false): Node =
-    NodeOps.replace(tree, f, keepType, bottomUp, retype)
+  def replace(f: PartialFunction[Node, Node], keepType: Boolean = false, bottomUp: Boolean = false): Node = {
+    def g(n: Node): Node = n.mapChildren(_.replace(f, keepType, bottomUp), keepType)
+    if(bottomUp) f.applyOrElse(g(tree), identity[Node]) else f.applyOrElse(tree, g)
+  }
+
+  /** Replace nodes in a bottom-up traversal with an extra state value that gets passed through the
+    * traversal. Types are never kept or rebuilt when a node changes.
+    *
+    * @param f The replacement function that takes the current Node (whose children have already
+    *          been transformed), the current state, and the original (untransformed) version of
+    *          the Node. */
+  def replaceFold[T](z: T)(f: PartialFunction[(Node, T, Node), (Node, T)]): (Node, T) = {
+    var v: T = z
+    val ch: IndexedSeq[Node] = tree.children.map { n =>
+      val (n2, v2) = n.replaceFold(v)(f)
+      v = v2
+      n2
+    }(collection.breakOut)
+    val t2 = tree.withChildren(ch)
+    f.applyOrElse((t2, v, tree), (t: (Node, T, Node)) => (t._1, t._2))
+  }
+
+  /** Replace nodes in a bottom-up traversal while invalidating TypeSymbols. Any later references
+    * to the invalidated TypeSymbols have their types unassigned, so that the whole tree can be
+    * retyped afterwards to get the correct new TypeSymbols in. */
+  def replaceInvalidate(f: PartialFunction[(Node, Set[TypeSymbol], Node), (Node, Set[TypeSymbol])]): Node = {
+    def containsTS(t: Type, invalid: Set[TypeSymbol]): Boolean = t match {
+      case NominalType(ts, exp) => invalid.contains(ts) || containsTS(exp, invalid)
+      case t => t.children.exists(ch => containsTS(ch, invalid))
+    }
+    replaceFold(Set.empty[TypeSymbol])(f.orElse {
+      case ((n: Ref), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
+      case ((n: Select), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
+    })._1
+  }
 
   def foreach[U](f: (Node => U)): Unit = {
     def g(n: Node) {
@@ -56,36 +100,4 @@ final class NodeOps(val tree: Node) extends AnyVal {
     case (s: ElementSymbol, ProductNode(ch)) => ch(s.idx-1)
     case (s, n) => Select(n, s)
   }
-}
-
-object NodeOps {
-  import Util._
-
-  // These methods should be in the class but 2.10.0-RC1 took away the ability
-  // to use closures in value classes
-
-  def collect[T](tree: Node, pf: PartialFunction[Node, T], stopOnMatch: Boolean): Seq[T] = {
-    val b = new ArrayBuffer[T]
-    def f(n: Node): Unit = pf.andThen[Unit] { case t =>
-      b += t
-      if(!stopOnMatch) n.children.foreach(f)
-    }.orElse[Node, Unit]{ case _ =>
-      n.children.foreach(f)
-    }.apply(n)
-    f(tree)
-    b
-  }
-
-  def replace(tree: Node, f: PartialFunction[Node, Node], keepType: Boolean, bottomUp: Boolean, retype: Boolean): Node =
-    if(bottomUp) {
-      val t2 = tree.mapChildren(n => replace(n, f, keepType, bottomUp, retype), keepType && !retype)
-      val t3 = if(retype) t2.infer() else t2
-      f.applyOrElse(t2, identity[Node])
-    } else {
-      def g(n: Node) = {
-        val n2 = n.mapChildren(n => replace(n, f, keepType, bottomUp, retype), keepType && !retype)
-        if(retype) n2.infer() else n2
-      }
-      f.applyOrElse(tree, g)
-    }
 }

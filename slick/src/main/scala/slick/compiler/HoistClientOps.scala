@@ -79,27 +79,24 @@ class HoistClientOps extends Phase {
   }
 
   def rewriteDBSide(tree: Node): Node = tree match {
-    //case CollectionCast(ch, _) :@ tpe =>
-    //  rewriteDBSide(ch).nodeTypedOrCopy(tpe)
     case GetOrElse(ch, default) =>
-      val ch2 = rewriteDBSide(ch)
-      val tpe = ch2.nodeType.asOptionType.elementType
       val d = try default() catch {
         case NonFatal(ex) => throw new SlickException(
           "Caught exception while computing default value for Rep[Option[_]].getOrElse -- "+
             "This cannot be done lazily when the value is needed on the database side", ex)
       }
-      Library.IfNull.typed(tpe, ch2, LiteralNode.apply(tpe, d))
+      val ch2 :@ OptionType(tpe) = rewriteDBSide(ch)
+      Library.IfNull.typed(tpe, ch2, LiteralNode.apply(tpe, d)).infer()
     case n => n.mapChildren(rewriteDBSide, keepType = true)
   }
 
   def unwrap(n: Node): (Node, (Node => Node)) = n match {
-    case r @ GetOrElse(ch, default) =>
+    case GetOrElse(ch, default) :@ tpe =>
       val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => GetOrElse(recTr(sym), default) :@ r.nodeType })
-    case r @ OptionApply(ch) =>
+      (recCh, { sym => GetOrElse(recTr(sym), default) :@ tpe })
+    case OptionApply(ch) :@ tpe =>
       val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => OptionApply(recTr(sym)) :@ r.nodeType })
+      (recCh, { sym => OptionApply(recTr(sym)) :@ tpe })
     case n => (n, identity)
   }
 }

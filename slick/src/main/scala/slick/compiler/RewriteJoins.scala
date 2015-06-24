@@ -25,17 +25,17 @@ class RewriteJoins extends Phase {
       val sn, sj1, sj2 = new AnonSymbol
       val j = Join(sj1, sj2, f1, f2.replace({
         case Ref(s) if s == s1 => Ref(sj1) :@ f1.nodeType.asCollectionType.elementType
-      }, retype = true, bottomUp = true), JoinType.Inner, pred.replace({
+      }, bottomUp = true), JoinType.Inner, pred.replace({
         case Ref(s) if s == s1 => Ref(sj1) :@ f1.nodeType.asCollectionType.elementType
         case Ref(s) if s == s3 => Ref(sj2) :@ f2.nodeType.asCollectionType.elementType
-      }, retype = true, bottomUp = true)).infer()
+      }, bottomUp = true)).infer()
       val refSn = Ref(sn) :@ j.nodeType.asCollectionType.elementType
       val ref1 = Select(refSn, ElementSymbol(1))
       val ref2 = Select(refSn, ElementSymbol(2))
       val sel2 = select.replace({
         case Ref(s) :@ tpe if s == s1 => ref1 :@ tpe
         case Ref(s) :@ tpe if s == s2 => ref2 :@ tpe
-      }, retype = true, bottomUp = true)
+      }, bottomUp = true)
       val res = Bind(sn, hoistFilters(j), sel2).infer()
       logger.debug("Hoisted flatMapped Filter in:", Ellipsis(res, List(0, 0), List(0, 1)))
       flattenAliasingMap(res)
@@ -59,6 +59,7 @@ class RewriteJoins extends Phase {
       val oj4 = rearrangeJoinConditions(oj3)
       val sel3 = if(m.isEmpty) sel2 else sel2.replace {
         case p @ FwdPath(r1 :: rest) if r1 == sn && m.contains(rest) => m(rest)
+        case r @ Ref(s) if (oj4 ne oj3) && s == sn => r.untyped // Structural expansion may have changed
       }
       val res = Bind(sn, oj4, sel3).infer()
       logger.debug("Hoisted flatMapped Join in:", Ellipsis(res, List(0, 0)))
@@ -110,7 +111,7 @@ class RewriteJoins extends Phase {
     val (r1, p2Opt) = hoist(j.rightGen, j.right)
     if((l1 eq j.left) && (r1 eq j.right)) j
     else {
-      val j2 = j.copy(left = l1, right = r1, on = and(p1Opt, and(p2Opt, j.on))) :@ j.nodeType
+      val j2 = j.copy(left = l1, right = r1, on = and(p1Opt, and(p2Opt, j.on)).infer()) :@ j.nodeType
       logger.debug("Hoisting join filters from:", j)
       logger.debug("Hoisted join filters in:", j2)
       j2
@@ -197,14 +198,16 @@ class RewriteJoins extends Phase {
       val on1 = j.on.replace({
         case p @ FwdPath(r1 :: rest) if r1 == j.leftGen && l1m.contains(rest) => l1m(rest)
         case p @ FwdPath(r1 :: rest) if r1 == j.rightGen && r1m.contains(rest) => r1m(rest)
-      }, keepType = true, bottomUp = true)
+      }, keepType = true, bottomUp = true).replace {
+        case r @ Ref(s) if s == j.leftGen || s == j.rightGen => r.untyped // Structural expansion may have changed
+      }
       val j2 = j.copy(left = l1, right = r1, on = on1).infer()
       logger.debug("Eliminated illegal refs ["+illegal.mkString(", ")+"] in:", j2)
       val m = l1m.map { case (p, n) => (ElementSymbol(1) :: p, n) } ++
         r1m.map { case (p, n) => (ElementSymbol(2) :: p, n) }
       val m2 = m.mapValues(_.replace({
-        case Ref(s) :@ tpe if s == j.leftGen => Select(Ref(outsideRef) :@ j.nodeType, ElementSymbol(1)) :@ tpe
-        case Ref(s) :@ tpe if s == j.rightGen => Select(Ref(outsideRef) :@ j.nodeType, ElementSymbol(2)) :@ tpe
+        case Ref(s) :@ tpe if s == j.leftGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(1)) :@ tpe
+        case Ref(s) :@ tpe if s == j.rightGen => Select(Ref(outsideRef) :@ j2.nodeType.asCollectionType.elementType, ElementSymbol(2)) :@ tpe
       }, keepType = true))
       if(logger.isDebugEnabled) m2.foreach { case (p, n) =>
         logger.debug("Replacement for "+FwdPath.toString(p)+":", n)
@@ -232,8 +235,8 @@ class RewriteJoins extends Phase {
           case Select(Ref(s), ElementSymbol(i)) :@ tpe if s == s2 =>
             Ref(if(i == 0) j2b.leftGen else j2b.rightGen) :@ tpe
         }, keepType = true)) ++ on2Keep)
-        val j2c = j2b.copy(on = on2b) :@ j2b.nodeType
-        val res = j.copy(right = j2c, on = on1b) :@ j.nodeType
+        val j2c = j2b.copy(on = on2b.infer()) :@ j2b.nodeType
+        val res = j.copy(right = j2c, on = on1b.infer()) :@ j.nodeType
         logger.debug("Rearranged join conditions in:", res)
         res
       } else if(j2b eq j2a) j

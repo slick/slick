@@ -8,6 +8,5 @@ import TypeUtil._
 class InferTypes extends Phase {
   val name = "inferTypes"
 
-  def apply(state: CompilerState) =
-    state.map(_.infer(new DefaultSymbolScope(Map.empty), typeChildren = true))
+  def apply(state: CompilerState) = state.map(_.infer(typeChildren = true))
 }
