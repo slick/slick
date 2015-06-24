@@ -328,4 +328,31 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       q3.result.map(_.toSet shouldBe Set((1,1), (2,2)))
     )
   }
+
+  def testJoinFiltering = {
+    class A(tag: Tag) extends Table[Int](tag, "a_joinfiltering") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    lazy val as = TableQuery[A]
+
+    class B(tag: Tag) extends Table[Int](tag, "b_joinfiltering") {
+      def id = column[Int]("id")
+      def * = id
+    }
+    lazy val bs = TableQuery[B]
+
+    val q = for {
+      (a, b) <- as joinLeft bs on (_.id === _.id) if (b.isEmpty)
+    } yield (a.id)
+
+    //val q2 = as.filterNot(_.id in bs.map(_.id))
+
+    DBIO.seq(
+      (as.schema ++ bs.schema).create,
+      as ++= Seq(1,2,3),
+      bs ++= Seq(1,2,4,5),
+      q.result.map(_.toSet shouldBe Set(3))
+    )
+  }
 }
