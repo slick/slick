@@ -17,6 +17,8 @@ abstract class AbstractGenerator[Code,TermName,TypeName](model: m.Model)
                    extends GeneratorHelpers[Code,TermName,TypeName]{ codegen =>
   model.assertConsistency
 
+  /** Enables DDL Generation. */
+   val ddlEnabled = true
   /** Table code generators. */
   final lazy val tables: Seq[Table] = model.tables.map(Table).sortBy(_.TableClass.rawName.toLowerCase)
   /** Table code generators indexed by db table name. */
