@@ -5,7 +5,6 @@ import java.util.Properties
 import java.util.concurrent.TimeUnit
 import java.sql.{SQLException, DriverManager, Driver, Connection}
 import javax.sql.DataSource
-import java.net.{URI,URISyntaxException}
 import com.typesafe.config.Config
 import slick.util.ConfigExtensionMethods._
 import slick.SlickException
@@ -136,6 +135,10 @@ class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hco
 object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
   import com.zaxxer.hikari._
 
+  private val PostgresFullUrl = "^postgres://([a-zA-Z0-9_]+):([^@]+)@([^/]+)/([^\\s]+)$".r
+  private val MysqlFullUrl = "^mysql://([a-zA-Z0-9_]+):([^@]+)@([^/]+)/([^\\s]+)$".r
+  private val MysqlCustomProperties = ".*\\?(.*)".r
+
   def forConfig(c: Config, driver: Driver, name: String): HikariCPJdbcDataSource = {
     if(driver ne null)
       throw new SlickException("An explicit Driver object is not supported by HikariCPJdbcDataSource")
@@ -144,10 +147,10 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     // Connection settings
     hconf.setDataSourceClassName(c.getStringOr("dataSourceClass", null))
     Option(c.getStringOr("driverClassName", c.getStringOr("driver"))).map(hconf.setDriverClassName _)
-    hconf.setJdbcUrl(parseDatabaseUrl(c, (user, password) => {
-      user.foreach(hconf.setUsername)
-      password.foreach(hconf.setPassword)
-    }))
+    val (url, userPass) = extractUrl(c.getStringOpt("url"))
+    hconf.setJdbcUrl(url.orNull)
+    (if (userPass.isEmpty) c.getStringOpt("user") else userPass.map(_._1)).foreach(hconf.setUsername)
+    (if (userPass.isEmpty) c.getStringOpt("password") else userPass.map(_._2)).foreach(hconf.setPassword)
     c.getPropertiesOpt("properties").foreach(hconf.setDataSourceProperties)
 
     // Pool configuration
@@ -176,23 +179,21 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     new HikariCPJdbcDataSource(ds, hconf)
   }
 
-  def parseDatabaseUrl(c: Config, callback:(Option[String], Option[String]) => Unit): String = {
-    val urlFromConfig = c.getStringOr("url", null)
-    if (urlFromConfig ne null) {
-      if (urlFromConfig.startsWith("jdbc")) {
-        callback(c.getStringOpt("user"), c.getStringOpt("password"))
-        urlFromConfig
-      } else {
-        val dbUri = new URI(urlFromConfig)
-        val dbScheme = dbUri.getScheme match {
-          case "postgres" => "postgresql"
-          case scheme => scheme
-        }
-        callback(Some(dbUri.getUserInfo().split(":")(0)), Some(dbUri.getUserInfo().split(":")(1)))
-        s"jdbc:${dbScheme}://${dbUri.getHost}:${dbUri.getPort}${dbUri.getPath}"
-      }
-    } else {
-      null
+  def extractUrl(maybeUrl: Option[String]): (Option[String], Option[(String, String)]) = {
+    maybeUrl match {
+      case Some(PostgresFullUrl(username, password, host, dbname)) =>
+        Some(s"jdbc:postgresql://$host/$dbname") -> Some(username -> password)
+
+      case Some(url @ MysqlFullUrl(username, password, host, dbname)) =>
+        val defaultProperties = "?useUnicode=yes&characterEncoding=UTF-8&connectionCollation=utf8_general_ci"
+        val addDefaultPropertiesIfNeeded = MysqlCustomProperties.findFirstMatchIn(url).map(_ => "").getOrElse(defaultProperties)
+        Some(s"jdbc:mysql://$host/${dbname + addDefaultPropertiesIfNeeded}") -> Some(username -> password)
+
+      case Some(url) =>
+        Some(url) -> None
+
+      case None =>
+        None -> None
     }
   }
 }
