@@ -5,6 +5,7 @@ import java.util.Properties
 import java.util.concurrent.TimeUnit
 import java.sql.{SQLException, DriverManager, Driver, Connection}
 import javax.sql.DataSource
+import java.net.{URI,URISyntaxException}
 import com.typesafe.config.Config
 import slick.util.ConfigExtensionMethods._
 import slick.SlickException
@@ -143,9 +144,10 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     // Connection settings
     hconf.setDataSourceClassName(c.getStringOr("dataSourceClass", null))
     Option(c.getStringOr("driverClassName", c.getStringOr("driver"))).map(hconf.setDriverClassName _)
-    hconf.setJdbcUrl(c.getStringOr("url", null))
-    c.getStringOpt("user").foreach(hconf.setUsername)
-    c.getStringOpt("password").foreach(hconf.setPassword)
+    hconf.setJdbcUrl(parseDatabaseUrl(c, (user, password) => {
+      user.foreach(hconf.setUsername)
+      password.foreach(hconf.setPassword)
+    }))
     c.getPropertiesOpt("properties").foreach(hconf.setDataSourceProperties)
 
     // Pool configuration
@@ -172,6 +174,26 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     val ds = new HikariDataSource(hconf)
     new HikariCPJdbcDataSource(ds, hconf)
+  }
+
+  def parseDatabaseUrl(c: Config, callback:(Option[String], Option[String]) => Unit): String = {
+    val urlFromConfig = c.getStringOr("url", null)
+    if (urlFromConfig ne null) {
+      if (urlFromConfig.startsWith("jdbc")) {
+        callback(c.getStringOpt("user"), c.getStringOpt("password"))
+        urlFromConfig
+      } else {
+        val dbUri = new URI(urlFromConfig)
+        val dbScheme = dbUri.getScheme match {
+          case "postgres" => "postgresql"
+          case scheme => scheme
+        }
+        callback(Some(dbUri.getUserInfo().split(":")(0)), Some(dbUri.getUserInfo().split(":")(1)))
+        s"jdbc:${dbScheme}://${dbUri.getHost}:${dbUri.getPort}${dbUri.getPath}"
+      }
+    } else {
+      null
+    }
   }
 }
 
