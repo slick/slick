@@ -16,7 +16,7 @@ class ForceOuterBinds extends Phase {
     val n2 =
       if(t != UnassignedType && !t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))
       else wrap(n)
-    n2.infer(SymbolScope.empty, typeChildren = true, retype = false)
+    n2.infer(typeChildren = true)
   }
 
   def idBind(n: Node): Bind = {

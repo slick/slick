@@ -49,7 +49,7 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
   def generators = Seq((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren, retype)
     val (map2, newType) = from2.nodeType match {
       case CollectionType(cons, elem) =>

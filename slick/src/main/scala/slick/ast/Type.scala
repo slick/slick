@@ -34,6 +34,9 @@ object Type {
   object Structural {
     def unapply(t: Type): Some[Type] = Some(t.structural)
   }
+
+  type Scope = Map[TermSymbol, Type]
+  def Scope(elems: (TermSymbol, Type)*): Scope = Map(elems: _*)
 }
 
 /** An atomic type (i.e. a type which does not contain other types) */
@@ -279,20 +282,16 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     case _ => throw new SlickException("Expected an option type, found "+tpe)
   }
 
-  def foreach[U](f: (Type => U)) {
-    def g(n: Type) {
-      f(n)
-      n.children.foreach(g)
-    }
-    g(tpe)
-  }
-
   def replace(f: PartialFunction[Type, Type]): Type =
     f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
 
   def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = {
     val b = new ArrayBuffer[T]
-    tpe.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () })
+    def g(n: Type) {
+      pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () }.apply(n)
+      n.children.foreach(g)
+    }
+    g(tpe)
     b
   }
 
@@ -306,22 +305,6 @@ object TypeUtil {
   object :@ {
     def unapply(n: Node) = Some((n, n.nodeType))
   }
-}
-
-trait SymbolScope {
-  def + (entry: (TermSymbol, Type)): SymbolScope
-  def get(sym: TermSymbol): Option[Type]
-  def withDefault(f: (TermSymbol => Type)): SymbolScope
-}
-
-object SymbolScope {
-  val empty = new DefaultSymbolScope(Map.empty)
-}
-
-class DefaultSymbolScope(val m: Map[TermSymbol, Type]) extends SymbolScope {
-  def + (entry: (TermSymbol, Type)) = new DefaultSymbolScope(m + entry)
-  def get(sym: TermSymbol): Option[Type] = m.get(sym)
-  def withDefault(f: (TermSymbol => Type)) = new DefaultSymbolScope(m.withDefault(f))
 }
 
 /** A Slick Type encoding of plain Scala types.

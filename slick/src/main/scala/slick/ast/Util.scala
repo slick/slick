@@ -82,14 +82,6 @@ final class NodeOps(val tree: Node) extends AnyVal {
     }, bottomUp = true)
   }
 
-  def foreach[U](f: (Node => U)): Unit = {
-    def g(n: Node) {
-      f(n)
-      n.children.foreach(g)
-    }
-    g(tree)
-  }
-
   def findNode(p: Node => Boolean): Option[Node] = {
     if(p(tree)) Some(tree)
     else {

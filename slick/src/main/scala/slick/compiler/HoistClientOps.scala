@@ -18,11 +18,11 @@ class HoistClientOps extends Phase {
         case comp: Comprehension => (comp, None)
         case n => throw new SlickTreeException("Expected Comprehension at top level of ResultSetMapping", rsm, mark = (_ eq n))
       }
-      val Some(Pure(StructNode(defs1), _)) = comp.select
+      val Pure(StructNode(defs1), _) = comp.select
       val base = new AnonSymbol
       val proj = StructNode(defs1.map { case (s, _) => (s, Select(Ref(base), s)) })
       val ResultSetMapping(_, rsmFrom, rsmProj) = hoist(ResultSetMapping(base, comp, proj))
-      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).infer(SymbolScope.empty, false, true)
+      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).infer(retype = true)
       val rsm3 = fuseResultSetMappings(rsm.copy(from = rsm2)).infer(retype = true)
       cons match {
         case Some(cons) =>

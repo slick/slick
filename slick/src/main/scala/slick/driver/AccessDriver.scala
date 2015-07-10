@@ -133,15 +133,12 @@ trait AccessDriver extends JdbcDriver { driver =>
     }
 
     protected def extendWithDummyColumn(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
-      case Some(Pure(StructNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> LiteralNode(1))))), fetch = None, offset = None)
-      case Some(Pure(ProductNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> LiteralNode(1))))), fetch = None, offset = None)
-      case Some(Pure(n, _)) =>
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> LiteralNode(1))))), fetch = None, offset = None)
-      case None =>
-        // should not happen at the outermost layer, so copying an extra row does not matter
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAnd(LiteralNode(1)))))), fetch = None, offset = None)
+      case Pure(StructNode(ch), _) =>
+        c.copy(select = Pure(StructNode(ch :+ (rn -> LiteralNode(1)))), fetch = None, offset = None)
+      case Pure(ProductNode(ch), _) =>
+        c.copy(select = Pure(StructNode(ch.toIndexedSeq.map(n => new AnonSymbol -> n) :+ (rn -> LiteralNode(1)))), fetch = None, offset = None)
+      case Pure(n, _) =>
+        c.copy(select = Pure(StructNode(IndexedSeq(new AnonSymbol -> n, rn -> LiteralNode(1)))), fetch = None, offset = None)
     }
 
     override protected def buildComprehension(c: Comprehension) =

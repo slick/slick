@@ -46,7 +46,7 @@ class CreateAggregates extends Phase {
             }.toMap
         }
         logger.debug("Replacement paths: " + repl)
-        val scope = SymbolScope.empty + (s1, from2.nodeType.asCollectionType.elementType)
+        val scope = Type.Scope(s1 -> from2.nodeType.asCollectionType.elementType)
         val replNodes = repl.mapValues(ss => FwdPath(ss).infer(scope))
         logger.debug("Replacement path nodes: ", StructNode(replNodes.toIndexedSeq))
         val sel3 = sel2.replace({ case n @ Ref(s) => replNodes.getOrElse(s, n) }, keepType = true)

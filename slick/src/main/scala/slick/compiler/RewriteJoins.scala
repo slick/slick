@@ -280,24 +280,15 @@ class RewriteJoins extends Phase {
     b
   }
 
-  def and(ns: IndexedSeq[Node]): Node = ns.length match {
-    case 0 => LiteralNode(true)
-    case 1 => ns.head
-    case _ => ns.reduceLeft { (p1, p2) =>
-      val tpe1 = p1.nodeType.structural
-      val tpe2 = p2.nodeType.structural
-      val tpe = if(tpe1.isInstanceOf[OptionType]) tpe1 else tpe2
-      Library.And.typed(tpe, p1, p2)
+  def and(ns: IndexedSeq[Node]): Node =
+    if(ns.isEmpty) LiteralNode(true) else ns.reduceLeft { (p1, p2) =>
+      val t1 = p1.nodeType.structural
+      Library.And.typed(if(t1.isInstanceOf[OptionType]) t1 else p2.nodeType.structural, p1, p2)
     }
-  }
 
-  def and(p1Opt: Option[Node], p2: Node): Node = p1Opt match {
-    case Some(p1) =>
-      val tpe1 = p1.nodeType.structural
-      val tpe2 = p2.nodeType.structural
-      val tpe = if(tpe1.isInstanceOf[OptionType]) tpe1 else tpe2
-      Library.And.typed(tpe, p1, p2)
-    case None => p2
+  def and(p1Opt: Option[Node], p2: Node): Node = p1Opt.fold(p2) { p1 =>
+    val t1 = p1.nodeType.structural
+    Library.And.typed(if(t1.isInstanceOf[OptionType]) t1 else p2.nodeType.structural, p1, p2)
   }
 
   def hasRefTo(n: Node, s: Set[TermSymbol]): Boolean = n.findNode {

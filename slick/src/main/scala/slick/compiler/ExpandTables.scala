@@ -37,7 +37,7 @@ class ExpandTables extends Phase {
       // Create a mapping that expands the tables
       val sym = new AnonSymbol
       val mapping = createResult(tables, Ref(sym), tree2.nodeType.asCollectionType.elementType)
-        .infer(SymbolScope.empty + (sym -> tree2.nodeType.asCollectionType.elementType), typeChildren = true)
+        .infer(Type.Scope(sym -> tree2.nodeType.asCollectionType.elementType), typeChildren = true)
       Bind(sym, tree2, Pure(mapping)).infer()
     }
   }}.withWellTyped(WellTyped.ServerSide)

@@ -118,16 +118,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b.build
     }
 
-    protected final def newSym = new AnonSymbol
-
     @inline protected final def building(p: StatementPart)(f: => Unit): Unit = {
       val oldPart = currentPart
       currentPart = p
       f
       currentPart = oldPart
     }
-
-    protected def transformComprehension(c: Comprehension): Comprehension = c
 
     protected def buildComprehension(c: Comprehension): Unit = {
       val limit0 = c.fetch match {
@@ -147,13 +143,16 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       buildSelectClause(c)
       buildFromClause(from)
       if(limit0) b"\nwhere 1=0"
-      else buildWhereClause(c.where ++ on)
+      else buildWhereClause(and(c.where.toSeq ++ on))
       buildGroupByClause(c.groupBy)
       buildHavingClause(c.having)
       buildOrderByClause(c.orderBy)
       if(!limit0) buildFetchOffsetClause(c.fetch, c.offset)
       currentUniqueFrom = oldUniqueFrom
     }
+
+    private[this] def and(ns: Seq[Node]): Option[Node] =
+      if(ns.isEmpty) None else Some(ns.reduceLeft((p1, p2) => Library.And.typed[Boolean](p1, p2)))
 
     protected def flattenJoins(s: TermSymbol, n: Node): (Seq[(TermSymbol, Node)], Seq[Node]) = {
       def f(s: TermSymbol, n: Node): Option[(Seq[(TermSymbol, Node)], Seq[Node])] = n match {
@@ -175,17 +174,16 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       b"select "
       buildSelectModifiers(c)
       c.select match {
-        case Some(Pure(StructNode(ch), _)) =>
+        case Pure(StructNode(ch), _) =>
           b.sep(ch, ", ") { case (sym, n) =>
             buildSelectPart(n)
             b" as `$sym"
           }
           if(ch.isEmpty) b"1"
-        case Some(Pure(ProductNode(ch), _)) =>
+        case Pure(ProductNode(ch), _) =>
           b.sep(ch, ", ")(buildSelectPart)
           if(ch.isEmpty) b"1"
-        case Some(Pure(n, _)) => buildSelectPart(n)
-        case None => b"*"
+        case Pure(n, _) => buildSelectPart(n)
       }
     }
 
@@ -207,12 +205,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
-    protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
-      if(!where.isEmpty) {
-        b"\nwhere "
-        expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
-      }
-    }
+    protected def buildWhereClause(where: Option[Node]) =
+      building(WherePart)(where.foreach(p => b"\nwhere !$p"))
 
     protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart)(groupBy.foreach { n =>
       b"\ngroup by "
@@ -229,12 +223,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case e => b"!$e"
     }
 
-    protected def buildHavingClause(having: Seq[Node]) = building(HavingPart) {
-      if(!having.isEmpty) {
-        b"\nhaving "
-        expr(having.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
-      }
-    }
+    protected def buildHavingClause(having: Option[Node]) =
+      building(HavingPart)(having.foreach(p => b"\nhaving !$p"))
 
     protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
       if(!order.isEmpty) {
@@ -335,8 +325,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case Library.Exists(c: Comprehension) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite
-         * such sub-queries to "select *". */
-        b"exists\[!${(if(supportsTuples) c else c.copy(select = None)): Node}\]"
+         * such sub-queries to "select 1". */
+        b"exists\[!${(if(supportsTuples) c else c.copy(select = Pure(LiteralNode(1))).infer()): Node}\]"
       case Library.Concat(l, r) if concatOperator.isDefined =>
         b"\($l${concatOperator.get}$r\)"
       case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
@@ -423,7 +413,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case OptionApply(ch) => expr(ch, skipParens)
       case c: Comprehension =>
         b"\{"
-        buildComprehension(transformComprehension(c))
+        buildComprehension(c)
         b"\}"
       case n => throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
@@ -437,7 +427,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(sym, from: TableNode, Some(Pure(select, _)), where, None, _, Nil, None, None) => select match {
+        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -461,7 +451,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(sym, from, Some(Pure(select, _)), where, _, _, Nil, fetch, offset) =>
+        case Comprehension(sym, from, Pure(select, _), where, _, _, None, fetch, offset) =>
           if(fetch.isDefined || offset.isDefined) fail(".take and .drop are not supported")
           from match {
             case from: TableNode => (sym, from, where)
@@ -477,67 +467,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
       b.build
-    }
-  }
-
-  /** QueryBuilder mix-in for pagination based on RowNumber. */
-  trait RowNumberPagination extends QueryBuilder {
-    final case class StarAnd(child: Node) extends UnaryNode with SimplyTypedNode {
-      type Self = StarAnd
-      protected[this] def rebuild(child: Node) = StarAnd(child)
-      protected def buildType = UnassignedType
-    }
-
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case StarAnd(ch) => b"*, !$ch"
-      case _ => super.expr(c, skipParens)
-    }
-
-    override protected def buildComprehension(c: Comprehension) {
-      if(c.fetch.isDefined || c.offset.isDefined) {
-        val r = newSym
-        val rn = symbolName(r)
-        val tn = symbolName(newSym)
-        val c2 = makeSelectPageable(c, r)
-        val c3 = Phase.fixRowNumberOrdering.fix(c2, None).asInstanceOf[Comprehension]
-        b"select "
-        buildSelectModifiers(c)
-        c3.select match {
-          case Some(Pure(StructNode(ch), _)) =>
-            b.sep(ch.filter { case (_, RowNumber(_)) => false; case _ => true }, ", ") {
-              case (sym, StarAnd(RowNumber(_))) => b"*"
-              case (sym, _) => b += symbolName(sym)
-            }
-          case o => throw new SlickException("Unexpected node "+o+" in SELECT slot of "+c)
-        }
-        b" from ("
-        super.buildComprehension(c3)
-        b") $tn where $rn"
-        (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b" between ${QueryParameter.constOp[Long]("+")(_ + _)(d, LiteralNode(1L).infer())} and ${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}"
-          case (Some(t), None   ) => b" between 1 and $t"
-          case (None,    Some(d)) => b" > $d"
-          case _ => throw new SlickException("Unexpected empty fetch/offset")
-        }
-        b" order by $rn"
-      }
-      else super.buildComprehension(c)
-    }
-
-    /** Create aliases for all selected rows (unless it is a "select *" query),
-      * add a RowNumber column, and remove FETCH and OFFSET clauses. The SELECT
-      * clause of the resulting Comprehension always has the shape
-      * Some(Pure(StructNode(_))). */
-    protected def makeSelectPageable(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
-      case Some(Pure(StructNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(ProductNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(n, _)) =>
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> RowNumber())))), fetch = None, offset = None)
-      case None =>
-        // should not happen at the outermost layer, so copying an extra row does not matter
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAnd(RowNumber()))))), fetch = None, offset = None)
     }
   }
 

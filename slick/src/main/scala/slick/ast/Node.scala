@@ -66,10 +66,10 @@ trait Node extends Dumpable {
     * the children are only type-checked again if ``typeChildren`` is true. if ``retype`` is also
     * true, the existing type of this node is replaced. If this node does not yet have a type, the
     * types of all children are computed first. */
-  final def infer(scope: SymbolScope = SymbolScope.empty, typeChildren: Boolean = false, retype: Boolean = false): Self =
+  final def infer(scope: Type.Scope = Map.empty, typeChildren: Boolean = false, retype: Boolean = false): Self =
     if(hasType && !typeChildren) this else withInferredType(scope, typeChildren, retype)
 
-  protected[this] def withInferredType(scope: SymbolScope = SymbolScope.empty, typeChildren: Boolean = false, retype: Boolean = false): Self
+  protected[this] def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self
 
   def getDumpInfo = {
     val (objName, mainInfo) = this match {
@@ -99,7 +99,7 @@ trait SimplyTypedNode extends Node {
 
   protected def buildType: Type
 
-  final def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  final def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val this2: Self = mapChildren(_.infer(scope, typeChildren, retype), !retype)
     if(!hasType || retype) (this2 :@ this2.buildType).asInstanceOf[Self] else this2
   }
@@ -236,7 +236,7 @@ abstract class FilteredQuery extends Node {
     case _ => ""
   })
 
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren, retype)
     val genScope = scope + (generator -> from2.nodeType.asCollectionType.elementType)
     val ch2: IndexedSeq[Node] = children.map { ch =>
@@ -304,7 +304,7 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(fromGen = gen(0))
   def generators = Seq((fromGen, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = identity.toString)
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren, retype)
     val from2Type = from2.nodeType.asCollectionType
     val by2 = by.infer(scope + (fromGen -> from2Type.elementType), typeChildren, retype)
@@ -352,7 +352,7 @@ final case class Join(leftGen: TermSymbol, rightGen: TermSymbol, left: Node, rig
   def generators = Seq((leftGen, left), (rightGen, right))
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) =
     copy(leftGen = gen(0), rightGen = gen(1))
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val left2 = left.infer(scope, typeChildren, retype)
     val right2 = right.infer(scope, typeChildren, retype)
     val left2Type = left2.nodeType.asCollectionType
@@ -393,7 +393,7 @@ final case class Bind(generator: TermSymbol, from: Node, select: Node) extends B
   def generators = Seq((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren, retype)
     val from2Type = from2.nodeType.asCollectionType
     val select2 = select.infer(scope + (generator -> from2Type.elementType), typeChildren, retype)
@@ -416,7 +416,7 @@ final case class Aggregate(sym: TermSymbol, from: Node, select: Node) extends Bi
   def generators = Seq((sym, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(sym = gen(0))
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val from2 :@ CollectionType(_, el) = from.infer(scope, typeChildren, retype)
     val select2 = select.infer(scope + (sym -> el), typeChildren, retype)
     withChildren(Vector(from2, select2)) :@ (if(!hasType || retype) select2.nodeType else nodeType)
@@ -433,7 +433,7 @@ final case class TableExpansion(generator: TermSymbol, table: Node, columns: Nod
   def generators = Seq((generator, table))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
     val table2 = table.infer(scope, typeChildren, retype)
     val columns2 = columns.infer(scope + (generator -> table2.nodeType.asCollectionType.elementType), typeChildren, retype)
     withChildren(Vector(table2, columns2)) :@ (if(!hasType || retype) table2.nodeType else nodeType)
@@ -463,7 +463,7 @@ final case class Apply(sym: TermSymbol, children: Seq[Node])(val buildType: Type
 /** A reference to a Symbol */
 final case class Ref(sym: TermSymbol) extends NullaryNode {
   type Self = Ref
-  def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self =
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self =
     if(hasType && !retype) this else {
       scope.get(sym) match {
         case Some(t) => if(t == nodeType) this else copy() :@ t
@@ -579,7 +579,7 @@ final case class OptionFold(from: Node, ifEmpty: Node, map: Node, gen: TermSymbo
   override def childNames = IndexedSeq("from "+gen, "ifEmpty", "map")
   protected[this] def rebuild(ch: IndexedSeq[Node]) = copy(ch(0), ch(1), ch(2))
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(gen = gen(0))
-  protected[this] def withInferredType(scope: SymbolScope, typeChildren: Boolean, retype: Boolean) = {
+  protected[this] def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean) = {
     val from2 = from.infer(scope, typeChildren, retype)
     val ifEmpty2 = ifEmpty.infer(scope, typeChildren, retype)
     val genScope = scope + (gen -> from2.nodeType.structural.asOptionType.elementType)
