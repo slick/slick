@@ -29,7 +29,7 @@ object SlickBuild extends Build {
     val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
     val logback = "ch.qos.logback" % "logback-classic" % "1.1.3"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
-    val reactiveStreamsVersion = "1.0.0.RC4"
+    val reactiveStreamsVersion = "1.0.0"
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
     val pools = Seq(
@@ -209,7 +209,8 @@ object SlickBuild extends Build {
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl")
       ),
       ivyConfigurations += config("macro").hide.extend(Compile),
-      unmanagedClasspath in Compile <++= fullClasspath in config("macro"),
+      unmanagedClasspath in Compile <++= products in config("macro"),
+      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _ % "provided"),
       mappings in (Compile, packageSrc) <++= mappings in (config("macro"), packageSrc),
       mappings in (Compile, packageBin) <++= mappings in (config("macro"), packageBin),
       OsgiKeys.exportPackage := Seq("slick", "slick.*", "scala.slick", "scala.slick.*"),

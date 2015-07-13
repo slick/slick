@@ -8,6 +8,7 @@ import org.ops4j.pax.exam.junit.{Configuration, ExamReactorStrategy, JUnit4TestR
 import org.ops4j.pax.exam.spi.reactors.AllConfinedStagedReactorFactory
 import slick.SlickException
 import slick.osgi.testutil._
+import slick.util.GlobalConfig
 
 @RunWith(classOf[JUnit4TestRunner])
 @ExamReactorStrategy(Array(classOf[AllConfinedStagedReactorFactory]))
@@ -25,5 +26,9 @@ class BasicTest extends SlickOsgiHelper {
     Database.forURL("jdbc:h2:mem:test-osgi") withSession { implicit session =>
       assertEquals("TEST-OSGI", sql"select {fn database()}".as[String].first)
     }
+  }
+  @Test
+  def testConfig: Unit = {
+    assertFalse(GlobalConfig.driverConfig("MySQL").isEmpty)
   }
 }
