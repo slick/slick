@@ -11,7 +11,8 @@ import slick.jdbc.GetResult._
 import slick.jdbc.meta.MTable
 import org.junit.Assert
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext}
 
 object StandardTestDBs {
   lazy val H2Mem = new H2TestDB("h2mem", false) {
@@ -220,11 +221,11 @@ abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null)).map { ts =>
       ts.map(_._3).sorted
     }
-  override def cleanUpBefore() {
-    // Try to turn Hsqldb logging off -- does not work :(
-    System.setProperty("hsqldb.reconfig_logging", "false")
-    Logger.getLogger("org.hsqldb.persist.Logger").setLevel(Level.OFF)
-    Logger.getLogger("org.hsqldb").setLevel(Level.OFF)
-    Logger.getLogger("hsqldb").setLevel(Level.OFF)
+  override def createDB(): profile.Backend#Database = {
+    val db = super.createDB()
+    Await.result(db.run(SimpleJdbcAction(_ => ())), Duration.Inf)
+    Logger.getLogger("hsqldb.db").setLevel(Level.WARNING)
+    Logger.getLogger("org.hsqldb").setLevel(Level.WARNING)
+    db
   }
 }

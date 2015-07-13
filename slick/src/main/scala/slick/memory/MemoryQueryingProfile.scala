@@ -54,26 +54,27 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
   }): ScalaType[_]).asInstanceOf[ScalaType[Any]]
 
   class MemoryCodeGen extends CodeGen with ResultConverterCompiler[MemoryResultConverterDomain] {
-    override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state)))
+    override def apply(state: CompilerState): CompilerState = state.map(n => retype(apply(n, state))).withWellTyped(WellTyped.None)
+
     def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = (serverSide, mapping.map(compileMapping))
 
     def retype(n: Node): Node = {
       val n2 = transformSimpleGrouping(n)
-      val n3 = n2.nodeMapChildren(retype, keepType = true)
-      n3.nodeRebuildWithType(trType(n3.nodeType))
+      val n3 = n2.mapChildren(retype, keepType = true)
+      n3 :@ trType(n3.nodeType)
     }
 
     def transformSimpleGrouping(n: Node) = n match {
-      case Bind(gen, g: GroupBy, p @ Pure(_: ProductNode, _)) =>
+      case Bind(gen, g: GroupBy, p @ Pure((_: ProductNode | _: StructNode), _)) =>
         val p2 = transformCountAll(gen, p)
-        if(p2 eq p) n else Bind(gen, g, p2).nodeWithComputedType(typeChildren = true)
+        if(p2 eq p) n else Bind(gen, g, p2).infer(typeChildren = true)
       case n => n
     }
 
-    def transformCountAll(gen: Symbol, n: Node): Node = n match {
+    def transformCountAll(gen: TermSymbol, n: Node): Node = n match {
       case Apply(Library.CountAll, ch @ Seq(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _)))) if s == gen && s2 == gen2 =>
         Apply(Library.Count, ch)(n.nodeType)
-      case n => n.nodeMapChildren(ch => transformCountAll(gen, ch), keepType = true)
+      case n => n.mapChildren(ch => transformCountAll(gen, ch), keepType = true)
     }
 
     def trType(t: Type): Type = t.structural match {
@@ -106,6 +107,16 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
       override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"ridx=$ridx, nullable=$nullable")
       def width = 1
     }
+  }
+
+  object ProductOfCommonPaths {
+    def unapply(n: ProductNode): Option[(TermSymbol, Vector[List[TermSymbol]])] = if(n.children.isEmpty) None else
+      n.children.foldLeft(null: Option[(TermSymbol, Vector[List[TermSymbol]])]) {
+        case (None, _) => None
+        case (null, FwdPath(sym :: rest)) => Some((sym, Vector(rest)))
+        case (Some((sym0, v)), FwdPath(sym :: rest)) if sym == sym0 => Some((sym, v :+ rest))
+        case _ => None
+      }
   }
 }
 

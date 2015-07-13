@@ -28,7 +28,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
   lazy val queryCompiler = compiler + new MemoryCodeGen
   lazy val updateCompiler = compiler
   lazy val deleteCompiler = compiler
-  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, new InsertCompiler(InsertCompiler.NonAutoInc), new MemoryInsertCodeGen)
+  lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.NonAutoInc), new MemoryInsertCodeGen)
 
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
 
@@ -206,6 +206,8 @@ object MemoryProfile {
 trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with MemoryProfile { driver =>
 
   override val profile: MemoryProfile = this
+
+  override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
     val Insert(_, table: TableNode, ProductNode(cols)) = insert

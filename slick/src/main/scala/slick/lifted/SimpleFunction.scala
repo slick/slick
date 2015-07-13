@@ -5,7 +5,7 @@ import slick.ast._
 import slick.util._
 
 /** Base class for SimpleFunction/BinaryOperator/Expression implementations. */
-private[lifted] abstract class SimpleFeatureNode[T](implicit val tpe: TypedType[T]) extends TypedNode {
+private[lifted] abstract class SimpleFeatureNode[T](implicit val buildType: TypedType[T]) extends SimplyTypedNode {
   type Self = SimpleFeatureNode[T]
 }
 
@@ -22,8 +22,8 @@ object SimpleFunction {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleFunction {
       val name = fname
       override val scalar = fn
-      def nodeChildren = params
-      protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self = build(ch)
+      def children = params
+      protected[this] def rebuild(ch: IndexedSeq[Node]): Self = build(ch)
     }
     { paramsC: Seq[Rep[_] ] => Rep.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }
@@ -54,7 +54,7 @@ object SimpleBinaryOperator {
       val name = fname
       val left = leftN
       val right = rightN
-      protected[this] def nodeRebuild(left: Node, right: Node): Self = build(left, right)
+      protected[this] def rebuild(left: Node, right: Node): Self = build(left, right)
     }
     { (leftC: Rep[_], rightC: Rep[_]) => Rep.forNode[T](build(leftC.toNode, rightC.toNode)) }
   }
@@ -63,9 +63,9 @@ object SimpleBinaryOperator {
 /** A SimpleLiteral is inserted verbatim into a SQL query string. For the
   * purpose of handling it in the query compiler it is assumed to be an
   * expression of the specified type. */
-final case class SimpleLiteral(name: String)(val tpe: Type) extends NullaryNode with TypedNode {
+final case class SimpleLiteral(name: String)(val buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = SimpleLiteral
-  def nodeRebuild = copy()(tpe)
+  def rebuild = copy()(buildType)
 }
 object SimpleLiteral{
   def apply[T](name: String)(implicit tpe: TypedType[T]) = Rep.forNode[T](new SimpleLiteral(name)(tpe))
@@ -78,9 +78,9 @@ trait SimpleExpression extends Node {
 object SimpleExpression {
   def apply[T : TypedType](f: (Seq[Node], JdbcStatementBuilderComponent#QueryBuilder) => Unit): (Seq[Rep[_]] => Rep[T]) = {
     def build(params: IndexedSeq[Node]): SimpleFeatureNode[T] = new SimpleFeatureNode[T] with SimpleExpression {
-      def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(nodeChildren, qb)
-      def nodeChildren = params
-      protected[this] def nodeRebuild(ch: IndexedSeq[Node]) = build(ch)
+      def toSQL(qb: JdbcStatementBuilderComponent#QueryBuilder) = f(children, qb)
+      def children = params
+      protected[this] def rebuild(ch: IndexedSeq[Node]) = build(ch)
     }
     { paramsC: Seq[Rep[_] ] => Rep.forNode(build(paramsC.map(_.toNode)(collection.breakOut))) }
   }

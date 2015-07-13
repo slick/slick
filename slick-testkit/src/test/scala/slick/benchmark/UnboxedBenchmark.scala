@@ -3,8 +3,8 @@ package slick.benchmark
 import slick.ast._
 import slick.jdbc._
 import slick.relational._
-import slick.util.TreePrinter
 import com.typesafe.slick.testkit.util.DelegateResultSet
+import slick.util.TreePrinter
 
 @deprecated("Using deprecated .simple API", "3.0")
 object UnboxedBenchmark extends App {

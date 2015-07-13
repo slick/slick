@@ -7,10 +7,9 @@ import slick.lifted._
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.ast.ExtraUtil._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.profile.{RelationalProfile, SqlProfile, Capability}
-import slick.compiler.CompilerState
+import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
 import slick.model.Model
 import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
 
@@ -82,6 +81,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override val columnTypes = new JdbcTypes
+  override protected def computeQueryCompiler = super.computeQueryCompiler.replace(new MySQLResolveZipJoins) - Phase.fixRowNumberOrdering
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -89,8 +89,6 @@ trait MySQLDriver extends JdbcDriver { driver =>
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
-
-  override val scalarFrom = Some("DUAL")
 
   override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
@@ -100,40 +98,45 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
   protected lazy val defaultStringType = driverConfig.getString("defaultStringType")
 
+  class MySQLResolveZipJoins extends ResolveZipJoins {
+    // MySQL does not support ROW_NUMBER() but you can manually increment a variable in the SELECT
+    // clause to emulate it. See http://stackoverflow.com/a/1895127/458687 for an example.
+    // According to http://dev.mysql.com/doc/refman/5.0/en/user-variables.html this should not be
+    // relied on but it is the generally accepted solution and there is no better way.
+    override def transformZipWithIndex(s1: TermSymbol, ls: TermSymbol, from: Node,
+                                       defs: IndexedSeq[(TermSymbol, Node)], offset: Long, p: Node): Node = {
+      val countSym = new AnonSymbol
+      val j = Join(new AnonSymbol, new AnonSymbol,
+        Bind(ls, from, Pure(StructNode(defs))),
+        Bind(new AnonSymbol, Pure(StructNode(IndexedSeq.empty)),
+          Pure(StructNode(IndexedSeq(new AnonSymbol -> RowNumGen(countSym, offset-1))))),
+        JoinType.Inner, LiteralNode(true))
+      var first = true
+      Subquery(Bind(s1, j, p.replace {
+        case Select(Ref(s), ElementSymbol(2)) if s == s1 =>
+          val r = RowNum(countSym, first)
+          first = false
+          r
+        case r @ Ref(s) if s == s1 => r.untyped
+      }), Subquery.Always).infer()
+    }
+  }
+
+  final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with SimplyTypedNode {
+    type Self = RowNum
+    def buildType = ScalaBaseType.longType
+    def rebuild = copy()
+  }
+
+  final case class RowNumGen(sym: AnonSymbol, init: Long) extends NullaryNode with SimplyTypedNode {
+    type Self = RowNumGen
+    def buildType = ScalaBaseType.longType
+    def rebuild = copy()
+  }
+
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsCast = false
-    override protected val supportsEmptyJoinConditions = false
-
-    final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with TypedNode {
-      type Self = RowNum
-      def tpe = ScalaBaseType.longType
-      def nodeRebuild = copy()
-    }
-    final case class RowNumGen(sym: AnonSymbol) extends NullaryNode with TypedNode {
-      type Self = RowNumGen
-      def tpe = ScalaBaseType.longType
-      def nodeRebuild = copy()
-    }
-
-    override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
-      super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if hasRowNumber(sel) =>
-          // MySQL does not support ROW_NUMBER() but you can manually increment
-          // a variable in the SELECT clause to emulate it.
-          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
-          val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
-          val gen, rownumSym, rownumGen = new AnonSymbol
-          var inc = true
-          val newSel = replaceRowNumber(sel.replace {
-            case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
-          }){ _ =>
-            val r = RowNum(rownumSym, inc)
-            inc = false
-            r
-          }
-          Comprehension(Seq(gen -> inner, rownumGen -> RowNumGen(rownumSym)), select = Some(newSel))
-        case c => c
-      }
+    override protected val parenthesizeNestedRHSJoin = true
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
@@ -143,7 +146,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
       case RowNum(sym, false) => b"@`$sym"
-      case RowNumGen(sym) => b"(select @`$sym := 0)"
+      case RowNumGen(sym, init) => b"@`$sym := $init"
       case _ => super.expr(n, skipParens)
     }
 

@@ -6,7 +6,6 @@ import slick.SlickException
 import slick.ast._
 import slick.ast.Util.nodeToNodeOps
 import slick.ast.TypeUtil._
-import slick.ast.ExtraUtil._
 import slick.compiler.{RewriteBooleans, CodeGen, Phase, CompilerState, QueryCompiler}
 import slick.util._
 import slick.util.MacroSupport.macroSupportInterpolation
@@ -76,6 +75,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   case object SelectPart extends StatementPart
   case object FromPart extends StatementPart
   case object WherePart extends StatementPart
+  case object HavingPart extends StatementPart
   case object OtherPart extends StatementPart
 
   /** Create a SQL representation of a literal value. */
@@ -96,26 +96,27 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     // Immutable config options (to be overridden by subclasses)
     protected val supportsTuples = true
     protected val supportsCast = true
-    protected val supportsEmptyJoinConditions = true
     protected val concatOperator: Option[String] = None
     protected val hasPiFunction = true
     protected val hasRadDegConversion = true
+    protected val parenthesizeNestedRHSJoin = false
     protected val pi = "3.1415926535897932384626433832795"
+    protected val alwaysAliasSubqueries = true
+    protected val supportsLiteralGroupBy = false
 
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
     protected var currentPart: StatementPart = OtherPart
     protected val symbolName = new QuotingSymbolNamer(Some(state.symbolNamer))
-    protected val joins = new HashMap[Symbol, Join]
+    protected val joins = new HashMap[TermSymbol, Join]
+    protected var currentUniqueFrom: Option[TermSymbol] = None
 
     def sqlBuilder = b
 
     final def buildSelect(): SQLBuilder.Result = {
-      buildComprehension(toComprehension(tree, true))
+      expr(tree, true)
       b.build
     }
-
-    protected final def newSym = new AnonSymbol
 
     @inline protected final def building(p: StatementPart)(f: => Unit): Unit = {
       val oldPart = currentPart
@@ -124,81 +125,106 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       currentPart = oldPart
     }
 
-    protected def toComprehension(n: Node, liftExpression: Boolean = false): Comprehension = n match {
-      case c : Comprehension => c
-      case p: Pure =>
-        Comprehension(select = Some(p))
-      case t: TableNode =>
-        Comprehension(from = Seq(newSym -> t))
-      case u: Union =>
-        Comprehension(from = Seq(newSym -> u))
-      case n =>
-        if(liftExpression) toComprehension(Pure(n))
-        else throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
-    }
-
     protected def buildComprehension(c: Comprehension): Unit = {
       val limit0 = c.fetch match {
         case Some(LiteralNode(0L)) => true
         case _ => false
       }
-      scanJoins(c.from)
+      scanJoins(Seq((c.sym, c.from)))
+      val (from, on) = flattenJoins(c.sym, c.from)
+      val oldUniqueFrom = currentUniqueFrom
+      def containsSymbolInSubquery(s: TermSymbol) =
+        c.children.tail.flatMap(_.collect { case c: Comprehension => c }.flatMap(_.findNode(_ == Ref(s)))).nonEmpty
+      currentUniqueFrom = from match {
+        case Seq((s, _: TableNode)) if !containsSymbolInSubquery(s) => Some(s)
+        case Seq((s, _)) if !alwaysAliasSubqueries && !containsSymbolInSubquery(s) => Some(s)
+        case _ => None
+      }
       buildSelectClause(c)
-      buildFromClause(c.from)
+      buildFromClause(from)
       if(limit0) b"\nwhere 1=0"
-      else buildWhereClause(c.where)
+      else buildWhereClause(and(c.where.toSeq ++ on))
       buildGroupByClause(c.groupBy)
+      buildHavingClause(c.having)
       buildOrderByClause(c.orderBy)
       if(!limit0) buildFetchOffsetClause(c.fetch, c.offset)
+      currentUniqueFrom = oldUniqueFrom
+    }
+
+    private[this] def and(ns: Seq[Node]): Option[Node] =
+      if(ns.isEmpty) None else Some(ns.reduceLeft((p1, p2) => Library.And.typed[Boolean](p1, p2)))
+
+    protected def flattenJoins(s: TermSymbol, n: Node): (Seq[(TermSymbol, Node)], Seq[Node]) = {
+      def f(s: TermSymbol, n: Node): Option[(Seq[(TermSymbol, Node)], Seq[Node])] = n match {
+        case Join(ls, rs, l, r, JoinType.Inner, on) =>
+          for {
+            (defs1, on1) <- f(ls, l)
+            (defs2, on2) <- f(rs, r)
+          } yield (defs1 ++ defs2, on match {
+            case LiteralNode(true) => on1 ++ on2
+            case on => on1 ++ on2 :+ on
+          })
+        case _: Join => None
+        case n => Some((Seq((s, n)), Nil))
+      }
+      f(s, n).getOrElse((Seq((s, n)), Nil))
     }
 
     protected def buildSelectClause(c: Comprehension) = building(SelectPart) {
       b"select "
       buildSelectModifiers(c)
       c.select match {
-        case Some(Pure(StructNode(ch), _)) =>
+        case Pure(StructNode(ch), _) =>
           b.sep(ch, ", ") { case (sym, n) =>
             buildSelectPart(n)
             b" as `$sym"
           }
           if(ch.isEmpty) b"1"
-        case Some(Pure(ProductNode(ch), _)) =>
+        case Pure(ProductNode(ch), _) =>
           b.sep(ch, ", ")(buildSelectPart)
           if(ch.isEmpty) b"1"
-        case Some(Pure(n, _)) => buildSelectPart(n)
-        case None =>
-          if(c.from.length <= 1) b"*"
-          else b"`${c.from.last._1}.*"
+        case Pure(n, _) => buildSelectPart(n)
       }
     }
 
     protected def buildSelectModifiers(c: Comprehension) {}
 
-    protected def scanJoins(from: Seq[(Symbol, Node)]) {
+    protected def scanJoins(from: Seq[(TermSymbol, Node)]) {
       for((sym, j: Join) <- from) {
         joins += sym -> j
-        scanJoins(j.nodeGenerators)
+        scanJoins(j.generators)
       }
     }
 
-    protected def buildFromClause(from: Seq[(Symbol, Node)]) = building(FromPart) {
-      if(from.isEmpty) scalarFrom.foreach { s => b"\nfrom $s" }
-      else {
-        b"\nfrom "
-        b.sep(from, ", ") { case (sym, n) => buildFrom(n, Some(sym)) }
+    protected def buildFromClause(from: Seq[(TermSymbol, Node)]) = building(FromPart) {
+      from match {
+        case Nil | Seq((_, Pure(ProductNode(Seq()), _))) => scalarFrom.foreach { s => b"\nfrom $s" }
+        case from =>
+          b"\nfrom "
+          b.sep(from, ", ") { case (sym, n) => buildFrom(n, if(Some(sym) == currentUniqueFrom) None else Some(sym)) }
       }
     }
 
-    protected def buildWhereClause(where: Seq[Node]) = building(WherePart) {
-      if(!where.isEmpty) {
-        b"\nwhere "
-        expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
+    protected def buildWhereClause(where: Option[Node]) =
+      building(WherePart)(where.foreach(p => b"\nwhere !$p"))
+
+    protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart)(groupBy.foreach { n =>
+      b"\ngroup by "
+      n match {
+        case ProductNode(es) => b.sep(es, ", ")(buildGroupByColumn)
+        case e => buildGroupByColumn(e)
       }
+    })
+
+    protected def buildGroupByColumn(by: Node) = by match {
+      // Some database systems assign special meaning to literal values in GROUP BY, so we replace
+      // them by a constant non-literal expression unless it is known to be safe.
+      case LiteralNode(_) if !supportsLiteralGroupBy => b"0+0"
+      case e => b"!$e"
     }
 
-    protected def buildGroupByClause(groupBy: Option[Node]) = building(OtherPart) {
-      groupBy.foreach { e => b"\ngroup by !$e" }
-    }
+    protected def buildHavingClause(having: Option[Node]) =
+      building(HavingPart)(having.foreach(p => b"\nhaving !$p"))
 
     protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
       if(!order.isEmpty) {
@@ -226,21 +252,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         expr(n, true)
     }
 
-    protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
+    protected def buildFrom(n: Node, alias: Option[TermSymbol], skipParens: Boolean = false): Unit = building(FromPart) {
       def addAlias = alias foreach { s => b += ' ' += symbolName(s) }
       n match {
         case t: TableNode =>
           b += quoteTableName(t)
           addAlias
-        case j @ Join(leftGen, rightGen, left, right, jt, on) =>
-          buildFrom(left, Some(leftGen))
-          b"\n${jt.sqlName} join "
-          buildFrom(right, Some(rightGen))
-          on match {
-            case LiteralNode(true) =>
-              if(!supportsEmptyJoinConditions) b"\non 1=1"
-            case _ => b"\non !$on"
-          }
+        case j: Join =>
+          buildJoin(j)
         case Union(left, right, all, _, _) =>
           b"\{"
           buildFrom(left, None, true)
@@ -249,10 +268,26 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           b"\}"
           addAlias
         case n =>
-          b"\{"
-          buildComprehension(toComprehension(n, true))
-          b"\}"
+          expr(n, skipParens)
           addAlias
+      }
+    }
+
+    protected def buildJoin(j: Join): Unit = {
+      buildFrom(j.left, Some(j.leftGen))
+      val op = j.on match {
+        case LiteralNode(true) if j.jt == JoinType.Inner => "cross"
+        case _ => j.jt.sqlName
+      }
+      b"\n$op join "
+      if(j.right.isInstanceOf[Join] && parenthesizeNestedRHSJoin) {
+        b"\["
+        buildFrom(j.right, Some(j.rightGen))
+        b"\]"
+      } else buildFrom(j.right, Some(j.rightGen))
+      if(op != "cross") j.on match {
+        case LiteralNode(true) => b"\non 1=1"
+        case on => b"\non !$on"
       }
     }
 
@@ -275,7 +310,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b"\("
         if(supportsTuples) b"$left = $right"
         else {
-          val cols = left.nodeChildren zip right.nodeChildren
+          val cols = left.children zip right.children
           b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
         }
         b"\)"
@@ -284,14 +319,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         b.sep(ch, ", ")(expr(_))
         b"\)"
       case RewriteBooleans.ToFakeBoolean(ch) =>
-        expr(IfThenElse(Vector(ch, LiteralNode(1), LiteralNode(0))), skipParens)
+        expr(IfThenElse(Vector(ch, LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
       case RewriteBooleans.ToRealBoolean(ch) =>
-        expr(Library.==.typed[Boolean](ch, LiteralNode(true)), skipParens)
+        expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
       case Library.Exists(c: Comprehension) =>
         /* If tuples are not supported, selecting multiple individial columns
          * in exists(select ...) is probably not supported, either, so we rewrite
-         * such sub-queries to "select *". */
-        b"exists\[!${(if(supportsTuples) c else c.copy(select = None)): Node}\]"
+         * such sub-queries to "select 1". */
+        b"exists\[!${(if(supportsTuples) c else c.copy(select = Pure(LiteralNode(1))).infer()): Node}\]"
       case Library.Concat(l, r) if concatOperator.isDefined =>
         b"\($l${concatOperator.get}$r\)"
       case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
@@ -304,13 +339,14 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case s: SimpleFunction =>
         if(s.scalar) b"{fn "
         b"${s.name}("
-        b.sep(s.nodeChildren, ",")(expr(_, true))
+        b.sep(s.children, ",")(expr(_, true))
         b")"
         if(s.scalar) b += '}'
       case SimpleLiteral(w) => b += w
       case s: SimpleExpression => s.toSQL(this)
       case Library.Between(left, start, end) => b"$left between $start and $end"
       case Library.CountDistinct(e) => b"count(distinct $e)"
+      case Library.CountAll(e) => b"count($e)"
       case Library.Like(l, r) => b"\($l like $r\)"
       case Library.Like(l, r, LiteralNode(esc: Char)) =>
         if(esc == '\'' || esc == '%' || esc == '_') throw new SlickException("Illegal escape character '"+esc+"' for LIKE expression")
@@ -323,9 +359,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case Library.Trim(n) =>
         expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
       case Library.Substring(n, start, end) =>
-        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})}\)"
+        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})}\)"
       case Library.Substring(n, start) =>
-        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1))})}\)"
+        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())})}\)"
       case Library.IndexOf(n, str) => b"\({fn locate($str, $n)} - 1\)"
       case Library.Cast(ch @ _*) =>
         val tn =
@@ -362,16 +398,24 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         if(by.isEmpty) b"order by (select 1)"
         else buildOrderByClause(by)
         b")"
-      case Path(field :: (rest @ (_ :: _))) =>
-        val struct = rest.reduceRight[Symbol] {
-          case (ElementSymbol(idx), z) => joins(z).nodeGenerators(idx-1)._1
+      case p @ Path(path) =>
+        val (base, rest) = path.foldRight[(Option[TermSymbol], List[TermSymbol])]((None, Nil)) {
+          case (ElementSymbol(idx), (Some(b), Nil)) => (Some(joins(b).generators(idx-1)._1), Nil)
+          case (s, (None, Nil)) => (Some(s), Nil)
+          case (s, (b, r)) => (b, s :: r)
         }
-        b += symbolName(struct) += '.' += symbolName(field)
+        if(base != currentUniqueFrom) b += symbolName(base.get) += '.'
+        rest match {
+          case Nil => b += '*'
+          case field :: Nil => b += symbolName(field)
+          case _ => throw new SlickException("Cannot resolve "+p+" as field or view")
+        }
       case OptionApply(ch) => expr(ch, skipParens)
-      case n => // try to build a sub-query
+      case c: Comprehension =>
         b"\{"
-        buildComprehension(toComprehension(n))
+        buildComprehension(c)
         b"\}"
+      case n => throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
 
     protected def buildOrdering(n: Node, o: Ordering) {
@@ -383,7 +427,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(Seq((sym, from: TableNode)), where, None, _, Some(Pure(select, _)), None, None) => select match {
+        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -407,10 +451,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(from, where, _, _, Some(Pure(select, _)), fetch, offset) =>
+        case Comprehension(sym, from, Pure(select, _), where, _, _, None, fetch, offset) =>
           if(fetch.isDefined || offset.isDefined) fail(".take and .drop are not supported")
           from match {
-            case Seq((sym, from: TableNode)) => (sym, from, where)
+            case from: TableNode => (sym, from, where)
             case from => fail("A single source table is required, found: "+from)
           }
         case o => fail("Unsupported shape: "+o+" -- A single SQL comprehension is required")
@@ -423,90 +467,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         expr(where.reduceLeft((a, b) => Library.And.typed[Boolean](a, b)), true)
       }
       b.build
-    }
-  }
-
-  /** QueryBuilder mix-in for pagination based on RowNumber. */
-  trait RowNumberPagination extends QueryBuilder {
-    final case class StarAnd(child: Node) extends UnaryNode with SimplyTypedNode {
-      type Self = StarAnd
-      protected[this] def nodeRebuild(child: Node) = StarAnd(child)
-      protected def buildType = UnassignedType
-    }
-
-    override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
-      case StarAnd(ch) => b"*, !$ch"
-      case _ => super.expr(c, skipParens)
-    }
-
-    override protected def buildComprehension(c: Comprehension) {
-      if(c.fetch.isDefined || c.offset.isDefined) {
-        val r = newSym
-        val rn = symbolName(r)
-        val tn = symbolName(newSym)
-        val c2 = makeSelectPageable(c, r)
-        val c3 = Phase.fixRowNumberOrdering.fixRowNumberOrdering(c2, None).asInstanceOf[Comprehension]
-        b"select "
-        buildSelectModifiers(c)
-        c3.select match {
-          case Some(Pure(StructNode(ch), _)) =>
-            b.sep(ch.filter { case (_, RowNumber(_)) => false; case _ => true }, ", ") {
-              case (sym, StarAnd(RowNumber(_))) => b"*"
-              case (sym, _) => b += symbolName(sym)
-            }
-          case o => throw new SlickException("Unexpected node "+o+" in SELECT slot of "+c)
-        }
-        b" from ("
-        super.buildComprehension(c3)
-        b") $tn where $rn"
-        (c.fetch, c.offset) match {
-          case (Some(t), Some(d)) => b" between ${QueryParameter.constOp[Long]("+")(_ + _)(d, LiteralNode(1L))} and ${QueryParameter.constOp[Long]("+")(_ + _)(t, d)}"
-          case (Some(t), None   ) => b" between 1 and $t"
-          case (None,    Some(d)) => b" > $d"
-          case _ => throw new SlickException("Unexpected empty fetch/offset")
-        }
-        b" order by $rn"
-      }
-      else super.buildComprehension(c)
-    }
-
-    /** Create aliases for all selected rows (unless it is a "select *" query),
-      * add a RowNumber column, and remove FETCH and OFFSET clauses. The SELECT
-      * clause of the resulting Comprehension always has the shape
-      * Some(Pure(StructNode(_))). */
-    protected def makeSelectPageable(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
-      case Some(Pure(StructNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(ProductNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> RowNumber())))), fetch = None, offset = None)
-      case Some(Pure(n, _)) =>
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> RowNumber())))), fetch = None, offset = None)
-      case None =>
-        // should not happen at the outermost layer, so copying an extra row does not matter
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAnd(RowNumber()))))), fetch = None, offset = None)
-    }
-  }
-
-  /** QueryBuilder mix-in for Oracle-style ROWNUM (applied before ORDER BY
-    * and GROUP BY) instead of the standard SQL ROWNUMBER(). */
-  trait OracleStyleRowNum extends QueryBuilder {
-    override protected def toComprehension(n: Node, liftExpression: Boolean = false) =
-      super.toComprehension(n, liftExpression) match {
-        case c @ Comprehension(from, _, None, orderBy, Some(sel), _, _) if !orderBy.isEmpty && hasRowNumber(sel) =>
-          // Pull the SELECT clause with the ROWNUM up into a new query
-          val paths = findPaths(from.map(_._1).toSet, sel).map(p => (p, new AnonSymbol)).toMap
-          val inner = c.copy(select = Some(Pure(StructNode(paths.toIndexedSeq.map { case (n,s) => (s,n) }))))
-          val gen = new AnonSymbol
-          val newSel = sel.replace {
-            case s: Select => paths.get(s).fold(s) { sym => Select(Ref(gen), sym) }
-          }
-          Comprehension(Seq((gen, inner)), select = Some(newSel))
-        case c => c
-      }
-
-    override def expr(n: Node, skipParens: Boolean = false) = n match {
-      case RowNumber(_) => b"rownum"
-      case _ => super.expr(n, skipParens)
     }
   }
 
@@ -537,10 +497,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def reorderColumns(n: Node, order: IndexedSeq[FieldSymbol]): Node = {
       val newIndices = order.zipWithIndex.groupBy(_._1)
       lazy val reordering: IndexedSeq[IndexedSeq[Int]] = syms.map(fs => newIndices(fs).map(_._2 + 1))
-      n.replace { case InsertColumn(IndexedSeq(Select(ref, ElementSymbol(idx))), fs, tpe) =>
+      n.replace({ case InsertColumn(IndexedSeq(Select(ref, ElementSymbol(idx))), fs, tpe) =>
         val newPaths = reordering(idx-1).map(i => Select(ref, ElementSymbol(i)))
-        InsertColumn(newPaths, fs, tpe).nodeWithComputedType()
-      }
+        InsertColumn(newPaths, fs, tpe) :@ tpe
+      }, keepType = true)
     }
   }
 

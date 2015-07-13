@@ -2,13 +2,12 @@ package slick.compiler
 
 import slick.ast.{ClientSideOp, CompiledStatement, ResultSetMapping, Node, First}
 import slick.util.SlickLogger
-import org.slf4j.LoggerFactory
 
 /** A standard skeleton for a code generator phase. */
 abstract class CodeGen extends Phase {
   val name = "codeGen"
 
-  override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[CodeGen]))
+  override protected[this] lazy val logger = SlickLogger[CodeGen]
 
   def apply(state: CompilerState): CompilerState = state.map(n => apply(n, state))
 
@@ -18,6 +17,7 @@ abstract class CodeGen extends Phase {
       var compileMap: Option[Node] = Some(rsm.map)
 
       val nfrom = ClientSideOp.mapServerSide(rsm.from, keepType = true) { ss =>
+        logger.debug("Compiling server-side and mapping with server-side:", ss)
         val (nss, nmapOpt) = compileServerSideAndMapping(ss, compileMap, state)
         nmapOpt match {
           case Some(_) =>
@@ -25,9 +25,10 @@ abstract class CodeGen extends Phase {
             compileMap = None
           case None =>
         }
+        logger.debug("Compiled server-side to:", nss)
         nss
       }
-      rsm.copy(from = nfrom, map = nmap.get).nodeTyped(rsm.nodeType)
+      rsm.copy(from = nfrom, map = nmap.get) :@ rsm.nodeType
     }
 
   def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState): (Node, Option[Node])

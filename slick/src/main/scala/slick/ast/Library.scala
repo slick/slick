@@ -4,7 +4,7 @@ package slick.ast
  * The standard library for query operators.
  */
 object Library {
-  trait AggregateFunctionSymbol extends Symbol
+  trait AggregateFunctionSymbol extends TermSymbol
   class JdbcFunction(name: String) extends FunctionSymbol(name)
   class SqlFunction(name: String) extends FunctionSymbol(name)
   class SqlOperator(name: String) extends FunctionSymbol(name)
@@ -91,7 +91,7 @@ object Library {
 }
 
 /** A Symbol that represents a library function or operator */
-class FunctionSymbol(val name: String) extends Symbol {
+class FunctionSymbol(val name: String) extends TermSymbol {
 
   /** Create an untyped Apply of this Symbol */
   //def apply(ch: Node*): Apply = Apply(this, ch)
@@ -103,10 +103,10 @@ class FunctionSymbol(val name: String) extends Symbol {
   }
 
   /** Create a typed Apply of this Symbol */
-  def typed(tpe: Type, ch: Node*): Apply with TypedNode = Apply(this, ch)(tpe)
+  def typed(tpe: Type, ch: Node*): Apply = Apply(this, ch)(tpe)
 
   /** Create a typed Apply of this Symbol */
-  def typed[T : ScalaBaseType](ch: Node*): Apply with TypedNode = Apply(this, ch)(implicitly[ScalaBaseType[T]])
+  def typed[T : ScalaBaseType](ch: Node*): Apply = Apply(this, ch)(implicitly[ScalaBaseType[T]])
 
   override def toString = "Function "+name
 }

@@ -4,22 +4,25 @@ import Util._
 import scala.collection.mutable.HashMap
 import scala.util.DynamicVariable
 
-/** A symbol which can be used in the AST. */
-trait Symbol {
+/** A symbol which can be used in the AST. It can be either a TypeSymbol or a TermSymbol. */
+sealed trait Symbol {
   def name: String
   override def toString = SymbolNamer(this)
 }
 
-/** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends Symbol with Typed
-
-/** An element of a ProductNode (using a 1-based index) */
-case class ElementSymbol(idx: Int) extends Symbol {
-  def name = "_" + idx
-}
-
 /** The symbol of a nominal type */
 trait TypeSymbol extends Symbol
+
+/** A symbol representing a variable */
+trait TermSymbol extends Symbol
+
+/** A named symbol which refers to an (aliased or unaliased) field. */
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol
+
+/** An element of a ProductNode (using a 1-based index) */
+case class ElementSymbol(idx: Int) extends TermSymbol {
+  def name = "_" + idx
+}
 
 /** A TypeSymbol which uniquely identifies a table type */
 trait TableIdentitySymbol extends TypeSymbol
@@ -40,24 +43,24 @@ class AnonTableIdentitySymbol extends AnonTypeSymbol with TableIdentitySymbol {
 }
 
 /** An anonymous symbol defined in the AST. */
-class AnonSymbol extends Symbol {
+class AnonSymbol extends TermSymbol {
   def name = "@"+System.identityHashCode(this)
 }
 
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
-  def nodeGenerators: Seq[(Symbol, Node)]
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]): Node
+  def generators: Seq[(TermSymbol, Node)]
+  protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]): Node
 
-  final def nodeMapScopedChildren(f: (Option[Symbol], Node) => Node): Self with DefNode = {
-    val all = (nodeGenerators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
-      nodeChildren.drop(nodeGenerators.length).iterator.map{ n => (None, n) }).toIndexedSeq
+  final def mapScopedChildren(f: (Option[TermSymbol], Node) => Node): Self with DefNode = {
+    val all = (generators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
+      children.drop(generators.length).iterator.map{ n => (None, n) }).toIndexedSeq
     val mapped = all.map(f.tupled)
-    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) nodeRebuild(mapped).asInstanceOf[Self with DefNode]
+    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) rebuild(mapped).asInstanceOf[Self with DefNode]
     else this
   }
-  final def nodeMapGenerators(f: Symbol => Symbol): Node =
-    mapOrNone(nodeGenerators.map(_._1))(f).fold[Node](this) { s => nodeRebuildWithGenerators(s.toIndexedSeq) }
+  final def mapSymbols(f: TermSymbol => TermSymbol): Node =
+    mapOrNone(generators.map(_._1))(f).fold[Node](this) { s => rebuildWithSymbols(s.toIndexedSeq) }
 }
 
 /** Provides names for symbols */

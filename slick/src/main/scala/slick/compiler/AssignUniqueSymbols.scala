@@ -30,8 +30,7 @@ class AssignUniqueSymbols extends Phase {
         case n => n
       }
       val n3 = // Remove all NominalTypes (which might have changed)
-        if(n2.nodeHasType && !(n2.nodeType.collect { case _: NominalType => () }).isEmpty)
-          n2.nodeUntypedOrCopy
+        if(n2.hasType && !(n2.nodeType.collect { case _: NominalType => () }).isEmpty) n2.untyped
         else n2
       n3 match {
         case r @ Ref(a: AnonSymbol) => replace.get(a) match {
@@ -40,7 +39,7 @@ class AssignUniqueSymbols extends Phase {
         }
         case d: DefNode =>
           var defs = replace
-          d.nodeMapScopedChildren { (symO, ch) =>
+          d.mapScopedChildren { (symO, ch) =>
             val r = tr(ch, defs)
             symO match {
               case Some(a: AnonSymbol) =>
@@ -49,11 +48,12 @@ class AssignUniqueSymbols extends Phase {
               case _ =>
             }
             r
-          }.nodeMapGenerators {
+          }.mapSymbols {
             case a: AnonSymbol => defs.getOrElse(a, a)
             case s => s
           }
-        case n => n.nodeMapChildren(tr(_, replace))
+        case n: Select => n.mapChildren(tr(_, replace)) :@ n.nodeType
+        case n => n.mapChildren(tr(_, replace))
       }
     }
     tr(tree, Map())

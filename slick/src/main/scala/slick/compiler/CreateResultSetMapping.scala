@@ -1,67 +1,43 @@
 package slick.compiler
 
+import slick.SlickException
 import slick.ast._
 import Util._
 import TypeUtil._
-import scala.reflect.ClassTag
-import slick.SlickException
 
-/** Create a ResultSetMapping root node, ensure that the top-level server-side
-  * node returns a collection, and hoist client-side type conversions into the
-  * ResultSetMapping. */
+/** Create a ResultSetMapping root node, ensure that the top-level server-side node returns a
+  * collection, and hoist client-side type conversions into the ResultSetMapping. The original
+  * result type (which was removed by `removeMappedTypes`) is assigned back to the top level,
+  * so the client side is no longer well-typed after this phase. */
 class CreateResultSetMapping extends Phase {
   val name = "createResultSetMapping"
 
   def apply(state: CompilerState) = state.map { n =>
-    logger.debug("Client-side result type: "+n.nodeType)
-    val n2 = removeTypeMapping(n)
-    logger.debug("Removed type mapping:", n2)
-    val n3 = toCollection(n2)
-    logger.debug("Converted to collection:", n3)
-    ClientSideOp.mapServerSide(n3) { ch =>
+    val tpe = state.get(Phase.removeMappedTypes).get
+    ClientSideOp.mapServerSide(n, keepType = false) { ch =>
+      val syms = ch.nodeType.structural match {
+        case StructType(defs) => defs.map(_._1)
+        case CollectionType(_, Type.Structural(StructType(defs))) => defs.map(_._1)
+        case t => throw new SlickException("No StructType found at top level: "+t)
+      }
       val gen = new AnonSymbol
-      ResultSetMapping(gen, ch, createResult(gen, n.nodeType match {
-        case CollectionType(_, el) => el
-        case t => t
-      }))
-    }
-  }
+      (tpe match {
+        case CollectionType(cons, el) =>
+          ResultSetMapping(gen, collectionCast(ch, cons), createResult(gen, el, syms))
+        case t =>
+          ResultSetMapping(gen, ch, createResult(gen, t, syms))
+      })
+    }.infer()
+  }.withWellTyped(WellTyped.ServerSide)
 
-  /** Remove TypeMapping nodes and MappedTypes */
-  def removeTypeMapping(n: Node): Node = n match {
-    case t: TypeMapping => removeTypeMapping(t.child)
-    case n =>
-      val n2 = n.nodeMapChildren(removeTypeMapping)
-      val tpe = n2.nodeType
-      val tpe2 = removeMappedType(tpe)
-      if(tpe2 eq tpe) n2 else n2.nodeTypedOrCopy(tpe2)
-  }
-
-  /** Force collection return type. This might get more complicated in the
-    * future. For now, all primitive types should be set (but collection-typed
-    * nodes and product nodes may have UnassignedType) and ProductNodes cannot
-    * contain nested collections. */
-  def toCollection(n: Node): Node = n match {
-    case _: Apply | _: ProductNode => First(Pure(n))
-    case n if n.nodeType != UnassignedType && !n.nodeType.isInstanceOf[CollectionType] => First(Pure(n))
-    case n => n
-  }
-
-  /** Remove MappedTypes from a Type */
-  def removeMappedType(tpe: Type): Type = tpe match {
-    case m: MappedScalaType => removeMappedType(m.baseType)
-    case t => t.mapChildren(removeMappedType)
+  def collectionCast(ch: Node, cons: CollectionTypeConstructor): Node = ch.nodeType match {
+    case CollectionType(c, _) if c == cons => ch
+    case _ => CollectionCast(ch, cons).infer()
   }
 
   /** Create a structured return value for the client side, based on the
-    * result type (which may contain MappedTypes). References are created
-    * to linearized columns and not to the real structure. This keeps further
-    * compiler phases simple because we don't have to do any rewriting here. We
-    * just need to be careful not to typecheck the resulting tree or resolve
-    * those refs until the server-side tree has been flattened. In the future
-    * we may want to create the real refs and rewrite them later in order to
-    * gain the ability to optimize the set of columns in the result set. */
-  def createResult(sym: Symbol, tpe: Type): Node = {
+    * result type (which may contain MappedTypes). */
+  def createResult(sym: TermSymbol, tpe: Type, syms: IndexedSeq[TermSymbol]): Node = {
     var curIdx = 0
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)
@@ -80,9 +56,36 @@ class CreateResultSetMapping extends Phase {
           curIdx += 1
           // Assign the original type. Inside a RebuildOption the actual column type will always be
           // Option-lifted but we can still treat it as the base type when the discriminator matches.
-          Library.SilentCast.typed(t.structuralRec, Select(Ref(sym), ElementSymbol(curIdx)))
+          Library.SilentCast.typed(t.structuralRec, Select(Ref(sym), syms(curIdx-1)))
       }
     }
     f(tpe)
+  }
+}
+
+/** Remove all mapped types from the tree and store the original top-level type as the phase state
+  * to be used later for building the ResultSetMapping. After this phase the entire AST should be
+  * well-typed until `createResultSetMapping`. */
+class RemoveMappedTypes extends Phase {
+  val name = "removeMappedTypes"
+  type State = Type
+
+  def apply(state: CompilerState) = {
+    val tpe = state.tree.nodeType
+    state.withNode(removeTypeMapping(state.tree)).withWellTyped(WellTyped.All) + (this -> tpe)
+  }
+
+  /** Remove TypeMapping nodes and MappedTypes */
+  def removeTypeMapping(n: Node): Node = n match {
+    case t: TypeMapping => removeTypeMapping(t.child)
+    case n =>
+      val n2 = n.mapChildren(removeTypeMapping, keepType = true)
+      n2 :@ removeMappedType(n2.nodeType)
+  }
+
+  /** Remove MappedTypes from a Type */
+  def removeMappedType(tpe: Type): Type = tpe match {
+    case m: MappedScalaType => removeMappedType(m.baseType)
+    case t => t.mapChildren(removeMappedType)
   }
 }

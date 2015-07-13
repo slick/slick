@@ -74,7 +74,7 @@ class QueryableTest(val tdb: JdbcTestDB) extends DBTest {
       }
     }
     object ColumnName{
-      def unapply( t:ast.Symbol ) = t match {
+      def unapply( t:ast.TermSymbol ) = t match {
         case ast.FieldSymbol( name ) =>
           /*case RawNamedColumn( name, _, _ ) =>*/
           Some(name)

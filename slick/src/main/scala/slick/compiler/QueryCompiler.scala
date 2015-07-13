@@ -2,7 +2,7 @@ package slick.compiler
 
 import scala.collection.immutable.HashMap
 import slick.SlickException
-import slick.util.{SlickLogger, Logging}
+import slick.util.{GlobalConfig, SlickLogger, Logging}
 import slick.ast.{SymbolNamer, Node}
 import org.slf4j.LoggerFactory
 
@@ -77,7 +77,16 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 
   protected[this] def runPhase(p: Phase, state: CompilerState): CompilerState = state.symbolNamer.use {
     val s2 = p(state)
-    if(s2.tree ne state.tree) logger.debug("After phase "+p.name+":", s2.tree)
+    if(s2.tree ne state.tree) {
+      logger.debug("After phase "+p.name+":", s2.tree)
+      if(GlobalConfig.verifyTypes) {
+        s2.wellTyped match {
+          case WellTyped.All => Phase.verifyTypes(s2)
+          case WellTyped.ServerSide => Phase.verifyTypesServerSide(s2)
+          case WellTyped.None =>
+        }
+      }
+    }
     else logger.debug("After phase "+p.name+": (no change)")
     s2
   }
@@ -86,30 +95,46 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
 object QueryCompiler {
   /** The standard phases of the query compiler */
   val standardPhases = Vector(
-    // Clean up trees from the lifted embedding
+    /* Clean up trees from the lifted embedding */
     Phase.assignUniqueSymbols,
-    // Distribute and normalize
+    /* Distribute and normalize */
     Phase.inferTypes,
     Phase.expandTables,
-    Phase.createResultSetMapping,
     Phase.forceOuterBinds,
-    // Convert to column form
+    Phase.removeMappedTypes,
+    /* Convert to column form */
     Phase.expandSums,
+    // optional removeTakeDrop goes here
+    // optional emulateOuterJoins goes here
     Phase.expandConditionals,
     Phase.expandRecords,
     Phase.flattenProjections,
-    Phase.relabelUnions,
-    Phase.pruneFields,
-    Phase.assignTypes
+    /* Optimize for SQL */
+    Phase.rewriteJoins,
+    Phase.verifySymbols,
+    Phase.relabelUnions
   )
 
   /** Extra phases for translation to SQL comprehensions */
-  val relationalPhases = Vector(
+  val sqlPhases = Vector(
+    // optional access:existsToCount goes here
+    Phase.createAggregates,
     Phase.resolveZipJoins,
-    Phase.convertToComprehensions,
-    Phase.fuseComprehensions,
+    Phase.pruneProjections,
+    Phase.mergeToComprehensions,
     Phase.fixRowNumberOrdering,
-    Phase.hoistClientOps
+    Phase.createResultSetMapping,
+    Phase.hoistClientOps,
+    Phase.removeFieldNames
+    // optional rewriteBooleans goes here
+    // optional specializeParameters goes here
+  )
+
+  /** Extra phases needed for the QueryInterpreter */
+  val interpreterPhases = Vector(
+    Phase.pruneProjections,
+    Phase.createResultSetMapping,
+    Phase.removeFieldNames
   )
 
   /** The default compiler */
@@ -134,28 +159,35 @@ trait Phase extends (CompilerState => CompilerState) with Logging {
 /** The `Phase` companion objects contains ready-to-use `Phase` objects for
   * the standard phases of the query compiler */
 object Phase {
-  /** The standard phases of the query compiler */
+  /* The standard phases of the query compiler */
   val assignUniqueSymbols = new AssignUniqueSymbols
   val inferTypes = new InferTypes
   val expandTables = new ExpandTables
-  val createResultSetMapping = new CreateResultSetMapping
   val forceOuterBinds = new ForceOuterBinds
+  val removeMappedTypes = new RemoveMappedTypes
+  val createResultSetMapping = new CreateResultSetMapping
   val expandSums = new ExpandSums
-  val expandRecords = new ExpandRecords
   val expandConditionals = new ExpandConditionals
+  val expandRecords = new ExpandRecords
   val flattenProjections = new FlattenProjections
-  val relabelUnions = new RelabelUnions
-  val pruneFields = new PruneFields
+  val createAggregates = new CreateAggregates
+  val rewriteJoins = new RewriteJoins
+  val verifySymbols = new VerifySymbols
+  val removeTakeDrop = new RemoveTakeDrop
   val resolveZipJoins = new ResolveZipJoins
-  val assignTypes = new AssignTypes
-  val convertToComprehensions = new ConvertToComprehensions
-  val fuseComprehensions = new FuseComprehensions
+  val relabelUnions = new RelabelUnions
+  val mergeToComprehensions = new MergeToComprehensions
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val hoistClientOps = new HoistClientOps
+  val pruneProjections = new PruneProjections
+  val removeFieldNames = new RemoveFieldNames
 
   /* Extra phases that are not enabled by default */
+  val resolveZipJoinsRownumStyle = new ResolveZipJoins(rownumStyle = true)
   val rewriteBooleans = new RewriteBooleans
   val specializeParameters = new SpecializeParameters
+  val verifyTypes = new VerifyTypes
+  val verifyTypesServerSide = new VerifyTypes(onlyServerSide = true)
 }
 
 /** The current state of a compiler run, consisting of the current AST and
@@ -163,20 +195,31 @@ object Phase {
   * to the SymbolNamer. The state is tied to a specific compiler instance so
   * that phases can call back into the compiler. */
 class CompilerState private (val compiler: QueryCompiler, val symbolNamer: SymbolNamer,
-                             val tree: Node, state: HashMap[String, Any]) {
+                             val tree: Node, state: HashMap[String, Any], val wellTyped: WellTyped) {
   def this(compiler: QueryCompiler, tree: Node) =
-    this(compiler, new SymbolNamer("s", "t"), tree, new HashMap)
+    this(compiler, new SymbolNamer("s", "t"), tree, new HashMap, WellTyped.None)
 
   /** Get the phase state for a phase */
   def get[P <: Phase](p: P): Option[p.State] = state.get(p.name).asInstanceOf[Option[p.State]]
 
   /** Return a new `CompilerState` with the given mapping of phase to phase state */
   def + [S, P <: Phase { type State = S }](t: (P, S)) =
-    new CompilerState(compiler, symbolNamer, tree, state + (t._1.name -> t._2))
+    new CompilerState(compiler, symbolNamer, tree, state + (t._1.name -> t._2), wellTyped)
 
   /** Return a new `CompilerState` which encapsulates the specified AST */
-  def withNode(n: Node) = new CompilerState(compiler, symbolNamer, n, state)
+  def withNode(tree: Node) = new CompilerState(compiler, symbolNamer, tree, state, wellTyped)
+
+  /** Return a new `CompilerState` with the specified `WellTyped` option */
+  def withWellTyped(wellTyped: WellTyped) = new CompilerState(compiler, symbolNamer, tree, state, wellTyped)
 
   /** Return a new `CompilerState` with a transformed AST */
   def map(f: Node => Node) = withNode(f(tree))
+}
+
+/** Indicates which parts of the AST are well-typed after a phase. */
+sealed trait WellTyped
+object WellTyped {
+  case object None extends WellTyped
+  case object ServerSide extends WellTyped
+  case object All extends WellTyped
 }

@@ -9,7 +9,7 @@ import slick.SlickException
 trait ExtensionMethods[B1, P1] extends Any {
   protected[this] def c: Rep[P1]
   @inline protected[this] def n = c.toNode
-  @inline protected[this] def tpe[T](r: Rep[T]): TypedType[T] = r.asInstanceOf[Typed].tpe.asInstanceOf[TypedType[T]]
+  @inline protected[this] def tpe[T](r: Rep[T]): TypedType[T] = r.asInstanceOf[Rep.TypedRep[_]].tpe.asInstanceOf[TypedType[T]]
   @inline protected[this] implicit def p1Type = tpe(c)
   protected[this] implicit def b1Type: TypedType[B1]
   protected[this] type o = OptionMapperDSL.arg[B1, P1]
@@ -76,7 +76,7 @@ final class OptionColumnExtensionMethods[B1](val c: Rep[Option[B1]]) extends Any
     * inside a subquery that cannot be fused), otherwise the exception is thrown during query
     * compilation. */
   def get: Rep[B1] =
-    Rep.forNode[B1](GetOrElse(c.toNode, () => throw new SlickException("Read NULL value for column " + this)))(c.asInstanceOf[Typed].tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
+    Rep.forNode[B1](GetOrElse(c.toNode, () => throw new SlickException("Read NULL value for column " + this)))(c.asInstanceOf[Rep.TypedRep[_]].tpe.asInstanceOf[OptionType].elementType.asInstanceOf[TypedType[B1]])
 }
 
 /** Extension methods for numeric columns */

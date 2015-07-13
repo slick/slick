@@ -1,5 +1,7 @@
 package slick.profile
 
+import slick.compiler.QueryCompiler
+
 import scala.language.higherKinds
 import slick.dbio._
 import slick.ast.{TableNode, Symbol, SymbolNamer, Node, ColumnOption}
@@ -10,6 +12,7 @@ import slick.util.DumpInfo
 trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTableComponent
   with SqlActionComponent { driver: SqlDriver =>
 
+  override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.sqlPhases
   override protected def computeCapabilities = super.computeCapabilities ++ SqlProfile.capabilities.all
 
   type SchemaDescription = DDL

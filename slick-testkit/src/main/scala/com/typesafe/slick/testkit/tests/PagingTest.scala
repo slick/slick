@@ -16,21 +16,23 @@ class PagingTest extends AsyncTest[RelationalTestDB] {
     val q2 = q1 take 5
     def q3 = q1 drop 5
     def q4 = q1 drop 5 take 3
+    val q4b = q1.drop(5).take(3).sortBy(_.id)
     def q5 = q1 take 5 drop 3
     val q6 = q1 take 0
 
-    seq(
-      ids.schema.create,
-      ids ++= (1 to 10),
-      q1.result.map(_ shouldBe (1 to 10).toList),
-      q2.result.map(_ shouldBe (1 to 5).toList),
-      ifCap(rcap.pagingDrop)(seq(
-        q3.result.map(_ shouldBe (6 to 10).toList),
-        q4.result.map(_ shouldBe (6 to 8).toList),
-        q5.result.map(_ shouldBe (4 to 5).toList)
-      )),
-      q6.result.map(_ shouldBe Nil)
-    )
+    for {
+      _ <- ids.schema.create
+      _ <- ids ++= (1 to 10)
+      _ <- mark("q1", q1.result).map(_ shouldBe (1 to 10).toList)
+      _ <- mark("q2", q2.result).map(_ shouldBe (1 to 5).toList)
+      _ <- ifCap(rcap.pagingDrop)(for {
+        _ <- mark("q3", q3.result).map(_ shouldBe (6 to 10).toList)
+        _ <- mark("q4", q4.result).map(_ shouldBe (6 to 8).toList)
+        _ <- mark("q4b", q4b.result).map(_ shouldBe (6 to 8).toList)
+        _ <- mark("q5", q5.result).map(_ shouldBe (4 to 5).toList)
+      } yield ())
+      _ <- mark("q6", q6.result).map(_ shouldBe Nil)
+    } yield ()
   }
 
   def testCompiledPagination = {

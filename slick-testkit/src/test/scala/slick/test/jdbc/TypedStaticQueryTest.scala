@@ -88,11 +88,11 @@ class TypedStaticQueryTest {
         },
         s3.map { o3 =>
           val t3: Vector[Foo] = o3.map(Foo(_))
-          assertEquals(Vector(Foo(101), Foo(150), Foo(49)), t3)
+          assertEquals(Set(Foo(101), Foo(150), Foo(49)), t3.toSet)
         },
         s4.map { o4 =>
           val t4: Vector[Bar] = o4.map(Bar(_))
-          assertEquals(List(Bar("Groundsville"), Bar("Meadows"), Bar("Mendocino")), t4)
+          assertEquals(Set(Bar("Groundsville"), Bar("Meadows"), Bar("Mendocino")), t4.toSet)
         }
       )), Duration.Inf)
     } finally dc.db.close()

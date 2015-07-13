@@ -1,5 +1,8 @@
 package com.typesafe.slick.testkit.tests
 
+import slick.SlickTreeException
+import slick.driver.H2Driver
+
 import scala.language.higherKinds
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
@@ -69,27 +72,29 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val qa = for {
       c <- coffees.take(3)
     } yield (c.supID, (c.name, 42))
+    val qa2 = coffees.take(3).map(_.name).take(2)
     val qb = qa.take(2).map(_._2)
     val qb2 = qa.map(n => n).take(2).map(_._2)
     val qc = qa.map(_._2).take(2)
 
     val a1 = seq(
-      qa.result.map(_.toSet).map { ra =>
+      mark("qa", qa.result).map(_.toSet).map { ra =>
         ra.size shouldBe 3
         // No sorting, so result contents can vary
         ra shouldAllMatch { case (s: Int, (i: String, 42)) => () }
       },
-      qb.result.map(_.toSet).map { rb =>
+      mark("qa2", qa2.result).map(_.toSet).map(_.size shouldBe 2),
+      mark("qb", qb.result).map(_.toSet).map { rb =>
         rb.size shouldBe 2
         // No sorting, so result contents can vary
         rb shouldAllMatch { case (i: String, 42) => () }
       },
-      qb2.result.map(_.toSet).map { rb2 =>
+      mark("qb2", qb2.result).map(_.toSet).map { rb2 =>
         rb2.size shouldBe 2
         // No sorting, so result contents can vary
         rb2 shouldAllMatch { case (i: String, 42) => () }
       },
-      qc.result.map(_.toSet).map { rc =>
+      mark("qc", qc.result).map(_.toSet).map { rc =>
         rc.size shouldBe 2
         // No sorting, so result contents can vary
         rc shouldAllMatch { case (i: String, 42) => () }
@@ -112,8 +117,8 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       (c2, s2) <- q1b_0
     } yield (c.name, s.city, c2.name)
 
-    val a2 = seq(
-      q0.result.named("Plain table").map(_.toSet).map { r0 =>
+    def a2 = seq(
+      mark("q0", q0.result).named("q0: Plain table").map(_.toSet).map { r0 =>
         r0 shouldBe Set(
           ("Colombian",         101, 799, 1, 0),
           ("French_Roast",       49, 799, 2, 0),
@@ -122,7 +127,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
           ("French_Roast_Decaf", 49, 999, 5, 0)
         )
       },
-      q1.result.named("Plain implicit join").map(_.toSet).map { r1 =>
+      mark("q1", q1.result).named("q1: Plain implicit join").map(_.toSet).map { r1 =>
        r1 shouldBe Set(
           (("Colombian","Groundsville:"),("Colombian",101,799,1,0),(101,"Acme, Inc.","99 Market Street"),799),
           (("Colombian","Mendocino:"),("Colombian",101,799,1,0),(49,"Superior Coffee","1 Party Place"),799),
@@ -133,7 +138,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
         )
       },
       ifCap(rcap.pagingNested) {
-        q1b.result.named("Explicit join with condition").map { r1b =>
+        mark("q1b", q1b.result).named("q1b: Explicit join with condition").map { r1b =>
           r1b.toSet shouldBe Set(
             ("French_Roast","Mendocino","Colombian"),
             ("French_Roast","Mendocino","French_Roast"),
@@ -175,44 +180,40 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     } yield (c._1, c._3)
 
     // Map to tuple, then filter, with self-join
-    val q4b_0 = coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 800)
-    val q4b = for {
+    def q4b_0 = coffees.map(c => (c.name, c.price, 42)).filter(_._2 < 800)
+    def q4b = for {
       c <- q4b_0
       d <- q4b_0
     } yield (c,d)
 
-    val a3 = seq(
-      q2.result.named("More elaborate query").map(_.toSet).map { r2 =>
+    def a3 = for {
+      _ <- q2.result.named("More elaborate query").map(_.toSet).map { r2 =>
         r2 shouldBe Set(
           ("Colombian","Acme, Inc."),
           ("French_Roast","Superior Coffee"),
           ("Colombian_Decaf","Acme, Inc.")
         )
-      },
-      q3.result.named("Lifting scalar values").map(_.toSet).map { r3 =>
+      }
+      _ <- q3.result.named("Lifting scalar values").map(_.toSet).map { r3 =>
         r3 shouldBe Set(("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396))
-      },
-      q3b.result.named("Lifting scalar values, with extra tuple").map(_.toSet).map { r3b =>
+      }
+      _ <- q3b.result.named("Lifting scalar values, with extra tuple").map(_.toSet).map { r3b =>
         r3b shouldBe Set(
           ("Colombian","Acme, Inc.","Colombian",0,799,42),
           ("French_Roast","Superior Coffee","French_Roast",0,1598,42),
           ("Colombian_Decaf","Acme, Inc.","Colombian_Decaf",0,3396,42)
         )
-      },
-      ifCap(rcap.pagingNested) {
-        q4.result.named("Map to tuple, then filter").map { r4 =>
-          r4.toSet shouldBe Set(("Colombian",42))
-        }
-      },
-      q4b.result.map(_.toSet).map { r4b =>
-        r4b shouldBe Set(
-          (("Colombian",799,42),("Colombian",799,42)),
-          (("Colombian",799,42),("French_Roast",799,42)),
-          (("French_Roast",799,42),("Colombian",799,42)),
-          (("French_Roast",799,42),("French_Roast",799,42))
-        )
       }
-    )
+      _ <- ifCap(rcap.pagingNested) {
+        mark("q4", q4.result).named("q4: Map to tuple, then filter").map(_.toSet shouldBe Set(("Colombian",42)))
+      }
+      _ <- mark("q4b", q4b.result).map(_.toSet shouldBe Set(
+        (("Colombian",799,42),("Colombian",799,42)),
+        (("Colombian",799,42),("French_Roast",799,42)),
+        (("French_Roast",799,42),("Colombian",799,42)),
+        (("French_Roast",799,42),("French_Roast",799,42))
+      ))
+    } yield ()
 
     // Implicit self-join
     val q5_0 = coffees.sortBy(_.price).take(2)
@@ -229,8 +230,8 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     // Unused outer query result, unbound TableQuery
     val q6 = coffees.flatMap(c => suppliers)
 
-    val a4 = seq(
-      q5.result.map(_.toSet).map { r5 =>
+    def a4 = seq(
+      mark("q5", q5.result).named("q5: Implicit self-join").map(_.toSet).map { r5 =>
         r5 shouldBe Set(
           (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
           (("Colombian",101,799,1,0),("French_Roast",49,799,2,0)),
@@ -238,13 +239,13 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
           (("French_Roast",49,799,2,0),("French_Roast",49,799,2,0))
         )
       },
-      q5b.result.named("Explicit self-join with condition").map(_.toSet).map { r5b =>
+      mark("q5b", q5b.result).named("q5b: Explicit self-join with condition").map(_.toSet).map { r5b =>
         r5b shouldBe Set(
           (("Colombian",101,799,1,0),("Colombian",101,799,1,0)),
           (("French_Roast",49,799,2,0),("French_Roast",49,799,2,0))
         )
       },
-      q6.result.named("Unused outer query result, unbound TableQuery").map(_.toSet).map { r6 =>
+      mark("q6", q6.result).named("q6: Unused outer query result, unbound TableQuery").map(_.toSet).map { r6 =>
         r6 shouldBe Set(
           (101,"Acme, Inc.","99 Market Street"),
           (49,"Superior Coffee","1 Party Place"),
@@ -268,7 +269,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       c <- coffees.filter(_.price < 800).map((_, 1))
     } yield (c._1.name, c._1.supID, c._2)
 
-    val a5 = seq(
+    def a5 = seq(
       q7a.result.named("Simple union").map(_.toSet).map { r7a =>
         r7a shouldBe Set(
           ("Colombian",101,0),
@@ -306,7 +307,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       t <- coffees.sortBy(_.sales).take(1) joinLeft coffees.sortBy(_.sales).take(2) on (_.name === _.name) joinLeft coffees.sortBy(_.sales).take(4) on (_._1.supID === _.supID)
     } yield (t._1, t._2)
 
-    val a6 = seq(
+    def a6 = seq(
       q7b.result.named("Union with filter on the outside").map(_.toSet).map { r7b =>
         r7b shouldBe Set(
           ("French_Roast",49,1),
@@ -464,5 +465,100 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       r2 <- q2.result.named("q2").map(_.toSet)
       _ = r2 shouldBe Set((1, "a1"), (1, "a2"), (1, "a3"), (2, "a1"), (2, "a2"), (2, "a3"), (3, "a1"), (3, "a2"), (3, "a3"))
     } yield ()
+  }
+
+  def testNewFusion = {
+    class A(tag: Tag) extends Table[(Int, String, String)](tag, "A_NEWFUSION") {
+      def id = column[Int]("id")
+      def a = column[String]("a")
+      def b = column[String]("b")
+      def * = (id, a, b)
+    }
+    val as = TableQuery[A]
+
+    val data = Set((1, "a", "a"), (2, "a", "b"), (3, "c", "b"))
+
+    val q1 = (as join as on (_.id === _.id))
+    val q2 = (as join as on (_.id === _.id) join as on (_._1.id === _.id))
+    val q3 = q2.map { case ((a1, a2), a3) => (a1.id, a2.a, a3.b) }
+    val q4 = as.map(a => (a.id, a.a, a.b, a)).filter(_._3 === "b").map { case (id, a1, b, a2) => (id, a2) }
+    val q5a = as.to[Set].filter(_.b === "b").map(_.id)
+    val q5b = as.filter(_.b === "b").to[Set].map(_.id)
+    val q5c = as.filter(_.b === "b").map(_.id).to[Set]
+    val q6 = (as join as).groupBy(j => (j._1.a, j._1.b)).map { case (ab, rs) => (ab, rs.length, rs.map(_._1).length, rs.map(_._2).length, rs.map(_._1.id).max, rs.map(_._1.id).length) }
+    val q7 = q6.filter(_._1._1 === "a").map(_._5.getOrElse(0))
+    val q8 = as.sortBy(_.id.desc).map(_.a)
+    val q9a = as.sortBy(_.b).sortBy(_.a.desc).map(_.id)
+    val q9b = as.sortBy(a => (a.a.desc, a.b)).map(_.id)
+    val q10 = (as join as).map { case (a1, a2) => a1.id * 3 + a2.id - 3 }.sorted
+    val q11a = q10.take(5)
+    val q11b = q10.take(5).take(3)
+    val q11c = q10.take(5).take(3).drop(1)
+    val q11d = q10.take(5).drop(1).take(3)
+    val q11e = q10.drop(7)
+    val q11f = q10.take(6).drop(2).filter(_ =!= 5)
+    val q12 = as.filter(_.id <= as.map(_.id).max-1).map(_.a)
+
+    //val q5 = q1.length
+
+    if(tdb.driver == H2Driver) {
+      assertNesting(q1, 1)
+      assertNesting(q2, 1)
+      assertNesting(q3, 1)
+      assertNesting(q4, 1)
+      assertNesting(q5a, 1)
+      assertNesting(q5b, 1)
+      assertNesting(q5c, 1)
+      assertNesting(q6, 1)
+      assertNesting(q7, 1)
+      assertNesting(q8, 1)
+      assertNesting(q9a, 1)
+      assertNesting(q9b, 1)
+      assertNesting(q10, 1)
+      assertNesting(q11a, 1)
+      assertNesting(q11b, 1)
+      assertNesting(q11c, 1)
+      assertNesting(q11d, 1)
+      assertNesting(q11e, 1)
+      assertNesting(q11f, 2)
+    }
+
+    for {
+      _ <- as.schema.create
+      _ <- as ++= data
+      _ <- mark("as", as.result).map(_.toSet shouldBe data)
+      _ <- mark("q1", q1.result).map(_.toSet shouldBe data.zip(data))
+      _ <- mark("q2", q2.result).map(_.toSet shouldBe data.zip(data).zip(data))
+      _ <- mark("q3", q3.result).map(_.toSet shouldBe data)
+      _ <- mark("q4", q4.result).map(_.toSet shouldBe data.filter(_._3 == "b").map { case t @ (id, _, _) => (id, t) })
+      _ <- mark("q5a", q5a.result).map(_ shouldBe Set(2, 3))
+      _ <- mark("q5b", q5b.result).map(_ shouldBe Set(2, 3))
+      _ <- mark("q5c", q5c.result).map(_ shouldBe Set(2, 3))
+      _ <- mark("q6", q6.result).map(_.toSet shouldBe Set((("c","b"),3,3,3,Some(3),3), (("a","a"),3,3,3,Some(1),3), (("a","b"),3,3,3,Some(2),3)))
+      _ <- mark("q7", q7.result).map(_.toSet shouldBe Set(1, 2))
+      _ <- mark("q8", q8.result).map(_ shouldBe Seq("c", "a", "a"))
+      _ <- mark("q9a", q9a.result).map(_ shouldBe Seq(3, 1, 2))
+      _ <- mark("q9b", q9b.result).map(_ shouldBe Seq(3, 1, 2))
+      _ <- mark("q10", q10.result).map(_ shouldBe Seq(1, 2, 3, 4, 5, 6, 7, 8, 9))
+      _ <- mark("q11a", q11a.result).map(_ shouldBe Seq(1, 2, 3, 4, 5))
+      _ <- mark("q11b", q11b.result).map(_ shouldBe Seq(1, 2, 3))
+      _ <- mark("q11c", q11c.result).map(_ shouldBe Seq(2, 3))
+      _ <- mark("q11d", q11d.result).map(_ shouldBe Seq(2, 3, 4))
+      _ <- mark("q11e", q11e.result).map(_ shouldBe Seq(8, 9))
+      _ <- mark("q11f", q11f.result).map(_ shouldBe Seq(3, 4, 6))
+      _ <- mark("q12", q12.result).map(_ shouldBe Seq("a", "a"))
+    } yield ()
+  }
+
+  def assertNesting(q: Rep[_], exp: Int): Unit = {
+    import slick.compiler.QueryCompiler
+    import slick.ast._
+    import slick.ast.Util._
+    val qc = new QueryCompiler(tdb.driver.queryCompiler.phases.takeWhile(_.name != "codeGen"))
+    val cs = qc.run(q.toNode)
+    val found = cs.tree.collect { case c: Comprehension => c }.size
+    if(found != exp)
+      throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
+        cs.tree, mark = (_.isInstanceOf[Comprehension]), removeUnmarked = false))
   }
 }

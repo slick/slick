@@ -13,8 +13,8 @@ import de.johoop.testngplugin.TestNGPlugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.0.0-RC3"
-  val binaryCompatSlickVersion = "3.0.0" // Slick base version for binary compatibility checks
+  val slickVersion = "3.1.0-SNAPSHOT"
+  val binaryCompatSlickVersion = "3.1.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.10.5", "2.11.6")
 
   /** Dependencies for reuse in different parts of the build */
@@ -36,7 +36,7 @@ object SlickBuild extends Build {
       "com.zaxxer" % "HikariCP-java6" % "2.0.1"
     )
     val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams) ++ pools.map(_ % "optional")
-    val h2 = "com.h2database" % "h2" % "1.3.170"
+    val h2 = "com.h2database" % "h2" % "1.4.187"
     val testDBs = Seq(
       h2,
       "org.xerial" % "sqlite-jdbc" % "3.8.7",

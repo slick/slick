@@ -24,7 +24,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   override protected[this] lazy val logger = new SlickLogger(LoggerFactory.getLogger(classOf[QueryInterpreter]))
   import QueryInterpreter._
 
-  val scope = new HashMap[Symbol, Any]
+  val scope = new HashMap[TermSymbol, Any]
   var indent = 0
   type Coll = Iterable[Any]
 
@@ -45,7 +45,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case (_: AnonSymbol | _: FieldSymbol) => v.asInstanceOf[StructValue].getBySymbol(field)
         }
       case n: StructNode =>
-        new StructValue(n.nodeChildren.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
+        new StructValue(n.children.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
       case ProductNode(ch) =>
         new ProductValue(ch.map(run).toIndexedSeq)
       case Pure(n, _) => Vector(run(n))
@@ -321,7 +321,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     res
   }
 
-  def evalFunction(sym: Symbol, args: Seq[(Type, Any)], retType: Type) = sym match {
+  def evalFunction(sym: TermSymbol, args: Seq[(Type, Any)], retType: Type) = sym match {
     case Library.== => args(0)._2 == args(1)._2
     case Library.< => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lt(args(0)._2, args(1)._2)
     case Library.<= => args(0)._1.asInstanceOf[ScalaBaseType[Any]].ordering.lteq(args(0)._2, args(1)._2)
@@ -427,7 +427,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
     case t: ScalaType[_] => if(t.nullable) None else null
     case StructType(el) =>
       new StructValue(el.map{ case (_, tpe) => createNullRow(tpe) }(collection.breakOut),
-        el.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[Symbol, Int])
+        el.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
     case ProductType(el) =>
       new ProductValue(el.map(tpe => createNullRow(tpe))(collection.breakOut))
   }
@@ -472,8 +472,8 @@ object QueryInterpreter {
   }
 
   /** The representation for StructType values in the interpreter */
-  class StructValue(data: IndexedSeq[Any], symbolToIndex: (Symbol => Int)) extends ProductValue(data) {
-    def getBySymbol(sym: Symbol): Any = apply(symbolToIndex(sym))
+  class StructValue(data: IndexedSeq[Any], symbolToIndex: (TermSymbol => Int)) extends ProductValue(data) {
+    def getBySymbol(sym: TermSymbol): Any = apply(symbolToIndex(sym))
     override def toString = "StructValue("+data.mkString(", ")+"){"+symbolToIndex+"}"
   }
 }

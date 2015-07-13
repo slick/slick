@@ -18,7 +18,7 @@ trait Type extends Dumpable {
     * type with the new children, or return the original object if no
     * child is changed. */
   def mapChildren(f: Type => Type): Type
-  def select(sym: Symbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
+  def select(sym: TermSymbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
   /** The structural view of this type */
   def structural: Type = this
   /** Remove all NominalTypes recursively from this Type */
@@ -34,6 +34,9 @@ object Type {
   object Structural {
     def unapply(t: Type): Some[Type] = Some(t.structural)
   }
+
+  type Scope = Map[TermSymbol, Type]
+  def Scope(elems: (TermSymbol, Type)*): Scope = Map(elems: _*)
 }
 
 /** An atomic type (i.e. a type which does not contain other types) */
@@ -42,9 +45,9 @@ trait AtomicType extends Type {
   def children: Seq[Type] = Seq.empty
 }
 
-final case class StructType(elements: IndexedSeq[(Symbol, Type)]) extends Type {
+final case class StructType(elements: IndexedSeq[(TermSymbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
-  lazy val symbolToIndex: Map[Symbol, Int] =
+  lazy val symbolToIndex: Map[TermSymbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
   def children: IndexedSeq[Type] = elements.map(_._2)
   def mapChildren(f: Type => Type): StructType =
@@ -52,7 +55,7 @@ final case class StructType(elements: IndexedSeq[(Symbol, Type)]) extends Type {
       case Some(types2) => StructType((elements, types2).zipped.map((e, t) => (e._1, t)))
       case None => this
     }
-  override def select(sym: Symbol) = sym match {
+  override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(idx) => elements(idx-1)._2
     case _ => elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
   }
@@ -111,7 +114,7 @@ final case class ProductType(elements: IndexedSeq[Type]) extends Type {
       case Some(e2) => ProductType(e2)
       case None => this
     }
-  override def select(sym: Symbol) = sym match {
+  override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(i) if i <= elements.length => elements(i-1)
     case _ => super.select(sym)
   }
@@ -160,6 +163,11 @@ abstract class TypedCollectionTypeConstructor[C[_]](val classTag: ClassTag[C[_]]
     .replaceFirst("^scala.collection.mutable.", "m.")
     .replaceFirst("^scala.collection.generic.", "g.")
   def createBuilder[E : ClassTag]: Builder[E, C[E]]
+  override def hashCode = classTag.hashCode() * 10
+  override def equals(o: Any) = o match {
+    case o: TypedCollectionTypeConstructor[_] => classTag == o.classTag
+    case _ => false
+  }
 }
 
 class ErasedCollectionTypeConstructor[C[_]](canBuildFrom: CanBuild[Any, C[Any]], classTag: ClassTag[C[_]]) extends TypedCollectionTypeConstructor[C](classTag) {
@@ -193,7 +201,12 @@ final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapp
     else new MappedScalaType(e2, mapper, classTag)
   }
   def children: Seq[Type] = Seq(baseType)
-  override def select(sym: Symbol) = baseType.select(sym)
+  override def select(sym: TermSymbol) = baseType.select(sym)
+  override def hashCode = baseType.hashCode() + mapper.hashCode() + classTag.hashCode()
+  override def equals(o: Any) = o match {
+    case o: MappedScalaType => baseType == o.baseType && mapper == o.mapper && classTag == o.classTag
+    case _ => false
+  }
 }
 
 object MappedScalaType {
@@ -203,12 +216,6 @@ object MappedScalaType {
 /** The standard type for freshly constructed nodes without an explicit type. */
 case object UnassignedType extends AtomicType {
   def classTag = throw new SlickException("UnassignedType does not have a ClassTag")
-}
-
-/** The type of a structural view of a NominalType before computing the
-  * proper type in the `inferTypes` phase. */
-final case class UnassignedStructuralType(sym: TypeSymbol) extends AtomicType {
-  def classTag = throw new SlickException("UnassignedStructuralType does not have a ClassTag")
 }
 
 /** A type with a name, as used by tables.
@@ -222,7 +229,7 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
   def withStructuralView(t: Type): NominalType =
     if(t == structuralView) this else copy(structuralView = t)
   override def structural: Type = structuralView.structural
-  override def select(sym: Symbol): Type = structuralView.select(sym)
+  override def select(sym: TermSymbol): Type = structuralView.select(sym)
   def mapChildren(f: Type => Type): NominalType = {
     val struct2 = f(structuralView)
     if(struct2 eq structuralView) this
@@ -234,15 +241,6 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
     case _ => this
   }
   def classTag = structuralView.classTag
-}
-
-/** Something that has a Type */
-trait Typed {
-  def tpe: Type
-}
-
-object Typed {
-  def unapply(t: Typed) = Some(t.tpe)
 }
 
 /** A Type that carries a Scala type argument */
@@ -273,6 +271,8 @@ object TypedType {
 }
 
 class TypeUtil(val tpe: Type) extends AnyVal {
+  import TypeUtil.typeToTypeUtil
+
   def asCollectionType: CollectionType = tpe match {
     case c: CollectionType => c
     case _ => throw new SlickException("Expected a collection type, found "+tpe)
@@ -282,55 +282,29 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     case _ => throw new SlickException("Expected an option type, found "+tpe)
   }
 
-  def foreach[U](f: (Type => U)) {
+  def replace(f: PartialFunction[Type, Type]): Type =
+    f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
+
+  def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = {
+    val b = new ArrayBuffer[T]
     def g(n: Type) {
-      f(n)
+      pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () }.apply(n)
       n.children.foreach(g)
     }
     g(tpe)
+    b
   }
 
-  @inline def replace(f: PartialFunction[Type, Type]): Type = TypeUtilOps.replace(tpe, f)
-  @inline def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = TypeUtilOps.collect(tpe, pf)
-  @inline def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
+  def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
 }
 
 object TypeUtil {
-  implicit def typeToTypeUtil(tpe: Type) = new TypeUtil(tpe)
+  implicit def typeToTypeUtil(tpe: Type): TypeUtil = new TypeUtil(tpe)
 
   /** An extractor for node types */
   object :@ {
     def unapply(n: Node) = Some((n, n.nodeType))
   }
-}
-
-object TypeUtilOps {
-  import TypeUtil.typeToTypeUtil
-
-  def replace(tpe: Type, f: PartialFunction[Type, Type]): Type =
-    f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
-
-  def collect[T](tpe: Type, pf: PartialFunction[Type, T]): Iterable[T] = {
-    val b = new ArrayBuffer[T]
-    tpe.foreach(pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () })
-    b
-  }
-}
-
-trait SymbolScope {
-  def + (entry: (Symbol, Type)): SymbolScope
-  def get(sym: Symbol): Option[Type]
-  def withDefault(f: (Symbol => Type)): SymbolScope
-}
-
-object SymbolScope {
-  val empty = new DefaultSymbolScope(Map.empty)
-}
-
-class DefaultSymbolScope(val m: Map[Symbol, Type]) extends SymbolScope {
-  def + (entry: (Symbol, Type)) = new DefaultSymbolScope(m + entry)
-  def get(sym: Symbol): Option[Type] = m.get(sym)
-  def withDefault(f: (Symbol => Type)) = new DefaultSymbolScope(m.withDefault(f))
 }
 
 /** A Slick Type encoding of plain Scala types.

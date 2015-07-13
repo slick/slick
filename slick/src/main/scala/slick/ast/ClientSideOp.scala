@@ -7,8 +7,8 @@ import slick.SlickException
 /**
  * An operation which is expected to be run on the client side.
  */
-trait ClientSideOp {
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node): Node
+trait ClientSideOp { this: Node =>
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self
 }
 
 object ClientSideOp {
@@ -29,9 +29,9 @@ object ClientSideOp {
 /** Get the first element of a collection. For client-side operations only. */
 final case class First(val child: Node) extends UnaryNode with SimplyTypedNode with ClientSideOp {
   type Self = First
-  protected[this] def nodeRebuild(ch: Node) = copy(child = ch)
-  protected def buildType = nodeChildren.head.nodeType.asCollectionType.elementType
-  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = nodeMapChildren(r, keepType)
+  protected[this] def rebuild(ch: Node) = copy(child = ch)
+  protected def buildType = children.head.nodeType.asCollectionType.elementType
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
 }
 
 /** A client-side projection of type
@@ -40,33 +40,33 @@ final case class First(val child: Node) extends UnaryNode with SimplyTypedNode w
   * Identity functor as its collection type constructor ``c``, thus giving it
   * a type of ``(t, u) => u`` where ``t`` and ``u`` are primitive or Option
   * types. */
-final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) extends BinaryNode with DefNode with ClientSideOp {
+final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) extends BinaryNode with DefNode with ClientSideOp {
   type Self = ResultSetMapping
   def left = from
   def right = map
-  override def nodeChildNames = Seq("from "+generator, "map")
-  protected[this] def nodeRebuild(left: Node, right: Node) = copy(from = left, map = right)
-  def nodeGenerators = Seq((generator, from))
+  override def childNames = Seq("from "+generator, "map")
+  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, map = right)
+  def generators = Seq((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
-  protected[this] def nodeRebuildWithGenerators(gen: IndexedSeq[Symbol]) = copy(generator = gen(0))
-  def nodeWithComputedType2(scope: SymbolScope, typeChildren: Boolean, retype: Boolean): Self = {
-    val from2 = from.nodeWithComputedType(scope, typeChildren, retype)
+  protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
+    val from2 = from.infer(scope, typeChildren, retype)
     val (map2, newType) = from2.nodeType match {
       case CollectionType(cons, elem) =>
-        val map2 = map.nodeWithComputedType(scope + (generator -> elem), typeChildren, retype)
+        val map2 = map.infer(scope + (generator -> elem), typeChildren, retype)
         (map2, CollectionType(cons, map2.nodeType))
       case t =>
-        val map2 = map.nodeWithComputedType(scope + (generator -> t), typeChildren, retype)
+        val map2 = map.infer(scope + (generator -> t), typeChildren, retype)
         (map2, map2.nodeType)
     }
-    nodeRebuildOrThis(Vector(from2, map2)).nodeTypedOrCopy(if(!nodeHasType || retype) newType else nodeType)
+    withChildren(Vector(from2, map2)) :@ (if(!hasType || retype) newType else nodeType)
   }
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = {
-    val this2 = nodeMapScopedChildren {
+    val this2 = mapScopedChildren {
       case (Some(_), ch) => r(ch)
       case (None, ch) => ch
     }
-    if(keepType && nodeHasType) this2.nodeTyped(nodeType)
+    if(keepType && hasType) this2 :@ nodeType
     else this2
   }
 }
@@ -75,15 +75,15 @@ final case class ResultSetMapping(generator: Symbol, from: Node, map: Node) exte
   * to find the correct query string for the query arguments. */
 final case class ParameterSwitch(cases: Seq[((Any => Boolean), Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
   type Self = ParameterSwitch
-  def nodeChildren = cases.map(_._2) :+ default
-  override def nodeChildNames = cases.map("[" + _._1 + "]") :+ "default"
-  protected[this] def nodeRebuild(ch: IndexedSeq[Node]): Self =
+  def children = cases.map(_._2) :+ default
+  override def childNames = cases.map("[" + _._1 + "]") :+ "default"
+  protected[this] def rebuild(ch: IndexedSeq[Node]): Self =
     copy(cases = (cases, ch).zipped.map { (c, n) => (c._1, n) }, default = ch.last)
   protected def buildType = default.nodeType
   def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
-    val this2 = mapOrNone(nodeChildren)(r).map(nodeRebuild).getOrElse(this)
-    if(keepType && nodeHasType) this2.nodeTyped(nodeType)
-    else this
+    val this2 = mapOrNone(children)(r).map(rebuild).getOrElse(this)
+    if(keepType && hasType) this2 :@ nodeType
+    else this2
   }
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }

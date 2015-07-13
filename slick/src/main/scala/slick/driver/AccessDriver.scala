@@ -97,7 +97,7 @@ trait AccessDriver extends JdbcDriver { driver =>
   )
 
   override protected def computeQueryCompiler =
-    super.computeQueryCompiler.addBefore(new ExistsToCount, QueryCompiler.relationalPhases.head)
+    super.computeQueryCompiler.addBefore(new ExistsToCount, QueryCompiler.sqlPhases.head)
 
   val retryCount = 10
   override val columnTypes = new JdbcTypes(retryCount)
@@ -128,20 +128,17 @@ trait AccessDriver extends JdbcDriver { driver =>
 
     protected final case class StarAnd(child: Node) extends UnaryNode with SimplyTypedNode {
       type Self = StarAnd
-      protected[this] def nodeRebuild(child: Node) = StarAnd(child)
+      protected[this] def rebuild(child: Node) = StarAnd(child)
       protected def buildType = UnassignedType
     }
 
     protected def extendWithDummyColumn(c: Comprehension, rn: AnonSymbol): Comprehension = c.select match {
-      case Some(Pure(StructNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch :+ (rn -> LiteralNode(1))))), fetch = None, offset = None)
-      case Some(Pure(ProductNode(ch), _)) =>
-        c.copy(select = Some(Pure(StructNode(ch.toIndexedSeq.map(n => newSym -> n) :+ (rn -> LiteralNode(1))))), fetch = None, offset = None)
-      case Some(Pure(n, _)) =>
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(newSym -> n, rn -> LiteralNode(1))))), fetch = None, offset = None)
-      case None =>
-        // should not happen at the outermost layer, so copying an extra row does not matter
-        c.copy(select = Some(Pure(StructNode(IndexedSeq(rn -> StarAnd(LiteralNode(1)))))), fetch = None, offset = None)
+      case Pure(StructNode(ch), _) =>
+        c.copy(select = Pure(StructNode(ch :+ (rn -> LiteralNode(1)))), fetch = None, offset = None)
+      case Pure(ProductNode(ch), _) =>
+        c.copy(select = Pure(StructNode(ch.toIndexedSeq.map(n => new AnonSymbol -> n) :+ (rn -> LiteralNode(1)))), fetch = None, offset = None)
+      case Pure(n, _) =>
+        c.copy(select = Pure(StructNode(IndexedSeq(new AnonSymbol -> n, rn -> LiteralNode(1)))), fetch = None, offset = None)
     }
 
     override protected def buildComprehension(c: Comprehension) =
@@ -152,7 +149,7 @@ trait AccessDriver extends JdbcDriver { driver =>
       if(!c.fetch.isEmpty) b"top ${c.fetch.get} "
     }
 
-    override protected def buildFrom(n: Node, alias: Option[Symbol], skipParens: Boolean = false): Unit = building(FromPart) {
+    override protected def buildFrom(n: Node, alias: Option[TermSymbol], skipParens: Boolean = false): Unit = building(FromPart) {
       n match {
         case j @ Join(leftGen, rightGen, left: Comprehension, right: Comprehension, jt, LiteralNode(true)) =>
           val sym = new AnonSymbol
@@ -305,11 +302,11 @@ trait AccessDriver extends JdbcDriver { driver =>
     def apply(state: CompilerState) = state.map(n => tr(n, false))
 
     protected def tr(n: Node, inSelect: Boolean): Node = n match {
-      case b @ Bind(_, _, sel) => b.nodeMapChildren { n => tr(n, n eq sel) }
-      case f: FilteredQuery => f.nodeMapChildren(tr(_, false))
+      case b @ Bind(_, _, sel) => b.mapChildren { n => tr(n, n eq sel) }
+      case f: FilteredQuery => f.mapChildren(tr(_, false))
       case a @ Library.Exists(ch) if inSelect =>
         Library.>.typed[Boolean](Library.CountAll.typed[Int](tr(ch, true)), LiteralNode(0))
-      case n => n.nodeMapChildren(ch => tr(ch, inSelect))
+      case n => n.mapChildren(ch => tr(ch, inSelect))
     }
   }
 }

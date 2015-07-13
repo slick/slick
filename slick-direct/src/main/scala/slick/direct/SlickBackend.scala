@@ -69,15 +69,15 @@ object CustomNodes{
   final case class Reverse(value: Node) extends UnaryNode with SimplyTypedNode {
     type Self = Reverse
     def child = value
-    override def nodeChildNames = Seq("value")
-    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure?
+    override def childNames = Seq("value")
+    protected[this] def rebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure?
     protected def buildType = child.nodeType
   }
   final case class Nullsorting(value: Node,sorting:Nullsorting.Sorting) extends UnaryNode with SimplyTypedNode {
     type Self = Nullsorting
     def child = value
-    override def nodeChildNames = Seq("value")
-    protected[this] def nodeRebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure? 
+    override def childNames = Seq("value")
+    protected[this] def rebuild(child: Node) = copy(value = child) // FIXME can we factor this out together with pure?
     protected def buildType = child.nodeType
   }
   object Nullsorting extends Enumeration{
@@ -211,7 +211,7 @@ class SlickBackend( val driver: JdbcDriver, mapper:Mapper ) extends QueryableBac
     sq.Select(
       sq_symbol,
       columnField(sym)
-    ).nodeTyped( columnType(sym.typeSignature) )
+    ) :@ columnType(sym.typeSignature)
 
   def typetagToQuery(typetag:TypeTag[_]) : Query = {
     def _fields = getConstructorArgs(typetag.tpe)

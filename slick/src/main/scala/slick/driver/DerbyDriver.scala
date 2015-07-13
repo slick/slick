@@ -119,6 +119,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsTuples = false
+    override protected val supportsLiteralGroupBy = true
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.Cast(ch @ _*) =>

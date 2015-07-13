@@ -24,6 +24,9 @@ final class SlickLogger(val slf4jLogger: Slf4jLogger) {
   def warn(msg: => String, t: Throwable) { if (slf4jLogger.isWarnEnabled) slf4jLogger.warn(msg, t) }
 
   @inline
+  def warn(msg: => String, n: => Dumpable): Unit = warn(msg+"\n"+SlickLogger.treePrinter.get(n))
+
+  @inline
   def info(msg: => String) { if (slf4jLogger.isInfoEnabled) slf4jLogger.info(msg) }
 
   @inline

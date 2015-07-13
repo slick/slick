@@ -2,7 +2,11 @@ package slick.lifted
 
 import slick.ast._
 import slick.ast.Filter
-import slick.model // workaround until deprecated lifted.ForeignKeyAction is removed
+import slick.model
+
+import scala.collection.mutable.ArrayBuffer
+
+// workaround until deprecated lifted.ForeignKeyAction is removed
 
 /** Marker trait for foreign key and primary key constraints. */
 trait Constraint
@@ -40,12 +44,23 @@ object ForeignKey {
       onDelete,
       originalSourceColumns,
       originalTargetColumns.asInstanceOf[Any => Any],
-      ExtraUtil.linearizeFieldRefs(pShape.toNode(originalSourceColumns)),
-      ExtraUtil.linearizeFieldRefs(pShape.toNode(originalTargetColumns(targetTableShaped.value))),
-      ExtraUtil.linearizeFieldRefs(pShape.toNode(originalTargetColumns(originalTargetTable))),
+      linearizeFieldRefs(pShape.toNode(originalSourceColumns)),
+      linearizeFieldRefs(pShape.toNode(originalTargetColumns(targetTableShaped.value))),
+      linearizeFieldRefs(pShape.toNode(originalTargetColumns(originalTargetTable))),
       targetTableShaped.value.tableNode,
       pShape
     )
+
+  def linearizeFieldRefs(n: Node): IndexedSeq[Node] = {
+    val sels = new ArrayBuffer[Node]
+    def f(n: Node): Unit = n match {
+      case _: Select | _: Ref | _: TableNode => sels += n
+      case _: ProductNode | _: OptionApply | _: GetOrElse | _: TypeMapping | _: ClientSideOp =>
+        n.children.foreach(f)
+    }
+    f(n)
+    sels
+  }
 }
 
 /** A query that selects data linked by a foreign key. */

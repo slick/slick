@@ -6,7 +6,7 @@ import scala.concurrent.ExecutionContext
 import slick.ast._
 import slick.util.MacroSupport.macroSupportInterpolation
 import slick.profile.{RelationalProfile, SqlProfile, Capability}
-import slick.compiler.CompilerState
+import slick.compiler.{Phase, CompilerState}
 import slick.jdbc.{JdbcModelBuilder, JdbcType}
 import slick.jdbc.meta.{MColumn, MTable}
 import slick.model.Model
@@ -67,6 +67,7 @@ trait H2Driver extends JdbcDriver { driver =>
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
   override val columnTypes = new JdbcTypes
+  override protected def computeQueryCompiler = super.computeQueryCompiler.replace(Phase.resolveZipJoinsRownumStyle) - Phase.fixRowNumberOrdering
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createCountingInsertInvoker[U](compiled: CompiledInsert) = new CountingInsertInvoker[U](compiled)
@@ -77,12 +78,15 @@ trait H2Driver extends JdbcDriver { driver =>
     case _ => super.defaultSqlTypeName(tmd, size)
   }
 
-  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state)  with OracleStyleRowNum {
+  class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
+    override protected val alwaysAliasSubqueries = false
+    override protected val supportsLiteralGroupBy = true
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval(schema(), '$name')"
+      case RowNumber(_) => b"rownum"
       case _ => super.expr(n, skipParens)
     }
 
