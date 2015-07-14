@@ -91,7 +91,7 @@ together to build a query, and then reuse pieces across your code base.
 
 .. index::
    pair: database; supported
-.. index:: Derby, JavaDB, H2, HSQLDB, HyperSQL, Access, MySQL, PostgreSQL, SQLite
+.. index:: Derby, JavaDB, H2, HSQLDB, HyperSQL, MySQL, PostgreSQL, SQLite
 
 Reactive Applications
 ---------------------

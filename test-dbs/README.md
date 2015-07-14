@@ -28,14 +28,6 @@ MySQL quick setup (tested with 5.6.11.0):
 - Set "mysql.user" (default: "root") and mysql.password (default: null) if necessary
 - Set enabled = true
 
-Access
-------
-
-Access quick setup:
-- Install Office 2010
-- Make sure your account has [permissions to the ODBC registry keys](http://support.microsoft.com/kb/295297)
-- Set access.enabled = true
-
 Example configuration
 =====================
 
@@ -47,8 +39,4 @@ Example configuration
     mysql {
       enabled = true
       password = secret
-    }
-
-    access {
-      enabled = true
     }

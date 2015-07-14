@@ -5,7 +5,6 @@ Supported Databases
 * Derby/JavaDB
 * H2
 * HSQLDB/HyperSQL
-* Microsoft Access
 * Microsoft SQL Server (via :doc:`slick-extensions <extensions>`)
 * MySQL
 * Oracle (via :doc:`slick-extensions <extensions>`)

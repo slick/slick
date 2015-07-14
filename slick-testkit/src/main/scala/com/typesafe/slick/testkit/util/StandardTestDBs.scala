@@ -107,8 +107,6 @@ object StandardTestDBs {
     }
   }
 
-  lazy val MSAccess = new AccessDB("access")
-
   lazy val Heap = new RelationalTestDB {
     type Driver = MemoryDriver
     val driver: Driver = MemoryDriver
@@ -152,30 +150,6 @@ class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(c
     for(t <- getLocalSequences)
       (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)).execute
   }
-}
-
-@deprecated("AccessDriver will be removed when we drop support for Java versions < 8", "2.1")
-class AccessDB(confName: String) extends ExternalJdbcTestDB(confName) {
-  val driver = AccessDriver
-  val dir = new File(TestkitConfig.testDir)
-  val dbPath = dir.getAbsolutePath.replace("\\", "/")
-  lazy val emptyDBFile = confString("emptyDBFile")
-  lazy val testDBFile = confString("testDBFile")
-
-  override def cleanUpBefore() {
-    cleanUpAfter()
-    TestDB.copy(new File(emptyDBFile), new File(testDBFile))
-  }
-  override def cleanUpAfter() = TestDB.deleteDBFiles(testDB)
-  override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
-    session.close()
-    cleanUpBefore()
-  }
-  /* Works in some situations but fails with "Optional feature not implemented" in others */
-  override def canGetLocalTables = false
-  override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-    MTable.getTables.map(_.map(_.name.name).sorted)
-  override def capabilities = super.capabilities - TestDB.capabilities.jdbcMeta
 }
 
 abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
