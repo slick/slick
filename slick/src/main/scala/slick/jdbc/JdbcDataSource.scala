@@ -7,6 +7,7 @@ import java.sql.{SQLException, DriverManager, Driver, Connection}
 import javax.sql.DataSource
 import com.typesafe.config.Config
 import slick.util.ClassLoaderUtil
+import slick.util.BeanConfigurator
 import slick.util.ConfigExtensionMethods._
 import slick.SlickException
 
@@ -27,13 +28,13 @@ object JdbcDataSource {
     * for documentation of the supported configuration parameters. */
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): JdbcDataSource = {
     val pf: JdbcDataSourceFactory = c.getStringOr("connectionPool", "HikariCP") match {
-      case "disabled" => DriverJdbcDataSource
+      case "disabled" => DataSourceJdbcDataSource
       case "HikariCP" => HikariCPJdbcDataSource
       case name =>
         val clazz = classLoader.loadClass(name)
         clazz.getField("MODULE$").get(clazz).asInstanceOf[JdbcDataSourceFactory]
     }
-    pf.forConfig(c, driver, name)
+    pf.forConfig(c, driver, name, classLoader)
   }
 }
 
@@ -41,16 +42,57 @@ object JdbcDataSource {
   * This is used with the "connectionPool" configuration option in
   * [[JdbcBackend.DatabaseFactoryDef.forConfig]]. */
 trait JdbcDataSourceFactory {
-  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource
+  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): JdbcDataSource
 }
 
 /** A JdbcDataSource for a `DataSource` */
-class DataSourceJdbcDataSource(val ds: DataSource) extends JdbcDataSource {
-  def createConnection(): Connection = ds.getConnection
-  def close(): Unit = ()
+class DataSourceJdbcDataSource(val ds: DataSource, val keepAliveConnection: Boolean,
+                               val connectionPreparer: ConnectionPreparer = null) extends JdbcDataSource {
+  private[this] var openedKeepAliveConnection: Connection = null
+
+  def createConnection(): Connection = {
+    if(keepAliveConnection) {
+      synchronized {
+        if(openedKeepAliveConnection eq null)
+          openedKeepAliveConnection = ds.getConnection
+      }
+    }
+    val c = ds.getConnection
+    if(connectionPreparer ne null) connectionPreparer(c)
+    c
+  }
+
+  def close(): Unit = {
+    try if(keepAliveConnection && (openedKeepAliveConnection ne null)) openedKeepAliveConnection.close()
+    finally ds match {
+      case ds: Closeable => ds.close()
+      case _ =>
+    }
+  }
+}
+
+object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
+  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): DataSourceJdbcDataSource = {
+    val ds = c.getStringOpt("dataSourceClass") match {
+      case Some(dsClass) =>
+        val propsO = c.getPropertiesOpt("properties")
+        try {
+          val ds = Class.forName(dsClass).newInstance.asInstanceOf[DataSource]
+          propsO.foreach(BeanConfigurator.configure(ds, _))
+          ds
+        } catch { case ex: Exception => throw new SlickException("Error configuring DataSource "+dsClass, ex) }
+      case None =>
+        val ds = new DriverDataSource
+        ds.classLoader = classLoader
+        BeanConfigurator.configure(ds, c.toProperties, Set("url", "user", "password", "properties", "driver", "driverClassName"))
+        ds
+    }
+    new DataSourceJdbcDataSource(ds, c.getBooleanOr("keepAliveConnection"), new ConnectionPreparer(c))
+  }
 }
 
 /** A JdbcDataSource which can load a JDBC `Driver` from a class name */
+@deprecated("Use DataSourceJdbcDataSource with DriverDataSource instead", "3.1")
 trait DriverBasedJdbcDataSource extends JdbcDataSource {
   private[this] var registeredDriver: Driver = null
 
@@ -70,6 +112,7 @@ trait DriverBasedJdbcDataSource extends JdbcDataSource {
 }
 
 /** A JdbcDataSource for lookup via a `Driver` or the `DriverManager` */
+@deprecated("Use DataSourceJdbcDataSource with DriverDataSource instead", "3.1")
 class DriverJdbcDataSource(url: String, user: String, password: String, prop: Properties,
                            driverName: String = null, driver: Driver = null,
                            connectionPreparer: ConnectionPreparer = null,
@@ -112,8 +155,9 @@ class DriverJdbcDataSource(url: String, user: String, password: String, prop: Pr
   }
 }
 
+@deprecated("Use DataSourceJdbcDataSource with DriverDataSource instead", "3.1")
 object DriverJdbcDataSource extends JdbcDataSourceFactory {
-  def forConfig(c: Config, driver: Driver, name: String): DriverJdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): DriverJdbcDataSource = {
     val cp = new ConnectionPreparer(c)
     new DriverJdbcDataSource(
       c.getStringOr("url"),
@@ -136,7 +180,7 @@ class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hco
 object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
   import com.zaxxer.hikari._
 
-  def forConfig(c: Config, driver: Driver, name: String): HikariCPJdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
     if(driver ne null)
       throw new SlickException("An explicit Driver object is not supported by HikariCPJdbcDataSource")
     val hconf = new HikariConfig()
@@ -176,7 +220,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
   }
 }
 
-/** Set parameters on a new Connection. This is used by [[DriverJdbcDataSource]]. */
+/** Set parameters on a new Connection. This is used by [[DataSourceJdbcDataSource]]. */
 class ConnectionPreparer(c: Config) extends (Connection => Unit) {
   val isolation = c.getStringOpt("isolation").map {
     case "NONE" => Connection.TRANSACTION_NONE

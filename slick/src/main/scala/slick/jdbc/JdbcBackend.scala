@@ -84,8 +84,8 @@ trait JdbcBackend extends RelationalBackend {
       new DatabaseDef(source, executor)
 
     /** Create a Database based on a DataSource. */
-    def forDataSource(ds: DataSource, executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
-      forSource(new DataSourceJdbcDataSource(ds), executor)
+    def forDataSource(ds: DataSource, executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false): DatabaseDef =
+      forSource(new DataSourceJdbcDataSource(ds, keepAliveConnection), executor)
 
     /** Create a Database based on the JNDI name of a DataSource. */
     def forName(name: String, executor: AsyncExecutor = null) = new InitialContext().lookup(name) match {
@@ -97,11 +97,13 @@ trait JdbcBackend extends RelationalBackend {
     }
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url:String, user:String = null, password:String = null, prop: Properties = null, driver:String = null, executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false): DatabaseDef =
-      forSource(new DriverJdbcDataSource(url, user, password, prop, driverName = driver, keepAliveConnection = keepAliveConnection), executor)
+    def forURL(url: String, user: String = null, password: String = null, prop: Properties = null, driver: String = null,
+               executor: AsyncExecutor = AsyncExecutor.default(), keepAliveConnection: Boolean = false,
+               classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): DatabaseDef =
+      forDataSource(new DriverDataSource(url, user, password, prop, driver, classLoader = classLoader), executor, keepAliveConnection)
 
     /** Create a Database that uses the DriverManager to open new connections. */
-    def forURL(url:String, prop: Map[String, String]): Database = {
+    def forURL(url: String, prop: Map[String, String]): Database = {
       val p = new Properties
       if(prop ne null)
         for((k,v) <- prop) if(k.ne(null) && v.ne(null)) p.setProperty(k, v)
@@ -110,40 +112,22 @@ trait JdbcBackend extends RelationalBackend {
 
     /** Create a Database that directly uses a Driver to open new connections.
       * This is needed to open a JDBC URL with a driver that was not loaded by the system ClassLoader. */
-    def forDriver(driver:Driver, url:String, user:String = null, password:String = null, prop: Properties = null, executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
-      forSource(new DriverJdbcDataSource(url, user, password, prop, driver = driver), executor)
+    def forDriver(driver: Driver, url: String, user: String = null, password: String = null, prop: Properties = null,
+                  executor: AsyncExecutor = AsyncExecutor.default()): DatabaseDef =
+      forDataSource(new DriverDataSource(url, user, password, prop, driverObject = driver), executor)
 
     /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
       *
       * The main config key to set is `connectionPool`. It determines the connection pool
-      * implementation to use. The default is `HikariCP` (for
-      * [[https://github.com/brettwooldridge/HikariCP HikariCP]]). Use `disabled` to disable
-      * connection pooling (using the DriverManager directly). A third-party connection pool
-      * implementation can be selected by specifying the fully qualified name of an object
-      * implementing [[JdbcDataSourceFactory]].
+      * implementation to use. The default is `HikariCP` (a.k.a. `slick.jdbc.HikariCPJdbcDataSource`)
+      * for [[https://github.com/brettwooldridge/HikariCP HikariCP]]). Use `disabled` (a.k.a.
+      * `slick.jdbc.DataSourceJdbcDataSource`) to disable connection pooling and use a DataSource or
+      * the DriverManager directly. A third-party connection pool implementation can be selected by
+      * specifying the fully qualified name of an object implementing [[JdbcDataSourceFactory]].
       *
-      * The pool is tuned for asynchronous execution by default. Apart from the connection
-      * parameters you should only have to set `numThreads` and `queueSize` in most cases. In this
-      * scenario there is contention over the thread pool (via its queue), not over the
-      * connections, so you can have a rather large limit on the maximum number of connections
-      * (based on what the database server can still handle, not what is most efficient). Slick
-      * will use more connections than there are threads in the pool when sequencing non-database
-      * actions inside a transaction.
-      *
-      * The following config keys are supported for HikariCP and direct connections:
+      * The following config keys are supported for all connection pools, both built-in and
+      * third-party:
       * <ul>
-      *   <li>`url` (String, required): JDBC URL</li>
-      *   <li>`driver` or `driverClassName` (String, optional): JDBC driver class to load</li>
-      *   <li>`user` (String, optional): User name</li>
-      *   <li>`password` (String, optional): Password</li>
-      *   <li>`isolation` (String, optional): Transaction isolation level for new connections.
-      *     Allowed values are: `NONE`, `READ_COMMITTED`, `READ_UNCOMMITTED`, `REPEATABLE_READ`,
-      *     `SERIALIZABLE`.</li>
-      *   <li>`catalog` (String, optional): Default catalog for new connections.</li>
-      *   <li>`readOnly` (Boolean, optional): Read Only flag for new connections.</li>
-      *   <li>`properties` (Map, optional): Properties to pass to the driver (or
-      *     to the DataSource when using HikariCP with a `dataSourceClass`
-      *     instead of a driver).</li>
       *   <li>`numThreads` (Int, optional, default: 20): The number of concurrent threads in the
       *     thread pool for asynchronous execution of database actions. See the
       *     [[https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing HikariCP wiki]]
@@ -156,8 +140,26 @@ trait JdbcBackend extends RelationalBackend {
       *     for an unlimited queue size (not recommended).</li>
       * </ul>
       *
-      * The following additional keys are supported for HikariCP only:
+      * The pool is tuned for asynchronous execution by default. Apart from the connection
+      * parameters you should only have to set `numThreads` and `queueSize` in most cases. In this
+      * scenario there is contention over the thread pool (via its queue), not over the
+      * connections, so you can have a rather large limit on the maximum number of connections
+      * (based on what the database server can still handle, not what is most efficient). Slick
+      * will use more connections than there are threads in the pool when sequencing non-database
+      * actions inside a transaction.
+      *
+      * The following config keys are supported for HikariCP:
       * <ul>
+      *   <li>`url` (String, required): JDBC URL</li>
+      *   <li>`driver` or `driverClassName` (String, optional): JDBC driver class to load</li>
+      *   <li>`user` (String, optional): User name</li>
+      *   <li>`password` (String, optional): Password</li>
+      *   <li>`isolation` (String, optional): Transaction isolation level for new connections.
+      *     Allowed values are: `NONE`, `READ_COMMITTED`, `READ_UNCOMMITTED`, `REPEATABLE_READ`,
+      *     `SERIALIZABLE`.</li>
+      *   <li>`catalog` (String, optional): Default catalog for new connections.</li>
+      *   <li>`readOnly` (Boolean, optional): Read Only flag for new connections.</li>
+      *   <li>`properties` (Map, optional): Properties to pass to the driver or DataSource.</li>
       *   <li>`dataSourceClass` (String, optional): The name of the DataSource class provided by
       *     the JDBC driver. This is preferred over using `driver`. Note that `url` is ignored when
       *     this key is set (You have to use `properties` to configure the database
@@ -198,13 +200,49 @@ trait JdbcBackend extends RelationalBackend {
       *     Beans ("MBeans") are registered.</li>
       * </ul>
       *
-      * The following additional keys are supported for direct connections only:
+      * Direct connections are based on a `java.sql.DataSource` or a `java.sql.Driver`. This is
+      * determined by the presence or absence of the `dataSourceClass` config key. The following
+      * keys are supported for direct connections in DataSource mode:
       * <ul>
+      *   <li>`dataSourceClass` (String): The name of the DataSource class provided by
+      *     the JDBC driver.</li>
+      *   <li>`properties` (Map, optional): Java Bean properties to set on the DataSource.</li>
+      * </ul>
+      *
+      * The following keys are supported for direct connections in Driver mode:
+      * <ul>
+      *   <li>`url` (String, required): JDBC URL</li>
+      *   <li>`driver` or `driverClassName` (String, optional): JDBC driver class to load. If not
+      *     specified, the DriverManager is expected to already know how to handle the URL. Slick
+      *     will check if the driver class is already registered before loading a new copy.</li>
+      *   <li>`user` (String, optional): User name</li>
+      *   <li>`password` (String, optional): Password</li>
+      *   <li>`properties` (Map, optional): Connection properties to pass to the driver.</li>
+      *   <li>`deregisterDriver` (Boolean, optional, default: false): If this is set to true and
+      *     Slick loaded a JDBC driver when creating the Database object, it attempts to deregister
+      *     that driver from the DriverManager when `close()` is called. Note that this may
+      *     prevent the same driver from being registered again within the same ClassLoader through
+      *     the usual automatic registration process.</li>
+      * </ul>
+      *
+      * The following additional keys are supported for all direct connections:
+      * <ul>
+      *   <li>`isolation` (String, optional): Transaction isolation level for new connections.
+      *     Allowed values are: `NONE`, `READ_COMMITTED`, `READ_UNCOMMITTED`, `REPEATABLE_READ`,
+      *     `SERIALIZABLE`.</li>
+      *   <li>`catalog` (String, optional): Default catalog for new connections.</li>
+      *   <li>`readOnly` (Boolean, optional): Read Only flag for new connections.</li>
       *   <li>`keepAliveConnection` (Boolean, optional, default: false): If this is set to true,
       *     one extra connection will be opened as soon as the database is accessed for the first
       *     time, and kept open until `close()` is called. This is useful for named in-memory
       *     databases in test environments.</li>
       * </ul>
+      *
+      * Note that Driver mode is equivalent to using DataSource mode with a [[DriverDataSource]]
+      * and moving the config keys `url`, `user`, `password`, `properties` and `driver` /
+      * `driverClassName` down into the DataSource `properties`, except that DataSource mode
+      * always uses the default ClassLoader whereas Driver mode can be used with alternate
+      * ClassLoaders.
       *
       * Unknown keys are ignored. Invalid values or missing mandatory keys will trigger a
       * [[SlickException]].
