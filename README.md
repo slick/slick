@@ -16,7 +16,6 @@ The following database systems are directly supported for type-safe queries:
 - Derby/JavaDB
 - H2
 - HSQLDB/HyperSQL
-- Microsoft Access
 - MySQL
 - PostgreSQL
 - SQLite

@@ -32,7 +32,6 @@ package object slick {
   @deprecated("Package 'scala.slick' has been renamed to 'slick'", "3.0")
   object driver {
     type JdbcProfile = _root_.slick.driver.JdbcProfile
-    type AccessDriver = _root_.slick.driver.AccessDriver
     type DerbyDriver = _root_.slick.driver.DerbyDriver
     type H2Driver = _root_.slick.driver.H2Driver
     type HsqldbDriver = _root_.slick.driver.HsqldbDriver
@@ -40,7 +39,6 @@ package object slick {
     type MySQLDriver = _root_.slick.driver.MySQLDriver
     type PostgresDriver = _root_.slick.driver.PostgresDriver
     type SQLiteDriver = _root_.slick.driver.SQLiteDriver
-    val AccessDriver = _root_.slick.driver.AccessDriver
     val DerbyDriver = _root_.slick.driver.DerbyDriver
     val H2Driver = _root_.slick.driver.H2Driver
     val HsqldbDriver = _root_.slick.driver.HsqldbDriver

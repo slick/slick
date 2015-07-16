@@ -34,7 +34,4 @@ class PostgresTest extends DriverTest(StandardTestDBs.Postgres)
 class MySQLTest extends DriverTest(StandardTestDBs.MySQL)
 
 @RunWith(classOf[Testkit])
-class MSAccessTest extends DriverTest(StandardTestDBs.MSAccess)
-
-@RunWith(classOf[Testkit])
 class HeapTest extends DriverTest(StandardTestDBs.Heap)

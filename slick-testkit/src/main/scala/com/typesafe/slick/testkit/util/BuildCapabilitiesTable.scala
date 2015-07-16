@@ -16,7 +16,6 @@ object BuildCapabilitiesTable extends App {
     "slick.driver.DerbyDriver",
     "slick.driver.H2Driver",
     "slick.driver.HsqldbDriver",
-    "slick.driver.AccessDriver",
     "slick.driver.MySQLDriver",
     "slick.driver.PostgresDriver",
     "slick.driver.SQLiteDriver"
