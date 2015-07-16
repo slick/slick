@@ -28,7 +28,7 @@ Using a JDBC URL
 ----------------
 
 You can pass a JDBC URL to
-:api:`forURL <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forURL(String,String,String,Properties,String,AsyncExecutor,Boolean):DatabaseDef>`.
+:api:`forURL <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forURL(String,String,String,Properties,String,AsyncExecutor,Boolean,ClassLoader):DatabaseDef>`.
 (see your database's JDBC driver's documentation for the correct URL syntax).
 
 .. includecode:: code/Connection.scala#forURL
@@ -42,7 +42,7 @@ Using a DataSource
 ------------------
 
 You can pass a :javaapi:`DataSource <javax/sql/DataSource>` object to
-:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor):DatabaseDef>`.
+:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor,Boolean):DatabaseDef>`.
 If you got it from the connection pool of your application framework, this plugs the pool into Slick.
 
 .. includecode:: code/Connection.scala#forDataSource
