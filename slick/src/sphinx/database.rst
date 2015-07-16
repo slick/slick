@@ -17,7 +17,7 @@ The prefered way to configure database connections is through `Typesafe Config`_
 .. includecode:: resources/application.conf#mydb
 
 Such a configuration can be loaded with `Database.forConfig` (see the
-:api:`API documentation <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver):Database>`
+:api:`API documentation <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver,ClassLoader):Database>`
 of this method for details on the configuration parameters).
 
 .. includecode:: code/Connection.scala#forConfig
@@ -69,7 +69,7 @@ for asynchronous execution of Database I/O Actions. Its size is the main paramet
 performance of the ``Database`` object. It should be set to the value that you would use for the
 size of the *connection pool* in a traditional, blocking application (see `About Pool Sizing`_
 in the HikariCP_ documentation for further information). When using
-:api:`Database.forConfig <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver):Database>`,
+:api:`Database.forConfig <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver,ClassLoader):Database>`,
 the thread pool is configured directly in the external configuration file together with the connection
 parameters. If you use any other factory method to get a ``Database``, you can either use a default
 configuration or specify a custom AsyncExecutor:
@@ -91,7 +91,7 @@ middle of a transaction) but are not actively doing any work on the database.
 
 Note that reasonable defaults for the connection pool sizes are calculated from the thread pool
 size when using
-:api:`Database.forConfig <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver):Database>`.
+:api:`Database.forConfig <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forConfig(String,Config,Driver,ClassLoader):Database>`.
 
 Slick uses *prepared* statements wherever possible but it does not cache them on its own. You
 should therefore enable prepared statement caching in the connection pool's configuration.

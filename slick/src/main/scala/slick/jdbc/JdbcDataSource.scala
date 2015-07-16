@@ -25,10 +25,6 @@ trait JdbcDataSource extends Closeable {
 object JdbcDataSource {
   /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
     * for documentation of the supported configuration parameters. */
-  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource = forConfig(c, driver, name, ClassLoaderUtil.defaultClassLoader)
-
-  /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
-    * for documentation of the supported configuration parameters. */
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): JdbcDataSource = {
     val pf: JdbcDataSourceFactory = c.getStringOr("connectionPool", "HikariCP") match {
       case "disabled" => DriverJdbcDataSource

@@ -52,33 +52,11 @@ object DatabaseConfig {
     *             for the top level of the `Config` object.
     * @param config The `Config` object to read from. This defaults to the global app config
     *               (e.g. in `application.conf` at the root of the class path) if not specified.
+    * @param classLoader The ClassLoader to use to load any custom classes from. The default is to
+    *                    try the context ClassLoader first and fall back to Slick's ClassLoader.
     */
-  def forConfig[P <: BasicProfile : ClassTag](path: String, config: Config = ConfigFactory.load()): DatabaseConfig[P] = {
-    forConfig(path, config, ClassLoaderUtil.defaultClassLoader)
-  }
-
-  /** Load a driver and database configuration through
-    * [[https://github.com/typesafehub/config Typesafe Config]].
-    *
-    * The following config parameters are available:
-    * <ul>
-    *   <li>`driver` (String, required): The fully qualified name of a class or object which
-    *   implements the specified profile. If the name ends with `$` it is assumed to be an object
-    *   name, otherwise a class name.</li>
-    *   <li>`db` (Config, optional): The configuration of a database for the driver's backend.
-    *   For JdbcProfile-based' drivers (and thus JdbcBackend), see
-    *   `JdbcBackend.DatabaseFactory.forConfig` for parameters that should be defined inside of
-    *   `db`.</li>
-    * </ul>
-    *
-    * @param path The path in the configuration file for the database configuration (e.g. `foo.bar`
-    *             would find a driver name at config key `foo.bar.driver`) or an empty string
-    *             for the top level of the `Config` object.
-    * @param config The `Config` object to read from. This defaults to the global app config
-    *               (e.g. in `application.conf` at the root of the class path) if not specified.
-    * @param classLoader The ClassLoader to use to load any custom classes from.
-    */
-  def forConfig[P <: BasicProfile : ClassTag](path: String, config: Config, classLoader: ClassLoader): DatabaseConfig[P] = {
+  def forConfig[P <: BasicProfile : ClassTag](path: String, config: Config = ConfigFactory.load(),
+                                              classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): DatabaseConfig[P] = {
     val n = config.getString((if(path.isEmpty) "" else path + ".") + "driver")
     val untypedP = try {
       if(n.endsWith("$")) classLoader.loadClass(n).getField("MODULE$").get(null)
@@ -105,14 +83,7 @@ object DatabaseConfig {
     * the root of the class path), otherwise as a path in the configuration located at the URI
     * without the fragment, which must be a valid URL. Without a fragment, the whole config object
     * is used. */
-  def forURI[P <: BasicProfile : ClassTag](uri: URI): DatabaseConfig[P] = forURI(uri, ClassLoaderUtil.defaultClassLoader)
-
-  /** Load a driver and database configuration from the specified URI. If only a fragment name
-    * is given, it is resolved as a path in the global app config (e.g. in `application.conf` at
-    * the root of the class path), otherwise as a path in the configuration located at the URI
-    * without the fragment, which must be a valid URL. Without a fragment, the whole config object
-    * is used. */
-  def forURI[P <: BasicProfile : ClassTag](uri: URI, classLoader: ClassLoader): DatabaseConfig[P] = {
+  def forURI[P <: BasicProfile : ClassTag](uri: URI, classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): DatabaseConfig[P] = {
     val (base, path) = {
       val f = uri.getRawFragment
       val s = uri.toString

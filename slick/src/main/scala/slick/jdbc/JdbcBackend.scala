@@ -218,9 +218,12 @@ trait JdbcBackend extends RelationalBackend {
       *               the `driver` key from the configuration is ignored. The default is to use the
       *               standard lookup mechanism. The explicit driver may not be supported by all
       *               connection pools (in particular, the default [[HikariCPJdbcDataSource]]).
+      * @param classLoader The ClassLoader to use to load any custom classes from. The default is to
+      *                    try the context ClassLoader first and fall back to Slick's ClassLoader.
       */
-    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database = {
-      val source = JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver, path, ClassLoaderUtil.defaultClassLoader)
+    def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null,
+                  classLoader: ClassLoader = ClassLoaderUtil.defaultClassLoader): Database = {
+      val source = JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver, path, classLoader)
       val executor = AsyncExecutor(path, config.getIntOr("numThreads", 20), config.getIntOr("queueSize", 1000))
       forSource(source, executor)
     }
