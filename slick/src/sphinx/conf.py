@@ -259,7 +259,6 @@ extlinks = {
 apilinks = {
   'api': 'api/index.html#%s',
   'codegenapi': 'codegen-api/index.html#%s',
-  'directapi': 'direct-api/index.html#%s',
   'scalaapi': 'http://www.scala-lang.org/api/'+scala_version+'/#%s'
 }
 
@@ -268,7 +267,6 @@ rst_epilog = '''
 .. _Hello Slick template: https://typesafe.com/activator/template/hello-slick%(template-suffix)s
 .. _Slick Plain SQL Queries template: https://typesafe.com/activator/template/slick-plainsql%(template-suffix)s
 .. _Slick Multi-DB Patterns template: http://typesafe.com/activator/template/slick-multidb%(template-suffix)s
-.. _Slick Direct Embedding template: http://typesafe.com/activator/template/slick-direct%(template-suffix)s
 .. _Slick TestKit Example template: https://typesafe.com/activator/template/slick-testkit-example%(template-suffix)s
 ''' % {
   'template-suffix': slick_template_suffix

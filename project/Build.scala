@@ -165,7 +165,6 @@ object SlickBuild extends Build {
     test in (osgiTestProject, Test), // Temporarily disabled until we get Reactive Streams OSGi bundles
     test in (reactiveStreamsTestProject, Test),
     packageDoc in Compile in slickProject,
-    packageDoc in Compile in slickDirectProject,
     packageDoc in Compile in slickCodegenProject,
     packageDoc in Compile in slickTestkitProject,
     sdlc in aRootProject
@@ -179,8 +178,8 @@ object SlickBuild extends Build {
       test := (), testOnly :=  (), // suppress test status output
       commands += testAll,
       sdlc := (),
-      sdlc <<= sdlc dependsOn (sdlc in slickProject, sdlc in slickCodegenProject, sdlc in slickDirectProject)
-    )).aggregate(slickProject, slickCodegenProject, slickDirectProject, slickTestkitProject)
+      sdlc <<= sdlc dependsOn (sdlc in slickProject, sdlc in slickCodegenProject)
+    )).aggregate(slickProject, slickCodegenProject, slickTestkitProject)
 
   lazy val slickProject: Project = Project(id = "slick", base = file("slick"),
     settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick") ++ osgiSettings ++ Seq(
@@ -196,7 +195,6 @@ object SlickBuild extends Build {
       (sphinxProperties in Sphinx) := Map.empty,
       makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickProject, "api"),
-      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickDirectProject, "direct-api"),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickCodegenProject, "codegen-api"),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickTestkitProject, "testkit-api"),
       sdlcBase := "api/",
@@ -285,7 +283,7 @@ object SlickBuild extends Build {
     //test <<= Seq(test in Test, test in DocTest).dependOn,
     //concurrentRestrictions += Tags.limitSum(1, Tags.Test, Tags.ForkedTestGroup),
     //concurrentRestrictions in Global += Tags.limit(Tags.Test, 1),
-  ) dependsOn(slickProject, slickCodegenProject % "compile->compile", slickDirectProject % "test->compile")
+  ) dependsOn(slickProject, slickCodegenProject % "compile->compile")
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
     settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen") ++ Seq(
@@ -297,21 +295,6 @@ object SlickBuild extends Build {
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       test := (), testOnly :=  (), // suppress test status output
       sdlcBase := "codegen-api/",
-      sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
-      sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
-    )
-  ) dependsOn(slickProject)
-
-  lazy val slickDirectProject = Project(id = "direct", base = file("slick-direct"),
-    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("direct") ++ Seq(
-      name := "Slick-Direct",
-      description := "Direct Embedding for Slick (Scala Language-Integrated Connection Kit)",
-      libraryDependencies <+= scalaVersion("org.scala-lang" % "scala-compiler" % _),
-      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
-        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-direct/src/main€{FILE_PATH}.scala"
-      )),
-      test := (), testOnly :=  (), // suppress test status output
-      sdlcBase := "direct-api/",
       sdlcCheckDir := (target in (slickProject, com.typesafe.sbt.SbtSite.SiteKeys.makeSite)).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite in slickProject)
     )

@@ -6,12 +6,10 @@ Queries
 =======
 
 This chapter describes how to write type-safe queries for selecting, inserting, updating and
-deleting data with Slick's Scala-based query API.
-
-It is also called the *Lifted Embedding*, due to the fact that you are not
-working with standard Scala types but with types that are *lifted* into a :api:`slick.lifted.Rep`
-type constructor. This becomes clearer when you compare the types of a simple
-Scala collections example
+deleting data with Slick's Scala-based query API. The API for building queries is a
+*lifted embedding*, which means that you are not working with standard Scala types but with types
+that are *lifted* into a :api:`slick.lifted.Rep` type constructor. This becomes clearer when you
+compare the types of a simple Scala collections example
 
 .. includecode:: code/LiftedEmbedding.scala#plaintypes
 
