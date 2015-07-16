@@ -1,5 +1,5 @@
 language: scala
-script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll
+script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll mimaReportBinaryIssues
 jdk:
   - openjdk6
 notifications:
