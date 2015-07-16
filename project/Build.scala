@@ -203,7 +203,7 @@ object SlickBuild extends Build {
       sdlcCheckDir := (target in com.typesafe.sbt.SbtSite.SiteKeys.makeSite).value,
       sdlc <<= sdlc dependsOn (doc in Compile, com.typesafe.sbt.SbtSite.SiteKeys.makeSite),
       test := (), testOnly :=  (), // suppress test status output
-      previousArtifact := Some("com.typesafe.slick" %% "slick" % binaryCompatSlickVersion),
+      previousArtifact := Some("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value)  % binaryCompatSlickVersion),
       binaryIssueFilters ++= Seq(
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl$"),
         ProblemFilters.exclude[MissingClassProblem]("slick.util.MacroSupportInterpolationImpl")

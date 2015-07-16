@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit
 import java.sql.{SQLException, DriverManager, Driver, Connection}
 import javax.sql.DataSource
 import com.typesafe.config.Config
+import slick.util.ClassLoaderUtil
 import slick.util.ConfigExtensionMethods._
 import slick.SlickException
 
@@ -24,12 +25,16 @@ trait JdbcDataSource extends Closeable {
 object JdbcDataSource {
   /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
     * for documentation of the supported configuration parameters. */
-  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource = {
+  def forConfig(c: Config, driver: Driver, name: String): JdbcDataSource = forConfig(c, driver, name, ClassLoaderUtil.defaultClassLoader)
+
+  /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
+    * for documentation of the supported configuration parameters. */
+  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): JdbcDataSource = {
     val pf: JdbcDataSourceFactory = c.getStringOr("connectionPool", "HikariCP") match {
       case "disabled" => DriverJdbcDataSource
       case "HikariCP" => HikariCPJdbcDataSource
       case name =>
-        val clazz = Class.forName(name)
+        val clazz = classLoader.loadClass(name)
         clazz.getField("MODULE$").get(clazz).asInstanceOf[JdbcDataSourceFactory]
     }
     pf.forConfig(c, driver, name)
