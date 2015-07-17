@@ -24,9 +24,9 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
     val posts = TableQuery[Posts]
 
     for {
-      _ <- asAction(tdb.assertNotTablesExist("categories", "posts")(_))
+      _ <- tdb.assertNotTablesExist("categories", "posts")
       _ <- (posts.schema ++ categories.schema).create
-      _ <- asAction(tdb.assertTablesExist("categories", "posts")(_))
+      _ <- tdb.assertTablesExist("categories", "posts")
       _ <- categories ++= Seq(
         (1, "Scala"),
         (2, "ScalaQuery"),
@@ -51,7 +51,7 @@ class ForeignKeyTest extends AsyncTest[RelationalTestDB] {
       } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       _ <- (categories.schema ++ posts.schema).drop
-      _ <- asAction(tdb.assertNotTablesExist("categories", "posts")(_))
+      _ <- tdb.assertNotTablesExist("categories", "posts")
     } yield ()
   }
 

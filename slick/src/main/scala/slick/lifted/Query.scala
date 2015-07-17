@@ -57,12 +57,6 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     * reason to call it directly because it is the same as `filter`. */
   def withFilter[T : CanBeQueryCondition](f: E => T) = filterHelper(f, identity)
 
-  /** Select all elements of this query which satisfy a predicate. Unlike
-    * `withFilter`, this method only allows `Column`-valued predicates, so it
-    * guards against the accidental use use plain Booleans. */
-  @deprecated("Use `filter` instead of `where`", "2.1")
-  def where[T <: Rep[_] : CanBeQueryCondition](f: E => T) = filter(f)
-
   /** Join two queries with a cross join or inner join.
     * An optional join predicate can be specified later by calling `on`. */
   def join[E2, U2, D[_]](q2: Query[E2, U2, D]) = {
@@ -119,31 +113,6 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     new BaseJoinQuery[E, E2, U, U2, C, E, E2](leftGen, rightGen, toNode, q2.toNode, jt,
       aliased1.zip(aliased2), aliased1.value, aliased2.value)
   }
-
-  /** Join two queries.
-    * An optional join predicate can be specified later by calling `on`. */
-  @deprecated("Use join (without explicit JoinType), joinLeft, joinRight or joinOuter instead", "3.0")
-  def join[E2, U2, D[_]](q2: Query[E2, U2, D], jt: JoinType) = standardJoin(q2, jt)
-
-  /** Join two queries with a cross / inner join.
-    * An optional join predicate can be specified later by calling `on`. */
-  @deprecated("Use join instead of joinInner", "3.0")
-  def innerJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Inner)
-
-  /** Join two queries with a left outer join.
-    * An optional join predicate can be specified later by calling `on`. */
-  @deprecated("Use joinLeft (with correct Option types) instead of leftJoin", "3.0")
-  def leftJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Left)
-
-  /** Join two queries with a right outer join.
-    * An optional join predicate can be specified later by calling `on`. */
-  @deprecated("Use joinRight (with correct Option types) instead of rightJoin", "3.0")
-  def rightJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Right)
-
-  /** Join two queries with a full outer join.
-    * An optional join predicate can be specified later by calling `on`. */
-  @deprecated("Use joinFull (with correct Option types) instead of outerJoin", "3.0")
-  def outerJoin[E2, U2, D[_]](q2: Query[E2, U2, D]) = standardJoin(q2, JoinType.Outer)
 
   /** Return a query formed from this query and another query by combining
     * corresponding elements in pairs. */
@@ -247,10 +216,6 @@ object Query {
     val shaped = ShapedValue(value, unpack).packedValue
     new WrappingQuery[R, U, Seq](Pure(shaped.toNode), shaped)
   }
-
-  @deprecated("Use Query.apply instead of Query.pure", "2.1")
-  def pure[E, U, R](value: E)(implicit unpack: Shape[_ <: FlatShapeLevel, E, U, R]): Query[R, U, Seq] =
-    apply[E, U, R](value)
 
   /** The empty Query. */
   def empty: Query[Unit, Unit, Seq] = new Query[Unit, Unit, Seq] {

@@ -9,8 +9,7 @@ import slick.lifted.AbstractTable
 import slick.util.DumpInfo
 
 /** Basic profile for SQL-based drivers. */
-trait SqlProfile extends RelationalProfile with SqlExecutorComponent with SqlTableComponent
-  with SqlActionComponent { driver: SqlDriver =>
+trait SqlProfile extends RelationalProfile with SqlTableComponent with SqlActionComponent { driver: SqlDriver =>
 
   override protected def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.sqlPhases
   override protected def computeCapabilities = super.computeCapabilities ++ SqlProfile.capabilities.all
@@ -149,27 +148,10 @@ trait SqlUtilsComponent { driver: SqlDriver =>
   }
 }
 
-trait SqlExecutorComponent extends BasicExecutorComponent { driver: SqlDriver =>
-
-  type QueryExecutor[T] <: QueryExecutorDef[T]
-
-  def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
-
-  trait QueryExecutorDef[R] extends super.QueryExecutorDef[R] {
-    def selectStatement: String
-  }
-}
-
 trait SqlTableComponent extends RelationalTableComponent { driver: SqlDriver =>
 
   trait ColumnOptions extends super.ColumnOptions {
-    @deprecated("Use SqlType instead of DBType", "3.0")
-    def DBType(dbType: String) = SqlProfile.ColumnOption.SqlType(dbType)
     def SqlType(typeName: String) = SqlProfile.ColumnOption.SqlType(typeName)
-    @deprecated("Use a non-Option type for the column definition", "3.0")
-    val NotNull = SqlProfile.ColumnOption.NotNull
-    @deprecated("Use an Option type for the column definition", "3.0")
-    val Nullable = SqlProfile.ColumnOption.Nullable
   }
 
   override val columnOptions: ColumnOptions = new ColumnOptions {}

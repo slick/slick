@@ -6,9 +6,12 @@ import org.junit.Assert._
 import org.ops4j.pax.exam
 import org.ops4j.pax.exam.junit.{Configuration, ExamReactorStrategy, JUnit4TestRunner}
 import org.ops4j.pax.exam.spi.reactors.AllConfinedStagedReactorFactory
-import slick.SlickException
 import slick.osgi.testutil._
 import slick.util.GlobalConfig
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
 
 @RunWith(classOf[JUnit4TestRunner])
 @ExamReactorStrategy(Array(classOf[AllConfinedStagedReactorFactory]))
@@ -21,11 +24,10 @@ class BasicTest extends SlickOsgiHelper {
 
   @Test
   def testPlainSQL: Unit = {
-    import slick.jdbc.JdbcBackend._
-    import slick.jdbc.StaticQuery.interpolation
-    Database.forURL("jdbc:h2:mem:test-osgi") withSession { implicit session =>
-      assertEquals("TEST-OSGI", sql"select {fn database()}".as[String].first)
-    }
+    import slick.driver.H2Driver.api._
+    val a = sql"select {fn database()}".as[String].head.map(res => assertEquals("TEST-OSGI", res))
+    val db = Database.forURL("jdbc:h2:mem:test-osgi")
+    try Await.result(db.run(a), Duration.Inf) finally db.close
   }
   @Test
   def testConfig: Unit = {

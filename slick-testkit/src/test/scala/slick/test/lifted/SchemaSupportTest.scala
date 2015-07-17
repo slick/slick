@@ -4,11 +4,10 @@ import org.junit.Test
 import org.junit.Assert._
 
 /** Test case for the SQL schema support in table definitions */
-@deprecated("Using deprecated .simple API", "3.0")
 class SchemaSupportTest {
 
   @Test def testSchemaSupport {
-    import slick.driver.H2Driver.simple._
+    import slick.driver.H2Driver.api._
 
     class T(tag: Tag) extends Table[Int](tag, Some("myschema"), "mytable") {
       def id = column[Int]("id")
@@ -16,7 +15,7 @@ class SchemaSupportTest {
     }
     val ts = TableQuery[T]
 
-    val s1 = ts.filter(_.id < 5).selectStatement
+    val s1 = ts.filter(_.id < 5).result.statements.head
     println(s1)
     assertTrue("select ... from uses schema name", s1 contains """from "myschema"."mytable"""")
 
@@ -27,7 +26,7 @@ class SchemaSupportTest {
     println(s3)
     assertTrue("update uses schema name", s3 contains """update "myschema"."mytable"""")
 
-    val s4 = ts.filter(_.id < 5).deleteStatement
+    val s4 = ts.filter(_.id < 5).delete.statements.head
     println(s4)
     assertTrue("delete uses schema name", s4 contains """delete from "myschema"."mytable"""")
 

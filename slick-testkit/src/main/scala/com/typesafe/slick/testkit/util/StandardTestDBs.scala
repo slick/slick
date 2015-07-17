@@ -6,7 +6,7 @@ import java.sql.SQLException
 import slick.dbio._
 import slick.driver._
 import slick.memory.MemoryDriver
-import slick.jdbc.{StaticQuery => Q, SimpleJdbcAction, ResultSetAction, ResultSetInvoker}
+import slick.jdbc.{SimpleJdbcAction, ResultSetAction}
 import slick.jdbc.GetResult._
 import slick.jdbc.meta.MTable
 import org.junit.Assert
@@ -91,10 +91,10 @@ object StandardTestDBs {
       ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
         ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
       }
-    override def getLocalSequences(implicit session: profile.Backend#Session) = {
-      val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null))
-      tables.buildColl[List].filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
-    }
+    override def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+      ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "public", null, null)).map { ts =>
+        ts.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
+      }
     override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions
   }
 
@@ -116,14 +116,14 @@ object StandardTestDBs {
       val db = session.database
       db.getTables.foreach(t => db.dropTable(t.name))
     }
-    def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
-      val all = session.database.getTables.map(_.name).toSet
+    def assertTablesExist(tables: String*) = driver.api.SimpleDBIO { ctx =>
+      val all = ctx.session.database.getTables.map(_.name).toSet
       for(t <- tables) {
         if(!all.contains(t)) Assert.fail("Table "+t+" should exist")
       }
     }
-    def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
-      val all = session.database.getTables.map(_.name).toSet
+    def assertNotTablesExist(tables: String*) = driver.api.SimpleDBIO { ctx =>
+      val all = ctx.session.database.getTables.map(_.name).toSet
       for(t <- tables) {
         if(all.contains(t)) Assert.fail("Table "+t+" should not exist")
       }
@@ -139,20 +139,24 @@ abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJd
 }
 
 class SQLiteTestDB(dburl: String, confName: String) extends InternalJdbcTestDB(confName) {
+  import driver.api.actionBasedSQLInterpolation
   val driver = SQLiteDriver
   val url = dburl
   val jdbcDriver = "org.sqlite.JDBC"
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     super.localTables.map(_.filter(s => !s.toLowerCase.contains("sqlite_")))
-  override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
-    for(t <- getLocalTables)
-      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)).execute
-    for(t <- getLocalSequences)
-      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)).execute
+  override def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
+    for {
+      tables <- localTables
+      sequences <- localSequences
+      _ <- DBIO.seq((tables.map(t => sqlu"""drop table if exists #${driver.quoteIdentifier(t)}""") ++
+                     sequences.map(t => sqlu"""drop sequence if exists #${driver.quoteIdentifier(t)}""")): _*)
+    } yield ()
   }
 }
 
 abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
+  import driver.api.actionBasedSQLInterpolation
   val driver = DerbyDriver
   System.setProperty("derby.stream.error.method", classOf[DerbyDB].getName + ".DEV_NULL")
   val jdbcDriver = "org.apache.derby.jdbc.EmbeddedDriver"
@@ -160,27 +164,27 @@ abstract class DerbyDB(confName: String) extends InternalJdbcTestDB(confName) {
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "APP", null, null)).map { ts =>
       ts.map(_._3).sorted
     }
-  override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
-    try {
-      try { (Q.u+"create table \"__derby_dummy\"(x integer primary key)").execute }
-      catch { case ignore: SQLException => }
-      val constraints = (Q[(String, String)]+"""
-            select c.constraintname, t.tablename
-            from sys.sysconstraints c, sys.sysschemas s, sys.systables t
-            where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
-                                             """).buildColl[List]
-      for((c, t) <- constraints if !c.startsWith("SQL"))
-        (Q.u+"alter table "+driver.quoteIdentifier(t)+" drop constraint "+driver.quoteIdentifier(c)).execute
-      for(t <- getLocalTables)
-        (Q.u+"drop table "+driver.quoteIdentifier(t)).execute
-      for(t <- getLocalSequences)
-        (Q.u+"drop sequence "+driver.quoteIdentifier(t)).execute
-    } catch {
-      case e: Exception =>
-        println("[Caught Exception while dropping user artifacts in Derby: "+e+"]")
-        session.close()
-        cleanUpBefore()
+  override def dropUserArtifacts(implicit session: profile.Backend#Session) = try {
+    blockingRunOnSession { implicit ec =>
+      for {
+        _ <- sqlu"""create table "__derby_dummy"(x integer primary key)""".asTry
+        constraints <- sql"""select c.constraintname, t.tablename
+                             from sys.sysconstraints c, sys.sysschemas s, sys.systables t
+                             where c.schemaid = s.schemaid and c.tableid = t.tableid and s.schemaname = 'APP'
+                          """.as[(String, String)]
+        _ <- DBIO.seq((for((c, t) <- constraints if !c.startsWith("SQL"))
+                yield sqlu"""alter table ${driver.quoteIdentifier(t)} drop constraint ${driver.quoteIdentifier(c)}"""): _*)
+        tables <- localTables
+        sequences <- localSequences
+        _ <- DBIO.seq((tables.map(t => sqlu"""drop table #${driver.quoteIdentifier(t)}""") ++
+                       sequences.map(t => sqlu"""drop sequence #${driver.quoteIdentifier(t)}""")): _*)
+      } yield ()
     }
+  } catch {
+    case e: Exception =>
+      println("[Caught Exception while dropping user artifacts in Derby: "+e+"]")
+      session.close()
+      cleanUpBefore()
   }
 }
 

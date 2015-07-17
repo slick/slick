@@ -10,7 +10,7 @@ import slick.util.TreePrinter
 object UnboxedBenchmark extends App {
 
   val driver = slick.driver.H2Driver
-  import driver.simple._
+  import driver.api._
 
   case class A(var a: Int, var b: Int, var c: Int, var d: Int)
 

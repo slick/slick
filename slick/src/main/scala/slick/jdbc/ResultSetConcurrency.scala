@@ -4,14 +4,6 @@ import java.sql.ResultSet
 
 /** Represents a result set concurrency mode. */
 sealed abstract class ResultSetConcurrency(val intValue: Int) { self =>
-  /** Run a block of code on top of a JDBC session with this concurrency mode */
-  @deprecated("Use the new Action-based API instead", "3.0")
-  def apply[T](base: JdbcBackend#Session)(f: JdbcBackend#Session => T): T = f(base.forParameters(rsConcurrency = self))
-
-  /** Run a block of code on top of the dynamic, thread-local JDBC session with this concurrency mode */
-  @deprecated("Use the new Action-based API instead", "3.0")
-  def apply[T](f: => T)(implicit base: JdbcBackend#Session): T = apply(base)(_.asDynamicSession(f))
-
   /** Return this `ResultSetConcurrency`, unless it is `Auto` in which case
     * the specified concurrency mode is returned instead. */
   def withDefault(r: ResultSetConcurrency) = this

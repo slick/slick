@@ -1,7 +1,7 @@
 package com.typesafe.slick.docs
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import slick.driver.H2Driver.simple._
+import slick.driver.H2Driver.api._
 import slick.driver.H2Driver
 
 object CodeGenerator extends App {

@@ -25,7 +25,7 @@ trait StreamingInvokerAction[R, T, -E <: Effect] extends SynchronousDatabaseActi
 
   override final def emitStream(ctx: JdbcBackend#StreamingContext, limit: Long, state: StreamState): StreamState = {
     val bufferNext = ctx.bufferNext
-    val it = if(state ne null) state else createInvoker(statements).iterator(ctx.session)
+    val it = if(state ne null) state else createInvoker(statements).iteratorTo(0)(ctx.session)
     var count = 0L
     try {
       while(if(bufferNext) it.hasNext && count < limit else count < limit && it.hasNext) {

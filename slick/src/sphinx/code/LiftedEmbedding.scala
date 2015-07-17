@@ -201,7 +201,7 @@ object LiftedEmbedding extends App {
             criteriaColombian.map(coffee.name === _),
             criteriaEspresso.map(coffee.name === _),
             criteriaRoast.map(coffee.name === _) // not a condition as `criteriaRoast` evaluates to `None` 
-        ).collect({case Some(criteria)  => criteria}).reduceLeftOption(_ || _).getOrElse(true:Column[Boolean])
+        ).collect({case Some(criteria)  => criteria}).reduceLeftOption(_ || _).getOrElse(true: Rep[Boolean])
       }
       // compiles to SQL (simplified):
       //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
@@ -460,7 +460,7 @@ object LiftedEmbedding extends App {
       }
     }
 
-    db withDynSession {
+    {
       //#mappedtype1
       // An algebraic data type for booleans
       sealed trait Bool
@@ -477,7 +477,7 @@ object LiftedEmbedding extends App {
       //#mappedtype1
     }
 
-    db withDynSession {
+    {
       //#mappedtype2
       // A custom ID type for a table
       case class MyID(value: Long) extends MappedTo[Long]

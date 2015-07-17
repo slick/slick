@@ -20,13 +20,8 @@ trait MemoryQueryingProfile extends BasicProfile { driver: MemoryQueryingDriver 
   def compileInsert(tree: Node) = insertCompiler.run(tree).tree
   type CompiledInsert = Node
 
-  protected trait CommonImplicits extends super.CommonImplicits with ImplicitColumnTypes
-  trait Implicits extends super.Implicits with CommonImplicits
-  trait SimpleQL extends super.SimpleQL with Implicits
-  trait API extends super.API with CommonImplicits
+  trait API extends super.API with ImplicitColumnTypes
 
-  val Implicit: Implicits
-  val simple: SimpleQL
   val api: API
 
   trait ImplicitColumnTypes {

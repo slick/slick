@@ -165,10 +165,8 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
   def tcap = TestDB.capabilities
 }
 
+@deprecated("Use AsyncTest instead of TestkitTest", "3.1")
 abstract class TestkitTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]) extends GenericTest[TDB] {
-  @deprecated("Use implicitSession instead of sharedSession", "3.0")
-  protected final def sharedSession: tdb.profile.Backend#Session = implicitSession
-
   protected implicit def implicitSession: tdb.profile.Backend#Session = {
     db
     keepAliveSession
@@ -238,11 +236,10 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
   def ifNotCapF[R](caps: Capability*)(f: => Future[R]): Future[Unit] =
     if(!caps.forall(c => tdb.capabilities.contains(c))) f.map(_ => ()) else Future.successful(())
 
-  def asAction[R](f: tdb.profile.Backend#Session => R): DBIOAction[R, NoStream, Effect] =
-    new SynchronousDatabaseAction[R, NoStream, tdb.profile.Backend, Effect] {
-      def run(context: tdb.profile.Backend#Context): R = f(context.session)
-      def getDumpInfo = DumpInfo(name = "<asAction>")
-    }
+  def ifCapU[T](caps: Capability*)(f: => T): Unit =
+    if(caps.forall(c => tdb.capabilities.contains(c))) f
+  def ifNotCapU[T](caps: Capability*)(f: => T): Unit =
+    if(!caps.forall(c => tdb.capabilities.contains(c))) f
 
   def seq[E <: Effect](actions: DBIOAction[_, NoStream, E]*): DBIOAction[Unit, NoStream, E] = DBIO.seq[E](actions: _*)
 
@@ -329,6 +326,12 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
     def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
 
     def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue(f(v)))
+
+    def shouldFail(f: T => Unit): Unit = {
+      var ok = false
+      try { f(v); ok = true } catch { case t: Throwable => }
+      if(ok) fixStack(Assert.fail("Expected failure"))
+    }
 
     def shouldBeA[T](implicit ct: ClassTag[T]): Unit = {
       if(!ct.runtimeClass.isInstance(v))

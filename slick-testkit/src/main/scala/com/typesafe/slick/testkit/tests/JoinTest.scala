@@ -6,7 +6,6 @@ import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 class JoinTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
 
-  @deprecated("Using deprecated join operators", "3.0")
   def testJoin = {
     class Categories(tag: Tag) extends Table[(Int, String)](tag, "cat_j") {
       def id = column[Int]("id")
@@ -46,34 +45,9 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       _ <- q1.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       // Explicit inner join
       q2 = (for {
-        (c,p) <- categories innerJoin posts on (_.id === _.category)
+        (c,p) <- categories join posts on (_.id === _.category)
       } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
-      // Left outer join (nulls first)
-      q3 = (for {
-        (c,p) <- categories leftJoin posts on (_.id === _.category)
-      } yield (p.id, (p.id.?.getOrElse(0), c.id, c.name, p.title.?.getOrElse("")))).sortBy(_._1.nullsFirst).map(_._2)
-      _ <- q3.map(p => (p._1, p._2)).result.map(_ shouldBe List((0,4), (2,1), (3,2), (4,3), (5,2)))
-      // Read NULL from non-nullable column
-      q3a = (for {
-        (c,p) <- categories leftJoin posts on (_.id === _.category)
-      } yield (p.id, c.id, c.name, p.title)).sortBy(_._1.nullsFirst)
-      _ <- q3a.result.failed.map(_.shouldBeA[SlickException])
-      // Left outer join (nulls last)
-      q3b = (for {
-        (c,p) <- categories leftJoin posts on (_.id === _.category)
-      } yield (p.id, (p.id.?.getOrElse(0), c.id, c.name, p.title.?.getOrElse("")))).sortBy(_._1.nullsLast).map(_._2)
-      _ <- q3b.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2), (0,4)))
-      // Right outer join
-      q4 = (for {
-        (c,p) <- categories rightJoin posts on (_.id === _.category)
-      } yield (p.id, c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title)).sortBy(_._1)
-      _ <- q4.map(p => (p._1, p._2)).result.map(_ shouldBe List((1,0), (2,1), (3,2), (4,3), (5,2)))
-      // Full outer join
-      q5 = (for {
-        (c,p) <- categories outerJoin posts on (_.id === _.category)
-      } yield (p.id.?.getOrElse(0), c.id.?.getOrElse(0), c.name.?.getOrElse(""), p.title.?.getOrElse(""))).sortBy(_._1)
-      _ <- q5.map(p => (p._1, p._2)).result.map(_ shouldBe Vector((0,4), (1,0), (2,1), (3,2), (4,3), (5,2)))
     } yield ()
   }
 

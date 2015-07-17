@@ -25,19 +25,8 @@ trait OptionExtensionMethods[B1] extends Any with ExtensionMethods[B1, Option[B1
 
 /** Extension methods for all columns */
 trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
-  @deprecated("Use 'isEmpty' instead of 'isNull'", "2.1")
-  def isNull = Library.==.column[Boolean](n, LiteralNode(null))
-  @deprecated("Use 'isDefined' instead of 'isNotNull'", "2.1")
-  def isNotNull = Library.Not.column[Boolean](Library.==.typed[Boolean](n, LiteralNode(null)))
-
   def === [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.==, n, e.toNode)
-  @deprecated("Use '===' instead of 'is'", "2.1")
-  def is[P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    === [P2, R](e)
-  @deprecated("Use '=!=' instead of 'isNot'", "2.1")
-  def isNot[P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
-    =!= [P2, R](e)
   def =!= [P2, R](e: Rep[P2])(implicit om: o#arg[B1, P2]#to[Boolean, R]) =
     om.column(Library.Not, Library.==.typed(om.liftedType, n, e.toNode))
 

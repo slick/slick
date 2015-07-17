@@ -13,7 +13,7 @@ import slick.util.GlobalConfig
 /**
  * The basic functionality that has to be implemented by all drivers.
  */
-trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponent with BasicExecutorComponent with BasicActionComponent { driver: BasicDriver =>
+trait BasicProfile extends BasicActionComponent { driver: BasicDriver =>
 
   /** The back-end type required by this profile */
   type Backend <: DatabaseComponent
@@ -37,34 +37,17 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
     def ++(other: SchemaDescription): SchemaDescription
   }
 
-  protected trait CommonImplicits extends ExtensionMethodConversions {
-    implicit val slickDriver: driver.type = driver
-
-    // Work-around for SI-3346
-    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
-  }
-
-  protected trait CommonAPI extends Aliases {
+  trait API extends Aliases with ExtensionMethodConversions {
     type Database = Backend#Database
     val Database = backend.Database
     type Session = Backend#Session
     type SlickException = slick.SlickException
-  }
 
-  trait Implicits extends CommonImplicits {
-    implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker
+    implicit val slickDriver: driver.type = driver
 
-    implicit def repToQueryExecutor[U](rep: Rep[U]): QueryExecutor[U] = createQueryExecutor[U](queryCompiler.run(rep.toNode).tree, ())
-    implicit def runnableCompiledToQueryExecutor[RU](c: RunnableCompiled[_, RU]): QueryExecutor[RU] = createQueryExecutor[RU](c.compiledQuery, c.param)
-    implicit def streamableCompiledToInsertInvoker[EU](c: StreamableCompiled[_, _, EU]): InsertInvoker[EU] = createInsertInvoker[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
-    // This only works on Scala 2.11 due to SI-3346:
-    implicit def recordToQueryExecutor[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryExecutor[R] = createQueryExecutor[R](queryCompiler.run(shape.toNode(q)).tree, ())
-    implicit def queryToInsertInvoker[U, C[_]](q: Query[_, U, C]) = createInsertInvoker[U](compileInsert(q.toNode))
-  }
+    // Work-around for SI-3346
+    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
 
-  trait SimpleQL extends CommonAPI with Implicits
-
-  trait API extends CommonAPI with CommonImplicits {
     implicit def repQueryActionExtensionMethods[U](rep: Rep[U]): QueryActionExtensionMethods[U, NoStream] =
       createQueryActionExtensionMethods[U, NoStream](queryCompiler.run(rep.toNode).tree, ())
     implicit def streamableQueryActionExtensionMethods[U, C[_]](q: Query[_,U, C]): StreamingQueryActionExtensionMethods[C[U], U] =
@@ -80,19 +63,6 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
     implicit def recordQueryActionExtensionMethods[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryActionExtensionMethods[R, NoStream] =
       createQueryActionExtensionMethods[R, NoStream](queryCompiler.run(shape.toNode(q)).tree, ())
   }
-
-  /** A collection of values for using the query language with a single import
-    * statement. This provides the driver's implicits, the Database and
-    * Session objects for DB connections, and commonly used query language
-    * types and objects. */
-  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
-  val simple: SimpleQL
-
-  /** The implicit values and conversions provided by this driver.
-    * This is a subset of ``simple``. You usually want to import
-    * `simple._` instead of using `Implicit`. */
-  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
-  val Implicit: Implicits
 
   /** The API for using the query language with a single import
     * statement. This provides the driver's implicits, the Database and
@@ -111,6 +81,11 @@ trait BasicProfile extends BasicInvokerComponent with BasicInsertInvokerComponen
 
   /** The compiler used for inserting data */
   def insertCompiler: QueryCompiler
+
+  /** The type of a (partially) compiled AST for Insert operations. Unlike
+    * querying or deleting, inserts may require different compilation results
+    * which should be computed lazily. */
+  type CompiledInsert
 
   /** (Partially) ompile an AST for insert operations */
   def compileInsert(n: Node): CompiledInsert
@@ -148,71 +123,6 @@ trait BasicDriver extends BasicProfile {
         if(parents.isEmpty) None else findConfigName(parents)
       }
     GlobalConfig.driverConfig(findConfigName(Vector(getClass)).get)
-  }
-}
-
-trait BasicInvokerComponent { driver: BasicDriver =>
-
-  /** Create a DDLInvoker -- this method should be implemented by drivers as needed */
-  def createDDLInvoker(ddl: SchemaDescription): DDLInvoker
-
-  /** Pseudo-invoker for running DDL statements. */
-  trait DDLInvoker {
-    /** Create the entities described by this DDL object */
-    def create(implicit session: Backend#Session): Unit
-
-    /** Drop the entities described by this DDL object */
-    def drop(implicit session: Backend#Session): Unit
-
-    def ddlInvoker: this.type = this
-  }
-}
-
-trait BasicInsertInvokerComponent { driver: BasicDriver =>
-
-  /** The type of insert invokers returned by the driver */
-  type InsertInvoker[T] <: InsertInvokerDef[T]
-
-  /** Create an InsertInvoker -- this method should be implemented by drivers as needed */
-  def createInsertInvoker[T](compiled: CompiledInsert): InsertInvoker[T]
-
-  /** The type of a (partially) compiled AST for Insert operations. Unlike
-    * querying or deleting, inserts may require different compilation results
-    * which should be computed lazily. */
-  type CompiledInsert
-
-  /** Defines the standard InsertInvoker methods for inserting data,
-    * which are available at the level of BasicProfile. */
-  trait InsertInvokerDef[T] {
-    /** The result type when inserting a single value */
-    type SingleInsertResult
-
-    /** The result type when inserting a collection of values */
-    type MultiInsertResult
-
-    /** Insert a single value */
-    def += (value: T)(implicit session: Backend#Session): SingleInsertResult
-
-    /** Insert a collection of values */
-    def ++= (values: Iterable[T])(implicit session: Backend#Session): MultiInsertResult
-
-    /** Return a reference to this InsertInvoker */
-    def insertInvoker: this.type = this
-  }
-}
-
-trait BasicExecutorComponent { driver: BasicDriver =>
-
-  /** The type of query executors returned by the driver */
-  type QueryExecutor[T] <: QueryExecutorDef[T]
-
-  /** Create an executor -- this method should be implemented by drivers as needed */
-  def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R]
-
-  /** Base class for `QueryExecutor` implementations */
-  trait QueryExecutorDef[R] {
-    def run(implicit session: Backend#Session): R
-    def executor: this.type = this
   }
 }
 

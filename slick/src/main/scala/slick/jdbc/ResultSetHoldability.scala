@@ -4,14 +4,6 @@ import java.sql.ResultSet
 
 /** Represents a result set holdability mode .*/
 sealed abstract class ResultSetHoldability(val intValue: Int) { self =>
-  /** Run a block of code on top of a JDBC session with this concurrency mode */
-  @deprecated("Use the new Action-based API instead", "3.0")
-  def apply[T](base: JdbcBackend#Session)(f: JdbcBackend#Session => T): T = f(base.forParameters(rsHoldability = self))
-
-  /** Run a block of code on top of the dynamic, thread-local JDBC session with this holdability mode */
-  @deprecated("Use the new Action-based API instead", "3.0")
-  def apply[T](f: => T)(implicit base: JdbcBackend#Session): T = apply(base)(_.asDynamicSession(f))
-
   /** Return this `ResultSetHoldability`, unless it is `Auto` in which case
     * the specified holdability mode is returned instead. */
   def withDefault(r: ResultSetHoldability) = this
