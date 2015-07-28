@@ -2,9 +2,10 @@ package slick.util
 
 import scala.concurrent.duration.Duration
 import scala.language.implicitConversions
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config._
 import java.util.concurrent.TimeUnit
 import java.util.Properties
+import scala.collection.mutable
 
 /** Singleton object with Slick's configuration, loaded from the application config.
   * This includes configuration for the global driver objects and settings for debug logging. */
@@ -43,13 +44,23 @@ class ConfigExtensionMethods(val c: Config) extends AnyVal {
   def getDurationOr(path: String, default: => Duration = Duration.Zero) =
     if(c.hasPath(path)) Duration(c.getDuration(path, TimeUnit.MILLISECONDS), TimeUnit.MILLISECONDS) else default
 
-  def getPropertiesOr(path: String, default: => Properties = null) =
-    if (!c.hasPath(path)) default
-    else {
+  def getPropertiesOr(path: String, default: => Properties = null): Properties =
+    if(c.hasPath(path)) new ConfigExtensionMethods(c.getConfig(path)).toProperties else default
+
+  def toProperties: Properties = {
+    def toProps(m: mutable.Map[String, ConfigValue]): Properties = {
       val props = new Properties(null)
-      c.getObject(path).asScala.foreach { case (k, v) => props.put(k, v.unwrapped.toString) }
+      m.foreach { case (k, cv) =>
+        val v =
+          if(cv.valueType() == ConfigValueType.OBJECT) toProps(cv.asInstanceOf[ConfigObject].asScala)
+          else if(cv.unwrapped eq null) null
+          else cv.unwrapped.toString
+        if(v ne null) props.put(k, v)
+      }
       props
     }
+    toProps(c.root.asScala)
+  }
 
   def getBooleanOpt(path: String): Option[Boolean] = if(c.hasPath(path)) Some(c.getBoolean(path)) else None
   def getIntOpt(path: String): Option[Int] = if(c.hasPath(path)) Some(c.getInt(path)) else None
