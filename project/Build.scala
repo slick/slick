@@ -117,8 +117,8 @@ object SlickBuild extends Build {
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     //publishTo <<= (repoKind)(r => Some(Resolver.file("test", file("c:/temp/repo/"+r)))),
     publishTo <<= (repoKind){
-      case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
-      case "releases" =>  Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
+      case "snapshots" => Some("snapshots" at "http://nexus.insidevault.com/content/repositories/thirdparty/")
+      case "releases" =>  Some("releases"  at "http://nexus.insidevault.com/content/repositories/thirdparty/")
     },
     publishMavenStyle := true,
     publishArtifact in Test := false,
