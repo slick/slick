@@ -38,6 +38,27 @@ until the JVM ends (``DB_CLOSE_DELAY=-1``, which is H2 specific).
 
 .. index:: DataSource
 
+Using a Database URL
+--------------------
+
+A Database URL, a platform independent URL in the
+form ``vendor://user:password@host:port/db``,
+is often provided by platforms such as Heroku.
+You can use a Database URL in Typesafe Config as shown here:
+
+.. includecode:: resources/application.conf#dburl
+
+By default, the data source will use the value of the ``DATABASE_URL`` environment variable.
+Thus you may omit the ``url`` property if the ``DATABASE_URL`` environment variable
+is set. You may also define a custom environment variable with standard
+Typesafe Config syntax, such as ``${?MYSQL_DATABASE_URL}``.
+
+Or you may pass a :javaapi:`DatabaseUrlDataSource <slick/jdbc/DatabaseUrlDataSource>` object to
+:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor,Boolean):DatabaseDef>`.
+
+.. includecode:: code/Connection.scala#forDatabaseURL
+
+
 Using a DataSource
 ------------------
 

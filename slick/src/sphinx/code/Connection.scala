@@ -25,6 +25,12 @@ object Connection extends App {
     val db = Database.forDataSource(dataSource: javax.sql.DataSource)
     //#forDataSource
   }
+  if (false){
+    val dataSource = null.asInstanceOf[slick.jdbc.DatabaseUrlDataSource]
+    //#forDatabaseURL
+    val db = Database.forDataSource(dataSource: slick.jdbc.DatabaseUrlDataSource)
+    //#forDatabaseURL
+  }
   if(false) {
     val jndiName = ""
     //#forName
