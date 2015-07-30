@@ -3,6 +3,7 @@ package slick.jdbc
 import java.sql.{PreparedStatement, ResultSet}
 import slick.compiler.{CompilerState, CodeGen}
 import slick.ast._
+import slick.ast.TypeUtil.:@
 import slick.relational._
 import slick.lifted.MappedProjection
 import slick.driver.JdbcDriver
@@ -49,8 +50,9 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
   /** Code generator phase for queries on JdbcProfile-based drivers. */
   class JdbcCodeGen(f: QueryBuilder => SQLBuilder.Result) extends CodeGen {
     def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
-      val sbr = f(driver.createQueryBuilder(serverSide, state))
-      (CompiledStatement(sbr.sql, sbr, serverSide.nodeType), mapping.map(mappingCompiler.compileMapping))
+      val (tree, tpe) = treeAndType(serverSide)
+      val sbr = f(driver.createQueryBuilder(tree, state))
+      (CompiledStatement(sbr.sql, sbr, tpe).infer(), mapping.map(mappingCompiler.compileMapping))
     }
   }
 
@@ -59,7 +61,7 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
     def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState) = {
       val ib = f(serverSide.asInstanceOf[Insert])
       val ibr = ib.buildInsert
-      (CompiledStatement(ibr.sql, ibr, serverSide.nodeType), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
+      (CompiledStatement(ibr.sql, ibr, serverSide.nodeType).infer(), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
     }
   }
 

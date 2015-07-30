@@ -214,21 +214,11 @@ class MergeToComprehensions extends Phase {
 
     /** Create a Union or Comprehension (suitable for the top level of a query). */
     def createTopLevel(n: Node): (Node, Mappings) = n match {
-      case u @ Union(l1, r1, all, ls, rs) =>
+      case u @ Union(l1, r1, all) =>
         logger.debug("Converting Union:", Ellipsis(u, List(0), List(1)))
         val (l2, rep1) = createTopLevel(l1)
         val (r2, rep2) = createTopLevel(r1)
-        // Assign LHS symbols to RHS
-        val CollectionType(_, NominalType(lts, StructType(els))) = l2.nodeType
-        def assign(n: Node): Node = n /*match {
-          case u: Union =>
-            u.mapChildren(assign).infer()
-          case c: Comprehension =>
-            val Some(Pure(StructNode(defs1), _)) = c.select
-            val defs2 = defs1.zip(els).map { case ((_, n), (s, _)) => (s, n) }
-            c.copy(select = Some(Pure(StructNode(defs2), lts))).infer()
-        }*/
-        val u2 = u.copy(left = l2, right = assign(r2)).infer()
+        val u2 = u.copy(left = l2, right = r2).infer()
         logger.debug("Converted Union:", u2)
         (u2, rep1)
 

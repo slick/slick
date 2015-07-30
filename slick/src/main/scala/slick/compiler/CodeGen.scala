@@ -1,6 +1,7 @@
 package slick.compiler
 
-import slick.ast.{ClientSideOp, CompiledStatement, ResultSetMapping, Node, First}
+import slick.ast.TypeUtil.:@
+import slick.ast._
 import slick.util.SlickLogger
 
 /** A standard skeleton for a code generator phase. */
@@ -16,7 +17,7 @@ abstract class CodeGen extends Phase {
       var nmap: Option[Node] = None
       var compileMap: Option[Node] = Some(rsm.map)
 
-      val nfrom = ClientSideOp.mapServerSide(rsm.from, keepType = true) { ss =>
+      val nfrom = mapServerSideOrCast(rsm.from, keepType = true) { ss =>
         logger.debug("Compiling server-side and mapping with server-side:", ss)
         val (nss, nmapOpt) = compileServerSideAndMapping(ss, compileMap, state)
         nmapOpt match {
@@ -31,7 +32,19 @@ abstract class CodeGen extends Phase {
       rsm.copy(from = nfrom, map = nmap.get) :@ rsm.nodeType
     }
 
+  private[this] def mapServerSideOrCast(n: Node, keepType: Boolean = true)(f: Node => Node): Node = n match {
+    case n: CollectionCast => f(n)
+    case n: ClientSideOp => n.nodeMapServerSide(keepType, (ch => mapServerSideOrCast(ch, keepType)(f)))
+    case n => f(n)
+  }
+
   def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState): (Node, Option[Node])
+
+  /** Extract the source tree and type, after possible CollectionCast operations, from a tree */
+  def treeAndType(n: Node): (Node, Type) = n match {
+    case CollectionCast(ch, _) :@ tpe => (treeAndType(ch)._1, tpe)
+    case n => (n, n.nodeType)
+  }
 }
 
 object CodeGen {

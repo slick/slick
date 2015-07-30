@@ -498,8 +498,9 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val q11e = q10.drop(7)
     val q11f = q10.take(6).drop(2).filter(_ =!= 5)
     val q12 = as.filter(_.id <= as.map(_.id).max-1).map(_.a)
-
-    //val q5 = q1.length
+    val q13 = (as.filter(_.id < 2) union as.filter(_.id > 2)).map(_.id)
+    val q14 = q13.to[Set]
+    val q15 = (as.map(a => a.id.?).filter(_ < 2) unionAll as.map(a => a.id.?).filter(_ > 2)).map(_.get).to[Set]
 
     if(tdb.driver == H2Driver) {
       assertNesting(q1, 1)
@@ -521,6 +522,10 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       assertNesting(q11d, 1)
       assertNesting(q11e, 1)
       assertNesting(q11f, 2)
+      assertNesting(q12, 2)
+      assertNesting(q13, 2)
+      assertNesting(q14, 2)
+      //assertNesting(q15, 2) //TODO
     }
 
     for {
@@ -547,6 +552,9 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       _ <- mark("q11e", q11e.result).map(_ shouldBe Seq(8, 9))
       _ <- mark("q11f", q11f.result).map(_ shouldBe Seq(3, 4, 6))
       _ <- mark("q12", q12.result).map(_ shouldBe Seq("a", "a"))
+      _ <- mark("q13", q13.result).map(_.toSet shouldBe Set(1, 3))
+      _ <- mark("q14", q14.result).map(_ shouldBe Set(1, 3))
+      _ <- mark("q15", q15.result).map(_ shouldBe Set(1, 3))
     } yield ()
   }
 

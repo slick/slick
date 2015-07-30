@@ -9,10 +9,10 @@ final case class Insert(tableSym: TermSymbol, table: Node, linear: Node) extends
   def generators = Vector((tableSym, table))
   def rebuild(l: Node, r: Node) = copy(table = l, linear = r)
   def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(tableSym = gen(0))
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
-    val table2 = table.infer(scope, typeChildren, retype)
-    val lin2 = linear.infer(scope + (tableSym -> table2.nodeType), typeChildren, retype)
-    withChildren(Vector(table2, lin2)) :@ (if(!hasType || retype) lin2.nodeType else nodeType)
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
+    val table2 = table.infer(scope, typeChildren)
+    val lin2 = linear.infer(scope + (tableSym -> table2.nodeType), typeChildren)
+    withChildren(Vector(table2, lin2)) :@ (if(!hasType) lin2.nodeType else nodeType)
   }
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }

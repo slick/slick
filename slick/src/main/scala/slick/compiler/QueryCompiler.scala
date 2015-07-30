@@ -81,8 +81,8 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
       logger.debug("After phase "+p.name+":", s2.tree)
       if(GlobalConfig.verifyTypes) {
         s2.wellTyped match {
-          case WellTyped.All => Phase.verifyTypes(s2)
-          case WellTyped.ServerSide => Phase.verifyTypesServerSide(s2)
+          case WellTyped.All => (new VerifyTypes(after = Some(p))).apply(s2)
+          case WellTyped.ServerSide => (new VerifyTypes(onlyServerSide = true, after = Some(p))).apply(s2)
           case WellTyped.None =>
         }
       }
@@ -120,6 +120,7 @@ object QueryCompiler {
     // optional access:existsToCount goes here
     Phase.createAggregates,
     Phase.resolveZipJoins,
+    Phase.reorderOperations,
     Phase.pruneProjections,
     Phase.mergeToComprehensions,
     Phase.fixRowNumberOrdering,
@@ -175,6 +176,7 @@ object Phase {
   val verifySymbols = new VerifySymbols
   val removeTakeDrop = new RemoveTakeDrop
   val resolveZipJoins = new ResolveZipJoins
+  val reorderOperations = new ReorderOperations
   val relabelUnions = new RelabelUnions
   val mergeToComprehensions = new MergeToComprehensions
   val fixRowNumberOrdering = new FixRowNumberOrdering
@@ -186,8 +188,6 @@ object Phase {
   val resolveZipJoinsRownumStyle = new ResolveZipJoins(rownumStyle = true)
   val rewriteBooleans = new RewriteBooleans
   val specializeParameters = new SpecializeParameters
-  val verifyTypes = new VerifyTypes
-  val verifyTypesServerSide = new VerifyTypes(onlyServerSide = true)
 }
 
 /** The current state of a compiler run, consisting of the current AST and

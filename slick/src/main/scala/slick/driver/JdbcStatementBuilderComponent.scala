@@ -260,13 +260,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           addAlias
         case j: Join =>
           buildJoin(j)
-        case Union(left, right, all, _, _) =>
-          b"\{"
-          buildFrom(left, None, true)
-          if(all) b"\nunion all " else b"\nunion "
-          buildFrom(right, None, true)
-          b"\}"
-          addAlias
         case n =>
           expr(n, skipParens)
           addAlias
@@ -414,6 +407,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       case c: Comprehension =>
         b"\{"
         buildComprehension(c)
+        b"\}"
+      case Union(left, right, all) =>
+        b"\{"
+        buildFrom(left, None, true)
+        if(all) b"\nunion all " else b"\nunion "
+        buildFrom(right, None, true)
         b"\}"
       case n => throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }

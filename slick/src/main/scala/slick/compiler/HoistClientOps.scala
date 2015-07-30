@@ -13,22 +13,14 @@ class HoistClientOps extends Phase {
 
   def apply(state: CompilerState) = state.map { tree =>
     ClientSideOp.mapResultSetMapping(tree, false) { case rsm @ ResultSetMapping(_, ss, _) =>
-      val (comp, cons) = ss match {
-        case CollectionCast(comp: Comprehension, cons) => (comp, Some(cons))
-        case comp: Comprehension => (comp, None)
-        case n => throw new SlickTreeException("Expected Comprehension at top level of ResultSetMapping", rsm, mark = (_ eq n))
-      }
-      val Pure(StructNode(defs1), _) = comp.select
+      val CollectionType(cons, NominalType(_, StructType(defs1))) = ss.nodeType
       val base = new AnonSymbol
       val proj = StructNode(defs1.map { case (s, _) => (s, Select(Ref(base), s)) })
-      val ResultSetMapping(_, rsmFrom, rsmProj) = hoist(ResultSetMapping(base, comp, proj))
-      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).infer(retype = true)
-      val rsm3 = fuseResultSetMappings(rsm.copy(from = rsm2)).infer(retype = true)
-      cons match {
-        case Some(cons) =>
-          rsm3 :@ CollectionType(cons, rsm3.nodeType.asCollectionType.elementType)
-        case None => rsm3
-      }
+      val ResultSetMapping(_, rsmFrom, rsmProj) = hoist(ResultSetMapping(base, ss, proj))
+      logger.debug("Hoisted projection:", rsmProj)
+      logger.debug("Rewriting remaining DB side:", rsmFrom)
+      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).infer()
+      fuseResultSetMappings(rsm.copy(from = rsm2)).infer()
     }
   }
 
@@ -54,20 +46,19 @@ class HoistClientOps extends Phase {
 
   def hoist(tree: Node): Node = {
     logger.debug("Hoisting in:", tree)
-    val defs = tree.collectAll[(TermSymbol, Option[(Node, (Node => Node))])] { case StructNode(ch) =>
+    val defs = tree.collectAll[(TermSymbol, Option[(Node => Node)])] { case StructNode(ch) =>
       ch.map { case (s, n) =>
         val u = unwrap(n)
         logger.debug("Unwrapped "+n+" to "+u)
-        if(u._1 eq n) (s, None) else (s, Some(u))
+        if(u._1 eq n) (s, None) else (s, Some(u._2))
       }
     }.collect { case (s, Some(u)) => (s, u) }.toMap
     logger.debug("Unwrappable defs: "+defs)
 
     if(defs.isEmpty) tree else {
       lazy val tr: PartialFunction[Node, Node] =  {
-        case p @ Path(h :: _) if defs.contains(h) =>
-          val (_, wrap) = defs(h)
-          wrap(p)
+        case p @ Path(elems @ (h :: _)) if defs.contains(h) =>
+          defs(h).apply(Path(elems)) // wrap an untyped copy
         case d: DefNode => d.mapScopedChildren {
           case (Some(sym), n) if defs.contains(sym) =>
             unwrap(n)._1.replace(tr)
@@ -91,12 +82,12 @@ class HoistClientOps extends Phase {
   }
 
   def unwrap(n: Node): (Node, (Node => Node)) = n match {
-    case GetOrElse(ch, default) :@ tpe =>
+    case GetOrElse(ch, default) =>
       val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => GetOrElse(recTr(sym), default) :@ tpe })
-    case OptionApply(ch) :@ tpe =>
+      (recCh, { sym => GetOrElse(recTr(sym), default) })
+    case OptionApply(ch) =>
       val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => OptionApply(recTr(sym)) :@ tpe })
+      (recCh, { sym => OptionApply(recTr(sym)) })
     case n => (n, identity)
   }
 }

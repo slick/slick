@@ -28,6 +28,7 @@
     <logger name="slick.compiler.RewriteJoins"              level="${log.qcomp.rewriteJoins:-inherited}" />
     <logger name="slick.compiler.RemoveTakeDrop"            level="${log.qcomp.removeTakeDrop:-inherited}" />
     <logger name="slick.compiler.ResolveZipJoins"           level="${log.qcomp.resolveZipJoins:-inherited}" />
+    <logger name="slick.compiler.ReorderOperations"         level="${log.qcomp.reorderOperations:-inherited}" />
     <logger name="slick.compiler.MergeToComprehensions"     level="${log.qcomp.mergeToComprehensions:-inherited}" />
     <logger name="slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
     <logger name="slick.compiler.HoistClientOps"            level="${log.qcomp.hoistClientOps:-inherited}" />
