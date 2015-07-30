@@ -107,7 +107,7 @@ object SlickBuild extends Build {
       "-doc-version", v,
       "-doc-footer", "Slick is developed by Typesafe and EPFL Lausanne.",
       "-sourcepath", src.getPath, // needed for scaladoc to strip the location of the linked source path
-      "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
+      "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick/src/main€{FILE_PATH}.scala",
       "-implicits",
       "-diagrams", // requires graphviz
       "-groups"
