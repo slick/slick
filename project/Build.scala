@@ -304,6 +304,7 @@ object SlickBuild extends Build {
     settings = Defaults.coreDefaultSettings ++ sharedSettings ++ testNGSettings ++ Seq(
       name := "Slick-ReactiveStreamsTests",
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
+      resolvers += Resolver.sbtPluginRepo("releases"),
       libraryDependencies ++=
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
         Dependencies.reactiveStreamsTCK +:
