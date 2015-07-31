@@ -1,6 +1,11 @@
 package com.typesafe.slick.testkit.util
 
+import slick.dbio.DBIO
+
 import scala.collection.JavaConversions
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+
 import org.junit.{Before, After}
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
@@ -17,6 +22,8 @@ abstract class DBTest {
   }
 
   println("[Using test database "+tdb+"]")
+
+  def runBlocking[T](a: DBIO[T]): Unit = Await.result(db.run(a), Duration.Inf)
 
   @Before def beforeDBTest = tdb.cleanUpBefore()
   @After def afterDBTest = {

@@ -8,7 +8,7 @@ import slick.ast._
 import slick.ast.TypeUtil._
 import slick.compiler._
 import slick.relational.{ResultConverter, CompiledMapping}
-import slick.profile.{FixedBasicAction, RelationalDriver, RelationalProfile}
+import slick.profile.{FixedBasicStreamingAction, FixedBasicAction, RelationalDriver, RelationalProfile}
 import slick.util.{DumpInfo, RefId, ??}
 
 /** A profile and driver for distributed queries. */
@@ -18,8 +18,6 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   type Backend = DistributedBackend
   type QueryExecutor[R] = QueryExecutorDef[R]
   val backend: Backend = DistributedBackend
-  val simple: SimpleQL = new SimpleQL {}
-  val Implicit: Implicits = simple
   val api: API = new API {}
 
   lazy val queryCompiler =
@@ -29,9 +27,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
   lazy val insertCompiler = ??
 
   def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
-  def createInsertInvoker[T](tree: Node): InsertInvoker[T] = ??
   def createDistributedQueryInterpreter(param: Any, session: Backend#Session) = new DistributedQueryInterpreter(param, session)
-  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = ??
 
   type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
   type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
@@ -43,26 +39,23 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
 
   val emptyHeapDB = HeapBackend.createEmptyDatabase
 
-  trait SimpleQL extends super.SimpleQL with Implicits
-
-  trait Implicits extends super.Implicits {
-    implicit def ddlToDDLInvoker(d: SchemaDescription): DDLInvoker = ??
-  }
-
-  class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
+  class QueryExecutorDef[R](tree: Node, param: Any) {
     def run(implicit session: Backend#Session): R =
       createDistributedQueryInterpreter(param, session).run(tree).asInstanceOf[R]
   }
 
   type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
+  type StreamingDriverAction[+R, +T, -E <: Effect] = FixedBasicStreamingAction[R, T, E]
 
   class QueryActionExtensionMethodsImpl[R, S <: NoStream](tree: Node, param: Any) extends super.QueryActionExtensionMethodsImpl[R, S] {
     protected[this] val exe = createQueryExecutor[R](tree, param)
     def result: DriverAction[R, S, Effect.Read] =
-      new DriverAction[R, S, Effect.Read] with SynchronousDatabaseAction[R, S, Backend#This, Effect.Read] {
+      new StreamingDriverAction[R, Any, Effect.Read] with SynchronousDatabaseAction[R, Streaming[Any], Backend#This, Effect.Read] {
         def run(ctx: Backend#Context) = exe.run(ctx.session)
         def getDumpInfo = DumpInfo("DistributedProfile.DriverAction")
-      }
+        def head: ResultAction[Any, NoStream, Effect.Read] = ??
+        def headOption: ResultAction[Option[Any], NoStream, Effect.Read] = ??
+      }.asInstanceOf[DriverAction[R, S, Effect.Read]]
   }
 
   class StreamingQueryActionExtensionMethodsImpl[R, T](tree: Node, param: Any) extends QueryActionExtensionMethodsImpl[R, Streaming[T]](tree, param) with super.StreamingQueryActionExtensionMethodsImpl[R, T] {
@@ -78,7 +71,7 @@ trait DistributedProfile extends MemoryQueryingProfile { driver: DistributedDriv
         val idx = drivers.indexOf(driver)
         if(idx < 0) throw new SlickException("No session found for driver "+driver)
         val driverSession = session.sessions(idx).asInstanceOf[driver.Backend#Session]
-        val dv = driver.createQueryExecutor[Any](compiled, param).run(driverSession)
+        val dv = driver.runSynchronousQuery[Any](compiled, param)(driverSession)
         val wr = wrapScalaValue(dv, n.nodeType)
         if(logger.isDebugEnabled) logDebug("Wrapped value: "+wr)
         wr

@@ -69,11 +69,7 @@ trait HeapBackend extends RelationalBackend with Logging {
     }
   }
 
-  class DatabaseFactoryDef extends super.DatabaseFactoryDef {
-    /** Create a new heap database instance that uses the global ExecutionContext. */
-    @deprecated("You should explicitly specify an ExecutionContext in Database.apply()", "3.0")
-    def apply(): Database = new DatabaseDef(ExecutionContext.global)
-
+  class DatabaseFactoryDef {
     /** Create a new heap database instance that uses the supplied ExecutionContext for
       * asynchronous execution of database actions. */
     def apply(executionContext: ExecutionContext): Database = new DatabaseDef(executionContext)

@@ -4,11 +4,10 @@ import org.junit.Test
 import org.junit.Assert._
 
 /** Test case for the listing of constraints in table definitions */
-@deprecated("Using deprecated .simple API", "3.0")
 class TableConstraintsTest {
 
   @Test def testConstraintsOrdering {
-    import slick.driver.H2Driver.simple._
+    import slick.driver.H2Driver.api._
 
     class Foo(tag: Tag) extends Table[Long](tag, "foo_table") {
         def id = column[Long]("id")

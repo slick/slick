@@ -16,3 +16,4 @@
 .. _Reactive Streams: http://www.reactive-streams.org/
 .. _JPA: http://en.wikipedia.org/wiki/Java_Persistence_API
 .. _Reactive Manifesto: http://www.reactivemanifesto.org/
+.. _Slick Manuals: http://slick.typesafe.com/docs/

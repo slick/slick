@@ -18,11 +18,8 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
 
   type SchemaDescription = SchemaDescriptionDef
   type InsertInvoker[T] = InsertInvokerDef[T]
-  type QueryExecutor[R] = QueryExecutorDef[R]
   type Backend = HeapBackend
   val backend: Backend = HeapBackend
-  val simple: SimpleQL = new SimpleQL {}
-  val Implicit: Implicits = simple
   val api: API = new API {}
 
   lazy val queryCompiler = compiler + new MemoryCodeGen
@@ -32,11 +29,9 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
 
   override protected def computeCapabilities = super.computeCapabilities ++ MemoryProfile.capabilities.all
 
-  def createQueryExecutor[R](tree: Node, param: Any): QueryExecutor[R] = new QueryExecutorDef[R](tree, param)
   def createInsertInvoker[T](tree: Node): InsertInvoker[T] = new InsertInvokerDef[T](tree)
-  def createDDLInvoker(sd: SchemaDescription): DDLInvoker = sd.asInstanceOf[DDLInvoker]
   def buildSequenceSchemaDescription(seq: Sequence[_]): SchemaDescription = ??
-  def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new TableDDL(table)
+  def buildTableSchemaDescription(table: Table[_]): SchemaDescription = new DDL(Vector(table))
 
   type QueryActionExtensionMethods[R, S <: NoStream] = QueryActionExtensionMethodsImpl[R, S]
   type StreamingQueryActionExtensionMethods[R, T] = StreamingQueryActionExtensionMethodsImpl[R, T]
@@ -70,13 +65,10 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
     }
   }
 
-  trait Implicits extends super[RelationalProfile].Implicits with super[MemoryQueryingProfile].Implicits {
-    implicit def ddlToDDLInvoker(sd: SchemaDescription): DDLInvoker = createDDLInvoker(sd)
+  trait API extends super[RelationalProfile].API with super[MemoryQueryingProfile].API {
+    type SimpleDBIO[+R] = SimpleMemoryAction[R]
+    val SimpleDBIO = SimpleMemoryAction
   }
-
-  trait SimpleQL extends super[RelationalProfile].SimpleQL with super[MemoryQueryingProfile].SimpleQL with Implicits
-
-  trait API extends super[RelationalProfile].API with super[MemoryQueryingProfile].API
 
   protected def createInterpreter(db: Backend#Database, param: Any): QueryInterpreter = new QueryInterpreter(db, param) {
     override def run(n: Node) = n match {
@@ -89,11 +81,10 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
     }
   }
 
-  class QueryExecutorDef[R](tree: Node, param: Any) extends super.QueryExecutorDef[R] {
-    def run(implicit session: Backend#Session): R = createInterpreter(session.database, param).run(tree).asInstanceOf[R]
-  }
+  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R =
+    createInterpreter(session.database, param).run(tree).asInstanceOf[R]
 
-  class InsertInvokerDef[T](tree: Node) extends super.InsertInvokerDef[T] {
+  class InsertInvokerDef[T](tree: Node) {
     protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, _), CompiledMapping(converter, _)) = tree
 
     type SingleInsertResult = Unit
@@ -110,23 +101,9 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
       values.foreach(this += _)
   }
 
-  abstract class DDL extends SchemaDescriptionDef with DDLInvoker { self =>
-    def ++(other: SchemaDescription): SchemaDescription = {
-      val d = Implicit.ddlToDDLInvoker(other)
-      new DDL {
-        def create(implicit session: Backend#Session) { self.create; d.create }
-        def drop(implicit session: Backend#Session) { self.drop; d.drop }
-      }
-    }
-  }
-
-  class TableDDL(table: Table[_]) extends DDL {
-    def create(implicit session: Backend#Session): Unit =
-      session.database.createTable(table.tableName,
-        table.create_*.map { fs => new HeapBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq,
-        table.indexes.toIndexedSeq, table.tableConstraints.toIndexedSeq)
-    def drop(implicit session: Backend#Session): Unit =
-      session.database.dropTable(table.tableName)
+  class DDL(val tables: Vector[Table[_]]) extends SchemaDescriptionDef {
+    def ++(other: SchemaDescription): SchemaDescription =
+      new DDL(tables ++ other.asInstanceOf[DDL].tables)
   }
 
   type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedBasicAction[R, S, E]
@@ -180,8 +157,17 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
   }
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
-    def create = dbAction(createDDLInvoker(schema).create(_))
-    def drop = dbAction(createDDLInvoker(schema).drop(_))
+    protected[this] val tables = schema.asInstanceOf[DDL].tables
+    def create = dbAction { session =>
+      tables.foreach(t =>
+        session.database.createTable(t.tableName,
+          t.create_*.map { fs => new HeapBackend.Column(fs, typeInfoFor(fs.tpe)) }.toIndexedSeq,
+          t.indexes.toIndexedSeq, t.tableConstraints.toIndexedSeq)
+      )
+    }
+    def drop = dbAction { session =>
+      tables.foreach(t => session.database.dropTable(t.tableName))
+    }
   }
 
   class InsertActionExtensionMethodsImpl[T](compiled: CompiledInsert) extends super.InsertActionExtensionMethodsImpl[T] {
@@ -232,3 +218,9 @@ trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with Memor
 }
 
 object MemoryDriver extends MemoryDriver
+
+/** A non-streaming Action that wraps a synchronous MemoryProfile API call. */
+case class SimpleMemoryAction[+R](f: HeapBackend#Context => R) extends SynchronousDatabaseAction[R, NoStream, HeapBackend, Effect.All] {
+  def run(context: HeapBackend#Context): R = f(context)
+  def getDumpInfo = DumpInfo(name = "SimpleMemoryAction")
+}

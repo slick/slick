@@ -45,11 +45,6 @@ trait Aliases {
   val ForeignKeyAction = slick.model.ForeignKeyAction
   type ForeignKeyAction = slick.model.ForeignKeyAction
 
-  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "3.0")
-  type Column[T] = lifted.Rep[T]
-  @deprecated("Use Rep[T : TypedType] instead of Column[T]", "3.0")
-  val Column = lifted.Rep
-
   type DBIO[+R] = dbio.DBIO[R]
   type StreamingDBIO[+R, +T] = dbio.StreamingDBIO[R, T]
   type DBIOAction[+R, +S <: dbio.NoStream, -E <: dbio.Effect] = dbio.DBIOAction[R, S, E]

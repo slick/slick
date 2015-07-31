@@ -23,38 +23,27 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalProfile.capabilities.all
 
-  protected trait CommonImplicits extends super.CommonImplicits with ImplicitColumnTypes {
-    @deprecated("Use an explicit conversion to an Option column with `.?`", "3.0")
-    implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
-    implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
-    implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
-    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
-      new TableQueryExtensionMethods[T, U](q)
-  }
-
-  protected trait CommonAPI extends super.CommonAPI {
+  trait API extends super.API with ImplicitColumnTypes {
     type Table[T] = driver.Table[T]
     type Sequence[T] = driver.Sequence[T]
     val Sequence = driver.Sequence
     type ColumnType[T] = driver.ColumnType[T]
     type BaseColumnType[T] = driver.BaseColumnType[T]
     val MappedColumnType = driver.MappedColumnType
-  }
 
-  trait Implicits extends super.Implicits with CommonImplicits
-  trait SimpleQL extends super.SimpleQL with CommonAPI with Implicits
+    @deprecated("Use an explicit conversion to an Option column with `.?`", "3.0")
+    implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
+    implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
+    implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
+    implicit def tableQueryToTableQueryExtensionMethods[T <: Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
+      new TableQueryExtensionMethods[T, U](q)
 
-  trait API extends super.API with CommonAPI with CommonImplicits {
     implicit def streamableCompiledInsertActionExtensionMethods[EU](c: StreamableCompiled[_, _, EU]): InsertActionExtensionMethods[EU] = createInsertActionExtensionMethods[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
     implicit def queryInsertActionExtensionMethods[U, C[_]](q: Query[_, U, C]) = createInsertActionExtensionMethods[U](compileInsert(q.toNode))
 
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
   }
 
-  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
-  val Implicit: Implicits
-  @deprecated("Use 'api' instead of 'simple' or 'Implicit' to import the new API", "3.0")
-  val simple: SimpleQL
   val api: API
 
   final lazy val compiler = computeQueryCompiler
@@ -69,9 +58,6 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   }
 
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
-    @deprecated("Use .schema instead of .ddl", "3.0")
-    final def ddl: SchemaDescription = schema
-
     /** Get the schema description (DDL) for this table. */
     def schema: SchemaDescription = buildTableSchemaDescription(q.shaped.value)
 
@@ -81,11 +67,11 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
       import driver.api._
       Compiled { (p: Rep[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
     }
-    /*def findBy[P](f: (T => Rep[P]))(implicit tm: TypedType[P]): CompiledFunction[Rep[P] => Query[T, U, Seq], Rep[P], P, Query[T, U, Seq], Seq[U]] = {
-      import driver.Implicit._
-      Compiled { (p: Rep[P]) => (q: Query[T, U, Seq]).filter(table => Library.==.column[Boolean](f(table).toNode, p.toNode)) }
-    }*/
   }
+
+  /** Run a query synchronously on the provided session. This is used by DistributedDriver until we
+    * can make it fully asynchronous. */
+  def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R
 }
 
 object RelationalProfile {
@@ -234,9 +220,6 @@ trait RelationalSequenceComponent { driver: RelationalDriver =>
     final def curr = Library.CurrentValue.column[T](toNode)
 
     def toNode = SequenceNode(name)(_increment.map(integral.toLong).getOrElse(1))
-
-    @deprecated("Use .schema instead of .ddl", "3.0")
-    final def ddl: SchemaDescription = schema
 
     def schema: SchemaDescription = buildSequenceSchemaDescription(this)
   }

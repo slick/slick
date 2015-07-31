@@ -26,12 +26,12 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   type DriverAction[+R, +S <: NoStream, -E <: Effect] = FixedSqlAction[R, S, E]
   type StreamingDriverAction[+R, +T, -E <: Effect] = FixedSqlStreamingAction[R, T, E]
 
-  abstract class SimpleJdbcDriverAction[+R](_name: String, val statements: Iterable[String]) extends SynchronousDatabaseAction[R, NoStream, Backend, Effect] with DriverAction[R, NoStream, Effect] { self =>
-    def run(ctx: Backend#Context, sql: Iterable[String]): R
+  abstract class SimpleJdbcDriverAction[+R](_name: String, val statements: Vector[String]) extends SynchronousDatabaseAction[R, NoStream, Backend, Effect] with DriverAction[R, NoStream, Effect] { self =>
+    def run(ctx: Backend#Context, sql: Vector[String]): R
     final override def getDumpInfo = super.getDumpInfo.copy(name = _name)
     final def run(ctx: Backend#Context): R = run(ctx, statements)
-    final def overrideStatements(_statements: Iterable[String]): DriverAction[R, NoStream, Effect] = new SimpleJdbcDriverAction[R](_name, _statements) {
-      def run(ctx: Backend#Context, sql: Iterable[String]): R = self.run(ctx, statements)
+    final def overrideStatements(_statements: Iterable[String]): DriverAction[R, NoStream, Effect] = new SimpleJdbcDriverAction[R](_name, _statements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): R = self.run(ctx, statements)
     }
   }
 
@@ -223,8 +223,8 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
           }
         case First(rsm @ ResultSetMapping(_, compiled, _)) =>
           val sql = findSql(compiled)
-          new SimpleJdbcDriverAction[R]("result", List(sql)) {
-            def run(ctx: Backend#Context, sql: Iterable[String]): R =
+          new SimpleJdbcDriverAction[R]("result", Vector(sql)) {
+            def run(ctx: Backend#Context, sql: Vector[String]): R =
               createQueryInvoker[R](rsm, param, sql.head).first(ctx.session)
           }
       }).asInstanceOf[DriverAction[R, S, Effect.Read]]
@@ -267,8 +267,8 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     /** An Action that deletes the data selected by this query. */
     def delete: DriverAction[Int, NoStream, Effect.Write] = {
       val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), _) = tree
-      new SimpleJdbcDriverAction[Int]("delete", List(sres.sql)) {
-        def run(ctx: Backend#Context, sql: Iterable[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+      new SimpleJdbcDriverAction[Int]("delete", Vector(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           sres.setter(st, 1, param)
           st.executeUpdate
         }
@@ -286,13 +286,13 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
     new SchemaActionExtensionMethodsImpl(schema)
 
   class SchemaActionExtensionMethodsImpl(schema: SchemaDescription) extends super.SchemaActionExtensionMethodsImpl {
-    def create: DriverAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcDriverAction[Unit]("schema.create", schema.createStatements.toSeq) {
-      def run(ctx: Backend#Context, sql: Iterable[String]): Unit =
+    def create: DriverAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcDriverAction[Unit]("schema.create", schema.createStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
 
-    def drop: DriverAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcDriverAction[Unit]("schema.drop", schema.dropStatements.toSeq) {
-      def run(ctx: Backend#Context, sql: Iterable[String]): Unit =
+    def drop: DriverAction[Unit, NoStream, Effect.Schema] = new SimpleJdbcDriverAction[Unit]("schema.drop", schema.dropStatements.toVector) {
+      def run(ctx: Backend#Context, sql: Vector[String]): Unit =
         for(s <- sql) ctx.session.withPreparedStatement(s)(_.execute)
     }
   }
@@ -314,8 +314,8 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
     /** An Action that updates the data selected by this query. */
     def update(value: T): DriverAction[Int, NoStream, Effect.Write] = {
-      new SimpleJdbcDriverAction[Int]("update", List(sres.sql)) {
-        def run(ctx: Backend#Context, sql: Iterable[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+      new SimpleJdbcDriverAction[Int]("update", Vector(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters
           converter.set(value, st)
           sres.setter(st, converter.width+1, param)
@@ -331,10 +331,17 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   //////////////////////////////////////////////////////////// Insert Actions
   ///////////////////////////////////////////////////////////////////////////////////////////////
 
-  type InsertActionExtensionMethods[T] = CountingInsertActionComposerImpl[T]
+  type InsertActionExtensionMethods[T] = CountingInsertActionComposer[T]
 
   def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
-    new CountingInsertActionComposerImpl[T](createInsertInvoker(compiled))
+    new CountingInsertActionComposerImpl[T](compiled)
+  def createReturningInsertActionComposer[U, QR, RU](compiled: CompiledInsert, keys: Node, mux: (U, QR) => RU): ReturningInsertActionComposer[U, RU] =
+    new ReturningInsertActionComposerImpl[U, QR, RU](compiled, keys, mux)
+
+  protected lazy val useServerSideUpsert = capabilities contains JdbcProfile.capabilities.insertOrUpdate
+  protected lazy val useTransactionForUpsert = !useServerSideUpsert
+  protected lazy val useServerSideUpsertReturning = useServerSideUpsert
+  protected lazy val useTransactionForUpsertReturning = !useServerSideUpsertReturning
 
   //////////////////////////////////////////////////////////// InsertActionComposer Traits
 
@@ -414,12 +421,7 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
   }
 
   /** An InsertActionComposer that returns generated keys or other columns. */
-  trait ReturningInsertActionComposer[U, RU] extends InsertActionComposer[U] { self =>
-    type SingleInsertResult = RU
-    type MultiInsertResult = Seq[RU]
-    type SingleInsertOrUpdateResult = Option[RU]
-    type QueryInsertResult = Seq[RU]
-
+  trait ReturningInsertActionComposer[U, RU] extends InsertActionComposer[U] with IntoInsertActionComposer[U, RU] { self =>
     /** Specifies a mapping from inserted values and generated keys to a desired value.
       * @param f Function that maps inserted values and generated keys to a desired value.
       * @tparam R target type of the mapping */
@@ -436,46 +438,207 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
 
   //////////////////////////////////////////////////////////// InsertActionComposer Implementations
 
-  /* Currently dispatching all calls to an equivalent InsertInvoker to avoid duplicating the
-   * intricate implementation details which need to be partly overridden in the drivers.
-   * We should change this in the future because it causes some CPU-intensive compuations
-   * (like query compilation) to be performed inside of some of the database Actions. */
+  protected abstract class InsertActionComposerImpl[U](val compiled: CompiledInsert) extends InsertActionComposer[U] {
+    protected[this] def buildQueryBasedInsert[TT, C[_]](query: Query[TT, U, C]): SQLBuilder.Result =
+      compiled.forceInsert.ibr.buildInsert(queryCompiler.run(query.toNode).tree)
 
-  protected class InsertActionComposerImpl[U](inv: InsertInvokerDef[U]) extends InsertActionComposer[U] {
-    private[this] def fullInv = inv.asInstanceOf[FullInsertInvokerDef[U]]
-    protected[this] def wrapAction[E <: Effect, T](name: String, sql: String, f: Backend#Session => Any): DriverAction[T, NoStream, E] =
-      new SynchronousDatabaseAction[T, NoStream, Backend, E] with DriverAction[T, NoStream, E] {
-        def statements = if(sql eq null) Nil else List(sql)
-        def run(ctx: Backend#Context) = f(ctx.session).asInstanceOf[T]
-        override def getDumpInfo = super.getDumpInfo.copy(name = name)
-        def overrideStatements(_statements: Iterable[String]) =
-          throw new SlickException("overrideStatements is not supported for insert operations")
+    protected[this] def buildQueryBasedInsert[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): SQLBuilder.Result =
+      compiled.forceInsert.ibr.buildInsert(compiledQuery.compiledQuery)
+
+    def insertStatement = compiled.standardInsert.sql
+
+    def forceInsertStatement = compiled.forceInsert.sql
+
+    def += (value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write] =
+      new SingleInsertAction(compiled.standardInsert, value)
+
+    def forceInsert(value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write] =
+      new SingleInsertAction(compiled.forceInsert, value)
+
+    def ++= (values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write] =
+      new MultiInsertAction(compiled.standardInsert, values)
+
+    def forceInsertAll(values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write] =
+      new MultiInsertAction(compiled.forceInsert, values)
+
+    def insertOrUpdate(value: U): DriverAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] =
+      new InsertOrUpdateAction(value)
+
+    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) =
+      buildQueryBasedInsert(Query(c)(shape)).sql
+
+    def forceInsertStatementFor[TT, C[_]](query: Query[TT, U, C]) =
+      buildQueryBasedInsert(query).sql
+
+    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) =
+      buildQueryBasedInsert(compiledQuery).sql
+
+    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write] =
+      new InsertQueryAction(buildQueryBasedInsert((Query(c)(shape))), null)
+
+    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[QueryInsertResult, NoStream, Effect.Write] =
+      new InsertQueryAction(buildQueryBasedInsert(query), null)
+
+    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write] =
+      new InsertQueryAction(buildQueryBasedInsert(compiledQuery), compiledQuery.param)
+
+    protected def useServerSideUpsert = driver.useServerSideUpsert
+    protected def useTransactionForUpsert = driver.useTransactionForUpsert
+    protected def useBatchUpdates(implicit session: Backend#Session) = session.capabilities.supportsBatchUpdates
+
+    protected def retOne(st: Statement, value: U, updateCount: Int): SingleInsertResult
+    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]): MultiInsertResult
+    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]): MultiInsertResult
+    protected def retOneInsertOrUpdate(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult
+    protected def retOneInsertOrUpdateFromInsert(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult
+    protected def retOneInsertOrUpdateFromUpdate: SingleInsertOrUpdateResult
+    protected def retQuery(st: Statement, updateCount: Int): QueryInsertResult
+
+    protected def preparedInsert[T](sql: String, session: Backend#Session)(f: PreparedStatement => T) =
+      session.withPreparedStatement(sql)(f)
+
+    protected def preparedOther[T](sql: String, session: Backend#Session)(f: PreparedStatement => T) =
+      session.withPreparedStatement(sql)(f)
+
+    class SingleInsertAction(a: compiled.Artifacts, value: U) extends SimpleJdbcDriverAction[SingleInsertResult]("SingleInsertAction", Vector(a.sql)) {
+      def run(ctx: Backend#Context, sql: Vector[String]) = preparedInsert(a.sql, ctx.session) { st =>
+        st.clearParameters()
+        a.converter.set(value, st)
+        val count = st.executeUpdate()
+        retOne(st, value, count)
       }
+    }
 
-    def insertStatement = inv.insertStatement
-    def forceInsertStatement = inv.forceInsertStatement
-    def += (value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write] = wrapAction("+=", inv.insertStatement, inv.+=(value)(_))
-    def forceInsert(value: U): DriverAction[SingleInsertResult, NoStream, Effect.Write] = wrapAction("forceInsert", inv.forceInsertStatement, inv.forceInsert(value)(_))
-    def ++= (values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write] = wrapAction("++=", inv.insertStatement, inv.++=(values)(_))
-    def forceInsertAll(values: Iterable[U]): DriverAction[MultiInsertResult, NoStream, Effect.Write] = wrapAction("forceInsertAll", inv.forceInsertStatement, inv.forceInsertAll(values.toSeq: _*)(_))
-    def insertOrUpdate(value: U): DriverAction[SingleInsertOrUpdateResult, NoStream, Effect.Write] = wrapAction("insertOrUpdate", inv.insertOrUpdateStatement(value), inv.insertOrUpdate(value)(_))
-    def forceInsertStatementFor[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]) = fullInv.insertStatementFor(c)
-    def forceInsertStatementFor[TT, C[_]](query: Query[TT, U, C]) = fullInv.insertStatementFor(query)
-    def forceInsertStatementFor[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]) = fullInv.insertStatementFor(compiledQuery)
-    def forceInsertExpr[TT](c: TT)(implicit shape: Shape[_ <: FlatShapeLevel, TT, U, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write] = wrapAction("forceInsertExpr", fullInv.insertExprStatement(c), fullInv.insertExpr(c)(shape, _))
-    def forceInsertQuery[TT, C[_]](query: Query[TT, U, C]): DriverAction[QueryInsertResult, NoStream, Effect.Write] = wrapAction("insert(query)", fullInv.insertStatement(query), fullInv.insert(query)(_))
-    def forceInsertQuery[TT, C[_]](compiledQuery: CompiledStreamingExecutable[Query[TT, U, C], _, _]): DriverAction[QueryInsertResult, NoStream, Effect.Write] = wrapAction("insert(compiledQuery)", fullInv.insertStatement(compiledQuery), fullInv.insert(compiledQuery)(_))
-  }
-
-  protected class CountingInsertActionComposerImpl[U](inv: CountingInsertInvokerDef[U]) extends InsertActionComposerImpl[U](inv) with CountingInsertActionComposer[U] {
-    def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertActionComposer[U, RU] = {
-      val invr = inv.returning(value)
-      new InsertActionComposerImpl[U](invr) with ReturningInsertActionComposer[U, RU] {
-        def into[R](f: (U, RU) => R): IntoInsertActionComposer[U, R] = {
-          val invri = invr.into(f)
-          new InsertActionComposerImpl[U](invri) with IntoInsertActionComposer[U, R]
+    class MultiInsertAction(a: compiled.Artifacts, values: Iterable[U]) extends SimpleJdbcDriverAction[MultiInsertResult]("MultiInsertAction", Vector(a.sql)) {
+      def run(ctx: Backend#Context, sql: Vector[String]) = {
+        val sql1 = sql.head
+        if(!useBatchUpdates(ctx.session) || (values.isInstanceOf[IndexedSeq[_]] && values.asInstanceOf[IndexedSeq[_]].length < 2))
+          retMany(values, values.map { v =>
+            preparedInsert(sql1, ctx.session) { st =>
+              st.clearParameters()
+              a.converter.set(v, st)
+              retOne(st, v, st.executeUpdate())
+            }
+          }(collection.breakOut): Vector[SingleInsertResult])
+        else preparedInsert(a.sql, ctx.session) { st =>
+          st.clearParameters()
+          for(value <- values) {
+            a.converter.set(value, st)
+            st.addBatch()
+          }
+          val counts = st.executeBatch()
+          retManyBatch(st, values, counts)
         }
       }
     }
+
+    class InsertOrUpdateAction(value: U) extends SimpleJdbcDriverAction[SingleInsertOrUpdateResult]("InsertOrUpdateAction",
+      if(useServerSideUpsert) Vector(compiled.upsert.sql) else Vector(compiled.checkInsert.sql, compiled.updateInsert.sql, compiled.standardInsert.sql)) {
+
+      def run(ctx: Backend#Context, sql: Vector[String]) = {
+        def f: SingleInsertOrUpdateResult =
+          if(useServerSideUpsert) nativeUpsert(value, sql.head)(ctx.session) else emulate(value, sql(0), sql(1), sql(2))(ctx.session)
+        if(useTransactionForUpsert) ctx.session.withTransaction(f) else f
+      }
+
+      protected def nativeUpsert(value: U, sql: String)(implicit session: Backend#Session): SingleInsertOrUpdateResult =
+        preparedInsert(sql, session) { st =>
+          st.clearParameters()
+          compiled.upsert.converter.set(value, st)
+          val count = st.executeUpdate()
+          retOneInsertOrUpdate(st, value, count)
+        }
+
+      protected def emulate(value: U, checkSql: String, updateSql: String, insertSql: String)(implicit session: Backend#Session): SingleInsertOrUpdateResult = {
+        val found = preparedOther(checkSql, session) { st =>
+          st.clearParameters()
+          compiled.checkInsert.converter.set(value, st)
+          val rs = st.executeQuery()
+          try rs.next() finally rs.close()
+        }
+        if(found) preparedOther(updateSql, session) { st =>
+          st.clearParameters()
+          compiled.updateInsert.converter.set(value, st)
+          st.executeUpdate()
+          retOneInsertOrUpdateFromUpdate
+        } else preparedInsert(insertSql, session) { st =>
+          st.clearParameters()
+          compiled.standardInsert.converter.set(value, st)
+          val count = st.executeUpdate()
+          retOneInsertOrUpdateFromInsert(st, value, count)
+        }
+      }
+    }
+
+    class InsertQueryAction(sbr: SQLBuilder.Result, param: Any) extends SimpleJdbcDriverAction[QueryInsertResult]("InsertQueryAction", Vector(sbr.sql)) {
+      def run(ctx: Backend#Context, sql: Vector[String]) = preparedInsert(sql.head, ctx.session) { st =>
+        st.clearParameters()
+        sbr.setter(st, 1, param)
+        retQuery(st, st.executeUpdate())
+      }
+    }
+  }
+
+  protected class CountingInsertActionComposerImpl[U](compiled: CompiledInsert) extends InsertActionComposerImpl[U](compiled) with CountingInsertActionComposer[U] {
+    def returning[RT, RU, C[_]](value: Query[RT, RU, C]): ReturningInsertActionComposer[U, RU] =
+      createReturningInsertActionComposer[U, RU, RU](compiled, value.toNode, (_, r) => r)
+
+    protected def retOne(st: Statement, value: U, updateCount: Int) = updateCount
+    protected def retOneInsertOrUpdate(st: Statement, value: U, updateCount: Int) = 1
+    protected def retOneInsertOrUpdateFromInsert(st: Statement, value: U, updateCount: Int) = 1
+    protected def retOneInsertOrUpdateFromUpdate = 1
+    protected def retQuery(st: Statement, updateCount: Int) = updateCount
+    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = Some(individual.sum)
+
+    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) = {
+      var unknown = false
+      var count = 0
+      for((res, idx) <- updateCounts.zipWithIndex) res match {
+        case Statement.SUCCESS_NO_INFO => unknown = true
+        case Statement.EXECUTE_FAILED => throw new SlickException("Failed to insert row #" + (idx+1))
+        case i => count += i
+      }
+      if(unknown) None else Some(count)
+    }
+  }
+
+  protected class ReturningInsertActionComposerImpl[U, QR, RU](compiled: CompiledInsert, val keys: Node, val mux: (U, QR) => RU) extends InsertActionComposerImpl[U](compiled) with ReturningInsertActionComposer[U, RU] {
+    def into[R](f: (U, RU) => R): IntoInsertActionComposer[U, R] =
+      createReturningInsertActionComposer[U, QR, R](compiled, keys, (v, r) => f(v, mux(v, r)))
+
+    override protected def useServerSideUpsert = driver.useServerSideUpsertReturning
+    override protected def useTransactionForUpsert = driver.useTransactionForUpsertReturning
+
+    protected def checkInsertOrUpdateKeys: Unit =
+      if(keyReturnOther) throw new SlickException("Only a single AutoInc column may be returned from an insertOrUpdate call")
+
+    protected def buildKeysResult(st: Statement): Invoker[QR] =
+      ResultSetInvoker[QR](_ => st.getGeneratedKeys)(pr => keyConverter.read(pr.rs).asInstanceOf[QR])
+
+    // Returning keys from batch inserts is generally not supported
+    override protected def useBatchUpdates(implicit session: Backend#Session) = false
+
+    protected lazy val (keyColumns, keyConverter, keyReturnOther) = compiled.buildReturnColumns(keys)
+
+    override protected def preparedInsert[T](sql: String, session: Backend#Session)(f: PreparedStatement => T) =
+      session.withPreparedInsertStatement(sql, keyColumns.toArray)(f)
+
+    protected def retOne(st: Statement, value: U, updateCount: Int) = mux(value, buildKeysResult(st).first(null))
+
+    protected def retMany(values: Iterable[U], individual: Seq[SingleInsertResult]) = individual
+
+    protected def retManyBatch(st: Statement, values: Iterable[U], updateCounts: Array[Int]) =
+      (values, buildKeysResult(st).buildColl[Vector](null, implicitly)).zipped.map(mux)(collection.breakOut)
+
+    protected def retQuery(st: Statement, updateCount: Int) =
+      buildKeysResult(st).buildColl[Vector](null, implicitly).asInstanceOf[QueryInsertResult] // Not used with "into"
+
+    protected def retOneInsertOrUpdate(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult =
+      if(updateCount != 1) None else buildKeysResult(st).firstOption(null).map(r => mux(value, r))
+
+    protected def retOneInsertOrUpdateFromInsert(st: Statement, value: U, updateCount: Int): SingleInsertOrUpdateResult =
+      Some(mux(value, buildKeysResult(st).first(null)))
+
+    protected def retOneInsertOrUpdateFromUpdate: SingleInsertOrUpdateResult = None
   }
 }

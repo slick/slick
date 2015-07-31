@@ -78,7 +78,7 @@ trait JdbcBackend extends RelationalBackend {
     def close: Unit = try executor.close() finally source.close()
    }
 
-  trait DatabaseFactoryDef extends super.DatabaseFactoryDef {
+  trait DatabaseFactoryDef {
     /** Create a Database based on a [[JdbcDataSource]]. */
     def forSource(source: JdbcDataSource, executor: AsyncExecutor = AsyncExecutor.default()) =
       new DatabaseDef(source, executor)
@@ -383,15 +383,6 @@ trait JdbcBackend extends RelationalBackend {
      * otherwise it is commited when the function returns.
      */
     def withTransaction[T](f: => T): T
-
-    /**
-     * Create a new Slick Session wrapping the same JDBC connection, but using the given values as defaults for
-     * resultSetType, resultSetConcurrency and resultSetHoldability.
-     */
-    @deprecated("Use the new Action-based API instead", "3.0")
-    final def forParameters(rsType: ResultSetType = resultSetType, rsConcurrency: ResultSetConcurrency = resultSetConcurrency,
-                      rsHoldability: ResultSetHoldability = resultSetHoldability): Session =
-      internalForParameters(rsType, rsConcurrency, rsHoldability, null, 0)
 
     private[slick] final def internalForParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
                       rsHoldability: ResultSetHoldability, statementInit: Statement => Unit, _fetchSize: Int): Session = new Session {

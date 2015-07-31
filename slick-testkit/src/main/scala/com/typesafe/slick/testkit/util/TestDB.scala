@@ -10,7 +10,7 @@ import scala.collection.mutable
 import scala.concurrent.{Await, Future, ExecutionContext}
 import slick.SlickException
 import slick.dbio.{NoStream, DBIOAction, DBIO}
-import slick.jdbc.{StaticQuery => Q, ResultSetAction, JdbcDataSource, SimpleJdbcAction, ResultSetInvoker}
+import slick.jdbc.{ResultSetAction, JdbcDataSource, SimpleJdbcAction}
 import slick.jdbc.GetResult._
 import slick.driver._
 import slick.profile.{SqlDriver, RelationalDriver, BasicDriver, Capability}
@@ -140,48 +140,41 @@ trait TestDB {
 trait RelationalTestDB extends TestDB {
   type Driver <: RelationalDriver
 
-  def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session): Unit
-  def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session): Unit
+  def assertTablesExist(tables: String*): DBIO[Unit]
+  def assertNotTablesExist(tables: String*): DBIO[Unit]
 }
 
 trait SqlTestDB extends RelationalTestDB { type Driver <: SqlDriver }
 
 abstract class JdbcTestDB(val confName: String) extends SqlTestDB {
+  import driver.api.actionBasedSQLInterpolation
+
   type Driver = JdbcDriver
   lazy val database = profile.backend.Database
   val jdbcDriver: String
-  final def getLocalTables(implicit session: profile.Backend#Session) =
-    blockingRunOnSession(ec => localTables(ec))
+  final def getLocalTables(implicit session: profile.Backend#Session) = blockingRunOnSession(ec => localTables(ec))
+  final def getLocalSequences(implicit session: profile.Backend#Session) = blockingRunOnSession(ec => localSequences(ec))
   def canGetLocalTables = true
   def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null)).map { ts =>
       ts.filter(_._4.toUpperCase == "TABLE").map(_._3).sorted
     }
-  def getLocalSequences(implicit session: profile.Backend#Session) = {
-    val tables = ResultSetInvoker[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null))
-    tables.buildColl[List].filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
-  }
-  def dropUserArtifacts(implicit session: profile.Backend#Session) = {
-    for(t <- getLocalTables)
-      (Q.u+"drop table if exists "+driver.quoteIdentifier(t)+" cascade").execute
-    for(t <- getLocalSequences)
-      (Q.u+"drop sequence if exists "+driver.quoteIdentifier(t)+" cascade").execute
-  }
-  def assertTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
-    for(t <- tables) {
-      try ((Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").buildColl[List]) catch { case _: Exception =>
-        Assert.fail("Table "+t+" should exist")
-      }
+  def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+    ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables("", "", null, null)).map { ts =>
+      ts.filter(_._4.toUpperCase == "SEQUENCE").map(_._3).sorted
     }
+  def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
+    for {
+      tables <- localTables
+      sequences <- localSequences
+      _ <- DBIO.seq((tables.map(t => sqlu"""drop table if exists #${driver.quoteIdentifier(t)} cascade""") ++
+        sequences.map(t => sqlu"""drop sequence if exists #${driver.quoteIdentifier(t)} cascade""")): _*)
+    } yield ()
   }
-  def assertNotTablesExist(tables: String*)(implicit session: profile.Backend#Session) {
-    for(t <- tables) {
-      try {
-        (Q[Int]+"select 1 from "+driver.quoteIdentifier(t)+" where 1 < 0").buildColl[List]
-        Assert.fail("Table "+t+" should not exist")
-      } catch { case _: Exception => }
-    }
-  }
+  def assertTablesExist(tables: String*) =
+    DBIO.seq(tables.map(t => sql"""select 1 from #${driver.quoteIdentifier(t)} where 1 < 0""".as[Int]): _*)
+  def assertNotTablesExist(tables: String*) =
+    DBIO.seq(tables.map(t => sql"""select 1 from #${driver.quoteIdentifier(t)} where 1 < 0""".as[Int].failed): _*)
   def createSingleSessionDatabase(implicit session: profile.Backend#Session, executor: AsyncExecutor = AsyncExecutor.default()): profile.Backend#Database = {
     val wrappedConn = new DelegateConnection(session.conn) {
       override def close(): Unit = ()
