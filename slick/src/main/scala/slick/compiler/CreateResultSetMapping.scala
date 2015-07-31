@@ -7,8 +7,7 @@ import TypeUtil._
 
 /** Create a ResultSetMapping root node, ensure that the top-level server-side node returns a
   * collection, and hoist client-side type conversions into the ResultSetMapping. The original
-  * result type (which was removed by `removeMappedTypes`) is assigned back to the top level,
-  * so the client side is no longer well-typed after this phase. */
+  * result type (which was removed by `removeMappedTypes`) is assigned back to the top level. */
 class CreateResultSetMapping extends Phase {
   val name = "createResultSetMapping"
 
@@ -23,12 +22,12 @@ class CreateResultSetMapping extends Phase {
       val gen = new AnonSymbol
       (tpe match {
         case CollectionType(cons, el) =>
-          ResultSetMapping(gen, collectionCast(ch, cons), createResult(gen, el, syms))
+          ResultSetMapping(gen, collectionCast(ch, cons).infer(), createResult(Ref(gen) :@ ch.nodeType.asCollectionType.elementType, el, syms))
         case t =>
-          ResultSetMapping(gen, ch, createResult(gen, t, syms))
+          ResultSetMapping(gen, ch, createResult(Ref(gen) :@ ch.nodeType.asCollectionType.elementType, t, syms))
       })
     }.infer()
-  }.withWellTyped(WellTyped.ServerSide)
+  }
 
   def collectionCast(ch: Node, cons: CollectionTypeConstructor): Node = ch.nodeType match {
     case CollectionType(c, _) if c == cons => ch
@@ -37,7 +36,7 @@ class CreateResultSetMapping extends Phase {
 
   /** Create a structured return value for the client side, based on the
     * result type (which may contain MappedTypes). */
-  def createResult(sym: TermSymbol, tpe: Type, syms: IndexedSeq[TermSymbol]): Node = {
+  def createResult(ref: Ref, tpe: Type, syms: IndexedSeq[TermSymbol]): Node = {
     var curIdx = 0
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)
@@ -56,7 +55,9 @@ class CreateResultSetMapping extends Phase {
           curIdx += 1
           // Assign the original type. Inside a RebuildOption the actual column type will always be
           // Option-lifted but we can still treat it as the base type when the discriminator matches.
-          Library.SilentCast.typed(t.structuralRec, Select(Ref(sym), syms(curIdx-1)))
+          val sel = Select(ref, syms(curIdx-1)).infer()
+          val tSel = t.structuralRec
+          if(sel.nodeType.structuralRec == tSel) sel else Library.SilentCast.typed(tSel, sel)
       }
     }
     f(tpe)
@@ -64,16 +65,13 @@ class CreateResultSetMapping extends Phase {
 }
 
 /** Remove all mapped types from the tree and store the original top-level type as the phase state
-  * to be used later for building the ResultSetMapping. After this phase the entire AST should be
-  * well-typed until `createResultSetMapping`. */
+  * to be used later for building the ResultSetMapping. */
 class RemoveMappedTypes extends Phase {
   val name = "removeMappedTypes"
   type State = Type
 
-  def apply(state: CompilerState) = {
-    val tpe = state.tree.nodeType
-    state.withNode(removeTypeMapping(state.tree)).withWellTyped(WellTyped.All) + (this -> tpe)
-  }
+  def apply(state: CompilerState) =
+    state.withNode(removeTypeMapping(state.tree)) + (this -> state.tree.nodeType)
 
   /** Remove TypeMapping nodes and MappedTypes */
   def removeTypeMapping(n: Node): Node = n match {

@@ -1,74 +1,94 @@
 package slick.compiler
 
-import scala.util.control.NonFatal
-import slick.{SlickTreeException, SlickException}
+import slick.SlickException
 import slick.ast._
-import Util._
-import TypeUtil._
+import slick.ast.Util._
+import slick.ast.TypeUtil._
+import slick.util.{Ellipsis, ??}
 
-/** Lift operations that are preferred to be performed on the client side
-  * out of sub-queries. */
+import scala.util.control.NonFatal
+
+/** Lift applicable operations at the top level to the client side. */
 class HoistClientOps extends Phase {
   val name = "hoistClientOps"
 
-  def apply(state: CompilerState) = state.map { tree =>
-    ClientSideOp.mapResultSetMapping(tree, false) { case rsm @ ResultSetMapping(_, ss, _) =>
-      val CollectionType(cons, NominalType(_, StructType(defs1))) = ss.nodeType
-      val base = new AnonSymbol
-      val proj = StructNode(defs1.map { case (s, _) => (s, Select(Ref(base), s)) })
-      val ResultSetMapping(_, rsmFrom, rsmProj) = hoist(ResultSetMapping(base, ss, proj))
-      logger.debug("Hoisted projection:", rsmProj)
-      logger.debug("Rewriting remaining DB side:", rsmFrom)
-      val rsm2 = ResultSetMapping(base, rewriteDBSide(rsmFrom), rsmProj).infer()
-      fuseResultSetMappings(rsm.copy(from = rsm2)).infer()
+  def apply(state: CompilerState) = state.map(ClientSideOp.mapResultSetMapping(_) { rsm =>
+    val from1 = shuffle(rsm.from)
+    from1 match {
+      case Bind(s2, from2, Pure(StructNode(defs2), ts2)) =>
+        // Extract client-side operations into ResultSetMapping
+        val hoisted = defs2.map { case (ts, n) => (ts, n, unwrap(n)) }
+        logger.debug("Hoisting operations from defs: " + hoisted.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
+        val newDefsM = hoisted.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
+        val oldDefsM = hoisted.map { case (ts, n, (n2, wrap)) => (ts, wrap(Select(Ref(rsm.generator), newDefsM(n2)))) }.toMap
+        val bind2 = rewriteDBSide(Bind(s2, from2, Pure(StructNode(newDefsM.map(_.swap).toVector), new AnonTypeSymbol)).infer())
+        val rsm2 = rsm.copy(from = bind2, map = rsm.map.replace {
+          case Select(Ref(s), f) if s == rsm.generator => oldDefsM(f)
+        }).infer()
+        logger.debug("New ResultSetMapping:", Ellipsis(rsm2, List(0, 0)))
+        rsm2
+      case _ =>
+        val from2 = rewriteDBSide(from1)
+        if(from2 eq rsm.from) rsm else rsm.copy(from = from2).infer()
     }
-  }
+  })
 
-  /** Fuse nested ResultSetMappings. Only the outer one may contain nested
-    * structures. Inner ResultSetMappings must produce a linearized
-    * ProductNode. */
-  def fuseResultSetMappings(rsm: ResultSetMapping): ResultSetMapping = rsm.from match {
-    case ResultSetMapping(gen2, from2, StructNode(ch2)) =>
-      logger.debug("Fusing ResultSetMapping:", rsm)
-      val ch2m = ch2.toMap
-      val nmap = rsm.map.replace({
-        case Select(Ref(sym), ElementSymbol(idx)) if sym == rsm.generator => ch2(idx-1)._2
-        case Select(Ref(sym), f) if sym == rsm.generator => ch2m(f)
-        case n @ Library.SilentCast(ch :@ tpe2) :@ tpe =>
-          if(tpe.structural == tpe2.structural) ch else {
-            logger.debug(s"SilentCast cannot be elided: $tpe != $tpe2")
-            n
-          }
-      }, bottomUp = true, keepType = true)
-      fuseResultSetMappings(ResultSetMapping(gen2, from2, nmap))
-    case n => rsm
-  }
-
-  def hoist(tree: Node): Node = {
-    logger.debug("Hoisting in:", tree)
-    val defs = tree.collectAll[(TermSymbol, Option[(Node => Node)])] { case StructNode(ch) =>
-      ch.map { case (s, n) =>
-        val u = unwrap(n)
-        logger.debug("Unwrapped "+n+" to "+u)
-        if(u._1 eq n) (s, None) else (s, Some(u._2))
+  /** Pull Bind nodes up to the top level through Filter and CollectionCast. */
+  def shuffle(n: Node): Node = n match {
+    case n @ Bind(s1, from1, sel1) =>
+      shuffle(from1) match {
+        case bind2 @ Bind(s2, from2, sel2 @ Pure(StructNode(elems2), ts2)) if !from2.isInstanceOf[GroupBy] =>
+          logger.debug("Merging top-level Binds", Ellipsis(n.copy(from = bind2), List(0,0)))
+          val defs = elems2.toMap
+          bind2.copy(select = sel1.replace {
+            case Select(Ref(s), f) if s == s1 => defs(f)
+          }).infer()
+        case from2 =>
+          if(from2 eq from1) n else n.copy(from = from2) :@ n.nodeType
       }
-    }.collect { case (s, Some(u)) => (s, u) }.toMap
-    logger.debug("Unwrappable defs: "+defs)
 
-    if(defs.isEmpty) tree else {
-      lazy val tr: PartialFunction[Node, Node] =  {
-        case p @ Path(elems @ (h :: _)) if defs.contains(h) =>
-          defs(h).apply(Path(elems)) // wrap an untyped copy
-        case d: DefNode => d.mapScopedChildren {
-          case (Some(sym), n) if defs.contains(sym) =>
-            unwrap(n)._1.replace(tr)
-          case (_, n) => n.replace(tr)
-        }
+    // Push CollectionCast down unless it casts from a collection without duplicates to one with duplicates.
+    //TODO: Identity mappings are reversible, to we can safely allow them for any kind of conversion.
+    case n @ CollectionCast(from1 :@ CollectionType(cons1, _), cons2) if !cons1.isUnique || cons2.isUnique =>
+      shuffle(from1) match {
+        case Bind(s1, bfrom1, sel1 @ Pure(StructNode(elems1), ts1)) if !bfrom1.isInstanceOf[GroupBy] =>
+          val res = Bind(s1, CollectionCast(bfrom1, cons2), sel1.replace { case Ref(s) if s == s1 => Ref(s) }).infer()
+          logger.debug("Pulled Bind out of CollectionCast", Ellipsis(res, List(0,0)))
+          res
+        case from2 => if(from2 eq from1) n else n.copy(child = from2) :@ n.nodeType
       }
-      tree.replace(tr)
-    }
+
+    case n @ Filter(s1, from1, pred1) =>
+      shuffle(from1) match {
+        case from2 @ Bind(bs1, bfrom1, sel1 @ Pure(StructNode(elems1), ts1)) if !bfrom1.isInstanceOf[GroupBy] =>
+          logger.debug("Pulling Bind out of Filter", Ellipsis(n.copy(from = from2), List(0, 0)))
+          val s3 = new AnonSymbol
+          val defs = elems1.toMap
+          val res = Bind(bs1, Filter(s3, bfrom1, pred1.replace {
+            case Select(Ref(s), f) if s == s1 => defs(f).replace { case Ref(s) if s == bs1 => Ref(s3) }
+          }), sel1.replace { case Ref(s) if s == bs1 => Ref(s) })
+          logger.debug("Pulled Bind out of Filter", Ellipsis(res, List(0,0)))
+          res.infer()
+        case from2 =>
+          if(from2 eq from1) n else n.copy(from = from2) :@ n.nodeType
+      }
+
+    case n => n
   }
 
+  /** Remove a hoistable operation from a top-level column and create a function to
+    * reapply it at the client side. */
+  def unwrap(n: Node): (Node, (Node => Node)) = n match {
+    case GetOrElse(ch, default) =>
+      val (recCh, recTr) = unwrap(ch)
+      (recCh, { sym => GetOrElse(recTr(sym), default) })
+    case OptionApply(ch) =>
+      val (recCh, recTr) = unwrap(ch)
+      (recCh, { sym => OptionApply(recTr(sym)) })
+    case n => (n, identity)
+  }
+
+  /** Rewrite remaining `GetOrElse` operations in the server-side tree into conditionals. */
   def rewriteDBSide(tree: Node): Node = tree match {
     case GetOrElse(ch, default) =>
       val d = try default() catch {
@@ -79,15 +99,5 @@ class HoistClientOps extends Phase {
       val ch2 :@ OptionType(tpe) = rewriteDBSide(ch)
       Library.IfNull.typed(tpe, ch2, LiteralNode.apply(tpe, d)).infer()
     case n => n.mapChildren(rewriteDBSide, keepType = true)
-  }
-
-  def unwrap(n: Node): (Node, (Node => Node)) = n match {
-    case GetOrElse(ch, default) =>
-      val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => GetOrElse(recTr(sym), default) })
-    case OptionApply(ch) =>
-      val (recCh, recTr) = unwrap(ch)
-      (recCh, { sym => OptionApply(recTr(sym)) })
-    case n => (n, identity)
   }
 }

@@ -17,7 +17,7 @@ abstract class CodeGen extends Phase {
       var nmap: Option[Node] = None
       var compileMap: Option[Node] = Some(rsm.map)
 
-      val nfrom = mapServerSideOrCast(rsm.from, keepType = true) { ss =>
+      val nfrom = ClientSideOp.mapServerSide(rsm.from, keepType = true) { ss =>
         logger.debug("Compiling server-side and mapping with server-side:", ss)
         val (nss, nmapOpt) = compileServerSideAndMapping(ss, compileMap, state)
         nmapOpt match {
@@ -31,12 +31,6 @@ abstract class CodeGen extends Phase {
       }
       rsm.copy(from = nfrom, map = nmap.get) :@ rsm.nodeType
     }
-
-  private[this] def mapServerSideOrCast(n: Node, keepType: Boolean = true)(f: Node => Node): Node = n match {
-    case n: CollectionCast => f(n)
-    case n: ClientSideOp => n.nodeMapServerSide(keepType, (ch => mapServerSideOrCast(ch, keepType)(f)))
-    case n => f(n)
-  }
 
   def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState): (Node, Option[Node])
 

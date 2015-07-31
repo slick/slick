@@ -25,7 +25,9 @@ class MergeToComprehensions extends Phase {
 
   type Mappings = Seq[((TypeSymbol, TermSymbol), List[TermSymbol])]
 
-  def apply(state: CompilerState) = state.map(convert)
+  def apply(state: CompilerState) = state.map(n => ClientSideOp.mapResultSetMapping(n, keepType = false) { rsm =>
+    rsm.copy(from = convert(rsm.from), map = rsm.map.replace { case r: Ref => r.untyped })
+  }.infer())
 
   def convert(tree: Node): Node = {
     // Find all references into tables so we can convert TableNodes to Comprehensions
@@ -233,6 +235,8 @@ class MergeToComprehensions extends Phase {
     }
 
     def convert1(n: Node): Node = n match {
+      case CollectionCast(_, _) =>
+        n.mapChildren(convert1, keepType = true)
       case n :@ Type.Structural(CollectionType(cons, el)) =>
         convertOnlyInScalar(createTopLevel(n)._1)
       case a: Aggregate =>
@@ -254,10 +258,13 @@ class MergeToComprehensions extends Phase {
       case n => convert1(n)
     }
 
-    convert1(tree)
+    val tree2 :@ CollectionType(cons2, _) = convert1(tree)
+    val cons1 = tree.nodeType.asCollectionType.cons
+    if(cons2 != cons1) CollectionCast(tree2, cons1).infer()
+    else tree2
   }
 
-  /** Merge the common operations Bind, Filter and CollectionBase into an existing Comprehension.
+  /** Merge the common operations Bind, Filter and CollectionCast into an existing Comprehension.
     * This method is used at different stages of the pipeline. */
   def mergeCommon(rec: (Node, Boolean) => (Comprehension, Replacements), parent: (Node, Boolean) => (Comprehension, Replacements),
                   n: Node, buildBase: Boolean,
@@ -277,7 +284,7 @@ class MergeToComprehensions extends Phase {
       logger.debug("Merging Filter into Comprehension:", Ellipsis(n, List(0)))
       val p2 = applyReplacements(p1, replacements1, c1)
       val c2 =
-        if(c1.groupBy.isEmpty) c1.copy(where = Some(c1.where.fold(p2)(and(p2, _)).infer())) :@ c1.nodeType
+        if(c1.groupBy.isEmpty) c1.copy(where = Some(c1.where.fold(p2)(and(_, p2)).infer())) :@ c1.nodeType
         else c1.copy(having = Some(c1.having.fold(p2)(and(p2, _)).infer())) :@ c1.nodeType
       logger.debug("Merged Filter into Comprehension:", c2)
       (c2, replacements1)

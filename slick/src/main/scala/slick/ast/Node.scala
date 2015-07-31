@@ -202,7 +202,7 @@ final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) ex
   protected def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, value.nodeType))
 }
 
-final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) extends UnaryNode with SimplyTypedNode with ClientSideOp {
+final case class CollectionCast(child: Node, cons: CollectionTypeConstructor) extends UnaryNode with SimplyTypedNode {
   type Self = CollectionCast
   protected[this] def rebuild(child: Node) = copy(child = child)
   protected def buildType = CollectionType(cons, child.nodeType.asCollectionType.elementType)
