@@ -33,7 +33,7 @@ object SlickBuild extends Build {
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
     val pools = Seq(
-      "com.zaxxer" % "HikariCP-java6" % "2.0.1"
+      "com.zaxxer" % "HikariCP-java6" % "2.3.7"
     )
     val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams) ++ pools.map(_ % "optional")
     val h2 = "com.h2database" % "h2" % "1.3.170"

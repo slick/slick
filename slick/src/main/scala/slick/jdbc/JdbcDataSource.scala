@@ -155,6 +155,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
 
     // Pool configuration
     hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 1000))
+    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 1000))
     hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
     hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
     hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
