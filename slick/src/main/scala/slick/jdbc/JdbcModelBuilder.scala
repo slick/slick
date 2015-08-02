@@ -97,9 +97,8 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
 
   class Builders(val tablesByQName: Map[MQName, TableBuilder])
 
-  /** Converts from java.sql.Types to the corresponding Java class name (with fully qualified path). */
-  /** Converts from java.sql.Types to the corresponding Java class name (with fully qualified path). */
-  def jdbcTypeToScala(jdbcType: Int): ClassTag[_] = {
+  /** Converts from java.sql.Types w/ type name to the corresponding Java class name (with fully qualified path). */
+  def jdbcTypeToScala(jdbcType: Int, typeName: String = ""): ClassTag[_] = {
     import java.sql.Types._
     import scala.reflect.classTag
     // see TABLE B-1 of JSR-000221 JBDCTM API Specification 4.1 Maintenance Release
