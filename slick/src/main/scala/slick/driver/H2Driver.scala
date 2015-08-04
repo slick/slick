@@ -83,6 +83,7 @@ trait H2Driver extends JdbcDriver { driver =>
     override protected val concatOperator = Some("||")
     override protected val alwaysAliasSubqueries = false
     override protected val supportsLiteralGroupBy = true
+    override protected val quotedJdbcFns = Some(Nil)
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
       case Library.NextValue(SequenceNode(name))    => b"nextval(schema(), '$name')"

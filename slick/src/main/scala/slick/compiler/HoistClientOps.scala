@@ -89,15 +89,15 @@ class HoistClientOps extends Phase {
   }
 
   /** Rewrite remaining `GetOrElse` operations in the server-side tree into conditionals. */
-  def rewriteDBSide(tree: Node): Node = tree match {
-    case GetOrElse(ch, default) =>
+  def rewriteDBSide(tree: Node): Node = tree.replace({
+    case GetOrElse(OptionApply(ch), _) => ch
+    case n @ GetOrElse(ch :@ OptionType(tpe), default) =>
+      logger.debug("Translating GetOrElse to IfNull", n)
       val d = try default() catch {
         case NonFatal(ex) => throw new SlickException(
           "Caught exception while computing default value for Rep[Option[_]].getOrElse -- "+
             "This cannot be done lazily when the value is needed on the database side", ex)
       }
-      val ch2 :@ OptionType(tpe) = rewriteDBSide(ch)
-      Library.IfNull.typed(tpe, ch2, LiteralNode.apply(tpe, d)).infer()
-    case n => n.mapChildren(rewriteDBSide, keepType = true)
-  }
+      Library.IfNull.typed(tpe, ch, LiteralNode(tpe, d)).infer()
+  }, keepType = true, bottomUp = true)
 }

@@ -137,6 +137,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     override protected val concatOperator = Some("||")
     override protected val parenthesizeNestedRHSJoin = true
     override protected val alwaysAliasSubqueries = false
+    override protected val quotedJdbcFns = Some(Nil)
 
     override protected def buildOrdering(n: Node, o: Ordering) {
       if(o.nulls.last && !o.direction.desc)
@@ -167,18 +168,6 @@ trait SQLiteDriver extends JdbcDriver { driver =>
       case Library.Floor(ch) => b"round($ch-0.5)"
       case Library.User() => b"''"
       case Library.Database() => b"''"
-      case Apply(j: Library.JdbcFunction, ch) if j != Library.Concat =>
-        /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
-         * unescaped function calls by default */
-        b"${j.name}("
-        b.sep(ch, ",")(expr(_, true))
-        b")"
-      case s: SimpleFunction if s.scalar =>
-        /* The SQLite JDBC driver does not support ODBC {fn ...} escapes, so we try
-         * unescaped function calls by default */
-        b"${s.name}("
-        b.sep(s.children, ",")(expr(_, true))
-        b")"
       case RowNumber(_) => throw new SlickException("SQLite does not support row numbers")
       // https://github.com/jOOQ/jOOQ/issues/1595
       case Library.Repeat(n, times) => b"replace(substr(quote(zeroblob(($times + 1) / 2)), 3, $times), '0', $n)"

@@ -66,6 +66,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
     override protected val concatOperator = Some("||")
     override protected val alwaysAliasSubqueries = false
     override protected val supportsLiteralGroupBy = true
+    override protected val quotedJdbcFns = Some(Nil)
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case l @ LiteralNode(v: String) if (v ne null) && jdbcTypeFor(l.nodeType).sqlType != Types.CHAR =>

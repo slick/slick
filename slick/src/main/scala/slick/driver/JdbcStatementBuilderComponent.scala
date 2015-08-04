@@ -103,6 +103,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected val pi = "3.1415926535897932384626433832795"
     protected val alwaysAliasSubqueries = true
     protected val supportsLiteralGroupBy = false
+    protected val quotedJdbcFns: Option[Seq[Library.JdbcFunction]] = None // quote all by default
 
     // Mutable state accessible to subclasses
     protected val b = new SQLBuilder
@@ -371,9 +372,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         } else b.sep(ch, " " + sym.name + " ")(expr(_))
         b"\)"
       case Apply(sym: Library.JdbcFunction, ch) =>
-        b"{fn ${sym.name}("
+        val quote = quotedJdbcFns.map(_.contains(sym)).getOrElse(true)
+        if(quote) b"{fn "
+        b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
-        b")}"
+        b")"
+        if(quote) b"}"
       case Apply(sym: Library.SqlFunction, ch) =>
         b"${sym.name}("
         b.sep(ch, ",")(expr(_, true))
