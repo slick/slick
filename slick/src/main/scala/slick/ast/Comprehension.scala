@@ -47,23 +47,23 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
   def generators = Seq((sym, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(sym = gen.head)
-  def withInferredType(scope: Type.Scope, typeChildren: Boolean, retype: Boolean): Self = {
+  def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     // Assign type to "from" Node and compute the resulting scope
-    val f2 = from.infer(scope, typeChildren, retype)
+    val f2 = from.infer(scope, typeChildren)
     val genScope = scope + (sym -> f2.nodeType.asCollectionType.elementType)
     // Assign types to "select", "where", "groupBy", "orderBy", "having", "fetch" and "offset" Nodes
-    val s2 = select.infer(genScope, typeChildren, retype)
-    val w2 = mapOrNone(where)(_.infer(genScope, typeChildren, retype))
-    val g2 = mapOrNone(groupBy)(_.infer(genScope, typeChildren, retype))
+    val s2 = select.infer(genScope, typeChildren)
+    val w2 = mapOrNone(where)(_.infer(genScope, typeChildren))
+    val g2 = mapOrNone(groupBy)(_.infer(genScope, typeChildren))
     val o = orderBy.map(_._1)
-    val o2 = mapOrNone(o)(_.infer(genScope, typeChildren, retype))
-    val h2 = mapOrNone(having)(_.infer(genScope, typeChildren, retype))
-    val fetch2 = mapOrNone(fetch)(_.infer(genScope, typeChildren, retype))
-    val offset2 = mapOrNone(offset)(_.infer(genScope, typeChildren, retype))
+    val o2 = mapOrNone(o)(_.infer(genScope, typeChildren))
+    val h2 = mapOrNone(having)(_.infer(genScope, typeChildren))
+    val fetch2 = mapOrNone(fetch)(_.infer(genScope, typeChildren))
+    val offset2 = mapOrNone(offset)(_.infer(genScope, typeChildren))
     // Check if the nodes changed
     val same = (f2 eq from) && (s2 eq select) && w2.isEmpty && g2.isEmpty && o2.isEmpty && h2.isEmpty && fetch2.isEmpty && offset2.isEmpty
     val newType =
-      if(!hasType || retype) CollectionType(f2.nodeType.asCollectionType.cons, s2.nodeType.asCollectionType.elementType)
+      if(!hasType) CollectionType(f2.nodeType.asCollectionType.cons, s2.nodeType.asCollectionType.elementType)
       else nodeType
     if(same && newType == nodeType) this else {
       copy(

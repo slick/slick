@@ -125,6 +125,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
+    override protected val quotedJdbcFns = Some(Vector(Library.Database, Library.User))
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b"\nlimit $t offset $d"
@@ -134,6 +135,9 @@ trait PostgresDriver extends JdbcDriver { driver =>
     }
 
     override def expr(n: Node, skipParens: Boolean = false) = n match {
+      case Library.UCase(ch) => b"upper($ch)"
+      case Library.LCase(ch) => b"lower($ch)"
+      case Library.IfNull(ch, d) => b"coalesce($ch, $d)"
       case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
       case _ => super.expr(n, skipParens)

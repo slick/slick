@@ -42,7 +42,7 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
         c <- categories
         p <- posts if c.id === p.category
       } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
-      _ <- q1.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
+      _ <- mark("q1", q1.map(p => (p._1, p._2)).result).map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       // Explicit inner join
       q2 = (for {
         (c,p) <- categories join posts on (_.id === _.category)

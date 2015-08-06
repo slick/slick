@@ -118,8 +118,10 @@ trait DerbyDriver extends JdbcDriver { driver =>
   override val scalarFrom = Some("sysibm.sysdummy1")
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
+    override protected val concatOperator = Some("||")
     override protected val supportsTuples = false
     override protected val supportsLiteralGroupBy = true
+    override protected val quotedJdbcFns = Some(Vector(Library.User))
 
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.Cast(ch @ _*) =>

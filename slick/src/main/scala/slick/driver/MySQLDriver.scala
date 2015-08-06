@@ -137,6 +137,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val supportsCast = false
     override protected val parenthesizeNestedRHSJoin = true
+    override protected val quotedJdbcFns = Some(Nil)
 
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>

@@ -79,13 +79,8 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
     val s2 = p(state)
     if(s2.tree ne state.tree) {
       logger.debug("After phase "+p.name+":", s2.tree)
-      if(GlobalConfig.verifyTypes) {
-        s2.wellTyped match {
-          case WellTyped.All => Phase.verifyTypes(s2)
-          case WellTyped.ServerSide => Phase.verifyTypesServerSide(s2)
-          case WellTyped.None =>
-        }
-      }
+      if(GlobalConfig.verifyTypes && s2.wellTyped)
+        (new VerifyTypes(after = Some(p))).apply(s2)
     }
     else logger.debug("After phase "+p.name+": (no change)")
     s2
@@ -121,10 +116,11 @@ object QueryCompiler {
     Phase.createAggregates,
     Phase.resolveZipJoins,
     Phase.pruneProjections,
-    Phase.mergeToComprehensions,
-    Phase.fixRowNumberOrdering,
     Phase.createResultSetMapping,
     Phase.hoistClientOps,
+    Phase.reorderOperations,
+    Phase.mergeToComprehensions,
+    Phase.fixRowNumberOrdering,
     Phase.removeFieldNames
     // optional rewriteBooleans goes here
     // optional specializeParameters goes here
@@ -165,7 +161,6 @@ object Phase {
   val expandTables = new ExpandTables
   val forceOuterBinds = new ForceOuterBinds
   val removeMappedTypes = new RemoveMappedTypes
-  val createResultSetMapping = new CreateResultSetMapping
   val expandSums = new ExpandSums
   val expandConditionals = new ExpandConditionals
   val expandRecords = new ExpandRecords
@@ -175,10 +170,12 @@ object Phase {
   val verifySymbols = new VerifySymbols
   val removeTakeDrop = new RemoveTakeDrop
   val resolveZipJoins = new ResolveZipJoins
+  val createResultSetMapping = new CreateResultSetMapping
+  val hoistClientOps = new HoistClientOps
+  val reorderOperations = new ReorderOperations
   val relabelUnions = new RelabelUnions
   val mergeToComprehensions = new MergeToComprehensions
   val fixRowNumberOrdering = new FixRowNumberOrdering
-  val hoistClientOps = new HoistClientOps
   val pruneProjections = new PruneProjections
   val removeFieldNames = new RemoveFieldNames
 
@@ -186,8 +183,6 @@ object Phase {
   val resolveZipJoinsRownumStyle = new ResolveZipJoins(rownumStyle = true)
   val rewriteBooleans = new RewriteBooleans
   val specializeParameters = new SpecializeParameters
-  val verifyTypes = new VerifyTypes
-  val verifyTypesServerSide = new VerifyTypes(onlyServerSide = true)
 }
 
 /** The current state of a compiler run, consisting of the current AST and
@@ -195,9 +190,9 @@ object Phase {
   * to the SymbolNamer. The state is tied to a specific compiler instance so
   * that phases can call back into the compiler. */
 class CompilerState private (val compiler: QueryCompiler, val symbolNamer: SymbolNamer,
-                             val tree: Node, state: HashMap[String, Any], val wellTyped: WellTyped) {
+                             val tree: Node, state: HashMap[String, Any], val wellTyped: Boolean) {
   def this(compiler: QueryCompiler, tree: Node) =
-    this(compiler, new SymbolNamer("s", "t"), tree, new HashMap, WellTyped.None)
+    this(compiler, new SymbolNamer("s", "t"), tree, new HashMap, false)
 
   /** Get the phase state for a phase */
   def get[P <: Phase](p: P): Option[p.State] = state.get(p.name).asInstanceOf[Option[p.State]]
@@ -209,17 +204,10 @@ class CompilerState private (val compiler: QueryCompiler, val symbolNamer: Symbo
   /** Return a new `CompilerState` which encapsulates the specified AST */
   def withNode(tree: Node) = new CompilerState(compiler, symbolNamer, tree, state, wellTyped)
 
-  /** Return a new `CompilerState` with the specified `WellTyped` option */
-  def withWellTyped(wellTyped: WellTyped) = new CompilerState(compiler, symbolNamer, tree, state, wellTyped)
+  /** Return a new `CompilerState` which indicates whether or not the AST should be well-typed
+    * after every phase. */
+  def withWellTyped(wellTyped: Boolean) = new CompilerState(compiler, symbolNamer, tree, state, wellTyped)
 
   /** Return a new `CompilerState` with a transformed AST */
   def map(f: Node => Node) = withNode(f(tree))
-}
-
-/** Indicates which parts of the AST are well-typed after a phase. */
-sealed trait WellTyped
-object WellTyped {
-  case object None extends WellTyped
-  case object ServerSide extends WellTyped
-  case object All extends WellTyped
 }

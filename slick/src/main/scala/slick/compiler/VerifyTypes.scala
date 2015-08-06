@@ -9,13 +9,12 @@ import scala.collection.mutable
 
 /** Optional phase which verifies that retyping the tree does not change any types. Useful for
   * debugging type-related problems with large trees. */
-class VerifyTypes(onlyServerSide: Boolean = false) extends Phase {
+class VerifyTypes(after: Option[Phase] = None) extends Phase {
   val name = "verifyTypes"
 
   def apply(state: CompilerState) = state.map { tree =>
-    logger.debug(s"Verifying types (onlyServerSide = $onlyServerSide)")
-    if(onlyServerSide) ClientSideOp.mapServerSide(tree)(check)
-    else check(tree)
+    logger.debug(s"Verifying types")
+    check(tree)
   }
 
   def check(tree: Node): Node = {
@@ -47,8 +46,9 @@ class VerifyTypes(onlyServerSide: Boolean = false) extends Phase {
     compare(tree, retyped)
 
     if(errors.nonEmpty)
-      throw new SlickTreeException(errors.size+" type errors found in "+nodeCount+" nodes:", tree,
-        removeUnmarked = false, mark = (errors contains RefId(_)))
+      throw new SlickTreeException(
+        after.map(p => "After "+p.name+": ").getOrElse("")+errors.size+" type errors found in "+nodeCount+" nodes:",
+        tree, removeUnmarked = false, mark = (errors contains RefId(_)))
 
     tree
   }

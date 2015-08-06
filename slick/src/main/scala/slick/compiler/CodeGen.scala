@@ -1,6 +1,7 @@
 package slick.compiler
 
-import slick.ast.{ClientSideOp, CompiledStatement, ResultSetMapping, Node, First}
+import slick.ast.TypeUtil.:@
+import slick.ast._
 import slick.util.SlickLogger
 
 /** A standard skeleton for a code generator phase. */
@@ -32,6 +33,12 @@ abstract class CodeGen extends Phase {
     }
 
   def compileServerSideAndMapping(serverSide: Node, mapping: Option[Node], state: CompilerState): (Node, Option[Node])
+
+  /** Extract the source tree and type, after possible CollectionCast operations, from a tree */
+  def treeAndType(n: Node): (Node, Type) = n match {
+    case CollectionCast(ch, _) :@ tpe => (treeAndType(ch)._1, tpe)
+    case n => (n, n.nodeType)
+  }
 }
 
 object CodeGen {
