@@ -57,7 +57,7 @@ trait BasicProfile extends BasicActionComponent { driver: BasicDriver =>
     implicit def streamableCompiledQueryActionExtensionMethods[RU, EU](c: StreamableCompiled[_, RU, EU]): StreamingQueryActionExtensionMethods[RU, EU] =
       createStreamingQueryActionExtensionMethods[RU, EU](c.compiledQuery, c.param)
     // Applying a CompiledFunction always results in only a RunnableCompiled, not a StreamableCompiled, so we need this:
-    implicit def runnableStreamableCompiledQueryActionExtensionMethods[R, RU, EU, C[_]](c: RunnableCompiled[Query[R, EU, C], RU]): StreamingQueryActionExtensionMethods[RU, EU] =
+    implicit def streamableAppliedCompiledFunctionActionExtensionMethods[R, RU, EU, C[_]](c: AppliedCompiledFunction[_, Query[R, EU, C], RU]): StreamingQueryActionExtensionMethods[RU, EU] =
       createStreamingQueryActionExtensionMethods[RU, EU](c.compiledQuery, c.param)
     // This only works on Scala 2.11 due to SI-3346:
     implicit def recordQueryActionExtensionMethods[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryActionExtensionMethods[R, NoStream] =

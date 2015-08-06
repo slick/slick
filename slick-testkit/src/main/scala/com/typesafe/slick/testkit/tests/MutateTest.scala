@@ -43,7 +43,7 @@ class MutateTest extends AsyncTest[JdbcTestDB] {
       ts.schema.create,
       ts ++= Seq((1,1), (1,2), (1,3), (1,4)),
       ts ++= Seq((2,5), (2,6), (2,7), (2,8))
-    ) andThen runnableStreamableCompiledQueryActionExtensionMethods(tsByA(1)).mutate(sendEndMarker = true).transactionally
+    ) andThen tsByA(1).mutate(sendEndMarker = true).transactionally
 
     foreach(db.stream(a)){ m =>
       if(!m.end) m.delete
