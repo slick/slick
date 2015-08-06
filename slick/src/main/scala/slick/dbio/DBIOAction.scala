@@ -120,7 +120,9 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
   def isLogged: Boolean = false
 }
 
-object DBIO {
+private object DBIO extends DBIOModule // for backwards binary compatbility
+
+class DBIOModule {
   /** Convert a `Future` to a [[DBIOAction]]. */
   def from[R](f: Future[R]): DBIOAction[R, NoStream, Effect] = FutureAction[R](f)
 

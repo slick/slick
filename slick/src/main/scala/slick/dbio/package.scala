@@ -8,4 +8,5 @@ package object dbio {
 
   /** Simplified type for a [[DBIOAction]] without streaming or effect tracking */
   type DBIO[+R] = DBIOAction[R, NoStream, Effect.All]
+  val DBIO = new DBIOModule
 }
