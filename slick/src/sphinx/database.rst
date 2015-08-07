@@ -53,8 +53,8 @@ Thus you may omit the ``url`` property if the ``DATABASE_URL`` environment varia
 is set. You may also define a custom environment variable with standard
 Typesafe Config syntax, such as ``${?MYSQL_DATABASE_URL}``.
 
-Or you may pass a :javaapi:`DatabaseUrlDataSource <slick/jdbc/DatabaseUrlDataSource>` object to
-:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor,Boolean):DatabaseDef>`.
+Or you may pass a :api:`DatabaseUrlDataSource <slick/jdbc/DatabaseUrlDataSource>` object to
+:api:`forDataSource <slick.jdbc.JdbcBackend$DatabaseFactoryDef@forDataSource(DataSource,AsyncExecutor):DatabaseDef>`.
 
 .. includecode:: code/Connection.scala#forDatabaseURL
 
