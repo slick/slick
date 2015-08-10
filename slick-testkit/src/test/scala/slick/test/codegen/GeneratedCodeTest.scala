@@ -1,5 +1,7 @@
 package slick.test.codegen
 
+import slick.driver.JdbcProfile
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import slick.jdbc.meta.MTable
 import slick.ast.{Node, Select}
@@ -13,7 +15,7 @@ class GeneratedCodeTest extends TestCodeRunner(AllTests)
 object GeneratedCodeTest {
   def testCG1 = {
     import CG1._
-    import tdb.driver.api._
+    import profile.api._
     DBIO.seq(
       schema.create,
       Suppliers += Supplier(1, "1", "2", "3", "4", "5"),
@@ -70,7 +72,7 @@ object GeneratedCodeTest {
     }
     val Db1 = new Db1
     import Db1._
-    import tdb.driver.api._
+    import profile.api._
     val s = Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460")
     DBIO.seq(
       schema.create,
@@ -82,7 +84,7 @@ object GeneratedCodeTest {
 
   def testCG3 = {
     import CG3._
-    import tdb.driver.api._
+    import profile.api._
     val s = Supplier(49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460")
     DBIO.seq(
       schema.create,
@@ -93,7 +95,7 @@ object GeneratedCodeTest {
 
   def testCG7 = {
     import CG7._
-    import tdb.driver.api._
+    import profile.api._
     DBIO.seq(
       schema.create,
       Supps.length.result.map(assertEquals(0, _)),
@@ -105,7 +107,7 @@ object GeneratedCodeTest {
 
   def testCG8 = {
     import CG8._
-    import tdb.driver.api._
+    import profile.api._
     DBIO.seq(
       schema.create,
       SimpleAs.length.result.map(assertEquals(0, _)),
@@ -117,7 +119,7 @@ object GeneratedCodeTest {
 
   def testCG9 = {
     import CG9._
-    import tdb.driver.api._
+    import profile.api._
     def assertAll(all: Seq[ERow]) = {
       assertEquals( 3, all.size )
       assertEquals( Set(1,2,3), all.map(_.k1.get).toSet )

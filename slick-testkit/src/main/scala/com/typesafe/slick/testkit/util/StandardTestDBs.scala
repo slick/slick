@@ -3,6 +3,7 @@ package com.typesafe.slick.testkit.util
 import java.io.File
 import java.util.logging.{Level, Logger}
 import java.sql.SQLException
+import slick.compiler.Phase
 import slick.dbio._
 import slick.driver._
 import slick.memory.MemoryDriver
@@ -18,6 +19,16 @@ object StandardTestDBs {
   lazy val H2Mem = new H2TestDB("h2mem", false) {
     val url = "jdbc:h2:mem:test1"
     override def isPersistent = false
+  }
+
+  /** A modified H2Mem that tests the `removeTakeDrop` phase (which is not used by any of the
+    * standard drivers. */
+  lazy val H2Rownum = new H2TestDB("h2rownum", false) {
+    val url = "jdbc:h2:mem:test_rownum"
+    override def isPersistent = false
+    override val driver = new H2Driver {
+      override protected def computeQueryCompiler = super.computeQueryCompiler.addAfter(Phase.removeTakeDrop, Phase.expandSums)
+    }
   }
 
   lazy val H2MemKeepAlive = new H2TestDB("h2mem", true) {
@@ -132,7 +143,7 @@ object StandardTestDBs {
 }
 
 abstract class H2TestDB(confName: String, keepAlive: Boolean) extends InternalJdbcTestDB(confName) {
-  val driver = H2Driver
+  val driver: Driver = H2Driver
   val jdbcDriver = "org.h2.Driver"
   override def capabilities = super.capabilities - TestDB.capabilities.jdbcMetaGetFunctions - TestDB.capabilities.jdbcMetaGetClientInfoProperties
   override def createDB(): profile.Backend#Database = database.forURL(url, driver = jdbcDriver, keepAliveConnection = keepAlive)

@@ -7,6 +7,9 @@ import com.typesafe.slick.testkit.util.{StandardTestDBs, DriverTest, Testkit}
 class H2MemTest extends DriverTest(StandardTestDBs.H2Mem)
 
 @RunWith(classOf[Testkit])
+class H2RownumTest extends DriverTest(StandardTestDBs.H2Rownum)
+
+@RunWith(classOf[Testkit])
 class H2DiskTest extends DriverTest(StandardTestDBs.H2Disk)
 
 @RunWith(classOf[Testkit])
