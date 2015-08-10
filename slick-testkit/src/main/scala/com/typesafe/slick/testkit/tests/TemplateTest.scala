@@ -93,6 +93,7 @@ class TemplateTest extends AsyncTest[RelationalTestDB] {
     seq(
       ts.schema.create,
       Compiled(ts.map(identity)) += (1, "a"),
+      Compiled(ts.map(identity)).result.map(_ shouldBe Seq((1, "a"))),
       Compiled(ts) ++= Seq((2, "b"), (3, "c")),
       byIdAndS(1, "a").result.map(r => r.toSet shouldBe Set((1, "a"))),
       byIdAndSC(1, "a").result.map((r: Seq[(Int, String)]) => r.toSet shouldBe Set((1, "a"))),
