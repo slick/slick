@@ -391,9 +391,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         }
         b" end)"
       case RowNumber(by) =>
-        b"row_number() over("
-        if(by.isEmpty) b"order by (select 1)"
-        else buildOrderByClause(by)
+        b"row_number() over(order by "
+        if(by.isEmpty) b"(select 1)"
+        else b.sep(by, ", "){ case (n, o) => buildOrdering(n, o) }
         b")"
       case p @ Path(path) =>
         val (base, rest) = path.foldRight[(Option[TermSymbol], List[TermSymbol])]((None, Nil)) {

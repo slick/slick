@@ -226,21 +226,25 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       } yield (c.id, p.category)
       _ <- mark("q2", q2.result).map(_ shouldBe List((1,-1), (2,1), (3,2), (4,2)))
       q3 = for {
-        (c, p) <- categories zip posts
+        (c, p) <- categories.sortBy(_.id) zip posts.sortBy(_.id)
       } yield (c.id, p.category)
-      _ <- mark("q3", q3.result).map(_ shouldBe List((1, -1), (3, 1), (2, 2), (4, 3)))
+      _ <- mark("q3", q3.result).map(_ shouldBe List((1, -1), (2, 1), (3, 2), (4, 3)))
       q4 = for {
-        res <- categories.zipWith(posts, (c: Categories, p: Posts) => (c.id, p.category))
+        res <- categories.sortBy(_.id).zipWith(posts.sortBy(_.id), (c: Categories, p: Posts) => (c.id, p.category))
       } yield res
-      _ <- mark("q4", q4.result).map(_ shouldBe List((1, -1), (3, 1), (2, 2), (4, 3)))
+      _ <- mark("q4", q4.result).map(_ shouldBe List((1, -1), (2, 1), (3, 2), (4, 3)))
       q5 = for {
+        (c, i) <- categories.sortBy(_.id).zipWithIndex
+      } yield (c.id, i)
+      _ <- mark("q5", q5.result).map(_ shouldBe List((1,0), (2,1), (3,2), (4,3)))
+      q5b = for {
         (c, i) <- categories.zipWithIndex
       } yield (c.id, i)
-      _ <- mark("q5", q5.result).map(_ shouldBe List((1,0), (3,1), (2,2), (4,3)))
+      _ <- mark("q5b", q5b.result).map(_.map(_._2).toSet shouldBe Set(0L, 1L, 2L, 3L))
       q6 = for {
-        ((c, p), i) <- (categories zip posts).zipWithIndex
+        ((c, p), i) <- (categories.sortBy(_.id) zip posts.sortBy(_.id)).zipWithIndex
       } yield (c.id, p.category, i)
-      _ <- mark("q6", q6.result).map(_ shouldBe List((1, -1, 0), (3, 1, 1), (2, 2, 2), (4, 3, 3)))
+      _ <- mark("q6", q6.result).map(_ shouldBe List((1, -1, 0), (2, 1, 1), (3, 2, 2), (4, 3, 3)))
     } yield ()
   }
 

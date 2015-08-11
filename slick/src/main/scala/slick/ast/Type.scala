@@ -296,6 +296,13 @@ class TypeUtil(val tpe: Type) extends AnyVal {
   }
 
   def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
+
+  def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean = {
+    if(tss.isEmpty) false else tpe match {
+      case NominalType(ts, exp) => tss.contains(ts) || exp.containsSymbol(tss)
+      case t => t.children.exists(_.containsSymbol(tss))
+    }
+  }
 }
 
 object TypeUtil {
