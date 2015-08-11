@@ -222,8 +222,9 @@ trait JdbcBackend extends RelationalBackend {
       *               connection pools (in particular, the default [[HikariCPJdbcDataSource]]).
       */
     def forConfig(path: String, config: Config = ConfigFactory.load(), driver: Driver = null): Database = {
-      val source = JdbcDataSource.forConfig(if(path.isEmpty) config else config.getConfig(path), driver, path, ClassLoaderUtil.defaultClassLoader)
-      val executor = AsyncExecutor(path, config.getIntOr("numThreads", 20), config.getIntOr("queueSize", 1000))
+      val usedConfig = if(path.isEmpty) config else config.getConfig(path)
+      val source = JdbcDataSource.forConfig(usedConfig, driver, path, ClassLoaderUtil.defaultClassLoader)
+      val executor = AsyncExecutor(path, usedConfig.getIntOr("numThreads", 20), usedConfig.getIntOr("queueSize", 1000))
       forSource(source, executor)
     }
   }
