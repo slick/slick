@@ -259,6 +259,7 @@ extlinks = {
 apilinks = {
   'api': 'api/index.html#%s',
   'codegenapi': 'codegen-api/index.html#%s',
+  'hikaricpapi': 'hikaricp-api/index.html#%s',
   'scalaapi': 'http://www.scala-lang.org/api/'+scala_version+'/#%s'
 }
 

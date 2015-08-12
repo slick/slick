@@ -26,16 +26,14 @@ object SlickBuild extends Build {
     val testngExtras = Seq(
       "com.google.inject" % "guice" % "2.0"
     )
-    val slf4j = "org.slf4j" % "slf4j-api" % "1.6.4"
+    val slf4j = "org.slf4j" % "slf4j-api" % "1.7.10"
     val logback = "ch.qos.logback" % "logback-classic" % "1.1.3"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
     val reactiveStreamsVersion = "1.0.0"
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-    val pools = Seq(
-      "com.zaxxer" % "HikariCP-java6" % "2.3.7"
-    )
-    val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams) ++ pools.map(_ % "optional")
+    val hikariCP = "com.zaxxer" % "HikariCP-java6" % "2.3.7"
+    val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
     val h2 = "com.h2database" % "h2" % "1.4.187"
     val testDBs = Seq(
       h2,
@@ -111,7 +109,6 @@ object SlickBuild extends Build {
       "-diagrams", // requires graphviz
       "-groups"
     )),
-    libraryDependencies ++= Dependencies.mainDependencies,
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     publishTo <<= (repoKind){
@@ -170,6 +167,7 @@ object SlickBuild extends Build {
     test in (reactiveStreamsTestProject, Test),
     packageDoc in Compile in slickProject,
     packageDoc in Compile in slickCodegenProject,
+    packageDoc in Compile in slickHikariCPProject,
     packageDoc in Compile in slickTestkitProject,
     sdlc in aRootProject
   )))
@@ -182,13 +180,14 @@ object SlickBuild extends Build {
       test := (), testOnly :=  (), // suppress test status output
       commands += testAll,
       sdlc := (),
-      sdlc <<= sdlc dependsOn (sdlc in slickProject, sdlc in slickCodegenProject)
-    )).aggregate(slickProject, slickCodegenProject, slickTestkitProject)
+      sdlc <<= sdlc dependsOn (sdlc in slickProject, sdlc in slickCodegenProject, sdlc in slickHikariCPProject)
+    )).aggregate(slickProject, slickCodegenProject, slickHikariCPProject, slickTestkitProject)
 
   lazy val slickProject: Project = Project(id = "slick", base = file("slick"),
     settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ inConfig(config("macro"))(Defaults.configSettings) ++ sharedSettings ++ fmppSettings ++ site.settings ++ site.sphinxSupport() ++ mimaDefaultSettings ++ extTarget("slick") ++ commonSdlcSettings ++ osgiSettings ++ Seq(
       name := "Slick",
       description := "Scala Language-Integrated Connection Kit",
+      libraryDependencies ++= Dependencies.mainDependencies,
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
         "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
         "-doc-root-content", "scaladoc-root.txt"
@@ -200,6 +199,7 @@ object SlickBuild extends Build {
       makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickProject, "api"),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickCodegenProject, "codegen-api"),
+      site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickHikariCPProject, "hikaricp-api"),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickTestkitProject, "testkit-api"),
       test := (), testOnly :=  (), // suppress test status output
       previousArtifact := Some("com.typesafe.slick" % ("slick_" + scalaBinaryVersion.value)  % binaryCompatSlickVersion),
@@ -272,9 +272,8 @@ object SlickBuild extends Build {
     ))
   ).configs(DocTest).settings(inConfig(DocTest)(Defaults.testSettings): _*).settings(
     unmanagedSourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/code",
-    unmanagedResourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/resources",
-    libraryDependencies ++= Dependencies.pools.map(_ % "test")
-  ) dependsOn(slickProject, slickCodegenProject % "compile->compile")
+    unmanagedResourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/resources"
+  ) dependsOn(slickProject, slickCodegenProject % "compile->compile", slickHikariCPProject % "test->compile")
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
     settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen") ++ commonSdlcSettings ++ Seq(
@@ -285,6 +284,25 @@ object SlickBuild extends Build {
       )),
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       test := (), testOnly :=  () // suppress test status output
+    )
+  ) dependsOn(slickProject)
+
+  lazy val slickHikariCPProject = Project(id = "hikaricp", base = file("slick-hikaricp"),
+    settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("hikaricp") ++ commonSdlcSettings ++ osgiSettings ++ Seq(
+      name := "Slick-HikariCP",
+      description := "HikariCP integration for Slick (Scala Language-Integrated Connection Kit)",
+      scalacOptions in (Compile, doc) <++= version.map(v => Seq(
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick-hikaricp/src/main€{FILE_PATH}.scala"
+      )),
+      libraryDependencies += Dependencies.hikariCP,
+      test := (), testOnly := (), // suppress test status output
+      OsgiKeys.exportPackage := Seq("slick.jdbc.hikaricp"),
+      OsgiKeys.importPackage := Seq(
+        osgiImport("slick*", slickVersion),
+        osgiImport("scala*", scalaVersion.value),
+        "*"
+      ),
+      OsgiKeys.privatePackage := Nil
     )
   ) dependsOn(slickProject)
 

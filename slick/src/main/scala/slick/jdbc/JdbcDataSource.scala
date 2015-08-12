@@ -6,8 +6,7 @@ import java.util.concurrent.TimeUnit
 import java.sql.{SQLException, DriverManager, Driver, Connection}
 import javax.sql.DataSource
 import com.typesafe.config.Config
-import slick.util.ClassLoaderUtil
-import slick.util.BeanConfigurator
+import slick.util.{Logging, ClassLoaderUtil, BeanConfigurator}
 import slick.util.ConfigExtensionMethods._
 import slick.SlickException
 
@@ -23,16 +22,21 @@ trait JdbcDataSource extends Closeable {
   def close(): Unit
 }
 
-object JdbcDataSource {
+object JdbcDataSource extends Logging {
   /** Create a JdbcDataSource from a `Config`. See [[JdbcBackend.DatabaseFactoryDef.forConfig]]
     * for documentation of the supported configuration parameters. */
   def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): JdbcDataSource = {
+    def loadFactory(name: String): JdbcDataSourceFactory = {
+      val clazz = classLoader.loadClass(name)
+      clazz.getField("MODULE$").get(clazz).asInstanceOf[JdbcDataSourceFactory]
+    }
     val pf: JdbcDataSourceFactory = c.getStringOr("connectionPool", "HikariCP") match {
       case "disabled" => DataSourceJdbcDataSource
-      case "HikariCP" => HikariCPJdbcDataSource
-      case name =>
-        val clazz = classLoader.loadClass(name)
-        clazz.getField("MODULE$").get(clazz).asInstanceOf[JdbcDataSourceFactory]
+      case "HikariCP" => loadFactory("slick.jdbc.hikaricp.HikariCPJdbcDataSource$")
+      case "slick.jdbc.HikariCPJdbcDataSource" =>
+        logger.warn("connectionPool class 'slick.jdbc.HikariCPJdbcDataSource$' has been renamed to 'slick.jdbc.hikaricp.HikariCPJdbcDataSource$'")
+        loadFactory("slick.jdbc.hikaricp.HikariCPJdbcDataSource$")
+      case name => loadFactory(name)
     }
     pf.forConfig(c, driver, name, classLoader)
   }
@@ -168,56 +172,6 @@ object DriverJdbcDataSource extends JdbcDataSourceFactory {
       driver,
       if(cp.isLive) cp else null,
       c.getBooleanOr("keepAliveConnection"))
-  }
-}
-
-/** A JdbcDataSource for a HikariCP connection pool */
-class HikariCPJdbcDataSource(val ds: com.zaxxer.hikari.HikariDataSource, val hconf: com.zaxxer.hikari.HikariConfig) extends JdbcDataSource {
-  def createConnection(): Connection = ds.getConnection()
-  def close(): Unit = ds.close()
-}
-
-object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
-  import com.zaxxer.hikari._
-
-  def forConfig(c: Config, driver: Driver, name: String, classLoader: ClassLoader): HikariCPJdbcDataSource = {
-    if(driver ne null)
-      throw new SlickException("An explicit Driver object is not supported by HikariCPJdbcDataSource")
-    val hconf = new HikariConfig()
-
-    // Connection settings
-    hconf.setDataSourceClassName(c.getStringOr("dataSourceClass", null))
-    Option(c.getStringOr("driverClassName", c.getStringOr("driver"))).map(hconf.setDriverClassName _)
-    hconf.setJdbcUrl(c.getStringOr("url", null))
-    c.getStringOpt("user").foreach(hconf.setUsername)
-    c.getStringOpt("password").foreach(hconf.setPassword)
-    c.getPropertiesOpt("properties").foreach(hconf.setDataSourceProperties)
-
-    // Pool configuration
-    hconf.setConnectionTimeout(c.getMillisecondsOr("connectionTimeout", 1000))
-    hconf.setValidationTimeout(c.getMillisecondsOr("validationTimeout", 1000))
-    hconf.setIdleTimeout(c.getMillisecondsOr("idleTimeout", 600000))
-    hconf.setMaxLifetime(c.getMillisecondsOr("maxLifetime", 1800000))
-    hconf.setLeakDetectionThreshold(c.getMillisecondsOr("leakDetectionThreshold", 0))
-    hconf.setInitializationFailFast(c.getBooleanOr("initializationFailFast", false))
-    c.getStringOpt("connectionTestQuery").foreach { s =>
-      hconf.setJdbc4ConnectionTest(false)
-      hconf.setConnectionTestQuery(s)
-    }
-    c.getStringOpt("connectionInitSql").foreach(hconf.setConnectionInitSql)
-    val numThreads = c.getIntOr("numThreads", 20)
-    hconf.setMaximumPoolSize(c.getIntOr("maxConnections", numThreads * 5))
-    hconf.setMinimumIdle(c.getIntOr("minConnections", numThreads))
-    hconf.setPoolName(name)
-    hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
-
-    // Equivalent of ConnectionPreparer
-    hconf.setReadOnly(c.getBooleanOr("readOnly", false))
-    c.getStringOpt("isolation").map("TRANSACTION_" + _).foreach(hconf.setTransactionIsolation)
-    hconf.setCatalog(c.getStringOr("catalog", null))
-
-    val ds = new HikariDataSource(hconf)
-    new HikariCPJdbcDataSource(ds, hconf)
   }
 }
 

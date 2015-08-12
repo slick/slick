@@ -22,6 +22,8 @@ on the Typesafe web site.
 
 .. index:: Maven, sbt, artifacts, build, dependency
 
+.. _dependencies:
+
 Adding Slick to Your Project
 ============================
 
@@ -58,8 +60,10 @@ log output.
 
 The Reactive Streams API is pulled in automatically as a transitive dependency.
 
-If you want to use Slick's connection pool support, you need to add HikariCP_
-as a dependency.
+If you want to use Slick's connection pool support for HikariCP_, you need to add
+the ``slick-hikaricp`` module as a dependency in the same way as shown for ``slick``
+above. It will automatically provide a compatible version of HikariCP as a transitive
+dependency.
 
 Quick Introduction
 ==================
