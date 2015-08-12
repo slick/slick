@@ -16,6 +16,9 @@ class ResolveZipJoins(rownumStyle: Boolean = false) extends Phase {
   type State = Boolean
   val name = "resolveZipJoins"
 
+  val condAbove: Subquery.Condition = if(rownumStyle) Subquery.AboveRownum else Subquery.AboveRowNumber
+  val condBelow: Subquery.Condition = if(rownumStyle) Subquery.BelowRownum else Subquery.BelowRowNumber
+
   def apply(state: CompilerState) = {
     val n2 = state.tree.replace({
       case b @ Bind(s1,
@@ -47,8 +50,8 @@ class ResolveZipJoins(rownumStyle: Boolean = false) extends Phase {
     val idxExpr =
       if(offset == 1L) RowNumber()
       else Library.-.typed[Long](RowNumber(), LiteralNode(1L - offset))
-    val lbind = Bind(ls, Subquery(from, Subquery.Always), Pure(StructNode(defs :+ (idxSym, idxExpr))))
-    Bind(s1, Subquery(lbind, Subquery.Always), p.replace {
+    val lbind = Bind(ls, Subquery(from, condBelow), Pure(StructNode(defs :+ (idxSym, idxExpr))))
+    Bind(s1, Subquery(lbind, condAbove), p.replace {
       case Select(Ref(s), ElementSymbol(1)) if s == s1 => Ref(s1)
       case Select(Ref(s), ElementSymbol(2)) if s == s1 => Select(Ref(s1), idxSym)
     }).infer()

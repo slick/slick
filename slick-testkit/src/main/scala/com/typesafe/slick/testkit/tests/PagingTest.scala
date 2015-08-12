@@ -19,6 +19,7 @@ class PagingTest extends AsyncTest[RelationalTestDB] {
     val q4b = q1.drop(5).take(3).sortBy(_.id)
     def q5 = q1 take 5 drop 3
     val q6 = q1 take 0
+    val q7 = ids.filter(_.id > 3).sortBy(_.id).take(3)
 
     for {
       _ <- ids.schema.create
@@ -32,6 +33,7 @@ class PagingTest extends AsyncTest[RelationalTestDB] {
         _ <- mark("q5", q5.result).map(_ shouldBe (4 to 5).toList)
       } yield ())
       _ <- mark("q6", q6.result).map(_ shouldBe Nil)
+      _ <- mark("q7", q7.result).map(_ shouldBe List(4, 5, 6))
     } yield ()
   }
 

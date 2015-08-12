@@ -13,10 +13,11 @@ class RemoveTakeDrop extends Phase {
   val name = "removeTakeDrop"
 
   def apply(state: CompilerState) = state.map { n =>
-    val n2 = n.replaceInvalidate {
-      case (n @ TakeDrop(from, t, d), invalid, _) =>
+    val invalid = mutable.Set[TypeSymbol]()
+    def tr(n: Node): Node = n.replace {
+      case n @ TakeDrop(from, t, d) =>
         logger.debug(s"""Translating "drop $d, then take $t" to zipWithIndex operation:""", n)
-        val fromRetyped = from.infer()
+        val fromRetyped = tr(from).infer()
         val from2 = fromRetyped match {
           case b: Bind => b
           case n =>
@@ -41,8 +42,13 @@ class RemoveTakeDrop extends Phase {
         logger.debug(s"""Translated "drop $d, then take $t" to zipWithIndex operation:""", b2)
         val invalidate = fromRetyped.nodeType.collect { case NominalType(ts, _) => ts }
         logger.debug("Invalidating TypeSymbols: "+invalidate.mkString(", "))
-        (b2, invalid ++ invalidate)
+        invalid ++= invalidate
+        b2
+
+      case (n: Ref) if n.nodeType.containsSymbol(invalid) => n.untyped
+      case n @ Select(in, f) if n.nodeType.containsSymbol(invalid) => Select(tr(in), f)
     }
+    val n2 = tr(n)
     logger.debug("After removeTakeDrop without inferring:", n2)
     n2.infer()
   }

@@ -168,7 +168,6 @@ object Phase {
   val createAggregates = new CreateAggregates
   val rewriteJoins = new RewriteJoins
   val verifySymbols = new VerifySymbols
-  val removeTakeDrop = new RemoveTakeDrop
   val resolveZipJoins = new ResolveZipJoins
   val createResultSetMapping = new CreateResultSetMapping
   val hoistClientOps = new HoistClientOps
@@ -180,6 +179,7 @@ object Phase {
   val removeFieldNames = new RemoveFieldNames
 
   /* Extra phases that are not enabled by default */
+  val removeTakeDrop = new RemoveTakeDrop
   val resolveZipJoinsRownumStyle = new ResolveZipJoins(rownumStyle = true)
   val rewriteBooleans = new RewriteBooleans
   val specializeParameters = new SpecializeParameters

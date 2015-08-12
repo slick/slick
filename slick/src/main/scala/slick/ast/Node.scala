@@ -222,8 +222,14 @@ object Subquery {
   sealed trait Condition
   /** Always create a subquery */
   case object Always extends Condition
-  /** Create a subquery if the current Comprehension contains a GROUP BY, ORDER BY or HAVING clause */
-  case object AboveGroupBy extends Condition
+  /** A Subquery boundary below the mapping operation that adds a ROWNUM */
+  case object BelowRownum extends Condition
+  /** A Subquery boundary above the mapping operation that adds a ROWNUM */
+  case object AboveRownum extends Condition
+  /** A Subquery boundary below the mapping operation that adds a ROW_NUMBER */
+  case object BelowRowNumber extends Condition
+  /** A Subquery boundary above the mapping operation that adds a ROW_NUMBER */
+  case object AboveRowNumber extends Condition
 }
 
 /** Common superclass for expressions of type (CollectionType(c, t), _) => CollectionType(c, t). */
