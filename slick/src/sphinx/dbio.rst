@@ -8,7 +8,7 @@ Anything that you can execute on a database, whether it is a getting the result 
 execute it.
 
 *Database I/O Actions* can be combined with several different combinators (see the
-:api:`DBIOAction class <slick.dbio.DBIOAction>` and :api:`DBIO object <slick.dbio.DBIO$>`
+:api:`DBIOAction class <slick.dbio.DBIOAction>` and :api:`DBIO object <slick.dbio.DBIOAction$>`
 for details), but they will always be executed strictly sequentially and (at least conceptually) in a
 single database session.
 
@@ -86,13 +86,13 @@ sequence of execution and result in a failed ``Future`` or *Reactive Stream*.
 Sequential Execution
 ____________________
 
-The simplest combinator is :api:`DBIO.seq <slick.dbio.DBIO$@seq[E<:Effect](DBIOAction[_,NoStream,E]*):DBIOAction[Unit,NoStream,E]>`
+The simplest combinator is :api:`DBIO.seq <slick.dbio.DBIOAction$@seq[E<:Effect](DBIOAction[_,NoStream,E]*):DBIOAction[Unit,NoStream,E]>`
 which takes a varargs list of actions to run in sequence, discarding their return value. If you
 need the return value, you can use :api:`andThen <slick.dbio.DBIOAction@andThen[R2,S2<:NoStream,E2<:Effect](DBIOAction[R2,S2,E2]):DBIOAction[R2,S2,EwithE2]>`
 to combine two actions and keep the result of the second one. If you need both return values of two
 actions, there is the :api:`zip <slick.dbio.DBIOAction@zip[R2,E2<:Effect](DBIOAction[R2,NoStream,E2]):DBIOAction[(R,R2),NoStream,EwithE2]>`
 combinator. For getting all result values from a sequence of actions (of compatible types), use
-:api:`DBIO.sequence <slick.dbio.DBIO$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`.
+:api:`DBIO.sequence <slick.dbio.DBIOAction$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`.
 All these combinators work with pre-existing ``DBIOAction``\ s which are composed eagerly.
 
 If an action depends on a previous action in the sequence, you have to compute it on the fly with
@@ -107,8 +107,8 @@ way Slick ensures that no non-database code is run on the database thread pool.
    You should prefer the less flexible methods without an ``ExecutionContext`` where possible. The
    resulting actions can be executed more efficiently.
 
-Similar to :api:`DBIO.sequence <slick.dbio.DBIO$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
-for upfront composition, there is :api:`DBIO.fold <slick.dbio.DBIO$@fold[T,E<:Effect](Seq[DBIOAction[T,NoStream,E]],T)((T,T)⇒T)(ExecutionContext):DBIOAction[T,NoStream,E]>`
+Similar to :api:`DBIO.sequence <slick.dbio.DBIOAction$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
+for upfront composition, there is :api:`DBIO.fold <slick.dbio.DBIOAction$@fold[T,E<:Effect](Seq[DBIOAction[T,NoStream,E]],T)((T,T)⇒T)(ExecutionContext):DBIOAction[T,NoStream,E]>`
 for working with sequences of actions and composing them based on the previous result.
 
 Error Handling
@@ -132,10 +132,10 @@ one and the cleanup failed.
 Primitives
 __________
 
-You can convert a ``Future`` into an action with :api:`DBIO.from <slick.dbio.DBIO$@from[R](Future[R]):DBIOAction[R,NoStream,Effect]>`.
+You can convert a ``Future`` into an action with :api:`DBIO.from <slick.dbio.DBIOAction$@from[R](Future[R]):DBIOAction[R,NoStream,Effect]>`.
 This allows the result of the ``Future`` to be used in an action sequence. A pre-existing value or
-failure can be converted with :api:`DBIO.successful <slick.dbio.DBIO$@successful[R](R):DBIOAction[R,NoStream,Effect]>`
-and :api:`DBIO.failed <slick.dbio.DBIO$@failed(Throwable):DBIOAction[Nothing,NoStream,Effect]>`, respectively.
+failure can be converted with :api:`DBIO.successful <slick.dbio.DBIOAction$@successful[R](R):DBIOAction[R,NoStream,Effect]>`
+and :api:`DBIO.failed <slick.dbio.DBIOAction$@failed(Throwable):DBIOAction[Nothing,NoStream,Effect]>`, respectively.
 
 Debugging
 _________
