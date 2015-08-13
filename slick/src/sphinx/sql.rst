@@ -53,16 +53,16 @@ The SQL statement produced by this method is always the same::
     insert into coffees values (?, ?, ?, ?, ?)
 
 Note the use of the
-:api:`DBIO.sequence <slick.dbio.DBIO$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
+:api:`DBIO.sequence <slick.dbio.DBIOAction$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
 combinator which is useful for this kind of code:
 
 .. includecode:: code/PlainSQL.scala#sequence
 
 Unlike the simpler
-:api:`DBIO.seq <slick.dbio.DBIO$@seq[E<:Effect](DBIOAction[_,NoStream,E]*):DBIOAction[Unit,NoStream,E]>`
+:api:`DBIO.seq <slick.dbio.DBIOAction$@seq[E<:Effect](DBIOAction[_,NoStream,E]*):DBIOAction[Unit,NoStream,E]>`
 combinator which runs a (varargs) sequence of database I/O actions in the given order and discards
 the return values,
-:api:`DBIO.sequence <slick.dbio.DBIO$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
+:api:`DBIO.sequence <slick.dbio.DBIOAction$@sequence[R,M[+_]<:TraversableOnce[_],E<:Effect](M[DBIOAction[R,NoStream,E]])(CanBuildFrom[M[DBIOAction[R,NoStream,E]],R,M[R]]):DBIOAction[M[R],NoStream,E]>`
 turns a ``Seq[DBIO[T]]`` into a ``DBIO[Seq[T]]``, thus preserving the results of all individual
 actions. It is used here to sum up the affected row counts of all inserts.
 
