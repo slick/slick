@@ -119,9 +119,10 @@ trait JdbcBackend extends RelationalBackend {
     /** Load a database configuration through [[https://github.com/typesafehub/config Typesafe Config]].
       *
       * The main config key to set is `connectionPool`. It determines the connection pool
-      * implementation to use. The default is `HikariCP` (a.k.a. `slick.jdbc.HikariCPJdbcDataSource`)
-      * for [[https://github.com/brettwooldridge/HikariCP HikariCP]]). Use `disabled` (a.k.a.
-      * `slick.jdbc.DataSourceJdbcDataSource`) to disable connection pooling and use a DataSource or
+      * implementation to use. The default is `HikariCP` (a.k.a. `slick.jdbc.hikaricp.HikariCPJdbcDataSource$`)
+      * for [[https://github.com/brettwooldridge/HikariCP HikariCP]]). This requires the "slick-hikaricp"
+      * dependency to be added to your project, in addition to "slick" itself. Use `disabled` (a.k.a.
+      * `slick.jdbc.DataSourceJdbcDataSource$`) to disable connection pooling and use a DataSource or
       * the DriverManager directly. A third-party connection pool implementation can be selected by
       * specifying the fully qualified name of an object implementing [[JdbcDataSourceFactory]].
       *

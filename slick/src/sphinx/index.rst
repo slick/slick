@@ -7,8 +7,9 @@ API Documentation (scaladoc)
 ----------------------------
 
 * `Slick Core <api/index.html>`_ (slick)
-* `TestKit <testkit-api/index.html>`_ (slick-testkit)
 * `Code Generator <codegen-api/index.html>`_ (slick-codegen)
+* `HikariCP integration <hikaricp-api/index.html>`_ (slick-hikaricp)
+* `TestKit <testkit-api/index.html>`_ (slick-testkit)
 * `Slick Extensions <extensions-api/index.html>`_ (slick-extensions)
 
 User Manual

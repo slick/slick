@@ -31,105 +31,26 @@ changes.
 Release candidates have the same compatibility guarantees as the final versions to which they
 lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
 
-Upgrade from 2.1 to 3.0
+Upgrade from 3.0 to 3.1
 =======================
 
-This section describes the changes that are needed when upgrading from Slick 2.1 to 3.0. If you are
+This section describes the changes that are needed when upgrading from Slick 3.0 to 3.1. If you are
 currently using an older version of Slick, please see the older `Slick Manuals`_ for details on other
 changes that may be required.
 
-Package Structure
------------------
+Deprecations
+------------
 
-Slick has moved from package ``scala.slick`` to ``slick``. A package object in ``scala.slick`` provides deprecated
-aliases for many common types and values.
+Most deprecated features from 3.0, including the old ``Invoker`` and ``Executor`` APIs and the package
+aliases for ``scala.slick`` were removed.
 
-Database I/O Actions
---------------------
+HikariCP
+--------
 
-The ``simple`` and ``Implicits`` imports from drivers are deprecated and will be removed in Slick 3.1.
-You should use ``api`` instead, which will give
-you the same features, except for the old ``Invoker`` and ``Executor`` APIs for blocking execution of database calls.
-These have been replaced by a new monadic database I/O actions API. See :doc:`Database I/O Actions <dbio>` for
-details of the new API.
+The HikariCP_ support for Slick was factored out into its own module with a non-optional dependency
+on HikariCP itself. This makes it easier to use the correct version of HikariCP (which does not have
+a well-defined binary compatibility policy) with Slick. See the section on :ref:`dependencies <dependencies>`
+for more information.
 
-Join Operators
---------------
-
-The old outer join operators did not handle ``null`` values correctly, requiring complicated mappings in user code,
-especially when using nested outer joins or outer joins over mapped entities. This is no longer necessary with the
-new outer join operators that lift one (left or right outer join) or both sides (full outer join) of the join into an
-``Option``. This is made possible by the new nested Options and non-primitive Options support in Slick.
-
-The old operators are deprecated but still available. Deprecation warnings will point you to the right replacement:
-
-- leftJoin -> joinLeft
-- rightJoin -> joinRight
-- outerJoin -> joinFull
-- innerJoin -> join
-
-Passing an explicit ``JoinType`` to the generic ``join`` operator does not make sense anymore with the new join
-semantics and is therefore deprecated, too. ``join`` is now used exclusively for inner joins.
-
-first
------
-
-The old Invoker API used the ``first`` and ``firstOption`` methods to get the first element of a collection-valued
-query. The same operations for streaming Actions in the new API are called ``head`` and ``headOption`` respectively,
-consistent with the names used by the Scala Collections API.
-
-Column Type
------------
-
-The type ``Column[T]`` has been subsumed into its supertype ``Rep[T]``. For operations which are only available for
-individual columns, an implicit ``TypedType[T]`` evidence is required. The more flexible handling of Option columns
-requires Option and non-Option columns to be treated differently when creating an implicit ``Shape``. In this case
-the evidence needs to be of type ``OptionTypedType[T]`` or ``BaseTypedType[T]``, respectively. If you want to abstract
-over both, it may be more convenient to pass the required ``Shape`` as an implicit parameter and let it be instantiated
-at the call site where the concrete type is known.
-
-``Column[T]`` is still available as a deprecated alias for ``Rep[T]``. Due to the required implicit evidence, it
-cannot provide complete backwards compatibility in all cases.
-
-Closing Databases
------------------
-
-Since a ``Database`` instance can now have an associated connection pool and thread pool, it is
-important to call ``shutdown`` or ``close`` when you are done using it, so that these pools can be
-shut down properly. You should take care to do this when you migrate to the new action-based API.
-As long as you exclusively use the deprecated synchronous API, it is not strictly necessary.
-
-.. warning::
-   Do not rely on the lazy initialization! Slick 3.1 will require ``Database`` objects to always be
-   closed and may create connection and thread pool immediately.
-
-Metadata API and Code Generator
--------------------------------
-
-The JDBC metadata API in package ``slick.jdbc.meta`` has been switched to the new API, producing Actions instead
-of Invokers. The code generator, which uses this API, has been completely rewritten for the asynchronous API. It still
-supports the same functionality and the same concepts but any customization of the code generator will have to be
-changed. See the code generator tests and the :doc:`code-generation` chapter for examples.
-
-Inserting from Queries and Expressions
---------------------------------------
-
-In Slick 2.0, soft inserts (where auto-incrementing columns are ignored) became the default for inserting raw values.
-Inserting from another query or a computed expression still uses force-insert semantics (i.e. trying to insert even into
-auto-incrementing columns, whether or not the database supports it). The new DBIO API properly reflects this by renaming
-``insert(Query)`` to ``forceInsertQuery(Query)`` and ``insertExpr`` to ``forceInsertExpr``.
-
-Default String Types
---------------------
-
-The default type for ``String`` columns of unconstrained length in JdbcProfile has traditionally been ``VARCHAR(254)``.
-Some drivers (like H2Driver) already changed it into an unconstrained string type. Slick 3.0 now also uses ``VARCHAR``
-on PostgreSQL and ``TEXT`` on MySQL. The former should be harmless but MySQL's ``TEXT`` type is similar to ``CLOB`` and
-has some limitations (e.g. no default values and no index without a prefix length). You can use an explicit
-``O.Length(254)`` column option to go back to the previous behavior or change the default in the application.conf key
-``slick.driver.MySQL.defaultStringType``.
-
-JdbcDriver
-----------
-
-The ``JdbcDriver`` object has been deprecated. You should always use the correct driver for your database system.
+Due to packaging constraints imposed by OSGi, :hikaricpapi:`slick.jdbc.hikaricp.HikariCPJdbcDataSource`
+was moved from package ``slick.jdbc`` to ``slick.jdbc.hikaricp``.
