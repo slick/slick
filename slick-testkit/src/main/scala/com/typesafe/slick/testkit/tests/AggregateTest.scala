@@ -98,7 +98,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       } yield (u, t)).groupBy(_._1.id).map {
         case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length)
       }).to[Set]
-      db.run(mark("q6", q6.result)).map(_ shouldBe Set((1, 3, 3, 3), (2, 3, 3, 3), (3, 2, 2, 2), (4, 1, 1, 0)))
+      db.run(mark("q6", q6.result)).map(_ shouldBe Set((1, 3, 3, 3), (2, 3, 3, 3), (3, 2, 2, 2), (4, 1, 1, 1)))
     }.flatMap { _ =>
       val q7 = ts.groupBy(_.a).map { case (a, ts) =>
         (a, ts.map(_.b).sum, ts.map(_.b).min, ts.map(_.b).max, ts.map(_.b).avg)

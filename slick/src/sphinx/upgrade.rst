@@ -54,3 +54,14 @@ for more information.
 
 Due to packaging constraints imposed by OSGi, :hikaricpapi:`slick.jdbc.hikaricp.HikariCPJdbcDataSource`
 was moved from package ``slick.jdbc`` to ``slick.jdbc.hikaricp``.
+
+Counting Option columns
+-----------------------
+
+Counting any multi-column collection with `.length` now ignores nullability of the columns. The previous
+approach of picking a random column led to inconsistent results. This is particularly relevant when you
+try to count one side of an outer join. Up to Slick 3.0 the goal (although not achieved in all cases due
+to a design problem) was not to include non-matching rows in the total (equivalent to counting the
+discriminator column only). This does not make sense anymore for the new outer join operators (introduced
+in 3.0) with correct `Option` types. The new semantics are identical to those of Scala collections.
+Semantics for counts of single columns remain unchanged.
