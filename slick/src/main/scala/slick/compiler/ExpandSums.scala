@@ -120,7 +120,6 @@ class ExpandSums extends Phase {
     val ref = silentCast(trType(elemType), Ref(bsym) :@ elemType2)
     val pure2 = pure.replace({
       case Ref(s) if s == bsym => ref
-      case n @ Select(in, _) if !in.hasType => n.untyped
 
       // Hoist SilentCasts and remove unnecessary ones
       case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => silentCast(tpe, ch.infer())

@@ -5,11 +5,11 @@ import Util._
 
 /** A SQL comprehension */
 final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where: Option[Node] = None,
-                               groupBy: Option[Node] = None, orderBy: Seq[(Node, Ordering)] = Seq.empty,
+                               groupBy: Option[Node] = None, orderBy: IndexedSeq[(Node, Ordering)] = Vector.empty,
                                having: Option[Node] = None,
                                fetch: Option[Node] = None, offset: Option[Node] = None) extends DefNode {
   type Self = Comprehension
-  val children = Seq(from, select) ++ where ++ groupBy ++ orderBy.map(_._1) ++ having ++ fetch ++ offset
+  val children = Vector(from, select) ++ where ++ groupBy ++ orderBy.map(_._1) ++ having ++ fetch ++ offset
   override def childNames =
     Seq("from "+sym, "select") ++
     where.map(_ => "where") ++
@@ -81,7 +81,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
 }
 
 /** The row_number window function */
-final case class RowNumber(by: Seq[(Node, Ordering)] = Seq.empty) extends SimplyTypedNode {
+final case class RowNumber(by: IndexedSeq[(Node, Ordering)] = Vector.empty) extends SimplyTypedNode {
   type Self = RowNumber
   def buildType = ScalaBaseType.longType
   lazy val children = by.map(_._1)

@@ -10,14 +10,12 @@ import slick.util.{Ellipsis, ??}
 class CreateAggregates extends Phase {
   val name = "createAggregates"
 
-  def apply(state: CompilerState) = state.map(tr)
-
-  def tr(n: Node): Node = n.mapChildren(tr, keepType = true) match {
+  def apply(state: CompilerState) = state.map(_.replace({
     case n @ Apply(f: AggregateFunctionSymbol, Seq(from)) :@ tpe =>
       logger.debug("Converting aggregation function application", n)
       val CollectionType(_, elType @ Type.Structural(StructType(els))) = from.nodeType
       val s = new AnonSymbol
-      val a = Aggregate(s, from, Apply(f, Seq(f match {
+      val a = Aggregate(s, from, Apply(f, Vector(f match {
         case Library.CountAll => LiteralNode(1)
         case _ => Select(Ref(s) :@ elType, els.head._1) :@ els.head._2
       }))(tpe)).infer()
@@ -56,9 +54,7 @@ class CreateAggregates extends Phase {
         logger.debug("Lifted aggregates into join in:", n2)
         n2
       }
-
-    case n => n
-  }
+  }, keepType = true, bottomUp = true))
 
   /** Recursively inline mapping Bind calls under an Aggregate */
   def inlineMap(a: Aggregate): Aggregate = a.from match {
@@ -80,8 +76,7 @@ class CreateAggregates extends Phase {
   def liftAggregates(n: Node, outer: TermSymbol): (Node, Map[TermSymbol, Aggregate]) = n match {
     case a @ Aggregate(s1, f1, sel1) =>
       if(a.findNode {
-          case Ref(s) => s == outer
-          case Select(_, s) => s == outer
+          case n: PathElement => n.sym == outer
           case _ => false
         }.isDefined) (a, Map.empty)
       else {

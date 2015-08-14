@@ -69,7 +69,7 @@ class ExpandConditionals extends Phase {
     val n2 = tr(n)
     logger.debug("Invalidated TypeSymbols: "+invalid.mkString(", "))
     n2.replace({
-      case n @ (_: Ref | _: Select) :@ tpe if invalid.intersect(tpe.collect { case NominalType(ts, _) => ts }.toSet).nonEmpty =>
+      case (n: PathElement) :@ tpe if invalid.intersect(tpe.collect { case NominalType(ts, _) => ts }.toSet).nonEmpty =>
         n.untyped
     }, bottomUp = true).infer()
   }

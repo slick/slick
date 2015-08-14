@@ -16,14 +16,14 @@ class ForceOuterBinds extends Phase {
     val n2 =
       if(!t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))
       else wrap(n)
-    n2.infer(typeChildren = true)
+    n2.infer()
   }
 
   def idBind(n: Node): Bind = {
     val gen = new AnonSymbol
     logger.debug("Introducing new Bind "+gen+" for "+n)
     n match {
-      case p: Pure => Bind(gen, Pure(ProductNode(Seq())), p)
+      case p: Pure => Bind(gen, Pure(ProductNode(Vector.empty)), p)
       case _ => Bind(gen, n, Pure(Ref(gen)))
     }
   }

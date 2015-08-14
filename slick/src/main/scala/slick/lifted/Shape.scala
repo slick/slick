@@ -64,7 +64,7 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked) = ()
     def encodeRef(value: Mixed, path: Node) = ()
-    def toNode(value: Mixed) = ProductNode(Nil)
+    def toNode(value: Mixed) = ProductNode(Vector.empty)
   }
 }
 
@@ -155,7 +155,7 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
   }
   def toNode(value: Mixed): Node = ProductNode(shapes.iterator.zip(getIterator(value)).map {
     case (p, f) => p.toNode(f.asInstanceOf[p.Mixed])
-  }.toSeq)
+  }.toVector)
 }
 
 /** Base class for ProductNodeShapes with a type mapping */
