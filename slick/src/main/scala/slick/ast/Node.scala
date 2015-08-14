@@ -469,7 +469,7 @@ final case class Ref(sym: TermSymbol) extends NullaryNode {
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self =
     if(hasType) this else {
       scope.get(sym) match {
-        case Some(t) => if(t == nodeType) this else copy() :@ t
+        case Some(t) => this :@ t
         case _ => throw new SlickException("No type for symbol "+sym+" found for "+this)
       }
     }

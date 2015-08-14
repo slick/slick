@@ -14,7 +14,7 @@ class ForceOuterBinds extends Phase {
   def apply(n: Node): Node = {
     val t = n.nodeType.structuralRec
     val n2 =
-      if(t != UnassignedType && !t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))
+      if(!t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))
       else wrap(n)
     n2.infer(typeChildren = true)
   }

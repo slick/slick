@@ -33,6 +33,9 @@ object GlobalConfig {
   /** Verify types after every query compiler phase */
   val verifyTypes = config.getBooleanOr("slick.verifyTypes", false)
 
+  /** Detect unnecessary rebuilding of the AST after every query compiler phase */
+  val detectRebuild = config.getBooleanOr("slick.detectRebuild", false)
+
   /** Get a `Config` object for a Slick driver */
   def driverConfig(name: String): Config = {
     val path = "slick.driver." + name

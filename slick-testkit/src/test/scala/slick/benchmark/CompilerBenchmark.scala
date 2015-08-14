@@ -15,6 +15,7 @@ object CompilerBenchmark {
 
   def main(args: Array[String]) {
     System.setProperty("slick.verifyTypes", "false")
+    System.setProperty("slick.detectRebuild", "false")
     println("Number of queries: "+allQueries.length)
 
     val phases = H2Driver.queryCompiler.phases
