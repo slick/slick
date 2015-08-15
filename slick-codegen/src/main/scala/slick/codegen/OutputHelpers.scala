@@ -16,10 +16,6 @@ trait OutputHelpers{
    */
   def codePerTable: Map[String, String]
 
-  /**
-   * The generated code to create the DDL for all the tables.
-   */
-  def docWithCodeForDDL: String
 
   /** Indents all but the first line of the given string */
   def indent(code: String): String
@@ -124,8 +120,8 @@ object ${container} extends {
 trait ${container} ${mixinCode} {
   val profile: scala.slick.driver.JdbcProfile
   import profile.simple._
-  ${indent(docWithCodeForDDL)}
-  
+  ${indent(code)}
+
 }
       """.trim()
   }
