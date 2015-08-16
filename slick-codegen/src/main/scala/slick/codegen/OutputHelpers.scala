@@ -17,7 +17,9 @@ trait OutputHelpers{
   def codePerTable: Map[String, String]
 
 
-  /** Indents all but the first line of the given string */
+  /** Indents all but the first line of the given string 
+   *  No indent is added to empty lines.
+   */
   def indent(code: String): String
 
   /** Writes given content to a file.
@@ -117,9 +119,9 @@ object ${container} extends {
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.)
     Each generated XXXXTable trait is mixed in this trait hence allowing access to all the TableQuery lazy vals.
   */
-trait ${container} ${mixinCode} {
-  val profile: scala.slick.driver.JdbcProfile
-  import profile.simple._
+trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} ${mixinCode} {
+  val profile: slick.driver.JdbcProfile
+  import profile.api._
   ${indent(code)}
 
 }
@@ -142,7 +144,7 @@ trait ${tableName}Table {
 
   self:${container}  =>
 
-  import profile.simple._
+  import profile.api._
   ${indent(tableCode)}
 }
       """.trim()

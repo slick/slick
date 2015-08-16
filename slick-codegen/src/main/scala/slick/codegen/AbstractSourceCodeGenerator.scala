@@ -52,15 +52,15 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
    */
   def codePerTable: Map[String,String] = {
     tables.map(table => {
-      val before="import scala.slick.model.ForeignKeyAction\n" +
+      val before="import slick.model.ForeignKeyAction\n" +
         (if (table.hlistEnabled) {
-          "import scala.slick.collection.heterogenous._\n" +
-            "import scala.slick.collection.heterogenous.syntax._\n"
+          "import slick.collection.heterogenous._\n" +
+            "import slick.collection.heterogenous.syntax._\n"
         }
         else "") +
         (if (table.PlainSqlMapper.enabled) {
           "// NOTE: GetResult mappers for plain SQL are only generated for tables where Slick knows how to map the types of all columns.\n" +
-            "import scala.slick.jdbc.{GetResult => GR}\n"
+            "import slick.jdbc.{GetResult => GR}\n"
         }
         else "")
 
