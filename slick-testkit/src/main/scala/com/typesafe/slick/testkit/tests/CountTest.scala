@@ -89,4 +89,22 @@ class CountTest extends AsyncTest[RelationalTestDB] {
       } yield (a.id, b.map(_.data))).length.result.named("outerJoinLength").map(_ shouldBe 3)
     )
   }
+
+  def testTableCount = {
+    class T(tag: Tag) extends Table[(Long, String, Long, Option[Long], Option[Long])](tag, "TABLECOUNT_T") {
+      def a = column[Long]("ID")
+      def b = column[String]("B")
+      def c = column[Long]("C")
+      def d = column[Option[Long]]("DISCONTINUED")
+      def e = column[Option[Long]]("E")
+      def * = (a, b, c, d, e)
+    }
+    val ts = TableQuery[T]
+
+    DBIO.seq(
+      ts.schema.create,
+      ts += (1L, "a", 1L, None, None),
+      ts.length.result.map(_ shouldBe 1)
+    ).withPinnedSession
+  }
 }
