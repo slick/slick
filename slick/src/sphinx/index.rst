@@ -10,7 +10,7 @@ API Documentation (scaladoc)
 * `TestKit <testkit-api/index.html>`_ (slick-testkit)
 * `Code Generator <codegen-api/index.html>`_ (slick-codegen)
 * `Direct Embedding <direct-api/index.html>`_ (slick-direct) (Deprecated)
-* `Slick Extensions <extensions-api/index.html>`_ (slick-extensions)
+* `Slick Extensions`_ |slick_extensions_version| (slick-extensions)
 
 User Manual
 -----------
