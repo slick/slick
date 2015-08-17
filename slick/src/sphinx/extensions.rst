@@ -20,6 +20,6 @@ repository (which contains the required artifacts) to your build definition
 like this:
 
 .. parsed-literal::
-  libraryDependencies += "com.typesafe.slick" %% "slick-extensions" % "|release|"
+  libraryDependencies += "com.typesafe.slick" %% "slick-extensions" % "|slick_extensions_version|"
 
   resolvers += "Typesafe Releases" at "http://repo.typesafe.com/typesafe/maven-releases/"

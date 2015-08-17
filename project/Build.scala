@@ -14,6 +14,7 @@ import de.johoop.testngplugin.TestNGPlugin._
 object SlickBuild extends Build {
 
   val slickVersion = "3.0.1"
+  val slickExtensionsVersion = slickVersion // Slick extensions version for links in the manual
   val binaryCompatSlickVersion = "3.0.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.10.5", "2.11.6")
 
@@ -192,7 +193,8 @@ object SlickBuild extends Build {
       )),
       (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value +
         ("version" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1""")) +
-        ("release" -> version.value),
+        ("release" -> version.value) +
+        ("slick_extensions_version" -> slickExtensionsVersion),
       (sphinxProperties in Sphinx) := Map.empty,
       makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickProject, "api"),

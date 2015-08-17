@@ -246,6 +246,11 @@ epub_copyright = u'2011-2015 Typesafe, Inc.'
 
 slick_template_suffix = '-'+version
 scala_version = '2.10.0'
+slick_extensions_version = os.environ["slick_extensions_version"]
+if slick_extensions_version == release:
+  slick_extensions_api_path = 'extensions-api'
+else:
+  slick_extensions_api_path = '../'+slick_extensions_version+'/extensions-api'
 
 # e.g. :issue:`36` :ticket:`8`
 extlinks = {
@@ -270,6 +275,10 @@ rst_epilog = '''
 .. _Slick Multi-DB Patterns template: http://typesafe.com/activator/template/slick-multidb%(template-suffix)s
 .. _Slick Direct Embedding template: http://typesafe.com/activator/template/slick-direct%(template-suffix)s
 .. _Slick TestKit Example template: https://typesafe.com/activator/template/slick-testkit-example%(template-suffix)s
+.. _Slick Extensions: %(slick_extensions_api_path)s/index.html
+.. |slick_extensions_version| replace:: %(slick_extensions_version)s
 ''' % {
-  'template-suffix': slick_template_suffix
+  'template-suffix': slick_template_suffix,
+  'slick_extensions_version': slick_extensions_version,
+  'slick_extensions_api_path': slick_extensions_api_path
 }
