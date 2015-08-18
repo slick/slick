@@ -146,8 +146,11 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     val hconf = new HikariConfig()
 
     // Connection settings
-    hconf.setDataSourceClassName(c.getStringOr("dataSourceClass", null))
-    Option(c.getStringOr("driverClassName", c.getStringOr("driver"))).map(hconf.setDriverClassName _)
+    if (c.hasPath("dataSourceClass")) {
+      hconf.setDataSourceClassName(c.getString("dataSourceClass"))
+    } else {
+      Option(c.getStringOr("driverClassName", c.getStringOr("driver"))).map(hconf.setDriverClassName _)
+    }
     hconf.setJdbcUrl(c.getStringOr("url", null))
     c.getStringOpt("user").foreach(hconf.setUsername)
     c.getStringOpt("password").foreach(hconf.setPassword)
