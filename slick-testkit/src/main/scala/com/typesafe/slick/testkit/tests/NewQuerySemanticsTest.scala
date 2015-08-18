@@ -469,7 +469,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
 
   def testNewFusion = {
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "A_NEWFUSION") {
-      def id = column[Int]("id")
+      def id = column[Int]("id", O.PrimaryKey)
       def a = column[String]("a")
       def b = column[String]("b")
       def * = (id, a, b)
@@ -503,6 +503,8 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val q15 = (as.map(a => a.id.?).filter(_ < 2) unionAll as.map(a => a.id.?).filter(_ > 2)).map(_.get).to[Set]
     val q16 = (as.map(a => a.id.?).filter(_ < 2) unionAll as.map(a => a.id.?).filter(_ > 2)).map(_.getOrElse(-1)).to[Set].filter(_ =!= 42)
     val q17 = as.sortBy(_.id).zipWithIndex.filter(_._2 < 2L).map { case (a, i) => (a.id, i) }
+    val q18 = as.joinLeft(as).on { case (a1, a2) => a1.id === a2.id }.filter { case (a1, a2) => a1.id === 3 }.map { case (a1, a2) => a2 }
+    val q19 = as.joinLeft(as).on { case (a1, a2) => a1.id === a2.id }.joinLeft(as).on { case ((_, a2), a3) => a2.map(_.b) === a3.b }.map(_._2)
 
     if(tdb.driver == H2Driver) {
       assertNesting(q1, 1)
@@ -530,6 +532,8 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       assertNesting(q15, 2)
       assertNesting(q16, 2)
       assertNesting(q17, 2)
+      assertNesting(q18, 1)
+      assertNesting(q19, 1)
     }
 
     for {
@@ -561,6 +565,8 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       _ <- mark("q15", q15.result).map(_ shouldBe Set(1, 3))
       _ <- mark("q16", q16.result).map(_ shouldBe Set(1, 3))
       _ <- ifCap(rcap.zip)(mark("q17", q17.result).map(_ shouldBe Seq((1,0), (2,1))))
+      _ <- mark("q18", q18.result).map(_ shouldBe Seq(Some((3, "c", "b"))))
+      _ <- mark("q19", q19.result).map(_.toSet shouldBe Set(Some((1,"a","a")), Some((2,"a","b")), Some((3,"c","b"))))
     } yield ()
   }
 

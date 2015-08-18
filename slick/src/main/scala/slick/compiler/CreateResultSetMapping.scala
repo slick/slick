@@ -48,7 +48,8 @@ class CreateResultSetMapping extends Phase {
         case t: MappedScalaType =>
           TypeMapping(f(t.baseType), t.mapper, t.classTag)
         case o @ OptionType(Type.Structural(el)) if el.children.nonEmpty =>
-          val discriminator = f(ScalaBaseType.intType.optionType)
+          val discriminator = Select(ref, syms(curIdx)).infer()
+          curIdx += 1
           val data = f(o.elementType)
           RebuildOption(discriminator, data)
         case t =>

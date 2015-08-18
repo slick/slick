@@ -89,35 +89,69 @@ class ExpandSums extends Phase {
     val rComplex = rightElemType.structural.children.nonEmpty
     logger.debug(s"Translating join ($jt, complex: $lComplex, $rComplex):", bind)
 
+    // Find an existing column that can serve as a discriminator
+    def findDisc(t: Type): Option[List[TermSymbol]] = {
+      def find(t: Type, path: List[TermSymbol]): Vector[List[TermSymbol]] = t.structural match {
+        case StructType(defs) => defs.flatMap { case (s, t) => find(t, s :: path) }(collection.breakOut)
+        case p: ProductType => p.numberedElements.flatMap { case (s, t) => find(t, s :: path) }.toVector
+        case _: AtomicType => Vector(path)
+        case _ => Vector.empty
+      }
+      find(t, Nil).sortBy(ss => ss.head match {
+        case f: FieldSymbol =>
+          if(f.options contains ColumnOption.PrimaryKey) -2 else -1
+        case _ => 0
+      }).headOption
+    }
+
     // Option-extend one side of the join with a discriminator column
-    def extend(side: Node, sym: TermSymbol, on: Node): (Node, Node) = {
+    def extend(side: Node, sym: TermSymbol, on: Node): (Node, Node, Boolean) = {
       val extendGen = new AnonSymbol
-      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(Vector(Disc1, Ref(extendGen))))).infer()
+      val elemType = side.nodeType.asCollectionType.elementType
+      val (disc, createDisc) = findDisc(elemType) match {
+        case Some(path) =>
+          logger.debug("Using existing column "+Path(path)+" as discriminator in "+elemType)
+          (FwdPath(extendGen :: path.reverse), true)
+        case None =>
+          logger.debug("No suitable discriminator column found in "+elemType)
+          (Disc1, false)
+      }
+      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(Vector(disc, Ref(extendGen))))).infer()
       val sideInCondition = Select(Ref(sym) :@ extendedElementType, ElementSymbol(2)).infer()
       val on2 = on.replace({
         case Ref(s) if s == sym => sideInCondition
         case n @ Select(in, _) => n.infer()
       }, bottomUp = true).infer()
-      (extend, on2)
+      (extend, on2, createDisc)
     }
 
     // Translate the join depending on JoinType and Option type
-    val (left2, right2, on2, jt2) = jt match {
+    val (left2, right2, on2, jt2, ldisc, rdisc) = jt match {
       case JoinType.LeftOption =>
-        val (right2, on2) = if(rComplex) extend(right, rsym, on) else (right, on)
-        (left, right2, on2, JoinType.Left)
+        val (right2, on2, rdisc) = if(rComplex) extend(right, rsym, on) else (right, on, false)
+        (left, right2, on2, JoinType.Left, false, rdisc)
       case JoinType.RightOption =>
-        val (left2, on2) = if(lComplex) extend(left, lsym, on) else (left, on)
-        (left2, right, on2, JoinType.Right)
+        val (left2, on2, ldisc) = if(lComplex) extend(left, lsym, on) else (left, on, false)
+        (left2, right, on2, JoinType.Right, ldisc, false)
       case JoinType.OuterOption =>
-        val (left2, on2) = if(lComplex) extend(left, lsym, on) else (left, on)
-        val (right2, on3) = if(rComplex) extend(right, rsym, on2) else (right, on2)
-        (left2, right2, on3, JoinType.Outer)
+        val (left2, on2, ldisc) = if(lComplex) extend(left, lsym, on) else (left, on, false)
+        val (right2, on3, rdisc) = if(rComplex) extend(right, rsym, on2) else (right, on2, false)
+        (left2, right2, on3, JoinType.Outer, ldisc, rdisc)
     }
 
     // Cast to translated Option type in outer bind
     val join2 :@ CollectionType(_, elemType2) = Join(lsym, rsym, left2, right2, jt2, on2).infer()
-    val ref = silentCast(trType(elemType), Ref(bsym) :@ elemType2)
+    def optionCast(idx: Int, createDisc: Boolean): Node = {
+      val ref = Select(Ref(bsym) :@ elemType2, ElementSymbol(idx+1))
+      val v = if(createDisc) {
+        val protoDisc = Select(ref, ElementSymbol(1)).infer()
+        val rest = Select(ref, ElementSymbol(2))
+        val disc = IfThenElse(Vector(Library.==.typed[Boolean](silentCast(OptionType(protoDisc.nodeType), protoDisc), LiteralNode(null)), DiscNone, Disc1))
+        ProductNode(Vector(disc, rest))
+      } else ref
+      silentCast(trType(elemType.asInstanceOf[ProductType].children(idx)), v)
+    }
+    val ref = ProductNode(Vector(optionCast(0, ldisc), optionCast(1, rdisc))).infer()
     val pure2 = pure.replace({
       case Ref(s) if s == bsym => ref
 

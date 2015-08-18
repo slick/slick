@@ -14,10 +14,10 @@ class FlattenProjections extends Phase {
 
   def apply(state: CompilerState) = state.map { tree =>
     val translations = new HashMap[TypeSymbol, (Map[List[TermSymbol], TermSymbol], StructType)]
-    def tr(n: Node): Node = n match {
+    def tr(n: Node, topLevel: Boolean): Node = n match {
       case Pure(v, ts) =>
         logger.debug(s"Flattening projection $ts")
-        val (newV, newTranslations) = flattenProjection(tr(v))
+        val (newV, newTranslations) = flattenProjection(tr(v, false), !topLevel)
         translations += ts -> (newTranslations, newV.nodeType.asInstanceOf[StructType])
         logger.debug(s"Adding translation for $ts: ($newTranslations, ${newV.nodeType})")
         val res = Pure(newV, ts).infer()
@@ -42,9 +42,13 @@ class FlattenProjections extends Phase {
         }
         logger.debug("Translated "+Path.toString(path)+" to:", p2)
         p2
-      case n => n.mapChildren(tr)
+      case n: Bind =>
+        n.mapScopedChildren { case (o, ch) => tr(ch, topLevel && o.isEmpty) }
+      case u: Union =>
+        n.mapChildren { ch => tr(ch, true) }
+      case n => n.mapChildren(tr(_, false))
     }
-    tr(tree).infer()
+    tr(tree, true).infer()
   }
 
   /** Split a path into the shortest part with a NominalType and the rest on
@@ -69,9 +73,15 @@ class FlattenProjections extends Phase {
     }
   }
 
-  /** Flatten a projection into a StructNode. */
-  def flattenProjection(n: Node): (StructNode, Map[List[TermSymbol], TermSymbol]) = {
+  /** Flatten a projection into a StructNode.
+    * @param collapse If set to true, duplicate definitions are combined into a single one. This
+    *   must not be used in the top-level Bind because the definitions have to match the top-level
+    *   type (which is used later in `createResultSetMapping`). Any duplicates there will be
+    *   eliminated in `hoistClientOps`. It is also disabled directly under a Union because the
+    *   columns on both sides have to match up. */
+  def flattenProjection(n: Node, collapse: Boolean): (StructNode, Map[List[TermSymbol], TermSymbol]) = {
     val defs = new ArrayBuffer[(TermSymbol, Node)]
+    val defsM = new HashMap[Node, TermSymbol]
     val paths = new HashMap[List[TermSymbol], TermSymbol]
     def flatten(n: Node, path: List[TermSymbol]) {
       logger.debug("Flattening node at "+Path.toString(path), n)
@@ -80,10 +90,17 @@ class FlattenProjections extends Phase {
         case p: ProductNode =>
           p.children.iterator.zipWithIndex.foreach { case (n, i) => flatten(n, new ElementSymbol(i+1) :: path) }
         case n =>
-          val sym = new AnonSymbol
-          logger.debug(s"Adding definition: $sym -> $n")
-          defs += sym -> n
-          paths += path -> sym
+          defsM.get(n) match {
+            case Some(sym) if collapse =>
+              logger.debug(s"Reusing definition: $sym -> $n")
+              paths += path -> sym
+            case _ =>
+              val sym = new AnonSymbol
+              logger.debug(s"Adding definition: $sym -> $n")
+              defs += sym -> n
+              defsM += n -> sym
+              paths += path -> sym
+          }
       }
     }
     flatten(n, Nil)
