@@ -34,8 +34,8 @@ class ExpandSums extends Phase {
           case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](pred)
           case _ =>
             val ifDefined = map.replace({
-              case Ref(s) :@ tpe if s == gen => silentCast(tpe, from)
-            }, keepType = true).infer()
+              case r @ Ref(s) if s == gen => silentCast(r.nodeType, from)
+            }, keepType = true)
             val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
             IfThenElse(Vector(pred, ifEmpty2, ifDefined))
         }
@@ -50,8 +50,8 @@ class ExpandSums extends Phase {
           case (LiteralNode(false), LiteralNode(true)) => pred
           case _ =>
             val ifDefined = map.replace({
-              case Ref(s) :@ tpe if s == gen => silentCast(tpe, from.select(ElementSymbol(2)).infer())
-            }, keepType = true).infer()
+              case r @ Ref(s) if s == gen => silentCast(r.nodeType, from.select(ElementSymbol(2)).infer())
+            }, keepType = true)
             val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
             if(left == Disc1) ifDefined else IfThenElse(IndexedSeq(pred, ifDefined, ifEmpty2))
         }
@@ -120,7 +120,6 @@ class ExpandSums extends Phase {
       val sideInCondition = Select(Ref(sym) :@ extendedElementType, ElementSymbol(2)).infer()
       val on2 = on.replace({
         case Ref(s) if s == sym => sideInCondition
-        case n @ Select(in, _) => n.infer()
       }, bottomUp = true).infer()
       (extend, on2, createDisc)
     }
@@ -156,11 +155,8 @@ class ExpandSums extends Phase {
       case Ref(s) if s == bsym => ref
 
       // Hoist SilentCasts and remove unnecessary ones
-      case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => silentCast(tpe, ch.infer())
+      case Library.SilentCast(Library.SilentCast(ch)) :@ tpe => silentCast(tpe, ch)
       case Select(Library.SilentCast(ch), s) :@ tpe => silentCast(tpe, ch.select(s).infer())
-
-      // Ensure that the child is typed
-      case Library.SilentCast(ch) :@ tpe => silentCast(tpe, ch.infer())
     }, bottomUp = true, keepType = true)
     val res = Bind(bsym, join2, pure2).infer()
     logger.debug("Translated join:", res)

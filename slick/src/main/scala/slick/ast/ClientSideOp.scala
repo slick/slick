@@ -46,7 +46,7 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
   def right = map
   override def childNames = Seq("from "+generator, "map")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, map = right)
-  def generators = Seq((generator, from))
+  def generators = Vector((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
@@ -81,7 +81,8 @@ final case class ParameterSwitch(cases: IndexedSeq[((Any => Boolean), Node)], de
     copy(cases = (cases, ch).zipped.map { (c, n) => (c._1, n) }, default = ch.last)
   protected def buildType = default.nodeType
   def nodeMapServerSide(keepType: Boolean, r: Node => Node): Self = {
-    val this2 = mapOrNone(children)(r).map(rebuild).getOrElse(this)
+    val ch2 = mapOrNull(children)(r)
+    val this2 = if(ch2 eq null) this else rebuild(ch2)
     if(keepType && hasType) this2 :@ nodeType
     else this2
   }

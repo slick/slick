@@ -2,6 +2,8 @@ package slick.ast
 
 import slick.ast.TypeUtil.:@
 
+import scala.collection
+import scala.collection.mutable
 import scala.language.implicitConversions
 import scala.collection.mutable.ArrayBuffer
 
@@ -10,15 +12,27 @@ import scala.collection.mutable.ArrayBuffer
  */
 object Util {
 
-  def mapOrNone[A <: AnyRef](c: Traversable[A])(f: A => A): Option[IndexedSeq[A]] = {
-    val b = new ArrayBuffer[A]
+  def mapOrNull[A <: AnyRef](c: IndexedSeq[A])(f: A => A): IndexedSeq[A] = {
+    val len = c.length
+    val b = new ArrayBuffer[A](len)
     var changed = false
-    c.foreach { x =>
+    var i = 0
+    while(i < len) {
+      val x = c(i)
       val n = f(x)
       b += n
       if(n ne x) changed = true
+      i += 1
     }
-    if(changed) Some(b.result()) else None
+    if(changed) b else null
+  }
+
+  def mapOrNone[A <: AnyRef](c: Option[A])(f: A => A): Option[A] = {
+    if(c.isEmpty) None else {
+      val x = c.get
+      val n = f(x)
+      if(n ne x) Some(n) else None
+    }
   }
 
   @inline implicit def nodeToNodeOps(n: Node): NodeOps = new NodeOps(n)
@@ -48,30 +62,25 @@ final class NodeOps(val tree: Node) extends AnyVal {
     if(bottomUp) f.applyOrElse(g(tree), identity[Node]) else f.applyOrElse(tree, g)
   }
 
-  /** Replace nodes in a bottom-up traversal with an extra state value that gets passed through the
-    * traversal. Types are never kept or rebuilt when a node changes.
-    *
-    * @param f The replacement function that takes the current Node (whose children have already
-    *          been transformed), the current state, and the original (untransformed) version of
-    *          the Node. */
-  def replaceFold[T](z: T)(f: PartialFunction[(Node, T, Node), (Node, T)]): (Node, T) = {
-    var v: T = z
-    val ch: IndexedSeq[Node] = tree.children.map { n =>
-      val (n2, v2) = n.replaceFold(v)(f)
-      v = v2
-      n2
-    }(collection.breakOut)
-    val t2 = tree.withChildren(ch)
-    f.applyOrElse((t2, v, tree), (t: (Node, T, Node)) => (t._1, t._2))
-  }
-
   /** Replace nodes in a bottom-up traversal while invalidating TypeSymbols. Any later references
     * to the invalidated TypeSymbols have their types unassigned, so that the whole tree can be
-    * retyped afterwards to get the correct new TypeSymbols in. */
-  def replaceInvalidate(f: PartialFunction[(Node, Set[TypeSymbol], Node), (Node, Set[TypeSymbol])]): Node = {
-    replaceFold(Set.empty[TypeSymbol])(f.orElse {
-      case ((n: PathElement), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
-    })._1
+    * retyped afterwards to get the correct new TypeSymbols in. The PartialFunction may return
+    * `null`, which is considered the same as not matching. */
+  def replaceInvalidate(f: PartialFunction[Node, (Node, TypeSymbol)]): Node = {
+    val invalid = mutable.HashSet.empty[TypeSymbol]
+    val default = (_: Node) => null
+    def tr(n: Node): Node = {
+      val n2 = n.mapChildren(tr)
+      val res = f.applyOrElse(n2, default)
+      if(res ne null) {
+        invalid += res._2
+        res._1
+      } else n2 match {
+        case n2: PathElement if containsTS(n2.nodeType, invalid) => n2.untyped
+        case _ => n2
+      }
+    }
+    tr(tree)
   }
 
   def untypeReferences(invalid: Set[TypeSymbol]): Node = {
@@ -97,9 +106,10 @@ final class NodeOps(val tree: Node) extends AnyVal {
 }
 
 private object NodeOps {
-  private def containsTS(t: Type, invalid: Set[TypeSymbol]): Boolean = {
+  private def containsTS(t: Type, invalid: collection.Set[TypeSymbol]): Boolean = {
     if(invalid.isEmpty) false else t match {
       case NominalType(ts, exp) => invalid.contains(ts) || containsTS(exp, invalid)
+      case t: AtomicType => false
       case t => t.children.exists(ch => containsTS(ch, invalid))
     }
   }

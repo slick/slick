@@ -14,19 +14,21 @@ class ExpandTables extends Phase {
     // Find table fields
     val structs = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
       case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => n.sourceNominalType.sym -> (sym -> s.nodeType)
-    }.groupBy(_._1).mapValues(v => StructType(v.map(_._2).toMap.toIndexedSeq))
+    }.groupBy(_._1).map { case (ts, v) => (ts, NominalType(ts, StructType(v.map(_._2).toMap.toIndexedSeq))) }
     logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
+
+    val tree2 = tree.replace {
+      case t: TableExpansion =>
+        val ts = t.table.asInstanceOf[TableNode].identity
+        t.table :@ CollectionType(t.nodeType.asCollectionType.cons, structs(ts))
+      case r: Ref => r.untyped
+    }.infer()
+    logger.debug("With correct table types:", tree2)
 
     // Check for table types
     val tsyms: Set[TableIdentitySymbol] =
       tree.nodeType.collect { case NominalType(sym: TableIdentitySymbol, _) => sym }.toSet
     logger.debug("Tables for expansion in result type: " + tsyms.mkString(", "))
-
-    val tree2 = tree.replace({
-      case TableExpansion(_, t, _) => t
-      case n => n :@ n.nodeType.replace { case NominalType(tsym, UnassignedType) => NominalType(tsym, structs(tsym)) }
-    }, keepType = true, bottomUp = true)
-    logger.debug("With correct table types:", tree2)
 
     if(tsyms.isEmpty) tree2 else {
       // Find the corresponding TableExpansions

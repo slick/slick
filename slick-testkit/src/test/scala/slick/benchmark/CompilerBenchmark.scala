@@ -8,7 +8,7 @@ import scala.collection.mutable.HashMap
 
 /** Test query compiler performance with all queries from NewQuerySemanticsTest */
 object CompilerBenchmark {
-  val RUNS = 10
+  val RUNS = 50
   val COUNT_CREATE = 1000
   val COUNT_TONODE = 1000
   val COUNT_COMPILE = 10

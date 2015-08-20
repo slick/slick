@@ -1,5 +1,6 @@
 package slick.ast
 
+import scala.collection.mutable.ListBuffer
 import scala.language.existentials
 import scala.reflect.ClassTag
 import slick.SlickException
@@ -28,15 +29,24 @@ trait Node extends Dumpable {
 
   /** Rebuild this node with new child nodes unless all children are identical to the current ones,
     * in which case this node is returned. */
-  final def withChildren(ch: IndexedSeq[Node]): Self =
-    if((children, ch).zipped.forall(_ eq _)) this else rebuild(ch)
+  final def withChildren(ch2: IndexedSeq[Node]): Self = {
+    val ch = children
+    val len = ch.length
+    var i = 0
+    while(i < len) {
+      if(ch(i) ne ch2(i)) return rebuild(ch2)
+      i += 1
+    }
+    this
+  }
 
   /** Apply a mapping function to all children of this node and recreate the node with the new
     * children. If all new children are identical to the old ones, this node is returned. If
     * ``keepType`` is true, the type of this node is kept even when the children have changed. */
-  final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = if(isInstanceOf[NullaryNode]) this else {
-    val n: Self = mapOrNone(children)(f).fold(this: Self)(rebuild)
-    if(_type == UnassignedType || !keepType) n else (n :@ _type).asInstanceOf[Self]
+  def mapChildren(f: Node => Node, keepType: Boolean = false): Self = {
+    val ch2 = mapOrNull(children)(f)
+    val n: Self = if(ch2 eq null) this else rebuild(ch2)
+    if(!keepType || (_type eq UnassignedType)) n else (n :@ _type).asInstanceOf[Self]
   }
 
   /** The current type of this node. */
@@ -178,6 +188,15 @@ trait BinaryNode extends Node {
   lazy val children = Vector(left, right)
   protected[this] final def rebuild(ch: IndexedSeq[Node]): Self = rebuild(ch(0), ch(1))
   protected[this] def rebuild(left: Node, right: Node): Self
+  override final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = {
+    val l = left
+    val r = right
+    val l2 = f(l)
+    val r2 = f(r)
+    val n: Self = if((l eq l2) && (r eq r2)) this else rebuild(l2, r2)
+    val _type = peekType
+    if(!keepType || (_type eq UnassignedType)) n else (n :@ _type).asInstanceOf[Self]
+  }
 }
 
 trait UnaryNode extends Node {
@@ -185,12 +204,20 @@ trait UnaryNode extends Node {
   lazy val children = Vector(child)
   protected[this] final def rebuild(ch: IndexedSeq[Node]): Self = rebuild(ch(0))
   protected[this] def rebuild(child: Node): Self
+  override final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = {
+    val ch = child
+    val ch2 = f(child)
+    val n: Self = if(ch2 eq ch) this else rebuild(ch2)
+    val _type = peekType
+    if(!keepType || (_type eq UnassignedType)) n else (n :@ _type).asInstanceOf[Self]
+  }
 }
 
 trait NullaryNode extends Node {
   val children = Vector.empty
   protected[this] final def rebuild(ch: IndexedSeq[Node]): Self = rebuild
   protected[this] def rebuild: Self
+  override final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = this
 }
 
 /** An expression that represents a plain value lifted into a Query. */
@@ -236,7 +263,7 @@ object Subquery {
 abstract class FilteredQuery extends Node {
   protected[this] def generator: TermSymbol
   def from: Node
-  def generators = Seq((generator, from))
+  def generators = Vector((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = this match {
     case p: Product => p.productIterator.filterNot(n => n.isInstanceOf[Node] || n.isInstanceOf[Symbol]).mkString(", ")
     case _ => ""
@@ -308,7 +335,7 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
   override def childNames = Seq("from "+fromGen, "by")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, by = right)
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(fromGen = gen(0))
-  def generators = Seq((fromGen, from))
+  def generators = Vector((fromGen, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = identity.toString)
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
@@ -355,7 +382,7 @@ final case class Join(leftGen: TermSymbol, rightGen: TermSymbol, left: Node, rig
   protected[this] def rebuild(ch: IndexedSeq[Node]) = copy(left = ch(0), right = ch(1), on = ch(2))
   override def childNames = Seq("left "+leftGen, "right "+rightGen, "on")
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = jt.toString)
-  def generators = Seq((leftGen, left), (rightGen, right))
+  def generators = Vector((leftGen, left), (rightGen, right))
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) =
     copy(leftGen = gen(0), rightGen = gen(1))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
@@ -394,14 +421,15 @@ final case class Bind(generator: TermSymbol, from: Node, select: Node) extends B
   def right = select
   override def childNames = Seq("from "+generator, "select")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, select = right)
-  def generators = Seq((generator, from))
+  def generators = Vector((generator, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val from2Type = from2.nodeType.asCollectionType
     val select2 = select.infer(scope + (generator -> from2Type.elementType), typeChildren)
-    withChildren(Vector(from2, select2)) :@ (
+    val withCh = if((from2 eq from) && (select2 eq select)) this else rebuild(from2, select2)
+    withCh :@ (
       if(!hasType) CollectionType(from2Type.cons, select2.nodeType.asCollectionType.elementType)
       else nodeType)
   }
@@ -416,7 +444,7 @@ final case class Aggregate(sym: TermSymbol, from: Node, select: Node) extends Bi
   def right = select
   override def childNames = Seq("from "+sym, "select")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, select = right)
-  def generators = Seq((sym, from))
+  def generators = Vector((sym, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(sym = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
@@ -433,7 +461,7 @@ final case class TableExpansion(generator: TermSymbol, table: Node, columns: Nod
   def right = columns
   override def childNames = Seq("table "+generator, "columns")
   protected[this] def rebuild(left: Node, right: Node) = copy(table = left, columns = right)
-  def generators = Seq((generator, table))
+  def generators = Vector((generator, table))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(generator = gen(0))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
@@ -445,6 +473,8 @@ final case class TableExpansion(generator: TermSymbol, table: Node, columns: Nod
 
 trait PathElement extends Node {
   def sym: TermSymbol
+  def pathString: String
+  def untypedPath: PathElement
 }
 
 /** An expression that selects a field in another expression. */
@@ -459,6 +489,11 @@ final case class Select(in: Node, field: TermSymbol) extends PathElement with Un
     case None => super.getDumpInfo
   }
   protected def buildType = in.nodeType.select(field)
+  def pathString = in.asInstanceOf[PathElement].pathString+"."+field
+  def untypedPath = {
+    val in2 = in.asInstanceOf[PathElement].untypedPath
+    if(in2 eq in) untyped else Select(in2, field)
+  }
 }
 
 /** A function call expression. */
@@ -479,6 +514,8 @@ final case class Ref(sym: TermSymbol) extends PathElement with NullaryNode {
       }
     }
   def rebuild = copy()
+  def pathString = sym.toString
+  def untypedPath = untyped
 }
 
 /** A constructor/extractor for nested Selects starting at a Ref so that, for example,
@@ -488,10 +525,20 @@ object Path {
     case s :: Nil => Ref(s)
     case s :: l => Select(apply(l), s)
   }
-  def unapply(n: PathElement): Option[List[TermSymbol]] = n match {
-    case Ref(sym) => Some(List(sym))
-    case Select(in: PathElement, s) => unapply(in).map(l => s :: l)
-    case _ => None
+  def unapply(n: PathElement): Option[List[TermSymbol]] = {
+    var l = new ListBuffer[TermSymbol]
+    var el: Node = n
+    while(el.isInstanceOf[Select]) {
+      val sel = el.asInstanceOf[Select]
+      l += sel.sym
+      el = sel.child
+    }
+    el match {
+      case Ref(sym) =>
+        l += sym
+        Some(l.toList)
+      case _ => None
+    }
   }
   def toString(path: Seq[TermSymbol]): String = path.reverseIterator.mkString("Path ", ".", "")
   def toString(s: Select): String = s match {
@@ -503,8 +550,24 @@ object Path {
 /** A constructor/extractor for nested Selects starting at a Ref so that, for example,
   * `a :: b :: c :: Nil` corresponds to path `a.b.c`. */
 object FwdPath {
-  def apply(ch: List[TermSymbol]) = Path(ch.reverse)
-  def unapply(n: PathElement): Option[List[TermSymbol]] = Path.unapply(n).map(_.reverse)
+  def apply(ch: List[TermSymbol]): PathElement = {
+    var p: PathElement = Ref(ch.head)
+    ch.tail.foreach { sym => p = Select(p, sym) }
+    p
+  }
+  def unapply(n: PathElement): Option[List[TermSymbol]] = {
+    var l: List[TermSymbol] = Nil
+    var el: Node = n
+    while(el.isInstanceOf[Select]) {
+      val sel = el.asInstanceOf[Select]
+      l = sel.sym :: l
+      el = sel.child
+    }
+    el match {
+      case Ref(sym) => Some(sym :: l)
+      case _ => None
+    }
+  }
   def toString(path: Seq[TermSymbol]): String = path.mkString("Path ", ".", "")
 }
 
