@@ -93,7 +93,7 @@ class MergeToComprehensions extends Phase {
           case Aggregate(_, FwdPath(s :: ElementSymbol(2) :: Nil), v) if s == s1 =>
             applyReplacements(v, replacements1, c1).replace {
               case Apply(f: AggregateFunctionSymbol, Seq(ch)) :@ tpe =>
-                Apply(f, Seq(ch match {
+                Apply(f, Vector(ch match {
                   case StructNode(Seq(ch, _*)) => ch._2
                   case n => n
                 }))(tpe)
@@ -101,7 +101,7 @@ class MergeToComprehensions extends Phase {
           case FwdPath(s :: ElementSymbol(1) :: rest) if s == s1 =>
             rest.foldLeft(b2) { case (n, s) => n.select(s) }.infer()
         }
-        val c2 = c1.copy(groupBy = Some(ProductNode(Seq(b2)).flatten), select = Pure(str2, ts2)).infer()
+        val c2 = c1.copy(groupBy = Some(ProductNode(Vector(b2)).flatten), select = Pure(str2, ts2)).infer()
         logger.debug("Merged GroupBy into Comprehension:", c2)
         val StructNode(defs2) = str2
         val replacements = defs2.map { case (f, _) => (ts2, f) -> f }.toMap
@@ -196,9 +196,9 @@ class MergeToComprehensions extends Phase {
                   FwdPath((if(idx == 1) ls else rs) :: ss)
                 case _ => p
               }
-          }, bottomUp = true).infer(typeChildren = true,
+          }, bottomUp = true).infer(
               scope = Type.Scope(j.leftGen -> l2.nodeType.asCollectionType.elementType) +
-                (j.rightGen -> r2.nodeType.asCollectionType.elementType))
+              (j.rightGen -> r2.nodeType.asCollectionType.elementType))
           logger.debug("Transformed `on` clause:", on2)
           val j2 = j.copy(left = l2, right = r2, on = on2).infer()
           logger.debug("Created source from Join:", j2)
@@ -345,8 +345,7 @@ class MergeToComprehensions extends Phase {
 
   object FwdPathOnTypeSymbol {
     def unapply(n: Node): Option[(TypeSymbol, List[TermSymbol])] = n match {
-      case Ref(s) :@ NominalType(ts, _) => Some((ts, List(s)))
-      case Select(_, s) :@ NominalType(ts, _) => Some((ts, List(s)))
+      case (n: PathElement) :@ NominalType(ts, _) => Some((ts, List(n.sym)))
       case Select(in, s) => unapply(in).map { case (ts, l) => (ts, l :+ s) }
       case _ => None
     }

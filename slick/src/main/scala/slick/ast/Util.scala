@@ -70,15 +70,13 @@ final class NodeOps(val tree: Node) extends AnyVal {
     * retyped afterwards to get the correct new TypeSymbols in. */
   def replaceInvalidate(f: PartialFunction[(Node, Set[TypeSymbol], Node), (Node, Set[TypeSymbol])]): Node = {
     replaceFold(Set.empty[TypeSymbol])(f.orElse {
-      case ((n: Ref), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
-      case ((n: Select), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
+      case ((n: PathElement), invalid, _) if containsTS(n.nodeType, invalid) => (n.untyped, invalid)
     })._1
   }
 
   def untypeReferences(invalid: Set[TypeSymbol]): Node = {
     if(invalid.isEmpty) tree else replace({
-      case n: Ref if containsTS(n.nodeType, invalid) => n.untyped
-      case n: Select if containsTS(n.nodeType, invalid) => n.untyped
+      case n: PathElement if containsTS(n.nodeType, invalid) => n.untyped
     }, bottomUp = true)
   }
 

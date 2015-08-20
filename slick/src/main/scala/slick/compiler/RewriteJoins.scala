@@ -176,7 +176,7 @@ class RewriteJoins extends Phase {
         logger.debug("Pulled refs out of:", sn2)
         val replacements = (existingOkDefs ++ createDefs.map { case (s, n) => (n,s) }).toMap
         def rebase(n: Node): Node = n.replace({
-          case p @ FwdPath(s :: _) :@ tpe if s == ok => Ref(replacements(p)) :@ tpe
+          case (p @ FwdPath(s :: _)) :@ tpe if s == ok => Ref(replacements(p)) :@ tpe
         }, keepType = true)
         val rebasedIllegalDefs = illegalDefs.map { case (s, n) => (s, rebase(n)) }
         logger.debug("Rebased illegal defs are:", StructNode(rebasedIllegalDefs))

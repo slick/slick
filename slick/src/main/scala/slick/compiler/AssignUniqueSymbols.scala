@@ -16,23 +16,13 @@ class AssignUniqueSymbols extends Phase {
 
   def apply(state: CompilerState) = state.map { tree =>
     val seen = new HashSet[AnonSymbol]
-    val seenType = new HashSet[TypeSymbol]
     def tr(n: Node, replace: Map[AnonSymbol, AnonSymbol]): Node = {
       val n2 = n match { // Give TableNode and Pure nodes a unique TypeSymbol
-        case t: TableNode =>
-          t.copy(identity = new AnonTableIdentitySymbol)
-        case p @ Pure(value, ts) =>
-          if(seenType contains ts) Pure(value)
-          else {
-            seenType += ts
-            p
-          }
+        case t: TableNode => t.copy(identity = new AnonTableIdentitySymbol)
+        case Pure(value, _) => Pure(value)
         case n => n
       }
-      val n3 = // Remove all NominalTypes (which might have changed)
-        if(n2.hasType && !(n2.nodeType.collect { case _: NominalType => () }).isEmpty) n2.untyped
-        else n2
-      n3 match {
+      val n3 = n2 match {
         case r @ Ref(a: AnonSymbol) => replace.get(a) match {
           case Some(s) => if(s eq a) r else Ref(s)
           case None => r
@@ -55,7 +45,14 @@ class AssignUniqueSymbols extends Phase {
         case n: Select => n.mapChildren(tr(_, replace)) :@ n.nodeType
         case n => n.mapChildren(tr(_, replace))
       }
+      // Remove all NominalTypes (which might have changed)
+      if(n3.hasType && hasNominalType(n3.nodeType)) n3.untyped else n3
     }
     tr(tree, Map())
+  }
+
+  def hasNominalType(t: Type): Boolean = t match {
+    case _: NominalType => true
+    case _ => t.children.exists(hasNominalType)
   }
 }

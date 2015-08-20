@@ -9,6 +9,10 @@ final class SlickLogger(val slf4jLogger: Slf4jLogger) {
   def debug(msg: => String, n: => Dumpable): Unit = debug(msg+"\n"+SlickLogger.treePrinter.get(n))
 
   @inline
+  def debug(msg: => String, n: => Dumpable, mark: (Dumpable => Boolean)): Unit =
+    debug(msg+"\n"+SlickLogger.treePrinter.copy(mark = mark).get(n))
+
+  @inline
   def isDebugEnabled = slf4jLogger.isDebugEnabled()
 
   @inline

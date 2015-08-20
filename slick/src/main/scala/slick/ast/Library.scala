@@ -109,10 +109,10 @@ class FunctionSymbol(val name: String) extends TermSymbol {
   }
 
   /** Create a typed Apply of this Symbol */
-  def typed(tpe: Type, ch: Node*): Apply = Apply(this, ch)(tpe)
+  def typed(tpe: Type, ch: Node*): Apply = Apply(this, ch.toIndexedSeq)(tpe)
 
   /** Create a typed Apply of this Symbol */
-  def typed[T : ScalaBaseType](ch: Node*): Apply = Apply(this, ch)(implicitly[ScalaBaseType[T]])
+  def typed[T : ScalaBaseType](ch: Node*): Apply = Apply(this, ch.toIndexedSeq)(implicitly[ScalaBaseType[T]])
 
   override def toString = "Function "+name
 }

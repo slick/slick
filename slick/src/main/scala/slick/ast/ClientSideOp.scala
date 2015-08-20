@@ -73,7 +73,7 @@ final case class ResultSetMapping(generator: TermSymbol, from: Node, map: Node) 
 
 /** A switch for special-cased parameters that needs to be interpreted in order
   * to find the correct query string for the query arguments. */
-final case class ParameterSwitch(cases: Seq[((Any => Boolean), Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
+final case class ParameterSwitch(cases: IndexedSeq[((Any => Boolean), Node)], default: Node) extends SimplyTypedNode with ClientSideOp {
   type Self = ParameterSwitch
   def children = cases.map(_._2) :+ default
   override def childNames = cases.map("[" + _._1 + "]") :+ "default"

@@ -16,7 +16,7 @@ trait Node extends Dumpable {
   private var _type: Type = UnassignedType
 
   /** All child nodes of this node. Must be implemented by subclasses. */
-  def children: Seq[Node]
+  def children: IndexedSeq[Node]
 
   /** Names for the child nodes to show in AST dumps. Defaults to a numbered sequence starting at 0
     * but can be overridden by subclasses to produce more suitable names. */
@@ -35,7 +35,7 @@ trait Node extends Dumpable {
     * children. If all new children are identical to the old ones, this node is returned. If
     * ``keepType`` is true, the type of this node is kept even when the children have changed. */
   final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = if(isInstanceOf[NullaryNode]) this else {
-    val n: Self = mapOrNone(children)(f).map(rebuild).getOrElse(this)
+    val n: Self = mapOrNone(children)(f).fold(this: Self)(rebuild)
     if(_type == UnassignedType || !keepType) n else (n :@ _type).asInstanceOf[Self]
   }
 
@@ -53,11 +53,11 @@ trait Node extends Dumpable {
 
   /** Return this Node with no Type assigned (if it has not yet been observed) or an untyped copy. */
   final def untyped: Self =
-    if(seenType || _type != UnassignedType) rebuild(children.toIndexedSeq) else this
+    if(seenType || _type != UnassignedType) rebuild(children) else this
 
   /** Return this Node with a Type assigned (if no other type has been seen for it yet) or a typed copy. */
   final def :@ (newType: Type): Self = {
-    val n: Self = if(seenType && newType != _type) rebuild(children.toIndexedSeq) else this
+    val n: Self = if(seenType && newType != _type) rebuild(children) else this
     n._type = newType
     n
   }
@@ -106,7 +106,7 @@ trait SimplyTypedNode extends Node {
 }
 
 /** An expression that represents a conjunction of expressions. */
-final case class ProductNode(children: Seq[Node]) extends SimplyTypedNode {
+final case class ProductNode(children: IndexedSeq[Node]) extends SimplyTypedNode {
   type Self = ProductNode
   override def getDumpInfo = super.getDumpInfo.copy(name = "ProductNode", mainInfo = "")
   protected[this] def rebuild(ch: IndexedSeq[Node]): Self = copy(ch)
@@ -115,11 +115,11 @@ final case class ProductNode(children: Seq[Node]) extends SimplyTypedNode {
     val t = ch.nodeType
     if(t == UnassignedType) throw new SlickException(s"ProductNode child $ch has UnassignedType")
     t
-  }(collection.breakOut))
+  })
   def flatten: ProductNode = {
     def f(n: Node): IndexedSeq[Node] = n match {
-      case ProductNode(ns) => ns.flatMap(f).toIndexedSeq
-      case StructNode(els) => els.flatMap(el => f(el._2)).toIndexedSeq
+      case ProductNode(ns) => ns.flatMap(f)
+      case StructNode(els) => els.flatMap(el => f(el._2))
       case n => IndexedSeq(n)
     }
     ProductNode(f(this))
@@ -175,20 +175,20 @@ object LiteralNode {
 trait BinaryNode extends Node {
   def left: Node
   def right: Node
-  lazy val children = Seq(left, right)
+  lazy val children = Vector(left, right)
   protected[this] final def rebuild(ch: IndexedSeq[Node]): Self = rebuild(ch(0), ch(1))
   protected[this] def rebuild(left: Node, right: Node): Self
 }
 
 trait UnaryNode extends Node {
   def child: Node
-  lazy val children = Seq(child)
+  lazy val children = Vector(child)
   protected[this] final def rebuild(ch: IndexedSeq[Node]): Self = rebuild(ch(0))
   protected[this] def rebuild(child: Node): Self
 }
 
 trait NullaryNode extends Node {
-  val children = Nil
+  val children = Vector.empty
   protected[this] final def rebuild(ch: IndexedSeq[Node]): Self = rebuild
   protected[this] def rebuild: Self
 }
@@ -247,7 +247,7 @@ abstract class FilteredQuery extends Node {
     val genScope = scope + (generator -> from2.nodeType.asCollectionType.elementType)
     val ch2: IndexedSeq[Node] = children.map { ch =>
       if(ch eq from) from2 else ch.infer(genScope, typeChildren)
-    }(collection.breakOut)
+    }
     (withChildren(ch2) :@ (if(!hasType) ch2.head.nodeType else nodeType)).asInstanceOf[Self]
   }
 }
@@ -270,7 +270,7 @@ object Filter {
 }
 
 /** A .sortBy call of type (CollectionType(c, t), _) => CollectionType(c, t). */
-final case class SortBy(generator: TermSymbol, from: Node, by: Seq[(Node, Ordering)]) extends FilteredQuery with DefNode {
+final case class SortBy(generator: TermSymbol, from: Node, by: IndexedSeq[(Node, Ordering)]) extends FilteredQuery with DefNode {
   type Self = SortBy
   lazy val children = from +: by.map(_._1)
   protected[this] def rebuild(ch: IndexedSeq[Node]) =
@@ -443,8 +443,13 @@ final case class TableExpansion(generator: TermSymbol, table: Node, columns: Nod
   }
 }
 
+trait PathElement extends Node {
+  def sym: TermSymbol
+}
+
 /** An expression that selects a field in another expression. */
-final case class Select(in: Node, field: TermSymbol) extends UnaryNode with SimplyTypedNode {
+final case class Select(in: Node, field: TermSymbol) extends PathElement with UnaryNode with SimplyTypedNode {
+  def sym = field
   type Self = Select
   def child = in
   override def childNames = Seq("in")
@@ -457,19 +462,19 @@ final case class Select(in: Node, field: TermSymbol) extends UnaryNode with Simp
 }
 
 /** A function call expression. */
-final case class Apply(sym: TermSymbol, children: Seq[Node])(val buildType: Type) extends SimplyTypedNode {
+final case class Apply(sym: TermSymbol, children: IndexedSeq[Node])(val buildType: Type) extends SimplyTypedNode {
   type Self = Apply
   protected[this] def rebuild(ch: IndexedSeq[slick.ast.Node]) = copy(children = ch)(buildType)
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = sym.toString)
 }
 
 /** A reference to a Symbol */
-final case class Ref(sym: TermSymbol) extends NullaryNode {
+final case class Ref(sym: TermSymbol) extends PathElement with NullaryNode {
   type Self = Ref
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self =
     if(hasType) this else {
       scope.get(sym) match {
-        case Some(t) => if(t == nodeType) this else copy() :@ t
+        case Some(t) => this :@ t
         case _ => throw new SlickException("No type for symbol "+sym+" found for "+this)
       }
     }
@@ -479,13 +484,13 @@ final case class Ref(sym: TermSymbol) extends NullaryNode {
 /** A constructor/extractor for nested Selects starting at a Ref so that, for example,
   * `c :: b :: a :: Nil` corresponds to path `a.b.c`. */
 object Path {
-  def apply(l: List[TermSymbol]): Node = l match {
+  def apply(l: List[TermSymbol]): PathElement = l match {
     case s :: Nil => Ref(s)
     case s :: l => Select(apply(l), s)
   }
-  def unapply(n: Node): Option[List[TermSymbol]] = n match {
+  def unapply(n: PathElement): Option[List[TermSymbol]] = n match {
     case Ref(sym) => Some(List(sym))
-    case Select(in, s) => unapply(in).map(l => s :: l)
+    case Select(in: PathElement, s) => unapply(in).map(l => s :: l)
     case _ => None
   }
   def toString(path: Seq[TermSymbol]): String = path.reverseIterator.mkString("Path ", ".", "")
@@ -499,7 +504,7 @@ object Path {
   * `a :: b :: c :: Nil` corresponds to path `a.b.c`. */
 object FwdPath {
   def apply(ch: List[TermSymbol]) = Path(ch.reverse)
-  def unapply(n: Node): Option[List[TermSymbol]] = Path.unapply(n).map(_.reverse)
+  def unapply(n: PathElement): Option[List[TermSymbol]] = Path.unapply(n).map(_.reverse)
   def toString(path: Seq[TermSymbol]): String = path.mkString("Path ", ".", "")
 }
 

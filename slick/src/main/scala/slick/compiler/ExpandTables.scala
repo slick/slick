@@ -12,8 +12,8 @@ class ExpandTables extends Phase {
 
   def apply(state: CompilerState) = state.map { n => ClientSideOp.mapServerSide(n) { tree =>
     // Find table fields
-    val structs = tree.collect[(TypeSymbol, (TermSymbol, Type))] {
-      case s @ Select(_ :@ (n: NominalType), sym) => n.sourceNominalType.sym -> (sym -> s.nodeType)
+    val structs = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
+      case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => n.sourceNominalType.sym -> (sym -> s.nodeType)
     }.groupBy(_._1).mapValues(v => StructType(v.map(_._2).toMap.toIndexedSeq))
     logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
 
@@ -37,7 +37,7 @@ class ExpandTables extends Phase {
       // Create a mapping that expands the tables
       val sym = new AnonSymbol
       val mapping = createResult(tables, Ref(sym), tree2.nodeType.asCollectionType.elementType)
-        .infer(Type.Scope(sym -> tree2.nodeType.asCollectionType.elementType), typeChildren = true)
+        .infer(Type.Scope(sym -> tree2.nodeType.asCollectionType.elementType))
       Bind(sym, tree2, Pure(mapping)).infer()
     }
   }}.withWellTyped(true)
