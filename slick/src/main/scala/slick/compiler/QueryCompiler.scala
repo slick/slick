@@ -132,6 +132,7 @@ object QueryCompiler {
     Phase.hoistClientOps,
     Phase.reorderOperations,
     Phase.mergeToComprehensions,
+    Phase.optimizeScalar,
     Phase.fixRowNumberOrdering,
     Phase.removeFieldNames
     // optional rewriteBooleans goes here
@@ -186,6 +187,7 @@ object Phase {
   val reorderOperations = new ReorderOperations
   val relabelUnions = new RelabelUnions
   val mergeToComprehensions = new MergeToComprehensions
+  val optimizeScalar = new OptimizeScalar
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val pruneProjections = new PruneProjections
   val removeFieldNames = new RemoveFieldNames
