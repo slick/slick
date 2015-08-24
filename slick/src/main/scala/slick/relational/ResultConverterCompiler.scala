@@ -23,7 +23,7 @@ trait ResultConverterCompiler[Domain <: ResultConverterDomain] {
     case OptionApply(Select(_, ElementSymbol(idx))) => createColumnConverter(n, idx, None)
     case ProductNode(ch) =>
       if(ch.isEmpty) new UnitResultConverter
-      else new ProductResultConverter(ch.map(n => compile(n))(collection.breakOut): _*)
+      else new ProductResultConverter(ch.map(n => compile(n)): _*)
     case GetOrElse(ch, default) =>
       createGetOrElseResultConverter(compile(ch).asInstanceOf[ResultConverter[Domain, Option[Any]]], default)
     case TypeMapping(ch, mapper, _) =>

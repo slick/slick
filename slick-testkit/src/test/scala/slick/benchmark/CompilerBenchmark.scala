@@ -35,7 +35,15 @@ object CompilerBenchmark {
       val (asts, t2) = time("Creating ASTs", COUNT_TONODE)(queries.map(_.toNode))
       phases.foreach(p => phaseNanos += (p.name -> new Array[Long](1)))
       //asts.zipWithIndex.foreach { case (n, i) => println(i); compiler.run(n) }
+      /*if(i == RUNS-1) {
+        println("Attach profiler and press Return")
+        Console.readLine()
+      }*/
       val (compiled, t3) = time("Compiling", COUNT_COMPILE)(asts.map(compiler.run(_)))
+      /*if(i == RUNS-1) {
+        println("Detach profiler and press Return")
+        Console.readLine()
+      }*/
       println(String.format("Creating: %1$7.3f ms, toNode: %2$7.3f ms, compiling: %3$7.3f ms", t1.asInstanceOf[AnyRef], t2.asInstanceOf[AnyRef], t3.asInstanceOf[AnyRef]))
     }
 
