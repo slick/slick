@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import slick.ast._
 import slick.SlickException
-import slick.util.{SlickLogger, Logging}
+import slick.util.{ConstArray, SlickLogger, Logging}
 import TypeUtil.typeToTypeUtil
 
 /** A query interpreter for the MemoryDriver and for client-side operations
@@ -45,9 +45,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
           case (_: AnonSymbol | _: FieldSymbol) => v.asInstanceOf[StructValue].getBySymbol(field)
         }
       case n: StructNode =>
-        new StructValue(n.children.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
+        new StructValue(n.children.toSeq.map(run), n.nodeType.asInstanceOf[StructType].symbolToIndex)
       case ProductNode(ch) =>
-        new ProductValue(ch.map(run).toIndexedSeq)
+        new ProductValue(ch.map(run).toSeq)
       case Pure(n, _) => Vector(run(n))
       case t: TableNode =>
         val dbt = db.getTable(t.tableName)
@@ -147,12 +147,12 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       case SortBy(gen, from, by) =>
         val fromV = run(from).asInstanceOf[Coll]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
-        val ords: IndexedSeq[scala.math.Ordering[Any]] = by.map { case (b, o) =>
+        val ords: IndexedSeq[scala.math.Ordering[Any]] = by.toSeq.map { case (b, o) =>
           b.nodeType.asInstanceOf[ScalaType[Any]].scalaOrderingFor(o)
-        }(collection.breakOut)
+        }
         b ++= fromV.toSeq.sortBy { v =>
           scope(gen) = v
-          by.map { case (b, _) => run(b) }(collection.breakOut): IndexedSeq[Any]
+          by.toSeq.map { case (b, _) => run(b) }: IndexedSeq[Any]
         }(new scala.math.Ordering[IndexedSeq[Any]] {
           def compare(x: IndexedSeq[Any], y: IndexedSeq[Any]): Int = {
             var i = 0
@@ -309,9 +309,9 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
               case other => other
             }
             logDebug("[chPlainV: "+chPlainV.mkString(", ")+"]")
-            Some(evalFunction(sym, chPlainV, n.nodeType.asOptionType.elementType))
+            Some(evalFunction(sym, chPlainV.toSeq, n.nodeType.asOptionType.elementType))
           }
-        } else evalFunction(sym, chV, n.nodeType)
+        } else evalFunction(sym, chV.toSeq, n.nodeType)
       //case Library.CountAll(ch) => run(ch).asInstanceOf[Coll].size
       case l: LiteralNode => l.value
       case CollectionCast(ch, _) => run(ch)
@@ -405,8 +405,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   }
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
-    case ProductType(Seq(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
-    case StructType(Seq((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
+    case ProductType(ConstArray(t)) => (coll.iterator.map(_.asInstanceOf[ProductValue](0)), t)
+    case StructType(ConstArray((_, t))) => (coll.iterator.map(_.asInstanceOf[StructValue](0)), t)
     case t => (coll.iterator, t)
   }
 
@@ -421,10 +421,10 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
   def createNullRow(tpe: Type): Any = tpe match {
     case t: ScalaType[_] => if(t.nullable) None else null
     case StructType(el) =>
-      new StructValue(el.map{ case (_, tpe) => createNullRow(tpe) }(collection.breakOut),
-        el.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
+      new StructValue(el.toSeq.map{ case (_, tpe) => createNullRow(tpe) },
+        el.toSeq.zipWithIndex.map{ case ((sym, _), idx) => (sym, idx) }(collection.breakOut): Map[TermSymbol, Int])
     case ProductType(el) =>
-      new ProductValue(el.map(tpe => createNullRow(tpe))(collection.breakOut))
+      new ProductValue(el.toSeq.map(tpe => createNullRow(tpe)))
   }
 
   def asBoolean(v: Any) = v match {

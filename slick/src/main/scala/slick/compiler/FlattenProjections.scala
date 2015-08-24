@@ -1,5 +1,7 @@
 package slick.compiler
 
+import slick.util.ConstArray
+
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import slick.ast._
 import Util._
@@ -102,6 +104,6 @@ class FlattenProjections extends Phase {
       }
     }
     flatten(n, Nil)
-    (StructNode(defs), paths.toMap)
+    (StructNode(ConstArray.from(defs)), paths.toMap)
   }
 }

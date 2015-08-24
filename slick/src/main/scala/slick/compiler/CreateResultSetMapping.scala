@@ -4,6 +4,7 @@ import slick.SlickException
 import slick.ast._
 import Util._
 import TypeUtil._
+import slick.util.ConstArray
 
 /** Create a ResultSetMapping root node, ensure that the top-level server-side node returns a
   * collection, and hoist client-side type conversions into the ResultSetMapping. The original
@@ -36,7 +37,7 @@ class CreateResultSetMapping extends Phase {
 
   /** Create a structured return value for the client side, based on the
     * result type (which may contain MappedTypes). */
-  def createResult(ref: Ref, tpe: Type, syms: IndexedSeq[TermSymbol]): Node = {
+  def createResult(ref: Ref, tpe: Type, syms: ConstArray[TermSymbol]): Node = {
     var curIdx = 0
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)

@@ -2,6 +2,8 @@ package slick.driver
 
 import java.util.UUID
 import java.sql.{PreparedStatement, ResultSet}
+import slick.util.ConstArray
+
 import scala.concurrent.ExecutionContext
 import slick.dbio._
 import slick.lifted._
@@ -153,10 +155,10 @@ trait PostgresDriver extends JdbcDriver { driver =>
       val nonAutoIncVars = nonAutoIncSyms.map(_ => "?").mkString(",")
       val cond = pkNames.map(n => s"$n=?").mkString(" and ")
       val insert = s"insert into $tableName ($nonAutoIncNames) select $nonAutoIncVars where not exists (select 1 from $tableName where $cond)"
-      new InsertBuilderResult(table, s"begin; $update; $insert; end", softSyms ++ pkSyms)
+      new InsertBuilderResult(table, s"begin; $update; $insert; end", ConstArray.from(softSyms ++ pkSyms))
     }
 
-    override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms ++ pkSyms)
+    override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms ++ nonAutoIncSyms.toSeq ++ pkSyms)
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {

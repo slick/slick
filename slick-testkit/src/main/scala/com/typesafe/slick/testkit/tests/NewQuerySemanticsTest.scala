@@ -576,7 +576,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     import slick.ast.Util._
     val qc = new QueryCompiler(tdb.driver.queryCompiler.phases.takeWhile(_.name != "codeGen"))
     val cs = qc.run(q.toNode)
-    val found = cs.tree.collect { case c: Comprehension => c }.size
+    val found = cs.tree.collect { case c: Comprehension => c }.length
     if(found != exp)
       throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
         cs.tree, mark = (_.isInstanceOf[Comprehension]), removeUnmarked = false))

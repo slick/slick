@@ -1,5 +1,7 @@
 package slick.driver
 
+import slick.util.ConstArray
+
 import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.jdbc.{JdbcType, JdbcModelBuilder}
@@ -104,12 +106,12 @@ trait MySQLDriver extends JdbcDriver { driver =>
     // According to http://dev.mysql.com/doc/refman/5.0/en/user-variables.html this should not be
     // relied on but it is the generally accepted solution and there is no better way.
     override def transformZipWithIndex(s1: TermSymbol, ls: TermSymbol, from: Node,
-                                       defs: IndexedSeq[(TermSymbol, Node)], offset: Long, p: Node): Node = {
+                                       defs: ConstArray[(TermSymbol, Node)], offset: Long, p: Node): Node = {
       val countSym = new AnonSymbol
       val j = Join(new AnonSymbol, new AnonSymbol,
         Bind(ls, from, Pure(StructNode(defs))),
-        Bind(new AnonSymbol, Pure(StructNode(IndexedSeq.empty)),
-          Pure(StructNode(IndexedSeq(new AnonSymbol -> RowNumGen(countSym, offset-1))))),
+        Bind(new AnonSymbol, Pure(StructNode(ConstArray.empty)),
+          Pure(StructNode(ConstArray(new AnonSymbol -> RowNumGen(countSym, offset-1))))),
         JoinType.Inner, LiteralNode(true))
       var first = true
       Subquery(Bind(s1, j, p.replace {

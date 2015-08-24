@@ -1,6 +1,7 @@
 package slick.ast
 
 import slick.ast.TypeUtil.:@
+import slick.util.{ConstArray, ConstArrayBuilder}
 
 import scala.collection
 import scala.collection.mutable
@@ -11,21 +12,6 @@ import scala.collection.mutable.ArrayBuffer
  * Utility methods for AST manipulation.
  */
 object Util {
-
-  def mapOrNull[A <: AnyRef](c: IndexedSeq[A])(f: A => A): IndexedSeq[A] = {
-    val len = c.length
-    val b = new ArrayBuffer[A](len)
-    var changed = false
-    var i = 0
-    while(i < len) {
-      val x = c(i)
-      val n = f(x)
-      b += n
-      if(n ne x) changed = true
-      i += 1
-    }
-    if(changed) b else null
-  }
 
   def mapOrNone[A <: AnyRef](c: Option[A])(f: A => A): Option[A] = {
     if(c.isEmpty) None else {
@@ -43,8 +29,8 @@ final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
   import NodeOps._
 
-  @inline def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): Seq[T] = {
-    val b = new ArrayBuffer[T]
+  @inline def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): ConstArray[T] = {
+    val b = new ConstArrayBuilder[T]
     def f(n: Node): Unit = pf.andThen[Unit] { case t =>
       b += t
       if(!stopOnMatch) n.children.foreach(f)
@@ -52,10 +38,10 @@ final class NodeOps(val tree: Node) extends AnyVal {
       n.children.foreach(f)
     }.apply(n)
     f(tree)
-    b
+    b.result
   }
 
-  def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Seq[T] = collect[Seq[T]](pf).flatten
+  def collectAll[T](pf: PartialFunction[Node, ConstArray[T]]): ConstArray[T] = collect[ConstArray[T]](pf).flatten
 
   def replace(f: PartialFunction[Node, Node], keepType: Boolean = false, bottomUp: Boolean = false): Node = {
     def g(n: Node): Node = n.mapChildren(_.replace(f, keepType, bottomUp), keepType)

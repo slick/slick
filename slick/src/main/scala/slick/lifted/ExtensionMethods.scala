@@ -1,5 +1,7 @@
 package slick.lifted
 
+import slick.util.ConstArray
+
 import scala.language.{implicitConversions, higherKinds}
 import slick.ast._
 import FunctionSymbolExtensionMethods._
@@ -43,10 +45,10 @@ trait ColumnExtensionMethods[B1, P1] extends Any with ExtensionMethods[B1, P1] {
     om.column(Library.In, n, e.toNode)
   def inSet[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(LiteralColumn(false))
-    else om.column(Library.In, n, ProductNode(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) }.toVector))
+    else om.column(Library.In, n, ProductNode(ConstArray.from(seq.map{ v => LiteralNode(implicitly[TypedType[B1]], v) })))
   def inSetBind[R](seq: Traversable[B1])(implicit om: o#to[Boolean, R]) =
     if(seq.isEmpty) om(LiteralColumn(false))
-    else om.column(Library.In, n, ProductNode(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)).toVector))
+    else om.column(Library.In, n, ProductNode(ConstArray.from(seq.map(v => LiteralNode(implicitly[TypedType[B1]], v, vol = true)))))
 
   def between[P2, P3, R](start: Rep[P2], end: Rep[P3])(implicit om: o#arg[B1, P2]#arg[B1, P3]#to[Boolean, R]) =
     om.column(Library.Between, n, start.toNode, end.toNode)
@@ -192,7 +194,7 @@ final class AnyOptionExtensionMethods[O <: Rep[_], P](val r: O) extends AnyVal {
     // fold(None, (v => if p(v) Some(v) else None))
     val gen = new AnonSymbol
     val pred = wt(p(OptionLift.baseValue[P, O](r, Ref(gen)))).toNode
-    val cond = IfThenElse(Vector(pred, OptionApply(Ref(gen)), LiteralNode.nullOption))
+    val cond = IfThenElse(ConstArray(pred, OptionApply(Ref(gen)), LiteralNode.nullOption))
     r.encodeRef(OptionFold(r.toNode, LiteralNode.nullOption, cond, gen)).asInstanceOf[O]
   }
 

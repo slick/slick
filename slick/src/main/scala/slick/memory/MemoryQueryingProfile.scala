@@ -9,7 +9,7 @@ import slick.compiler._
 import slick.lifted._
 import slick.relational._
 import slick.profile.{BasicDriver, BasicProfile}
-import slick.util.??
+import slick.util.{??, ConstArray}
 import TypeUtil._
 
 /** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
@@ -67,7 +67,7 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
     }
 
     def transformCountAll(gen: TermSymbol, n: Node): Node = n match {
-      case Apply(Library.CountAll, ch @ Seq(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _)))) if s == gen && s2 == gen2 =>
+      case Apply(Library.CountAll, ch @ ConstArray(Bind(gen2, FwdPath(s :: _), Pure(ProductOfCommonPaths(s2, _), _)))) if s == gen && s2 == gen2 =>
         Apply(Library.Count, ch)(n.nodeType)
       case n => n.mapChildren(ch => transformCountAll(gen, ch), keepType = true)
     }
@@ -106,7 +106,7 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
 
   object ProductOfCommonPaths {
     def unapply(n: ProductNode): Option[(TermSymbol, Vector[List[TermSymbol]])] = if(n.children.isEmpty) None else
-      n.children.foldLeft(null: Option[(TermSymbol, Vector[List[TermSymbol]])]) {
+      n.children.iterator.foldLeft(null: Option[(TermSymbol, Vector[List[TermSymbol]])]) {
         case (None, _) => None
         case (null, FwdPath(sym :: rest)) => Some((sym, Vector(rest)))
         case (Some((sym0, v)), FwdPath(sym :: rest)) if sym == sym0 => Some((sym, v :+ rest))

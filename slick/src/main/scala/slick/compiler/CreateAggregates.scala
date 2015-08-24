@@ -4,18 +4,18 @@ import slick.ast.Library.AggregateFunctionSymbol
 import slick.ast.TypeUtil._
 import slick.ast.Util._
 import slick.ast._
-import slick.util.{Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis, ??}
 
 /** Rewrite aggregation function calls to Aggregate nodes. */
 class CreateAggregates extends Phase {
   val name = "createAggregates"
 
   def apply(state: CompilerState) = state.map(_.replace({
-    case n @ Apply(f: AggregateFunctionSymbol, Seq(from)) =>
+    case n @ Apply(f: AggregateFunctionSymbol, ConstArray(from)) =>
       logger.debug("Converting aggregation function application", n)
       val CollectionType(_, elType @ Type.Structural(StructType(els))) = from.nodeType
       val s = new AnonSymbol
-      val a = Aggregate(s, from, Apply(f, Vector(f match {
+      val a = Aggregate(s, from, Apply(f, ConstArray(f match {
         case Library.CountAll => LiteralNode(1)
         case _ => Select(Ref(s) :@ elType, els.head._1) :@ els.head._2
       }))(n.nodeType)).infer()
@@ -28,7 +28,7 @@ class CreateAggregates extends Phase {
         logger.debug("Lifting aggregates into join in:", n)
         logger.debug("New mapping with temporary refs:", sel2)
         val sources = (from1 match {
-          case Pure(StructNode(Seq()), _) => Vector.empty[(TermSymbol, Node)]
+          case Pure(StructNode(ConstArray()), _) => Vector.empty[(TermSymbol, Node)]
           case _ => Vector(s1 -> from1)
         }) ++ temp.map { case (s, n) => (s, Pure(n)) }
         val from2 = sources.init.foldRight(sources.last._2) {
@@ -48,7 +48,7 @@ class CreateAggregates extends Phase {
         logger.debug("Replacement paths: " + repl)
         val scope = Type.Scope(s1 -> from2.nodeType.asCollectionType.elementType)
         val replNodes = repl.mapValues(ss => FwdPath(ss).infer(scope))
-        logger.debug("Replacement path nodes: ", StructNode(replNodes.toIndexedSeq))
+        logger.debug("Replacement path nodes: ", StructNode(ConstArray.from(replNodes)))
         val sel3 = sel2.replace({ case n @ Ref(s) => replNodes.getOrElse(s, n) }, keepType = true)
         val n2 = Bind(s1, from2, Pure(sel3, ts1)).infer()
         logger.debug("Lifted aggregates into join in:", n2)
@@ -60,7 +60,7 @@ class CreateAggregates extends Phase {
   def inlineMap(a: Aggregate): Aggregate = a.from match {
     case Bind(s1, f1, Pure(StructNode(defs1), ts1)) =>
       logger.debug("Inlining mapping Bind under Aggregate", a)
-      val defs1M = defs1.toMap
+      val defs1M = defs1.iterator.toMap
       val sel = a.select.replace({
         case FwdPath(s :: f :: rest) if s == a.sym =>
           rest.foldLeft(defs1M(f)) { case (n, s) => n.select(s) }.infer()
@@ -81,16 +81,16 @@ class CreateAggregates extends Phase {
         }.isDefined) (a, Map.empty)
       else {
         val s, f = new AnonSymbol
-        val a2 = Aggregate(s1, f1, StructNode(IndexedSeq(f -> sel1))).infer()
+        val a2 = Aggregate(s1, f1, StructNode(ConstArray(f -> sel1))).infer()
         (Select(Ref(s) :@ a2.nodeType, f).infer(), Map(s -> a2))
       }
     case n :@ CollectionType(_, _) =>
       (n, Map.empty)
     case n =>
       val mapped = n.children.map(liftAggregates(_, outer))
-      val m = mapped.flatMap(_._2).toMap
+      val m = mapped.iterator.flatMap(_._2).toMap
       val n2 =
-        if(m.isEmpty) n else n.withChildren(mapped.map(_._1).toIndexedSeq) :@ n.nodeType
+        if(m.isEmpty) n else n.withChildren(mapped.map(_._1)) :@ n.nodeType
       (n2, m)
   }
 }

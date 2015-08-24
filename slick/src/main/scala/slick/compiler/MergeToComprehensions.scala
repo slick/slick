@@ -6,7 +6,7 @@ import slick.ast._
 import slick.ast.QueryParameter.constOp
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.util.{Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis, ??}
 
 /** This phase merges nested nodes of types Bind, Filter, GroupBy, SortBy, Take, Drop and
   * CollectionCast to Comprehension nodes. Nodes can be merged if they occur in the following
@@ -23,7 +23,7 @@ class MergeToComprehensions extends Phase {
   /** A map from a TypeSymbol and a field on top of it to a new Symbol */
   type Replacements = Map[(TypeSymbol, TermSymbol), TermSymbol]
 
-  type Mappings = Seq[((TypeSymbol, TermSymbol), List[TermSymbol])]
+  type Mappings = ConstArray[((TypeSymbol, TermSymbol), List[TermSymbol])]
 
   def apply(state: CompilerState) = state.map(n => ClientSideOp.mapResultSetMapping(n, keepType = false) { rsm =>
     rsm.copy(from = convert(rsm.from), map = rsm.map.replace { case r: Ref => r.untyped })
@@ -33,7 +33,7 @@ class MergeToComprehensions extends Phase {
     // Find all references into tables so we can convert TableNodes to Comprehensions
     val tableFields =
       tree.collect { case Select(_ :@ NominalType(t: TableIdentitySymbol, _), f) => (t, f) }
-        .groupBy(_._1).mapValues(_.map(_._2).distinct.toVector)
+        .toSeq.groupBy(_._1).mapValues(_.map(_._2).distinct.toVector)
     logger.debug("Table fields: " + tableFields)
 
     /** Merge Take, Drop, Bind and CollectionCast into an existing Comprehension */
@@ -75,7 +75,7 @@ class MergeToComprehensions extends Phase {
         val (c1, replacements1) = mergeSortBy(f1, true)
         logger.debug("Merging SortBy into Comprehension:", Ellipsis(n, List(0)))
         val b2 = b1.map { case (n, o) => (applyReplacements(n, replacements1, c1), o) }
-        val c2 = c1.copy(orderBy = b2 ++: c1.orderBy) :@ c1.nodeType
+        val c2 = c1.copy(orderBy = b2 ++ c1.orderBy) :@ c1.nodeType
         logger.debug("Merged SortBy into Comprehension:", c2)
         (c2, replacements1)
 
@@ -92,19 +92,19 @@ class MergeToComprehensions extends Phase {
         val str2 = str1.replace {
           case Aggregate(_, FwdPath(s :: ElementSymbol(2) :: Nil), v) if s == s1 =>
             applyReplacements(v, replacements1, c1).replace {
-              case Apply(f: AggregateFunctionSymbol, Seq(ch)) :@ tpe =>
-                Apply(f, Vector(ch match {
-                  case StructNode(Seq(ch, _*)) => ch._2
+              case Apply(f: AggregateFunctionSymbol, ConstArray(ch)) :@ tpe =>
+                Apply(f, ConstArray(ch match {
+                  case StructNode(ConstArray(ch, _*)) => ch._2
                   case n => n
                 }))(tpe)
             }
           case FwdPath(s :: ElementSymbol(1) :: rest) if s == s1 =>
             rest.foldLeft(b2) { case (n, s) => n.select(s) }.infer()
         }
-        val c2 = c1.copy(groupBy = Some(ProductNode(Vector(b2)).flatten), select = Pure(str2, ts2)).infer()
+        val c2 = c1.copy(groupBy = Some(ProductNode(ConstArray(b2)).flatten), select = Pure(str2, ts2)).infer()
         logger.debug("Merged GroupBy into Comprehension:", c2)
         val StructNode(defs2) = str2
-        val replacements = defs2.map { case (f, _) => (ts2, f) -> f }.toMap
+        val replacements = defs2.iterator.map { case (f, _) => (ts2, f) -> f }.toMap
         logger.debug("Replacements are: "+replacements)
         (c2, replacements)
 
@@ -115,7 +115,7 @@ class MergeToComprehensions extends Phase {
         val c2 = c1.copy(select = Pure(str2, ts)).infer()
         logger.debug("Merged Aggregate source into Comprehension:", c2)
         val StructNode(defs) = str2
-        val repl = defs.map { case (f, _) => ((ts, f), f) }.toMap
+        val repl = defs.iterator.map { case (f, _) => ((ts, f), f) }.toMap
         logger.debug("Replacements are: "+repl)
         (c2, repl)
 
@@ -140,11 +140,11 @@ class MergeToComprehensions extends Phase {
       logger.debug("Building new Comprehension from:", n)
       val newSyms = mappings.map(x => (x, new AnonSymbol))
       val s = new AnonSymbol
-      val struct = StructNode(newSyms.map { case ((_, ss), as) => (as, FwdPath(s :: ss)) }.toVector)
+      val struct = StructNode(newSyms.map { case ((_, ss), as) => (as, FwdPath(s :: ss)) })
       val pid = new AnonTypeSymbol
       val res = Comprehension(s, n, select = Pure(struct, pid)).infer()
       logger.debug("Built new Comprehension:", res)
-      val replacements = newSyms.map { case (((ts, f), _), as) => ((ts, f), as) }.toMap
+      val replacements = newSyms.iterator.map { case (((ts, f), _), as) => ((ts, f), as) }.toMap
       logger.debug("Replacements are: "+replacements)
       (res, replacements)
     }
@@ -155,7 +155,7 @@ class MergeToComprehensions extends Phase {
     def createSource(n: Node): Option[(Node, Mappings)] = n match {
       case t: TableNode =>
         logger.debug("Creating source from TableNode:", t)
-        val mappings = tableFields.getOrElse(t.identity, Seq.empty).map(f => ((t.identity: TypeSymbol, f), f :: Nil)).toSeq
+        val mappings = ConstArray.from(tableFields.getOrElse(t.identity, Seq.empty).map(f => ((t.identity: TypeSymbol, f), f :: Nil)))
         logger.debug("Mappings are: "+mappings)
         Some((t, mappings))
       case p @ Pure(StructNode(defs), ts) =>
@@ -172,11 +172,11 @@ class MergeToComprehensions extends Phase {
         // Detect and remove empty join sides
         val noCondition = on1 == LiteralNode(true).infer()
         val noLeft = l2 match {
-          case Pure(StructNode(Seq()), _) => true
+          case Pure(StructNode(ConstArray()), _) => true
           case _ => false
         }
         val noRight = r2 match {
-          case Pure(StructNode(Seq()), _) => true
+          case Pure(StructNode(ConstArray()), _) => true
           case _ => false
         }
         if(noLeft && noCondition) {
@@ -187,7 +187,7 @@ class MergeToComprehensions extends Phase {
           val mappings =
             lmap.map { case (key, ss) => (key, ElementSymbol(1) :: ss )} ++
             rmap.map { case (key, ss) => (key, ElementSymbol(2) :: ss )}
-          val mappingsM = mappings.toMap
+          val mappingsM = mappings.iterator.toMap
           logger.debug(s"Mappings for `on` clause in Join $ls/$rs: "+mappingsM)
           val on2 = on1.replace({
             case p @ FwdPathOnTypeSymbol(ts, _ :: s :: Nil) =>
@@ -231,7 +231,7 @@ class MergeToComprehensions extends Phase {
 
       case n =>
         val (c, rep) = mergeTakeDrop(n, false)
-        val mappings = rep.mapValues(_ :: Nil).toSeq
+        val mappings = ConstArray.from(rep.mapValues(_ :: Nil))
         logger.debug("Mappings are: "+mappings)
         (c, mappings)
     }
@@ -277,7 +277,7 @@ class MergeToComprehensions extends Phase {
       val defs2 = defs1.map { case (s, d) => (s, applyReplacements(d, replacements1, c1)) }
       val c2 = c1.copy(select = Pure(StructNode(defs2), ts1)).infer()
       logger.debug("Merged Bind into Comprehension as 'select':", c2)
-      val replacements = defs2.map { case (f, _) => (ts1, f) -> f }.toMap
+      val replacements = defs2.iterator.map { case (f, _) => (ts1, f) -> f }.toMap
       logger.debug("Replacements are: "+replacements)
       (c2, replacements)
 
@@ -305,7 +305,7 @@ class MergeToComprehensions extends Phase {
   /** Remove purely aliasing `Bind` mappings, apply the conversion to the source, then inject the
     * mappings back into the source's mappings. */
   def dealias(n: Node)(f: Node => (Node, Mappings)): (Node, Mappings) = {
-    def isAliasing(base: TermSymbol, defs: IndexedSeq[(TermSymbol, Node)]) = {
+    def isAliasing(base: TermSymbol, defs: ConstArray[(TermSymbol, Node)]) = {
       val r = defs.forall {
         case (_, FwdPath(s :: _)) if s == base => true
         case _ => false
@@ -318,7 +318,7 @@ class MergeToComprehensions extends Phase {
       case Bind(s, from, Pure(StructNode(defs), ts1)) if isAliasing(s, defs) =>
         val (n2, map1) = dealias(from)(f)
         logger.debug("Recombining aliasing Bind mappings "+defs)
-        val map1M = map1.toMap
+        val map1M = map1.iterator.toMap
         val map2 = defs.map { case (f1, p) =>
           val sel = p.findNode {
             case Select(_ :@ NominalType(_, _), _) => true
@@ -336,7 +336,7 @@ class MergeToComprehensions extends Phase {
     * will be merged into the Comprehension. */
   def applyReplacements(n1: Node, r: Replacements, c: Comprehension): Node = {
     val Pure(StructNode(base), _) = c.select
-    val baseM = base.toMap
+    val baseM = base.iterator.toMap
     n1.replace({ case n @ Select(_ :@ NominalType(ts, _), s) =>
       r.get((ts, s)) match {
         case Some(s2) => baseM(s2)

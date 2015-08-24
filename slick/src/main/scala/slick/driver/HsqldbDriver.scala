@@ -1,6 +1,8 @@
 package slick.driver
 
 import java.sql.Types
+import slick.util.ConstArray
+
 import scala.concurrent.ExecutionContext
 import slick.SlickException
 import slick.dbio._
@@ -94,7 +96,7 @@ trait HsqldbDriver extends JdbcDriver { driver =>
           val on3 = (on, on2) match {
             case (a, LiteralNode(true)) => a
             case (LiteralNode(true), b) => b
-            case (a, b) => Apply(Library.And, Vector(a, b))(UnassignedType)
+            case (a, b) => Apply(Library.And, ConstArray(a, b))(UnassignedType)
           }
           buildJoin(Join(rs, rs2, Join(ls, ls2, l, l2, JoinType.Inner, LiteralNode(true)), r2, JoinType.Inner, on3))
         case j => super.buildJoin(j)
