@@ -140,6 +140,8 @@ trait PostgresDriver extends JdbcDriver { driver =>
       case Library.IfNull(ch, d) => b"coalesce($ch, $d)"
       case Library.NextValue(SequenceNode(name)) => b"nextval('$name')"
       case Library.CurrentValue(SequenceNode(name)) => b"currval('$name')"
+      case Library.CurrentDate() => b"current_date"
+      case Library.CurrentTime() => b"current_time"
       case _ => super.expr(n, skipParens)
     }
   }
