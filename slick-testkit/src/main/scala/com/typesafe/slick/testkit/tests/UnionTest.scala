@@ -24,13 +24,14 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
   }
   lazy val employees = TableQuery[Employees]
 
-  def testBasic = {
+  def testBasicUnions = {
     val q1 = for(m <- managers filter { _.department === "IT" }) yield (m.id, m.name)
     val q2 = for(e <- employees filter { _.departmentIs("IT") }) yield (e.id, e.name)
     val q3 = (q1 union q2).sortBy(_._2.asc)
     val q4 = managers.map(_.id)
     val q4b = q4 union q4
     val q4c = q4 union q4 union q4
+    val q5 = managers.map(m => (m.id, 0)) union employees.map(e => (e.id, e.id))
 
     (for {
       _ <- (managers.schema ++ employees.schema).create
@@ -51,6 +52,7 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       _ <- mark("q3", q3.result).map(_ shouldBe List((2,"Amy"), (7,"Ben"), (8,"Greg"), (6,"Leonard"), (3,"Steve")))
       _ <- mark("q4b", q4b.result).map(r => r.toSet shouldBe Set(1, 2, 3))
       _ <- mark("q4c", q4c.result).map(r => r.toSet shouldBe Set(1, 2, 3))
+      _ <- mark("q5", q5.result).map(r => r.toSet shouldBe Set((7,7), (6,6), (2,0), (4,4), (3,0), (8,8), (5,5), (1,0)))
     } yield ()) andFinally (managers.schema ++ employees.schema).drop
   }
 

@@ -286,115 +286,6 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     }
 
     def expr(n: Node, skipParens: Boolean = false): Unit = n match {
-      case (n @ LiteralNode(v)) :@ JdbcType(ti, option) =>
-        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, idx, param) =>
-          if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx)
-          else ti.setValue(v, p, idx)
-        } else b += valueToSQLLiteral(v, n.nodeType)
-      case QueryParameter(extractor, JdbcType(ti, option)) =>
-        b +?= { (p, idx, param) =>
-          if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p, idx)
-          else ti.setValue(extractor(param), p, idx)
-        }
-      case Library.Not(Library.==(l, LiteralNode(null))) =>
-        b"\($l is not null\)"
-      case Library.==(l, LiteralNode(null)) =>
-        b"\($l is null\)"
-      case Library.==(left: ProductNode, right: ProductNode) =>
-        b"\("
-        if(supportsTuples) b"$left = $right"
-        else {
-          val cols = left.children zip right.children
-          b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
-        }
-        b"\)"
-      case ProductNode(ch) =>
-        b"\("
-        b.sep(ch, ", ")(expr(_))
-        b"\)"
-      case RewriteBooleans.ToFakeBoolean(ch) =>
-        expr(IfThenElse(Vector(ch, LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
-      case RewriteBooleans.ToRealBoolean(ch) =>
-        expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
-      case Library.Exists(c: Comprehension) =>
-        /* If tuples are not supported, selecting multiple individial columns
-         * in exists(select ...) is probably not supported, either, so we rewrite
-         * such sub-queries to "select 1". */
-        b"exists\[!${(if(supportsTuples) c else c.copy(select = Pure(LiteralNode(1))).infer()): Node}\]"
-      case Library.Concat(l, r) if concatOperator.isDefined =>
-        b"\($l${concatOperator.get}$r\)"
-      case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
-        b += "''"
-      case Library.Database() if !capabilities.contains(RelationalProfile.capabilities.functionDatabase) =>
-        b += "''"
-      case Library.Pi() if !hasPiFunction => b += pi
-      case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}*$ch)"
-      case Library.Radians(ch) if!hasRadDegConversion => b"(!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}/180.0*$ch)"
-      case s: SimpleFunction =>
-        if(s.scalar) b"{fn "
-        b"${s.name}("
-        b.sep(s.children, ",")(expr(_, true))
-        b")"
-        if(s.scalar) b += '}'
-      case SimpleLiteral(w) => b += w
-      case s: SimpleExpression => s.toSQL(this)
-      case Library.Between(left, start, end) => b"$left between $start and $end"
-      case Library.CountDistinct(e) => b"count(distinct $e)"
-      case Library.CountAll(e) => b"count($e)"
-      case Library.Like(l, r) => b"\($l like $r\)"
-      case Library.Like(l, r, LiteralNode(esc: Char)) =>
-        if(esc == '\'' || esc == '%' || esc == '_') throw new SlickException("Illegal escape character '"+esc+"' for LIKE expression")
-        // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
-        b"\($l like $r escape '$esc'\)"
-      case Library.StartsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${valueToSQLLiteral(likeEncode(s)+'%', ScalaBaseType.stringType)} escape '^'\)"
-      case Library.EndsWith(n, LiteralNode(s: String)) =>
-        b"\($n like ${valueToSQLLiteral("%"+likeEncode(s), ScalaBaseType.stringType)} escape '^'\)"
-      case Library.Trim(n) =>
-        expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
-      case Library.Substring(n, start, end) =>
-        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})}\)"
-      case Library.Substring(n, start) =>
-        b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())})}\)"
-      case Library.IndexOf(n, str) => b"\({fn locate($str, $n)} - 1\)"
-      case Library.Cast(ch @ _*) =>
-        val tn =
-          if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
-          else jdbcTypeFor(n.nodeType).sqlTypeName(None)
-        if(supportsCast) b"cast(${ch(0)} as $tn)"
-        else b"{fn convert(!${ch(0)},$tn)}"
-      case Library.SilentCast(ch) => b"$ch"
-      case s: SimpleBinaryOperator => b"\(${s.left} ${s.name} ${s.right}\)"
-      case Apply(sym: Library.SqlOperator, ch) =>
-        b"\("
-        if(ch.length == 1) {
-          b"${sym.name} ${ch.head}"
-        } else b.sep(ch, " " + sym.name + " ")(expr(_))
-        b"\)"
-      case Apply(sym: Library.JdbcFunction, ch) =>
-        val quote = quotedJdbcFns.map(_.contains(sym)).getOrElse(true)
-        if(quote) b"{fn "
-        b"${sym.name}("
-        b.sep(ch, ",")(expr(_, true))
-        b")"
-        if(quote) b"}"
-      case Apply(sym: Library.SqlFunction, ch) =>
-        b"${sym.name}("
-        b.sep(ch, ",")(expr(_, true))
-        b")"
-      case c: IfThenElse =>
-        b"(case"
-        c.ifThenClauses.foreach { case (l, r) => b" when $l then $r" }
-        c.elseClause match {
-          case LiteralNode(null) =>
-          case n => b" else $n"
-        }
-        b" end)"
-      case RowNumber(by) =>
-        b"row_number() over(order by "
-        if(by.isEmpty) b"(select 1)"
-        else b.sep(by, ", "){ case (n, o) => buildOrdering(n, o) }
-        b")"
       case p @ Path(path) =>
         val (base, rest) = path.foldRight[(Option[TermSymbol], List[TermSymbol])]((None, Nil)) {
           case (ElementSymbol(idx), (Some(b), Nil)) => (Some(joins(b).generators(idx-1)._1), Nil)
@@ -407,7 +298,116 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           case field :: Nil => b += symbolName(field)
           case _ => throw new SlickException("Cannot resolve "+p+" as field or view")
         }
+      case (n @ LiteralNode(v)) :@ JdbcType(ti, option) =>
+        if(n.volatileHint || !ti.hasLiteralForm) b +?= { (p, idx, param) =>
+          if(option) ti.setOption(v.asInstanceOf[Option[Any]], p, idx)
+          else ti.setValue(v, p, idx)
+        } else b += valueToSQLLiteral(v, n.nodeType)
+      case ProductNode(ch) =>
+        b"\("
+        b.sep(ch, ", ")(expr(_))
+        b"\)"
+      case n: Apply => n match {
+        case Library.Not(Library.==(l, LiteralNode(null))) =>
+          b"\($l is not null\)"
+        case Library.==(l, LiteralNode(null)) =>
+          b"\($l is null\)"
+        case Library.==(left: ProductNode, right: ProductNode) =>
+          b"\("
+          if(supportsTuples) b"$left = $right"
+          else {
+            val cols = left.children zip right.children
+            b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
+          }
+          b"\)"
+        case RewriteBooleans.ToFakeBoolean(ch) =>
+          expr(IfThenElse(Vector(ch, LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
+        case RewriteBooleans.ToRealBoolean(ch) =>
+          expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
+        case Library.Exists(c: Comprehension) =>
+          /* If tuples are not supported, selecting multiple individial columns
+           * in exists(select ...) is probably not supported, either, so we rewrite
+           * such sub-queries to "select 1". */
+          b"exists\[!${(if(supportsTuples) c else c.copy(select = Pure(LiteralNode(1))).infer()): Node}\]"
+        case Library.Concat(l, r) if concatOperator.isDefined =>
+          b"\($l${concatOperator.get}$r\)"
+        case Library.User() if !capabilities.contains(RelationalProfile.capabilities.functionUser) =>
+          b += "''"
+        case Library.Database() if !capabilities.contains(RelationalProfile.capabilities.functionDatabase) =>
+          b += "''"
+        case Library.Pi() if !hasPiFunction => b += pi
+        case Library.Degrees(ch) if !hasRadDegConversion => b"(180.0/!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}*$ch)"
+        case Library.Radians(ch) if!hasRadDegConversion => b"(!${Library.Pi.typed(columnTypes.bigDecimalJdbcType)}/180.0*$ch)"
+        case Library.Between(left, start, end) => b"$left between $start and $end"
+        case Library.CountDistinct(e) => b"count(distinct $e)"
+        case Library.CountAll(e) => b"count($e)"
+        case Library.Like(l, r) => b"\($l like $r\)"
+        case Library.Like(l, r, LiteralNode(esc: Char)) =>
+          if(esc == '\'' || esc == '%' || esc == '_') throw new SlickException("Illegal escape character '"+esc+"' for LIKE expression")
+          // JDBC defines an {escape } syntax but the unescaped version is understood by more DBs/drivers
+          b"\($l like $r escape '$esc'\)"
+        case Library.StartsWith(n, LiteralNode(s: String)) =>
+          b"\($n like ${valueToSQLLiteral(likeEncode(s)+'%', ScalaBaseType.stringType)} escape '^'\)"
+        case Library.EndsWith(n, LiteralNode(s: String)) =>
+          b"\($n like ${valueToSQLLiteral("%"+likeEncode(s), ScalaBaseType.stringType)} escape '^'\)"
+        case Library.Trim(n) =>
+          expr(Library.LTrim.typed[String](Library.RTrim.typed[String](n)), skipParens)
+        case Library.Substring(n, start, end) =>
+          b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())}, ${QueryParameter.constOp[Int]("-")(_ - _)(end, start)})}\)"
+        case Library.Substring(n, start) =>
+          b"\({fn substring($n, ${QueryParameter.constOp[Int]("+")(_ + _)(start, LiteralNode(1).infer())})}\)"
+        case Library.IndexOf(n, str) => b"\({fn locate($str, $n)} - 1\)"
+        case Library.Cast(ch @ _*) =>
+          val tn =
+            if(ch.length == 2) ch(1).asInstanceOf[LiteralNode].value.asInstanceOf[String]
+            else jdbcTypeFor(n.nodeType).sqlTypeName(None)
+          if(supportsCast) b"cast(${ch(0)} as $tn)"
+          else b"{fn convert(!${ch(0)},$tn)}"
+        case Library.SilentCast(ch) => b"$ch"
+        case Apply(sym: Library.SqlOperator, ch) =>
+          b"\("
+          if(ch.length == 1) {
+            b"${sym.name} ${ch.head}"
+          } else b.sep(ch, " " + sym.name + " ")(expr(_))
+          b"\)"
+        case Apply(sym: Library.JdbcFunction, ch) =>
+          val quote = quotedJdbcFns.map(_.contains(sym)).getOrElse(true)
+          if(quote) b"{fn "
+          b"${sym.name}("
+          b.sep(ch, ",")(expr(_, true))
+          b")"
+          if(quote) b"}"
+        case Apply(sym: Library.SqlFunction, ch) =>
+          b"${sym.name}("
+          b.sep(ch, ",")(expr(_, true))
+          b")"
+        case n => throw new SlickException("Unexpected function call "+n+" -- SQL prefix: "+b.build.sql)
+      }
+      case c: IfThenElse =>
+        b"(case"
+        c.ifThenClauses.foreach { case (l, r) => b" when $l then $r" }
+        c.elseClause match {
+          case LiteralNode(null) =>
+          case n => b" else $n"
+        }
+        b" end)"
       case OptionApply(ch) => expr(ch, skipParens)
+      case QueryParameter(extractor, JdbcType(ti, option)) =>
+        b +?= { (p, idx, param) =>
+          if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p, idx)
+          else ti.setValue(extractor(param), p, idx)
+        }
+      case s: SimpleFunction =>
+        if(s.scalar) b"{fn "
+        b"${s.name}("
+        b.sep(s.children, ",")(expr(_, true))
+        b")"
+        if(s.scalar) b += '}'
+      case RowNumber(by) =>
+        b"row_number() over(order by "
+        if(by.isEmpty) b"(select 1)"
+        else b.sep(by, ", "){ case (n, o) => buildOrdering(n, o) }
+        b")"
       case c: Comprehension =>
         b"\{"
         buildComprehension(c)
@@ -418,6 +418,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         if(all) b"\nunion all " else b"\nunion "
         buildFrom(right, None, true)
         b"\}"
+      case SimpleLiteral(w) => b += w
+      case s: SimpleExpression => s.toSQL(this)
+      case s: SimpleBinaryOperator => b"\(${s.left} ${s.name} ${s.right}\)"
       case n => throw new SlickException("Unexpected node "+n+" -- SQL prefix: "+b.build.sql)
     }
 

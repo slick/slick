@@ -49,7 +49,7 @@ class AnonSymbol extends TermSymbol {
 
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
-  def generators: Seq[(TermSymbol, Node)]
+  def generators: IndexedSeq[(TermSymbol, Node)]
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]): Node
 
   final def mapScopedChildren(f: (Option[TermSymbol], Node) => Node): Self with DefNode = {
@@ -59,8 +59,10 @@ trait DefNode extends Node {
     if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) rebuild(mapped).asInstanceOf[Self with DefNode]
     else this
   }
-  final def mapSymbols(f: TermSymbol => TermSymbol): Node =
-    mapOrNone(generators.map(_._1))(f).fold[Node](this) { s => rebuildWithSymbols(s.toIndexedSeq) }
+  final def mapSymbols(f: TermSymbol => TermSymbol): Node = {
+    val s2 = mapOrNull(generators.map(_._1))(f)
+    if(s2 eq null) this else rebuildWithSymbols(s2)
+  }
 }
 
 /** Provides names for symbols */

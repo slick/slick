@@ -38,6 +38,11 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
       case _ => super.createGetOrElseResultConverter[T](rc, default)
     }
 
+    override def createIsDefinedResultConverter[T](rc: ResultConverter[JdbcResultConverterDomain, Option[T]]) = rc match {
+      case rc: OptionResultConverter[_] => rc.isDefined
+      case _ => super.createIsDefinedResultConverter(rc)
+    }
+
     override def createTypeMappingResultConverter(rc: ResultConverter[JdbcResultConverterDomain, Any], mapper: MappedScalaType.Mapper) = {
       val tm = new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
       mapper.fastPath match {

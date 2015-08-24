@@ -21,11 +21,11 @@ class ExpandConditionals extends Phase {
       // Expand multi-column SilentCasts
       case cast @ Library.SilentCast(ch) :@ Type.Structural(ProductType(typeCh)) =>
         invalidate(ch)
-        val elems = typeCh.zipWithIndex.map { case (t, idx) => tr(Library.SilentCast.typed(t, ch.select(ElementSymbol(idx+1)).infer()).infer()) }
+        val elems = typeCh.zipWithIndex.map { case (t, idx) => tr(Library.SilentCast.typed(t, ch.select(ElementSymbol(idx+1))).infer()) }
         ProductNode(elems).infer()
       case Library.SilentCast(ch) :@ Type.Structural(StructType(typeCh)) =>
         invalidate(ch)
-        val elems = typeCh.map { case (sym, t) => (sym, tr(Library.SilentCast.typed(t, ch.select(sym).infer()).infer())) }
+        val elems = typeCh.map { case (sym, t) => (sym, tr(Library.SilentCast.typed(t, ch.select(sym)).infer())) }
         StructNode(elems).infer()
 
       // Optimize trivial SilentCasts
@@ -69,8 +69,7 @@ class ExpandConditionals extends Phase {
     val n2 = tr(n)
     logger.debug("Invalidated TypeSymbols: "+invalid.mkString(", "))
     n2.replace({
-      case (n: PathElement) :@ tpe if invalid.intersect(tpe.collect { case NominalType(ts, _) => ts }.toSet).nonEmpty =>
-        n.untyped
+      case n: PathElement if n.nodeType.containsSymbol(invalid) => n.untyped
     }, bottomUp = true).infer()
   }
 }

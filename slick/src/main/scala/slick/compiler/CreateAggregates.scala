@@ -11,14 +11,14 @@ class CreateAggregates extends Phase {
   val name = "createAggregates"
 
   def apply(state: CompilerState) = state.map(_.replace({
-    case n @ Apply(f: AggregateFunctionSymbol, Seq(from)) :@ tpe =>
+    case n @ Apply(f: AggregateFunctionSymbol, Seq(from)) =>
       logger.debug("Converting aggregation function application", n)
       val CollectionType(_, elType @ Type.Structural(StructType(els))) = from.nodeType
       val s = new AnonSymbol
       val a = Aggregate(s, from, Apply(f, Vector(f match {
         case Library.CountAll => LiteralNode(1)
         case _ => Select(Ref(s) :@ elType, els.head._1) :@ els.head._2
-      }))(tpe)).infer()
+      }))(n.nodeType)).infer()
       logger.debug("Converted aggregation function application", a)
       inlineMap(a)
 

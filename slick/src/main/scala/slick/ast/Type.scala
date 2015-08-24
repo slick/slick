@@ -50,11 +50,10 @@ final case class StructType(elements: IndexedSeq[(TermSymbol, Type)]) extends Ty
   lazy val symbolToIndex: Map[TermSymbol, Int] =
     elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }(collection.breakOut)
   def children: IndexedSeq[Type] = elements.map(_._2)
-  def mapChildren(f: Type => Type): StructType =
-    mapOrNone(elements.map(_._2))(f) match {
-      case Some(types2) => StructType((elements, types2).zipped.map((e, t) => (e._1, t)))
-      case None => this
-    }
+  def mapChildren(f: Type => Type): StructType = {
+    val ch2 = mapOrNull(elements.map(_._2))(f)
+    if(ch2 eq null) this else StructType((elements, ch2).zipped.map((e, t) => (e._1, t)))
+  }
   override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(idx) => elements(idx-1)._2
     case _ => elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
@@ -109,11 +108,10 @@ object OptionType {
 
 final case class ProductType(elements: IndexedSeq[Type]) extends Type {
   override def toString = "(" + elements.mkString(", ") + ")"
-  def mapChildren(f: Type => Type): ProductType =
-    mapOrNone(elements)(f) match {
-      case Some(e2) => ProductType(e2)
-      case None => this
-    }
+  def mapChildren(f: Type => Type): ProductType = {
+    val ch2 = mapOrNull(elements)(f)
+    if(ch2 eq null) this else ProductType(ch2)
+  }
   override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(i) if i <= elements.length => elements(i-1)
     case _ => super.select(sym)
@@ -294,8 +292,6 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     g(tpe)
     b
   }
-
-  def collectAll[T](pf: PartialFunction[Type, Seq[T]]): Iterable[T] = collect[Seq[T]](pf).flatten
 
   def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean = {
     if(tss.isEmpty) false else tpe match {

@@ -44,7 +44,7 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
       offset = newOffset.headOption
     )
   }
-  def generators = Seq((sym, from))
+  def generators = Vector((sym, from))
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
   protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]) = copy(sym = gen.head)
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
@@ -56,12 +56,12 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
     val w2 = mapOrNone(where)(_.infer(genScope, typeChildren))
     val g2 = mapOrNone(groupBy)(_.infer(genScope, typeChildren))
     val o = orderBy.map(_._1)
-    val o2 = mapOrNone(o)(_.infer(genScope, typeChildren))
+    val o2 = mapOrNull(o)(_.infer(genScope, typeChildren))
     val h2 = mapOrNone(having)(_.infer(genScope, typeChildren))
     val fetch2 = mapOrNone(fetch)(_.infer(genScope, typeChildren))
     val offset2 = mapOrNone(offset)(_.infer(genScope, typeChildren))
     // Check if the nodes changed
-    val same = (f2 eq from) && (s2 eq select) && w2.isEmpty && g2.isEmpty && o2.isEmpty && h2.isEmpty && fetch2.isEmpty && offset2.isEmpty
+    val same = (f2 eq from) && (s2 eq select) && w2.isEmpty && g2.isEmpty && (o2 eq null) && h2.isEmpty && fetch2.isEmpty && offset2.isEmpty
     val newType =
       if(!hasType) CollectionType(f2.nodeType.asCollectionType.cons, s2.nodeType.asCollectionType.elementType)
       else nodeType
@@ -69,12 +69,12 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
       copy(
         from = f2,
         select = s2,
-        where = w2.map(_.headOption).getOrElse(where),
-        groupBy = g2.map(_.headOption).getOrElse(groupBy),
-        orderBy = o2.map(o2 => (orderBy, o2).zipped.map { case ((_, o), n) => (n, o) }).getOrElse(orderBy),
-        having = h2.map(_.headOption).getOrElse(having),
-        fetch = fetch2.map(_.headOption).getOrElse(fetch),
-        offset = offset2.map(_.headOption).getOrElse(offset)
+        where = w2.orElse(where),
+        groupBy = g2.orElse(groupBy),
+        orderBy = if(o2 eq null) orderBy else (orderBy, o2).zipped.map { case ((_, o), n) => (n, o) },
+        having = h2.orElse(having),
+        fetch = fetch2.orElse(fetch),
+        offset = offset2.orElse(offset)
       ) :@ newType
     }
   }

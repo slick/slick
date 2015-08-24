@@ -164,9 +164,11 @@ class MergeToComprehensions extends Phase {
         logger.debug("Mappings are: "+mappings)
         Some((p, mappings))
       case j @ Join(ls, rs, l1, r1, jt, on1) =>
-        logger.debug("Creating source from Join:", j)
+        logger.debug(s"Creating source from Join $ls/$rs:", j)
         val (l2 @ (_ :@ CollectionType(_, ltpe)), lmap) = dealias(l1)(createSourceOrTopLevel)
         val (r2 @ (_ :@ CollectionType(_, rtpe)), rmap) = dealias(r1)(createSourceOrTopLevel)
+        logger.debug(s"Converted left side of Join $ls/$rs:", l2)
+        logger.debug(s"Converted right side of Join $ls/$rs:", r2)
         // Detect and remove empty join sides
         val noCondition = on1 == LiteralNode(true).infer()
         val noLeft = l2 match {
@@ -186,7 +188,7 @@ class MergeToComprehensions extends Phase {
             lmap.map { case (key, ss) => (key, ElementSymbol(1) :: ss )} ++
             rmap.map { case (key, ss) => (key, ElementSymbol(2) :: ss )}
           val mappingsM = mappings.toMap
-          logger.debug("Mappings for `on` clause: "+mappingsM)
+          logger.debug(s"Mappings for `on` clause in Join $ls/$rs: "+mappingsM)
           val on2 = on1.replace({
             case p @ FwdPathOnTypeSymbol(ts, _ :: s :: Nil) =>
               //logger.debug(s"Finding ($ts, $s)")
@@ -198,10 +200,10 @@ class MergeToComprehensions extends Phase {
               }
           }, bottomUp = true).infer(
               scope = Type.Scope(j.leftGen -> l2.nodeType.asCollectionType.elementType) +
-              (j.rightGen -> r2.nodeType.asCollectionType.elementType))
-          logger.debug("Transformed `on` clause:", on2)
+                (j.rightGen -> r2.nodeType.asCollectionType.elementType))
+          logger.debug(s"Transformed `on` clause in Join $ls/$rs:", on2)
           val j2 = j.copy(left = l2, right = r2, on = on2).infer()
-          logger.debug("Created source from Join:", j2)
+          logger.debug(s"Created source from Join $ls/$rs:", j2)
           Some((j2, mappings))
         }
       case n => None

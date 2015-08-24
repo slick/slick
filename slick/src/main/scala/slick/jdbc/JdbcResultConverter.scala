@@ -40,14 +40,15 @@ class OptionResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Do
   def getOrElse(default: () => T): DefaultingResultConverter[T] =
     if(ti.scalaType.isPrimitive) new DefaultingResultConverter[T](ti, default, idx)
     else new DefaultingResultConverter[T](ti, default, idx) {
-        override def read(pr: ResultSet) = {
-          val v = ti.getValue(pr, idx)
-          if(v.asInstanceOf[AnyRef] eq null) default() else v
-        }
+      override def read(pr: ResultSet) = {
+        val v = ti.getValue(pr, idx)
+        if(v.asInstanceOf[AnyRef] eq null) default() else v
       }
+    }
+  def isDefined = new IsDefinedResultConverter[T](ti, idx)
 }
 
-/** Specialized JDBC ResultConverter for handling non-`Option`values with a default.
+/** Specialized JDBC ResultConverter for handling non-`Option` values with a default.
   * A (possibly specialized) function for the default value is used to translate SQL `NULL` values. */
 class DefaultingResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](val ti: JdbcType[T], val default: () => T, val idx: Int) extends ResultConverter[JdbcResultConverterDomain, T] {
   def read(pr: ResultSet) = {
@@ -60,6 +61,20 @@ class DefaultingResultConverter[@specialized(Byte, Short, Int, Long, Char, Float
     { try default() catch { case e: Throwable => "["+e.getClass.getName+"]" } },
     attrInfo = ": " + ti)
   def width = 1
+}
+
+/** Specialized JDBC ResultConverter for handling `isDefined` checks for `Option` values. */
+class IsDefinedResultConverter[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean) T](val ti: JdbcType[T], val idx: Int) extends ResultConverter[JdbcResultConverterDomain, Boolean] {
+  def read(pr: ResultSet) = {
+    ti.getValue(pr, idx)
+    !ti.wasNull(pr, idx)
+  }
+  def update(value: Boolean, pr: ResultSet) =
+    throw new SlickException("Cannot insert/update IsDefined check")
+  def set(value: Boolean, pp: PreparedStatement) =
+    throw new SlickException("Cannot insert/update IsDefined check")
+  def width = 1
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
 }
 
 /** A `ResultConverter` that simplifies the implementation of fast path
