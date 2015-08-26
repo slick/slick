@@ -1,8 +1,7 @@
 package slick.jdbc
 
 import java.sql.{PreparedStatement, ResultSet}
-import slick.ast.BaseTypedType
-import slick.profile.RelationalProfile
+import slick.ast.{FieldSymbol, BaseTypedType}
 
 /** A JdbcType object represents a Scala type that can be
   * used as a column type in the database. Implicit JdbcTypes
@@ -12,7 +11,7 @@ trait JdbcType[@specialized(Byte, Short, Int, Long, Char, Float, Double, Boolean
     * of the type to NULL. */
   def sqlType: Int
   /** The default name for the SQL type that is used for column declarations. */
-  def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]): String
+  def sqlTypeName(size: Option[FieldSymbol]): String
   /** Set a parameter of the type. */
   def setValue(v: T, p: PreparedStatement, idx: Int): Unit
   /** Set a parameter of the type to NULL. */

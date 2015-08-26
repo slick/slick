@@ -675,7 +675,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       if(sqlType ne null) {
         size.foreach(l => sqlType += s"($l)")
         customSqlType = true
-      } else sqlType = jdbcType.sqlTypeName(size.map(l => RelationalProfile.ColumnOption.Length(l, varying)))
+      } else sqlType = jdbcType.sqlTypeName(Some(column))
     }
 
     protected def handleColumnOption(o: ColumnOption[_]): Unit = o match {

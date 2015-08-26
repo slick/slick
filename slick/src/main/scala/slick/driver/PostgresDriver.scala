@@ -113,14 +113,15 @@ trait PostgresDriver extends JdbcDriver { driver =>
   override protected lazy val useTransactionForUpsert = true
   override protected lazy val useServerSideUpsertReturning = false
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
+      val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
     case java.sql.Types.BLOB => "lo"
     case java.sql.Types.DOUBLE => "DOUBLE PRECISION"
     /* PostgreSQL does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
-    case _ => super.defaultSqlTypeName(tmd, size)
+    case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -203,11 +204,11 @@ trait PostgresDriver extends JdbcDriver { driver =>
 
     class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override val sqlType = java.sql.Types.BINARY
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "BYTEA"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "BYTEA"
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "UUID"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "UUID"
       override def setValue(v: UUID, p: PreparedStatement, idx: Int) = p.setObject(idx, v, sqlType)
       override def getValue(r: ResultSet, idx: Int) = r.getObject(idx).asInstanceOf[UUID]
       override def updateValue(v: UUID, r: ResultSet, idx: Int) = r.updateObject(idx, v)

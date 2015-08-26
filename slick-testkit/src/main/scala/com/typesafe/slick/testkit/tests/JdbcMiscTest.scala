@@ -9,7 +9,7 @@ class JdbcMiscTest extends AsyncTest[JdbcTestDB] {
 
   def testNullability = {
     class T1(tag: Tag) extends Table[String](tag, "t1") {
-      def a = column[String]("a")
+      def a = column[String]("a", O.PrimaryKey)
       def * = a
     }
     val t1 = TableQuery[T1]
