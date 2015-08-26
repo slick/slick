@@ -94,8 +94,8 @@ class ExpandSums extends Phase {
   def translateJoin(bind: Bind, discCandidates: Set[(TypeSymbol, List[TermSymbol])]): Bind = {
     logger.debug("translateJoin", bind)
     val Bind(bsym, (join @ Join(lsym, rsym, left :@ CollectionType(_, leftElemType), right :@ CollectionType(_, rightElemType), jt, on)) :@ CollectionType(cons, elemType), pure) = bind
-    val lComplex = leftElemType.structural.children.nonEmpty
-    val rComplex = rightElemType.structural.children.nonEmpty
+    val lComplex = !leftElemType.structural.isInstanceOf[AtomicType]
+    val rComplex = !rightElemType.structural.isInstanceOf[AtomicType]
     logger.debug(s"Translating join ($jt, complex: $lComplex, $rComplex):", bind)
 
     // Find an existing column that can serve as a discriminator
@@ -110,7 +110,7 @@ class ExpandSums extends Phase {
       }
       def find(t: Type, path: List[TermSymbol]): Vector[List[TermSymbol]] = t.structural match {
         case StructType(defs) => defs.toSeq.flatMap { case (s, t) => find(t, s :: path) }(collection.breakOut)
-        case p: ProductType => p.numberedElements.flatMap { case (s, t) => find(t, s :: path) }.toVector
+        case p: ProductType => p.elements.iterator.zipWithIndex.flatMap { case (t, i) => find(t, ElementSymbol(i+1) :: path) }.toVector
         case _: AtomicType => Vector(path)
         case _ => Vector.empty
       }
@@ -216,8 +216,8 @@ class ExpandSums extends Phase {
   /** Strip nominal types and convert all atomic types to OptionTypes */
   def toOptionColumns(tpe: Type): Type = tpe match {
     case NominalType(_, str) => toOptionColumns(str)
-    case o @ OptionType(ch) if ch.structural.children.isEmpty => o
-    case t if t.children.isEmpty => OptionType(t)
+    case o @ OptionType(ch) if ch.structural.isInstanceOf[AtomicType] => o
+    case t: AtomicType => OptionType(t)
     case t => t.mapChildren(toOptionColumns)
   }
 

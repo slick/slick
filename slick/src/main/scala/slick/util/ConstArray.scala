@@ -157,7 +157,7 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
     }
   }
 
-  private[this] def findIndex(f: T => Boolean): Int = {
+  def indexWhere(f: T => Boolean): Int = {
     var i = 0
     while(i < length) {
       if(f(a(i).asInstanceOf[T])) return i
@@ -167,11 +167,11 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
   }
 
   def find(f: T => Boolean): Option[T] = {
-    var idx = findIndex(f)
+    var idx = indexWhere(f)
     if(idx == -1) None else Some(a(idx).asInstanceOf[T])
   }
 
-  def exists(f: T => Boolean): Boolean = findIndex(f) >= 0
+  def exists(f: T => Boolean): Boolean = indexWhere(f) >= 0
 
   def forall(f: T => Boolean): Boolean = {
     var i = 0

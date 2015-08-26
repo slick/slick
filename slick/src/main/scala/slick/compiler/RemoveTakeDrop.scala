@@ -42,7 +42,7 @@ class RemoveTakeDrop extends Phase {
         logger.debug(s"""Translated "drop $d, then take $t" to zipWithIndex operation:""", b2)
         val invalidate = fromRetyped.nodeType.collect { case NominalType(ts, _) => ts }
         logger.debug("Invalidating TypeSymbols: "+invalidate.mkString(", "))
-        invalid ++= invalidate
+        invalid ++= invalidate.toSeq
         b2
 
       case (n: Ref) if n.nodeType.containsSymbol(invalid) => n.untyped

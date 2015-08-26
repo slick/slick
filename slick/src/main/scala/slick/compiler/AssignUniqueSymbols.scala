@@ -53,6 +53,7 @@ class AssignUniqueSymbols extends Phase {
 
   def hasNominalType(t: Type): Boolean = t match {
     case _: NominalType => true
+    case _: AtomicType => false
     case _ => t.children.exists(hasNominalType)
   }
 }

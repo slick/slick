@@ -16,7 +16,7 @@ class ExpandConditionals extends Phase {
 
   def expand(n: Node): Node = {
     val invalid = mutable.HashSet.empty[TypeSymbol]
-    def invalidate(n: Node): Unit = invalid ++= n.nodeType.collect { case NominalType(ts, _) => ts }
+    def invalidate(n: Node): Unit = invalid ++= n.nodeType.collect { case NominalType(ts, _) => ts }.toSeq
 
     def tr(n: Node): Node = n.mapChildren(tr, keepType = true) match {
       // Expand multi-column SilentCasts

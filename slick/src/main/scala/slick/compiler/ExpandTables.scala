@@ -48,7 +48,7 @@ class ExpandTables extends Phase {
   /** Create an expression that copies a structured value, expanding tables in it. */
   def createResult(expansions: Map[TableIdentitySymbol, (TermSymbol, Node)], path: Node, tpe: Type): Node = tpe match {
     case p: ProductType =>
-      ProductNode(ConstArray.from(p.numberedElements.map { case (s, t) => createResult(expansions, Select(path, s), t) }.toVector))
+      ProductNode(p.elements.zipWithIndex.map { case (t, i) => createResult(expansions, Select(path, ElementSymbol(i+1)), t) })
     case NominalType(tsym: TableIdentitySymbol, _) if expansions contains tsym =>
       val (sym, exp) = expansions(tsym)
       exp.replace { case Ref(s) if s == sym => path }

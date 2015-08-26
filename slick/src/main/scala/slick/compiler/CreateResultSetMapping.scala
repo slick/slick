@@ -48,7 +48,7 @@ class CreateResultSetMapping extends Phase {
           ProductNode(ch.map { case (_, t) => f(t) })
         case t: MappedScalaType =>
           TypeMapping(f(t.baseType), t.mapper, t.classTag)
-        case o @ OptionType(Type.Structural(el)) if el.children.nonEmpty =>
+        case o @ OptionType(Type.Structural(el)) if !el.isInstanceOf[AtomicType] =>
           val discriminator = Select(ref, syms(curIdx)).infer()
           curIdx += 1
           val data = f(o.elementType)

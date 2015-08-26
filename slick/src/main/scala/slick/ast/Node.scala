@@ -53,6 +53,12 @@ trait Node extends Dumpable {
     if(!keepType || (_type eq UnassignedType)) n else (n :@ _type).asInstanceOf[Self]
   }
 
+  /** Apply a side-effecting function to all direct children from left to right. Note that
+    * {{{ n.childrenForeach(f) }}} is equivalent to {{{ n.children.foreach(f) }}} but can be
+    * implemented more efficiently in `Node` subclasses. */
+  def childrenForeach[R](f: Node => R): Unit =
+    children.foreach(f)
+
   /** The current type of this node. */
   def nodeType: Type = {
     seenType = true
@@ -202,6 +208,10 @@ trait BinaryNode extends Node {
     if(!keepType || (_type eq UnassignedType)) n else (n :@ _type).asInstanceOf[Self]
   }
   override final protected[this] def buildCopy: Self = rebuild(left, right)
+  override final def childrenForeach[R](f: Node => R): Unit = {
+    f(left)
+    f(right)
+  }
 }
 
 trait UnaryNode extends Node {
@@ -217,6 +227,7 @@ trait UnaryNode extends Node {
     if(!keepType || (_type eq UnassignedType)) n else (n :@ _type).asInstanceOf[Self]
   }
   override final protected[this] def buildCopy: Self = rebuild(child)
+  override final def childrenForeach[R](f: Node => R): Unit = f(child)
 }
 
 trait NullaryNode extends Node {
@@ -225,6 +236,7 @@ trait NullaryNode extends Node {
   protected[this] def rebuild: Self
   override final def mapChildren(f: Node => Node, keepType: Boolean = false): Self = this
   override final protected[this] def buildCopy: Self = rebuild
+  override final def childrenForeach[R](f: Node => R): Unit = ()
 }
 
 /** An expression that represents a plain value lifted into a Query. */
@@ -268,6 +280,7 @@ object Subquery {
 
 /** Common superclass for expressions of type (CollectionType(c, t), _) => CollectionType(c, t). */
 abstract class FilteredQuery extends Node {
+  type Self >: this.type <: FilteredQuery
   protected[this] def generator: TermSymbol
   def from: Node
   def generators = ConstArray((generator, from))
@@ -279,10 +292,10 @@ abstract class FilteredQuery extends Node {
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val genScope = scope + (generator -> from2.nodeType.asCollectionType.elementType)
-    val ch2: ConstArray[Node] = children.map[Node] { ch =>
+        val this2 = mapChildren { ch =>
       if(ch eq from) from2 else ch.infer(genScope, typeChildren)
     }
-    (withChildren(ch2) :@ (if(!hasType) ch2.head.nodeType else nodeType)).asInstanceOf[Self]
+    (this2 :@ (if(!hasType) this2.from.nodeType else nodeType)).asInstanceOf[Self]
   }
 }
 
@@ -348,7 +361,8 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
     val from2 = from.infer(scope, typeChildren)
     val from2Type = from2.nodeType.asCollectionType
     val by2 = by.infer(scope + (fromGen -> from2Type.elementType), typeChildren)
-    withChildren(ConstArray[Node](from2, by2)) :@ (
+    val this2 = if((from2 eq from) && (by2 eq by)) this else copy(from = from2, by = by2)
+    this2 :@ (
       if(!hasType)
         CollectionType(from2Type.cons, ProductType(ConstArray(NominalType(identity, by2.nodeType), CollectionType(TypedCollectionTypeConstructor.seq, from2Type.elementType))))
       else nodeType)
@@ -457,7 +471,8 @@ final case class Aggregate(sym: TermSymbol, from: Node, select: Node) extends Bi
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 :@ CollectionType(_, el) = from.infer(scope, typeChildren)
     val select2 = select.infer(scope + (sym -> el), typeChildren)
-    withChildren(ConstArray[Node](from2, select2)) :@ (if(!hasType) select2.nodeType else nodeType)
+    val this2 = if((from2 eq from) && (select2 eq select)) this else copy(from = from2, select = select2)
+    this2 :@ (if(!hasType) select2.nodeType else nodeType)
   }
 }
 
@@ -474,7 +489,8 @@ final case class TableExpansion(generator: TermSymbol, table: Node, columns: Nod
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val table2 = table.infer(scope, typeChildren)
     val columns2 = columns.infer(scope + (generator -> table2.nodeType.asCollectionType.elementType), typeChildren)
-    withChildren(ConstArray[Node](table2, columns2)) :@ (if(!hasType) table2.nodeType else nodeType)
+    val this2 = if((table2 eq table) && (columns2 eq columns)) this else copy(table = table2, columns = columns2)
+    this2 :@ (if(!hasType) table2.nodeType else nodeType)
   }
 }
 

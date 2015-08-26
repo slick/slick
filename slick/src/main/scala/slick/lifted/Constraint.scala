@@ -56,7 +56,7 @@ object ForeignKey {
     def f(n: Node): Unit = n match {
       case _: Select | _: Ref | _: TableNode => sels += n
       case _: ProductNode | _: OptionApply | _: GetOrElse | _: TypeMapping | _: ClientSideOp =>
-        n.children.foreach(f)
+        n.childrenForeach(f)
     }
     f(n)
     sels

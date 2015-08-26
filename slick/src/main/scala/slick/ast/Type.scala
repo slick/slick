@@ -18,6 +18,9 @@ trait Type extends Dumpable {
     * type with the new children, or return the original object if no
     * child is changed. */
   def mapChildren(f: Type => Type): Type
+  /** Apply a side-effecting function to all children. */
+  def childrenForeach[R](f: Type => R): Unit =
+    children.foreach(f)
   def select(sym: TermSymbol): Type = throw new SlickException(s"No type for symbol $sym found in $this")
   /** The structural view of this type */
   def structural: Type = this
@@ -26,7 +29,7 @@ trait Type extends Dumpable {
   /** A ClassTag for the erased type of this type's Scala values */
   def classTag: ClassTag[_]
   def getDumpInfo = DumpInfo(DumpInfo.simpleNameFor(getClass), toString, "",
-    children.toSeq.zipWithIndex.map { case (ch, i) => (i.toString, ch) })
+    children.zipWithIndex.map { case (ch, i) => (i.toString, ch) }.toSeq)
 }
 
 object Type {
@@ -43,12 +46,13 @@ object Type {
 trait AtomicType extends Type {
   final def mapChildren(f: Type => Type): this.type = this
   def children = ConstArray.empty
+  override final def childrenForeach[R](f: Type => R): Unit = ()
 }
 
 final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Type {
   override def toString = "{" + elements.iterator.map{ case (s, t) => s + ": " + t }.mkString(", ") + "}"
   lazy val symbolToIndex: Map[TermSymbol, Int] =
-    elements.iterator.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }.toMap
+    elements.zipWithIndex.map { case ((sym, _), idx) => (sym, idx) }.toMap
   def children: ConstArray[Type] = elements.map(_._2)
   def mapChildren(f: Type => Type): StructType = {
     val ch = elements.map(_._2)
@@ -57,9 +61,12 @@ final case class StructType(elements: ConstArray[(TermSymbol, Type)]) extends Ty
   }
   override def select(sym: TermSymbol) = sym match {
     case ElementSymbol(idx) => elements(idx-1)._2
-    case _ => elements.find(x => x._1 == sym).map(_._2).getOrElse(super.select(sym))
+    case _ =>
+      val i = elements.indexWhere(_._1 == sym)
+      if(i >= 0) elements(i)._2 else super.select(sym)
   }
   def classTag = TupleSupport.classTagForArity(elements.length)
+  override final def childrenForeach[R](f: Type => R): Unit = elements.foreach(t => f(t._2))
 }
 
 trait OptionType extends Type {
@@ -72,6 +79,7 @@ trait OptionType extends Type {
     case OptionType(elem) if elementType == elem => true
     case _ => false
   }
+  override final def childrenForeach[R](f: Type => R): Unit = f(elementType)
 }
 
 object OptionType {
@@ -93,7 +101,7 @@ object OptionType {
   /** An extractor for a non-nested Option type of a single column */
   object Primitive {
     def unapply(tpe: Type): Option[Type] = tpe.structural match {
-      case o: OptionType if o.elementType.structural.children.isEmpty => Some(o.elementType)
+      case o: OptionType if o.elementType.structural.isInstanceOf[AtomicType] => Some(o.elementType)
       case _ => None
     }
   }
@@ -101,7 +109,7 @@ object OptionType {
   /** An extractor for a nested or multi-column Option type */
   object NonPrimitive {
     def unapply(tpe: Type): Option[Type] = tpe.structural match {
-      case o: OptionType if o.elementType.structural.children.nonEmpty => Some(o.elementType)
+      case o: OptionType if !o.elementType.structural.isInstanceOf[AtomicType] => Some(o.elementType)
       case _ => None
     }
   }
@@ -118,8 +126,6 @@ final case class ProductType(elements: ConstArray[Type]) extends Type {
     case _ => super.select(sym)
   }
   def children: ConstArray[Type] = elements
-  def numberedElements: Iterator[(ElementSymbol, Type)] =
-    elements.iterator.zipWithIndex.map { case (t, i) => (new ElementSymbol(i+1), t) }
   def classTag = TupleSupport.classTagForArity(elements.length)
 }
 
@@ -130,6 +136,7 @@ final case class CollectionType(cons: CollectionTypeConstructor, elementType: Ty
     if(e2 eq elementType) this
     else CollectionType(cons, e2)
   }
+  override final def childrenForeach[R](f: Type => R): Unit = f(elementType)
   def children: ConstArray[Type] = ConstArray(elementType)
   def classTag = cons.classTag
 }
@@ -199,6 +206,7 @@ final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapp
     if(e2 eq baseType) this
     else new MappedScalaType(e2, mapper, classTag)
   }
+  override final def childrenForeach[R](f: Type => R): Unit = f(baseType)
   def children: ConstArray[Type] = ConstArray(baseType)
   override def select(sym: TermSymbol) = baseType.select(sym)
   override def hashCode = baseType.hashCode() + mapper.hashCode() + classTag.hashCode()
@@ -234,6 +242,7 @@ final case class NominalType(sym: TypeSymbol, structuralView: Type) extends Type
     if(struct2 eq structuralView) this
     else new NominalType(sym, struct2)
   }
+  override final def childrenForeach[R](f: Type => R): Unit = f(structuralView)
   def children: ConstArray[Type] = ConstArray(structuralView)
   def sourceNominalType: NominalType = structuralView match {
     case n: NominalType => n.sourceNominalType
@@ -284,19 +293,22 @@ class TypeUtil(val tpe: Type) extends AnyVal {
   def replace(f: PartialFunction[Type, Type]): Type =
     f.applyOrElse(tpe, { case t: Type => t.mapChildren(_.replace(f)) }: PartialFunction[Type, Type])
 
-  def collect[T](pf: PartialFunction[Type, T]): Iterable[T] = {
-    val b = new ArrayBuffer[T]
-    def g(n: Type) {
-      pf.andThen[Unit]{ case t => b += t }.orElse[Type, Unit]{ case _ => () }.apply(n)
-      n.children.foreach(g)
+  def collect[T](pf: PartialFunction[Type, T]): ConstArray[T] = {
+    val retNull: (Type => T) = (_ => null.asInstanceOf[T])
+    val b = ConstArray.newBuilder[T]()
+    def f(n: Type): Unit = {
+      val r = pf.applyOrElse(n, retNull)
+      if(r.asInstanceOf[AnyRef] ne null) b += r
+      n.childrenForeach(f)
     }
-    g(tpe)
-    b
+    f(tpe)
+    b.result
   }
 
   def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean = {
     if(tss.isEmpty) false else tpe match {
       case NominalType(ts, exp) => tss.contains(ts) || exp.containsSymbol(tss)
+      case t: AtomicType => false
       case t => t.children.exists(_.containsSymbol(tss))
     }
   }

@@ -54,10 +54,14 @@ trait DefNode extends Node {
   protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Node
 
   final def mapScopedChildren(f: (Option[TermSymbol], Node) => Node): Self with DefNode = {
-    val all = (generators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
-      children.iterator.drop(generators.length).map{ n => (None, n) }).toIndexedSeq
+    val gens = generators
+    val ch = children
+    val all = ch.zipWithIndex.map[(Option[TermSymbol], Node)] { case (ch, idx) =>
+      val o = if(idx < gens.length) Some(gens(idx)._1) else None
+      (o, ch)
+    }
     val mapped = all.map(f.tupled)
-    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) rebuild(ConstArray.from(mapped)).asInstanceOf[Self with DefNode]
+    if(ch.zip(mapped).force.exists { case (n1, n2) => n1 ne n2 }) rebuild(mapped).asInstanceOf[Self with DefNode]
     else this
   }
   final def mapSymbols(f: TermSymbol => TermSymbol): Node = {
