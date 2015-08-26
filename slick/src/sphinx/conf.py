@@ -273,6 +273,7 @@ rst_epilog = '''
 .. _Hello Slick template: https://typesafe.com/activator/template/hello-slick%(template-suffix)s
 .. _Slick Plain SQL Queries template: https://typesafe.com/activator/template/slick-plainsql%(template-suffix)s
 .. _Slick Multi-DB Patterns template: http://typesafe.com/activator/template/slick-multidb%(template-suffix)s
+.. _Slick-starting-on-the-right-foot: https://www.typesafe.com/activator/template/slick-starting-on-the-right-foot
 .. _Slick TestKit Example template: https://typesafe.com/activator/template/slick-testkit-example%(template-suffix)s
 .. _Slick Extensions: %(slick_extensions_api_path)s/index.html
 .. |slick_extensions_version| replace:: %(slick_extensions_version)s
