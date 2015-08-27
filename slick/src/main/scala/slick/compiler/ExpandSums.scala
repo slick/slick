@@ -53,16 +53,16 @@ class ExpandSums extends Phase {
       // Other OptionFold -> translate to discriminator check
       case OptionFold(from, ifEmpty, map, gen) =>
         val left = from.select(ElementSymbol(1)).infer()
-        val pred = Library.==.typed[Boolean](left, Disc1)
+        val pred = Library.==.typed[Boolean](left, LiteralNode(null))
         val n2 = (ifEmpty, map) match {
-          case (LiteralNode(true), LiteralNode(false)) => Library.Not.typed[Boolean](pred)
-          case (LiteralNode(false), LiteralNode(true)) => pred
+          case (LiteralNode(true), LiteralNode(false)) => pred
+          case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](pred)
           case _ =>
             val ifDefined = map.replace({
               case r @ Ref(s) if s == gen => silentCast(r.nodeType, from.select(ElementSymbol(2)).infer())
             }, keepType = true)
             val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
-            if(left == Disc1) ifDefined else IfThenElse(ConstArray(pred, ifDefined, ifEmpty2))
+            if(left == Disc1) ifDefined else IfThenElse(ConstArray(Library.Not.typed[Boolean](pred), ifDefined, ifEmpty2))
         }
         n2.infer()
 
@@ -224,7 +224,7 @@ class ExpandSums extends Phase {
   /** Fuse unnecessary Option operations */
   def fuse(n: Node): Node = n match {
     // Option.map
-    case IfThenElse(ConstArray(Library.==(disc, Disc1), ProductNode(ConstArray(Disc1, map)), ProductNode(ConstArray(DiscNone, _)))) =>
+    case IfThenElse(ConstArray(Library.Not(Library.==(disc, LiteralNode(null))), ProductNode(ConstArray(Disc1, map)), ProductNode(ConstArray(DiscNone, _)))) =>
       ProductNode(ConstArray(disc, map)).infer()
     case n => n
   }
