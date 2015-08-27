@@ -105,4 +105,29 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
       q3.result.map(r => r.toSet shouldBe Set((10L, 1L), (20L, 2L), (30L, 3L), (100L, 1L), (200L, 2L), (300L, 3L)))
     )
   }
+
+  def testOptionUnion = {
+    case class Article(id: String, name: String)
+    class ArticleTable(tag: Tag) extends Table[Article](tag, "testOptionUnion") {
+      def id = column[String]("id")
+      def name = column[String]("name")
+
+      def * = (id, name) <> (Article.tupled, Article.unapply)
+    }
+    val table = TableQuery[ArticleTable]
+
+    val q1 = for {
+      t <- table
+    } yield (t, t.id.?)
+
+    val q2 = for {
+      t <- table
+    } yield (t, t.id.?)
+
+    val q3 = q1.unionAll(q2)
+    DBIO.seq(
+      table.schema.create,
+      q3.result
+    )
+  }
 }

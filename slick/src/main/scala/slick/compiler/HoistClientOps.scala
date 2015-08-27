@@ -20,7 +20,7 @@ class HoistClientOps extends Phase {
       val base = new AnonSymbol
       val proj = ProductNode(ch.map { case (sym, _) => Select(Ref(base), sym) })
       val t2 = ResultSetMapping(base, withStruct, proj)
-      val t3 = hoist(t2)
+      val t3 = hoist(t2).nodeWithComputedType(typeChildren = true)
       val (rsmFrom, rsmProj) =
         if(t3 eq t2) {
           // Use original ProductNode form
