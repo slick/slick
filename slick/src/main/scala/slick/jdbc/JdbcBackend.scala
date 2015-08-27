@@ -427,7 +427,12 @@ trait JdbcBackend extends RelationalBackend {
     def isOpen = open
     def isInTransaction = inTransactionally > 0
 
-    lazy val conn = { open = true; database.source.createConnection }
+    lazy val conn = {
+      val c = database.source.createConnection
+      open = true
+      c
+    }
+
     lazy val metaData = conn.getMetaData()
 
     def capabilities = {
