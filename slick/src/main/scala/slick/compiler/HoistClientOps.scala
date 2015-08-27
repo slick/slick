@@ -4,7 +4,7 @@ import slick.SlickException
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.util.{Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis, ??}
 
 import scala.util.control.NonFatal
 
@@ -18,11 +18,11 @@ class HoistClientOps extends Phase {
       case Bind(s2, from2, Pure(StructNode(defs2), ts2)) =>
         // Extract client-side operations into ResultSetMapping
         val hoisted = defs2.map { case (ts, n) => (ts, n, unwrap(n, true)) }
-        logger.debug("Hoisting operations from defs: " + hoisted.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
-        val newDefsM = hoisted.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
+        logger.debug("Hoisting operations from defs: " + hoisted.iterator.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
+        val newDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
         logger.debug("New defs: "+newDefsM)
-        val oldDefsM = hoisted.map { case (ts, n, (n2, wrap)) => (ts, wrap(Select(Ref(rsm.generator), newDefsM(n2)))) }.toMap
-        val bind2 = rewriteDBSide(Bind(s2, from2, Pure(StructNode(newDefsM.map(_.swap).toVector), new AnonTypeSymbol)).infer())
+        val oldDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (ts, wrap(Select(Ref(rsm.generator), newDefsM(n2)))) }.toMap
+        val bind2 = rewriteDBSide(Bind(s2, from2, Pure(StructNode(ConstArray.from(newDefsM.map(_.swap))), new AnonTypeSymbol)).infer())
         val rsm2 = rsm.copy(from = bind2, map = rsm.map.replace {
           case Select(Ref(s), f) if s == rsm.generator => oldDefsM(f)
         }).infer()
@@ -41,7 +41,7 @@ class HoistClientOps extends Phase {
         // Merge nested Binds
         case bind2 @ Bind(s2, from2, sel2 @ Pure(StructNode(elems2), ts2)) if !from2.isInstanceOf[GroupBy] =>
           logger.debug("Merging top-level Binds", Ellipsis(n.copy(from = bind2), List(0,0)))
-          val defs = elems2.toMap
+          val defs = elems2.iterator.toMap
           bind2.copy(select = sel1.replace {
             case Select(Ref(s), f) if s == s1 => defs(f)
           }).infer()
@@ -52,22 +52,22 @@ class HoistClientOps extends Phase {
           logger.debug("Hoisting operations from Join:", Ellipsis(from2, List(0, 0), List(1, 0)))
           val (bl2: Bind, lrepl: Map[TermSymbol, (Node => Node, AnonSymbol)]) = if(jt != JoinType.Right) {
             val hoisted = ldefs.map { case (ts, n) => (ts, n, unwrap(n, false)) }
-            logger.debug("Hoisting operations from defs in left side of Join: " + hoisted.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
-            val newDefsM = hoisted.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
+            logger.debug("Hoisting operations from defs in left side of Join: " + hoisted.iterator.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
+            val newDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
             logger.debug("New defs: "+newDefsM)
-            val bl2 = bl.copy(select = Pure(StructNode(newDefsM.map(_.swap).toVector))).infer()
+            val bl2 = bl.copy(select = Pure(StructNode(ConstArray.from(newDefsM.map(_.swap))))).infer()
             logger.debug("Translated left join side:", Ellipsis(bl2, List(0)))
-            val repl = hoisted.map { case (s, _, (n2, wrap)) => (s, (wrap, newDefsM(n2))) }.toMap
+            val repl = hoisted.iterator.map { case (s, _, (n2, wrap)) => (s, (wrap, newDefsM(n2))) }.toMap
             (bl2, repl)
           } else (bl, Map.empty)
           val (br2: Bind, rrepl: Map[TermSymbol, (Node => Node, AnonSymbol)]) = if(jt != JoinType.Left) {
             val hoisted = rdefs.map { case (ts, n) => (ts, n, unwrap(n, false)) }
-            logger.debug("Hoisting operations from defs in right side of Join: " + hoisted.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
-            val newDefsM = hoisted.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
+            logger.debug("Hoisting operations from defs in right side of Join: " + hoisted.iterator.filter(t => t._2 ne t._3._1).map(_._1).mkString(", "))
+            val newDefsM = hoisted.iterator.map { case (ts, n, (n2, wrap)) => (n2, new AnonSymbol) }.toMap
             logger.debug("New defs: "+newDefsM)
-            val br2 = br.copy(select = Pure(StructNode(newDefsM.map(_.swap).toVector))).infer()
+            val br2 = br.copy(select = Pure(StructNode(ConstArray.from(newDefsM.map(_.swap))))).infer()
             logger.debug("Translated right join side:", Ellipsis(br2, List(0)))
-            val repl = hoisted.map { case (s, _, (n2, wrap)) => (s, (wrap, newDefsM(n2))) }.toMap
+            val repl = hoisted.iterator.map { case (s, _, (n2, wrap)) => (s, (wrap, newDefsM(n2))) }.toMap
             (br2, repl)
           } else (br, Map.empty)
           if((bl2 ne bl) || (br2 ne br)) {
@@ -115,7 +115,7 @@ class HoistClientOps extends Phase {
         case from2 @ Bind(bs1, bfrom1, sel1 @ Pure(StructNode(elems1), ts1)) if !bfrom1.isInstanceOf[GroupBy] =>
           logger.debug("Pulling Bind out of Filter", Ellipsis(n.copy(from = from2), List(0, 0)))
           val s3 = new AnonSymbol
-          val defs = elems1.toMap
+          val defs = elems1.iterator.toMap
           val res = Bind(bs1, Filter(s3, bfrom1, pred1.replace {
             case Select(Ref(s), f) if s == s1 => defs(f).replace { case Ref(s) if s == bs1 => Ref(s3) }
           }), sel1.replace { case Ref(s) if s == bs1 => Ref(s) })
@@ -137,11 +137,11 @@ class HoistClientOps extends Phase {
     case OptionApply(ch) =>
       val (recCh, recTr) = unwrap(ch, topLevel)
       (recCh, { sym => OptionApply(recTr(sym)) })
-    case IfThenElse(Seq(Library.==(ch, LiteralNode(null)), r1 @ LiteralNode(None), r2 @ LiteralNode(Some(1)))) :@ OptionType(t)
+    case IfThenElse(ConstArray(Library.==(ch, LiteralNode(null)), r1 @ LiteralNode(None), r2 @ LiteralNode(Some(1)))) :@ OptionType(t)
         if t == ScalaBaseType.optionDiscType =>
       val (recCh, recTr) = unwrap(ch, topLevel)
       if(topLevel) (recCh, recTr)
-      else (recCh, { n => IfThenElse(Vector(Library.==.typed[Boolean](recTr(n), LiteralNode(null)), r1, r2)) })
+      else (recCh, { n => IfThenElse(ConstArray(Library.==.typed[Boolean](recTr(n), LiteralNode(null)), r1, r2)) })
     case Library.SilentCast(ch) :@ tpe if !topLevel =>
       val (recCh, recTr) = unwrap(ch, topLevel)
       (recCh, { n => Library.SilentCast.typed(tpe, recTr(n)) })

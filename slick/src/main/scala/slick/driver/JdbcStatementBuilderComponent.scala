@@ -31,7 +31,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     class Artifacts(val compiled: Node, val converter: ResultConverter[JdbcResultConverterDomain, Any], val ibr: InsertBuilderResult) {
       def table: TableNode = ibr.table
       def sql: String = ibr.sql
-      def fields: IndexedSeq[FieldSymbol] = ibr.fields
+      def fields: ConstArray[FieldSymbol] = ibr.fields
     }
 
     protected[this] def compile(compiler: QueryCompiler): Artifacts = {
@@ -56,7 +56,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     lazy val updateInsert = compile(updateInsertCompiler)
 
     /** Build a list of columns and a matching `ResultConverter` for retrieving keys of inserted rows. */
-    def buildReturnColumns(node: Node): (IndexedSeq[String], ResultConverter[JdbcResultConverterDomain, _], Boolean) = {
+    def buildReturnColumns(node: Node): (ConstArray[String], ResultConverter[JdbcResultConverterDomain, _], Boolean) = {
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertKey))
         throw new SlickException("This DBMS does not allow returning columns from INSERT statements")
       val ResultSetMapping(_, CompiledStatement(_, ibr: InsertBuilderResult, _), CompiledMapping(rconv, _)) =
@@ -64,7 +64,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       if(ibr.table.baseIdentity != standardInsert.table.baseIdentity)
         throw new SlickException("Returned key columns must be from same table as inserted columns ("+
           ibr.table.baseIdentity+" != "+standardInsert.table.baseIdentity+")")
-      val returnOther = ibr.fields.size > 1 || !ibr.fields.head.options.contains(ColumnOption.AutoInc)
+      val returnOther = ibr.fields.length > 1 || !ibr.fields.head.options.contains(ColumnOption.AutoInc)
       if(!capabilities.contains(JdbcProfile.capabilities.returnInsertOther) && returnOther)
         throw new SlickException("This DBMS allows only a single AutoInc column to be returned from an INSERT")
       (ibr.fields.map(_.name), rconv.asInstanceOf[ResultConverter[JdbcResultConverterDomain, _]], returnOther)
@@ -131,11 +131,11 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         case Some(LiteralNode(0L)) => true
         case _ => false
       }
-      scanJoins(Seq((c.sym, c.from)))
+      scanJoins(ConstArray((c.sym, c.from)))
       val (from, on) = flattenJoins(c.sym, c.from)
       val oldUniqueFrom = currentUniqueFrom
       def containsSymbolInSubquery(s: TermSymbol) =
-        c.children.tail.flatMap(_.collect { case c: Comprehension => c }.flatMap(_.findNode(_ == Ref(s)))).nonEmpty
+        c.children.iterator.drop(1).flatMap(_.collect { case c: Comprehension => c }.toSeq.flatMap(_.findNode(_ == Ref(s)))).nonEmpty
       currentUniqueFrom = from match {
         case Seq((s, _: TableNode)) if !containsSymbolInSubquery(s) => Some(s)
         case Seq((s, _)) if !alwaysAliasSubqueries && !containsSymbolInSubquery(s) => Some(s)
@@ -190,7 +190,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def buildSelectModifiers(c: Comprehension) {}
 
-    protected def scanJoins(from: Seq[(TermSymbol, Node)]) {
+    protected def scanJoins(from: ConstArray[(TermSymbol, Node)]) {
       for((sym, j: Join) <- from) {
         joins += sym -> j
         scanJoins(j.generators)
@@ -199,7 +199,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     protected def buildFromClause(from: Seq[(TermSymbol, Node)]) = building(FromPart) {
       from match {
-        case Nil | Seq((_, Pure(ProductNode(Seq()), _))) => scalarFrom.foreach { s => b"\nfrom $s" }
+        case Nil | Seq((_, Pure(ProductNode(ConstArray()), _))) => scalarFrom.foreach { s => b"\nfrom $s" }
         case from =>
           b"\nfrom "
           b.sep(from, ", ") { case (sym, n) => buildFrom(n, if(Some(sym) == currentUniqueFrom) None else Some(sym)) }
@@ -227,7 +227,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     protected def buildHavingClause(having: Option[Node]) =
       building(HavingPart)(having.foreach(p => b"\nhaving !$p"))
 
-    protected def buildOrderByClause(order: Seq[(Node, Ordering)]) = building(OtherPart) {
+    protected def buildOrderByClause(order: ConstArray[(Node, Ordering)]) = building(OtherPart) {
       if(!order.isEmpty) {
         b"\norder by "
         b.sep(order, ", "){ case (n, o) => buildOrdering(n, o) }
@@ -316,12 +316,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
           b"\("
           if(supportsTuples) b"$left = $right"
           else {
-            val cols = left.children zip right.children
+            val cols = left.children.zip(right.children).force
             b.sep(cols, " and "){ case (l,r) => expr(l); b += "="; expr(r) }
           }
           b"\)"
         case RewriteBooleans.ToFakeBoolean(ch) =>
-          expr(IfThenElse(Vector(ch, LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
+          expr(IfThenElse(ConstArray(ch, LiteralNode(1).infer(), LiteralNode(0).infer())), skipParens)
         case RewriteBooleans.ToRealBoolean(ch) =>
           expr(Library.==.typed[Boolean](ch, LiteralNode(true).infer()), skipParens)
         case Library.Exists(c: Comprehension) =>
@@ -434,7 +434,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
         case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None) => select match {
-          case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, Seq(f.field))
+          case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
           case _ => throw new SlickException("A query for an UPDATE statement must select table columns only -- Unsupported shape: "+select)
@@ -479,9 +479,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   /** Builder for INSERT statements. */
   class InsertBuilder(val ins: Insert) {
     protected val Insert(_, table: TableNode, ProductNode(rawColumns)) = ins
-    protected val syms: IndexedSeq[FieldSymbol] = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }(collection.breakOut)
+    protected val syms: ConstArray[FieldSymbol] = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }
     protected lazy val allNames = syms.map(fs => quoteIdentifier(fs.name))
-    protected lazy val allVars = syms.map(_ => "?").mkString("(", ",", ")")
+    protected lazy val allVars = syms.iterator.map(_ => "?").mkString("(", ",", ")")
     protected lazy val tableName = quoteTableName(table)
 
     def buildInsert: InsertBuilderResult = {
@@ -496,32 +496,32 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def transformMapping(n: Node) = n
 
-    protected def buildInsertStart: String = allNames.mkString(s"insert into $tableName (", ",", ") ")
+    protected def buildInsertStart: String = allNames.iterator.mkString(s"insert into $tableName (", ",", ") ")
 
     /** Reorder InsertColumn indices in a mapping Node in the order of the given
       * sequence of FieldSymbols (which may contain duplicates). */
     protected def reorderColumns(n: Node, order: IndexedSeq[FieldSymbol]): Node = {
       val newIndices = order.zipWithIndex.groupBy(_._1)
-      lazy val reordering: IndexedSeq[IndexedSeq[Int]] = syms.map(fs => newIndices(fs).map(_._2 + 1))
-      n.replace({ case InsertColumn(IndexedSeq(Select(ref, ElementSymbol(idx))), fs, tpe) =>
+      lazy val reordering: ConstArray[IndexedSeq[Int]] = syms.map(fs => newIndices(fs).map(_._2 + 1))
+      n.replace({ case InsertColumn(ConstArray(Select(ref, ElementSymbol(idx))), fs, tpe) =>
         val newPaths = reordering(idx-1).map(i => Select(ref, ElementSymbol(i)))
-        InsertColumn(newPaths, fs, tpe) :@ tpe
+        InsertColumn(ConstArray.from(newPaths), fs, tpe) :@ tpe
       }, keepType = true)
     }
   }
 
   /** Builder for upsert statements, builds standard SQL MERGE statements by default. */
   class UpsertBuilder(ins: Insert) extends InsertBuilder(ins) {
-    protected lazy val (pkSyms, softSyms) = syms.partition(_.options.contains(ColumnOption.PrimaryKey))
+    protected lazy val (pkSyms, softSyms) = syms.toSeq.partition(_.options.contains(ColumnOption.PrimaryKey))
     protected lazy val pkNames = pkSyms.map { fs => quoteIdentifier(fs.name) }
     protected lazy val softNames = softSyms.map { fs => quoteIdentifier(fs.name) }
-    protected lazy val nonAutoIncSyms = syms.filterNot(_.options contains ColumnOption.AutoInc)
+    protected lazy val nonAutoIncSyms = syms.filter(s => !(s.options contains ColumnOption.AutoInc))
     protected lazy val nonAutoIncNames = nonAutoIncSyms.map(fs => quoteIdentifier(fs.name))
 
     override def buildInsert: InsertBuilderResult = {
       val start = buildMergeStart
       val end = buildMergeEnd
-      val paramSel = "select " + allNames.map(n => "? as "+n).mkString(",") + scalarFrom.map(n => " from "+n).getOrElse("")
+      val paramSel = "select " + allNames.map(n => "? as "+n).iterator.mkString(",") + scalarFrom.map(n => " from "+n).getOrElse("")
       // We'd need a way to alias the column names at the top level in order to support merges from a source Query
       new InsertBuilderResult(table, start + paramSel + end, syms)
     }
@@ -542,7 +542,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     * on databases that don't support this in a single server-side statement. */
   class CheckInsertBuilder(ins: Insert) extends UpsertBuilder(ins) {
     override def buildInsert: InsertBuilderResult =
-      new InsertBuilderResult(table, pkNames.map(n => s"$n=?").mkString(s"select 1 from $tableName where ", " and ", ""), pkSyms)
+      new InsertBuilderResult(table, pkNames.map(n => s"$n=?").mkString(s"select 1 from $tableName where ", " and ", ""), ConstArray.from(pkSyms))
   }
 
   /** Builder for UPDATE statements used as part of an insertOrUpdate operation
@@ -551,7 +551,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     override def buildInsert: InsertBuilderResult =
       new InsertBuilderResult(table,
         "update " + tableName + " set " + softNames.map(n => s"$n=?").mkString(",") + " where " + pkNames.map(n => s"$n=?").mkString(" and "),
-        softSyms ++ pkSyms)
+        ConstArray.from(softSyms ++ pkSyms))
 
     override def transformMapping(n: Node) = reorderColumns(n, softSyms ++ pkSyms)
   }
@@ -720,7 +720,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
   }
 }
 
-class InsertBuilderResult(val table: TableNode, val sql: String, val fields: IndexedSeq[FieldSymbol]) {
+class InsertBuilderResult(val table: TableNode, val sql: String, val fields: ConstArray[FieldSymbol]) {
   def buildInsert(compiledQuery: Node): SQLBuilder.Result =
     throw new SlickException("Building Query-based inserts from this InsertBuilderResult is not supported")
 }

@@ -4,7 +4,7 @@ import scala.language.{existentials, implicitConversions, higherKinds}
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
 import slick.SlickException
-import slick.util.{ProductWrapper, TupleSupport}
+import slick.util.{ConstArray, ProductWrapper, TupleSupport}
 import slick.ast._
 import scala.reflect.ClassTag
 
@@ -64,7 +64,7 @@ object Shape extends ConstColumnShapeImplicits with AbstractTableShapeImplicits 
     def packedShape: Shape[FlatShapeLevel, Packed, Unpacked, Packed] = this
     def buildParams(extract: Any => Unpacked) = ()
     def encodeRef(value: Mixed, path: Node) = ()
-    def toNode(value: Mixed) = ProductNode(Vector.empty)
+    def toNode(value: Mixed) = ProductNode(ConstArray.empty)
   }
 }
 
@@ -153,9 +153,9 @@ abstract class ProductNodeShape[Level <: ShapeLevel, C, M <: C, U <: C, P <: C] 
     }
     buildValue(elems.toIndexedSeq)
   }
-  def toNode(value: Mixed): Node = ProductNode(shapes.iterator.zip(getIterator(value)).map {
+  def toNode(value: Mixed): Node = ProductNode(ConstArray.from(shapes.iterator.zip(getIterator(value)).map {
     case (p, f) => p.toNode(f.asInstanceOf[p.Mixed])
-  }.toVector)
+  }.toIterable))
 }
 
 /** Base class for ProductNodeShapes with a type mapping */

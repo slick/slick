@@ -3,7 +3,7 @@ package slick.compiler
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
-import slick.util.{Ellipsis, ??}
+import slick.util.{ConstArray, Ellipsis, ??}
 
 /** Reorder certain stream operations for more efficient merging in `mergeToComprehensions`. */
 class ReorderOperations extends Phase {
@@ -53,7 +53,7 @@ class ReorderOperations extends Phase {
     // If a Filter checks an upper bound of a ROWNUM, push it into the AboveRownum boundary
     case filter @ Filter(s1,
                 sq @ Subquery(bind @ Bind(bs1, from1, Pure(StructNode(defs1), ts1)), Subquery.AboveRownum),
-                Apply(Library.<= | Library.<, Seq(Select(Ref(rs), f1), v1)))
+                Apply(Library.<= | Library.<, ConstArray(Select(Ref(rs), f1), v1)))
         if rs == s1 && defs1.find {
           case (f, n) if f == f1 => isRownumCalculation(n)
           case _ => false
@@ -71,7 +71,7 @@ class ReorderOperations extends Phase {
     case n => n
   }
 
-  def isAliasingOrLiteral(base: TermSymbol, defs: IndexedSeq[(TermSymbol, Node)]) = {
+  def isAliasingOrLiteral(base: TermSymbol, defs: ConstArray[(TermSymbol, Node)]) = {
     val r = defs.iterator.map(_._2).forall {
       case FwdPath(s :: _) if s == base => true
       case _: LiteralNode => true

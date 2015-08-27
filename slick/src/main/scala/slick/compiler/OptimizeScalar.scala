@@ -3,6 +3,7 @@ package slick.compiler
 import slick.ast.TypeUtil._
 import slick.ast.Util._
 import slick.ast._
+import slick.util.ConstArray
 
 /** Optimize scalar expressions */
 class OptimizeScalar extends Phase {
@@ -10,7 +11,7 @@ class OptimizeScalar extends Phase {
 
   def apply(state: CompilerState) = state.map(_.tree.replace({
     // (if(p) a else b) == v
-    case n @ Library.==(IfThenElse(Seq(p, Const(a), Const(b))), Const(v)) =>
+    case n @ Library.==(IfThenElse(ConstArray(p, Const(a), Const(b))), Const(v)) =>
       val checkTrue = v == a
       val checkFalse = v == b
       val res =
@@ -21,7 +22,7 @@ class OptimizeScalar extends Phase {
       cast(n.nodeType, res).infer()
 
     // if(v != null) v else null
-    case n @ IfThenElse(Seq(Library.Not(Library.==(v, LiteralNode(null))), v2, LiteralNode(z)))
+    case n @ IfThenElse(ConstArray(Library.Not(Library.==(v, LiteralNode(null))), v2, LiteralNode(z)))
         if v == v2 && (z == null || z == None) =>
       v
 
@@ -41,7 +42,7 @@ class OptimizeScalar extends Phase {
   object Const {
     def unapply(n: Node): Option[Node] = n match {
       case _: LiteralNode => Some(n)
-      case Apply(Library.SilentCast, Seq(ch)) => unapply(ch)
+      case Apply(Library.SilentCast, ConstArray(ch)) => unapply(ch)
       case OptionApply(ch) => unapply(ch)
       case _ => None
     }

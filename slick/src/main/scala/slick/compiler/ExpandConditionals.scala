@@ -3,6 +3,7 @@ package slick.compiler
 import slick.ast._
 import Util._
 import TypeUtil._
+import slick.util.{ConstArray, ConstArrayOp}
 
 import scala.collection.mutable
 
@@ -15,7 +16,7 @@ class ExpandConditionals extends Phase {
 
   def expand(n: Node): Node = {
     val invalid = mutable.HashSet.empty[TypeSymbol]
-    def invalidate(n: Node): Unit = invalid ++= n.nodeType.collect { case NominalType(ts, _) => ts }
+    def invalidate(n: Node): Unit = invalid ++= n.nodeType.collect { case NominalType(ts, _) => ts }.toSeq
 
     def tr(n: Node): Node = n.mapChildren(tr, keepType = true) match {
       // Expand multi-column SilentCasts
@@ -37,7 +38,7 @@ class ExpandConditionals extends Phase {
 
       // Expand multi-column IfThenElse
       case (cond @ IfThenElse(_)) :@ Type.Structural(ProductType(chTypes)) =>
-        val ch = (1 to chTypes.length).map { idx =>
+        val ch = ConstArrayOp.from(1 to chTypes.length).map { idx =>
           val sym = ElementSymbol(idx)
           tr(cond.mapResultClauses(n => n.select(sym)).infer())
         }
@@ -49,7 +50,7 @@ class ExpandConditionals extends Phase {
         StructNode(ch).infer()
 
       // Optimize null-propagating single-column IfThenElse
-      case IfThenElse(Seq(Library.==(r, LiteralNode(null)), Library.SilentCast(LiteralNode(None)), c @ Library.SilentCast(r2))) if r == r2 => c
+      case IfThenElse(ConstArray(Library.==(r, LiteralNode(null)), Library.SilentCast(LiteralNode(None)), c @ Library.SilentCast(r2))) if r == r2 => c
 
       // Fix Untyped nulls in else clauses
       case cond @ IfThenElse(clauses) if (clauses.last match { case LiteralNode(None) :@ OptionType(ScalaBaseType.nullType) => true; case _ => false }) =>

@@ -1,6 +1,7 @@
 package slick.ast
 
 import slick.ast.TypeUtil.:@
+import slick.util.ConstArray
 
 import scala.collection
 import scala.collection.mutable
@@ -11,21 +12,6 @@ import scala.collection.mutable.ArrayBuffer
  * Utility methods for AST manipulation.
  */
 object Util {
-
-  def mapOrNull[A <: AnyRef](c: IndexedSeq[A])(f: A => A): IndexedSeq[A] = {
-    val len = c.length
-    val b = new ArrayBuffer[A](len)
-    var changed = false
-    var i = 0
-    while(i < len) {
-      val x = c(i)
-      val n = f(x)
-      b += n
-      if(n ne x) changed = true
-      i += 1
-    }
-    if(changed) b else null
-  }
 
   def mapOrNone[A <: AnyRef](c: Option[A])(f: A => A): Option[A] = {
     if(c.isEmpty) None else {
@@ -43,23 +29,33 @@ final class NodeOps(val tree: Node) extends AnyVal {
   import Util._
   import NodeOps._
 
-  @inline def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): Seq[T] = {
-    val b = new ArrayBuffer[T]
-    def f(n: Node): Unit = pf.andThen[Unit] { case t =>
-      b += t
-      if(!stopOnMatch) n.children.foreach(f)
-    }.orElse[Node, Unit]{ case _ =>
-      n.children.foreach(f)
-    }.apply(n)
+  def collect[T](pf: PartialFunction[Node, T], stopOnMatch: Boolean = false): ConstArray[T] = {
+    val retNull: (Node => T) = (_ => null.asInstanceOf[T])
+    val b = ConstArray.newBuilder[T]()
+    def f(n: Node): Unit = {
+      val r = pf.applyOrElse(n, retNull)
+      if(r.asInstanceOf[AnyRef] ne null) {
+        b += r
+        if(!stopOnMatch) n.childrenForeach(f)
+      }
+      else n.childrenForeach(f)
+    }
     f(tree)
-    b
+    b.result
   }
 
-  def collectAll[T](pf: PartialFunction[Node, Seq[T]]): Seq[T] = collect[Seq[T]](pf).flatten
+  def collectAll[T](pf: PartialFunction[Node, ConstArray[T]]): ConstArray[T] = collect[ConstArray[T]](pf).flatten
 
   def replace(f: PartialFunction[Node, Node], keepType: Boolean = false, bottomUp: Boolean = false): Node = {
-    def g(n: Node): Node = n.mapChildren(_.replace(f, keepType, bottomUp), keepType)
-    if(bottomUp) f.applyOrElse(g(tree), identity[Node]) else f.applyOrElse(tree, g)
+    if(bottomUp) {
+      def r(n: Node): Node = f.applyOrElse(g(n), identity[Node])
+      def g(n: Node): Node = n.mapChildren(r, keepType)
+      r(tree)
+    } else {
+      def r(n: Node): Node = f.applyOrElse(n, g)
+      def g(n: Node): Node = n.mapChildren(r, keepType)
+      r(tree)
+    }
   }
 
   /** Replace nodes in a bottom-up traversal while invalidating TypeSymbols. Any later references
@@ -67,6 +63,7 @@ final class NodeOps(val tree: Node) extends AnyVal {
     * retyped afterwards to get the correct new TypeSymbols in. The PartialFunction may return
     * `null`, which is considered the same as not matching. */
   def replaceInvalidate(f: PartialFunction[Node, (Node, TypeSymbol)]): Node = {
+    import TypeUtil.typeToTypeUtil
     val invalid = mutable.HashSet.empty[TypeSymbol]
     val default = (_: Node) => null
     def tr(n: Node): Node = {
@@ -76,7 +73,7 @@ final class NodeOps(val tree: Node) extends AnyVal {
         invalid += res._2
         res._1
       } else n2 match {
-        case n2: PathElement if containsTS(n2.nodeType, invalid) => n2.untyped
+        case n2: PathElement if n2.nodeType.containsSymbol(invalid) => n2.untyped
         case _ => n2
       }
     }
@@ -84,8 +81,9 @@ final class NodeOps(val tree: Node) extends AnyVal {
   }
 
   def untypeReferences(invalid: Set[TypeSymbol]): Node = {
+    import TypeUtil.typeToTypeUtil
     if(invalid.isEmpty) tree else replace({
-      case n: PathElement if containsTS(n.nodeType, invalid) => n.untyped
+      case n: PathElement if n.nodeType.containsSymbol(invalid) => n.untyped
     }, bottomUp = true)
   }
 
@@ -102,15 +100,5 @@ final class NodeOps(val tree: Node) extends AnyVal {
     case (s: FieldSymbol, StructNode(ch)) => ch.find{ case (s2,_) => s == s2 }.get._2
     case (s: ElementSymbol, ProductNode(ch)) => ch(s.idx-1)
     case (s, n) => Select(n, s)
-  }
-}
-
-private object NodeOps {
-  private def containsTS(t: Type, invalid: collection.Set[TypeSymbol]): Boolean = {
-    if(invalid.isEmpty) false else t match {
-      case NominalType(ts, exp) => invalid.contains(ts) || containsTS(exp, invalid)
-      case t: AtomicType => false
-      case t => t.children.exists(ch => containsTS(ch, invalid))
-    }
   }
 }

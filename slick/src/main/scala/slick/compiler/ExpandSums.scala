@@ -1,5 +1,6 @@
 package slick.compiler
 
+import slick.util.ConstArray
 import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
@@ -27,8 +28,8 @@ class ExpandSums extends Phase {
     val tree2 = tree.mapChildren(n => tr(n, discCandidates), keepType = true)
     val tree3 = tree2 match {
       // Expand multi-column null values in ELSE branches (used by Rep[Option].filter) with correct type
-      case IfThenElse(IndexedSeq(pred, then1 :@ tpe, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType))) =>
-        IfThenElse(Vector(pred, then1, buildMultiColumnNone(tpe))) :@ tpe
+      case IfThenElse(ConstArray(pred, then1 :@ tpe, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType))) =>
+        IfThenElse(ConstArray(pred, then1, buildMultiColumnNone(tpe))) :@ tpe
 
       // Primitive OptionFold representing GetOrElse -> translate to GetOrElse
       case OptionFold(from :@ OptionType.Primitive(_), LiteralNode(v), Ref(s), gen) if s == gen =>
@@ -45,7 +46,7 @@ class ExpandSums extends Phase {
               case r @ Ref(s) if s == gen => silentCast(r.nodeType, from)
             }, keepType = true)
             val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
-            IfThenElse(Vector(pred, ifEmpty2, ifDefined))
+            IfThenElse(ConstArray(pred, ifEmpty2, ifDefined))
         }
         n2.infer()
 
@@ -61,7 +62,7 @@ class ExpandSums extends Phase {
               case r @ Ref(s) if s == gen => silentCast(r.nodeType, from.select(ElementSymbol(2)).infer())
             }, keepType = true)
             val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
-            if(left == Disc1) ifDefined else IfThenElse(IndexedSeq(pred, ifDefined, ifEmpty2))
+            if(left == Disc1) ifDefined else IfThenElse(ConstArray(pred, ifDefined, ifEmpty2))
         }
         n2.infer()
 
@@ -69,7 +70,7 @@ class ExpandSums extends Phase {
       case n @ OptionApply(_) :@ OptionType.Primitive(_) => n
 
       // Other OptionApply -> translate to product form
-      case n @ OptionApply(ch) => ProductNode(Vector(Disc1, silentCast(toOptionColumns(ch.nodeType), ch))).infer()
+      case n @ OptionApply(ch) => ProductNode(ConstArray(Disc1, silentCast(toOptionColumns(ch.nodeType), ch))).infer()
 
       // Non-primitive GetOrElse
       // (.get is only defined on primitive Options, but this can occur inside of HOFs like .map)
@@ -93,8 +94,8 @@ class ExpandSums extends Phase {
   def translateJoin(bind: Bind, discCandidates: Set[(TypeSymbol, List[TermSymbol])]): Bind = {
     logger.debug("translateJoin", bind)
     val Bind(bsym, (join @ Join(lsym, rsym, left :@ CollectionType(_, leftElemType), right :@ CollectionType(_, rightElemType), jt, on)) :@ CollectionType(cons, elemType), pure) = bind
-    val lComplex = leftElemType.structural.children.nonEmpty
-    val rComplex = rightElemType.structural.children.nonEmpty
+    val lComplex = !leftElemType.structural.isInstanceOf[AtomicType]
+    val rComplex = !rightElemType.structural.isInstanceOf[AtomicType]
     logger.debug(s"Translating join ($jt, complex: $lComplex, $rComplex):", bind)
 
     // Find an existing column that can serve as a discriminator
@@ -108,8 +109,8 @@ class ExpandSums extends Phase {
         case _ => Set.empty
       }
       def find(t: Type, path: List[TermSymbol]): Vector[List[TermSymbol]] = t.structural match {
-        case StructType(defs) => defs.flatMap { case (s, t) => find(t, s :: path) }(collection.breakOut)
-        case p: ProductType => p.numberedElements.flatMap { case (s, t) => find(t, s :: path) }.toVector
+        case StructType(defs) => defs.toSeq.flatMap { case (s, t) => find(t, s :: path) }(collection.breakOut)
+        case p: ProductType => p.elements.iterator.zipWithIndex.flatMap { case (t, i) => find(t, ElementSymbol(i+1) :: path) }.toVector
         case _: AtomicType => Vector(path)
         case _ => Vector.empty
       }
@@ -136,7 +137,7 @@ class ExpandSums extends Phase {
           logger.debug("No suitable discriminator column found in "+elemType)
           (Disc1, false)
       }
-      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(Vector(disc, Ref(extendGen))))).infer()
+      val extend :@ CollectionType(_, extendedElementType) = Bind(extendGen, side, Pure(ProductNode(ConstArray(disc, Ref(extendGen))))).infer()
       val sideInCondition = Select(Ref(sym) :@ extendedElementType, ElementSymbol(2)).infer()
       val on2 = on.replace({
         case Ref(s) if s == sym => sideInCondition
@@ -165,12 +166,12 @@ class ExpandSums extends Phase {
       val v = if(createDisc) {
         val protoDisc = Select(ref, ElementSymbol(1)).infer()
         val rest = Select(ref, ElementSymbol(2))
-        val disc = IfThenElse(Vector(Library.==.typed[Boolean](silentCast(OptionType(protoDisc.nodeType), protoDisc), LiteralNode(null)), DiscNone, Disc1))
-        ProductNode(Vector(disc, rest))
+        val disc = IfThenElse(ConstArray(Library.==.typed[Boolean](silentCast(OptionType(protoDisc.nodeType), protoDisc), LiteralNode(null)), DiscNone, Disc1))
+        ProductNode(ConstArray(disc, rest))
       } else ref
       silentCast(trType(elemType.asInstanceOf[ProductType].children(idx)), v)
     }
-    val ref = ProductNode(Vector(optionCast(0, ldisc), optionCast(1, rdisc))).infer()
+    val ref = ProductNode(ConstArray(optionCast(0, ldisc), optionCast(1, rdisc))).infer()
     val pure2 = pure.replace({
       case Ref(s) if s == bsym => ref
 
@@ -204,7 +205,7 @@ class ExpandSums extends Phase {
   def trType(tpe: Type): Type = {
     def f(tpe: Type): Type = tpe.mapChildren(f) match {
       case t @ OptionType.Primitive(_) => t
-      case OptionType(ch) => ProductType(Vector(ScalaBaseType.optionDiscType.optionType, toOptionColumns(ch)))
+      case OptionType(ch) => ProductType(ConstArray(ScalaBaseType.optionDiscType.optionType, toOptionColumns(ch)))
       case t => t
     }
     val tpe2 = f(tpe)
@@ -215,16 +216,16 @@ class ExpandSums extends Phase {
   /** Strip nominal types and convert all atomic types to OptionTypes */
   def toOptionColumns(tpe: Type): Type = tpe match {
     case NominalType(_, str) => toOptionColumns(str)
-    case o @ OptionType(ch) if ch.structural.children.isEmpty => o
-    case t if t.children.isEmpty => OptionType(t)
+    case o @ OptionType(ch) if ch.structural.isInstanceOf[AtomicType] => o
+    case t: AtomicType => OptionType(t)
     case t => t.mapChildren(toOptionColumns)
   }
 
   /** Fuse unnecessary Option operations */
   def fuse(n: Node): Node = n match {
     // Option.map
-    case IfThenElse(IndexedSeq(Library.==(disc, Disc1), ProductNode(Seq(Disc1, map)), ProductNode(Seq(DiscNone, _)))) =>
-      ProductNode(Vector(disc, map)).infer()
+    case IfThenElse(ConstArray(Library.==(disc, Disc1), ProductNode(ConstArray(Disc1, map)), ProductNode(ConstArray(DiscNone, _)))) =>
+      ProductNode(ConstArray(disc, map)).infer()
     case n => n
   }
 

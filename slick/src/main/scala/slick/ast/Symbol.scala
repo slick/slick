@@ -1,6 +1,7 @@
 package slick.ast
 
 import Util._
+import slick.util.ConstArray
 import scala.collection.mutable.HashMap
 import scala.util.DynamicVariable
 
@@ -49,19 +50,24 @@ class AnonSymbol extends TermSymbol {
 
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
-  def generators: IndexedSeq[(TermSymbol, Node)]
-  protected[this] def rebuildWithSymbols(gen: IndexedSeq[TermSymbol]): Node
+  def generators: ConstArray[(TermSymbol, Node)]
+  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]): Node
 
   final def mapScopedChildren(f: (Option[TermSymbol], Node) => Node): Self with DefNode = {
-    val all = (generators.iterator.map{ case (sym, n) => (Some(sym), n) } ++
-      children.drop(generators.length).iterator.map{ n => (None, n) }).toIndexedSeq
+    val gens = generators
+    val ch = children
+    val all = ch.zipWithIndex.map[(Option[TermSymbol], Node)] { case (ch, idx) =>
+      val o = if(idx < gens.length) Some(gens(idx)._1) else None
+      (o, ch)
+    }
     val mapped = all.map(f.tupled)
-    if((all, mapped).zipped.map((a, m) => a._2 eq m).contains(false)) rebuild(mapped).asInstanceOf[Self with DefNode]
+    if(ch.zip(mapped).force.exists { case (n1, n2) => n1 ne n2 }) rebuild(mapped).asInstanceOf[Self with DefNode]
     else this
   }
   final def mapSymbols(f: TermSymbol => TermSymbol): Node = {
-    val s2 = mapOrNull(generators.map(_._1))(f)
-    if(s2 eq null) this else rebuildWithSymbols(s2)
+    val s = generators.map(_._1)
+    val s2 = s.endoMap(f)
+    if(s2 eq s) this else rebuildWithSymbols(s2)
   }
 }
 

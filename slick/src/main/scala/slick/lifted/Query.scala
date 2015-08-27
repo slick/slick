@@ -1,5 +1,7 @@
 package slick.lifted
 
+import slick.util.ConstArray
+
 import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
@@ -136,7 +138,7 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   def sortBy[T <% Ordered](f: E => T): Query[E, U, C] = {
     val generator = new AnonSymbol
     val aliased = shaped.encodeRef(Ref(generator))
-    new WrappingQuery[E, U, C](SortBy(generator, toNode, f(aliased.value).columns), shaped)
+    new WrappingQuery[E, U, C](SortBy(generator, toNode, ConstArray.from(f(aliased.value).columns)), shaped)
   }
 
   /** Sort this query according to a the ordering of its elements. */

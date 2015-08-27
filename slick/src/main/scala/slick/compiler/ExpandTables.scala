@@ -3,6 +3,7 @@ package slick.compiler
 import slick.ast._
 import Util._
 import TypeUtil._
+import slick.util.ConstArray
 
 /** Expand table-valued expressions in the result type to their star projection and compute the
   * missing structural expansions of table types. After this phase the AST should always be
@@ -14,7 +15,7 @@ class ExpandTables extends Phase {
     // Find table fields
     val structs = tree.collect[(TypeSymbol, (FieldSymbol, Type))] {
       case s @ Select(_ :@ (n: NominalType), sym: FieldSymbol) => n.sourceNominalType.sym -> (sym -> s.nodeType)
-    }.groupBy(_._1).map { case (ts, v) => (ts, NominalType(ts, StructType(v.map(_._2).toMap.toIndexedSeq))) }
+    }.toSeq.groupBy(_._1).map { case (ts, v) => (ts, NominalType(ts, StructType(ConstArray.from(v.map(_._2).toMap)))) }
     logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
 
     val tree2 = tree.replace {
@@ -47,7 +48,7 @@ class ExpandTables extends Phase {
   /** Create an expression that copies a structured value, expanding tables in it. */
   def createResult(expansions: Map[TableIdentitySymbol, (TermSymbol, Node)], path: Node, tpe: Type): Node = tpe match {
     case p: ProductType =>
-      ProductNode(p.numberedElements.map { case (s, t) => createResult(expansions, Select(path, s), t) }.toVector)
+      ProductNode(p.elements.zipWithIndex.map { case (t, i) => createResult(expansions, Select(path, ElementSymbol(i+1)), t) })
     case NominalType(tsym: TableIdentitySymbol, _) if expansions contains tsym =>
       val (sym, exp) = expansions(tsym)
       exp.replace { case Ref(s) if s == sym => path }

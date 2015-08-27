@@ -1,6 +1,6 @@
 package slick.compiler
 
-import slick.util.Ellipsis
+import slick.util.{ConstArray, Ellipsis}
 import slick.{SlickTreeException, SlickException}
 import slick.ast._
 import Util._
@@ -16,7 +16,7 @@ class RewriteJoins extends Phase {
   def apply(state: CompilerState) = state.map(tr _)
 
   def tr(n: Node): Node = n.mapChildren(tr, keepType = true) match {
-    case n @ Bind(s1, f1, Bind(s2, Pure(StructNode(Seq()), _), select)) =>
+    case n @ Bind(s1, f1, Bind(s2, Pure(StructNode(ConstArray()), _), select)) =>
       logger.debug("Eliminating unnecessary Bind from:", Ellipsis(n, List(0), List(1, 1)))
       Bind(s1, f1, select) :@ n.nodeType
 
@@ -86,7 +86,7 @@ class RewriteJoins extends Phase {
 
     case n @ Bind(s1, p @ Pure(f1, _), sel1) if !f1.isInstanceOf[Aggregate] =>
       logger.debug("Inlining Pure 'from' in:", n)
-      val res = Bind(s1, Pure(StructNode(Vector.empty)).infer(), sel1.replace({
+      val res = Bind(s1, Pure(StructNode(ConstArray.empty)).infer(), sel1.replace({
         case FwdPath(s :: rest) if s == s1 => rest.foldLeft(f1) { case (n, s) => n.select(s) }
       }, keepType = true)) :@ n.nodeType
       logger.debug("Inlined Pure 'from' in:", res)
@@ -143,7 +143,7 @@ class RewriteJoins extends Phase {
         logger.debug("All reference mappings for predicate: "+allRefs.mkString(", "))
         val (sel, tss) =
           if(newDefs.isEmpty) (b.select, tss1)
-          else (Pure(StructNode(struct1 ++ newDefs.map { case (_, (pOnGen, s)) => (s, pOnGen) }), pts), tss1 + pts)
+          else (Pure(StructNode(struct1 ++ ConstArray.from(newDefs.map { case (_, (pOnGen, s)) => (s, pOnGen) })), pts), tss1 + pts)
         val fs = new AnonSymbol
         val pred = pred1.replace {
           case p : Select => allRefs.get(p).map(s => Select(Ref(fs) :@ b.nodeType.asCollectionType.elementType, s) :@ p.nodeType).getOrElse(p)
@@ -165,21 +165,21 @@ class RewriteJoins extends Phase {
     logger.debug("Trying to eliminate illegal refs ["+illegal.mkString(", ")+"] from:", j)
     // Pull defs to one of `illegal` out of `sn`, creating required refs to `ok` instead
     def pullOut(sn: StructNode, ok: TermSymbol, illegal: Set[TermSymbol]): (StructNode, Map[TermSymbol, Node]) = {
-      val (illegalDefs, legalDefs) = sn.elements.partition(t => hasRefTo(t._2, illegal))
+      val (illegalDefs, legalDefs) = sn.elements.toSeq.partition(t => hasRefTo(t._2, illegal))
       if(illegalDefs.isEmpty) (sn, Map.empty)
       else {
         logger.debug("Pulling refs to ["+illegal.mkString(", ")+"] with OK base "+ok+" out of:", sn)
-        val requiredOkPaths = illegalDefs.flatMap(_._2.collect { case p @ FwdPath(s :: _) if s == ok => p }).toSet
+        val requiredOkPaths = illegalDefs.flatMap(_._2.collect { case p @ FwdPath(s :: _) if s == ok => p }.toSeq).toSet
         val existingOkDefs = legalDefs.collect { case (s, p @ FwdPath(s2 :: _)) if s2 == ok => (p, s) }.toMap
         val createDefs = (requiredOkPaths -- existingOkDefs.keySet).map(p => (new AnonSymbol, p)).toMap
-        val sn2 = StructNode(legalDefs ++ createDefs)
+        val sn2 = StructNode(ConstArray.from(legalDefs ++ createDefs))
         logger.debug("Pulled refs out of:", sn2)
         val replacements = (existingOkDefs ++ createDefs.map { case (s, n) => (n,s) }).toMap
         def rebase(n: Node): Node = n.replace({
           case (p @ FwdPath(s :: _)) :@ tpe if s == ok => Ref(replacements(p)) :@ tpe
         }, keepType = true)
         val rebasedIllegalDefs = illegalDefs.map { case (s, n) => (s, rebase(n)) }
-        logger.debug("Rebased illegal defs are:", StructNode(rebasedIllegalDefs))
+        logger.debug("Rebased illegal defs are:", StructNode(ConstArray.from(rebasedIllegalDefs)))
         (sn2, rebasedIllegalDefs.toMap)
       }
     }
@@ -253,13 +253,13 @@ class RewriteJoins extends Phase {
     * tree smaller to speed up subsequent phases. */
   def flattenAliasingMap(b: Bind): Bind = b match {
     case Bind(s1, Bind(s2, f, Pure(StructNode(p1), ts1)), Pure(StructNode(p2), ts2)) =>
-      def isAliasing(s: Seq[(TermSymbol, Node)]) = s.forall { case (_, n) =>
+      def isAliasing(s: ConstArray[(TermSymbol, Node)]) = s.forall { case (_, n) =>
         n.collect({ case Path(_) => true }, stopOnMatch = true).length <= 1
       }
       val a1 = isAliasing(p1)
       if(a1 || isAliasing(p2)) {
         logger.debug(s"Bind(${if(a1) s1 else s2}) is aliasing. Merging Bind($s1, Bind($s2)) to Bind($s2)")
-        val m = p1.toMap
+        val m = p1.iterator.toMap
         Bind(s2, f, Pure(StructNode(p2.map {
           case (f1, n) => (f1, n.replace({
             case Select(Ref(s), f2) if s == s1 => m(f2)

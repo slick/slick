@@ -4,6 +4,7 @@ import slick.SlickException
 import slick.ast._
 import Util._
 import TypeUtil._
+import slick.util.ConstArray
 
 /** Create a ResultSetMapping root node, ensure that the top-level server-side node returns a
   * collection, and hoist client-side type conversions into the ResultSetMapping. The original
@@ -36,7 +37,7 @@ class CreateResultSetMapping extends Phase {
 
   /** Create a structured return value for the client side, based on the
     * result type (which may contain MappedTypes). */
-  def createResult(ref: Ref, tpe: Type, syms: IndexedSeq[TermSymbol]): Node = {
+  def createResult(ref: Ref, tpe: Type, syms: ConstArray[TermSymbol]): Node = {
     var curIdx = 0
     def f(tpe: Type): Node = {
       logger.debug("Creating mapping from "+tpe)
@@ -47,7 +48,7 @@ class CreateResultSetMapping extends Phase {
           ProductNode(ch.map { case (_, t) => f(t) })
         case t: MappedScalaType =>
           TypeMapping(f(t.baseType), t.mapper, t.classTag)
-        case o @ OptionType(Type.Structural(el)) if el.children.nonEmpty =>
+        case o @ OptionType(Type.Structural(el)) if !el.isInstanceOf[AtomicType] =>
           val discriminator = Select(ref, syms(curIdx)).infer()
           curIdx += 1
           val data = f(o.elementType)

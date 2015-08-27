@@ -1,6 +1,7 @@
 package slick.compiler
 
 import slick.ast._
+import slick.util.ConstArray
 
 /** Ensure that all collection operations are wrapped in a Bind so that we
   * have a place for expanding references later. FilteredQueries are allowed
@@ -23,7 +24,7 @@ class ForceOuterBinds extends Phase {
     val gen = new AnonSymbol
     logger.debug("Introducing new Bind "+gen+" for "+n)
     n match {
-      case p: Pure => Bind(gen, Pure(ProductNode(Vector.empty)), p)
+      case p: Pure => Bind(gen, Pure(ProductNode(ConstArray.empty)), p)
       case _ => Bind(gen, n, Pure(Ref(gen)))
     }
   }

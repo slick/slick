@@ -1,5 +1,7 @@
 package slick.compiler
 
+import slick.util.ConstArray
+
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import slick.ast._
 import Util._
@@ -36,7 +38,7 @@ class FlattenProjections extends Phase {
         logger.debug("Translated "+p.pathString+" to:", p2)
         p2
       case n: Bind =>
-        n.mapScopedChildren { case (o, ch) => tr(ch, topLevel && o.isEmpty) }
+        n.mapChildren { ch => tr(ch, topLevel && (ch ne n.from)) }
       case u: Union =>
         n.mapChildren { ch => tr(ch, true) }
       case n => n.mapChildren(tr(_, false))
@@ -79,7 +81,7 @@ class FlattenProjections extends Phase {
       n match {
         case StructNode(ch) => ch.foreach { case (s, n) => flatten(n, s :: path) }
         case p: ProductNode =>
-          p.children.iterator.zipWithIndex.foreach { case (n, i) => flatten(n, new ElementSymbol(i+1) :: path) }
+          p.children.zipWithIndex.foreach { case (n, i) => flatten(n, new ElementSymbol(i+1) :: path) }
         case n =>
           if(collapse) {
             defsM.get(n) match {
@@ -102,6 +104,6 @@ class FlattenProjections extends Phase {
       }
     }
     flatten(n, Nil)
-    (StructNode(defs), paths.toMap)
+    (StructNode(ConstArray.from(defs)), paths.toMap)
   }
 }

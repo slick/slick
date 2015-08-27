@@ -3,7 +3,7 @@ package slick.compiler
 import slick.ast._
 import scala.collection.mutable.ArrayBuffer
 import slick.{SlickTreeException, SlickException}
-import slick.util.SlickLogger
+import slick.util.{ConstArray, SlickLogger}
 import org.slf4j.LoggerFactory
 import Util._
 
@@ -41,8 +41,8 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
         val ch =
           if(mode(fs)) {
             cols += Select(tref, fs) :@ sel.nodeType
-            IndexedSeq(Select(rref, ElementSymbol(cols.size)) :@ sel.nodeType)
-          } else IndexedSeq.empty[Node]
+            ConstArray(Select(rref, ElementSymbol(cols.size)) :@ sel.nodeType)
+          } else ConstArray.empty
         InsertColumn(ch, fs, sel.nodeType).infer()
       case Ref(s) if s == expansionRef =>
         tr(tableExpansion.columns)
@@ -53,7 +53,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
     }
     val tree2 = tr(tree).infer()
     if(tableExpansion eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols)).infer()
+    val ins = Insert(tableSym, tableExpansion.table, ProductNode(ConstArray.from(cols))).infer()
     ResultSetMapping(linearSym, ins, tree2) :@ CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType)
   }
 }

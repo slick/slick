@@ -253,6 +253,8 @@ object SlickBuild extends Build {
         (Dependencies.logback +: Dependencies.testDBs).map(_ % "codegen"),
       parallelExecution in Test := false,
       fork in run := true,
+      //connectInput in run := true,
+      //javaOptions in run += "-agentpath:/Applications/YourKit_Java_Profiler_2015_build_15072.app/Contents/Resources/bin/mac/libyjpagent.jnilib",
       javaOptions in run += "-Dslick.ansiDump=true",
       //javaOptions in run += "-verbose:gc",
       compile in Test ~= { a =>
