@@ -109,19 +109,22 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testCast = {
-    class T1(tag: Tag) extends Table[(String, Int)](tag, "t1_4") {
+    class T1(tag: Tag) extends Table[(String, Int, Double)](tag, "t1_4") {
       def a = column[String]("a")
       def b = column[Int]("b")
-      def * = (a, b)
+      def c = column[Double]("c")
+      def * = (a, b, c)
     }
     val t1s = TableQuery[T1]
 
     for {
       _ <- t1s.schema.create
-      _ <- t1s ++= Seq(("foo", 1), ("bar", 2))
+      _ <- t1s ++= Seq(("foo", 1, 2.0), ("bar", 2, 2.0))
 
       q1 = t1s.map(t1 => t1.a ++ t1.b.asColumnOf[String])
       _ <- q1.to[Set].result.map(_ shouldBe Set("foo1", "bar2"))
+      q2 = t1s.map(t1 => t1.c * t1.b.asColumnOf[Double])
+      _ <- q2.to[Set].result.map(_ shouldBe Set(2.0, 4.0))
     } yield ()
   }
 

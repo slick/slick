@@ -144,7 +144,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       case Library.Cast(ch) :@ JdbcType(ti, _) =>
         val tn = if(ti == columnTypes.stringJdbcType) "VARCHAR" else ti.sqlTypeName(None)
-        b"{fn convert(!${ch},$tn)}"
+        b"\({fn convert(!${ch},$tn)}\)"
       case Library.NextValue(SequenceNode(name)) => b"`${name + "_nextval"}()"
       case Library.CurrentValue(SequenceNode(name)) => b"`${name + "_currval"}()"
       case RowNum(sym, true) => b"(@`$sym := @`$sym + 1)"
