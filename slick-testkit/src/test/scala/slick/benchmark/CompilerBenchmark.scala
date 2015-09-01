@@ -30,6 +30,8 @@ object CompilerBenchmark {
       }
     }
 
+    var compileMS: Double = 0.0
+
     for(i <- 1 to RUNS) {
       val (queries, t1) = time("Creating queries", COUNT_CREATE)(allQueries)
       val (asts, t2) = time("Creating ASTs", COUNT_TONODE)(queries.map(_.toNode))
@@ -45,10 +47,15 @@ object CompilerBenchmark {
         Console.readLine()
       }*/
       println(String.format("Creating: %1$7.3f ms, toNode: %2$7.3f ms, compiling: %3$7.3f ms", t1.asInstanceOf[AnyRef], t2.asInstanceOf[AnyRef], t3.asInstanceOf[AnyRef]))
+      compileMS = t3
     }
 
     println("Last run by phase:")
-    phases.foreach(p => println(String.format("Phase %1$25s: %2$7.3f ms", p.name, (phaseNanos(p.name)(0)/1000000.0/COUNT_COMPILE).asInstanceOf[AnyRef])))
+    phases.foreach { p =>
+      val pms = (phaseNanos(p.name)(0)/1000000.0/COUNT_COMPILE)
+      val percentage = pms / compileMS * 100.0
+      println(String.format("Phase %1$25s: %2$7.3f ms, %3$7.3f %%", p.name, pms.asInstanceOf[AnyRef], percentage.asInstanceOf[AnyRef]))
+    }
   }
 
   def time[T](name: String, count: Int)(f: => T): (T, Double) = {
