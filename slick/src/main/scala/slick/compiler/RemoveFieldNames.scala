@@ -13,7 +13,10 @@ class RemoveFieldNames extends Phase {
     val CollectionType(_, NominalType(top, StructType(fdefs))) = rsm.from.nodeType
     val indexes = fdefs.iterator.zipWithIndex.map { case ((s, _), i) => (s, ElementSymbol(i+1)) }.toMap
     val rsm2 = rsm.nodeMapServerSide(false, { n =>
-      val refTSyms = n.collect[TypeSymbol] { case Select(_ :@ NominalType(s, _), _) => s }.toSet
+      val refTSyms = n.collect[TypeSymbol] {
+        case Select(_ :@ NominalType(s, _), _) => s
+        case Union(_, _ :@ CollectionType(_, NominalType(s, _)), _) => s
+      }.toSet
       val allTSyms = n.collect[TypeSymbol] { case p: Pure => p.identity }.toSet
       val unrefTSyms = allTSyms -- refTSyms
       n.replaceInvalidate {
