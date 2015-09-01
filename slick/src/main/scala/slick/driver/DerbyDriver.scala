@@ -108,11 +108,11 @@ trait DerbyDriver extends JdbcDriver { driver =>
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createSequenceDDLBuilder(seq: Sequence[_]): SequenceDDLBuilder[_] = new SequenceDDLBuilder(seq)
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.BOOLEAN => "SMALLINT"
     /* Derby does not have a TINYINT type, so we use SMALLINT instead. */
     case java.sql.Types.TINYINT => "SMALLINT"
-    case _ => super.defaultSqlTypeName(tmd, size)
+    case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
   override val scalarFrom = Some("sysibm.sysdummy1")
@@ -221,7 +221,7 @@ trait DerbyDriver extends JdbcDriver { driver =>
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "CHAR(16) FOR BIT DATA"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(16) FOR BIT DATA"
     }
   }
 }

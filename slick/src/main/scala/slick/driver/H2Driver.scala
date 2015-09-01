@@ -73,10 +73,11 @@ trait H2Driver extends JdbcDriver { driver =>
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
     new CountingInsertActionComposerImpl[T](compiled)
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
+      val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
-    case _ => super.defaultSqlTypeName(tmd, size)
+    case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -102,7 +103,7 @@ trait H2Driver extends JdbcDriver { driver =>
 
   class JdbcTypes extends super.JdbcTypes {
     override val uuidJdbcType = new UUIDJdbcType {
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "UUID"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "UUID"
       override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
       override def hasLiteralForm = true
     }

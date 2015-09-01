@@ -65,3 +65,11 @@ to a design problem) was not to include non-matching rows in the total (equivale
 discriminator column only). This does not make sense anymore for the new outer join operators (introduced
 in 3.0) with correct `Option` types. The new semantics are identical to those of Scala collections.
 Semantics for counts of single columns remain unchanged.
+
+Default String type on MySQL
+----------------------------
+
+Slick 3.0 changed the default string type for MySQL to `TEXT`, which is not allowed for primary keys
+and columns with default values. In these cases we now fall back to the old `VARCHAR(254)` type which
+was used up to Slick 2.1. Like in 3.0 you can change this default by setting the application.conf key
+`slick.driver.MySQL.defaultStringType`.

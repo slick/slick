@@ -113,11 +113,11 @@ trait HsqldbDriver extends JdbcDriver { driver =>
 
   class JdbcTypes extends super.JdbcTypes {
     override val byteArrayJdbcType = new ByteArrayJdbcType {
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "LONGVARBINARY"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "LONGVARBINARY"
     }
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "BINARY(16)"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
     }
   }
 

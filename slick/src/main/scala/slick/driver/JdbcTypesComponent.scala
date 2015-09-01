@@ -15,12 +15,12 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     def comap(u: U): T
 
     def newSqlType: Option[Int] = None
-    def newSqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]): Option[String] = None
+    def newSqlTypeName(size: Option[FieldSymbol]): Option[String] = None
     def newValueToSQLLiteral(value: T): Option[String] = None
     def newHasLiteralForm: Option[Boolean] = None
 
     def sqlType = newSqlType.getOrElse(tmd.sqlType)
-    def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = newSqlTypeName(size).getOrElse(tmd.sqlTypeName(size))
+    def sqlTypeName(sym: Option[FieldSymbol]) = newSqlTypeName(sym).getOrElse(tmd.sqlTypeName(sym))
     def setValue(v: T, p: PreparedStatement, idx: Int) = tmd.setValue(map(v), p, idx)
     def setNull(p: PreparedStatement, idx: Int): Unit = tmd.setNull(p, idx)
     def getValue(r: ResultSet, idx: Int) = {
@@ -73,8 +73,9 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     case t => throw new SlickException("JdbcProfile has no JdbcType for type "+t)
   }): JdbcType[_]).asInstanceOf[JdbcType[Any]]
 
-  def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+  def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
+      val size = sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length])
       size.fold("VARCHAR(254)")(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
     case java.sql.Types.DECIMAL => "DECIMAL(21,2)"
     case t => JdbcTypesComponent.typeNames.getOrElse(t,
@@ -83,7 +84,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
 
   abstract class DriverJdbcType[@specialized T](implicit val classTag: ClassTag[T]) extends JdbcType[T] {
     def scalaType = ScalaBaseType[T]
-    def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]): String = driver.defaultSqlTypeName(this, size)
+    def sqlTypeName(sym: Option[FieldSymbol]): String = driver.defaultSqlTypeName(this, sym)
     def valueToSQLLiteral(value: T) =
       if(hasLiteralForm) value.toString
       else throw new SlickException(sqlTypeName(None) + " does not have a literal representation")
@@ -152,7 +153,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
 
     class CharJdbcType extends DriverJdbcType[Char] {
       def sqlType = java.sql.Types.CHAR
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "CHAR(1)"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
       def setValue(v: Char, p: PreparedStatement, idx: Int) = stringJdbcType.setValue(String.valueOf(v), p, idx)
       def getValue(r: ResultSet, idx: Int) = {
         val s = stringJdbcType.getValue(r, idx)

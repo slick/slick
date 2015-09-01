@@ -10,6 +10,7 @@ import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil._
 import slick.util.MacroSupport.macroSupportInterpolation
+import slick.util.ConfigExtensionMethods.configExtensionMethods
 import slick.profile.{RelationalProfile, SqlProfile, Capability}
 import slick.compiler.{Phase, ResolveZipJoins, CompilerState}
 import slick.model.Model
@@ -92,13 +93,22 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
   override def quoteIdentifier(id: String) = '`' + id + '`'
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>
-      size.fold(defaultStringType)(l => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})")
-    case _ => super.defaultSqlTypeName(tmd, size)
+      sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Length]) match {
+        case Some(l) => if(l.varying) s"VARCHAR(${l.length})" else s"CHAR(${l.length})"
+        case None => defaultStringType match {
+          case Some(s) => s
+          case None =>
+            if(sym.flatMap(_.findColumnOption[RelationalProfile.ColumnOption.Default[_]]).isDefined ||
+               sym.flatMap(_.findColumnOption[ColumnOption.PrimaryKey.type]).isDefined)
+              "VARCHAR(254)" else "TEXT"
+        }
+      }
+    case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
-  protected lazy val defaultStringType = driverConfig.getString("defaultStringType")
+  protected lazy val defaultStringType = driverConfig.getStringOpt("defaultStringType")
 
   class MySQLResolveZipJoins extends ResolveZipJoins {
     // MySQL does not support ROW_NUMBER() but you can manually increment a variable in the SELECT
@@ -258,7 +268,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
 
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlType = java.sql.Types.BINARY
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "BINARY(16)"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "BINARY(16)"
 
       override def valueToSQLLiteral(value: UUID): String =
         "x'"+value.toString.replace("-", "")+"'"

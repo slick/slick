@@ -3,6 +3,7 @@ package slick.ast
 import Util._
 import slick.util.ConstArray
 import scala.collection.mutable.HashMap
+import scala.reflect.ClassTag
 import scala.util.DynamicVariable
 
 /** A symbol which can be used in the AST. It can be either a TypeSymbol or a TermSymbol. */
@@ -18,7 +19,10 @@ trait TypeSymbol extends Symbol
 trait TermSymbol extends Symbol
 
 /** A named symbol which refers to an (aliased or unaliased) field. */
-case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol
+case class FieldSymbol(name: String)(val options: Seq[ColumnOption[_]], val tpe: Type) extends TermSymbol {
+  def findColumnOption[T <: ColumnOption[_]](implicit ct: ClassTag[T]): Option[T] =
+    options.find(ct.runtimeClass.isInstance _).asInstanceOf[Option[T]]
+}
 
 /** An element of a ProductNode (using a 1-based index) */
 case class ElementSymbol(idx: Int) extends TermSymbol {

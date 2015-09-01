@@ -212,9 +212,9 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     override protected def useTransactionForUpsert = !useServerSideUpsert
   }
 
-  override def defaultSqlTypeName(tmd: JdbcType[_], size: Option[RelationalProfile.ColumnOption.Length]): String = tmd.sqlType match {
+  override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.TINYINT | java.sql.Types.SMALLINT | java.sql.Types.BIGINT => "INTEGER"
-    case _ => super.defaultSqlTypeName(tmd, size)
+    case _ => super.defaultSqlTypeName(tmd, sym)
   }
 
   class JdbcTypes extends super.JdbcTypes {
@@ -227,7 +227,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     /* SQLite does not have a proper BOOLEAN type. The suggested workaround is
      * INTEGER with constants 1 and 0 for TRUE and FALSE. */
     class BooleanJdbcType extends super.BooleanJdbcType {
-      override def sqlTypeName(size: Option[RelationalProfile.ColumnOption.Length]) = "INTEGER"
+      override def sqlTypeName(sym: Option[FieldSymbol]) = "INTEGER"
       override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
     }
     /* The SQLite JDBC driver does not support the JDBC escape syntax for
