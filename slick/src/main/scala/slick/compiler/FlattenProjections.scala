@@ -41,6 +41,8 @@ class FlattenProjections extends Phase {
         n.mapChildren { ch => tr(ch, topLevel && (ch ne n.from)) }
       case u: Union =>
         n.mapChildren { ch => tr(ch, true) }
+      case Library.SilentCast(ch) :@ tpe =>
+        Library.SilentCast.typed(tpe.structuralRec, tr(ch, false))
       case n => n.mapChildren(tr(_, false))
     }
     tr(tree, true).infer()

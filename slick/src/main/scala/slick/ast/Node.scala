@@ -240,7 +240,7 @@ trait NullaryNode extends Node {
 }
 
 /** An expression that represents a plain value lifted into a Query. */
-final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) extends UnaryNode with SimplyTypedNode {
+final case class Pure(value: Node, identity: TypeSymbol = new AnonTypeSymbol) extends UnaryNode with SimplyTypedNode with TypeGenerator {
   type Self = Pure
   def child = value
   override def childNames = Seq("value")
@@ -348,7 +348,7 @@ object Ordering {
 }
 
 /** A .groupBy call. */
-final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: TypeSymbol = new AnonTypeSymbol) extends BinaryNode with DefNode {
+final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: TypeSymbol = new AnonTypeSymbol) extends BinaryNode with DefNode with TypeGenerator {
   type Self = GroupBy
   def left = from
   def right = by
@@ -595,10 +595,10 @@ object FwdPath {
 }
 
 /** A Node representing a database table. */
-final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, driverTable: Any, baseIdentity: TableIdentitySymbol) extends NullaryNode with SimplyTypedNode {
+final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, baseIdentity: TableIdentitySymbol)(val driverTable: Any) extends NullaryNode with SimplyTypedNode with TypeGenerator {
   type Self = TableNode
   def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedType))
-  def rebuild = copy()
+  def rebuild = copy()(driverTable)
   override def getDumpInfo = super.getDumpInfo.copy(name = "Table", mainInfo = schemaName.map(_ + ".").getOrElse("") + tableName)
 }
 

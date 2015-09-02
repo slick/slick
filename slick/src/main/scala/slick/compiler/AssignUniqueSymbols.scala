@@ -17,9 +17,10 @@ class AssignUniqueSymbols extends Phase {
   def apply(state: CompilerState) = state.map { tree =>
     val seen = new HashSet[AnonSymbol]
     def tr(n: Node, replace: Map[AnonSymbol, AnonSymbol]): Node = {
-      val n2 = n match { // Give TableNode and Pure nodes a unique TypeSymbol
-        case t: TableNode => t.copy(identity = new AnonTableIdentitySymbol)
+      val n2 = n match { // Give TableNode, GroupBy and Pure nodes a unique TypeSymbol
+        case t: TableNode => t.copy(identity = new AnonTableIdentitySymbol)(t.driverTable)
         case Pure(value, _) => Pure(value)
+        case g: GroupBy => g.copy(identity = new AnonTypeSymbol)
         case n => n
       }
       val n3 = n2 match {

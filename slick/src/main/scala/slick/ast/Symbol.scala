@@ -52,6 +52,11 @@ class AnonSymbol extends TermSymbol {
   def name = "@"+System.identityHashCode(this)
 }
 
+/** A Node which introduces a NominalType. */
+trait TypeGenerator {
+  def identity: TypeSymbol
+}
+
 /** A Node which introduces Symbols. */
 trait DefNode extends Node {
   def generators: ConstArray[(TermSymbol, Node)]

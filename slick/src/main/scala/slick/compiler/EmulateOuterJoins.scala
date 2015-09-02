@@ -30,8 +30,8 @@ class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) ext
       convert(Union(
         Join(leftGen, rightGen, left, right, JoinType.Inner, on),
         Bind(bgen,
-          Filter(lgen2, left,
-            Library.Not.typed(on.nodeType, Library.Exists.typed(on.nodeType, Filter(rgen2, right, on2)))
+          Filter(lgen2, assignFreshSymbols(left),
+            Library.Not.typed(on.nodeType, Library.Exists.typed(on.nodeType, Filter(rgen2, assignFreshSymbols(right), on2)))
           ),
           Pure(ProductNode(ConstArray(Ref(bgen), nullStructFor(right.nodeType.structural.asCollectionType.elementType))))
         ), true).infer())
@@ -51,8 +51,8 @@ class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) ext
       convert(Union(
         Join(leftGen, rightGen, left, right, JoinType.Left, on),
         Bind(bgen,
-          Filter(rgen2, right,
-            Library.Not.typed(on.nodeType, Library.Exists.typed(on.nodeType, Filter(lgen2, left, on2)))
+          Filter(rgen2, assignFreshSymbols(right),
+            Library.Not.typed(on.nodeType, Library.Exists.typed(on.nodeType, Filter(lgen2, assignFreshSymbols(left), on2)))
           ),
           Pure(ProductNode(ConstArray(nullStructFor(left.nodeType.structural.asCollectionType.elementType), Ref(bgen))))
         ), true).infer())
@@ -65,5 +65,24 @@ class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) ext
     case StructType(sts) => StructNode(sts.map { case (s, t) => (s, nullStructFor(t)) })
     case t: OptionType => LiteralNode(t, None)
     case t => LiteralNode(OptionType(t), None)
+  }
+
+  /** Assign new TypeSymbols to a subtree that needs to be copied into multiple places. */
+  def assignFreshSymbols(n: Node): Node = {
+    val typeSyms = n.collect { case n: TypeGenerator => n.identity }.toSet
+    val repl = typeSyms.map {
+      case ts: TableIdentitySymbol => ts -> new AnonTableIdentitySymbol
+      case ts => ts -> new AnonTypeSymbol
+    }.toMap
+    def replaceTS(t: Type): Type = (t match {
+      case NominalType(ts, v) => repl.get(ts).map(new NominalType(_, v)).getOrElse(t)
+      case t => t
+    }).mapChildren(replaceTS)
+    //repl.foreach { case (ts1, ts2) => global.get(ts1).foreach(t => global += ts2 -> replaceTS(t)) }
+    n.replace({
+      case n: TableNode => n.copy(identity = repl(n.identity).asInstanceOf[TableIdentitySymbol])(n.driverTable) :@ replaceTS(n.nodeType)
+      case n: Pure => n.copy(identity = repl(n.identity))
+      case n: GroupBy => n.copy(identity = repl(n.identity))
+    }, bottomUp = true).infer()
   }
 }
