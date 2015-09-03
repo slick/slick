@@ -130,7 +130,7 @@ trait MySQLDriver extends JdbcDriver { driver =>
           first = false
           r
         case r @ Ref(s) if s == s1 => r.untyped
-      }), Subquery.Always).infer()
+      }), Subquery.Default).infer()
     }
   }
 

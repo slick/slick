@@ -8,11 +8,11 @@ import slick.ast.Util._
 import slick.ast.TypeUtil._
 import slick.util.{ConstArray, Ellipsis, ??}
 
-/** This phase merges nested nodes of types Bind, Filter, GroupBy, SortBy, Take, Drop and
-  * CollectionCast to Comprehension nodes. Nodes can be merged if they occur in the following
-  * order:
+/** This phase merges nested nodes of types Bind, Filter, GroupBy, SortBy, Take, Drop,
+  * CollectionCast and Distinct to Comprehension nodes. Nodes can be merged if they occur in the
+  * following order:
   *
-  * [Source] -> Filter (where) -> GroupBy -> SortBy / Filter (having) -> Take / Drop
+  * [Source] -> Filter (where) -> GroupBy -> SortBy / (Distinct | Filter (having)) -> Take / Drop
   *
   * Aliasing Binds and CollectionCasts are allowed everywhere in the chain. Any out of order
   * operation starts a new chain with a subquery as the source.
@@ -68,8 +68,10 @@ class MergeToComprehensions extends Phase {
         mergeCommon(mergeTakeDrop _, mergeSortBy _, n, buildBase, allowFilter = false)
     }
 
-    /** Merge Bind, Filter (as WHERE or HAVING depending on presence of GROUP BY), CollectionCast
-      * and SortBy into an existing Comprehension */
+    /** Merge Bind, Filter (as WHERE or HAVING depending on presence of GROUP BY), CollectionCast,
+      * SortBy and Distinct into an existing Comprehension. If Distinct is present, no other
+      * Distinct or Filter (as HAVING) is allowed. A subquery is created if necessary to avoid
+      * this situation. */
     def mergeSortBy(n: Node, buildBase: Boolean): (Comprehension, Replacements) = n match {
       case SortBy(s1, f1, b1) =>
         val (c1, replacements1) = mergeSortBy(f1, true)
@@ -78,6 +80,17 @@ class MergeToComprehensions extends Phase {
         val c2 = c1.copy(orderBy = b2 ++ c1.orderBy) :@ c1.nodeType
         logger.debug("Merged SortBy into Comprehension:", c2)
         (c2, replacements1)
+
+      case Distinct(s1, f1, o1) =>
+        val (c1, replacements1) = mergeSortBy(f1, true)
+        val (c1a, replacements1a) =
+          if(c1.distinct.isDefined || c1.having.isDefined) toSubquery(c1, replacements1)
+          else (c1, replacements1)
+        logger.debug("Merging Distinct into Comprehension:", Ellipsis(n, List(0)))
+        val o2 = applyReplacements(o1, replacements1a, c1a)
+        val c2 = c1a.copy(distinct = Some(ProductNode(ConstArray(o2)).flatten.infer())) :@ c1a.nodeType
+        logger.debug("Merged Distinct into Comprehension:", c2)
+        (c2, replacements1a)
 
       case n =>
         mergeCommon(mergeSortBy _, mergeGroupBy _, n, buildBase)
@@ -133,20 +146,6 @@ class MergeToComprehensions extends Phase {
         else createSource(n).getOrElse(throw new SlickTreeException("Cannot convert node to SQL Comprehension", n))
       }
       buildSubquery(n2, mappings)
-    }
-
-    /** Lift a valid top-level or source Node into a subquery */
-    def buildSubquery(n: Node, mappings: Mappings): (Comprehension, Replacements) = {
-      logger.debug("Building new Comprehension from:", n)
-      val newSyms = mappings.map(x => (x, new AnonSymbol))
-      val s = new AnonSymbol
-      val struct = StructNode(newSyms.map { case ((_, ss), as) => (as, FwdPath(s :: ss)) })
-      val pid = new AnonTypeSymbol
-      val res = Comprehension(s, n, select = Pure(struct, pid)).infer()
-      logger.debug("Built new Comprehension:", res)
-      val replacements = newSyms.iterator.map { case (((ts, f), _), as) => ((ts, f), as) }.toMap
-      logger.debug("Replacements are: "+replacements)
-      (res, replacements)
     }
 
     /** Convert a Node for use as a source in a Join. Joins and TableNodes are not converted to
@@ -266,8 +265,26 @@ class MergeToComprehensions extends Phase {
     else tree2
   }
 
+  /** Lift a valid top-level or source Node into a subquery */
+  def buildSubquery(n: Node, mappings: Mappings): (Comprehension, Replacements) = {
+    logger.debug("Building new Comprehension from:", n)
+    val newSyms = mappings.map(x => (x, new AnonSymbol))
+    val s = new AnonSymbol
+    val struct = StructNode(newSyms.map { case ((_, ss), as) => (as, FwdPath(s :: ss)) })
+    val pid = new AnonTypeSymbol
+    val res = Comprehension(s, n, select = Pure(struct, pid)).infer()
+    logger.debug("Built new Comprehension:", res)
+    val replacements = newSyms.iterator.map { case (((ts, f), _), as) => ((ts, f), as) }.toMap
+    logger.debug("Replacements are: "+replacements)
+    (res, replacements)
+  }
+
+  def toSubquery(n: Comprehension, r: Replacements): (Comprehension, Replacements) =
+    buildSubquery(n, ConstArray.from(r.mapValues(_ :: Nil)))
+
   /** Merge the common operations Bind, Filter and CollectionCast into an existing Comprehension.
-    * This method is used at different stages of the pipeline. */
+    * This method is used at different stages of the pipeline. If the Comprehension already contains
+    * a Distinct clause, it is pushed into a subquery. */
   def mergeCommon(rec: (Node, Boolean) => (Comprehension, Replacements), parent: (Node, Boolean) => (Comprehension, Replacements),
                   n: Node, buildBase: Boolean,
                   allowFilter: Boolean = true): (Comprehension, Replacements) = n match {
@@ -283,13 +300,16 @@ class MergeToComprehensions extends Phase {
 
     case Filter(s1, f1, p1) if allowFilter =>
       val (c1, replacements1) = rec(f1, true)
+      val (c1a, replacements1a) =
+        if(c1.distinct.isDefined) toSubquery(c1, replacements1)
+        else (c1, replacements1)
       logger.debug("Merging Filter into Comprehension:", Ellipsis(n, List(0)))
-      val p2 = applyReplacements(p1, replacements1, c1)
+      val p2 = applyReplacements(p1, replacements1a, c1a)
       val c2 =
-        if(c1.groupBy.isEmpty) c1.copy(where = Some(c1.where.fold(p2)(and(_, p2)).infer())) :@ c1.nodeType
-        else c1.copy(having = Some(c1.having.fold(p2)(and(p2, _)).infer())) :@ c1.nodeType
+        if(c1a.groupBy.isEmpty) c1a.copy(where = Some(c1a.where.fold(p2)(and(_, p2)).infer())) :@ c1a.nodeType
+        else c1a.copy(having = Some(c1a.having.fold(p2)(and(p2, _)).infer())) :@ c1a.nodeType
       logger.debug("Merged Filter into Comprehension:", c2)
-      (c2, replacements1)
+      (c2, replacements1a)
 
     case CollectionCast(ch, _) =>
       rec(ch, buildBase)

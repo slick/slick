@@ -41,6 +41,27 @@ final class ConstArray[+T] private[util] (a: Array[Any], val length: Int) extend
     new ConstArray[R](ar)
   }
 
+  def collect[R](f: PartialFunction[T, R]): ConstArray[R] = {
+    var i, j = 0
+    var matched = true
+    def d(x: T): R = {
+      matched = false
+      null.asInstanceOf[R]
+    }
+    val ar = new Array[Any](length)
+    while(i < length) {
+      matched = true
+      val v = f.applyOrElse(a(i).asInstanceOf[T], d)
+      if(matched) {
+        ar(j) = v
+        j += 1
+      }
+      i += 1
+    }
+    if(j == 0) ConstArray.empty
+    else new ConstArray[R](ar, j)
+  }
+
   def flatMap[R](f: T => ConstArray[R]): ConstArray[R] = {
     var len = 0
     val buf = new Array[ConstArray[R]](length)

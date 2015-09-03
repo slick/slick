@@ -46,8 +46,13 @@ class ReorderOperations extends Phase {
     // Remove Subquery boundary on top of TableNode and Join
     case Subquery(n @ (_: TableNode | _: Join), _) => n
 
-    // Push aliasing / literal projection into Subquery
-    case n @ Bind(s, Subquery(from, cond), Pure(StructNode(defs), ts1)) if isAliasingOrLiteral(s, defs) =>
+    // Push distincness-preserving aliasing / literal projection into Subquery.AboveDistinct
+    case n @ Bind(s, Subquery(from :@ CollectionType(_, tpe), Subquery.AboveDistinct), Pure(StructNode(defs), ts1))
+        if isAliasingOrLiteral(s, defs) && isDistinctnessPreserving(s, defs, tpe) =>
+      Subquery(n.copy(from = from), Subquery.AboveDistinct).infer()
+
+    // Push any aliasing / literal projection into other Subquery
+    case n @ Bind(s, Subquery(from, cond), Pure(StructNode(defs), ts1)) if cond != Subquery.AboveDistinct && isAliasingOrLiteral(s, defs) =>
       Subquery(n.copy(from = from), cond).infer()
 
     // If a Filter checks an upper bound of a ROWNUM, push it into the AboveRownum boundary
@@ -80,6 +85,14 @@ class ReorderOperations extends Phase {
     }
     logger.debug("Bind from "+base+" is aliasing / literal: "+r)
     r
+  }
+
+  def isDistinctnessPreserving(base: TermSymbol, defs: ConstArray[(TermSymbol, Node)], tpe: Type) = {
+    val usedFields = defs.flatMap(_._2.collect[TermSymbol] {
+      case Select(Ref(s), f) if s == base => f
+    })
+    val StructType(tDefs) = tpe.structural
+    (tDefs.map(_._1).toSet -- usedFields.toSeq).isEmpty
   }
 
   def isRownumCalculation(n: Node): Boolean = n match {

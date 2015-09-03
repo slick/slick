@@ -34,6 +34,7 @@
     <logger name="slick.compiler.OptimizeScalar"            level="${log.qcomp.optimizeScalar:-inherited}" />
     <logger name="slick.compiler.FixRowNumberOrdering"      level="${log.qcomp.fixRowNumberOrdering:-inherited}" />
     <logger name="slick.compiler.PruneProjections"          level="${log.qcomp.pruneProjections:-inherited}" />
+    <logger name="slick.compiler.RewriteDistinct"           level="${log.qcomp.rewriteDistinct:-inherited}" />
     <logger name="slick.compiler.RewriteBooleans"           level="${log.qcomp.rewriteBooleans:-inherited}" />
     <logger name="slick.compiler.SpecializeParameters"      level="${log.qcomp.specializeParameters:-inherited}" />
     <logger name="slick.compiler.CodeGen"                   level="${log.qcomp.codeGen:-inherited}" />

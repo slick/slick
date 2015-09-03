@@ -188,7 +188,12 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       }
     }
 
-    protected def buildSelectModifiers(c: Comprehension) {}
+    protected def buildSelectModifiers(c: Comprehension): Unit = {
+      c.distinct.foreach {
+        case ProductNode(ch) if ch.isEmpty => b"distinct "
+        case n => b"distinct on (!$n) "
+      }
+    }
 
     protected def scanJoins(from: ConstArray[(TermSymbol, Node)]) {
       for((sym, j: Join) <- from) {
@@ -433,7 +438,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None) => select match {
+        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None, None) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -457,8 +462,9 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(sym, from, Pure(select, _), where, _, _, None, fetch, offset) =>
-          if(fetch.isDefined || offset.isDefined) fail(".take and .drop are not supported")
+        case Comprehension(sym, from, Pure(select, _), where, _, _, None, distinct, fetch, offset) =>
+          if(fetch.isDefined || offset.isDefined || distinct.isDefined)
+            fail(".take, .drop and .distinct are not supported for deleting")
           from match {
             case from: TableNode => (sym, from, where)
             case from => fail("A single source table is required, found: "+from)

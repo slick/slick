@@ -6,7 +6,7 @@ import slick.util.ConstArray
 /** Ensure that all collection operations are wrapped in a Bind so that we
   * have a place for expanding references later. FilteredQueries are allowed
   * on top of collection operations without a Bind in between, unless that
-  * operation is a Join or a Pure node. */
+  * operation is a Join, Pure or Distinct node. */
 class ForceOuterBinds extends Phase {
   val name = "forceOuterBinds"
 
@@ -39,7 +39,7 @@ class ForceOuterBinds extends Phase {
   def nowrap(n: Node): Node = n match {
     case u: Union => u.mapChildren(wrap)
     case f: FilteredQuery => f.mapChildren { ch =>
-      if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
+      if((ch eq f.from) && !(ch.isInstanceOf[Join] || ch.isInstanceOf[Distinct] || ch.isInstanceOf[Pure])) nowrap(ch) else maybewrap(ch)
     }
     case b: Bind => b.mapChildren { ch =>
       if((ch eq b.from) || ch.isInstanceOf[Pure]) nowrap(ch)

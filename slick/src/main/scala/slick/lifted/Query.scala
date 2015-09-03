@@ -205,6 +205,20 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
   /** Select all elements except the first `num` ones. */
   def drop(num: Int): Query[E, U, C] = drop(num.toLong)
 
+  /** Remove duplicate elements. When used on an ordered Query, there is no guarantee in which
+    * order duplicates are removed. This method is equivalent to `distinctOn(identity)`. */
+  def distinct: Query[E, U, C] =
+    distinctOn[E, U](identity)(shaped.shape.asInstanceOf[Shape[FlatShapeLevel, E, U, _]])
+  /** Remove duplicate elements which are the same in the given projection. When used on an
+    * ordered Query, there is no guarantee in which order duplicates are removed. */
+  def distinctOn[F, T](f: E => F)(implicit shape: Shape[_ <: FlatShapeLevel, F, T, _]): Query[E, U, C] = {
+    val generator = new AnonSymbol
+    val aliased = shaped.encodeRef(Ref(generator)).value
+    val fv = f(aliased)
+    new WrappingQuery[E, U, C](Distinct(generator, toNode, shape.toNode(fv)), shaped)
+  }
+
+  /** Change the collection type to build when executing the query. */
   def to[D[_]](implicit ctc: TypedCollectionTypeConstructor[D]): Query[E, U, D] = new Query[E, U, D] {
     val shaped = self.shaped
     def toNode = CollectionCast(self.toNode, ctc)
