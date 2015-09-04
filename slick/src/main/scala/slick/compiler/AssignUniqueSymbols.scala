@@ -1,6 +1,6 @@
 package slick.compiler
 
-import scala.collection.mutable.HashSet
+import scala.collection.mutable.{HashSet, HashMap}
 import slick.SlickException
 import slick.ast._
 import TypeUtil._
@@ -15,41 +15,30 @@ class AssignUniqueSymbols extends Phase {
   val name = "assignUniqueSymbols"
 
   def apply(state: CompilerState) = state.map { tree =>
-    val seen = new HashSet[AnonSymbol]
-    def tr(n: Node, replace: Map[AnonSymbol, AnonSymbol]): Node = {
-      val n2 = n match { // Give TableNode, GroupBy and Pure nodes a unique TypeSymbol
+    val replace = new HashMap[TermSymbol, AnonSymbol]
+    def tr(n: Node): Node = {
+      val n3 = n match {
+        case Select(in, s) => Select(tr(in), s) :@ n.nodeType
+        case r @ Ref(a: AnonSymbol) =>
+          val s = replace.getOrElse(a, a)
+          if(s eq a) r else Ref(s)
         case t: TableNode => t.copy(identity = new AnonTableIdentitySymbol)(t.driverTable)
-        case Pure(value, _) => Pure(value)
-        case g: GroupBy => g.copy(identity = new AnonTypeSymbol)
-        case n => n
-      }
-      val n3 = n2 match {
-        case r @ Ref(a: AnonSymbol) => replace.get(a) match {
-          case Some(s) => if(s eq a) r else Ref(s)
-          case None => r
-        }
+        case Pure(value, _) => Pure(tr(value))
+        case g: GroupBy =>
+          val d = g.copy(identity = new AnonTypeSymbol)
+          val a = new AnonSymbol
+          replace += g.fromGen -> a
+          g.copy(fromGen = a, tr(g.from), tr(g.by), identity = new AnonTypeSymbol)
+        case n: StructNode => n.mapChildren(tr)
         case d: DefNode =>
-          var defs = replace
-          d.mapScopedChildren { (symO, ch) =>
-            val r = tr(ch, defs)
-            symO match {
-              case Some(a: AnonSymbol) =>
-                if(seen.contains(a)) defs += a -> new AnonSymbol
-                else seen += a
-              case _ =>
-            }
-            r
-          }.mapSymbols {
-            case a: AnonSymbol => defs.getOrElse(a, a)
-            case s => s
-          }
-        case n: Select => n.mapChildren(tr(_, replace)) :@ n.nodeType
-        case n => n.mapChildren(tr(_, replace))
+          replace ++= d.generators.iterator.map(_._1 -> new AnonSymbol)
+          d.mapSymbols(s => replace.getOrElse(s, s)).mapChildren(tr)
+        case n => n.mapChildren(tr)
       }
       // Remove all NominalTypes (which might have changed)
       if(n3.hasType && hasNominalType(n3.nodeType)) n3.untyped else n3
     }
-    tr(tree, Map())
+    tr(tree)
   }
 
   def hasNominalType(t: Type): Boolean = t match {
