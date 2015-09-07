@@ -23,7 +23,7 @@ class VerifySymbols extends Phase {
         verifyScoping(sel, syms + s)
       case b @ Bind(s, _, sel) =>
         throw new SlickTreeException("Unresolved monadic join: Non-Pure select clause in Bind "+s, b, mark = (_ eq sel))
-      case f: FilteredQuery =>
+      case f: ComplexFilteredQuery =>
         verifyScoping(f.from, syms)
         val chSyms = syms + f.generators.head._1
         f.children.tail.foreach(ch => verifyScoping(ch, chSyms))

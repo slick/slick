@@ -1,6 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
+import slick.driver.{H2Driver, PostgresDriver}
 
 class AggregateTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
@@ -279,5 +280,58 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       }
       _ <- q4.result.map(_ shouldBe Nil)
     } yield ()
+  }
+
+  def testDistinct = {
+    class A(tag: Tag) extends Table[String](tag, "A_DISTINCT") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def a = column[String]("a")
+      def b = column[String]("b")
+      def * = a
+      override def create_* = collectFieldSymbols((id, a, b).shaped.toNode)
+    }
+    val as = TableQuery[A]
+
+    val data = Set((1, "a", "a"), (2, "a", "b"), (3, "c", "b"))
+
+    val q1a = as.map(_.a).distinct
+    val q1b = as.distinct.map(_.a)
+    val q2 = as.distinct.map(a => (a.a, 5))
+    val q3a = as.distinct.map(_.id).filter(_ === 1) unionAll as.distinct.map(_.id).filter(_ === 2)
+    val q4 = as.map(a => (a.a, a.b)).distinct.map(_._1)
+    val q5a = as.groupBy(_.a).map(_._2.map(_.id).min.get)
+    val q5b = as.distinct.map(_.id)
+    val q5c = as.distinct.map(a => (a.id, a.a))
+
+    if(tdb.driver == H2Driver) {
+      assertNesting(q1a, 1)
+      assertNesting(q1b, 1)
+      assertNesting(q3a, 2)
+      assertNesting(q4, 2)
+      assertNesting(q5a, 1)
+      assertNesting(q5b, 1)
+      assertNesting(q5c, 1)
+    } else if(tdb.driver == PostgresDriver) {
+      assertNesting(q1a, 1)
+      assertNesting(q1b, 1)
+      assertNesting(q3a, 4)
+      assertNesting(q4, 1)
+      assertNesting(q5a, 1)
+      assertNesting(q5b, 1)
+      assertNesting(q5c, 1)
+    }
+
+    DBIO.seq(
+      as.schema.create,
+      as.map(a => (a.id, a.a, a.b)) ++= data,
+      mark("q1a", q1a.result).map(_.sortBy(identity) shouldBe Seq("a", "c")),
+      mark("q1b", q1b.result).map(_.sortBy(identity) shouldBe Seq("a", "c")),
+      mark("q2", q2.result).map(_.sortBy(identity) shouldBe Seq(("a", 5), ("c", 5))),
+      mark("q3a", q3a.result).map(_ should (r => r == Seq(1) || r == Seq(2))),
+      mark("q4", q4.result).map(_.sortBy(identity) shouldBe Seq("a", "a", "c")),
+      mark("q5a", q5a.result).map(_.sortBy(identity) shouldBe Seq(1, 3)),
+      mark("q5b", q5b.result).map(_.sortBy(identity) should (r => r == Seq(1, 3) || r == Seq(2, 3))),
+      mark("q5c", q5c.result).map(_.sortBy(identity) should (r => r == Seq((1, "a"), (3, "c")) || r == Seq((2, "a"), (3, "c"))))
+    )
   }
 }

@@ -1,7 +1,5 @@
 package com.typesafe.slick.testkit.util
 
-import org.slf4j.MDC
-
 import scala.language.existentials
 
 import scala.concurrent.{Promise, ExecutionContext, Await, Future, blocking}
@@ -14,8 +12,10 @@ import java.lang.reflect.Method
 import java.util.concurrent.{LinkedBlockingQueue, ThreadPoolExecutor, ExecutionException, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 
+import slick.SlickTreeException
 import slick.dbio._
 import slick.jdbc.JdbcBackend
+import slick.lifted.Rep
 import slick.util.DumpInfo
 import slick.profile.{RelationalProfile, SqlProfile, Capability}
 import slick.driver.JdbcProfile
@@ -24,6 +24,8 @@ import org.junit.runner.Description
 import org.junit.runner.notification.RunNotifier
 import org.junit.runners.model._
 import org.junit.Assert
+
+import org.slf4j.MDC
 
 import org.reactivestreams.{Subscription, Subscriber, Publisher}
 
@@ -158,6 +160,18 @@ sealed abstract class GenericTest[TDB >: Null <: TestDB](implicit TdbClass: Clas
 
   final def mark[R, S <: NoStream, E <: Effect](id: String, f: => DBIOAction[R, S, E]): DBIOAction[R, S, E] =
     mark[DBIOAction[R, S, E]](id, f.named(id))
+
+  def assertNesting(q: Rep[_], exp: Int): Unit = {
+    import slick.compiler.QueryCompiler
+    import slick.ast._
+    import slick.ast.Util._
+    val qc = new QueryCompiler(tdb.driver.queryCompiler.phases.takeWhile(_.name != "codeGen"))
+    val cs = qc.run(q.toNode)
+    val found = cs.tree.collect { case c: Comprehension => c }.length
+    if(found != exp)
+      throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
+        cs.tree, mark = (_.isInstanceOf[Comprehension]), removeUnmarked = false))
+  }
 
   def rcap = RelationalProfile.capabilities
   def scap = SqlProfile.capabilities
@@ -325,7 +339,7 @@ abstract class AsyncTest[TDB >: Null <: TestDB](implicit TdbClass: ClassTag[TDB]
 
     def shouldNotBe(o: Any): Unit = fixStack(Assert.assertNotSame(o, v))
 
-    def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue(f(v)))
+    def should(f: T => Boolean): Unit = fixStack(Assert.assertTrue("'should' assertion failed for value: "+v, f(v)))
 
     def shouldFail(f: T => Unit): Unit = {
       var ok = false

@@ -305,13 +305,18 @@ class TypeUtil(val tpe: Type) extends AnyVal {
     b.result
   }
 
-  def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean = {
+  def existsType(f: Type => Boolean): Boolean =
+    if(f(tpe)) true else tpe match {
+      case t: AtomicType => false
+      case t => t.children.exists(_.existsType(f))
+    }
+
+  def containsSymbol(tss: scala.collection.Set[TypeSymbol]): Boolean =
     if(tss.isEmpty) false else tpe match {
       case NominalType(ts, exp) => tss.contains(ts) || exp.containsSymbol(tss)
       case t: AtomicType => false
       case t => t.children.exists(_.containsSymbol(tss))
     }
-  }
 }
 
 object TypeUtil {

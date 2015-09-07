@@ -1,9 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.SlickTreeException
 import slick.driver.H2Driver
 
-import scala.language.higherKinds
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
 class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
@@ -568,17 +566,5 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
       _ <- mark("q18", q18.result).map(_ shouldBe Seq(Some((3, "c", "b"))))
       _ <- mark("q19", q19.result).map(_.toSet shouldBe Set(Some((1,"a","a")), Some((2,"a","b")), Some((3,"c","b"))))
     } yield ()
-  }
-
-  def assertNesting(q: Rep[_], exp: Int): Unit = {
-    import slick.compiler.QueryCompiler
-    import slick.ast._
-    import slick.ast.Util._
-    val qc = new QueryCompiler(tdb.driver.queryCompiler.phases.takeWhile(_.name != "codeGen"))
-    val cs = qc.run(q.toNode)
-    val found = cs.tree.collect { case c: Comprehension => c }.length
-    if(found != exp)
-      throw cs.symbolNamer.use(new SlickTreeException(s"Found $found Comprehension nodes, should be $exp",
-        cs.tree, mark = (_.isInstanceOf[Comprehension]), removeUnmarked = false))
   }
 }

@@ -5,6 +5,8 @@ import Util._
 import TypeUtil._
 import slick.util.ConstArray
 
+import scala.collection.mutable
+
 /** Expand table-valued expressions in the result type to their star projection and compute the
   * missing structural expansions of table types. After this phase the AST should always be
   * well-typed. */
@@ -18,35 +20,44 @@ class ExpandTables extends Phase {
     }.toSeq.groupBy(_._1).map { case (ts, v) => (ts, NominalType(ts, StructType(ConstArray.from(v.map(_._2).toMap)))) }
     logger.debug("Found Selects for NominalTypes: "+structs.keySet.mkString(", "))
 
-    val tree2 = tree.replace {
+    val tables = new mutable.HashMap[TableIdentitySymbol, (TermSymbol, Node)]
+    var expandDistinct = false
+    def tr(tree: Node): Node = tree.replace {
       case t: TableExpansion =>
         val ts = t.table.asInstanceOf[TableNode].identity
+        tables += ((ts, (t.generator, t.columns)))
         t.table :@ CollectionType(t.nodeType.asCollectionType.cons, structs(ts))
       case r: Ref => r.untyped
-    }.infer()
+      case d: Distinct =>
+        if(d.nodeType.existsType { case NominalType(_: TableIdentitySymbol, _) => true; case _ => false })
+          expandDistinct = true
+        d.mapChildren(tr)
+    }
+    val tree2 = tr(tree).infer()
     logger.debug("With correct table types:", tree2)
+    logger.debug("Table expansions: " + tables.mkString(", "))
 
-    // Check for table types
-    val tsyms: Set[TableIdentitySymbol] =
-      tree.nodeType.collect { case NominalType(sym: TableIdentitySymbol, _) => sym }.toSet
-    logger.debug("Tables for expansion in result type: " + tsyms.mkString(", "))
+    // Perform star expansion in Distinct
+    val tree3 = if(!expandDistinct) tree2 else {
+      logger.debug("Expanding tables in Distinct")
+      tree2.replace({
+        case Distinct(s, f, o) => Distinct(s, f, createResult(tables, Ref(s), o.nodeType))
+      }, bottomUp = true).infer()
+    }
 
-    if(tsyms.isEmpty) tree2 else {
-      // Find the corresponding TableExpansions
-      val tables: Map[TableIdentitySymbol, (TermSymbol, Node)] = tree.collect {
-        case TableExpansion(s, TableNode(_, _, ts, _), ex) if tsyms contains ts => ts -> (s, ex)
-      }.toMap
-      logger.debug("Table expansions: " + tables.mkString(", "))
+    // Perform star expansion in query result
+    if(!tree.nodeType.existsType { case NominalType(_: TableIdentitySymbol, _) => true; case _ => false }) tree3 else {
+      logger.debug("Expanding tables in result type")
       // Create a mapping that expands the tables
       val sym = new AnonSymbol
-      val mapping = createResult(tables, Ref(sym), tree2.nodeType.asCollectionType.elementType)
-        .infer(Type.Scope(sym -> tree2.nodeType.asCollectionType.elementType))
-      Bind(sym, tree2, Pure(mapping)).infer()
+      val mapping = createResult(tables, Ref(sym), tree3.nodeType.asCollectionType.elementType)
+        .infer(Type.Scope(sym -> tree3.nodeType.asCollectionType.elementType))
+      Bind(sym, tree3, Pure(mapping)).infer()
     }
   }}.withWellTyped(true)
 
   /** Create an expression that copies a structured value, expanding tables in it. */
-  def createResult(expansions: Map[TableIdentitySymbol, (TermSymbol, Node)], path: Node, tpe: Type): Node = tpe match {
+  def createResult(expansions: collection.Map[TableIdentitySymbol, (TermSymbol, Node)], path: Node, tpe: Type): Node = tpe match {
     case p: ProductType =>
       ProductNode(p.elements.zipWithIndex.map { case (t, i) => createResult(expansions, Select(path, ElementSymbol(i+1)), t) })
     case NominalType(tsym: TableIdentitySymbol, _) if expansions contains tsym =>

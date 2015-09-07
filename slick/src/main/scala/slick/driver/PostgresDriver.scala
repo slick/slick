@@ -8,10 +8,10 @@ import scala.concurrent.ExecutionContext
 import slick.dbio._
 import slick.lifted._
 import slick.profile.{SqlProfile, RelationalProfile, Capability}
-import slick.ast.{SequenceNode, Library, FieldSymbol, Node, Insert, InsertColumn, Select, ElementSymbol, ColumnOption }
+import slick.ast._
 import slick.ast.Util._
 import slick.util.MacroSupport.macroSupportInterpolation
-import slick.compiler.CompilerState
+import slick.compiler.{Phase, CompilerState}
 import slick.jdbc.meta.{MIndexInfo, MColumn, MTable}
 import slick.jdbc.{JdbcModelBuilder, JdbcType}
 import slick.model.Model
@@ -107,6 +107,7 @@ trait PostgresDriver extends JdbcDriver { driver =>
     MTable.getTables(None, None, None, Some(Seq("TABLE")))
 
   override val columnTypes = new JdbcTypes
+  override protected def computeQueryCompiler = super.computeQueryCompiler - Phase.rewriteDistinct
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
   override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
@@ -129,6 +130,21 @@ trait PostgresDriver extends JdbcDriver { driver =>
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
     override protected val concatOperator = Some("||")
     override protected val quotedJdbcFns = Some(Vector(Library.Database, Library.User))
+
+    override protected def buildSelectModifiers(c: Comprehension): Unit = (c.distinct, c.select) match {
+      case (Some(ProductNode(onNodes)), Pure(ProductNode(selNodes), _)) if onNodes.nonEmpty =>
+        def eligible(a: ConstArray[Node]) = a.forall {
+          case _: PathElement => true
+          case _: LiteralNode => true
+          case _: QueryParameter => true
+          case _ => false
+        }
+        if(eligible(onNodes) && eligible(selNodes) &&
+          onNodes.iterator.collect[List[TermSymbol]] { case FwdPath(ss) => ss }.toSet ==
+            selNodes.iterator.collect[List[TermSymbol]] { case FwdPath(ss) => ss }.toSet
+        ) b"distinct " else super.buildSelectModifiers(c)
+      case _ => super.buildSelectModifiers(c)
+    }
 
     override protected def buildFetchOffsetClause(fetch: Option[Node], offset: Option[Node]) = (fetch, offset) match {
       case (Some(t), Some(d)) => b"\nlimit $t offset $d"

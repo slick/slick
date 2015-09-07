@@ -128,6 +128,7 @@ object QueryCompiler {
     Phase.createAggregates,
     Phase.resolveZipJoins,
     Phase.pruneProjections,
+    Phase.rewriteDistinct,
     Phase.createResultSetMapping,
     Phase.hoistClientOps,
     Phase.reorderOperations,
@@ -190,6 +191,7 @@ object Phase {
   val optimizeScalar = new OptimizeScalar
   val fixRowNumberOrdering = new FixRowNumberOrdering
   val pruneProjections = new PruneProjections
+  val rewriteDistinct = new RewriteDistinct
   val removeFieldNames = new RemoveFieldNames
 
   /* Extra phases that are not enabled by default */

@@ -266,8 +266,8 @@ final case class Subquery(child: Node, condition: Subquery.Condition) extends Un
 
 object Subquery {
   sealed trait Condition
-  /** Always create a subquery */
-  case object Always extends Condition
+  /** Always create a subquery but allow purely aliasing projections to be pushed down */
+  case object Default extends Condition
   /** A Subquery boundary below the mapping operation that adds a ROWNUM */
   case object BelowRownum extends Condition
   /** A Subquery boundary above the mapping operation that adds a ROWNUM */
@@ -276,23 +276,31 @@ object Subquery {
   case object BelowRowNumber extends Condition
   /** A Subquery boundary above the mapping operation that adds a ROW_NUMBER */
   case object AboveRowNumber extends Condition
+  /** A Subquery boundary above a DISTINCT without explicit column specification */
+  case object AboveDistinct extends Condition
 }
 
 /** Common superclass for expressions of type (CollectionType(c, t), _) => CollectionType(c, t). */
 abstract class FilteredQuery extends Node {
   type Self >: this.type <: FilteredQuery
-  protected[this] def generator: TermSymbol
   def from: Node
-  def generators = ConstArray((generator, from))
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = this match {
-    case p: Product => p.productIterator.filterNot(n => n.isInstanceOf[Node] || n.isInstanceOf[Symbol]).mkString(", ")
-    case _ => ""
-  })
+}
 
+/** A FilteredQuery without a Symbol. */
+abstract class SimpleFilteredQuery extends FilteredQuery with SimplyTypedNode {
+  type Self >: this.type <: SimpleFilteredQuery
+  def buildType = from.nodeType
+}
+
+/** A FilteredQuery with a Symbol. */
+abstract class ComplexFilteredQuery extends FilteredQuery with DefNode {
+  type Self >: this.type <: ComplexFilteredQuery
+  protected[this] def generator: TermSymbol
+  def generators = ConstArray((generator, from))
   def withInferredType(scope: Type.Scope, typeChildren: Boolean): Self = {
     val from2 = from.infer(scope, typeChildren)
     val genScope = scope + (generator -> from2.nodeType.asCollectionType.elementType)
-        val this2 = mapChildren { ch =>
+    val this2 = mapChildren { ch =>
       if(ch eq from) from2 else ch.infer(genScope, typeChildren)
     }
     (this2 :@ (if(!hasType) this2.from.nodeType else nodeType)).asInstanceOf[Self]
@@ -300,7 +308,7 @@ abstract class FilteredQuery extends Node {
 }
 
 /** A .filter call of type (CollectionType(c, t), Boolean) => CollectionType(c, t). */
-final case class Filter(generator: TermSymbol, from: Node, where: Node) extends FilteredQuery with BinaryNode with DefNode {
+final case class Filter(generator: TermSymbol, from: Node, where: Node) extends ComplexFilteredQuery with BinaryNode {
   type Self = Filter
   def left = from
   def right = where
@@ -317,7 +325,7 @@ object Filter {
 }
 
 /** A .sortBy call of type (CollectionType(c, t), _) => CollectionType(c, t). */
-final case class SortBy(generator: TermSymbol, from: Node, by: ConstArray[(Node, Ordering)]) extends FilteredQuery with DefNode {
+final case class SortBy(generator: TermSymbol, from: Node, by: ConstArray[(Node, Ordering)]) extends ComplexFilteredQuery {
   type Self = SortBy
   lazy val children = from +: by.map(_._1)
   protected[this] def rebuild(ch: ConstArray[Node]) =
@@ -370,23 +378,31 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
 }
 
 /** A .take call. */
-final case class Take(from: Node, count: Node) extends FilteredQuery with BinaryNode {
+final case class Take(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
   type Self = Take
   def left = from
   def right = count
-  protected[this] val generator = new AnonSymbol
   override def childNames = Seq("from", "count")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, count = right)
 }
 
 /** A .drop call. */
-final case class Drop(from: Node, count: Node) extends FilteredQuery with BinaryNode {
+final case class Drop(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
   type Self = Drop
   def left = from
   def right = count
-  protected[this] val generator = new AnonSymbol
   override def childNames = Seq("from", "count")
   protected[this] def rebuild(left: Node, right: Node) = copy(from = left, count = right)
+}
+
+/** A .distinct call of type (CollectionType(c, t), _) => CollectionType(c, t). */
+final case class Distinct(generator: TermSymbol, from: Node, on: Node) extends ComplexFilteredQuery with BinaryNode {
+  type Self = Distinct
+  def left = from
+  def right = on
+  override def childNames = Seq("from", "on")
+  protected[this] def rebuild(left: Node, right: Node) = copy(from = left, on = right)
+  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
 }
 
 /** A join expression. For joins without option extension, the type rule is

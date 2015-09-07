@@ -2,6 +2,7 @@ package slick.memory
 
 import java.util.regex.Pattern
 import org.slf4j.LoggerFactory
+import scala.collection.mutable
 import scala.collection.mutable.{ArrayBuffer, HashMap}
 import slick.ast._
 import slick.SlickException
@@ -144,6 +145,20 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
         scope.remove(gen)
         res
       case First(ch) => run(ch).asInstanceOf[Coll].toIterator.next()
+      case Distinct(gen, from, on) =>
+        val fromV = run(from).asInstanceOf[Coll]
+        val seen = mutable.HashSet[Any]()
+        val res = fromV.filter { v =>
+          scope(gen) = v
+          val onV = run(on)
+          if(seen contains onV) false
+          else {
+            seen += onV
+            true
+          }
+        }
+        scope.remove(gen)
+        res
       case SortBy(gen, from, by) =>
         val fromV = run(from).asInstanceOf[Coll]
         val b = from.nodeType.asCollectionType.cons.iterableSubstitute.createBuilder[Any]
