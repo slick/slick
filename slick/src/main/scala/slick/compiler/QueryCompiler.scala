@@ -113,7 +113,6 @@ object QueryCompiler {
     Phase.expandSums,
     // optional removeTakeDrop goes here
     // optional emulateOuterJoins goes here
-    Phase.expandConditionals,
     Phase.expandRecords,
     Phase.flattenProjections,
     /* Optimize for SQL */
@@ -176,7 +175,6 @@ object Phase {
   val forceOuterBinds = new ForceOuterBinds
   val removeMappedTypes = new RemoveMappedTypes
   val expandSums = new ExpandSums
-  val expandConditionals = new ExpandConditionals
   val expandRecords = new ExpandRecords
   val flattenProjections = new FlattenProjections
   val createAggregates = new CreateAggregates

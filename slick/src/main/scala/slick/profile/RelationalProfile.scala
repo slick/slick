@@ -54,7 +54,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     val canJoinRight = capabilities contains RelationalProfile.capabilities.joinRight
     val canJoinFull = capabilities contains RelationalProfile.capabilities.joinFull
     if(canJoinLeft && canJoinRight && canJoinFull) base
-    else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandConditionals)
+    else base.addBefore(new EmulateOuterJoins(canJoinLeft, canJoinRight), Phase.expandRecords)
   }
 
   class TableQueryExtensionMethods[T <: Table[_], U](val q: Query[T, U, Seq] with TableQuery[T]) {
