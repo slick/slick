@@ -12,7 +12,10 @@ import scala.collection.mutable
 class ExpandConditionals extends Phase {
   val name = "expandConditionals"
 
-  def apply(state: CompilerState) = state.map(expand)
+  def apply(state: CompilerState) = {
+    if(state.get(Phase.expandSums).getOrElse(true)) state.map(expand)
+    else state
+  }
 
   def expand(n: Node): Node = {
     val invalid = mutable.HashSet.empty[TypeSymbol]

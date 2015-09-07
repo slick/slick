@@ -8,27 +8,41 @@ import TypeUtil._
 
 import scala.collection.mutable
 
-/** Expand sum types and their catamorphisms to equivalent product type operations. */
+/** Expand sum types and their catamorphisms to equivalent product type operations.
+  * The phase state is a flag indicating whether there is anything left to clean up in
+  * `expandConditionals`. */
 class ExpandSums extends Phase {
   val name = "expandSums"
 
-  def apply(state: CompilerState) = state.map(n => tr(n, Set.empty))
+  type State = Boolean
+
+  def apply(state: CompilerState) = {
+    if(state.get(Phase.assignUniqueSymbols).map(_.nonPrimitiveOption).getOrElse(true)) {
+      val (n, multi) = tr(state.tree, Set.empty)
+      state.withNode(n) + (this -> multi)
+    } else state + (this -> false)
+  }
 
   val Disc1 = LiteralNode(ScalaBaseType.optionDiscType.optionType, Option(1))
   val DiscNone = LiteralNode(ScalaBaseType.optionDiscType.optionType, None)
 
   /** Perform the sum expansion on a Node */
-  def tr(tree: Node, oldDiscCandidates: Set[(TypeSymbol, List[TermSymbol])]): Node = {
+  def tr(tree: Node, oldDiscCandidates: Set[(TypeSymbol, List[TermSymbol])]): (Node, Boolean) = {
     val discCandidates = oldDiscCandidates ++ (tree match {
       case Filter(_, _, p) => collectDiscriminatorCandidates(p)
       case Bind(_, j: Join, _) => collectDiscriminatorCandidates(j.on)
       case _ => Set.empty
     })
-
-    val tree2 = tree.mapChildren(n => tr(n, discCandidates), keepType = true)
+    var multi = false
+    val tree2 = tree.mapChildren({ n =>
+      val (n2, flag) = tr(n, discCandidates)
+      multi |= flag
+      n2
+    }, keepType = true)
     val tree3 = tree2 match {
       // Expand multi-column null values in ELSE branches (used by Rep[Option].filter) with correct type
       case IfThenElse(ConstArray(pred, then1 :@ tpe, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType))) =>
+        multi = true
         IfThenElse(ConstArray(pred, then1, buildMultiColumnNone(tpe))) :@ tpe
 
       // Primitive OptionFold representing GetOrElse -> translate to GetOrElse
@@ -52,6 +66,7 @@ class ExpandSums extends Phase {
 
       // Other OptionFold -> translate to discriminator check
       case OptionFold(from, ifEmpty, map, gen) =>
+        multi = true
         val left = from.select(ElementSymbol(1)).infer()
         val pred = Library.==.typed[Boolean](left, LiteralNode(null))
         val n2 = (ifEmpty, map) match {
@@ -70,7 +85,9 @@ class ExpandSums extends Phase {
       case n @ OptionApply(_) :@ OptionType.Primitive(_) => n
 
       // Other OptionApply -> translate to product form
-      case n @ OptionApply(ch) => ProductNode(ConstArray(Disc1, silentCast(toOptionColumns(ch.nodeType), ch))).infer()
+      case n @ OptionApply(ch) =>
+        multi = true
+        ProductNode(ConstArray(Disc1, silentCast(toOptionColumns(ch.nodeType), ch))).infer()
 
       // Non-primitive GetOrElse
       // (.get is only defined on primitive Options, but this can occur inside of HOFs like .map)
@@ -82,12 +99,13 @@ class ExpandSums extends Phase {
 
       // Option-extended left outer, right outer or full outer join
       case bind @ Bind(bsym, Join(_, _, _, _, jt, _), _) if jt == JoinType.LeftOption || jt == JoinType.RightOption || jt == JoinType.OuterOption =>
+        multi = true
         translateJoin(bind, discCandidates)
 
       case n => n
     }
     val tree4 = fuse(tree3)
-    tree4 :@ trType(tree4.nodeType)
+    (tree4 :@ trType(tree4.nodeType), multi)
   }
 
   /** Translate an Option-extended left outer, right outer or full outer join */

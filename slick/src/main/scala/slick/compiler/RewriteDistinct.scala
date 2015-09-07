@@ -10,7 +10,7 @@ import slick.util.{Ellipsis, ConstArray}
 class RewriteDistinct extends Phase {
   val name = "rewriteDistinct"
 
-  def apply(state: CompilerState) = state.map(_.replace({
+  def apply(state: CompilerState) = if(state.get(Phase.assignUniqueSymbols).map(_.distinct).getOrElse(true)) state.map(_.replace({
 
     case n @ Bind(s1, Distinct(s2, from1, on1), Pure(sel1, ts1))  =>
       logger.debug("Rewriting Distinct:", Ellipsis(n, List(0, 0)))
@@ -54,5 +54,5 @@ class RewriteDistinct extends Phase {
         ret
       }
 
-  }, keepType = true, bottomUp = true))
+  }, keepType = true, bottomUp = true)) else state
 }
