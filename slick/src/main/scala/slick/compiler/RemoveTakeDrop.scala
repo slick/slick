@@ -9,13 +9,13 @@ import scala.collection.mutable
 
 /** Replace all occurrences of `Take` and `Drop` with row number computations based on
   * `zipWithIndex` operations. */
-class RemoveTakeDrop extends Phase {
+class RemoveTakeDrop(val translateTake: Boolean = true, val translateDrop: Boolean = true) extends Phase {
   val name = "removeTakeDrop"
 
   def apply(state: CompilerState) = state.map { n =>
     val invalid = mutable.Set[TypeSymbol]()
     def tr(n: Node): Node = n.replace {
-      case n @ TakeDrop(from, t, d) =>
+      case n @ TakeDrop(from, t, d) if (translateTake && t.isDefined) || (translateDrop && d.isDefined) =>
         logger.debug(s"""Translating "drop $d, then take $t" to zipWithIndex operation:""", n)
         val fromRetyped = tr(from).infer()
         val from2 = fromRetyped match {
