@@ -105,7 +105,8 @@ val  SimpleA = CustomTyping.SimpleA
           |  ).transactionally
         """.stripMargin
     },
-    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql"))
+    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql")),
+    new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil)
   )
 
   //Unified UUID config
