@@ -135,6 +135,8 @@ object GeneratedCodeTest {
     )
   }
 
+  def testEmptyDB = slick.dbio.DBIO.successful(())
+
   def tableName( node:Node ) : String = {
     import slick.ast._
     node match {

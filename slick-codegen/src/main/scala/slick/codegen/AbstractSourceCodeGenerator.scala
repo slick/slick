@@ -29,8 +29,10 @@ abstract class AbstractSourceCodeGenerator(model: m.Model)
       (
         if(tables.length > 5)
           "\nlazy val schema: profile.SchemaDescription = Array(" + tables.map(_.TableValue.name + ".schema").mkString(", ") + ").reduceLeft(_ ++ _)"
-        else
+        else if(tables.nonEmpty)
           "\nlazy val schema: profile.SchemaDescription = " + tables.map(_.TableValue.name + ".schema").mkString(" ++ ")
+        else
+          "\nlazy val schema: profile.SchemaDescription = profile.DDL(Nil, Nil)"
       ) +
       "\n@deprecated(\"Use .schema instead of .ddl\", \"3.0\")"+
       "\ndef ddl = schema" +
