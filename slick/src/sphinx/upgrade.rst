@@ -73,3 +73,12 @@ Slick 3.0 changed the default string type for MySQL to `TEXT`, which is not allo
 and columns with default values. In these cases we now fall back to the old `VARCHAR(254)` type which
 was used up to Slick 2.1. Like in 3.0 you can change this default by setting the application.conf key
 `slick.driver.MySQL.defaultStringType`.
+
+Default String type on SQL Server
+---------------------------------
+
+SQLServerDriver (part of :doc:`Slick Extensions <extensions>`) used `VARCHAR(MAX)` as the default type
+for strings without a size limit in 3.0. This type cannot be used for primary keys, so we now use
+`VARCHAR(254)` instead if a column has the `PrimaryKey` option set. Like for MySQL (see previous
+paragraph), the default type can be overridden by setting `slick.driver.SQLServer.defaultStringType`
+in application.conf.

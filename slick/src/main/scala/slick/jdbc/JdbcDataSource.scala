@@ -88,6 +88,7 @@ object DataSourceJdbcDataSource extends JdbcDataSourceFactory {
       case None =>
         val ds = new DriverDataSource
         ds.classLoader = classLoader
+        ds.driverObject = driver
         BeanConfigurator.configure(ds, c.toProperties, Set("url", "user", "password", "properties", "driver", "driverClassName"))
         ds
     }

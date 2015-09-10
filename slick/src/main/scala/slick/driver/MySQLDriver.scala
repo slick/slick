@@ -43,7 +43,8 @@ import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
   * sequence emulation if you provide for each sequence ''s'' a pair of
   * functions <code>s_nextval</code> and <code>s_currval</code>.
   *
-  * The default type for strings of unlimited length is "TEXT". This can be
+  * The default type for strings of unlimited length is "TEXT", falling back to
+  * "VARCHAR(254)" if a `Default` or `PrimaryKey` column option is set. This can be
   * changed by overriding <code>slick.driver.MySQL.defaultStringType</code>
   * in application.conf.
   */

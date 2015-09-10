@@ -232,7 +232,13 @@ class MergeToComprehensions extends Phase {
         val (c, rep) = mergeTakeDrop(n, false)
         val mappings = ConstArray.from(rep.mapValues(_ :: Nil))
         logger.debug("Mappings are: "+mappings)
-        (c, mappings)
+        val c2 = c.select match {
+          // Ensure that the select clause is non-empty
+          case Pure(StructNode(ConstArray.empty), _) =>
+            c.copy(select = Pure(StructNode(ConstArray((new AnonSymbol, LiteralNode(1)))))).infer()
+          case _ => c
+        }
+        (c2, mappings)
     }
 
     def convert1(n: Node): Node = n match {

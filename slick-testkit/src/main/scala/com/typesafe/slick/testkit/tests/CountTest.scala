@@ -15,13 +15,13 @@ class CountTest extends AsyncTest[RelationalTestDB] {
       _ <- testTable.schema.create
       _ <- testTable ++= Seq(1, 2, 3, 4, 5)
       q1 = Query(testTable.length)
-      _ <- q1.result.map(_ shouldBe Vector(5))
+      _ <- mark("q1", q1.result).map(_ shouldBe Vector(5))
       q2 = testTable.length
-      _ <- q2.result.map(_ shouldBe 5)
+      _ <- mark("q2", q2.result).map(_ shouldBe 5)
       q3 = testTable.filter(_.id < 3).length
-      _ <- q3.result.map(_ shouldBe 2)
+      _ <- mark("q3", q3.result).map(_ shouldBe 2)
       q4 = testTable.take(2).length
-      _ <- q4.result.map(_ shouldBe 2)
+      _ <- mark("q4", q4.result).map(_ shouldBe 2)
     } yield ()
   }
 
