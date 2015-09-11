@@ -9,7 +9,7 @@ import slick.ast._
 import slick.compiler.{Phase, QueryCompiler, InsertCompiler}
 import slick.lifted._
 import slick.jdbc._
-import slick.profile.{SqlDriver, SqlProfile, Capability}
+import slick.profile.{RelationalProfile, SqlDriver, SqlProfile, Capability}
 
 /** A profile for accessing SQL databases via JDBC. All drivers for JDBC-based databases
   * implement this profile. */
@@ -52,7 +52,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
     implicit def jdbcFastPathExtensionMethods[T, P](mp: MappedProjection[T, P]) = new JdbcFastPathExtensionMethods[T, P](mp)
 
-    implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: Table[_], _, C]): DeleteActionExtensionMethods =
+    implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: RelationalProfile#Table[_], _, C]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())
     implicit def runnableCompiledDeleteActionExtensionMethods[RU, C[_]](c: RunnableCompiled[_ <: Query[_, _, C], C[RU]]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(c.compiledDelete, c.param)
