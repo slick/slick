@@ -144,8 +144,14 @@ trait DatabaseComponent { self =>
         case FutureAction(f) => f
         case FlatMapAction(base, f, ec) =>
           runInContext(base, ctx, false, topLevel).flatMap(v => runInContext(f(v), ctx, streaming, false))(ctx.getEC(ec))
-        case AndThenAction(a1, a2) =>
-          runInContext(a1, ctx, false, topLevel).flatMap(_ => runInContext(a2, ctx, streaming, false))(DBIO.sameThreadExecutionContext)
+        case AndThenAction(actions) =>
+          val last = actions.length - 1
+          def run(pos: Int, v: Any): Future[Any] = {
+            val f1 = runInContext(actions(pos), ctx, streaming && pos == last, pos == 0)
+            if(pos == last) f1
+            else f1.flatMap(run(pos + 1, _))(DBIO.sameThreadExecutionContext)
+          }
+          run(0, null).asInstanceOf[Future[R]]
         case sa @ SequenceAction(actions) =>
           val len = actions.length
           val results = new AtomicReferenceArray[Any](len)
@@ -197,7 +203,7 @@ trait DatabaseComponent { self =>
         case a: SynchronousDatabaseAction[_, _, _, _] =>
           if(streaming) {
             if(a.supportsStreaming) streamSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect]], ctx.asInstanceOf[StreamingContext], !topLevel).asInstanceOf[Future[R]]
-            else runInContext(CleanUpAction(AndThenAction(DBIO.Pin, a.nonFusedEquivalentAction), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming, topLevel)
+            else runInContext(CleanUpAction(AndThenAction(Vector(DBIO.Pin, a.nonFusedEquivalentAction)), _ => DBIO.Unpin, true, DBIO.sameThreadExecutionContext), ctx, streaming, topLevel)
           } else runSynchronousDatabaseAction(a.asInstanceOf[SynchronousDatabaseAction[R, NoStream, This, _]], ctx, !topLevel)
         case a: DatabaseAction[_, _, _] =>
           throw new SlickException(s"Unsupported database action $a for $this")
