@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
+import com.typesafe.slick.testkit.util.{StandardTestDBs, RelationalTestDB, AsyncTest}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Future
@@ -94,15 +94,19 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
-  def testDeepRecursion = {
+  def testDeepRecursion = if(tdb == StandardTestDBs.H2Disk) {
     val a1 = DBIO.sequence((1 to 5000).toSeq.map(i => LiteralColumn(i).result))
     val a2 = DBIO.sequence((1 to 20).toSeq.map(i => if(i%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
     val a3 = DBIO.sequence((1 to 20).toSeq.map(i => if((i/4)%2 == 0) LiteralColumn(i).result else DBIO.from(Future.successful(i))))
+    val a4 = DBIO.seq((1 to 50000).toSeq.map(i => DBIO.successful("a4")): _*)
+    val a5 = (1 to 50000).toSeq.map(i => DBIO.successful("a5")).reduceLeft(_ andThen _)
 
     DBIO.seq(
       a1.map(_ shouldBe (1 to 5000).toSeq),
       a2.map(_ shouldBe (1 to 20).toSeq),
-      a3.map(_ shouldBe (1 to 20).toSeq)
+      a3.map(_ shouldBe (1 to 20).toSeq),
+      a4.map(_ shouldBe ()),
+      a5.map(_ shouldBe "a5")
     )
-  }
+  } else DBIO.successful(())
 }
