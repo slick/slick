@@ -371,20 +371,7 @@ trait JdbcBackend extends RelationalBackend {
 
     def close(): Unit
 
-    /**
-     * Call this method within a <em>withTransaction</em> call to roll back the current
-     * transaction after <em>withTransaction</em> returns.
-     */
-    def rollback(): Unit
-
     def force() { conn }
-
-    /**
-     * Run the supplied function within a transaction. If the function throws an Exception
-     * or the session's rollback() method is called, the transaction is rolled back,
-     * otherwise it is commited when the function returns.
-     */
-    def withTransaction[T](f: => T): T
 
     private[slick] final def internalForParameters(rsType: ResultSetType, rsConcurrency: ResultSetConcurrency,
                       rsHoldability: ResultSetHoldability, statementInit: Statement => Unit, _fetchSize: Int): Session = new Session {
@@ -401,8 +388,6 @@ trait JdbcBackend extends RelationalBackend {
       def metaData = self.metaData
       def capabilities = self.capabilities
       def close() = self.close()
-      def rollback() = self.rollback()
-      def withTransaction[T](f: => T) = self.withTransaction(f)
       private[slick] def startInTransaction: Unit = self.startInTransaction
       private[slick] def endInTransaction(f: => Unit): Unit = self.endInTransaction(f)
     }
@@ -421,7 +406,6 @@ trait JdbcBackend extends RelationalBackend {
 
   class BaseSession(val database: Database) extends SessionDef {
     protected var open = false
-    protected var doRollback = false
     protected var inTransactionally = 0
 
     def isOpen = open
@@ -447,26 +431,6 @@ trait JdbcBackend extends RelationalBackend {
 
     def close() {
       if(open) conn.close()
-    }
-
-    def rollback() {
-      if(conn.getAutoCommit) throw new SlickException("Cannot roll back session in auto-commit mode")
-      doRollback = true
-    }
-
-    def withTransaction[T](f: => T): T = if(isInTransaction) f else {
-      startInTransaction
-      try {
-        var done = false
-        try {
-          doRollback = false
-          val res = f
-          if(doRollback) conn.rollback()
-          else conn.commit()
-          done = true
-          res
-        } finally if(!done) conn.rollback()
-      } finally endInTransaction()
     }
 
     private[slick] def startInTransaction: Unit = {
