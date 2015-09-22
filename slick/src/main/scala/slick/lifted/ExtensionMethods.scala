@@ -155,10 +155,21 @@ final class AnyExtensionMethods(val n: Node) extends AnyVal {
 /** Extension methods for Queries of a single column */
 final class SingleColumnQueryExtensionMethods[B1, P1, C[_]](val q: Query[Rep[P1], _, C]) extends AnyVal {
   type OptionTM =  TypedType[Option[B1]]
+
+  /** Compute the minimum value of a single-column Query, or `None` if the Query is empty */
   def min(implicit tm: OptionTM) = Library.Min.column[Option[B1]](q.toNode)
+
+  /** Compute the maximum value of a single-column Query, or `None` if the Query is empty */
   def max(implicit tm: OptionTM) = Library.Max.column[Option[B1]](q.toNode)
+
+  /** Compute the average of a single-column Query, or `None` if the Query is empty */
   def avg(implicit tm: OptionTM) = Library.Avg.column[Option[B1]](q.toNode)
+
+  /** Compute the sum of a single-column Query, or `None` if the Query is empty */
   def sum(implicit tm: OptionTM) = Library.Sum.column[Option[B1]](q.toNode)
+
+  /** Count the number of `Some` elements of a single-column Query. */
+  def countDefined(implicit ev: P1 <:< Option[_]) = Library.Count.column[Int](q.toNode)
 }
 
 /** Extension methods for Options of single- and multi-column values */

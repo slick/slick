@@ -58,13 +58,18 @@ was moved from package ``slick.jdbc`` to ``slick.jdbc.hikaricp``.
 Counting Option columns
 -----------------------
 
-Counting any multi-column collection with `.length` now ignores nullability of the columns. The previous
-approach of picking a random column led to inconsistent results. This is particularly relevant when you
-try to count one side of an outer join. Up to Slick 3.0 the goal (although not achieved in all cases due
-to a design problem) was not to include non-matching rows in the total (equivalent to counting the
-discriminator column only). This does not make sense anymore for the new outer join operators (introduced
-in 3.0) with correct `Option` types. The new semantics are identical to those of Scala collections.
-Semantics for counts of single columns remain unchanged.
+Counting collection-valued queries with ``.length`` now ignores nullability of the columns, i.e. it
+is equivalent to ``COUNT(*)`` in SQL, no matter what is being counted. The previous approach of
+picking a random column led to inconsistent results. This is particularly relevant when you try to
+count one side of an outer join. Up to Slick 3.0 the goal (although not achieved in all cases due
+to a design problem) was not to include non-matching rows in the total (equivalent to counting only
+the discriminator column). This does not make sense anymore for the new outer join operators
+(introduced in 3.0) with correct ``Option`` types. The new semantics are identical to those of
+Scala collections.
+
+There is a new operator ``.countDefined`` for counting only the defined / matching (i.e. non-NULL
+in SQL) rows. To avoid any ambiguities in the definition, it is only available for
+collection-valued queries of a single column with an ``Option`` type.
 
 Default String type on MySQL
 ----------------------------

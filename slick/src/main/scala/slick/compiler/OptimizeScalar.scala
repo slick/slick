@@ -26,6 +26,10 @@ class OptimizeScalar extends Phase {
         if v == v2 && (z == null || z == None) =>
       v
 
+    // if(!false) v else _
+    case n @ IfThenElse(ConstArray(Library.Not(LiteralNode(false)), v, _)) =>
+      v
+
     // Redundant cast to non-nullable within OptionApply
     case o @ OptionApply(Library.SilentCast(n)) if o.nodeType == n.nodeType => n
 

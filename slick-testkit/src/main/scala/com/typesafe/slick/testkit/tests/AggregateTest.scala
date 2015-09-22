@@ -14,13 +14,13 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     }
     val ts = TableQuery[T]
     def q1(i: Int) = for { t <- ts if t.a === i } yield t
-    def q2(i: Int) = (q1(i).length, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
+    def q2(i: Int) = (q1(i).length, q1(i).map(_.b).length, q1(i).map(_.b).countDefined, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
     val q2_0 = q2(0).shaped
     val q2_1 = q2(1).shaped
     ts.schema.create >>
-      (ts ++= Seq((1, Some(1)), (1, Some(2)), (1, Some(3)))) >>
-      q2_0.result.map(_ shouldBe (0, None, None, None)) >>
-      q2_1.result.map(_ shouldBe (3, Some(3), Some(6), Some(2)))
+      (ts ++= Seq((1, Some(1)), (1, Some(3)), (1, None))) >>
+      q2_0.result.map(_ shouldBe (0, 0, 0, None, None, None)) >>
+      q2_1.result.map(_ shouldBe (3, 3, 2, Some(3), Some(4), Some(2)))
   }
 
   def testGroupBy = {
@@ -97,9 +97,9 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       val q6 = ((for {
         (u, t) <- us joinLeft ts on (_.id === _.a)
       } yield (u, t)).groupBy(_._1.id).map {
-        case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length)
+        case (id, q) => (id, q.length, q.map(_._1).length, q.map(_._2).length, q.map(_._2.map(_.a)).length, q.map(_._2.map(_.a)).countDefined)
       }).to[Set]
-      db.run(mark("q6", q6.result)).map(_ shouldBe Set((1, 3, 3, 3), (2, 3, 3, 3), (3, 2, 2, 2), (4, 1, 1, 1)))
+      db.run(mark("q6", q6.result)).map(_ shouldBe Set((1, 3, 3, 3, 3, 3), (2, 3, 3, 3, 3, 3), (3, 2, 2, 2, 2, 2), (4, 1, 1, 1, 1, 0)))
     }.flatMap { _ =>
       val q7 = ts.groupBy(_.a).map { case (a, ts) =>
         (a, ts.map(_.b).sum, ts.map(_.b).min, ts.map(_.b).max, ts.map(_.b).avg)
@@ -184,7 +184,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     DBIO.seq(
       as.schema.create,
       as += 1,
-      q1.result
+      q1.result.map(_ shouldBe Seq((Some(1), 1)))
     )
   }
 
