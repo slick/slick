@@ -190,7 +190,7 @@ object SlickBuild extends Build {
       description := "Scala Language-Integrated Connection Kit",
       libraryDependencies ++= Dependencies.mainDependencies,
       scalacOptions in (Compile, doc) <++= version.map(v => Seq(
-        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/src/main€{FILE_PATH}.scala",
+        "-doc-source-url", "https://github.com/slick/slick/blob/"+v+"/slick/src/main€{FILE_PATH}.scala",
         "-doc-root-content", "scaladoc-root.txt"
       )),
       (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value +
