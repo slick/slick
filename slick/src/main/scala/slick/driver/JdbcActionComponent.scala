@@ -538,7 +538,19 @@ trait JdbcActionComponent extends SqlActionComponent { driver: JdbcDriver =>
       def run(ctx: Backend#Context, sql: Vector[String]) = {
         def f: SingleInsertOrUpdateResult =
           if(useServerSideUpsert) nativeUpsert(value, sql.head)(ctx.session) else emulate(value, sql(0), sql(1), sql(2))(ctx.session)
-        if(useTransactionForUpsert) ctx.session.withTransaction(f) else f
+        if(useTransactionForUpsert) {
+          ctx.session.startInTransaction
+          var done = false
+          try {
+            val res = f
+            done = true
+            ctx.session.endInTransaction(ctx.session.conn.commit())
+            res
+          } finally {
+            if(!done)
+              try ctx.session.endInTransaction(ctx.session.conn.rollback()) catch ignoreFollowOnError
+          }
+        } else f
       }
 
       protected def nativeUpsert(value: U, sql: String)(implicit session: Backend#Session): SingleInsertOrUpdateResult =
