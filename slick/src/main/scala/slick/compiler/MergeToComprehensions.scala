@@ -101,10 +101,31 @@ class MergeToComprehensions extends Phase {
       case Bind(s1, GroupBy(s2, f1, b1, ts1), Pure(str1, ts2)) =>
         val (c1, replacements1) = mergeFilterWhere(f1, true)
         logger.debug("Merging GroupBy into Comprehension:", Ellipsis(n, List(0, 0)))
-        val b2 = applyReplacements(b1, replacements1, c1)
+        val (c1a, replacements1a, b2a) = {
+          val b2 = applyReplacements(b1, replacements1, c1)
+          // Check whether groupBy keys containing bind variables are returned for further use
+          // and push the current Comprehension into a subquery if this is the case.
+          val leakedPaths =
+            str1.collect({ case FwdPath(s :: ElementSymbol(1) :: rest) if s == s1 => rest }, stopOnMatch = true)
+          val isParam = leakedPaths.nonEmpty && ({
+            logger.debug("Leaked paths to GroupBy keys: " + leakedPaths.map(l => ("_" :: l).mkString(".")).mkString(", "))
+            val targets = leakedPaths.map(_.foldLeft(b2)(_ select _))
+            targets.indexWhere(_.findNode {
+              case _: QueryParameter => true
+              case n: LiteralNode => n.volatileHint
+              case _ => false
+            }.isDefined) >= 0
+          })
+          if(isParam) {
+            logger.debug("Pushing GroupBy source into subquery to avoid repeated parameter")
+            val (c1a, replacements1a) = toSubquery(c1, replacements1)
+            val b2a = applyReplacements(b1, replacements1a, c1a)
+            (c1a, replacements1a, b2a)
+          } else (c1, replacements1, b2)
+        }
         val str2 = str1.replace {
           case Aggregate(_, FwdPath(s :: ElementSymbol(2) :: Nil), v) if s == s1 =>
-            applyReplacements(v, replacements1, c1).replace {
+            applyReplacements(v, replacements1a, c1a).replace {
               case Apply(f: AggregateFunctionSymbol, ConstArray(ch)) :@ tpe =>
                 Apply(f, ConstArray(ch match {
                   case StructNode(ConstArray(ch, _*)) => ch._2
@@ -112,9 +133,9 @@ class MergeToComprehensions extends Phase {
                 }))(tpe)
             }
           case FwdPath(s :: ElementSymbol(1) :: rest) if s == s1 =>
-            rest.foldLeft(b2) { case (n, s) => n.select(s) }.infer()
+            rest.foldLeft(b2a) { case (n, s) => n.select(s) }.infer()
         }
-        val c2 = c1.copy(groupBy = Some(ProductNode(ConstArray(b2)).flatten), select = Pure(str2, ts2)).infer()
+        val c2 = c1a.copy(groupBy = Some(ProductNode(ConstArray(b2a)).flatten), select = Pure(str2, ts2)).infer()
         logger.debug("Merged GroupBy into Comprehension:", c2)
         val StructNode(defs2) = str2
         val replacements = defs2.iterator.map { case (f, _) => (ts2, f) -> f }.toMap

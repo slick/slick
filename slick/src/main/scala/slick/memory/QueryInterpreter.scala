@@ -229,7 +229,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
             if(opt && !c.elseClause.nodeType.asInstanceOf[ScalaType[_]].nullable) Option(res)
             else res
         }
-      case QueryParameter(extractor, _) =>
+      case QueryParameter(extractor, _, _) =>
         extractor(params)
       case Library.SilentCast(ch) =>
         val chV = run(ch)

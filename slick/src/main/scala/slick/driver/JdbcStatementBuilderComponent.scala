@@ -397,7 +397,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
         }
         b" end)"
       case OptionApply(ch) => expr(ch, skipParens)
-      case QueryParameter(extractor, JdbcType(ti, option)) =>
+      case QueryParameter(extractor, JdbcType(ti, option), _) =>
         b +?= { (p, idx, param) =>
           if(option) ti.setOption(extractor(param).asInstanceOf[Option[Any]], p, idx)
           else ti.setValue(extractor(param), p, idx)
