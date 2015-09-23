@@ -330,6 +330,7 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       //case Library.CountAll(ch) => run(ch).asInstanceOf[Coll].size
       case l: LiteralNode => l.value
       case CollectionCast(ch, _) => run(ch)
+      case Subquery(ch, _) => run(ch)
     }
     indent -= 1
     if(logger.isDebugEnabled) logDebug("Result: "+res)
