@@ -18,6 +18,7 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
       def title = column[String]("title")
       def category = column[Int]("category")
+      def withCategory = Query(this) join categories
       def * = (id, title, category)
     }
     val posts = TableQuery[Posts]
@@ -48,6 +49,8 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
         (c,p) <- categories join posts on (_.id === _.category)
       } yield (p.id, c.id, c.name, p.title)).sortBy(_._1)
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
+      q3 = posts.flatMap(_.withCategory)
+      _ <- mark("q3", q3.result).map(_ should (_.length == 20))
     } yield ()
   }
 
