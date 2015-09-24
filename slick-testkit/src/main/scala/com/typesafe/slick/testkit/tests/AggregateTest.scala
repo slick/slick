@@ -282,6 +282,32 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     } yield ()
   }
 
+  def testFusedGroupBy = {
+    class A(tag: Tag) extends Table[(Int, Int)](tag, "A_FUSEDGROUPBY") {
+      def id = column[Int]("id", O.PrimaryKey)
+      def value = column[Int]("value")
+      def * = (id, value)
+    }
+    val as = TableQuery[A]
+    val q1 = as.map(t => t.value + LiteralColumn(1).bind).groupBy(identity).map(_._1)
+    val q2 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._2)
+    val q3 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._1)
+
+    if(tdb.driver == H2Driver) {
+      assertNesting(q1, 2)
+      assertNesting(q2, 2)
+      assertNesting(q3, 1)
+    }
+
+    DBIO.seq(
+      as.schema.create,
+      as ++= Seq((1, 10), (2, 20), (3, 20)),
+      mark("q1", q1.result).map(_.toSet shouldBe Set(11, 21)),
+      mark("q2", q2.result).map(_.toSet shouldBe Set(11, 21)),
+      mark("q3", q3.result).map(_.toSet shouldBe Set(10, 20))
+    )
+  }
+
   def testDistinct = {
     class A(tag: Tag) extends Table[String](tag, "A_DISTINCT") {
       def id = column[Int]("id", O.PrimaryKey)

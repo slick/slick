@@ -223,6 +223,12 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     val shaped = self.shaped
     def toNode = CollectionCast(self.toNode, ctc)
   }
+
+  /** Force a subquery to be created when using this Query as part of a larger Query. This method
+    * should never be necessary for correctness. If a query works with an explicit `.subquery` call
+    * but fails without, this should be considered a bug in Slick. The method is exposed in the API
+    * to enable workarounds to be written in such cases. */
+  def subquery: Query[E, U, C] = new WrappingQuery[E, U, C](Subquery(toNode, Subquery.Default), shaped)
 }
 
 /** The companion object for Query contains factory methods for creating queries. */

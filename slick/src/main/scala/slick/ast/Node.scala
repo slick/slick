@@ -733,10 +733,10 @@ final case class RebuildOption(discriminator: Node, data: Node) extends BinaryNo
 }
 
 /** A parameter from a QueryTemplate which gets turned into a bind variable. */
-final case class QueryParameter(extractor: (Any => Any), buildType: Type) extends NullaryNode with SimplyTypedNode {
+final case class QueryParameter(extractor: (Any => Any), buildType: Type, id: TermSymbol = new AnonSymbol) extends NullaryNode with SimplyTypedNode {
   type Self = QueryParameter
   def rebuild = copy()
-  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = extractor + "@" + System.identityHashCode(extractor))
+  override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"$id $extractor")
 }
 
 object QueryParameter {
@@ -747,17 +747,17 @@ object QueryParameter {
     * `QueryParameter`. */
   def constOp[T](name: String)(op: (T, T) => T)(l: Node, r: Node)(implicit tpe: ScalaBaseType[T]): Node = (l, r) match {
     case (LiteralNode(lv) :@ (lt: TypedType[_]), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe => LiteralNode[T](op(lv.asInstanceOf[T], rv.asInstanceOf[T])).infer()
-    case (LiteralNode(lv) :@ (lt: TypedType[_]), QueryParameter(re, rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
+    case (LiteralNode(lv) :@ (lt: TypedType[_]), QueryParameter(re, rt: TypedType[_], _)) if lt.scalaType == tpe && rt.scalaType == tpe =>
       QueryParameter(new (Any => T) {
         def apply(param: Any) = op(lv.asInstanceOf[T], re(param).asInstanceOf[T])
         override def toString = s"($lv $name $re)"
       }, tpe)
-    case (QueryParameter(le, lt: TypedType[_]), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
+    case (QueryParameter(le, lt: TypedType[_], _), LiteralNode(rv) :@ (rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
       QueryParameter(new (Any => T) {
         def apply(param: Any) = op(le(param).asInstanceOf[T], rv.asInstanceOf[T])
         override def toString = s"($le $name $rv)"
       }, tpe)
-    case (QueryParameter(le, lt: TypedType[_]), QueryParameter(re, rt: TypedType[_])) if lt.scalaType == tpe && rt.scalaType == tpe =>
+    case (QueryParameter(le, lt: TypedType[_], _), QueryParameter(re, rt: TypedType[_], _)) if lt.scalaType == tpe && rt.scalaType == tpe =>
       QueryParameter(new (Any => T) {
         def apply(param: Any) = op(le(param).asInstanceOf[T], re(param).asInstanceOf[T])
         override def toString = s"($le $name $re)"
