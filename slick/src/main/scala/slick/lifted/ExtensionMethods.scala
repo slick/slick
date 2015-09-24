@@ -103,7 +103,7 @@ final class BooleanColumnExtensionMethods[P1](val c: Rep[P1]) extends AnyVal wit
     om.column(Library.And, n, b.toNode)
   def ||[P2, R](b: Rep[P2])(implicit om: o#arg[Boolean, P2]#to[Boolean, R]) =
     om.column(Library.Or, n, b.toNode)
-  def unary_! = Library.Not.column[Boolean](n)
+  def unary_! = Library.Not.column[P1](n)
 }
 
 /** Extension methods for Rep[String] and Rep[Option[String]] */

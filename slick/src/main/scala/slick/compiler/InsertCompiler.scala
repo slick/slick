@@ -34,6 +34,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
 
     def tr(n: Node): Node = n match {
       case _: OptionApply | _: GetOrElse | _: ProductNode | _: TypeMapping => n.mapChildren(tr, keepType = true)
+      case OptionFold(from, _, Ref(s2), s1) if s1 == s2 => tr(GetOrElse(from, null).infer())
       case te @ TableExpansion(_, _, expansion) =>
         setTable(te)
         tr(expansion)
