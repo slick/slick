@@ -126,7 +126,8 @@ trait SQLiteDriver extends JdbcDriver { driver =>
 
   override val columnTypes = new JdbcTypes
   override def createQueryBuilder(n: Node, state: CompilerState): QueryBuilder = new QueryBuilder(n, state)
-  override def createUpsertBuilder(node: Insert): InsertBuilder = new UpsertBuilder(node)
+  override def createUpsertBuilder(node: Insert): super.InsertBuilder = new UpsertBuilder(node)
+  override def createInsertBuilder(node: Insert): super.InsertBuilder = new InsertBuilder(node)
   override def createTableDDLBuilder(table: Table[_]): TableDDLBuilder = new TableDDLBuilder(table)
   override def createColumnDDLBuilder(column: FieldSymbol, table: Table[_]): ColumnDDLBuilder = new ColumnDDLBuilder(column)
   override def createInsertActionExtensionMethods[T](compiled: CompiledInsert): InsertActionExtensionMethods[T] =
@@ -178,6 +179,10 @@ trait SQLiteDriver extends JdbcDriver { driver =>
   /* Extending super.InsertBuilder here instead of super.UpsertBuilder. INSERT OR REPLACE is almost identical to INSERT. */
   class UpsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
     override protected def buildInsertStart = allNames.mkString(s"insert or replace into $tableName (", ",", ") ")
+  }
+
+  class InsertBuilder(ins: Insert) extends super.InsertBuilder(ins) {
+    override protected def emptyInsert: String = s"insert into $tableName default values"
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {

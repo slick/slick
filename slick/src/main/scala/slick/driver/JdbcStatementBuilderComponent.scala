@@ -484,7 +484,7 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
   /** Builder for INSERT statements. */
   class InsertBuilder(val ins: Insert) {
-    protected val Insert(_, table: TableNode, ProductNode(rawColumns)) = ins
+    protected val Insert(_, table: TableNode, ProductNode(rawColumns), allFields) = ins
     protected val syms: ConstArray[FieldSymbol] = rawColumns.map { case Select(_, fs: FieldSymbol) => fs }
     protected lazy val allNames = syms.map(fs => quoteIdentifier(fs.name))
     protected lazy val allVars = syms.iterator.map(_ => "?").mkString("(", ",", ")")
@@ -492,7 +492,8 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
 
     def buildInsert: InsertBuilderResult = {
       val start = buildInsertStart
-      new InsertBuilderResult(table, s"$start values $allVars", syms) {
+      if(syms.isEmpty) new InsertBuilderResult(table, emptyInsert, syms)
+      else new InsertBuilderResult(table, s"$start values $allVars", syms) {
         override def buildInsert(compiledQuery: Node) = {
           val (_, sbr: SQLBuilder.Result) = CodeGen.findResult(compiledQuery)
           SQLBuilder.Result(start + sbr.sql, sbr.setter)
@@ -503,6 +504,10 @@ trait JdbcStatementBuilderComponent { driver: JdbcDriver =>
     def transformMapping(n: Node) = n
 
     protected def buildInsertStart: String = allNames.iterator.mkString(s"insert into $tableName (", ",", ") ")
+
+    protected def emptyInsert: String =
+      if(allFields.isEmpty) s"insert into $tableName default values"
+      else s"insert into $tableName (${quoteIdentifier(allFields.head.name)}) values (default)"
 
     /** Reorder InsertColumn indices in a mapping Node in the order of the given
       * sequence of FieldSymbols (which may contain duplicates). */

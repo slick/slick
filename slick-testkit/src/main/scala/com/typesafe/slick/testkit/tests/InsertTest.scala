@@ -40,6 +40,20 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     ))
   }
 
+  def testEmptyInsert = {
+    class A(tag: Tag) extends Table[Int](tag, "A_EMPTYINSERT") {
+      def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
+      def * = id
+    }
+    val as = TableQuery[A]
+
+    DBIO.seq(
+      as.schema.create,
+      as += 42,
+      as.result.map(_ shouldBe Seq(1))
+    )
+  }
+
   def testReturning = ifCap(jcap.returnInsertKey) {
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "A") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)

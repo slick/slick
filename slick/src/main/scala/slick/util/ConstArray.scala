@@ -481,6 +481,8 @@ final class ConstArrayBuilder[T](initialCapacity: Int = 16, growFactor: Double =
   private[this] var a: Array[Any] = new Array[Any](initialCapacity)
   private[this] var len: Int = 0
 
+  def length = len
+
   def result: ConstArray[T] =
     if(len == 0) ConstArray.empty
     else new ConstArray[T](a, len)
