@@ -21,7 +21,8 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
 
     var tableExpansion: TableExpansion = null
     var expansionRef: TermSymbol = null
-    val cols = new ArrayBuffer[Select]
+    val cols = ConstArray.newBuilder[Select]()
+    val allFields = ConstArray.newBuilder[FieldSymbol]()
     def setTable(te: TableExpansion) {
       if(tableExpansion eq null) {
         tableExpansion = te
@@ -39,10 +40,11 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
         setTable(te)
         tr(expansion)
       case sel @ Select(Ref(s), fs: FieldSymbol) if s == expansionRef =>
+        allFields += fs
         val ch =
           if(mode(fs)) {
             cols += Select(tref, fs) :@ sel.nodeType
-            ConstArray(Select(rref, ElementSymbol(cols.size)) :@ sel.nodeType)
+            ConstArray(Select(rref, ElementSymbol(cols.length)) :@ sel.nodeType)
           } else ConstArray.empty
         InsertColumn(ch, fs, sel.nodeType).infer()
       case Ref(s) if s == expansionRef =>
@@ -54,7 +56,7 @@ class InsertCompiler(val mode: InsertCompiler.Mode) extends Phase {
     }
     val tree2 = tr(tree).infer()
     if(tableExpansion eq null) throw new SlickException("No table to insert into")
-    val ins = Insert(tableSym, tableExpansion.table, ProductNode(ConstArray.from(cols))).infer()
+    val ins = Insert(tableSym, tableExpansion.table, ProductNode(cols.result), allFields.result).infer()
     ResultSetMapping(linearSym, ins, tree2) :@ CollectionType(TypedCollectionTypeConstructor.seq, ins.nodeType)
   }
 }

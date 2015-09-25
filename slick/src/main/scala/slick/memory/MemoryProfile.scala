@@ -85,7 +85,7 @@ trait MemoryProfile extends RelationalProfile with MemoryQueryingProfile { drive
     createInterpreter(session.database, param).run(tree).asInstanceOf[R]
 
   class InsertInvokerDef[T](tree: Node) {
-    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, _), CompiledMapping(converter, _)) = tree
+    protected[this] val ResultSetMapping(_, Insert(_, table: TableNode, _, _), CompiledMapping(converter, _)) = tree
 
     type SingleInsertResult = Unit
     type MultiInsertResult = Unit
@@ -196,7 +196,7 @@ trait MemoryDriver extends RelationalDriver with MemoryQueryingDriver with Memor
   override def computeQueryCompiler = super.computeQueryCompiler ++ QueryCompiler.interpreterPhases
 
   class InsertMappingCompiler(insert: Insert) extends ResultConverterCompiler[MemoryResultConverterDomain] {
-    val Insert(_, table: TableNode, ProductNode(cols)) = insert
+    val Insert(_, table: TableNode, ProductNode(cols), _) = insert
     val tableColumnIdxs = table.driverTable.asInstanceOf[Table[_]].create_*.zipWithIndex.toMap
 
     def createColumnConverter(n: Node, idx: Int, column: Option[FieldSymbol]): ResultConverter[MemoryResultConverterDomain, _] =
