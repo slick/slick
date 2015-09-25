@@ -60,7 +60,7 @@ class RewriteJoins extends Phase {
       val oj4 = rearrangeJoinConditions(oj3)
       val sel3 = if(m.isEmpty) sel2 else sel2.replace {
         case p @ FwdPath(r1 :: rest) if r1 == sn && m.contains(rest) => m(rest)
-        case r @ Ref(s) if (oj4 ne oj3) && s == sn => r.untyped // Structural expansion may have changed
+        case r @ Ref(s) if (oj4 ne oj2) && s == sn => r.untyped // Structural expansion may have changed
       }
       val res = Bind(sn, oj4, sel3.untypeReferences(invalid)).infer()
       logger.debug("Hoisted flatMapped Join in:", Ellipsis(res, List(0, 0)))
