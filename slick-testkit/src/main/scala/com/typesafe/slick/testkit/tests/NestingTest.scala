@@ -211,4 +211,27 @@ class NestingTest extends AsyncTest[RelationalTestDB] {
 
     setup >> t1 >> t2 >> t3 >> t4 >> t5 >> t6
   }
+
+  def testGetOrElse = {
+    case class Chord(name: String, popularOptions: String, id: Long = -1L)
+    class Chords(tag: Tag) extends Table[Chord](tag, "chords") {
+      def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+      def name = column[Option[String]]("name")
+      def popularOptions = column[Option[String]]("popularOptions")
+      def * = (name.getOrElse(""), popularOptions.getOrElse(""), id) <> (Chord.tupled, Chord.unapply)
+    }
+    val chords = TableQuery[Chords]
+    val allChords = Set(Chord("maj7", "9 #11"), Chord("m7", "9 11"), Chord("7", "9 13"), Chord("m7b5", "11"), Chord("aug7", "9"), Chord("dim7", ""))
+    val minorChords = for {
+      chord <- chords if chord.name.startsWith("m7")
+    } yield (chord.name.getOrElse(""), chord.popularOptions.getOrElse(""))
+    val otherChords = for {
+      chord <- chords if !chord.name.startsWith("m7")
+    } yield (chord.name.getOrElse(""), chord.popularOptions.getOrElse(""))
+    DBIO.seq(
+      chords.schema.create,
+      chords ++= allChords,
+      (minorChords ++ otherChords).result.map(_.toSet shouldBe allChords.map(c => (c.name, c.popularOptions)))
+    )
+  }
 }

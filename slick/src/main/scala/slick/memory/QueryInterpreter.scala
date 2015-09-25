@@ -418,6 +418,8 @@ class QueryInterpreter(db: HeapBackend#Database, params: Any) extends Logging {
       replace(args(1)._2.asInstanceOf[String], args(2)._2.asInstanceOf[String])
     case Library.Reverse => args(0)._2.asInstanceOf[String].reverse
     case Library.IndexOf => args(0)._2.asInstanceOf[String].indexOf(args(1)._2.asInstanceOf[String])
+    case Library.StartsWith => args(0)._2.asInstanceOf[String].startsWith(args(1)._2.asInstanceOf[String])
+    case Library.EndsWith => args(0)._2.asInstanceOf[String].endsWith(args(1)._2.asInstanceOf[String])
   }
 
   def unwrapSingleColumn(coll: Coll, tpe: Type): (Iterator[Any], Type) = tpe.asCollectionType.elementType match {
