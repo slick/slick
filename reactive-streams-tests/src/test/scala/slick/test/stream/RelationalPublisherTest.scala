@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import org.reactivestreams._
 import org.reactivestreams.tck._
 import org.testng.annotations.{AfterClass, BeforeClass}
+import org.scalatest.testng.TestNGSuiteLike
 
 import slick.profile.RelationalProfile
 
@@ -12,7 +13,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
-abstract class RelationalPublisherTest[P <: RelationalProfile](val driver: P, timeout: Long) extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L) {
+abstract class RelationalPublisherTest[P <: RelationalProfile](val driver: P, timeout: Long) extends PublisherVerification[Int](new TestEnvironment(timeout), 1000L) with TestNGSuiteLike {
   import driver.api._
 
   override def maxElementsFromPublisher = 73L
