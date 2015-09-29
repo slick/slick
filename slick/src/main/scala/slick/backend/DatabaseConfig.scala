@@ -7,7 +7,7 @@ import scala.language.experimental.macros
 import java.net.{URL, URI}
 import scala.annotation.{StaticAnnotation, Annotation}
 import scala.reflect.ClassTag
-import scala.reflect.macros.Context
+import scala.reflect.macros.blackbox.Context
 import scala.util.control.NonFatal
 import slick.SlickException
 import slick.profile.BasicProfile
@@ -118,16 +118,14 @@ object StaticDatabaseConfigMacros {
   private[slick] def getURI(c: Context): String = {
     import c.universe._
 
-    def findUri(ann: Seq[Tree]): Option[String] =
-      ann.map(c.typeCheck(_, pt = weakTypeOf[StaticDatabaseConfig], silent = true)).collectFirst {
+    def findUri(ann: Seq[c.universe.Annotation]): Option[String] =
+      ann.map(a => c.typecheck(a.tree, pt = weakTypeOf[StaticDatabaseConfig], silent = true)).collectFirst {
         case Apply(Select(_, _), List(Literal(Constant(uri: String)))) => uri
       }
 
-    val methConf = Option(c.enclosingMethod).filter(_ != EmptyTree).map(_.asInstanceOf[MemberDef])
-      .flatMap(md => findUri(md.mods.annotations))
-    val classConf = findUri(c.enclosingClass.asInstanceOf[MemberDef].mods.annotations)
-    methConf.orElse(classConf).getOrElse(
-      c.abort(c.enclosingPosition, "No @StaticDatabaseConfig annotation found in enclosing scope"))
+    val scopes = Iterator.iterate(c.internal.enclosingOwner)(_.owner).takeWhile(_ != NoSymbol)
+    val uriOpt = scopes.map(s => findUri(s.annotations)).find(_.isDefined).flatten
+    uriOpt.getOrElse(c.abort(c.enclosingPosition, "No @StaticDatabaseConfig annotation found in enclosing scope"))
   }
 
   def getImpl[P <: BasicProfile : c.WeakTypeTag](c: Context)(ct: c.Expr[ClassTag[P]]): c.Expr[DatabaseConfig[P]] = {

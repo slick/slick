@@ -231,7 +231,7 @@ trait DatabaseComponent { self =>
         def highPriority = highPrio
         def run: Unit =
           try {
-            ctx.sync
+            ctx.readSync
             val res = try {
               acquireSession(ctx)
               val res = try a.run(ctx) catch { case NonFatal(ex) =>
@@ -264,7 +264,7 @@ trait DatabaseComponent { self =>
         def run: Unit = try {
           val debug = streamLogger.isDebugEnabled
           var state = initialState
-          ctx.sync
+          ctx.readSync
           if(state eq null) acquireSession(ctx)
           var demand = ctx.demandBatch
           var realDemand = if(demand < 0) demand - Long.MinValue else demand
@@ -364,6 +364,8 @@ trait DatabaseComponent { self =>
       * synchronous execution. */
     @volatile private[DatabaseComponent] var sync = 0
 
+    private[DatabaseComponent] def readSync = sync // workaround for SI-9053 to avoid warnings
+
     private[DatabaseComponent] var currentSession: Session = null
 
     /** Used for the sequence counter in Action debug output. This variable is volatile because it
@@ -440,7 +442,7 @@ trait DatabaseComponent { self =>
 
     /** Restart a suspended streaming action. Must only be called from the Subscriber context. */
     def restartStreaming: Unit = {
-      sync
+      readSync
       val s = streamState
       if(s ne null) {
         streamState = null

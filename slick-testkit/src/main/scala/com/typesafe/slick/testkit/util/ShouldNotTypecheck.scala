@@ -1,7 +1,8 @@
 package com.typesafe.slick.testkit.util
 
 import scala.language.experimental.macros
-import scala.reflect.macros.{Context, TypecheckException}
+import scala.reflect.macros.blackbox.Context
+import scala.reflect.macros.TypecheckException
 import scala.util.control.NonFatal
 import java.util.regex.Pattern
 
@@ -24,7 +25,7 @@ object ShouldNotTypecheck {
         (Pattern.compile(s, Pattern.CASE_INSENSITIVE | Pattern.DOTALL), "Expected error matching: "+s)
     }
 
-    try ctx.typeCheck(ctx.parse("{ "+codeStr+" }")) catch { case e: TypecheckException =>
+    try ctx.typecheck(ctx.parse("{ "+codeStr+" }")) catch { case e: TypecheckException =>
       val msg = e.getMessage
       if((expected ne null) && !(expPat.matcher(msg)).matches)
         ctx.abort(ctx.enclosingPosition, "Type-checking failed in an unexpected way.\n"+

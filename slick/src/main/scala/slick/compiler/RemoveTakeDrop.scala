@@ -1,5 +1,6 @@
 package slick.compiler
 
+import slick.SlickException
 import slick.ast._
 import Util._
 import TypeUtil._
@@ -36,6 +37,7 @@ class RemoveTakeDrop(val translateTake: Boolean = true, val translateDrop: Boole
               Library.>.typed[Boolean](Select(Ref(fs), ElementSymbol(2)), d),
               Library.<=.typed[Boolean](Select(Ref(fs), ElementSymbol(2)), constOp[Long]("+")(_ + _)(t, d))
             )
+          case _ => throw new SlickException("Unexpected empty Take/Drop")
         })
         val bs2 = new AnonSymbol
         val b2 = Bind(bs2, f, Pure(Select(Ref(bs2), ElementSymbol(1))))

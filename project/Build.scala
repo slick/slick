@@ -13,10 +13,10 @@ import de.johoop.testngplugin.TestNGPlugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.1.0-RC3"
-  val slickExtensionsVersion = "3.1.0-RC2" // Slick extensions version for links in the manual
-  val binaryCompatSlickVersion = "3.1.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.10.5", "2.11.6")
+  val slickVersion = "3.2.0-SNAPSHOT"
+  val slickExtensionsVersion = slickVersion // Slick extensions version for links in the manual
+  val binaryCompatSlickVersion = "3.2.0" // Slick base version for binary compatibility checks
+  val scalaVersions = Seq("2.11.7")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
@@ -44,14 +44,14 @@ object SlickBuild extends Build {
       "postgresql" % "postgresql" % "9.1-901.jdbc4",
       "mysql" % "mysql-connector-java" % "5.1.23"
     )
-    val paxExamVersion = "2.6.0"
+    val paxExamVersion = "4.6.0"
     val paxExam = Seq(
       "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
       "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
       "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
       "org.ops4j.pax.url"      % "pax-url-aether"             % "1.6.0",
       "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
-      "org.apache.felix"       % "org.apache.felix.framework" % "3.2.2"
+      "org.apache.felix"       % "org.apache.felix.framework" % "4.6.1"
     )
   }
 
@@ -99,7 +99,7 @@ object SlickBuild extends Build {
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
-    scalacOptions ++= List("-deprecation", "-feature"),
+    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
     scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile,name).map((v,src,n) => Seq(
       "-doc-title", n,
       "-doc-version", v,

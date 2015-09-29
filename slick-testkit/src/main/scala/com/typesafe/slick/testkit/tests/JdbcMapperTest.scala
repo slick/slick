@@ -235,7 +235,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       def productArity: Int = 2
       def productElement(n: Int): Any = Seq(a, b)(n)
       override def equals(a: Any) = a match {
-        case that: C => this.a == that.a && this.b == that.b
+        case that: LiftedC => this.a == that.a && this.b == that.b
         case _ => false
       }
     }

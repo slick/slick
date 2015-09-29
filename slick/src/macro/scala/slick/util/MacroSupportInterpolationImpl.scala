@@ -1,6 +1,6 @@
 package slick.util
 
-import scala.reflect.macros.Context
+import scala.reflect.macros.blackbox.Context
 import scala.reflect.NameTransformer
 import scala.collection.mutable.ListBuffer
 
@@ -13,12 +13,12 @@ object MacroSupportInterpolationImpl {
     val stringType = definitions.StringClass.toType
     val symbolType = ctx.mirror.staticClass("slick.ast.Symbol").toType
 
-    val skipParens = Ident(newTermName("skipParens"))
-    val sqlBuilder = Ident(newTermName("sqlBuilder"))
-    def quoteIdentifier(t: Tree) = Apply(Ident(newTermName("quoteIdentifier")), List(t))
-    def symbolName(t: Tree) = Apply(Ident(newTermName("symbolName")), List(t))
-    def toStr(t: Tree) = Apply(Select(Ident(definitions.StringClass.companionSymbol), newTermName("valueOf")), List(t))
-    def append(t: Tree) = Apply(Select(sqlBuilder, newTermName("+=").encodedName), List(t))
+    val skipParens = Ident(TermName("skipParens"))
+    val sqlBuilder = Ident(TermName("sqlBuilder"))
+    def quoteIdentifier(t: Tree) = Apply(Ident(TermName("quoteIdentifier")), List(t))
+    def symbolName(t: Tree) = Apply(Ident(TermName("symbolName")), List(t))
+    def toStr(t: Tree) = Apply(Select(Ident(definitions.StringClass.companion), TermName("valueOf")), List(t))
+    def append(t: Tree) = Apply(Select(sqlBuilder, TermName("+=").encodedName), List(t))
 
     def appendString(str: String): List[Tree] = {
       val exprs = new ListBuffer[Tree]
@@ -38,26 +38,26 @@ object MacroSupportInterpolationImpl {
                 case c2 @ ('(' | ')') => // optional parentheses
                   flushSB
                   exprs += If(
-                    Select(skipParens, newTermName(NameTransformer.encode("unary_!"))),
+                    Select(skipParens, TermName(NameTransformer.encode("unary_!"))),
                     append(Literal(Constant(c2))),
                     ctx.universe.EmptyTree
                   )
                 case '{' => // optional open parentheses with indent
                   flushSB
                   exprs += If(
-                    Select(skipParens, newTermName(NameTransformer.encode("unary_!"))),
+                    Select(skipParens, TermName(NameTransformer.encode("unary_!"))),
                     Block(List(
                       append(Literal(Constant('('))),
-                      Select(sqlBuilder, newTermName("newLineIndent"))
+                      Select(sqlBuilder, TermName("newLineIndent"))
                     ), Literal(Constant(()))),
                     ctx.universe.EmptyTree
                   )
                 case '}' => // optional close parentheses with dedent
                   flushSB
                   exprs += If(
-                    Select(skipParens, newTermName(NameTransformer.encode("unary_!"))),
+                    Select(skipParens, TermName(NameTransformer.encode("unary_!"))),
                     Block(List(
-                      Select(sqlBuilder, newTermName("newLineDedent")),
+                      Select(sqlBuilder, TermName("newLineDedent")),
                       append(Literal(Constant(')')))
                     ), Literal(Constant(()))),
                     ctx.universe.EmptyTree
@@ -65,14 +65,14 @@ object MacroSupportInterpolationImpl {
                 case '[' => // open parenthesis with indent
                   sb append '('
                   flushSB
-                  exprs += Select(sqlBuilder, newTermName("newLineIndent"))
+                  exprs += Select(sqlBuilder, TermName("newLineIndent"))
                 case ']' => // close parenthesis with dedent
                   flushSB
-                  exprs += Select(sqlBuilder, newTermName("newLineDedent"))
+                  exprs += Select(sqlBuilder, TermName("newLineDedent"))
                   sb append ')'
                 case 'n' =>
                   flushSB
-                  exprs += Select(sqlBuilder, newTermName("newLineOrSpace"))
+                  exprs += Select(sqlBuilder, TermName("newLineOrSpace"))
                 case c2 =>
                   ctx.abort(ctx.enclosingPosition, "Invalid escaped character '"+c2+"' in literal \""+str+"\"")
               }
@@ -107,7 +107,7 @@ object MacroSupportInterpolationImpl {
             ctx.abort(ae.tree.pos, "Unknown type. Must be Node or Symbol.")
         case '!' =>
           exprs ++= appendString(s.substring(0, len-1))
-          exprs += Apply(Ident(newTermName("expr")), List(a, Literal(Constant(true))))
+          exprs += Apply(Ident(TermName("expr")), List(a, Literal(Constant(true))))
         case _ =>
           exprs ++= appendString(s)
           //println("### tpe: "+ae.actualType)
@@ -119,7 +119,7 @@ object MacroSupportInterpolationImpl {
             else if(ae.actualType <:< definitions.AnyValTpe)
               append(toStr(a))
             else if(ae.actualType <:< nodeType)
-              Apply(Ident(newTermName("expr")), List(a, Literal(Constant(false))))
+              Apply(Ident(TermName("expr")), List(a, Literal(Constant(false))))
             else
               ctx.abort(ae.tree.pos, "Unknown type. Must be Node, String or AnyVal.")
           )

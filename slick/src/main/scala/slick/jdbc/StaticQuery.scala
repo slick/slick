@@ -10,7 +10,7 @@ import scala.concurrent.duration.Duration
 import scala.language.experimental.macros
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
-import scala.reflect.macros.Context
+import scala.reflect.macros.{blackbox, whitebox}
 import scala.collection.mutable.ArrayBuffer
 
 import java.sql.PreparedStatement
@@ -33,7 +33,7 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
 }
 
 object ActionBasedSQLInterpolation {
-  def sqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
+  def sqlImpl(ctxt: blackbox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
@@ -44,7 +44,7 @@ object ActionBasedSQLInterpolation {
     }
   }
 
-  def sqluImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlAction[Int, NoStream, Effect]] = {
+  def sqluImpl(ctxt: blackbox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlAction[Int, NoStream, Effect]] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
     reify {
@@ -55,7 +55,7 @@ object ActionBasedSQLInterpolation {
       res.asUpdate
     }
   }
-  def tsqlImpl(ctxt: Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Vector[Any], Any, Effect]] = {
+  def tsqlImpl(ctxt: whitebox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SqlStreamingAction[Vector[Any], Any, Effect]] = {
     import ctxt.universe._
     val macroTreeBuilder = new MacroTreeBuilder[ctxt.type](ctxt)(param.toList)
 
