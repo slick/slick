@@ -2,6 +2,7 @@ package slick.driver
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
 import java.util.UUID
+import java.time.ZonedDateTime
 import slick.SlickException
 import slick.ast._
 import slick.jdbc.JdbcType
@@ -101,6 +102,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     val charJdbcType = new CharJdbcType
     val clobJdbcType = new ClobJdbcType
     val dateJdbcType = new DateJdbcType
+    val zonedDateType = new ZonedDateTimeJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
     val intJdbcType = new IntJdbcType
@@ -169,6 +171,30 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def getValue(r: ResultSet, idx: Int) = r.getDate(idx)
       def updateValue(v: Date, r: ResultSet, idx: Int) = r.updateDate(idx, v)
       override def valueToSQLLiteral(value: Date) = "{d '"+value.toString+"'}"
+    }
+
+    class ZonedDateTimeJdbcType extends DriverJdbcType[ZonedDateTime] {
+      override def sqlType : Int = {
+        /**
+         * Stores the [[ZonedDateTime]] as a 'VARCHAR' in databases with no specific 'TIMESTAMPZ' implementations,
+         * like SQLite. An example persisted value will be '2015-09-30T17:20:29.393+02:00[Europe/Madrid]'
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        /**
+         * Stores The [[ZonedDateTime]] as a 'VARCHAR' following the ISO-8601 with timezone convention.
+         * For example: '2015-09-30T17:20:29.393+02:00[Europe/Madrid]'
+         */
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : ZonedDateTime = {
+        /**
+         * Parses ISO-8601 with time zone 'VARCHAR' from the database into a [[ZonedDateTime]].
+         */
+        ZonedDateTime.parse(r.getString(idx))
+      }
+      override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
     }
 
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
@@ -311,6 +337,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     implicit def timestampColumnType = columnTypes.timestampJdbcType
     implicit def uuidColumnType = columnTypes.uuidJdbcType
     implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
+    implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
   }
 }
 
