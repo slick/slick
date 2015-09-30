@@ -15,8 +15,8 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val ts = TableQuery[T]
     def q1(i: Int) = for { t <- ts if t.a === i } yield t
     def q2(i: Int) = (q1(i).length, q1(i).map(_.b).length, q1(i).map(_.b).countDefined, q1(i).map(_.a).sum, q1(i).map(_.b).sum, q1(i).map(_.b).avg)
-    val q2_0 = q2(0).shaped
-    val q2_1 = q2(1).shaped
+    val q2_0 = q2(0)
+    val q2_1 = q2(1)
     ts.schema.create >>
       (ts ++= Seq((1, Some(1)), (1, Some(3)), (1, None))) >>
       q2_0.result.map(_ shouldBe (0, 0, 0, None, None, None)) >>
