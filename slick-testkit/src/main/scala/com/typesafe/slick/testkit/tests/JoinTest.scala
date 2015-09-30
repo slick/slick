@@ -323,15 +323,17 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
     }
     lazy val bs = TableQuery[B]
 
-    val q = for {
+    val q1 = for {
       (a, b) <- as joinLeft bs on (_.id.? === _.id) if (b.isEmpty)
     } yield (a.id)
+    val q2 = bs.joinLeft(as).on(_.id === _.id).filter(_._2.isEmpty).map(_._1.id)
 
     DBIO.seq(
       (as.schema ++ bs.schema).create,
       as ++= Seq(1,2,3),
       bs ++= Seq(1,2,4,5).map(Some.apply _),
-      q.result.map(_.toSet shouldBe Set(3))
+      q1.result.map(_.toSet shouldBe Set(3)),
+      q2.result.map(_.toSet shouldBe Set(Some(4), Some(5)))
     )
   }
 }
