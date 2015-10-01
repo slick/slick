@@ -289,6 +289,15 @@ updating are defined in
 There is currently no way to use scalar expressions or transformations of
 the existing data in the database for updates.
 
+Upserting
+---------
+
+Upserting is performed by supplying a row to be either inserted or updated. The
+object must contain the table's primary key, since the update portion needs to
+be able to find a uniquelly matching row.
+
+.. includecode:: code/LiftedEmbedding.scala#insertOrUpdate
+
 .. index:: prepared, QueryTemplate, parameter
 .. index::
    pair: query; compiled
