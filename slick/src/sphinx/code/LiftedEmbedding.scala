@@ -190,24 +190,24 @@ object LiftedEmbedding extends App {
       //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
       //     from "COFFEES"
       //     order by "COF_NAME" desc nulls first
-      
-      // building criteria using a "dynamic filter" e.g. from a webform. 
+
+      // building criteria using a "dynamic filter" e.g. from a webform.
       val criteriaColombian = Option("Colombian")
       val criteriaEspresso = Option("Espresso")
       val criteriaRoast:Option[String] = None
 
-      val q4 = coffees.filter { coffee => 
+      val q4 = coffees.filter { coffee =>
         List(
             criteriaColombian.map(coffee.name === _),
             criteriaEspresso.map(coffee.name === _),
-            criteriaRoast.map(coffee.name === _) // not a condition as `criteriaRoast` evaluates to `None` 
+            criteriaRoast.map(coffee.name === _) // not a condition as `criteriaRoast` evaluates to `None`
         ).collect({case Some(criteria)  => criteria}).reduceLeftOption(_ || _).getOrElse(true: Rep[Boolean])
       }
       // compiles to SQL (simplified):
       //   select "COF_NAME", "SUP_ID", "PRICE", "SALES", "TOTAL"
       //     from "COFFEES"
       //     where ("COF_NAME" = 'Colombian' or "COF_NAME" = 'Espresso')
-      
+
       //#filtering
       println(q1.result.statements.head)
       println(q2.result.statements.head)
@@ -356,6 +356,16 @@ object LiftedEmbedding extends App {
       )
       //#insert4
       Await.result(db.run(actions), Duration.Inf)
+
+      //#insertOrUpdate
+      val updated = users.insertOrUpdate(User(Some(1), "Admin", "Zeiger"))
+      // returns: number of rows updated
+
+      val updatedAdmin = (users returning users).insertOrUpdate(User(Some(1), "Slick Admin", "Zeiger"))
+      // returns: None if updated, Some((Int, String)) if row inserted
+      //#insertOrUpdate
+      Await.result(db.run(updated), Duration.Inf)
+      Await.result(db.run(updatedAdmin), Duration.Inf)
     }
 
     ;{
