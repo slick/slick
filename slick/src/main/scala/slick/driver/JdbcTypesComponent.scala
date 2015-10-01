@@ -101,7 +101,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     val byteArrayJdbcType = new ByteArrayJdbcType
     val charJdbcType = new CharJdbcType
     val clobJdbcType = new ClobJdbcType
-    val dateJdbcType = new DateJdbcType
+    @deprecated val dateJdbcType = new DateJdbcType
     val zonedDateType = new ZonedDateTimeJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
@@ -165,6 +165,10 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       override def valueToSQLLiteral(v: Char) = stringJdbcType.valueToSQLLiteral(String.valueOf(v))
     }
 
+    /**
+     * Deprecated Use [[ZonedDateTimeJdbcType]] instead.
+     */
+    @deprecated
     class DateJdbcType extends DriverJdbcType[Date] {
       def sqlType = java.sql.Types.DATE
       def setValue(v: Date, p: PreparedStatement, idx: Int) = p.setDate(idx, v)

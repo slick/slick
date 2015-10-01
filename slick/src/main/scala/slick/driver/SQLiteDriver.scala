@@ -238,6 +238,7 @@ trait SQLiteDriver extends JdbcDriver { driver =>
     /* The SQLite JDBC driver does not support the JDBC escape syntax for
      * date/time/timestamp literals. SQLite expects these values as milliseconds
      * since epoch. */
+    @deprecated
     class DateJdbcType extends super.DateJdbcType {
       override def valueToSQLLiteral(value: Date) = value.getTime.toString
     }
