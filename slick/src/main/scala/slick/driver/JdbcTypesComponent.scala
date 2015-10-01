@@ -2,7 +2,7 @@ package slick.driver
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
 import java.util.UUID
-import java.time.ZonedDateTime
+import java.time.{OffsetDateTime, ZonedDateTime}
 import slick.SlickException
 import slick.ast._
 import slick.jdbc.JdbcType
@@ -102,6 +102,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     val charJdbcType = new CharJdbcType
     val clobJdbcType = new ClobJdbcType
     @deprecated val dateJdbcType = new DateJdbcType
+    val offsetDateTimeType = new OffsetDateTimeJdbcType
     val zonedDateType = new ZonedDateTimeJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
@@ -166,7 +167,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     }
 
     /**
-     * Deprecated Use [[ZonedDateTimeJdbcType]] instead.
+     * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] instead.
      */
     @deprecated
     class DateJdbcType extends DriverJdbcType[Date] {
@@ -175,6 +176,30 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
       def getValue(r: ResultSet, idx: Int) = r.getDate(idx)
       def updateValue(v: Date, r: ResultSet, idx: Int) = r.updateDate(idx, v)
       override def valueToSQLLiteral(value: Date) = "{d '"+value.toString+"'}"
+    }
+
+    class OffsetDateTimeJdbcType extends DriverJdbcType[OffsetDateTime] {
+      override def sqlType : Int = {
+        /**
+         * Stores the [[OffsetDateTime]] as a 'VARCHAR' in databases with no specific 'TIMESTAMP' with offset
+         * implementations, like SQLite. An example persisted value will be '2015-10-01T12:57:20.293+02:00'
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int): Unit = {
+        /**
+         * Stores The [[OffsetDateTime]] as a 'VARCHAR' following the ISO-8601 with offset convention.
+         * An example persisted value will be: '2015-10-01T12:57:20.293+02:00'
+         */
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
+        /**
+         * Parses ISO-8601 with offset 'VARCHAR' from the database into a [[OffsetDateTime]].
+         */
+        OffsetDateTime.parse(r.getString(idx))
+      }
+      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int): Unit = r.updateString(idx, v.toString)
     }
 
     class ZonedDateTimeJdbcType extends DriverJdbcType[ZonedDateTime] {
@@ -341,6 +366,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { driver: JdbcDriver =
     implicit def timestampColumnType = columnTypes.timestampJdbcType
     implicit def uuidColumnType = columnTypes.uuidJdbcType
     implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
+    implicit def offsetDateTimeColumnType = columnTypes.offsetDateTimeType
     implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
   }
 }
