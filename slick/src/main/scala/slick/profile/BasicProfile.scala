@@ -45,8 +45,8 @@ trait BasicProfile extends BasicActionComponent { driver: BasicDriver =>
 
     implicit val slickDriver: driver.type = driver
 
-    // Work-around for SI-3346
-    @inline implicit final def anyToToShapedValue[T](value: T) = new ToShapedValue[T](value)
+    implicit final def anyToShapedValue[T, U](value: T)(implicit shape: Shape[_ <: FlatShapeLevel, T, U, _]): ShapedValue[T, U] =
+      new ShapedValue[T, U](value, shape)
 
     implicit def repQueryActionExtensionMethods[U](rep: Rep[U]): QueryActionExtensionMethods[U, NoStream] =
       createQueryActionExtensionMethods[U, NoStream](queryCompiler.run(rep.toNode).tree, ())
@@ -59,7 +59,6 @@ trait BasicProfile extends BasicActionComponent { driver: BasicDriver =>
     // Applying a CompiledFunction always results in only a RunnableCompiled, not a StreamableCompiled, so we need this:
     implicit def streamableAppliedCompiledFunctionActionExtensionMethods[R, RU, EU, C[_]](c: AppliedCompiledFunction[_, Query[R, EU, C], RU]): StreamingQueryActionExtensionMethods[RU, EU] =
       createStreamingQueryActionExtensionMethods[RU, EU](c.compiledQuery, c.param)
-    // This only works on Scala 2.11 due to SI-3346:
     implicit def recordQueryActionExtensionMethods[M, R](q: M)(implicit shape: Shape[_ <: FlatShapeLevel, M, R, _]): QueryActionExtensionMethods[R, NoStream] =
       createQueryActionExtensionMethods[R, NoStream](queryCompiler.run(shape.toNode(q)).tree, ())
   }

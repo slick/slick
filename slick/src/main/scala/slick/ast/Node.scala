@@ -563,6 +563,7 @@ object Path {
   def apply(l: List[TermSymbol]): PathElement = l match {
     case s :: Nil => Ref(s)
     case s :: l => Select(apply(l), s)
+    case _ => throw new SlickException("Empty Path")
   }
   def unapply(n: PathElement): Option[List[TermSymbol]] = {
     var l = new ListBuffer[TermSymbol]

@@ -49,6 +49,7 @@ import slick.jdbc.meta.{MPrimaryKey, MColumn, MTable}
   * in application.conf.
   */
 trait MySQLDriver extends JdbcDriver { driver =>
+  import MySQLDriver.{RowNum, RowNumGen}
 
   override protected def computeCapabilities: Set[Capability] = (super.computeCapabilities
     - JdbcProfile.capabilities.returnInsertOther
@@ -133,18 +134,6 @@ trait MySQLDriver extends JdbcDriver { driver =>
         case r @ Ref(s) if s == s1 => r.untyped
       }), Subquery.Default).infer()
     }
-  }
-
-  final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with SimplyTypedNode {
-    type Self = RowNum
-    def buildType = ScalaBaseType.longType
-    def rebuild = copy()
-  }
-
-  final case class RowNumGen(sym: AnonSymbol, init: Long) extends NullaryNode with SimplyTypedNode {
-    type Self = RowNumGen
-    def buildType = ScalaBaseType.longType
-    def rebuild = copy()
   }
 
   class QueryBuilder(tree: Node, state: CompilerState) extends super.QueryBuilder(tree, state) {
@@ -277,4 +266,16 @@ trait MySQLDriver extends JdbcDriver { driver =>
   }
 }
 
-object MySQLDriver extends MySQLDriver
+object MySQLDriver extends MySQLDriver {
+  final case class RowNum(sym: AnonSymbol, inc: Boolean) extends NullaryNode with SimplyTypedNode {
+    type Self = RowNum
+    def buildType = ScalaBaseType.longType
+    def rebuild = copy()
+  }
+
+  final case class RowNumGen(sym: AnonSymbol, init: Long) extends NullaryNode with SimplyTypedNode {
+    type Self = RowNumGen
+    def buildType = ScalaBaseType.longType
+    def rebuild = copy()
+  }
+}

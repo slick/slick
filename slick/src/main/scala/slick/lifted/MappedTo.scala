@@ -1,7 +1,7 @@
 package slick.lifted
 
 import scala.language.experimental.macros
-import scala.reflect.macros.Context
+import scala.reflect.macros.blackbox.Context
 import scala.util.control.NonFatal
 
 /** An isomorphism between two types that can be used for mapped column types. */
@@ -23,16 +23,16 @@ object MappedToBase {
     // check fails, overriding our error (or backtracking in implicit search).
     if(!(e.tpe <:< c.typeOf[MappedToBase]))
       c.abort(c.enclosingPosition, "Work-around for SI-8351 leading to illegal macro-invocation -- You should not see this message")
-    implicit val eutag = c.TypeTag[E#Underlying](e.tpe.member(newTypeName("Underlying")).typeSignatureIn(e.tpe))
+    implicit val eutag = c.TypeTag[E#Underlying](e.tpe.member(TypeName("Underlying")).typeSignatureIn(e.tpe))
     val cons = c.Expr[E#Underlying => E](Function(
-      List(ValDef(Modifiers(Flag.PARAM), newTermName("v"), /*Ident(eu.tpe.typeSymbol)*/TypeTree(), EmptyTree)),
+      List(ValDef(Modifiers(Flag.PARAM), TermName("v"), /*Ident(eu.tpe.typeSymbol)*/TypeTree(), EmptyTree)),
       Apply(
-        Select(New(TypeTree(e.tpe)), nme.CONSTRUCTOR),
-        List(Ident(newTermName("v")))
+        Select(New(TypeTree(e.tpe)), termNames.CONSTRUCTOR),
+        List(Ident(TermName("v")))
       )
     ))
     val res = reify { new Isomorphism[E, E#Underlying](_.value, cons.splice) }
-    try c.typeCheck(res.tree) catch { case NonFatal(ex) =>
+    try c.typecheck(res.tree) catch { case NonFatal(ex) =>
       val p = c.enclosingPosition
       val msg = "Error typechecking MappedTo expansion: " + ex.getMessage
       println(p.source.path + ":" + p.line + ": " + msg)

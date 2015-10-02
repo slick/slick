@@ -3,7 +3,7 @@ package slick.collection.heterogeneous
 import scala.language.higherKinds
 import scala.language.experimental.macros
 import scala.annotation.unchecked.{uncheckedVariance => uv}
-import scala.reflect.macros.Context
+import scala.reflect.macros.whitebox.Context
 import slick.lifted.{MappedScalaProductShape, Shape, ShapeLevel}
 import scala.reflect.ClassTag
 
@@ -149,7 +149,7 @@ final object HListMacros{
         ctx.Expr(
           Apply(
             TypeApply(
-              Select(ctx.prefix.tree, newTermName("_unsafeApply")),
+              Select(ctx.prefix.tree, TermName("_unsafeApply")),
               List(tt)
             ),
             List(t)

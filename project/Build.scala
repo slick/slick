@@ -9,14 +9,13 @@ import com.typesafe.tools.mima.plugin.MimaKeys.{previousArtifact, binaryIssueFil
 import com.typesafe.tools.mima.core.{ProblemFilters, MissingClassProblem}
 import com.typesafe.sbt.osgi.SbtOsgi.{osgiSettings, OsgiKeys}
 import com.typesafe.sbt.sdlc.Plugin._
-import de.johoop.testngplugin.TestNGPlugin._
 
 object SlickBuild extends Build {
 
-  val slickVersion = "3.1.0-RC3"
-  val slickExtensionsVersion = "3.1.0-RC2" // Slick extensions version for links in the manual
-  val binaryCompatSlickVersion = "3.1.0" // Slick base version for binary compatibility checks
-  val scalaVersions = Seq("2.10.5", "2.11.6")
+  val slickVersion = "3.2.0-SNAPSHOT"
+  val slickExtensionsVersion = slickVersion // Slick extensions version for links in the manual
+  val binaryCompatSlickVersion = "3.2.0" // Slick base version for binary compatibility checks
+  val scalaVersions = Seq("2.11.7", "2.12.0-M2")
 
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
@@ -24,9 +23,10 @@ object SlickBuild extends Build {
       "junit" % "junit-dep" % "4.10",
       "com.novocode" % "junit-interface" % "0.11"
     )
-    val testngExtras = Seq(
-      "com.google.inject" % "guice" % "2.0"
-    )
+    def scalaTestFor(scalaVersion: String) = {
+      val v = if(scalaVersion == "2.12.0-M2") "2.2.5-M2" else "2.2.4"
+      "org.scalatest" %% "scalatest" % v
+    }
     val slf4j = "org.slf4j" % "slf4j-api" % "1.7.10"
     val logback = "ch.qos.logback" % "logback-classic" % "1.1.3"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
@@ -44,14 +44,14 @@ object SlickBuild extends Build {
       "postgresql" % "postgresql" % "9.1-901.jdbc4",
       "mysql" % "mysql-connector-java" % "5.1.23"
     )
-    val paxExamVersion = "2.6.0"
+    val paxExamVersion = "4.6.0"
     val paxExam = Seq(
       "org.ops4j.pax.exam"     % "pax-exam-container-native"  % paxExamVersion,
       "org.ops4j.pax.exam"     % "pax-exam-junit4"            % paxExamVersion,
       "org.ops4j.pax.exam"     % "pax-exam-link-assembly"     % paxExamVersion,
       "org.ops4j.pax.url"      % "pax-url-aether"             % "1.6.0",
       "org.ops4j.pax.swissbox" % "pax-swissbox-framework"     % "1.5.1",
-      "org.apache.felix"       % "org.apache.felix.framework" % "3.2.2"
+      "org.apache.felix"       % "org.apache.felix.framework" % "4.6.1"
     )
   }
 
@@ -99,7 +99,7 @@ object SlickBuild extends Build {
     organizationName := "Typesafe",
     organization := "com.typesafe.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
-    scalacOptions ++= List("-deprecation", "-feature"),
+    scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
     scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile,name).map((v,src,n) => Seq(
       "-doc-title", n,
       "-doc-version", v,
@@ -311,15 +311,14 @@ object SlickBuild extends Build {
   ) dependsOn(slickProject)
 
   lazy val reactiveStreamsTestProject = Project(id = "reactive-streams-tests", base = file("reactive-streams-tests"),
-    settings = Defaults.coreDefaultSettings ++ sharedSettings ++ testNGSettings ++ Seq(
+    settings = Defaults.coreDefaultSettings ++ sharedSettings ++ Seq(
       name := "Slick-ReactiveStreamsTests",
       unmanagedResourceDirectories in Test += (baseDirectory in aRootProject).value / "common-test-resources",
       resolvers += Resolver.sbtPluginRepo("releases"),
-      libraryDependencies ++=
-        (Dependencies.logback +: Dependencies.testDBs).map(_ % "test") ++:
-        Dependencies.reactiveStreamsTCK +:
-        Dependencies.testngExtras,
-      testNGSuites := Seq("reactive-streams-tests/src/test/resources/testng.xml")
+      libraryDependencies += Dependencies.scalaTestFor(scalaVersion.value),
+      libraryDependencies ++= (Dependencies.logback +: Dependencies.testDBs).map(_ % "test"),
+      libraryDependencies += Dependencies.reactiveStreamsTCK,
+      parallelExecution in Test := false
     )
   ) dependsOn(slickTestkitProject)
 
