@@ -46,7 +46,7 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
     override def createTypeMappingResultConverter(rc: ResultConverter[JdbcResultConverterDomain, Any], mapper: MappedScalaType.Mapper) = {
       val tm = new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
       mapper.fastPath match {
-        case Some(pf) => pf.orElse[Any, Any] { case x => x }.apply(tm).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]]
+        case Some(f) => f(tm).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]]
         case None => tm
       }
     }

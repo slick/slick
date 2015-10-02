@@ -1,5 +1,7 @@
 package slick.lifted
 
+import slick.relational.{ProductResultConverter, SimpleFastPathResultConverter, ResultConverterDomain, TypeMappingResultConverter}
+
 import scala.language.{existentials, implicitConversions, higherKinds}
 import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
@@ -289,34 +291,48 @@ object ShapedValue {
       case NoSymbol => q"${rSym.name.toTermName}" // This can happen for case classes defined inside of methods
       case s => q"$s"
     }
-    val caseFields =  rTag.tpe.decls.collect {
-      case s: TermSymbol if s.isVal && s.isCaseAccessor => (TermName(s.name.toString.trim), s.typeSignature)
+    val fields =  rTag.tpe.decls.collect {
+      case s: TermSymbol if s.isVal && s.isCaseAccessor => (TermName(s.name.toString.trim), s.typeSignature, TermName(c.freshName()))
     }.toIndexedSeq
     val (f, g) = if(uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
-      val rTypeAsHList = caseFields.foldRight[Tree](tq"_root_.slick.collection.heterogeneous.HNil.type") {
-        case ((_, t), z) => tq"_root_.slick.collection.heterogeneous.HCons[$t, $z]"
+      val rTypeAsHList = fields.foldRight[Tree](tq"_root_.slick.collection.heterogeneous.HNil.type") {
+        case ((_, t, _), z) => tq"_root_.slick.collection.heterogeneous.HCons[$t, $z]"
       }
-      val matchNames = caseFields.map(_ => TermName(c.freshName()))
-      val pat = matchNames.foldRight[Tree](pq"_root_.slick.collection.heterogeneous.HNil") {
-        case (n, z) => pq"_root_.slick.collection.heterogeneous.HCons($n, $z)"
+      val pat = fields.foldRight[Tree](pq"_root_.slick.collection.heterogeneous.HNil") {
+        case ((_, _, n), z) => pq"_root_.slick.collection.heterogeneous.HCons($n, $z)"
       }
-      val cons = caseFields.foldRight[Tree](q"_root_.slick.collection.heterogeneous.HNil") {
-        case ((n, _), z) => q"v.$n :: $z"
+      val cons = fields.foldRight[Tree](q"_root_.slick.collection.heterogeneous.HNil") {
+        case ((n, _, _), z) => q"v.$n :: $z"
       }
-      (q"({ case $pat => new $rTag(..$matchNames) } : ($rTypeAsHList => $rTag)): ($uTag => $rTag)",
+      (q"({ case $pat => new $rTag(..${fields.map(_._3)}) } : ($rTypeAsHList => $rTag)): ($uTag => $rTag)",
        q"{ case v => $cons }: ($rTag => $uTag)")
-    } else if(caseFields.length == 1) { // Map from single value
+    } else if(fields.length == 1) { // Map from single value
       (q"($rModule.apply _) : ($uTag => $rTag)",
        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     } else { // Map from tuple
       (q"($rModule.tupled) : ($uTag => $rTag)",
         q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
     }
-    q"""val ff = $f // Resolving f first creates more useful type errors
-        new _root_.slick.lifted.MappedProjection[$rTag, $uTag](${c.prefix}.toNode,
-          _root_.slick.ast.MappedScalaType.Mapper($g.asInstanceOf[Any => Any], ff.asInstanceOf[Any => Any], _root_.scala.None),
-          $rCT
-        )"""
+
+    val fpName = Constant("Fast Path of ("+fields.map(_._2).mkString(", ")+").mapTo["+rTag.tpe+"]")
+    val fpChildren = fields.map { case (_, t, n) => q"val $n = next[$t]" }
+    val fpReadChildren = fields.map { case (_, _, n) => q"$n.read(r)" }
+
+    q"""
+      val ff = $f.asInstanceOf[_root_.scala.Any => _root_.scala.Any] // Resolving f first creates more useful type errors
+      val gg = $g.asInstanceOf[_root_.scala.Any => _root_.scala.Any]
+      val fpMatch: (_root_.scala.Any => _root_.scala.Any) = {
+        case tm @ _root_.slick.relational.TypeMappingResultConverter(_: _root_.slick.relational.ProductResultConverter[_, _], _, _) =>
+          new _root_.slick.relational.SimpleFastPathResultConverter[_root_.slick.relational.ResultConverterDomain, $rTag](tm.asInstanceOf[_root_.slick.relational.TypeMappingResultConverter[_root_.slick.relational.ResultConverterDomain, $rTag, _]]) {
+            ..$fpChildren
+            override def read(r: Reader) = new $rTag(..$fpReadChildren)
+            override def getDumpInfo = super.getDumpInfo.copy(name = $fpName)
+          }
+        case tm => tm
+      }
+      new _root_.slick.lifted.MappedProjection[$rTag, $uTag](${c.prefix}.toNode,
+        _root_.slick.ast.MappedScalaType.Mapper(gg, ff, _root_.scala.Some(fpMatch)), $rCT)
+    """
   }
 }
 
@@ -362,7 +378,7 @@ class MappedProjection[T, P](child: Node, mapper: MappedScalaType.Mapper, classT
   def encodeRef(path: Node): MappedProjection[T, P] = new MappedProjection[T, P](child, mapper, classTag) {
     override def toNode = path
   }
-  def genericFastPath(pf: PartialFunction[Any, Any]) = new MappedProjection[T, P](child, mapper.copy(fastPath = Some(pf)), classTag)
+  def genericFastPath(f: Function[Any, Any]) = new MappedProjection[T, P](child, mapper.copy(fastPath = Some(f)), classTag)
 }
 
 object MappedProjection {

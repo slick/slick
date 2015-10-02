@@ -406,10 +406,11 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     class T(tag: Tag) extends Table[Data](tag, "T_fastpath") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).mapTo[Data].fastPath(new FastPath(_) {
+      def * = (a, b).<>(Data.tupled, Data.unapply _).fastPath(new FastPath(_) {
         val (a, b) = (next[Int], next[Int])
         override def read(r: Reader) = Data(a.read(r), b.read(r))
       })
+      def auto = (a, b).mapTo[Data]
     }
     val ts = TableQuery[T]
 
@@ -418,7 +419,8 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
       ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
       ts.filter(_.a === 1).update(Data(7, 8)),
       ts.filter(_.a === 3).map(identity).update(Data(9, 10)),
-      ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
+      ts.to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6))),
+      ts.map(_.auto).to[Set].result.map(_ shouldBe Set(Data(7, 8), Data(9, 10), Data(5, 6)))
     )
   }
 }
