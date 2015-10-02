@@ -1,8 +1,10 @@
 package slick.lifted
 
 import scala.language.{existentials, implicitConversions, higherKinds}
+import scala.language.experimental.macros
 import scala.annotation.implicitNotFound
 import scala.annotation.unchecked.uncheckedVariance
+import scala.reflect.macros.blackbox.Context
 import slick.SlickException
 import slick.util.{ConstArray, ProductWrapper, TupleSupport}
 import slick.ast._
@@ -269,12 +271,53 @@ case class ShapedValue[T, U](value: T, shape: Shape[_ <: FlatShapeLevel, T, U, _
   def toNode = shape.toNode(value)
   def packedValue[R](implicit ev: Shape[_ <: FlatShapeLevel, T, _, R]): ShapedValue[R, U] = ShapedValue(shape.pack(value).asInstanceOf[R], shape.packedShape.asInstanceOf[Shape[FlatShapeLevel, R, U, _]])
   def zip[T2, U2](s2: ShapedValue[T2, U2]) = new ShapedValue[(T, T2), (U, U2)]((value, s2.value), Shape.tuple2Shape(shape, s2.shape))
-  @inline def <>[R : ClassTag](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
+  def <>[R : ClassTag](f: (U => R), g: (R => Option[U])) = new MappedProjection[R, U](shape.toNode(value), MappedScalaType.Mapper(g.andThen(_.get).asInstanceOf[Any => Any], f.asInstanceOf[Any => Any], None), implicitly[ClassTag[R]])
   @inline def shaped: ShapedValue[T, U] = this
+
+  def mapTo[R <: Product with Serializable](implicit rCT: ClassTag[R]): MappedProjection[R, U] = macro ShapedValue.mapToImpl[R, U]
 }
 
 object ShapedValue {
   @inline implicit def shapedValueShape[T, U, Level <: ShapeLevel] = RepShape[Level, ShapedValue[T, U], U]
+
+  def mapToImpl[R <: Product with Serializable, U](c: Context { type PrefixType = ShapedValue[_, U] })(rCT: c.Expr[ClassTag[R]])(implicit rTag: c.WeakTypeTag[R], uTag: c.WeakTypeTag[U]): c.Tree = {
+    import c.universe._
+    val rSym = symbolOf[R]
+    if(!rSym.isClass || !rSym.asClass.isCaseClass)
+      c.abort(c.enclosingPosition, s"${rSym.fullName} must be a case class")
+    val rModule = rSym.companion match {
+      case NoSymbol => q"${rSym.name.toTermName}" // This can happen for case classes defined inside of methods
+      case s => q"$s"
+    }
+    val caseFields =  rTag.tpe.decls.collect {
+      case s: TermSymbol if s.isVal && s.isCaseAccessor => (TermName(s.name.toString.trim), s.typeSignature)
+    }.toIndexedSeq
+    val (f, g) = if(uTag.tpe <:< c.typeOf[slick.collection.heterogeneous.HList]) { // Map from HList
+      val rTypeAsHList = caseFields.foldRight[Tree](tq"_root_.slick.collection.heterogeneous.HNil.type") {
+        case ((_, t), z) => tq"_root_.slick.collection.heterogeneous.HCons[$t, $z]"
+      }
+      val matchNames = caseFields.map(_ => TermName(c.freshName()))
+      val pat = matchNames.foldRight[Tree](pq"_root_.slick.collection.heterogeneous.HNil") {
+        case (n, z) => pq"_root_.slick.collection.heterogeneous.HCons($n, $z)"
+      }
+      val cons = caseFields.foldRight[Tree](q"_root_.slick.collection.heterogeneous.HNil") {
+        case ((n, _), z) => q"v.$n :: $z"
+      }
+      (q"({ case $pat => new $rTag(..$matchNames) } : ($rTypeAsHList => $rTag)): ($uTag => $rTag)",
+       q"{ case v => $cons }: ($rTag => $uTag)")
+    } else if(caseFields.length == 1) { // Map from single value
+      (q"($rModule.apply _) : ($uTag => $rTag)",
+       q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
+    } else { // Map from tuple
+      (q"($rModule.tupled) : ($uTag => $rTag)",
+        q"(($rModule.unapply _) : $rTag => Option[$uTag]).andThen(_.get)")
+    }
+    q"""val ff = $f // Resolving f first creates more useful type errors
+        new _root_.slick.lifted.MappedProjection[$rTag, $uTag](${c.prefix}.toNode,
+          _root_.slick.ast.MappedScalaType.Mapper($g.asInstanceOf[Any => Any], ff.asInstanceOf[Any => Any], _root_.scala.None),
+          $rCT
+        )"""
+  }
 }
 
 /** A limited version of ShapedValue which can be constructed for every type
