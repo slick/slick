@@ -69,14 +69,6 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
       (CompiledStatement(ibr.sql, ibr, serverSide.nodeType).infer(), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
     }
   }
-
-  class JdbcFastPathExtensionMethods[T, P](val mp: MappedProjection[T, P]) {
-    def fastPath(fpf: (TypeMappingResultConverter[JdbcResultConverterDomain, T, _] => JdbcFastPath[T])): MappedProjection[T, P] = mp.genericFastPath {
-      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _], _, _) =>
-        fpf(tm.asInstanceOf[TypeMappingResultConverter[JdbcResultConverterDomain, T, _]])
-
-    }
-  }
 }
 
 trait JdbcResultConverterDomain extends ResultConverterDomain {

@@ -24,6 +24,7 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   override protected def computeCapabilities = super.computeCapabilities ++ RelationalProfile.capabilities.all
 
   trait API extends super.API with ImplicitColumnTypes {
+    type FastPath[T] = SimpleFastPathResultConverter[ResultConverterDomain, T]
     type Table[T] = driver.Table[T]
     type Sequence[T] = driver.Sequence[T]
     val Sequence = driver.Sequence
@@ -42,6 +43,8 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
     implicit def queryInsertActionExtensionMethods[U, C[_]](q: Query[_, U, C]) = createInsertActionExtensionMethods[U](compileInsert(q.toNode))
 
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
+
+    implicit def fastPathExtensionMethods[T, P](mp: MappedProjection[T, P]): FastPathExtensionMethods[ResultConverterDomain, T, P] = new FastPathExtensionMethods[ResultConverterDomain, T, P](mp)
   }
 
   val api: API
@@ -72,6 +75,14 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
   /** Run a query synchronously on the provided session. This is used by DistributedDriver until we
     * can make it fully asynchronous. */
   def runSynchronousQuery[R](tree: Node, param: Any)(implicit session: Backend#Session): R
+
+  class FastPathExtensionMethods[M <: ResultConverterDomain, T, P](val mp: MappedProjection[T, P]) {
+    def fastPath(fpf: (TypeMappingResultConverter[M, T, _] => SimpleFastPathResultConverter[M, T])): MappedProjection[T, P] = mp.genericFastPath {
+      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _], _, _) =>
+        fpf(tm.asInstanceOf[TypeMappingResultConverter[M, T, _]])
+
+    }
+  }
 }
 
 object RelationalProfile {
