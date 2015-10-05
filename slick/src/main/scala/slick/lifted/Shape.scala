@@ -317,6 +317,8 @@ object ShapedValue {
     val fpName = Constant("Fast Path of ("+fields.map(_._2).mkString(", ")+").mapTo["+rTag.tpe+"]")
     val fpChildren = fields.map { case (_, t, n) => q"val $n = next[$t]" }
     val fpReadChildren = fields.map { case (_, _, n) => q"$n.read(r)" }
+    val fpSetChildren = fields.map { case (fn, _, n) => q"$n.set(value.$fn, pp)" }
+    val fpUpdateChildren = fields.map { case (fn, _, n) => q"$n.update(value.$fn, pr)" }
 
     q"""
       val ff = $f.asInstanceOf[_root_.scala.Any => _root_.scala.Any] // Resolving f first creates more useful type errors
@@ -325,7 +327,9 @@ object ShapedValue {
         case tm @ _root_.slick.relational.TypeMappingResultConverter(_: _root_.slick.relational.ProductResultConverter[_, _], _, _) =>
           new _root_.slick.relational.SimpleFastPathResultConverter[_root_.slick.relational.ResultConverterDomain, $rTag](tm.asInstanceOf[_root_.slick.relational.TypeMappingResultConverter[_root_.slick.relational.ResultConverterDomain, $rTag, _]]) {
             ..$fpChildren
-            override def read(r: Reader) = new $rTag(..$fpReadChildren)
+            override def read(r: Reader): $rTag = new $rTag(..$fpReadChildren)
+            override def set(value: $rTag, pp: Writer): _root_.scala.Unit = {..$fpSetChildren}
+            override def update(value: $rTag, pr: Updater): _root_.scala.Unit = {..$fpUpdateChildren}
             override def getDumpInfo = super.getDumpInfo.copy(name = $fpName)
           }
         case tm => tm
