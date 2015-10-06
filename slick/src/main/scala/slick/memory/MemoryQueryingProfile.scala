@@ -5,15 +5,15 @@ import scala.language.{implicitConversions, existentials}
 import scala.collection.mutable.ArrayBuffer
 import slick.SlickException
 import slick.ast._
+import slick.basic.BasicProfile
 import slick.compiler._
 import slick.lifted._
 import slick.relational._
-import slick.profile.{BasicDriver, BasicProfile}
 import slick.util.{??, ConstArray}
 import TypeUtil._
 
-/** The querying (read-only) part that can be shared between MemoryDriver and DistributedDriver. */
-trait MemoryQueryingProfile extends BasicProfile { driver: MemoryQueryingDriver =>
+/** The querying (read-only) part that can be shared between MemoryProfile and DistributedProfile. */
+trait MemoryQueryingProfile extends BasicProfile { self: MemoryQueryingProfile =>
 
   type ColumnType[T] = ScalaType[T]
   type BaseColumnType[T] = ScalaType[T] with BaseTypedType[T]
@@ -36,11 +36,10 @@ trait MemoryQueryingProfile extends BasicProfile { driver: MemoryQueryingDriver 
     implicit def shortColumnType = ScalaBaseType.shortType
     implicit def stringColumnType = ScalaBaseType.stringType
   }
-}
 
-trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driver =>
+  /* internal: */
 
-  /** The driver-specific representation of types */
+  /** The profile-specific representation of types */
   def typeInfoFor(t: Type): ScalaType[Any] = ((t.structural match {
     case t: ScalaType[_] => t
     case t: TypedType[_] => t.scalaType

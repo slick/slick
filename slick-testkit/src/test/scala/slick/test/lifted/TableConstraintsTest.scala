@@ -7,7 +7,7 @@ import org.junit.Assert._
 class TableConstraintsTest {
 
   @Test def testConstraintsOrdering {
-    import slick.driver.H2Driver.api._
+    import slick.jdbc.H2Profile.api._
 
     class Foo(tag: Tag) extends Table[Long](tag, "foo_table") {
         def id = column[Long]("id")

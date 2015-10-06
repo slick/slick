@@ -7,7 +7,7 @@ import org.junit.Assert._
 class SchemaSupportTest {
 
   @Test def testSchemaSupport {
-    import slick.driver.H2Driver.api._
+    import slick.jdbc.H2Profile.api._
 
     class T(tag: Tag) extends Table[Int](tag, Some("myschema"), "mytable") {
       def id = column[Int]("id")

@@ -330,10 +330,10 @@ object TypeUtil {
 
 /** A Slick Type encoding of plain Scala types.
   *
-  * This is used by QueryInterpreter and MemoryDriver. Values stored in
+  * This is used by QueryInterpreter and MemoryProfile. Values stored in
   * HeapBackend columns are also expected to use these types.
   *
-  * All drivers should support the following types which are used internally
+  * All profiles should support the following types which are used internally
   * by the lifted embedding and the query compiler: Boolean, Char, Int, Long,
   * Null, String. */
 trait ScalaType[T] extends TypedType[T] {

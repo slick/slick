@@ -11,9 +11,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.io.{Codec, Source}
 import slick.dbio.DBIO
 import slick.codegen.{OutputHelpers, SourceCodeGenerator}
-import slick.driver._
 import slick.jdbc.JdbcBackend
-import slick.driver.JdbcDriver
 import slick.jdbc.meta.MTable
 import slick.model.Model
 
@@ -27,7 +25,7 @@ object GenerateMainSources extends TestCodeGenerator {
     new Config("CG2", StandardTestDBs.HsqldbMem, "HsqldbMem", Seq("/dbs/hsqldb.sql")),
     new Config("CG3", StandardTestDBs.SQLiteMem, "SQLiteMem", Seq("/dbs/sqlite.sql")),
     new Config("CG7", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def entityName = {
           case "COFFEES" => "Coff"
           case other => super.entityName(other)
@@ -49,7 +47,7 @@ object GenerateMainSources extends TestCodeGenerator {
       })
     },
     new Config("CG8", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2-simple.sql")) {
-      override def generator = tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def EntityType = new EntityType{
             override def enabled = false
@@ -75,7 +73,7 @@ val  SimpleA = CustomTyping.SimpleA
       })
     },
     new Config("CG9", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/h2.sql")) {
-      override def generator = tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_){
           override def autoIncLastAsOption = true
         }
@@ -83,7 +81,7 @@ val  SimpleA = CustomTyping.SimpleA
     },
     new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid.sql")),
     new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
-      import tdb.driver.api._
+      import tdb.profile.api._
       class A(tag: Tag) extends Table[(Int, Array[Byte], Blob)](tag, "a") {
         def id = column[Int]("id")
         def ba = column[Array[Byte]]("ba")
@@ -92,7 +90,7 @@ val  SimpleA = CustomTyping.SimpleA
       }
       override def generator =
         TableQuery[A].schema.create >>
-        tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
+        tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_))
       override def testCode =
         """
           |  import java.sql.Blob
@@ -112,7 +110,7 @@ val  SimpleA = CustomTyping.SimpleA
   //Unified UUID config
   class UUIDConfig(objectName: String, tdb: JdbcTestDB, tdbName: String, initScripts: Seq[String])
     extends Config(objectName, tdb, tdbName, initScripts) {
-      override def generator =tdb.driver.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
+      override def generator = tdb.profile.createModel(ignoreInvalidDefaults=false).map(new MyGen(_) {
         override def Table = new Table(_) {
           override def Column = new Column(_){
             override def defaultCode: (Any) => String = {

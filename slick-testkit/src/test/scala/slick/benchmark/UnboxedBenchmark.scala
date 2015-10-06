@@ -9,8 +9,8 @@ import slick.util.TreePrinter
 @deprecated("Using deprecated .simple API", "3.0")
 object UnboxedBenchmark extends App {
 
-  val driver = slick.driver.H2Driver
-  import driver.api._
+  val profile = slick.jdbc.H2Profile
+  import profile.api._
 
   case class A(var a: Int, var b: Int, var c: Int, var d: Int)
 
@@ -54,7 +54,7 @@ object UnboxedBenchmark extends App {
   runTest(q3.toNode)
 
   def runTest(n: Node) {
-    val rsm = driver.queryCompiler.run(n).tree
+    val rsm = profile.queryCompiler.run(n).tree
     TreePrinter.default.print(rsm)
     val ResultSetMapping(_, _, CompiledMapping(converter, _)) = rsm
     for(i <- 1 to 5) {

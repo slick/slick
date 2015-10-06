@@ -3,21 +3,21 @@ package slick.test.memory
 import org.junit.Test
 import org.junit.Assert._
 import com.typesafe.slick.testkit.util.StandardTestDBs
-import slick.backend.DatabaseConfig
-import slick.driver.JdbcProfile
+import slick.basic.DatabaseConfig
+import slick.jdbc.JdbcProfile
+import slick.memory.{DistributedBackend, DistributedProfile}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
-import slick.memory.{DistributedDriver, DistributedBackend}
 import ExecutionContext.Implicits.global
 
-/** Test for the DistributedDriver */
+/** Test for the DistributedProfile */
 class DistributedQueryingTest {
   val dc1 = DatabaseConfig.forConfig[JdbcProfile]("distrib1")
   val dc2 = DatabaseConfig.forConfig[JdbcProfile]("distrib2")
-  val dProfile = new DistributedDriver(dc1.driver, dc2.driver).profile
+  val dProfile = new DistributedProfile(dc1.profile, dc2.profile)
 
   val ts = {
-    import dc1.driver.api._
+    import dc1.profile.api._
     class T(tag: Tag) extends Table[(Int, Int, String)](tag, "tdb1_T") {
       def id = column[Int]("id", O.PrimaryKey)
       def a = column[Int]("a")
@@ -27,8 +27,8 @@ class DistributedQueryingTest {
     TableQuery[T]
   }
 
-  class U(tag: slick.lifted.Tag) extends dc2.driver.Table[(Int, Int, String)](tag, "tdb2_U") {
-    import dc2.driver.api._
+  class U(tag: slick.lifted.Tag) extends dc2.profile.Table[(Int, Int, String)](tag, "tdb2_U") {
+    import dc2.profile.api._
     def id = column[Int]("id", O.PrimaryKey)
     def a = column[Int]("a")
     def b = column[String]("b")
@@ -45,10 +45,10 @@ class DistributedQueryingTest {
       try {
         val db = DistributedBackend.Database(Seq(dc1.db, dc2.db), ExecutionContext.global)
         ;{
-          import dc1.driver.api._
+          import dc1.profile.api._
           Await.result(dc1.db.run(DBIO.seq(ts.schema.create, ts ++= tData)), Duration.Inf)
         };{
-          import dc2.driver.api._
+          import dc2.profile.api._
           Await.result(dc2.db.run(DBIO.seq(us.schema.create, us ++= uData)), Duration.Inf)
         };{
           import dProfile.api._

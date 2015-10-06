@@ -1,9 +1,9 @@
 package slick.jdbc
 
 import java.net.URI
+import java.sql.PreparedStatement
 
 import com.typesafe.config.ConfigException
-import slick.util.ClassLoaderUtil
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -13,13 +13,11 @@ import scala.reflect.ClassTag
 import scala.reflect.macros.{blackbox, whitebox}
 import scala.collection.mutable.ArrayBuffer
 
-import java.sql.PreparedStatement
-
 import slick.SlickException
-import slick.backend.{DatabaseConfig, StaticDatabaseConfigMacros, StaticDatabaseConfig}
+import slick.basic.{DatabaseConfig, StaticDatabaseConfigMacros, StaticDatabaseConfig}
 import slick.dbio.{NoStream, Effect}
-import slick.driver.JdbcProfile
-import slick.profile.{SqlAction, SqlStreamingAction}
+import slick.sql.{SqlAction, SqlStreamingAction}
+import slick.util.ClassLoaderUtil
 
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   import ActionBasedSQLInterpolation._
@@ -72,7 +70,7 @@ object ActionBasedSQLInterpolation {
           _.getMetaData match {
             case null => Vector()
             case resultMeta => Vector.tabulate(resultMeta.getColumnCount) { i =>
-              val modelBuilder = dc.driver.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
+              val modelBuilder = dc.profile.createModelBuilder(Nil, true)(scala.concurrent.ExecutionContext.global)
               modelBuilder.jdbcTypeToScala(resultMeta.getColumnType(i + 1), resultMeta.getColumnTypeName(i + 1))
             }
           }

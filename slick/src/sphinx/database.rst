@@ -121,11 +121,11 @@ DatabaseConfig
 --------------
 
 On top of the configuration syntax for ``Database``, there is another layer in the form of
-:api:`slick.backend.DatabaseConfig` which allows you to configure a Slick driver plus a
+:api:`slick.basic.DatabaseConfig` which allows you to configure a Slick profile plus a
 matching ``Database`` together. This makes it easy to abstract over different kinds of
 database systems by simply changing a configuration file.
 
-Here is a typical ``DatabaseConfig`` with a Slick driver object in ``driver`` and the database
+Here is a typical ``DatabaseConfig`` with a Slick profile object in ``profile`` and the database
 configuration in ``db``:
 
 .. includecode:: resources/application.conf#tsql

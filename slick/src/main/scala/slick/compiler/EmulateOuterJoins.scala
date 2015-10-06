@@ -80,7 +80,7 @@ class EmulateOuterJoins(val useLeftJoin: Boolean, val useRightJoin: Boolean) ext
     }).mapChildren(replaceTS)
     //repl.foreach { case (ts1, ts2) => global.get(ts1).foreach(t => global += ts2 -> replaceTS(t)) }
     n.replace({
-      case n: TableNode => n.copy(identity = repl(n.identity).asInstanceOf[TableIdentitySymbol])(n.driverTable) :@ replaceTS(n.nodeType)
+      case n: TableNode => n.copy(identity = repl(n.identity).asInstanceOf[TableIdentitySymbol])(n.profileTable) :@ replaceTS(n.nodeType)
       case n: Pure => n.copy(identity = repl(n.identity))
       case n: GroupBy => n.copy(identity = repl(n.identity))
     }, bottomUp = true).infer()

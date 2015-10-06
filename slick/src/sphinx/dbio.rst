@@ -142,7 +142,7 @@ _________
 
 The :api:`named <slick.dbio.DBIOAction@named(String):DBIOAction[R,S,E]>` combinator names an
 action. This name can be seen in debug logs if you enable the
-``slick.backend.DatabaseComponent.action`` logger.
+``slick.basic.BasicBackend.action`` logger.
 
 Transactions and Pinned Sessions
 ________________________________
@@ -162,7 +162,7 @@ use of a single session, keeping the existing session open even when waiting for
 computations.
 
 There is a similar combinator called
-:api:`transactionally <slick.driver.JdbcActionComponent$JdbcActionExtensionMethods@transactionally:DBIOAction[R,S,EwithTransactional]>`
+:api:`transactionally <slick.jdbc.JdbcActionComponent$JdbcActionExtensionMethods@transactionally:DBIOAction[R,S,EwithTransactional]>`
 to force the use of a transaction. This guarantees that the entire ``DBIOAction`` that is executed will
 either succeed or fail atomically.
 

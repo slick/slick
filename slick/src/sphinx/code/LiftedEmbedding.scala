@@ -2,7 +2,7 @@ package com.typesafe.slick.docs
 
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 import java.sql.Date
 import scala.reflect.ClassTag
 

@@ -1,7 +1,7 @@
 package com.typesafe.slick.testkit.tests
 
 import com.typesafe.slick.testkit.util.{AsyncTest, RelationalTestDB}
-import slick.driver.{H2Driver, PostgresDriver}
+import slick.jdbc.{PostgresProfile, H2Profile}
 
 class AggregateTest extends AsyncTest[RelationalTestDB] {
   import tdb.profile.api._
@@ -293,7 +293,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val q2 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._2)
     val q3 = as.map(t => (t.value, t.value + LiteralColumn(1).bind)).groupBy(identity).map(_._1._1)
 
-    if(tdb.driver == H2Driver) {
+    if(tdb.profile == H2Profile) {
       assertNesting(q1, 2)
       assertNesting(q2, 2)
       assertNesting(q3, 1)
@@ -329,7 +329,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val q5b = as.distinct.map(_.id)
     val q5c = as.distinct.map(a => (a.id, a.a))
 
-    if(tdb.driver == H2Driver) {
+    if(tdb.profile == H2Profile) {
       assertNesting(q1a, 1)
       assertNesting(q1b, 1)
       assertNesting(q3a, 2)
@@ -337,7 +337,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       assertNesting(q5a, 1)
       assertNesting(q5b, 1)
       assertNesting(q5c, 1)
-    } else if(tdb.driver == PostgresDriver) {
+    } else if(tdb.profile == PostgresProfile) {
       assertNesting(q1a, 1)
       assertNesting(q1b, 1)
       assertNesting(q3a, 4)

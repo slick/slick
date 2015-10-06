@@ -16,15 +16,15 @@ Writing a fully featured plugin for your own SQL-based backend can be achieved
 with a reasonable amount of work. Support for other backends (like NoSQL) is
 under development but not yet available.
 
-The following capabilities are supported by the drivers. "Yes" means that a
+The following capabilities are supported by the profiles. "Yes" means that a
 capability is fully supported. In other cases it may be partially supported or
-not at all. See the individual driver's API documentation for details.
+not at all. See the individual profile's API documentation for details.
 
 
 
 
 
 
-.. csv-table:: Driver Capabilities (core drivers only)
+.. csv-table:: Profile Capabilities (core profiles only)
    :header-rows: 1
    :file: capabilities.csv
