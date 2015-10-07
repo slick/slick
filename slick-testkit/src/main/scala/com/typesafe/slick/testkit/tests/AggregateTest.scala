@@ -147,7 +147,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       class T4(tag: Tag) extends Table[Pair](tag, "t4") {
         def a = column[Int]("a")
         def b = column[Option[Int]]("b")
-        def * = (a, b) <> (Pair.tupled,Pair.unapply)
+        def * = (a, b).mapTo[Pair]
       }
       val t4s = TableQuery[T4]
       db.run(t4s.schema.create >>
@@ -198,7 +198,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       def col4 = column[Int]("COL4")
       def col5 = column[Int]("COL5")
 
-      def * = (col1, col2, col3, col4, col5) <> (Tab.tupled, Tab.unapply)
+      def * = (col1, col2, col3, col4, col5).mapTo[Tab]
     }
     val Tabs = TableQuery[Tabs]
 

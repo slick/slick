@@ -217,7 +217,7 @@ final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapp
 }
 
 object MappedScalaType {
-  case class Mapper(toBase: Any => Any, toMapped: Any => Any, fastPath: Option[PartialFunction[Any, Any]])
+  case class Mapper(toBase: Any => Any, toMapped: Any => Any, fastPath: Option[Any => Any])
 }
 
 /** The standard type for freshly constructed nodes without an explicit type. */

@@ -1,7 +1,7 @@
 package slick.driver
 
 import slick.ast.TypeUtil.:@
-import slick.relational.CompiledMapping
+import slick.relational.{SimpleFastPathResultConverter, CompiledMapping}
 
 import scala.collection.mutable.Builder
 import scala.language.{implicitConversions, higherKinds}
@@ -46,11 +46,8 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
   }
 
   trait API extends LowPriorityAPI with super.API with ImplicitColumnTypes {
-    type FastPath[T] = JdbcFastPath[T]
     type SimpleDBIO[+R] = SimpleJdbcAction[R]
     val SimpleDBIO = SimpleJdbcAction
-
-    implicit def jdbcFastPathExtensionMethods[T, P](mp: MappedProjection[T, P]) = new JdbcFastPathExtensionMethods[T, P](mp)
 
     implicit def queryDeleteActionExtensionMethods[C[_]](q: Query[_ <: RelationalProfile#Table[_], _, C]): DeleteActionExtensionMethods =
       createDeleteActionExtensionMethods(deleteCompiler.run(q.toNode).tree, ())

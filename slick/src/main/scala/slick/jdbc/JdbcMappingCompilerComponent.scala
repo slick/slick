@@ -46,7 +46,7 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
     override def createTypeMappingResultConverter(rc: ResultConverter[JdbcResultConverterDomain, Any], mapper: MappedScalaType.Mapper) = {
       val tm = new TypeMappingResultConverter(rc, mapper.toBase, mapper.toMapped)
       mapper.fastPath match {
-        case Some(pf) => pf.orElse[Any, Any] { case x => x }.apply(tm).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]]
+        case Some(f) => f(tm).asInstanceOf[ResultConverter[JdbcResultConverterDomain, Any]]
         case None => tm
       }
     }
@@ -67,14 +67,6 @@ trait JdbcMappingCompilerComponent { driver: JdbcDriver =>
       val ib = f(serverSide.asInstanceOf[Insert])
       val ibr = ib.buildInsert
       (CompiledStatement(ibr.sql, ibr, serverSide.nodeType).infer(), mapping.map(n => mappingCompiler.compileMapping(ib.transformMapping(n))))
-    }
-  }
-
-  class JdbcFastPathExtensionMethods[T, P](val mp: MappedProjection[T, P]) {
-    def fastPath(fpf: (TypeMappingResultConverter[JdbcResultConverterDomain, T, _] => JdbcFastPath[T])): MappedProjection[T, P] = mp.genericFastPath {
-      case tm @ TypeMappingResultConverter(_: ProductResultConverter[_, _], _, _) =>
-        fpf(tm.asInstanceOf[TypeMappingResultConverter[JdbcResultConverterDomain, T, _]])
-
     }
   }
 }

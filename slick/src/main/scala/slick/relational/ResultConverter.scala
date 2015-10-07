@@ -150,3 +150,25 @@ final case class OptionRebuildingResultConverter[M <: ResultConverterDomain, T](
   def width = discriminator.width + data.width
   override def getDumpInfo = super.getDumpInfo.copy(children = Vector(("discriminator", discriminator), ("data", data)))
 }
+
+/** A `ResultConverter` that simplifies the implementation of fast path
+  * converters. It always wraps a `TypeMappingResultConverter`
+  * on top of a `ProductResultConverter`, allowing direct access to the product
+  * elements. */
+abstract class SimpleFastPathResultConverter[M <: ResultConverterDomain, T](protected[this] val rc: TypeMappingResultConverter[M, T, _]) extends ResultConverter[M, T] {
+  private[this] val ch = rc.child.asInstanceOf[ProductResultConverter[M, _]].elementConverters
+  private[this] var idx = -1
+
+  /** Return the next specialized child `ResultConverter` for the specified type. */
+  protected[this] def next[C] = {
+    idx += 1
+    ch(idx).asInstanceOf[ResultConverter[M, C]]
+  }
+
+  def read(pr: Reader) = rc.read(pr)
+  def update(value: T, pr: Updater) = rc.update(value, pr)
+  def set(value: T, pp: Writer) = rc.set(value, pp)
+
+  override def getDumpInfo = super.getDumpInfo.copy(name = "SimpleFastPathResultConverter", mainInfo = "", children = Vector(("rc", rc)))
+  def width = rc.width
+}
