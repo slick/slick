@@ -78,11 +78,13 @@ class QueryCompiler(val phases: Vector[Phase]) extends Logging {
   protected[this] def runPhase(p: Phase, state: CompilerState): CompilerState = state.symbolNamer.use {
     val s2 = p(state)
     if(s2.tree ne state.tree) {
-      if(GlobalConfig.detectRebuild && s2.tree == state.tree) {
-        val rebuilt = detectRebuiltLeafs(state.tree, s2.tree)
-        logger.debug("After phase "+p.name+": (no change but not identical)", s2.tree, (d => rebuilt.contains(RefId(d))))
-      } else
-        logger.debug("After phase "+p.name+":", s2.tree)
+      if(logger.isDebugEnabled) {
+        if(GlobalConfig.detectRebuild && s2.tree == state.tree) {
+          val rebuilt = detectRebuiltLeafs(state.tree, s2.tree)
+          logger.debug("After phase "+p.name+": (no change but not identical)", s2.tree, (d => rebuilt.contains(RefId(d))))
+        } else
+          logger.debug("After phase "+p.name+":", s2.tree)
+      }
       if(GlobalConfig.verifyTypes && s2.wellTyped)
         (new VerifyTypes(after = Some(p))).apply(s2)
     }

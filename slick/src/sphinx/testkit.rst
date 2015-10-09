@@ -48,7 +48,7 @@ There is a copy of Slick's logback configuration in
 framework if you prefer a different one.
 
 Profile
-------
+-------
 
 The actual profile implementation can be found under ``src/main/scala``.
 
