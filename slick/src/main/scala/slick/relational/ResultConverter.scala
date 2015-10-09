@@ -34,7 +34,7 @@ trait ResultConverter[M <: ResultConverterDomain, @specialized T] extends Dumpab
 
 /** The domain of a `ResultConverter` and associated classes. It defines the
   * `Reader`, `Writer` and `Updater` types that are needed at the lowest
-  * level of ResultConverters for accessing the underlying driver-specific
+  * level of ResultConverters for accessing the underlying profile-specific
   * data structures. */
 trait ResultConverterDomain {
   type Reader

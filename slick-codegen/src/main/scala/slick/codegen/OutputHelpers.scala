@@ -40,7 +40,7 @@ trait OutputHelpers{
    * and places the new file inside or overrides the existing one.
    * @group Output
    * @param folder target folder, in which the package structure folders are placed
-   * @param profile Slick profile that is imported in the generated package (e.g. slick.driver.H2Driver)
+   * @param profile Slick profile that is imported in the generated package (e.g. slick.jdbc.H2Profile)
    * @param pkg Scala package the generated code is placed in (a subfolder structure will be created within srcFolder)
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    * @param fileName Name of the output file, to which the code will be written
@@ -52,7 +52,7 @@ trait OutputHelpers{
   /**
    * Generates code providing the data model as trait and object in a Scala package
    * @group Basic customization overrides
-   * @param profile Slick profile that is imported in the generated package (e.g. slick.driver.H2Driver)
+   * @param profile Slick profile that is imported in the generated package (e.g. slick.jdbc.H2Profile)
    * @param pkg Scala package the generated code is placed in
    * @param container The name of a trait and an object the generated code will be placed in within the specified package.
    */
@@ -67,7 +67,7 @@ object ${container} extends {
 
 /** Slick data model trait for extension, choice of backend or usage in the cake pattern. (Make sure to initialize this late.) */
 trait ${container}${parentType.map(t => s" extends $t").getOrElse("")} {
-  val profile: slick.driver.JdbcProfile
+  val profile: slick.jdbc.JdbcProfile
   import profile.api._
   ${indent(code)}
 }

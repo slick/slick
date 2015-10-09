@@ -1,6 +1,6 @@
 package com.typesafe.slick.docs
 
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 
 object JoinsUnions extends App{
 

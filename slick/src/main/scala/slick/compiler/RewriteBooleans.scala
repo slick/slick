@@ -9,7 +9,7 @@ import TypeUtil._
   * between fake and real boolean values.
   *
   * The default for booleans in the AST is to use the fake type (mapped to a numeric type by the
-  * driver). There are specific places where a real boolean (that can be used in boolean
+  * profile). There are specific places where a real boolean (that can be used in boolean
   * expressions) is required or produced, so we inject a call to ToRealBoolean or ToFakeBoolean as
   * needed. */
 class RewriteBooleans extends Phase {

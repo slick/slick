@@ -234,8 +234,8 @@ directly, the insert is performed against its ``*`` projection. Omitting some of
 when inserting causes the database to use the default values specified in the table definition, or
 a type-specific default in case no explicit default was given. All methods for building insert
 Actions are defined in
-:api:`CountingInsertActionComposer <slick.driver.JdbcActionComponent@CountingInsertActionComposer[U]:JdbcDriver.CountingInsertActionComposer[U]>` and
-:api:`ReturningInsertActionComposer <slick.driver.JdbcActionComponent@ReturningInsertActionComposer[U,RU]:JdbcDriver.ReturningInsertActionComposer[U,RU]>`.
+:api:`CountingInsertActionComposer <slick.jdbc.JdbcActionComponent@CountingInsertActionComposer[U]:JdbcProfile.CountingInsertActionComposer[U]>` and
+:api:`ReturningInsertActionComposer <slick.jdbc.JdbcActionComponent@ReturningInsertActionComposer[U,RU]:JdbcProfile.ReturningInsertActionComposer[U,RU]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#insert1
 
@@ -282,7 +282,7 @@ Updates are performed by writing a query that selects the data to update and
 then replacing it with new data. The query must only return raw columns (no
 computed values) selected from a single table. The relevant methods for
 updating are defined in
-:api:`UpdateExtensionMethods <slick.driver.JdbcActionComponent@UpdateActionExtensionMethodsImpl[T]:JdbcDriver.UpdateActionExtensionMethodsImpl[T]>`.
+:api:`UpdateExtensionMethods <slick.jdbc.JdbcActionComponent@UpdateActionExtensionMethodsImpl[T]:JdbcProfile.UpdateActionExtensionMethodsImpl[T]>`.
 
 .. includecode:: code/LiftedEmbedding.scala#update1
 

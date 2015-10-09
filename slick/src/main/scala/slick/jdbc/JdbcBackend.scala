@@ -12,16 +12,16 @@ import javax.sql.DataSource
 import javax.naming.InitialContext
 
 import slick.dbio._
-import slick.backend.{DatabasePublisher, DatabaseComponent, RelationalBackend}
+import slick.basic.DatabasePublisher
 import slick.SlickException
+import slick.relational.RelationalBackend
 import slick.util._
 import slick.util.ConfigExtensionMethods._
 
 import org.slf4j.LoggerFactory
 import com.typesafe.config.{ConfigFactory, Config}
 
-/** A JDBC-based database back-end which can be used for <em>Plain SQL</em> queries
-  * and with all [[slick.driver.JdbcProfile]]-based drivers. */
+/** A JDBC-based database back-end that is used by [[slick.jdbc.JdbcProfile]]. */
 trait JdbcBackend extends RelationalBackend {
   type This = JdbcBackend
   type Database = DatabaseDef
@@ -258,7 +258,7 @@ trait JdbcBackend extends RelationalBackend {
       * @param driver An optional JDBC driver to call directly. If this is set to a non-null value,
       *               the `driver` key from the configuration is ignored. The default is to use the
       *               standard lookup mechanism. The explicit driver may not be supported by all
-      *               connection pools (in particular, the default [[HikariCPJdbcDataSource]]).
+      *               connection pools (in particular, the default HikariCPJdbcDataSource).
       * @param classLoader The ClassLoader to use to load any custom classes from. The default is to
       *                    try the context ClassLoader first and fall back to Slick's ClassLoader.
       */

@@ -6,9 +6,8 @@ import java.util.logging.Logger
 
 import org.junit.Test
 import org.junit.Assert._
-import slick.backend.DatabaseConfig
-import slick.driver.JdbcProfile
-import slick.jdbc.JdbcBackend
+import slick.basic.DatabaseConfig
+import slick.jdbc.{JdbcProfile, JdbcBackend}
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -16,7 +15,7 @@ import scala.concurrent.duration.Duration
 class DataSourceTest {
   @Test def testDataSourceJdbcDataSource: Unit = {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds1")
-    import dc.driver.api._
+    import dc.profile.api._
     try {
       assertEquals(1, Await.result(dc.db.run(sql"select lock_mode()".as[Int].head), Duration.Inf))
     } finally dc.db.close
@@ -24,14 +23,14 @@ class DataSourceTest {
 
   @Test def testDirectDataSource: Unit = {
     val dc = DatabaseConfig.forConfig[JdbcProfile]("ds2")
-    import dc.driver.api._
+    import dc.profile.api._
     try {
       assertEquals(2, Await.result(dc.db.run(sql"select lock_mode()".as[Int].head), Duration.Inf))
     } finally dc.db.close
   }
 
   @Test def testDatabaseUrlDataSource: Unit = {
-    import slick.driver.H2Driver.api.actionBasedSQLInterpolation
+    import slick.jdbc.H2Profile.api.actionBasedSQLInterpolation
     MockDriver.reset
     val db = JdbcBackend.Database.forConfig("databaseUrl")
     try {

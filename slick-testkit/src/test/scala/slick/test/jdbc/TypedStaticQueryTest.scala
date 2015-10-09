@@ -5,10 +5,10 @@ import org.junit.Assert._
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
-import slick.backend.{DatabaseConfig, StaticDatabaseConfig}
+import slick.basic.{DatabaseConfig, StaticDatabaseConfig}
 import slick.collection.heterogeneous.HNil
 import slick.collection.heterogeneous.syntax._
-import slick.driver.JdbcProfile
+import slick.jdbc.JdbcProfile
 
 @StaticDatabaseConfig("file:common-test-resources/application.conf#tsql")
 class TypedStaticQueryTest {
@@ -16,7 +16,7 @@ class TypedStaticQueryTest {
   @Test
   def testTypedInterpolation: Unit = {
     val dc = DatabaseConfig.forAnnotation[JdbcProfile]
-    import dc.driver.api._
+    import dc.profile.api._
     try {
       val id1 = 150
       val id2 = 1
@@ -54,7 +54,7 @@ class TypedStaticQueryTest {
   @Test
   def testCustomTypes: Unit = {
     val dc = DatabaseConfig.forAnnotation[JdbcProfile]
-    import dc.driver.api._
+    import dc.profile.api._
     try {
       import slick.jdbc.SetParameter
 
@@ -101,7 +101,7 @@ class TypedStaticQueryTest {
   @Test
   def testPreparedQueries: Unit = {
     val dc = DatabaseConfig.forAnnotation[JdbcProfile]
-    import dc.driver.api._
+    import dc.profile.api._
     try {
       case class Supplier(id: Int, name: String)
       implicit val supplierGetter = (arg: (Int, String)) => Supplier(arg._1, arg._2)
@@ -140,7 +140,7 @@ class TypedStaticQueryTest {
   @Test
   def testAllStatements: Unit = {
     val dc = DatabaseConfig.forAnnotation[JdbcProfile]
-    import dc.driver.api._
+    import dc.profile.api._
     try {
       case class Supplier(id: Int, name: String)
       implicit val supplierGetter = (arg: (Int, String)) => Supplier(arg._1, arg._2)

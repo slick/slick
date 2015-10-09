@@ -14,7 +14,7 @@ import scala.util.Failure
 object ModelBuilderTest extends DBTestObject(H2Mem)
 
 class ModelBuilderTest(val tdb: JdbcTestDB) extends DBTest {
-  import tdb.driver.api._
+  import tdb.profile.api._
 
   @Test
   def test(): Unit = {

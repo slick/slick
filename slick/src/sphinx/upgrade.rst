@@ -31,59 +31,9 @@ changes.
 Release candidates have the same compatibility guarantees as the final versions to which they
 lead. There are *no compatibility guarantees* whatsoever for milestones and snapshots.
 
-Upgrade from 3.0 to 3.1
+Upgrade from 3.1 to 3.2
 =======================
 
-This section describes the changes that are needed when upgrading from Slick 3.0 to 3.1. If you are
+This section describes the changes that are needed when upgrading from Slick 3.1 to 3.2. If you are
 currently using an older version of Slick, please see the older `Slick Manuals`_ for details on other
 changes that may be required.
-
-Deprecations
-------------
-
-Most deprecated features from 3.0, including the old ``Invoker`` and ``Executor`` APIs and the package
-aliases for ``scala.slick`` were removed.
-
-HikariCP
---------
-
-The HikariCP_ support for Slick was factored out into its own module with a non-optional dependency
-on HikariCP itself. This makes it easier to use the correct version of HikariCP (which does not have
-a well-defined binary compatibility policy) with Slick. See the section on :ref:`dependencies <dependencies>`
-for more information.
-
-Due to packaging constraints imposed by OSGi, :hikaricpapi:`slick.jdbc.hikaricp.HikariCPJdbcDataSource`
-was moved from package ``slick.jdbc`` to ``slick.jdbc.hikaricp``.
-
-Counting Option columns
------------------------
-
-Counting collection-valued queries with ``.length`` now ignores nullability of the columns, i.e. it
-is equivalent to ``COUNT(*)`` in SQL, no matter what is being counted. The previous approach of
-picking a random column led to inconsistent results. This is particularly relevant when you try to
-count one side of an outer join. Up to Slick 3.0 the goal (although not achieved in all cases due
-to a design problem) was not to include non-matching rows in the total (equivalent to counting only
-the discriminator column). This does not make sense anymore for the new outer join operators
-(introduced in 3.0) with correct ``Option`` types. The new semantics are identical to those of
-Scala collections.
-
-There is a new operator ``.countDefined`` for counting only the defined / matching (i.e. non-NULL
-in SQL) rows. To avoid any ambiguities in the definition, it is only available for
-collection-valued queries of a single column with an ``Option`` type.
-
-Default String type on MySQL
-----------------------------
-
-Slick 3.0 changed the default string type for MySQL to `TEXT`, which is not allowed for primary keys
-and columns with default values. In these cases we now fall back to the old `VARCHAR(254)` type which
-was used up to Slick 2.1. Like in 3.0 you can change this default by setting the application.conf key
-`slick.driver.MySQL.defaultStringType`.
-
-Default String type on SQL Server
----------------------------------
-
-SQLServerDriver (part of :doc:`Slick Extensions <extensions>`) used `VARCHAR(MAX)` as the default type
-for strings without a size limit in 3.0. This type cannot be used for primary keys, so we now use
-`VARCHAR(254)` instead if a column has the `PrimaryKey` option set. Like for MySQL (see previous
-paragraph), the default type can be overridden by setting `slick.driver.SQLServer.defaultStringType`
-in application.conf.

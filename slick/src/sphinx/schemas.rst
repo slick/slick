@@ -23,7 +23,7 @@ All columns are defined through the ``column`` method. Each column has a
 Scala type and a column name for the database (usually in upper-case). The
 following primitive types are supported out of the box for JDBC-based
 databases in ``JdbcProfile`` (with certain limitations imposed by the
-individual database drivers):
+individual database profiles):
 
 - *Numeric types*: Byte, Short, Int, Long, BigDecimal, Float, Double
 - *LOB types*: java.sql.Blob, java.sql.Clob, Array[Byte]
@@ -154,7 +154,7 @@ if you manually extend the correct Scala function type. Alternatively you can us
 Constraints
 -----------
 
-A foreign key constraint can be defined with a Table's :api:`foreignKey <slick.profile.RelationalTableComponent$Table@foreignKey[P,PU,TT<:AbstractTable[_],U](String,P,TableQuery[TT])((TT)⇒P,ForeignKeyAction,ForeignKeyAction)(Shape[_<:FlatShapeLevel,TT,U,_],Shape[_<:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U]>` method.
+A foreign key constraint can be defined with a Table's :api:`foreignKey <slick.relational.RelationalTableComponent$Table@foreignKey[P,PU,TT<:AbstractTable[_],U](String,P,TableQuery[TT])((TT)⇒P,ForeignKeyAction,ForeignKeyAction)(Shape[_<:FlatShapeLevel,TT,U,_],Shape[_<:FlatShapeLevel,P,PU,_]):ForeignKeyQuery[TT,U]>` method.
 It first takes a name for the constraint, the referencing column(s) and the referenced table. The second argument list takes a function from the referenced table to its referenced column(s) as well as :api:`ForeignKeyAction <slick.model.ForeignKeyAction$>` for ``onUpdate`` and ``onDelete``, which are optional and default to :api:`NoAction <slick.model.ForeignKeyAction$$NoAction$>`. When creating the DDL statements for the table, the foreign key definition is added to it.
 
 .. includecode:: code/LiftedEmbedding.scala#foreignkey

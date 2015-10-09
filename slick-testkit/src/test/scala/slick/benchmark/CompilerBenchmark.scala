@@ -1,8 +1,8 @@
 package slick.benchmark
 
 import slick.compiler._
-import slick.driver.H2Driver
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile
+import slick.jdbc.H2Profile.api._
 
 import scala.collection.mutable.HashMap
 
@@ -18,7 +18,7 @@ object CompilerBenchmark {
     System.setProperty("slick.detectRebuild", "false")
     println("Number of queries: "+allQueries.length)
 
-    val phases = H2Driver.queryCompiler.phases
+    val phases = H2Profile.queryCompiler.phases
     val phaseNanos = new HashMap[String, Array[Long]]
     val compiler = new QueryCompiler(phases) {
       override def runPhase(p: Phase, state: CompilerState): CompilerState = {

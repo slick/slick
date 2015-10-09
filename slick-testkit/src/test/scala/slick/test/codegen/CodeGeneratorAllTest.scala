@@ -60,9 +60,9 @@ class CodeGeneratorAllTest(val tdb: JdbcTestDB) extends DBTest {
         }
       }
     })
-    val driverName = tdb.driver.getClass.toString.dropRight(1).split("[\\. ]").last
+    val profileName = tdb.profile.getClass.toString.dropRight(1).split("[\\. ]").last
 
     val codegen = Await.result(db.run((createA >> codegenA).withPinnedSession), Duration.Inf)
-    codegen.writeToFile("slick.driver.H2Driver","target/slick-testkit-codegen-tests/","all.test",driverName+"Tables",driverName+".scala")
+    codegen.writeToFile("slick.jdbc.H2Profile","target/slick-testkit-codegen-tests/","all.test",profileName+"Tables",profileName+".scala")
   }
 }

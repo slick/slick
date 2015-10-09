@@ -1,10 +1,9 @@
 package slick.test.codegen
 
-import slick.driver.JdbcProfile
-
 import scala.concurrent.ExecutionContext.Implicits.global
-import slick.jdbc.meta.MTable
 import slick.ast.{Node, Select}
+import slick.jdbc.JdbcProfile
+import slick.jdbc.meta.MTable
 import slick.test.codegen.generated._
 import com.typesafe.slick.testkit.util.{TestCodeRunner, JdbcTestDB}
 import org.junit.Assert._
@@ -68,7 +67,7 @@ object GeneratedCodeTest {
 
   def testCG2 = {
     class Db1 extends CG2 {
-      val profile = slick.driver.HsqldbDriver
+      val profile = slick.jdbc.HsqldbProfile
     }
     val Db1 = new Db1
     import Db1._

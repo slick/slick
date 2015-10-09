@@ -2,13 +2,13 @@ package slick.test.stream
 
 import org.testng.annotations.{AfterClass, BeforeClass}
 
-import slick.driver.{H2Driver, JdbcProfile}
+import slick.jdbc.{JdbcProfile, H2Profile}
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
-class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Driver, 1000L) {
-  import driver.api._
+class JdbcPublisherTest extends RelationalPublisherTest[JdbcProfile](H2Profile, 1000L) {
+  import profile.api._
 
   def createDB = {
     val db = Database.forURL("jdbc:h2:mem:DatabasePublisherTest", driver = "org.h2.Driver", keepAliveConnection = true)

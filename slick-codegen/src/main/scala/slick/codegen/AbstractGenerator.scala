@@ -1,9 +1,10 @@
 package slick.codegen
 
+import slick.ast.ColumnOption
 import slick.{model => m}
 import slick.model.ForeignKeyAction
-import slick.profile.{RelationalProfile, SqlProfile}
-import slick.ast.ColumnOption
+import slick.sql.SqlProfile
+import slick.relational.RelationalProfile
 
 /**
  * Slick code generator providing the base structure and facilities.

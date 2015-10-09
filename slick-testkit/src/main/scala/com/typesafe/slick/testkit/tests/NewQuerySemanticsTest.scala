@@ -1,6 +1,6 @@
 package com.typesafe.slick.testkit.tests
 
-import slick.driver.H2Driver
+import slick.jdbc.H2Profile
 
 import com.typesafe.slick.testkit.util.{RelationalTestDB, AsyncTest}
 
@@ -505,7 +505,7 @@ class NewQuerySemanticsTest extends AsyncTest[RelationalTestDB] {
     val q19 = as.joinLeft(as).on { case (a1, a2) => a1.id === a2.id }.joinLeft(as).on { case ((_, a2), a3) => a2.map(_.b) === a3.b }.map(_._2)
     val q19b = as.joinLeft(as).on { case (a1, a2) => a1.id === a2.id }.joinLeft(as).on { case ((_, a2), a3) => a2.map(_.b) === a3.b }.subquery.map(_._2)
 
-    if(tdb.driver == H2Driver) {
+    if(tdb.profile == H2Profile) {
       assertNesting(q1, 1)
       assertNesting(q2, 1)
       assertNesting(q3, 1)
