@@ -76,7 +76,14 @@ trait JdbcBackend extends RelationalBackend {
       * down. If this object represents a connection pool managed directly by Slick, it is also
       * closed. */
     def close: Unit = try executor.close() finally source.close()
-   }
+
+    override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _session: Session): JdbcActionContext = {
+      new JdbcActionContext {
+        val useSameThread = _useSameThread
+        override val session = _session
+      }
+    }
+  }
 
   trait DatabaseFactoryDef extends super.DatabaseFactoryDef {
     /** Create a Database based on a [[JdbcDataSource]]. */

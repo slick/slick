@@ -71,6 +71,12 @@ trait DatabaseComponent { self =>
     /** Run an Action asynchronously and return the result as a Future. */
     final def run[R](a: DBIOAction[R, NoStream, Nothing]): Future[R] = runInternal(a, false)
 
+    @deprecated("Supports transactions across multiple DBIOActions. Helps during migration from Slick 2.0")
+    final def runWithSession[R](a: DBIOAction[R, NoStream, Nothing], session: Session): Future[R] = {
+      try runInContext(a, createDatabaseActionContext(false, session), false, true)
+      catch { case NonFatal(ex) => Future.failed(ex) }
+    }
+
     private[slick] final def runInternal[R](a: DBIOAction[R, NoStream, Nothing], useSameThread: Boolean): Future[R] =
       try runInContext(a, createDatabaseActionContext(useSameThread), false, true)
       catch { case NonFatal(ex) => Future.failed(ex) }
@@ -124,6 +130,8 @@ trait DatabaseComponent { self =>
 
     /** Create the default DatabaseActionContext for this backend. */
     protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean): Context
+
+    protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _session: Session): Context
 
     /** Create the default StreamingDatabaseActionContext for this backend. */
     protected[this] def createStreamingDatabaseActionContext[T](s: Subscriber[_ >: T], useSameThread: Boolean): StreamingContext

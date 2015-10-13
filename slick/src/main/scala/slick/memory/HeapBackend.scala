@@ -56,6 +56,13 @@ trait HeapBackend extends RelationalBackend with Logging {
     def getTables: IndexedSeq[HeapTable] = synchronized {
       tables.values.toVector
     }
+
+    override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _session: Session): BasicActionContext = {
+      new BasicActionContext {
+        val useSameThread = _useSameThread
+        override val session = _session
+      }
+    }
   }
 
   def createEmptyDatabase: Database = {
