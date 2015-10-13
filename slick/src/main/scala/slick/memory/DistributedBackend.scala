@@ -52,6 +52,13 @@ trait DistributedBackend extends RelationalBackend with Logging {
 
     override def shutdown: Future[Unit] = Future.successful(())
     def close: Unit = ()
+
+    override protected[this] def createDatabaseActionContext[T](_useSameThread: Boolean, _session: Session): BasicActionContext = {
+      new BasicActionContext {
+        val useSameThread = _useSameThread
+        override val session = _session
+      }
+    }
   }
 
   class DatabaseFactoryDef extends super.DatabaseFactoryDef {
