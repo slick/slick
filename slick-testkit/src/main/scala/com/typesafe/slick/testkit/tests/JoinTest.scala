@@ -51,6 +51,14 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       _ <- q2.map(p => (p._1, p._2)).result.map(_ shouldBe List((2,1), (3,2), (4,3), (5,2)))
       q3 = posts.flatMap(_.withCategory)
       _ <- mark("q3", q3.result).map(_ should (_.length == 20))
+      q4 = (for {
+        a1 <- categories
+        a2 <- categories
+        a3 <- categories
+        a4 <- categories
+        if a1.id === a4.id
+      } yield a1.id).to[Set]
+      _ <- mark("q4", q4.result).map(_ shouldBe Set(1, 2, 3, 4))
     } yield ()
   }
 
