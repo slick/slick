@@ -339,7 +339,7 @@ object SlickBuild extends Build {
       ),
       osgiBundleFiles := Seq((OsgiKeys.bundle in slickProject).value),
       osgiBundleFiles ++= (dependencyClasspath in Compile in slickProject).value.map(_.data).filterNot(_.isDirectory),
-      osgiBundleFiles ++= (dependencyClasspath in Test).value.map(_.data).filter(f => f.name.contains("logback-") || f.name.contains("h2") || f.name.contains("reactive-streams")),
+      osgiBundleFiles ++= (dependencyClasspath in Test).value.map(_.data).filter(f => f.name.contains("logback-") || f.name.contains("h2")),
       publishArtifact := false
     )
     dependsOn(slickProject % "test")
