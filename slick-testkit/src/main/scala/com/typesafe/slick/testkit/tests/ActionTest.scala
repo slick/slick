@@ -109,4 +109,21 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       a5.map(_ shouldBe "a5")
     )
   } else DBIO.successful(())
+
+  def testFlatten = {
+    class T(tag: Tag) extends Table[Int](tag, u"t") {
+      def a = column[Int]("a")
+      def * = a
+    }
+    val ts = TableQuery[T]
+    for {
+      _ <- db.run {
+        ts.schema.create >>
+          (ts ++= Seq(2, 3, 1, 5, 4))
+      }
+      needFlatten = for (_ <- ts.result) yield ts.result
+      result <- db.run(needFlatten.flatten)
+      _ = result shouldBe Seq(2, 3, 1, 5, 4)
+    } yield ()
+  }
 }
