@@ -126,4 +126,22 @@ class ActionTest extends AsyncTest[RelationalTestDB] {
       _ = result shouldBe Seq(2, 3, 1, 5, 4)
     } yield ()
   }
+
+  def testZipWith = {
+      class T(tag: Tag) extends Table[Int](tag, u"t") {
+        def a = column[Int]("a")
+        def * = a
+      }
+      val ts = TableQuery[T]
+
+      for {
+        _ <- db.run {
+          ts.schema.create >>
+            (ts ++= Seq(2, 3, 1, 5, 4))
+        }
+        q1 = ts.sortBy(_.a).map(_.a).take(1)
+        result <- db.run(q1.result.head.zipWith(q1.result.head)({ case (a, b) => a + b }))
+        _ = result shouldBe 2
+      } yield ()
+    }
 }
