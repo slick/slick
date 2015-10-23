@@ -49,6 +49,11 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
   def flatMap[R2, S2 <: NoStream, E2 <: Effect](f: R => DBIOAction[R2, S2, E2])(implicit executor: ExecutionContext): DBIOAction[R2, S2, E with E2] =
     FlatMapAction[R2, S2, R, E with E2](this, f, executor)
 
+  /** Creates a new DBIOAction with one level of nesting flattened, this method is equivalent
+    * to `flatMap(identity)`.
+    */
+  def flatten[R2, S2 <: NoStream, E2 <: Effect](implicit ev : R <:< DBIOAction[R2,S2,E2]) = flatMap(ev)(DBIO.sameThreadExecutionContext)
+
   /** Run another action after this action, if it completed successfully, and return the result
     * of the second action. If either of the two actions fails, the resulting action also fails. */
   def andThen[R2, S2 <: NoStream, E2 <: Effect](a: DBIOAction[R2, S2, E2]): DBIOAction[R2, S2, E with E2] = a match {
