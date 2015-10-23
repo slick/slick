@@ -85,29 +85,35 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
   }
 
   def testForced = {
-    class T(tname: String)(tag: Tag) extends Table[(Int, String)](tag, tname) {
+    class T(n: String)(tag: Tag) extends Table[(Int, String, Int, Boolean, String, String, Int)](tag, n) {
       def id = column[Int]("id", O.AutoInc, O.PrimaryKey)
       def name = column[String]("name")
-      def * = (id, name)
-      def ins = (id, name)
+      def i1 = column[Int]("i1")
+      def b = column[Boolean]("b")
+      def s1 = column[String]("s1", O.Length(10,varying=true))
+      def s2 = column[String]("s2", O.Length(10,varying=true))
+      def i2 = column[Int]("i2")
+
+      def * = (id, name, i1, b, s1, s2, i2)
+      def ins = (id, name, i1, b, s1, s2, i2)
     }
     val ts = TableQuery(new T("t_forced")(_))
     val src = TableQuery(new T("src_forced")(_))
 
     seq(
       (ts.schema ++ src.schema).create,
-      ts += (101, "A"),
-      ts.map(_.ins) ++= Seq((102, "B"), (103, "C")),
+      ts += (101, "A", 1, false, "S1", "S2", 0),
+      ts.map(_.ins) ++= Seq((102, "B", 1, false, "S1", "S2", 0), (103, "C", 1, false, "S1", "S2", 0)),
       ts.filter(_.id > 100).length.result.map(_ shouldBe 0),
       ifCap(jcap.forceInsert)(seq(
-        ts.forceInsert(104, "A"),
-        ts.map(_.ins).forceInsertAll(Seq((105, "B"), (106, "C"))),
+        ts.forceInsert(104, "A", 1, false, "S1", "S2", 0),
+        ts.map(_.ins).forceInsertAll(Seq((105, "B", 1, false, "S1", "S2", 0), (106, "C", 1, false, "S1", "S2", 0))),
         ts.filter(_.id > 100).length.result.map(_ shouldBe 3),
-        ts.map(_.ins).forceInsertAll(Seq((111, "D"))),
+        ts.map(_.ins).forceInsertAll(Seq((111, "D", 1, false, "S1", "S2", 0))),
         ts.filter(_.id > 100).length.result.map(_ shouldBe 4),
-        src.forceInsert(90, "X"),
+        src.forceInsert(90, "X", 1, false, "S1", "S2", 0),
         ts.forceInsertQuery(src).map(_ shouldBe 1),
-        ts.filter(_.id.between(90, 99)).map(_.name).result.map(_ shouldBe Seq("X"))
+        ts.filter(_.id.between(90, 99)).result.headOption.map(_ shouldBe Some((90, "X", 1, false, "S1", "S2", 0)))
       ))
     )
   }
