@@ -143,7 +143,7 @@ data:
 .. includecode:: code/FirstExample.scala#create
 
 An implicit conversion of ``TableQuery`` gives us an object with driver-specific extension methods.
-This object has a ``schema`` method returns a ``SchemaDescription`` object with the database-specific code for creating and dropping tables and other database entities.
+This object has a ``schema`` method which returns a ``SchemaDescription`` object with the database-specific code for creating and dropping tables and other database entities.
 Multiple ``SchemaDescription`` values can be combined with ``++`` to
 allow all entities to be created and dropped in the correct order, even when
 they have circular dependencies on each other.
