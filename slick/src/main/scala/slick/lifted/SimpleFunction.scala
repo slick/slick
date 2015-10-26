@@ -1,6 +1,6 @@
 package slick.lifted
 
-import slick.driver.JdbcStatementBuilderComponent
+import slick.jdbc.JdbcStatementBuilderComponent
 import slick.ast._
 import slick.util._
 

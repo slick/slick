@@ -4,8 +4,8 @@ import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 
 //#imports
-// Use H2Driver to connect to an H2 database
-import slick.driver.H2Driver.api._
+// Use H2Profile to connect to an H2 database
+import slick.jdbc.H2Profile.api._
 //#imports
 
 /**
@@ -15,7 +15,7 @@ import slick.driver.H2Driver.api._
  */
 object GettingStartedOverview extends App {
 //#quick-imports
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 //#quick-imports
 
 //#quick-schema

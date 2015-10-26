@@ -74,8 +74,8 @@ Misspelled the column name ``price``? The compiler will tell you::
 The same goes for type errors::
 
     GettingStartedOverview.scala:89: type mismatch;
-     found   : slick.driver.H2Driver.StreamingDriverAction[Seq[String],String,slick.dbio.Effect.Read]
-        (which expands to)  slick.profile.FixedSqlStreamingAction[Seq[String],String,slick.dbio.Effect.Read]
+     found   : slick.jdbc.H2Profile.StreamingProfileAction[Seq[String],String,slick.dbio.Effect.Read]
+        (which expands to)  slick.sql.FixedSqlStreamingAction[Seq[String],String,slick.dbio.Effect.Read]
      required: slick.dbio.DBIOAction[Seq[Double],slick.dbio.NoStream,Nothing]
             coffees.map(_.name).result
                                 ^
@@ -135,8 +135,7 @@ License
 
 Slick is released under a BSD-Style free and open source software :slick:`license <LICENSE.txt>`.
 See the chapter on the commercial :doc:`Slick Extensions <extensions>` add-on
-package for details on licensing the Slick drivers for the big commercial
-database systems.
+package for details on licensing the Slick profiles for the big commercial database systems.
 
 .. index:: APIs
 

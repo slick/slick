@@ -1,8 +1,7 @@
 package slick.jdbc.meta
 
 import java.sql._
-import slick.jdbc.ResultSetAction
-import slick.driver.JdbcTypesComponent
+import slick.jdbc.{ResultSetAction, JdbcTypesComponent}
 
 /** A wrapper for a row in the ResultSet returned by DatabaseMetaData.getAttributes(). */
 case class MAttribute(typeName: MQName, attrName: String, sqlType: Int, attrTypeName: String,

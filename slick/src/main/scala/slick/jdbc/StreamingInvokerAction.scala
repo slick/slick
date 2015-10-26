@@ -4,7 +4,7 @@ import scala.collection.mutable.Builder
 import scala.util.control.NonFatal
 
 import slick.dbio._
-import slick.profile.{FixedSqlAction, FixedSqlStreamingAction}
+import slick.sql.{FixedSqlAction, FixedSqlStreamingAction}
 import slick.util.{DumpInfo, CloseableIterator, ignoreFollowOnError}
 
 /** A streaming Action that wraps an Invoker.

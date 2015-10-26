@@ -1,11 +1,11 @@
 package com.typesafe.slick.docs
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import slick.driver.H2Driver.api._
-import slick.driver.H2Driver
+import slick.jdbc.H2Profile.api._
+import slick.jdbc.H2Profile
 
 object CodeGenerator extends App {
-  val slickDriver = "slick.driver.H2Driver"
+  val profile = "slick.jdbc.H2Profile"
   val jdbcDriver = "org.h2.Driver"
   val url = "jdbc:postgresql://localhost/test"
   val outputFolder = ""
@@ -16,18 +16,18 @@ object CodeGenerator extends App {
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
     //#default-runner
     slick.codegen.SourceCodeGenerator.main(
-      Array(slickDriver, jdbcDriver, url, outputFolder, pkg)
+      Array(profile, jdbcDriver, url, outputFolder, pkg)
     )
     //#default-runner
     //#default-runner-with-auth
     slick.codegen.SourceCodeGenerator.main(
-      Array(slickDriver, jdbcDriver, url, outputFolder, pkg, user, password)
+      Array(profile, jdbcDriver, url, outputFolder, pkg, user, password)
     )
     //#default-runner-with-auth
     //#customization
     import slick.codegen.SourceCodeGenerator
     // fetch data model
-    val modelAction = H2Driver.createModel(Some(H2Driver.defaultTables)) // you can filter specific tables here
+    val modelAction = H2Profile.createModel(Some(H2Profile.defaultTables)) // you can filter specific tables here
     val modelFuture = db.run(modelAction)
     // customize code generator
     val codegenFuture = modelFuture.map(model => new SourceCodeGenerator(model) {
@@ -58,7 +58,7 @@ object CodeGenerator extends App {
     })
     codegenFuture.onSuccess { case codegen =>
       codegen.writeToFile(
-        "slick.driver.H2Driver","some/folder/","some.packag","Tables","Tables.scala"
+        "slick.jdbc.H2Profile","some/folder/","some.packag","Tables","Tables.scala"
       )
     }
     //#customization

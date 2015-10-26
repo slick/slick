@@ -76,25 +76,3 @@ class IsDefinedResultConverter[@specialized(Byte, Short, Int, Long, Char, Float,
   def width = 1
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = s"idx=$idx", attrInfo = ": " + ti)
 }
-
-/** A `ResultConverter` that simplifies the implementation of fast path
-  * converters for `JdbcProfile`. It always wraps a `TypeMappingResultConverter`
-  * on top of a `ProductResultConverter`, allowing direct access to the product
-  * elements. */
-abstract class JdbcFastPath[T](protected[this] val rc: TypeMappingResultConverter[JdbcResultConverterDomain, T, _]) extends ResultConverter[JdbcResultConverterDomain, T] {
-  private[this] val ch = rc.child.asInstanceOf[ProductResultConverter[JdbcResultConverterDomain, _]].elementConverters
-  private[this] var idx = -1
-
-  /** Return the next specialized child `ResultConverter` for the specified type. */
-  protected[this] def next[C] = {
-    idx += 1
-    ch(idx).asInstanceOf[ResultConverter[JdbcResultConverterDomain, C]]
-  }
-
-  def read(pr: Reader) = rc.read(pr)
-  def update(value: T, pr: Updater) = rc.update(value, pr)
-  def set(value: T, pp: Writer) = rc.set(value, pp)
-
-  override def getDumpInfo = super.getDumpInfo.copy(name = "JdbcFastPath", mainInfo = "", children = Vector(("rc", rc)))
-  def width = rc.width
-}
