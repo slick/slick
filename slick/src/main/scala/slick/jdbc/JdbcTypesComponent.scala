@@ -2,7 +2,7 @@ package slick.jdbc
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
 import java.util.UUID
-import java.time.{OffsetDateTime, ZonedDateTime}
+import java.time.{OffsetDateTime, ZonedDateTime, LocalTime}
 
 import scala.reflect.ClassTag
 
@@ -105,6 +105,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     @deprecated val dateJdbcType = new DateJdbcType
     val offsetDateTimeType = new OffsetDateTimeJdbcType
     val zonedDateType = new ZonedDateTimeJdbcType
+    val localTimeType = new LocalTimeJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
     val intJdbcType = new IntJdbcType
@@ -168,7 +169,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     }
 
     /**
-     * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] instead.
+     * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] or [[LocalTimeJdbcType]] instead.
      */
     @deprecated
     class DateJdbcType extends DriverJdbcType[Date] {
@@ -225,6 +226,33 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         ZonedDateTime.parse(r.getString(idx))
       }
       override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
+    }
+
+    class LocalTimeJdbcType extends DriverJdbcType[LocalTime] {
+      override def sqlType : Int = {
+        /**
+         * Stores the [[LocalTime]] as a 'VARCHAR' in databases with no specific 'TIME'
+         * implementations like SQLite. An example persisted value will be '12:17:27.236'
+         * [[LocalTime]] will be persisted as a [[String]], because not all SQL 'TIME'
+         * implementations on all databases stores the values on teh same way.
+         * For example: Microsoft SQL: HH:MM:SS:nnnnnn - MySQL: HH:MM:SS
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = {
+        /**
+         * Stores The [[ZonedDateTime]] as a 'VARCHAR' following the format 'HH:MM:SS.mmm'.
+         * For example: '12:17:27.236'
+         */
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : LocalTime = {
+        /**
+         * Parses the persisted time value with format 'HH:MM:SS.mmm' into a [[LocalTime]].
+         */
+        LocalTime.parse(r.getString(idx))
+      }
+      override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
     }
 
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
