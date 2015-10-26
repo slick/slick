@@ -1,7 +1,7 @@
 language: scala
 script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll
 jdk:
-  - openjdk6
+  - oraclejdk8
 notifications:
   flowdock:
     secure: j3YP9TjiIcMRy2mvunF1AHBOFnz2H7mZAFVbHPBNkAjMCwSdBNvLpn33qv6ybr02c5snBDJTs0P70RJ/mh3YsqwnIeloQD9HUfnndKQD6ujxx1QWRI/lVDW4pfVRQEuPsXdW/3AiqxrSG5BS4thiyc3vj3LpnodHwNMUT+Nlmq0=

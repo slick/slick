@@ -4,6 +4,7 @@ target/
 /test-dbs/*_*
 /test-dbs/databases.properties
 /test-dbs/testkit.conf
+/test-output/
 *.log
 *.iml
 *.pyc

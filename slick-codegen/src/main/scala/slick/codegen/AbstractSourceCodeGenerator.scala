@@ -1,10 +1,11 @@
 package slick.codegen
 
-import slick.profile.{SqlProfile, RelationalProfile}
+import slick.SlickException
+import slick.ast.ColumnOption
 import slick.{model => m}
 import slick.model.ForeignKeyAction
-import slick.ast.ColumnOption
-import slick.SlickException
+import slick.relational.RelationalProfile
+import slick.sql.SqlProfile
 
 /** Base implementation for a Source code String generator */
 abstract class AbstractSourceCodeGenerator(model: m.Model)

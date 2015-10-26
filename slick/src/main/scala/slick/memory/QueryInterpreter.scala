@@ -9,7 +9,7 @@ import slick.SlickException
 import slick.util.{ConstArray, SlickLogger, Logging}
 import TypeUtil.typeToTypeUtil
 
-/** A query interpreter for the MemoryDriver and for client-side operations
+/** A query interpreter for MemoryProfile and for client-side operations
   * that need to be run as part of distributed queries against multiple
   * backends.
   *

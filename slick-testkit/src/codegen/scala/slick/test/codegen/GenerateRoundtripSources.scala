@@ -4,30 +4,30 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import slick.codegen.SourceCodeGenerator
-import slick.driver._
+import slick.jdbc.JdbcProfile
 
 /** Generates code for CodeGenRoundTripTest.
   *
   * This is generated using Derby currently because Derby strips column size of some columns, which
   * works with all backends. If the code was generated using model data where the size is included
-  * it would fail in derby and hsqldb. The code is tested using all enabled drivers. We should also
+  * it would fail in derby and hsqldb. The code is tested using all enabled profiles. We should also
   * diversify generation as well at some point. */
 object GenerateRoundtripSources {
   def main(args: Array[String]) {
-    val driver = slick.driver.H2Driver
+    val profile = slick.jdbc.H2Profile
     val url = "jdbc:h2:mem:test4"
     val jdbcDriver = "org.h2.Driver"
-    object Tables extends Tables(driver)
+    object Tables extends Tables(profile)
     import Tables._
     import Tables.profile.api._
     val ddl = posts.schema ++ categories.schema ++ typeTest.schema ++ large.schema ++ `null`.schema ++ X.schema ++ SingleNonOptionColumn.schema ++ SelfRef.schema
-    val a1 = driver.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+    val a1 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def tableName = {
         case n if n.toLowerCase == "null" => "null" // testing null as table name
         case n => super.tableName(n)
       }
     })
-    val a2 = driver.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
+    val a2 = profile.createModel(ignoreInvalidDefaults=false).map(m => new SourceCodeGenerator(m) {
       override def Table = new Table(_){
         override def autoIncLastAsOption = true
       }
@@ -35,8 +35,8 @@ object GenerateRoundtripSources {
     val db = Database.forURL(url=url, driver=jdbcDriver, keepAliveConnection=true)
     val (gen,gen2) = try Await.result(db.run(ddl.create >> (a1 zip a2)), Duration.Inf) finally db.close
     val pkg = "slick.test.codegen.roundtrip"
-    gen.writeToFile( "slick.driver.H2Driver", args(0), pkg )
-    gen2.writeToFile( "slick.driver.H2Driver", args(0), pkg+"2" )
+    gen.writeToFile( "slick.jdbc.H2Profile", args(0), pkg )
+    gen2.writeToFile( "slick.jdbc.H2Profile", args(0), pkg+"2" )
   }
 }
 

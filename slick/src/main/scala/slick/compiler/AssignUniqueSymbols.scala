@@ -41,7 +41,7 @@ class AssignUniqueSymbols extends Phase {
           case r @ Ref(a: AnonSymbol) =>
             val s = replace.getOrElse(a, a)
             if(s eq a) r else Ref(s)
-          case t: TableNode => t.copy(identity = new AnonTableIdentitySymbol)(t.driverTable)
+          case t: TableNode => t.copy(identity = new AnonTableIdentitySymbol)(t.profileTable)
           case Pure(value, _) => Pure(tr(value))
           case g: GroupBy =>
             val d = g.copy(identity = new AnonTypeSymbol)

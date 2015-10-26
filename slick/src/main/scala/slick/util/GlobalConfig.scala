@@ -8,7 +8,7 @@ import java.util.concurrent.TimeUnit
 import java.util.Properties
 
 /** Singleton object with Slick's configuration, loaded from the application config.
-  * This includes configuration for the global driver objects and settings for debug logging.
+  * This includes configuration for the global profile objects and settings for debug logging.
   *
   * In addition to being listed in reference.conf, all essential config options also have their
   * default values hardcoded here because we cannot rely on getting reference.conf on the classpath
@@ -36,10 +36,14 @@ object GlobalConfig {
   /** Detect unnecessary rebuilding of the AST after every query compiler phase */
   val detectRebuild = config.getBooleanOr("slick.detectRebuild", false)
 
-  /** Get a `Config` object for a Slick driver */
-  def driverConfig(name: String): Config = {
-    val path = "slick.driver." + name
-    if(config.hasPath(path)) config.getConfig(path) else ConfigFactory.empty()
+  /** Get a `Config` object for a Slick profile */
+  @deprecated("Use `profileConfig` instead of `driverConfig`", "3.2")
+  def driverConfig(name: String): Config = profileConfig("slick.driver." + name)
+
+  /** Get a `Config` object for a Slick profile */
+  def profileConfig(path: String): Config = {
+    if(config.hasPath(path)) config.getConfig(path)
+    else ConfigFactory.empty()
   }
 }
 

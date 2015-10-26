@@ -6,7 +6,7 @@ import slick.jdbc.GetResult
 import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 
 class PlainSQLTest extends AsyncTest[JdbcTestDB] {
-  import tdb.driver.api._
+  import tdb.profile.api._
 
   implicit val getUserResult = GetResult(r => new User(r.<<, r.<<))
 

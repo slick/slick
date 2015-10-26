@@ -51,16 +51,16 @@ Using Custom Scalar Types in Queries
 ------------------------------------
 
 If you need a custom column type you can implement
-:api:`ColumnType <slick.driver.JdbcProfile@ColumnType[T]:JdbcDriver.ColumnType[T]>`. The most
+:api:`ColumnType <slick.jdbc.JdbcProfile@ColumnType[T]:ColumnType[T]>`. The most
 common scenario is mapping an application-specific type to an already supported type in the database.
 This can be done much simpler by using
-:api:`MappedColumnType <slick.driver.JdbcProfile@MappedColumnType:JdbcDriver.MappedJdbcType.type>`
-which takes care of all the boilerplate. It comes with the usual import from the driver.
+:api:`MappedColumnType <slick.jdbc.JdbcProfile@MappedColumnType:MappedJdbcType.type>`
+which takes care of all the boilerplate. It comes with the usual import from the profile.
 
 .. includecode:: code/LiftedEmbedding.scala#mappedtype1
 
 You can also subclass
-:api:`MappedJdbcType <slick.driver.JdbcProfile@MappedJdbcType>`
+:api:`MappedJdbcType <slick.jdbc.JdbcProfile@MappedJdbcType>`
 for a bit more flexibility.
 
 .. index:: MappedTo

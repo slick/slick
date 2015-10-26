@@ -30,7 +30,7 @@ String Interpolation
 --------------------
 
 *Plain SQL* queries in Slick are built via string interpolation using the ``sql``, ``sqlu`` and
-``tsql`` interpolators. They are available through the standard ``api._`` import from a Slick driver:
+``tsql`` interpolators. They are available through the standard ``api._`` import from a Slick profile:
 
 .. includecode:: code/PlainSQL.scala#imports
 
@@ -122,13 +122,13 @@ Note that ``tsql`` directly produces a ``DBIOAction`` of the correct type withou
 to ``.as``.
 
 In order to give the compiler access to the database, you have to provide a configuration that can
-be resolved at compile-time. This is done with the :api:`slick.backend.StaticDatabaseConfig`
+be resolved at compile-time. This is done with the :api:`slick.basic.StaticDatabaseConfig`
 annotation::
 
     @StaticDatabaseConfig("file:src/main/resources/application.conf#tsql")
 
 In this case it points to the path "tsql" in a local ``application.conf`` file, which must contain
-an appropriate configiration for a :api:`slick.backend.StaticDatabaseConfig` object, not just a
+an appropriate configiration for a :api:`slick.basic.StaticDatabaseConfig` object, not just a
 ``Database``.
 
 .. note::
@@ -138,11 +138,11 @@ an appropriate configiration for a :api:`slick.backend.StaticDatabaseConfig` obj
    classpath, not just the source path or the runtime classpath. Depending on the build tool this
    may not be possible, so it's usually better to use a relative ``file:`` URL.
 
-You can also retrieve the statically configured :api:`slick.backend.DatabaseConfig` at runtime:
+You can also retrieve the statically configured :api:`slick.basic.DatabaseConfig` at runtime:
 
 .. includecode:: code/PlainSQL.scala#staticdatabaseconfig
 
-This gives you the Slick driver for the standard ``api._`` import and the ``Database``. Note that
-it is not mandatory to use the same configuration. You can get a Slick driver and ``Database`` at
+This gives you the Slick profile for the standard ``api._`` import and the ``Database``. Note that
+it is not mandatory to use the same configuration. You can get a Slick profile and ``Database`` at
 runtime in any other way you like and only use the ``StaticDatabaseConfig`` for compile-time
 checking.

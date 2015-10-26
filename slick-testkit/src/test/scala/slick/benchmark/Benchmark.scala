@@ -1,6 +1,6 @@
 package slick.benchmark
 
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 
 object Benchmark {
   val COUNT = 2000

@@ -76,7 +76,7 @@ class JdbcMetaTest extends AsyncTest[JdbcTestDB] {
     if(tdb.canGetLocalTables) {
 
       for (t <- tdb.getLocalTables.sorted) {
-        val st = "drop table " + tdb.driver.quoteIdentifier(t)
+        val st = "drop table " + tdb.profile.quoteIdentifier(t)
         println("Executing statement: " + st)
         StaticQuery.updateNA(st).execute
       }

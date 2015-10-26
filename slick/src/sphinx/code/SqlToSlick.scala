@@ -2,7 +2,7 @@ package com.typesafe.slick.docs
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 object SqlToSlick extends App {
@@ -80,7 +80,7 @@ object SqlToSlick extends App {
     }
     val slickPlainSql = {
       //#SlickPlainSQL
-      import slick.driver.H2Driver.api._
+      import slick.jdbc.H2Profile.api._
 
       //#SlickPlainSQL
       /*
@@ -97,7 +97,7 @@ object SqlToSlick extends App {
     val slickTypesafeQuery = {
       import Tables.People // <- import auto-generated or hand-written TableQuery
       //#SlickTypesafeQuery
-      import slick.driver.H2Driver.api._
+      import slick.jdbc.H2Profile.api._
 
       //#SlickTypesafeQuery
       /*
@@ -117,7 +117,7 @@ object SqlToSlick extends App {
     assert(pRes.size > 0)
 
     ;{
-      import slick.driver.H2Driver.api._
+      import slick.jdbc.H2Profile.api._
       import Tables.People // <- import auto-generated or hand-written TableQuery
 
       //#slickFunction

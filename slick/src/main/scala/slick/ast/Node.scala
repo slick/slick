@@ -563,6 +563,7 @@ object Path {
   def apply(l: List[TermSymbol]): PathElement = l match {
     case s :: Nil => Ref(s)
     case s :: l => Select(apply(l), s)
+    case _ => throw new SlickException("Empty Path")
   }
   def unapply(n: PathElement): Option[List[TermSymbol]] = {
     var l = new ListBuffer[TermSymbol]
@@ -611,10 +612,10 @@ object FwdPath {
 }
 
 /** A Node representing a database table. */
-final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, baseIdentity: TableIdentitySymbol)(val driverTable: Any) extends NullaryNode with SimplyTypedNode with TypeGenerator {
+final case class TableNode(schemaName: Option[String], tableName: String, identity: TableIdentitySymbol, baseIdentity: TableIdentitySymbol)(val profileTable: Any) extends NullaryNode with SimplyTypedNode with TypeGenerator {
   type Self = TableNode
   def buildType = CollectionType(TypedCollectionTypeConstructor.seq, NominalType(identity, UnassignedType))
-  def rebuild = copy()(driverTable)
+  def rebuild = copy()(profileTable)
   override def getDumpInfo = super.getDumpInfo.copy(name = "Table", mainInfo = schemaName.map(_ + ".").getOrElse("") + tableName)
 }
 
@@ -706,8 +707,7 @@ final case class GetOrElse(child: Node, default: () => Any) extends UnaryNode wi
   override def getDumpInfo = super.getDumpInfo.copy(mainInfo = "")
 }
 
-/** A compiled statement with a fixed type, a statement string and
-  * driver-specific extra data. */
+/** A compiled statement with a fixed type, a statement string and profile-specific extra data. */
 final case class CompiledStatement(statement: String, extra: Any, buildType: Type) extends NullaryNode with SimplyTypedNode {
   type Self = CompiledStatement
   def rebuild = copy()

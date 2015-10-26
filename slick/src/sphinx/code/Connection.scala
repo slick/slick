@@ -9,8 +9,8 @@ import scala.concurrent.{Future, Await}
 import scala.concurrent.duration.Duration
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
-import slick.backend.DatabasePublisher
-import slick.driver.H2Driver.api._
+import slick.basic.DatabasePublisher
+import slick.jdbc.H2Profile.api._
 
 object Connection extends App {
   class Coffees(tag: Tag) extends Table[(String, Blob)](tag, "COFFEES") {

@@ -2,7 +2,7 @@ package com.typesafe.slick.docs
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
-import slick.driver.H2Driver.api._
+import slick.jdbc.H2Profile.api._
 
 object OrmToSlick extends App {
   import SqlToSlick.Tables._

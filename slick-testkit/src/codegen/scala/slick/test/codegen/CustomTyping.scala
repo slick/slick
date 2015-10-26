@@ -1,7 +1,9 @@
 package slick.test.codegen
-import slick.driver.H2Driver
+
+import slick.jdbc.H2Profile
+
 object CustomTyping {
-  import H2Driver.api._
+  import H2Profile.api._
   sealed trait Bool {
     def isTrue: Boolean
   }

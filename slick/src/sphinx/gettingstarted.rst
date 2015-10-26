@@ -14,7 +14,7 @@ templates are created by the Slick team, with updated versions being made for ne
 * The `Slick Multi-DB Patterns template`_ shows you how to write Slick applications that can use
   different database systems and how to use custom database functions in Slick queries.
 
-* The `Slick TestKit Example template`_ shows you how to use Slick TestKit to test your own Slick drivers.
+* The `Slick TestKit Example template`_ shows you how to use Slick TestKit to test your own Slick profiles.
 
 There are more Slick templates created by the community, as well as versions of our own templates for other
 Slick releases. You can find `all Slick templates <https://typesafe.com/activator/templates#filter:slick>`_
@@ -78,8 +78,8 @@ To use Slick you first need to import the API for the database you will be using
 .. includecode:: code/FirstExample.scala#imports
 
 Since we are using H2_ as our database system, we need to import features
-from Slick's ``H2Driver``. A driver's ``api`` object contains all commonly
-needed imports from the driver and other parts of Slick such as
+from Slick's ``H2Profile``. A profile's ``api`` object contains all commonly
+needed imports from the profile and other parts of Slick such as
 :doc:`database handling <database>`.
 
 Slick's API is fully asynchronous and runs database call in a separate thread pool. For running

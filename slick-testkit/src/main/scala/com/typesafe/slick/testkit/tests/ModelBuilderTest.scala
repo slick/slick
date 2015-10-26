@@ -1,16 +1,18 @@
 package com.typesafe.slick.testkit.tests
 
-import org.junit.Assert._
-import scala.concurrent.{ExecutionContext, Await}
-import scala.concurrent.duration.Duration
-import slick.driver.SQLiteDriver
-import slick.model._
-import slick.ast.ColumnOption
-import slick.jdbc.meta.MTable
-import slick.jdbc.meta
 import com.typesafe.slick.testkit.util.{AsyncTest, JdbcTestDB}
 
-import slick.profile.{SqlProfile, RelationalProfile}
+import org.junit.Assert._
+
+import scala.concurrent.{ExecutionContext, Await}
+import scala.concurrent.duration.Duration
+
+import slick.ast.ColumnOption
+import slick.model._
+import slick.jdbc.{SQLiteProfile, meta}
+import slick.jdbc.meta.MTable
+import slick.relational.RelationalProfile
+import slick.sql.SqlProfile
 
 @deprecated("Using deprecated .simple API", "3.0")
 class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
@@ -168,14 +170,14 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
         val posts = model.tables.filter(_.name.table.toUpperCase=="POSTS").head
         assertEquals( 5, posts.columns.size )
         assertEquals( posts.indices.toString, 0, posts.indices.size )
-        if(tdb.driver != SQLiteDriver) {
+        if(tdb.profile != SQLiteProfile) {
           // Reporting of multi-column primary keys through JDBC metadata is broken in Xerial SQLite 3.8:
           // https://bitbucket.org/xerial/sqlite-jdbc/issue/107/databasemetadatagetprimarykeys-does-not
           assertEquals( Some(2), posts.primaryKey.map(_.columns.size) )
           assert( !posts.columns.exists(_.options.exists(_ == ColumnOption.PrimaryKey)) )
         }
         assertEquals( 1, posts.foreignKeys.size )
-        if(tdb.profile != slick.driver.SQLiteDriver){
+        if(tdb.profile != slick.jdbc.SQLiteProfile){
           assertEquals( "CATEGORY_FK", posts.foreignKeys.head.name.get.toUpperCase )
         }
         def tpe(col:String) = posts.columns.filter(_.name == col).head
@@ -306,7 +308,7 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
         assertEquals(true,column("Option_Int").nullable)
         assertEquals(false,column("Long").nullable)
         assertEquals(true,column("Option_Long").nullable)
-        if(!tdb.profile.toString.contains("OracleDriver")){// FIXME: we should probably solve this somewhat cleaner
+        if(!tdb.profile.toString.contains("OracleProfile")){// FIXME: we should probably solve this somewhat cleaner
           assertEquals("Int",column("Int").tpe)
           assertEquals("Int",column("Option_Int").tpe)
           ifCapU(jcap.defaultValueMetaData){
@@ -345,7 +347,7 @@ class ModelBuilderTest extends AsyncTest[JdbcTestDB] {
         assertEquals(false,column("java_sql_Timestamp").nullable)
         assertEquals(true,column("Option_java_sql_Timestamp").nullable)
 
-        if(!tdb.profile.toString.contains("OracleDriver")){// FIXME: we should probably solve this somewhat cleaner
+        if(!tdb.profile.toString.contains("OracleProfile")){// FIXME: we should probably solve this somewhat cleaner
           assertEquals("java.sql.Date",column("java_sql_Date").tpe)
           assertEquals("java.sql.Date",column("Option_java_sql_Date").tpe)
           assertEquals("java.sql.Time",column("java_sql_Time").tpe)
