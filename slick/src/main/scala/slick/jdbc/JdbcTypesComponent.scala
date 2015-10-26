@@ -399,6 +399,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def bigDecimalColumnType = columnTypes.bigDecimalJdbcType
     implicit def offsetDateTimeColumnType = columnTypes.offsetDateTimeType
     implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
+    implicit def localTimeColumnType = columnTypes.localTimeType
   }
 }
 
