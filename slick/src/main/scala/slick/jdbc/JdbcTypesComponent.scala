@@ -102,7 +102,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val byteArrayJdbcType = new ByteArrayJdbcType
     val charJdbcType = new CharJdbcType
     val clobJdbcType = new ClobJdbcType
-    @deprecated val dateJdbcType = new DateJdbcType
+    @deprecated(message = "java.util.Date is deprecated, use some class of java.time instead", since = "3.2.0")
+    val dateJdbcType = new DateJdbcType
     val offsetDateTimeType = new OffsetDateTimeJdbcType
     val zonedDateType = new ZonedDateTimeJdbcType
     val localTimeType = new LocalTimeJdbcType
@@ -171,7 +172,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     /**
      * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] or [[LocalTimeJdbcType]] instead.
      */
-    @deprecated
+    @deprecated(message = "java.util.Date is deprecated, use some class of java.time instead", since = "3.2.0")
     class DateJdbcType extends DriverJdbcType[Date] {
       def sqlType = java.sql.Types.DATE
       def setValue(v: Date, p: PreparedStatement, idx: Int) = p.setDate(idx, v)
@@ -384,6 +385,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
     implicit def charColumnType = columnTypes.charJdbcType
     implicit def clobColumnType = columnTypes.clobJdbcType
+    @deprecated(message = "java.util.Date is deprecated, use some class of java.time instead", since = "3.2.0")
     implicit def dateColumnType = columnTypes.dateJdbcType
     implicit def doubleColumnType = columnTypes.doubleJdbcType
     implicit def floatColumnType = columnTypes.floatJdbcType
