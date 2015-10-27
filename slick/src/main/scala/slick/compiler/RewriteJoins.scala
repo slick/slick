@@ -57,7 +57,7 @@ class RewriteJoins extends Phase {
       }
       val (oj2, invalid) = hoistFilters(oj)
       val (oj3, m) = eliminateIllegalRefs(oj2, Set.empty, sn)
-      val oj4 = rearrangeJoinConditions(oj3)
+      val oj4 = rearrangeJoinConditions(oj3, Set.empty)
       val sel3 = if(m.isEmpty) sel2 else sel2.replace {
         case p @ FwdPath(r1 :: rest) if r1 == sn && m.contains(rest) => m(rest)
         case r @ Ref(s) if (oj4 ne oj2) && s == sn => r.untyped // Structural expansion may have changed
@@ -155,7 +155,7 @@ class RewriteJoins extends Phase {
     }
   }
 
-  /** Recursively push refs from the right-hand side of a Join to the left-hand side out the join.
+  /** Recursively push refs from the right-hand side of a Join to the left-hand side out of the join.
     * This is only possible when they occur in a a mapping `Bind(_, _, Pure(StructNode))` directly
     * at the RHS of a Join. Returns the (possibly transformed) Join and replacements for forward
     * paths into it.
@@ -223,11 +223,13 @@ class RewriteJoins extends Phase {
     * of `on2` refer to `s1`, merge them into `on1`. Nested joins are processed recursively. The
     * same is done in the opposite direction, pushing predicates down into sub-joins if they only
     * reference one side of the join. */
-  def rearrangeJoinConditions(j: Join): Join = j match {
+  def rearrangeJoinConditions(j: Join, alsoPull: Set[TermSymbol]): Join = j match {
     case Join(s1, s2, _, j2a @ Join(_, _, _, _, JoinType.Inner, _), JoinType.Inner, on1) =>
-      val j2b = rearrangeJoinConditions(j2a)
-      val (on1Down, on1Keep) = splitConjunctions(on1).partition(p => hasRefTo(p, Set(s2)) && !hasRefTo(p, Set(s1)))
-      val (on2Up, on2Keep) = splitConjunctions(j2b.on).partition(p => hasRefTo(p, Set(s1)))
+      logger.debug("Trying to rearrange join conditions (alsoPull: "+alsoPull.mkString(", ")+") in:", j)
+      val pull = alsoPull + s1
+      val j2b = rearrangeJoinConditions(j2a, pull)
+      val (on1Down, on1Keep) = splitConjunctions(on1).partition(p => hasRefTo(p, Set(s2)) && !hasRefTo(p, pull))
+      val (on2Up, on2Keep) = splitConjunctions(j2b.on).partition(p => hasRefTo(p, pull))
       if(on1Down.nonEmpty || on2Up.nonEmpty) {
         val refS2 = Ref(s2) :@ j2b.nodeType.asCollectionType.elementType
         val on1b = and(on1Keep ++ on2Up.map(_.replace({
@@ -246,6 +248,9 @@ class RewriteJoins extends Phase {
       else j.copy(right = j2b) :@ j.nodeType
     case j => j
   }
+
+  // binary compatibility shim for 3.1
+  def rearrangeJoinConditions(j: Join): Join = rearrangeJoinConditions(j, Set.empty)
 
   /** Merge nested mapping operations of the form `Bind(_, Bind(_, _, Pure(StructNode(p1), _)), Pure(StructNode(p2), _))`
     * into a single Bind, provided that each element of either p1 or p2 contains not more than one path.
