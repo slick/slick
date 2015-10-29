@@ -2,7 +2,7 @@ package slick.jdbc
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
 import java.util.UUID
-import java.time.{OffsetDateTime, ZonedDateTime, LocalTime, LocalDate, LocalDateTime, OffsetTime}
+import java.time.{OffsetDateTime, ZonedDateTime, Instant, LocalTime, LocalDate, LocalDateTime, OffsetTime}
 
 import scala.reflect.ClassTag
 
@@ -110,6 +110,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val localDateType = new LocalDateJdbcType
     val localDateTimeType = new LocalDateTimeJdbcType
     val offsetTimeType = new OffsetTimeJdbcType
+    val instantType = new InstantJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
     val intJdbcType = new IntJdbcType
@@ -189,8 +190,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def sqlType : Int = {
         /**
          * Stores the [[OffsetDateTime]] as a 'VARCHAR' in databases with no specific
-         * 'TIMESTAMP' with offset implementations, like SQLite. An example persisted value
-         * will be '2015-10-01T12:57:20.293+02:00'
+         * 'TIMESTAMP WITH OFFSET' implementations, like SQLite. An example persisted value
+         * would be '2015-10-01T12:57:20.293+02:00'
          */
         java.sql.Types.VARCHAR
       }
@@ -214,7 +215,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def sqlType : Int = {
         /**
          * Stores the [[ZonedDateTime]] as a 'VARCHAR' in databases with no specific 'TIMESTAMPZ'
-         * implementations, like SQLite. An example persisted value would be
+         * implementations, like SQLite. A persisted value would be
          * '2015-09-30T17:20:29.393+02:00[Europe/Madrid]'
          */
         java.sql.Types.VARCHAR
@@ -239,7 +240,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def sqlType : Int = {
         /**
          * Stores the [[LocalTime]] as a 'VARCHAR' in databases with no specific 'TIME'
-         * implementations like SQLite. An example persisted value would be '12:17:27.236'
+         * implementations like SQLite. A persisted value would be '12:17:27.236'
          * [[LocalTime]] will be persisted as a [[String]], because not all SQL 'TIME'
          * implementations on all databases stores the values on the same way.
          * For example: Microsoft SQL: HH:MM:SS:nnnnnn - MySQL: HH:MM:SS
@@ -281,8 +282,9 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
 
     class LocalDateTimeJdbcType extends DriverJdbcType[LocalDateTime] {
       /**
-       * Stores the [[LocalDateTime]] as a 'VARCHAR' on databases with no specific 'TIME'
-       * implementations like SQLite. An example persisted value would be '2015-10-29T18:07:19.130'
+       * Stores the [[LocalDateTime]] as a 'VARCHAR' on databases, like SQLite' with
+       * no specific 'TIME' implementations. An example persisted value would be
+       * '2015-10-29T18:07:19.130'
        */
       override def sqlType : Int = java.sql.Types.VARCHAR
       override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
@@ -305,8 +307,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     class OffsetTimeJdbcType extends DriverJdbcType[OffsetTime] {
       override def sqlType : Int = {
         /**
-         * Stores the [[OffsetTime]] as a 'VARCHAR' on databases with no specific 'TIME'
-         * implementations like SQLite. An example persisted value would be '18:22:43.417+01:00'.
+         * Stores the [[OffsetTime]] as a 'VARCHAR' on databases, like SQLite, with no
+         * specific 'TIME' implementations. An example persisted value would be '18:22:43.417+01:00'.
          */
         java.sql.Types.VARCHAR
       }
@@ -320,6 +322,32 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         r.updateString(idx, v.toString)
       }
       override def valueToSQLLiteral(value: OffsetTime) = {
+        value match {
+          case null => "NULL"
+          case _ =>  "'" + value.toString + "'"
+        }
+      }
+    }
+
+    class InstantJdbcType extends DriverJdbcType[Instant] {
+      override def sqlType : Int = {
+        /**
+         * Stores the [[Instant]] as a 'VARCHAR' on databases, like SQLite, with no
+         * complex 'TIME' implementations. An example persisted value would be
+         * '2015-10-29T17:38:52.868Z'.
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : Instant = {
+        Instant.parse(r.getString(idx))
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, v.toString)
+      }
+      override def valueToSQLLiteral(value: Instant) = {
         value match {
           case null => "NULL"
           case _ =>  "'" + value.toString + "'"
@@ -474,6 +502,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def localDateColumnType = columnTypes.localDateType
     implicit def localDateTimeColumnType = columnTypes.localDateTimeType
     implicit def offsetTimeColumnType = columnTypes.offsetTimeType
+    implicit def instantColumnType = columnTypes.instantType
   }
 }
 

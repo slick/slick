@@ -4,7 +4,7 @@ import com.typesafe.slick.testkit.util.{JdbcTestDB, AsyncTest}
 import java.io.{ObjectInputStream, ObjectOutputStream, ByteArrayOutputStream}
 import java.sql.{Blob, Date, Time, Timestamp}
 import java.util.UUID
-import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetDateTime, ZonedDateTime, OffsetTime}
+import java.time.{LocalDate, LocalDateTime, LocalTime, OffsetDateTime, ZonedDateTime, OffsetTime, Instant}
 import javax.sql.rowset.serial.SerialBlob
 import org.junit.Assert._
 
@@ -163,6 +163,10 @@ class JdbcTypeTest extends AsyncTest[JdbcTestDB] {
 
   def testOffsetTime = {
     roundtrip[OffsetTime]("offset_time_t1", OffsetTime.now())
+  }
+
+  def testInstant = {
+    roundtrip[Instant]("instant_t1", Instant.now())
   }
 
   def testOverrideIdentityType = {
