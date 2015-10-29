@@ -204,6 +204,13 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         OffsetDateTime.parse(r.getString(idx))
       }
       override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int): Unit = r.updateString(idx, v.toString)
+
+      override def valueToSQLLiteral(value: OffsetDateTime) = {
+        value match {
+          case null => "NULL"
+          case _ => "'" + value.toString + "'"
+        }
+      }
     }
 
     class ZonedDateTimeJdbcType extends DriverJdbcType[ZonedDateTime] {
@@ -228,6 +235,13 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         ZonedDateTime.parse(r.getString(idx))
       }
       override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
+
+      override def valueToSQLLiteral(value: ZonedDateTime) = {
+        value match {
+          case null => "NULL"
+          case _ => "'" + value.toString + "'"
+        }
+      }
     }
 
     class LocalTimeJdbcType extends DriverJdbcType[LocalTime] {
@@ -255,6 +269,13 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         LocalTime.parse(r.getString(idx))
       }
       override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
+
+      override def valueToSQLLiteral(value: LocalTime) = {
+        value match {
+          case null => "NULL"
+          case _ => "'" + value.toString + "'"
+        }
+      }
     }
 
     class LocalDateJdbcType extends DriverJdbcType[LocalDate] {
@@ -266,8 +287,12 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def updateValue(v: LocalDate, r: ResultSet, idx: Int) : Unit = {
         r.updateDate(idx, Date.valueOf(v))
       }
-      override def valueToSQLLiteral(value: LocalDate) : String = "'" + value.toString + "'"
-      override def hasLiteralForm : Boolean = true
+      override def valueToSQLLiteral(value: LocalDate) = {
+        value match {
+          case null => "NULL"
+          case _ =>  "'" + value.toString + "'"
+        }
+      }
     }
 
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
