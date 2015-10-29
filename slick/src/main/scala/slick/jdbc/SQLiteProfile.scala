@@ -1,6 +1,7 @@
 package slick.jdbc
 
-import java.sql.{Timestamp, Time, Date}
+import java.sql._
+import java.time.{ZonedDateTime, LocalDate}
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 
@@ -229,6 +230,7 @@ trait SQLiteProfile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val booleanJdbcType = new BooleanJdbcType
     override val dateJdbcType = new DateJdbcType
+    override val localDateType = new LocalDateJdbcType
     override val timeJdbcType = new TimeJdbcType
     override val timestampJdbcType = new TimestampJdbcType
     override val uuidJdbcType = new UUIDJdbcType
@@ -242,9 +244,27 @@ trait SQLiteProfile extends JdbcProfile {
     /* The SQLite JDBC driver does not support the JDBC escape syntax for
      * date/time/timestamp literals. SQLite expects these values as milliseconds
      * since epoch. */
-    @deprecated
+    @deprecated(message = "java.util.Date is deprecated, use some time class of java.time package instead", since = "3.2.0")
     class DateJdbcType extends super.DateJdbcType {
       override def valueToSQLLiteral(value: Date) = value.getTime.toString
+    }
+    class LocalDateJdbcType extends super.LocalDateJdbcType {
+      override def sqlType : Int = {
+        /**
+         * In SQLite, [[LocalDate]] is stored as a 'VARCHAR' in order to about some conversion issues.
+         * A persisted value example would be: '1990-12-06'
+         */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : LocalDate = {
+        LocalDate.parse(r.getString(idx))
+      }
+      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, v.toString)
+      }
     }
     class TimeJdbcType extends super.TimeJdbcType {
       override def valueToSQLLiteral(value: Time) = value.getTime.toString

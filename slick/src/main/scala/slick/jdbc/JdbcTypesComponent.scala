@@ -102,7 +102,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val byteArrayJdbcType = new ByteArrayJdbcType
     val charJdbcType = new CharJdbcType
     val clobJdbcType = new ClobJdbcType
-    @deprecated(message = "java.util.Date is deprecated, use some class of java.time instead", since = "3.2.0")
+    @deprecated(message = "java.util.Date is deprecated, use some time class of java.time package instead", since = "3.2.0")
     val dateJdbcType = new DateJdbcType
     val offsetDateTimeType = new OffsetDateTimeJdbcType
     val zonedDateType = new ZonedDateTimeJdbcType
@@ -175,7 +175,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
 
     /**
      * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] or [[LocalTimeJdbcType]]
-     * or [[OffsetTime]] or [[LocalDateTime]] or [[LocalDate]] instead.
+     * or [[OffsetTime]] or [[LocalDateTime]] or [[LocalDate]] or [[Instant]] instead.
      */
     @deprecated(message = "java.util.Date is deprecated, use some class of java.time instead", since = "3.2.0")
     class DateJdbcType extends DriverJdbcType[Date] {
@@ -190,8 +190,8 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def sqlType : Int = {
         /**
          * Stores the [[OffsetDateTime]] as a 'VARCHAR' in databases with no specific
-         * 'TIMESTAMP WITH OFFSET' implementations, like SQLite. An example persisted value
-         * would be '2015-10-01T12:57:20.293+02:00'
+         * 'TIMESTAMP WITH OFFSET' implementations, like SQLite. An persisted value
+         * will be '2015-10-01T12:57:20.293+02:00'
          */
         java.sql.Types.VARCHAR
       }
@@ -484,7 +484,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
     implicit def charColumnType = columnTypes.charJdbcType
     implicit def clobColumnType = columnTypes.clobJdbcType
-    @deprecated(message = "java.util.Date is deprecated, use some class of java.time instead", since = "3.2.0")
+    @deprecated(message = "java.util.Date is deprecated, use some time class of java.time package instead", since = "3.2.0")
     implicit def dateColumnType = columnTypes.dateJdbcType
     implicit def doubleColumnType = columnTypes.doubleJdbcType
     implicit def floatColumnType = columnTypes.floatJdbcType
