@@ -2,7 +2,7 @@ package slick.jdbc
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
 import java.util.UUID
-import java.time.{OffsetDateTime, ZonedDateTime, LocalTime}
+import java.time.{OffsetDateTime, ZonedDateTime, LocalTime, LocalDate}
 
 import scala.reflect.ClassTag
 
@@ -107,6 +107,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val offsetDateTimeType = new OffsetDateTimeJdbcType
     val zonedDateType = new ZonedDateTimeJdbcType
     val localTimeType = new LocalTimeJdbcType
+    val localDateType = new LocalDateJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
     val intJdbcType = new IntJdbcType
@@ -242,7 +243,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       }
       override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = {
         /**
-         * Stores The [[ZonedDateTime]] as a 'VARCHAR' following the format 'HH:MM:SS.mmm'.
+         * Stores The [[LocalTime]] as a 'VARCHAR' following the format 'HH:MM:SS.mmm'.
          * For example: '12:17:27.236'
          */
         p.setString(idx, v.toString)
@@ -254,6 +255,19 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         LocalTime.parse(r.getString(idx))
       }
       override def updateValue(v: LocalTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
+    }
+
+    class LocalDateJdbcType extends DriverJdbcType[LocalDate] {
+      override def sqlType : Int = java.sql.Types.DATE
+      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) : Unit = {
+        p.setDate(idx, Date.valueOf(v))
+      }
+      override def getValue(r: ResultSet, idx: Int) : LocalDate = r.getDate(idx).toLocalDate
+      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) : Unit = {
+        r.updateDate(idx, Date.valueOf(v))
+      }
+      override def valueToSQLLiteral(value: LocalDate) : String = "'" + value.toString + "'"
+      override def hasLiteralForm : Boolean = true
     }
 
     class DoubleJdbcType extends DriverJdbcType[Double] with NumericTypedType {
@@ -400,6 +414,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def offsetDateTimeColumnType = columnTypes.offsetDateTimeType
     implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
     implicit def localTimeColumnType = columnTypes.localTimeType
+    implicit def localDateColumnType = columnTypes.localDateType
   }
 }
 
