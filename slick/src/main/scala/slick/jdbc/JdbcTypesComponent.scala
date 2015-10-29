@@ -2,7 +2,7 @@ package slick.jdbc
 
 import java.sql.{Blob, Clob, Date, Time, Timestamp, ResultSet, PreparedStatement}
 import java.util.UUID
-import java.time.{OffsetDateTime, ZonedDateTime, LocalTime, LocalDate}
+import java.time.{OffsetDateTime, ZonedDateTime, LocalTime, LocalDate, LocalDateTime}
 
 import scala.reflect.ClassTag
 
@@ -108,6 +108,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val zonedDateType = new ZonedDateTimeJdbcType
     val localTimeType = new LocalTimeJdbcType
     val localDateType = new LocalDateJdbcType
+    val localDateTimeType = new LocalDateTimeJdbcType
     val doubleJdbcType = new DoubleJdbcType
     val floatJdbcType = new FloatJdbcType
     val intJdbcType = new IntJdbcType
@@ -250,7 +251,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
          * Stores the [[LocalTime]] as a 'VARCHAR' in databases with no specific 'TIME'
          * implementations like SQLite. An example persisted value will be '12:17:27.236'
          * [[LocalTime]] will be persisted as a [[String]], because not all SQL 'TIME'
-         * implementations on all databases stores the values on teh same way.
+         * implementations on all databases stores the values on the same way.
          * For example: Microsoft SQL: HH:MM:SS:nnnnnn - MySQL: HH:MM:SS
          */
         java.sql.Types.VARCHAR
@@ -288,6 +289,34 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         r.updateDate(idx, Date.valueOf(v))
       }
       override def valueToSQLLiteral(value: LocalDate) = {
+        value match {
+          case null => "NULL"
+          case _ =>  "'" + value.toString + "'"
+        }
+      }
+    }
+
+    class LocalDateTimeJdbcType extends DriverJdbcType[LocalDateTime] {
+      /**
+       * Stores the [[LocalDateTime]] as a 'VARCHAR' on databases with no specific 'TIME'
+       * implementations like SQLite. An example persisted value will be '2015-10-29T18:07:19.130'
+       * [[LocalDateTime]] will be persisted as a [[String]].
+       */
+      override def sqlType : Int = java.sql.Types.VARCHAR
+      override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
+        /**
+         * Parses the persisted time value with format 'YYYY-MM-DDTHH:MM:SS.mmm'
+         * into a [[LocalDateTime]].
+         */
+        LocalDateTime.parse(r.getString(idx))
+      }
+      override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) : Unit = {
+        r.updateString(idx, v.toString)
+      }
+      override def valueToSQLLiteral(value: LocalDateTime) = {
         value match {
           case null => "NULL"
           case _ =>  "'" + value.toString + "'"
@@ -440,6 +469,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def zonedDateTimeColumnType = columnTypes.zonedDateType
     implicit def localTimeColumnType = columnTypes.localTimeType
     implicit def localDateColumnType = columnTypes.localDateType
+    implicit def localDateTimeColumnType = columnTypes.localDateTimeType
   }
 }
 
