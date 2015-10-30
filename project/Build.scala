@@ -97,7 +97,7 @@ object SlickBuild extends Build {
   lazy val sharedSettings = Seq(
     version := slickVersion,
     organizationName := "Typesafe",
-    organization := "com.typesafe.slick",
+    organization := "com.iv.slick",
     resolvers += Resolver.sonatypeRepo("snapshots"),
     scalacOptions ++= List("-deprecation", "-feature", "-unchecked"),
     scalacOptions in (Compile, doc) <++= (version,sourceDirectory in Compile,name).map((v,src,n) => Seq(
@@ -113,8 +113,8 @@ object SlickBuild extends Build {
     logBuffered := false,
     repoKind <<= (version)(v => if(v.trim.endsWith("SNAPSHOT")) "snapshots" else "releases"),
     publishTo <<= (repoKind){
-      case "snapshots" => Some("snapshots" at "https://oss.sonatype.org/content/repositories/snapshots")
-      case "releases" =>  Some("releases"  at "https://oss.sonatype.org/service/local/staging/deploy/maven2")
+      case "snapshots" => Some("snapshots" at "http://nexus.insidevault.com/content/repositories/thirdparty/")
+      case "releases" =>  Some("releases"  at "http://nexus.insidevault.com/content/repositories/thirdparty/")
     },
     publishMavenStyle := true,
     publishArtifact in Test := false,
