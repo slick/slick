@@ -14,7 +14,7 @@ import slick.basic.{DatabaseConfig, StaticDatabaseConfig}
 
 /** A simple example that uses plain SQL queries against an in-memory
   * H2 database. The example data comes from Oracle's JDBC tutorial at
-  * http://download.oracle.com/javase/tutorial/jdbc/basics/tables.html. */
+  * http://docs.oracle.com/javase/tutorial/jdbc/basics/tables.html. */
 object PlainSQL extends App {
   var out = new ArrayBuffer[String]()
   def println(s: String): Unit = out += s
