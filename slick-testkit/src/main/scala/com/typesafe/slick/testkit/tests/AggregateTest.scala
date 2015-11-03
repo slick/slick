@@ -372,20 +372,20 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       def * = (id, dname, sentAt) <> (Delivery.tupled, Delivery.unapply)
     }
 
-    def allNotFinished = {
-        TableQuery[Deliveries].filter(_.sentAt >= 1400000000L)
+    def leftSide = {
+      TableQuery[Deliveries].filter(_.sentAt >= 1400000000L)
     }
 
-    def allFinished = {
+    def rightSide = {
       TableQuery[Deliveries].filter(_.sentAt < 1400000000L)
     }
 
     val query =
-      allNotFinished.union(allFinished).sortBy(_.id.desc)
+      leftSide.union(rightSide).sortBy(_.id.desc).length
 
     DBIO.seq(
       TableQuery[Deliveries].schema.create,
-      mark("q", query.length.result).map(_ shouldBe 0)
+      mark("q", query.result).map(_ shouldBe 0)
     )
   }
 }
