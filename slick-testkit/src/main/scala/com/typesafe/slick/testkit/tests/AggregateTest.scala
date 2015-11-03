@@ -360,4 +360,51 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       mark("q5c", q5c.result).map(_.sortBy(identity) should (r => r == Seq((1, "a"), (3, "c")) || r == Seq((2, "a"), (3, "c"))))
     )
   }
+
+  def testTerribleTriad = {
+    case class Delivery(id: Long, dname: String, messageId: Long, sentAt: Long)
+
+    case class Message(id: Long, mname: String, mbody: String)
+
+    class Deliveries(tag: Tag) extends Table[Delivery](tag, "delivery") {
+      val id = column[Long]("delivery_id")
+      val dname = column[String]("dname")
+      val messageId = column[Long]("message_id")
+      val sentAt = column[Long]("sent_at")
+
+      def * = (id, dname, messageId, sentAt) <> (Delivery.tupled, Delivery.unapply)
+    }
+
+    class Messages(tag: Tag) extends Table[Message](tag, "message") {
+      val id = column[Long]("message_id")
+      val mname = column[String]("mname")
+      val mbody = column[String]("mbody")
+
+      def * = (id, mname, mbody) <> (Message.tupled, Message.unapply)
+    }
+
+    def allNotFinished = {
+      (for {
+        d <- TableQuery[Deliveries]
+        m <- TableQuery[Messages] if d.messageId === m.id
+      } yield (d, m))
+        .filter { case (d, m) => d.sentAt >= 1400000000L }
+    }
+
+    def allFinishedWithMessageName(messageName: String) = {
+      (for {
+        d <- TableQuery[Deliveries]
+        m <- TableQuery[Messages] if d.messageId === m.id && m.mname === messageName
+      } yield (d, m))
+        .filter { case (d, m) => d.sentAt < 1400000000L }
+    }
+
+    val query = allNotFinished.union(allFinishedWithMessageName("Boo")).sortBy { case (d, m) => (d.sentAt.asc, d.id.desc) }
+
+    DBIO.seq(
+      TableQuery[Deliveries].schema.create,
+      TableQuery[Messages].schema.create,
+      mark("q", query.length.result).map(_ shouldBe 0)
+    )
+  }
 }
