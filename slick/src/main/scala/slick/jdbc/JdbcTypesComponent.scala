@@ -102,7 +102,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     val byteArrayJdbcType = new ByteArrayJdbcType
     val charJdbcType = new CharJdbcType
     val clobJdbcType = new ClobJdbcType
-    @deprecated(message = "java.util.Date is deprecated, use some time class of java.time package instead", since = "3.2.0")
+    @deprecated(message = "java.util.Date is deprecated, use java.time.LocalDateTime instead.", since = "3.2.0")
     val dateJdbcType = new DateJdbcType
     val offsetDateTimeType = new OffsetDateTimeJdbcType
     val zonedDateType = new ZonedDateTimeJdbcType
@@ -177,61 +177,30 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
      * Use [[ZonedDateTimeJdbcType]] or [[OffsetDateTimeJdbcType]] or [[LocalTimeJdbcType]]
      * or [[OffsetTime]] or [[LocalDateTime]] or [[LocalDate]] or [[Instant]] instead.
      */
-    @deprecated(message = "java.util.Date is deprecated, use some class of java.time instead", since = "3.2.0")
+    @deprecated(message = "java.util.Date is deprecated, use java.time.LocalDateTime instead.", since = "3.2.0")
     class DateJdbcType extends DriverJdbcType[Date] {
       def sqlType = java.sql.Types.DATE
       def setValue(v: Date, p: PreparedStatement, idx: Int) = p.setDate(idx, v)
       def getValue(r: ResultSet, idx: Int) = r.getDate(idx)
       def updateValue(v: Date, r: ResultSet, idx: Int) = r.updateDate(idx, v)
-      override def valueToSQLLiteral(value: Date) = "{d '"+value.toString+"'}"
+      override def valueToSQLLiteral(value: Date) = s"{d '${value.toString}'}"
     }
 
-    class OffsetDateTimeJdbcType extends DriverJdbcType[OffsetDateTime] {
-      override def sqlType : Int = {
-        /**
-         * Stores the [[OffsetDateTime]] as a 'VARCHAR' in databases with no specific
-         * 'TIMESTAMP WITH OFFSET' implementations, like SQLite. An persisted value
-         * will be '2015-10-01T12:57:20.293+02:00'
-         */
-        java.sql.Types.VARCHAR
+    class LocalDateJdbcType extends DriverJdbcType[LocalDate] {
+      // TODO: Use native Instant JDBC methods as soon they are implemented.
+      // https://java.net/jira/browse/JPA_SPEC-63
+      override def sqlType : Int = java.sql.Types.DATE
+      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) : Unit = {
+        p.setDate(idx, Date.valueOf(v))
       }
-      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int): Unit = {
-        p.setString(idx, v.toString)
+      override def getValue(r: ResultSet, idx: Int) : LocalDate = r.getDate(idx).toLocalDate
+      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) : Unit = {
+        r.updateDate(idx, Date.valueOf(v))
       }
-      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
-        OffsetDateTime.parse(r.getString(idx))
-      }
-      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int): Unit = r.updateString(idx, v.toString)
-
-      override def valueToSQLLiteral(value: OffsetDateTime) = {
+      override def valueToSQLLiteral(value: LocalDate) = {
         value match {
           case null => "NULL"
-          case _ => "'" + value.toString + "'"
-        }
-      }
-    }
-
-    class ZonedDateTimeJdbcType extends DriverJdbcType[ZonedDateTime] {
-      override def sqlType : Int = {
-        /**
-         * Stores the [[ZonedDateTime]] as a 'VARCHAR' in databases with no specific 'TIMESTAMPZ'
-         * implementations, like SQLite. A persisted value would be
-         * '2015-09-30T17:20:29.393+02:00[Europe/Madrid]'
-         */
-        java.sql.Types.VARCHAR
-      }
-      override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
-      }
-      override def getValue(r: ResultSet, idx: Int) : ZonedDateTime = {
-        ZonedDateTime.parse(r.getString(idx))
-      }
-      override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
-
-      override def valueToSQLLiteral(value: ZonedDateTime) = {
-        value match {
-          case null => "NULL"
-          case _ => "'" + value.toString + "'"
+          case _ =>  s"'${value.toString}'"
         }
       }
     }
@@ -239,12 +208,10 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     class LocalTimeJdbcType extends DriverJdbcType[LocalTime] {
       override def sqlType : Int = {
         /**
-         * Stores the [[LocalTime]] as a 'VARCHAR' in databases with no specific 'TIME'
-         * implementations like SQLite. A persisted value would be '12:17:27.236'
-         * [[LocalTime]] will be persisted as a [[String]], because not all SQL 'TIME'
-         * implementations on all databases stores the values on the same way.
-         * For example: Microsoft SQL: HH:MM:SS:nnnnnn - MySQL: HH:MM:SS
-         */
+          * [[LocalTime]] will be persisted as a [[java.sql.Types.VARCHAR]], because not all
+          * SQL 'TIME' implementations on all databases stores the values on the same way.
+          * For example: Microsoft SQL: HH:MM:SS:nnnnnn - MySQL: HH:MM:SS
+          */
         java.sql.Types.VARCHAR
       }
       override def setValue(v: LocalTime, p: PreparedStatement, idx: Int) : Unit = {
@@ -258,58 +225,65 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def valueToSQLLiteral(value: LocalTime) = {
         value match {
           case null => "NULL"
-          case _ => "'" + value.toString + "'"
-        }
-      }
-    }
-
-    class LocalDateJdbcType extends DriverJdbcType[LocalDate] {
-      override def sqlType : Int = java.sql.Types.DATE
-      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) : Unit = {
-        p.setDate(idx, Date.valueOf(v))
-      }
-      override def getValue(r: ResultSet, idx: Int) : LocalDate = r.getDate(idx).toLocalDate
-      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) : Unit = {
-        r.updateDate(idx, Date.valueOf(v))
-      }
-      override def valueToSQLLiteral(value: LocalDate) = {
-        value match {
-          case null => "NULL"
-          case _ =>  "'" + value.toString + "'"
+          case _ => s"'${value.toString}'"
         }
       }
     }
 
     class LocalDateTimeJdbcType extends DriverJdbcType[LocalDateTime] {
-      /**
-       * Stores the [[LocalDateTime]] as a 'VARCHAR' on databases, like SQLite' with
-       * no specific 'TIME' implementations. An example persisted value would be
-       * '2015-10-29T18:07:19.130'
-       */
-      override def sqlType : Int = java.sql.Types.VARCHAR
+      // TODO: Use native Instant JDBC methods as soon they are implemented.
+      // https://java.net/jira/browse/JPA_SPEC-63
+      override def sqlType : Int = java.sql.Types.TIMESTAMP
       override def setValue(v: LocalDateTime, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
+        p.setTimestamp(idx, Timestamp.valueOf(v))
       }
       override def getValue(r: ResultSet, idx: Int) : LocalDateTime = {
-        LocalDateTime.parse(r.getString(idx))
+        r.getTimestamp(idx).toLocalDateTime
       }
       override def updateValue(v: LocalDateTime, r: ResultSet, idx: Int) : Unit = {
-        r.updateString(idx, v.toString)
+        r.updateTimestamp(idx, Timestamp.valueOf(v))
       }
+      override def hasLiteralForm = true
       override def valueToSQLLiteral(value: LocalDateTime) = {
         value match {
           case null => "NULL"
-          case _ =>  "'" + value.toString + "'"
+          case _ =>  s"'${Timestamp.valueOf(value)}'"
+        }
+      }
+    }
+
+    class InstantJdbcType extends DriverJdbcType[Instant] {
+      // TODO: Use native Instant JDBC methods as soon they are implemented.
+      // https://java.net/jira/browse/JPA_SPEC-63
+      override def sqlType : Int = {
+        java.sql.Types.TIMESTAMP
+      }
+      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+        p.setTimestamp(idx, Timestamp.from(v))
+      }
+      override def getValue(r: ResultSet, idx: Int) : Instant = {
+        r.getTimestamp(idx).toInstant
+      }
+      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
+        r.updateTimestamp(idx, Timestamp.from(v))
+      }
+      override def valueToSQLLiteral(value: Instant) = {
+        value match {
+          case null => "NULL"
+          case _ =>  s"'${Timestamp.from(value)}'"
         }
       }
     }
 
     class OffsetTimeJdbcType extends DriverJdbcType[OffsetTime] {
+      // TODO: Use native Instant JDBC methods as soon they are implemented.
+      // https://java.net/jira/browse/JPA_SPEC-63
       override def sqlType : Int = {
         /**
-         * Stores the [[OffsetTime]] as a 'VARCHAR' on databases, like SQLite, with no
-         * specific 'TIME' implementations. An example persisted value would be '18:22:43.417+01:00'.
-         */
+          * Stores the [[OffsetTime]] as a 'VARCHAR' on databases, like SQLite, with no
+          * specific 'TIME' implementations. An example persisted value would be '18:22:43.417+01:00'.
+          * This is done because the data type 'TIME WITH TIMEZONE' is not available on all databases.
+          */
         java.sql.Types.VARCHAR
       }
       override def setValue(v: OffsetTime, p: PreparedStatement, idx: Int) : Unit = {
@@ -324,33 +298,57 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
       override def valueToSQLLiteral(value: OffsetTime) = {
         value match {
           case null => "NULL"
-          case _ =>  "'" + value.toString + "'"
+          case _ =>  s"'${value.toString}'"
         }
       }
     }
 
-    class InstantJdbcType extends DriverJdbcType[Instant] {
+    class OffsetDateTimeJdbcType extends DriverJdbcType[OffsetDateTime] {
       override def sqlType : Int = {
         /**
-         * Stores the [[Instant]] as a 'VARCHAR' on databases, like SQLite, with no
-         * complex 'TIME' implementations. An example persisted value would be
-         * '2015-10-29T17:38:52.868Z'.
-         */
+          * Stores the [[OffsetDateTime]] as a 'VARCHAR' in databases with no specific
+          * 'TIMESTAMP WITH OFFSET' implementations, like SQLite. A persisted value
+          * would be '2015-10-01T12:57:20.293+02:00'
+          */
         java.sql.Types.VARCHAR
       }
-      override def setValue(v: Instant, p: PreparedStatement, idx: Int) : Unit = {
+      override def setValue(v: OffsetDateTime, p: PreparedStatement, idx: Int): Unit = {
         p.setString(idx, v.toString)
       }
-      override def getValue(r: ResultSet, idx: Int) : Instant = {
-        Instant.parse(r.getString(idx))
+      override def getValue(r: ResultSet, idx: Int): OffsetDateTime = {
+        OffsetDateTime.parse(r.getString(idx))
       }
-      override def updateValue(v: Instant, r: ResultSet, idx: Int) : Unit = {
-        r.updateString(idx, v.toString)
-      }
-      override def valueToSQLLiteral(value: Instant) = {
+      override def updateValue(v: OffsetDateTime, r: ResultSet, idx: Int): Unit = r.updateString(idx, v.toString)
+
+      override def valueToSQLLiteral(value: OffsetDateTime) = {
         value match {
           case null => "NULL"
-          case _ =>  "'" + value.toString + "'"
+          case _ => s"'${value.toString}'"
+        }
+      }
+    }
+
+    class ZonedDateTimeJdbcType extends DriverJdbcType[ZonedDateTime] {
+      override def sqlType : Int = {
+        /**
+          * Stores the [[ZonedDateTime]] as a 'VARCHAR' in databases with no specific
+          * 'TIMESTAMP WITH OFFSET' implementation, like SQLite. A persisted value would
+          * be '2015-09-30T17:20:29.393+02:00[Europe/Madrid]'
+          */
+        java.sql.Types.VARCHAR
+      }
+      override def setValue(v: ZonedDateTime, p: PreparedStatement, idx: Int) : Unit = {
+        p.setString(idx, v.toString)
+      }
+      override def getValue(r: ResultSet, idx: Int) : ZonedDateTime = {
+        ZonedDateTime.parse(r.getString(idx))
+      }
+      override def updateValue(v: ZonedDateTime, r: ResultSet, idx: Int) = r.updateString(idx, v.toString)
+
+      override def valueToSQLLiteral(value: ZonedDateTime) = {
+        value match {
+          case null => "NULL"
+          case _ => s"'${value.toString}'"
         }
       }
     }
@@ -484,7 +482,7 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
     implicit def byteArrayColumnType = columnTypes.byteArrayJdbcType
     implicit def charColumnType = columnTypes.charJdbcType
     implicit def clobColumnType = columnTypes.clobJdbcType
-    @deprecated(message = "java.util.Date is deprecated, use some time class of java.time package instead", since = "3.2.0")
+    @deprecated(message = "java.util.Date is deprecated, use java.time.LocalDateTime instead.", since = "3.2.0")
     implicit def dateColumnType = columnTypes.dateJdbcType
     implicit def doubleColumnType = columnTypes.doubleJdbcType
     implicit def floatColumnType = columnTypes.floatJdbcType

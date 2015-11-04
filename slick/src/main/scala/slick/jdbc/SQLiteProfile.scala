@@ -1,7 +1,7 @@
 package slick.jdbc
 
 import java.sql._
-import java.time.{ZonedDateTime, LocalDate}
+import java.time._
 import slick.relational.RelationalCapabilities
 import slick.sql.SqlCapabilities
 
@@ -231,6 +231,8 @@ trait SQLiteProfile extends JdbcProfile {
     override val booleanJdbcType = new BooleanJdbcType
     override val dateJdbcType = new DateJdbcType
     override val localDateType = new LocalDateJdbcType
+    override val localDateTimeType = new LocalDateTimeJdbcType
+    override val instantType = new InstantJdbcType
     override val timeJdbcType = new TimeJdbcType
     override val timestampJdbcType = new TimestampJdbcType
     override val uuidJdbcType = new UUIDJdbcType
@@ -246,24 +248,35 @@ trait SQLiteProfile extends JdbcProfile {
      * since epoch. */
     @deprecated(message = "java.util.Date is deprecated, use some time class of java.time package instead", since = "3.2.0")
     class DateJdbcType extends super.DateJdbcType {
-      override def valueToSQLLiteral(value: Date) = value.getTime.toString
+      override def valueToSQLLiteral(value: Date) = {
+        value match {
+          case null => "NULL"
+          case _ => value.getTime.toString
+        }
+      }
     }
     class LocalDateJdbcType extends super.LocalDateJdbcType {
-      override def sqlType : Int = {
-        /**
-         * In SQLite, [[LocalDate]] is stored as a 'VARCHAR' in order to about some conversion issues.
-         * A persisted value example would be: '1990-12-06'
-         */
-        java.sql.Types.VARCHAR
+      override def valueToSQLLiteral(value: LocalDate) = {
+        value match {
+          case null => "NULL"
+          case _ => Date.valueOf(value).getTime.toString
+        }
       }
-      override def setValue(v: LocalDate, p: PreparedStatement, idx: Int) : Unit = {
-        p.setString(idx, v.toString)
+    }
+    class InstantJdbcType extends super.InstantJdbcType {
+      override def valueToSQLLiteral(value: Instant) = {
+        value match {
+          case null => "NULL"
+          case _ => value.toEpochMilli.toString
+        }
       }
-      override def getValue(r: ResultSet, idx: Int) : LocalDate = {
-        LocalDate.parse(r.getString(idx))
-      }
-      override def updateValue(v: LocalDate, r: ResultSet, idx: Int) : Unit = {
-        r.updateString(idx, v.toString)
+    }
+    class LocalDateTimeJdbcType extends super.LocalDateTimeJdbcType {
+      override def valueToSQLLiteral(value: LocalDateTime) = {
+        value match {
+          case null => "NULL"
+          case _ => Timestamp.valueOf(value).getTime.toString
+        }
       }
     }
     class TimeJdbcType extends super.TimeJdbcType {
