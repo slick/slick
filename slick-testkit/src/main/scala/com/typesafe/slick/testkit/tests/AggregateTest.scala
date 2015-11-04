@@ -364,7 +364,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
   def testTerribleTriad = {
     case class Delivery(id: Long, dname: String, sentAt: Long)
 
-    class Deliveries(tag: Tag) extends Table[Delivery](tag, "delivery") {
+    class Deliveries(tag: Tag) extends Table[Delivery](tag, "d") {
       val id = column[Long]("delivery_id")
       val dname = column[String]("dname")
       val sentAt = column[Long]("sent_at")
@@ -394,7 +394,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
 
     case class Message(id: Long, mname: String, mbody: String)
 
-    class Deliveries(tag: Tag) extends Table[Delivery](tag, "delivery") {
+    class Deliveries(tag: Tag) extends Table[Delivery](tag, "d2") {
       val id = column[Long]("delivery_id")
       val dname = column[String]("dname")
       val messageId = column[Long]("message_id")
@@ -403,7 +403,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       def * = (id, dname, messageId, sentAt) <> (Delivery.tupled, Delivery.unapply)
     }
 
-    class Messages(tag: Tag) extends Table[Message](tag, "message") {
+    class Messages(tag: Tag) extends Table[Message](tag, "m2") {
       val id = column[Long]("message_id")
       val mname = column[String]("mname")
       val mbody = column[String]("mbody")
