@@ -388,4 +388,55 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       mark("q", query.result).map(_ shouldBe 0)
     )
   }
+
+  def testTerribleTriad2 = {
+    case class Delivery(id: Long, dname: String, messageId: Long, sentAt: Long)
+
+    case class Message(id: Long, mname: String, mbody: String)
+
+    class Deliveries(tag: Tag) extends Table[Delivery](tag, "delivery") {
+      val id = column[Long]("delivery_id")
+      val dname = column[String]("dname")
+      val messageId = column[Long]("message_id")
+      val sentAt = column[Long]("sent_at")
+
+      def * = (id, dname, messageId, sentAt) <> (Delivery.tupled, Delivery.unapply)
+    }
+
+    class Messages(tag: Tag) extends Table[Message](tag, "message") {
+      val id = column[Long]("message_id")
+      val mname = column[String]("mname")
+      val mbody = column[String]("mbody")
+
+      def * = (id, mname, mbody) <> (Message.tupled, Message.unapply)
+    }
+
+
+    def leftSide = {
+      (for {
+        d <- TableQuery[Deliveries]
+        m <- TableQuery[Messages] if d.messageId === m.id
+      } yield (d, m))
+        .filter { case (d, m) => d.sentAt >= 1400000000L }
+    }
+
+    def rightSide = {
+      (for {
+        d <- TableQuery[Deliveries]
+        m <- TableQuery[Messages] if d.messageId === m.id
+      } yield (d, m))
+        .filter { case (d, m) => d.sentAt < 1400000000L }
+    }
+
+    val query =
+      leftSide.union(rightSide).length
+
+    DBIO.seq(
+      TableQuery[Deliveries].schema.create,
+      TableQuery[Messages].schema.create,
+      mark("q", query.result).map(_ shouldBe 0)
+    )
+  }
+
+
 }
