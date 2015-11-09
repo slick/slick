@@ -95,7 +95,7 @@ object SourceCodeGenerator {
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: Nil =>
         run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), false)
       case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), Try(ignoreInvalidDefaults.toBoolean).getOrElse(false))
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean)
       case _ => {
         println("""
             |Usage:
