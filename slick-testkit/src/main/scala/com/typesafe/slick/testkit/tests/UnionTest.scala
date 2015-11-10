@@ -157,4 +157,32 @@ class UnionTest extends AsyncTest[RelationalTestDB] {
     )
   }
 
+  def testCountWithUnionAndSort = {
+    case class Delivery(id: Long, dname: String, sentAt: Long)
+
+    class Deliveries(tag: Tag) extends Table[Delivery](tag, "d") {
+      val id = column[Long]("delivery_id")
+      val dname = column[String]("dname")
+      val sentAt = column[Long]("sent_at")
+
+      def * = (id, dname, sentAt) <> (Delivery.tupled, Delivery.unapply)
+    }
+
+    def leftSide = {
+      TableQuery[Deliveries].filter(_.sentAt >= 1400000000L)
+    }
+
+    def rightSide = {
+      TableQuery[Deliveries].filter(_.sentAt < 1400000000L)
+    }
+
+    val query =
+      leftSide.union(rightSide).sortBy(_.id.desc).length
+
+    DBIO.seq(
+      TableQuery[Deliveries].schema.create,
+      mark("q", query.result).map(_ shouldBe 0)
+    )
+  }
+
 }
