@@ -1,0 +1,15 @@
+machine:
+  services:
+    - postgresql
+    - mysql
+  java:
+    version: oraclejdk8
+
+dependencies:
+  pre:
+    - sudo apt-get update -qq
+    - sudo apt-get install -y python-sphinx
+
+test:
+  override:
+    - sbt +testAll
