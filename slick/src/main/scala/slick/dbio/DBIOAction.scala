@@ -109,6 +109,13 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
   def withFilter(p: R => Boolean)(implicit executor: ExecutionContext): DBIOAction[R, NoStream, E] =
     flatMap(v => if(p(v)) SuccessAction(v) else throw new NoSuchElementException("Action.withFilter failed"))
 
+  /** Transform the result of a successful execution of this action, if the given partial function is defined at that value,
+    * otherwise, the result DBIOAction will fail with a `NoSuchElementException`.
+    *
+    * If this action fails, the resulting action also fails. */
+  def collect[R2](pf: PartialFunction[R,R2])(implicit executor: ExecutionContext): DBIOAction[R2, NoStream, E] =
+    map(r1 => pf.applyOrElse(r1,(r:R) => throw new NoSuchElementException(s"DBIOAction.collect partial function is not defined at: $r")))
+
   /** Return an action which contains the Throwable with which this action failed as its result.
     * If this action succeeded, the resulting action fails with a NoSuchElementException. */
   def failed: DBIOAction[Throwable, NoStream, E] = FailedAction[E](this)
