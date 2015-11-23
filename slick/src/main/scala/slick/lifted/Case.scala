@@ -1,6 +1,6 @@
 package slick.lifted
 
-import slick.ast.{LiteralNode, IfThenElse, Node, BaseTypedType, OptionTypedType, TypedType}
+import slick.ast.{LiteralNode, IfThenElse, Node, BaseTypedType, OptionType, TypedType, OptionApply}
 import slick.SlickException
 import slick.util.ConstArray
 
@@ -23,9 +23,14 @@ object Case {
   }
 
   final class TypedCase[B : TypedType, T : TypedType](clauses: ConstArray[Node]) extends Rep.TypedRep[Option[B]] {
-    def toNode = IfThenElse(clauses :+ LiteralNode(null)).nullExtend
+    def toNode: IfThenElse = {
+      val cl =
+        if(implicitly[TypedType[T]].isInstanceOf[OptionType]) clauses
+        else clauses.zipWithIndex.map { case (n, i) => if(i % 2 == 0) n else OptionApply(n) }
+      IfThenElse(cl :+ LiteralNode(null))
+    }
     def If[C <: Rep[_] : CanBeQueryCondition](cond: C) = new TypedWhen[B,T](cond.toNode, clauses)
-    def Else(res: Rep[T]): Rep[T] = Rep.forNode(IfThenElse(clauses :+ res.toNode).nullExtend)
+    def Else(res: Rep[T]): Rep[T] = Rep.forNode(IfThenElse(clauses :+ res.toNode))
   }
 
   final class TypedWhen[B : TypedType, T : TypedType](cond: Node, parentClauses: ConstArray[Node]) {

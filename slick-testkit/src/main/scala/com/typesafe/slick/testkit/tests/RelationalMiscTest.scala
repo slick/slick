@@ -87,15 +87,16 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
   }
 
   def testConditional = {
-    class T1(tag: Tag) extends Table[Int](tag, "t1_conditional") {
+    class T1(tag: Tag) extends Table[(Int, Option[Int])](tag, "t1_conditional") {
       def a = column[Int]("a")
-      def * = a
+      def b = column[Option[Int]]("b")
+      def * = (a, b)
     }
     val t1s = TableQuery[T1]
 
     for {
       _ <- t1s.schema.create
-      _ <- t1s ++= Seq(1, 2, 3, 4)
+      _ <- t1s ++= Seq((1, Some(11)), (2, None), (3, Some(33)), (4, None))
 
       q1 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 Else 0) }
       _ <- q1.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 0), (4, 0)))
@@ -105,6 +106,9 @@ class RelationalMiscTest extends AsyncTest[RelationalTestDB] {
 
       q3 = t1s.map { t1 => (t1.a, Case.If(t1.a < 3) Then 1 If(t1.a < 4) Then 2 Else 0) }
       _ <- q3.to[Set].result.map(_ shouldBe Set((1, 1), (2, 1), (3, 2), (4, 0)))
+
+      q4 = t1s.map { t1 => Case.If(t1.a < 3) Then t1.b Else t1.a.? }.to[Set]
+      _ <- mark("q4", q4.result).map(_ shouldBe Set(Some(11), None, Some(3), Some(4)))
     } yield ()
   }
 
