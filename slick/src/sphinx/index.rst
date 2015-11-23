@@ -21,6 +21,7 @@ User Manual
    introduction
    supported-databases
    gettingstarted
+   concepts
    database
    dbio
    schemas
@@ -40,3 +41,4 @@ ________
    :maxdepth: 3
 
    testkit
+   config
