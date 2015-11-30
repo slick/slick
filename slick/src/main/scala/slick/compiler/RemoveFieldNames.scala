@@ -14,11 +14,11 @@ class RemoveFieldNames(val alwaysKeepSubqueryNames: Boolean = false) extends Pha
     val CollectionType(_, NominalType(top, StructType(fdefs))) = rsm.from.nodeType
     val indexes = fdefs.iterator.zipWithIndex.map { case ((s, _), i) => (s, ElementSymbol(i+1)) }.toMap
     val rsm2 = rsm.nodeMapServerSide(false, { n =>
-      val refTSyms = n.collect[ConstArray[TypeSymbol]] {
-        case Select(_ :@ NominalType(s, _), _) => ConstArray(s)
-        case Union(_ :@ CollectionType(_, NominalType(s1, _)), _ :@ CollectionType(_, NominalType(s2, _)), _) => ConstArray(s1, s2)
-        case Comprehension(_, _ :@ CollectionType(_, NominalType(s, _)), _, _, _, _, _, _, _, _) if alwaysKeepSubqueryNames => ConstArray(s)
-      }.flatten.toSet
+      val refTSyms = n.collect[TypeSymbol] {
+        case Select(_ :@ NominalType(s, _), _) => s
+        case Union(_, _ :@ CollectionType(_, NominalType(s, _)), _) => s
+        case Comprehension(_, _ :@ CollectionType(_, NominalType(s, _)), _, _, _, _, _, _, _, _) if alwaysKeepSubqueryNames => s
+      }.toSet
       val allTSyms = n.collect[TypeSymbol] { case p: Pure => p.identity }.toSet
       val unrefTSyms = allTSyms -- refTSyms
       n.replaceInvalidate {
