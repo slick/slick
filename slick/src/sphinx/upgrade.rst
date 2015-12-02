@@ -17,7 +17,7 @@ Slick version numbers consist of an epoch, a major and minor version, and possib
 
 For release versions (i.e. versions without a qualifier), backward binary compatibility is
 guaranteed between releases with the same epoch and major version (e.g. you could use 2.1.2 as a
-drop-in relacement for 2.1.0 but not for 2.0.0). :doc:`Slick Extensions <extensions>` requires at
+drop-in replacement for 2.1.0 but not for 2.0.0). :doc:`Slick Extensions <extensions>` requires at
 least the same minor version of Slick (e.g. Slick Extensions 2.1.2 can be used with Slick 2.1.2 but
 not with Slick 2.1.1). Binary compatibility is not preserved for `slick-codegen`, which is generally
 used at compile-time.

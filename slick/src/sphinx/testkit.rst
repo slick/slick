@@ -7,7 +7,7 @@ Slick TestKit
 
 .. note::
    This chapter is based on the `Slick TestKit Example template`_.
-   The prefered way of reading this introduction is in Activator_, where you can
+   The preferred way of reading this introduction is in Activator_, where you can
    edit and run the code directly while reading the tutorial.
 
 When you write your own database profile for Slick, you need a way to run all

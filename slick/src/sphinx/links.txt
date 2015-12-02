@@ -1,7 +1,6 @@
 .. _sbt: http://www.scala-sbt.org/
 .. _SLF4J: http://www.slf4j.org/
 .. _Logback: http://logback.qos.ch/
-.. _H2: http://h2database.com/
 .. _JDBC: http://en.wikipedia.org/wiki/Java_Database_Connectivity
 .. _Typesafe Subscription Agreement: http://typesafe.com/public/legal/TypesafeSubscriptionAgreement.pdf
 .. _Typesafe Subscription: http://typesafe.com/subscription
@@ -18,3 +17,14 @@
 .. _JPA: http://en.wikipedia.org/wiki/Java_Persistence_API
 .. _Reactive Manifesto: http://www.reactivemanifesto.org/
 .. _Slick Manuals: http://slick.typesafe.com/docs/
+.. _Scala Futures: http://docs.scala-lang.org/overviews/core/futures.html
+.. _PostgreSQL: http://www.postgresql.org/
+.. _MySQL: http://www.mysql.com/
+.. _DB2: http://www-01.ibm.com/software/data/db2/
+.. _Derby: https://db.apache.org/derby/
+.. _JavaDB: http://www.oracle.com/technetwork/java/javadb/overview/index.html
+.. _H2: http://www.h2database.com/
+.. _HSQLDB: http://hsqldb.org/
+.. _SQLite: https://www.sqlite.org/
+.. _Oracle: https://www.oracle.com/database/
+.. _SQL Server: http://www.microsoft.com/en-us/server-cloud/products/sql-server/

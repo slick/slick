@@ -68,6 +68,14 @@ sealed trait DBIOAction[+R, +S <: NoStream, -E <: Effect] extends Dumpable {
       (r(0).asInstanceOf[R], r(1).asInstanceOf[R2])
     } (DBIO.sameThreadExecutionContext)
 
+  /** Run another action after this action, if it completed successfully, and zip the result
+    * of both actions with a function `f`, then create a new DBIOAction holding this result,
+    * If either of the two actions fails, the resulting action also fails. */
+  def zipWith[R2, E2 <: Effect,R3](a: DBIOAction[R2, NoStream, E2])(f:(R,R2) =>R3)(implicit executor: ExecutionContext): DBIOAction[R3, NoStream, E with E2] =
+    SequenceAction[Any, ArrayBuffer[Any], E with E2](Vector(this, a)).map { r =>
+      f(r(0).asInstanceOf[R], r(1).asInstanceOf[R2])
+    } (executor)
+
   /** Run another action after this action, whether it succeeds or fails, and then return the
     * result of the first action. If the first action fails, its failure is propagated, whether
     * the second action fails or succeeds. If the first action succeeds, a failure of the second

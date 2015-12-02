@@ -69,7 +69,7 @@ Quick Introduction
 ==================
 
 .. note::
-   The rest of this chapter is based on the `Hello Slick template`_. The prefered
+   The rest of this chapter is based on the `Hello Slick template`_. The preferred
    way of reading this introduction is in Activator_, where you can edit and run the code
    directly while reading the tutorial.
 
@@ -82,7 +82,7 @@ from Slick's ``H2Profile``. A profile's ``api`` object contains all commonly
 needed imports from the profile and other parts of Slick such as
 :doc:`database handling <database>`.
 
-Slick's API is fully asynchronous and runs database call in a separate thread pool. For running
+Slick's API is fully asynchronous and runs database calls in a separate thread pool. For running
 user code in composition of ``DBIOAction`` and ``Future`` values, we import the global
 ``ExecutionContext``. When using Slick as part of a larger application (e.g. with Play_ or
 Akka_) the framework may provide a better alternative to this default ``ExecutionContext``.
@@ -183,7 +183,7 @@ the ``map`` method or a *for comprehension*:
 
 .. includecode:: code/FirstExample.scala#projection
 
-The output will be the same: For each row of the table, all columns get
+The output will be the same: for each row of the table, all columns get
 converted to strings and concatenated into one tab-separated string. The
 difference is that all of this now happens inside the database engine, and
 only the resulting concatenated string is shipped to the client. Note that we

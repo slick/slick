@@ -89,6 +89,7 @@ object Connection extends App {
       val a = q.result
       val p1: DatabasePublisher[Blob] = db.stream(a)
       val p2: DatabasePublisher[Array[Byte]] = p1.mapResult { b =>
+        // Executed synchronously on the database thread
         b.getBytes(0, b.length().toInt)
       }
       //#streamblob

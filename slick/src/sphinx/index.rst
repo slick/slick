@@ -21,6 +21,7 @@ User Manual
    introduction
    supported-databases
    gettingstarted
+   concepts
    database
    dbio
    schemas
@@ -41,3 +42,4 @@ ________
 
    testkit
    sphinx-documentation
+   config

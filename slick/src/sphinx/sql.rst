@@ -10,7 +10,7 @@ nicer Scala-based API.
 
 .. note::
    The rest of this chapter is based on the `Slick Plain SQL Queries template`_.
-   The prefered way of reading this introduction is in Activator_, where you can edit and
+   The preferred way of reading this introduction is in Activator_, where you can edit and
    run the code directly while reading the tutorial.
 
 
@@ -74,7 +74,7 @@ actions. It is used here to sum up the affected row counts of all inserts.
 Result Sets
 -----------
 
-The following code uses tbe ``sql`` interpolator which returns a result set produced by a
+The following code uses the ``sql`` interpolator which returns a result set produced by a
 statement. The interpolator by itself does not produce a ``DBIO`` value. It needs to be
 followed by a call to ``.as`` to define the row type:
 
@@ -92,7 +92,7 @@ return types you have to define your own converters:
 ``Supplier`` uses the explicit ``PositionedResult`` methods ``getInt`` and ``getString`` to read
 the next ``Int`` or ``String`` value in the current row. The second one uses the shortcut method
 ``<<`` which returns a value of whatever type is expected at this place. (Of course you can only
-use it when the type is actually known like in this constructor call.
+use it when the type is actually known like in this constructor call.)
 
 Splicing Literal Values
 -----------------------
@@ -128,13 +128,13 @@ annotation::
     @StaticDatabaseConfig("file:src/main/resources/application.conf#tsql")
 
 In this case it points to the path "tsql" in a local ``application.conf`` file, which must contain
-an appropriate configiration for a :api:`slick.basic.StaticDatabaseConfig` object, not just a
+an appropriate configuration for a :api:`slick.basic.StaticDatabaseConfig` object, not just a
 ``Database``.
 
 .. note::
    You can get ``application.conf`` resolved via the classpath (as usual) by omitting the path and
    only specifying a fragment in the URL, or you can use a ``resource:`` URL scheme for referencing
-   an arbitrary classpath resouce, but in both cases, they have to be on the *compiler's* own
+   an arbitrary classpath resource, but in both cases, they have to be on the *compiler's* own
    classpath, not just the source path or the runtime classpath. Depending on the build tool this
    may not be possible, so it's usually better to use a relative ``file:`` URL.
 
