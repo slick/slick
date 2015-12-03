@@ -1,16 +1,14 @@
 package slick.relational
 
-import scala.language.{implicitConversions, higherKinds, existentials}
-import scala.reflect.ClassTag
-
-import slick.SlickException
 import slick.ast._
 import slick.basic.{BasicActionComponent, BasicProfile}
-import slick.compiler.{Phase, EmulateOuterJoins, QueryCompiler}
+import slick.compiler.{EmulateOuterJoins, Phase, QueryCompiler}
 import slick.dbio._
-import slick.lifted._
 import slick.lifted.FunctionSymbolExtensionMethods._
-import slick.util.{TupleMethods, TupleSupport}
+import slick.lifted._
+
+import scala.language.{existentials, higherKinds, implicitConversions}
+import scala.reflect.ClassTag
 
 /** A profile for relational databases that does not assume the existence
   * of SQL (or any other text-based language for executing statements).
@@ -37,13 +35,13 @@ trait RelationalProfile extends BasicProfile with RelationalTableComponent
 
     @deprecated("Use an explicit conversion to an Option column with `.?`", "3.0")
     implicit def columnToOptionColumn[T : BaseTypedType](c: Rep[T]): Rep[Option[T]] = c.?
-    implicit def valueToConstColumn[T : TypedType](v: T) = new LiteralColumn[T](v)
+    implicit def valueToConstColumn[T : TypedType](v: T): LiteralColumn[T] = new LiteralColumn[T](v)
     implicit def columnToOrdered[T : TypedType](c: Rep[T]): ColumnOrdered[T] = ColumnOrdered[T](c, Ordering())
-    implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[_], U](q: Query[T, U, Seq] with TableQuery[T]) =
+    implicit def tableQueryToTableQueryExtensionMethods[T <: RelationalProfile#Table[_], U](q: Query[T, U, Seq] with TableQuery[T]): TableQueryExtensionMethods[T, U] =
       new TableQueryExtensionMethods[T, U](q)
 
     implicit def streamableCompiledInsertActionExtensionMethods[EU](c: StreamableCompiled[_, _, EU]): InsertActionExtensionMethods[EU] = createInsertActionExtensionMethods[EU](c.compiledInsert.asInstanceOf[CompiledInsert])
-    implicit def queryInsertActionExtensionMethods[U, C[_]](q: Query[_, U, C]) = createInsertActionExtensionMethods[U](compileInsert(q.toNode))
+    implicit def queryInsertActionExtensionMethods[U, C[_]](q: Query[_, U, C]): InsertActionExtensionMethods[U] = createInsertActionExtensionMethods[U](compileInsert(q.toNode))
 
     implicit def schemaActionExtensionMethods(sd: SchemaDescription): SchemaActionExtensionMethods = createSchemaActionExtensionMethods(sd)
 
