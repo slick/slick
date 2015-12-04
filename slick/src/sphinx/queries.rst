@@ -50,7 +50,7 @@ the classes ``AnyExtensionMethods``, ``ColumnExtensionMethods``,
 
 Collection values are represented by the ``Query`` class (a ``Rep[Seq[T]]``) which contains many
 standard collection methods like ``flatMap``, ``filter``, ``take`` and ``groupBy``. Due to the two
-different component types of a ``Query`` (lifted and plain, e.g. ``Query[(Rep[Int), Rep[String]),
+different component types of a ``Query`` (lifted and plain, e.g. ``Query[(Rep[Int], Rep[String]),
 (Int, String), Seq]``), the signatures for these methods are very complex but the semantics are
 essentially the same as for Scala collections.
 
