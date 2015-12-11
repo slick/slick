@@ -63,6 +63,7 @@ trait MemoryQueryingDriver extends BasicDriver with MemoryQueryingProfile { driv
       case Bind(gen, g: GroupBy, p @ Pure((_: ProductNode | _: StructNode), _)) =>
         val p2 = transformCountAll(gen, p)
         if(p2 eq p) n else Bind(gen, g, p2).infer(typeChildren = true)
+      case Library.SilentCast(n :@ tpe1) :@ tpe2 if tpe1 == tpe2 => n
       case n => n
     }
 
