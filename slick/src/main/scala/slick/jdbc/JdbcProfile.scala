@@ -61,7 +61,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
     implicit def jdbcActionExtensionMethods[E <: Effect, R, S <: NoStream](a: DBIOAction[R, S, E]): JdbcActionExtensionMethods[E, R, S] =
       new JdbcActionExtensionMethods[E, R, S](a)
 
-    implicit def actionBasedSQLInterpolation(s: StringContext) = new ActionBasedSQLInterpolation(s)
+    implicit def actionBasedSQLInterpolation(s: StringContext): ActionBasedSQLInterpolation = new ActionBasedSQLInterpolation(s)
   }
 
   val api: API = new API {}
