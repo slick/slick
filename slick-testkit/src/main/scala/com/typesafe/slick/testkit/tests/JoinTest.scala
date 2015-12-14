@@ -59,6 +59,10 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
         if a1.id === a4.id
       } yield a1.id).to[Set]
       _ <- mark("q4", q4.result).map(_ shouldBe Set(1, 2, 3, 4))
+      q5 = (for {
+        c <- categories
+      } yield (c, Rep.None[Int])).sortBy(_._1.id)
+      _ <- mark("q5", q5.result.map(_.map(_._1._1))).map(_ shouldBe List(1,2,3,4))
     } yield ()
   }
 
