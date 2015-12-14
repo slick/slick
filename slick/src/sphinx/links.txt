@@ -11,6 +11,7 @@
 .. _Play: https://playframework.com/
 .. _Akka: http://akka.io/
 .. _Akka Streams: http://akka.io/docs/
+.. _Akka Sphinx: http://doc.akka.io/docs/akka/2.4.0/dev/documentation.html
 .. _About Pool Sizing: https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing
 .. _Reactive Streams: http://www.reactive-streams.org/
 .. _JPA: http://en.wikipedia.org/wiki/Java_Persistence_API

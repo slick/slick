@@ -41,4 +41,5 @@ ________
    :maxdepth: 3
 
    testkit
+   sphinx-documentation
    config
