@@ -314,7 +314,7 @@ object TableQueryMacroImpl {
 
   def apply[E <: AbstractTable[_]:c.WeakTypeTag](c: Context): c.Expr[TableQuery[E]] = {
     import c.universe._
-    val cons = c.Expr[Tag⇒ E ](q"(tag: ${typeOf[Tag]}) => new ${c.weakTypeOf[E]}(tag)")
+    val cons = c.Expr[Tag=>E](q"(tag: ${typeOf[Tag]}) => new ${c.weakTypeOf[E]}(tag)")
     reify { TableQuery.apply[E](cons.splice) }
   }
 }
