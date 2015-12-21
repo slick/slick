@@ -62,9 +62,9 @@ object. The following ones are defined for ``JdbcProfile``:
 
 .. index:: type
 
-``DBType(dbType: String)``
+``SqlType(typeName: String)``
    Use a non-standard database-specific type for the DDL statements (e.g.
-   ``DBType("VARCHAR(20)")`` for a ``String`` column).
+   ``SqlType("VARCHAR(20)")`` for a ``String`` column).
 
 .. index:: AutoInc, generated, identity
 
