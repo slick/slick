@@ -142,7 +142,7 @@ data:
 
 .. includecode:: code/FirstExample.scala#create
 
-The ``TableQuery``'s ``ddl`` method creates ``DDL`` (data definition language) objects
+The ``TableQuery``'s ``schema`` method creates ``DDL`` (data definition language) objects
 with the database-specific code for creating and dropping tables and other
 database entities. Multiple ``DDL`` values can be combined with ``++`` to
 allow all entities to be created and dropped in the correct order, even when
