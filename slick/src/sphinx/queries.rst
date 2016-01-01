@@ -40,7 +40,7 @@ are added through implicit conversions defined in
 the classes ``AnyExtensionMethods``, ``ColumnExtensionMethods``,
 ``NumericColumnExtensionMethods``, ``BooleanColumnExtensionMethods`` and
 ``StringColumnExtensionMethods``
-(cf. :slick:`ExtensionMethods <src/main/scala/slick/lifted/ExtensionMethods.scala>`).
+(cf. :slick:`ExtensionMethods <slick/src/main/scala/slick/lifted/ExtensionMethods.scala>`).
 
 .. warning::
    Most operators mimic the plain Scala equivalents, but you have to use ``===`` instead of
