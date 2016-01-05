@@ -12,7 +12,10 @@ class RemoveFieldNames(val alwaysKeepSubqueryNames: Boolean = false) extends Pha
 
   def apply(state: CompilerState) = state.map { n => ClientSideOp.mapResultSetMapping(n, true) { rsm =>
     val CollectionType(_, NominalType(top, StructType(fdefs))) = rsm.from.nodeType
-    val indexes = fdefs.iterator.zipWithIndex.map { case ((s, _), i) => (s, ElementSymbol(i+1)) }.toMap
+    val requiredSyms = rsm.map.collect[TermSymbol]({
+      case Select(Ref(s), f) if s == rsm.generator => f
+    }, stopOnMatch = true).toSeq.distinct.zipWithIndex.toMap
+    logger.debug("Required symbols: " + requiredSyms.mkString(", "))
     val rsm2 = rsm.nodeMapServerSide(false, { n =>
       val refTSyms = n.collect[TypeSymbol] {
         case Select(_ :@ NominalType(s, _), _) => s
@@ -26,7 +29,15 @@ class RemoveFieldNames(val alwaysKeepSubqueryNames: Boolean = false) extends Pha
           // Always convert an empty StructNode because there is nothing to reference
           (Pure(ProductNode(ConstArray.empty), pts), pts)
         case Pure(StructNode(ch), pts) if unrefTSyms contains pts =>
-          (Pure(if(ch.length == 1 && pts != top) ch(0)._2 else ProductNode(ch.map(_._2)), pts), pts)
+          val sel =
+            if(ch.length == 1 && pts != top) ch(0)._2
+            else if(pts != top) ProductNode(ch.map(_._2))
+            else ProductNode(ConstArray.from(ch.map { case (s, n) => (requiredSyms.getOrElse(s, Int.MaxValue), n) }.toSeq.sortBy(_._1)).map(_._2))
+          (Pure(sel, pts), pts)
+        case Pure(StructNode(ch), pts) if pts == top =>
+          val sel =
+            StructNode(ConstArray.from(ch.map { case (s, n) => (requiredSyms.getOrElse(s, Int.MaxValue), (s, n)) }.toSeq.sortBy(_._1)).map(_._2))
+          (Pure(sel, pts), pts)
       }.infer()
     })
     logger.debug("Transformed RSM: ", rsm2)
@@ -34,7 +45,7 @@ class RemoveFieldNames(val alwaysKeepSubqueryNames: Boolean = false) extends Pha
     val baseRef = Ref(rsm.generator) :@ fType
     rsm2.copy(map = rsm2.map.replace({
       case Select(Ref(s), f) if s == rsm.generator =>
-        Select(baseRef, indexes(f)).infer()
+        Select(baseRef, ElementSymbol(requiredSyms(f) + 1)).infer()
     }, keepType = true)) :@ rsm.nodeType
   }}
 }

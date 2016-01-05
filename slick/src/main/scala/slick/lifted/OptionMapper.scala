@@ -63,8 +63,7 @@ object OptionMapper3 {
 
 object OptionMapperDSL {
   type arg[B1, P1] = {
-    type to[BR, PR] = OptionMapper2[B1, B1, BR, P1, P1, PR]
-    type toSame = OptionMapper2[B1, B1, B1, P1, P1, P1]
+    type to[BR, PR] = OptionMapper2[Boolean, B1, BR, Boolean, P1, PR]
     type arg[B2, P2] = {
       type to[BR, PR] = OptionMapper2[B1, B2, BR, P1, P2, PR]
       type arg[B3, P3] = {

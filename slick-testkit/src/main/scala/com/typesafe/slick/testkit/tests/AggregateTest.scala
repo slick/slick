@@ -328,6 +328,7 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
     val q5a = as.groupBy(_.a).map(_._2.map(_.id).min.get)
     val q5b = as.distinct.map(_.id)
     val q5c = as.distinct.map(a => (a.id, a.a))
+    val q6 = as.distinct.length
 
     if(tdb.profile == H2Profile) {
       assertNesting(q1a, 1)
@@ -357,7 +358,8 @@ class AggregateTest extends AsyncTest[RelationalTestDB] {
       mark("q4", q4.result).map(_.sortBy(identity) shouldBe Seq("a", "a", "c")),
       mark("q5a", q5a.result).map(_.sortBy(identity) shouldBe Seq(1, 3)),
       mark("q5b", q5b.result).map(_.sortBy(identity) should (r => r == Seq(1, 3) || r == Seq(2, 3))),
-      mark("q5c", q5c.result).map(_.sortBy(identity) should (r => r == Seq((1, "a"), (3, "c")) || r == Seq((2, "a"), (3, "c"))))
+      mark("q5c", q5c.result).map(_.sortBy(identity) should (r => r == Seq((1, "a"), (3, "c")) || r == Seq((2, "a"), (3, "c")))),
+      mark("q6", q6.result).map(_ shouldBe 2)
     )
   }
 }

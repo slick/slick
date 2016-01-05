@@ -1,3 +1,4 @@
+sudo: false
 language: scala
 script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll
 jdk:
@@ -8,6 +9,12 @@ notifications:
 services:
   - mysql
   - postgresql
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -y python-sphinx
+addons:
+  apt:
+    packages:
+    - graphviz
+    - python-sphinx
+cache:
+  directories:
+    - $HOME/.sbt
+    - $HOME/.ivy2
