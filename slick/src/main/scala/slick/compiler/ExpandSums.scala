@@ -36,6 +36,10 @@ class ExpandSums extends Phase {
           multi = true
           IfThenElse(ConstArray(pred, then1, buildMultiColumnNone(tpe))) :@ tpe
 
+        // Identity OptionFold/OptionApply combination -> remove
+        case OptionFold(from, LiteralNode(None) :@ OptionType(ScalaBaseType.nullType), oa @ OptionApply(Ref(s)), gen) if s == gen =>
+          silentCast(oa.nodeType, from)
+
         // Primitive OptionFold representing GetOrElse -> translate to GetOrElse
         case OptionFold(from :@ OptionType.Primitive(_), LiteralNode(v), Ref(s), gen) if s == gen =>
           GetOrElse(from, () => v).infer()
