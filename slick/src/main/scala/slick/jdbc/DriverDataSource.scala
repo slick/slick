@@ -120,6 +120,7 @@ class DriverDataSource(
   def setLogWriter(out: PrintWriter): Unit = throw new SQLFeatureNotSupportedException()
 
   def getParentLogger: Logger = {
+    init
     try driver.asInstanceOf[{ def getParentLogger(): Logger }].getParentLogger
     catch { case _: NoSuchMethodException => throw new SQLFeatureNotSupportedException() }
   }
