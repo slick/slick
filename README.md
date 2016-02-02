@@ -19,18 +19,13 @@ The following database systems are directly supported for type-safe queries:
 - MySQL
 - PostgreSQL
 - SQLite
-
-Support for Oracle, IBM DB2 and Microsoft SQL Server is available for
-production use by
-[Typesafe subscribers](http://www.typesafe.com/products/typesafe-subscription)
-(free for evaluation and development) in the Slick Extensions package.
-See the Slick [manual](http://slick.typesafe.com/docs/) for details.
+- Oracle 11g
+- IBM DB2 LUW 10
+- Microsoft SQL Server 2008
 
 Accessing other database systems is possible, with a reduced feature set.
 
 The [manual and scaladocs](http://slick.typesafe.com/docs/) for Slick can be
 found on the [Slick web site](http://slick.typesafe.com/).
-There is some older documentation (which may still apply to some extent to
-Slick) in the [ScalaQuery Wiki](https://github.com/szeiger/scala-query/wiki).
 
 Licensing conditions (BSD-style) can be found in LICENSE.txt.

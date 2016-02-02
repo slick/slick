@@ -17,12 +17,15 @@ object BuildCapabilitiesTable extends App {
   }
 
   val profileNames = if(args.length > 1) args(1).split(",") else Array(
+    "slick.jdbc.DB2Profile",
     "slick.jdbc.DerbyProfile",
     "slick.jdbc.H2Profile",
     "slick.jdbc.HsqldbProfile",
     "slick.jdbc.MySQLProfile",
+    "slick.jdbc.OracleProfile",
     "slick.jdbc.PostgresProfile",
-    "slick.jdbc.SQLiteProfile"
+    "slick.jdbc.SQLiteProfile",
+    "slick.jdbc.SQLServerProfile"
   )
 
   val profiles = profileNames.map { n =>

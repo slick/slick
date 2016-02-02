@@ -104,7 +104,11 @@ val  SimpleA = CustomTyping.SimpleA
         """.stripMargin
     },
     new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql")),
-    new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil)
+    new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
+    new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
+      override def useSingleLineStatements = true
+      override def testCode = "DBIO.successful(())"
+    }
   )
 
   //Unified UUID config

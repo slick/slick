@@ -1,13 +1,13 @@
 Supported Databases
 ===================
 
-* DB2_ (via :doc:`slick-extensions <extensions>`)
+* DB2_
 * Derby_ / JavaDB_
 * H2_
 * HSQLDB_ (HyperSQL)
-* Microsoft `SQL Server`_ (via :doc:`slick-extensions <extensions>`)
+* Microsoft `SQL Server`_
 * MySQL_
-* Oracle_ (via :doc:`slick-extensions <extensions>`)
+* Oracle_
 * PostgreSQL_
 * SQLite_
 
@@ -20,6 +20,6 @@ The following capabilities are supported by the profiles. "Yes" means that a
 capability is fully supported. In other cases it may be partially supported or
 not at all. See the individual profile's API documentation for details.
 
-.. csv-table:: Profile Capabilities (core profiles only)
+.. csv-table:: Profile Capabilities
    :header-rows: 1
    :file: capabilities.csv
