@@ -1,4 +1,4 @@
-Copyright 2011-2012 Typesafe, Inc.
+Copyright 2011-2016 Typesafe, Inc.
 
 All rights reserved.
 
