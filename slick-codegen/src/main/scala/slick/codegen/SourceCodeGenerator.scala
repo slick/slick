@@ -73,7 +73,7 @@ object SourceCodeGenerator {
     } finally db.close
   }
 
-  def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = false): Unit = {
+  def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = true): Unit = {
     val dc = DatabaseConfig.forURI[JdbcProfile](uri)
     val pkg = dc.config.getString("codegen.package")
     val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
@@ -91,9 +91,9 @@ object SourceCodeGenerator {
       case uri :: outputDir :: Nil =>
         run(new URI(uri), Some(outputDir))
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, None, None, false)
+        run(profile, jdbcDriver, url, outputDir, pkg, None, None, true)
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), false)
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), true)
       case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: Nil =>
         run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean)
       case _ => {
