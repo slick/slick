@@ -4,6 +4,7 @@ import java.net.URI
 
 import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration.Duration
+import scala.util.Try
 
 import slick.basic.DatabaseConfig
 import slick.{model => m}
@@ -60,25 +61,25 @@ class SourceCodeGenerator(model: m.Model)
 /** A runnable class to execute the code generator without further setup */
 object SourceCodeGenerator {
 
-  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String]): Unit = {
+  def run(profile: String, jdbcDriver: String, url: String, outputDir: String, pkg: String, user: Option[String], password: Option[String], ignoreInvalidDefaults: Boolean): Unit = {
     val profileInstance: JdbcProfile =
       Class.forName(profile + "$").getField("MODULE$").get(null).asInstanceOf[JdbcProfile]
     val dbFactory = profileInstance.api.Database
     val db = dbFactory.forURL(url, driver = jdbcDriver,
       user = user.getOrElse(null), password = password.getOrElse(null), keepAliveConnection = true)
     try {
-      val m = Await.result(db.run(profileInstance.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
+      val m = Await.result(db.run(profileInstance.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
       new SourceCodeGenerator(m).writeToFile(profile,outputDir,pkg)
     } finally db.close
   }
 
-  def run(uri: URI, outputDir: Option[String]): Unit = {
+  def run(uri: URI, outputDir: Option[String], ignoreInvalidDefaults: Boolean = false): Unit = {
     val dc = DatabaseConfig.forURI[JdbcProfile](uri)
     val pkg = dc.config.getString("codegen.package")
     val out = outputDir.getOrElse(dc.config.getStringOr("codegen.outputDir", "."))
     val profile = if(dc.profileIsObject) dc.profileName else "new " + dc.profileName
     try {
-      val m = Await.result(dc.db.run(dc.profile.createModel(None, false)(ExecutionContext.global).withPinnedSession), Duration.Inf)
+      val m = Await.result(dc.db.run(dc.profile.createModel(None, ignoreInvalidDefaults)(ExecutionContext.global).withPinnedSession), Duration.Inf)
       new SourceCodeGenerator(m).writeToFile(profile, out, pkg)
     } finally dc.db.close
   }
@@ -90,9 +91,11 @@ object SourceCodeGenerator {
       case uri :: outputDir :: Nil =>
         run(new URI(uri), Some(outputDir))
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, None, None)
+        run(profile, jdbcDriver, url, outputDir, pkg, None, None, false)
       case profile :: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: Nil =>
-        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password))
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), false)
+      case  profile:: jdbcDriver :: url :: outputDir :: pkg :: user :: password :: ignoreInvalidDefaults :: Nil =>
+        run(profile, jdbcDriver, url, outputDir, pkg, Some(user), Some(password), ignoreInvalidDefaults.toBoolean)
       case _ => {
         println("""
             |Usage:
