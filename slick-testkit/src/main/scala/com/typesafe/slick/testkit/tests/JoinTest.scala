@@ -348,4 +348,36 @@ class JoinTest extends AsyncTest[RelationalTestDB] {
       q2.result.map(_.toSet shouldBe Set(Some(4), Some(5)))
     )
   }
+
+  def testJoinOnGroupByWithFilter = {
+    class Coffee(tag: Tag) extends Table[(Int, Int, Int)](tag, "coffee") {
+      def id          = column[Int]("id")
+      def supplierId  = column[Int]("supplier_id")
+      def price       = column[Int]("price")
+      def *           = (id, supplierId, price)
+    }
+    lazy val coffee = TableQuery[Coffee]
+
+    class Supplier(tag: Tag) extends Table[(Int, String)](tag, "supplier") {
+      def id   = column[Int]("id")
+      def city = column[String]("city")
+      def *    = (id, city)
+    }
+    lazy val supplier = TableQuery[Supplier]
+
+    val query = for {
+      suppId <- coffee
+                  .groupBy(_.supplierId)
+                  .map { case (suppId, q)      => (suppId, q.map(_.price).min) }
+                  .filter { case (_, minPrice) => minPrice < 100 }
+                  .map { case (suppId, _)      => suppId }
+      supp   <- supplier
+                   if supp.id === suppId
+    } yield (supp.city)
+
+    DBIO.seq(
+       TableQuery[Supplier].schema.create,
+       TableQuery[Coffee].schema.create,
+       query.result)
+  }
 }
