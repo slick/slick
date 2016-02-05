@@ -134,8 +134,6 @@ License
 -------
 
 Slick is released under a BSD-Style free and open source software :slick:`license <LICENSE.txt>`.
-See the chapter on the commercial :doc:`Slick Extensions <extensions>` add-on
-package for details on licensing the Slick profiles for the big commercial database systems.
 
 .. index:: APIs
 

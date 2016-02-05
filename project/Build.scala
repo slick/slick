@@ -13,7 +13,6 @@ import com.typesafe.sbt.sdlc.Plugin._
 object SlickBuild extends Build {
 
   val slickVersion = "3.2.0-SNAPSHOT"
-  val slickExtensionsVersion = slickVersion // Slick extensions version for links in the manual
   val binaryCompatSlickVersion = "3.2.0" // Slick base version for binary compatibility checks
   val scalaVersions = Seq("2.11.7", "2.12.0-M2")
 
@@ -42,7 +41,8 @@ object SlickBuild extends Build {
       "org.apache.derby" % "derby" % "10.9.1.0",
       "org.hsqldb" % "hsqldb" % "2.2.8",
       "postgresql" % "postgresql" % "9.1-901.jdbc4",
-      "mysql" % "mysql-connector-java" % "5.1.23"
+      "mysql" % "mysql-connector-java" % "5.1.23",
+      "net.sourceforge.jtds" % "jtds" % "1.3.1"
     )
     val paxExamVersion = "4.6.0"
     val paxExam = Seq(
@@ -195,8 +195,7 @@ object SlickBuild extends Build {
       )),
       (sphinxEnv in Sphinx) := (sphinxEnv in Sphinx).value +
         ("version" -> version.value.replaceFirst("""(\d*.\d*).*""", """$1""")) +
-        ("release" -> version.value) +
-        ("slick_extensions_version" -> slickExtensionsVersion),
+        ("release" -> version.value),
       (sphinxProperties in Sphinx) := Map.empty,
       makeSite <<= makeSite dependsOn (buildCapabilitiesTable in slickTestkitProject),
       site.addMappingsToSiteDir(mappings in packageDoc in Compile in slickProject, "api"),

@@ -5,8 +5,9 @@ import java.util.logging.{Level, Logger}
 import java.sql.SQLException
 import slick.compiler.Phase
 import slick.dbio._
+import slick.driver.JdbcProfile
 import slick.memory.MemoryProfile
-import slick.jdbc.{SimpleJdbcAction, ResultSetAction, H2Profile, HsqldbProfile, MySQLProfile, DerbyProfile, PostgresProfile, SQLiteProfile}
+import slick.jdbc._
 import slick.jdbc.GetResult._
 import slick.jdbc.meta.MTable
 import org.junit.Assert
@@ -137,6 +138,92 @@ object StandardTestDBs {
       for(t <- tables) {
         if(all.contains(t)) Assert.fail("Table "+t+" should not exist")
       }
+    }
+  }
+
+  lazy val DB2 = new ExternalJdbcTestDB("db2") {
+    val profile = DB2Profile
+    import profile.api.actionBasedSQLInterpolation
+
+    override def canGetLocalTables = false
+
+    lazy val schema = config.getString("schema")
+
+    def dropSchema: DBIO[Unit] = {
+      import ExecutionContext.Implicits.global
+      for {
+        schema <- sql"select schemaname from syscat.schemata where schemaname = '#$schema'".as[String].headOption
+        _ <- if(schema.isDefined) {
+          println(s"[Dropping DB2 schema '$schema']")
+          sqlu"call sysproc.admin_drop_schema($schema, null, ${"ERRORSCHEMA"}, ${"ERRORTABLE"})"
+        } else DBIO.successful(())
+      } yield ()
+    }
+
+    override def cleanUpBefore(): Unit = {
+      import ExecutionContext.Implicits.global
+      await(databaseFor("testConn").run(for {
+        _ <- dropSchema
+        _ = println(s"[Creating DB2 schema '$schema']")
+        _ <- sqlu"create schema #$schema"
+      } yield ()))
+    }
+
+    override def cleanUpAfter(): Unit =
+      await(databaseFor("adminConn").run(dropSchema))
+
+    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
+      session.close()
+      cleanUpBefore()
+    }
+  }
+
+  class SQLServerDB(confName: String) extends ExternalJdbcTestDB(confName) {
+    val profile = SQLServerProfile
+    import profile.api.actionBasedSQLInterpolation
+
+    val defaultSchema = config.getString("defaultSchema")
+
+    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
+      ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(testDB, defaultSchema, null, null)).map { ts =>
+        ts.map(_._3).sorted
+      }
+
+    override def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
+      for {
+        constraints <- sql"""select constraint_name, table_name from information_schema.table_constraints where constraint_type = 'FOREIGN KEY'""".as[(String, String)]
+        constraintStatements = constraints.collect { case (c, t) if !c.startsWith("SQL") =>
+          sqlu"alter table #${profile.quoteIdentifier(t)} drop constraint #${profile.quoteIdentifier(c)}"
+        }
+        _ <- DBIO.sequence(constraintStatements)
+        tables <- localTables
+        tableStatements = tables.map(t => sqlu"drop table #${profile.quoteIdentifier(t)}")
+        _ <- DBIO.sequence(tableStatements)
+      } yield ()
+    }
+  }
+
+  lazy val SQLServerJTDS = new SQLServerDB("sqlserver-jtds") {
+    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
+  }
+  lazy val SQLServerSQLJDBC = new SQLServerDB("sqlserver-sqljdbc") {
+    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
+  }
+
+  lazy val Oracle = new ExternalJdbcTestDB("oracle") {
+    val profile = OracleProfile
+    import profile.api.actionBasedSQLInterpolation
+
+    override def canGetLocalTables = false
+    override def capabilities =
+      super.capabilities - TestDB.capabilities.jdbcMetaGetIndexInfo - TestDB.capabilities.transactionIsolation
+
+    /* Only drop and recreate the user. This is much faster than dropping
+     * the tablespace. */
+    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
+      session.close()
+      val a = DBIO.sequence(Seq(drop(0), create(1), create(2)).map(s => sqlu"#$s"))
+      await(databaseFor("adminConn").run(a))
     }
   }
 }
