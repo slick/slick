@@ -71,6 +71,7 @@ trait PostgresProfile extends JdbcProfile {
         case (VarCharPattern(str),"String") => Some(Some(str))
         case (IntPattern(v),"Int") => Some(Some(v.toInt))
         case (IntPattern(v),"Long") => Some(Some(v.toLong))
+        case (IntPattern(v),"Double") => Some(Some(v.toDouble))
         case ("NULL::character varying","String") => Some(None)
         case (v,"java.util.UUID") => {
           val uuid = v.replaceAll("[\'\"]", "") //strip quotes
