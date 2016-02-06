@@ -43,7 +43,7 @@ case class PrimaryKey(
   columns: Seq[Column],
   options: Set[PrimaryKeyOption[_]] = Set()
 ){
-  require( !name.exists(_ == ""), "name cannot be empty string" )
+  require( !name.contains(""), "name cannot be empty string" )
 }
 
 case class ForeignKey(
@@ -56,7 +56,7 @@ case class ForeignKey(
   onDelete: ForeignKeyAction,
   options: Set[ForeignKeyOption[_]] = Set()
 ){
-  require( !name.exists(_ == ""), "name cannot be empty string" )
+  require( !name.contains(""), "name cannot be empty string" )
 }
 
 
@@ -77,7 +77,7 @@ case class Index(
   unique: Boolean,
   options: Set[IndexOption[_]] = Set()
 ){
-  require( !name.exists(_ == ""), "name cannot be empty string" )
+  require( !name.contains(""), "name cannot be empty string" )
 }
 
 
@@ -93,9 +93,9 @@ case class Model(
   lazy val tablesByName = tables.map(t => t.name->t).toMap
   /**
    * Verifies consistency of the model by checking for duplicate names and references to non-existing entities.
-   * In case such things are found, throws an AssertionError. 
+   * In case such things are found, throws an AssertionError.
    */
-  def assertConsistency{
+  def assertConsistency() {
     assert(tables.size == tables.map(_.name).distinct.size, "duplicate tables names detected")
     tables.foreach{ table =>
       import table._
@@ -107,7 +107,7 @@ case class Model(
           assert( table.columns.contains(column), msg("column "+column,"primary key "+pk) )
         }
       }
-      assert(foreignKeys.filter(_.name!=None).size == foreignKeys.filter(_.name!=None).map(_.name).distinct.size, "duplicate foreign key names detected")
+      assert(foreignKeys.count(_.name.isDefined) == foreignKeys.filter(_.name.isDefined).map(_.name).distinct.size, "duplicate foreign key names detected")
       foreignKeys.foreach{ fk =>
         assert( tablesByName.isDefinedAt(fk.referencedTable), msg("table "+fk.referencedTable,"foreign key "+fk) )
         assert( tablesByName.isDefinedAt(fk.referencingTable), msg("table "+fk.referencingTable,"foreign key "+fk) )
@@ -121,7 +121,7 @@ case class Model(
           assert( fkTable.columns.contains(fkColumn), msg("column "+fkColumn+" of table "+fkTable,"foreign key "+fk) )
         }
       }
-      assert(indices.filter(_.name!=None).size == indices.filter(_.name!=None).map(_.name).distinct.size, "duplicate index names detected")
+      assert(indices.count(_.name.isDefined) == indices.filter(_.name.isDefined).map(_.name).distinct.size, "duplicate index names detected")
       indices.foreach{ idx =>
         assert( tablesByName.isDefinedAt(idx.table), msg("table "+idx.table,"index "+idx) )
         idx.columns.foreach{ column =>
