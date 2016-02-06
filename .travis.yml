@@ -1,6 +1,6 @@
 sudo: false
 language: scala
-script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll
+script: sbt -jvm-opts jvmopts.travis -Dslick.testkit-config=test-dbs/testkit.travis.conf +testAll coveralls
 jdk:
   - oraclejdk8
 notifications:
