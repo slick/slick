@@ -1,11 +1,8 @@
 package slick.jdbc
+
 import scala.language.experimental.macros
 
-/**
-  * Created by yjs on 2016/2/7.
-  */
-
-class GetResultReadsMacroImpl(val c: scala.reflect.macros.blackbox.Context) {
+private[jdbc] class GetResultReadsMacroImpl(val c: scala.reflect.macros.blackbox.Context) {
 
   import c.universe._
 
@@ -21,21 +18,27 @@ class GetResultReadsMacroImpl(val c: scala.reflect.macros.blackbox.Context) {
     if (entityConstructorSize > 1)
       c.warning(
         c.enclosingPosition,
-        s"GetResultMacro.reads only support primary constructor ,but ${show(entity)} has ${entityConstructorSize} constructor")
+        s"GetResult.reads only support primary constructor ,but ${show(entity)} has ${entityConstructorSize} constructor")
 
-    val entityConstructor = entity.typeSymbol.typeSignature.members.filter(_.isConstructor).filter(_.asMethod.isPrimaryConstructor).head
+    val entityPrimaryConstructor = entity.typeSymbol.typeSignature.members
+      .filter(_.isConstructor)
+      .filter(_.asMethod.isPrimaryConstructor)
+      .head
 
-    val entityParams = entityConstructor.asMethod.paramLists
+    val entityPrimaryConstructorParams = entityPrimaryConstructor.asMethod.paramLists
 
     val positionedResultFunctionName = TermName("positionedResult")
 
-    val positionedResultEntityConstructor = entityParams map (params ⇒ params.map(param ⇒ {
+    val positionedResultEntityConstructor = entityPrimaryConstructorParams map (params => params.map(param => {
       def asOption = param.info <:< typeOf[Option[_]]
 
+      // change Option[T] => T
+      def dropOptionWeak = param.info.typeArgs.tail.foldLeft(tq"${param.info.typeArgs.head}") { (l, r) =>
+        tq"${l}[${r}]"
+      }
+
       if (asOption) {
-        val tpe = param.info.typeArgs.tail.foldLeft(tq"${param.info.typeArgs.head}") { (l, r) ⇒
-          tq"${l}[${r}]"
-        }
+        val tpe = dropOptionWeak
         q"${positionedResultFunctionName}.<<?[$tpe]"
       }
       else {
@@ -45,7 +48,8 @@ class GetResultReadsMacroImpl(val c: scala.reflect.macros.blackbox.Context) {
     }))
     val out =
       q"""
-      slick.jdbc.GetResult((${positionedResultFunctionName} : slick.jdbc.PositionedResult)=> new $entity (...${positionedResultEntityConstructor}))
+      slick.jdbc.GetResult((${positionedResultFunctionName} : slick.jdbc.PositionedResult)=>
+        new $entity (...${positionedResultEntityConstructor}))
       """
     out
   }
