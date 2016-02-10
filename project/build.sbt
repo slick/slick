@@ -12,4 +12,10 @@ addSbtPlugin("com.typesafe" % "sbt-sdlc" % "0.1")
 
 addSbtPlugin("de.johoop" % "sbt-testng-plugin" % "3.0.2")
 
+addSbtPlugin("org.scoverage" %% "sbt-scoverage" % "1.3.5")
+
+addSbtPlugin("com.sksamuel.scoverage" %% "sbt-coveralls" % "0.0.5")
+
 resolvers += Resolver.url("fix-sbt-plugin-releases", url("https://dl.bintray.com/sbt/sbt-plugin-releases"))(Resolver.ivyStylePatterns)
+
+resolvers += Resolver.url("scoverage-bintray", url("https://dl.bintray.com/sksamuel/sbt-plugins/"))(Resolver.ivyStylePatterns)
