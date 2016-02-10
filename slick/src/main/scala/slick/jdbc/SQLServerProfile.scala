@@ -107,8 +107,13 @@ trait SQLServerProfile extends JdbcProfile {
   override def createModelBuilder(tables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext): JdbcModelBuilder =
     new ModelBuilder(tables, ignoreInvalidDefaults)
 
-  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] =
-    MTable.getTables(None, None, None, Some(Seq("TABLE")))
+  override def defaultTables(implicit ec: ExecutionContext): DBIO[Seq[MTable]] = {
+    import api._
+    for {
+      schema <- Functions.user.result
+      mtables <- MTable.getTables(None, Some(schema), None, Some(Seq("TABLE")))
+    } yield mtables
+  }
 
   override def defaultSqlTypeName(tmd: JdbcType[_], sym: Option[FieldSymbol]): String = tmd.sqlType match {
     case java.sql.Types.VARCHAR =>

@@ -11,6 +11,8 @@ import slick.jdbc._
 import slick.jdbc.GetResult._
 import slick.jdbc.meta.MTable
 import org.junit.Assert
+import slick.util.ConfigExtensionMethods._
+
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
@@ -182,24 +184,19 @@ object StandardTestDBs {
     val profile = SQLServerProfile
     import profile.api.actionBasedSQLInterpolation
 
-    val defaultSchema = config.getString("defaultSchema")
     // sqlserver has valid "select for update" syntax, but in testing on Appveyor, the test hangs due to lock escalation
     // so exclude from explicit ForUpdate testing
     override def capabilities = super.capabilities - TestDB.capabilities.selectForUpdateRowLocking
+    val defaultSchema = config.getStringOpt("defaultSchema")
 
-    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
-      ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(testDB, defaultSchema, null, null)).map { ts =>
-        ts.map(_._3).sorted
-      }
+    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] = {
+      MTable.getTables(None, defaultSchema, None, Some(Seq("TABLE"))).map(_.map(_.name.name).sorted)
+    }
 
     override def dropUserArtifacts(implicit session: profile.Backend#Session) = blockingRunOnSession { implicit ec =>
       for {
-        constraints <- sql"""select constraint_name, table_name from information_schema.table_constraints where constraint_type = 'FOREIGN KEY'""".as[(String, String)]
-        constraintStatements = constraints.collect { case (c, t) if !c.startsWith("SQL") =>
-          sqlu"alter table #${profile.quoteIdentifier(t)} drop constraint #${profile.quoteIdentifier(c)}"
-        }
-        _ <- DBIO.sequence(constraintStatements)
         tables <- localTables
+        _ <- DBIO.sequence(tables.map(t => sqlu"exec sp_MSdropconstraints #$t"))
         tableStatements = tables.map(t => sqlu"drop table #${profile.quoteIdentifier(t)}")
         _ <- DBIO.sequence(tableStatements)
       } yield ()
@@ -209,7 +206,19 @@ object StandardTestDBs {
   lazy val SQLServerJTDS = new SQLServerDB("sqlserver-jtds") {
     override def capabilities = super.capabilities - TestDB.capabilities.plainSql
   }
+  lazy val SQLServer2012JTDS = new SQLServerDB("sqlserver2012-jtds") {
+    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
+  }
+  lazy val SQLServer2014JTDS = new SQLServerDB("sqlserver2014-jtds") {
+    override def capabilities = super.capabilities - TestDB.capabilities.plainSql
+  }
   lazy val SQLServerSQLJDBC = new SQLServerDB("sqlserver-sqljdbc") {
+    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
+  }
+  lazy val SQLServer2012SQLJDBC = new SQLServerDB("sqlserver2012-sqljdbc") {
+    override def capabilities = profile.capabilities - JdbcCapabilities.createModel
+  }
+  lazy val SQLServer2014SQLJDBC = new SQLServerDB("sqlserver2014-sqljdbc") {
     override def capabilities = profile.capabilities - JdbcCapabilities.createModel
   }
 
@@ -221,13 +230,26 @@ object StandardTestDBs {
     override def capabilities =
       super.capabilities - TestDB.capabilities.jdbcMetaGetIndexInfo - TestDB.capabilities.transactionIsolation
 
-    /* Only drop and recreate the user. This is much faster than dropping
-     * the tablespace. */
-    override def dropUserArtifacts(implicit session: profile.Backend#Session) = {
-      session.close()
-      val a = DBIO.sequence(Seq(drop(0), create(1), create(2)).map(s => sqlu"#$s"))
-      await(databaseFor("adminConn").run(a))
+    override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] = {
+      val tableNames = profile.defaultTables.map(_.map(_.name.name)).map(_.toVector)
+      tableNames
     }
+
+    override def localSequences(implicit ec: ExecutionContext): DBIO[Vector[String]] = {
+      // user_sequences much quicker than going to metadata if you don't know the schema they are going to be in
+      sql"select sequence_Name from user_sequences".as[String]
+    }
+
+    override def dropUserArtifacts(implicit session: profile.Backend#Session) =
+      blockingRunOnSession { implicit ec =>
+        for {
+          tables <- localTables
+          sequences <- localSequences
+          _ <- DBIO.seq(tables.map(t => sqlu"drop table #${profile.quoteIdentifier(t)} cascade constraints") ++
+                        sequences.map(s => sqlu"drop sequence #${profile.quoteIdentifier(s)}"): _*)
+        } yield ()
+      }
+
   }
 }
 

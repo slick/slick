@@ -282,7 +282,7 @@ object SlickBuild extends Build {
   ).configs(DocTest).settings(inConfig(DocTest)(Defaults.testSettings): _*).settings(
     unmanagedSourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/code",
     unmanagedResourceDirectories in DocTest += (baseDirectory in slickProject).value / "src/sphinx/resources"
-  ) dependsOn(slickProject, slickCodegenProject % "compile->compile", slickHikariCPProject % "test->compile")
+  ) dependsOn(slickProject, slickCodegenProject % "compile->compile", slickHikariCPProject)
 
   lazy val slickCodegenProject = Project(id = "codegen", base = file("slick-codegen"),
     settings = Defaults.coreDefaultSettings ++ sdlcSettings ++ sharedSettings ++ extTarget("codegen") ++ commonSdlcSettings ++ Seq(
@@ -339,7 +339,8 @@ object SlickBuild extends Build {
       fork in Test := true,
       testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v", "-s", "-a"),
       javaOptions in Test ++= Seq(
-        "-Dslick.osgi.bundlepath=" + osgiBundleFiles.value.map(_.getCanonicalPath).mkString(":"),
+        // Use '@' as a seperator that shouldn't appear in any filepaths or names
+        "-Dslick.osgi.bundlepath=" + osgiBundleFiles.value.map(_.getCanonicalPath).mkString("@"),
         "-Dorg.ops4j.pax.logging.DefaultServiceLog.level=WARN"
       ),
       osgiBundleFiles := Seq((OsgiKeys.bundle in slickProject).value),
