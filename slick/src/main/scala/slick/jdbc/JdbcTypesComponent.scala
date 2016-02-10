@@ -250,25 +250,20 @@ trait JdbcTypesComponent extends RelationalTypesComponent { self: JdbcProfile =>
         val msb = uuid.getMostSignificantBits
         val lsb = uuid.getLeastSignificantBits
         val buff = new Array[Byte](16)
-        var i = 0
-        while(i < 8) {
-          buff(i) = ((msb >> (8 * (7 - i))) & 255).toByte;
-          buff(8 + i) = ((lsb >> (8 * (7 - i))) & 255).toByte;
-          i += 1
+        for (i <- 0 until 8) {
+          buff(i) = ((msb >> (8 * (7 - i))) & 255).toByte
+          buff(8 + i) = ((lsb >> (8 * (7 - i))) & 255).toByte
         }
         buff
       }
       def fromBytes(data: Array[Byte]) = if(data eq null) null else {
         var msb = 0L
         var lsb = 0L
-        var i = 0
-        while(i < 8) {
+        for (i <- 0 until 8) {
           msb = (msb << 8) | (data(i) & 0xff)
-          i += 1
         }
-        while(i < 16) {
+        for (i <- 8 until 16) {
           lsb = (lsb << 8) | (data(i) & 0xff)
-          i += 1
         }
         new UUID(msb, lsb)
       }
