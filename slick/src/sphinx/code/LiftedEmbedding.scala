@@ -266,12 +266,27 @@ object LiftedEmbedding extends App {
         Await.result(result, Duration.Inf)
       }
       {
-        //#delete
+        //#delete1
         val q = coffees.filter(_.supID === 15)
         val action = q.delete
         val affectedRowsCount: Future[Int] = db.run(action)
         val sql = action.statements.head
-        //#delete
+        //#delete1
+        Await.result(affectedRowsCount, Duration.Inf)
+      }
+      {
+        //#delete2
+        //
+        val q = coffees filter { coffee =>
+          // You can do any subquery here - this example uses the foreign key relation in coffees.
+          coffee.supID in (
+            coffee.supplier filter { _.name === "Delete Me" } map { _.id }
+          )
+        }
+        val action = q.delete
+        val affectedRowsCount: Future[Int] = db.run(action)
+        val sql = action.statements.head
+        //#delete2
         Await.result(affectedRowsCount, Duration.Inf)
       }
     }
