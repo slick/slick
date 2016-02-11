@@ -44,7 +44,7 @@ object HikariCPJdbcDataSource extends JdbcDataSourceFactory {
     val numThreads = c.getIntOr("numThreads", 20)
     hconf.setMaximumPoolSize(c.getIntOr("maxConnections", numThreads * 5))
     hconf.setMinimumIdle(c.getIntOr("minConnections", numThreads))
-    hconf.setPoolName(name)
+    hconf.setPoolName(c.getStringOr("poolName", name))
     hconf.setRegisterMbeans(c.getBooleanOr("registerMbeans", false))
 
     // Equivalent of ConnectionPreparer
