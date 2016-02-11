@@ -190,6 +190,9 @@ trait JdbcBackend extends RelationalBackend {
       *     pool will "fail fast" if the pool cannot be seeded with initial connections
       *     successfully. If connections cannot be created at pool startup time, a RuntimeException
       *     will be thrown. This property has no effect if `minConnections` is 0.</li>
+      *   <li>`poolName` (String, optional): A user-defined name for the connection pool in logging
+      *     and JMX management consoles to identify pools and pool configurations. This defaults to
+      *     the config path.</li>
       *   <li>`leakDetectionThreshold` (Duration, optional, default: 0): The amount of time that a
       *     connection can be out of the pool before a message is logged indicating a possible
       *     connection leak. A value of 0 means leak detection is disabled. Lowest acceptable value
