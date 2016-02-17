@@ -178,7 +178,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
     /** Regex matcher to extract string out ouf surrounding '' */
     final val StringPattern = """^'(.*)'$""".r
     /** Scala type this column is mapped to */
-    def tpe = jdbcTypeToScala(meta.sqlType).toString match {
+    def tpe = jdbcTypeToScala(meta.sqlType, meta.typeName).toString match {
       case "java.lang.String" => if(meta.size == Some(1)) "Char" else "String"
       case t => t
     }
