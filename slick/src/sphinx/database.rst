@@ -11,7 +11,7 @@ connection data you have available.
 Using Typesafe Config
 ---------------------
 
-The prefered way to configure database connections is through `Typesafe Config`_ in your
+The preferred way to configure database connections is through `Typesafe Config`_ in your
 ``application.conf``, which is also used by Play_ and Akka_ for their configuration.
 
 .. includecode:: resources/application.conf#mydb
