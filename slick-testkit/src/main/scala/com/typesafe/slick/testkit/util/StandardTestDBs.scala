@@ -183,6 +183,9 @@ object StandardTestDBs {
     import profile.api.actionBasedSQLInterpolation
 
     val defaultSchema = config.getString("defaultSchema")
+    // sqlserver has valid "select for update" syntax, but in testing on Appveyor, the test hangs due to lock escalation
+    // so exclude from explicit ForUpdate testing
+    override def capabilities = super.capabilities - TestDB.capabilities.selectForUpdateRowLocking
 
     override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
       ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(testDB, defaultSchema, null, null)).map { ts =>
@@ -292,6 +295,9 @@ object DerbyDB {
 abstract class HsqlDB(confName: String) extends InternalJdbcTestDB(confName) {
   val profile = HsqldbProfile
   val jdbcDriver = "org.hsqldb.jdbcDriver"
+  // Hsqldb has valid "select for update" syntax, but in testing, it either takes a whole table lock or no exclusive
+  // lock at all, so exclude from ForUpdate testing
+  override def capabilities = super.capabilities - TestDB.capabilities.selectForUpdateRowLocking
   override def localTables(implicit ec: ExecutionContext): DBIO[Vector[String]] =
     ResultSetAction[(String,String,String, String)](_.conn.getMetaData().getTables(null, "PUBLIC", null, null)).map { ts =>
       ts.map(_._3).sorted

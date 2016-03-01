@@ -148,6 +148,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       buildHavingClause(c.having)
       buildOrderByClause(c.orderBy)
       if(!limit0) buildFetchOffsetClause(c.fetch, c.offset)
+      buildForUpdateClause(c.forUpdate)
       currentUniqueFrom = oldUniqueFrom
     }
 
@@ -245,6 +246,12 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
         case (Some(t), None) => b"\nfetch next $t row only"
         case (None, Some(d)) => b"\noffset $d row"
         case _ =>
+      }
+    }
+
+    protected def buildForUpdateClause(forUpdate: Boolean) = building(OtherPart) {
+      if(forUpdate) {
+        b"\nfor update "
       }
     }
 
@@ -437,7 +444,7 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
 
     def buildUpdate: SQLBuilder.Result = {
       val (gen, from, where, select) = tree match {
-        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None, None) => select match {
+        case Comprehension(sym, from: TableNode, Pure(select, _), where, None, _, None, None, None, None, false) => select match {
           case f @ Select(Ref(struct), _) if struct == sym => (sym, from, where, ConstArray(f.field))
           case ProductNode(ch) if ch.forall{ case Select(Ref(struct), _) if struct == sym => true; case _ => false} =>
             (sym, from, where, ch.map{ case Select(Ref(_), field) => field })
@@ -461,9 +468,9 @@ trait JdbcStatementBuilderComponent { self: JdbcProfile =>
       def fail(msg: String) =
         throw new SlickException("Invalid query for DELETE statement: " + msg)
       val (gen, from, where) = tree match {
-        case Comprehension(sym, from, Pure(select, _), where, _, _, None, distinct, fetch, offset) =>
-          if(fetch.isDefined || offset.isDefined || distinct.isDefined)
-            fail(".take, .drop and .distinct are not supported for deleting")
+        case Comprehension(sym, from, Pure(select, _), where, _, _, None, distinct, fetch, offset, forUpdate) =>
+          if(fetch.isDefined || offset.isDefined || distinct.isDefined || forUpdate)
+            fail(".take, .drop .forUpdate and .distinct are not supported for deleting")
           from match {
             case from: TableNode => (sym, from, where)
             case from => fail("A single source table is required, found: "+from)

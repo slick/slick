@@ -377,6 +377,14 @@ final case class GroupBy(fromGen: TermSymbol, from: Node, by: Node, identity: Ty
   }
 }
 
+/** A .forUpdate call */
+final case class ForUpdate(generator: TermSymbol, from: Node) extends ComplexFilteredQuery {
+  type Self = ForUpdate
+  lazy val children = ConstArray(from)
+  protected[this] def rebuild(ch: ConstArray[Node]) = copy(from = ch(0))
+  protected[this] def rebuildWithSymbols(gen: ConstArray[TermSymbol]) = copy(generator = gen(0))
+}
+
 /** A .take call. */
 final case class Take(from: Node, count: Node) extends SimpleFilteredQuery with BinaryNode {
   type Self = Take

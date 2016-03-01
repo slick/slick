@@ -108,6 +108,13 @@ trait DB2Profile extends JdbcProfile {
       expr(n)
       if(o.direction.desc) b += " desc"
     }
+
+    override protected def buildForUpdateClause(forUpdate: Boolean) = {
+      super.buildForUpdateClause(forUpdate)
+      if(forUpdate) {
+        b" with RS "
+      }
+    }
   }
 
   class TableDDLBuilder(table: Table[_]) extends super.TableDDLBuilder(table) {

@@ -9,7 +9,9 @@ final case class Comprehension(sym: TermSymbol, from: Node, select: Node, where:
                                groupBy: Option[Node] = None, orderBy: ConstArray[(Node, Ordering)] = ConstArray.empty,
                                having: Option[Node] = None,
                                distinct: Option[Node] = None,
-                               fetch: Option[Node] = None, offset: Option[Node] = None) extends DefNode {
+                               fetch: Option[Node] = None,
+                               offset: Option[Node] = None,
+                               forUpdate: Boolean = false) extends DefNode {
   type Self = Comprehension
   lazy val children = (ConstArray.newBuilder() + from + select ++ where ++ groupBy ++ orderBy.map(_._1) ++ having ++ distinct ++ fetch ++ offset).result
   override def childNames =
