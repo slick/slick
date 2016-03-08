@@ -19,29 +19,29 @@ object SlickBuild extends Build {
   /** Dependencies for reuse in different parts of the build */
   object Dependencies {
     val junit = Seq(
-      "junit" % "junit-dep" % "4.10",
+      "junit" % "junit-dep" % "4.11",
       "com.novocode" % "junit-interface" % "0.11"
     )
     def scalaTestFor(scalaVersion: String) = {
       val v = if(scalaVersion == "2.12.0-M2") "2.2.5-M2" else "2.2.4"
       "org.scalatest" %% "scalatest" % v
     }
-    val slf4j = "org.slf4j" % "slf4j-api" % "1.7.10"
-    val logback = "ch.qos.logback" % "logback-classic" % "1.1.3"
+    val slf4j = "org.slf4j" % "slf4j-api" % "1.7.18"
+    val logback = "ch.qos.logback" % "logback-classic" % "1.1.6"
     val typesafeConfig = "com.typesafe" % "config" % "1.2.1"
     val reactiveStreamsVersion = "1.0.0"
     val reactiveStreams = "org.reactivestreams" % "reactive-streams" % reactiveStreamsVersion
     val reactiveStreamsTCK = "org.reactivestreams" % "reactive-streams-tck" % reactiveStreamsVersion
-    val hikariCP = "com.zaxxer" % "HikariCP-java6" % "2.3.7"
+    val hikariCP = "com.zaxxer" % "HikariCP-java6" % "2.3.13"
     val mainDependencies = Seq(slf4j, typesafeConfig, reactiveStreams)
-    val h2 = "com.h2database" % "h2" % "1.4.187"
+    val h2 = "com.h2database" % "h2" % "1.4.191"
     val testDBs = Seq(
       h2,
       "org.xerial" % "sqlite-jdbc" % "3.8.7",
       "org.apache.derby" % "derby" % "10.9.1.0",
       "org.hsqldb" % "hsqldb" % "2.2.8",
       "postgresql" % "postgresql" % "9.1-901.jdbc4",
-      "mysql" % "mysql-connector-java" % "5.1.23",
+      "mysql" % "mysql-connector-java" % "5.1.38",
       "net.sourceforge.jtds" % "jtds" % "1.3.1"
     )
     val paxExamVersion = "4.6.0"
@@ -354,8 +354,8 @@ object SlickBuild extends Build {
   lazy val fmppConfig = config("fmpp").hide
   lazy val fmppSettings = inConfig(Compile)(Seq(sourceGenerators <+= fmpp, fmpp <<= fmppTask)) ++ Seq(
     libraryDependencies ++= Seq(
-      ("net.sourceforge.fmpp" % "fmpp" % "0.9.14" % fmppConfig.name).intransitive,
-      "org.freemarker" % "freemarker" % "2.3.20" % fmppConfig.name,
+      ("net.sourceforge.fmpp" % "fmpp" % "0.9.15" % fmppConfig.name).intransitive,
+      "org.freemarker" % "freemarker" % "2.3.23" % fmppConfig.name,
       "oro" % "oro" % "2.0.8" % fmppConfig.name,
       "org.beanshell" % "bsh" % "2.0b5" % fmppConfig.name,
       "xml-resolver" % "xml-resolver" % "1.2" % fmppConfig.name
