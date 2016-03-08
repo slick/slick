@@ -196,6 +196,13 @@ always implies a pinned session.
    transaction is only created and committed or rolled back for the outermost ``transactionally`` action. Nested
    ``transactionally`` actions simply execute inside the existing transaction without additional savepoints.
 
+Rollbacks
+_________
+
+In case you want to force a rollback, you can return ``DBIO.failed`` within a ``DBIOAction``.
+
+.. includecode:: code/Connection.scala#rollback
+
 .. index:: JDBC
 .. _jdbc-interop:
 
