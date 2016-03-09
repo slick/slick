@@ -31,6 +31,7 @@ User Manual
    orm-to-slick
    sql-to-slick
    upgrade
+   developers
 
 Appendix
 ________
