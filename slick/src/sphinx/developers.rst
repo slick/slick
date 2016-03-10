@@ -1,12 +1,13 @@
-For Slick developers
+For Slick Developers
 ======================
 
-`slick at github <https://github.com/slick/slick>`_
+Getting started with working on the Slick codebase is easy.
+All you need is Java 8, git and sbt 0.13.
+The Slick source code has all embedded databases preconfigured for unit tests, so you can run a comprehensive test suite without any further setup.
 
-`waffle board <https://waffle.io/slick/slick>`_
+`Slick at GitHub <https://github.com/slick/slick>`_
 
-`slick-extensions at github <https://github.com/typesafe-hub/slick-extensions>`_
-
+`Waffle board <https://waffle.io/slick/slick>`_
 
 Clone source code
 ------------------
@@ -30,7 +31,7 @@ ______________
 enable Slick Scala to SQL compiler debug log
 ______________________________________________
 
-``sbt> test-only -- -Dlog.qcomp=debug -Dscala.slick.ansiDump=true``
+``sbt> test-only -- -Dlog.qcomp=debug -Dslick.ansiDump=true``
 
 enabling tests for MySQL, PostgreSQL, Access
 ______________________________________________
