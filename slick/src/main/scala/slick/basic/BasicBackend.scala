@@ -1,5 +1,7 @@
 package slick.basic
 
+import slick.util.AsyncExecutor.{Priority, Continuation, Fresh, WithConnection}
+
 import scala.language.existentials
 
 import java.io.Closeable
@@ -43,6 +45,7 @@ trait BasicBackend { self =>
 
   /** Create a Database instance through [[https://github.com/typesafehub/config Typesafe Config]].
     * The supported config keys are backend-specific. This method is used by `DatabaseConfig`.
+    *
     * @param path The path in the configuration file for the database configuration, or an empty
     *             string for the top level of the `Config` object.
     * @param config The `Config` object to read from.
@@ -225,10 +228,10 @@ trait BasicBackend { self =>
       }
 
     /** Run a `SynchronousDatabaseAction` on this database. */
-    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context, highPrio: Boolean): Future[R] = {
+    protected[this] def runSynchronousDatabaseAction[R](a: SynchronousDatabaseAction[R, NoStream, This, _], ctx: Context, continuation: Boolean): Future[R] = {
       val promise = Promise[R]()
       ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
-        def highPriority = highPrio
+        def priority = ctx.priority(continuation)
         def run: Unit =
           try {
             ctx.readSync
@@ -240,7 +243,10 @@ trait BasicBackend { self =>
               }
               releaseSession(ctx, false)
               res
-            } finally { ctx.sync = 0 }
+            } finally {
+              if (!ctx.isPinned) connectionReleased = true
+              ctx.sync = 0
+            }
             promise.success(res)
           } catch { case NonFatal(ex) => promise.tryFailure(ex) }
       })
@@ -248,18 +254,18 @@ trait BasicBackend { self =>
     }
 
     /** Stream a `SynchronousDatabaseAction` on this database. */
-    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, highPrio: Boolean): Future[Null] = {
+    protected[this] def streamSynchronousDatabaseAction(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean): Future[Null] = {
       ctx.streamingAction = a
-      scheduleSynchronousStreaming(a, ctx, highPrio)(null)
+      scheduleSynchronousStreaming(a, ctx, continuation)(null)
       ctx.streamingResultPromise.future
     }
 
     /** Stream a part of the results of a `SynchronousDatabaseAction` on this database. */
-    protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, highPrio: Boolean)(initialState: a.StreamState): Unit = try {
+    protected[BasicBackend] def scheduleSynchronousStreaming(a: SynchronousDatabaseAction[_, _ <: NoStream, This, _ <: Effect], ctx: StreamingContext, continuation: Boolean)(initialState: a.StreamState): Unit = try {
       ctx.getEC(synchronousExecutionContext).prepare.execute(new AsyncExecutor.PrioritizedRunnable {
         private[this] def str(l: Long) = if(l != Long.MaxValue) l else if(GlobalConfig.unicodeDump) "\u221E" else "oo"
 
-        def highPriority = highPrio
+        def priority = ctx.priority(continuation)
 
         def run: Unit = try {
           val debug = streamLogger.isDebugEnabled
@@ -294,6 +300,7 @@ trait BasicBackend { self =>
               throw ex
             } finally {
               ctx.streamState = state
+              if (!ctx.isPinned) connectionReleased = true
               ctx.sync = 0
             }
             if(debug) {
@@ -367,6 +374,14 @@ trait BasicBackend { self =>
     private[BasicBackend] def readSync = sync // workaround for SI-9053 to avoid warnings
 
     private[BasicBackend] var currentSession: Session = null
+
+    private[BasicBackend] var releasedConnection = false
+
+    private[BasicBackend] def priority(continuation: Boolean): Priority = {
+      if (currentSession != null) WithConnection
+      else if (continuation) Continuation
+      else Fresh
+    }
 
     /** Used for the sequence counter in Action debug output. This variable is volatile because it
       * is only updated sequentially but not protected by a synchronous action context. */
@@ -448,7 +463,7 @@ trait BasicBackend { self =>
         streamState = null
         if(streamLogger.isDebugEnabled) streamLogger.debug("Scheduling stream continuation after transition from demand = 0")
         val a = streamingAction
-        database.scheduleSynchronousStreaming(a, this.asInstanceOf[StreamingContext], highPrio = true)(s.asInstanceOf[a.StreamState])
+        database.scheduleSynchronousStreaming(a, this.asInstanceOf[StreamingContext], continuation = true)(s.asInstanceOf[a.StreamState])
       } else {
         if(streamLogger.isDebugEnabled) streamLogger.debug("Saw transition from demand = 0, but no stream continuation available")
       }

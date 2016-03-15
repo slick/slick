@@ -3,10 +3,11 @@ package slick.jdbc
 import java.io.Closeable
 import java.util.Properties
 import java.util.concurrent.TimeUnit
-import java.sql.{SQLException, DriverManager, Driver, Connection}
+import java.sql.{Connection, Driver, DriverManager, SQLException}
 import javax.sql.DataSource
+
 import com.typesafe.config.Config
-import slick.util.{Logging, ClassLoaderUtil, BeanConfigurator}
+import slick.util._
 import slick.util.ConfigExtensionMethods._
 import slick.SlickException
 
@@ -14,12 +15,20 @@ import slick.SlickException
   * similar to a `javax.sql.DataSource` but simpler. Unlike [[JdbcBackend.DatabaseDef]] it is not a
   * part of the backend cake. This trait defines the SPI for 3rd-party connection pool support. */
 trait JdbcDataSource extends Closeable {
+
   /** Create a new Connection or get one from the pool */
   def createConnection(): Connection
 
   /** If this object represents a connection pool managed directly by Slick, close it.
     * Otherwise no action is taken. */
   def close(): Unit
+
+  /** If this object represents a connection pool managed directly by Slick, return the maximum pool size
+    * Otherwise return None.
+    * The AsyncExecutor uses this to make sure to not schedule any more work (that requires a connection) when all pooled JDBC connections are in use.
+    */
+  val maxConnections: Option[Int] = None
+
 }
 
 object JdbcDataSource extends Logging {
