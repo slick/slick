@@ -33,7 +33,8 @@ following to your build definition - ``build.sbt`` or ``project/Build.scala``:
 .. parsed-literal::
   libraryDependencies ++= Seq(
     "com.typesafe.slick" %% "slick" % "|release|",
-    "org.slf4j" % "slf4j-nop" % "1.6.4"
+    "org.slf4j" % "slf4j-nop" % "1.6.4",
+    "com.typesafe.slick" %% "slick-hikaricp" % "|release|"
   )
 
 For Maven projects add the following to your ``<dependencies>`` (make sure to use the correct Scala
@@ -61,9 +62,9 @@ log output.
 The Reactive Streams API is pulled in automatically as a transitive dependency.
 
 If you want to use Slick's connection pool support for HikariCP_, you need to add
-the ``slick-hikaricp`` module as a dependency in the same way as shown for ``slick``
-above. It will automatically provide a compatible version of HikariCP as a transitive
-dependency.
+the ``slick-hikaricp`` module as a dependency as shown above. It will automatically
+provide a compatible version of HikariCP as a transitive dependency. Otherwise, you
+might need to disable connection pooling or specify a third-party connection pool.
 
 Quick Introduction
 ==================
