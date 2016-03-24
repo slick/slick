@@ -47,7 +47,7 @@ or
 
 and provide the following values
 
-* **uri** Config URL and/or fragment for path in typesafe config, e.g. *"(url#slick.db.default)"*
+* **uri** Config URL and/or fragment for path in typesafe config, e.g. *"url#slick.db.default"*
 * **profile** Fully qualified name of the profile class, e.g. *"slick.jdbc.H2Profile"*
 * **jdbcDriver** Fully qualified name of the JDBC driver class, e.g. *"org.h2.Driver"*
 * **url** JDBC url, e.g. *"jdbc:postgresql://localhost/test"*
