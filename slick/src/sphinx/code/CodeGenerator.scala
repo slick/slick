@@ -5,6 +5,7 @@ import slick.jdbc.H2Profile.api._
 import slick.jdbc.H2Profile
 
 object CodeGenerator extends App {
+  val uri = "#slick.db.default"
   val profile = "slick.jdbc.H2Profile"
   val jdbcDriver = "org.h2.Driver"
   val url = "jdbc:postgresql://localhost/test"
@@ -14,6 +15,11 @@ object CodeGenerator extends App {
   val password = ""
   if(false){
     val db = Database.forURL("jdbc:h2:mem:test1;DB_CLOSE_DELAY=-1", driver="org.h2.Driver")
+    //#default-runner-uri
+    slick.codegen.SourceCodeGenerator.main(
+      Array(uri, outputFolder)
+    )
+    //#default-runner-uri
     //#default-runner
     slick.codegen.SourceCodeGenerator.main(
       Array(profile, jdbcDriver, url, outputFolder, pkg)
