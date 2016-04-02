@@ -79,7 +79,7 @@ val  SimpleA = CustomTyping.SimpleA
         }
       })
     },
-    new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid.sql")),
+    new UUIDConfig("CG10", StandardTestDBs.H2Mem, "H2Mem", Seq("/dbs/uuid-h2.sql")),
     new Config("Postgres1", StandardTestDBs.Postgres, "Postgres", Nil) {
       import tdb.profile.api._
       class A(tag: Tag) extends Table[(Int, Array[Byte], Blob)](tag, "a") {
@@ -103,7 +103,7 @@ val  SimpleA = CustomTyping.SimpleA
           |  ).transactionally
         """.stripMargin
     },
-    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid.sql")),
+    new UUIDConfig("Postgres2", StandardTestDBs.Postgres, "Postgres", Seq("/dbs/uuid-postgres.sql")),
     new Config("EmptyDB", StandardTestDBs.H2Mem, "H2Mem", Nil),
     new Config("Oracle1", StandardTestDBs.Oracle, "Oracle", Seq("/dbs/oracle1.sql")) {
       override def useSingleLineStatements = true
@@ -143,13 +143,16 @@ val  SimpleA = CustomTyping.SimpleA
           |  import java.util.UUID
           |  val u1 = UUID.randomUUID()
           |  val u2 = UUID.randomUUID()
-          |  val p1 = PersonRow(1, u1)
-          |  val p2 = PersonRow(2, u2)
+          |  val u3 = UUID.randomUUID()
+          |  val u4 = UUID.randomUUID()
+          |  val p1 = PersonRow(1, u1, uuidFunc = Some(u3))
+          |  val p2 = PersonRow(2, u2, uuidFunc = Some(u4))
           |
           |  def assertAll(all: Seq[PersonRow]) = {
           |    assertEquals( 2, all.size )
           |    assertEquals( Set(1,2), all.map(_.id).toSet )
           |    assertEquals( Set(u1, u2), all.map(_.uuid).toSet )
+          |    assertEquals( Set(Some(u3), Some(u4)), all.map(_.uuidFunc).toSet )
           |    //it should contain sample UUID
           |    assert(all.forall(_.uuidDef == Some(defaultUUID)))
           |  }

@@ -73,9 +73,12 @@ trait PostgresProfile extends JdbcProfile {
         case (IntPattern(v),"Long") => Some(Some(v.toLong))
         case ("NULL::character varying","String") => Some(None)
         case (v,"java.util.UUID") => {
-          val uuid = v.replaceAll("[\'\"]", "") //strip quotes
-                      .stripSuffix("::uuid") //strip suffix
-          Some(Some(java.util.UUID.fromString(uuid)))
+          if (v.matches("^['\"].*['\"](::uuid)?$")) {
+            val uuid = v.replaceAll("[\'\"]", "") //strip quotes
+                        .stripSuffix("::uuid") //strip suffix
+            Some(Some(java.util.UUID.fromString(uuid)))
+          } else
+            None // The UUID is generated through a function - treat it as if there was no default.
         }
       }.getOrElse{
         val d = super.default

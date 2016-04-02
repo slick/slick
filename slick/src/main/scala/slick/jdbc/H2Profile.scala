@@ -56,7 +56,11 @@ trait H2Profile extends JdbcProfile {
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       override def length = super.length.filter(_ != Int.MaxValue) // H2 sometimes show this value, but doesn't accept it back in the DBType
       override def default = rawDefault.map((_,tpe)).collect{
-          case (v,"java.util.UUID") => Some(Some(java.util.UUID.fromString(v.replaceAll("[\'\"]", "")))) //strip quotes
+          case (v,"java.util.UUID") =>
+            if (v.matches("^['\"].*['\"]$"))
+              Some(Some(java.util.UUID.fromString(v.replaceAll("[\'\"]", "")))) //strip quotes
+            else
+              None // The UUID is generated through a function - treat it as if there was no default.
         }.getOrElse{super.default}
       override def tpe = dbType match {
         case Some("UUID") => "java.util.UUID"
