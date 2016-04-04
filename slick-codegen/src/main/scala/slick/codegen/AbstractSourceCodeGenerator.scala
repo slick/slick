@@ -169,7 +169,7 @@ class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkStri
       }
       def defaultCode = {
         case Some(v) => s"Some(${defaultCode(v)})"
-        case s:String  => "\""+s+"\""
+        case s:String  => "\""+s.replaceAll("\"", """\\"""")+"\""
         case None      => s"None"
         case v:Byte    => s"$v"
         case v:Int     => s"$v"
