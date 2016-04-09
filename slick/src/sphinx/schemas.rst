@@ -78,8 +78,7 @@ object. The following ones are defined for ``JdbcProfile``:
 
 .. index:: null, nullable, NotNull
 
-  Slick automatically marked Optional column as nullable and non-Optional columnas 
-  non-nullable when creating the DDL statements for the table. 
+   Nullable columns are represented by Option[T]
     
 
 .. index:: *, star projection
