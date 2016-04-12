@@ -269,6 +269,14 @@ Here is an example of using this feature to return an object with an updated id:
 
 .. includecode:: code/LiftedEmbedding.scala#insert3b
 
+.. note::
+  When using the ``++=`` batch insert operation, Slick makes use of the JDBC batch API.
+  The underlying JDBC driver will decide how to transmit the batch (via SQL) to the database server.
+
+  Slick may fall back to generating multiple insert statements for batch operations.
+  This will depend on the driver (if it supports batch insert),
+  and other circumstances (``returning`` keys is generally not supported in batch operations).
+
 Instead of inserting data from the client side you can also insert data
 created by a ``Query`` or a scalar expression that is executed in the
 database server:
@@ -278,6 +286,7 @@ database server:
 In these cases, ``AutoInc`` columns are *not* ignored.
 
 .. index:: update, UpdateInvoker, updateStatement
+
 
 Updating
 --------
