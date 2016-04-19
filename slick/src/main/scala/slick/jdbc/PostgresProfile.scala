@@ -64,11 +64,13 @@ trait PostgresProfile extends JdbcProfile {
     }
     override def createColumnBuilder(tableBuilder: TableBuilder, meta: MColumn): ColumnBuilder = new ColumnBuilder(tableBuilder, meta) {
       val VarCharPattern = "^'(.*)'::character varying$".r
+      val TextPattern = "^'(.*)'::text".r
       val IntPattern = "^\\((-?[0-9]*)\\)$".r
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("true","Boolean")  => Some(Some(true))
         case ("false","Boolean") => Some(Some(false))
         case (VarCharPattern(str),"String") => Some(Some(str))
+        case (TextPattern(str),"String") => Some(Some(str))
         case (IntPattern(v),"Int") => Some(Some(v.toInt))
         case (IntPattern(v),"Long") => Some(Some(v.toLong))
         case ("NULL::character varying","String") => Some(None)
