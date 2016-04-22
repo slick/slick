@@ -48,6 +48,9 @@ The following loggers are particularly interesting:
 ``slick.jdbc.JdbcBackend.statement``
    Shows all SQL statements which are executed.
 
+``slick.jdbc.JdbcBackend.parameter``
+   Shows bind variable contents (for supported types) of all SQL statements which are executed.
+
 ``slick.jdbc.JdbcBackend.benchmark``
    Shows execution times for SQL statements.
 
