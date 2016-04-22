@@ -125,6 +125,13 @@ trait DerbyProfile extends JdbcProfile {
     override protected val supportsLiteralGroupBy = true
     override protected val quotedJdbcFns = Some(Vector(Library.User))
 
+    override protected def buildForUpdateClause(forUpdate: Boolean) = {
+      super.buildForUpdateClause(forUpdate)
+      if (forUpdate) {
+        b" with RS "
+      }
+    }
+
     override def expr(c: Node, skipParens: Boolean = false): Unit = c match {
       case Library.Cast(ch @ _*) =>
         /* Work around DERBY-2072 by casting numeric values first to CHAR and

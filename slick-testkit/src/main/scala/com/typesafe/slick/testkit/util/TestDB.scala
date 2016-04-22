@@ -37,8 +37,11 @@ object TestDB {
     val jdbcMetaGetIndexInfo = new Capability("test.jdbcMetaGetIndexInfo")
     /** Supports all tested transaction isolation levels */
     val transactionIsolation = new Capability("test.transactionIsolation")
+    /** Supports select for update row locking */
+    val selectForUpdateRowLocking = new Capability("test.selectForUpdateRowLocking")
 
-    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo, transactionIsolation)
+    val all = Set(plainSql, jdbcMeta, jdbcMetaGetClientInfoProperties, jdbcMetaGetFunctions, jdbcMetaGetIndexInfo,
+      transactionIsolation, selectForUpdateRowLocking)
   }
 
   /** Copy a file, expanding it if the source name ends with .gz */

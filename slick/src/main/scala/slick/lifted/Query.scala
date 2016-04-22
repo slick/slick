@@ -155,6 +155,11 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
     new WrappingQuery[(G, Query[P, U, Seq]), (T, Query[P, U, Seq]), C](group, key.zip(value))
   }
 
+  /** Specify part of a select statement for update and marked for row level locking */
+  def forUpdate: Query[E, U, C] = {
+    val generator = new AnonSymbol
+    new WrappingQuery[E, U, C](ForUpdate(generator, toNode), shaped)
+  }
   def encodeRef(path: Node): Query[E, U, C] = new Query[E, U, C] {
     val shaped = self.shaped.encodeRef(path)
     def toNode = path

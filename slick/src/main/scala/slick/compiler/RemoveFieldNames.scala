@@ -20,7 +20,7 @@ class RemoveFieldNames(val alwaysKeepSubqueryNames: Boolean = false) extends Pha
       val refTSyms = n.collect[TypeSymbol] {
         case Select(_ :@ NominalType(s, _), _) => s
         case Union(_, _ :@ CollectionType(_, NominalType(s, _)), _) => s
-        case Comprehension(_, _ :@ CollectionType(_, NominalType(s, _)), _, _, _, _, _, _, _, _) if alwaysKeepSubqueryNames => s
+        case Comprehension(_, _ :@ CollectionType(_, NominalType(s, _)), _, _, _, _, _, _, _, _, _) if alwaysKeepSubqueryNames => s
       }.toSet
       val allTSyms = n.collect[TypeSymbol] { case p: Pure => p.identity }.toSet
       val unrefTSyms = allTSyms -- refTSyms

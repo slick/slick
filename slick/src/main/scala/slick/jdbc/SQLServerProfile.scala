@@ -153,6 +153,19 @@ trait SQLServerProfile extends JdbcProfile {
       if(o.direction.desc) b" desc"
     }
 
+    override protected def buildFromClause(from: Seq[(TermSymbol, Node)]) = {
+      super.buildFromClause(from)
+      tree match {
+        // SQL Server "select for update" syntax
+        case c: Comprehension => if(c.forUpdate) b" with (updlock,rowlock) "
+        case _ =>
+      }
+    }
+
+    override protected def buildForUpdateClause(forUpdate: Boolean) = {
+      // SQLSever doesn't have "select for update" syntax, so use with (updlock,rowlock) in from clause
+    }
+
     override def expr(n: Node, skipParens: Boolean = false): Unit = n match {
       // Cast bind variables of type TIME to TIME (otherwise they're treated as TIMESTAMP)
       case c @ LiteralNode(v) if c.volatileHint && jdbcTypeFor(c.nodeType) == columnTypes.timeJdbcType =>

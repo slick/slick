@@ -91,6 +91,7 @@ trait SQLiteProfile extends JdbcProfile {
     - JdbcCapabilities.booleanMetaData
     - JdbcCapabilities.supportsByte
     - JdbcCapabilities.distinguishesIntTypes
+    - JdbcCapabilities.forUpdate
   )
 
   class ModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(implicit ec: ExecutionContext) extends JdbcModelBuilder(mTables, ignoreInvalidDefaults) {
