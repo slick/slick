@@ -152,11 +152,11 @@ they have circular dependencies on each other.
 Inserting the tuples of data is done with the ``+=`` and ``++=`` methods,
 similar to how you add data to mutable Scala collections.
 
-The ``create``, ``+=`` and ``++=`` methods return an ``Action`` which can be executed on a database
+The ``create``, ``+=`` and ``++=`` methods return a ``DBIOAction`` which can be executed on a database
 at a later time to produce a result. There are several different combinators for combining multiple
-Actions into sequences, yielding another Action. Here we use the simplest one, ``Action.seq``, which
-can concatenate any number of Actions, discarding the return values (i.e. the resulting Action
-produces a result of type ``Unit``). We then execute the setup Action asynchronously with
+``DBIOAction``s into sequences, yielding another action. Here we use the simplest one, ``DBIO.seq``, which
+can concatenate any number of actions, discarding the return values (i.e. the resulting ``DBIOAction``
+produces a result of type ``Unit``). We then execute the setup action asynchronously with
 ``db.run``, yielding a ``Future[Unit]``.
 
 .. note::
