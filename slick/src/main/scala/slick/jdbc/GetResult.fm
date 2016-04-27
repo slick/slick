@@ -54,4 +54,7 @@ object GetResult {
 
   def apply[T](implicit f: (PositionedResult => T)): GetResult[T] =
     new GetResult[T] { def apply(rs: PositionedResult) = f(rs) }
+
+  def const[T](value: T): GetResult[T] =
+    apply(_ => value)
 }
