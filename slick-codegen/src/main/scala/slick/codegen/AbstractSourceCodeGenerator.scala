@@ -143,7 +143,7 @@ implicit def ${name}(implicit $dependencies): GR[${TableClass.elementType}] = GR
         val prns = parents.map(" with " + _).mkString("")
         val args = model.name.schema.map(n => s"""Some("$n")""") ++ Seq("\""+model.name.table+"\"")
         s"""
-class $name(_tableTag: Tag) extends Table[$elementType](_tableTag, ${args.mkString(", ")})$prns {
+class $name(_tableTag: Tag) extends profile.api.Table[$elementType](_tableTag, ${args.mkString(", ")})$prns {
   ${indent(body.map(_.mkString("\n")).mkString("\n\n"))}
 }
         """.trim()
