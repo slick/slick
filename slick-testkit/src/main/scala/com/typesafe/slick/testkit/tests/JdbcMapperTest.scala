@@ -75,6 +75,30 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  def testHeadOption = {
+    import slick.util._
+
+    case class Data(a: Int, b: Int)
+
+    class T(tag: Tag) extends Table[Data](tag, "T_headOption") {
+      def a = column[Int]("A")
+      def b = column[Int]("B")
+      def * = (a, b).mapTo[Data]
+    }
+    val ts = TableQuery[T]
+
+    val updateQ = ts.filter(_.a === 10)
+    val updateQ2 = ts.filter(_.b === 4) map (_.a + 1)
+
+    seq(
+      ts.schema.create,
+      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
+      ts.map(_.a).headOption.result.map(_ shouldBe Some(1)),
+      updateQ.headOption.result.map(_ shouldBe None),
+      updateQ2.headOption.result.map(_ shouldBe Some(4))
+    )
+  }
+
   def testWideMappedEntity = {
     import slick.collection.heterogeneous._
 

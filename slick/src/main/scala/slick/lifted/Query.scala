@@ -197,6 +197,8 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
       def toNode = self.toNode
     }
 
+  def headOption: Query[E, U, Option] = take(1).to[Option]
+
   /** Select the first `num` elements. */
   def take(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Take(toNode, num.toNode), shaped)
   /** Select the first `num` elements. */
