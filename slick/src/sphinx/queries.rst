@@ -47,6 +47,9 @@ the classes ``AnyExtensionMethods``, ``ColumnExtensionMethods``,
    ``==`` for comparing two values for equality and ``=!=`` instead of ``!=`` for inequality.
    This is necessary because these operators are already defined (with unsuitable types and
    semantics) on the base type ``Any``, so they cannot be replaced by extension methods.
+   Similarly, to combine a Scala ``String`` with a ``Rep[String]`` or ``ConstColumn[String]``, 
+   don't use ``str + rep`` syntax, since Scala provides a universal ``+`` operator for strings
+   that works with ``Any``.  Instead use slick's ``++`` operator: ``(str: Rep[String]) ++ rep``
 
 Collection values are represented by the ``Query`` class (a ``Rep[Seq[T]]``) which contains many
 standard collection methods like ``flatMap``, ``filter``, ``take`` and ``groupBy``. Due to the two
