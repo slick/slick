@@ -87,15 +87,17 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    val updateQ = ts.filter(_.a === 10)
-    val updateQ2 = ts.filter(_.b === 4) map (_.a + 1)
+    val headQ1 = ts.filter(_.a === 10)
+    val headQ2 = ts.filter(_.b === 4) map (_.a + 1)
 
     seq(
       ts.schema.create,
-      ts ++= Seq(new Data(1, 2), new Data(3, 4), new Data(5, 6)),
-      ts.map(_.a).headOption.result.map(_ shouldBe Some(1)),
-      updateQ.headOption.result.map(_ shouldBe None),
-      updateQ2.headOption.result.map(_ shouldBe Some(4))
+      ts ++= Seq(Data(1, 2), Data(2, 3), Data(3, 4), Data(4, 5), Data(5, 6)),
+      headQ2.take(1).result.map(_ shouldBe Vector(4)),
+      headQ2.countDistinct.result.map(_ shouldBe 1),
+//      ts.map(_.a).headOption.result.map(_ shouldBe Some(1)),
+//      headQ1.headOption.result.map(_ shouldBe None),
+      headQ2.headOption.result.map(_ shouldBe Some(4))
     )
   }
 

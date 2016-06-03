@@ -224,6 +224,12 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
             def run(ctx: Backend#Context, sql: Vector[String]): R =
               createQueryInvoker[R](rsm, param, sql.head).first(ctx.session)
           }
+        case FirstOption(rsm @ ResultSetMapping(_, compiled, _)) =>
+          val sql = findSql(compiled)
+          new SimpleJdbcProfileAction[Option[R]]("result", Vector(sql)) {
+            def run(ctx: Backend#Context, sql: Vector[String]): Option[R] =
+              createQueryInvoker[R](rsm, param, sql.head).firstOption(ctx.session)
+          }
       }).asInstanceOf[ProfileAction[R, S, Effect.Read]]
     }
   }

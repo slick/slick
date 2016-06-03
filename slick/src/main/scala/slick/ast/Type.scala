@@ -196,20 +196,6 @@ object TypedCollectionTypeConstructor {
     def isUnique = false
     def createBuilder[E : ClassTag]: Builder[E, Array[E]] = ArrayBuilder.make[E]
   }
-  /** Get a TypedCollectionTypeConstructor for an Option type */
-  implicit val forOption: TypedCollectionTypeConstructor[Option] = new TypedCollectionTypeConstructor[Option](optionClassTag) {
-    override def createBuilder[E: ClassTag] = new Builder[E, Option[E]] {
-      private[this] var value: Option[E] = None
-      override def +=(elem: E): this.type = {
-        if (value.isEmpty) { value = Some(elem) }
-        this
-      }
-      override def result(): Option[E] = value
-      override def clear(): Unit = { value = None }
-    }
-    override def isSequential: Boolean = true
-    override def isUnique: Boolean = false
-  }
 }
 
 final class MappedScalaType(val baseType: Type, val mapper: MappedScalaType.Mapper, val classTag: ClassTag[_]) extends Type {

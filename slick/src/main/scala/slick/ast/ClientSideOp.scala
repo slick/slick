@@ -34,6 +34,14 @@ final case class First(val child: Node) extends UnaryNode with SimplyTypedNode w
   def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
 }
 
+final case class FirstOption(val child: Node) extends UnaryNode with SimplyTypedNode with ClientSideOp {
+  type Self = FirstOption
+  protected[this] def rebuild(ch: Node) = copy(child = ch)
+  lazy val innerType = child.nodeType.asCollectionType.elementType
+  protected def buildType = OptionType(innerType)
+  def nodeMapServerSide(keepType: Boolean, r: Node => Node) = mapChildren(r, keepType)
+}
+
 /** A client-side projection of type
   * ``(CollectionType(c, t), u) => CollectionType(c, u)``. Unlike other nodes
   * which only operate on real collections, a ResultSetMapping may use an

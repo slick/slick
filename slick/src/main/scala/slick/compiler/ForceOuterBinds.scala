@@ -12,7 +12,14 @@ class ForceOuterBinds extends Phase {
 
   def apply(state: CompilerState): CompilerState = state.map(apply)
 
-  def apply(n: Node): Node = {
+  def apply(n: Node): Node = n match {
+    case h @ HeadOption(from) =>
+      val inner = Take(from, LiteralNode(1)).infer()
+      (new FirstOption(wrapExternal(inner))).infer()
+    case n => wrapExternal(n)
+  }
+
+  def wrapExternal(n: Node): Node = {
     val t = n.nodeType.structuralRec
     val n2 =
       if(!t.isInstanceOf[CollectionType]) First(wrap(Pure(n)))

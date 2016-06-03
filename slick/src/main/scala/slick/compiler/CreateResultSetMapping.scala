@@ -71,10 +71,15 @@ class RemoveMappedTypes extends Phase {
   val name = "removeMappedTypes"
   type State = Type
 
-  def apply(state: CompilerState) =
-    if(state.get(Phase.assignUniqueSymbols).map(_.typeMapping).getOrElse(true))
-      state.withNode(removeTypeMapping(state.tree)) + (this -> state.tree.nodeType)
-    else state + (this -> state.tree.nodeType)
+  def apply(state: CompilerState) = {
+    val tpe = state.tree match  {
+      case fo @ FirstOption(_) => fo.innerType
+      case other => other.nodeType
+    }
+    if (state.get(Phase.assignUniqueSymbols).map(_.typeMapping).getOrElse(true))
+      state.withNode(removeTypeMapping(state.tree)) + (this -> tpe)
+    else state + (this -> tpe)
+  }
 
   /** Remove TypeMapping nodes and MappedTypes */
   def removeTypeMapping(n: Node): Node = n match {
