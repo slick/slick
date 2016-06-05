@@ -26,3 +26,16 @@ slick-migration-api
 library for defining database migrations, for use with Slick. It supports
 altering database schemas using a type-safe Scala DSL. Unfortunately, it
 does not support Slick of version 3.0 or later for the time being.
+
+Flyway
+--------------------------
+
+`Flyway <https://flywaydb.org/>`_ is a database migration tool that can
+run SQL or Java against a database.
+
+`SBT integration <https://flywaydb.org/documentation/sbt/>`_ is available,
+and there is an example `Play project <https://github.com/playframework/play-isolated-slick#database-migration>`_
+that shows Flyway in a module with Slick code generation.
+
+
+
