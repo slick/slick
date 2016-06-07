@@ -24,8 +24,7 @@ slick-migration-api
 --------------------------
 `slick-migration-api <https://github.com/nafg/slick-migration-api>`_ is a
 library for defining database migrations, for use with Slick. It supports
-altering database schemas using a type-safe Scala DSL. Unfortunately, it
-does not support Slick of version 3.0 or later for the time being.
+altering database schemas using a type-safe Scala DSL.
 
 Flyway
 --------------------------
