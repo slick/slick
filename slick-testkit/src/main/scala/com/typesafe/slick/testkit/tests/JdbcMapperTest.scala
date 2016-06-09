@@ -78,26 +78,33 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
   def testHeadOption = {
     import slick.util._
 
-    case class Data(a: Int, b: Int)
+    case class Data(a: Int, b: Int, c: Option[String])
 
     class T(tag: Tag) extends Table[Data](tag, "T_headOption") {
       def a = column[Int]("A")
       def b = column[Int]("B")
-      def * = (a, b).mapTo[Data]
+      def c = column[Option[String]]("C")
+      def * = (a, b, c).mapTo[Data]
     }
     val ts = TableQuery[T]
 
     val headQ1 = ts.filter(_.a === 10)
-    val headQ2 = ts.filter(_.b === 4) map (_.a + 1)
+    val headQ2 = ts.filter(_.b === 3).map(_.a + 1).headOption
+    val headQ3 = ts.filter(_.a === 2).map(_.b).headOption
+    val headQ4 = ts.filter(_.a === 1).map(_.c).headOption
 
     seq(
       ts.schema.create,
-      ts ++= Seq(Data(1, 2), Data(2, 3), Data(3, 4), Data(4, 5), Data(5, 6)),
-      headQ2.take(1).result.map(_ shouldBe Vector(4)),
-      headQ2.countDistinct.result.map(_ shouldBe 1),
+      ts ++= Seq(Data(1, 2, None), Data(2, 3, Some("2")), Data(3, 4, Some("3")), Data(4, 5, None), Data(5, 6, Some("5"))),
 //      ts.map(_.a).headOption.result.map(_ shouldBe Some(1)),
-//      headQ1.headOption.result.map(_ shouldBe None),
-      headQ2.headOption.result.map(_ shouldBe Some(4))
+//      headQ1.isEmpty.result.map(_ shouldBe true),
+//      headQ1.result.map(_ shouldBe None),
+      headQ2.isEmpty.result  map (_ shouldBe false),
+      headQ2.result          map (_ shouldBe Some(3)),
+      headQ3.isEmpty.result  map (_ shouldBe false),
+      headQ3.result          map (_ shouldBe Some(3)),
+      headQ4.nonEmpty.result map (_ shouldBe false),
+      headQ4.result          map (_ shouldBe Some(None))
     )
   }
 

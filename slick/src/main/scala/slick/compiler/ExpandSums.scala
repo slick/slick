@@ -44,6 +44,21 @@ class ExpandSums extends Phase {
         case OptionFold(from :@ OptionType.Primitive(_), LiteralNode(v), Ref(s), gen) if s == gen =>
           GetOrElse(from, () => v).infer()
 
+        case OptionFold(HeadOption(n), ifEmpty, map, gen) =>
+          val head = Take(n, LiteralNode(1))
+          val pred = Library.==.typed[Boolean](head, LiteralNode(null))
+          val n2 = (ifEmpty, map) match {
+            case (LiteralNode(true), LiteralNode(false)) => pred
+            case (LiteralNode(false), LiteralNode(true)) => Library.Not.typed[Boolean](pred)
+            case _ =>
+              val ifDefined = map.replace({
+                case r @ Ref(s) if s == gen => silentCast(r.nodeType, head)
+              }, keepType = true)
+              val ifEmpty2 = silentCast(ifDefined.nodeType.structural, ifEmpty)
+              IfThenElse(ConstArray(pred, ifEmpty2, ifDefined))
+          }
+          n2.infer()
+
         // Primitive OptionFold -> translate to null check
         case OptionFold(from :@ OptionType.Primitive(_), ifEmpty, map, gen) =>
           val pred = Library.==.typed[Boolean](from, LiteralNode(null))
