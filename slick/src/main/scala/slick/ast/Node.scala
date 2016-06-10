@@ -389,8 +389,16 @@ final case class HeadOption(from: Node) extends SimplyTypedNode with UnaryNode {
   type Self = HeadOption
   val child = from
   override val childNames = Seq("from")
-  override def buildType = OptionType(child.nodeType.asCollectionType.elementType)
+  lazy val childType = child.nodeType.asCollectionType.elementType
+  override def buildType = OptionType(childType)
   protected[this] def rebuild(left: Node) = copy(from = left)
+}
+
+object HeadOption {
+  def wrap(n: Node)(f: Node => Node): Node = n match {
+    case HeadOption(node) => HeadOption(f(node))
+    case other => f(other)
+  }
 }
 
 /** A .take call. */

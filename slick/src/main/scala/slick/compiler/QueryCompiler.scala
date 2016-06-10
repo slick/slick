@@ -111,6 +111,7 @@ object QueryCompiler {
     Phase.inferTypes,
     Phase.expandTables,
     Phase.forceOuterBinds,
+//    Phase.resolveHeadOption,
     Phase.removeMappedTypes,
     /* Convert to column form */
     Phase.expandSums,
@@ -177,6 +178,7 @@ object Phase {
   val inferTypes = new InferTypes
   val expandTables = new ExpandTables
   val forceOuterBinds = new ForceOuterBinds
+  val resolveHeadOption = new ResolveHeadOption
   val removeMappedTypes = new RemoveMappedTypes
   val expandSums = new ExpandSums
   val expandRecords = new ExpandRecords

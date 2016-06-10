@@ -88,7 +88,7 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     }
     val ts = TableQuery[T]
 
-    val headQ1 = ts.filter(_.a === 10)
+    val headQ1 = ts.filter(_.a === 10).headOption
     val headQ2 = ts.filter(_.b === 3).map(_.a + 1).headOption
     val headQ3 = ts.filter(_.a === 2).map(_.b).headOption
     val headQ4 = ts.filter(_.a === 1).map(_.c).headOption
@@ -96,15 +96,26 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     seq(
       ts.schema.create,
       ts ++= Seq(Data(1, 2, None), Data(2, 3, Some("2")), Data(3, 4, Some("3")), Data(4, 5, None), Data(5, 6, Some("5"))),
-//      ts.map(_.a).headOption.result.map(_ shouldBe Some(1)),
-//      headQ1.isEmpty.result.map(_ shouldBe true),
-//      headQ1.result.map(_ shouldBe None),
-      headQ2.isEmpty.result  map (_ shouldBe false),
-      headQ2.result          map (_ shouldBe Some(3)),
-      headQ3.isEmpty.result  map (_ shouldBe false),
-      headQ3.result          map (_ shouldBe Some(3)),
-      headQ4.nonEmpty.result map (_ shouldBe false),
-      headQ4.result          map (_ shouldBe Some(None))
+
+      ts.headOption.result.map(_ shouldBe Some(Data(1, 2, None))),
+
+//      headQ1.isEmpty.result.map(_ shouldBe true)
+      headQ1.result.map(_ shouldBe None),
+
+      headQ2.isEmpty.result.map(_ shouldBe false),
+      headQ2.result.map(_ shouldBe Some(3)),
+      headQ2.map(_ * 2).result.map(_ shouldBe Some(6)),
+      headQ2.getOrElse(0).result.map(_ shouldBe 3),
+
+      headQ3.isEmpty.result.map(_ shouldBe false),
+      headQ3.result.map(_ shouldBe Some(3)),
+      headQ3.filter(_ > 5).result.map(_ shouldBe None),
+      headQ3.filter(_ > 5).getOrElse(0).result.map(_ shouldBe 0),
+
+//      headQ4.isEmpty.result.map(_ shouldBe false),
+      headQ4.isEmpty.result.map(_ shouldBe true),
+      headQ4.result.map(_ shouldBe Some(None))
+//      headQ4.getOrElse("").result.map(_ shouldBe Some(None))
     )
   }
 

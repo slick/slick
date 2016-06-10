@@ -197,7 +197,8 @@ sealed abstract class Query[+E, U, C[_]] extends QueryBase[C[U]] { self =>
       def toNode = self.toNode
     }
 
-  def headOption(implicit ev: TypedType[U]): Rep[Option[U]] = Rep.forNode[Option[U]](HeadOption(toNode))
+  def headOption[E2 >: E, OU](implicit ol: OptionLift[E2, Rep[OU]]): Rep[OU] =
+    ol.lift(shaped.value).encodeRef(HeadOption(toNode))
 
   /** Select the first `num` elements. */
   def take(num: ConstColumn[Long]): Query[E, U, C] = new WrappingQuery[E, U, C](Take(toNode, num.toNode), shaped)

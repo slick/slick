@@ -61,3 +61,17 @@ class ForceOuterBinds extends Phase {
     case _ => nowrap(n)
   }
 }
+
+class ResolveHeadOption extends Phase {
+  val name = "resolveHeadOption"
+
+  def apply(state: CompilerState): CompilerState = state.map(transformTree)
+
+  def transformTree(node: Node): Node = mapNode(node.mapChildren(transformTree)).infer()
+
+  def mapNode(node: Node) = node match {
+    case n @ HeadOption(ch) =>
+      Library.SilentCast.typed(n.nodeType, Take(ch, LiteralNode(1)).infer())
+    case other => other
+  }
+}

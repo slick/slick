@@ -3,6 +3,7 @@ package slick.compiler
 import slick.ast._
 import Util._
 import TypeUtil._
+import slick.SlickException
 import slick.util.ConstArray
 
 import scala.collection.mutable
@@ -15,6 +16,12 @@ class ExpandTables extends Phase {
 
   def apply(state: CompilerState) = {
     var createdOption = false
+
+    def findSubType(t: Type): Type = t match {
+      case c: CollectionType => c.elementType
+      case o: OptionType => o.elementType
+      case _ => throw new SlickException("Cannot find a subtype in "+t)
+    }
 
     /** Create an expression that copies a structured value, expanding tables in it. */
     def createResult(expansions: collection.Map[TableIdentitySymbol, (TermSymbol, Node)], path: Node, tpe: Type): Node = tpe match {
@@ -68,14 +75,15 @@ class ExpandTables extends Phase {
       }
 
       // Perform star expansion in query result
-      if(!tree.nodeType.existsType { case NominalType(_: TableIdentitySymbol, _) => true; case _ => false }) tree3 else {
+      if(!tree.nodeType.existsType { case NominalType(_: TableIdentitySymbol, _) => true; case _ => false }) tree3
+      else HeadOption.wrap(tree3) { tree3 =>
         logger.debug("Expanding tables in result type")
         // Create a mapping that expands the tables
         val sym = new AnonSymbol
         val mapping = createResult(tables, Ref(sym), tree3.nodeType.asCollectionType.elementType)
           .infer(Type.Scope(sym -> tree3.nodeType.asCollectionType.elementType))
-        Bind(sym, tree3, Pure(mapping)).infer()
-      }
+        Bind(sym, tree3, Pure(mapping))
+      }.infer()
     }}.withWellTyped(true)
     if(createdOption) s2 + (Phase.assignUniqueSymbols -> state.get(Phase.assignUniqueSymbols).get.copy(nonPrimitiveOption = true))
     else s2
