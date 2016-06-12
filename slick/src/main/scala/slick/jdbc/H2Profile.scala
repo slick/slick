@@ -110,7 +110,10 @@ trait H2Profile extends JdbcProfile {
   class JdbcTypes extends super.JdbcTypes {
     override val uuidJdbcType = new UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "UUID"
-      override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
+      override def valueToSQLLiteral[A](value: A) = value match{ 
+        case v: UUID => "'" + v + "'"
+        case _ => super.valueToSQLLiteral(value) 
+      }
       override def hasLiteralForm = true
     }
   }

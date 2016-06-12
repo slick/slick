@@ -106,6 +106,7 @@ trait SQLiteProfile extends JdbcProfile {
       override def varying = dbType == Some("VARCHAR")
       override def default = meta.columnDef.map((_,tpe)).collect{
         case ("null",_)  => Some(None) // 3.7.15-M1
+        case (v , "String") => Some( Some(v.stripSuffix("()")))
       }.getOrElse{super.default}
       override def tpe = dbType match {
         case Some("DOUBLE") => "Double"
@@ -115,6 +116,7 @@ trait SQLiteProfile extends JdbcProfile {
         case Some("BLOB") => "java.sql.Blob"
         case _ => super.tpe
       }
+      
     }
     override def createPrimaryKeyBuilder(tableBuilder: TableBuilder, meta: Seq[MPrimaryKey]): PrimaryKeyBuilder = new PrimaryKeyBuilder(tableBuilder, meta) {
       // in 3.7.15-M1:
@@ -238,19 +240,28 @@ trait SQLiteProfile extends JdbcProfile {
      * INTEGER with constants 1 and 0 for TRUE and FALSE. */
     class BooleanJdbcType extends super.BooleanJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "INTEGER"
-      override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: Boolean => if(v) "1" else "0" }
     }
     /* The SQLite JDBC driver does not support the JDBC escape syntax for
      * date/time/timestamp literals. SQLite expects these values as milliseconds
      * since epoch. */
     class DateJdbcType extends super.DateJdbcType {
-      override def valueToSQLLiteral(value: Date) = value.getTime.toString
+      override def valueToSQLLiteral[A](value: A) = value match{ 
+        case v: Date => v.getTime.toString
+        case _ => super.valueToSQLLiteral(value)
+      }
     }
     class TimeJdbcType extends super.TimeJdbcType {
-      override def valueToSQLLiteral(value: Time) = value.getTime.toString
+      override def valueToSQLLiteral[A](value: A) = value match{ 
+        case v: Time => v.getTime.toString 
+        case _ => super.valueToSQLLiteral(value) 
+      }
     }
     class TimestampJdbcType extends super.TimestampJdbcType {
-      override def valueToSQLLiteral(value: Timestamp) = value.getTime.toString
+      override def valueToSQLLiteral[A](value: A) = value match{ 
+        case v: Timestamp => v.getTime.toString
+        case _ => super.valueToSQLLiteral(value)
+      }
     }
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlType = java.sql.Types.BLOB

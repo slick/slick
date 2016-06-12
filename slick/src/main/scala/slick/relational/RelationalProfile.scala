@@ -90,7 +90,7 @@ object RelationalProfile {
   /** Extra column options for RelationalProfile */
   object ColumnOption {
     /** Default value for the column. Needs to wrap an Option for nullable Columns. */
-    case class Default[T](val defaultValue: T) extends ColumnOption[T]
+    case class Default[T](val defaultValue: Any) extends ColumnOption[T]
 
     /** Number of unicode characters for string-like types. Unlike DBType this is portable
       * between different DBMS. Note that for DDL Slick currently picks type CHAR when
@@ -109,6 +109,8 @@ trait RelationalTableComponent { self: RelationalProfile =>
   trait ColumnOptions {
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
+    def Default[T](defaultValue: String) = RelationalProfile.ColumnOption.Default[T](defaultValue)
+    def Default[T](defaultValue: Option[String]) = RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
     val Length = RelationalProfile.ColumnOption.Length
   }

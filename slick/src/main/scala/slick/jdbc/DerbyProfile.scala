@@ -225,7 +225,7 @@ trait DerbyProfile extends JdbcProfile {
     /* Derby does not have a proper BOOLEAN type. The suggested workaround is
      * SMALLINT with constants 1 and 0 for TRUE and FALSE. */
     class BooleanJdbcType extends super.BooleanJdbcType {
-      override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+      override def valueToSQLLiteral[A](value: A) = value match {case v: Boolean => if(v) "1" else "0" }
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {

@@ -231,6 +231,7 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
           case (StringPattern(str),"String") => str
           case ("TRUE","Boolean")  => true
           case ("FALSE","Boolean") => false
+          case (v , tpe) => v.toString
         })
       }
     }
@@ -247,9 +248,20 @@ class JdbcModelBuilder(mTables: Seq[MTable], ignoreInvalidDefaults: Boolean)(imp
       * If `ignoreInvalidDefaults = true`, Slick catches scala.MatchError and java.lang.NumberFormatException thrown by
       * this method, logs the message and treats it as no default value for convenience. */
     def defaultColumnOption: Option[RelationalProfile.ColumnOption.Default[_]] = rawDefault.map(v => (v,tpe)).collect {
-      case (v,_) if Seq("NOW","CURRENT_TIMESTAMP","CURRENT_DATE","CURRENT_TIME").contains(v.stripSuffix("()").toUpperCase) =>
-        logger.debug(s"Ignoring"+formatDefault(v))
-        None
+      //Currently only support these basic default values, this can be overriden per specific driver
+      case (v,tpe) if Seq("java.sql.Timestamp","java.sql.Time","java.sql.Date").contains(tpe)  => {
+        if ( Seq("NOW","CURRENT_TIMESTAMP","CURRENT_DATE","CURRENT_TIME").contains(v.stripSuffix("()").toUpperCase) ) 
+          default.map( d =>
+            RelationalProfile.ColumnOption.Default(
+              if(nullable) d
+              else d.getOrElse(throw new SlickException(s"Invalid default value $d for non-nullable column ${tableBuilder.namer.qualifiedName.asString}.$name of type $tpe, meta data: "+meta.toString))
+            )
+          )
+        else{ 
+          logger.debug(s"Ignoring"+formatDefault(v))
+          None
+        }   
+      }
     }.getOrElse {
       default.map( d =>
         RelationalProfile.ColumnOption.Default(

@@ -236,7 +236,7 @@ trait PostgresProfile extends JdbcProfile {
       override def setValue(v: UUID, p: PreparedStatement, idx: Int) = p.setObject(idx, v, sqlType)
       override def getValue(r: ResultSet, idx: Int) = r.getObject(idx).asInstanceOf[UUID]
       override def updateValue(v: UUID, r: ResultSet, idx: Int) = r.updateObject(idx, v)
-      override def valueToSQLLiteral(value: UUID) = "'" + value + "'"
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: UUID => "'" + v + "'" }
       override def hasLiteralForm = true
     }
   }

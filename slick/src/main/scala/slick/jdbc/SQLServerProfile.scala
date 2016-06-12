@@ -230,17 +230,17 @@ trait SQLServerProfile extends JdbcProfile {
     /* SQL Server does not have a proper BOOLEAN type. The suggested workaround is
      * BIT with constants 1 and 0 for TRUE and FALSE. */
     class BooleanJdbcType extends super.BooleanJdbcType {
-      override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: Boolean => if(v) "1" else "0" }
     }
     /* Selecting a straight Date or Timestamp literal fails with a NPE (probably
      * because the type information gets lost along the way), so we cast all Date
      * and Timestamp values to the proper type. This work-around does not seem to
      * be required for Time values. */
     class DateJdbcType extends super.DateJdbcType {
-      override def valueToSQLLiteral(value: Date) = "(convert(date, {d '" + value + "'}))"
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: Date => "(convert(date, {d '" + v + "'}))" }
     }
     class TimeJdbcType extends super.TimeJdbcType {
-      override def valueToSQLLiteral(value: Time) = "(convert(time, {t '" + value + "'}))"
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: Time => "(convert(time, {t '" + v + "'}))" }
       override def getValue(r: ResultSet, idx: Int) = {
         val s = r.getString(idx)
         val sep = s.indexOf('.')
@@ -257,7 +257,7 @@ trait SQLServerProfile extends JdbcProfile {
       /* TIMESTAMP in SQL Server is a data type for sequence numbers. What we
        * want here is DATETIME. */
       override def sqlTypeName(sym: Option[FieldSymbol]) = "DATETIME"
-      override def valueToSQLLiteral(value: Timestamp) = "(convert(datetime, {ts '" + value + "'}))"
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: Timestamp => "(convert(datetime, {ts '" + v + "'}))" }
     }
     /* SQL Server's TINYINT is unsigned, so we use SMALLINT instead to store a signed byte value.
      * The JDBC driver also does not treat signed values correctly when reading bytes from result
@@ -270,7 +270,9 @@ trait SQLServerProfile extends JdbcProfile {
     private[this] val hexChars = "0123456789ABCDEF".toCharArray()
     class ByteArrayJdbcType extends super.ByteArrayJdbcType {
       override def hasLiteralForm = true
-      override def valueToSQLLiteral(value: Array[Byte]) = "0x" +  bytesToHex(value)
+      override def valueToSQLLiteral[A](value: A) = value match{
+        case v: Array[Byte] => "0x" +  bytesToHex(v)
+      }
       private[this] def bytesToHex(bytes: Array[Byte]) = {
         val a = new Array[Char](bytes.length * 2)
         var j = 0

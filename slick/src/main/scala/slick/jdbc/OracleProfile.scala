@@ -270,7 +270,7 @@ trait OracleProfile extends JdbcProfile {
     class BooleanJdbcType extends super.BooleanJdbcType {
       override def sqlType = java.sql.Types.CHAR
       override def sqlTypeName(sym: Option[FieldSymbol]) = "CHAR(1)"
-      override def valueToSQLLiteral(value: Boolean) = if(value) "1" else "0"
+      override def valueToSQLLiteral[A](value: A) = value match{ case v: Boolean => if(v) "1" else "0" }
     }
 
     class BlobJdbcType extends super.BlobJdbcType {
@@ -322,14 +322,16 @@ trait OracleProfile extends JdbcProfile {
         if(v eq null) null else new Time(v.getTime)
       }
       override def updateValue(v: Time, r: ResultSet, idx: Int) = r.updateTimestamp(idx, new Timestamp(v.getTime))
-      override def valueToSQLLiteral(value: Time) = "{ts '"+(new Timestamp(value.getTime).toString)+"'}"
+      override def valueToSQLLiteral[A](value: A) = value match{ 
+        case v: Time => "{ts '"+(new Timestamp(v.getTime).toString)+"'}"
+        case _ => super.valueToSQLLiteral(value) 
+      }
     }
 
     class UUIDJdbcType extends super.UUIDJdbcType {
       override def sqlTypeName(sym: Option[FieldSymbol]) = "RAW(32)"
-      override def valueToSQLLiteral(value: UUID) = {
-        val hex = value.toString.replace("-", "").toUpperCase
-        s"hextoraw('$hex')"
+      override def valueToSQLLiteral[A](value: A) = value match {
+        case v: UUID => val hex = value.toString.replace("-", "").toUpperCase ; s"hextoraw('$hex')"
       }
       override def hasLiteralForm = true
     }
