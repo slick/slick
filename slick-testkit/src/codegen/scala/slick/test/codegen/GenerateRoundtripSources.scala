@@ -124,7 +124,7 @@ class Tables(val profile: JdbcProfile){
       )
     )](tag, "TYPE_TEST") {
     def `type` = column[String]("type") // <- test escaping of keywords
-    def Boolean = column[Boolean]("Boolean",O.Default(true))
+    def Boolean = column[Boolean]("Boolean",O.Default(true), O.Unique)
     def Byte = column[Byte]("Byte")
     def Short = column[Short]("Short")
     def Int = column[Int]("Int",O.Default(-5))

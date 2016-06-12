@@ -110,6 +110,7 @@ trait RelationalTableComponent { self: RelationalProfile =>
     val PrimaryKey = ColumnOption.PrimaryKey
     def Default[T](defaultValue: T) = RelationalProfile.ColumnOption.Default[T](defaultValue)
     val AutoInc = ColumnOption.AutoInc
+    val Unique = ColumnOption.Unique
     val Length = RelationalProfile.ColumnOption.Length
   }
 

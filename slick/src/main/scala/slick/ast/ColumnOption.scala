@@ -13,4 +13,6 @@ object ColumnOption {
   /** Mark a column as the table's primary key. For named and composite primary keys you have to
     * use the Table's `primaryKey` method instead. */
   case object PrimaryKey extends ColumnOption[Nothing]
+
+  case object Unique extends ColumnOption[Nothing]
 }

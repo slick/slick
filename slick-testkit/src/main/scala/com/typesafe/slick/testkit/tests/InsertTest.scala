@@ -54,6 +54,31 @@ class InsertTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  
+  def testUniqueInsert = {
+    case class ARow(email: String , id: Int = 0)
+    class A(tag: Tag) extends Table[ARow](tag , "A_UNIQUEINSERT"){
+      def id = column[Int]("id" , O.AutoInc , O.PrimaryKey)
+      def email = column[String]("email" , O.Unique , O.Length(254))
+
+      def * = (email , id)<>(ARow.tupled , ARow.unapply )
+    }
+    val atq = TableQuery[A]
+
+    import scala.util.{Success, Failure}
+    DBIO.seq(
+      atq.schema.create,
+      atq ++= Seq( ARow("unique@site.com") , ARow("user@site.com") ),
+      ( atq += ARow("unique@site.com") ).asTry.map{
+        case Failure(e:java.sql.SQLException) if e.getMessage.toLowerCase.contains("unique") => ()
+        case Failure(e:java.sql.BatchUpdateException) if e.getMessage.toLowerCase.contains("unique") => ()
+        case Failure( e ) => throw e
+        case Success(_) => throw new Exception("Should have failed with UNIQUE constraint violation")
+      },
+      atq.result.map( _.size shouldBe 2 )
+    )
+  }
+
   def testReturning = ifCap(jcap.returnInsertKey) {
     class A(tag: Tag) extends Table[(Int, String, String)](tag, "A") {
       def id = column[Int]("ID", O.PrimaryKey, O.AutoInc)
