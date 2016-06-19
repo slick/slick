@@ -184,6 +184,8 @@ trait SQLiteProfile extends JdbcProfile {
       case Library.Repeat(n, times) => b"replace(substr(quote(zeroblob(($times + 1) / 2)), 3, $times), '0', $n)"
       case _ => super.expr(c, skipParens)
     }
+
+    override def buildMutatingUpdate(n: Node) = buildMutatingUpdate2(n)
   }
 
   /* Extending super.InsertBuilder here instead of super.UpsertBuilder. INSERT OR REPLACE is almost identical to INSERT. */

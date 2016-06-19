@@ -29,6 +29,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
   lazy val queryCompiler = compiler + new JdbcCodeGen(_.buildSelect)
   lazy val updateCompiler = compiler + new JdbcCodeGen(_.buildUpdate)
+  lazy val mutatingUpdateCompiler = (n: Node) => compiler + new JdbcCodeGen(_.buildMutatingUpdate(n))
   lazy val deleteCompiler = compiler + new JdbcCodeGen(_.buildDelete)
   lazy val insertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.NonAutoInc), new JdbcInsertCodeGen(createInsertBuilder))
   lazy val forceInsertCompiler = QueryCompiler(Phase.assignUniqueSymbols, Phase.inferTypes, new InsertCompiler(InsertCompiler.AllColumns), new JdbcInsertCodeGen(createInsertBuilder))
@@ -43,7 +44,7 @@ trait JdbcProfile extends SqlProfile with JdbcActionComponent
 
   trait LowPriorityAPI {
     implicit def queryUpdateActionExtensionMethods[U, C[_]](q: Query[_, U, C]): UpdateActionExtensionMethodsImpl[U] =
-      createUpdateActionExtensionMethods(updateCompiler.run(q.toNode).tree, ())
+      createUpdateActionExtensionMethods(q.toNode, ())
   }
 
   trait API extends LowPriorityAPI with super.API with ImplicitColumnTypes {

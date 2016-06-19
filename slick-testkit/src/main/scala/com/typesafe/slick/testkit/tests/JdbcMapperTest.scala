@@ -76,6 +76,42 @@ class JdbcMapperTest extends AsyncTest[JdbcTestDB] {
     )
   }
 
+  def testMutatingUpdate = {
+    case class Data(a: Int, b: Int)
+
+    class T1(tag: Tag) extends Table[Data](tag, "T_mutating1") {
+      def a = column[Int]("A")
+      def b = column[Int]("B")
+      def * = (a, b).mapTo[Data]
+    }
+    val ts1 = TableQuery[T1]
+
+    class T2(tag: Tag) extends Table[Data](tag, "T_mutating2") {
+      def c = column[Int]("C")
+      def d = column[Int]("D")
+      def * = (c, d).mapTo[Data]
+    }
+    val ts2 = TableQuery[T2]
+
+    val updateQ1 = ts1.filter(_.a === 1)
+    val updateQ2 = ts2.filter(_.c === 2)
+    val updateQ3 = ts1.filter(_.a === 3).map(_.b)
+    val updateQ4 = ts2.filter(_.c === 4).map(_.d + 1)
+
+//    println(updateQ1.updateStatement)
+//    println(updateQ3.updateStatement)
+
+    seq(
+      ts1.schema.create,
+      ts2.schema.create,
+      ts1 ++= Seq(Data(1, 2), Data(3, 4), Data(5, 6)),
+      ts2 ++= Seq(Data(2, 3), Data(4, 5), Data(6, 7)),
+      updateQ1.update(updateQ2),
+      updateQ3.update(updateQ4),
+      ts1.to[Set].result.map(_ shouldBe Set(Data(2, 3), Data(3, 6), Data(5, 6)))
+    )
+  }
+
   def testWideMappedEntity = {
     import slick.collection.heterogeneous._
     import slick.collection.heterogeneous.syntax._

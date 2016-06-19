@@ -16,6 +16,7 @@ import slick.dbio._
 import slick.ast._
 import slick.ast.Util._
 import slick.ast.TypeUtil.:@
+import slick.compiler.QueryCompiler
 import slick.lifted.{CompiledStreamingExecutable, Query, FlatShapeLevel, Shape}
 import slick.relational.{ResultConverter, CompiledMapping}
 import slick.util.{CloseableIterator, DumpInfo, SQLBuilder, ignoreFollowOnError}
@@ -307,17 +308,20 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
 
   type UpdateActionExtensionMethods[T] = UpdateActionExtensionMethodsImpl[T]
 
-  def createUpdateActionExtensionMethods[T](tree: Node, param: Any): UpdateActionExtensionMethods[T] =
-    new UpdateActionExtensionMethodsImpl[T](tree, param)
+  def createUpdateActionExtensionMethods[T](rawTree: Node, param: Any): UpdateActionExtensionMethods[T] =
+    new UpdateActionExtensionMethodsImpl[T](rawTree, param)
 
-  class UpdateActionExtensionMethodsImpl[T](tree: Node, param: Any) {
-    protected[this] val ResultSetMapping(_,
-      CompiledStatement(_, sres: SQLBuilder.Result, _),
-      CompiledMapping(_converter, _)) = tree
-    protected[this] val converter = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+  class UpdateActionExtensionMethodsImpl[T](rawTree: Node, param: Any) {
+    private def compile(qc: QueryCompiler): (SQLBuilder.Result, ResultConverter[JdbcResultConverterDomain, T]) = {
+      val ResultSetMapping(_, CompiledStatement(_, sres: SQLBuilder.Result, _), CompiledMapping(_converter, _)) =
+        qc.run(rawTree).tree
+      val conv = _converter.asInstanceOf[ResultConverter[JdbcResultConverterDomain, T]]
+      (sres, conv)
+    }
 
     /** An Action that updates the data selected by this query. */
     def update(value: T): ProfileAction[Int, NoStream, Effect.Write] = {
+      val (sres, converter) = compile(self.updateCompiler)
       new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
         def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
           st.clearParameters
@@ -327,8 +331,21 @@ trait JdbcActionComponent extends SqlActionComponent { self: JdbcProfile =>
         }
       }
     }
+
+    /** An Action that updates the data selected by this query. */
+    def update[TT, C[_]](query: Query[TT, T, C]): ProfileAction[Int, NoStream, Effect.Write] = {
+      val (sres, _) = compile(self.mutatingUpdateCompiler(query.toNode))
+      new SimpleJdbcProfileAction[Int]("update", Vector(sres.sql)) {
+        def run(ctx: Backend#Context, sql: Vector[String]): Int = ctx.session.withPreparedStatement(sql.head) { st =>
+          st.clearParameters
+          sres.setter(st, 1, param)
+          st.executeUpdate
+        }
+      }
+    }
+
     /** Get the statement usd by `update` */
-    def updateStatement: String = sres.sql
+    lazy val updateStatement: String = compile(self.updateCompiler)._1.sql
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////////////

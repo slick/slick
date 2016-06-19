@@ -433,6 +433,16 @@ object ConstArray {
   def from[T](o: Option[T]): ConstArray[T] =
     if(o.isDefined) apply(o.get) else empty
 
+  def tabulate[T](n: Int)(f: Int => T): ConstArray[T] = {
+    val a = new Array[Any](n)
+    var i = 0
+    while(i < n) {
+      a(i) = f(i)
+      i += 1
+    }
+    new ConstArray[T](a)
+  }
+
   def unsafeWrap[T](values: Array[Any]): ConstArray[T] =
     new ConstArray(values)
 
